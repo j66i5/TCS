@@ -14,7 +14,7 @@ export interface HudCallbacks {
   onSpeed(speed: number): void; // 0 = paused
   onMoveMode(mode: string): void;
   /** What a tap on the map means: move there, or fire at that point. */
-  onTapMode(mode: "move" | "fire" | "grenade"): void;
+  onTapMode(mode: "move" | "fire" | "grenade" | "grenades"): void;
   onCeaseFire(): void;
   /** Formation for the next move orders. */
   onFormation(formation: string): void;
@@ -71,11 +71,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     modeBtn.classList.toggle("on", mode !== "walk");
     cb.onMoveMode(mode);
   };
-  let tapMode: "move" | "fire" | "grenade" = "move";
+  let tapMode: "move" | "fire" | "grenade" | "grenades" = "move";
   const tapBtn = el("button", "hud-btn", s.t("app.tapMove"));
   tapBtn.onclick = () => {
-    tapMode = tapMode === "move" ? "fire" : tapMode === "fire" ? "grenade" : "move";
-    tapBtn.textContent = s.t(tapMode === "move" ? "app.tapMove" : tapMode === "fire" ? "app.tapFire" : "app.tapGrenade");
+    tapMode = tapMode === "move" ? "fire" : tapMode === "fire" ? "grenade" : tapMode === "grenade" ? "grenades" : "move";
+    tapBtn.textContent = s.t(tapMode === "move" ? "app.tapMove" : tapMode === "fire" ? "app.tapFire" : tapMode === "grenade" ? "app.tapGrenade" : "app.tapGrenades");
     tapBtn.classList.toggle("on", tapMode !== "move");
     cb.onTapMode(tapMode);
   };

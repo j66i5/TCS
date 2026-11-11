@@ -30,6 +30,8 @@ export type SimEvent =
   /** dirX, dirY: horizontal unit direction of the shot. */
   /** A projectile struck a soldier. armour: none worn there / penetrated / stopped the round. */
   | { kind: "explosion"; tick: number; x: number; y: number; z: number; ammo: DefId; owner: EntityId; stunRadiusM: number }
+  /** A grenade with a running fuse has struck the ground (or a wall or roof) at this point; it will burst at burstTick. */
+  | { kind: "grenade.landed"; tick: number; x: number; y: number; z: number; ammo: DefId; burstTick: number }
   | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched"; x: number; y: number }
   | { kind: "terrain.breached"; tick: number; x: number; y: number; owner: "obstacle" | "building"; id: number }
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }

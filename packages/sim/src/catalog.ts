@@ -132,7 +132,8 @@ export interface BallisticsDef {
     /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
     shieldSteelMm: number;
   };
-  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number };
+  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
+  bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
 }
 
 export interface AmmoDef {
@@ -189,6 +190,8 @@ export interface ShootingDef {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
     throwErrorFraction: number; throwErrorMinM: number; throwSeconds: number;
     launchErrorFraction: number; launchErrorMinM: number; launchSeconds: number; minSafeDistanceM: number;
+    throwAnglesDeg: number[]; throwPowerMargin: number; carrySeconds: number; staggerSeconds: number;
+    reactRadiusM: number; runRadiusM: number; reactDelaySeconds: number;
   };
 }
 

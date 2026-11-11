@@ -13,6 +13,7 @@ import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
 import { buildBallistics } from "./ballistics";
 import { syncTerrainDamage } from "./systems/explosions";
+import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
@@ -82,10 +83,12 @@ export function step(sim: Sim): SimEvent[] {
   deliverOrders(ctx, state, events);
   actionSystem(ctx, state, events);
   postureSystem(ctx, state, events);
+  evadeSystem(ctx, state, events);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
   fireSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
+  grenadeReactionSystem(ctx, state, events);
   incomingFireSystem(ctx, state, events.events);
   woundSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.

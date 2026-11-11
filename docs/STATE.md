@@ -62,7 +62,11 @@ the owner's two squad tables first (research in `docs/research/squads.md`). Ask 
   distance (wound close in, stun to about 10 m, walls shield), thousands of fragments as real projectiles,
   craters, holes blown in thin walls (bullets and routes then pass); roofs stop or are pierced; a "tap: grenade"
   button; fragmentation lab (`npm run lab -- fragmentation`).
-- Tests: 256, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.4b (owner requests)**: grenades bounce and roll; the thrower picks a flat, lobbed or high throw that is
+  clear (works indoors and through openings); small folds in the ground stop low fragments, so lying down
+  protects more; an order can ask for several grenades, thrown a moment apart ("tap: all grenades"); men near a
+  landing grenade drop flat, or run from it if it is within 3 m.
+- Tests: 269, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
@@ -72,9 +76,7 @@ the owner's two squad tables first (research in `docs/research/squads.md`). Ask 
   Nobody reacts to being shot at, to casualties or to a grenade landing next to him (M4).
 - **Grenade data is unverified**: the search tool declined most look-ups, so DM51, RGD-5, VOG-25 and the
   launchers are from memory of published figures (`confidence: "low"`). **Speed with fragments is at the
-  limit**: a nine-grenade volley costs a stutter of about two frames (see DECISIONS.md). Throws indoors mostly
-  hit the ceiling and drop short. Grenades do not bounce or roll; the
-  ground is perfectly smooth (no small folds to shield a prone man); the AI never throws; one grenade per order.
+  limit**: nine grenades bursting in the same instant cost a stutter of about two frames (see DECISIONS.md). The AI never throws; grenades are not thrown back; a man running from a grenade runs in a straight line.
 - Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
   into the ground in front of them.
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
@@ -113,13 +115,14 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 - M2.3 review: lethality **about right**; wounded who keep fighting **fine for now**.
 - M2.4: Russian default hand grenade **RGD-5**; throw **about 30 m standing**; a close burst that does not wound
-  **stuns briefly** (blast injury within a few metres).
+  **stuns briefly** (blast injury within a few metres). Fragmentation lab reviewed: **about right**.
+- M2.4b: fix all four weak points; a man near a landing grenade **drops flat, or runs if it is very close**.
+- M2.5 squads: **research defaults** for both sides (see DECISIONS.md), to be corrected by the owner afterwards.
 
 ## Next
-**M2.5 Squads and kit data** (ROADMAP.md, M2 slice 5) — only after the owner has given the squad tables.
+**M2.5 Squads and kit data** (ROADMAP.md, M2 slice 5) — squad choices are made; ask the owner before starting.
 
 ## Open questions for the owner
-- **Review of the fragmentation lab table** (M2.4 report).
 - **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
   man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the

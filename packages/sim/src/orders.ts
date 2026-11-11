@@ -32,8 +32,8 @@ export type OrderBody =
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
   | { kind: "fire"; x: number; y: number; heightM?: number }
   | { kind: "ceaseFire" }
-  /** One grenade at a point: the best-placed man throws a hand grenade or fires his grenade launcher. */
-  | { kind: "grenade"; x: number; y: number };
+  /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
+  | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number };
 
 export type OrderKind = OrderBody["kind"];
 

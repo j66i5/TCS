@@ -95,6 +95,7 @@ function addSoldier(
     nextWoundId: rec.wounds.reduce((m, w) => Math.max(m, w.id + 1), 0),
     impair: { move: 1, aim: 1, canWalk: true, canUseArms: true, canFight: true, canSpeak: true },
     stunnedUntilTick: 0,
+    evade: null,
     casualty: "none",
   };
   if (!s.physiology.alive || s.physiology.consciousness < 0.5) {

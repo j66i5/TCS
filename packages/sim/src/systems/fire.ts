@@ -158,6 +158,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     };
     if (!w || !s || !wd || !isAble(s) || !s.impair.canFight) { stop("unable"); continue; }
     if (tick < s.stunnedUntilTick) continue; // knocked down
+    if (s.evade !== null && tick >= s.evade.startTick) continue; // diving away from a grenade
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;

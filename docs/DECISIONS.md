@@ -604,3 +604,65 @@ runs the other test files at the same time. Done: the roof flag is only looked u
 use a series for the drag factor instead of two divisions (identical to 1e-7; goldens regenerated) — 5.5x here
 now; and the benchmark takes the fastest of three 100-tick windows, because other work on the same cores can
 only slow a window down. The floor stays 3x.
+
+## 2026-11-11 — Owner review of the M2.4 fragmentation lab; squad choices for M2.5
+**Fragmentation lab reviewed:** "about right, keep it". **M2.5 squads:** the research defaults, to be corrected
+by the owner afterwards — German Puma dismounts (6): Truppfuehrer (G36), MG gunner (MG5), Panzerfaust gunner
+(Pzf 3 + G36), marksman (G28), two riflemen (G36, one with AG36); Russian BMP dismounts (6): squad leader
+(AK-74M), machine gunner (PKP), grenadier (RPG-7 + AK), assistant grenadier (AK), senior rifleman (AK + GP-25),
+rifleman (AK + GP-25). **Before M2.5 the owner wants M2.4 weak points fixed first.**
+
+## 2026-11-11 — Owner: M2.4 weak points to fix before M2.5 (slice "M2.4b")
+All four offered: grenades **bounce and roll**; the thrower **chooses a flat or high throw** to clear a
+ceiling, pass an opening or drop over a wall; **rough ground shelters prone men** from low fragments;
+**several grenades per order**, thrown a moment apart. And a first reaction ahead of M4: a man who has a
+grenade land near him **drops flat, or runs from it if it is very close**.
+
+## 2026-11-11 — M2.4b: bounce, chosen arcs, rough ground, several grenades, reaction (state schema v7, goldens regenerated)
+**Bounce and roll:** a time-fuse grenade striking ground, wall, roof or ceiling keeps 35 % of its speed off the
+surface and 60 % along it, both x 0.6 on soft ground (surface material lighter than 1,800 kg/m3) and x 0.6 again
+in vegetation; below 1.2 m/s it lies still. Rolling is the series of ever lower bounces; a grenade at rest does
+not start rolling down a slope. The thrower aims short by 0.25 s of the landing speed, so throws land on the
+point on average (measured: 0.1 m mean overshoot at 25 m). **Chosen arc:** the thrower can throw 15 % harder
+than a full-range lob needs and tries 40, 25, 12 and 60 degrees in that order, taking the first whose path is
+clear of walls and roofs until a metre short of the point (doors, windows and breaches count as clear); if none
+is clear he lobs anyway. A launcher uses the flat arc, or the high one if the flat one is blocked. Indoors
+this gives a flat throw under the ceiling (8+ of 10 throws now land within 5 m of a point 14 m down a room;
+before, all struck the ceiling). His landing error can still miss a window. **Rough ground:** the heightfield
+is smooth, so fragments (only fragments, not bullets — bullets wait for line of fire in M3) flying lower than
+25 cm are stopped with 15 % per metre at ground level, falling to zero at 25 cm. Fragmentation lab now: DM51,
+prone men wounded 78 % at 5 m, 18 % at 10 m, 2 % at 20 m (before 88 / 30 / 9 %); standing 100 / 91 / 28 %.
+**Several grenades:** the order has `count` (default 1); the best-placed men act, throwers first, each 0.6 s
+after the one before; the app's tap button has "1 grenade" and "all grenades". **Reaction (owner: drop flat,
+or run if very close):** when a grenade with a running fuse lands, every able man within 10 m who is not
+behind a solid wall reacts after 0.4 s — within 3 m he runs straight away from it at the fastest pace and
+dives about 1.4 s before the burst, otherwise he drops flat at once; he does nothing else until a third of a
+second after the burst, then carries on with his task. Both sides, including the thrower's. Everyone notices
+the grenade (who sees what is M3). This is the first self-initiated behaviour; M4 will absorb it.
+**Not done / still open:** grenades are not thrown back or kicked away; a runner does not look for cover, he
+just runs away in a straight line and stops at an obstacle; the performance of big volleys is unchanged per
+burst (staggering only spreads them).
+
+## 2026-11-11 — Fixes from the independent M2.4b review (goldens regenerated)
+No rule, save/load or determinism problems (4,000 bounced grenades: none through a wall, none gaining speed,
+none resting in mid-air; 33 mid-action saves replayed identically). Fixed, each with a test:
+**a launcher round fired on the high arc vanished** (the flight outlasted the 12 s limit, or no high shot
+could reach so near a point): the longest flight is now 18 s, an impact-fuse round still flying then destroys
+itself instead of disappearing, and an arc is only accepted if it really comes down at the point.
+**"Over the wall" mostly fell short** of a wall just in front of the point: an arc now counts only if it comes
+down unobstructed near the point with no wall between; the thrower first tries aiming a little short (for the
+roll), then straight at the point (14+ of 20 throws now land beyond a wall 1.5 m in front of the point, before
+about 3). **No blind throws:** if no arc is good (closed room, lintel in the way) the man does not throw, keeps
+the grenade and reports "no clear throw" — before, he lobbed into his own ceiling and was wounded 29 times in
+30. **A second grenade was ignored** by a man already reacting to the first: a nearer threat now takes over
+(also the same grenade rolling toward him), and he stays down until the later burst is over. **Men behind a
+brick wall ran when a grenade struck that wall** (the contact was reported on the wall line): it is reported
+just off the wall on the thrower's side. **After running, a man walked straight back to his old route**,
+through a house if one was in the way: he now finds a way back and leaves his formation slot. A man who is
+evading is not picked for a new grenade order, and whatever he is doing with his hands is broken off. **The
+thrower drops flat after throwing** (his own fragments reach further than he throws; added because the
+review saw throwers wounded at every short distance).
+**Recorded, not changed:** a posture order given while a man is diving is lost; ground clutter also applies
+on roads and floors; the arc solver ignores wind (a 10 m/s head wind costs about 1.5 m); on slopes steeper
+than 60 degrees a grenade keeps skipping until it bursts; a regular lying prone cannot throw at all (11 m
+range against the 12 m safety distance) — the owner may want to change one of the two numbers.

@@ -213,3 +213,26 @@ crossing roads, and road-network connectivity by groups. Result: **160 of 160 ma
 seeds per kind. Map files and `validateMap` now reject grids that do not match the map size; the map
 fingerprint uses canonical JSON. Hard-coded terrain IDs in the generator and renderer ("floor", water kinds,
 woodland/orchard/scrub drawing) were reviewed and kept (see "Generator uses terrain IDs by name").
+
+## 2026-11-11 — M1.2 navigation: 2 m grid, weighted A*, one route per unit
+Navigation runs on a grid of 2 m cells (half a terrain cell, so 1–4 m gates and gaps resolve), one grid per
+movement class, derived from the map at first use and never saved. Cell cost = ground x vegetation time
+multiplier from the terrain data; buildings block every cell they touch (conservative; interiors and doors
+later); walls, fences and hedges add their crossing time (converted at walking pace) or block if they cannot be
+crossed, so a route uses a gate when that is quicker than climbing. Search: A* on 8 neighbours without corner
+cutting past walls or blocked cells, ties broken by cell index (deterministic), scratch memory reused across
+searches. **Weighted A* (heuristic x1.1)**: on 2 km maps it cuts long searches from ~150–270 ms to ~30 ms at the
+price of routes up to ~10 % costlier than the best; rejected: plain A* (too slow for many units), hierarchical
+pathfinding (more code than needed now; revisit if AI path requests grow). A unit's route is found once from
+its reference man; each man walks a parallel copy shifted by his offset when the straight segments are clear,
+otherwise he joins the route, follows it and leaves it for his spot (a placeholder until M1.4 formations).
+Paths are computed when an order is delivered and stored in the movers' waypoints, so they are saved and
+replayed. Movement speed is the mode's speed divided by the cost of the cell underfoot (woods, ploughed fields,
+climbing). No route: the order is acknowledged with "no route" on the radio (`move.noRoute` event) and nothing
+moves.
+
+## 2026-11-11 — Benchmark orders every 60 s (was 20 s)
+With pathfinding, each unit move order costs ~12 ms (route plus three followers). The benchmark gave all 76
+units a new long-distance order every 20 s (20x real time); real play issues far fewer long orders, so the
+benchmark now does it every 60 s (51x real time; floor still 8x). If AI path requests grow in M4/M6, path
+requests should be spread over several ticks (still deterministic).

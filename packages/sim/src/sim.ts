@@ -12,6 +12,7 @@ import type { Order } from "./orders";
 import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
 import { buildBallistics } from "./ballistics";
+import { syncTerrainDamage } from "./systems/explosions";
 import { projectileSystem } from "./systems/ballistics";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
@@ -41,6 +42,7 @@ export function createContext(input: BattleInput): SimContext {
     rules: input.rules, comms,
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
     physiologyParams: { ...input.catalog.wounds.physiology, ...input.rules.physiologyParams },
+    breaches: [],
   };
 }
 
@@ -52,6 +54,7 @@ export function createSim(input: BattleInput): Sim {
   const ctx = createContext(input);
   const state = buildInitialState(input);
   state.mapFingerprint = ctx.mapFingerprint;
+  syncTerrainDamage(ctx, state);
   return { ctx, state };
 }
 
@@ -114,7 +117,9 @@ export function loadSim(input: BattleInput, saved: SerializedState): Sim {
   if (saved.mapFingerprint !== ctx.mapFingerprint) {
     throw new Error(`save was made on map ${saved.mapFingerprint}, but the given map is ${ctx.mapFingerprint}`);
   }
-  return { ctx, state: deserializeState(saved) };
+  const state = deserializeState(saved);
+  syncTerrainDamage(ctx, state);
+  return { ctx, state };
 }
 
 export function simHash(sim: Sim): string {

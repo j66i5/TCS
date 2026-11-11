@@ -86,6 +86,15 @@
       ],
       "confidence": "medium",
       "note": "About 7.5-8 kg; plates rated against rifle rounds (class given as Br5/Br6 depending on source), soft armour around them. Plate coverage of the chest is a game value. See docs/research/squads.md."
+    },
+    {
+      "id": "ru-gp25",
+      "nameKey": "item.ru-gp25",
+      "category": "launcher",
+      "massKg": 1.5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Under-barrel 40 mm grenade launcher, about 1.5 kg. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
     }
   ]
 }

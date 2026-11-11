@@ -175,6 +175,35 @@ out, worst-case bleeding in litres per second), `wounding` (knock-down seconds, 
 `effects` (when a man can no longer walk or use his rifle). After a change run `npm run lab -- casualty` and
 compare the table.
 
+## Add a grenade or launcher round
+
+Two entries in `factions/<id>/ammunition.json`: the munition and one of its fragments.
+
+```json
+{ "id": "xf-bomb", "nameKey": "ammo.xf-bomb", "calibre": "hand-grenade", "kind": "fragmentation",
+  "projectileMassKg": 0.4, "cartridgeMassKg": 0.4, "diameterM": 0.06,
+  "drag": { "a": 0.5, "b": 0, "max": 0.6 }, "penetration": { "steelMm": 0, "atVelocityMps": 100 },
+  "tracer": false, "fuse": "time", "guidance": "unguided",
+  "explosive": { "fillingKg": 0.08, "fragmentCount": 800, "fragmentAmmo": "xf-shard",
+                 "fragmentVelocityMps": [800, 1200], "fuseSeconds": 4 },
+  "delivery": { "method": "thrown" },
+  "sources": ["https://..."], "confidence": "medium" },
+{ "id": "xf-shard", "nameKey": "ammo.xf-shard", "calibre": "fragment", "kind": "fragment",
+  "projectileMassKg": 0.0002, "cartridgeMassKg": 0.0002, "diameterM": 0.004,
+  "drag": { "a": 0.9, "b": 0, "max": 1 }, "penetration": { "steelMm": 2, "atVelocityMps": 1000 },
+  "tracer": false, "fuse": "none", "guidance": "unguided", "sources": [], "confidence": "low", "note": "..." }
+```
+
+- `fillingKg` sets the blast (radii grow with its cube root); `fragmentCount` and the fragment entry set who is
+  hit how far away. Give the men the grenade in their `load` like any item (`{ "item": "xf-bomb", "count": 2 }`).
+- A launcher round has `"fuse": "impact"`, `"armingSeconds"` instead of `fuseSeconds`, and
+  `"delivery": { "method": "launched", "velocityMps": 76, "launcher": "<item id>", "maxRangeM": 350 }`; the
+  launcher itself is an item in `items.json` (category `launcher`) that the man must carry.
+- `npm run lab -- fragmentation` shows the effect by distance; add the new munition to the list in
+  `packages/tools/src/labs/fragmentation.ts` to see it there.
+
+Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` and `roofThicknessM`.
+
 ## Add a vehicle
 
 Not yet possible: the vehicle format arrives in **M7**.

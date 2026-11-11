@@ -232,6 +232,23 @@ function loadFaction(
       errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].tracer`, message: `kind '${a.kind}' and tracer ${a.tracer} contradict each other`, severity: "error" });
     }
   });
+  ammoF.ammunition.forEach((a, i) => {
+    const at = (k: string) => ({ file: f("ammunition.json"), path: `ammunition[${i}].${k}`, severity: "error" as const });
+    if (a.explosive) {
+      const fr = ammoF.ammunition.find((x) => x.id === a.explosive!.fragmentAmmo);
+      if (!fr) errors.push({ ...at("explosive.fragmentAmmo"), message: `unknown ammunition '${a.explosive.fragmentAmmo}'` });
+      else if (fr.kind !== "fragment") errors.push({ ...at("explosive.fragmentAmmo"), message: `'${fr.id}' must be of kind "fragment"` });
+      if ((a.fuse === "time") !== (a.explosive.fuseSeconds !== undefined)) errors.push({ ...at("explosive.fuseSeconds"), message: `a "time" fuse needs fuseSeconds, other fuses must not have it` });
+      if (a.explosive.fragmentVelocityMps[0] > a.explosive.fragmentVelocityMps[1]) errors.push({ ...at("explosive.fragmentVelocityMps"), message: "give the lower speed first" });
+    }
+    if (a.delivery) {
+      if (!a.explosive) errors.push({ ...at("delivery"), message: "only explosive munitions can be thrown or launched" });
+      if (a.delivery.method === "launched") {
+        if (a.delivery.velocityMps === undefined) errors.push({ ...at("delivery.velocityMps"), message: "a launched munition needs its muzzle velocity" });
+        if (a.delivery.launcher === undefined || !itemsF.items.some((it) => it.id === a.delivery!.launcher)) errors.push({ ...at("delivery.launcher"), message: `unknown launcher item '${a.delivery.launcher ?? ""}'` });
+      }
+    }
+  });
   // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
   const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({
     id: a.id, nameKey: a.nameKey, category: "ammunition", massKg: a.cartridgeMassKg,

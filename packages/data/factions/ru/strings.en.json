@@ -38,5 +38,10 @@
   "radio.unable": "{callsign}: cannot do that.",
   "item.ru-helmet": "6B47 helmet",
   "item.ru-vest": "6B45 vest with plates",
-  "radio.manDown": "{callsign}: {name} is hit!"
+  "radio.manDown": "{callsign}: {name} is hit!",
+  "ammo.ru-rgd5": "RGD-5 hand grenade",
+  "ammo.ru-rgd5-fragment": "RGD-5 fragment",
+  "ammo.ru-vog25": "VOG-25 round",
+  "ammo.ru-vog25-fragment": "VOG-25 fragment",
+  "item.ru-gp25": "GP-25 grenade launcher"
 }

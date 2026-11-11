@@ -11,6 +11,9 @@ import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
+import { grenadeOption, type GrenadeOption } from "./grenades";
+import { startAction } from "../actions";
+import { secondsToTicks } from "../ids";
 import type { Unit } from "../components";
 import type { SimState } from "../state";
 
@@ -44,6 +47,9 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
       return null;
     case "ceaseFire":
+      return null;
+    case "grenade":
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       return null;
   }
 }
@@ -221,6 +227,21 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     }
     case "ceaseFire": {
       endFire(state, order.target, soldiers, "ordered", events);
+      break;
+    }
+    case "grenade": {
+      // One man acts: a thrower in range first (the nearest), else a man with a launcher (the nearest).
+      let best: EntityId | null = null, bestOpt: GrenadeOption | null = null;
+      for (const s of soldiers) {
+        const opt = grenadeOption(ctx, state, s, order.x, order.y);
+        if (!opt) continue;
+        if (bestOpt === null || (opt.method === "thrown" && bestOpt.method !== "thrown") || (opt.method === bestOpt.method && opt.distanceM < bestOpt.distanceM)) { best = s; bestOpt = opt; }
+      }
+      if (best === null || bestOpt === null) return "unable"; // out of range, too close, or nothing to send
+      const G = ctx.catalog.shooting.grenades;
+      const t = state.transform.req(best);
+      t.heading = atan2(order.y - t.y, order.x - t.x);
+      startAction(state, events, best, "grenade", secondsToTicks(bestOpt.method === "thrown" ? G.throwSeconds : G.launchSeconds), { ammo: bestOpt.ammo, x: order.x, y: order.y });
       break;
     }
     case "posture": {

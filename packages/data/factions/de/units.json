@@ -26,6 +26,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
             }
           ],
           "weapon": "de-g36"
@@ -50,6 +54,18 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-ag36-launcher",
+              "count": 1
+            },
+            {
+              "item": "de-40mm-he",
+              "count": 6
             }
           ],
           "weapon": "de-g36"
@@ -74,6 +90,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
             }
           ],
           "weapon": "de-g36"
@@ -98,6 +118,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
             }
           ],
           "weapon": "de-g36"

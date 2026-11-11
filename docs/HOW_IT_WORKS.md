@@ -196,6 +196,26 @@ carries on has a white-and-red spot. If the leader falls the next man takes over
 down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what
 happened to them.
 
+## Grenades
+
+A grenade is an item a man carries, like a magazine. The order "grenade at this point" is carried out by one
+man: whoever is nearest and can throw that far (about 30 m standing, less crouching or lying), otherwise a man
+with a grenade launcher. Getting it ready takes a few seconds and can be interrupted — a man who is hit
+meanwhile does not throw and keeps the grenade. Then the grenade flies as a projectile on an arc, with an
+error that grows with distance.
+
+A hand grenade has a time fuse: it stays where it lands (or at the foot of the wall it hits, or it goes in
+through a window) and bursts when the seconds are up. A launcher round bursts when it strikes, provided it
+has flown far enough to arm; otherwise it is a dud.
+
+The burst does three things. **Blast** wounds men within a couple of metres and stuns men out to about ten
+metres for a few seconds; a wall in between protects. **Fragments** — hundreds to thousands — fly outward as
+real projectiles, lose speed very quickly, and wound whoever they meet; helmet and vest stop many; a man lying
+down is hit far less. **Damage**: a small crater, and a hole in a thin wall such as a wooden fence, which
+bullets and men can then pass through. Houses now have roofs, so a grenade lobbed onto a house bursts on the
+roof instead of falling inside. The **fragmentation lab** (`npm run lab -- fragmentation`) bursts grenades
+among rings of men and prints who was hurt at which distance.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -225,7 +245,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 234 automated tests, including:
+- `npm test` runs 256 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -241,6 +261,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No first aid, no grenades (M2.4), no spotting (everyone sees everything), no real squad organisation (M2.5),
+No first aid, no spotting (everyone sees everything), no real squad organisation (M2.5),
 nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
-shoots by itself. Those are milestones M2.4–M6.
+shoots by itself. Those are milestones M2.5–M6.

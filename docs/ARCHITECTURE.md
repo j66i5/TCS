@@ -350,6 +350,31 @@ physical). On a body hit the projectile is removed and `resolveBodyHit` is calle
 penetration capacity and kinetic energy. A projectile leaving the map flies to the edge first, so targets near
 the edge can be struck.
 
+## 16f. Explosives (SPEC 6.3) — `sim/src/systems/grenades.ts`, `systems/explosions.ts`, `systems/ballistics.ts`
+
+- **Data:** `AmmoDef.explosive { fillingKg, fragmentCount, fragmentAmmo, fragmentVelocityMps, fuseSeconds?,
+  armingSeconds? }` and `AmmoDef.delivery { method: "thrown" | "launched", velocityMps?, launcher?, maxRangeM? }`.
+  Blast and fragment-band coefficients in `core/ballistics.json`; throw ranges and errors in
+  `core/shooting.json` (`grenades`); fragment and blast wounding in `core/wounds.json`.
+- **Order → action → projectile:** order `grenade {x, y}` picks one man (`grenadeOption`) and starts the
+  interruptible action `"grenade"`; on completion one item is removed from his container and
+  `launchProjectile` puts the munition into the pool on an arc solved by `arcRangeM` (same drag as the engine).
+- **In the pool** an explosive projectile is flagged in `AmmoRT` (`explosive`, `fuseTicks`, `armTicks`): never
+  "spent", no body test, rests with zero velocity after landing (time fuse), or bursts / duds on impact.
+  Bursts found during the projectile pass are queued and run after it (`detonate`), because a burst adds
+  fragments and the pool must not grow inside the pass.
+- **`detonate`**: `explosion` event; blast per soldier in range (`applyBlast`, shielded by `lineBlocked`);
+  fragments written straight into the pool from the named RNG stream `fragments`; crater and breaches pushed to
+  `state.terrain` (`terrain.breached` event). Fragments (`AmmoRT.fragment`) are removed below the speed at
+  which they can still wound, may strike their owner, wound by the fragment rule and emit no impact events.
+- **Terrain damage is state; its effects are derived:** `syncTerrainDamage(ctx, state)` (after a breach, at
+  creation and after loading) adds breaches to the wall table as openings, points `ctx.breaches` at the
+  state's list and drops the cached navigation grids, which are rebuilt with the holes (`buildNavGrid(...,
+  breaches)`).
+- **Roofs:** `BallisticsCtx.roofs` (one per building: footprint, height, material, thickness from the
+  building kind) with a per-bucket lowest-roof height for quick rejection; a projectile crossing a roof plane
+  inside the footprint is stopped or pierced like a wall.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

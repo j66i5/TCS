@@ -32,6 +32,7 @@ describe("armour", () => {
     const s = sim.state.soldier.req(man);
     expect(s.wounds).toHaveLength(1);
     expect(s.wounds[0]).toMatchObject({ mechanism: "blunt", bleedingLps: 0 });
+    run(sim, 0.5); // falling takes a moment
     expect(s.posture).toBe("prone");
     expect(s.stunnedUntilTick).toBeGreaterThan(sim.state.tick);
     expect(s.physiology.alive).toBe(true);
@@ -328,6 +329,7 @@ describe("fixes from the independent review", () => {
     const s = sim.state.soldier.req(man);
     const until = s.stunnedUntilTick;
     submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "posture", posture: "standing" });
+    run(sim, 0.5); // he falls
     while (sim.state.tick < until) { step(sim); expect(s.posture).toBe("prone"); }
     run(sim, 5);
     expect(s.posture).toBe("standing");

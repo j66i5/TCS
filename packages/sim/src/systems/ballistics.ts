@@ -16,10 +16,12 @@ import type { EventSink } from "../events";
 import { DT, type EntityId } from "../ids";
 import { cos, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
+import { detonate } from "./explosions";
+import type { AmmoRT } from "../ballistics";
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { heightAt, pointInPolygon } from "../terrain";
 
 const PAST_M = 0.01; // how far beyond a wall a penetrating bullet is placed
 // The coarse grids already include neighbouring buckets; small margins cover rounding only.
@@ -31,6 +33,33 @@ export function launchProjectile(
   ctx: SimContext, state: SimState, ammoId: string, x: number, y: number, z: number, vx: number, vy: number, vz: number, owner: EntityId,
 ): void {
   addProjectile(state.projectiles, ammoIndexOf(ctx.catalog, ammoId), x, y, z, vx, vy, vz, owner, state.tick);
+}
+
+/** Bursts found during this tick's pass over the projectiles: x, y, z, ammunition index, owner. */
+const DET: number[] = [];
+let detCount = 0;
+function queueBurst(x: number, y: number, z: number, ammo: number, owner: number): void {
+  const o = detCount++ * 5;
+  DET[o] = x; DET[o + 1] = y; DET[o + 2] = z; DET[o + 3] = ammo; DET[o + 4] = owner;
+}
+
+/**
+ * An explosive munition has struck something. Time fuse: it comes to rest at (rx, ry, rz) and waits. Impact
+ * fuse: it bursts at (bx, by, bz) if it has flown long enough to arm, else it is a dud. Returns true if the
+ * projectile is still in the pool.
+ */
+function settle(
+  P: SimState["projectiles"], i: number, am: AmmoRT, tick: number, rx: number, ry: number, rz: number, bx: number, by: number, bz: number,
+  events: EventSink, material: string, surface: "ground" | "obstacle" | "building",
+): boolean {
+  if (am.fuseTicks > 0) {
+    P.x[i] = rx; P.y[i] = ry; P.z[i] = rz; P.vx[i] = 0; P.vy[i] = 0; P.vz[i] = 0;
+    return true;
+  }
+  if (tick - P.bornTick[i]! >= am.armTicks) queueBurst(bx, by, bz, P.ammo[i]!, P.owner[i]!);
+  else events.emit({ kind: "impact", tick, x: bx, y: by, z: bz, surface, result: "stopped", material, ammo: am.id, owner: P.owner[i]! });
+  removeProjectile(P, i);
+  return false;
 }
 
 let clipT0 = 0, clipT1 = 1;
@@ -50,7 +79,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // Local aliases: imported bindings are slower to reach in some module runtimes (tests, tools); this loop
   // runs 20,000 times per tick.
   const dt = DT, sq = sqrt, hAt = heightAt, rnd = nextFloat, BAL = Streams.ballistics, remove = removeProjectile;
-  const cosine = cos, sine = sin, bodyHit = resolveBodyHit;
+  const cosine = cos, sine = sin, bodyHit = resolveBodyHit, burst = detonate;
   const B = ctx.ballistics, bal = ctx.catalog.ballistics, map = ctx.map, index = ctx.mapIndex;
   const env = state.environment;
   const rho = (bal.airDensityKgM3 * (273.15 + bal.referenceTempC)) / (273.15 + env.temperatureC);
@@ -62,7 +91,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
-  const ammoRT = B.ammo, minSpeed2 = B.minSpeed2, maxAge = B.maxAgeTicks;
+  const ammoRT = B.ammo, maxAge = B.maxAgeTicks;
 
   // ---- soldiers this tick, bucketed, so only bullets passing close to someone test against bodies
   const SG = B.soldiers, hitboxes = B.hitboxes;
@@ -102,19 +131,32 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
 
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
+  detCount = 0;
+  const roofs = B.roofs, roofLow = B.roofLow, roofBuckets = B.roofBuckets, inPoly = pointInPolygon;
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
     let vx = VX[i]!, vy = VY[i]!, vz = VZ[i]!;
+    if (am.explosive) {
+      // A time fuse runs out wherever the grenade is: in the air or lying on the ground.
+      if (am.fuseTicks > 0 && tick - BORN[i]! >= am.fuseTicks) { queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!); remove(P, i); continue; }
+      if (vx === 0 && vy === 0 && vz === 0) { i++; continue; } // lying where it landed
+    }
     const rvx = vx - wx, rvy = vy - wy;
     // Drag: Cd(v) x v = min(dragMax x v, dragA x v + dragB), no powers needed.
     const rs = sq(rvx * rvx + rvy * rvy + vz * vz);
     const cdv = am.dragA * rs + am.dragB, cap = am.dragMax * rs;
     const a = am.kDrag * rho * (cdv < cap ? cdv : cap) * dt;
-    vx -= a * rvx; vy -= a * rvy; vz -= a * vz + gdt;
+    // Quadratic drag integrated exactly for the speed (v / (1 + a)), so that even a tiny fragment that loses
+    // most of its speed within one tick behaves; the distance flown uses the mean speed over the tick.
+    // (For bullets a is a few thousandths: the series is exact to 1e-7 and saves two divisions per bullet.)
+    let f: number, g: number;
+    if (a < 0.02) { f = 1 - a + a * a; g = 1 - 0.5 * a; } else { f = 1 / (1 + a); g = 1 / (1 + 0.5 * a); }
     const x0 = X[i]!, y0 = Y[i]!, z0 = Z[i]!;
-    let x1 = x0 + vx * dt, y1 = y0 + vy * dt, z1 = z0 + vz * dt;
+    let x1 = x0 + (wx + rvx * g) * dt, y1 = y0 + (wy + rvy * g) * dt, z1 = z0 + (vz * g - 0.5 * gdt) * dt;
+    vx = wx + rvx * f; vy = wy + rvy * f; vz = vz * f - gdt;
     const speed2 = vx * vx + vy * vy + vz * vz;
-    if (speed2 < minSpeed2 || tick - BORN[i]! > maxAge) {
+    // Spent: too slow at the START of the tick (a light fragment may still wound early in its last tick).
+    if ((rs * rs < am.minSpeed2 && !am.explosive) || tick - BORN[i]! > maxAge) {
       remove(P, i); // spent
       continue;
     }
@@ -136,7 +178,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- coarse rejection: sample the path every bucket (8 m) and compare its height there with the highest
     // ground / vegetation top of that bucket. Margins cover slopes between samples; a bullet that slips past
     // is caught on the next tick (it would then start below ground).
-    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false;
+    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false;
+    const zTop = z0 > z1 ? z0 : z1;
     {
       const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
       const ns = (((adx > ady ? adx : ady) * invBm) | 0) + 1;
@@ -148,10 +191,12 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const kk = r * bcols + c, pz = z0 + t * dz;
         if (pz <= maxGround[kk]! + GROUND_MARGIN_M) nearGround = true;
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
-        if (wallNear[kk] === 1) nearWall = true;
+        if (wallNear[kk] === 1) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
         if (solNear[kk] === 1) nearSoldier = true;
       }
     }
+
+    if (am.explosive) { nearSoldier = false; nearVeg = false; } // a grenade does not wound by striking, and is not stopped by leaves
 
     // ---- walls (obstacles and building walls), nearest hit
     let tHit = 2, hitSeg = -1;
@@ -186,6 +231,27 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    // ---- roofs: a flat lid at wall height over each building's footprint
+    let tRoof = 2, roofIdx = -1;
+    if (nearRoof && (dz > 1e-9 || dz < -1e-9)) {
+      // Every roof whose bucket the path touches (not only those over its two ends: a steep round can enter
+      // and leave a small house within one tick).
+      const g0 = z0 - hAt(map, x0, y0), g1 = z1 - hAt(map, x1, y1);
+      let c0 = (minX / sm) | 0, c1 = (maxX / sm) | 0, r0 = (minY / sm) | 0, r1 = (maxY / sm) | 0;
+      if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= scols) c1 = scols - 1; if (r1 >= srows) r1 = srows - 1;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        const list = roofBuckets[r * scols + c]!;
+        for (let q = 0; q < list.length; q++) {
+          const rf = roofs[list[q]!]!;
+          const a0 = g0 - rf.heightM, a1 = g1 - rf.heightM;
+          if ((a0 > 0) === (a1 > 0)) continue;
+          const t = a0 / (a0 - a1);
+          if (t >= tRoof || t > tHit || !inPoly(rf.footprint, x0 + t * dx, y0 + t * dy)) continue;
+          tRoof = t; roofIdx = list[q]!;
+        }
+      }
+    }
+
     // ---- soldiers: the path against each nearby man's body box (in his own frame: forward, left, up)
     let tBody = 2, bodyIdx = -1, bodyGroup = 0, bodyBand = 0, bodyLeft = false, bodyFrontal = true;
     if (nearSoldier) {
@@ -194,7 +260,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= bcols) c1 = bcols - 1; if (r1 >= brows) r1 = brows - 1;
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
         for (let j = SG.head[r * bcols + c]!; j !== -1; j = SG.next[j]!) {
-          if (SG.id[j] === owner) continue; // a man is not hit by the round leaving his own muzzle
+          if (SG.id[j] === owner && !am.fragment) continue; // a man is not hit by the round leaving his own muzzle (his own fragments can)
           const hb = hitboxes[SG.posture[j]!]!;
           const rx = x0 - SX[j]!, ry = y0 - SY[j]!, cf = SCF[j]!, sf = SSF[j]!;
           const pf = rx * cf + ry * sf, pl = -rx * sf + ry * cf, pz = z0 - SGZ[j]!;
@@ -252,6 +318,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
     let tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
+    if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
 
     // ---- vegetation: chance of being stopped along the free part of the path
@@ -276,29 +343,62 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
       if (pass < 1 && rnd(rng, BAL) > pass) {
         const t = tFirst + (tLast - tFirst) * rnd(rng, BAL); // somewhere in the vegetated stretch
-        events.emit({ kind: "impact", tick, x: x0 + t * dx, y: y0 + t * dy, z: z0 + t * dz, surface: "vegetation", result: "stopped", material: map.vegetationPalette[vegIdx - 1] ?? "", ammo: am.id, owner: P.owner[i]! });
+        if (!am.fragment) events.emit({ kind: "impact", tick, x: x0 + t * dx, y: y0 + t * dy, z: z0 + t * dz, surface: "vegetation", result: "stopped", material: map.vegetationPalette[vegIdx - 1] ?? "", ammo: am.id, owner: P.owner[i]! });
         remove(P, i);
         continue;
       }
     }
 
-    if (tBody <= 1 && tBody < tGround && tBody < tHit) {
+    if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
       // ---- a man is hit: armour, wound, and the round stays in him
-      const speedB = sq(speed2);
+      const speedB = rs / (1 + a * tBody); // its speed where it strikes, not at the end of the tick
       const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
-      const energy = 0.5 * am.massKg * speed2;
-      bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!);
+      const energy = 0.5 * am.massKg * speedB * speedB;
+      bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);
       // Through the arm from the side and on into the trunk behind it.
       const WG = ctx.catalog.wounds.wounding;
       if (bodyGroup === 5 && !bodyFrontal && bodyBand !== 5 && rnd(state.rng, Streams.wounds) < WG.throughArmChance) {
-        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyBand]!, bodyLeft, false, can * WG.throughArmEnergy, energy * WG.throughArmEnergy, am.id, P.owner[i]!);
+        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyBand]!, bodyLeft, false, can * WG.throughArmEnergy, energy * WG.throughArmEnergy, am.id, P.owner[i]!, am.fragment);
       }
       remove(P, i);
       continue;
     }
 
+    if (tRoof <= 1 && tRoof < tGround && tRoof < tHit) {
+      // ---- roof: stops, or is pierced with loss of speed (no ricochet off roofs)
+      const rf = roofs[roofIdx]!, matR = B.materials[rf.material]!;
+      const hx = x0 + tRoof * dx, hy = y0 + tRoof * dy, hz = z0 + tRoof * dz;
+      if (am.explosive) {
+        // From above it lies on the roof; from below (thrown indoors) it drops to the floor. A burst is set just
+        // off the roof on the side it came from, so its fragments are not swallowed by the roof it struck.
+        if (settle(P, i, am, tick, hx, hy, dz < 0 ? hz + 0.05 : hAt(map, hx, hy) + 0.05, hx, hy, hz + (dz < 0 ? 0.05 : -0.05), events, matR.id, "building")) i++;
+        continue;
+      }
+      const endR = sq(speed2), speedR = rs / (1 + a * tRoof);
+      const cosR = (vz < 0 ? -vz : vz) / endR;
+      const needR = (matR.resistance * rf.thicknessM * 1000) / (cosR < 0.05 ? 0.05 : cosR);
+      const vEffR = matR.breaks && speedR > am.penCapV ? am.penCapV : speedR;
+      const canR = am.penSteelMm * pow(vEffR / am.penV, bal.penetrationVelocityExponent);
+      if (canR > needR) {
+        const k = (sq(1 - needR / canR) * speedR) / endR;
+        X[i] = hx + (vx / endR) * PAST_M; Y[i] = hy + (vy / endR) * PAST_M; Z[i] = hz + (vz / endR) * PAST_M;
+        VX[i] = vx * k; VY[i] = vy * k; VZ[i] = vz * k;
+        if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "building", result: "penetrated", material: matR.id, ammo: am.id, owner: P.owner[i]! });
+        i++;
+        continue;
+      }
+      if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "building", result: "stopped", material: matR.id, ammo: am.id, owner: P.owner[i]! });
+      remove(P, i);
+      continue;
+    }
+
     if (tGround > 1 && hitSeg < 0) {
-      if (leaving) { remove(P, i); continue; }
+      if (leaving) {
+        // A grenade does not vanish at the map edge: it comes down there.
+        if (am.explosive) { if (settle(P, i, am, tick, x1, y1, hAt(map, x1, y1) + 0.05, x1, y1, hAt(map, x1, y1) + 0.05, events, "", "ground")) i++; }
+        else remove(P, i);
+        continue;
+      }
       // free flight
       X[i] = x1; Y[i] = y1; Z[i] = z1; VX[i] = vx; VY[i] = vy; VZ[i] = vz;
       i++;
@@ -307,6 +407,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
 
     const speed = sq(speed2);
     const ux = vx / speed, uy = vy / speed, uz = vz / speed;
+    const speedH = rs / (1 + a * (tGround < tHit ? tGround : tHit)); // speed where it strikes
     if (tGround < tHit) {
       // ---- ground impact
       const hx = x0 + tGround * dx, hy = y0 + tGround * dy;
@@ -320,6 +421,10 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let cell = ((hy / map.cellSizeM) | 0) * map.cols + ((hx / map.cellSizeM) | 0);
       if (cell < 0 || cell >= map.surface.length) cell = 0;
       const mat = B.materials[B.surfaceMaterial[map.surface[cell]!]!]!;
+      if (am.explosive) {
+        if (settle(P, i, am, tick, hx, hy, hz + 0.05, hx, hy, hz + 0.05, events, mat.id, "ground")) i++;
+        continue;
+      }
       if (cosInc < mat.sinCrit && rnd(rng, BAL) < 1 - cosInc / mat.sinCrit) {
         const keep = bal.ricochetSpeedRetention[0] + (bal.ricochetSpeedRetention[1] - bal.ricochetSpeedRetention[0]) * rnd(rng, BAL);
         const sc = B.scatterRad;
@@ -328,14 +433,14 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         let rz = uz - 2 * dot * nz + sc * rnd(rng, BAL); // scatter upward only: never back into the ground
         const rl = sq(rx * rx + ry * ry + rz * rz);
         rx /= rl; ry /= rl; rz /= rl;
-        const ns = speed * keep;
+        const ns = speedH * keep;
         X[i] = hx + nx * 0.02; Y[i] = hy + ny * 0.02; Z[i] = hz + nz * 0.02;
         VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
-        events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "ground", result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
+        if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "ground", result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
         i++;
         continue;
       }
-      events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "ground", result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
+      if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "ground", result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
       remove(P, i);
       continue;
     }
@@ -347,6 +452,12 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     const dot = ux * info.nx + uy * info.ny;
     const cosInc = dot < 0 ? -dot : dot;
     const surface = segs[hitSeg]!.owner;
+    if (am.explosive) {
+      // It drops at the foot of the wall on the side it came from (or bursts on it, with an impact fuse).
+      const fx = hx - ux * 0.15, fy = hy - uy * 0.15;
+      if (settle(P, i, am, tick, fx, fy, hAt(map, fx, fy) + 0.05, hx - ux * 0.05, hy - uy * 0.05, hz, events, mat.id, surface)) i++;
+      continue;
+    }
     if (cosInc < mat.sinCrit && rnd(rng, BAL) < 1 - cosInc / mat.sinCrit) {
       const keep = bal.ricochetSpeedRetention[0] + (bal.ricochetSpeedRetention[1] - bal.ricochetSpeedRetention[0]) * rnd(rng, BAL);
       const sc = B.scatterRad;
@@ -355,16 +466,16 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let rz = uz + sc * (rnd(rng, BAL) * 2 - 1);
       const rl = sq(rx * rx + ry * ry + rz * rz);
       rx /= rl; ry /= rl; rz /= rl;
-      const ns = speed * keep;
+      const ns = speedH * keep;
       X[i] = hx - ux * PAST_M; Y[i] = hy - uy * PAST_M; Z[i] = hz - uz * PAST_M;
       VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
-      events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
+      if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
       i++;
       continue;
     }
     const need = (mat.resistance * info.thicknessM * 1000) / (cosInc < 0.05 ? 0.05 : cosInc);
     // Soft-core bullets break up on masonry, concrete, soil and wood: no gain above their break-up speed.
-    const vEff = mat.breaks && speed > am.penCapV ? am.penCapV : speed;
+    const vEff = mat.breaks && speedH > am.penCapV ? am.penCapV : speedH;
     const can = am.penSteelMm * pow(vEff / am.penV, bal.penetrationVelocityExponent);
     if (can > need) {
       const frac = need / can;
@@ -374,14 +485,20 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let rz = uz + d * (rnd(rng, BAL) * 2 - 1);
       const rl = sq(rx * rx + ry * ry + rz * rz);
       rx /= rl; ry /= rl; rz /= rl;
-      const ns = speed * sq(1 - frac);
+      const ns = speedH * sq(1 - frac);
       X[i] = hx + ux * PAST_M; Y[i] = hy + uy * PAST_M; Z[i] = hz + uz * PAST_M;
       VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
-      events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "penetrated", material: mat.id, ammo: am.id, owner: P.owner[i]! });
+      if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "penetrated", material: mat.id, ammo: am.id, owner: P.owner[i]! });
       i++;
       continue;
     }
-    events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
+    if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
     remove(P, i);
   }
+  // Bursts happen after the loop: they add fragments to the pool (never add projectiles inside the loop).
+  for (let q = 0; q < detCount; q++) {
+    const o = q * 5;
+    burst(ctx, state, events, DET[o]!, DET[o + 1]!, DET[o + 2]!, DET[o + 3]!, DET[o + 4]!);
+  }
+  detCount = 0;
 }

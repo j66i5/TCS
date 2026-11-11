@@ -119,6 +119,8 @@ export const simplePhysiology: PhysiologyModel = {
     p.shock = Math.max(clamp01((loss - start) / (dead - start)), p.respiratory);
     let c = knockedOut ? 0 : 1;
     c = Math.min(c, clamp01(1 - (loss - 0.8 * out) / (0.2 * out)), clamp01(1 - (p.respiratory - 0.6) / 0.25));
+    // Overwhelming pain (many wounds at once): he collapses until it eases.
+    if (p.pain >= (k["painCollapseAt"] ?? 2)) c = 0;
     p.consciousness = c;
     p.pain = Math.max(0, p.pain - k["painDecayPerS"]! * dt);
     if (loss >= dead || p.respiratory >= 1) { p.alive = false; p.consciousness = 0; }

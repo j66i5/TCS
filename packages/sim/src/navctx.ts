@@ -11,7 +11,7 @@ export function navFor(ctx: SimContext, cls: MovementClass, coverWeight = 0): { 
   const key = coverWeight > 0 ? `${cls}:cover:${coverWeight}` : cls;
   let n = ctx.nav[key];
   if (!n) {
-    const grid = buildNavGrid(ctx.map, ctx.catalog.terrain, cls, 2, coverWeight);
+    const grid = buildNavGrid(ctx.map, ctx.catalog.terrain, cls, 2, coverWeight, ctx.breaches);
     n = { grid, search: createNavSearch(grid) };
     ctx.nav[key] = n;
   }

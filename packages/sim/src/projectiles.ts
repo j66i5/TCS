@@ -40,6 +40,11 @@ function grow(p: ProjectilePool): void {
   const bt = new Int32Array(cap); bt.set(p.bornTick); p.bornTick = bt;
 }
 
+/** Make room for `extra` more projectiles (so a burst can write its fragments straight into the arrays). */
+export function reserveProjectiles(p: ProjectilePool, extra: number): void {
+  while (p.count + extra > p.x.length) grow(p);
+}
+
 /** Add a projectile. `ammoIndex` is the index into catalog.ammoIds. Returns its row. */
 export function addProjectile(
   p: ProjectilePool, ammoIndex: number, x: number, y: number, z: number, vx: number, vy: number, vz: number,

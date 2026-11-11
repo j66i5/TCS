@@ -46,7 +46,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     hitboxes: noProv(data.wounds.hitboxes), zones: noProv(data.wounds.zones), wounding: noProv(data.wounds.wounding),
     physiology: noProv(data.wounds.physiology), effects: noProv(data.wounds.effects),
   } as Catalog["wounds"];
-  const shooting = { aim: noProv(data.shooting.aim), fire: noProv(data.shooting.fire) } as Catalog["shooting"];
+  const shooting = { aim: noProv(data.shooting.aim), fire: noProv(data.shooting.fire), grenades: noProv(data.shooting.grenades) } as Catalog["shooting"];
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
   const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, ammo, ammoIds, weapons };

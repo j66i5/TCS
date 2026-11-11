@@ -32,11 +32,13 @@ function zoneName(group: string, left: boolean): BodyZone {
  */
 export function resolveBodyHit(
   ctx: SimContext, state: SimState, events: EventSink, target: EntityId, group: string, left: boolean, frontal: boolean,
-  capacitySteelMm: number, energyJ: number, ammoId: string, owner: EntityId,
+  capacitySteelMm: number, energyJ: number, ammoId: string, owner: EntityId, fragment = false,
 ): void {
   const s = state.soldier.get(target);
   if (!s) return;
   const W = ctx.catalog.wounds, rng = state.rng;
+  const FW = W.wounding.fragment;
+  if (fragment && energyJ < FW.minEnergyJ) return; // a spent fragment: stings, does not wound
   const zone = zoneName(group, left);
 
   // ---- armour worn over this zone: everything whose covered share includes the spot struck
@@ -61,7 +63,7 @@ export function resolveBodyHit(
       // Owner decision: knocked down for a few seconds, a minor blunt injury (pain, no bleeding).
       addWound(ctx, state, events, target, { zone, mechanism: "blunt", severity: W.wounding.bluntSeverity, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false }, owner);
       s.stunnedUntilTick = Math.max(s.stunnedUntilTick, state.tick + secondsToTicks(W.wounding.knockdownSeconds));
-      s.posture = "prone"; s.postureTo = null;
+      knockDown(state, s);
       interruptAction(state, events, target, "knocked-down"); // a reload in progress is broken off
     }
     return;
@@ -71,12 +73,15 @@ export function resolveBodyHit(
   const residual = protection > 0 ? energyJ * (1 - protection / capacitySteelMm) : energyJ;
   const zd = W.zones[group];
   if (!zd) return;
-  const ef = clamp(pow(residual / W.wounding.referenceEnergyJ, W.wounding.energyExponent), W.wounding.energyFactorMin, W.wounding.energyFactorMax);
+  if (fragment && residual < FW.minEnergyJ) return;
+  const ef = fragment
+    ? clamp(pow(residual / FW.referenceEnergyJ, FW.exponent), FW.factorMin, FW.factorMax)
+    : clamp(pow(residual / W.wounding.referenceEnergyJ, W.wounding.energyExponent), W.wounding.energyFactorMin, W.wounding.energyFactorMax);
   const severity = clamp((zd.severityBase + zd.severitySpread * nextNormal(rng, Streams.wounds)) * ef, 0.03, 1);
   // Most wounds bleed far less than the worst case; a few strike a major vessel.
   const vessel = W.wounding.bleedFloor + (1 - W.wounding.bleedFloor) * pow(nextFloat(rng, Streams.wounds), W.wounding.bleedPower);
   addWound(ctx, state, events, target, {
-    zone, mechanism: "bullet", severity,
+    zone, mechanism: fragment ? "fragment" : "bullet", severity,
     bleedingLps: zd.bleedLps * severity * vessel,
     compressible: zd.compressible,
     airway: zd.airway && severity >= W.wounding.flagSeverity,
@@ -88,6 +93,44 @@ export function resolveBodyHit(
   refreshStatus(ctx, state, events, target);
 }
 
+/**
+ * Blast at distance `d` from a burst (radii already scaled to the filling): a blast wound inside the injury
+ * radius (worse the nearer), knocked flat; beyond it, stunned for a few seconds (owner decision 2026-11-11).
+ */
+export function applyBlast(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, d: number, severeR: number, injuryR: number, stunR: number, owner: EntityId): void {
+  const s = state.soldier.req(target);
+  const W = ctx.catalog.wounds, BL = ctx.catalog.ballistics.blast, bw = W.wounding.blast;
+  const stunFor = (seconds: number) => {
+    s.stunnedUntilTick = Math.max(s.stunnedUntilTick, state.tick + secondsToTicks(seconds));
+    interruptAction(state, events, target, "blast");
+  };
+  if (d > injuryR) {
+    // Stunned: longest near the injury radius, about a second at the edge.
+    const f = stunR > injuryR ? 1 - (d - injuryR) / (stunR - injuryR) : 0;
+    stunFor(Math.max(1, BL.stunSeconds * f));
+    return;
+  }
+  const f = d <= severeR ? 1 : injuryR > severeR ? 1 - (d - severeR) / (injuryR - severeR) : 0;
+  const severity = bw.severityInjury + (bw.severitySevere - bw.severityInjury) * f;
+  addWound(ctx, state, events, target, {
+    zone: "chest", mechanism: "blast", severity, bleedingLps: bw.bleedLps * severity, compressible: false,
+    // Blast lung: the likelier the worse the blast (certain at the severe radius).
+    airway: false, breathing: nextFloat(state.rng, Streams.wounds) < (severity - bw.severityInjury) / Math.max(1e-6, bw.severitySevere - bw.severityInjury) - 0.3, consciousness: severity >= (W.zones["chest"]?.unconsciousAt ?? 2),
+  }, owner);
+  stunFor(BL.stunSeconds);
+  knockDown(state, s);
+  if (severity >= (W.zones["chest"]?.fatalAt ?? 2)) { s.physiology.alive = false; s.physiology.consciousness = 0; }
+  refreshStatus(ctx, state, events, target);
+}
+
+/** He goes down; falling takes a moment (fragments of the same burst still meet him as he stood). */
+const FALL_TICKS = 18;
+function knockDown(state: SimState, s: { posture: string; postureTo: string | null; postureDoneTick: number }): void {
+  if (s.posture === "prone") { s.postureTo = null; return; }
+  s.postureTo = "prone";
+  s.postureDoneTick = state.tick + FALL_TICKS;
+}
+
 type NewWound = Pick<Wound, "zone" | "mechanism" | "severity" | "bleedingLps" | "compressible" | "airway" | "breathing" | "consciousness">;
 
 function addWound(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, w: NewWound, source: EntityId): void {
@@ -95,7 +138,8 @@ function addWound(ctx: SimContext, state: SimState, events: EventSink, target: E
   const wound: Wound = { id: s.nextWoundId++, ...w, tickInflicted: state.tick, treatments: [] };
   if (source > 0) wound.source = source;
   s.wounds.push(wound);
-  s.physiology.pain = Math.max(s.physiology.pain, w.severity);
+  // Pain is at least that of the worst wound, and every further wound adds to it (many small wounds overwhelm).
+  s.physiology.pain = Math.min(1, Math.max(w.severity, s.physiology.pain + ctx.catalog.wounds.effects.painPerWoundK * w.severity));
   events.emit({ kind: "wound", tick: state.tick, soldier: target, woundId: wound.id, zone: w.zone, mechanism: w.mechanism, severity: w.severity });
   updateImpairment(ctx.catalog, s);
 }

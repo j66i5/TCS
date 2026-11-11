@@ -24,6 +24,67 @@
         "max": 0.6
       },
       "tracerBurnoutM": 400
+    },
+    {
+      "id": "xf-bomb",
+      "nameKey": "ammo.xf-bomb",
+      "calibre": "hand-grenade",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.4,
+      "cartridgeMassKg": 0.4,
+      "diameterM": 0.06,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.08,
+        "fragmentCount": 800,
+        "fragmentAmmo": "xf-shard",
+        "fragmentVelocityMps": [
+          800,
+          1200
+        ],
+        "fuseSeconds": 4
+      },
+      "delivery": {
+        "method": "thrown"
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-shard",
+      "nameKey": "ammo.xf-shard",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0002,
+      "cartridgeMassKg": 0.0002,
+      "diameterM": 0.004,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 2,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
     }
   ]
 }

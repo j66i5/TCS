@@ -48,7 +48,10 @@ export interface NavGrid {
   coverWeight: number;
 }
 
-export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0): NavGrid {
+export function buildNavGrid(
+  map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0,
+  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[] = [],
+): NavGrid {
   const cols = Math.ceil(map.widthM / cellM), rows = Math.ceil(map.heightM / cellM);
   const n = cols * rows;
   const cost = new Float32Array(n);
@@ -74,6 +77,20 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
     const c = Math.floor(cx / m / cellM), r = Math.floor(cy / m / cellM);
     if (c >= 0 && r >= 0 && c < cols && r < rows) { cost[r * cols + c] = 0; building[r * cols + c] = 1; }
   }
+  // Holes blown in walls: the cell at the middle of each hole is not marked by the breached stretch of wall
+  // (a man gets through a metre-wide gap even though the grid is coarser; vehicles need a hole 3 m wide).
+  // Another obstacle running through the same cell still blocks it.
+  const holeCells = new Set<string>();
+  for (const b of breaches) {
+    if (b.owner !== "obstacle" || (cls !== "foot" && b.widthM < 3)) continue;
+    const o = map.obstacles.find((q) => q.id === b.id);
+    const i = b.part * 2;
+    if (!o || i + 3 >= o.points.length) continue;
+    const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
+    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
+    const c = Math.floor((ax + ((bx - ax) * b.offsetM) / len) / cellM), r = Math.floor((ay + ((by - ay) * b.offsetM) / len) / cellM);
+    holeCells.add(`${r * cols + c}:${b.id}:${b.part}`);
+  }
   // Linear obstacles: crossing penalty or blocked, per class.
   for (const o of map.obstacles) {
     const kind = terrain.obstacles[o.kind];
@@ -92,11 +109,14 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
       const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
       const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
       const steps = Math.max(1, Math.ceil(len / step));
+      const holes = breaches.filter((b) => b.owner === "obstacle" && b.id === o.id && b.part === i / 2);
       for (let s = 0; s <= steps; s++) {
+        if (holes.length > 0) { const off = (len * s) / steps; if (holes.some((b) => off >= b.offsetM - b.widthM / 2 && off <= b.offsetM + b.widthM / 2)) continue; }
         const x = ax + ((bx - ax) * s) / steps, y = ay + ((by - ay) * s) / steps;
         const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
         if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
         const idx = r * cols + c;
+        if (holeCells.size > 0 && holeCells.has(`${idx}:${o.id}:${i / 2}`)) continue;
         if (wall[idx] === 1 && blocked) { cost[idx] = 0; continue; }
         if (wall[idx] === 1) continue; // already marked by this or another obstacle
         wall[idx] = 1;
@@ -106,6 +126,7 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
     }
   }
   const exposure = exposureMap(map, terrain, cellM, cols, rows, wall, building);
+
   // Cover-seeking routes: open ground costs up to (1 + coverWeight) times more, so a route may be up to that
   // much longer to stay in cover (owner decision: balanced, 0.3).
   if (coverWeight > 0) for (let i = 0; i < n; i++) if (cost[i]! > 0) cost[i] = cost[i]! * (1 + coverWeight * exposure[i]!);

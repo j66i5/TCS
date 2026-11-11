@@ -106,6 +106,32 @@ try {
     const p3 = `${outDir}/${mapKind}-${seed}-${name}-3-casualties.png`;
     await page.screenshot({ path: p3 }); shots.push(p3);
     console.log(`${name}: after 4 minutes of fire on the flat map: ${cas.wounded} wounded and carrying on, ${cas.down} unconscious, ${cas.dead} dead`);
+    // Grenade (M2.4): on the flat map one man throws a hand grenade 25 m; pictures in flight, at the burst
+    // and two seconds later (cloud gone, crater left).
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=flat`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    const gr = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      let x = 0, y = 0, n = 0;
+      for (const [id, i] of s.identity.entries()) if (i.side === "blue") { const p = s.transform.req(id); x += p.x; y += p.y; n++; }
+      x /= n; y /= n; t.grenadeAt(x + 25, y); t.focus(x + 14, y, 50);
+      let k = 0; for (; k < 600 && s.projectiles.count === 0; k++) t.stepTicks(1);
+      t.stepTicks(50);
+      return { thrownAfterTicks: k, inFlight: s.projectiles.count };`) as () => { thrownAfterTicks: number; inFlight: number });
+    await page.waitForTimeout(300);
+    const p4 = `${outDir}/${mapKind}-${seed}-${name}-4-grenade-flight.png`;
+    await page.screenshot({ path: p4 }); shots.push(p4);
+    const burst = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+      let k = 0; for (; k < 600 && s.terrain.craters.length === 0; k++) t.stepTicks(1);
+      t.stepTicks(3);
+      return { fragments: s.projectiles.count, craters: s.terrain.craters.length };`) as () => { fragments: number; craters: number });
+    await page.waitForTimeout(300);
+    const p5 = `${outDir}/${mapKind}-${seed}-${name}-5-grenade-burst.png`;
+    await page.screenshot({ path: p5 }); shots.push(p5);
+    await page.evaluate(new Function("globalThis.__tcs.stepTicks(120)") as () => void);
+    await page.waitForTimeout(300);
+    const p6 = `${outDir}/${mapKind}-${seed}-${name}-6-grenade-after.png`;
+    await page.screenshot({ path: p6 }); shots.push(p6);
+    console.log(`${name}: grenade thrown after ${gr.thrownAfterTicks} ticks (${gr.inFlight} in flight); at the burst ${burst.fragments} fragments in the air, ${burst.craters} crater(s), page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }
   await browser.close();

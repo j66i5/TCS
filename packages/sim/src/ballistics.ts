@@ -6,7 +6,7 @@
 import type { Catalog } from "./catalog";
 import type { MapDef, Opening } from "./map";
 import { PI, sin, sqrt } from "./math";
-import type { MapIndex } from "./terrain";
+import { heightAt, pointInPolygon, segmentsInRect, type MapIndex } from "./terrain";
 
 export interface SegInfo {
   heightM: number;
@@ -17,8 +17,10 @@ export interface SegInfo {
   /** Unit normal (either side). */
   nx: number;
   ny: number;
-  /** Doors and windows on this wall (buildings only). */
+  /** Doors and windows on this wall (buildings only), plus holes blown in it (terrain damage). */
   openings: Opening[] | null;
+  /** The openings the wall was built with (breaches are added on top of these). */
+  built: Opening[] | null;
 }
 
 export interface MaterialRT {
@@ -42,7 +44,20 @@ export interface AmmoRT {
   penCapV: number;
   massKg: number;
   tracer: boolean;
+  /** Carries an explosive filling: never "spent", does not wound by striking, bursts by fuse. */
+  explosive: boolean;
+  /** A fragment of a burst: may strike the man who threw the grenade; wounds by the fragment rules. */
+  fragment: boolean;
+  /** Time fuse in ticks from release (0 = impact fuse). */
+  fuseTicks: number;
+  /** An impact fuse is live only after this many ticks of flight. */
+  armTicks: number;
+  /** Below this speed (squared) it is spent and removed. For a fragment: the speed at which it can no longer wound. */
+  minSpeed2: number;
 }
+
+/** A roof: a flat lid on a building's walls (M2.4). */
+export interface RoofRT { id: number; footprint: readonly number[]; heightM: number; material: number; thicknessM: number }
 
 export interface HitboxRT {
   halfF: number; // half extent along the facing
@@ -87,6 +102,11 @@ export interface BallisticsCtx {
   /** 1 if a wall segment runs through the bucket or one of its eight neighbours. */
   nearWall: Uint8Array;
   seg: SegInfo[];
+  /** Roofs, and for each bucket of the map index the roofs whose bounding box touches it. */
+  roofs: RoofRT[];
+  roofBuckets: number[][];
+  /** Per coarse bucket: the lowest roof (absolute height, less a margin) in it or next to it; Infinity if none. */
+  roofLow: Float32Array;
   materials: MaterialRT[];
   /** Material index per surface palette entry of the map. */
   surfaceMaterial: Int32Array;
@@ -161,10 +181,23 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     if (s.owner === "building") {
       const bd = buildings.get(s.id)!;
       const openings = bd.openings.filter((o) => o.wall === s.part);
-      return { heightM: bd.storeys * bd.storeyHeightM, thicknessM: bd.wallThicknessM, material: matIndex(bd.wallMaterial), len, nx: ey / len, ny: -ex / len, openings: openings.length > 0 ? openings : null };
+      return { heightM: bd.storeys * bd.storeyHeightM, thicknessM: bd.wallThicknessM, material: matIndex(bd.wallMaterial), len, nx: ey / len, ny: -ex / len, openings: openings.length > 0 ? openings : null, built: openings.length > 0 ? openings : null };
     }
     const o = obstacles.get(s.id)!;
-    return { heightM: o.heightM, thicknessM: o.thicknessM, material: matIndex(o.material), len, nx: ey / len, ny: -ex / len, openings: null };
+    return { heightM: o.heightM, thicknessM: o.thicknessM, material: matIndex(o.material), len, nx: ey / len, ny: -ex / len, openings: null, built: null };
+  });
+  const roofs: RoofRT[] = map.buildings.map((bd) => {
+    const kind = catalog.terrain.buildings[bd.kind];
+    return { id: bd.id, footprint: bd.footprint, heightM: bd.storeys * bd.storeyHeightM, material: matIndex(kind?.roofMaterial ?? bd.wallMaterial), thicknessM: kind?.roofThicknessM ?? 0.05 };
+  });
+  const roofBuckets: number[][] = Array.from({ length: index.bcols * index.brows }, () => []);
+  roofs.forEach((rf, ri) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = 0; k < rf.footprint.length; k += 2) { x0 = Math.min(x0, rf.footprint[k]!); x1 = Math.max(x1, rf.footprint[k]!); y0 = Math.min(y0, rf.footprint[k + 1]!); y1 = Math.max(y1, rf.footprint[k + 1]!); }
+    const cl = (v: number, n: number) => (v < 0 ? 0 : v >= n ? n - 1 : v);
+    for (let r = cl(Math.floor(y0 / index.bucketM), index.brows); r <= cl(Math.floor(y1 / index.bucketM), index.brows); r++) {
+      for (let c = cl(Math.floor(x0 / index.bucketM), index.bcols); c <= cl(Math.floor(x1 / index.bucketM), index.bcols); c++) roofBuckets[r * index.bcols + c]!.push(ri);
+    }
   });
 
   // Buckets with a wall in or next to them (dilated by one bucket so point samples along a path cannot miss).
@@ -181,11 +214,30 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     }
   }
 
+  const roofLow = new Float32Array(bcols * brows).fill(Infinity);
+  for (const rf of roofs) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, low = Infinity;
+    for (let k = 0; k < rf.footprint.length; k += 2) {
+      const px = rf.footprint[k]!, py = rf.footprint[k + 1]!;
+      x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      low = Math.min(low, heightAt(map, Math.min(Math.max(px, 0), map.widthM - 0.01), Math.min(Math.max(py, 0), map.heightM - 0.01)));
+    }
+    low += rf.heightM - 0.75;
+    for (let r = Math.max(0, Math.floor(y0 / bucketM) - 1); r <= Math.min(brows - 1, Math.floor(y1 / bucketM) + 1); r++) {
+      for (let c = Math.max(0, Math.floor(x0 / bucketM) - 1); c <= Math.min(bcols - 1, Math.floor(x1 / bucketM) + 1); c++) {
+        if (low < roofLow[r * bcols + c]!) roofLow[r * bcols + c] = low;
+      }
+    }
+  }
   const surfaceMaterial = new Int32Array(map.surfacePalette.map((id) => matIndex(catalog.terrain.surfaces[id]?.material ?? "")));
   const ammo: AmmoRT[] = catalog.ammoIds.map((id) => {
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
-    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer };
+    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
+      explosive: a.explosive !== undefined, fragment: a.kind === "fragment",
+      fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
+      armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
+      minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };
   });
   const groups = ["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"];
   const hitboxes: HitboxRT[] = (["standing", "crouching", "prone"] as const).map((p) => {
@@ -197,6 +249,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   });
   return {
     hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows),
+    roofs, roofBuckets, roofLow,
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,
@@ -246,4 +299,58 @@ export function dropAt(ctx: { catalog: Catalog; dropTables: Record<string, Float
   const f = Math.min(Math.max(rangeM / DROP_STEP_M, 0), t.length - 1.001);
   const i = Math.floor(f);
   return t[i]! + (t[i + 1]! - t[i]!) * (f - i);
+}
+
+/** Index of the roof over (x, y), or -1. */
+export function roofAt(b: BallisticsCtx, index: MapIndex, x: number, y: number): number {
+  let c = (x / index.bucketM) | 0, r = (y / index.bucketM) | 0;
+  if (c < 0) c = 0; else if (c >= index.bcols) c = index.bcols - 1;
+  if (r < 0) r = 0; else if (r >= index.brows) r = index.brows - 1;
+  const list = b.roofBuckets[r * index.bcols + c]!;
+  for (let q = 0; q < list.length; q++) if (pointInPolygon(b.roofs[list[q]!]!.footprint, x, y)) return list[q]!;
+  return -1;
+}
+
+/**
+ * Is the straight line between two points blocked by a wall, hedge, fence or house wall (openings and
+ * breaches let it through)? Heights are absolute. Used for blast shielding (and later for line of sight).
+ */
+export function lineBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, minSteelMm = 0): boolean {
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  for (const si of segmentsInRect(index, x0, y0, x1, y1)) {
+    const s = index.segments[si]!;
+    const ex = s.bx - s.ax, ey = s.by - s.ay;
+    const denom = dx * ey - dy * ex;
+    if (denom > -1e-12 && denom < 1e-12) continue;
+    const t = ((s.ax - x0) * ey - (s.ay - y0) * ex) / denom;
+    if (t <= 1e-9 || t >= 1) continue;
+    const u = ((s.ax - x0) * dy - (s.ay - y0) * dx) / denom;
+    if (u < 0 || u > 1) continue;
+    const info = b.seg[si]!;
+    // Too flimsy to count (a plank fence, wire mesh, a hedge against blast).
+    if (minSteelMm > 0 && b.materials[info.material]!.resistance * info.thicknessM * 1000 < minSteelMm) continue;
+    const rel = z0 + t * dz - heightAt(map, x0 + t * dx, y0 + t * dy);
+    if (rel < 0 || rel > info.heightM) continue;
+    let open = false;
+    if (info.openings) {
+      const off = u * info.len;
+      for (const o of info.openings) if (off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && rel >= o.sillM && rel <= o.headM) { open = true; break; }
+    }
+    if (!open) return true;
+  }
+  return false;
+}
+
+/** Bring the wall table in line with the breaches blown so far (terrain damage lives in the state). */
+export function applyBreaches(b: BallisticsCtx, index: MapIndex, breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[]): void {
+  for (const info of b.seg) info.openings = info.built;
+  if (breaches.length === 0) return;
+  index.segments.forEach((s, si) => {
+    for (const br of breaches) {
+      if (br.owner !== s.owner || br.id !== s.id || br.part !== s.part) continue;
+      const info = b.seg[si]!;
+      if (info.openings === info.built) info.openings = info.built ? [...info.built] : [];
+      info.openings!.push({ wall: s.part, offsetM: br.offsetM, widthM: br.widthM, kind: "door", sillM: 0, headM: info.heightM });
+    }
+  });
 }

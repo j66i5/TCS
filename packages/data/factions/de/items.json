@@ -84,6 +84,15 @@
       ],
       "confidence": "low",
       "note": "Hard plates class SK4 (rifle rounds up to 7.62x51) front and back, soft armour SK1 around them. Mass is an estimate (not found); plate coverage of the chest is a game value. See docs/research/squads.md."
+    },
+    {
+      "id": "de-ag36-launcher",
+      "nameKey": "item.de-ag36-launcher",
+      "category": "launcher",
+      "massKg": 1.5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Under-barrel 40 mm grenade launcher, about 1.5 kg. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
     }
   ]
 }

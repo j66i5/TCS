@@ -7,7 +7,8 @@
  *   4. at a wall: ricochet if the angle is shallow enough for the material, otherwise penetrate if its
  *      remaining penetration exceeds the wall's steel-equivalent thickness along its path (losing energy and
  *      deviating a little), otherwise stop. Doors and windows let it through. At the ground: ricochet or stop.
- * Nobody is hurt yet (M2.3). Roofs are not modelled yet (M2.4, with plunging fire and fragments).
+ *   5. soldiers near the path are tested by body outline (systems/wounds.ts decides armour and wound; a bullet
+ *      may fly on through); roofs stop or are pierced; explosive munitions rest, bounce and burst by fuse.
  *
  * Randomness comes from the "ballistics" stream. No allocation per projectile; one event per impact.
  */
@@ -402,9 +403,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         clipT0 = 0; clipT1 = 1;
         const inside = clip(rx * cf + ry * sf, dx * cf + dy * sf, -hb.halfF, hb.halfF) && clip(-rx * sf + ry * cf, -dx * sf + dy * cf, -hb.halfL, hb.halfL) && clip(z0 - SGZ[j]!, dz, 0, hb.height);
         const out = speedB * (trunk ? WG.exit.trunk : WG.exit.limb) * sq(through);
-        // (If the tick's path ends inside the outline — along a prone man — the round stays in him.)
-        if (inside && clipT1 < 1 && out * out > am.minSpeed2) {
-          const end = sq(speed2), k = out / end, tOut = clipT1 + 0.05 / (sq(dx * dx + dy * dy + dz * dz) + 1e-9);
+        // It restarts just beyond the outline — further if he is moving, so that it cannot meet him again next
+        // tick. If the tick's path ends inside the outline (along a prone man), or a wall, a roof or the ground
+        // lies between where it struck and where it would come out, the round stays in him.
+        const beyond = 0.05 + (state.mover.get(SG.id[j]!)?.speedMps ?? 0) * dt * 2;
+        const tOut = clipT1 + beyond / (sq(dx * dx + dy * dy + dz * dz) + 1e-9);
+        if (inside && tOut < 1 && tOut < tHit && tOut < tRoof && tOut < tGround && out * out > am.minSpeed2) {
+          const end = sq(speed2), k = out / end;
           X[i] = x0 + tOut * dx; Y[i] = y0 + tOut * dy; Z[i] = z0 + tOut * dz;
           VX[i] = vx * k; VY[i] = vy * k; VZ[i] = vz * k;
           i++;

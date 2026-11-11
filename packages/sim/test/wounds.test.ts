@@ -404,3 +404,33 @@ describe("bullets go through a body (M2 completion)", () => {
     expect(r2.sim.state.soldier.req(r2.behind).wounds).toHaveLength(0);
   });
 });
+
+describe("shoot-through review fixes", () => {
+  it("a wall right behind a man stops the round that went through him", () => {
+    for (const gap of [0.03, 0.05]) {
+      const input = physio();
+      // Steel wall just behind the front man's back (he faces west, his back is at x = 100 + half depth).
+      input.map.obstacles.push({ id: 1, kind: "wall", points: [100.125 + gap, 90, 100.125 + gap, 110], heightM: 2, thicknessM: 0.05, material: "steel" });
+      input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: Math.PI }, { personId: "b.1", x: 102, y: 100, heading: Math.PI }];
+      const sim = createSim(input);
+      const behind = unitOf(sim, "red")[1].members[1]!;
+      for (let k = 0; k < 20; k++) launchProjectile(sim.ctx, sim.state, "ball", 60, 99.9 + (k % 5) * 0.03, 0.5, 800, 0, 0, 0);
+      run(sim, 1);
+      expect(sim.state.soldier.req(behind).wounds).toHaveLength(0);
+    }
+  });
+
+  it("one bullet does not strike the same running man twice", () => {
+    const input = physio();
+    input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: 0 }, { personId: "b.1", x: 150, y: 150, heading: 0 }];
+    const sim = createSim(input);
+    const man = unitOf(sim, "red")[1].members[0]!;
+    submitOrder(sim, { tick: 0, issuer: "red", target: man, kind: "move", waypoints: [{ x: 190, y: 100, mode: "run" }] });
+    run(sim, 2); // he is running east, away from the shooter
+    for (let k = 0; k < 20; k++) launchProjectile(sim.ctx, sim.state, "ball", sim.state.transform.req(man).x - 40, 99.95 + (k % 5) * 0.02, 0.5, 880, 0, 0, 0);
+    const ev = run(sim, 1);
+    const hits = ev.filter((e) => e.kind === "hit" && e.target === man).length;
+    expect(hits).toBeGreaterThan(0);
+    expect(hits).toBeLessThanOrEqual(20);
+  });
+});

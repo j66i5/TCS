@@ -57,7 +57,7 @@ export const testCatalog: Catalog = {
   shooting: {
     aim: {
       baseMrad: 1.13, skillSlope: 2, minSkillFactor: 0.3, postureFactor: { prone: 1, crouching: 1.5, standing: 2.2 }, fatigueK: 1.5,
-      heartRateK: 0.6, heartRateCalmBpm: 100, suppressionK: 3, rapidFactor: 1.6, burstGrowth: 0.8, sightFactor: { iron: 1, telescopic: 0.7 }, rangeErrorFraction: 0.12, settleK: 0.6, settleTauS: 2, bracedFactor: 0.8, bracedBelowExposure: 0.25,
+      heartRateK: 0.6, heartRateCalmBpm: 100, suppressionK: 3, rapidFactor: 1.6, burstGrowth: 0.8, sightFactor: { iron: 1, telescopic: 0.7 }, rangeErrorFraction: 0.12, settleK: 0.6, settleTauS: 2, bracedFactor: 0.8,
     },
     fire: {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],

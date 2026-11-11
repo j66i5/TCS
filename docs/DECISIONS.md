@@ -741,3 +741,21 @@ against 9); a wooden fence or a hedge hardly helps (99-100 % wounded).
 anti-tank launchers are carried only (M7); belts cannot be handed over (M4); grenades are not thrown back; no
 first aid (M10); the enemy acts only on orders (M4); SPEC's 8x speed with 20,000 projectiles is not reached
 (5.5x; floor 3x); DM51, RGD-5, VOG-25, PKP, G28, G95A1 figures partly unverified.
+
+## 2026-11-11 — Fixes from the independent review of the M2 completion
+No determinism, save/load or rule problems. Fixed, each with a test: **a round leaving a body skipped a wall,
+roof or ground right behind the man** (a man with his back to a steel wall let rounds through it): the round
+now flies on only if nothing lies between where it struck and where it comes out. **One bullet could wound the
+same running man two or three times** (it restarted 5 cm beyond him, and he ran 6 cm per tick): the restart
+point now allows for his speed. **Bracing was broader than stated** (up to 5 m from any obstacle, also a
+see-through wire fence, also anywhere in woodland): it now needs a wall, fence, hedge, house wall or trees
+within arm's reach (his 2 m cell or the next); the direction of fire and the height of the thing are still not
+looked at. **The casualty lab had shifted** (the targets were struck by the first, hurried shots, so fewer
+chest hits): the lab now lets its riflemen take their time, and the table the owner reviewed is back (plates
+save 50 %, 13 % killed outright, 44 % dead within the hour without care; 28 % killed outright without armour).
+Stale lines in STATE, HOW_IT_WORKS and a code header corrected.
+**Recorded:** after a wall is breached, the next shot rebuilds the navigation grid inside the fire step (about
+60-90 ms once on a 2 x 2 km map, a visible stutter; it was already paid by the next route); rear plates are not
+checked for a round that entered beside the front plate; the aiming-time clock runs from the order, so a man
+who first spends seconds changing posture fires his first shot nearly settled; the range lab has no
+first-shot or braced rows (the terms are tested directly).

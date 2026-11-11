@@ -20,7 +20,7 @@ import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { Container } from "../items";
 import { atan2, cos, exp, hypot2, PI, sin, sqrt } from "../math";
-import { exposureAt } from "../nav";
+import { restWithinReach } from "../nav";
 import { navFor } from "../navctx";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -53,10 +53,11 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   // Time spent aiming: the first shots at a new point are hurried.
   const task = state.fire.get(id);
   const settle = task ? 1 + a.settleK * exp(-(state.tick - task.startTick) / (a.settleTauS * TICK_HZ)) : 1;
-  // Bracing: off the ground, next to a wall, tree or other cover, he rests the weapon on it (a bipod gun and a
-  // prone man are steady already).
+  // Bracing: off the ground, with a wall, fence, hedge, house wall or tree within arm's reach (his 2 m cell or
+  // the next one), he rests the weapon on it (a bipod gun and a prone man are steady already). Which way he
+  // fires and how high the thing is are not looked at.
   const t = state.transform.get(id);
-  const braced = !sus && s.posture !== "prone" && t !== undefined && exposureAt(navFor(ctx, "foot").grid, t.x, t.y) <= a.bracedBelowExposure ? a.bracedFactor : 1;
+  const braced = !sus && s.posture !== "prone" && t !== undefined && restWithinReach(navFor(ctx, "foot").grid, t.x, t.y) ? a.bracedFactor : 1;
   return settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;

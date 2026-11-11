@@ -193,7 +193,7 @@ export const ShootingFile = z.object({
      *  fades with the time constant settleTauS. */
     settleK: Num(0, 10), settleTauS: Num(0.1, 60),
     /** Bracing: kneeling or standing next to a wall, tree or other cover he rests the weapon on it. */
-    bracedFactor: Num(0.1, 1), bracedBelowExposure: Num(0, 1),
+    bracedFactor: Num(0.1, 1),
   }),
   fire: withProv({
     /** Rate of fire by range: the first band whose maxRangeM is not exceeded applies. */

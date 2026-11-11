@@ -185,7 +185,7 @@ export interface ShootingDef {
     postureFactor: Record<"standing" | "crouching" | "prone", number>;
     fatigueK: number; heartRateK: number; heartRateCalmBpm: number; suppressionK: number;
     rapidFactor: number; burstGrowth: number; sightFactor: Record<string, number>; rangeErrorFraction: number;
-    settleK: number; settleTauS: number; bracedFactor: number; bracedBelowExposure: number;
+    settleK: number; settleTauS: number; bracedFactor: number;
   };
   fire: {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];

@@ -26,10 +26,9 @@
     "settleK": 0.6,
     "settleTauS": 2,
     "bracedFactor": 0.8,
-    "bracedBelowExposure": 0.25,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: a regular soldier, prone, rested and calm, firing aimed single shots, hits a man-sized standing target about 50 % of the time at 300 m; training level scales it (conscript worse, veteran better). The base error (1.13 mrad at skill 0.5) is set so the firing range lab shows that. Posture, fatigue, heart-rate, suppression, rapid-fire and burst factors are game values to be tuned in the lab and in M4. Aiming time (M2 completion): the first shots at a new target are up to 60 % worse, settling within a few seconds. Bracing: kneeling or standing next to cover reduces the error by 20 %. Both are game values. Target movement is not in the error yet: fire is at a point until targets exist (M3/M4)."
+    "note": "Owner decision 2026-11-11: a regular soldier, prone, rested and calm, firing aimed single shots, hits a man-sized standing target about 50 % of the time at 300 m; training level scales it (conscript worse, veteran better). The base error (1.13 mrad at skill 0.5) is set so the firing range lab shows that. Posture, fatigue, heart-rate, suppression, rapid-fire and burst factors are game values to be tuned in the lab and in M4. Aiming time (M2 completion): the first shots at a new target are up to 60 % worse, settling within a few seconds. Bracing: kneeling or standing with a wall, fence, hedge or tree within about 2-3 m reduces the error by 20 %. Both are game values. Target movement is not in the error yet: fire is at a point until targets exist (M3/M4)."
   },
   "fire": {
     "bands": [

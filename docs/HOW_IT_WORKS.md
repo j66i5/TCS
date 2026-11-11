@@ -101,6 +101,21 @@ answers "no route" on the radio.
 
 In the app, the **Debug** button shows the grid: red = closed, orange = walls/fences/hedges, yellow = slow.
 
+## The soldier's body
+
+Each man has a **posture** (standing, crouching, prone). Changing it takes time: going prone takes about a
+second when lightly loaded, longer with a heavy load. Each pace has its posture (crawling is prone, sneaking is
+crouched), so a man ordered to crawl first goes down, then moves.
+
+His **speed** starts from the pace (walk 1.4 m/s, run 3.5 m/s ...) and is reduced by: the posture, the slope
+(uphill is slower; gentle downhill is fastest, as in a standard hiking formula), the weight he carries, how tired
+he is, and the ground (woods, ploughed fields, climbing walls).
+
+His **fatigue** (0 = fresh, 1 = spent) grows when he works harder than he can sustain — running, crawling,
+climbing, carrying a lot, in the heat — and recovers when he walks easy or rests. A loaded soldier running is
+clearly winded after two to three minutes and fresh again after about five minutes' rest. His **heart rate**
+follows his effort. The movement lab (`npm run lab -- movement`) prints a table of these numbers.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -130,7 +145,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 139 automated tests, including:
+- `npm test` runs 148 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -146,5 +161,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No postures or fatigue yet, no formations, no shooting, no wounds, no spotting (everyone sees everything), no real squad
+No formations, no shooting, no wounds, no spotting (everyone sees everything), no real squad
 organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.

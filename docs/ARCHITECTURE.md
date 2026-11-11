@@ -290,6 +290,14 @@ buildSpatialHash(state, cellM = 16); queryRadius(hash, state, x, y, r): EntityId
 Routes are assigned when a move order is delivered (`systems/orders.ts`) and stored as mover waypoints
 (state). Movement speed = mode speed / ground cost under the soldier. Weighted A* (x1.1), see DECISIONS.md.
 
+## 16b. Body model (SPEC 6.2, 6.4) — `sim/src/systems/body.ts`, `core/body.json`
+
+`SoldierState.posture`, `postureTo`, `postureDoneTick`; `physical.fatigue` (0..1), `physical.heartRateBpm`.
+`requestPosture`, `postureChangeSeconds(ctx, from, to, loadKg)`, `postureSystem`, `physiologySystem` (every
+tick: exertion from mover mode, load, uphill grade; heat from `environment.temperatureC`), `loadKg` (from counted
+items). Movement speed factors in `systems/movement.ts`. Order `{ kind: "posture", posture }`. Event
+`posture.changed`. Lab: `tools/src/labs/movement.ts`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -325,7 +333,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts | ✅ orders / 🟡 contacts M3 | `sim/test/orders.test.ts` "delayed by the comms model" |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
-| 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts | 🟡 state exists; no system reads it yet (movement must from M1) | — |
+| 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts, systems/body.ts | 🟡 fatigue reads temperature ✅; spotting (M3) and ballistics (M2) not yet | `sim/test/body.test.ts` "heat makes running more tiring" |
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

@@ -20,7 +20,7 @@ Acceptance:
 
 Slices: M0.1 (this session) — everything above in one slice.
 
-### M1 Map and movement — 🔨 in progress (M1.1, M1.2 done)
+### M1 Map and movement — 🔨 in progress (M1.1, M1.2, M1.3 done)
 Heightfield, terrain layers, procedural test maps, pathfinding, soldiers with postures and fatigue, squads in
 formation, camera and zoom, first order (move).
 Acceptance: a squad crosses a generated village map choosing covered routes; movement lab passes.
@@ -32,10 +32,10 @@ Proposed slices (to confirm at the start of M1):
    state stored as data.
 2. ✅ **M1.2 Navigation** (2026-11-11) — navigation grid with costs per movement mode (walk, run, sneak, crawl; wheeled and
    tracked reserved), A* pathfinding, spatial hash for neighbourhood queries, path debug overlay.
-3. ⏳ **M1.3 The individual soldier moving** — postures with change times; speed from mode, slope, surface and
+3. ✅ **M1.3 The individual soldier moving** (2026-11-11) — postures with change times; speed from mode, slope, surface and
    load mass; fatigue and heart rate rising and recovering (reading temperature from the environment);
    movement & fatigue lab with tables.
-4. **M1.4 Squads in formation** — formations as data, men choosing covered positions near their slot,
+4. ⏳ **M1.4 Squads in formation** — formations as data, men choosing covered positions near their slot,
    waypoint chains with a mode per leg, camera zoom levels (close / tactical / overview). Acceptance demo:
    squad crosses the village on covered routes; screenshots.
 

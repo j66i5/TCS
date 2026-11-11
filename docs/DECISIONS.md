@@ -258,3 +258,19 @@ running in the open is **clearly winded after about 2–3 minutes** and recovers
 **Load counts from now**: the mass of the counted items a man carries slows him and tires him already in M1.3;
 real equipment weights arrive with the weapons data in M2. The owner also asked that all questions to him be
 clickable multiple choice from now on (recorded in CLAUDE.md).
+
+## 2026-11-11 — M1.3 body model: postures, speed factors, fatigue and heart rate
+All numbers live in `core/body.json`. **Postures** change over data-driven times (standing->prone 1.0 s,
+prone->standing 1.5 s, standing<->crouching ~0.5 s) multiplied by 1 + 0.02 per kg above 10 kg (owner: slower
+with load); a man does not move while changing posture, and each movement mode carries its posture (crawl =
+prone, sneak = crouching). **Speed** = mode speed x posture factor x slope factor (Tobler's hiking function,
+fastest about 5 % downhill) x load factor (-0.6 % per kg above 10 kg, floor 50 %) x fatigue factor
+(-35 % at full fatigue; hard paces halved when exhausted) / ground cost. **Fatigue** builds when the work rate
+(mode exertion x (1 + 0.8 load/body mass) x (1 + 4 x uphill grade)) exceeds a sustainable 0.35 and recovers
+below it; heat above 25 °C speeds the build-up (environment read by fatigue, SPEC 9.7). Rates were chosen so the
+lab shows the owner's choice: loaded running -> fatigue ~0.65 at 150 s, recovered after 5 min rest; loaded
+walking is sustainable. **Heart rate** approaches a target from exertion and fatigue (rise 20 s, fall 45 s).
+**Load**: a 24 kg "basic fighting load" item per German and Russian soldier stands in for helmet, armour,
+webbing, water and rations until M2 itemises kit (flagged low confidence). Physiology runs every tick (cheap);
+benchmark 35x real time. Golden replays regenerated (state gained posture/physiology changes and load).
+Rejected: an energy-expenditure model in watts (more parameters than the game needs now).

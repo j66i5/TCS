@@ -6,7 +6,8 @@
       "speedFactor": 1.0,
       "sources": [],
       "confidence": "low",
-      "note": "Rough adult standing height; game value."
+      "note": "Rough adult standing height; game value.",
+      "muzzleHeightM": 1.45
     },
     {
       "id": "crouching",
@@ -14,7 +15,8 @@
       "speedFactor": 0.6,
       "sources": [],
       "confidence": "low",
-      "note": "Game value: crouched movement is slower than upright."
+      "note": "Game value: crouched movement is slower than upright.",
+      "muzzleHeightM": 0.95
     },
     {
       "id": "prone",
@@ -22,7 +24,8 @@
       "speedFactor": 0.25,
       "sources": [],
       "confidence": "low",
-      "note": "Game value: only crawling is possible when prone."
+      "note": "Game value: only crawling is possible when prone.",
+      "muzzleHeightM": 0.25
     }
   ],
   "transitions": {

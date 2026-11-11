@@ -76,14 +76,20 @@ try {
     await page.waitForTimeout(300);
     const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-40s-debug.png`;
     await page.screenshot({ path: p1 }); shots.push(p1);
-    // Projectile drawing: a fan of test bullets from the blue team, a few ticks into their flight, in the
-    // normal view (tracers clear, other bullets very faint) and in the debug view (all clear).
-    await page.evaluate(new Function("const t = globalThis.__tcs; t.setDebug(false); t.debugVolley(40); t.stepTicks(9);") as () => void);
+    // Shooting: the blue team goes prone and fires (a real fire order) at a point 250 m to the east; the picture
+    // is taken about 12 s into the firing, in the normal view (tracers clear, other bullets very faint).
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setDebug(false); t.posture("prone"); t.stepTicks(240);
+      const s = t.sim.state; let x = 0, y = 0, n = 0;
+      for (const [id, i] of s.identity.entries()) if (i.side === "blue") { const p = s.transform.req(id); x += p.x; y += p.y; n++; }
+      t.fireAt(x / n + 250, y / n + 20); t.stepTicks(60 * 12);
+      // stop on a tick just after a shot, with at least two rounds in the air
+      const justFired = () => { for (const [, w] of s.weapon.entries()) if (w.lastShotTick >= s.tick - 2) return true; return false; };
+      for (let k = 0; k < 900 && !(s.projectiles.count >= 2 && justFired()); k++) t.stepTicks(1);`) as () => void);
     await page.waitForTimeout(300);
-    const p2 = `${outDir}/${mapKind}-${seed}-${name}-2-volley.png`;
+    const p2 = `${outDir}/${mapKind}-${seed}-${name}-2-firing.png`;
     await page.screenshot({ path: p2 }); shots.push(p2);
-    const info = await page.evaluate(new Function("const t = globalThis.__tcs; return { tick: t.sim.state.tick, hash: t.hash(), orders: t.orderLog.length };") as () => { tick: number; hash: string; orders: number });
-    console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+    const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; let rounds = 0, prone = 0; for (const [, w] of s.weapon.entries()) rounds += w.magazine ? w.magazine.rounds : 0; for (const [, m] of s.soldier.entries()) if (m.posture === 'prone') prone++; return { tick: s.tick, hash: t.hash(), orders: t.orderLog.length, inFlight: s.projectiles.count, loaded: rounds, prone, tasks: s.fire.size };") as () => { tick: number; hash: string; orders: number; inFlight: number; loaded: number; prone: number; tasks: number });
+    console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, bullets in flight ${info.inFlight}, rounds in weapons ${info.loaded}, men prone ${info.prone}, fire tasks ${info.tasks}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }
   await browser.close();

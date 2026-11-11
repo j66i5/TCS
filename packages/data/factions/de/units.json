@@ -11,40 +11,64 @@
           "rank": "unteroffizier",
           "load": [
             {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
               "item": "de-basic-load",
               "count": 1
             }
-          ]
+          ],
+          "weapon": "de-g36"
         },
         {
           "role": "rifleman",
           "rank": "obergefreiter",
           "load": [
             {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
               "item": "de-basic-load",
               "count": 1
             }
-          ]
+          ],
+          "weapon": "de-g36"
         },
         {
           "role": "rifleman",
           "rank": "gefreiter",
           "load": [
             {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
               "item": "de-basic-load",
               "count": 1
             }
-          ]
+          ],
+          "weapon": "de-g36"
         },
         {
           "role": "rifleman",
           "rank": "gefreiter",
           "load": [
             {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
               "item": "de-basic-load",
               "count": 1
             }
-          ]
+          ],
+          "weapon": "de-g36"
         }
       ],
       "subunits": [],

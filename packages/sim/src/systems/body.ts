@@ -18,7 +18,16 @@ import type { SimState } from "../state";
 /** Mass of everything a soldier carries, kg. */
 export function loadKg(ctx: SimContext, state: SimState, id: EntityId): number {
   const c = state.container.get(id);
-  return c ? containerMassKg(ctx.catalog, c) : 0;
+  let kg = c ? containerMassKg(ctx.catalog, c) : 0;
+  const w = state.weapon.get(id);
+  if (w) {
+    kg += ctx.catalog.weapons[w.weapon]?.massKg ?? 0;
+    if (w.magazine) {
+      const d = ctx.catalog.items[w.magazine.item];
+      if (d) kg += d.massKg + w.magazine.rounds * (d.chargeMassKg ?? 0);
+    }
+  }
+  return kg;
 }
 
 /** Seconds to go from one posture to another with a given load (owner decision: slower when loaded). */

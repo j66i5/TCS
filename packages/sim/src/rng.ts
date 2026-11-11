@@ -28,6 +28,7 @@ export const Streams = {
   ai: "ai",
   comms: "comms",
   movement: "movement",
+  fire: "fire",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

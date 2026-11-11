@@ -26,6 +26,8 @@ export interface SoldierRecord {
   rank: DefId;
   role: DefId;
   skills: Record<string, number>;
+  /** Personal weapon (catalog weapon ID); its magazines are items in `load`. */
+  weapon?: DefId;
   /** Carried-over condition. */
   fatigue: number;
   stress: number;

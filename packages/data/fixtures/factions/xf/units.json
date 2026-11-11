@@ -15,7 +15,8 @@
               "count": 4,
               "charge": 20
             }
-          ]
+          ],
+          "weapon": "xf-blaster"
         },
         {
           "role": "porter",
@@ -30,7 +31,8 @@
               "item": "xf-crate",
               "count": 1
             }
-          ]
+          ],
+          "weapon": "xf-blaster"
         },
         {
           "role": "porter",
@@ -41,7 +43,8 @@
               "count": 2,
               "charge": 7
             }
-          ]
+          ],
+          "weapon": "xf-blaster"
         }
       ],
       "subunits": [],

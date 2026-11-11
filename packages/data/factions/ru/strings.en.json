@@ -30,5 +30,9 @@
   "ammo.ru-545-7n10": "5.45 mm 7N10 ball",
   "ammo.ru-545-7t3": "5.45 mm 7T3 tracer",
   "weapon.ru-ak74m": "AK-74M",
-  "item.ru-ak74-mag": "AK-74 magazine (30)"
+  "item.ru-ak74-mag": "AK-74 magazine (30)",
+  "radio.ack.fire": "{callsign}: understood, opening fire.",
+  "radio.ack.ceaseFire": "{callsign}: understood, ceasing fire.",
+  "radio.noTarget": "{callsign}: no targets, fire ceased.",
+  "radio.lowAmmo": "{callsign}: ammunition running low."
 }

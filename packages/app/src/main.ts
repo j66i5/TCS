@@ -9,7 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { wanderController } from "@tcs/ai";
 import {
-  buildSpatialHash, createSim, DT, heightAt, launchProjectile, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
+  buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
@@ -46,6 +46,7 @@ async function main(): Promise<void> {
 
   let speed = 1;
   let moveMode = "walk";
+  let tapMode: "move" | "fire" = "move";
   /** Undefined until the player picks one: then the faction's doctrine default applies. */
   let formation: string | undefined;
   const kinds = [...MAP_KINDS, "flat"];
@@ -62,6 +63,10 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onMoveMode: (m) => { moveMode = m; },
+    onTapMode: (m) => { tapMode = m; },
+    onCeaseFire: () => {
+      if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "ceaseFire" });
+    },
     onFormation: (f) => { formation = f; },
     onPosture: (p) => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
@@ -103,6 +108,10 @@ async function main(): Promise<void> {
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
+      if (tapMode === "fire") {
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
+        return;
+      }
       issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], ...(formation ? { formation } : {}) });
     },
   });
@@ -135,27 +144,8 @@ async function main(): Promise<void> {
     sim,
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
-    /**
-     * SCREENSHOT TOOL ONLY: puts a fan of bullets in the air from the player's men so the projectile drawing can
-     * be checked. It bypasses orders on purpose and is not reachable from the game's controls; soldiers
-     * shoot through real orders from M2.2.
-     */
-    debugVolley: (rounds = 40) => {
-      const ammoIds = input.catalog.ammoIds;
-      const ball = ammoIds.find((id) => !input.catalog.ammo[id]!.tracer) ?? ammoIds[0];
-      const tracer = ammoIds.find((id) => input.catalog.ammo[id]!.tracer) ?? ball;
-      if (!ball || !tracer) return;
-      let k = 0;
-      for (const [id, ident] of sim.state.identity.entries()) {
-        if (ident.side !== playerSide) continue;
-        const t = sim.state.transform.req(id);
-        const z = heightAt(input.map, t.x, t.y) + 1.4;
-        for (let r = 0; r < rounds; r++, k++) {
-          const a = t.heading + ((k * 37) % 21 - 10) * 0.012, el = ((k * 13) % 7 - 2) * 0.004, v = 880 - (r % 5) * 25;
-          launchProjectile(sim.ctx, sim.state, r % 4 === 0 ? tracer : ball, t.x, t.y, z, v * Math.cos(a), v * Math.sin(a), v * Math.sin(el), id);
-        }
-      }
-    },
+    fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
+    posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },

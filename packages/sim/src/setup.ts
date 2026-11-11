@@ -5,7 +5,8 @@
 import type { BattleInput, SoldierRecord, UnitInput } from "./battle";
 import type { SoldierState } from "./components";
 import type { EntityId, SideId, DefId } from "./ids";
-import { addItems, emptyContainer } from "./items";
+import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import type { Catalog } from "./catalog";
 import { createState, newEntity, type SimState } from "./state";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
@@ -18,8 +19,7 @@ export function buildInitialState(input: BattleInput): SimState {
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);
     state.sides.push({ id: force.side, faction: force.faction });
     const placements = new Map(force.placements.map((p) => [p.personId, p]));
-    const hrRest = input.catalog.body.physiology.hrRestBpm;
-    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, hrRest);
+    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, input.catalog);
   }
   return state;
 }
@@ -31,7 +31,7 @@ function addUnit(
   side: SideId,
   faction: DefId,
   placements: Map<string, { x: number; y: number; heading: number }>,
-  hrRest: number,
+  catalog: Catalog,
 ): EntityId {
   const id = newEntity(state);
   state.unit.set(id, {
@@ -45,14 +45,15 @@ function addUnit(
     leader: null,
     comms: { link: "radio", extraDelaySeconds: 0 },
     moving: false,
+    firing: false,
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {
-    const sid = addSoldier(state, rec, id, side, faction, placements, hrRest);
+    const sid = addSoldier(state, rec, id, side, faction, placements, catalog);
     unit.members.push(sid);
     if (i === u.leaderIndex) unit.leader = sid;
   });
-  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, hrRest));
+  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog));
   return id;
 }
 
@@ -63,7 +64,7 @@ function addSoldier(
   side: SideId,
   faction: DefId,
   placements: Map<string, { x: number; y: number; heading: number }>,
-  hrRest: number,
+  catalog: Catalog,
 ): EntityId {
   const id = newEntity(state);
   const p = placements.get(rec.personId);
@@ -85,7 +86,7 @@ function addSoldier(
     posture: "standing",
     postureTo: null,
     postureDoneTick: 0,
-    physical: { fatigue: rec.fatigue, heartRateBpm: hrRest, hydration: 1, winded: false },
+    physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
     mental: { stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady" },
     physiology: healthyPhysiology(),
     wounds: rec.wounds.map((w) => ({ ...w, treatments: [...w.treatments] })),
@@ -95,6 +96,18 @@ function addSoldier(
   const c = emptyContainer();
   for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
   state.container.set(id, c);
+  if (rec.weapon !== undefined) {
+    const wd = catalog.weapons[rec.weapon];
+    if (!wd) throw new Error(`soldier ${rec.personId}: unknown weapon '${rec.weapon}'`);
+    // He starts with his fullest magazine in the weapon.
+    const mag = removeItems(c, wd.feed.magazine, 1)[0];
+    state.weapon.set(id, {
+      weapon: rec.weapon,
+      magazine: mag && (mag.charge ?? 0) > 0 ? { item: mag.type, rounds: mag.charge ?? 0 } : null,
+      nextShotTick: 0, burstLeft: 0, burstIndex: 0, jammed: false, lastShotTick: -100000, lowAmmoReported: false,
+    });
+    if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
+  }
   return id;
 }
 
@@ -103,6 +116,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
   const ident = state.identity.req(id);
   const s = state.soldier.req(id);
   const c = state.container.get(id);
+  const w = state.weapon.get(id);
   const status: SoldierRecord["status"] = !s.physiology.alive
     ? "killed"
     : s.mental.behaviour === "incapacitated"
@@ -120,7 +134,9 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     fatigue: s.physical.fatigue,
     stress: s.mental.stress,
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
-    load: c ? c.stacks.map((x) => ({ ...x })) : [],
+    // The magazine in the weapon goes back into the load, so nothing is lost between battles.
+    load: loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null),
+    ...(w ? { weapon: w.weapon } : {}),
     status,
   };
 }
@@ -139,4 +155,12 @@ export function unitsFromState(state: SimState, side: SideId, template: UnitInpu
     subunits: u.subunits.map(rebuild),
   });
   return template.map(rebuild);
+}
+
+function loadWithMagazine(stacks: ItemStack[], mag: { item: DefId; rounds: number } | null): ItemStack[] {
+  if (!mag) return stacks;
+  const same = stacks.find((s) => s.type === mag.item && s.charge === mag.rounds);
+  if (same) same.count++;
+  else stacks.push({ type: mag.item, count: 1, charge: mag.rounds });
+  return stacks.sort((a, b) => (a.type !== b.type ? (a.type < b.type ? -1 : 1) : (a.charge ?? -1) - (b.charge ?? -1)));
 }

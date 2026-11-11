@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, Identity, Mover, SoldierState, TerrainState, Transform, Unit } from "./components";
+import type { Action, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
@@ -33,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 4;
+export const STATE_SCHEMA_VERSION = 5;
 
 export interface SideState {
   id: SideId;
@@ -66,9 +66,11 @@ export interface SimState {
   unit: Store<Unit>;
   container: Store<Container>;
   action: Store<Action>;
+  weapon: Store<WeaponState>;
+  fire: Store<FireTask>;
 }
 
-const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action"] as const;
+const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
 export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
@@ -93,6 +95,8 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     unit: new Store(),
     container: new Store(),
     action: new Store(),
+    weapon: new Store(),
+    fire: new Store(),
   };
 }
 
@@ -192,6 +196,8 @@ export function deserializeState(data: SerializedState): SimState {
     unit: st("unit") as Store<Unit>,
     container: st("container") as Store<Container>,
     action: st("action") as Store<Action>,
+    weapon: st("weapon") as Store<WeaponState>,
+    fire: st("fire") as Store<FireTask>,
   };
 }
 

@@ -13,6 +13,7 @@ import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
 import { buildBallistics } from "./ballistics";
 import { projectileSystem } from "./systems/ballistics";
+import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { buildInitialState } from "./setup";
 import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
@@ -34,7 +35,7 @@ export function createContext(input: BattleInput): SimContext {
   const mapIndex = buildMapIndex(input.map);
   return {
     catalog: input.catalog, map: input.map, mapIndex, mapFingerprint: mapFingerprint(input.map), nav: {},
-    ballistics: buildBallistics(input.map, input.catalog, mapIndex, TICK_HZ),
+    ballistics: buildBallistics(input.map, input.catalog, mapIndex, TICK_HZ), dropTables: {},
     rules: input.rules, comms, physiology: null,
   };
 }
@@ -76,7 +77,9 @@ export function step(sim: Sim): SimEvent[] {
   postureSystem(ctx, state, events);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
+  fireSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
+  incomingFireSystem(ctx, state, events.events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

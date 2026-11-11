@@ -157,3 +157,46 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     maxAgeTicks: Math.round(b.maxFlightSeconds * tickHz),
   };
 }
+
+/** Step between entries of a drop table, m. */
+const DROP_STEP_M = 10;
+
+/**
+ * Drop below the line of departure at each 10 m of range for a bullet fired level at `v0` in standard air
+ * (what a soldier's sights and training assume). Built once per ammunition and muzzle velocity.
+ */
+export function buildDropTable(catalog: Catalog, ammoId: string, v0: number, maxRangeM = 1500): Float32Array {
+  const a = catalog.ammo[ammoId];
+  const out = new Float32Array(Math.floor(maxRangeM / DROP_STEP_M) + 1);
+  if (!a) return out;
+  const b = catalog.ballistics;
+  const k = ((PI * a.diameterM * a.diameterM) / 4 / (2 * a.projectileMassKg)) * b.airDensityKgM3;
+  const dt = 1 / 240;
+  let x = 0, z = 0, vx = v0, vz = 0, next = 1;
+  while (next < out.length) {
+    const v = sqrt(vx * vx + vz * vz);
+    if (v < b.minSpeedMps) break;
+    const cdv = Math.min(a.drag.max * v, a.drag.a * v + a.drag.b);
+    const f = k * cdv * dt;
+    vx -= f * vx; vz -= f * vz + b.gravityMps2 * dt;
+    const px = x, pz = z;
+    x += vx * dt; z += vz * dt;
+    while (next < out.length && x >= next * DROP_STEP_M) {
+      const t = (next * DROP_STEP_M - px) / (x - px);
+      out[next] = -(pz + t * (z - pz));
+      next++;
+    }
+  }
+  for (; next < out.length; next++) out[next] = out[next - 1]! + 50; // beyond the bullet's reach
+  return out;
+}
+
+/** Drop (m, positive) at `rangeM` for this ammunition and muzzle velocity; table cached in the battle context. */
+export function dropAt(ctx: { catalog: Catalog; dropTables: Record<string, Float32Array> }, ammoId: string, v0: number, rangeM: number): number {
+  const key = `${ammoId}@${v0}`;
+  let t = ctx.dropTables[key];
+  if (!t) { t = buildDropTable(ctx.catalog, ammoId, v0); ctx.dropTables[key] = t; }
+  const f = Math.min(Math.max(rangeM / DROP_STEP_M, 0), t.length - 1.001);
+  const i = Math.floor(f);
+  return t[i]! + (t[i + 1]! - t[i]!) * (f - i);
+}

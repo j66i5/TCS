@@ -406,3 +406,15 @@ tests and the screenshot tool (in battles only weapon systems will call it, from
 customary units where the sources do (mm of steel, degrees, rounds per minute, milliradians), named with their
 unit and converted when the battle tables are built. Golden replays were regenerated for M2.1 (new data files
 and state shape) and again for these fixes (data values).
+
+## 2026-11-11 — Owner answers for M2.2 (the shooter)
+**Marksmanship:** a regular soldier, prone, rested and calm, firing aimed single shots, hits a man-sized
+standing target about 50 % of the time at 300 m, and this depends on training level (conscripts worse,
+veterans better). **Rate of fire:** depends on range (aimed single shots every 2–3 s beyond about 100 m, about
+one shot a second closer, short bursts inside about 30 m). **Fire order:** lasts until cease fire, but with
+**ammunition-management authority**: if the unit no longer expects an enemy it slows and then ceases fire by
+itself. Until spotting exists (M3) "expects an enemy" is judged by incoming fire near the unit: 30 s at the
+ordered rate, then one aimed shot per man every 10 s for 60 s, then cease fire and report; incoming fire
+restores the full rate; each man stops when only the magazine in his weapon is left. **Magazines:** men top up
+in lulls already now (swap a partly used magazine for a fuller one after a few seconds without firing).
+Loads from the research: five G36 magazines per German rifleman, six AK-74 magazines (180 rounds) per Russian.

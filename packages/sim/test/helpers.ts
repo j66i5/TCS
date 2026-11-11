@@ -28,7 +28,7 @@ export const testCatalog: Catalog = {
   },
   ballistics: {
     gravityMps2: 9.80665, airDensityKgM3: 1.225, referenceTempC: 15, penetrationVelocityExponent: 1.5, penetrationDeflectionDeg: 6,
-    ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 12,
+    ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 18,
     blast: { severeScaledM: 3, injuryScaledM: 6, stunScaledM: 25, stunSeconds: 4, craterScaledM: 0.6, breachSteelMmScaled: 15, breachReachScaledM: 2.5, breachWidthScaledM: 2.5, shieldSteelMm: 5 },
     fragments: { bandDeg: [-3, 40], maxPerBurst: 6500, airburstAboveM: 0.3, clutterHeightM: 0.25, clutterStopPerM: 0.15 },
     bounce: { restitution: 0.35, tangentKeep: 0.6, softFactor: 0.6, vegetationFactor: 0.6, softBelowDensityKgM3: 1800, stopSpeedMps: 1.2 },

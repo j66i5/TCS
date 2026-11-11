@@ -205,7 +205,8 @@ meanwhile does not throw and keeps the grenade. Then the grenade flies as a proj
 error that grows with distance.
 
 The thrower picks his throw: normally a lob, but a flat throw under a ceiling or through a window, or a high
-one over a wall, if the lob would hit something. A hand grenade has a time fuse: it bounces and rolls a little
+one over a wall, if the lob would hit something; if nothing would get it there he does not throw and says so. After
+throwing he gets down. A hand grenade has a time fuse: it bounces and rolls a little
 after landing (further on hard ground), comes back off a wall, and bursts when the seconds are up. Men who have
 it land near them throw themselves flat; a man within about three metres runs from it first. A launcher round bursts when it strikes, provided it
 has flown far enough to arm; otherwise it is a dud.
@@ -247,7 +248,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 263 automated tests, including:
+- `npm test` runs 269 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

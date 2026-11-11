@@ -374,8 +374,9 @@ the edge can be struck.
 - **Bounce:** `settle()` in the projectile system reflects a time-fuse grenade off the surface it struck
   (`ballistics.bounce` in data, softer per material and in vegetation) until it is slow enough to rest; each
   contact emits `grenade.landed { x, y, z, burstTick }`.
-- **Arc choice:** `release()` tries the data's throw angles with `arcClear` (walls via `lineBlocked`, roofs via
-  `roofAt`), the launcher its flat then high arc.
+- **Arc choice:** `release()` tries the data's throw angles with `arcLanding` (walls via `lineBlocked`, roofs
+  via `roofAt`; an arc is good only if it comes down near the point with nothing between), the launcher its
+  flat then high arc; with no good arc nothing is released (`radio.grenadeBlocked`).
 - **Reaction:** `grenadeReactionSystem` (after the projectile pass) turns `grenade.landed` into
   `SoldierState.evade { x, y, startTick, untilTick, run }` (plain state, saved); `evadeSystem` (before
   movement) runs the man away or drops him flat; movement and fire skip a man while he evades. The order

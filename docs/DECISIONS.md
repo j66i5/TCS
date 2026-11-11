@@ -642,3 +642,27 @@ the grenade (who sees what is M3). This is the first self-initiated behaviour; M
 **Not done / still open:** grenades are not thrown back or kicked away; a runner does not look for cover, he
 just runs away in a straight line and stops at an obstacle; the performance of big volleys is unchanged per
 burst (staggering only spreads them).
+
+## 2026-11-11 — Fixes from the independent M2.4b review (goldens regenerated)
+No rule, save/load or determinism problems (4,000 bounced grenades: none through a wall, none gaining speed,
+none resting in mid-air; 33 mid-action saves replayed identically). Fixed, each with a test:
+**a launcher round fired on the high arc vanished** (the flight outlasted the 12 s limit, or no high shot
+could reach so near a point): the longest flight is now 18 s, an impact-fuse round still flying then destroys
+itself instead of disappearing, and an arc is only accepted if it really comes down at the point.
+**"Over the wall" mostly fell short** of a wall just in front of the point: an arc now counts only if it comes
+down unobstructed near the point with no wall between; the thrower first tries aiming a little short (for the
+roll), then straight at the point (14+ of 20 throws now land beyond a wall 1.5 m in front of the point, before
+about 3). **No blind throws:** if no arc is good (closed room, lintel in the way) the man does not throw, keeps
+the grenade and reports "no clear throw" — before, he lobbed into his own ceiling and was wounded 29 times in
+30. **A second grenade was ignored** by a man already reacting to the first: a nearer threat now takes over
+(also the same grenade rolling toward him), and he stays down until the later burst is over. **Men behind a
+brick wall ran when a grenade struck that wall** (the contact was reported on the wall line): it is reported
+just off the wall on the thrower's side. **After running, a man walked straight back to his old route**,
+through a house if one was in the way: he now finds a way back and leaves his formation slot. A man who is
+evading is not picked for a new grenade order, and whatever he is doing with his hands is broken off. **The
+thrower drops flat after throwing** (his own fragments reach further than he throws; added because the
+review saw throwers wounded at every short distance).
+**Recorded, not changed:** a posture order given while a man is diving is lost; ground clutter also applies
+on roads and floors; the arc solver ignores wind (a 10 m/s head wind costs about 1.5 m); on slopes steeper
+than 60 degrees a grenade keeps skipping until it bursts; a regular lying prone cannot throw at all (11 m
+range against the 12 m safety distance) — the owner may want to change one of the two numbers.

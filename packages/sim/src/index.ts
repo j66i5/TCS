@@ -15,7 +15,7 @@ export { launchProjectile } from "./systems/ballistics";
 export { aimErrorMrad, skillFactor } from "./systems/fire";
 export { resolveBodyHit, refreshStatus, applyBlast } from "./systems/wounds";
 export { detonate, syncTerrainDamage } from "./systems/explosions";
-export { arcClear, arcRangeM, grenadeOption, throwRangeM } from "./systems/grenades";
+export { arcLanding, arcRangeM, grenadeOption, throwRangeM } from "./systems/grenades";
 export * from "./impair";
 export * from "./hash";
 export * from "./store";

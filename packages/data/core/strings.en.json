@@ -109,5 +109,6 @@
   "zone.legR": "right leg",
   "radio.ack.grenade": "{callsign}: grenade!",
   "app.tapGrenade": "tap: 1 grenade",
-  "app.tapGrenades": "tap: all grenades"
+  "app.tapGrenades": "tap: all grenades",
+  "radio.grenadeBlocked": "{callsign}: no clear throw!"
 }

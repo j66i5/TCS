@@ -59,7 +59,8 @@ function settle(
     if (vn > 0) vn = 0;
     const e = BN.restitution * soft, k = BN.tangentKeep * soft;
     const bx = (vx - vn * nx) * k - e * vn * nx, by = (vy - vn * ny) * k - e * vn * ny, bz = (vz - vn * nz) * k - e * vn * nz;
-    events.emit({ kind: "grenade.landed", tick, x: hx, y: hy, z: hz, ammo: am.id, burstTick: P.bornTick[i]! + am.fuseTicks });
+    // (Reported just off the surface, on the side it came from: a man beyond the wall it struck is behind that wall.)
+    events.emit({ kind: "grenade.landed", tick, x: hx + nx * 0.1, y: hy + ny * 0.1, z: hz + nz * 0.1, ammo: am.id, burstTick: P.bornTick[i]! + am.fuseTicks });
     if (bx * bx + by * by + bz * bz < BN.stopSpeedMps * BN.stopSpeedMps) {
       // Too slow to bounce again: on the ground it lies still; off a wall or ceiling it just drops.
       P.x[i] = hx + nx * 0.05; P.y[i] = hy + ny * 0.05; P.z[i] = hz + nz * 0.05;
@@ -173,7 +174,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     const speed2 = vx * vx + vy * vy + vz * vz;
     // Spent: too slow at the START of the tick (a light fragment may still wound early in its last tick).
     if ((rs * rs < am.minSpeed2 && !am.explosive) || tick - BORN[i]! > maxAge) {
-      remove(P, i); // spent
+      // Spent. An impact-fuse round still in the air after that long destroys itself (it never just vanishes).
+      if (am.explosive && am.fuseTicks === 0) queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!);
+      remove(P, i);
       continue;
     }
     // Leaving the map this tick: fly only as far as the edge (it may still strike something on the way),

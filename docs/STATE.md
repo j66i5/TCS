@@ -66,7 +66,7 @@ the owner's two squad tables first (research in `docs/research/squads.md`). Ask 
   clear (works indoors and through openings); small folds in the ground stop low fragments, so lying down
   protects more; an order can ask for several grenades, thrown a moment apart ("tap: all grenades"); men near a
   landing grenade drop flat, or run from it if it is within 3 m.
-- Tests: 263, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 269, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

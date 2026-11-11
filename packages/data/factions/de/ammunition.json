@@ -1,0 +1,60 @@
+{
+  "ammunition": [
+    {
+      "id": "de-556-dm11",
+      "nameKey": "ammo.de-556-dm11",
+      "calibre": "5.56x45",
+      "kind": "ball",
+      "projectileMassKg": 0.004,
+      "cartridgeMassKg": 0.0123,
+      "diameterM": 0.0057,
+      "drag": {
+        "a": 0.061,
+        "b": 193,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 3.5,
+        "atVelocityMps": 425
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://men-defencetec.de/de/produkt/5-56-mm-x-45-nato-ball-doppelkern-dm11-a1/",
+        "https://www.rws-technology.com/en/armed-forces-law-enforcement/product/556x45-nato-ball-ss109-62gr-2422469",
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm",
+        "https://forum.cartridgecollectors.org/t/223-5-56-id-reason-for-green-tip/37004"
+      ],
+      "confidence": "medium",
+      "note": "Drag curve fitted to the published SS109 downrange velocities (914 -> 451 m/s at 500 m). Penetration: 3.5 mm mild steel at 570-640 m (about 425 m/s). Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "de-556-dm21",
+      "nameKey": "ammo.de-556-dm21",
+      "calibre": "5.56x45",
+      "kind": "tracer",
+      "projectileMassKg": 0.0041,
+      "cartridgeMassKg": 0.0123,
+      "diameterM": 0.0057,
+      "drag": {
+        "a": 0.07,
+        "b": 200,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 2.5,
+        "atVelocityMps": 425
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://rws-technology.com/en/armed-forces-law-enforcement/product/556mmx45-dm21a1-weichkern-leuchtspur-63gr-2318982"
+      ],
+      "confidence": "medium",
+      "note": "Soft-core tracer: mass and burn distance from the manufacturer; drag slightly above ball and reduced penetration are game values. See docs/research/ballistics.md (values from search extracts of the cited pages).",
+      "tracerBurnoutM": 600
+    }
+  ]
+}

@@ -20,16 +20,30 @@ export const testCatalog: Catalog = {
     fa: { id: "fa", nameKey: "fa", doctrine: { preferredSpacingM: 5, coverPreference: 0 }, defaultFormation: "line" },
     fb: { id: "fb", nameKey: "fb", doctrine: { preferredSpacingM: 5, coverPreference: 0 }, defaultFormation: "line" },
   },
+  ballistics: {
+    gravityMps2: 9.80665, airDensityKgM3: 1.225, referenceTempC: 15, penetrationVelocityExponent: 1.5, penetrationDeflectionDeg: 6,
+    ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 12,
+  },
+  ammo: {
+    ball: { id: "ball", calibre: "5.56x45", kind: "ball", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 3.5, atVelocityMps: 425 }, tracer: false, fuse: "none", guidance: "unguided" },
+  },
+  ammoIds: ["ball"],
+  weapons: {},
   formations: {
     line: { id: "line", slots: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0]] },
     wedge: { id: "wedge", slots: [[0, 0], [-0.71, 0.71], [0.71, 0.71], [-1.42, 1.42], [1.42, 1.42]] },
     file: { id: "file", slots: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
   },
   terrain: {
-    materials: { brick: { id: "brick", densityKgM3: 1900, resistance: 0.08, hardness: 0.5 } },
+    materials: {
+      brick: { id: "brick", densityKgM3: 1900, resistance: 0.1, ricochetAngleDeg: 11 },
+      soil: { id: "soil", densityKgM3: 1600, resistance: 0.07, ricochetAngleDeg: 8 },
+      wood: { id: "wood", densityKgM3: 550, resistance: 0.012, ricochetAngleDeg: 11 },
+      steel: { id: "steel", densityKgM3: 7850, resistance: 1, ricochetAngleDeg: 15 },
+    },
     surfaces: {
-      grass: { id: "grass", moveCost: { foot: 1, wheeled: 1.4, tracked: 1.1 }, noise: 0.2, dust: 0.1, colour: "#6f8f4a" },
-      water: { id: "water", moveCost: { foot: null, wheeled: null, tracked: null }, noise: 0, dust: 0, colour: "#36576b" },
+      grass: { id: "grass", moveCost: { foot: 1, wheeled: 1.4, tracked: 1.1 }, noise: 0.2, dust: 0.1, colour: "#6f8f4a", material: "soil" },
+      water: { id: "water", moveCost: { foot: null, wheeled: null, tracked: null }, noise: 0, dust: 0, colour: "#36576b", material: "soil" },
     },
     vegetation: { wood: { id: "wood", heightM: 15, concealmentPerM: 0.06, stoppingPerM: 0.004, moveCost: { foot: 1.25, wheeled: null, tracked: 3 }, colour: "#2f4a26" } },
     obstacles: { wall: { id: "wall", heightM: 2, thicknessM: 0.25, material: "brick", seeThrough: 0, footCrossTimeS: 6, wheeledCrossable: false, trackedCrossable: true, colour: "#8a5a44" } },

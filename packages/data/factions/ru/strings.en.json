@@ -26,5 +26,9 @@
   "rank.ru.starshiy-leytenant": "Starshiy leytenant",
   "rank.ru.starshiy-leytenant.abbr": "St. lt.",
   "radio.noRoute": "{callsign}: cannot get through there, holding position.",
-  "item.ru-basic-load": "Basic fighting load"
+  "item.ru-basic-load": "Basic fighting load",
+  "ammo.ru-545-7n10": "5.45 mm 7N10 ball",
+  "ammo.ru-545-7t3": "5.45 mm 7T3 tracer",
+  "weapon.ru-ak74m": "AK-74M",
+  "item.ru-ak74-mag": "AK-74 magazine (30)"
 }

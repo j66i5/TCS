@@ -87,5 +87,6 @@
   "formation.wedge": "wedge",
   "formation.file": "file",
   "formation.line": "line",
-  "app.formation": "Formation"
+  "app.formation": "Formation",
+  "material.water": "Water"
 }

@@ -8,6 +8,20 @@
       "sources": [],
       "confidence": "low",
       "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2 itemises weapons and kit. Owner decision 2026-11-11: load counts from M1.3."
+    },
+    {
+      "id": "ru-ak74-mag",
+      "nameKey": "item.ru-ak74-mag",
+      "category": "magazine",
+      "massKg": 0.23,
+      "chargeCapacity": 30,
+      "chargeMassKg": 0.0107,
+      "chargeItem": "ru-545-7n10",
+      "sources": [
+        "https://en.wikipedia.org/wiki/5.45%C3%9739mm"
+      ],
+      "confidence": "medium",
+      "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     }
   ]
 }

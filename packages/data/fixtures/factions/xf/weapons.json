@@ -1,0 +1,34 @@
+{
+  "weapons": [
+    {
+      "id": "xf-blaster",
+      "nameKey": "weapon.xf-blaster",
+      "type": "rifle",
+      "calibre": "9x99",
+      "massKg": 5,
+      "feed": {
+        "magazine": "xf-mag"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 300,
+      "dispersionMrad": 2,
+      "reloadSeconds": 4,
+      "setupSeconds": 0,
+      "jamProbability": 0.001,
+      "sights": [
+        {
+          "kind": "iron",
+          "magnification": 1
+        }
+      ],
+      "ammo": {
+        "xf-round": 500
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    }
+  ]
+}

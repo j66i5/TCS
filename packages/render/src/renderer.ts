@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import type { EntityId, MapDef, NavGrid, SimEvent, SimView, TerrainCatalog } from "@tcs/sim";
+import { DT, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView } from "@tcs/sim";
 import { Sprite, Texture } from "pixi.js";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -26,6 +26,13 @@ export interface Overlay {
   debug: boolean;
 }
 
+/** A short-lived mark where a projectile struck. */
+interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" }
+const PUFF_TICKS = 24;
+const MAX_PUFFS = 600;
+/** Most non-tracer bullets drawn per frame (they are nearly invisible anyway). */
+const MAX_FAINT = 4000;
+
 interface Marker { x: number; y: number; untilTick: number; seq: number; delivered: boolean }
 
 export class BattleRenderer {
@@ -40,6 +47,10 @@ export class BattleRenderer {
   private labels = new Container();
   private prev = new Map<EntityId, { x: number; y: number }>();
   private markers: Marker[] = [];
+  private puffs: Puff[] = [];
+  /** Per ammunition index: is it a tracer, and how far does the trace burn (m). */
+  private tracer: boolean[] = [];
+  private burnoutM: number[] = [];
   private labelPool: Text[] = [];
 
   private constructor(app: Application) {
@@ -65,9 +76,11 @@ export class BattleRenderer {
   get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
 
   /** Build the terrain picture for a map (once per map). */
-  setMap(map: MapDef, terrain: TerrainCatalog): void {
+  setMap(map: MapDef, catalog: Catalog): void {
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
-    this.terrain = buildTerrain(map, terrain);
+    this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
+    this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
+    this.terrain = buildTerrain(map, catalog.terrain);
     this.worldLayer.addChild(this.terrain);
   }
 
@@ -126,9 +139,13 @@ export class BattleRenderer {
         if (wp) this.markers.push({ x: wp.x, y: wp.y, seq: e.seq, untilTick: e.deliverTick + 120, delivered: false });
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
+      } else if (e.kind === "impact") {
+        if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
+        this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + PUFF_TICKS, result: e.result });
       }
     }
     this.markers = this.markers.filter((m) => m.untilTick > state.tick);
+    if (this.puffs.length > 0 && this.puffs[0]!.untilTick <= state.tick) this.puffs = this.puffs.filter((p) => p.untilTick > state.tick);
   }
 
   draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
@@ -161,6 +178,7 @@ export class BattleRenderer {
       if (m.delivered) g.circle(s.x, s.y, 3).fill({ color: 0xffffff, alpha: 0.8 });
     }
 
+    this.drawProjectiles(g, state, alpha, overlay);
     // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
     let label = 0;
     if (c.scale < OVERVIEW_SCALE) {
@@ -218,6 +236,43 @@ export class BattleRenderer {
       }
     }
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
+  }
+
+  /**
+   * Bullets in flight and impact marks (owner decision 2026-11-11): tracer rounds as clear streaks, all other
+   * bullets as very faint streaks (clear in the debug view), plus a puff where each one strikes.
+   */
+  private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay): void {
+    const c = this.camera, W = this.width, H = this.height;
+    for (const p of this.puffs) {
+      const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
+      if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
+      const age = 1 - (p.untilTick - state.tick) / PUFF_TICKS; // 0 new .. 1 gone
+      const colour = p.result === "ricochet" ? 0xffe27a : p.result === "penetrated" ? 0xffffff : 0xcdb894;
+      g.circle(sx, sy, 1.5 + 4 * age).fill({ color: colour, alpha: 0.55 * (1 - age) });
+    }
+    const P = state.projectiles;
+    if (P.count === 0) return;
+    const back = (1 - alpha) * DT; // the picture is drawn between two simulation ticks
+    for (let pass = 0; pass < 2; pass++) {
+      const wantTracer = pass === 0;
+      let drawn = 0;
+      for (let i = 0; i < P.count; i++) {
+        const isTracer = this.tracer[P.ammo[i]!] === true
+          && ((state.tick - P.bornTick[i]!) / 60) * 800 < this.burnoutM[P.ammo[i]!]! && state.tick - P.bornTick[i]! >= 2;
+        if (isTracer !== wantTracer) continue;
+        const vx = P.vx[i]!, vy = P.vy[i]!;
+        const sx = (P.x[i]! - vx * back - c.x) * c.scale, sy = (P.y[i]! - vy * back - c.y) * c.scale;
+        if (sx < -40 || sy < -40 || sx > W + 40 || sy > H + 40) continue;
+        if (!wantTracer && ++drawn > MAX_FAINT) break;
+        // Streak: where the bullet was over the last ~1/80 s, at least a few pixels long.
+        const speed = Math.hypot(vx, vy) || 1;
+        const len = Math.max(wantTracer ? 6 : 4, speed * 0.0125 * c.scale);
+        g.moveTo(sx, sy).lineTo(sx - (vx / speed) * len, sy - (vy / speed) * len);
+      }
+      if (wantTracer) g.stroke({ width: 2, color: 0xffb347, alpha: 0.95 });
+      else g.stroke({ width: 1, color: 0xffffff, alpha: overlay.debug ? 0.6 : 0.1 });
+    }
   }
 
   private label(i: number, text: string, x: number, y: number, colour: number): void {

@@ -70,6 +70,67 @@ export const BodyFile = z.object({
 }).strict();
 export type BodyT = z.infer<typeof BodyFile>;
 
+// ---------- ballistics (core/ballistics.json) and weapons / ammunition (faction packs) ----------
+export const BallisticsFile = withProv({
+  gravityMps2: Num(1, 30), airDensityKgM3: Num(0.1, 2), referenceTempC: Num(-60, 60),
+  /** Penetration capacity scales with (speed / reference speed) to this power. */
+  penetrationVelocityExponent: Num(0.5, 3),
+  /** Largest random change of direction after just barely penetrating, degrees. */
+  penetrationDeflectionDeg: Num(0, 45),
+  ricochetSpeedRetention: z.tuple([Num(0, 1), Num(0, 1)]), ricochetScatterDeg: Num(0, 45),
+  /** Projectiles slower than this, or older than maxFlightSeconds, are removed as spent. */
+  minSpeedMps: Num(1, 200), maxFlightSeconds: Num(1, 120),
+});
+/** SPEC 6.3: shell and warhead types supported by the data model from the start. */
+export const AmmoKind = z.enum([
+  "ball", "armour-piercing", "tracer", "high-explosive", "fragmentation", "shaped-charge", "tandem-shaped-charge",
+  "kinetic-penetrator", "airburst", "smoke", "illumination", "thermobaric",
+]);
+export const FuseKind = z.enum(["none", "impact", "time", "proximity", "programmable"]);
+/** SPEC 6.3: guidance types reserved in the data model. */
+export const GuidanceKind = z.enum([
+  "unguided", "command-wire", "command-beam", "fire-and-forget-direct", "fire-and-forget-top-attack", "laser", "operator-flown",
+]);
+export const AmmoSchema = withProv({
+  id: Id, nameKey: z.string(), calibre: z.string(), kind: AmmoKind,
+  projectileMassKg: z.number().positive().max(100), cartridgeMassKg: z.number().positive().max(200),
+  diameterM: z.number().positive().max(0.5),
+  /** Drag coefficient as a function of speed v (m/s): Cd = a + b / v, capped at max. Fitted to published
+   *  downrange velocities (drag rises as a bullet slows toward the speed of sound). */
+  drag: z.object({ a: Num(0, 2), b: Num(0, 1000), max: Num(0.05, 2) }).strict(),
+  /** Distance at which a tracer burns out, m (display only). */
+  tracerBurnoutM: Num(1, 5000).optional(),
+  /** Mild-steel penetration at a reference impact speed; scaled by speed (ballistics.json). */
+  penetration: z.object({ steelMm: Num(0, 2000), atVelocityMps: z.number().positive().max(3000) }).strict(),
+  tracer: z.boolean(), fuse: FuseKind, guidance: GuidanceKind,
+  /** Explosive filling and fragments (M2.4). */
+  explosive: z.object({
+    fillingKg: Num(0, 100), fragmentCount: z.number().int().min(0).max(20000),
+    fragmentMassKg: Num(0, 1), fragmentVelocityMps: z.tuple([Num(0, 4000), Num(0, 4000)]),
+  }).strict().optional(),
+});
+export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
+export const WeaponSchema = withProv({
+  id: Id, nameKey: z.string(),
+  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher"]),
+  calibre: z.string(), massKg: Num(0.1, 500),
+  feed: z.object({ magazine: Id }).strict(),
+  fireModes: z.array(z.enum(["semi", "burst", "auto"])).min(1),
+  cyclicRpm: Num(1, 6000),
+  /** Mechanical dispersion of weapon and ammunition (one standard deviation), milliradians. */
+  dispersionMrad: Num(0, 50),
+  reloadSeconds: Num(0.1, 120), setupSeconds: Num(0, 600),
+  /** Chance of a stoppage per round fired. */
+  jamProbability: Num(0, 0.1),
+  sights: z.array(z.object({ kind: z.enum(["iron", "reflex", "magnified", "night", "thermal"]), magnification: Num(1, 60) }).strict()).min(1),
+  /** Ammunition this weapon fires, with its muzzle velocity from this barrel, m/s. */
+  ammo: z.record(Id, z.number().positive().max(3000)),
+});
+export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict();
+export type BallisticsT = z.infer<typeof BallisticsFile>;
+export type AmmoT = z.infer<typeof AmmoSchema>;
+export type WeaponT = z.infer<typeof WeaponSchema>;
+
 // ---------- formations (core/formations.json) ----------
 export const FormationSchema = withProv({
   id: Id, nameKey: z.string(),
@@ -91,11 +152,13 @@ export const MaterialSchema = withProv({
   densityKgM3: z.number().positive().max(20000),
   /** Penetration resistance in mm of mild steel equivalent per mm of material. */
   resistance: z.number().min(0).max(3),
-  /** 0..1, how readily projectiles ricochet. */
-  hardness: z.number().min(0).max(1),
+  /** Largest angle from the surface at which a bullet can still ricochet, degrees (0 = never). */
+  ricochetAngleDeg: z.number().min(0).max(45),
 });
 export const SurfaceSchema = withProv({
   id: Id, nameKey: z.string(), moveCost: MoveCost,
+  /** What the ground is made of, for bullet impacts and ricochets (materials.json). */
+  material: Id,
   noise: z.number().min(0).max(1), dust: z.number().min(0).max(1), colour: Colour,
 });
 export const VegetationSchema = withProv({

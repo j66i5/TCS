@@ -24,9 +24,24 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   }
   const qualities: Catalog["qualities"] = {};
   for (const q of Object.values(data.qualities)) qualities[q.id] = { id: q.id, skills: { ...q.skills } };
+  // Weapons and ammunition of the factions taking part.
+  const ammo: Catalog["ammo"] = {};
+  const weapons: Catalog["weapons"] = {};
+  const noProv = <T extends object>(o: T) => {
+    const { sources: _s, confidence: _c, note: _n, nameKey: _k, ...rest } = o as T & Record<string, unknown>;
+    return JSON.parse(JSON.stringify(rest)) as unknown;
+  };
+  for (const fid of Object.keys(factions)) {
+    const pack = data.factions[fid]!;
+    for (const a of Object.values(pack.ammunition)) ammo[a.id] = noProv(a) as Catalog["ammo"][string];
+    for (const w of Object.values(pack.weapons)) weapons[w.id] = noProv(w) as Catalog["weapons"][string];
+  }
+  if (!data.ballistics) throw new Error("core/ballistics.json is missing or invalid");
+  const ballistics = noProv(data.ballistics) as Catalog["ballistics"];
+  const ammoIds = Object.keys(ammo).sort();
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations };
+  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, ammo, ammoIds, weapons };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 

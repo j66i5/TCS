@@ -8,6 +8,20 @@
       "sources": [],
       "confidence": "low",
       "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2 itemises weapons and kit. Owner decision 2026-11-11: load counts from M1.3."
+    },
+    {
+      "id": "de-g36-mag",
+      "nameKey": "item.de-g36-mag",
+      "category": "magazine",
+      "massKg": 0.127,
+      "chargeCapacity": 30,
+      "chargeMassKg": 0.0123,
+      "chargeItem": "de-556-dm11",
+      "sources": [
+        "https://hausarchive.com/g36"
+      ],
+      "confidence": "medium",
+      "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     }
   ]
 }

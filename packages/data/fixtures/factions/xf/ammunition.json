@@ -1,0 +1,29 @@
+{
+  "ammunition": [
+    {
+      "id": "xf-round",
+      "nameKey": "item.xf-round",
+      "calibre": "9x99",
+      "kind": "ball",
+      "projectileMassKg": 0.008,
+      "cartridgeMassKg": 0.012,
+      "diameterM": 0.009,
+      "penetration": {
+        "steelMm": 4,
+        "atVelocityMps": 500
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture.",
+      "drag": {
+        "a": 0.3,
+        "b": 50,
+        "max": 0.6
+      },
+      "tracerBurnoutM": 400
+    }
+  ]
+}

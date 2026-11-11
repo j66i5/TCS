@@ -759,3 +759,9 @@ Stale lines in STATE, HOW_IT_WORKS and a code header corrected.
 checked for a round that entered beside the front plate; the aiming-time clock runs from the order, so a man
 who first spends seconds changing posture fires his first shot nearly settled; the range lab has no
 first-shot or braced rows (the terms are tested directly).
+
+## 2026-11-11 — Timing tests run on their own
+The bullet benchmark failed once more on GitHub (2.9x against the 3x floor) while the other run of the same
+commit passed: the timing test shared the build machine's cores with the other test files. `npm test` now
+leaves out `perf*.test.ts`; `npm run test:perf` runs both timing files one after the other, alone, as its own
+step in `npm run check` and in CI. The floor stays 3x.

@@ -28,6 +28,10 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (m.formation && m.waypoints.length > 0) worstLag.set(m.formation.leader, Math.max(worstLag.get(m.formation.leader) ?? 0, m.slotLagM));
   }
   for (const [id, m] of state.mover.entries()) {
+    // Getting away from a grenade comes first (grenades.ts moves him and records his speed); he resumes his
+    // way afterwards.
+    const ev = state.soldier.get(id)?.evade;
+    if (ev && state.tick >= ev.startTick) continue;
     const wp = m.waypoints[0];
     if (!wp) {
       m.speedMps = 0;
@@ -41,8 +45,6 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!mode) { m.speedMps = 0; continue; }
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
-    // Getting away from a grenade comes first (grenades.ts moves him); he resumes his way afterwards.
-    if (s && s.evade !== null && state.tick >= s.evade.startTick) { m.speedMps = 0; continue; }
     // Take the leg's posture first (the waypoint's, else the mode's); no movement while changing.
     // A man whose leg will not carry him crawls.
     const posture = s && !s.impair.canWalk ? "prone" : (wp.posture ?? mode.posture);

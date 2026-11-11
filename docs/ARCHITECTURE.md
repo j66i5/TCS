@@ -395,6 +395,29 @@ the map and the derived ballistics tables (wall segments with `seeThrough` and o
 No state, no randomness, so any system (fire, detection, AI, debug views) may call it. The fire system uses it
 for the line of fire (`lineOfFireClear`, cached once a second on the `FireTask`).
 
+## 16h. Detection (SPEC 6.5) — `sim/src/systems/spotting.ts`, `core/spotting.json`
+
+Runs after wounds each tick; each able soldier scans every `scanSeconds`, staggered by ID. Per enemy in range:
+one draw from the `spotting` stream, a rate from data (range, posture, movement/firing, look direction,
+sensors from data — eye, weapon sight, carried items with a `sensor` —, skill, stress, light, fog), the line of
+sight (M3.1) only if the draw could succeed and the man could take the target on. Output:
+`SoldierState.seen` (target, first and last tick; at most `maxTracked`, nearest kept) and `spotted` events.
+M3.3 builds contacts on top of it.
+
+## 16i. Contacts and sharing (SPEC 6.5, 9.5) — `sim/src/systems/contacts.ts`
+
+Runs after spotting. `SoldierState.contacts` (sorted by target: position, uncertainty, kind, tick,
+reportedTick) from his `seen` list, from enemy `shot.fired` events within hearing range, and from
+`state.contactReports` (pending reports with a delivery tick). All sharing goes through
+`CommsModel.contactShareDelayTicks(from, to)` (null = no path), so the command and EW extension replaces one
+function. Fire tasks may carry `contact` and follow it.
+
+## 16j. Fog of war (SPEC 6.5, M3.4) — `sim/src/knowledge.ts`, renderer `Overlay.known`
+
+`sideKnowledge(ctx, state, side)`: per enemy, the most certain contact any living man of the side holds now
+(pure query). The app passes it to the renderer as `Overlay.known`; with it (and Debug off) the renderer draws
+the enemy only from it. An AI commander (M6) is meant to plan on the same picture.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

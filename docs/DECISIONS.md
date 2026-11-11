@@ -820,3 +820,122 @@ Wording corrected: in the farmland shoot-out both sides held their fire, not one
 **Recorded:** walls are lines without thickness for sight (a line exactly along a wall is clear); a line
 exactly along a house face touches the ends of its side walls; sight() allocates a little per call (Sets,
 arrays) — to watch when detection makes many checks per second.
+
+## 2026-11-11 — M3.2 detection (state schema v10, goldens regenerated)
+**Model** (`sim/src/systems/spotting.ts`, numbers in the new `core/spotting.json`): every able soldier scans
+once a second (staggered); for each enemy within 1,200 m the chance to see him in this scan is
+1 - exp(-rate x 1 s), rate = 0.07/s x (300 m / range)^2 x exposed size (standing 1, kneeling 0.55, prone 0.2) x
+movement (x4 moving, x6 running) or firing within 2 s (x15) x visibility along the line of sight (M3.1) x where
+he looks (within 60 degrees of his facing x1, to 110 degrees x0.3, behind x0.05) x optic beyond 150 m (x1.4) x
+skill (observation, else marksmanship) x stress x light. Ground, walls and roofs hide a man completely;
+vegetation thins the view, but a man moving through it shows at least 15 % of himself (plants move) and a man
+firing at least 50 % (flash, dust). One random draw per observer, target and scan, always, from the
+"spotting" stream; the sight check is skipped when the draw could not succeed even with a perfect view. A man
+already seen is kept with 20 times the rate, forgotten after 6 s unseen, and a man tracks at most 6 enemies at
+once (the nearest). Result: `SoldierState.seen` (plain data) and a `spotted` event per new sighting. Debug
+shows a thin line from each man to every enemy he has in sight.
+**Spotting lab** (`npm run lab -- spotting`, 40 runs per row, regular observer standing): standing still in the
+open at 100 / 300 / 600 m: median 2 / 9 / 35 s (owner: 5-15 s at 300 m); walking across at 300 m 3 s; kneeling
+13 s; prone 7 s at 100 m, 36 s at 300 m; observer looking away: 53 % within 2 minutes; **lying still in crops at
+100 m: never in 40 runs (owner: very hard)**; crawling there 9 s; firing from there 1 s; prone in tall grass
+78 s. **Speed:** 304 men in plain view of each other 300 m apart: about 25x real time (21x with everyone firing,
+after the review fix; timing test, floor 8x). The ordinary benchmark (304 men on the move, sides out of view) is about 18x — route-finding dominates; the
+"~200x" in STATE was stale since M1.4.
+**Not yet:** the observer's facing is fixed (he does not scan around: M4); stress is in the formula but not yet
+raised by anything; night, smoke, rain and fog (M8/M9) only through `light` and `visibilityM`, which stay at
+daylight (fog is read since the review fix); sound contacts and sharing are M3.3.
+
+## 2026-11-11 — Fixes from the independent M3.2 review (goldens regenerated)
+No determinism, save/load or rule problems (one draw per pair confirmed). Fixed, each with a test:
+**a man moving or firing was "seen" through any depth of vegetation** (the floor of 15 % / 50 % replaced the
+visibility of the whole line, so a man firing behind 200 m of woodland was spotted in a second): the floor now
+applies only to what shows above him — the line to the top of the vegetation he is in must be clear, and its
+own visibility scales the floor; a wood between hides him. **304 men firing in view ran at 5x real time**
+(firing pushed most draws past the quick upper bound): a man who already tracks his maximum of enemies does
+not look at one farther than all of them (it could not be taken on anyway) — the timing test now has everyone
+firing: about 21x. **Sensors were not data** (SPEC 6.5): `core/spotting.json` now has `sensors` by kind —
+eye, iron, reflex, magnified (x1.4 beyond 150 m), telescopic (x1.7), night (light counts as at least 0.5),
+thermal (x1.5, sees as by day); every man has his eyes, his weapon's sight adds its kind, an item with a
+`sensor` adds that (the night-vision goggles in both factions' kit, `"sensor": "night"`); the best applies.
+**Fog:** nothing is seen beyond the environment's `visibilityM` (DECISIONS had claimed it was read; now it
+is). **Men lost track of a man lying still in plain view at 300 m and "spotted" him again and again**: the keep
+rate is now 200 times the detection rate. **A man running from a grenade counted as standing still**: his
+speed is recorded while he runs. Lab: the iron-sights row no longer shares random draws with the optic row
+(and a 200-run test shows the optic helps); "never in crops" is stated as what it is — his visibility there
+(0.12 %) is below the 0.2 % floor at which anything can be seen; the looking-away row is checked by its share
+within 30 s, not by a capped median.
+**Recorded:** a grenade throw does not count as firing for being spotted; the "spotted" event is per new
+sighting, so a man passing from one observer's six tracked enemies to another's can appear several times.
+
+## 2026-11-11 — M3.3 contacts and sharing (state schema v11, goldens regenerated)
+**Contacts** (`sim/src/systems/contacts.ts`, numbers in `core/spotting.json` `contacts`): every soldier keeps a
+list of what he knows of each enemy — position, uncertainty, kind (seen / heard / reported) and when it was
+true. **Seen:** each scan that confirms an enemy gives his position (1 m + 1 % of range). **Heard** (owner:
+direction at once, position only if seen): an enemy shot within 1,500 m gives every able listener the
+direction with an 8-degree error and a distance guess with 35 % error (uncertainty 35 % of the range), at most
+once every 2 s per shooter, not if he sees the shooter already. **Age:** the uncertainty grows 1 m per second;
+a contact is forgotten after 2 minutes, and at once if he saw that man die. **Sharing** through the CommsModel
+(`contactShareDelayTicks`, now implemented): a man passes on to the other men of his top-level unit what he
+sees (again every 10 s while he sees him) or newly hears — within the voice range (40 m) after the 1 s it takes
+to say it, otherwise by radio after 1 s + the radio delay (5 s), if both are on the net; reported positions are
+5 m less certain; reports are not passed on again, and nobody is told what he already knows. **Call-outs:** a
+unit calls a new contact out on the radio log ("enemy, 300 m, bearing 90" / "shots from bearing 85"), at most
+every 8 s. **Fire at a contact:** a fire order may name an enemy; each man fires where he believes him to be
+(his contact, else a comrade's, else the point given) and follows his contact as it changes (target movement in
+the aiming error is still to come). **Speed:** 304 men firing at each other in view about 14x real time (floor
+8x); the first version sent 13,000 redundant reports — men telling comrades what they had heard themselves.
+**Not yet:** contacts are not shared between top-level units (a platoon's squads are one top unit; separate
+squads are not linked until a commander layer exists, M6); sound contacts do not distinguish weapons; the
+player's view is still everything (M3.4).
+
+## 2026-11-11 — Fixes from the independent M3.3 review
+No determinism, save/load or rule problems; nothing grows without bound over 20 minutes. Fixed, each with a
+test: **a man who had heard a shooter never learnt his exact position from the comrade beside him who saw him**
+(a fresher guess from the sound always won over an older but exact report, and the repeat reports were
+suppressed because the listener "already knew"): a contact is now replaced only by what is more certain now
+(its uncertainty plus how far the man may have moved since), a sighting always wins, a sound adds nothing to
+a man who already knows the shooter better than a sound could tell, and a comrade is told unless he already
+knows at least as well. **A man who cannot speak** (airway wound) no longer passes contacts on or calls them
+out. **Fire at a contact** uses only each man's own contact, else the point given (no reading of a comrade's
+knowledge outside the comms model), and a dead enemy is rejected. Tests now check what they claim (voice in
+about a second, bearing error, rough distance, forgetting after fog comes down, the reviewer's case).
+**Recorded:** a heard contact keeps a position guess (the direction, and a distance guessed with 35 % error) —
+the owner's answer was "direction at once, position only if seen"; the guess is shown and used as uncertain
+(M3.4 will draw it as a direction), and a fire order at a heard-only contact is fire in that direction;
+a fire order may still name an enemy the side has never detected (to close with M3.4's player view); a man
+drops a seen contact when the target dies even if he did not see it; reports already on their way arrive even
+if the radio was lost meanwhile (cannot happen with the simple comms model; M14).
+
+## 2026-11-11 — M3.4 fog of war (M3 complete)
+**The player sees what his men know** (owner: what they have reported, with the delay that takes; old contacts
+fade): `sideKnowledge(ctx, state, side)` (`sim/src/knowledge.ts`) is the union of the side's living men's
+contacts — for each enemy the most certain one now. The app computes it every frame and the renderer, unless
+Debug is on, draws no enemy soldier, enemy muzzle flash, hit on an enemy or enemy unit symbol; instead each
+known enemy is a diamond — solid where a man is in sight now, hollow where he was last seen or reported, with a
+circle for how far off that may be — and a heard contact a dashed ring with a cross at the guessed place.
+Contacts fade out over two minutes. Debug shows the enemy as he is. A fire tap on or near an enemy marker
+fires at that contact (each man aims where he believes the enemy is). Tracers and impact puffs stay visible
+(they are seen in reality). **Acceptance (M3):** the spotting lab passes; the player view shows only reported
+contacts — tested on `sideKnowledge`, checked by eye on screenshots (the renderer itself has no unit test).
+**Recorded:** the player's picture is the union over all his men (a man's own contacts count at once, without
+the delay of reporting them to the leader) — the owner chose "what your men have reported" over "only what
+reached the leader"; enemy casualties are shown only as contacts; the heard ring is centred on the guessed
+point, not drawn as a bearing line.
+
+## 2026-11-11 — Owner: remind him of the "only what reached the leader" fog-of-war option after M6
+Recorded in ROADMAP (M6 review) and STATE (reminders). It is a rendering choice on top of the same contact
+model: the leader's contacts instead of the union of the side's.
+
+## 2026-11-11 — Fixes from the independent M3.4 review (M3 complete)
+No rule violations. Fixed: **enemy bullets were drawn as faint streaks from the muzzle** (pointing at hidden
+shooters) and **enemy grenades in flight were drawn** — under fog only burning enemy tracers are drawn; **a
+fire tap on a marker could be rejected** (dead enemy, or a heard guess off the map), which revealed what the
+men did not know — the simulation now ignores such a contact and fires at the point, and heard guesses stay
+on the map; **the marker's pick radius was the contact's uncertainty** (up to 200 m), swallowing ordinary
+fire taps — now only a tap on the marker itself (20 px); **hidden enemies could stand in the way of selecting
+your own men**; **the side's picture was recomputed every frame** (2 ms with 304 men) — once per tick now;
+only conscious men's knowledge counts; fog filtering no longer depends on the first frame. The screenshot tool
+has a fog-of-war picture, and its casualty picture uses Debug (the symbols it checks).
+**Recorded:** one colour for all enemy contacts (fine with two sides); rarely a hollow marker for a man also in
+sight from farther away (the more certain, older sighting wins); the renderer path itself has no unit test —
+evidence is the screenshot pair "3-casualties" (Debug) / "3b-fog-of-war".

@@ -148,6 +148,13 @@ helps is `aim.sightFactor` in `core/shooting.json`.
 
 The squad the game starts with is named in the faction's `manifest.json`: `"demoTemplate": "<unit template id>"`.
 
+## Sensors (what a man looks through)
+
+`core/spotting.json` lists `sensors` by kind: `factor` (how much easier he spots beyond `fromM` metres) and
+`nightLight` (the light level it gives at least: 0.5 for night vision, 1 for thermal). A weapon sight's `kind`
+is looked up there; an item gets a sensor with `"sensor": "night"` (for example a night-vision goggle in a
+man's load). Every man also has `eye`.
+
 ## Change what stops a bullet
 
 `core/terrain/materials.json`: `resistance` is millimetres of mild steel per millimetre of the material

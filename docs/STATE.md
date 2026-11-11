@@ -3,9 +3,10 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M3 Spotting and knowledge** — slice **M3.1 line of sight and line of fire: done**. Next: **M3.2 detection**
-(owner anchors in DECISIONS.md: a standing man in the open at 300 m spotted in about 5-15 s; a still man in
-crops at 100 m very hard to spot until he moves or fires; shots give direction at once, position if seen).
+**M3 Spotting and knowledge is complete** (M3.1 line of sight and line of fire, M3.2 detection, M3.3 contacts and
+sharing, M3.4 fog of war). Next milestone: **M4 Soldier and squad behaviour** (suppression, morale, cover use,
+fire discipline, ammunition sharing, casualty reaction, drills, doctrine profiles) — the hardest part. Propose
+its slices and ask the owner before starting.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -79,9 +80,19 @@ crops at 100 m very hard to spot until he moves or fires; shots give direction a
   hedges, roofs and vegetation (`npm run lab -- sight`); men no longer fire into a bank in front of them —
   they kneel or stand to fire over it, or hold fire and report "no line of fire"; Debug shows what the
   selected unit's leader can see.
-- Tests: 302 (299 + 3 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M3.2 detection**: every man scans for enemies once a second; the chance depends on range, posture,
+  movement, firing, what is in the way, where he looks, his optic and skill (`npm run lab -- spotting`:
+  standing still at 300 m spotted in a median 9 s; lying still in crops at 100 m never in 40 runs; crawling
+  there 9 s; firing 1 s). Debug draws who sees whom.
+- **M3.3 contacts**: each man remembers what he has seen, heard (direction and a rough distance of shots) or
+  been told of each enemy; he passes it on by voice nearby and by radio with a delay; the unit calls contacts
+  out on the radio log; a fire order can name an enemy, and each man aims where he believes him to be.
+- **M3.4 fog of war**: you see the enemy only as your men know him — solid diamonds where he is in sight,
+  hollow ones where he was last seen or reported, rings for the sound of shots; old contacts fade; Debug shows
+  everything. Tapping an enemy marker in fire mode fires at that contact.
+- Tests: 321 (317 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
-  check after the independent review's fixes. Benchmark ~200× real time.
+  check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab
@@ -135,6 +146,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 ## Next
 **M3 Spotting and knowledge** — propose slices, ask the owner's questions, then start when he says so.
+
+## Reminders for the owner (at the review after M6)
+- **Fog of war option "only what reached the squad leader"** (owner asked to be reminded after M6, 2026-11-11):
+  today the player sees what any of his men know at once; the stricter option shows only the leader's picture,
+  with the reporting delay.
+- Pull the medical system forward or not.
 
 ## Open questions for the owner
 - **Corrections to the two squads** (roles, ranks, weapons, ammunition) whenever the owner wishes.

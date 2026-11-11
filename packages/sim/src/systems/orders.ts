@@ -219,7 +219,21 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
-        if (assignFireTask(ctx, state, s, order.x, order.y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) any = true;
+        // At a contact: where this man believes the enemy to be, else the point given with the order (what
+        // comrades know reaches him only through contact sharing).
+        let x = order.x, y = order.y;
+        // (A contact naming a man who is dead or of the issuer's own side is simply ignored: rejecting the order
+        // would tell the player something his men do not know.)
+        const named = order.contact !== undefined && state.soldier.get(order.contact)?.physiology.alive === true && state.identity.get(order.contact)?.side !== order.issuer ? order.contact : undefined;
+        if (named !== undefined) {
+          const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
+          if (c) { x = c.x; y = c.y; }
+        }
+        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) {
+          any = true;
+          const ft = state.fire.get(s);
+          if (ft && named !== undefined) ft.contact = named;
+        }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
       if (!any) return "unable"; // nobody there has a weapon he can use

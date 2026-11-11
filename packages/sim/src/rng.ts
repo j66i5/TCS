@@ -30,6 +30,7 @@ export const Streams = {
   movement: "movement",
   fire: "fire",
   fragments: "fragments",
+  contacts: "contacts",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

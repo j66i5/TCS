@@ -176,7 +176,8 @@
       "massKg": 0.6,
       "sources": [],
       "confidence": "low",
-      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder.",
+      "sensor": "night"
     },
     {
       "id": "de-radio",

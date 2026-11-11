@@ -21,7 +21,7 @@ describe("orders", () => {
     const del = ev.find((e) => e.kind === "order.delivered");
     expect(rec).toMatchObject({ tick: 0, deliverTick: 60 });
     expect(del).toMatchObject({ tick: 60, orderKind: "move" });
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.ack.move", side: "blue" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.ack.move", side: "blue" });
   });
 
   it("moves the unit in formation (line, 5 m), reports arrival, and the men go prone facing outward", () => {

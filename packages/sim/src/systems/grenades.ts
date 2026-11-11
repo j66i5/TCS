@@ -271,7 +271,8 @@ export function evadeSystem(ctx: SimContext, state: SimState, events: EventSink)
       s.evade = null;
       continue;
     }
-    if (state.tick < ev.startTick || state.tick < s.stunnedUntilTick) continue;
+    if (state.tick < ev.startTick) continue;
+    if (state.tick < s.stunnedUntilTick) { const mv = state.mover.get(id); if (mv) mv.speedMps = 0; continue; }
     if (state.action.has(id)) interruptAction(state, events, id, "take-cover"); // whatever he was doing with his hands
     const t = state.transform.req(id);
     if (ev.run && s.impair.canWalk && s.posture !== "prone" && state.tick < ev.untilTick - AFTER_TICKS - DIVE_TICKS) {
@@ -284,10 +285,14 @@ export function evadeSystem(ctx: SimContext, state: SimState, events: EventSink)
       const grid = navFor(ctx, "foot").grid;
       if (nx > 0 && ny > 0 && nx < ctx.map.widthM && ny < ctx.map.heightM && navCostAt(grid, nx, ny) > 0 && grid.wall[Math.floor(ny / grid.cellM) * grid.cols + Math.floor(nx / grid.cellM)] !== 1) {
         t.x = nx; t.y = ny; t.heading = atan2(uy, ux);
+        const mv = state.mover.get(id);
+        if (mv) mv.speedMps = step / DT;
         ev.ran = true;
         continue;
       }
     }
+    const mv = state.mover.get(id);
+    if (mv) mv.speedMps = 0;
     requestPosture(ctx, state, id, "prone");
   }
 }

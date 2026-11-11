@@ -22,8 +22,13 @@ export interface Overlay {
   /** Side whose own units are fully shown (waypoints etc.). */
   playerSide: string;
   selectedUnit: EntityId | null;
-  /** Debug drawing: entity IDs, all sides' waypoints. */
+  /** Debug drawing: entity IDs, all sides' waypoints — and the enemy as he really is (no fog of war). */
   debug: boolean;
+  /**
+   * Fog of war (M3.4): what the player's side knows of the enemy (from `sideKnowledge`). When given and debug is
+   * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
+   */
+  known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number }[] | null;
 }
 
 /** A short-lived mark where a projectile struck. */
@@ -144,6 +149,9 @@ export class BattleRenderer {
     this.worldLayer.addChild(this.sightOverlay);
   }
 
+  /** Pixels per metre at the current zoom. */
+  scale(): number { return this.camera.scale; }
+
   /** Centre the camera on a point showing `widthM` metres across the free area. */
   focus(x: number, y: number, widthM: number, insets?: Insets): void {
     const top = insets?.top ?? 0, bottom = insets?.bottom ?? 0;
@@ -174,6 +182,7 @@ export class BattleRenderer {
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
       } else if (e.kind === "shot.fired") {
+        if (!overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide) continue; // fog: an unseen flash
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + FLASH_TICKS, result: "flash" });
       } else if (e.kind === "impact") {
@@ -182,6 +191,7 @@ export class BattleRenderer {
       } else if (e.kind === "explosion") {
         this.bursts.push({ x: e.x, y: e.y, untilTick: e.tick + BURST_TICKS, radiusM: Math.max(1.5, e.stunRadiusM * 0.25) });
       } else if (e.kind === "hit") {
+        if (!overlay.debug && state.identity.get(e.target)?.side !== overlay.playerSide) continue;
         const t = state.transform.get(e.target);
         if (t) { if (this.puffs.length >= MAX_PUFFS) this.puffs.shift(); this.puffs.push({ x: t.x, y: t.y, untilTick: e.tick + PUFF_TICKS, result: e.armour === "stopped" ? "ricochet" : "hit" }); }
       }
@@ -221,12 +231,29 @@ export class BattleRenderer {
       if (m.delivered) g.circle(s.x, s.y, 3).fill({ color: 0xffffff, alpha: 0.8 });
     }
 
-    this.drawProjectiles(g, state, alpha, overlay);
+    // Debug: who sees whom (a thin line from each man to every enemy he has in sight).
+    if (overlay.debug) {
+      for (const [id, s] of state.soldier.entries()) {
+        if (s.seen.length === 0) continue;
+        const a = worldToScreen(c, this.pos(state, id, alpha).x, this.pos(state, id, alpha).y);
+        for (const e of s.seen) {
+          if (!state.transform.has(e.target)) continue;
+          const p = this.pos(state, e.target, alpha), b = worldToScreen(c, p.x, p.y);
+          g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+        }
+      }
+      g.stroke({ width: 1, color: 0xffe066, alpha: 0.5 });
+    }
+
+    // Fog of war is on whenever Debug is off (the app supplies what the side knows).
+    const fog = !overlay.debug;
+    this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
     let label = 0;
     if (c.scale < OVERVIEW_SCALE) {
       for (const [uid, u] of state.unit.entries()) {
         if (u.parent !== null) continue;
+        if (fog && u.side !== overlay.playerSide) continue;
         let sx = 0, sy = 0, n = 0;
         const walk = (x: EntityId) => {
           const uu = state.unit.get(x);
@@ -244,11 +271,13 @@ export class BattleRenderer {
         if (overlay.selectedUnit === uid) g.rect(s.x - w / 2 - 3, s.y - h / 2 - 3, w + 6, h + 6).stroke({ width: 2, color: 0xffffff });
         this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
       }
+      if (fog) this.drawKnown(g, overlay, sideIndex);
       for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
       return;
     }
-    // Soldiers.
+    // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {
+      if (fog && ident.side !== overlay.playerSide) continue;
       const p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
       const s = worldToScreen(c, p.x, p.y);
@@ -294,14 +323,47 @@ export class BattleRenderer {
         this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
+    if (fog) this.drawKnown(g, overlay, sideIndex);
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
+  }
+
+  /**
+   * The enemy as the player's side knows him (fog of war): a solid diamond where a man is in sight now, a hollow
+   * one where he was last seen or reported, a circle for how far off that may be; a sound is a dashed ring with
+   * a cross at the guessed place. Old contacts fade out over two minutes.
+   */
+  private drawKnown(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>): void {
+    const c = this.camera;
+    let enemy = 0;
+    for (const [id, i] of sideIndex) if (id !== overlay.playerSide) { enemy = i; break; }
+    const colour = SIDE_COLOURS[enemy % SIDE_COLOURS.length]!;
+    const d = Math.max(4, 0.7 * c.scale);
+    for (const k of overlay.known ?? []) {
+      const s = worldToScreen(c, k.x, k.y);
+      const fade = Math.max(0.15, 1 - k.ageS / 120);
+      const rr = k.errM * c.scale;
+      const diamond = [s.x, s.y - d, s.x + d, s.y, s.x, s.y + d, s.x - d, s.y];
+      if (k.kind === "heard") {
+        const n = 16;
+        for (let q = 0; q < n; q += 2) {
+          const a0 = (q / n) * Math.PI * 2, a1 = ((q + 1) / n) * Math.PI * 2;
+          g.moveTo(s.x + Math.cos(a0) * rr, s.y + Math.sin(a0) * rr).lineTo(s.x + Math.cos(a1) * rr, s.y + Math.sin(a1) * rr);
+        }
+        g.stroke({ width: 1.5, color: colour, alpha: 0.7 * fade });
+        g.moveTo(s.x - d * 0.6, s.y - d * 0.6).lineTo(s.x + d * 0.6, s.y + d * 0.6).moveTo(s.x + d * 0.6, s.y - d * 0.6).lineTo(s.x - d * 0.6, s.y + d * 0.6).stroke({ width: 2, color: colour, alpha: fade });
+        continue;
+      }
+      if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
+      if (k.kind === "seen" && k.ageS < 2) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
+      else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
+    }
   }
 
   /**
    * Bullets in flight and impact marks (owner decision 2026-11-11): tracer rounds as clear streaks, all other
    * bullets as very faint streaks (clear in the debug view), plus a puff where each one strikes.
    */
-  private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay): void {
+  private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, fog = false): void {
     const c = this.camera, W = this.width, H = this.height;
     // Craters stay (terrain damage is part of the battle state).
     for (const cr of state.terrain.craters) {
@@ -337,7 +399,11 @@ export class BattleRenderer {
       const wantTracer = pass === 0;
       let drawn = 0;
       for (let i = 0; i < P.count; i++) {
+        // Fog of war: of the enemy's projectiles only burning tracers are seen (not his bullets near the muzzle,
+        // not his grenades in flight).
+        const enemyOwned = fog && P.owner[i]! > 0 && state.identity.get(P.owner[i]!)?.side !== overlay.playerSide;
         const sp = this.special[P.ammo[i]!]!;
+        if (enemyOwned && (sp !== 0 || !wantTracer)) continue;
         if (sp !== 0) {
           // Fragments are too many and too fast to draw; a grenade in flight or lying is a dark dot.
           if (sp === 1 && wantTracer) {

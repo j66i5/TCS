@@ -10,7 +10,7 @@
 import type { z } from "zod";
 import {
   BodyFile, type BodyT, FormationsFile, type FormationT,
-  ShootingFile, type ShootingT, WoundsFile, type WoundsT,
+  ShootingFile, type ShootingT, SpottingFile, type SpottingT, WoundsFile, type WoundsT,
   AmmunitionFile, BallisticsFile, WeaponsFile, type AmmoT, type BallisticsT, type ItemT as ItemTT, type WeaponT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
@@ -54,6 +54,7 @@ export interface TerrainData {
 export interface DataSet {
   wounds: WoundsT | null;
   shooting: ShootingT | null;
+  spotting: SpottingT | null;
   ballistics: BallisticsT | null;
   body: BodyT | null;
   formations: Record<string, FormationT>;
@@ -153,9 +154,11 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
   });
   const shooting = parse(ShootingFile, "core/shooting.json", files["core/shooting.json"], errors);
   const wounds = parse(WoundsFile, "core/wounds.json", files["core/wounds.json"], errors);
+  const spotting = parse(SpottingFile, "core/spotting.json", files["core/spotting.json"], errors);
   const data: DataSet = {
     wounds,
     shooting,
+    spotting,
     ballistics,
     body,
     formations: fm ? indexById(fm.formations, "core/formations.json", "formations", errors) : {},
@@ -308,6 +311,9 @@ function loadFaction(
     if (mag && mag.chargeItem !== undefined && !ids.includes(mag.chargeItem)) {
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });
     }
+  });
+  itemsF.items.forEach((it, i) => {
+    if (it.sensor !== undefined && data.spotting && !data.spotting.sensors[it.sensor]) errors.push({ file: f("items.json"), path: `items[${i}].sensor`, message: `unknown sensor kind '${it.sensor}' (core/spotting.json sensors)`, severity: "error" });
   });
   if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
     errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });

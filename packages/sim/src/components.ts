@@ -67,6 +67,10 @@ export interface SoldierState {
   impair: { move: number; aim: number; canWalk: boolean; canUseArms: boolean; canFight: boolean; canSpeak: boolean };
   /** Knocked down (e.g. a round stopped by his plate): no moving or firing until this tick. */
   stunnedUntilTick: number;
+  /** Enemies he can see now or saw moments ago (M3.2), ascending target ID. */
+  seen: { target: EntityId; firstTick: number; lastTick: number }[];
+  /** What he knows of the enemy (M3.3), ascending target ID: from his own eyes, his ears, or reports. */
+  contacts: Contact[];
   /** Getting away from a grenade at (x, y): from startTick he runs from it (`run`) or drops flat; over at untilTick. */
   evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean } | null;
   /** Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed. */
@@ -80,6 +84,32 @@ export interface CommState {
   link: CommLink;
   /** Extra delay on top of the model's base delay, seconds (EW, leader condition ... later). */
   extraDelaySeconds: number;
+}
+
+/**
+ * A contact: what one soldier believes about one enemy (SPEC 6.5). The position is an estimate with an
+ * uncertainty; `tick` is when that information was true. `target` identifies the enemy inside the simulation
+ * (for merging reports and for fire orders); the player's view shows only kind, position, uncertainty, age.
+ */
+export interface Contact {
+  target: EntityId;
+  x: number;
+  y: number;
+  /** Uncertainty of the position (radius, m) at `tick`; it grows with age when used. */
+  errM: number;
+  /** seen: he saw him; heard: shots from that direction; reported: told by a comrade. */
+  kind: "seen" | "heard" | "reported";
+  tick: number;
+  /** When he last passed this contact on (reports are not passed on again: no gossip chains). */
+  reportedTick: number;
+}
+
+/** A contact report on its way from one soldier to another. */
+export interface ContactReport {
+  deliverTick: number;
+  from: EntityId;
+  to: EntityId;
+  contact: Omit<Contact, "reportedTick">;
 }
 
 export interface Unit {
@@ -100,6 +130,8 @@ export interface Unit {
   firing: boolean;
   /** "No line of fire" has been reported for the current fire order (reset by the next fire order). */
   lineBlockedReported: boolean;
+  /** Tick of this unit's last contact call-out on the radio (call-outs are spaced out). */
+  lastCallTick: number;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -154,6 +186,8 @@ export interface FireTask {
   /** When his line of fire was last checked, and whether it was clear from where he is. */
   lineCheckTick: number;
   lineClear: boolean;
+  /** Fire at this enemy as each man knows him (his contact), not at a fixed point. */
+  contact?: EntityId;
   /** The posture that check was worked out for, and the lowest posture he may go back down to. */
   linePosture: Posture;
   basePosture: Posture;

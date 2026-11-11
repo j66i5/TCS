@@ -29,7 +29,7 @@ describe("fire order", () => {
     const shots = kinds(ev, "shot.fired");
     expect(shots.length).toBeGreaterThan(15); // 3 men, aimed fire at 140 m: one shot per man every ~2.5 s
     expect(shots.length).toBeLessThan(30);
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.ack.fire" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.ack.fire" });
     const left = unit.members.reduce((n, m) => n + rounds(sim, m), 0);
     expect(left).toBe(unit.members.length * 90 - shots.length);
     expect(sim.state.projectiles.count + kinds(ev, "impact").length).toBeGreaterThan(0);
@@ -81,7 +81,7 @@ describe("ammunition management (owner decision)", () => {
     expect(trickle).toBeGreaterThan(0);
     const rest = run(sim, 20);
     expect(kinds(rest, "fire.ceased")[0]).toMatchObject({ unit: uid, reason: "no-target" });
-    expect(rest.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.noTarget" });
+    expect(rest.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.noTarget" });
     expect(kinds(run(sim, 20), "shot.fired")).toHaveLength(0);
   });
 
@@ -261,7 +261,7 @@ describe("handling and safety", () => {
     const [uid, unit] = blue(sim);
     fireAt(sim, uid, 150, 15);
     const ev = run(sim, 5);
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.unable" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.unable" });
     expect(unit.firing).toBe(false);
     expect(kinds(ev, "shot.fired")).toHaveLength(0);
   });

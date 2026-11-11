@@ -36,7 +36,8 @@ export interface CommsModel {
   update(state: SimState, params: CommsParams): void;
   /** Ticks between an order being received and it reaching the target. `null` = cannot be delivered now. */
   orderDelayTicks(state: SimState, params: CommsParams, order: Order): number | null;
-  /** Ticks for a contact report to travel from one soldier to another. `null` = no path (used from M3). */
+  /** Ticks for a contact report to travel from one soldier to another (0 = within shouting distance).
+   *  `null` = no path. */
   contactShareDelayTicks(state: SimState, params: CommsParams, from: EntityId, to: EntityId): number | null;
 }
 
@@ -61,8 +62,14 @@ export const simpleComms: CommsModel = {
     const jitter = params.orderDelayJitterSeconds > 0 ? nextFloat(state.rng, Streams.comms) * params.orderDelayJitterSeconds : 0;
     return secondsToTicks(params.orderDelaySeconds + jitter + unit.comms.extraDelaySeconds);
   },
-  contactShareDelayTicks(_state, params) {
-    return secondsToTicks(params.contactShareDelaySeconds);
+  contactShareDelayTicks(state, params, from, to) {
+    // Within voice range: shouted (no delay from the model; the caller adds the time to say it). Otherwise by
+    // radio, if both men's units are on the net.
+    const a = state.transform.get(from), b = state.transform.get(to);
+    if (a && b && (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) <= params.voiceRangeM * params.voiceRangeM) return 0;
+    const ua = state.unit.get(state.identity.get(from)?.unit ?? -1), ub = state.unit.get(state.identity.get(to)?.unit ?? -1);
+    if (!ua || !ub || ua.comms.link === "none" || ub.comms.link === "none") return null;
+    return secondsToTicks(params.contactShareDelaySeconds + ua.comms.extraDelaySeconds + ub.comms.extraDelaySeconds);
   },
 };
 

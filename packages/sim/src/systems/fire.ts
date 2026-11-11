@@ -239,6 +239,12 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     // over a bank goes back down when a new point (or a new position) no longer needs it.
     if (w.burstLeft <= 0 && (tick - task.lineCheckTick >= TICK_HZ || task.linePosture !== s.posture)) {
       task.lineCheckTick = tick;
+      // Firing at a contact: follow it as his picture of the enemy changes (target movement in the aiming
+      // error is still to come: he aims at the last known position).
+      if (task.contact !== undefined) {
+        const c = s.contacts.find((k) => k.target === task.contact);
+        if (c && (c.x !== task.x || c.y !== task.y)) { task.x = c.x; task.y = c.y; }
+      }
       const order: Posture[] = ["prone", "crouching", "standing"];
       const from = order.slice(order.indexOf(task.basePosture));
       const ok = from.find((p) => lineOfFireClear(ctx, state, id, task, p));

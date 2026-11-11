@@ -243,6 +243,28 @@ between 0 and 1 (`npm run lab -- sight` prints typical cases). The same check ke
 right in front of them: they kneel or stand to fire over it, or hold their fire and say so. With Debug on, the
 ground the selected unit's leader cannot see is darkened.
 
+## Spotting
+
+Every soldier looks around once a second. For each enemy within 1.2 km there is a chance he sees him now: high
+for a man standing or walking near him in the open, low for one far away or lying down, almost nil for one
+lying still in crops or behind a hedge — and nil behind a hill, a wall or a roof. Moving or firing gives a man
+away — unless a wood stands between. Looking the other way, a soldier rarely notices anyone; a 3x sight helps
+at long range, night-vision goggles at night, and nothing is seen beyond the fog. Once seen, an
+enemy is easy to keep in view.
+
+**Contacts.** Each man also remembers: where he last saw an enemy, the direction (and a rough distance) of shots
+he heard, and what comrades told him. He tells the men of his unit what he sees and hears — by voice to those
+nearby within a second, by radio to the others after a few seconds — and the unit calls new contacts out on
+the radio log. Old contacts grow vaguer and are forgotten after two minutes. A fire order can name an enemy:
+each man then fires where he believes that enemy is, and follows him as reports come in.
+
+**Fog of war.** You see the enemy only as your men know him: a solid diamond where one of your men sees him now,
+a hollow one where he was last seen or reported, with a ring for how far off that may be, a dashed ring with a
+cross for shots heard. Old contacts fade over two minutes. Tap an enemy marker in fire mode to fire at him.
+Debug shows the enemy as he really is.
+`npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
+to every enemy he can see.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -272,7 +294,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 302 automated tests (299 plus 3 timing tests run on their own), including:
+- `npm test` runs 321 automated tests (317 plus 4 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -281,13 +303,13 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
   - **fixture faction**: the made-up faction loads and fights;
   - **architecture guards**: the simulation never touches real time, real randomness or the screen;
   - **performance floor**: 304 soldiers moving on a 2 × 2 km map must run at least 8× faster than real time
-    (about 200× here; with 20,000 bullets in the air about 5.5×, floor 3×).
+    (about 18× here with 304 men moving; with 20,000 bullets in the air about 5.5×, floor 3×).
 - `npm run screenshot` opens the app in a headless browser at phone and desktop size and saves pictures that
   are checked by eye.
 - The Stop hook refuses to let a Claude session end while the typecheck or tests fail.
 
 ## What is not there yet
 
-No first aid, no spotting (everyone sees everything), anti-tank weapons are only carried,
+No first aid, anti-tank weapons are only carried,
 nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
-shoots by itself. Those are milestones M3–M7.
+shoots by itself. Those are milestones M4–M7.

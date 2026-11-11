@@ -3,9 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M3 Spotting and knowledge** — slices **M3.1 line of sight and line of fire** and **M3.2 detection: done**.
-Next: **M3.3 contacts and sharing** (per-man contacts with confidence and age, sound contacts from shots,
-sharing by voice and radio through the comms model, call-outs, fire at a contact).
+**M3 Spotting and knowledge** — slices **M3.1 line of sight**, **M3.2 detection** and **M3.3 contacts and
+sharing: done**. Next: **M3.4 fog of war** (the player sees only what his men have reported, fading with age;
+debug shows all) — completes M3.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -83,9 +83,12 @@ sharing by voice and radio through the comms model, call-outs, fire at a contact
   movement, firing, what is in the way, where he looks, his optic and skill (`npm run lab -- spotting`:
   standing still at 300 m spotted in a median 9 s; lying still in crops at 100 m never in 40 runs; crawling
   there 9 s; firing 1 s). Debug draws who sees whom.
-- Tests: 313 (309 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M3.3 contacts**: each man remembers what he has seen, heard (direction and a rough distance of shots) or
+  been told of each enemy; he passes it on by voice nearby and by radio with a delay; the unit calls contacts
+  out on the radio log; a fire order can name an enemy, and each man aims where he believes him to be.
+- Tests: 318 (314 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
-  check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 21×.
+  check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab

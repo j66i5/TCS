@@ -94,7 +94,7 @@ describe("wounds are records and casualties stay in the world", () => {
     let ev: SimEvent[] = [];
     for (let k = 0; k < 50 && s.physiology.alive; k++) ev = strike(sim, leader, "head");
     expect(s.casualty).toBe("killed");
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.manDown" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.manDown" });
     expect(unit.leader).not.toBe(leader);
     expect(unit.leader).not.toBeNull();
     const at = { ...sim.state.transform.req(leader) };
@@ -315,7 +315,7 @@ describe("fixes from the independent review", () => {
     const ev = kill(sim, leader);
     expect(squad.leader).not.toBeNull();
     expect(squad.leader).not.toBe(leader);
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.manDown" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.manDown" });
   });
 
   it("a man knocked down by a plate hit cannot get up, reload or change posture until it has passed", () => {
@@ -358,7 +358,7 @@ describe("fixes from the independent review", () => {
     refreshStatus(sim.ctx, sim.state, new EventSink(), leader);
     expect(s.impair.canSpeak).toBe(false);
     submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "halt" });
-    const radio = run(sim, 3).find((e) => e.kind === "radio");
+    const radio = run(sim, 3).find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"));
     expect(radio && radio.kind === "radio" ? radio.from : leader).not.toBe(leader);
   });
 });

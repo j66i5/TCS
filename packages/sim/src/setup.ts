@@ -48,6 +48,7 @@ function addUnit(
     moving: false,
     firing: false,
     lineBlockedReported: false,
+    lastCallTick: -100000,
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {
@@ -97,6 +98,7 @@ function addSoldier(
     impair: { move: 1, aim: 1, canWalk: true, canUseArms: true, canFight: true, canSpeak: true },
     stunnedUntilTick: 0,
     seen: [],
+    contacts: [],
     evade: null,
     casualty: "none",
   };

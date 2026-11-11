@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, WeaponState } from "./components";
+import type { Action, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
@@ -33,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 10;
+export const STATE_SCHEMA_VERSION = 11;
 
 export interface SideState {
   id: SideId;
@@ -53,6 +53,8 @@ export interface SimState {
   sides: SideState[];
   inbox: InboxOrder[];
   pendingOrders: PendingOrder[];
+  /** Contact reports on their way from one soldier to another (voice or radio, M3.3). */
+  contactReports: ContactReport[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -87,6 +89,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     sides: [],
     inbox: [],
     pendingOrders: [],
+    contactReports: [],
     ended: null,
     identity: new Store(),
     transform: new Store(),
@@ -117,6 +120,8 @@ export interface SerializedState {
   sides: SideState[];
   inbox: InboxOrder[];
   pendingOrders: PendingOrder[];
+  /** Contact reports on their way from one soldier to another (voice or radio, M3.3). */
+  contactReports: ContactReport[];
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;
@@ -143,6 +148,7 @@ export function serializeState(s: SimState): SerializedState {
       sides: s.sides,
       inbox: s.inbox,
       pendingOrders: s.pendingOrders,
+      contactReports: s.contactReports,
       ended: s.ended,
       stores,
     },
@@ -184,6 +190,7 @@ export function deserializeState(data: SerializedState): SimState {
     sides: d.sides,
     inbox: d.inbox,
     pendingOrders: d.pendingOrders,
+    contactReports: d.contactReports,
     ended: d.ended,
     catalogFingerprint: d.catalogFingerprint,
     mapFingerprint: d.mapFingerprint,

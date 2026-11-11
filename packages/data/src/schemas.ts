@@ -245,6 +245,11 @@ export const SpottingFile = withProv({
   sensors: z.record(z.string(), z.object({ factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1) }).strict()),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
   minVisibility: Num(0, 1), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+  contacts: z.object({
+    seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),
+    heardEverySeconds: Num(0, 60), forgetSeconds: Num(1, 3600), driftMps: Num(0, 20), reportEverySeconds: Num(0, 600), reportedErrorM: Num(0, 500),
+    voiceDelaySeconds: Num(0, 60), callEverySeconds: Num(0, 600),
+  }).strict(),
 });
 export type SpottingT = z.infer<typeof SpottingFile>;
 

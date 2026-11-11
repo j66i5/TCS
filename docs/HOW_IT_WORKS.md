@@ -250,7 +250,13 @@ for a man standing or walking near him in the open, low for one far away or lyin
 lying still in crops or behind a hedge — and nil behind a hill, a wall or a roof. Moving or firing gives a man
 away — unless a wood stands between. Looking the other way, a soldier rarely notices anyone; a 3x sight helps
 at long range, night-vision goggles at night, and nothing is seen beyond the fog. Once seen, an
-enemy is easy to keep in view; out of sight for six seconds, he is forgotten (until contacts arrive in M3.3).
+enemy is easy to keep in view.
+
+**Contacts.** Each man also remembers: where he last saw an enemy, the direction (and a rough distance) of shots
+he heard, and what comrades told him. He tells the men of his unit what he sees and hears — by voice to those
+nearby within a second, by radio to the others after a few seconds — and the unit calls new contacts out on
+the radio log. Old contacts grow vaguer and are forgotten after two minutes. A fire order can name an enemy:
+each man then fires where he believes that enemy is, and follows him as reports come in.
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
@@ -283,7 +289,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 313 automated tests (309 plus 4 timing tests run on their own), including:
+- `npm test` runs 318 automated tests (314 plus 4 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

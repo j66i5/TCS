@@ -151,7 +151,7 @@ describe("navigation review fixes", () => {
     const ev = [];
     for (let i = 0; i < 200; i++) ev.push(...step(sim));
     expect(ev.some((e) => e.kind === "move.noRoute")).toBe(true);
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.noRoute" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.noRoute" });
     sim.state.unit.req(unit).members.forEach((id, i) => expect(sim.state.transform.req(id)).toEqual(before[i]));
   });
 });

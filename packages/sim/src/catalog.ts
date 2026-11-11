@@ -220,6 +220,11 @@ export interface SpottingDef {
   sensors: Record<string, { factor: number; fromM: number; nightLight: number }>;
   skillSlope: number; stressK: number; lightFloor: number;
   minVisibility: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+  contacts: {
+    seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
+    heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
+    voiceDelaySeconds: number; callEverySeconds: number;
+  };
 }
 
 /** Body outline, wounding and simple physiology parameters (core/wounds.json). */

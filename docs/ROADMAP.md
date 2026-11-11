@@ -92,9 +92,9 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
    of them; line-of-sight lab; debug view of what the selected man can see.
 2. ✅ **M3.2 Detection** (2026-11-11) — probabilistic per observer and target per interval from range, posture, movement,
    firing, concealment, light, sensor (data), look direction and stress; spotting lab with the owner's anchors.
-3. ⏳ **M3.3 Contacts and sharing** — per-soldier contacts (seen / heard, confidence, age), sharing by voice and
+3. ✅ **M3.3 Contacts and sharing** (2026-11-11) — per-soldier contacts (seen / heard, confidence, age), sharing by voice and
    radio through the comms model, call-outs in the radio log, fire orders at a contact.
-4. **M3.4 Fog of war** — the player sees only what his men have reported, fading with age; debug shows all;
+4. ⏳ **M3.4 Fog of war** — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
 ### M4 Soldier and squad behaviour — ⬜

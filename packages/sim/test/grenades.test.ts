@@ -33,7 +33,7 @@ describe("throwing a hand grenade", () => {
     const before = unit.members.reduce((n, m) => n + count(sim, m, "bomb"), 0);
     submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 35, y: 13 });
     const ev = run(sim, 12);
-    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.ack.grenade" });
+    expect(ev.find((e) => e.kind === "radio" && !e.key.startsWith("radio.contact"))).toMatchObject({ key: "radio.ack.grenade" });
     const thrown = ev.filter((e) => e.kind === "grenade.launched");
     expect(thrown).toHaveLength(1);
     expect(unit.members.reduce((n, m) => n + count(sim, m, "bomb"), 0)).toBe(before - 1);

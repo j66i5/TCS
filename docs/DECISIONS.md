@@ -866,3 +866,24 @@ speed is recorded while he runs. Lab: the iron-sights row no longer shares rando
 within 30 s, not by a capped median.
 **Recorded:** a grenade throw does not count as firing for being spotted; the "spotted" event is per new
 sighting, so a man passing from one observer's six tracked enemies to another's can appear several times.
+
+## 2026-11-11 — M3.3 contacts and sharing (state schema v11, goldens regenerated)
+**Contacts** (`sim/src/systems/contacts.ts`, numbers in `core/spotting.json` `contacts`): every soldier keeps a
+list of what he knows of each enemy — position, uncertainty, kind (seen / heard / reported) and when it was
+true. **Seen:** each scan that confirms an enemy gives his position (1 m + 1 % of range). **Heard** (owner:
+direction at once, position only if seen): an enemy shot within 1,500 m gives every able listener the
+direction with an 8-degree error and a distance guess with 35 % error (uncertainty 35 % of the range), at most
+once every 2 s per shooter, not if he sees the shooter already. **Age:** the uncertainty grows 1 m per second;
+a contact is forgotten after 2 minutes, and at once if he saw that man die. **Sharing** through the CommsModel
+(`contactShareDelayTicks`, now implemented): a man passes on to the other men of his top-level unit what he
+sees (again every 10 s while he sees him) or newly hears — within the voice range (40 m) after the 1 s it takes
+to say it, otherwise by radio after 1 s + the radio delay (5 s), if both are on the net; reported positions are
+5 m less certain; reports are not passed on again, and nobody is told what he already knows. **Call-outs:** a
+unit calls a new contact out on the radio log ("enemy, 300 m, bearing 90" / "shots from bearing 85"), at most
+every 8 s. **Fire at a contact:** a fire order may name an enemy; each man fires where he believes him to be
+(his contact, else a comrade's, else the point given) and follows his contact as it changes (target movement in
+the aiming error is still to come). **Speed:** 304 men firing at each other in view about 14x real time (floor
+8x); the first version sent 13,000 redundant reports — men telling comrades what they had heard themselves.
+**Not yet:** contacts are not shared between top-level units (a platoon's squads are one top unit; separate
+squads are not linked until a commander layer exists, M6); sound contacts do not distinguish weapons; the
+player's view is still everything (M3.4).

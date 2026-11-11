@@ -10,6 +10,8 @@ export interface HudCallbacks {
   onNextMap(): void;
   onSpeed(speed: number): void; // 0 = paused
   onMoveMode(mode: string): void;
+  /** Formation for the next move orders. */
+  onFormation(formation: string): void;
   /** Order the selected unit into a posture. */
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   onDebug(on: boolean): void;
@@ -63,6 +65,15 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     modeBtn.classList.toggle("on", mode !== "walk");
     cb.onMoveMode(mode);
   };
+  const formations = ["wedge", "file", "line"];
+  let formation = 0;
+  const formBtn = el("button", "hud-btn", s.t("formation.wedge"));
+  formBtn.setAttribute("aria-label", s.t("app.formation"));
+  formBtn.onclick = () => {
+    formation = (formation + 1) % formations.length;
+    formBtn.textContent = s.t(`formation.${formations[formation]!}`);
+    cb.onFormation(formations[formation]!);
+  };
   const postures = ["standing", "crouching", "prone"] as const;
   let posture = 0;
   const postureBtn = el("button", "hud-btn", s.t("posture.standing"));
@@ -77,7 +88,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const mapBtn = el("button", "hud-btn", cb.mapLabel);
   mapBtn.setAttribute("aria-label", s.t("app.map"));
   mapBtn.onclick = () => cb.onNextMap();
-  bar.append(title, clock, ...speedBtns, modeBtn, postureBtn, mapBtn, dbgBtn);
+  bar.append(title, clock, ...speedBtns, modeBtn, formBtn, postureBtn, mapBtn, dbgBtn);
 
   const hint = el("div", "hud-hint", s.t("app.hint"));
   const log = el("div", "hud-radio");

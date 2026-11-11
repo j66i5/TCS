@@ -70,6 +70,15 @@ export const BodyFile = z.object({
 }).strict();
 export type BodyT = z.infer<typeof BodyFile>;
 
+// ---------- formations (core/formations.json) ----------
+export const FormationSchema = withProv({
+  id: Id, nameKey: z.string(),
+  /** Slot offsets [right, back] in units of the doctrine spacing; slot 0 is the leader. */
+  slots: z.array(z.tuple([z.number().min(-20).max(20), z.number().min(-20).max(20)])).min(2).max(40),
+});
+export const FormationsFile = z.object({ formations: z.array(FormationSchema).min(1) }).strict();
+export type FormationT = z.infer<typeof FormationSchema>;
+
 // ---------- terrain (core/terrain/*.json) ----------
 const Colour = z.string().regex(/^#[0-9a-f]{6}$/i, "colour must be #rrggbb");
 /** Time multiplier per movement class; null = impassable. */
@@ -188,8 +197,12 @@ export const DOCTRINE_KEYS = [
   "relianceOnSupportingFire",
   "droneUse",
   "evacuationPriority",
+  /** How much longer a route may be to stay in cover: 0.3 = accept ~30 % longer (owner decision). */
+  "coverPreference",
 ] as const;
 export const DoctrineFile = withProv({
+  /** Formation used when an order does not name one (core/formations.json). */
+  defaultFormation: Id,
   values: z.object(Object.fromEntries(DOCTRINE_KEYS.map((k) => [k, z.number().min(0).max(100)])) as Record<(typeof DOCTRINE_KEYS)[number], z.ZodNumber>).strict(),
 });
 

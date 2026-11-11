@@ -46,6 +46,7 @@ async function main(): Promise<void> {
 
   let speed = 1;
   let moveMode = "walk";
+  let formation = "wedge";
   const kinds = [...MAP_KINDS, "flat"];
   const hud = createHud(hudRoot, strings, {
     mapLabel: `${strings.t(`map.${mapKind ?? "flat"}`)} ${seed}`,
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onMoveMode: (m) => { moveMode = m; },
+    onFormation: (f) => { formation = f; },
     onPosture: (p) => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
     },
@@ -97,7 +99,7 @@ async function main(): Promise<void> {
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
-      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }] });
+      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], formation });
     },
   });
 
@@ -130,7 +132,7 @@ async function main(): Promise<void> {
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
-    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }] }),
+    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], formation }),
     setSpeed: (v: number) => { speed = v; },
     hash: () => simHash(sim),
     ready: true,

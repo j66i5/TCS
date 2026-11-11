@@ -16,7 +16,15 @@ export const testCatalog: Catalog = {
     crawl: { id: "crawl", class: "foot", speedMps: 0.3, posture: "prone", exertion: 0.5 },
   },
   qualities: {},
-  factions: { fa: { id: "fa", nameKey: "fa", doctrine: {} }, fb: { id: "fb", nameKey: "fb", doctrine: {} } },
+  factions: {
+    fa: { id: "fa", nameKey: "fa", doctrine: { preferredSpacingM: 5, coverPreference: 0 }, defaultFormation: "line" },
+    fb: { id: "fb", nameKey: "fb", doctrine: { preferredSpacingM: 5, coverPreference: 0 }, defaultFormation: "line" },
+  },
+  formations: {
+    line: { id: "line", slots: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0]] },
+    wedge: { id: "wedge", slots: [[0, 0], [-0.71, 0.71], [0.71, 0.71], [-1.42, 1.42], [1.42, 1.42]] },
+    file: { id: "file", slots: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  },
   terrain: {
     materials: { brick: { id: "brick", densityKgM3: 1900, resistance: 0.08, hardness: 0.5 } },
     surfaces: {

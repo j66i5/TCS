@@ -24,23 +24,26 @@ describe("orders", () => {
     expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.ack.move", side: "blue" });
   });
 
-  it("moves the unit, keeping each man's offset, and reports arrival", () => {
+  it("moves the unit in formation (line, 5 m), reports arrival, and the men go prone facing outward", () => {
     const sim = createSim(testInput());
     const unit = blueUnit(sim);
-    const men = sim.state.unit.req(unit).members;
-    const before = men.map((m) => ({ ...sim.state.transform.req(m) }));
+    const [lead, a, b] = sim.state.unit.req(unit).members as [number, number, number];
     submitOrder(sim, { tick: 0, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 40, y: 10, mode: "walk" }] });
-    // 30 m at 1.5 m/s = 20 s, plus 1 s delay.
-    const ev = runTicks(sim, secondsToTicks(22));
+    // ~30 m at 1.5 m/s = 20 s plus 1 s delay; followers start 5-10 m off their slots and catch up.
+    const ev = runTicks(sim, secondsToTicks(40));
     const arrived = ev.find((e) => e.kind === "unit.arrived");
     expect(arrived).toBeDefined();
-    expect(arrived!.tick).toBeGreaterThanOrEqual(secondsToTicks(21) - 1);
-    expect(arrived!.tick).toBeLessThanOrEqual(secondsToTicks(21) + 1);
-    men.forEach((m, i) => {
-      const t = sim.state.transform.req(m);
-      expect(t.x).toBeCloseTo(before[i]!.x + 30, 6);
-      expect(t.y).toBeCloseTo(before[i]!.y, 6);
-    });
+    expect(arrived!.tick).toBeGreaterThan(secondsToTicks(20));
+    expect(arrived!.tick).toBeLessThan(secondsToTicks(30));
+    const pos = (id: number) => sim.state.transform.req(id);
+    // Line abreast across the direction of travel (east): slot -1 = 5 m north, slot +1 = 5 m south.
+    expect(Math.hypot(pos(lead).x - 40, pos(lead).y - 10)).toBeLessThan(1.5);
+    expect(Math.hypot(pos(a).x - 40, pos(a).y - 5)).toBeLessThan(1.5);
+    expect(Math.hypot(pos(b).x - 40, pos(b).y - 15)).toBeLessThan(1.5);
+    for (const id of [lead, a, b]) expect(sim.state.soldier.req(id).posture).toBe("prone");
+    expect(Math.cos(pos(lead).heading)).toBeGreaterThan(0.9); // leader faces the direction of travel
+    expect(Math.sin(pos(a).heading)).toBeLessThan(-0.7); // northern man faces north
+    expect(Math.sin(pos(b).heading)).toBeGreaterThan(0.7); // southern man faces south
   });
 
   it("rejects orders for the other side's units, late orders and off-map waypoints", () => {

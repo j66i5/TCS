@@ -39,9 +39,16 @@ export interface NavGrid {
    * Lets an unreachable goal be rejected at once instead of searching the whole map.
    */
   region: Int32Array;
+  /**
+   * Exposure per cell, 0 (good cover/concealment: woods, scrub, beside walls, hedges or houses) .. 1 (open
+   * ground). Static terrain only; exposure to known enemies (dead ground) comes with spotting (M3/M4).
+   */
+  exposure: Float32Array;
+  /** Cover preference this grid's costs include (0 = plain movement costs). */
+  coverWeight: number;
 }
 
-export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2): NavGrid {
+export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0): NavGrid {
   const cols = Math.ceil(map.widthM / cellM), rows = Math.ceil(map.heightM / cellM);
   const n = cols * rows;
   const cost = new Float32Array(n);
@@ -58,13 +65,14 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
   }
   // Buildings are solid for now (interiors and doors come with close combat). Conservative: every cell the
   // footprint touches at all is blocked (centre test against the footprint grown by half a cell diagonal).
+  const building = new Uint8Array(n);
   for (const b of map.buildings) {
-    forPolygonCells(grow(b.footprint, cellM * 0.71), cellM, cols, rows, (i) => { cost[i] = 0; });
+    forPolygonCells(grow(b.footprint, cellM * 0.71), cellM, cols, rows, (i) => { cost[i] = 0; building[i] = 1; });
     let cx = 0, cy = 0;
     const m = b.footprint.length / 2;
     for (let k = 0; k < b.footprint.length; k += 2) { cx += b.footprint[k]!; cy += b.footprint[k + 1]!; }
     const c = Math.floor(cx / m / cellM), r = Math.floor(cy / m / cellM);
-    if (c >= 0 && r >= 0 && c < cols && r < rows) cost[r * cols + c] = 0;
+    if (c >= 0 && r >= 0 && c < cols && r < rows) { cost[r * cols + c] = 0; building[r * cols + c] = 1; }
   }
   // Linear obstacles: crossing penalty or blocked, per class.
   for (const o of map.obstacles) {
@@ -97,9 +105,88 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
       }
     }
   }
+  const exposure = exposureMap(map, terrain, cellM, cols, rows, wall, building);
+  // Cover-seeking routes: open ground costs up to (1 + coverWeight) times more, so a route may be up to that
+  // much longer to stay in cover (owner decision: balanced, 0.3).
+  if (coverWeight > 0) for (let i = 0; i < n; i++) if (cost[i]! > 0) cost[i] = cost[i]! * (1 + coverWeight * exposure[i]!);
   let minCost = Infinity;
   for (let i = 0; i < n; i++) if (cost[i]! > 0 && cost[i]! < minCost) minCost = cost[i]!;
-  return { cls, cellM, cols, rows, cost, wall, minCost: Number.isFinite(minCost) ? minCost : 1, region: labelRegions(cols, rows, cost, wall) };
+  return {
+    cls, cellM, cols, rows, cost, wall, minCost: Number.isFinite(minCost) ? minCost : 1,
+    region: labelRegions(cols, rows, cost, wall), exposure, coverWeight,
+  };
+}
+
+/** Distance (m) within which a wall, hedge or building gives a man cover. */
+const COVER_NEAR_M = 4;
+
+/**
+ * Static exposure: tall vegetation conceals (cover = concealment per metre x height, capped at 1); the strip
+ * next to walls, hedges, embankments and buildings gives cover (0.8). Exposure = 1 - best cover.
+ */
+function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, cols: number, rows: number, wall: Uint8Array, building: Uint8Array): Float32Array {
+  const n = cols * rows;
+  const cover = new Float32Array(n);
+  const vegCover = map.vegetationPalette.map((id) => {
+    const v = terrain.vegetation[id];
+    if (!v) return 0;
+    return Math.min(1, v.concealmentPerM * v.heightM * 1.5);
+  });
+  for (let r = 0; r < rows; r++) {
+    const mr = Math.min(map.rows - 1, Math.floor(((r + 0.5) * cellM) / map.cellSizeM));
+    for (let c = 0; c < cols; c++) {
+      const mc = Math.min(map.cols - 1, Math.floor(((c + 0.5) * cellM) / map.cellSizeM));
+      const v = map.vegetation[mr * map.cols + mc]!;
+      if (v > 0) cover[r * cols + c] = vegCover[v - 1] ?? 0;
+    }
+  }
+  const rad = Math.max(1, Math.round(COVER_NEAR_M / cellM));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c;
+      if (wall[i] !== 1 && building[i] !== 1) continue; // walls, hedges and buildings give cover; water does not
+      for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+        const j = rr * cols + cc;
+        if (cover[j]! < 0.8) cover[j] = 0.8;
+      }
+    }
+  }
+  const exposure = new Float32Array(n);
+  for (let i = 0; i < n; i++) exposure[i] = 1 - cover[i]!;
+  return exposure;
+}
+
+/** Exposure of the nav cell containing (x, y); 1 off the grid. */
+export function exposureAt(nav: NavGrid, x: number, y: number): number {
+  const c = Math.floor(x / nav.cellM), r = Math.floor(y / nav.cellM);
+  if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) return 1;
+  return nav.exposure[r * nav.cols + c]!;
+}
+
+/**
+ * Best cover within `radiusM` of (x, y): the reachable open (non-wall, passable) cell minimising
+ * exposure + 0.3 x distance/radius, in the same connected area. Deterministic (ties by cell index).
+ */
+export function bestCoverNear(nav: NavGrid, x: number, y: number, radiusM: number): { x: number; y: number } | null {
+  const c0 = Math.floor(x / nav.cellM), r0 = Math.floor(y / nav.cellM);
+  if (c0 < 0 || r0 < 0 || c0 >= nav.cols || r0 >= nav.rows) return null;
+  const home = nav.region[r0 * nav.cols + c0]!;
+  const rad = Math.ceil(radiusM / nav.cellM);
+  let best = -1, bestScore = Infinity;
+  for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+    const d = sqrt(dr * dr + dc * dc) * nav.cellM;
+    if (d > radiusM) continue;
+    const c = c0 + dc, r = r0 + dr;
+    if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) continue;
+    const i = r * nav.cols + c;
+    if (nav.cost[i]! <= 0 || nav.wall[i] === 1 || (home !== 0 && nav.region[i] !== home)) continue;
+    const score = nav.exposure[i]! + (0.3 * d) / radiusM;
+    if (score < bestScore || (score === bestScore && i < best)) { bestScore = score; best = i; }
+  }
+  if (best < 0) return null;
+  return { x: ((best % nav.cols) + 0.5) * nav.cellM, y: (Math.floor(best / nav.cols) + 0.5) * nav.cellM };
 }
 
 /** Flood-fill connected areas using exactly the moves A* may make (8 neighbours, no corner cutting). */
@@ -321,7 +408,9 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
   const gc = goal % C, gr = (goal - gc) / C;
   // Weighted A*: the heuristic is scaled above the admissible minimum (HEURISTIC_WEIGHT x a 1.0-cost cell),
   // which cuts the search on 2 km maps several-fold; routes are at most ~10 % costlier than optimal.
-  const hk = HEURISTIC_WEIGHT;
+  // On cover-seeking grids open ground costs up to (1 + coverWeight): scale the estimate to match, or the
+  // search would explore far too much (most of a 2 km map is open).
+  const hk = HEURISTIC_WEIGHT * (1 + 0.7 * nav.coverWeight);
   const h = (i: number) => {
     const c = i % C, r = (i - c) / C;
     const dx = Math.abs(c - gc), dy = Math.abs(r - gr);

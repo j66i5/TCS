@@ -6,9 +6,11 @@
     "casualtyToleranceBeforeWithdrawal": 0.9,
     "relianceOnSupportingFire": 0.0,
     "droneUse": 1.0,
-    "evacuationPriority": 0.0
+    "evacuationPriority": 0.0,
+    "coverPreference": 0.0
   },
   "sources": [],
   "confidence": "low",
-  "note": "Made-up test fixture."
+  "note": "Made-up test fixture.",
+  "defaultFormation": "file"
 }

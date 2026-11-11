@@ -1,14 +1,16 @@
 {
   "values": {
-    "preferredSpacingM": 8,
+    "preferredSpacingM": 10,
     "aggressiveness": 0.5,
     "willingnessToDismount": 0.5,
     "casualtyToleranceBeforeWithdrawal": 0.3,
     "relianceOnSupportingFire": 0.5,
     "droneUse": 0.5,
-    "evacuationPriority": 0.5
+    "evacuationPriority": 0.5,
+    "coverPreference": 0.3
   },
   "sources": [],
   "confidence": "low",
-  "note": "Neutral placeholder values, identical for both factions until M4 doctrine work. Owner review needed."
+  "note": "Placeholder values identical for both factions until M4, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover).",
+  "defaultFormation": "wedge"
 }

@@ -10,6 +10,9 @@ import { Sprite, Texture } from "pixi.js";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 
+/** Below this many pixels per metre the map is shown as an overview with unit symbols. */
+export const OVERVIEW_SCALE = 0.35;
+
 /** Colours per side INDEX (scenario order), never per faction. */
 export const SIDE_COLOURS = [0x3b82f6, 0xef4444, 0x22c55e, 0xeab308];
 const GROUND = 0x2b3a2a;
@@ -158,8 +161,32 @@ export class BattleRenderer {
       if (m.delivered) g.circle(s.x, s.y, 3).fill({ color: 0xffffff, alpha: 0.8 });
     }
 
-    // Soldiers.
+    // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
     let label = 0;
+    if (c.scale < OVERVIEW_SCALE) {
+      for (const [uid, u] of state.unit.entries()) {
+        if (u.parent !== null) continue;
+        let sx = 0, sy = 0, n = 0;
+        const walk = (x: EntityId) => {
+          const uu = state.unit.get(x);
+          if (!uu) return;
+          for (const m of uu.members) { const p = this.pos(state, m, alpha); sx += p.x; sy += p.y; n++; }
+          for (const ch of uu.children) walk(ch);
+        };
+        walk(uid);
+        if (n === 0) continue;
+        const s = worldToScreen(c, sx / n, sy / n);
+        const colour = SIDE_COLOURS[(sideIndex.get(u.side) ?? 0) % SIDE_COLOURS.length]!;
+        const w = 22, h = 15;
+        g.rect(s.x - w / 2, s.y - h / 2, w, h).fill({ color: 0x10140f, alpha: 0.75 }).stroke({ width: 2, color: colour });
+        g.moveTo(s.x - w / 2, s.y - h / 2).lineTo(s.x + w / 2, s.y + h / 2).moveTo(s.x + w / 2, s.y - h / 2).lineTo(s.x - w / 2, s.y + h / 2).stroke({ width: 1.5, color: colour });
+        if (overlay.selectedUnit === uid) g.rect(s.x - w / 2 - 3, s.y - h / 2 - 3, w + 6, h + 6).stroke({ width: 2, color: 0xffffff });
+        this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
+      }
+      for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
+      return;
+    }
+    // Soldiers.
     for (const [id, ident] of state.identity.entries()) {
       const p = this.pos(state, id, alpha);
       const t = state.transform.req(id);

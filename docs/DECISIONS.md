@@ -285,3 +285,22 @@ heart-rate weights, hard-pace threshold, exhausted speed, slope look-ahead, star
 change; halt and posture orders end a move without an "in position" call; the lab test now also checks that a
 loaded runner is not yet winded after 60 s and not yet recovered after 60 s of rest; the state schema version is
 3. The debug fatigue/heart-rate label is debug-only and not routed through the string table (accepted).
+
+## 2026-11-11 — Owner answers for M1.4 and the formation/cover design
+Owner: default formation **wedge**; spacing **about 10 m**; cover preference **balanced** (accept routes about
+30 % longer to stay in cover); at the halt **each man takes the nearest cover within about 15 m of his slot and
+goes prone**. Design: formations are slot lists in `core/formations.json` ([right, back] in units of the
+doctrine spacing; wedge, file, line); each faction's doctrine names its default formation, spacing and
+`coverPreference` (both factions: wedge, 10 m, 0.3 — identical until M4). A static **exposure** map per
+navigation grid marks cover: tall vegetation by concealment x height, and a 4 m strip beside walls, hedges,
+embankments and buildings. Routes are planned on a cover-weighted grid (open ground costs up to 1 +
+coverPreference); movement speed still uses plain costs. Followers walk their slot alongside the leader's route
+(offset rotated with each leg), with blocked legs repaired by search; they ease off or hurry (x0.7 / x1.2) to
+keep within 3 m of the slot while the leader moves. Halt drill: best cover cell within 15 m (exposure + a small
+distance term), prone, facing outward from the group. Overview zoom (< 0.35 px/m) draws one infantry symbol per
+unit. Search estimate scaled on cover grids (otherwise long searches explored far too much: benchmark 14x -> 24x).
+Honest result: on generated villages, cover-seeking routes are 94–101 % of the quickest length and spend on
+average about 18 % instead of 13 % of their length in cover — a real but modest effect, because most open
+farmland offers no cover within a 30 % detour; and the halt drill often finds only crops (partial concealment).
+Cover relative to known enemies (dead ground, facing threats) is the bigger lever and comes with spotting (M3)
+and behaviour (M4). Golden replays regenerated.

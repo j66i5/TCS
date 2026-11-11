@@ -921,3 +921,7 @@ contacts — tested on `sideKnowledge`, checked by eye on screenshots (the rende
 the delay of reporting them to the leader) — the owner chose "what your men have reported" over "only what
 reached the leader"; enemy casualties are shown only as contacts; the heard ring is centred on the guessed
 point, not drawn as a bearing line.
+
+## 2026-11-11 — Owner: remind him of the "only what reached the leader" fog-of-war option after M6
+Recorded in ROADMAP (M6 review) and STATE (reminders). It is a rendering choice on top of the same contact
+model: the leader's contacts instead of the union of the side's.

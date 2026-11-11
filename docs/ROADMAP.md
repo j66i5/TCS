@@ -113,7 +113,8 @@ Acceptance: **first playable** — a generated platoon-level infantry battle, Ge
 side playable, AI-versus-AI batch report available.
 
 **Stop after M6 for a review with the owner** (is it fun, what is wrong, what to change before adding breadth;
-also: pull the medical system forward or not).
+also: pull the medical system forward or not; **owner asked to be reminded (2026-11-11): fog of war "only what
+reached the squad leader"** instead of "what your men have reported" — see DECISIONS.md, M3.4).
 
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired

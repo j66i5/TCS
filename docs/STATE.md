@@ -147,6 +147,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 ## Next
 **M3 Spotting and knowledge** — propose slices, ask the owner's questions, then start when he says so.
 
+## Reminders for the owner (at the review after M6)
+- **Fog of war option "only what reached the squad leader"** (owner asked to be reminded after M6, 2026-11-11):
+  today the player sees what any of his men know at once; the stricter option shows only the leader's picture,
+  with the reporting delay.
+- Pull the medical system forward or not.
+
 ## Open questions for the owner
 - **Corrections to the two squads** (roles, ranks, weapons, ammunition) whenever the owner wishes.
 - (Answered by choosing the research defaults:) squad tables wanted before M2.5: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per

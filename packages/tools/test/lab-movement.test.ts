@@ -38,6 +38,8 @@ describe("movement lab", () => {
     expect(f("running 150 s", 24).fatigue).toBeLessThan(0.85);
     expect(f("running 150 s", 0).fatigue).toBeLessThan(f("running 150 s", 24).fatigue);
     expect(f("running 150 s", 24).hr).toBeGreaterThan(170);
+    expect(f("running 60 s", 24).fatigue).toBeLessThan(0.4); // not yet winded after one minute
+    expect(f("resting 60 s", 24).fatigue).toBeGreaterThan(0.3); // one minute's rest is not enough
     expect(f("resting 300 s", 24).fatigue).toBeLessThan(0.15);
     expect(f("resting 300 s", 24).hr).toBeLessThan(90);
     expect(mv("flat", "walk", 24).fatigueEnd).toBeLessThan(0.05);

@@ -34,10 +34,11 @@ export const testCatalog: Catalog = {
       freeLoadKg: 10, slowdownPerKg: 0.02,
     },
     // Neutral movement factors so the order tests keep exact speeds (no load, flat ground).
-    movement: { slopeK: 3.5, slopeOffset: 0.05, loadFreeKg: 10, loadSpeedPerKg: 0.006, minLoadSpeedFactor: 0.5, fatigueSpeedPenalty: 0.35, noRunFatigue: 0.9 },
+    movement: { slopeK: 3.5, slopeOffset: 0.05, loadFreeKg: 10, loadSpeedPerKg: 0.006, minLoadSpeedFactor: 0.5, fatigueSpeedPenalty: 0.35, noRunFatigue: 0.9, hardPaceExertion: 0.6, exhaustedSpeedFactor: 0.5, slopeLookAheadM: 2, runAgainFatigue: 0.6 },
     physiology: {
       bodyMassKg: 80, loadExertionK: 0.8, slopeExertionK: 4, sustainable: 0.35, fatigueGainPerS: 0.0062, recoveryPerS: 0.0067,
       hrRestBpm: 70, hrMaxBpm: 190, hrRiseTauS: 20, hrFallTauS: 45, heatThresholdC: 25, heatPerC: 0.03,
+      postureChangeExertion: 0.3, hrExertionWeight: 0.85, hrFatigueWeight: 0.25, exhaustedExertionFactor: 0.5,
     },
   },
 };

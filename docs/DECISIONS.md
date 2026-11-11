@@ -274,3 +274,14 @@ walking is sustainable. **Heart rate** approaches a target from exertion and fat
 webbing, water and rations until M2 itemises kit (flagged low confidence). Physiology runs every tick (cheap);
 benchmark 35x real time. Golden replays regenerated (state gained posture/physiology changes and load).
 Rejected: an energy-expenditure model in watts (more parameters than the game needs now).
+
+## 2026-11-11 — Fixes from the independent M1.3 review (goldens regenerated)
+Fixed, each with a test: an order with an unknown waypoint posture is now rejected (it could crash the
+simulation); an exhausted runner no longer stays at 100 % — once **winded** (fatigue >= 0.9) he shuffles at half
+speed and works at half the sustainable rate until fatigue falls below 0.6, then runs again (bursts; recovering
+from 0.9 to 0.6 takes about 4–5 minutes); the remaining hard-coded model numbers (posture-change exertion,
+heart-rate weights, hard-pace threshold, exhausted speed, slope look-ahead, starting heart rate) moved into
+`core/body.json`; cancelling a posture change before it completes keeps the old posture without reporting a
+change; halt and posture orders end a move without an "in position" call; the lab test now also checks that a
+loaded runner is not yet winded after 60 s and not yet recovered after 60 s of rest; the state schema version is
+3. The debug fatigue/heart-rate label is debug-only and not routed through the string table (accepted).

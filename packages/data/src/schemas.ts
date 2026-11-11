@@ -54,11 +54,18 @@ export const BodyFile = z.object({
   movement: withProv({
     slopeK: Num(0, 10), slopeOffset: Num(-0.5, 0.5), loadFreeKg: Num(0, 100), loadSpeedPerKg: Num(0, 0.05),
     minLoadSpeedFactor: Num(0.1, 1), fatigueSpeedPenalty: Num(0, 1), noRunFatigue: Num(0, 1),
+    /** Paces with exertion above this count as "hard" (running): exhausted men cannot keep them up. */
+    hardPaceExertion: Num(0, 2), exhaustedSpeedFactor: Num(0.05, 1), slopeLookAheadM: Num(0.5, 20),
+    /** Once winded (fatigue >= noRunFatigue) a man runs again only when fatigue falls below this. */
+    runAgainFatigue: Num(0, 1),
   }),
   physiology: withProv({
     bodyMassKg: Num(30, 150), loadExertionK: Num(0, 5), slopeExertionK: Num(0, 20), sustainable: Num(0, 2),
     fatigueGainPerS: Num(0, 0.1), recoveryPerS: Num(0, 0.1), hrRestBpm: Num(30, 120), hrMaxBpm: Num(120, 230),
     hrRiseTauS: Num(1, 600), hrFallTauS: Num(1, 600), heatThresholdC: Num(-50, 60), heatPerC: Num(0, 1),
+    postureChangeExertion: Num(0, 2), hrExertionWeight: Num(0, 1), hrFatigueWeight: Num(0, 1),
+    /** An exhausted man on a hard pace works at this fraction of the sustainable rate (so he recovers). */
+    exhaustedExertionFactor: Num(0, 1),
   }),
 }).strict();
 export type BodyT = z.infer<typeof BodyFile>;

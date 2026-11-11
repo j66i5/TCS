@@ -52,7 +52,11 @@
       "https://en.wikipedia.org/wiki/Tobler%27s_hiking_function"
     ],
     "confidence": "medium",
-    "note": "Slope effect follows Tobler's hiking function (speed falls exponentially with grade, fastest slightly downhill); load and fatigue penalties are game values."
+    "note": "Slope effect follows Tobler's hiking function (speed falls exponentially with grade, fastest slightly downhill); load and fatigue penalties are game values.",
+    "hardPaceExertion": 0.6,
+    "exhaustedSpeedFactor": 0.5,
+    "slopeLookAheadM": 2,
+    "runAgainFatigue": 0.6
   },
   "physiology": {
     "bodyMassKg": 80,
@@ -69,6 +73,10 @@
     "heatPerC": 0.03,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: a loaded soldier running in the open is clearly winded (fatigue ~0.7) after 2-3 min and recovers in ~5 min of rest; rates chosen to match. Heart-rate range for fit young adults."
+    "note": "Owner decision 2026-11-11: a loaded soldier running in the open is clearly winded (fatigue ~0.7) after 2-3 min and recovers in ~5 min of rest; rates chosen to match. Heart-rate range for fit young adults.",
+    "postureChangeExertion": 0.3,
+    "hrExertionWeight": 0.85,
+    "hrFatigueWeight": 0.25,
+    "exhaustedExertionFactor": 0.5
   }
 }

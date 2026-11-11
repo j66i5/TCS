@@ -96,12 +96,14 @@ export interface BodyDef {
   transitions: { values: Record<string, number>; freeLoadKg: number; slowdownPerKg: number };
   movement: {
     slopeK: number; slopeOffset: number; loadFreeKg: number; loadSpeedPerKg: number; minLoadSpeedFactor: number;
-    fatigueSpeedPenalty: number; noRunFatigue: number;
+    fatigueSpeedPenalty: number; noRunFatigue: number; hardPaceExertion: number; exhaustedSpeedFactor: number;
+    slopeLookAheadM: number; runAgainFatigue: number;
   };
   physiology: {
     bodyMassKg: number; loadExertionK: number; slopeExertionK: number; sustainable: number; fatigueGainPerS: number;
     recoveryPerS: number; hrRestBpm: number; hrMaxBpm: number; hrRiseTauS: number; hrFallTauS: number;
-    heatThresholdC: number; heatPerC: number;
+    heatThresholdC: number; heatPerC: number; postureChangeExertion: number; hrExertionWeight: number;
+    hrFatigueWeight: number; exhaustedExertionFactor: number;
   };
 }
 

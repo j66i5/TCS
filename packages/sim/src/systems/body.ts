@@ -34,6 +34,11 @@ export function requestPosture(ctx: SimContext, state: SimState, id: EntityId, t
   const s = state.soldier.get(id);
   if (!s) return;
   if (s.postureTo === to || (s.postureTo === null && s.posture === to)) return;
+  if (s.postureTo !== null && s.posture === to) {
+    // Cancelling a change before it completed: he never left his posture, so nothing changes.
+    s.postureTo = null;
+    return;
+  }
   const secs = postureChangeSeconds(ctx, s.posture, to, loadKg(ctx, state, id));
   s.postureTo = to;
   s.postureDoneTick = state.tick + Math.max(1, secondsToTicks(secs));
@@ -59,15 +64,21 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
     if (!s.physiology.alive) continue;
     const m = state.mover.get(id);
     const mode = m && m.mode !== null && m.speedMps > 0 ? ctx.catalog.movementModes[m.mode] : undefined;
-    let w = mode ? mode.exertion : s.postureTo !== null ? 0.3 : 0;
+    let w = mode ? mode.exertion : s.postureTo !== null ? p.postureChangeExertion : 0;
     if (w > 0) {
       w *= 1 + (p.loadExertionK * loadKg(ctx, state, id)) / p.bodyMassKg;
       w *= 1 + p.slopeExertionK * Math.max(0, m ? m.grade : 0);
     }
+    // Exhausted on a hard pace: he slows to a shuffle (movement.ts) and works below the sustainable rate,
+    // so he recovers and can run again: bursts, not a permanent 100 %.
+    const mv = ctx.catalog.body.movement;
+    if (s.physical.fatigue >= mv.noRunFatigue) s.physical.winded = true;
+    else if (s.physical.fatigue < mv.runAgainFatigue) s.physical.winded = false;
+    if (mode && mode.exertion > mv.hardPaceExertion && s.physical.winded) w = Math.min(w, p.sustainable * p.exhaustedExertionFactor);
     const ph = s.physical;
     const d = w > p.sustainable ? (w - p.sustainable) * p.fatigueGainPerS * heat : -(p.sustainable - w) * p.recoveryPerS;
     ph.fatigue = clamp(ph.fatigue + d * DT, 0, 1);
-    const target = p.hrRestBpm + (p.hrMaxBpm - p.hrRestBpm) * clamp(0.85 * Math.min(1, w) + 0.25 * ph.fatigue, 0, 1);
+    const target = p.hrRestBpm + (p.hrMaxBpm - p.hrRestBpm) * clamp(p.hrExertionWeight * Math.min(1, w) + p.hrFatigueWeight * ph.fatigue, 0, 1);
     ph.heartRateBpm += (target - ph.heartRateBpm) * (target > ph.heartRateBpm ? riseK : fallK);
   }
 }

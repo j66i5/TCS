@@ -42,7 +42,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     let speed = mode.speedMps / (k > 0 ? k : 1);
     speed *= B.postures[posture].speedFactor / B.postures[mode.posture].speedFactor;
     if (dist > 1e-9) {
-      const look = Math.min(dist, 2);
+      const look = Math.min(dist, B.movement.slopeLookAheadM);
       const g = (heightAt(ctx.map, t.x + (dx / dist) * look, t.y + (dy / dist) * look) - heightAt(ctx.map, t.x, t.y)) / look;
       m.grade = g;
       // Tobler's hiking function, normalised to 1 on level ground.
@@ -52,8 +52,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       const load = loadKg(ctx, state, id);
       speed *= clamp(1 - B.movement.loadSpeedPerKg * Math.max(0, load - B.movement.loadFreeKg), B.movement.minLoadSpeedFactor, 1);
       speed *= 1 - B.movement.fatigueSpeedPenalty * s.physical.fatigue;
-      // Exhausted men cannot keep up hard paces (running): they drop to half speed.
-      if (mode.exertion > 0.6 && s.physical.fatigue >= B.movement.noRunFatigue) speed *= 0.5;
+      // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
+      if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
     }
     const step = speed * DT;
     if (dist > 1e-9) t.heading = atan2(dy, dx);

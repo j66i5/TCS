@@ -33,7 +33,7 @@ covered routes).
   pace, posture, slope (Tobler), load, fatigue and ground; fatigue and heart rate rise with effort, load, uphill
   and heat and recover at rest; movement lab (`npm run lab -- movement`) with checked bands; posture and 4-pace
   buttons; debug labels show fatigue and heart rate. Each DE/RU soldier carries a 24 kg placeholder load.
-- Tests: 148, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 152, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

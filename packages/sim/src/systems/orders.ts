@@ -27,6 +27,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
         if (!Number.isFinite(w.x) || !Number.isFinite(w.y)) return "invalid-params";
         if (w.x < 0 || w.y < 0 || w.x > ctx.map.widthM || w.y > ctx.map.heightM) return "invalid-params";
         if (!ctx.catalog.movementModes[w.mode]) return "invalid-params";
+        if (w.posture !== undefined && w.posture !== "standing" && w.posture !== "crouching" && w.posture !== "prone") return "invalid-params";
       }
       return null;
     case "halt":
@@ -142,9 +143,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; }
       }
+      stopUnit(state, order.target);
       break;
     }
     case "posture": {
+      stopUnit(state, order.target);
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; }
@@ -199,6 +202,12 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
+}
+
+/** A halted unit is no longer "moving", so no "in position" report follows. */
+function stopUnit(state: SimState, target: EntityId): void {
+  const u = state.unit.has(target) ? target : state.identity.get(target)?.unit;
+  if (u !== undefined) state.unit.req(u).moving = false;
 }
 
 function markUnitMoving(state: SimState, soldier: EntityId): void {

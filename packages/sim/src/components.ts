@@ -50,7 +50,8 @@ export interface SoldierState {
   /** Posture being taken, or null. The change completes at `postureDoneTick`. */
   postureTo: Posture | null;
   postureDoneTick: number;
-  physical: { fatigue: number; heartRateBpm: number; hydration: number };
+  /** winded: reached the exhaustion limit; stays true until fatigue falls below the run-again level. */
+  physical: { fatigue: number; heartRateBpm: number; hydration: number; winded: boolean };
   mental: { stress: number; suppression: number; morale: number; behaviour: Behaviour };
   physiology: Physiology;
   wounds: Wound[];

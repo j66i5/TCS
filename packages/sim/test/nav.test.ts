@@ -131,7 +131,7 @@ describe("navigation review fixes", () => {
     const s = createNavSearch(nav);
     for (const [ax, ay, bx, by] of [[5, 5, 195, 190], [5, 100, 195, 20], [190, 5, 10, 195]] as const) {
       const p = findPath(s, ax, ay, bx, by)!;
-      let px = ax, py = ay, total = 0;
+      let px: number = ax, py: number = ay, total = 0;
       for (let i = 0; i < p.points.length; i += 2) { total += lineCost(nav, px, py, p.points[i]!, p.points[i + 1]!); px = p.points[i]!; py = p.points[i + 1]!; }
       expect(total).toBeLessThanOrEqual(p.cost * 1.02 + 2 * nav.cellM * p.points.length);
     }

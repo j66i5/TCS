@@ -34,8 +34,6 @@ _Last updated: 2026-11-11, session 1 (M0 done; M1 slice M1.1 done)._
 - Wood edges and scrub still show a faint 4 m grid pattern when zoomed in close.
 - The phone top bar wraps onto two rows.
 - The map kinds' recipes are code (they name terrain IDs); terrain *properties* are data. See DECISIONS.md.
-- **Spec deviation awaiting approval**: heightfield stored inside the map JSON instead of a separate
-  heightmap image (DECISIONS.md, "PROPOSED SPEC CHANGE").
 - German/Russian unit templates, roles and doctrine are still placeholders (low confidence).
 
 ## Blocked / needs the owner
@@ -48,5 +46,4 @@ _Last updated: 2026-11-11, session 1 (M0 done; M1 slice M1.1 done)._
 - Map look **naturalistic**; villages **mixed street/clustered**; default map **2 × 2 km**.
 
 ## Open questions for the owner
-- Approve the map-format change (heightfield inside the JSON file)?
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.

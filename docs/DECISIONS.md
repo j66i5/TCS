@@ -166,13 +166,12 @@ at battle start (not saved). Terrain damage (breaches, craters, thinned vegetati
 replays and can persist into the campaign. Rejected: everything as grids (walls would be 4 m thick), everything
 as vectors (vegetation and surfaces would need polygon tests on every query).
 
-## 2026-11-11 — PROPOSED SPEC CHANGE: heightfield inside the map JSON, not a separate image
+## 2026-11-11 — SPEC CHANGE (approved by the owner): heightfield inside the map JSON, not a separate image
 SPEC 6.1 says "Map format: JSON plus heightmap image". The map file currently stores the heightfield (and the
 surface/vegetation grids) as base64-encoded little-endian binary inside the one JSON file. Reason: an exact
 round trip (a PNG decoded through a browser canvas can change values through colour management and is
 limited to 8 bits per channel), one file per map, no image library. A heightmap image export/import fits the
-map-editor and real-terrain-importer milestone. **Needs the owner's agreement** before `docs/SPEC.md` is changed;
-until then this entry records the deviation.
+map-editor and real-terrain-importer milestone. Approved by the owner on 2026-11-11; `docs/SPEC.md` section 6.1 updated accordingly.
 
 ## 2026-11-11 — Map generation follows the simulation's determinism rules
 A generated map is part of the battle input, so every device must produce the identical map from the same

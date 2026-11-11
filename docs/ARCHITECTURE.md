@@ -395,6 +395,14 @@ the map and the derived ballistics tables (wall segments with `seeThrough` and o
 No state, no randomness, so any system (fire, detection, AI, debug views) may call it. The fire system uses it
 for the line of fire (`lineOfFireClear`, cached once a second on the `FireTask`).
 
+## 16h. Detection (SPEC 6.5) — `sim/src/systems/spotting.ts`, `core/spotting.json`
+
+Runs after wounds each tick; each able soldier scans every `scanSeconds`, staggered by ID. Per enemy in range:
+one draw from the `spotting` stream, a rate from data (range, posture, movement/firing, look direction,
+optic, skill, stress, light), the line of sight (M3.1) only if the draw could succeed. Output:
+`SoldierState.seen` (target, first and last tick; at most `maxTracked`, nearest kept) and `spotted` events.
+M3.3 builds contacts on top of it.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

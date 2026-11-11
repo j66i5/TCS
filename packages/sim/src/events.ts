@@ -29,6 +29,8 @@ export type SimEvent =
     }
   /** dirX, dirY: horizontal unit direction of the shot. */
   /** A projectile struck a soldier. armour: none worn there / penetrated / stopped the round. */
+  /** An observer has spotted an enemy he was not already watching. */
+  | { kind: "spotted"; tick: number; observer: EntityId; target: EntityId; side: SideId; rangeM: number }
   | { kind: "explosion"; tick: number; x: number; y: number; z: number; ammo: DefId; owner: EntityId; stunRadiusM: number }
   /** A grenade with a running fuse has struck the ground (or a wall or roof) at this point; it will burst at burstTick. */
   | { kind: "grenade.landed"; tick: number; x: number; y: number; z: number; ammo: DefId; burstTick: number }

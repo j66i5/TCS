@@ -820,3 +820,27 @@ Wording corrected: in the farmland shoot-out both sides held their fire, not one
 **Recorded:** walls are lines without thickness for sight (a line exactly along a wall is clear); a line
 exactly along a house face touches the ends of its side walls; sight() allocates a little per call (Sets,
 arrays) — to watch when detection makes many checks per second.
+
+## 2026-11-11 — M3.2 detection (state schema v10, goldens regenerated)
+**Model** (`sim/src/systems/spotting.ts`, numbers in the new `core/spotting.json`): every able soldier scans
+once a second (staggered); for each enemy within 1,200 m the chance to see him in this scan is
+1 - exp(-rate x 1 s), rate = 0.07/s x (300 m / range)^2 x exposed size (standing 1, kneeling 0.55, prone 0.2) x
+movement (x4 moving, x6 running) or firing within 2 s (x15) x visibility along the line of sight (M3.1) x where
+he looks (within 60 degrees of his facing x1, to 110 degrees x0.3, behind x0.05) x optic beyond 150 m (x1.4) x
+skill (observation, else marksmanship) x stress x light. Ground, walls and roofs hide a man completely;
+vegetation thins the view, but a man moving through it shows at least 15 % of himself (plants move) and a man
+firing at least 50 % (flash, dust). One random draw per observer, target and scan, always, from the
+"spotting" stream; the sight check is skipped when the draw could not succeed even with a perfect view. A man
+already seen is kept with 20 times the rate, forgotten after 6 s unseen, and a man tracks at most 6 enemies at
+once (the nearest). Result: `SoldierState.seen` (plain data) and a `spotted` event per new sighting. Debug
+shows a thin line from each man to every enemy he has in sight.
+**Spotting lab** (`npm run lab -- spotting`, 40 runs per row, regular observer standing): standing still in the
+open at 100 / 300 / 600 m: median 2 / 9 / 35 s (owner: 5-15 s at 300 m); walking across at 300 m 3 s; kneeling
+13 s; prone 7 s at 100 m, 36 s at 300 m; observer looking away: 53 % within 2 minutes; **lying still in crops at
+100 m: never in 40 runs (owner: very hard)**; crawling there 9 s; firing from there 1 s; prone in tall grass
+78 s. **Speed:** 304 men in plain view of each other 300 m apart: about 25x real time (new timing test, floor
+8x). The ordinary benchmark (304 men on the move, sides out of view) is about 18x — route-finding dominates; the
+"~200x" in STATE was stale since M1.4.
+**Not yet:** the observer's facing is fixed (he does not scan around: M4); stress is in the formula but not yet
+raised by anything; night, smoke, rain and fog (M8/M9) only through `light` and `visibilityM`, which stay at
+daylight; sound contacts and sharing are M3.3.

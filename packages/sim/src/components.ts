@@ -67,6 +67,8 @@ export interface SoldierState {
   impair: { move: number; aim: number; canWalk: boolean; canUseArms: boolean; canFight: boolean; canSpeak: boolean };
   /** Knocked down (e.g. a round stopped by his plate): no moving or firing until this tick. */
   stunnedUntilTick: number;
+  /** Enemies he can see now or saw moments ago (M3.2), ascending target ID. M3.3 turns them into contacts. */
+  seen: { target: EntityId; firstTick: number; lastTick: number }[];
   /** Getting away from a grenade at (x, y): from startTick he runs from it (`run`) or drops flat; over at untilTick. */
   evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean } | null;
   /** Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed. */

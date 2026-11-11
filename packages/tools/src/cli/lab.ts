@@ -1,9 +1,10 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
 import { fragmentationLab, fragmentationLabMarkdown } from "../labs/fragmentation";
 import { sightLab, sightLabMarkdown } from "../labs/sight";
+import { spottingLab, spottingLabMarkdown } from "../labs/spotting";
 import { coverLab, coverLabMarkdown } from "../labs/cover";
 import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
@@ -15,6 +16,7 @@ const LABS: Record<string, () => string> = {
   casualty: () => `# Casualty lab\n\n${casualtyLabMarkdown(casualtyLab(loadData()))}\n`,
   fragmentation: () => `# Fragmentation lab\n\n${fragmentationLabMarkdown(fragmentationLab(loadData()))}\n`,
   sight: () => `# Line-of-sight lab\n\n${sightLabMarkdown(sightLab(loadData()))}\n`,
+  spotting: () => `# Spotting lab\n\n${spottingLabMarkdown(spottingLab(loadData()))}\n`,
   cover: () => `# Cover and flight lab\n\n${coverLabMarkdown(coverLab(loadData()))}\n`,
 };
 const name = process.argv[2] ?? "movement";

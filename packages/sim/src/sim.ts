@@ -17,6 +17,7 @@ import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
+import { spottingSystem } from "./systems/spotting";
 import { PHYSIOLOGY_MODELS } from "./wounds";
 import { buildInitialState } from "./setup";
 import {
@@ -91,6 +92,7 @@ export function step(sim: Sim): SimEvent[] {
   grenadeReactionSystem(ctx, state, events);
   incomingFireSystem(ctx, state, events.events);
   woundSystem(ctx, state, events);
+  spottingSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

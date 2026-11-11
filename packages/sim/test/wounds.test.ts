@@ -434,3 +434,25 @@ describe("shoot-through review fixes", () => {
     expect(hits).toBeLessThanOrEqual(20);
   });
 });
+
+describe("detection state (M3.2)", () => {
+  it("men spot enemies in plain sight, emit 'spotted' once per sighting, forget them when they vanish, and it all saves", () => {
+    const input = physio();
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p) => ({ ...p, x: 120 })); // 110 m, open, facing each other
+    const sim = createSim(input);
+    const ev = run(sim, 30);
+    const spotted = ev.filter((e) => e.kind === "spotted");
+    expect(spotted.length).toBeGreaterThanOrEqual(6); // 3 blue x 2 red + 2 red x 3 blue, give or take
+    const pairs = new Set(spotted.map((e) => (e.kind === "spotted" ? `${e.observer}-${e.target}` : "")));
+    expect(pairs.size).toBe(spotted.length); // nobody is "spotted" twice while still in view
+    const [, blue] = unitOf(sim, "blue");
+    expect(sim.state.soldier.req(blue.members[0]!).seen.length).toBeGreaterThan(0);
+    const again = loadSim((() => { const i = physio(); i.forces[1]!.placements = i.forces[1]!.placements.map((p) => ({ ...p, x: 120 })); return i; })(), JSON.parse(JSON.stringify(saveSim(sim))));
+    run(sim, 10); run(again, 10);
+    expect(hashState(again.state)).toBe(hashState(sim.state));
+    // The red men die: they are forgotten.
+    for (const m of unitOf(sim, "red")[1].members) { const s = sim.state.soldier.req(m); s.physiology.alive = false; }
+    run(sim, 2);
+    expect(sim.state.soldier.req(blue.members[0]!).seen).toHaveLength(0);
+  });
+});

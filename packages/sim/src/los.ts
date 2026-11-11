@@ -151,6 +151,9 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
   return { visibility, blockedBy: null, vegetationM: vegM, blockedAt: 1 };
 }
 
+/** The point an observer looks at on a man: the middle of what shows of him in this posture, m above ground. */
+export const TARGET_POINT_M: Record<"standing" | "crouching" | "prone", number> = { standing: 1.2, crouching: 0.75, prone: 0.2 };
+
 /** Eye height above the ground for a posture (a little below the top of the head). */
 export function eyeHeightM(ctx: SimContext, posture: "standing" | "crouching" | "prone"): number {
   return Math.max(0.2, ctx.catalog.body.postures[posture].heightM - 0.12);

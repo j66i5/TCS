@@ -221,6 +221,20 @@ export class BattleRenderer {
       if (m.delivered) g.circle(s.x, s.y, 3).fill({ color: 0xffffff, alpha: 0.8 });
     }
 
+    // Debug: who sees whom (a thin line from each man to every enemy he has in sight).
+    if (overlay.debug) {
+      for (const [id, s] of state.soldier.entries()) {
+        if (s.seen.length === 0) continue;
+        const a = worldToScreen(c, this.pos(state, id, alpha).x, this.pos(state, id, alpha).y);
+        for (const e of s.seen) {
+          if (!state.transform.has(e.target)) continue;
+          const p = this.pos(state, e.target, alpha), b = worldToScreen(c, p.x, p.y);
+          g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+        }
+      }
+      g.stroke({ width: 1, color: 0xffe066, alpha: 0.5 });
+    }
+
     this.drawProjectiles(g, state, alpha, overlay);
     // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
     let label = 0;

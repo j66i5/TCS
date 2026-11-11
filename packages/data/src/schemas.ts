@@ -232,6 +232,19 @@ export const ShootingFile = z.object({
 }).strict();
 export type ShootingT = z.infer<typeof ShootingFile>;
 
+// ---------- spotting (core/spotting.json, M3.2)
+export const SpottingFile = withProv({
+  scanSeconds: Num(0.1, 10), baseRatePerS: Num(0, 10), referenceRangeM: Num(1, 5000), rangeExponent: Num(0, 4),
+  minRangeM: Num(0.5, 500), maxRangeM: Num(10, 20000),
+  postureSize: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 2) }).strict(),
+  stillBelowMps: Num(0, 5), movingFactor: Num(1, 50), runningAboveMps: Num(0, 20), runningFactor: Num(1, 50), movingVisibilityFloor: Num(0, 1),
+  firingWithinSeconds: Num(0, 60), firingFactor: Num(1, 500), firingVisibilityFloor: Num(0, 1),
+  frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
+  opticFactor: Num(1, 10), opticFromM: Num(0, 5000), skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
+  minVisibility: Num(0, 1), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+});
+export type SpottingT = z.infer<typeof SpottingFile>;
+
 // ---------- wounds (core/wounds.json): body outline, wound effects, simple physiology ----------
 const BodyZoneGroup = z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]);
 const Hitbox = z.object({

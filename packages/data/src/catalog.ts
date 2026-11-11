@@ -48,9 +48,11 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     physiology: noProv(data.wounds.physiology), effects: noProv(data.wounds.effects),
   } as Catalog["wounds"];
   const shooting = { aim: noProv(data.shooting.aim), fire: noProv(data.shooting.fire), grenades: noProv(data.shooting.grenades) } as Catalog["shooting"];
+  if (!data.spotting) throw new Error("core/spotting.json is missing or invalid");
+  const spotting = noProv(data.spotting) as Catalog["spotting"];
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, ammo, ammoIds, weapons };
+  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, ammo, ammoIds, weapons };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 

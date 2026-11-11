@@ -209,6 +209,16 @@ export interface ZoneWoundDef {
   severityBase: number; severitySpread: number; fatalAt: number; unconsciousAt: number;
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
+export interface SpottingDef {
+  scanSeconds: number; baseRatePerS: number; referenceRangeM: number; rangeExponent: number; minRangeM: number; maxRangeM: number;
+  postureSize: Record<"standing" | "crouching" | "prone", number>;
+  stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
+  firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
+  frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
+  opticFactor: number; opticFromM: number; skillSlope: number; stressK: number; lightFloor: number;
+  minVisibility: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+}
+
 /** Body outline, wounding and simple physiology parameters (core/wounds.json). */
 export interface WoundsDef {
   hitboxes: Record<"standing" | "crouching" | "prone", HitboxDef>;
@@ -277,6 +287,8 @@ export interface Catalog {
   ballistics: BallisticsDef;
   shooting: ShootingDef;
   wounds: WoundsDef;
+  /** Detection (core/spotting.json, M3.2). */
+  spotting: SpottingDef;
   ammo: Record<DefId, AmmoDef>;
   /** Ammunition IDs in ascending order; projectiles store the index into this list. */
   ammoIds: DefId[];

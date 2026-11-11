@@ -5,7 +5,7 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  createContext, DEFAULT_COMMS, eyeHeightM, flatMap, heightAt, sight, type BattleInput, type Catalog, type MapDef, type Posture, type SimContext,
+  createContext, DEFAULT_COMMS, eyeHeightM, flatMap, heightAt, sight, TARGET_POINT_M, type BattleInput, type Catalog, type MapDef, type Posture, type SimContext,
 } from "@tcs/sim";
 
 export interface SightRow { situation: string; rangeM: number; visibility: number; blockedBy: string; vegetationM: number }
@@ -38,8 +38,6 @@ function ridge(m: MapDef, cx: number, h: number, w: number): void {
   }
 }
 
-/** Height of the point looked at on a man in this posture: the middle of what shows. */
-export const TARGET_POINT_M: Record<Posture, number> = { standing: 1.2, crouching: 0.75, prone: 0.2 };
 
 function look(ctx: SimContext, range: number, observer: Posture, target: Posture, situation: string): SightRow {
   const x0 = 20, y = 50, x1 = 20 + range;

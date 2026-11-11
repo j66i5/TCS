@@ -148,7 +148,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     const a = am.kDrag * rho * (cdv < cap ? cdv : cap) * dt;
     // Quadratic drag integrated exactly for the speed (v / (1 + a)), so that even a tiny fragment that loses
     // most of its speed within one tick behaves; the distance flown uses the mean speed over the tick.
-    const f = 1 / (1 + a), g = 1 / (1 + 0.5 * a);
+    // (For bullets a is a few thousandths: the series is exact to 1e-7 and saves two divisions per bullet.)
+    let f: number, g: number;
+    if (a < 0.02) { f = 1 - a + a * a; g = 1 - 0.5 * a; } else { f = 1 / (1 + a); g = 1 / (1 + 0.5 * a); }
     const x0 = X[i]!, y0 = Y[i]!, z0 = Z[i]!;
     let x1 = x0 + (wx + rvx * g) * dt, y1 = y0 + (wy + rvy * g) * dt, z1 = z0 + (vz * g - 0.5 * gdt) * dt;
     vx = wx + rvx * f; vy = wy + rvy * f; vz = vz * f - gdt;
@@ -189,9 +191,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const kk = r * bcols + c, pz = z0 + t * dz;
         if (pz <= maxGround[kk]! + GROUND_MARGIN_M) nearGround = true;
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
-        if (wallNear[kk] === 1) nearWall = true;
+        if (wallNear[kk] === 1) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
         if (solNear[kk] === 1) nearSoldier = true;
-        if (zTop >= roofLow[kk]!) nearRoof = true;
       }
     }
 

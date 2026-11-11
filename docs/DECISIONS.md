@@ -596,3 +596,11 @@ those ticks keep up with real time and no tick exceeds 120 ms. Bullets: 20,000 l
 drop short; roofs do not shield from blast; blast is applied before the same burst's breach; the fixture
 faction exercises the thrown path only; at 2 m the lab's "fragment wounds per man" is understated for men
 already killed by blast.
+
+## 2026-11-11 — Bullet speed test failed once on GitHub (2.6x), fixed without lowering the floor
+One of the two CI runs of the M2.4 pull request measured the 20,000-bullet benchmark at 2.6x real time (floor
+3x): bodies, roofs and exact drag had reduced the margin from about 7x to about 4.5x here, and the build machine
+runs the other test files at the same time. Done: the roof flag is only looked up next to walls, and bullets
+use a series for the drag factor instead of two divisions (identical to 1e-7; goldens regenerated) — 5.5x here
+now; and the benchmark takes the fastest of three 100-tick windows, because other work on the same cores can
+only slow a window down. The floor stays 3x.

@@ -253,6 +253,16 @@ export const SpottingFile = withProv({
 });
 export type SpottingT = z.infer<typeof SpottingFile>;
 
+// ---------- behaviour (core/behaviour.json, M4)
+export const BehaviourFile = withProv({
+  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1) }).strict(),
+  stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1) }).strict(),
+  states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
+  effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
+  stepSeconds: Num(0.05, 10),
+});
+export type BehaviourT = z.infer<typeof BehaviourFile>;
+
 // ---------- wounds (core/wounds.json): body outline, wound effects, simple physiology ----------
 const BodyZoneGroup = z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]);
 const Hitbox = z.object({

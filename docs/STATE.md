@@ -3,10 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M3 Spotting and knowledge is complete** (M3.1 line of sight and line of fire, M3.2 detection, M3.3 contacts and
-sharing, M3.4 fog of war). Next milestone: **M4 Soldier and squad behaviour** (suppression, morale, cover use,
-fire discipline, ammunition sharing, casualty reaction, drills, doctrine profiles) — the hardest part. Propose
-its slices and ask the owner before starting.
+**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale done (see ROADMAP for the slices,
+DECISIONS for the provisional values taken while the owner slept). Next: **M4.2 soldier decisions** (cover from
+known threats, return fire on his own, ammunition sharing, reaction to casualties, decision overlay).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -90,7 +89,11 @@ its slices and ask the owner before starting.
 - **M3.4 fog of war**: you see the enemy only as your men know him — solid diamonds where he is in sight,
   hollow ones where he was last seen or reported, rings for the sound of shots; old contacts fade; Debug shows
   everything. Tapping an enemy marker in fire mode fires at that contact.
-- Tests: 321 (317 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M4.1 suppression and morale**: enemy rounds cracking past or striking near a man suppress him (bursts a lot);
+  pinned men drop flat, stop and fire less (yellow ring), stress from fire, fallen comrades, a fallen leader and
+  wounds, damped by experience and a leader nearby; shaken men fire less, panicked men lie flat and do not fire
+  (red ring); suppression lab (`npm run lab -- suppression`).
+- Tests: 329 (325 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

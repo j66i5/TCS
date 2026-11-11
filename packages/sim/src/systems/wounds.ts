@@ -4,6 +4,7 @@
  * zone, mechanism, severity, bleeding, airway/breathing/consciousness effects. The physiology model then runs
  * on a clock. A casualty stays in the world as an entity; he is never deleted.
  */
+import { leaderLost } from "./morale";
 import { interruptAction } from "../actions";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -176,7 +177,10 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
   if (unit) {
     // The next able man leads: one of the unit's own men first, else one from its sub-units.
     const able = (x: EntityId) => isAble(state.soldier.get(x));
-    if (unit.leader === id) unit.leader = unit.members.find(able) ?? unitSoldiers(state, ident.unit).find(able) ?? null;
+    if (unit.leader === id) {
+      unit.leader = unit.members.find(able) ?? unitSoldiers(state, ident.unit).find(able) ?? null;
+      leaderLost(ctx, state, ident.unit);
+    }
     let top = ident.unit;
     for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;
     const all = unitSoldiers(state, top);

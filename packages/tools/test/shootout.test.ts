@@ -30,7 +30,9 @@ describe("scripted shoot-out of the two squads (M2 demonstration)", () => {
     const byWeapon = new Map<string, number>();
     for (const e of shots) byWeapon.set(e.weapon, (byWeapon.get(e.weapon) ?? 0) + 1);
     console.log([...byWeapon.entries()].sort().map(([w, n]) => `${w} ${n}`).join(", "));
-    for (const w of ["de-g36", "de-mg5", "de-g28", "ru-ak74m", "ru-pkp"]) expect(byWeapon.get(w) ?? 0).toBeGreaterThan(20);
+    // (The marksman lies in the beaten zone of the enemy machine gun: pinned since M4.1, he fires less.)
+    for (const w of ["de-g36", "de-mg5", "ru-ak74m", "ru-pkp"]) expect(byWeapon.get(w) ?? 0).toBeGreaterThan(20);
+    expect(byWeapon.get("de-g28") ?? 0).toBeGreaterThan(8);
     // The machine guns fire more than any single rifle, and their belts show tracers.
     expect(byWeapon.get("de-mg5")!).toBeGreaterThan(byWeapon.get("de-g36")! / 4);
     expect(shots.some((e) => input.catalog.ammo[e.ammo]?.tracer === true)).toBe(true);

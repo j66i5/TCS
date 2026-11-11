@@ -939,3 +939,18 @@ has a fog-of-war picture, and its casualty picture uses Debug (the symbols it ch
 **Recorded:** one colour for all enemy contacts (fine with two sides); rarely a hollow marker for a man also in
 sight from farther away (the more certain, older sighting wins); the renderer path itself has no unit test —
 evidence is the screenshot pair "3-casualties" (Debug) / "3b-fog-of-war".
+
+## 2026-11-11 — M4 slices and M4.1 suppression and morale (owner asleep: provisional, for his review)
+The owner asked to work through to M6 overnight. Decisions that are his are taken as recommended and listed
+here as **provisional**: (1) M4 slices: 4.1 suppression and morale, 4.2 soldier decisions, 4.3 squad drills,
+4.4 doctrine profiles and batch. (2) Suppression numbers (core/behaviour.json, confidence low, game values tuned
+with the new suppression lab): an enemy round within 4 m adds up to 0.3 (energy-scaled, half at 4 m), fades
+0.1/s; pinned at 0.6 until below 0.35. Result: machine gun pins in 1-2 s at 200 m, ~8 s at 600 m; fire team ~6 s
+at 200 m; one aimed rifle rarely. (3) Stress: grows 0.02/s x suppression; comrade down within 60 m +0.15, leader
+lost +0.2, own wound +0.25 x severity; experience damps (x(1 - 0.6 x exp)), leader within 30 m x0.7; fades
+0.01/s under light fire. Shaken at 0.55 (fires at 0.7 the rate), panicked at 0.85 (flat, no fire) until under
+0.7. In the scripted shoot-out the two men in each machine gun's beaten zone are pinned at ~20 s and panic after
+~90 s of continuous fire. (4) Own rounds never suppress; fragments do not count as near misses (the burst does).
+**Recorded:** routing (running away) is left to M4.3 with the drills; the shoot-out test now expects the marksman
+(pinned in the beaten zone) to fire fewer rounds; the fire-rate test that checks the ammunition clock keeps its
+men calm. The rings on the map (yellow pinned, red panicked) show own men only under fog of war.

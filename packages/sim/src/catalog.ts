@@ -211,6 +211,14 @@ export interface ZoneWoundDef {
   severityBase: number; severitySpread: number; fatalAt: number; unconsciousAt: number;
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
+export interface BehaviourDef {
+  suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number };
+  stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number };
+  states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
+  effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
+  stepSeconds: number;
+}
+
 export interface SpottingDef {
   scanSeconds: number; baseRatePerS: number; referenceRangeM: number; rangeExponent: number; minRangeM: number; maxRangeM: number;
   postureSize: Record<"standing" | "crouching" | "prone", number>;
@@ -295,6 +303,8 @@ export interface Catalog {
   ballistics: BallisticsDef;
   shooting: ShootingDef;
   wounds: WoundsDef;
+  /** Suppression, stress and behaviour states (core/behaviour.json, M4). */
+  behaviour: BehaviourDef;
   /** Detection (core/spotting.json, M3.2). */
   spotting: SpottingDef;
   ammo: Record<DefId, AmmoDef>;

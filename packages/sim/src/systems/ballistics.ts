@@ -12,6 +12,7 @@
  *
  * Randomness comes from the "ballistics" stream. No allocation per projectile; one event per impact.
  */
+import { addSuppression } from "./morale";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, type EntityId } from "../ids";
@@ -120,12 +121,18 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const cap = Math.max(count, SG.id.length * 2);
       SG.id = new Int32Array(cap); SG.x = new Float64Array(cap); SG.y = new Float64Array(cap); SG.gz = new Float64Array(cap);
       SG.cf = new Float64Array(cap); SG.sf = new Float64Array(cap); SG.posture = new Uint8Array(cap); SG.next = new Int32Array(cap);
+      SG.side = new Int32Array(cap); SG.sup = new Float64Array(cap);
       SG.touched = new Int32Array(cap * 10);
     }
     let n = 0;
+    SG.sideOf.clear();
     for (const [id, s] of state.soldier.entries()) {
       const t = state.transform.get(id);
       if (!t) continue;
+      const sd = state.identity.get(id)?.side ?? "";
+      let sc = SG.sides.indexOf(sd);
+      if (sc < 0) { sc = SG.sides.length; SG.sides.push(sd); }
+      SG.side[n] = sc; SG.sup[n] = 0; SG.sideOf.set(id, sc);
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
       SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
@@ -144,6 +151,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     SG.n = n;
   }
   const reach = B.bodyReachM;
+  const SUP = ctx.catalog.behaviour.suppression;
+  const supR = SUP.nearMissRadiusM, supR2 = supR * supR, supPer = SUP.perRound, supERef = SUP.energyRefJ;
+  const supCentreZ = [0, 1, 2].map((p) => hitboxes[p]!.height * (hitboxes[p]!.alongLength ? 0.5 : 0.6));
   const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, solNear = SG.near;
 
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
@@ -340,6 +350,34 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     let tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
     if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
+
+    // ---- suppression (M4.1): an enemy round passing within a few metres of a man, or striking near him,
+    // cracks past him. Each round counts once per man: at the point of its flight closest to him (on this
+    // tick's path only if that point lies on it, or at the impact if it ends here).
+    if (nearSoldier && supR > 0 && !am.fragment) {
+      const os = SG.sideOf.get(P.owner[i]!);
+      const len2 = dx * dx + dy * dy + dz * dz;
+      if (os !== undefined && len2 > 1e-12) {
+        let c0 = ((minX - supR) * invBm) | 0, c1 = ((maxX + supR) * invBm) | 0, r0 = ((minY - supR) * invBm) | 0, r1 = ((maxY + supR) * invBm) | 0;
+        if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= bcols) c1 = bcols - 1; if (r1 >= brows) r1 = brows - 1;
+        let eK = -1;
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+          for (let j = SG.head[r * bcols + c]!; j !== -1; j = SG.next[j]!) {
+            if (SG.side[j] === os) continue;
+            const cz = SGZ[j]! + supCentreZ[SG.posture[j]!]!;
+            const rx = SX[j]! - x0, ry = SY[j]! - y0, rz = cz - z0;
+            let t = (rx * dx + ry * dy + rz * dz) / len2;
+            if (t < 0 || (t >= 1 && tEnd >= 1)) continue; // closest before this path (counted earlier) or after it
+            if (t > tEnd) t = tEnd;
+            const ex2 = rx - t * dx, ey2 = ry - t * dy, ez2 = rz - t * dz;
+            const d2 = ex2 * ex2 + ey2 * ey2 + ez2 * ez2;
+            if (d2 > supR2) continue;
+            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); if (eK > 2) eK = 2; if (eK < 0.25) eK = 0.25; }
+            SG.sup[j] = SG.sup[j]! + supPer * eK * (1 - 0.5 * sq(d2) / supR);
+          }
+        }
+      }
+    }
 
     // ---- ground clutter: small folds and grass stop fragments that skim the ground (this is what makes
     // lying down worth it at a distance; the heightfield itself is smooth). Two samples along the free path.
@@ -550,6 +588,10 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
     remove(P, i);
+  }
+  // Suppression gathered from rounds passing close (M4.1).
+  for (let j = 0; j < SG.n; j++) {
+    if (SG.sup[j]! > 0) { const s = state.soldier.get(SG.id[j]!); if (s) addSuppression(ctx, s, SG.sup[j]!); }
   }
   // Bursts happen after the loop: they add fragments to the pool (never add projectiles inside the loop).
   for (let q = 0; q < detCount; q++) {

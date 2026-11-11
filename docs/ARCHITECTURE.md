@@ -418,6 +418,18 @@ function. Fire tasks may carry `contact` and follow it.
 (pure query). The app passes it to the renderer as `Overlay.known`; with it (and Debug off) the renderer draws
 the enemy only from it. An AI commander (M6) is meant to plan on the same picture.
 
+## 16k. Suppression and morale (SPEC 6.4, M4.1) — `sim/src/systems/morale.ts`, `core/behaviour.json`
+The projectile system gathers suppression in the soldier grid: for each enemy round near a man (grid side
+index per man, owner's side from `sideOf`), the point of its flight closest to him counts once (the tick whose
+path holds it, or the impact if it ends first), scaled by the square root of its energy and by distance; it is
+added to `mental.suppression` after the projectile pass. Bursts add suppression around them
+(`suppressByBurst`, from `detonate`). `moraleSystem` runs after the wound system: it applies stress for this
+tick's wound and casualty events, then every 0.5 s (staggered by ID) fades suppression and stress, grows stress
+from suppression, and sets `mental.behaviour` with hysteresis, emitting `behaviour.changed`. Leader loss calls
+`leaderLost` from the casualty path. Effects: movement holds a cowering man (route kept), the fire system scales
+the interval by `fireRateFactor` (0 = no fire) and keeps a pinned man prone; aim and spotting already used
+suppression. No new state fields: `mental` existed since M0.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

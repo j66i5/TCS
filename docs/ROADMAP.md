@@ -97,9 +97,19 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
 4. ✅ **M3.4 Fog of war** (2026-11-11) — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
-### M4 Soldier and squad behaviour — ⏳ next
+### M4 Soldier and squad behaviour — ⏳ in progress
 Suppression, morale, cover use, fire discipline, ammunition sharing, casualty reaction, drills, doctrine
-profiles.
+profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for his review):
+- **M4.1 Suppression and morale** ✅ — rounds cracking past or striking near a man raise his suppression; it
+  worsens his aim, pins him (prone, stops, fires less) and raises stress; stress also from comrades falling,
+  losing the leader, own wounds, damped by experience and a leader nearby; states steady / cautious / shaken /
+  pinned / panicked; `npm run lab -- suppression`.
+- **M4.2 Soldier decisions** — cover from known threats, return fire at contacts on his own (rules of
+  engagement, target choice), ammunition sharing (also belts), reaction to casualties, debug overlay of decisions.
+- **M4.3 Squad drills** — reaction to contact, assault with fire and movement (bounding), break contact and
+  withdraw, consolidate; routing when a unit breaks.
+- **M4.4 Doctrine profiles and batch** — German / Russian doctrine values; batch: attack in the open against a
+  prepared defence loses most of the time.
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 

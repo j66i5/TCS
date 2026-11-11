@@ -265,6 +265,19 @@ Debug shows the enemy as he really is.
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
+## Under fire
+
+Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little
+(heavier rounds more); a grenade or shell bursting nearby a lot. Suppression fades within seconds when the fire
+stops. A suppressed man aims worse and is slower to spot; heavily suppressed he is **pinned**: he drops flat,
+stops moving and fires only now and then until it lets up (a yellow ring). **Stress** builds more slowly: under
+fire, when a comrade falls close by, when his leader falls, when he is wounded himself; experience and a leader
+nearby steady him. A stressed man is shaken (fires less, faint ring); at the end of his tether he **panics**: he
+lies flat and does not fire (a red ring) until he has calmed down. In practice a machine gun pins the men it
+fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fire team within about 6 s; a
+single aimed rifle seldom pins anyone. `npm run lab -- suppression` prints the table. Debug labels show
+suppression / stress per man.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -311,5 +324,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 ## What is not there yet
 
 No first aid, anti-tank weapons are only carried,
-nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
+men react to fire only by being pinned or panicking (no seeking cover, no drills yet), and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

@@ -1,0 +1,229 @@
+{
+  "surfaces": [
+    {
+      "id": "grass",
+      "nameKey": "surface.grass",
+      "moveCost": {
+        "foot": 1.0,
+        "wheeled": 1.4,
+        "tracked": 1.1
+      },
+      "noise": 0.2,
+      "dust": 0.1,
+      "colour": "#6f8f4a",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "meadow",
+      "nameKey": "surface.meadow",
+      "moveCost": {
+        "foot": 1.05,
+        "wheeled": 1.5,
+        "tracked": 1.1
+      },
+      "noise": 0.25,
+      "dust": 0.1,
+      "colour": "#7f9a52",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "ploughed",
+      "nameKey": "surface.ploughed",
+      "moveCost": {
+        "foot": 1.35,
+        "wheeled": 2.2,
+        "tracked": 1.3
+      },
+      "noise": 0.3,
+      "dust": 0.6,
+      "colour": "#7a6247",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "stubble",
+      "nameKey": "surface.stubble",
+      "moveCost": {
+        "foot": 1.05,
+        "wheeled": 1.4,
+        "tracked": 1.1
+      },
+      "noise": 0.4,
+      "dust": 0.5,
+      "colour": "#b4a46c",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "forest-floor",
+      "nameKey": "surface.forest-floor",
+      "moveCost": {
+        "foot": 1.1,
+        "wheeled": 2.0,
+        "tracked": 1.4
+      },
+      "noise": 0.5,
+      "dust": 0.1,
+      "colour": "#4d5a35",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "dirt-track",
+      "nameKey": "surface.dirt-track",
+      "moveCost": {
+        "foot": 0.95,
+        "wheeled": 1.1,
+        "tracked": 1.0
+      },
+      "noise": 0.3,
+      "dust": 0.8,
+      "colour": "#9a8562",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "gravel",
+      "nameKey": "surface.gravel",
+      "moveCost": {
+        "foot": 0.95,
+        "wheeled": 1.05,
+        "tracked": 1.0
+      },
+      "noise": 0.7,
+      "dust": 0.4,
+      "colour": "#a39d8f",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "asphalt",
+      "nameKey": "surface.asphalt",
+      "moveCost": {
+        "foot": 0.9,
+        "wheeled": 0.8,
+        "tracked": 0.9
+      },
+      "noise": 0.4,
+      "dust": 0.1,
+      "colour": "#5c5d5f",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "concrete",
+      "nameKey": "surface.concrete",
+      "moveCost": {
+        "foot": 0.9,
+        "wheeled": 0.85,
+        "tracked": 0.9
+      },
+      "noise": 0.4,
+      "dust": 0.2,
+      "colour": "#8e8c87",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "yard",
+      "nameKey": "surface.yard",
+      "moveCost": {
+        "foot": 0.95,
+        "wheeled": 1.1,
+        "tracked": 1.0
+      },
+      "noise": 0.4,
+      "dust": 0.4,
+      "colour": "#8d8068",
+      "sources": [],
+      "confidence": "low",
+      "note": "Farmyard: cobbles and packed earth."
+    },
+    {
+      "id": "garden",
+      "nameKey": "surface.garden",
+      "moveCost": {
+        "foot": 1.1,
+        "wheeled": 1.6,
+        "tracked": 1.2
+      },
+      "noise": 0.3,
+      "dust": 0.2,
+      "colour": "#5f8a45",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "floor",
+      "nameKey": "surface.floor",
+      "moveCost": {
+        "foot": 1.0,
+        "wheeled": null,
+        "tracked": null
+      },
+      "noise": 0.5,
+      "dust": 0.1,
+      "colour": "#7b6f66",
+      "sources": [],
+      "confidence": "low",
+      "note": "Inside buildings."
+    },
+    {
+      "id": "mud",
+      "nameKey": "surface.mud",
+      "moveCost": {
+        "foot": 1.8,
+        "wheeled": 3.5,
+        "tracked": 1.8
+      },
+      "noise": 0.5,
+      "dust": 0.0,
+      "colour": "#5d5140",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "water-shallow",
+      "nameKey": "surface.water-shallow",
+      "moveCost": {
+        "foot": 3.0,
+        "wheeled": 4.0,
+        "tracked": 2.5
+      },
+      "noise": 0.8,
+      "dust": 0.0,
+      "colour": "#4f7184",
+      "sources": [],
+      "confidence": "low",
+      "note": "Wadeable stream or pond edge, under ~0.8 m."
+    },
+    {
+      "id": "water-deep",
+      "nameKey": "surface.water-deep",
+      "moveCost": {
+        "foot": null,
+        "wheeled": null,
+        "tracked": null
+      },
+      "noise": 0.0,
+      "dust": 0.0,
+      "colour": "#36576b",
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    }
+  ]
+}

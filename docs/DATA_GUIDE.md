@@ -8,6 +8,12 @@ packages/data/
     movement-modes.json       walk, run, sneak, crawl (speeds)
     qualities.json            conscript, regular, veteran (skill distributions)
     strings.en.json           interface text (English)
+    terrain/
+      materials.json          what walls are made of: density, penetration resistance, hardness
+      surfaces.json           ground types: movement cost per movement class, noise, dust, colour
+      vegetation.json         crops, scrub, woodland...: height, concealment, bullet stopping, movement, colour
+      obstacles.json          wall/hedge/fence/embankment kinds: height, thickness, material, crossing
+      buildings.json          building kinds: size ranges, storeys, wall material and thickness, roof colours
   factions/<id>/              one folder per faction ("de", "ru", ...)
     manifest.json             id, display name key, default quality, format version
     ranks.json                ranks with NATO code and seniority grade
@@ -82,6 +88,16 @@ template ID, so a platoon is a template whose `subunits` are squad templates:
 `{n}` in the callsign becomes the unit's number. `leaderIndex` points into `members` (`-1` = none, e.g. a
 platoon whose leader sits in a headquarters sub-unit). Quality (conscript/regular/veteran) is **not** part of
 the template; it is chosen when a force is built.
+
+## Change terrain
+
+Terrain kinds live in `core/terrain/`. Movement costs are time multipliers per movement class
+(`"foot"`, `"wheeled"`, `"tracked"`; `null` = impassable): woodland with `"foot": 1.25` means walking through
+it takes 25 % longer than on open grass. `resistance` of a material is "millimetres of mild steel per
+millimetre of material" and drives bullet penetration from M2; `concealmentPerM` of vegetation is the share
+of a line of sight blocked per metre of it (M3). `colour` is how the renderer paints it. Changing values needs
+no code. The map generator places specific kinds by ID (e.g. `"hedge"`, `"farmhouse"`), so removing or
+renaming one of those IDs makes generation fail with a message naming the missing ID.
 
 ## Add a weapon or a vehicle
 

@@ -5,7 +5,8 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import type { EntityId, MapDef, SimEvent, SimView } from "@tcs/sim";
+import type { EntityId, MapDef, SimEvent, SimView, TerrainCatalog } from "@tcs/sim";
+import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 
 /** Colours per side INDEX (scenario order), never per faction. */
@@ -26,6 +27,9 @@ interface Marker { x: number; y: number; untilTick: number; seq: number; deliver
 export class BattleRenderer {
   readonly app: Application;
   camera: Camera = { x: 0, y: 0, scale: 1 };
+  /** World-space layer (metres); the camera moves and scales it. */
+  private worldLayer = new Container();
+  private terrain: Container | null = null;
   private world = new Graphics();
   private units = new Graphics();
   private labels = new Container();
@@ -35,7 +39,7 @@ export class BattleRenderer {
 
   private constructor(app: Application) {
     this.app = app;
-    app.stage.addChild(this.world, this.units, this.labels);
+    app.stage.addChild(this.worldLayer, this.world, this.units, this.labels);
   }
 
   static async create(host: HTMLElement): Promise<BattleRenderer> {
@@ -54,6 +58,21 @@ export class BattleRenderer {
 
   get width(): number { return this.app.renderer.width / this.app.renderer.resolution; }
   get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
+
+  /** Build the terrain picture for a map (once per map). */
+  setMap(map: MapDef, terrain: TerrainCatalog): void {
+    if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
+    this.terrain = buildTerrain(map, terrain);
+    this.worldLayer.addChild(this.terrain);
+  }
+
+  /** Centre the camera on a point showing `widthM` metres across the free area. */
+  focus(x: number, y: number, widthM: number, insets?: Insets): void {
+    const top = insets?.top ?? 0, bottom = insets?.bottom ?? 0;
+    const scale = this.width / widthM;
+    const cy = top + (this.height - top - bottom) / 2;
+    this.camera = { scale, x: x - this.width / 2 / scale, y: y - cy / scale };
+  }
 
   fitToMap(map: MapDef, insets?: Insets): void {
     this.camera = fitCamera(map.widthM, map.heightM, this.width, this.height, insets);
@@ -154,8 +173,16 @@ export class BattleRenderer {
 
   private drawGround(map: MapDef): void {
     const c = this.camera;
+    this.worldLayer.scale.set(c.scale);
+    this.worldLayer.position.set(-c.x * c.scale, -c.y * c.scale);
     const g = this.world;
     g.clear();
+    if (this.terrain) {
+      // Terrain picture present: only a thin map border.
+      const tl = worldToScreen(c, 0, 0);
+      g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).stroke({ width: 2, color: 0x1f2a1d });
+      return;
+    }
     const tl = worldToScreen(c, 0, 0);
     g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).fill({ color: 0x324530 });
     // Grid every 50 m (every 500 m when zoomed far out).

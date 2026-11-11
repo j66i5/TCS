@@ -23,6 +23,9 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   };
   Object.values(data.movementModes).forEach((m) => check("core/movement-modes.json", m.id, m, false));
   Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
+  for (const [file, rec] of Object.entries(data.terrain)) {
+    Object.values(rec as Record<string, Prov & { id: string }>).forEach((m) => check(`core/terrain/${file}.json`, m.id, m, false));
+  }
   for (const pack of Object.values(data.factions)) {
     const fx = pack.manifest.fixture === true;
     const d = pack.dir;

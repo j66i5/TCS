@@ -1,0 +1,217 @@
+{
+  "buildings": [
+    {
+      "id": "house",
+      "nameKey": "building.house",
+      "widthM": [
+        8,
+        12
+      ],
+      "depthM": [
+        8,
+        11
+      ],
+      "storeys": [
+        1,
+        2
+      ],
+      "storeyHeightM": 2.8,
+      "wallMaterial": "brick",
+      "wallThicknessM": 0.3,
+      "roofColours": [
+        "#8c4a3b",
+        "#7a3f34",
+        "#6d6a68",
+        "#9a5a40"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "farmhouse",
+      "nameKey": "building.farmhouse",
+      "widthM": [
+        10,
+        16
+      ],
+      "depthM": [
+        8,
+        11
+      ],
+      "storeys": [
+        1,
+        2
+      ],
+      "storeyHeightM": 2.8,
+      "wallMaterial": "brick",
+      "wallThicknessM": 0.4,
+      "roofColours": [
+        "#8c4a3b",
+        "#7a3f34",
+        "#85513e"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "barn",
+      "nameKey": "building.barn",
+      "widthM": [
+        14,
+        26
+      ],
+      "depthM": [
+        9,
+        14
+      ],
+      "storeys": [
+        1,
+        1
+      ],
+      "storeyHeightM": 5,
+      "wallMaterial": "wood",
+      "wallThicknessM": 0.05,
+      "roofColours": [
+        "#6b5b4c",
+        "#5c5a58",
+        "#7a4e3c"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "shed",
+      "nameKey": "building.shed",
+      "widthM": [
+        4,
+        7
+      ],
+      "depthM": [
+        3,
+        5
+      ],
+      "storeys": [
+        1,
+        1
+      ],
+      "storeyHeightM": 2.5,
+      "wallMaterial": "wood",
+      "wallThicknessM": 0.04,
+      "roofColours": [
+        "#5c5a58",
+        "#6b5b4c"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "church",
+      "nameKey": "building.church",
+      "widthM": [
+        24,
+        32
+      ],
+      "depthM": [
+        11,
+        15
+      ],
+      "storeys": [
+        1,
+        1
+      ],
+      "storeyHeightM": 9,
+      "wallMaterial": "stone",
+      "wallThicknessM": 0.9,
+      "roofColours": [
+        "#5f5650",
+        "#7a3f34"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "apartment-block",
+      "nameKey": "building.apartment-block",
+      "widthM": [
+        30,
+        60
+      ],
+      "depthM": [
+        11,
+        13
+      ],
+      "storeys": [
+        3,
+        5
+      ],
+      "storeyHeightM": 2.8,
+      "wallMaterial": "reinforced-concrete",
+      "wallThicknessM": 0.25,
+      "roofColours": [
+        "#6e6e6c",
+        "#77736d"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "warehouse",
+      "nameKey": "building.warehouse",
+      "widthM": [
+        30,
+        70
+      ],
+      "depthM": [
+        20,
+        40
+      ],
+      "storeys": [
+        1,
+        1
+      ],
+      "storeyHeightM": 8,
+      "wallMaterial": "sheet-metal",
+      "wallThicknessM": 0.004,
+      "roofColours": [
+        "#7d8285",
+        "#6b7175",
+        "#8a8478"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    },
+    {
+      "id": "office",
+      "nameKey": "building.office",
+      "widthM": [
+        18,
+        35
+      ],
+      "depthM": [
+        12,
+        18
+      ],
+      "storeys": [
+        2,
+        4
+      ],
+      "storeyHeightM": 3.2,
+      "wallMaterial": "reinforced-concrete",
+      "wallThicknessM": 0.25,
+      "roofColours": [
+        "#6e6e6c",
+        "#5d6063"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+    }
+  ]
+}

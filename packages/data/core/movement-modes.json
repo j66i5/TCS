@@ -6,7 +6,8 @@
       "speedMps": 1.4,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~5 km/h, normal walking pace with load."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~5 km/h, normal walking pace with load.",
+      "class": "foot"
     },
     {
       "id": "run",
@@ -14,7 +15,8 @@
       "speedMps": 3.5,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~12.6 km/h, sustained rush with combat load; sprint bursts come later."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~12.6 km/h, sustained rush with combat load; sprint bursts come later.",
+      "class": "foot"
     },
     {
       "id": "sneak",
@@ -22,7 +24,8 @@
       "speedMps": 0.7,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Slow, deliberate movement using concealment."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Slow, deliberate movement using concealment.",
+      "class": "foot"
     },
     {
       "id": "crawl",
@@ -30,7 +33,26 @@
       "speedMps": 0.3,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Low crawl."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Low crawl.",
+      "class": "foot"
+    },
+    {
+      "id": "wheeled",
+      "nameKey": "move.wheeled",
+      "class": "wheeled",
+      "speedMps": 15,
+      "sources": [],
+      "confidence": "low",
+      "note": "Reserved for M7 vehicles; road speed placeholder."
+    },
+    {
+      "id": "tracked",
+      "nameKey": "move.tracked",
+      "class": "tracked",
+      "speedMps": 12,
+      "sources": [],
+      "confidence": "low",
+      "note": "Reserved for M7 vehicles; placeholder."
     }
   ]
 }

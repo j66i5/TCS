@@ -248,10 +248,32 @@ faction may phrase them its own way.
 
 `timeOfDaySeconds, light, windX/Y, rain, visibilityM, temperatureC` in state. M0 only advances the clock.
 
-## 16. Map (SPEC 6.1) — `sim/src/map.ts`
+## 16. Map and terrain (SPEC 6.1) — `sim/src/map.ts`, `sim/src/terrain.ts`, `scenario/src/mapgen/`
 
-`MapDef { id, widthM, heightM (≤ 4000), cellSizeM, heights[], layers{} }`. M0 maps are flat; M1 fills the
-heightfield and terrain layers and adds the generator and the reserved importer interface.
+```ts
+interface MapDef {
+  id; name; widthM; heightM (≤ 4000); cellSizeM (2..5); cols; rows;
+  heights: Float32Array;          // (cols+1) x (rows+1) corner samples, metres
+  surfacePalette: DefId[]; surface: Uint8Array;        // per cell
+  vegetationPalette: DefId[]; vegetation: Uint8Array;  // per cell, 0 = none
+  obstacles: { id; kind; points; heightM; thicknessM; material }[];   // walls, hedges, fences, embankments
+  buildings: { id; kind; footprint; storeys; storeyHeightM; wallMaterial; wallThicknessM; openings[]; roofColour }[];
+  roads: { id; points; widthM; surface }[];  water: { id; kind: "pond"|"stream"; points; widthM; depthM }[];
+  meta: { generator; kind; seed; version };
+}
+```
+
+- Kinds (surfaces, vegetation, obstacle kinds, building kinds, materials) are data in `core/terrain/`; the
+  catalog carries them as `catalog.terrain`. `validateMap(map, terrain)` checks every ID at battle start.
+- Queries: `heightAt` (bilinear), `slopeAt`, `cellIndex`, `surfaceAt`, `vegetationAt`,
+  `cellMoveCost(map, terrain, cell, class)` (surface × vegetation; null = impassable), `buildingAt`,
+  `pointInPolygon`. `buildMapIndex` → bucket grid of wall segments, `segmentsInRect` (in `ctx.mapIndex`).
+- File format `MapFile` (`mapToFile`/`mapFromFile`): JSON, grids as base64 little-endian binary (proposed SPEC
+  change, see DECISIONS.md). `mapFingerprint` hashes it; the state records it and `loadSim` checks it.
+- Terrain damage: `state.terrain = { breaches[], craters[], vegetationLoss[] }` (saved, hashed).
+- Generator: `generateMap(terrain, { kind: "village" | "woodland" | "farmland" | "industrial", seed, widthM,
+  heightM, cellSizeM })`, deterministic; `checkMap` (geometry validity) and `mapStats` for tests and tuning.
+  `TerrainImporter` is the reserved interface for real-terrain import.
 
 ---
 
@@ -286,9 +308,10 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |
-| 9.3 | Persistent map damage stored as data | map.ts layers | ⬜ M1/M2 | — |
+| 9.3 | Persistent map damage stored as data | `state.terrain` (components.ts) | ✅ storage (damage is created from M2) | `sim/test/terrain.test.ts` "terrain damage is battle state" |
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts | ✅ orders / 🟡 contacts M3 | `sim/test/orders.test.ts` "delayed by the comms model" |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
 | 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts | 🟡 state exists; no system reads it yet (movement must from M1) | — |
-| 9.8 | Map format and event stream as specified | map.ts, events.ts | 🟡 map layers M1 | — |
+| 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
+| 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

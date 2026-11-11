@@ -312,6 +312,9 @@ function loadFaction(
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });
     }
   });
+  itemsF.items.forEach((it, i) => {
+    if (it.sensor !== undefined && data.spotting && !data.spotting.sensors[it.sensor]) errors.push({ file: f("items.json"), path: `items[${i}].sensor`, message: `unknown sensor kind '${it.sensor}' (core/spotting.json sensors)`, severity: "error" });
+  });
   if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
     errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });
   }

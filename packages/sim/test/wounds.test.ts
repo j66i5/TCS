@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createSim, EventSink, hashState, healthyPhysiology, launchProjectile, loadSim, refreshStatus, resolveBodyHit, saveSim, secondsToTicks, simplePhysiology,
-  soldierRecordFromState, step, submitOrder, unitsFromState, type Sim, type SimEvent, type Wound,
+  soldierRecordFromState, step, submitOrder, unitsFromState, type BattleInput, type Sim, type SimEvent, type Wound,
 } from "../src/index";
 import { armedInput, rec, testCatalog } from "./helpers";
 
@@ -454,5 +454,59 @@ describe("detection state (M3.2)", () => {
     for (const m of unitOf(sim, "red")[1].members) { const s = sim.state.soldier.req(m); s.physiology.alive = false; }
     run(sim, 2);
     expect(sim.state.soldier.req(blue.members[0]!).seen).toHaveLength(0);
+  });
+});
+
+describe("detection review fixes (M3.2)", () => {
+  const facing = (prep?: (i: BattleInput) => void) => {
+    const input = physio();
+    input.catalog = JSON.parse(JSON.stringify(input.catalog)) as BattleInput["catalog"];
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p) => ({ ...p, x: 120 }));
+    prep?.(input);
+    return input;
+  };
+  const sightings = (sim: Sim, side: string, seconds: number) => run(sim, seconds).filter((e) => e.kind === "spotted" && e.side === side).length;
+
+  it("at night eyes see little; night-vision goggles (an item with a sensor, from data) restore it", () => {
+    const night = (goggles: boolean) => {
+      const sim = createSim(facing((i) => {
+        i.catalog.spotting.sensors["night"] = { factor: 1, fromM: 0, nightLight: 0.5 };
+        i.catalog.items["goggles"] = { id: "goggles", massKg: 0.6, category: "kit", sensor: "night" };
+        if (goggles) for (const m of i.forces[0]!.units[0]!.members) m.load.push({ type: "goggles", count: 1 });
+      }));
+      sim.state.environment.light = 0;
+      return sightings(sim, "blue", 20);
+    };
+    const without = night(false), withGoggles = night(true);
+    expect(withGoggles).toBeGreaterThan(without);
+    expect(withGoggles).toBeGreaterThanOrEqual(4);
+  });
+
+  it("a man firing behind 160 m of woodland is not seen through it (the flash does not shine through a wood)", () => {
+    const sim = createSim(facing((i) => {
+      const m = i.map;
+      m.vegetationPalette.push("wood");
+      for (let r = 0; r < m.rows; r++) for (let c = Math.floor(20 / m.cellSizeM); c < Math.floor(180 / m.cellSizeM); c++) m.vegetation[r * m.cols + c] = m.vegetationPalette.length;
+      i.forces[1]!.placements = i.forces[1]!.placements.map((pl) => ({ ...pl, x: 190 }));
+    }));
+    const [rid] = unitOf(sim, "red");
+    submitOrder(sim, { tick: 0, issuer: "red", target: rid, kind: "fire", x: 10, y: 40 });
+    expect(sightings(sim, "blue", 30)).toBe(0);
+  });
+
+  it("fog: nothing is seen beyond the visibility distance", () => {
+    const sim = createSim(facing());
+    sim.state.environment.visibilityM = 80;
+    expect(sightings(sim, "blue", 20)).toBe(0);
+  });
+
+  it("a man lying still in plain view at 300 m, once seen, stays seen (no flicker of repeated sightings)", () => {
+    const sim = createSim(facing((i) => { i.map = { ...i.map }; i.forces[1]!.placements = i.forces[1]!.placements.map((p) => ({ ...p, x: 10 + 190 })); }));
+    for (const m of unitOf(sim, "red")[1].members) sim.state.soldier.req(m).posture = "prone";
+    const ev = run(sim, 240).filter((e) => e.kind === "spotted" && e.side === "blue");
+    const perPair = new Map<string, number>();
+    for (const e of ev) if (e.kind === "spotted") perPair.set(`${e.observer}-${e.target}`, (perPair.get(`${e.observer}-${e.target}`) ?? 0) + 1);
+    expect(perPair.size).toBeGreaterThan(0);
+    expect(Math.max(...perPair.values())).toBe(1);
   });
 });

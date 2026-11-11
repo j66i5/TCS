@@ -4,7 +4,7 @@
  * Current floor and its history: docs/DECISIONS.md.
  */
 import { describe, expect, it } from "vitest";
-import { createSim, runBattle, step } from "@tcs/sim";
+import { createSim, runBattle, step, submitOrder } from "@tcs/sim";
 import { demoBattle } from "@tcs/scenario";
 import { getScenario, loadData } from "../src/scenarios";
 
@@ -29,16 +29,21 @@ describe("performance floor", () => {
     expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
   });
 
-  it("304 men in plain view of each other (spotting at full load) runs at >= 8x real time", () => {
+  it("304 men in plain view of each other, all firing (spotting at full load), runs at >= 8x real time", () => {
     const input = demoBattle(loadData(), { seed: 1, factions: ["de", "ru"], templates: ["demo-team", "demo-team"], unitsPerSide: 38, mapWidthM: 2000, mapHeightM: 2000, frontM: 300, timeLimitSeconds: 600 });
     const sim = createSim(input);
+    // Every unit fires at the middle of the enemy line (firing makes a man far easier to spot: the hardest case).
+    for (const [uid, u] of sim.state.unit.entries()) {
+      if (u.parent !== null) continue;
+      submitOrder(sim, { tick: 0, issuer: u.side, target: uid, kind: "fire", x: u.side === "blue" ? 1150 : 850, y: 1000 });
+    }
     for (let i = 0; i < 600; i++) step(sim); // first sightings
     const t0 = performance.now();
     for (let i = 0; i < 1800; i++) step(sim);
     const s = (performance.now() - t0) / 1000;
     let tracked = 0;
     for (const [, x] of sim.state.soldier.entries()) tracked += x.seen.length;
-    console.log(`spotting bench: 304 men 300 m apart in the open: ${(30 / s).toFixed(1)}x real time; ${tracked} enemies tracked`);
+    console.log(`spotting bench: 304 men 300 m apart in the open, all firing: ${(30 / s).toFixed(1)}x real time; ${tracked} enemies tracked`);
     expect(tracked).toBeGreaterThan(1000);
     expect(30 / s).toBeGreaterThanOrEqual(8);
   });

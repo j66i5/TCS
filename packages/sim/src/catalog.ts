@@ -21,6 +21,8 @@ export interface ItemTypeDef {
   chargeMassKg?: number;
   /** Which ammunition type the charge consists of (for magazines and belts). */
   chargeItem?: DefId;
+  /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
+  sensor?: string;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
   tracerItem?: DefId;
   tracerEvery?: number;
@@ -215,7 +217,8 @@ export interface SpottingDef {
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
-  opticFactor: number; opticFromM: number; skillSlope: number; stressK: number; lightFloor: number;
+  sensors: Record<string, { factor: number; fromM: number; nightLight: number }>;
+  skillSlope: number; stressK: number; lightFloor: number;
   minVisibility: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
 }
 

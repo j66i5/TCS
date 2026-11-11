@@ -23,6 +23,8 @@ export interface SpotCase {
   /** Observer without an optic. */
   ironSights?: boolean;
   seeds?: number;
+  /** First seed (so that two rows do not share their random draws). */
+  seedBase?: number;
   maxSeconds?: number;
 }
 export interface SpotRow extends SpotCase { runs: number; spotted: number; medianS: number | null; within10: number; within30: number }
@@ -34,7 +36,7 @@ function man(personId: string, weapon: string, mag: string, catalog: Catalog): S
 export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
   const times: number[] = [];
   const seeds = c.seeds ?? 40, max = c.maxSeconds ?? 120;
-  for (let seed = 1; seed <= seeds; seed++) {
+  for (let seed = (c.seedBase ?? 0) + 1; seed <= (c.seedBase ?? 0) + seeds; seed++) {
     const map: MapDef = flatMap("spot", Math.max(200, c.rangeM + 80), 200, 4);
     if (c.cover) {
       map.vegetationPalette.push(c.cover);
@@ -62,14 +64,14 @@ export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
     if (at !== null) times.push(at);
   }
   times.sort((a, b) => a - b);
-  const median = times.length * 2 > seeds ? times[Math.floor(seeds / 2)]! : null;
+  const median = times.length * 2 > seeds ? times[Math.floor(seeds / 2)]! : times.length * 2 === seeds ? max : null;
   return { ...c, runs: seeds, spotted: times.length, medianS: median, within10: times.filter((t) => t <= 10).length, within30: times.filter((t) => t <= 30).length };
 }
 
 export const SPOT_CASES: SpotCase[] = [
   { name: "standing, still, open", rangeM: 100, posture: "standing", action: "still" },
   { name: "standing, still, open", rangeM: 300, posture: "standing", action: "still" },
-  { name: "standing, still, open, observer with iron sights", rangeM: 300, posture: "standing", action: "still", ironSights: true },
+  { name: "standing, still, open, observer with iron sights", rangeM: 300, posture: "standing", action: "still", ironSights: true, seedBase: 1000 },
   { name: "standing, still, open", rangeM: 600, posture: "standing", action: "still" },
   { name: "walking across, open", rangeM: 300, posture: "standing", action: "walk" },
   { name: "kneeling, still, open", rangeM: 300, posture: "crouching", action: "still" },
@@ -91,6 +93,6 @@ export function spottingLabMarkdown(rows: SpotRow[]): string {
   const out = ["One regular observer (standing, G36 with its 3x optic unless stated), one enemy; each row 40 runs of up to 120 s.", "",
     "| target | range m | spotted in 120 s | median s | within 10 s | within 30 s |", "|---|---:|---:|---:|---:|---:|"];
   const pct = (a: number, b: number) => `${Math.round((100 * a) / b)} %`;
-  for (const r of rows) out.push(`| ${r.name} | ${r.rangeM} | ${pct(r.spotted, r.runs)} | ${r.medianS === null ? "–" : r.medianS.toFixed(1)} | ${pct(r.within10, r.runs)} | ${pct(r.within30, r.runs)} |`);
+  for (const r of rows) out.push(`| ${r.name} | ${r.rangeM} | ${pct(r.spotted, r.runs)} | ${r.medianS === null ? "–" : r.medianS >= (r.maxSeconds ?? 120) ? "over 120" : r.medianS.toFixed(1)} | ${pct(r.within10, r.runs)} | ${pct(r.within30, r.runs)} |`);
   return out.join("\n");
 }

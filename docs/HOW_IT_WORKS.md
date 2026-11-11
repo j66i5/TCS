@@ -248,7 +248,8 @@ ground the selected unit's leader cannot see is darkened.
 Every soldier looks around once a second. For each enemy within 1.2 km there is a chance he sees him now: high
 for a man standing or walking near him in the open, low for one far away or lying down, almost nil for one
 lying still in crops or behind a hedge — and nil behind a hill, a wall or a roof. Moving or firing gives a man
-away. Looking the other way, a soldier rarely notices anyone; a 3x sight helps at long range. Once seen, an
+away — unless a wood stands between. Looking the other way, a soldier rarely notices anyone; a 3x sight helps
+at long range, night-vision goggles at night, and nothing is seen beyond the fog. Once seen, an
 enemy is easy to keep in view; out of sight for six seconds, he is forgotten (until contacts arrive in M3.3).
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
@@ -282,7 +283,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 308 automated tests (304 plus 4 timing tests run on their own), including:
+- `npm test` runs 313 automated tests (309 plus 4 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

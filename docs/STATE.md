@@ -83,9 +83,9 @@ sharing by voice and radio through the comms model, call-outs, fire at a contact
   movement, firing, what is in the way, where he looks, his optic and skill (`npm run lab -- spotting`:
   standing still at 300 m spotted in a median 9 s; lying still in crops at 100 m never in 40 runs; crawling
   there 9 s; firing 1 s). Debug draws who sees whom.
-- Tests: 308 (304 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 313 (309 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
-  check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other about 25×.
+  check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 21×.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab

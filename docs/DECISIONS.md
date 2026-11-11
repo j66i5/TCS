@@ -838,9 +838,31 @@ shows a thin line from each man to every enemy he has in sight.
 open at 100 / 300 / 600 m: median 2 / 9 / 35 s (owner: 5-15 s at 300 m); walking across at 300 m 3 s; kneeling
 13 s; prone 7 s at 100 m, 36 s at 300 m; observer looking away: 53 % within 2 minutes; **lying still in crops at
 100 m: never in 40 runs (owner: very hard)**; crawling there 9 s; firing from there 1 s; prone in tall grass
-78 s. **Speed:** 304 men in plain view of each other 300 m apart: about 25x real time (new timing test, floor
-8x). The ordinary benchmark (304 men on the move, sides out of view) is about 18x — route-finding dominates; the
+78 s. **Speed:** 304 men in plain view of each other 300 m apart: about 25x real time (21x with everyone firing,
+after the review fix; timing test, floor 8x). The ordinary benchmark (304 men on the move, sides out of view) is about 18x — route-finding dominates; the
 "~200x" in STATE was stale since M1.4.
 **Not yet:** the observer's facing is fixed (he does not scan around: M4); stress is in the formula but not yet
 raised by anything; night, smoke, rain and fog (M8/M9) only through `light` and `visibilityM`, which stay at
-daylight; sound contacts and sharing are M3.3.
+daylight (fog is read since the review fix); sound contacts and sharing are M3.3.
+
+## 2026-11-11 — Fixes from the independent M3.2 review (goldens regenerated)
+No determinism, save/load or rule problems (one draw per pair confirmed). Fixed, each with a test:
+**a man moving or firing was "seen" through any depth of vegetation** (the floor of 15 % / 50 % replaced the
+visibility of the whole line, so a man firing behind 200 m of woodland was spotted in a second): the floor now
+applies only to what shows above him — the line to the top of the vegetation he is in must be clear, and its
+own visibility scales the floor; a wood between hides him. **304 men firing in view ran at 5x real time**
+(firing pushed most draws past the quick upper bound): a man who already tracks his maximum of enemies does
+not look at one farther than all of them (it could not be taken on anyway) — the timing test now has everyone
+firing: about 21x. **Sensors were not data** (SPEC 6.5): `core/spotting.json` now has `sensors` by kind —
+eye, iron, reflex, magnified (x1.4 beyond 150 m), telescopic (x1.7), night (light counts as at least 0.5),
+thermal (x1.5, sees as by day); every man has his eyes, his weapon's sight adds its kind, an item with a
+`sensor` adds that (the night-vision goggles in both factions' kit, `"sensor": "night"`); the best applies.
+**Fog:** nothing is seen beyond the environment's `visibilityM` (DECISIONS had claimed it was read; now it
+is). **Men lost track of a man lying still in plain view at 300 m and "spotted" him again and again**: the keep
+rate is now 200 times the detection rate. **A man running from a grenade counted as standing still**: his
+speed is recorded while he runs. Lab: the iron-sights row no longer shares random draws with the optic row
+(and a 200-run test shows the optic helps); "never in crops" is stated as what it is — his visibility there
+(0.12 %) is below the 0.2 % floor at which anything can be seen; the looking-away row is checked by its share
+within 30 s, not by a capped median.
+**Recorded:** a grenade throw does not count as firing for being spotted; the "spotted" event is per new
+sighting, so a man passing from one observer's six tracked enemies to another's can appear several times.

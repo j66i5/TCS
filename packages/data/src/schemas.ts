@@ -240,7 +240,10 @@ export const SpottingFile = withProv({
   stillBelowMps: Num(0, 5), movingFactor: Num(1, 50), runningAboveMps: Num(0, 20), runningFactor: Num(1, 50), movingVisibilityFloor: Num(0, 1),
   firingWithinSeconds: Num(0, 60), firingFactor: Num(1, 500), firingVisibilityFloor: Num(0, 1),
   frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
-  opticFactor: Num(1, 10), opticFromM: Num(0, 5000), skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
+  /** Sensors by kind (weapon sight kinds and item `sensor` kinds): detection factor beyond fromM, and the light
+   *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
+  sensors: z.record(z.string(), z.object({ factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1) }).strict()),
+  skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
   minVisibility: Num(0, 1), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
 });
 export type SpottingT = z.infer<typeof SpottingFile>;
@@ -397,6 +400,8 @@ export const ItemSchema = withProv({
   chargeCapacity: z.number().int().positive().optional(),
   chargeMassKg: z.number().min(0).max(100).optional(),
   chargeItem: Id.optional(),
+  /** A sensor the wearer looks through (night-vision goggle ...): a kind in core/spotting.json `sensors`. */
+  sensor: z.string().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */

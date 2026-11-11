@@ -20,8 +20,8 @@ describe("spotting lab", () => {
     expect(x.spotted).toBe(x.runs);
   });
 
-  it("owner anchor: lying still in crops at 100 m is (almost) never spotted; crawling or firing gives him away", () => {
-    expect(r("prone, still, in crops", 100).spotted).toBeLessThanOrEqual(2);
+  it("owner anchor: lying still in crops at 100 m is never spotted (his visibility, 0.12 %, is below the floor of 0.2 % at which anything can be seen); crawling or firing gives him away", () => {
+    expect(r("prone, still, in crops", 100).spotted).toBe(0);
     const crawl = r("crawling, in crops", 100), fire = r("prone, firing, in crops", 100);
     expect(crawl.medianS).not.toBeNull(); expect(crawl.medianS!).toBeLessThan(30);
     expect(fire.medianS).not.toBeNull(); expect(fire.medianS!).toBeLessThan(5);
@@ -34,7 +34,17 @@ describe("spotting lab", () => {
     expect(m("walking across, open", 300)).toBeLessThan(m("standing, still, open", 300));
     expect(m("kneeling, still, open", 300)).toBeGreaterThanOrEqual(m("standing, still, open", 300));
     expect(m("prone, still, open", 300)).toBeGreaterThan(m("kneeling, still, open", 300));
-    expect(m("standing, still, open, observer looking away", 300)).toBeGreaterThan(3 * m("standing, still, open", 300));
+    const away = r("standing, still, open, observer looking away", 300);
+    expect(away.within30).toBeLessThan(0.3 * away.runs);
     expect(r("prone, still, in tall grass", 100).within10).toBeLessThan(r("prone, still, open", 100).within10);
+  });
+
+  it("sensors: a 3x optic helps at 300 m (review fix: the rows no longer share their random draws)", async () => {
+    const { buildCatalog } = await import("@tcs/data");
+    const { spotCase } = await import("../src/labs/spotting");
+    const cat = buildCatalog(loadData(), ["de", "ru"]);
+    const optic = spotCase(cat, { name: "o", rangeM: 300, posture: "standing", action: "still", seeds: 200 });
+    const iron = spotCase(cat, { name: "i", rangeM: 300, posture: "standing", action: "still", ironSights: true, seeds: 200, seedBase: 5000 });
+    expect(optic.within10).toBeGreaterThan(iron.within10);
   });
 });

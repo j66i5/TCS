@@ -106,6 +106,41 @@
       ],
       "confidence": "low",
       "note": "G28 (HK417-based marksman rifle): 10- and 20-round magazines, Schmidt & Bender 3-20x50, factory accuracy 1.5 minutes of angle for 10 rounds (published). Mass with scope (about 7.9 kg) and muzzle velocity (about 785 m/s) are from memory of published figures, not confirmed by the search. Fires the ball round here; match ammunition is not modelled."
+    },
+    {
+      "id": "de-g95a1",
+      "nameKey": "weapon.de-g95a1",
+      "type": "rifle",
+      "calibre": "5.56x45",
+      "massKg": 3.8,
+      "feed": {
+        "magazine": "de-g95-mag"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 850,
+      "dispersionMrad": 0.3,
+      "reloadSeconds": 3.0,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 4
+        }
+      ],
+      "ammo": {
+        "de-556-dm11": 892,
+        "de-556-dm21": 892
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/gewehr-g95",
+        "https://www.thefirearmblog.com/blog/germany-s-g95-replaces-g36-after-three-decades-of-service-44830393"
+      ],
+      "confidence": "low",
+      "note": "G95A1 (HK416 A8): 16.5 inch (419 mm) barrel, overall 860-942 mm (published). Mass (about 3.8 kg), rate of fire (about 850 rounds/min) and muzzle velocity (a little below the longer-barrelled G36) are from memory of HK416 figures, not confirmed by the search; dispersion is a game value. Not issued in the default squad (owner: G36 is the default; first G95 deliveries December 2025)."
     }
   ]
 }

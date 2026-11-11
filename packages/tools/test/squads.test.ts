@@ -86,4 +86,14 @@ describe("squads and kit (M2.5)", () => {
     expect(mg5).toBeLessThan(g36);
     expect(mg5).toBeGreaterThan(0.03);
   });
+
+  it("the newer rifles exist as data and shoot much like the defaults (G95A1 with the G36, AK-12 with the AK-74M)", () => {
+    const de = buildCatalog(data, ["de"]), ru = buildCatalog(data, ["ru"]);
+    const at = (cat: typeof de, weapon: string) => fireAtBoard(cat, { weapon, rangeM: 300, posture: "prone", skill: SKILLS.regular }).hitRate;
+    const g36 = at(de, "de-g36"), g95 = at(de, "de-g95a1"), ak74 = at(ru, "ru-ak74m"), ak12 = at(ru, "ru-ak12");
+    console.log(`300 m, regular, prone: G36 ${(g36 * 100).toFixed(0)} %, G95A1 ${(g95 * 100).toFixed(0)} %, AK-74M ${(ak74 * 100).toFixed(0)} %, AK-12 ${(ak12 * 100).toFixed(0)} %`);
+    expect(Math.abs(g95 - g36)).toBeLessThan(0.12);
+    expect(Math.abs(ak12 - ak74)).toBeLessThan(0.12);
+    expect(de.items[de.weapons["de-g95a1"]!.feed.magazine]?.chargeCapacity).toBe(30);
+  });
 });

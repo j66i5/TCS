@@ -29,16 +29,17 @@ function zoneName(group: string, left: boolean): BodyZone {
  * @param frontal true if it came from the front or back rather than the side
  * @param capacitySteelMm the round's penetration at impact, mm of steel
  * @param energyJ its kinetic energy at impact
+ * @returns the share of its energy the round has left after the armour (0 = stopped by it, or spent)
  */
 export function resolveBodyHit(
   ctx: SimContext, state: SimState, events: EventSink, target: EntityId, group: string, left: boolean, frontal: boolean,
   capacitySteelMm: number, energyJ: number, ammoId: string, owner: EntityId, fragment = false,
-): void {
+): number {
   const s = state.soldier.get(target);
-  if (!s) return;
+  if (!s) return 0;
   const W = ctx.catalog.wounds, rng = state.rng;
   const FW = W.wounding.fragment;
-  if (fragment && energyJ < FW.minEnergyJ) return; // a spent fragment: stings, does not wound
+  if (fragment && energyJ < FW.minEnergyJ) return 0; // a spent fragment: stings, does not wound
   const zone = zoneName(group, left);
 
   // ---- armour worn over this zone: everything whose covered share includes the spot struck
@@ -66,14 +67,15 @@ export function resolveBodyHit(
       knockDown(state, s);
       interruptAction(state, events, target, "knocked-down"); // a reload in progress is broken off
     }
-    return;
+    return 0;
   }
   events.emit({ kind: "hit", tick: state.tick, target, zone, armour: protection > 0 ? "penetrated" : "none", ammo: ammoId, owner });
-  if (!s.physiology.alive) return; // the dead are not wounded again
+  const through = protection > 0 ? 1 - protection / capacitySteelMm : 1;
+  if (!s.physiology.alive) return through; // the dead are not wounded again
   const residual = protection > 0 ? energyJ * (1 - protection / capacitySteelMm) : energyJ;
   const zd = W.zones[group];
-  if (!zd) return;
-  if (fragment && residual < FW.minEnergyJ) return;
+  if (!zd) return through;
+  if (fragment && residual < FW.minEnergyJ) return 0;
   const ef = fragment
     ? clamp(pow(residual / FW.referenceEnergyJ, FW.exponent), FW.factorMin, FW.factorMax)
     : clamp(pow(residual / W.wounding.referenceEnergyJ, W.wounding.energyExponent), W.wounding.energyFactorMin, W.wounding.energyFactorMax);
@@ -91,6 +93,7 @@ export function resolveBodyHit(
   if (severity >= zd.fatalAt) { s.physiology.alive = false; s.physiology.consciousness = 0; }
   else if (severity >= zd.unconsciousAt) s.physiology.consciousness = 0;
   refreshStatus(ctx, state, events, target);
+  return through;
 }
 
 /**

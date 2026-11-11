@@ -69,11 +69,15 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
    launchers; fuses; fragments spawned as projectiles with a velocity spread; blast by distance with shielding
    by obstacles; craters and wall breaches written to terrain damage (and read by navigation);
    **fragmentation lab** (casualty radius by posture and cover); 20,000-fragment benchmark.
-5. ✅ **M2.5 Squads and kit data** (2026-11-11; G95A1 and AK-12 not added, anti-tank launchers carried only) — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
+5. ✅ **M2.5 Squads and kit data** (2026-11-11; G95A1 and AK-12 added in the M2 completion, anti-tank launchers carried only) — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
    motor-rifle squad; rifles (G36 default, G95A1; AK-74M default, AK-12), machine guns, marksman rifles,
    grenade launchers, grenades, magazines and belts, helmets and plate carriers, each with sources and
    confidence; itemised loads replace the 24 kg placeholder; DATA_GUIDE sections for weapons and ammunition;
    demo: two real squads on a village map with a firing-range style shoot-out under scripted orders.
+
+6. ✅ **M2 completion** (2026-11-11, owner request) — aiming time and bracing in the aiming error, bullets
+   through bodies, G95A1 and AK-12, cover rows in the fragmentation lab, the scripted shoot-out. Not possible
+   before M3/M4: target movement in the aiming error.
 
 Needed from the owner: the two squad tables (roles, ranks, weapons; ammunition loads if he wants to set them)
 before M2.5; review of the casualty lab table after M2.3.

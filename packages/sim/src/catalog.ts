@@ -185,6 +185,7 @@ export interface ShootingDef {
     postureFactor: Record<"standing" | "crouching" | "prone", number>;
     fatigueK: number; heartRateK: number; heartRateCalmBpm: number; suppressionK: number;
     rapidFactor: number; burstGrowth: number; sightFactor: Record<string, number>; rangeErrorFraction: number;
+    settleK: number; settleTauS: number; bracedFactor: number;
   };
   fire: {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
@@ -223,6 +224,8 @@ export interface WoundsDef {
     fragment: { minEnergyJ: number; referenceEnergyJ: number; exponent: number; factorMin: number; factorMax: number };
     /** Blast wounds: severity at the edge of the injury radius and at the severe radius or nearer. */
     blast: { severityInjury: number; severitySevere: number; bleedLps: number };
+    /** Share of its speed a bullet keeps on leaving a limb / the trunk or head. */
+    exit: { limb: number; trunk: number };
   };
   physiology: Record<string, number>;
   effects: {

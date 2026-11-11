@@ -180,6 +180,21 @@ function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, cols: 
 }
 
 /** Exposure of the nav cell containing (x, y); 1 off the grid. */
+/**
+ * Is there something to rest a weapon on within arm's reach (this cell or one next to it): a wall, fence or
+ * hedge, the wall of a building, or trees (a cell of full vegetation cover)?
+ */
+export function restWithinReach(nav: NavGrid, x: number, y: number): boolean {
+  const c = Math.floor(x / nav.cellM), r = Math.floor(y / nav.cellM);
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const cc = c + dc, rr = r + dr;
+    if (cc < 0 || rr < 0 || cc >= nav.cols || rr >= nav.rows) continue;
+    const i = rr * nav.cols + cc;
+    if (nav.wall[i] === 1 || nav.exposure[i]! <= 0.01 || (nav.cost[i] === 0 && nav.exposure[i]! <= 0.25)) return true;
+  }
+  return false;
+}
+
 export function exposureAt(nav: NavGrid, x: number, y: number): number {
   const c = Math.floor(x / nav.cellM), r = Math.floor(y / nav.cellM);
   if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) return 1;

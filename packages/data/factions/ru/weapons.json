@@ -72,6 +72,41 @@
       ],
       "confidence": "low",
       "note": "PKP Pecheneg: 650 rounds/min, belts of 100 or 200 (published). Mass (about 8.2 kg) and muzzle velocity (about 825 m/s) are from memory of published figures, not confirmed by the search. Dispersion, belt change time and burst pattern are game values."
+    },
+    {
+      "id": "ru-ak12",
+      "nameKey": "weapon.ru-ak12",
+      "type": "rifle",
+      "calibre": "5.45x39",
+      "massKg": 3.5,
+      "feed": {
+        "magazine": "ru-ak74-mag"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 650,
+      "dispersionMrad": 0.45,
+      "reloadSeconds": 3.2,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "iron",
+          "magnification": 1
+        }
+      ],
+      "ammo": {
+        "ru-545-7n10": 882,
+        "ru-545-7t3": 882
+      },
+      "sources": [
+        "https://modernfirearms.net/en/assault-rifles/ak-12-ak-15-eng/",
+        "https://en.wikipedia.org/wiki/AK-12"
+      ],
+      "confidence": "low",
+      "note": "AK-12 (6P70): about 3.5 kg empty, 415 mm barrel, about 650 rounds/min (published; sources differ between 3.3 and 3.5 kg). Uses the AK-74 magazines. Muzzle velocity set slightly below the AK-74M, dispersion 10 % better than the AK-74M (one source's comparison); both game values. Not issued in the default squad (owner: AK-74M is the default)."
     }
   ]
 }

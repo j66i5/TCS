@@ -33,8 +33,11 @@ jobs:
         run: npm run lint
       - name: Data lint
         run: npm run lint:data
-      - name: Tests (unit, determinism, golden replays, architecture, performance floor)
+      - name: Tests (unit, determinism, golden replays, architecture)
         run: npm test
+      # Timing tests run on their own, one file at a time: other test files on the same cores slow them down.
+      - name: Performance floor
+        run: npm run test:perf
       - name: Build
         run: npm run build
         env:

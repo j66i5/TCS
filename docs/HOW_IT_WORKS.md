@@ -160,7 +160,9 @@ jams and takes a few seconds to clear. Nobody fires with a comrade in front of h
 
 **Where a shot goes** is not looked up in a table. The man has an aiming error — small when he is skilled,
 prone, rested and calm, larger when he is poorly trained, crouching or standing, tired, with a racing pulse, or
-firing fast — and the weapon adds its own scatter. He also has to judge the range, and a wrong guess puts his
+firing fast, and for the first seconds after he starts on a new point — and the weapon adds its own scatter.
+Kneeling or standing with a wall, fence, hedge or tree within arm's reach, he rests the weapon on it and shoots
+tighter. He also has to judge the range, and a wrong guess puts his
 shots high or low. The bullet then simply flies; whether it hits is geometry. On the firing range a regular
 soldier lying down hits a man-sized board about half the time at 300 m (a little better with the G36's optic),
 a veteran about 70 %, a conscript about 40–45 %; standing, about 20–25 %.
@@ -177,7 +179,8 @@ Every soldier has a simple body outline that depends on his posture: standing he
 divided by height into legs, pelvis, abdomen, chest (with the arms beside it), neck and head; prone he is a
 low shape 1.75 m long with the head toward where he faces. Each bullet's path is checked against the men near
 it. The part it enters first is where he is struck; a round passing beside his head misses. Bullets do not
-know sides, so men can hit their own comrades.
+know sides, so men can hit their own comrades. A bullet that is not stopped by armour comes out the other
+side, much slowed, and can still wound the man behind.
 
 What he wears is in his load: a helmet and a vest are items that say which parts they cover, how much of each
 part seen from the front and from the side, and how much they stop. The rifle plates stop every rifle bullet in
@@ -258,7 +261,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 281 automated tests, including:
+- `npm test` runs 289 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -267,7 +270,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
   - **fixture faction**: the made-up faction loads and fights;
   - **architecture guards**: the simulation never touches real time, real randomness or the screen;
   - **performance floor**: 304 soldiers moving on a 2 × 2 km map must run at least 8× faster than real time
-    (currently ~460×, but there is no shooting yet).
+    (about 200× here; with 20,000 bullets in the air about 5.5×, floor 3×).
 - `npm run screenshot` opens the app in a headless browser at phone and desktop size and saves pictures that
   are checked by eye.
 - The Stop hook refuses to let a Claude session end while the typecheck or tests fail.

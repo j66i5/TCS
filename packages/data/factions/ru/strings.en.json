@@ -61,5 +61,6 @@
   "role.ru.at-gunner": "Grenadier (RPG)",
   "role.ru.assistant-at-gunner": "Assistant grenadier",
   "role.ru.senior-rifleman": "Senior rifleman",
-  "role.ru.rifleman-gl": "Rifleman (GP-25)"
+  "role.ru.rifleman-gl": "Rifleman (GP-25)",
+  "weapon.ru-ak12": "AK-12"
 }

@@ -189,6 +189,11 @@ export const ShootingFile = z.object({
     sightFactor: z.record(z.string(), Num(0.1, 3)),
     /** Error in judging the range (one standard deviation, as a fraction of the range) at skill 0.5. */
     rangeErrorFraction: Num(0, 1),
+    /** Time spent aiming: right after he starts on a target his error is (1 + settleK) times larger; the excess
+     *  fades with the time constant settleTauS. */
+    settleK: Num(0, 10), settleTauS: Num(0.1, 60),
+    /** Bracing: kneeling or standing next to a wall, tree or other cover he rests the weapon on it. */
+    bracedFactor: Num(0.1, 1),
   }),
   fire: withProv({
     /** Rate of fire by range: the first band whose maxRangeM is not exceeded applies. */
@@ -254,6 +259,8 @@ export const WoundsFile = z.object({
     bleedFloor: Num(0, 1), bleedPower: Num(0.5, 10), bluntSeverity: Num(0, 1), knockdownSeconds: Num(0, 120), flagSeverity: Num(0, 1), energyExponent: Num(0, 2), throughArmChance: Num(0, 1), throughArmEnergy: Num(0, 1),
     fragment: z.object({ minEnergyJ: Num(0, 1000), referenceEnergyJ: Num(1, 100000), exponent: Num(0, 2), factorMin: Num(0, 2), factorMax: Num(0, 5) }).strict(),
     blast: z.object({ severityInjury: Num(0, 1), severitySevere: Num(0, 1), bleedLps: Num(0, 0.2) }).strict(),
+    /** A bullet that is not stopped by armour leaves the body with this share of its speed (limb / trunk or head). */
+    exit: z.object({ limb: Num(0, 1), trunk: Num(0, 1) }).strict(),
   }),
   physiology: withProv({
     bloodVolumeL: Num(1, 10), unconsciousLossFraction: Num(0.05, 1), deathLossFraction: Num(0.05, 1), shockStartFraction: Num(0, 1),

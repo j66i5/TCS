@@ -31,7 +31,7 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
 - **M1.3 body**: postures (standing/crouching/prone) that take time to change, slower with load; speed from
   pace, posture, slope (Tobler), load, fatigue and ground; fatigue and heart rate rise with effort, load, uphill
   and heat and recover at rest; movement lab (`npm run lab -- movement`) with checked bands; posture and 4-pace
-  buttons; debug labels show fatigue and heart rate. Each DE/RU soldier carries a 24 kg placeholder load.
+  buttons; debug labels show fatigue and heart rate. (Loads are itemised since M2.5.)
 - **M1.4 formations**: wedge/file/line from data; ~10 m spacing; routes prefer cover (balanced); followers keep
   their slot; at the halt each man takes the best cover within 15 m, goes prone and faces outward; formation
   button; zoomed far out, units show as infantry symbols. Cover effect is modest on open farmland (see
@@ -72,32 +72,34 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
   fifth round; the marksman rifle has a telescopic sight.
 - **Scripted shoot-out** (`npm run headless -- --scenario shootout`): the two squads 250 m apart fire at each
   other under a fixed script; it is a golden replay and a test (about 1,000 rounds, both grenades, casualties).
-- Tests: 281, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2 completion**: aiming time (first shots hurried) and bracing on cover in the aiming error; bullets go
+  through a body, slowed, and can hit the man behind; G95A1 and AK-12 as data (not issued by default); cover
+  rows in the fragmentation lab.
+- Tests: 289, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab
-  table. No first aid: a bleeding man is never treated (M10). A round stays in the first body it strikes.
-  Nobody reacts to being shot at, to casualties or to a grenade landing next to him (M4).
+  table. No first aid: a bleeding man is never treated (M10). Target movement is not in the aiming error yet
+  (needs targets: M3/M4).
+  Nobody reacts to being shot at or to casualties (M4); the only reaction is to a grenade landing nearby.
 - **Grenade data is unverified**: the search tool declined most look-ups, so DM51, RGD-5, VOG-25 and the
   launchers are from memory of published figures (`confidence: "low"`). **Speed with fragments is at the
   limit**: nine grenades bursting in the same instant cost a stutter of about two frames (see DECISIONS.md). The AI never throws; grenades are not thrown back; a man running from a grenade runs in a straight line.
 - Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
   into the ground in front of them.
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
-- The phone top bar now wraps onto three rows (interface work is M5).
+- The phone top bar wraps onto three rows (interface work is M5).
 - Research values come from search extracts, not from reading the pages; confidence medium at best.
 - The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 5.5×).
-- Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
-  loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
+- Soldiers route around houses, but **houses are solid** (no entering through doors yet). Stress does not yet raise heart rate (M4).
 - Anti-tank launchers are carried weight only (M7); belts carried by other men cannot be handed over (M4);
   kit masses (water, webbing, ...) are typical values, not sourced.
 - Routes prefer roads only mildly (asphalt is 10 % quicker than grass) and cover only modestly (balanced
   preference; see DECISIONS.md, M1.4) — the owner may choose to strengthen it.
 - **Industrial maps are the plainest**: sparse business-park lots with a few sheds and warehouses each.
 - Wood edges and scrub still show a faint 4 m grid pattern when zoomed in close.
-- The phone top bar wraps onto two rows.
 - The map kinds' recipes are code (they name terrain IDs); terrain *properties* are data. See DECISIONS.md.
 - The two squads are research defaults awaiting the owner's corrections; ranks per position are guesses;
   doctrine values are still placeholders (low confidence).

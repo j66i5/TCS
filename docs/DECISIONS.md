@@ -717,3 +717,51 @@ from the numbers chosen and the fragmentation table, and argues for throwing fro
 **Recorded:** a belt is a container of ball rounds in which every fifth is fired as a tracer (totals are
 conserved; tracers are not separate counted items); inside 30 m the machine gun's fixed burst interval gives
 it a lower rate than a rifle's close-range bursts.
+
+## 2026-11-11 — M2 completion ("all remaining M2 points", owner request; state schema v8, goldens regenerated)
+What M2 still owed, by the roadmap's own text and the gaps recorded on the way:
+**Aiming error (M2.2 listed more terms than were built).** *Time spent aiming:* the first shots at a new point
+are hurried — the error starts 60 % larger and the excess fades with a 2 s time constant; a renewed order at
+the same point (within 3 m) does not restart it. *Bracing:* a man kneeling or standing within cover's reach (a
+wall, hedge, tree: the navigation grid's exposure 0.25 or less) rests his weapon and has 20 % less error; prone
+men and bipod guns are steady already. *Range estimation* was already in. ***Target movement is still not in
+the error***: fire is at a point until there are targets to track (M3 contacts, M4 engagement) — it is the one
+term of the list that cannot be built honestly yet.
+**Bullets go through bodies.** A bullet not stopped by armour leaves the body outline where its path does and
+flies on with 70 % of its speed after a limb, 30 % after the trunk or head (x the square root of what the
+armour left it); it can wound the man behind. A round stopped by a plate, and every fragment, stays. A path
+that ends inside the outline within the tick (along a prone man) also stays.
+**Rifles:** G95A1 (16.5 in barrel published; mass, rate and velocity from memory of HK416 figures) and AK-12
+(3.5 kg, 415 mm, 650 rounds/min published; AK-74 magazines) exist as data, low confidence, not issued in the
+default squads (owner: G36 and AK-74M are the defaults). At 300 m they shoot within a few points of the defaults.
+**Fragmentation lab, cover rows** (the roadmap says "by posture and cover"): at 5 m from a DM51 a chest-high
+brick wall protects a kneeling man completely and a standing man mostly (43 % wounded, 0.5 wounds per man
+against 9); a wooden fence or a hedge hardly helps (99-100 % wounded).
+**Still open at the end of M2, by design or by dependency:** target movement in the aiming error (M3/M4);
+anti-tank launchers are carried only (M7); belts cannot be handed over (M4); grenades are not thrown back; no
+first aid (M10); the enemy acts only on orders (M4); SPEC's 8x speed with 20,000 projectiles is not reached
+(5.5x; floor 3x); DM51, RGD-5, VOG-25, PKP, G28, G95A1 figures partly unverified.
+
+## 2026-11-11 — Fixes from the independent review of the M2 completion
+No determinism, save/load or rule problems. Fixed, each with a test: **a round leaving a body skipped a wall,
+roof or ground right behind the man** (a man with his back to a steel wall let rounds through it): the round
+now flies on only if nothing lies between where it struck and where it comes out. **One bullet could wound the
+same running man two or three times** (it restarted 5 cm beyond him, and he ran 6 cm per tick): the restart
+point now allows for his speed. **Bracing was broader than stated** (up to 5 m from any obstacle, also a
+see-through wire fence, also anywhere in woodland): it now needs a wall, fence, hedge, house wall or trees
+within arm's reach (his 2 m cell or the next); the direction of fire and the height of the thing are still not
+looked at. **The casualty lab had shifted** (the targets were struck by the first, hurried shots, so fewer
+chest hits): the lab now lets its riflemen take their time, and the table the owner reviewed is back (plates
+save 50 %, 13 % killed outright, 44 % dead within the hour without care; 28 % killed outright without armour).
+Stale lines in STATE, HOW_IT_WORKS and a code header corrected.
+**Recorded:** after a wall is breached, the next shot rebuilds the navigation grid inside the fire step (about
+60-90 ms once on a 2 x 2 km map, a visible stutter; it was already paid by the next route); rear plates are not
+checked for a round that entered beside the front plate; the aiming-time clock runs from the order, so a man
+who first spends seconds changing posture fires his first shot nearly settled; the range lab has no
+first-shot or braced rows (the terms are tested directly).
+
+## 2026-11-11 — Timing tests run on their own
+The bullet benchmark failed once more on GitHub (2.9x against the 3x floor) while the other run of the same
+commit passed: the timing test shared the build machine's cores with the other test files. `npm test` now
+leaves out `perf*.test.ts`; `npm run test:perf` runs both timing files one after the other, alone, as its own
+step in `npm run check` and in CI. The floor stays 3x.

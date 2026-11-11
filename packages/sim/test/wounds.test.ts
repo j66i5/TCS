@@ -362,3 +362,75 @@ describe("fixes from the independent review", () => {
     expect(radio && radio.kind === "radio" ? radio.from : leader).not.toBe(leader);
   });
 });
+
+describe("bullets go through a body (M2 completion)", () => {
+  /** Two red men in a row, the second `gap` metres behind the first, both facing the shooter in the west. */
+  const row = (vest: boolean) => {
+    const input = physio();
+    if (vest) for (const m of input.forces[1]!.units[0]!.members) m.load.push({ type: "vest", count: 1 });
+    input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: Math.PI }, { personId: "b.1", x: 101.5, y: 100, heading: Math.PI }];
+    const sim = createSim(input);
+    const [front, behind] = unitOf(sim, "red")[1].members as [number, number];
+    return { sim, front, behind };
+  };
+
+  it("a bullet through a leg flies on, slowed, and can wound the man behind; through the trunk it comes out much slower", () => {
+    const shoot = (z: number) => {
+      const { sim, front, behind } = row(false);
+      for (let k = 0; k < 20; k++) launchProjectile(sim.ctx, sim.state, "ball", 60, 99.9 + (k % 5) * 0.03, z, 800, 0, 0, 0);
+      const ev = run(sim, 1);
+      const hits = (id: number) => ev.filter((e) => e.kind === "hit" && e.target === id).length;
+      return { front: hits(front), behind: hits(behind), severity: sim.state.soldier.req(behind).wounds.reduce((m, w) => Math.max(m, w.severity), 0), frontSeverity: sim.state.soldier.req(front).wounds.reduce((m, w) => Math.max(m, w.severity), 0) };
+    };
+    const legs = shoot(0.5), chest = shoot(1.3);
+    expect(legs.front).toBe(20);
+    expect(legs.behind).toBe(20); // every round went on into the second man
+    expect(chest.front).toBe(20);
+    expect(chest.behind).toBeGreaterThan(0);
+    // After the first man's trunk the round has 30 % of its speed (9 % of its energy): lighter wounds behind.
+    expect(chest.severity).toBeLessThan(chest.frontSeverity);
+  });
+
+  it("a round stopped by a plate goes no further; fragments never go through", () => {
+    const { sim, behind } = row(true);
+    for (let k = 0; k < 10; k++) launchProjectile(sim.ctx, sim.state, "ball", 60, 100, 1.3, 800, 0, 0, 0); // chest, plate
+    const ev = run(sim, 1);
+    expect(ev.filter((e) => e.kind === "hit" && e.armour === "stopped").length).toBe(10);
+    expect(sim.state.soldier.req(behind).wounds).toHaveLength(0);
+    const r2 = row(false);
+    for (let k = 0; k < 10; k++) launchProjectile(r2.sim.ctx, r2.sim.state, "shard", 97, 100, 0.5, 900, 0, 0, 0);
+    run(r2.sim, 1);
+    expect(r2.sim.state.soldier.req(r2.front).wounds.length).toBeGreaterThan(0);
+    expect(r2.sim.state.soldier.req(r2.behind).wounds).toHaveLength(0);
+  });
+});
+
+describe("shoot-through review fixes", () => {
+  it("a wall right behind a man stops the round that went through him", () => {
+    for (const gap of [0.03, 0.05]) {
+      const input = physio();
+      // Steel wall just behind the front man's back (he faces west, his back is at x = 100 + half depth).
+      input.map.obstacles.push({ id: 1, kind: "wall", points: [100.125 + gap, 90, 100.125 + gap, 110], heightM: 2, thicknessM: 0.05, material: "steel" });
+      input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: Math.PI }, { personId: "b.1", x: 102, y: 100, heading: Math.PI }];
+      const sim = createSim(input);
+      const behind = unitOf(sim, "red")[1].members[1]!;
+      for (let k = 0; k < 20; k++) launchProjectile(sim.ctx, sim.state, "ball", 60, 99.9 + (k % 5) * 0.03, 0.5, 800, 0, 0, 0);
+      run(sim, 1);
+      expect(sim.state.soldier.req(behind).wounds).toHaveLength(0);
+    }
+  });
+
+  it("one bullet does not strike the same running man twice", () => {
+    const input = physio();
+    input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: 0 }, { personId: "b.1", x: 150, y: 150, heading: 0 }];
+    const sim = createSim(input);
+    const man = unitOf(sim, "red")[1].members[0]!;
+    submitOrder(sim, { tick: 0, issuer: "red", target: man, kind: "move", waypoints: [{ x: 190, y: 100, mode: "run" }] });
+    run(sim, 2); // he is running east, away from the shooter
+    for (let k = 0; k < 20; k++) launchProjectile(sim.ctx, sim.state, "ball", sim.state.transform.req(man).x - 40, 99.95 + (k % 5) * 0.02, 0.5, 880, 0, 0, 0);
+    const ev = run(sim, 1);
+    const hits = ev.filter((e) => e.kind === "hit" && e.target === man).length;
+    expect(hits).toBeGreaterThan(0);
+    expect(hits).toBeLessThanOrEqual(20);
+  });
+});

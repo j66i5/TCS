@@ -318,6 +318,23 @@ per projectile. Derived per battle (`ctx.ballistics`, never saved): 8 m grids of
 vegetation and "wall nearby"; per wall segment height/thickness/material/openings; per material resistance and
 ricochet threshold; per ammunition drag and penetration numbers. Lab: `tools/src/labs/cover.ts`.
 
+## 16d. Weapons and fire (SPEC 6.3) — `sim/src/systems/fire.ts`, `actions.ts`, `core/shooting.json`
+
+```ts
+state.weapon: Store<WeaponState>   // { weapon, magazine: { item, rounds } | null, nextShotTick, burstLeft, burstIndex, jammed, lastShotTick, lowAmmoReported }
+state.fire:   Store<FireTask>      // { x, y, heightM, reasonTick, rangeError }
+orders:  { kind: "fire", x, y, heightM? } | { kind: "ceaseFire" }
+events:  shot.fired | weapon.reloaded | weapon.jammed | fire.ceased { reason: "ordered"|"no-target"|"ammunition"|"moved" }
+actions: "reload", "clearStoppage" (timed, interruptible)
+fireSystem(ctx, state, events)  -> launchProjectile(...)        // before projectileSystem
+incomingFireSystem(ctx, state, events)                          // after it: enemy impacts near a unit renew its reason to fire
+aimErrorMrad(ctx, state, id, weapon, aimed); dropAt(ctx, ammoId, v0, rangeM) // drop tables cached in ctx
+```
+
+`SoldierRecord.weapon` carries the weapon in and out of battles; the loaded magazine returns to the load in the
+battle result. Tick order: … movement, physiology, **fire**, projectiles, **incoming fire**. Lab:
+`tools/src/labs/range.ts`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -344,7 +361,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Carrying as a movement mode involving several soldiers | — | ⬜ M4/M10 | — |
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
-| 9.2 | Weapons consume specific item types; no free ammunition | data: weapon → magazine → ammunition items | 🟡 data and loader checks ✅; consumption in M2.2 | `data/test/loader.test.ts`; (M2.2: firing range lab) |
+| 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
 | 9.2 | Vehicles have fuel and component states | — | ⬜ M7 | — |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |

@@ -42,7 +42,7 @@ Proposed slices (to confirm at the start of M1):
 Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
 motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
-### M2 Ballistics and wounds — 🔨 in progress (M2.1 done)
+### M2 Ballistics and wounds — 🔨 in progress (M2.1, M2.2 done)
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,
 small arms and grenades for both factions.
 Acceptance: firing range, cover and fragmentation labs produce plausible tables; performance floor holds
@@ -55,12 +55,12 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
    thickness with energy loss; ricochet by angle and hardness; impact events; tracer and faint-bullet drawing;
    **cover lab** (penetration by material and thickness); benchmark with 20,000 live projectiles and the
    performance floor re-baselined. No one is hurt yet: bullets pass through people.
-2. ⏳ **M2.2 The shooter** — weapon handling: fire modes, cyclic rate, rounds drawn from counted magazines, reload
+2. ✅ **M2.2 The shooter** (2026-11-11) — weapon handling: fire modes, cyclic rate, rounds drawn from counted magazines, reload
    as an interruptible action, jams; aiming error from skill, fatigue, heart rate, posture, bracing, aiming
    time, target movement and range estimation, combined with weapon dispersion (no hit tables); a minimal
    "fire at point" order; muzzle flash and shot events; **firing range lab** (hit rates by range, posture,
    fatigue against target boards).
-3. **M2.3 Body, armour and wounds** — hit zones with exposed area by posture and facing; helmet and plate
+3. ⏳ **M2.3 Body, armour and wounds** — hit zones with exposed area by posture and facing; helmet and plate
    coverage and protection levels as items; wound records (zone, mechanism, severity, bleeding); the simple
    time-stepped physiology on a realistic clock; capabilities (walk, use arms, fight, speak); casualties stay
    in the world as entities; friendly fire; **casualty lab** (wound distribution, killed/incapacitated/wounded

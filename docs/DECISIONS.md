@@ -418,3 +418,24 @@ ordered rate, then one aimed shot per man every 10 s for 60 s, then cease fire a
 restores the full rate; each man stops when only the magazine in his weapon is left. **Magazines:** men top up
 in lulls already now (swap a partly used magazine for a fuller one after a few seconds without firing).
 Loads from the research: five G36 magazines per German rifleman, six AK-74 magazines (180 rounds) per Russian.
+
+## 2026-11-11 — M2.2 the shooter: model choices
+**Weapons and magazines:** each armed soldier has a weapon state (the magazine in the weapon is held there, not
+in his load, while loaded). Every round fired comes out of that magazine; an empty magazine is exchanged for
+his fullest spare by a timed reload action and the empty one is kept as an item; a stoppage (chance per round
+from the weapon data) is cleared by another timed action. His carried load now includes the weapon and the
+loaded magazine; the aggregate "basic fighting load" placeholder dropped from 24 to 18 kg. **Aiming error:**
+one standard deviation in milliradians = base (1.13 at skill 0.5) x skill factor x posture (prone 1, crouching
+1.5, standing 2.2) x fatigue x pulse x suppression x sight (magnified 0.85) x rapid fire (1.6) x recoil
+growth within a burst, combined with the weapon's own dispersion; plus a per-target error in judging the range
+(12 % at skill 0.5) that shifts the point of aim through a drop table. The base value was set so the firing
+range lab shows the owner's benchmark; the 3x optic gives the G36 about 60 % at 300 m against 49 % for the
+AK-74M with iron sights. Posture, fatigue, pulse and rate factors are game values for the owner to judge from
+the lab table. **Fire order:** `fire` (point, optional aim height) and `ceaseFire`; rate-of-fire bands by range
+and the ammunition-management clock are data (`core/shooting.json`). "Reason to keep firing" is, until M3,
+only incoming enemy rounds striking within 30 m of the unit. **Safety:** a man does not fire when a member of
+his own unit is in front of his muzzle within a 4-degree cone. **Not yet:** nobody is hit (M2.3); men do not
+check whether the ground blocks their line of fire (prone men on rolling ground may shoot into the ground in
+front of them; line of sight arrives in M3); rifle magazines hold ball only, so tracers appear with machine
+guns in M2.5. The screenshot-only volley hook was removed; the app's debug object now only issues orders.
+Golden replays regenerated (new data, weapons in state, schema v5).

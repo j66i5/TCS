@@ -21,6 +21,8 @@ export interface SegInfo {
   openings: Opening[] | null;
   /** The openings the wall was built with (breaches are added on top of these). */
   built: Opening[] | null;
+  /** Share of a line of sight that passes through it (0 solid wall, 0.95 wire mesh; from the obstacle kind). */
+  seeThrough: number;
 }
 
 export interface MaterialRT {
@@ -115,6 +117,8 @@ export interface BallisticsCtx {
   /** Stopping chance per metre and height per vegetation palette entry (index = vegetation byte - 1). */
   vegStopPerM: Float32Array;
   vegHeightM: Float32Array;
+  /** Share of a line of sight blocked per metre, per vegetation palette entry (index = vegetation byte - 1). */
+  vegConcealPerM: Float32Array;
   ammo: AmmoRT[];
   /** Body outlines per posture code (0 standing, 1 crouching, 2 prone). */
   hitboxes: HitboxRT[];
@@ -142,6 +146,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const maxGround = new Float32Array(bcols * brows).fill(-Infinity);
   const maxVegTop = new Float32Array(bcols * brows).fill(-Infinity);
   const vegHeightM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.heightM ?? 0));
+  const vegConcealPerM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.concealmentPerM ?? 0));
   const vegStopPerM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.stoppingPerM ?? 0));
   const w = map.cols + 1;
   for (let r = 0; r < map.rows; r++) {
@@ -183,10 +188,10 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     if (s.owner === "building") {
       const bd = buildings.get(s.id)!;
       const openings = bd.openings.filter((o) => o.wall === s.part);
-      return { heightM: bd.storeys * bd.storeyHeightM, thicknessM: bd.wallThicknessM, material: matIndex(bd.wallMaterial), len, nx: ey / len, ny: -ex / len, openings: openings.length > 0 ? openings : null, built: openings.length > 0 ? openings : null };
+      return { heightM: bd.storeys * bd.storeyHeightM, thicknessM: bd.wallThicknessM, material: matIndex(bd.wallMaterial), len, nx: ey / len, ny: -ex / len, openings: openings.length > 0 ? openings : null, built: openings.length > 0 ? openings : null, seeThrough: 0 };
     }
     const o = obstacles.get(s.id)!;
-    return { heightM: o.heightM, thicknessM: o.thicknessM, material: matIndex(o.material), len, nx: ey / len, ny: -ex / len, openings: null, built: null };
+    return { heightM: o.heightM, thicknessM: o.thicknessM, material: matIndex(o.material), len, nx: ey / len, ny: -ex / len, openings: null, built: null, seeThrough: catalog.terrain.obstacles[o.kind]?.seeThrough ?? 0 };
   });
   const roofs: RoofRT[] = map.buildings.map((bd) => {
     const kind = catalog.terrain.buildings[bd.kind];
@@ -252,7 +257,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   return {
     hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows),
     roofs, roofBuckets, roofLow,
-    bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
+    bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,
     minSpeed2: b.minSpeedMps * b.minSpeedMps,

@@ -44,6 +44,7 @@ export class BattleRenderer {
   private worldLayer = new Container();
   private terrain: Container | null = null;
   private navOverlay: Sprite | null = null;
+  private sightOverlay: Sprite | null = null;
   private world = new Graphics();
   private units = new Graphics();
   private labels = new Container();
@@ -114,6 +115,33 @@ export class BattleRenderer {
     this.navOverlay.width = nav.cols * nav.cellM;
     this.navOverlay.height = nav.rows * nav.cellM;
     this.worldLayer.addChild(this.navOverlay);
+  }
+
+  /**
+   * Debug: what one man can see. `vis` holds one value per cell of a `cols` x `rows` grid of `cellM` cells whose
+   * corner is at (x0, y0): 0 = cannot see, 1..255 = how much of a man there he would see. Hidden ground is
+   * darkened, partly seen ground tinted.
+   */
+  setSightOverlay(view: { vis: Uint8Array; cols: number; rows: number; cellM: number; x0: number; y0: number } | null): void {
+    if (this.sightOverlay) { this.worldLayer.removeChild(this.sightOverlay); this.sightOverlay.destroy({ texture: true }); this.sightOverlay = null; }
+    if (!view) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = view.cols; canvas.height = view.rows;
+    const g = canvas.getContext("2d")!;
+    const img = g.createImageData(view.cols, view.rows);
+    for (let i = 0; i < view.vis.length; i++) {
+      const o = i * 4, v = view.vis[i]! / 255;
+      if (v === 0) { img.data[o] = 10; img.data[o + 1] = 10; img.data[o + 2] = 30; img.data[o + 3] = 150; }
+      else if (v < 0.5) { img.data[o] = 60; img.data[o + 1] = 60; img.data[o + 2] = 140; img.data[o + 3] = Math.round(110 * (1 - v)); }
+    }
+    g.putImageData(img, 0, 0);
+    const tex = Texture.from(canvas);
+    tex.source.scaleMode = "nearest";
+    this.sightOverlay = new Sprite(tex);
+    this.sightOverlay.x = view.x0; this.sightOverlay.y = view.y0;
+    this.sightOverlay.width = view.cols * view.cellM;
+    this.sightOverlay.height = view.rows * view.cellM;
+    this.worldLayer.addChild(this.sightOverlay);
   }
 
   /** Centre the camera on a point showing `widthM` metres across the free area. */

@@ -47,6 +47,7 @@ function addUnit(
     comms: { link: "radio", extraDelaySeconds: 0 },
     moving: false,
     firing: false,
+    lineBlockedReported: false,
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {

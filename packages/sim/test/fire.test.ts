@@ -313,7 +313,8 @@ describe("belt-fed sustained fire (M2.5; faction-neutral test catalog)", () => {
     expect(ev.some((e) => e.kind === "weapon.reloaded" && e.soldier === gunner)).toBe(false);
     const wg = sim.state.weapon.req(gunner), wr = sim.state.weapon.req(rifleman);
     // Same skill and posture, both rested: the gun's telescopic sight helps, and in a burst it climbs far less.
-    for (const m of [gunner, rifleman]) { const s = sim.state.soldier.req(m); s.physical.fatigue = 0; s.physical.heartRateBpm = 70; }
+    // (Both lying down: the gun's bipod is only down when he lies or rests it on something.)
+    for (const m of [gunner, rifleman]) { const s = sim.state.soldier.req(m); s.physical.fatigue = 0; s.physical.heartRateBpm = 70; s.posture = "prone"; }
     wg.burstIndex = 0; wr.burstIndex = 0;
     expect(aimErrorMrad(sim.ctx, sim.state, gunner, wg, true)).toBeLessThan(aimErrorMrad(sim.ctx, sim.state, rifleman, wr, true));
     wg.burstIndex = 4; wr.burstIndex = 4;
@@ -350,5 +351,85 @@ describe("aiming time and bracing (M2 completion)", () => {
     expect(err(atWall, "crouching") / err(inOpen, "crouching")).toBeCloseTo(0.8, 2);
     expect(err(atWall, "standing") / err(inOpen, "standing")).toBeCloseTo(0.8, 2);
     expect(err(atWall, "prone")).toBeCloseTo(err(inOpen, "prone"), 6);
+  });
+});
+
+describe("line of fire (M3.1)", () => {
+  it("a prone man behind a bank does not fire into it: he rises to a kneel and fires over it", () => {
+    const input = armedInput();
+    // A 0.8 m bank 3 m in front of the blue team.
+    const m = input.map;
+    for (let r = 0; r <= m.rows; r++) for (let c = 0; c <= m.cols; c++) { const x = c * m.cellSizeM; if (x >= 12 && x <= 16) m.heights[r * (m.cols + 1) + c] = 0.8; }
+    const sim = createSim(input);
+    const [uid, unit] = blue(sim);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    run(sim, 5);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("prone");
+    fireAt(sim, uid, 150, 15);
+    const ev = run(sim, 12);
+    const shots = kinds(ev, "shot.fired");
+    expect(shots.length).toBeGreaterThan(3);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("crouching");
+    // No round struck the bank.
+    expect(ev.filter((e) => e.kind === "impact" && e.x < 20).length).toBe(0);
+  });
+
+  it("behind a wall too high to fire over he holds his fire, and the unit reports it once", () => {
+    const input = armedInput();
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [13, 0, 13, 40], heightM: 2, thicknessM: 0.25, material: "brick" });
+    const sim = createSim(input);
+    const [uid] = blue(sim);
+    fireAt(sim, uid, 150, 15);
+    const ev = run(sim, 15);
+    expect(kinds(ev, "shot.fired")).toHaveLength(0);
+    expect(ev.filter((e) => e.kind === "radio" && e.key === "radio.noLineOfFire")).toHaveLength(1);
+  });
+});
+
+describe("line of fire review fixes (M3.1)", () => {
+  const bank = () => {
+    const input = armedInput();
+    const m = input.map;
+    for (let r = 0; r <= m.rows; r++) for (let c = 0; c <= m.cols; c++) { const x = c * m.cellSizeM; if (x >= 12 && x <= 16) m.heights[r * (m.cols + 1) + c] = 0.8; }
+    return input;
+  };
+
+  it("a prone order while he is rising to fire over a bank does not make him fire into it", () => {
+    const sim = createSim(bank());
+    const [uid] = blue(sim);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    run(sim, 5);
+    fireAt(sim, uid, 150, 15);
+    const ev: SimEvent[] = [];
+    for (let k = 0; k < 6; k++) { ev.push(...run(sim, 2)); submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "posture", posture: "prone" }); }
+    ev.push(...run(sim, 8));
+    expect(ev.filter((e) => e.kind === "impact" && e.x < 20).length).toBe(0);
+  });
+
+  it("a man who rose to fire over a bank goes back down when he is told to fire where lying down is enough", () => {
+    const sim = createSim(bank());
+    const [uid, unit] = blue(sim);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    run(sim, 5);
+    fireAt(sim, uid, 150, 15);
+    run(sim, 8);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("crouching");
+    // A new point to the south, along the open ground clear of the bank: lying down is enough again.
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "fire", x: 1, y: 150 });
+    run(sim, 8);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("prone");
+  });
+
+  it("at long range a crest 50 m short of the point blocks the line of fire (it is not 'what he fires at')", () => {
+    const input = armedInput();
+    const m = input.map;
+    for (let r = 0; r <= m.rows; r++) for (let c = 0; c <= m.cols; c++) { const x = c * m.cellSizeM; if (x >= 136 && x <= 144) m.heights[r * (m.cols + 1) + c] = 4; }
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p) => ({ ...p, x: 195 }));
+    const sim = createSim(input);
+    const [uid] = blue(sim);
+    fireAt(sim, uid, 190, 15); // point 50 m beyond the crest, in dead ground
+    const ev = run(sim, 10);
+    expect(kinds(ev, "shot.fired")).toHaveLength(0);
+    expect(ev.some((e) => e.kind === "radio" && e.key === "radio.noLineOfFire")).toBe(true);
   });
 });

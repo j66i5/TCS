@@ -232,6 +232,17 @@ carries listed items — weapon, magazines or belts, grenades, helmet, vest, wat
 their weight slows and tires him. A machine gun fires bursts of five from a belt with a tracer every fifth
 round; the marksman's telescopic sight makes him more accurate at long range.
 
+## Seeing
+
+Whether one point can see another is worked out along the straight line between them, in 3D. Hills and banks
+block it; walls block it unless the line passes through a door, window or hole; a wire fence lets almost all
+of the view through, a wooden fence half, a hedge a tenth; a roof blocks a line that crosses it. Crops, grass,
+scrub and woods thin the view the more of them the line passes through below their top: a man standing in a
+field of corn is in plain sight, the same man lying in it is practically invisible. The result is a number
+between 0 and 1 (`npm run lab -- sight` prints typical cases). The same check keeps men from firing into a bank
+right in front of them: they kneel or stand to fire over it, or hold their fire and say so. With Debug on, the
+ground the selected unit's leader cannot see is darkened.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -261,7 +272,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 289 automated tests, including:
+- `npm test` runs 302 automated tests (299 plus 3 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

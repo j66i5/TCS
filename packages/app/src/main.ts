@@ -9,6 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { wanderController } from "@tcs/ai";
 import {
+  eyeHeightM, heightAt, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
@@ -75,6 +76,9 @@ async function main(): Promise<void> {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.
       renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null);
+      // ... and what the selected unit's leader can see (refreshed every 2 s of game time).
+      renderer.setSightOverlay(on ? sightView() : null);
+      sightAt = sim.state.tick;
     },
   });
 
@@ -138,6 +142,29 @@ async function main(): Promise<void> {
   };
 
   /** Advance the simulation by one tick: AI thinks, renderer remembers positions, step, events out. */
+  /** Debug: what the selected unit's leader can see of a kneeling man, within 400 m, every 10 m. */
+  const sightView = () => {
+    const uid = overlay.selectedUnit;
+    const u = uid === null ? undefined : sim.state.unit.get(uid);
+    // The leader, or the first of the unit's men who is alive and conscious.
+    const able = (id: EntityId) => { const x = sim.state.soldier.get(id); return x !== undefined && x.physiology.alive && x.physiology.consciousness >= 0.5; };
+    const leader = u?.leader ?? u?.members.find(able);
+    const t = leader === undefined ? undefined : sim.state.transform.get(leader);
+    const s = leader === undefined ? undefined : sim.state.soldier.get(leader);
+    if (!t || !s) return null;
+    const R = 400, cellM = 10, n = (2 * R) / cellM;
+    const x0 = t.x - R, y0 = t.y - R;
+    const ez = heightAt(input.map, t.x, t.y) + eyeHeightM(sim.ctx, s.posture);
+    const vis = new Uint8Array(n * n).fill(255); // beyond the radius: not tinted (not looked at)
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      const x = x0 + (c + 0.5) * cellM, y = y0 + (r + 0.5) * cellM;
+      if (x < 0 || y < 0 || x >= input.map.widthM || y >= input.map.heightM || (x - t.x) ** 2 + (y - t.y) ** 2 > R * R) continue;
+      const v = sight(sim.ctx, t.x, t.y, ez, x, y, heightAt(input.map, x, y) + 0.75).visibility;
+      vis[r * n + c] = Math.max(0, Math.min(255, Math.round(v * 255)));
+    }
+    return { vis, cols: n, rows: n, cellM, x0, y0 };
+  };
+  let sightAt = -1, sightFor: EntityId | null = null, sightReal = -1e9;
   const stepOnce = () => {
     for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) issue(o);
     renderer.capturePrevious(sim.state);
@@ -152,7 +179,7 @@ async function main(): Promise<void> {
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y, count }),
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
-    setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
+    setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
@@ -170,6 +197,12 @@ async function main(): Promise<void> {
     let steps = 0;
     while (acc >= DT && steps < MAX_STEPS_PER_FRAME) { stepOnce(); acc -= DT; steps++; }
     if (steps === MAX_STEPS_PER_FRAME) acc = 0;
+    // Refreshed every 2 s of game time, when the selection changes (also while paused), at most once a second
+    // of real time (a few thousand sight checks each).
+    if (overlay.debug && (sim.state.tick - sightAt >= 120 || overlay.selectedUnit !== sightFor) && now - sightReal >= 1000) {
+      sightAt = sim.state.tick; sightFor = overlay.selectedUnit; sightReal = now;
+      renderer.setSightOverlay(sightView());
+    }
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     frames++;
     if (now - fpsT0 >= 1000) {

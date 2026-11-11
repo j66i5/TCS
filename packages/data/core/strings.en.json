@@ -110,5 +110,6 @@
   "radio.ack.grenade": "{callsign}: grenade!",
   "app.tapGrenade": "tap: 1 grenade",
   "app.tapGrenades": "tap: all grenades",
-  "radio.grenadeBlocked": "{callsign}: no clear throw!"
+  "radio.grenadeBlocked": "{callsign}: no clear throw!",
+  "radio.noLineOfFire": "{callsign}: no line of fire from here."
 }

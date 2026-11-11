@@ -387,6 +387,14 @@ the edge can be struck.
   building kind) with a per-bucket lowest-roof height for quick rejection; a projectile crossing a roof plane
   inside the footprint is stopped or pierced like a wall.
 
+## 16g. Line of sight (SPEC 6.5) — `sim/src/los.ts`
+
+`sight(ctx, x0, y0, z0, x1, y1, z1) -> { visibility, blockedBy, blockedAt, vegetationM }`: a pure query over
+the map and the derived ballistics tables (wall segments with `seeThrough` and openings incl. breaches, roofs,
+8 m buckets of highest ground and vegetation for quick rejection, vegetation concealment per palette entry).
+No state, no randomness, so any system (fire, detection, AI, debug views) may call it. The fire system uses it
+for the line of fire (`lineOfFireClear`, cached once a second on the `FireTask`).
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

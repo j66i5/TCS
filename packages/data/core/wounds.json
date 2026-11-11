@@ -231,7 +231,7 @@
     "throughArmEnergy": 0.7,
     "fragment": {
       "minEnergyJ": 3,
-      "referenceEnergyJ": 50,
+      "referenceEnergyJ": 90,
       "exponent": 0.5,
       "factorMin": 0.15,
       "factorMax": 1.1
@@ -243,7 +243,7 @@
     },
     "sources": [],
     "confidence": "low",
-    "note": "Owner decisions 2026-11-11: a round stopped by a plate knocks the man down for a few seconds and leaves a minor blunt injury (pain, no bleeding). Severity scales gently with the bullet's remaining energy relative to 1000 J (power 0.3). Most wounds bleed far below the zone's worst case (floor 12 %, rising with the cube of a random draw): few hit a major vessel. A round that strikes an arm from the side goes on into the trunk 6 times in 10 with 70 % of its energy. Fragments: one below 3 J does not wound; severity grows with the square root of its energy relative to 50 J. Blast: lung and ear injury, severity 0.2 at the edge of the injury radius rising to 0.75 at the severe radius."
+    "note": "Owner decisions 2026-11-11: a round stopped by a plate knocks the man down for a few seconds and leaves a minor blunt injury (pain, no bleeding). Severity scales gently with the bullet's remaining energy relative to 1000 J (power 0.3). Most wounds bleed far below the zone's worst case (floor 12 %, rising with the cube of a random draw): few hit a major vessel. A round that strikes an arm from the side goes on into the trunk 6 times in 10 with 70 % of its energy. Fragments: one below 3 J does not wound; severity grows with the square root of its energy relative to 90 J. Blast: lung and ear injury, severity 0.2 at the edge of the injury radius rising to 0.75 at the severe radius."
   },
   "physiology": {
     "bloodVolumeL": 5.0,

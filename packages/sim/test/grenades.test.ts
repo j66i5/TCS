@@ -170,24 +170,89 @@ describe("bursts", () => {
 });
 
 describe("roofs and terrain damage", () => {
-  it("a roof stops a grenade lobbed onto a house and rifle fire from above; before M2.4 both fell straight in", () => {
+  it("a roof stops a grenade lobbed onto a house (it bursts on the roof); a solid roof also keeps the fragments out, tiles do not", () => {
+    const woundsInside = (roofThicknessM: number) => {
+      const input = setup(100);
+      input.catalog = { ...input.catalog, terrain: { ...input.catalog.terrain, buildings: { house: { ...input.catalog.terrain.buildings["house"]!, roofThicknessM } } } };
+      input.map.buildings.push({ id: 1, kind: "house", footprint: [90, 90, 110, 90, 110, 110, 90, 110], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+      input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: 0 }, { personId: "b.1", x: 150, y: 150, heading: 0 }];
+      const sim = createSim(input);
+      const inside = unitOf(sim, "red")[1].members[0]!;
+      launchProjectile(sim.ctx, sim.state, "bomb", 100.5, 100, 12, 0, 0, -1, 0); // dropping onto the middle of the roof
+      const ex = run(sim, 6).find((e) => e.kind === "explosion");
+      if (!ex || ex.kind !== "explosion") throw new Error("no burst");
+      expect(ex.z).toBeGreaterThan(2.5); // on the roof, not on the floor
+      return { sim, n: sim.state.soldier.req(inside).wounds.filter((w) => w.mechanism === "fragment").length };
+    };
+    expect(woundsInside(0.3).n).toBe(0); // 30 cm of timber-equivalent: nothing comes through
+    const tiles = woundsInside(0.06);
+    expect(tiles.n).toBeGreaterThan(0); // 6 cm: fragments from the burst overhead come through, slowed
+    // A rifle bullet fired steeply down goes through the tiles (a "penetrated" impact).
+    launchProjectile(tiles.sim.ctx, tiles.sim.state, "ball", 100.1, 100, 30, 0, 0, -900, 0);
+    expect(run(tiles.sim, 1).find((e) => e.kind === "impact" && e.surface === "building")).toMatchObject({ result: "penetrated" });
+  });
+
+  it("review fixes: steep fire cannot skip the roof of a small house; an impact round on a roof keeps its fragments", () => {
     const input = setup(100);
-    input.map.buildings.push({ id: 1, kind: "house", footprint: [90, 90, 110, 90, 110, 110, 90, 110], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
-    input.forces[1]!.placements = [{ personId: "b.0", x: 100, y: 100, heading: 0 }, { personId: "b.1", x: 150, y: 150, heading: 0 }];
+    input.catalog = { ...input.catalog, terrain: { ...input.catalog.terrain, buildings: { house: { ...input.catalog.terrain.buildings["house"]!, roofMaterial: "steel", roofThicknessM: 0.05 } } } };
+    input.map.buildings.push({ id: 1, kind: "house", footprint: [98, 90, 102, 90, 102, 110, 98, 110], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
     const sim = createSim(input);
-    const inside = unitOf(sim, "red")[1].members[0]!;
-    // A grenade dropping onto the middle of the roof.
-    launchProjectile(sim.ctx, sim.state, "bomb", 100, 100, 12, 0, 0, -1, 0);
-    const ev = run(sim, 6);
-    const ex = ev.find((e) => e.kind === "explosion");
+    // 45 degrees down across a house only 4 m wide: each bullet's one-tick step starts and ends outside it.
+    for (let k = 0; k < 50; k++) launchProjectile(sim.ctx, sim.state, "ball", 88.5 + k * 0.05, 95 + k * 0.2, 12.8, 600, 0, -600, 0);
+    const ev = run(sim, 1).filter((e) => e.kind === "impact");
+    expect(ev.filter((e) => e.kind === "impact" && e.surface === "building" && e.z > 2.5).length).toBe(50);
+    expect(ev.filter((e) => e.kind === "impact" && e.surface === "ground").length).toBe(0);
+    // An impact-fuse round bursting on that roof: its fragments fly on (before the fix all were swallowed).
+    launchProjectile(sim.ctx, sim.state, "shell", 100, 100, 30, 0, 0, -40, 0);
+    let after = -1;
+    for (let k = 0; k < 120 && after < 0; k++) if (step(sim).some((e) => e.kind === "explosion")) { step(sim); after = sim.state.projectiles.count; }
+    expect(after).toBeGreaterThan(50);
+  });
+
+  it("review fixes: a plank fence does not shield from blast; a grenade thrown indoors falls to the floor; one aimed at the map edge still bursts", () => {
+    const input = setup(100);
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [101, 90, 101, 110], heightM: 1.8, thicknessM: 0.02, material: "wood" });
+    input.forces[1]!.placements = [{ personId: "b.0", x: 101.8, y: 100, heading: Math.PI }, { personId: "b.1", x: 150, y: 150, heading: 0 }];
+    const sim = createSim(input);
+    const man = unitOf(sim, "red")[1].members[0]!;
+    detonate(sim.ctx, sim.state, new EventSink(), 100, 100, 0.05, bomb, 0);
+    expect(sim.state.soldier.req(man).wounds.some((w) => w.mechanism === "blast")).toBe(true);
+
+    const indoor = setup(100);
+    indoor.map.buildings.push({ id: 1, kind: "house", footprint: [5, 5, 65, 5, 65, 35, 5, 35], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+    const s2 = createSim(indoor);
+    const [uid] = unitOf(s2, "blue");
+    submitOrder(s2, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 35, y: 15 });
+    const ex = run(s2, 12).find((e) => e.kind === "explosion");
     if (!ex || ex.kind !== "explosion") throw new Error("no burst");
-    expect(ex.z).toBeGreaterThan(2.5); // it burst on the roof, not on the floor
-    // 6 cm of wood-equivalent roof stops these light fragments: the man inside is unhurt.
-    expect(sim.state.soldier.req(inside).wounds.filter((w) => w.mechanism === "fragment")).toHaveLength(0);
-    // A rifle bullet fired steeply down goes through the tiles (with a "penetrated" impact) and can reach him.
-    launchProjectile(sim.ctx, sim.state, "ball", 100.1, 100, 30, 0, 0, -900, 0);
-    const ev2 = run(sim, 1);
-    expect(ev2.find((e) => e.kind === "impact" && e.surface === "building")).toMatchObject({ result: "penetrated" });
+    expect(ex.z).toBeLessThan(0.5); // on the floor, not hanging under the ceiling
+
+    const edge = createSim(setup(100));
+    for (let k = 0; k < 10; k++) launchProjectile(edge.ctx, edge.state, "bomb", 6, 50 + k, 1.6, -12, 0, 10, 0);
+    expect(run(edge, 6).filter((e) => e.kind === "explosion")).toHaveLength(10);
+  });
+
+  it("review fixes: a man ordered to move or lie down while preparing does not throw; fragment wounds are worse close in", () => {
+    const sim = createSim(setup(28));
+    const [uid, unit] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 38, y: 13 });
+    run(sim, 1.5);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    const ev = run(sim, 10);
+    expect(ev.some((e) => e.kind === "grenade.launched")).toBe(false);
+    expect(unit.members.reduce((n, m) => n + count(sim, m, "bomb"), 0)).toBe(6);
+
+    const mean = (d: number) => {
+      const input = setup(100);
+      input.forces[1]!.placements = [{ personId: "b.0", x: 100 + d, y: 100, heading: Math.PI }, { personId: "b.1", x: 100 - d, y: 100, heading: 0 }];
+      const s = createSim(input);
+      s.ctx.catalog.ballistics.blast.injuryScaledM = 0; // fragments only
+      detonate(s.ctx, s.state, new EventSink(), 100, 100, 0.05, bomb, 0);
+      run(s, 1);
+      const w = unitOf(s, "red")[1].members.flatMap((m) => s.state.soldier.req(m).wounds.filter((x) => x.mechanism === "fragment" && (x.zone.startsWith("leg") || x.zone.startsWith("arm"))));
+      return w.reduce((n, x) => n + x.severity, 0) / Math.max(1, w.length);
+    };
+    expect(mean(1.5)).toBeGreaterThan(mean(8) * 1.2);
   });
 
   it("a burst next to a thin wooden fence blows a hole that bullets and routes then pass through; a brick wall stands", () => {

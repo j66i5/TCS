@@ -77,6 +77,20 @@ export function buildNavGrid(
     const c = Math.floor(cx / m / cellM), r = Math.floor(cy / m / cellM);
     if (c >= 0 && r >= 0 && c < cols && r < rows) { cost[r * cols + c] = 0; building[r * cols + c] = 1; }
   }
+  // Holes blown in walls: the cell at the middle of each hole is not marked by the breached stretch of wall
+  // (a man gets through a metre-wide gap even though the grid is coarser; vehicles need a hole 3 m wide).
+  // Another obstacle running through the same cell still blocks it.
+  const holeCells = new Set<string>();
+  for (const b of breaches) {
+    if (b.owner !== "obstacle" || (cls !== "foot" && b.widthM < 3)) continue;
+    const o = map.obstacles.find((q) => q.id === b.id);
+    const i = b.part * 2;
+    if (!o || i + 3 >= o.points.length) continue;
+    const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
+    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
+    const c = Math.floor((ax + ((bx - ax) * b.offsetM) / len) / cellM), r = Math.floor((ay + ((by - ay) * b.offsetM) / len) / cellM);
+    holeCells.add(`${r * cols + c}:${b.id}:${b.part}`);
+  }
   // Linear obstacles: crossing penalty or blocked, per class.
   for (const o of map.obstacles) {
     const kind = terrain.obstacles[o.kind];
@@ -102,6 +116,7 @@ export function buildNavGrid(
         const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
         if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
         const idx = r * cols + c;
+        if (holeCells.size > 0 && holeCells.has(`${idx}:${o.id}:${i / 2}`)) continue;
         if (wall[idx] === 1 && blocked) { cost[idx] = 0; continue; }
         if (wall[idx] === 1) continue; // already marked by this or another obstacle
         wall[idx] = 1;
@@ -109,23 +124,6 @@ export function buildNavGrid(
         else if (cost[idx]! > 0) cost[idx] = cost[idx]! + extra;
       }
     }
-  }
-  // Holes blown in walls: the cell at the middle of each hole is open ground again (a man gets through a
-  // metre-wide gap even though the grid is coarser than that).
-  for (const b of breaches) {
-    if (b.owner !== "obstacle") continue;
-    const o = map.obstacles.find((x) => x.id === b.id);
-    const i = b.part * 2;
-    if (!o || i + 3 >= o.points.length) continue;
-    const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
-    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
-    const x = ax + ((bx - ax) * b.offsetM) / len, y = ay + ((by - ay) * b.offsetM) / len;
-    const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
-    if (c < 0 || r < 0 || c >= cols || r >= rows || building[r * cols + c] === 1) continue;
-    const mr = Math.min(map.rows - 1, Math.floor(y / map.cellSizeM)), mc = Math.min(map.cols - 1, Math.floor(x / map.cellSizeM));
-    const k = cellMoveCost(map, terrain, mr * map.cols + mc, cls);
-    wall[r * cols + c] = 0;
-    cost[r * cols + c] = k === null ? 0 : k;
   }
   const exposure = exposureMap(map, terrain, cellM, cols, rows, wall, building);
 

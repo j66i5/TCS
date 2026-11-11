@@ -45,13 +45,16 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     const cz = heightAt(map, t.x, t.y) + t.z + ctx.catalog.body.postures[s.posture].heightM * 0.5;
     const d = sqrt(dx * dx + dy * dy + (cz - z) * (cz - z));
     if (d > stunR) continue;
-    if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz)) continue;
+    if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
     applyBlast(ctx, state, events, id, d, severeR, injuryR, stunR, owner);
   }
 
   // ---- fragments
   const fragIdx = ammoIndexOf(ctx.catalog, ex.fragmentAmmo);
-  const lo = sin((bal.fragments.bandDeg[0] * PI) / 180), hi = sin((bal.fragments.bandDeg[1] * PI) / 180);
+  // On the ground the lower half goes into the earth; a burst in the air (fuse ran out in flight, a round
+  // striking a wall or a ceiling) throws fragments downward too.
+  const airborne = z - heightAt(map, x, y) > bal.fragments.airburstAboveM;
+  const lo = airborne ? -1 : sin((bal.fragments.bandDeg[0] * PI) / 180), hi = sin((bal.fragments.bandDeg[1] * PI) / 180);
   const n = Math.min(bal.fragments.maxPerBurst, Math.round((ex.fragmentCount * (hi - lo)) / 2));
   const P = state.projectiles;
   const v0 = ex.fragmentVelocityMps[0], dv = ex.fragmentVelocityMps[1] - v0;

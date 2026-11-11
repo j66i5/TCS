@@ -87,9 +87,13 @@ export const BallisticsFile = withProv({
     /** A wall whose steel-equivalent thickness (mm) is below this x cube root of the filling is breached,
      *  if the burst is within breachReachScaledM x cube root of the filling of it. */
     breachSteelMmScaled: Num(0, 1000), breachReachScaledM: Num(0, 50), breachWidthScaledM: Num(0, 50),
+    /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
+    shieldSteelMm: Num(0, 1000),
   }).strict(),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
-  fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000) }).strict(),
+  fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
+    /** A burst higher than this above the ground also throws fragments downward. */
+    airburstAboveM: Num(0, 10) }).strict(),
 });
 /** SPEC 6.3: shell and warhead types supported by the data model from the start. */
 export const AmmoKind = z.enum([

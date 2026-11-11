@@ -75,7 +75,7 @@ export function arcRangeM(ctx: SimContext, am: AmmoRT, v: number, el: number, dr
 }
 
 /** Send the grenade. Called when the action completes. */
-function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx: number, ty: number): "thrown" | "launched" | null {
+function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number): "thrown" | "launched" | null {
   const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
   const s = state.soldier.get(id), t = state.transform.get(id);
   if (!def?.delivery || !def.explosive || !c || !s || !t) return null;
@@ -83,7 +83,12 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
   const G = ctx.catalog.shooting.grenades;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammoId)]!;
   const thrown = def.delivery.method === "thrown";
-  const d0 = hypot2(tx - t.x, ty - t.y);
+  // He throws from where and how he is NOW: if the point is out of reach by now, as far as he can toward it.
+  let tx = tx0, ty = ty0, d0 = hypot2(tx - t.x, ty - t.y);
+  if (thrown) {
+    const reach = throwRangeM(ctx, state, id);
+    if (d0 > reach) { tx = t.x + ((tx - t.x) * reach) / d0; ty = t.y + ((ty - t.y) * reach) / d0; d0 = reach; }
+  }
   // Where it will really go: an error that grows with distance and shrinks with training.
   const sd = ((thrown ? G.throwErrorMinM : G.launchErrorMinM) + (thrown ? G.throwErrorFraction : G.launchErrorFraction) * d0) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5);
   const ax = tx + sd * nextNormal(state.rng, Streams.fire), ay = ty + sd * nextNormal(state.rng, Streams.fire);
@@ -116,7 +121,10 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
 export const grenadeHandler: ActionHandler = {
   check(_ctx, state, actor) {
     const s = state.soldier.get(actor);
-    return isAble(s) && s!.impair.canUseArms ? null : "unable";
+    if (!isAble(s) || !s!.impair.canUseArms) return "unable";
+    // A new order to move or to change posture breaks it off (the grenade stays in his load).
+    if ((state.mover.get(actor)?.waypoints.length ?? 0) > 0) return "moved";
+    return s!.postureTo !== null ? "posture" : null;
   },
   complete(ctx, state, actor, a, events) {
     const ammo = String(a.params["ammo"]), x = Number(a.params["x"]), y = Number(a.params["y"]);

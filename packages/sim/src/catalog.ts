@@ -129,8 +129,10 @@ export interface BallisticsDef {
   blast: {
     severeScaledM: number; injuryScaledM: number; stunScaledM: number; stunSeconds: number; craterScaledM: number;
     breachSteelMmScaled: number; breachReachScaledM: number; breachWidthScaledM: number;
+    /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
+    shieldSteelMm: number;
   };
-  fragments: { bandDeg: [number, number]; maxPerBurst: number };
+  fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number };
 }
 
 export interface AmmoDef {

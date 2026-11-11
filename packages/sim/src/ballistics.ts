@@ -315,7 +315,7 @@ export function roofAt(b: BallisticsCtx, index: MapIndex, x: number, y: number):
  * Is the straight line between two points blocked by a wall, hedge, fence or house wall (openings and
  * breaches let it through)? Heights are absolute. Used for blast shielding (and later for line of sight).
  */
-export function lineBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+export function lineBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, minSteelMm = 0): boolean {
   const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
   for (const si of segmentsInRect(index, x0, y0, x1, y1)) {
     const s = index.segments[si]!;
@@ -327,6 +327,8 @@ export function lineBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: 
     const u = ((s.ax - x0) * dy - (s.ay - y0) * dx) / denom;
     if (u < 0 || u > 1) continue;
     const info = b.seg[si]!;
+    // Too flimsy to count (a plank fence, wire mesh, a hedge against blast).
+    if (minSteelMm > 0 && b.materials[info.material]!.resistance * info.thicknessM * 1000 < minSteelMm) continue;
     const rel = z0 + t * dz - heightAt(map, x0 + t * dx, y0 + t * dy);
     if (rel < 0 || rel > info.heightM) continue;
     let open = false;

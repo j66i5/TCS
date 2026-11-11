@@ -542,22 +542,25 @@ a wall it strikes, passes through windows and doors, and bursts when the fuse ru
 impact-fuse round bursts on ground, wall or roof if armed, else is a dud. Grenades do not wound by striking.
 **Burst:** (1) blast by distance, radii = coefficient x cube root of the filling — for 60 g: blast wound within
 2.3 m (fatal within about 1.2 m), stunned 1-4 s out to 9.8 m (owner decision); a wall between burst and man
-shields him completely. (2) Fragments are real projectiles; only those leaving between 3 degrees below and 40
-degrees above the horizon are simulated (about 35 % of the count; the rest go into the ground or the sky). A
+shields him completely (walls of 5 mm steel-equivalent or more; see the review fixes). (2) Fragments are real
+projectiles; from a burst on the ground only those leaving between 3 degrees below and 40 degrees above the
+horizon are simulated (about 35 % of the count; the rest go into the ground or the sky). A
 fragment below 3 J does not wound and is removed; severity grows with the square root of its energy relative
-to 50 J; armour is tested as for bullets (helmets and soft armour stop most small fragments — owner decision).
+to 90 J (retuned after the review fix to fragment energy); armour is tested as for bullets (helmets and soft armour stop most small fragments — owner decision).
 Fragments can hit the thrower. They cause no impact events (thousands per burst). (3) A crater (record only,
 too small to matter for movement), and a breach in any wall within reach whose steel-equivalent thickness is
 below 15 mm x cube root of the filling: a hand grenade holes a wooden fence, not a brick wall. Breaches are
-state: bullets, blast and routes pass through them, also after a save. **Many wounds:** every further wound
+state: bullets, blast and routes pass through them, also after a save (routes only through holes in walls, fences
+and hedges: buildings stay solid for movement until interiors exist). **Many wounds:** every further wound
 adds half its severity to the pain; at pain 0.95 a man collapses until it eases (new; also applies to several
 bullet wounds). **Knock-down now takes 0.3 s** (a man does not drop before the fragments of the same burst
 arrive). **Roofs:** every building has a flat roof at wall height with a material and thickness per building
 kind; it stops or is pierced like a wall (no ricochet); grenades rest or burst on it. No floors between storeys.
 **Air drag** is now integrated exactly for speed (v / (1 + a)), because light fragments lose most of their
 speed within one tick; bullets change by less than a thousandth (range and cover lab bands unchanged).
-**Fragmentation lab** (`npm run lab -- fragmentation`): DM51 standing men wounded 100 % at 5 m, 93 % at 10 m,
-43 % at 20 m, none at 30 m; down at once 47 % at 5 m; lying down cuts wounds per man about five-fold; RGD-5,
+**Fragmentation lab** (`npm run lab -- fragmentation`; figures after the review fixes below): DM51 standing men
+wounded 100 % at 5 m, 94 % at 10 m, 48 % at 20 m, 5 % at 30 m; down at once 66 % at 5 m; lying down cuts wounds
+per man about five-fold; RGD-5,
 40 mm and VOG-25 wound about a third to a half at 5 m; behind a brick wall nobody is touched.
 **Performance:** bullets: 20,000 live + 304 soldiers 5-6x real time here (floor 3x; was about 7x before bodies
 and roofs were tested). Fragments: a volley of nine sleeve grenades in one tick (20,000 fragments at once)
@@ -566,3 +569,30 @@ the time needs about 450 bursts a second and ran at about 2x real time — measu
 beyond any battle in scope. **Gaps recorded:** no bounce or roll; no cooking off or throwing back; ground is
 perfectly smooth, so prone men are not shielded by small folds; men do not take cover from a grenade (M4);
 the launcher is an item, not a weapon with its own state; one grenade per order; the AI never uses grenades.
+
+## 2026-11-11 — Fixes from the independent M2.4 review (goldens regenerated)
+The reviewer found no determinism, save/load or hard-rule violations (75 mid-battle saves reloaded
+identically). Fixed, each with a test: **an impact round bursting on a roof lost all its fragments** (the burst
+now sits just off the surface it struck); **fragment energy** was taken at the end of the tick, so a steel ball
+striking at 1.5 m arrived with a quarter of its true energy — speed is now taken where the projectile strikes
+(bodies, walls, roofs, ground), a fragment is "spent" by its speed at the start of the tick, and fragment
+wounding was retuned (reference 90 J); **a grenade thrown indoors stuck under the ceiling** (it now falls to the
+floor); **a burst above the ground** (fuse ran out in flight, round striking a wall or ceiling) threw no
+fragments downward (it now does); **steep fire could skip the roof of a small house** when one tick's flight
+started and ended outside it (all roofs along the path are tested); **a plank fence, wire mesh or hedge
+shielded completely from blast** (only walls of 5 mm steel-equivalent or more shield now); **a man ordered to
+move or change posture while preparing** threw anyway, from the new posture at the old range (the action is
+now broken off and he keeps the grenade; a throw is never longer than he can reach when he lets go); **a
+grenade aimed at the map edge could vanish** (it comes down at the edge); a 1 m breach no longer opens a wall
+to wheeled or tracked movement or clears a cell another wall runs through.
+**Performance, stated plainly:** the reviewer is right that the old test would have passed even with very
+slow fragment ticks. The test now also asserts the ticks that actually carry the fragments. Measured here:
+nine sleeve grenades in one tick (20,000 fragments) every second = 28x real time on average; the three ticks
+after each volley take about 4.5 ms each (3.7x real time here, 2.9x in the reviewer's run), the longest single
+tick 27-38 ms (a visible stutter of two frames). So **the 3x floor is met on average and is at the limit, not
+safely met, during the fraction of a second in which 20,000 fragments are in the air**; asserted in the test:
+those ticks keep up with real time and no tick exceeds 120 ms. Bullets: 20,000 live, 4.3-5.8x (floor 3x).
+**Still open (recorded):** the lob angle is fixed at 40 degrees, so throws indoors usually hit the ceiling and
+drop short; roofs do not shield from blast; blast is applied before the same burst's breach; the fixture
+faction exercises the thrown path only; at 2 m the lab's "fragment wounds per man" is understated for men
+already killed by blast.

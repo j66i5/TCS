@@ -79,15 +79,17 @@ describe("performance with fragments", () => {
     const { input, sim, think, burstAt } = setup();
     const rng = createRng(77);
     const sleeve = input.catalog.ammoIds.map((id, i) => ({ id, i })).filter((a) => input.catalog.ammo[a.id]!.explosive).sort((a, b) => input.catalog.ammo[b.id]!.explosive!.fragmentCount - input.catalog.ammo[a.id]!.explosive!.fragmentCount)[0]!.i;
-    let peak = 0, worst = 0;
+    let peak = 0, worst = 0, heavyMs = 0, heavyTicks = 0;
     const second = (measure: boolean) => {
       for (let i = 0; i < 60; i++) {
         think();
         const t0 = performance.now();
         if (i === 0) { const sink = new EventSink(); for (let k = 0; k < 9; k++) burstAt(rng, sleeve, sink); if (sim.state.projectiles.count > peak) peak = sim.state.projectiles.count; }
+        const live = sim.state.projectiles.count;
         step(sim);
         const ms = performance.now() - t0;
         if (measure && ms > worst) worst = ms;
+        if (measure && (i === 0 || live >= 5000)) { heavyMs += ms; heavyTicks++; } // the ticks that carry the fragments
       }
     };
     second(false); second(false); // warm-up
@@ -95,7 +97,12 @@ describe("performance with fragments", () => {
     for (let s = 0; s < 5; s++) second(true);
     const wall = (performance.now() - t0) / 1000;
     const speed = 5 / wall;
-    console.log(`fragment volley bench: 9 bursts at once (${peak} fragments) every second + ${sim.state.identity.size} soldiers: ${speed.toFixed(1)}x real time; longest single tick ${worst.toFixed(1)} ms`);
+    const heavy = heavyMs / Math.max(1, heavyTicks);
+    console.log(`fragment volley bench: 9 bursts at once (${peak} fragments) every second + ${sim.state.identity.size} soldiers: ${speed.toFixed(1)}x real time on average; the ${heavyTicks} ticks carrying the fragments take ${heavy.toFixed(1)} ms each (${(1000 / 60 / heavy).toFixed(1)}x real time), longest ${worst.toFixed(1)} ms`);
+    // HONEST LIMIT (docs/DECISIONS.md): the 3x floor holds on average, NOT for the few ticks in which 20,000
+    // fragments are actually in the air. Those must at least keep up with real time, and no tick may stall.
+    expect(heavy).toBeLessThanOrEqual(1000 / 60);
+    expect(worst).toBeLessThanOrEqual(120);
     expect(peak).toBeGreaterThanOrEqual(LIVE_FRAGMENTS * 0.9);
     expect(speed).toBeGreaterThanOrEqual(PROJECTILE_FLOOR_X_REALTIME);
   });

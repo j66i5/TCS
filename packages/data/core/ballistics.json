@@ -19,14 +19,16 @@
     "craterScaledM": 0.6,
     "breachSteelMmScaled": 15,
     "breachReachScaledM": 2.5,
-    "breachWidthScaledM": 2.5
+    "breachWidthScaledM": 2.5,
+    "shieldSteelMm": 5
   },
   "fragments": {
     "bandDeg": [
       -3,
       40
     ],
-    "maxPerBurst": 4000
+    "maxPerBurst": 6500,
+    "airburstAboveM": 0.3
   },
   "sources": [
     "https://en.wikipedia.org/wiki/Standard_gravity",
@@ -34,5 +36,5 @@
     "https://en.wikipedia.org/wiki/Ricochet"
   ],
   "confidence": "low",
-  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md. Blast (owner decision 2026-11-11: injury within a few metres, stunned out to about 10 m for a hand grenade): radii scale with the cube root of the filling; for 60 g: severe 1.2 m, injury 2.3 m, stun 9.8 m. Only fragments leaving between 3 degrees below and 40 degrees above the horizon are simulated (the rest go into the ground or the sky). Breach and crater sizes are game values."
+  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md. Blast (owner decision 2026-11-11: injury within a few metres, stunned out to about 10 m for a hand grenade): radii scale with the cube root of the filling; for 60 g: severe 1.2 m, injury 2.3 m, stun 9.8 m. Only fragments leaving between 3 degrees below and 40 degrees above the horizon are simulated (the rest go into the ground or the sky). Breach and crater sizes are game values. A wall of less than 5 mm steel-equivalent (plank fence, wire, hedge) does not shield from blast. A burst more than 0.3 m above the ground also throws its fragments downward."
 }

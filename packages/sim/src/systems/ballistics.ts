@@ -17,11 +17,11 @@ import { DT, type EntityId } from "../ids";
 import { cos, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
-import { roofAt, type AmmoRT } from "../ballistics";
+import type { AmmoRT } from "../ballistics";
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { heightAt, pointInPolygon } from "../terrain";
 
 const PAST_M = 0.01; // how far beyond a wall a penetrating bullet is placed
 // The coarse grids already include neighbouring buckets; small margins cover rounding only.
@@ -79,7 +79,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // Local aliases: imported bindings are slower to reach in some module runtimes (tests, tools); this loop
   // runs 20,000 times per tick.
   const dt = DT, sq = sqrt, hAt = heightAt, rnd = nextFloat, BAL = Streams.ballistics, remove = removeProjectile;
-  const cosine = cos, sine = sin, bodyHit = resolveBodyHit, roofOver = roofAt, burst = detonate;
+  const cosine = cos, sine = sin, bodyHit = resolveBodyHit, burst = detonate;
   const B = ctx.ballistics, bal = ctx.catalog.ballistics, map = ctx.map, index = ctx.mapIndex;
   const env = state.environment;
   const rho = (bal.airDensityKgM3 * (273.15 + bal.referenceTempC)) / (273.15 + env.temperatureC);
@@ -132,7 +132,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
   detCount = 0;
-  const roofs = B.roofs, roofLow = B.roofLow;
+  const roofs = B.roofs, roofLow = B.roofLow, roofBuckets = B.roofBuckets, inPoly = pointInPolygon;
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
     let vx = VX[i]!, vy = VY[i]!, vz = VZ[i]!;
@@ -153,7 +153,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     let x1 = x0 + (wx + rvx * g) * dt, y1 = y0 + (wy + rvy * g) * dt, z1 = z0 + (vz * g - 0.5 * gdt) * dt;
     vx = wx + rvx * f; vy = wy + rvy * f; vz = vz * f - gdt;
     const speed2 = vx * vx + vy * vy + vz * vz;
-    if ((speed2 < am.minSpeed2 && !am.explosive) || tick - BORN[i]! > maxAge) {
+    // Spent: too slow at the START of the tick (a light fragment may still wound early in its last tick).
+    if ((rs * rs < am.minSpeed2 && !am.explosive) || tick - BORN[i]! > maxAge) {
       remove(P, i); // spent
       continue;
     }
@@ -232,16 +233,21 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- roofs: a flat lid at wall height over each building's footprint
     let tRoof = 2, roofIdx = -1;
     if (nearRoof && (dz > 1e-9 || dz < -1e-9)) {
-      const ra = roofOver(B, index, x0, y0), rb = roofOver(B, index, x1, y1);
-      for (let q = 0; q < 2; q++) {
-        const ri = q === 0 ? ra : rb;
-        if (ri < 0 || (q === 1 && rb === ra)) continue;
-        const Hr = roofs[ri]!.heightM;
-        const a0 = z0 - hAt(map, x0, y0) - Hr, a1 = z1 - hAt(map, x1, y1) - Hr;
-        if ((a0 > 0) === (a1 > 0)) continue;
-        const t = a0 / (a0 - a1);
-        if (t >= tRoof || t > tHit || roofOver(B, index, x0 + t * dx, y0 + t * dy) !== ri) continue;
-        tRoof = t; roofIdx = ri;
+      // Every roof whose bucket the path touches (not only those over its two ends: a steep round can enter
+      // and leave a small house within one tick).
+      const g0 = z0 - hAt(map, x0, y0), g1 = z1 - hAt(map, x1, y1);
+      let c0 = (minX / sm) | 0, c1 = (maxX / sm) | 0, r0 = (minY / sm) | 0, r1 = (maxY / sm) | 0;
+      if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= scols) c1 = scols - 1; if (r1 >= srows) r1 = srows - 1;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        const list = roofBuckets[r * scols + c]!;
+        for (let q = 0; q < list.length; q++) {
+          const rf = roofs[list[q]!]!;
+          const a0 = g0 - rf.heightM, a1 = g1 - rf.heightM;
+          if ((a0 > 0) === (a1 > 0)) continue;
+          const t = a0 / (a0 - a1);
+          if (t >= tRoof || t > tHit || !inPoly(rf.footprint, x0 + t * dx, y0 + t * dy)) continue;
+          tRoof = t; roofIdx = list[q]!;
+        }
       }
     }
 
@@ -344,9 +350,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
 
     if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
       // ---- a man is hit: armour, wound, and the round stays in him
-      const speedB = sq(speed2);
+      const speedB = rs / (1 + a * tBody); // its speed where it strikes, not at the end of the tick
       const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
-      const energy = 0.5 * am.massKg * speed2;
+      const energy = 0.5 * am.massKg * speedB * speedB;
       bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);
       // Through the arm from the side and on into the trunk behind it.
       const WG = ctx.catalog.wounds.wounding;
@@ -362,17 +368,19 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const rf = roofs[roofIdx]!, matR = B.materials[rf.material]!;
       const hx = x0 + tRoof * dx, hy = y0 + tRoof * dy, hz = z0 + tRoof * dz;
       if (am.explosive) {
-        if (settle(P, i, am, tick, hx, hy, hz + (dz < 0 ? 0.05 : -0.05), hx, hy, hz, events, matR.id, "building")) i++;
+        // From above it lies on the roof; from below (thrown indoors) it drops to the floor. A burst is set just
+        // off the roof on the side it came from, so its fragments are not swallowed by the roof it struck.
+        if (settle(P, i, am, tick, hx, hy, dz < 0 ? hz + 0.05 : hAt(map, hx, hy) + 0.05, hx, hy, hz + (dz < 0 ? 0.05 : -0.05), events, matR.id, "building")) i++;
         continue;
       }
-      const speedR = sq(speed2);
-      const cosR = (vz < 0 ? -vz : vz) / speedR;
+      const endR = sq(speed2), speedR = rs / (1 + a * tRoof);
+      const cosR = (vz < 0 ? -vz : vz) / endR;
       const needR = (matR.resistance * rf.thicknessM * 1000) / (cosR < 0.05 ? 0.05 : cosR);
       const vEffR = matR.breaks && speedR > am.penCapV ? am.penCapV : speedR;
       const canR = am.penSteelMm * pow(vEffR / am.penV, bal.penetrationVelocityExponent);
       if (canR > needR) {
-        const k = sq(1 - needR / canR);
-        X[i] = hx + (vx / speedR) * PAST_M; Y[i] = hy + (vy / speedR) * PAST_M; Z[i] = hz + (vz / speedR) * PAST_M;
+        const k = (sq(1 - needR / canR) * speedR) / endR;
+        X[i] = hx + (vx / endR) * PAST_M; Y[i] = hy + (vy / endR) * PAST_M; Z[i] = hz + (vz / endR) * PAST_M;
         VX[i] = vx * k; VY[i] = vy * k; VZ[i] = vz * k;
         if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "building", result: "penetrated", material: matR.id, ammo: am.id, owner: P.owner[i]! });
         i++;
@@ -384,7 +392,12 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
 
     if (tGround > 1 && hitSeg < 0) {
-      if (leaving) { remove(P, i); continue; }
+      if (leaving) {
+        // A grenade does not vanish at the map edge: it comes down there.
+        if (am.explosive) { if (settle(P, i, am, tick, x1, y1, hAt(map, x1, y1) + 0.05, x1, y1, hAt(map, x1, y1) + 0.05, events, "", "ground")) i++; }
+        else remove(P, i);
+        continue;
+      }
       // free flight
       X[i] = x1; Y[i] = y1; Z[i] = z1; VX[i] = vx; VY[i] = vy; VZ[i] = vz;
       i++;
@@ -393,6 +406,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
 
     const speed = sq(speed2);
     const ux = vx / speed, uy = vy / speed, uz = vz / speed;
+    const speedH = rs / (1 + a * (tGround < tHit ? tGround : tHit)); // speed where it strikes
     if (tGround < tHit) {
       // ---- ground impact
       const hx = x0 + tGround * dx, hy = y0 + tGround * dy;
@@ -407,7 +421,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (cell < 0 || cell >= map.surface.length) cell = 0;
       const mat = B.materials[B.surfaceMaterial[map.surface[cell]!]!]!;
       if (am.explosive) {
-        if (settle(P, i, am, tick, hx, hy, hz + 0.05, hx, hy, hz, events, mat.id, "ground")) i++;
+        if (settle(P, i, am, tick, hx, hy, hz + 0.05, hx, hy, hz + 0.05, events, mat.id, "ground")) i++;
         continue;
       }
       if (cosInc < mat.sinCrit && rnd(rng, BAL) < 1 - cosInc / mat.sinCrit) {
@@ -418,7 +432,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         let rz = uz - 2 * dot * nz + sc * rnd(rng, BAL); // scatter upward only: never back into the ground
         const rl = sq(rx * rx + ry * ry + rz * rz);
         rx /= rl; ry /= rl; rz /= rl;
-        const ns = speed * keep;
+        const ns = speedH * keep;
         X[i] = hx + nx * 0.02; Y[i] = hy + ny * 0.02; Z[i] = hz + nz * 0.02;
         VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
         if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface: "ground", result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
@@ -451,7 +465,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let rz = uz + sc * (rnd(rng, BAL) * 2 - 1);
       const rl = sq(rx * rx + ry * ry + rz * rz);
       rx /= rl; ry /= rl; rz /= rl;
-      const ns = speed * keep;
+      const ns = speedH * keep;
       X[i] = hx - ux * PAST_M; Y[i] = hy - uy * PAST_M; Z[i] = hz - uz * PAST_M;
       VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
       if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "ricochet", material: mat.id, ammo: am.id, owner: P.owner[i]! });
@@ -460,7 +474,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     const need = (mat.resistance * info.thicknessM * 1000) / (cosInc < 0.05 ? 0.05 : cosInc);
     // Soft-core bullets break up on masonry, concrete, soil and wood: no gain above their break-up speed.
-    const vEff = mat.breaks && speed > am.penCapV ? am.penCapV : speed;
+    const vEff = mat.breaks && speedH > am.penCapV ? am.penCapV : speedH;
     const can = am.penSteelMm * pow(vEff / am.penV, bal.penetrationVelocityExponent);
     if (can > need) {
       const frac = need / can;
@@ -470,7 +484,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let rz = uz + d * (rnd(rng, BAL) * 2 - 1);
       const rl = sq(rx * rx + ry * ry + rz * rz);
       rx /= rl; ry /= rl; rz /= rl;
-      const ns = speed * sq(1 - frac);
+      const ns = speedH * sq(1 - frac);
       X[i] = hx + ux * PAST_M; Y[i] = hy + uy * PAST_M; Z[i] = hz + uz * PAST_M;
       VX[i] = rx * ns; VY[i] = ry * ns; VZ[i] = rz * ns;
       if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "penetrated", material: mat.id, ammo: am.id, owner: P.owner[i]! });

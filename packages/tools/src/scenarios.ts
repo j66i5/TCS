@@ -26,7 +26,12 @@ const wanderBoth = (input: BattleInput): Controller[] => [
 
 export const SCENARIOS: Record<string, NamedScenario> = {
   demo: {
-    description: "One German team vs one Russian team on a flat 400 x 300 m map; both wander (no combat yet).",
+    description: "One German team vs one Russian team on a generated 2 x 2 km village map; both wander (no combat yet).",
+    build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village" }),
+    controllers: wanderBoth,
+  },
+  "demo-flat": {
+    description: "One German team vs one Russian team on a flat, empty 400 x 300 m map.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: wanderBoth,
   },
@@ -38,9 +43,9 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: wanderBoth,
   },
   bench: {
-    description: "Benchmark: 38 teams per side (304 soldiers) on a 2 x 2 km map, all moving.",
+    description: "Benchmark: 38 teams per side (304 soldiers) on a generated 2 x 2 km farmland map, all moving.",
     build: (data, seed, seconds) =>
-      demoBattle(data, { seed, factions: ["de", "ru"], unitsPerSide: 38, mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds }),
+      demoBattle(data, { seed, factions: ["de", "ru"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds }),
     controllers: (input) => [
       wanderController("blue", input.seed * 2 + 1, input.map, 20),
       wanderController("red", input.seed * 2 + 2, input.map, 20),

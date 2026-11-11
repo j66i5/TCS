@@ -38,6 +38,8 @@ const importsOf = (text: string): string[] =>
 
 /** Strip comments so documentation may mention forbidden things. */
 const stripComments = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+/** Also strip string literals, so "window" as a data value is not mistaken for the DOM global. */
+const stripStrings = (t: string) => t.replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, '""');
 
 describe("package dependency direction", () => {
   for (const [pkg, allowed] of Object.entries(ALLOWED_DEPS)) {
@@ -64,7 +66,12 @@ describe("simulation purity (packages/sim)", () => {
   });
   it("uses no Math.random, wall-clock time, timers or DOM", () => {
     const pat = /\bMath\.random\b|\bDate\b|\bperformance\b|\bsetTimeout\b|\bsetInterval\b|\brequestAnimationFrame\b|\bwindow\b|\bdocument\b|\bprocess\b|\bglobalThis\b/;
-    const bad = files.filter((f) => pat.test(stripComments(readFileSync(f, "utf8")))).map((f) => relative(ROOT, f));
+    const bad = files.filter((f) => pat.test(stripStrings(stripComments(readFileSync(f, "utf8"))))).map((f) => relative(ROOT, f));
+    expect(bad).toEqual([]);
+  });
+  it("scenario/map generation also avoids Math.random and engine-dependent maths", () => {
+    const pat = /\bMath\.(random|sin|cos|tan|asin|acos|atan|atan2|sqrt|cbrt|pow|exp|log|hypot)\b|\*\*/;
+    const bad = sourceFiles(join(PKG, "scenario", "src")).filter((f) => pat.test(stripComments(readFileSync(f, "utf8")))).map((f) => relative(ROOT, f));
     expect(bad).toEqual([]);
   });
   it("routes transcendental maths through sim/math only", () => {
@@ -87,5 +94,13 @@ describe("no faction is hard-coded (SPEC 4.3 rule 8)", () => {
       }
     }
     expect(bad).toEqual([]);
+  });
+});
+
+describe("app data bundle", () => {
+  it("bundles every data folder the Node loader reads (core/**, factions/**)", () => {
+    const text = readFileSync(join(PKG, "app", "src", "data.ts"), "utf8");
+    expect(text).toContain('"../../data/core/**/*.json"');
+    expect(text).toContain('"../../data/factions/**/*.json"');
   });
 });

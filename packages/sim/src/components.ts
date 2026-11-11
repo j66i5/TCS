@@ -82,3 +82,16 @@ export interface Action {
   durationTicks: number;
   params: Record<string, string | number>;
 }
+
+/**
+ * Terrain damage (SPEC 6.1 "destructible in a simple way", 9.3 "persistent map damage stored as data").
+ * Lives in SimState so it saves, replays and can be carried into the campaign. Systems that create damage
+ * arrive with ballistics (M2); movement, spotting and cover will read it.
+ */
+export interface TerrainState {
+  /** Holes blown in walls: in obstacle/building `id`, segment `part`, centred `offsetM` from its start. */
+  breaches: { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; tick: number }[];
+  craters: { x: number; y: number; radiusM: number; depthM: number; tick: number }[];
+  /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
+  vegetationLoss: [number, number][];
+}

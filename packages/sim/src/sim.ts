@@ -9,6 +9,8 @@ import type { SimContext } from "./context";
 import { EventSink, type SimEvent } from "./events";
 import { secondsToTicks, TICK_HZ } from "./ids";
 import type { Order } from "./orders";
+import { mapFingerprint } from "./map";
+import { buildMapIndex, validateMap } from "./terrain";
 import { buildInitialState } from "./setup";
 import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
@@ -24,7 +26,12 @@ export interface Sim {
 export function createContext(input: BattleInput): SimContext {
   const comms = COMMS_MODELS[input.rules.commsModel];
   if (!comms) throw new Error(`unknown comms model '${input.rules.commsModel}'`);
-  return { catalog: input.catalog, map: input.map, rules: input.rules, comms, physiology: null };
+  const problems = validateMap(input.map, input.catalog.terrain);
+  if (problems.length > 0) throw new Error(`map '${input.map.id}' does not fit the data: ${problems.slice(0, 5).join("; ")}`);
+  return {
+    catalog: input.catalog, map: input.map, mapIndex: buildMapIndex(input.map), mapFingerprint: mapFingerprint(input.map),
+    rules: input.rules, comms, physiology: null,
+  };
 }
 
 /**
@@ -32,7 +39,10 @@ export function createContext(input: BattleInput): SimContext {
  * by `runBattle` / `continueBattle`, so that a save never contains orders the stream will feed again.
  */
 export function createSim(input: BattleInput): Sim {
-  return { ctx: createContext(input), state: buildInitialState(input) };
+  const ctx = createContext(input);
+  const state = buildInitialState(input);
+  state.mapFingerprint = ctx.mapFingerprint;
+  return { ctx, state };
 }
 
 /**
@@ -84,7 +94,11 @@ export function loadSim(input: BattleInput, saved: SerializedState): Sim {
       "the battle would not continue identically",
     );
   }
-  return { ctx: createContext(input), state: deserializeState(saved) };
+  const ctx = createContext(input);
+  if (saved.mapFingerprint !== ctx.mapFingerprint) {
+    throw new Error(`save was made on map ${saved.mapFingerprint}, but the given map is ${ctx.mapFingerprint}`);
+  }
+  return { ctx, state: deserializeState(saved) };
 }
 
 export function simHash(sim: Sim): string {

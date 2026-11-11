@@ -6,7 +6,7 @@
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
 import { formatErrors, Strings } from "@tcs/data";
-import { demoBattle } from "@tcs/scenario";
+import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { wanderController } from "@tcs/ai";
 import {
   createSim, DT, simHash, step, submitOrder, ticksToSeconds, type EntityId, type Order, type Sim, type SimEvent,
@@ -29,20 +29,31 @@ async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const seed = Number(params.get("seed") ?? 1) >>> 0;
   const factions = (params.get("factions") ?? "de,ru").split(",") as [string, string];
+  const mapParam = params.get("map") ?? "village";
+  const mapKind = (MAP_KINDS as readonly string[]).includes(mapParam) ? (mapParam as MapKind) : undefined;
 
-  const input = demoBattle(data, { seed, factions, timeLimitSeconds: 3600 });
+  const input = demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed });
   const sim: Sim = createSim(input);
   const playerSide = "blue";
   const ai = [wanderController("red", seed + 1000, input.map, 30)];
   const orderLog: Order[] = [];
 
   const renderer = await BattleRenderer.create(mapRoot);
+  renderer.setMap(input.map, input.catalog.terrain);
   const topUnits = [...sim.state.unit.entries()].filter(([, u]) => u.side === playerSide && u.parent === null).map(([id]) => id);
   const overlay: Overlay = { playerSide, selectedUnit: topUnits[0] ?? null, debug: false };
 
   let speed = 1;
   let moveMode = "walk";
+  const kinds = [...MAP_KINDS, "flat"];
   const hud = createHud(hudRoot, strings, {
+    mapLabel: `${strings.t(`map.${mapKind ?? "flat"}`)} ${seed}`,
+    onNextMap: () => {
+      const next = kinds[(kinds.indexOf(mapKind ?? "flat") + 1) % kinds.length]!;
+      const q = new URLSearchParams(location.search);
+      q.set("map", next);
+      location.search = q.toString();
+    },
     onSpeed: (v) => { speed = v; },
     onMoveMode: (m) => { moveMode = m; },
     onDebug: (on) => { overlay.debug = on; },
@@ -50,7 +61,16 @@ async function main(): Promise<void> {
 
   // Fit the map into the area not covered by the top bar and the radio log.
   const barH = (hudRoot.querySelector(".hud-bar") as HTMLElement | null)?.offsetHeight ?? 50;
-  renderer.fitToMap(input.map, { top: barH, right: 0, bottom: 64, left: 0 });
+  const insets = { top: barH, right: 0, bottom: 64, left: 0 };
+  // Start in the tactical view: about 500 m across, centred between your team and the map centre.
+  const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
+  if (own.length > 0 && input.map.widthM > 600) {
+    const ox = own.reduce((a, t) => a + t.x, 0) / own.length, oy = own.reduce((a, t) => a + t.y, 0) / own.length;
+    // Look from the team toward the map centre, 600 m across.
+    renderer.focus(ox + 0.4 * (input.map.widthM / 2 - ox), oy + 0.4 * (input.map.heightM / 2 - oy), 600, insets);
+  } else {
+    renderer.fitToMap(input.map, insets);
+  }
 
   const issue = (order: Order) => {
     orderLog.push(order);

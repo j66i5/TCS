@@ -5,6 +5,7 @@
 import type { Catalog } from "./catalog";
 import type { CommsModel, CommsParams } from "./comms";
 import type { MapDef } from "./map";
+import type { MapIndex } from "./terrain";
 import type { PhysiologyModel } from "./wounds";
 
 export interface BattleRules {
@@ -23,6 +24,9 @@ export interface BattleRules {
 export interface SimContext {
   catalog: Catalog;
   map: MapDef;
+  /** Derived from the map at creation: spatial index of wall segments. */
+  mapIndex: MapIndex;
+  mapFingerprint: string;
   rules: BattleRules;
   comms: CommsModel;
   physiology: PhysiologyModel | null;

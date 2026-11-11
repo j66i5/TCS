@@ -5,6 +5,9 @@
 import type { Strings } from "@tcs/data";
 
 export interface HudCallbacks {
+  /** Short label of the current map, shown in the bar; tapping the map button calls onNextMap. */
+  mapLabel: string;
+  onNextMap(): void;
   onSpeed(speed: number): void; // 0 = paused
   onMoveMode(mode: string): void;
   onDebug(on: boolean): void;
@@ -59,7 +62,10 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   };
   let debug = false;
   const dbgBtn = el("button", "hud-btn", s.t("app.debug"));
-  bar.append(title, clock, ...speedBtns, modeBtn, dbgBtn);
+  const mapBtn = el("button", "hud-btn", cb.mapLabel);
+  mapBtn.setAttribute("aria-label", s.t("app.map"));
+  mapBtn.onclick = () => cb.onNextMap();
+  bar.append(title, clock, ...speedBtns, modeBtn, mapBtn, dbgBtn);
 
   const hint = el("div", "hud-hint", s.t("app.hint"));
   const log = el("div", "hud-radio");
@@ -74,6 +80,10 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const err = el("pre", "hud-error");
   err.hidden = true;
   root.append(bar, hint, log, dbg, err);
+  // Place the hint and debug panel just below the bar, whose height depends on wrapping (phones).
+  const place = () => { const h = bar.offsetHeight; hint.style.top = `${h + 8}px`; dbg.style.top = `${h + 8}px`; };
+  place();
+  globalThis.addEventListener("resize", place);
 
   return {
     update(st) {

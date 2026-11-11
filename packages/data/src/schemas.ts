@@ -21,7 +21,8 @@ const Id = z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "ids are lower-case letters,
 const withProv = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...Provenance.shape }).strict();
 
 // ---------- core ----------
-export const MovementModeSchema = withProv({ id: Id, nameKey: z.string(), speedMps: z.number().positive().max(40) });
+export const MovementClass = z.enum(["foot", "wheeled", "tracked"]);
+export const MovementModeSchema = withProv({ id: Id, nameKey: z.string(), class: MovementClass, speedMps: z.number().positive().max(40) });
 export const MovementModesFile = z.object({ movementModes: z.array(MovementModeSchema).min(1) }).strict();
 
 export const SKILL_KEYS = ["marksmanship", "fieldcraft", "medical", "leadership", "experience"] as const;
@@ -34,6 +35,54 @@ export const QualitySchema = withProv({
 export const QualitiesFile = z.object({ qualities: z.array(QualitySchema).min(1) }).strict();
 
 export const StringsFile = z.record(z.string(), z.string());
+
+// ---------- terrain (core/terrain/*.json) ----------
+const Colour = z.string().regex(/^#[0-9a-f]{6}$/i, "colour must be #rrggbb");
+/** Time multiplier per movement class; null = impassable. */
+const MoveCost = z.object({ foot: z.number().min(0.5).max(10).nullable(), wheeled: z.number().min(0.5).max(10).nullable(), tracked: z.number().min(0.5).max(10).nullable() }).strict();
+const Range = z.tuple([z.number().positive(), z.number().positive()]).refine((r) => r[0] <= r[1], "range must be [min, max]");
+const IntRange = z.tuple([z.number().int().min(1), z.number().int().min(1)]).refine((r) => r[0] <= r[1], "range must be [min, max]");
+
+export const MaterialSchema = withProv({
+  id: Id, nameKey: z.string(),
+  densityKgM3: z.number().positive().max(20000),
+  /** Penetration resistance in mm of mild steel equivalent per mm of material. */
+  resistance: z.number().min(0).max(3),
+  /** 0..1, how readily projectiles ricochet. */
+  hardness: z.number().min(0).max(1),
+});
+export const SurfaceSchema = withProv({
+  id: Id, nameKey: z.string(), moveCost: MoveCost,
+  noise: z.number().min(0).max(1), dust: z.number().min(0).max(1), colour: Colour,
+});
+export const VegetationSchema = withProv({
+  id: Id, nameKey: z.string(), heightM: z.number().positive().max(60),
+  /** Fraction of a line of sight blocked per metre travelled through it. */
+  concealmentPerM: z.number().min(0).max(1),
+  /** Fraction of a bullet's energy lost per metre (M2). */
+  stoppingPerM: z.number().min(0).max(0.1),
+  moveCost: MoveCost, colour: Colour,
+});
+export const ObstacleKindSchema = withProv({
+  id: Id, nameKey: z.string(), heightM: z.number().positive().max(20), thicknessM: z.number().positive().max(30),
+  material: Id, seeThrough: z.number().min(0).max(1),
+  footCrossTimeS: z.number().positive().max(600).nullable(),
+  wheeledCrossable: z.boolean(), trackedCrossable: z.boolean(), colour: Colour,
+});
+export const BuildingKindSchema = withProv({
+  id: Id, nameKey: z.string(), widthM: Range, depthM: Range, storeys: IntRange, storeyHeightM: z.number().positive().max(20),
+  wallMaterial: Id, wallThicknessM: z.number().positive().max(3), roofColours: z.array(Colour).min(1),
+});
+export const MaterialsFile = z.object({ materials: z.array(MaterialSchema).min(1) }).strict();
+export const SurfacesFile = z.object({ surfaces: z.array(SurfaceSchema).min(1) }).strict();
+export const VegetationFile = z.object({ vegetation: z.array(VegetationSchema).min(1) }).strict();
+export const ObstaclesFile = z.object({ obstacles: z.array(ObstacleKindSchema).min(1) }).strict();
+export const BuildingsFile = z.object({ buildings: z.array(BuildingKindSchema).min(1) }).strict();
+export type MaterialT = z.infer<typeof MaterialSchema>;
+export type SurfaceT = z.infer<typeof SurfaceSchema>;
+export type VegetationT = z.infer<typeof VegetationSchema>;
+export type ObstacleKindT = z.infer<typeof ObstacleKindSchema>;
+export type BuildingKindT = z.infer<typeof BuildingKindSchema>;
 
 // ---------- faction ----------
 export const FactionManifest = withProv({

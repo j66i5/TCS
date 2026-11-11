@@ -49,7 +49,8 @@ export default tseslint.config(
   {
     // The simulation is pure: no randomness except the seeded RNG, no wall clock, no DOM/Node, no
     // transcendental maths outside sim/math (SPEC 4.3 rules 1-2).
-    files: ["packages/sim/src/**/*.ts"],
+    // Scenario/map generation feeds battle inputs, so it follows the same rules (same map on every device).
+    files: ["packages/sim/src/**/*.ts", "packages/scenario/src/**/*.ts"],
     ignores: ["packages/sim/src/math.ts"],
     rules: {
       "no-restricted-properties": ["error",

@@ -24,7 +24,8 @@
     "headless": "tsx packages/tools/src/cli/headless.ts",
     "batch": "tsx packages/tools/src/cli/batch.ts",
     "golden:update": "tsx packages/tools/src/cli/golden.ts",
-    "screenshot": "tsx packages/tools/src/cli/screenshot.ts"
+    "screenshot": "tsx packages/tools/src/cli/screenshot.ts",
+    "map": "tsx packages/tools/src/cli/map.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

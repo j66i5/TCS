@@ -5,6 +5,8 @@ export * from "./rng";
 export * from "./catalog";
 export * from "./environment";
 export * from "./map";
+export * from "./terrain";
+export * from "./hash";
 export * from "./store";
 export * from "./items";
 export * from "./wounds";

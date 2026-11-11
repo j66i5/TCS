@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, Identity, Mover, SoldierState, Transform, Unit } from "./components";
+import type { Action, Identity, Mover, SoldierState, TerrainState, Transform, Unit } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
@@ -13,6 +13,7 @@ import type { InboxOrder, PendingOrder } from "./orders";
 import { createRng, type RngState } from "./rng";
 import { Store, type ReadonlyStore } from "./store";
 import type { BattleEndReason } from "./events";
+import { canonicalJson, hashText } from "./hash";
 
 /** Deeply read-only type: what controllers, the renderer and UI may see of the state. */
 export type DeepReadonly<T> =
@@ -25,7 +26,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 1;
+export const STATE_SCHEMA_VERSION = 2;
 
 export interface SideState {
   id: SideId;
@@ -35,6 +36,8 @@ export interface SideState {
 export interface SimState {
   /** Fingerprint of the data (catalog) this battle runs with; checked when a save is loaded. */
   catalogFingerprint: string;
+  /** Fingerprint of the map; checked when a save is loaded. */
+  mapFingerprint: string;
   tick: number;
   rng: RngState;
   nextEntityId: number;
@@ -44,6 +47,7 @@ export interface SimState {
   inbox: InboxOrder[];
   pendingOrders: PendingOrder[];
   ended: { tick: number; reason: BattleEndReason } | null;
+  terrain: TerrainState;
 
   // Component stores
   identity: Store<Identity>;
@@ -58,9 +62,11 @@ export interface SimState {
 const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
-export function createState(seed: number, catalogFingerprint = ""): SimState {
+export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
   return {
     catalogFingerprint,
+    mapFingerprint,
+    terrain: { breaches: [], craters: [], vegetationLoss: [] },
     tick: 0,
     rng: createRng(seed),
     nextEntityId: 1,
@@ -88,6 +94,7 @@ export function newEntity(state: SimState): EntityId {
 export interface SerializedState {
   schema: number;
   catalogFingerprint: string;
+  mapFingerprint: string;
   tick: number;
   rng: RngState;
   nextEntityId: number;
@@ -97,6 +104,7 @@ export interface SerializedState {
   inbox: InboxOrder[];
   pendingOrders: PendingOrder[];
   ended: SimState["ended"];
+  terrain: TerrainState;
   stores: Record<StoreKey, [EntityId, unknown][]>;
 }
 
@@ -109,6 +117,8 @@ export function serializeState(s: SimState): SerializedState {
     {
       schema: STATE_SCHEMA_VERSION,
       catalogFingerprint: s.catalogFingerprint,
+      mapFingerprint: s.mapFingerprint,
+      terrain: s.terrain,
       tick: s.tick,
       rng: s.rng,
       nextEntityId: s.nextEntityId,
@@ -160,6 +170,8 @@ export function deserializeState(data: SerializedState): SimState {
     pendingOrders: d.pendingOrders,
     ended: d.ended,
     catalogFingerprint: d.catalogFingerprint,
+    mapFingerprint: d.mapFingerprint,
+    terrain: d.terrain,
     identity: st("identity") as Store<Identity>,
     transform: st("transform") as Store<Transform>,
     mover: st("mover") as Store<Mover>,
@@ -168,32 +180,6 @@ export function deserializeState(data: SerializedState): SimState {
     container: st("container") as Store<Container>,
     action: st("action") as Store<Action>,
   };
-}
-
-/** JSON with object keys sorted, so equal data always gives the identical string. */
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    if (typeof value === "number" && !Number.isFinite(value)) throw new Error(`non-finite number in state: ${value}`);
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(",")}}`;
-}
-
-/** 64-bit hash (two independent 32-bit lanes) as 16 hex characters. */
-export function hashText(text: string): string {
-  let h1 = 0xdeadbeef ^ text.length;
-  let h2 = 0x41c6ce57 ^ text.length;
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 2654435761);
-    h2 = Math.imul(h2 ^ c, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (h2 >>> 0).toString(16).padStart(8, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
 }
 
 export function hashState(s: SimState): string {

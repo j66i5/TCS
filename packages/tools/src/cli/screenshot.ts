@@ -14,6 +14,8 @@ import { parseArgs } from "../args";
 const ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 const args = parseArgs(process.argv.slice(2));
 const scale = Number(args["scale"] ?? 1);
+const seed = Number(args["seed"] ?? 1);
+const mapKind = args["map"] ?? "village";
 const port = 4317;
 
 // Minimal structural types: Playwright is pre-installed globally, not a dependency, so no type package.
@@ -55,17 +57,22 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`http://localhost:${port}/?seed=1`);
-    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 15000 });
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${mapKind}`);
+    try {
+      await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    } catch (e) {
+      await page.screenshot({ path: `${outDir}/${name}-FAILED.png` });
+      throw new Error(`app did not start (${(e as Error).message.split("\n")[0]}); page errors: ${errors.join(" | ") || "none"}`, { cause: e });
+    }
     // Freeze real time; drive the simulation deterministically from here.
     await page.evaluate(new Function("globalThis.__tcs.setSpeed(0)") as () => void);
     await page.waitForTimeout(300);
-    const p0 = `${outDir}/${name}-0-start.png`;
+    const p0 = `${outDir}/${mapKind}-${seed}-${name}-0-start.png`;
     await page.screenshot({ path: p0 }); shots.push(p0);
     // Order the blue team to (200 m, 90 m), then advance 20 s of game time.
     await page.evaluate(new Function("globalThis.__tcs.tap(200, 90); globalThis.__tcs.stepTicks(60 * 20);") as () => void);
     await page.waitForTimeout(300);
-    const p1 = `${outDir}/${name}-1-after-20s.png`;
+    const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-20s.png`;
     await page.screenshot({ path: p1 }); shots.push(p1);
     const info = await page.evaluate(new Function("const t = globalThis.__tcs; return { tick: t.sim.state.tick, hash: t.hash(), orders: t.orderLog.length };") as () => { tick: number; hash: string; orders: number });
     console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);

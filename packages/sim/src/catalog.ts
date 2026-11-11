@@ -23,10 +23,75 @@ export interface ItemTypeDef {
   chargeItem?: DefId;
 }
 
+export type MovementClass = "foot" | "wheeled" | "tracked";
+
 export interface MovementModeDef {
   id: DefId; // "walk" | "run" | "sneak" | "crawl" | "wheeled" | "tracked" ... (data, not code)
+  /** Which terrain cost column applies. */
+  class: MovementClass;
   /** Nominal speed on open, level ground, m/s. */
   speedMps: number;
+}
+
+/** Time multiplier per movement class; null = impassable. */
+export type MoveCost = Record<MovementClass, number | null>;
+
+export interface MaterialDef {
+  id: DefId;
+  densityKgM3: number;
+  /** Penetration resistance, mm of mild steel equivalent per mm of material. */
+  resistance: number;
+  /** 0..1, ricochet tendency. */
+  hardness: number;
+}
+
+export interface SurfaceDef {
+  id: DefId;
+  moveCost: MoveCost;
+  noise: number;
+  dust: number;
+  /** Presentation colour (#rrggbb), kept in data so new surfaces need no code. */
+  colour: string;
+}
+
+export interface VegetationDef {
+  id: DefId;
+  heightM: number;
+  concealmentPerM: number;
+  stoppingPerM: number;
+  moveCost: MoveCost;
+  colour: string;
+}
+
+export interface ObstacleKindDef {
+  id: DefId;
+  heightM: number;
+  thicknessM: number;
+  material: DefId;
+  seeThrough: number;
+  footCrossTimeS: number | null;
+  wheeledCrossable: boolean;
+  trackedCrossable: boolean;
+  colour: string;
+}
+
+export interface BuildingKindDef {
+  id: DefId;
+  widthM: [number, number];
+  depthM: [number, number];
+  storeys: [number, number];
+  storeyHeightM: number;
+  wallMaterial: DefId;
+  wallThicknessM: number;
+  roofColours: string[];
+}
+
+export interface TerrainCatalog {
+  materials: Record<DefId, MaterialDef>;
+  surfaces: Record<DefId, SurfaceDef>;
+  vegetation: Record<DefId, VegetationDef>;
+  obstacles: Record<DefId, ObstacleKindDef>;
+  buildings: Record<DefId, BuildingKindDef>;
 }
 
 export interface QualityDef {
@@ -50,6 +115,7 @@ export interface Catalog {
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;
   factions: Record<DefId, FactionDef>;
+  terrain: TerrainCatalog;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

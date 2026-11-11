@@ -9,6 +9,8 @@
  */
 import type { z } from "zod";
 import {
+  BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
+  type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile,
   type DoctrineT, type FactionManifestT, type ItemT, type MovementModeT, type NamesT, type QualityT, type RankT,
@@ -36,7 +38,16 @@ export interface FactionPack {
   strings: StringTables;
 }
 
+export interface TerrainData {
+  materials: Record<string, MaterialT>;
+  surfaces: Record<string, SurfaceT>;
+  vegetation: Record<string, VegetationT>;
+  obstacles: Record<string, ObstacleKindT>;
+  buildings: Record<string, BuildingKindT>;
+}
+
 export interface DataSet {
+  terrain: TerrainData;
   movementModes: Record<string, MovementModeT>;
   qualities: Record<string, QualityT>;
   strings: StringTables;
@@ -97,7 +108,28 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
   }
   if (!strings["en"]) errors.push({ file: "core/strings.en.json", path: "(file)", message: "required file is missing", severity: "error" });
 
+  const T = (f: string) => `core/terrain/${f}.json`;
+  const mats = parse(MaterialsFile, T("materials"), files[T("materials")], errors);
+  const surfs = parse(SurfacesFile, T("surfaces"), files[T("surfaces")], errors);
+  const vegs = parse(VegetationFile, T("vegetation"), files[T("vegetation")], errors);
+  const obst = parse(ObstaclesFile, T("obstacles"), files[T("obstacles")], errors);
+  const blds = parse(BuildingsFile, T("buildings"), files[T("buildings")], errors);
+  const terrain: TerrainData = {
+    materials: mats ? indexById(mats.materials, T("materials"), "materials", errors) : {},
+    surfaces: surfs ? indexById(surfs.surfaces, T("surfaces"), "surfaces", errors) : {},
+    vegetation: vegs ? indexById(vegs.vegetation, T("vegetation"), "vegetation", errors) : {},
+    obstacles: obst ? indexById(obst.obstacles, T("obstacles"), "obstacles", errors) : {},
+    buildings: blds ? indexById(blds.buildings, T("buildings"), "buildings", errors) : {},
+  };
+  obst?.obstacles.forEach((o, i) => {
+    if (!terrain.materials[o.material]) errors.push({ file: T("obstacles"), path: `obstacles[${i}].material`, message: `unknown material '${o.material}' (known: ${known(terrain.materials)})`, severity: "error" });
+  });
+  blds?.buildings.forEach((b, i) => {
+    if (!terrain.materials[b.wallMaterial]) errors.push({ file: T("buildings"), path: `buildings[${i}].wallMaterial`, message: `unknown material '${b.wallMaterial}' (known: ${known(terrain.materials)})`, severity: "error" });
+  });
+
   const data: DataSet = {
+    terrain,
     movementModes: mm ? indexById(mm.movementModes, "core/movement-modes.json", "movementModes", errors) : {},
     qualities: q ? indexById(q.qualities, "core/qualities.json", "qualities", errors) : {},
     strings,

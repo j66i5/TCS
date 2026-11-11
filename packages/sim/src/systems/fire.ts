@@ -44,10 +44,13 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const a = ctx.catalog.shooting.aim, s = state.soldier.req(id);
   const hrMax = ctx.catalog.body.physiology.hrMaxBpm;
   const hr = Math.max(0, (s.physical.heartRateBpm - a.heartRateCalmBpm) / Math.max(1, hrMax - a.heartRateCalmBpm));
-  const sight = ctx.catalog.weapons[w.weapon]?.sights[0]?.kind ?? "iron";
+  const wdef = ctx.catalog.weapons[w.weapon];
+  const sight = wdef?.sights[0]?.kind ?? "iron";
+  // A machine gun on its bipod is built for bursts: no penalty for firing fast, and far less climb.
+  const sus = wdef?.sustained;
   return a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
-    * (a.sightFactor[sight] ?? 1) * (aimed ? 1 : a.rapidFactor) * (1 + a.burstGrowth * w.burstIndex) * s.impair.aim;
+    * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;
 }
 
 /** Give a soldier a fire task (from a fire order). */
@@ -100,7 +103,9 @@ function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number
 function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, w: WeaponState, task: FireTask, aimed: boolean): void {
   const wd = ctx.catalog.weapons[w.weapon]!;
   const s = state.soldier.req(id), t = state.transform.req(id);
-  const ammoId = ctx.catalog.items[w.magazine!.item]?.chargeItem ?? "";
+  // A belt mixes in a tracer every few rounds.
+  const magDef = ctx.catalog.items[w.magazine!.item];
+  const ammoId = (magDef?.tracerItem !== undefined && magDef.tracerEvery !== undefined && w.magazine!.rounds % magDef.tracerEvery === 0 ? magDef.tracerItem : magDef?.chargeItem) ?? "";
   const v0 = wd.ammo[ammoId];
   if (v0 === undefined) return;
   const a0 = atan2(task.y - t.y, task.x - t.x);
@@ -189,10 +194,11 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     const trickle = since > fullTicks;
     const band = F.bands.find((b) => range <= b.maxRangeM) ?? F.bands[F.bands.length - 1]!;
     const canBurst = wd.fireModes.includes("auto") || wd.fireModes.includes("burst");
-    const mode = trickle ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
+    // A machine gun fires bursts at every range (also on the slow rate: the same bursts, further apart).
+    const mode = wd.sustained ? "burst" : trickle ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
     if (w.burstLeft <= 0) {
       if (friendInLine(ctx, state, id, task.x, task.y)) { w.nextShotTick = tick + TICK_HZ / 2; continue; }
-      w.burstLeft = mode === "burst" ? band.burstRounds : 1;
+      w.burstLeft = wd.sustained ? wd.sustained.burstRounds : mode === "burst" ? band.burstRounds : 1;
       w.burstIndex = 0;
     }
     shoot(ctx, state, events, id, w, task, mode === "aimed");
@@ -202,7 +208,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       w.nextShotTick = tick + Math.max(1, Math.round((TICK_HZ * 60) / wd.cyclicRpm));
     } else {
       w.burstLeft = 0;
-      const interval = trickle ? F.trickleIntervalS : band.intervalS;
+      const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
       // +-15 % so men do not fire in step.
       w.nextShotTick = tick + Math.max(1, Math.round(secondsToTicks(interval) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
     }

@@ -131,6 +131,312 @@
       "sources": [],
       "confidence": "low",
       "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    },
+    {
+      "id": "pzgren-schuetzentrupp",
+      "echelon": "squad",
+      "callsign": "Trupp {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "truppfuehrer",
+          "rank": "stabsunteroffizier",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 3
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "mg-gunner",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-mg5-belt",
+              "count": 2,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-mg5"
+        },
+        {
+          "role": "at-gunner",
+          "rank": "obergefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 1,
+              "charge": 120
+            },
+            {
+              "item": "de-pzf3",
+              "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "marksman",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g28-mag",
+              "count": 6,
+              "charge": 20
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g28"
+        },
+        {
+          "role": "grenadier",
+          "rank": "obergefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-ag36-launcher",
+              "count": 1
+            },
+            {
+              "item": "de-40mm-he",
+              "count": 6
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "panzergrenadier",
+          "rank": "gefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 1,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 3
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/meldungen/schuetzenpanzer-puma-im-angriff-5579452",
+        "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-spezialgrundausbildung-5572818",
+        "https://de.wikipedia.org/wiki/Puma_(Sch%C3%BCtzenpanzer)"
+      ],
+      "confidence": "low",
+      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
     }
   ]
 }

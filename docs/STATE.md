@@ -1,11 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1 to M2.4 done)._
+_Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M2 Ballistics and wounds** — slices **M2.1 projectile engine**, **M2.2 the shooter**, **M2.3 body, armour
-and wounds** and **M2.4 grenades and fragments: done**. Next slice: **M2.5 squads and kit data** — it needs
-the owner's two squad tables first (research in `docs/research/squads.md`). Ask the owner before starting it.
+**M2 Ballistics and wounds is complete** (M2.1 projectile engine, M2.2 the shooter, M2.3 body, armour and wounds,
+M2.4/M2.4b grenades and fragments, M2.5 squads and kit). Next milestone: **M3 Spotting and knowledge** (line of
+sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices and ask the owner before starting.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -66,7 +66,11 @@ the owner's two squad tables first (research in `docs/research/squads.md`). Ask 
   clear (works indoors and through openings); small folds in the ground stop low fragments, so lying down
   protects more; an order can ask for several grenades, thrown a moment apart ("tap: all grenades"); men near a
   landing grenade drop flat, or run from it if it is within 3 m.
-- Tests: 269, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.5 squads and kit**: the demo and the app start with a German Puma dismount squad (G36, MG5, G28,
+  Panzerfaust 3 carried, AG36) and a Russian BMP motor-rifle squad (AK-74M, PKP, RPG-7 carried, two GP-25), six
+  men each, with itemised loads of 24-44 kg; machine guns fire five-round bursts from belts with a tracer every
+  fifth round; the marksman rifle has a telescopic sight.
+- Tests: 274, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
@@ -85,14 +89,16 @@ the owner's two squad tables first (research in `docs/research/squads.md`). Ask 
 - The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 7×).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
   loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
-- The 24 kg load is one placeholder item, not real kit (M2).
+- Anti-tank launchers are carried weight only (M7); belts carried by other men cannot be handed over (M4);
+  kit masses (water, webbing, ...) are typical values, not sourced.
 - Routes prefer roads only mildly (asphalt is 10 % quicker than grass) and cover only modestly (balanced
   preference; see DECISIONS.md, M1.4) — the owner may choose to strengthen it.
 - **Industrial maps are the plainest**: sparse business-park lots with a few sheds and warehouses each.
 - Wood edges and scrub still show a faint 4 m grid pattern when zoomed in close.
 - The phone top bar wraps onto two rows.
 - The map kinds' recipes are code (they name terrain IDs); terrain *properties* are data. See DECISIONS.md.
-- German/Russian unit templates, roles and doctrine are still placeholders (low confidence).
+- The two squads are research defaults awaiting the owner's corrections; ranks per position are guesses;
+  doctrine values are still placeholders (low confidence).
 
 ## Live build
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge (first successful deploy
@@ -119,11 +125,14 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - M2.4b: fix all four weak points; a man near a landing grenade **drops flat, or runs if it is very close**.
 - M2.5 squads: **research defaults** for both sides (see DECISIONS.md), to be corrected by the owner afterwards.
 
+- Prone throw **15 m**, grenade safety distance **8 m**.
+
 ## Next
-**M2.5 Squads and kit data** (ROADMAP.md, M2 slice 5) — squad choices are made; ask the owner before starting.
+**M3 Spotting and knowledge** — propose slices, ask the owner's questions, then start when he says so.
 
 ## Open questions for the owner
-- **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
+- **Corrections to the two squads** (roles, ranks, weapons, ammunition) whenever the owner wishes.
+- (Answered by choosing the research defaults:) squad tables wanted before M2.5: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
   man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the
   owner decides.

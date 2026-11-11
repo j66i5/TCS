@@ -14,6 +14,61 @@
       "sources": [],
       "confidence": "low",
       "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    },
+    {
+      "id": "squad-leader",
+      "nameKey": "role.ru.squad-leader",
+      "leader": true,
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "mg-gunner",
+      "nameKey": "role.ru.mg-gunner",
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "at-gunner",
+      "nameKey": "role.ru.at-gunner",
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "assistant-at-gunner",
+      "nameKey": "role.ru.assistant-at-gunner",
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "senior-rifleman",
+      "nameKey": "role.ru.senior-rifleman",
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "rifleman-gl",
+      "nameKey": "role.ru.rifleman-gl",
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf"
+      ],
+      "confidence": "low",
+      "note": "Research default (docs/research/squads.md); owner review pending."
     }
   ]
 }

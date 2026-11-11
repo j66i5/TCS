@@ -95,6 +95,94 @@
       "sources": [],
       "confidence": "low",
       "note": "Under-barrel 40 mm grenade launcher, about 1.5 kg. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
+    },
+    {
+      "id": "ru-pkp-belt",
+      "nameKey": "item.ru-pkp-belt",
+      "category": "magazine",
+      "massKg": 1.7,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.0218,
+      "chargeItem": "ru-762r-lps",
+      "tracerItem": "ru-762r-t46",
+      "tracerEvery": 5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/PKP_Pecheneg"
+      ],
+      "confidence": "low",
+      "note": "100-round belt in its box (published belt length); box mass and tracer mix are game values. Links counted in the empty mass."
+    },
+    {
+      "id": "ru-rpg7",
+      "nameKey": "item.ru-rpg7",
+      "category": "anti-tank",
+      "massKg": 6.3,
+      "sources": [],
+      "confidence": "low",
+      "note": "RPG-7V2 launcher with sight, about 6.3 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
+    },
+    {
+      "id": "ru-pg7vl",
+      "nameKey": "item.ru-pg7vl",
+      "category": "anti-tank",
+      "massKg": 2.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "PG-7VL rocket, about 2.6 kg (from memory of published figures). Not usable before M7."
+    },
+    {
+      "id": "ru-water",
+      "nameKey": "item.ru-water",
+      "category": "kit",
+      "massKg": 1.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Two litres of water in canteens or a bladder. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "ru-rations",
+      "nameKey": "item.ru-rations",
+      "category": "kit",
+      "massKg": 0.8,
+      "sources": [],
+      "confidence": "low",
+      "note": "One day of rations. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "ru-ifak",
+      "nameKey": "item.ru-ifak",
+      "category": "kit",
+      "massKg": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Individual first-aid kit (tourniquet, dressings); used by the medical system in M10. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "ru-webbing",
+      "nameKey": "item.ru-webbing",
+      "category": "kit",
+      "massKg": 3.2,
+      "sources": [],
+      "confidence": "low",
+      "note": "Load-carrying vest or belt kit, pouches, small pack, weather clothing, tools. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "ru-nvg",
+      "nameKey": "item.ru-nvg",
+      "category": "kit",
+      "massKg": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "ru-radio",
+      "nameKey": "item.ru-radio",
+      "category": "kit",
+      "massKg": 0.9,
+      "sources": [],
+      "confidence": "low",
+      "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
     }
   ]
 }

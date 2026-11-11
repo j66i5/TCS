@@ -4,6 +4,7 @@
   "nameKey": "faction.de",
   "formatVersion": 1,
   "defaultQuality": "regular",
+  "demoTemplate": "pzgren-schuetzentrupp",
   "sources": [
     "https://www.bundeswehr.de/de/organisation/heer"
   ],

@@ -34,6 +34,44 @@
       ],
       "confidence": "medium",
       "note": "Mass, rate of fire (600-650) and muzzle velocity published. Dispersion, reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "ru-pkp",
+      "nameKey": "weapon.ru-pkp",
+      "type": "machine-gun",
+      "calibre": "7.62x54R",
+      "massKg": 8.2,
+      "feed": {
+        "magazine": "ru-pkp-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 650,
+      "dispersionMrad": 0.9,
+      "reloadSeconds": 9,
+      "setupSeconds": 0,
+      "jamProbability": 0.0003,
+      "sights": [
+        {
+          "kind": "iron",
+          "magnification": 1
+        }
+      ],
+      "ammo": {
+        "ru-762r-lps": 825,
+        "ru-762r-t46": 825
+      },
+      "sustained": {
+        "burstRounds": 5,
+        "intervalS": 2.5,
+        "recoilFactor": 0.3
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/PKP_Pecheneg"
+      ],
+      "confidence": "low",
+      "note": "PKP Pecheneg: 650 rounds/min, belts of 100 or 200 (published). Mass (about 8.2 kg) and muzzle velocity (about 825 m/s) are from memory of published figures, not confirmed by the search. Dispersion, belt change time and burst pattern are game values."
     }
   ]
 }

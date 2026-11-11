@@ -4,6 +4,7 @@
   "nameKey": "faction.ru",
   "formatVersion": 1,
   "defaultQuality": "regular",
+  "demoTemplate": "motor-rifle-squad",
   "sources": [
     "https://en.wikipedia.org/wiki/Russian_Ground_Forces"
   ],

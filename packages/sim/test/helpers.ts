@@ -55,7 +55,7 @@ export const testCatalog: Catalog = {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],
       fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
     },
-    grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 11 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 12, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
+    grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 15 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 8, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
   },
   formations: {
     line: { id: "line", slots: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0]] },

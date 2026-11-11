@@ -140,6 +140,14 @@ In `factions/<id>/weapons.json`:
 `items.json` whose `chargeItem` is one of those ammunition IDs. `dispersionMrad` is the weapon's own scatter
 (one standard deviation; 1 mrad = 10 cm at 100 m). The loader checks all these links.
 
+A **machine gun** adds `"sustained": { "burstRounds": 5, "intervalS": 2.5, "recoilFactor": 0.3 }` (it then
+fires that burst at every range; `recoilFactor` is how much of a rifle's climb within a burst it shows) and is
+fed from a belt: an item like a magazine with, optionally, `"tracerItem": "<tracer ammunition id>"` and
+`"tracerEvery": 5`. Sight kinds: `iron`, `reflex`, `magnified`, `telescopic`, `night`, `thermal`; how much each
+helps is `aim.sightFactor` in `core/shooting.json`.
+
+The squad the game starts with is named in the faction's `manifest.json`: `"demoTemplate": "<unit template id>"`.
+
 ## Change what stops a bullet
 
 `core/terrain/materials.json`: `resistance` is millimetres of mild steel per millimetre of the material

@@ -18,6 +18,7 @@
       "iron": 1.0,
       "reflex": 0.95,
       "magnified": 0.85,
+      "telescopic": 0.7,
       "night": 1.0,
       "thermal": 0.9
     },
@@ -65,7 +66,7 @@
     "throwRangeM": {
       "standing": 30,
       "crouching": 20,
-      "prone": 11
+      "prone": 15
     },
     "throwElevationDeg": 40,
     "throwErrorFraction": 0.07,
@@ -74,7 +75,7 @@
     "launchErrorFraction": 0.05,
     "launchErrorMinM": 1.0,
     "launchSeconds": 4,
-    "minSafeDistanceM": 12,
+    "minSafeDistanceM": 8,
     "throwAnglesDeg": [
       40,
       25,
@@ -89,6 +90,6 @@
     "reactDelaySeconds": 0.4,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values. Owner requests 2026-11-11: the thrower chooses a flatter or higher throw when the lob would hit a ceiling or wall; several grenades per order are thrown 0.6 s apart; a man within 10 m of a landing grenade drops flat, within 3 m he runs from it first. Angles, power margin, carry and delays are game values."
+    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values. Owner requests 2026-11-11: the thrower chooses a flatter or higher throw when the lob would hit a ceiling or wall; several grenades per order are thrown 0.6 s apart; a man within 10 m of a landing grenade drops flat, within 3 m he runs from it first. Angles, power margin, carry and delays are game values. Owner decision 2026-11-11 (after M2.4b): prone throw 15 m and safety distance 8 m, so that prone men can throw."
   }
 }

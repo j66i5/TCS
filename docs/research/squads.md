@@ -81,3 +81,10 @@ No published convention found for either army.
   masses.
 - Russian squad: 8 vs 9 men; sniper in place of a rifleman in one text; gunner-operator rank.
 - Russian hand grenade and disposable-launcher issue norms: nothing reliable found.
+
+## Status after M2.5 (2026-11-11)
+The owner chose the research defaults: German six dismounts (Truppfuehrer, MG5, Panzerfaust 3, G28, AG36,
+rifleman), Russian six dismounts (leader, PKP, RPG-7, assistant, two riflemen with GP-25). They are in the game
+data as `pzgren-schuetzentrupp` and `motor-rifle-squad` with `confidence: "low"`. Open for his correction:
+ranks per position, number of hand grenades, who carries the spare belts, whether the German squad should have
+a second machine gun or Panzerfaust.

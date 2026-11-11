@@ -666,3 +666,32 @@ review saw throwers wounded at every short distance).
 on roads and floors; the arc solver ignores wind (a 10 m/s head wind costs about 1.5 m); on slopes steeper
 than 60 degrees a grenade keeps skipping until it bursts; a regular lying prone cannot throw at all (11 m
 range against the 12 m safety distance) — the owner may want to change one of the two numbers.
+
+## 2026-11-11 — Owner: prone throw and safety distance; start M2.5
+A regular lying prone throws **15 m** (was 11) and the safety distance is **8 m** (was 12), so prone men can
+throw. M2.5 starts with the research-default squads chosen earlier.
+
+## 2026-11-11 — M2.5 squads and kit data (goldens regenerated)
+**Squads (owner: research defaults, he corrects them afterwards):** unit templates `pzgren-schuetzentrupp`
+(Truppfuehrer G36, MG-Schuetze MG5, Panzerfaustschuetze G36 + Panzerfaust 3, marksman G28, grenadier G36 + AG36,
+Panzergrenadier G36) and `motor-rifle-squad` (squad leader AK-74M, machine gunner PKP, grenadier AK-74M + RPG-7,
+assistant grenadier, senior rifleman AK-74M + GP-25, rifleman AK-74M + GP-25). Ranks per position are guesses.
+A faction's manifest names its `demoTemplate`; the demo scenario and the app start with these squads. The old
+four-man `demo-team` stays for the speed benchmark (304 soldiers, comparable with earlier figures) and tests.
+**Weapons:** MG5 (11.6 kg, 720 rounds/min, 815 m/s; published), PKP (650 rounds/min, belts of 100; mass and
+velocity from memory), G28 (20-round magazine, 3-20x scope, 1.5 MOA; mass and velocity from memory); 7.62 x 51
+and 7.62 x 54 R ball and tracer with drag fitted to typical published velocities (low confidence).
+**New in the engine, all data-driven:** a weapon may have `sustained { burstRounds, intervalS, recoilFactor }`
+— it then fires that burst at every range, without the rapid-fire penalty and with only a share of a rifle's
+climb within a burst (bipod); a belt item may name a `tracerItem` every `tracerEvery` rounds; sight kind
+`telescopic` (aim factor 0.7 against 0.85 for the 3x and 4x sights). **Itemised loads** replace the placeholder
+in the squads: water, rations, first-aid kit, webbing and pack, night-vision goggle (typical masses, not
+sourced), radio for the leader, helmet, vest, weapon, ammunition, grenades. Loads come out at 24-44 kg (the
+Panzerfaust man is heaviest). Machine-gun ammunition follows the cited norms (480 rounds German from the
+"500" quote, 600 Russian), partly carried by other men; rifle rounds 150 per German rifleman (five magazines
+quoted) and 180 per Russian. **Firing range lab** (regular, prone): MG5 per round 33 % at 300 m, 13 % at 500 m;
+PKP 26 % and 9 %; G28 71 % and 41 % (G36: 60 % and 35 %).
+**Not modelled yet:** Panzerfaust 3 and RPG-7 are carried weight only (anti-tank weapons fire from M7, with
+vehicles); belts carried by other men cannot be handed to the gunner (ammunition sharing, M4); the marksman is
+an ordinary regular with a better rifle (no selection for skill); barrel changes and overheating; the
+assistant does not help the gunner; G95A1 and AK-12 were not added (the owner chose G36 and AK-74M as defaults).

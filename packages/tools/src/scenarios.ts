@@ -26,12 +26,12 @@ const wanderBoth = (input: BattleInput): Controller[] => [
 
 export const SCENARIOS: Record<string, NamedScenario> = {
   demo: {
-    description: "One German team vs one Russian team on a generated 2 x 2 km village map; both wander (no combat yet).",
+    description: "A German Panzergrenadier dismount squad vs a Russian motor-rifle squad on a generated 2 x 2 km village map; both wander.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village" }),
     controllers: wanderBoth,
   },
   "demo-flat": {
-    description: "One German team vs one Russian team on a flat, empty 400 x 300 m map.",
+    description: "The same two squads on a flat, empty 400 x 300 m map.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: wanderBoth,
   },
@@ -43,9 +43,9 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: wanderBoth,
   },
   bench: {
-    description: "Benchmark: 38 teams per side (304 soldiers) on a generated 2 x 2 km farmland map, all moving.",
+    description: "Benchmark: 38 four-man teams per side (304 soldiers; the old placeholder team, kept so the benchmark stays comparable) on a generated 2 x 2 km farmland map, all moving.",
     build: (data, seed, seconds) =>
-      demoBattle(data, { seed, factions: ["de", "ru"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds }),
+      demoBattle(data, { seed, factions: ["de", "ru"], templates: ["demo-team", "demo-team"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds }),
     controllers: (input) => [
       // Every unit gets a new long-distance move order every 60 s (heavier than real play; see DECISIONS.md).
       wanderController("blue", input.seed * 2 + 1, input.map, 60),

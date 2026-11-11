@@ -219,6 +219,16 @@ bullets and men can then pass through. Houses now have roofs, so a grenade lobbe
 roof instead of falling inside. The **fragmentation lab** (`npm run lab -- fragmentation`) bursts grenades
 among rings of men and prints who was hurt at which distance.
 
+## The squads
+
+The game starts with two real squads of six: German Panzergrenadiers dismounted from a Puma (leader, machine
+gunner with the MG5, Panzerfaust man, marksman with the G28, a man with the AG36 grenade launcher, a rifleman)
+and a Russian motor-rifle squad from a BMP (leader, PKP machine gunner, RPG grenadier and his assistant, two
+riflemen with GP-25 launchers). Who is in a squad, with which weapon and which load, is a data file. Every man
+carries listed items — weapon, magazines or belts, grenades, helmet, vest, water, rations, first-aid kit — and
+their weight slows and tires him. A machine gun fires bursts of five from a belt with a tracer every fifth
+round; the marksman's telescopic sight makes him more accurate at long range.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -248,7 +258,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 269 automated tests, including:
+- `npm test` runs 274 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -264,6 +274,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No first aid, no spotting (everyone sees everything), no real squad organisation (M2.5),
+No first aid, no spotting (everyone sees everything), anti-tank weapons are only carried,
 nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
-shoots by itself. Those are milestones M2.5–M6.
+shoots by itself. Those are milestones M3–M7.

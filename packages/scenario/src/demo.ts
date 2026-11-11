@@ -52,7 +52,7 @@ export function demoBattle(data: DataSet, opts: DemoOptions): BattleInput {
   const per = opts.unitsPerSide ?? 1;
   const forces: ForceInput[] = SIDES.map((side, s) => {
     const faction = opts.factions[s]!;
-    const template = opts.templates?.[s] ?? "demo-team";
+    const template = opts.templates?.[s] ?? data.factions[faction]?.manifest.demoTemplate ?? "demo-team";
     const units = Array.from({ length: per }, (_, i) =>
       buildForce(data, { faction, template, seed: opts.seed * 31 + s * 7 + i, keyPrefix: `${side}-${i + 1}`, number: i + 1 }),
     );

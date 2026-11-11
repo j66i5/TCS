@@ -604,3 +604,10 @@ runs the other test files at the same time. Done: the roof flag is only looked u
 use a series for the drag factor instead of two divisions (identical to 1e-7; goldens regenerated) — 5.5x here
 now; and the benchmark takes the fastest of three 100-tick windows, because other work on the same cores can
 only slow a window down. The floor stays 3x.
+
+## 2026-11-11 — Owner review of the M2.4 fragmentation lab; squad choices for M2.5
+**Fragmentation lab reviewed:** "about right, keep it". **M2.5 squads:** the research defaults, to be corrected
+by the owner afterwards — German Puma dismounts (6): Truppfuehrer (G36), MG gunner (MG5), Panzerfaust gunner
+(Pzf 3 + G36), marksman (G28), two riflemen (G36, one with AG36); Russian BMP dismounts (6): squad leader
+(AK-74M), machine gunner (PKP), grenadier (RPG-7 + AK), assistant grenadier (AK), senior rifleman (AK + GP-25),
+rifleman (AK + GP-25). **Before M2.5 the owner wants M2.4 weak points fixed first.**

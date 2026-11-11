@@ -31,6 +31,7 @@ describe("line-of-sight lab", () => {
   });
 
   it("obstacles: a hedge lets little through, a wire fence almost all; a 1.1 m wall hides a kneeling or prone man, not a standing one", () => {
+    expect(row("12 m of scrub").visibility).toBeLessThan(0.15);
     expect(row("a 2 m hedge").visibility).toBeLessThan(0.15);
     expect(row("a wire fence").visibility).toBeGreaterThan(0.9);
     expect(row("target standing right behind a 1.1 m wall").visibility).toBe(1);
@@ -66,5 +67,14 @@ describe("line-of-sight lab", () => {
     expect(us).toBeLessThan(60); // generous: shared test machines; measured here in the report
     expect(seen).toBeGreaterThan(0);
     expect(seen).toBeLessThan(lines.length);
+  });
+
+  it("a crest only one height point wide is found wherever the line starts (review fix)", () => {
+    const sc = getScenario("demo-flat");
+    const sim = createSim(sc.build(loadData(), 1, 60));
+    const m = sim.ctx.map;
+    const c0 = 25; // a single height point column at x = 100 m, 1 m high
+    for (let r = 0; r <= m.rows; r++) m.heights[r * (m.cols + 1) + c0] = 1;
+    for (const x0 of [0.5, 1, 1.3, 2, 2.7, 3.9]) expect(sight(sim.ctx, x0, 50, 0.8, 199 + x0 / 10, 50, 0.8).blockedBy).toBe("ground");
   });
 });

@@ -254,6 +254,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
         requestPosture(ctx, state, s, order.posture);
+        // A man firing keeps firing; this is now the posture he goes back down to.
+        const ft = state.fire.get(s);
+        if (ft) ft.basePosture = order.posture;
       }
       break;
     }

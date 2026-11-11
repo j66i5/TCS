@@ -79,7 +79,7 @@ crops at 100 m very hard to spot until he moves or fires; shots give direction a
   hedges, roofs and vegetation (`npm run lab -- sight`); men no longer fire into a bank in front of them —
   they kneel or stand to fire over it, or hold fire and report "no line of fire"; Debug shows what the
   selected unit's leader can see.
-- Tests: 298 (295 + 3 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 302 (299 + 3 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

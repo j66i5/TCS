@@ -62,8 +62,8 @@ export function sightLab(data: DataSet): SightRow[] {
   rows.push(look(grass, 100, "prone", "prone", "both in tall grass, both prone"));
   const wood = ctxFor(cat, strip(cat, (m) => veg(m, "woodland", 100, 700)));
   for (const range of [90, 110, 130, 180]) rows.push(look(wood, range, "standing", "standing", `into woodland starting 80 m from the observer (${range - 80} m deep)`));
-  const scrub = ctxFor(cat, strip(cat, (m) => veg(m, "scrub", 80, 90)));
-  rows.push(look(scrub, 150, "standing", "standing", "10 m of scrub in between"));
+  const scrub = ctxFor(cat, strip(cat, (m) => veg(m, "scrub", 80, 92)));
+  rows.push(look(scrub, 150, "standing", "standing", "12 m of scrub in between"));
   const hedge = ctxFor(cat, strip(cat, (m) => { m.obstacles.push({ id: 1, kind: "hedge", points: [80, 0, 80, 100], heightM: 2, thicknessM: 1.5, material: "hedge" }); }));
   rows.push(look(hedge, 150, "standing", "standing", "a 2 m hedge in between"));
   const fence = ctxFor(cat, strip(cat, (m) => { m.obstacles.push({ id: 1, kind: "wire-fence", points: [80, 0, 80, 100], heightM: 2, thicknessM: 0.01, material: "wire-mesh" }); }));

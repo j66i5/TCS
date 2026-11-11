@@ -18,5 +18,6 @@ if [ ! -d node_modules ]; then
 fi
 
 out=$(npm run typecheck --silent 2>&1) || { echo "TYPECHECK FAILS - fix before ending the session:" >&2; echo "$out" | grep -v '^ok ' | tail -40 >&2; exit 2; }
-out=$(npx vitest run 2>&1) || { echo "TESTS FAIL - fix before ending the session:" >&2; echo "$out" | tail -60 >&2; exit 2; }
+# Timing tests run on their own, after the others (as in CI): sharing the cores makes them fail at random.
+out=$(npm test --silent 2>&1 && npm run test:perf --silent 2>&1) || { echo "TESTS FAIL - fix before ending the session:" >&2; echo "$out" | tail -60 >&2; exit 2; }
 exit 0

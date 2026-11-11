@@ -52,7 +52,9 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const wdef = ctx.catalog.weapons[w.weapon];
   const sight = wdef?.sights[0]?.kind ?? "iron";
   // A machine gun on its bipod is built for bursts: no penalty for firing fast, and far less climb.
-  const sus = wdef?.sustained;
+  // (Only with the bipod down: lying, or resting it on something.)
+  const tr = state.transform.get(id);
+  const sus = wdef?.sustained && (s.posture === "prone" || (tr !== undefined && restWithinReach(navFor(ctx, "foot").grid, tr.x, tr.y))) ? wdef.sustained : undefined;
   // Time spent aiming: the first shots at a new point are hurried.
   const task = state.fire.get(id);
   const settle = task ? 1 + a.settleK * exp(-(state.tick - task.startTick) / (a.settleTauS * TICK_HZ)) : 1;
@@ -66,9 +68,12 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;
 }
 
+/** A wall or the ground this close to the point fired at does not count as blocking: it is the target. */
+const LINE_OF_FIRE_ALLOWANCE_M = 5;
+
 /**
  * Is the line from his muzzle (in posture `p`) to the point he is told to fire at free of ground, walls and
- * roofs for the first 85 % of the way? (Close to the point, a wall or the ground is what he is firing at.)
+ * roofs, except within the last few metres before the point?
  */
 export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, task: FireTask, p: Posture): boolean {
   const t = state.transform.req(id);
@@ -77,7 +82,9 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
   const mz = heightAt(ctx.map, mx, my) + ctx.catalog.body.postures[p].muzzleHeightM;
   const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
   const r = sight(ctx, mx, my, mz, task.x, task.y, tz);
-  return r.blockedBy === null || r.blockedAt >= 0.85;
+  // (Within the last few metres before the point, a wall or the ground is what he is firing at.)
+  const range = hypot2(task.x - mx, task.y - my);
+  return r.blockedBy === null || (1 - r.blockedAt) * range <= LINE_OF_FIRE_ALLOWANCE_M;
 }
 
 /** Give a soldier a fire task (from a fire order). */
@@ -90,7 +97,9 @@ export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x
     x, y, heightM, reasonTick: state.tick,
     // A renewed order at (nearly) the same point does not make him start aiming afresh.
     startTick: prev !== undefined && hypot2(prev.x - x, prev.y - y) < 3 ? prev.startTick : state.tick,
-    lineCheckTick: -100000, lineClear: true,
+    lineCheckTick: -100000, lineClear: true, linePosture: s.posture,
+    // The posture he goes back to when rising is no longer needed: his own, or the one he was firing from.
+    basePosture: prev?.basePosture ?? s.posture,
     rangeError: a.rangeErrorFraction * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * nextNormal(state.rng, Streams.fire),
   });
   // Men do not all fire on the same tick.
@@ -225,11 +234,16 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (tick < w.nextShotTick) continue;
     // Line of fire: a bank, a crest or a wall right in front of him — he rises to a kneel or to his feet if
     // that clears it, otherwise he holds his fire and the unit says so (checked once a second).
-    if (w.burstLeft <= 0 && tick - task.lineCheckTick >= TICK_HZ) {
+    // The check is worked out for one posture; if he is in another now (an order changed it), it is redone.
+    // He tries the posture he was in when the fire order came first, then higher ones: so a man who rose to fire
+    // over a bank goes back down when a new point (or a new position) no longer needs it.
+    if (w.burstLeft <= 0 && (tick - task.lineCheckTick >= TICK_HZ || task.linePosture !== s.posture)) {
       task.lineCheckTick = tick;
-      const from: Posture[] = s.posture === "prone" ? ["prone", "crouching", "standing"] : s.posture === "crouching" ? ["crouching", "standing"] : ["standing"];
+      const order: Posture[] = ["prone", "crouching", "standing"];
+      const from = order.slice(order.indexOf(task.basePosture));
       const ok = from.find((p) => lineOfFireClear(ctx, state, id, task, p));
       task.lineClear = ok !== undefined;
+      task.linePosture = ok ?? s.posture;
       if (ok !== undefined && ok !== s.posture) { requestPosture(ctx, state, id, ok); continue; }
       if (ok === undefined) {
         const top = topUnit(state, id);

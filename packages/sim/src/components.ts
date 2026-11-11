@@ -154,4 +154,7 @@ export interface FireTask {
   /** When his line of fire was last checked, and whether it was clear from where he is. */
   lineCheckTick: number;
   lineClear: boolean;
+  /** The posture that check was worked out for, and the lowest posture he may go back down to. */
+  linePosture: Posture;
+  basePosture: Posture;
 }

@@ -146,7 +146,9 @@ async function main(): Promise<void> {
   const sightView = () => {
     const uid = overlay.selectedUnit;
     const u = uid === null ? undefined : sim.state.unit.get(uid);
-    const leader = u?.leader ?? u?.members[0];
+    // The leader, or the first of the unit's men who is alive and conscious.
+    const able = (id: EntityId) => { const x = sim.state.soldier.get(id); return x !== undefined && x.physiology.alive && x.physiology.consciousness >= 0.5; };
+    const leader = u?.leader ?? u?.members.find(able);
     const t = leader === undefined ? undefined : sim.state.transform.get(leader);
     const s = leader === undefined ? undefined : sim.state.soldier.get(leader);
     if (!t || !s) return null;
@@ -162,7 +164,7 @@ async function main(): Promise<void> {
     }
     return { vis, cols: n, rows: n, cellM, x0, y0 };
   };
-  let sightAt = -1;
+  let sightAt = -1, sightFor: EntityId | null = null, sightReal = -1e9;
   const stepOnce = () => {
     for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) issue(o);
     renderer.capturePrevious(sim.state);
@@ -195,7 +197,12 @@ async function main(): Promise<void> {
     let steps = 0;
     while (acc >= DT && steps < MAX_STEPS_PER_FRAME) { stepOnce(); acc -= DT; steps++; }
     if (steps === MAX_STEPS_PER_FRAME) acc = 0;
-    if (overlay.debug && sim.state.tick - sightAt >= 120) { sightAt = sim.state.tick; renderer.setSightOverlay(sightView()); }
+    // Refreshed every 2 s of game time, when the selection changes (also while paused), at most once a second
+    // of real time (a few thousand sight checks each).
+    if (overlay.debug && (sim.state.tick - sightAt >= 120 || overlay.selectedUnit !== sightFor) && now - sightReal >= 1000) {
+      sightAt = sim.state.tick; sightFor = overlay.selectedUnit; sightReal = now;
+      renderer.setSightOverlay(sightView());
+    }
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     frames++;
     if (now - fpsT0 >= 1000) {

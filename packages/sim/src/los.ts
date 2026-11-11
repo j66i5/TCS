@@ -27,6 +27,8 @@ export interface Sight {
 const END_CLEARANCE_M = 0.3;
 /** Height margin: a line skimming the ground by less than this counts as blocked. */
 const GRAZE_M = 0.05;
+/** Scratch list of sample parameters (reused: no allocation per call). */
+const LOS_TS: number[] = [];
 
 export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): Sight {
   const map = ctx.map, B = ctx.ballistics, index = ctx.mapIndex;
@@ -80,6 +82,8 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
         if (pointInPolygon(fp, x0, y0)) ts.push(0);
         if (pointInPolygon(fp, x1, y1)) ts.push(1);
         ts.sort((a, b) => a - b);
+        // A line through a corner crosses two edges at the same point: count it once.
+        for (let k = ts.length - 1; k > 0; k--) if (ts[k]! - ts[k - 1]! < 1e-9) ts.splice(k, 1);
         for (let k = 0; k + 1 < ts.length; k += 2) {
           const ta = ts[k]!, tb = ts[k + 1]!;
           const za = z0 + ta * dz - heightAt(map, x0 + ta * dx, y0 + ta * dy) - rf.heightM;
@@ -94,32 +98,53 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
     }
   }
 
-  // ---- ground and vegetation, sampled every half cell; whole 8 m buckets whose highest ground and vegetation
-  // lie well below the line are skipped
-  const step = map.cellSizeM / 2;
-  const n = Math.max(1, Math.ceil(len / step));
+  // ---- ground and vegetation. The ground is bilinear between height points, so its highest points along the
+  // line lie where the line crosses the grid lines: it is sampled at every crossing and half-way between
+  // (a crest one height point wide cannot slip between samples). Whole 8 m buckets whose ground and vegetation
+  // lie a metre or more below the line are skipped.
+  const cs = map.cellSizeM;
+  const ts = LOS_TS;
+  ts.length = 0;
+  ts.push(0, 1);
+  if (dx !== 0) { const a0 = Math.ceil(Math.min(x0, x1) / cs), a1 = Math.floor(Math.max(x0, x1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - x0) / dx); }
+  if (dy !== 0) { const a0 = Math.ceil(Math.min(y0, y1) / cs), a1 = Math.floor(Math.max(y0, y1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - y0) / dy); }
+  ts.sort((p, q) => p - q);
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows;
   let vegM = 0, conceal = 0;
   const tEnd0 = len > 0 ? END_CLEARANCE_M / len : 0;
-  for (let k = 0; k <= n; k++) {
-    const t = k / n;
+  for (let k = 0; k < ts.length * 2 - 1; k++) {
+    // even k: a crossing; odd k: half-way to the next one
+    const t = k % 2 === 0 ? ts[k / 2]! : (ts[(k - 1) / 2]! + ts[(k + 1) / 2]!) / 2;
+    if (t < 0 || t > 1) continue;
     if (t > tBlock) break;
     const px = x0 + t * dx, py = y0 + t * dy, pz = z0 + t * dz;
     let bc = (px / bm) | 0, br = (py / bm) | 0;
     if (bc < 0) bc = 0; else if (bc >= bcols) bc = bcols - 1;
     if (br < 0) br = 0; else if (br >= brows) br = brows - 1;
     const bk = br * bcols + bc;
-    // The line is above everything in this bucket (and its neighbours): nothing to test here.
     if (pz - 1 > B.maxGround[bk]! && pz - 1 > B.maxVegTop[bk]!) continue;
     const g = heightAt(map, px, py);
     if (t > tEnd0 && t < 1 - tEnd0 && pz < g + GRAZE_M) return { visibility: 0, blockedBy: "ground", vegetationM: vegM, blockedAt: t };
-    const cc = Math.floor(px / map.cellSizeM), cr = Math.floor(py / map.cellSizeM);
-    if (cc < 0 || cr < 0 || cc >= map.cols || cr >= map.rows) continue;
-    const v = map.vegetation[cr * map.cols + cc]!;
-    if (v === 0 || pz - g > B.vegHeightM[v - 1]!) continue;
-    const seg = k === 0 || k === n ? step / 2 : step;
-    vegM += seg;
-    conceal += B.vegConcealPerM[v - 1]! * seg;
+    // Vegetation: the stretch from this sample to the next is charged to the cell this sample is in.
+    if (k % 2 === 0 && k / 2 + 1 < ts.length) {
+      const tm = (t + ts[k / 2 + 1]!) / 2;
+      const qx = x0 + tm * dx, qy = y0 + tm * dy;
+      const cc = Math.floor(qx / cs), cr = Math.floor(qy / cs);
+      if (cc < 0 || cr < 0 || cc >= map.cols || cr >= map.rows) continue;
+      const v = map.vegetation[cr * map.cols + cc]!;
+      if (v === 0) continue;
+      const top = B.vegHeightM[v - 1]!;
+      const za = z0 + t * dz - heightAt(map, px, py), zb = z0 + ts[k / 2 + 1]! * dz - heightAt(map, x0 + ts[k / 2 + 1]! * dx, y0 + ts[k / 2 + 1]! * dy);
+      // The share of this stretch that lies below the vegetation top (linear between its two ends).
+      let below: number;
+      if (za <= top && zb <= top) below = 1;
+      else if (za > top && zb > top) below = 0;
+      else below = za <= top ? (top - za) / (zb - za) : (top - zb) / (za - zb);
+      if (below <= 0) continue;
+      const segLen = (ts[k / 2 + 1]! - t) * len * below;
+      vegM += segLen;
+      conceal += B.vegConcealPerM[v - 1]! * segLen;
+    }
   }
   if (blockedBy !== null) return { visibility: 0, blockedBy, vegetationM: vegM, blockedAt: tBlock };
   if (conceal > 0) visibility *= exp(-conceal);

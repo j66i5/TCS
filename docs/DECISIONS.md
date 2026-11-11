@@ -792,12 +792,31 @@ range; a man lying in crops at 100 m 0.14 % visible, kneeling 3 %, standing 100 
 kneeling man; dead ground beyond a 4 m crest; a house blocks unless windows line up. Speed: about 4 microseconds
 per random line of up to 400 m on a village map. **Line of fire:** once a second, before a shot or a burst,
 a man checks the line from his muzzle to the point he is told to fire at; if the ground, a wall or a roof
-blocks it in the first 85 % of the way he rises to a kneel or to his feet if that clears it, otherwise he
+blocks it short of the last 5 m before the point he rises to a kneel or to his feet if that clears it, otherwise he
 holds his fire and the unit reports "no line of fire" once per fire order (closes the M2 gap of prone men
 firing into a bank). **Consequence found at once:** in the scripted shoot-out on generated farmland the two
-squads 250 m apart were in each other's dead ground and one side correctly held its fire; the demonstration
+squads 250 m apart were in each other's dead ground and both sides correctly held their fire; the demonstration
 scenario now uses an open flat field ("firing-range style", as the roadmap says). **Debug view:** with Debug
 on, the ground the selected unit's leader cannot see a kneeling man on (within 400 m) is darkened, partly
 seen ground tinted; refreshed every 2 s of game time. **Not yet:** smoke (M8); light and night (M9); the
 line of fire does not consider friends beyond the 4-degree safety cone or the target's own cover; men do not
 move sideways to get a line of fire.
+
+## 2026-11-11 — Fixes from the independent M3.1 review (state schema v9 kept: new fields added before any release)
+No rule, determinism or save/load problems; sight() is symmetric in every case tried. Fixed, each with a test:
+**a prone order while a man was rising to fire over a bank made him fire into it** (the line-of-fire result was
+cached without the posture it was worked out for; it is now redone whenever his posture differs); **men who
+rose never went back down**: he now tries the posture he was in when the fire order came (or a later posture
+order) first, so with a new point that does not need it he lies down again — a posture order while firing
+sets that base posture, and he still rises over a bank if that is the only way to fire; **the 85 % rule let
+long-range fire go into a crest or a house up to 60 m short of the point**: only the last 5 m before the point
+count as "what he fires at"; **a crest one height point wide could slip between samples**: the ground is now
+sampled at every crossing of the height grid and half-way between, and vegetation is charged by the exact
+length below its top; a line through a roof's corner no longer breaks the roof test; **the machine gun kept
+its bipod steadiness when the gunner knelt**: bipod only when lying or with something to rest it on.
+Debug view: refreshed also when the selection changes (and while paused), at most once a second of real
+time; a dead leader's view is not shown. The Stop hook runs the timing tests on their own, like CI.
+Wording corrected: in the farmland shoot-out both sides held their fire, not one.
+**Recorded:** walls are lines without thickness for sight (a line exactly along a wall is clear); a line
+exactly along a house face touches the ends of its side walls; sight() allocates a little per call (Sets,
+arrays) — to watch when detection makes many checks per second.

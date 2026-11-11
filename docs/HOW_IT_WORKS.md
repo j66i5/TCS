@@ -272,7 +272,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 298 automated tests (295 plus 3 timing tests run on their own), including:
+- `npm test` runs 302 automated tests (299 plus 3 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

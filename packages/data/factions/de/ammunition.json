@@ -200,9 +200,9 @@
         "max": 0.5
       },
       "penetration": {
-        "steelMm": 3.5,
-        "atVelocityMps": 450,
-        "breakupVelocityMps": 700
+        "steelMm": 4.5,
+        "atVelocityMps": 325,
+        "breakupVelocityMps": 760
       },
       "tracer": false,
       "fuse": "none",
@@ -211,7 +211,7 @@
         "https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO"
       ],
       "confidence": "low",
-      "note": "7.62 mm x 51 ball (DM111 class): 9.5 g bullet. Drag fitted to typical published M80-class velocities (838 -> about 615 m/s at 300 m, 490 at 500 m). Penetration: about 3.5 mm mild steel at 570 m (the NATO plate the 5.56 SS109 was required to match); soft core, so no gain above about 700 m/s on masonry. Game abstraction."
+      "note": "7.62 mm x 51 ball (DM111 class): 9.5 g bullet. Drag fitted to typical published M80-class velocities (838 -> about 615 m/s at 300 m, 490 at 500 m). Penetration: about 3.5 mm mild steel at 570 m (the NATO plate the 5.56 SS109 was required to match); soft core, so no gain above about 700 m/s on masonry. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
     },
     {
       "id": "de-762-dm21",
@@ -228,9 +228,9 @@
       },
       "tracerBurnoutM": 800,
       "penetration": {
-        "steelMm": 2.5,
-        "atVelocityMps": 450,
-        "breakupVelocityMps": 700
+        "steelMm": 3.2,
+        "atVelocityMps": 325,
+        "breakupVelocityMps": 760
       },
       "tracer": true,
       "fuse": "none",
@@ -239,7 +239,7 @@
         "https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO"
       ],
       "confidence": "low",
-      "note": "7.62 mm x 51 tracer for belts (every fifth round). Values derived from the ball round; burn-out about 800 m. Game abstraction."
+      "note": "7.62 mm x 51 tracer for belts (every fifth round). Values derived from the ball round; burn-out about 800 m. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
     }
   ]
 }

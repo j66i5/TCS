@@ -266,3 +266,57 @@ describe("handling and safety", () => {
     expect(kinds(ev, "shot.fired")).toHaveLength(0);
   });
 });
+
+describe("belt-fed sustained fire (M2.5; faction-neutral test catalog)", () => {
+  const gunInput = () => {
+    const input = armedInput();
+    const g = input.forces[0]!.units[0]!.members[0]!;
+    g.weapon = "gun"; g.load = [{ type: "belt", count: 2, charge: 50 }];
+    return input;
+  };
+
+  it("fires whole bursts at long range with a tracer every fifth round, changes belt, and fires the LAST belt too (it is no reserve)", () => {
+    const sim = createSim(gunInput());
+    const [, unit] = blue(sim);
+    const gunner = unit.members[0]!;
+    fireAt(sim, gunner, 190, 12);
+    const shots: Extract<SimEvent, { kind: "shot.fired" }>[] = [];
+    let reloads = 0, lowAmmo = 0;
+    const ceased: string[] = [];
+    for (let i = 0; i < secondsToTicks(80); i++) {
+      if (i % secondsToTicks(20) === 0 && i > 0 && sim.state.fire.has(gunner)) fireAt(sim, gunner, 190, 12); // keep the full rate
+      for (const e of step(sim)) {
+        if (e.kind === "shot.fired" && e.shooter === gunner) shots.push(e);
+        else if (e.kind === "weapon.reloaded" && e.soldier === gunner) reloads++;
+        else if (e.kind === "radio" && e.key === "radio.lowAmmo") lowAmmo++;
+        else if (e.kind === "fire.ceased") ceased.push(e.reason);
+      }
+    }
+    expect(shots.length).toBe(100); // both belts, to the last round
+    expect(reloads).toBe(1);
+    expect(lowAmmo).toBe(1); // reported when he loaded the last belt
+    expect(ceased).toContain("ammunition");
+    expect(shots.filter((e) => e.ammo === "tball").length).toBe(20);
+    const gaps = shots.slice(1).map((e, i) => e.tick - shots[i]!.tick);
+    expect(gaps.filter((g) => g <= 6).length).toBe(80); // 20 bursts of five at the cyclic rate
+    expect(sim.state.weapon.req(gunner).magazine?.rounds ?? 0).toBe(0);
+  });
+
+  it("a belt is not swapped in a lull; the telescopic sight and the bipod show in the aiming error", () => {
+    const sim = createSim(gunInput());
+    const [, unit] = blue(sim);
+    const gunner = unit.members[0]!, rifleman = unit.members[1]!;
+    fireAt(sim, gunner, 190, 12);
+    run(sim, 12);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: gunner, kind: "ceaseFire" });
+    const ev = run(sim, 30);
+    expect(ev.some((e) => e.kind === "weapon.reloaded" && e.soldier === gunner)).toBe(false);
+    const wg = sim.state.weapon.req(gunner), wr = sim.state.weapon.req(rifleman);
+    // Same skill and posture, both rested: the gun's telescopic sight helps, and in a burst it climbs far less.
+    for (const m of [gunner, rifleman]) { const s = sim.state.soldier.req(m); s.physical.fatigue = 0; s.physical.heartRateBpm = 70; }
+    wg.burstIndex = 0; wr.burstIndex = 0;
+    expect(aimErrorMrad(sim.ctx, sim.state, gunner, wg, true)).toBeLessThan(aimErrorMrad(sim.ctx, sim.state, rifleman, wr, true));
+    wg.burstIndex = 4; wr.burstIndex = 4;
+    expect(aimErrorMrad(sim.ctx, sim.state, gunner, wg, false)).toBeLessThan(aimErrorMrad(sim.ctx, sim.state, rifleman, wr, false) * 0.5);
+  });
+});

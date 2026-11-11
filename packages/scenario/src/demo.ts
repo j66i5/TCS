@@ -26,6 +26,8 @@ export interface DemoOptions {
   mapSeed?: number;
   timeLimitSeconds?: number;
   orders?: Order[];
+  /** Distance between the two sides, m, centred on the map (default: at 15 % and 85 % of the width). */
+  frontM?: number;
 }
 
 export const SIDES = ["blue", "red"] as const;
@@ -60,7 +62,7 @@ export function demoBattle(data: DataSet, opts: DemoOptions): BattleInput {
     units.forEach((u, ui) => {
       const men = allMembers(u);
       const cy = (height * (ui + 1)) / (per + 1);
-      const x = s === 0 ? width * 0.15 : width * 0.85;
+      const x = opts.frontM !== undefined ? width / 2 + (s === 0 ? -0.5 : 0.5) * opts.frontM : s === 0 ? width * 0.15 : width * 0.85;
       men.forEach((m, mi) => {
         // A loose line, 6 m apart, across the axis of advance; nudged onto open, passable ground.
         const dy = (mi - (men.length - 1) / 2) * 6;

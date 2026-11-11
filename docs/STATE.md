@@ -40,8 +40,8 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
   tables, gravity, air density from temperature; hits on ground, walls, hedges, house walls (doors and windows
   open), chance of being stopped in vegetation; penetration and ricochet per material from published norms;
   impact events; tracers drawn clearly, other bullets very faintly, impact puffs. Cover lab
-  (`npm run lab -- cover`) reproduces the public figures. G36 + DM11/DM21 and AK-74M + 7N10/7T3 in the data.
-  20,000 live bullets + 304 soldiers: about 7× real time here (target 8×; see DECISIONS.md).
+  (`npm run lab -- cover`) reproduces the public figures for 5.56 and 5.45 mm (7.62 mm has no measured anchor). G36 + DM11/DM21 and AK-74M + 7N10/7T3 in the data.
+  20,000 live bullets + 304 soldiers: about 5.5× real time here since bodies and roofs are tested (floor 3×, target 8×; see DECISIONS.md).
 - Research files: `docs/research/ballistics.md` (used) and `docs/research/squads.md` (for the owner's review).
 - **M2.2 the shooter**: soldiers carry a rifle and magazines (G36 x5, AK-74 x6); `fire` and `ceaseFire` orders;
   rounds counted out of magazines, reloads and stoppages as timed actions, empties kept, last magazine held
@@ -70,7 +70,9 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
   Panzerfaust 3 carried, AG36) and a Russian BMP motor-rifle squad (AK-74M, PKP, RPG-7 carried, two GP-25), six
   men each, with itemised loads of 24-44 kg; machine guns fire five-round bursts from belts with a tracer every
   fifth round; the marksman rifle has a telescopic sight.
-- Tests: 274, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **Scripted shoot-out** (`npm run headless -- --scenario shootout`): the two squads 250 m apart fire at each
+  other under a fixed script; it is a golden replay and a test (about 1,000 rounds, both grenades, casualties).
+- Tests: 281, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
@@ -86,7 +88,7 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
 - The phone top bar now wraps onto three rows (interface work is M5).
 - Research values come from search extracts, not from reading the pages; confidence medium at best.
-- The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 7×).
+- The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 5.5×).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
   loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
 - Anti-tank launchers are carried weight only (M7); belts carried by other men cannot be handed over (M4);

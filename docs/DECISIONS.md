@@ -695,3 +695,25 @@ PKP 26 % and 9 %; G28 71 % and 41 % (G36: 60 % and 35 %).
 vehicles); belts carried by other men cannot be handed to the gunner (ammunition sharing, M4); the marksman is
 an ordinary regular with a better rifle (no selection for skill); barrel changes and overheating; the
 assistant does not help the gunner; G95A1 and AK-12 were not added (the owner chose G36 and AK-74M as defaults).
+
+## 2026-11-11 — Fixes from the independent M2.5 review (goldens regenerated)
+No rule, determinism or save/load problems. Fixed: **7.62 mm penetrated less than 5.56/5.45 mm at every
+range** (a 41 cm log wall stopped the MG5 where the G36 went through): both 7.62 mm ball rounds are re-anchored
+somewhat above the small calibres (steel-core LPS highest), as game values without a measured anchor, and the
+cover lab test now asserts the ordering. **Machine gunners stopped with a full last belt** (the "keep the last
+magazine" rule, made for rifles): a belt-fed gun reports low ammunition when the last belt goes in and then
+fires it; belts are not swapped in lulls. **The scripted shoot-out the roadmap promised was missing**: scenario
+`shootout` (the two squads 250 m apart on farmland; prone, fire, one grenade each, cease fire at 150 s) with a
+test and a golden replay — in 180 s about 1,030 rounds (MG5 240, PKP 235, G28 60), two grenades, a handful of
+hits on prone men. Loader now rejects a belt whose tracer the weapon has no muzzle velocity for (and the
+engine falls back to ball instead of silently not firing), and an unknown `demoTemplate`. The sim's
+faction-neutral test catalog has a belt-fed gun with a telescopic sight, so sustained fire, belt tracers and
+the last-belt rule are tested without real factions. Prone throw (15 m) and the 8 m safety distance are pinned
+by a test. Corrections to earlier text: the Russian RPG gunner carries 4 magazines (120 rounds), the others
+180; the bullet benchmark is at about 5.5x, not 7x.
+**For the owner to know:** with the 8 m safety distance, a prone squad throwing 8-14 m on open ground has
+about one of its own men wounded per throw (the reviewer's probe: 7-18 own wounded in 12 throws) — it follows
+from the numbers chosen and the fragmentation table, and argues for throwing from behind cover.
+**Recorded:** a belt is a container of ball rounds in which every fifth is fired as a tracer (totals are
+conserved; tracers are not separate counted items); inside 30 m the machine gun's fixed burst interval gives
+it a lower rate than a rifle's close-range bursts.

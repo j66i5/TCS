@@ -10,6 +10,8 @@ export const testCatalog: Catalog = {
     ball: { id: "ball", massKg: 0.012, category: "ammunition" },
     mag: { id: "mag", massKg: 0.1, category: "magazine", chargeCapacity: 30, chargeMassKg: 0.012, chargeItem: "ball" },
     brick: { id: "brick", massKg: 2, category: "supply" },
+    tball: { id: "tball", massKg: 0.012, category: "ammunition" },
+    belt: { id: "belt", massKg: 1, category: "magazine", chargeCapacity: 50, chargeMassKg: 0.012, chargeItem: "ball", tracerItem: "tball", tracerEvery: 5 },
     bomb: { id: "bomb", massKg: 0.4, category: "ammunition" },
     shard: { id: "shard", massKg: 0.0001, category: "ammunition" },
     shell: { id: "shell", massKg: 0.23, category: "ammunition" },
@@ -37,10 +39,16 @@ export const testCatalog: Catalog = {
     bomb: { id: "bomb", calibre: "hand-grenade", kind: "fragmentation", projectileMassKg: 0.4, cartridgeMassKg: 0.4, diameterM: 0.057, drag: { a: 0.5, b: 0, max: 0.6 }, penetration: { steelMm: 0, atVelocityMps: 100 }, tracer: false, fuse: "time", guidance: "unguided", explosive: { fillingKg: 0.06, fragmentCount: 3000, fragmentAmmo: "shard", fragmentVelocityMps: [1000, 1400], fuseSeconds: 4 }, delivery: { method: "thrown" } },
     shard: { id: "shard", calibre: "fragment", kind: "fragment", projectileMassKg: 0.0001, cartridgeMassKg: 0.0001, diameterM: 0.003, drag: { a: 0.9, b: 0, max: 1 }, penetration: { steelMm: 1.5, atVelocityMps: 1000 }, tracer: false, fuse: "none", guidance: "unguided" },
     shell: { id: "shell", calibre: "40", kind: "fragmentation", projectileMassKg: 0.2, cartridgeMassKg: 0.23, diameterM: 0.04, drag: { a: 0.5, b: 0, max: 0.6 }, penetration: { steelMm: 0, atVelocityMps: 100 }, tracer: false, fuse: "impact", guidance: "unguided", explosive: { fillingKg: 0.032, fragmentCount: 300, fragmentAmmo: "shard", fragmentVelocityMps: [1000, 1400], armingSeconds: 0.25 }, delivery: { method: "launched", velocityMps: 76, launcher: "tube", maxRangeM: 350 } },
+    tball: { id: "tball", calibre: "5.56x45", kind: "tracer", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 2.5, atVelocityMps: 325 }, tracer: true, fuse: "none", guidance: "unguided" },
     ball: { id: "ball", calibre: "5.56x45", kind: "ball", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 3.5, atVelocityMps: 325, breakupVelocityMps: 724 }, tracer: false, fuse: "none", guidance: "unguided" },
   },
-  ammoIds: ["ball", "bomb", "shard", "shell"],
+  ammoIds: ["ball", "bomb", "shard", "shell", "tball"],
   weapons: {
+    gun: {
+      id: "gun", type: "machine-gun", calibre: "5.56x45", massKg: 9, feed: { magazine: "belt" }, fireModes: ["auto"], cyclicRpm: 720,
+      dispersionMrad: 0.8, reloadSeconds: 6, setupSeconds: 0, jamProbability: 0, sights: [{ kind: "telescopic", magnification: 4 }], ammo: { ball: 900, tball: 900 },
+      sustained: { burstRounds: 5, intervalS: 2, recoilFactor: 0.3 },
+    },
     rifle: {
       id: "rifle", type: "rifle", calibre: "5.56x45", massKg: 3.6, feed: { magazine: "mag" }, fireModes: ["semi", "auto"], cyclicRpm: 750,
       dispersionMrad: 0.4, reloadSeconds: 3, setupSeconds: 0, jamProbability: 0, sights: [{ kind: "iron", magnification: 1 }], ammo: { ball: 920 },
@@ -49,7 +57,7 @@ export const testCatalog: Catalog = {
   shooting: {
     aim: {
       baseMrad: 1.13, skillSlope: 2, minSkillFactor: 0.3, postureFactor: { prone: 1, crouching: 1.5, standing: 2.2 }, fatigueK: 1.5,
-      heartRateK: 0.6, heartRateCalmBpm: 100, suppressionK: 3, rapidFactor: 1.6, burstGrowth: 0.8, sightFactor: { iron: 1 }, rangeErrorFraction: 0.12,
+      heartRateK: 0.6, heartRateCalmBpm: 100, suppressionK: 3, rapidFactor: 1.6, burstGrowth: 0.8, sightFactor: { iron: 1, telescopic: 0.7 }, rangeErrorFraction: 0.12,
     },
     fire: {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],

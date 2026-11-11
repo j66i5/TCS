@@ -67,5 +67,6 @@ export function readGoldens(): GoldenFile[] {
 /** The set of goldens that should exist. Add new ones here. */
 export const GOLDEN_SPECS: { name: string; description: string; scenario: string; seed: number; seconds: number }[] = [
   { name: "demo-s1", description: "Demo scenario, seed 1, 120 s, wander orders", scenario: "demo", seed: 1, seconds: 120 },
+  { name: "shootout-s1", description: "Scripted shoot-out of the two real squads, seed 1, 180 s", scenario: "shootout", seed: 1, seconds: 180 },
   { name: "fixture-s7", description: "Fixture faction vs DE, seed 7, 90 s", scenario: "demo-fixture", seed: 7, seconds: 90 },
 ];

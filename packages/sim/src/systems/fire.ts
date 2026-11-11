@@ -105,7 +105,8 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const s = state.soldier.req(id), t = state.transform.req(id);
   // A belt mixes in a tracer every few rounds.
   const magDef = ctx.catalog.items[w.magazine!.item];
-  const ammoId = (magDef?.tracerItem !== undefined && magDef.tracerEvery !== undefined && w.magazine!.rounds % magDef.tracerEvery === 0 ? magDef.tracerItem : magDef?.chargeItem) ?? "";
+  const tracerDue = magDef?.tracerItem !== undefined && magDef.tracerEvery !== undefined && w.magazine!.rounds % magDef.tracerEvery === 0 && wd.ammo[magDef.tracerItem] !== undefined;
+  const ammoId = (tracerDue ? magDef!.tracerItem : magDef?.chargeItem) ?? "";
   const v0 = wd.ammo[ammoId];
   if (v0 === undefined) return;
   const a0 = atan2(task.y - t.y, task.x - t.x);
@@ -146,7 +147,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
     const wd = ctx.catalog.weapons[w.weapon];
     const capacity = wd ? (ctx.catalog.items[wd.feed.magazine]?.chargeCapacity ?? 0) : 0;
-    if (wd && w.magazine.rounds <= capacity * F.topUpBelowFraction && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {
+    // (Belts are not swapped in lulls: a belt change takes long and a part-used belt is not put away.)
+    if (wd && !wd.sustained && w.magazine.rounds <= capacity * F.topUpBelowFraction && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {
       startAction(state, events, id, "reload", secondsToTicks(wd.reloadSeconds), {});
     }
   }
@@ -176,7 +178,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       continue;
     }
     if (spare <= 0) {
-      // Only the magazine in the weapon is left: he keeps it and reports.
+      // Only the magazine in the weapon is left: he keeps it and reports. (A machine gunner reports too, but
+      // fires his last belt: the rule was made for rifle magazines, and a gun with a belt in it is no reserve.)
       // One report per unit, not one per man.
       const top = topUnit(state, id);
       const already = top !== null && unitSoldiers(state, top).some((m) => m !== id && state.weapon.get(m)?.lowAmmoReported === true);
@@ -185,8 +188,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
         w.lowAmmoRadioed = true;
         events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
-      stop("ammunition");
-      continue;
+      if (!wd.sustained) { stop("ammunition"); continue; }
     }
     if (tick < w.nextShotTick) continue;
     const me = state.transform.req(id);

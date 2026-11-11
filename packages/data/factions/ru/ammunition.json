@@ -195,8 +195,8 @@
         "max": 0.5
       },
       "penetration": {
-        "steelMm": 4.5,
-        "atVelocityMps": 450
+        "steelMm": 5.5,
+        "atVelocityMps": 325
       },
       "tracer": false,
       "fuse": "none",
@@ -205,7 +205,7 @@
         "https://en.wikipedia.org/wiki/7.62%C3%9754mmR"
       ],
       "confidence": "low",
-      "note": "7.62 mm x 54 R light ball with mild-steel core (57-N-323S class): 9.6 g. Drag fitted to typical published velocities (825 -> about 600 m/s at 300 m). Penetration is a game value somewhat above the lead-core NATO ball."
+      "note": "7.62 mm x 54 R light ball with mild-steel core (57-N-323S class): 9.6 g. Drag fitted to typical published velocities (825 -> about 600 m/s at 300 m). Penetration is a game value somewhat above the lead-core NATO ball. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
     },
     {
       "id": "ru-762r-t46",
@@ -222,8 +222,8 @@
       },
       "tracerBurnoutM": 1000,
       "penetration": {
-        "steelMm": 3,
-        "atVelocityMps": 450
+        "steelMm": 3.8,
+        "atVelocityMps": 325
       },
       "tracer": true,
       "fuse": "none",
@@ -232,7 +232,7 @@
         "https://en.wikipedia.org/wiki/7.62%C3%9754mmR"
       ],
       "confidence": "low",
-      "note": "7.62 mm x 54 R tracer (T-46 class) for belts, every fifth round. Derived from the ball round. Game abstraction."
+      "note": "7.62 mm x 54 R tracer (T-46 class) for belts, every fifth round. Derived from the ball round. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
     }
   ]
 }

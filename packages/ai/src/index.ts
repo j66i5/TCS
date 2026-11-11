@@ -40,3 +40,4 @@ export function wanderController(side: SideId, seed: number, map: { widthM: numb
     loadState: (data) => { rng = JSON.parse(JSON.stringify(data)) as RngState; },
   };
 }
+export * from "./shootout";

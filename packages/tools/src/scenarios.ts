@@ -1,7 +1,7 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
 import { demoBattle } from "@tcs/scenario";
-import { wanderController } from "@tcs/ai";
+import { shootoutController, wanderController } from "@tcs/ai";
 import type { BattleInput, Controller } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 
@@ -34,6 +34,11 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     description: "The same two squads on a flat, empty 400 x 300 m map.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds }),
     controllers: wanderBoth,
+  },
+  shootout: {
+    description: "M2 demonstration: the two squads 250 m apart on a generated farmland map under a fixed script (prone, fire, one grenade each, cease fire after 150 s).",
+    build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "farmland", mapWidthM: 800, mapHeightM: 600, frontM: 250 }),
+    controllers: () => [shootoutController("blue"), shootoutController("red")],
   },
   "demo-fixture": {
     description: "Made-up fixture faction (xf) vs Germany: proves factions are pure data.",

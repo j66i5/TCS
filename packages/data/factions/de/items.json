@@ -93,6 +93,99 @@
       "sources": [],
       "confidence": "low",
       "note": "Under-barrel 40 mm grenade launcher, about 1.5 kg. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
+    },
+    {
+      "id": "de-mg5-belt",
+      "nameKey": "item.de-mg5-belt",
+      "category": "magazine",
+      "massKg": 1.1,
+      "chargeCapacity": 120,
+      "chargeMassKg": 0.024,
+      "chargeItem": "de-762-dm111",
+      "tracerItem": "de-762-dm21",
+      "tracerEvery": 5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_MG5"
+      ],
+      "confidence": "low",
+      "note": "120-round belt in a soft pouch; links counted in the belt mass; every fifth round tracer. Belt length and pouch mass are game values. Links counted in the empty mass."
+    },
+    {
+      "id": "de-g28-mag",
+      "nameKey": "item.de-g28-mag",
+      "category": "magazine",
+      "massKg": 0.2,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.024,
+      "chargeItem": "de-762-dm111",
+      "sources": [
+        "https://www.imfdb.org/wiki/Heckler_%26_Koch_G28"
+      ],
+      "confidence": "low",
+      "note": "20-round polymer magazine (published); mass estimated."
+    },
+    {
+      "id": "de-pzf3",
+      "nameKey": "item.de-pzf3",
+      "category": "anti-tank",
+      "massKg": 15.2,
+      "sources": [],
+      "confidence": "low",
+      "note": "Panzerfaust 3 with one round, carried: about 15 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
+    },
+    {
+      "id": "de-water",
+      "nameKey": "item.de-water",
+      "category": "kit",
+      "massKg": 1.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Two litres of water in canteens or a bladder. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "de-rations",
+      "nameKey": "item.de-rations",
+      "category": "kit",
+      "massKg": 0.8,
+      "sources": [],
+      "confidence": "low",
+      "note": "One day of rations. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "de-ifak",
+      "nameKey": "item.de-ifak",
+      "category": "kit",
+      "massKg": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Individual first-aid kit (tourniquet, dressings); used by the medical system in M10. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "de-webbing",
+      "nameKey": "item.de-webbing",
+      "category": "kit",
+      "massKg": 3.2,
+      "sources": [],
+      "confidence": "low",
+      "note": "Load-carrying vest or belt kit, pouches, small pack, weather clothing, tools. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "de-nvg",
+      "nameKey": "item.de-nvg",
+      "category": "kit",
+      "massKg": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Night-vision goggle; used by sensors in M9. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+    },
+    {
+      "id": "de-radio",
+      "nameKey": "item.de-radio",
+      "category": "kit",
+      "massKg": 0.9,
+      "sources": [],
+      "confidence": "low",
+      "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
     }
   ]
 }

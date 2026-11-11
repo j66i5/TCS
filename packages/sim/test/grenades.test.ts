@@ -50,7 +50,7 @@ describe("throwing a hand grenade", () => {
     for (const m of unit.members) expect(sim.state.soldier.req(m).stunnedUntilTick).toBe(0);
   });
 
-  it("throw range depends on posture (about 30 m standing, 11 m prone): out of range is answered 'unable'", () => {
+  it("throw range depends on posture (about 30 m standing, 15 m prone): out of range is answered 'unable'; a prone man can throw 13 m, and 9 m is not too close (owner decisions)", () => {
     const far = createSim(setup(25));
     const [uid] = unitOf(far, "blue");
     submitOrder(far, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
@@ -59,6 +59,17 @@ describe("throwing a hand grenade", () => {
     const ev = run(far, 8);
     expect(ev.filter((e) => e.kind === "radio").map((e) => (e.kind === "radio" ? e.key : ""))).toContain("radio.unable");
     expect(ev.some((e) => e.kind === "grenade.launched")).toBe(false);
+    // Prone, 13 m: inside the 15 m prone range and beyond the 8 m safety distance.
+    const prone = createSim(setup(100));
+    const [pid] = unitOf(prone, "blue");
+    submitOrder(prone, { tick: 0, issuer: "blue", target: pid, kind: "posture", posture: "prone" });
+    run(prone, 6);
+    submitOrder(prone, { tick: prone.state.tick, issuer: "blue", target: pid, kind: "grenade", x: 23, y: 15 });
+    expect(run(prone, 8).some((e) => e.kind === "grenade.launched")).toBe(true);
+    const close = createSim(setup(100));
+    const [cid] = unitOf(close, "blue");
+    submitOrder(close, { tick: 0, issuer: "blue", target: cid, kind: "grenade", x: 19, y: 15 });
+    expect(run(close, 6).some((e) => e.kind === "grenade.launched")).toBe(true);
     // Too close is refused as well (his own fragments).
     const near = createSim(setup(25));
     const [nid] = unitOf(near, "blue");

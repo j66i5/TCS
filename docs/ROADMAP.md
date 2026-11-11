@@ -42,7 +42,7 @@ Proposed slices (to confirm at the start of M1):
 Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
 motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
-### M2 Ballistics and wounds — 🔨 in progress (M2.1–M2.4 done)
+### M2 Ballistics and wounds — ✅ done (M2.1–M2.5, 2026-11-11)
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,
 small arms and grenades for both factions.
 Acceptance: firing range, cover and fragmentation labs produce plausible tables; performance floor holds
@@ -69,7 +69,7 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
    launchers; fuses; fragments spawned as projectiles with a velocity spread; blast by distance with shielding
    by obstacles; craters and wall breaches written to terrain damage (and read by navigation);
    **fragmentation lab** (casualty radius by posture and cover); 20,000-fragment benchmark.
-5. ⏳ **M2.5 Squads and kit data** — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
+5. ✅ **M2.5 Squads and kit data** (2026-11-11; G95A1 and AK-12 not added, anti-tank launchers carried only) — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
    motor-rifle squad; rifles (G36 default, G95A1; AK-74M default, AK-12), machine guns, marksman rifles,
    grenade launchers, grenades, magazines and belts, helmets and plate carriers, each with sources and
    confidence; itemised loads replace the 24 kg placeholder; DATA_GUIDE sections for weapons and ammunition;
@@ -78,7 +78,7 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
 Needed from the owner: the two squad tables (roles, ranks, weapons; ammunition loads if he wants to set them)
 before M2.5; review of the casualty lab table after M2.3.
 
-### M3 Spotting and knowledge — ⬜
+### M3 Spotting and knowledge — ⏳ next
 Line of sight, detection, per-soldier contacts, sharing, fog of war in the renderer.
 Acceptance: spotting lab passes; the player view shows only reported contacts.
 

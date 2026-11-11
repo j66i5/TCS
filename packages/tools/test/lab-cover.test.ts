@@ -76,6 +76,23 @@ describe("published penetration figures, at the ranges the sources give", () => 
     for (const range of [25, 50, 100]) expect(robust(DM11, "wood", 0.41, range)).toBe(true);
   });
 
+  it("7.62 mm (machine guns, marksman rifle) defeats cover at least as well as the small calibres (review finding: it was weaker)", () => {
+    const M762 = "de-762-dm111", LPS = "ru-762r-lps";
+    // About the same speed at 500 m with more than twice the bullet mass: far more energy.
+    expect(v(M762, 500).speedMps).toBeGreaterThan(v(DM11, 500).speedMps * 0.95);
+    // A log wall at 300 m and a 9.5 mm steel door at 100 m: whatever the small calibre goes through, 7.62 does too.
+    for (const [small, big] of [[DM11, M762], [N10, LPS]] as const) {
+      for (const [material, thick, range] of [["wood", 0.41, 100], ["wood", 0.41, 300], ["steel", 0.0095, 100]] as const) {
+        if (robust(small, material, thick, range) === true) expect(robust(big, material, thick, range)).toBe(true);
+      }
+    }
+    expect(robust(M762, "wood", 0.41, 300)).toBe(true);
+    expect(robust(LPS, "steel", 0.0095, 300)).toBe(true);
+    // Residual speed behind the same log wall at 300 m is higher for 7.62 than for 5.56.
+    const row = (ammo: string) => r.cover.find((c) => c.ammo === ammo && c.rangeM === 300 && c.panel.includes("log"))!;
+    expect(row(M762).speedOutMps).toBeGreaterThan(row(DM11).speedOutMps);
+  });
+
   it("5.45 mm steel-core goes through 11 cm of brickwork at 100 m (Russian norm for the weaker 7N6: 10-12 cm), not at 300 m", () => {
     expect(robust(N10, "brick", 0.11, 100)).toBe(true);
     expect(robust(N10, "brick", 0.11, 300)).toBe(false);

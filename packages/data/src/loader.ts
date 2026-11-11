@@ -249,6 +249,10 @@ function loadFaction(
       }
     }
   });
+  itemsF.items.forEach((it, i) => {
+    if ((it.tracerItem === undefined) !== (it.tracerEvery === undefined)) errors.push({ file: f("items.json"), path: `items[${i}].tracerItem`, message: "tracerItem and tracerEvery belong together", severity: "error" });
+    if (it.tracerItem !== undefined && !ammoF.ammunition.some((a) => a.id === it.tracerItem && a.tracer)) errors.push({ file: f("items.json"), path: `items[${i}].tracerItem`, message: `'${it.tracerItem}' is not a tracer ammunition of this faction`, severity: "error" });
+  });
   // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
   const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({
     id: a.id, nameKey: a.nameKey, category: "ammunition", massKg: a.cartridgeMassKg,
@@ -290,6 +294,10 @@ function loadFaction(
         errors.push({ file: f("items.json"), path: `${mag.id}.chargeMassKg`, message: `${mag.chargeMassKg} kg per round, but '${round.id}' weighs ${round.cartridgeMassKg} kg: a magazine and its loose rounds must weigh the same`, severity: "error" });
       }
     }
+    const belt = itemsF.items.find((it) => it.id === wp.feed.magazine);
+    if (belt?.tracerItem !== undefined && wp.ammo[belt.tracerItem] === undefined) {
+      errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo`, message: `the belt '${belt.id}' mixes in '${belt.tracerItem}', but this weapon lists no muzzle velocity for it`, severity: "error" });
+    }
     const ids = Object.keys(wp.ammo);
     if (ids.length === 0) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo`, message: "a weapon needs at least one kind of ammunition", severity: "error" });
     for (const a of ids) {
@@ -301,6 +309,9 @@ function loadFaction(
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });
     }
   });
+  if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
+    errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });
+  }
   unitsF.units.forEach((u, i) => {
     const p = `units[${i}]`;
     if (u.leaderIndex >= u.members.length) {

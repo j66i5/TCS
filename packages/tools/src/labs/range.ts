@@ -71,7 +71,7 @@ export function fireAtBoard(catalog: Catalog, c: RangeCase, seed = 1): RangeRow 
 
 export const SKILLS = { conscript: 0.35, regular: 0.5, veteran: 0.65 } as const;
 
-export function rangeLab(data: DataSet): { byRange: RangeRow[]; byPosture: RangeRow[]; bySkill: RangeRow[]; byFatigue: RangeRow[] } {
+export function rangeLab(data: DataSet): { byRange: RangeRow[]; byPosture: RangeRow[]; bySkill: RangeRow[]; byFatigue: RangeRow[]; others: RangeRow[] } {
   const de = buildCatalog(data, ["de"]), ru = buildCatalog(data, ["ru"]);
   const rifles: [Catalog, string][] = [[de, "de-g36"], [ru, "ru-ak74m"]];
   const byRange: RangeRow[] = [], byPosture: RangeRow[] = [], bySkill: RangeRow[] = [], byFatigue: RangeRow[] = [];
@@ -81,7 +81,13 @@ export function rangeLab(data: DataSet): { byRange: RangeRow[]; byPosture: Range
     for (const skill of Object.values(SKILLS)) for (const rangeM of [200, 300]) bySkill.push(fireAtBoard(cat, { weapon, rangeM, posture: "prone", skill }));
     for (const fatigue of [0, 0.5, 0.9]) byFatigue.push(fireAtBoard(cat, { weapon, rangeM: 200, posture: "prone", skill: SKILLS.regular, fatigue }));
   }
-  return { byRange, byPosture, bySkill, byFatigue };
+  // Other squad weapons (M2.5): machine guns fire their bursts, the marksman rifle single aimed shots.
+  const others: RangeRow[] = [];
+  for (const [cat, weapon] of [[de, "de-mg5"], [de, "de-g28"], [ru, "ru-pkp"]] as [Catalog, string][]) {
+    if (!cat.weapons[weapon]) continue;
+    for (const rangeM of [200, 300, 500, 700]) others.push(fireAtBoard(cat, { weapon, rangeM, posture: "prone", skill: SKILLS.regular }));
+  }
+  return { byRange, byPosture, bySkill, byFatigue, others };
 }
 
 export function rangeLabMarkdown(r: ReturnType<typeof rangeLab>): string {
@@ -100,6 +106,8 @@ export function rangeLabMarkdown(r: ReturnType<typeof rangeLab>): string {
     const row = (rg: number) => pct(r.bySkill.find((x) => x.weapon === w && x.skill === s && x.rangeM === rg)!);
     out.push(`| ${w} | ${skillName(s)} | ${row(200)} | ${row(300)} |`);
   }
+  out.push("", "### Machine guns (5-round bursts) and marksman rifle (regular soldier, prone, rested)", "", "| weapon | range m | hits | seconds per shot |", "|---|---:|---:|---:|");
+  for (const x of r.others) out.push(`| ${x.weapon} | ${x.rangeM} | ${pct(x)} | ${x.secondsPerShot.toFixed(1)} |`);
   out.push("", "### By fatigue (regular soldier, prone, 200 m)", "", "| weapon | fatigue | hits |", "|---|---:|---:|");
   for (const x of r.byFatigue) out.push(`| ${x.weapon} | ${x.fatigue} | ${pct(x)} |`);
   return out.join("\n");

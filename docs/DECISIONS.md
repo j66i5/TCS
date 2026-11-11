@@ -666,3 +666,54 @@ review saw throwers wounded at every short distance).
 on roads and floors; the arc solver ignores wind (a 10 m/s head wind costs about 1.5 m); on slopes steeper
 than 60 degrees a grenade keeps skipping until it bursts; a regular lying prone cannot throw at all (11 m
 range against the 12 m safety distance) — the owner may want to change one of the two numbers.
+
+## 2026-11-11 — Owner: prone throw and safety distance; start M2.5
+A regular lying prone throws **15 m** (was 11) and the safety distance is **8 m** (was 12), so prone men can
+throw. M2.5 starts with the research-default squads chosen earlier.
+
+## 2026-11-11 — M2.5 squads and kit data (goldens regenerated)
+**Squads (owner: research defaults, he corrects them afterwards):** unit templates `pzgren-schuetzentrupp`
+(Truppfuehrer G36, MG-Schuetze MG5, Panzerfaustschuetze G36 + Panzerfaust 3, marksman G28, grenadier G36 + AG36,
+Panzergrenadier G36) and `motor-rifle-squad` (squad leader AK-74M, machine gunner PKP, grenadier AK-74M + RPG-7,
+assistant grenadier, senior rifleman AK-74M + GP-25, rifleman AK-74M + GP-25). Ranks per position are guesses.
+A faction's manifest names its `demoTemplate`; the demo scenario and the app start with these squads. The old
+four-man `demo-team` stays for the speed benchmark (304 soldiers, comparable with earlier figures) and tests.
+**Weapons:** MG5 (11.6 kg, 720 rounds/min, 815 m/s; published), PKP (650 rounds/min, belts of 100; mass and
+velocity from memory), G28 (20-round magazine, 3-20x scope, 1.5 MOA; mass and velocity from memory); 7.62 x 51
+and 7.62 x 54 R ball and tracer with drag fitted to typical published velocities (low confidence).
+**New in the engine, all data-driven:** a weapon may have `sustained { burstRounds, intervalS, recoilFactor }`
+— it then fires that burst at every range, without the rapid-fire penalty and with only a share of a rifle's
+climb within a burst (bipod); a belt item may name a `tracerItem` every `tracerEvery` rounds; sight kind
+`telescopic` (aim factor 0.7 against 0.85 for the 3x and 4x sights). **Itemised loads** replace the placeholder
+in the squads: water, rations, first-aid kit, webbing and pack, night-vision goggle (typical masses, not
+sourced), radio for the leader, helmet, vest, weapon, ammunition, grenades. Loads come out at 24-44 kg (the
+Panzerfaust man is heaviest). Machine-gun ammunition follows the cited norms (480 rounds German from the
+"500" quote, 600 Russian), partly carried by other men; rifle rounds 150 per German rifleman (five magazines
+quoted) and 180 per Russian. **Firing range lab** (regular, prone): MG5 per round 33 % at 300 m, 13 % at 500 m;
+PKP 26 % and 9 %; G28 71 % and 41 % (G36: 60 % and 35 %).
+**Not modelled yet:** Panzerfaust 3 and RPG-7 are carried weight only (anti-tank weapons fire from M7, with
+vehicles); belts carried by other men cannot be handed to the gunner (ammunition sharing, M4); the marksman is
+an ordinary regular with a better rifle (no selection for skill); barrel changes and overheating; the
+assistant does not help the gunner; G95A1 and AK-12 were not added (the owner chose G36 and AK-74M as defaults).
+
+## 2026-11-11 — Fixes from the independent M2.5 review (goldens regenerated)
+No rule, determinism or save/load problems. Fixed: **7.62 mm penetrated less than 5.56/5.45 mm at every
+range** (a 41 cm log wall stopped the MG5 where the G36 went through): both 7.62 mm ball rounds are re-anchored
+somewhat above the small calibres (steel-core LPS highest), as game values without a measured anchor, and the
+cover lab test now asserts the ordering. **Machine gunners stopped with a full last belt** (the "keep the last
+magazine" rule, made for rifles): a belt-fed gun reports low ammunition when the last belt goes in and then
+fires it; belts are not swapped in lulls. **The scripted shoot-out the roadmap promised was missing**: scenario
+`shootout` (the two squads 250 m apart on farmland; prone, fire, one grenade each, cease fire at 150 s) with a
+test and a golden replay — in 180 s about 1,030 rounds (MG5 240, PKP 235, G28 60), two grenades, a handful of
+hits on prone men. Loader now rejects a belt whose tracer the weapon has no muzzle velocity for (and the
+engine falls back to ball instead of silently not firing), and an unknown `demoTemplate`. The sim's
+faction-neutral test catalog has a belt-fed gun with a telescopic sight, so sustained fire, belt tracers and
+the last-belt rule are tested without real factions. Prone throw (15 m) and the 8 m safety distance are pinned
+by a test. Corrections to earlier text: the Russian RPG gunner carries 4 magazines (120 rounds), the others
+180; the bullet benchmark is at about 5.5x, not 7x.
+**For the owner to know:** with the 8 m safety distance, a prone squad throwing 8-14 m on open ground has
+about one of its own men wounded per throw (the reviewer's probe: 7-18 own wounded in 12 throws) — it follows
+from the numbers chosen and the fragmentation table, and argues for throwing from behind cover.
+**Recorded:** a belt is a container of ball rounds in which every fifth is fired as a tracer (totals are
+conserved; tracers are not separate counted items); inside 30 m the machine gun's fixed burst interval gives
+it a lower rate than a rifle's close-range bursts.

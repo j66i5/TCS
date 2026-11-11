@@ -82,7 +82,10 @@ describe("cover-seeking routes and formations (M1 acceptance)", () => {
       expect(median).toBeGreaterThan(6);
       expect(median).toBeLessThan(14);
       console.log(`seed ${seed}: furthest any man got from the leader ${maxFromLeader.toFixed(0)} m`);
-      expect(maxFromLeader).toBeLessThan(45); // farthest wedge slot is ~21 m; the leader waits for laggards
+      // Six men (M2.5): the outermost wedge slots are ~30 m from the leader, and it is the man in the last
+      // slot who falls behind when the wedge bends round houses (reviewer's measurement: 55 m and 42 m; the
+      // machine gunner and the Panzerfaust man with ~40 kg stay within 26 m). Four men: under 45 m.
+      expect(maxFromLeader).toBeLessThan(65);
       for (const id of men) expect(sim.state.soldier.req(id).posture).toBe("prone");
     }
   });

@@ -131,6 +131,327 @@
       "sources": [],
       "confidence": "low",
       "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    },
+    {
+      "id": "motor-rifle-squad",
+      "echelon": "squad",
+      "callsign": "Gruppa {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "squad-leader",
+          "rank": "serzhant",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mg-gunner",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-pkp-belt",
+              "count": 3,
+              "charge": 100
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-pkp"
+        },
+        {
+          "role": "at-gunner",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-rpg7",
+              "count": 1
+            },
+            {
+              "item": "ru-pg7vl",
+              "count": 2
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "assistant-at-gunner",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-pkp-belt",
+              "count": 2,
+              "charge": 100
+            },
+            {
+              "item": "ru-pg7vl",
+              "count": 3
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "senior-rifleman",
+          "rank": "yefreytor",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-gp25",
+              "count": 1
+            },
+            {
+              "item": "ru-vog25",
+              "count": 6
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "rifleman-gl",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-pkp-belt",
+              "count": 1,
+              "charge": 100
+            },
+            {
+              "item": "ru-gp25",
+              "count": 1
+            },
+            {
+              "item": "ru-vog25",
+              "count": 6
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf",
+        "https://www.battleorder.org/rus-bmp-platoon"
+      ],
+      "confidence": "low",
+      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
     }
   ]
 }

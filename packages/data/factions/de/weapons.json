@@ -34,6 +34,78 @@
       ],
       "confidence": "medium",
       "note": "Mass, rate of fire and muzzle velocity published. Dispersion (about 15 cm groups at 100 m with service ammunition), reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "de-mg5",
+      "nameKey": "weapon.de-mg5",
+      "type": "machine-gun",
+      "calibre": "7.62x51",
+      "massKg": 11.6,
+      "feed": {
+        "magazine": "de-mg5-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 720,
+      "dispersionMrad": 0.8,
+      "reloadSeconds": 8,
+      "setupSeconds": 0,
+      "jamProbability": 0.0003,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 4
+        }
+      ],
+      "ammo": {
+        "de-762-dm111": 815,
+        "de-762-dm21": 815
+      },
+      "sustained": {
+        "burstRounds": 5,
+        "intervalS": 2.5,
+        "recoilFactor": 0.3
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_MG5",
+        "https://www.all4shooters.com/en/defense/heckler-koch-mg5-machine-gun-german-army/"
+      ],
+      "confidence": "medium",
+      "note": "MG5 (HK121): 11.6 kg, 550 mm barrel, 640-800 rounds/min adjustable (middle setting used), about 810-820 m/s (published). Dispersion, belt change time, stoppage rate and the burst pattern (5 rounds every 2.5 s) are game values."
+    },
+    {
+      "id": "de-g28",
+      "nameKey": "weapon.de-g28",
+      "type": "marksman-rifle",
+      "calibre": "7.62x51",
+      "massKg": 7.9,
+      "feed": {
+        "magazine": "de-g28-mag"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 600,
+      "dispersionMrad": 0.15,
+      "reloadSeconds": 3.5,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "telescopic",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "de-762-dm111": 785
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_HK417",
+        "https://www.imfdb.org/wiki/Heckler_%26_Koch_G28"
+      ],
+      "confidence": "low",
+      "note": "G28 (HK417-based marksman rifle): 10- and 20-round magazines, Schmidt & Bender 3-20x50, factory accuracy 1.5 minutes of angle for 10 rounds (published). Mass with scope (about 7.9 kg) and muzzle velocity (about 785 m/s) are from memory of published figures, not confirmed by the search. Fires the ball round here; match ammunition is not modelled."
     }
   ]
 }

@@ -180,6 +180,59 @@
       "sources": [],
       "confidence": "low",
       "note": "One fragment of the munition (game abstraction: all fragments equal). Drag of a rough sphere; penetration is a game value."
+    },
+    {
+      "id": "ru-762r-lps",
+      "nameKey": "ammo.ru-762r-lps",
+      "calibre": "7.62x54R",
+      "kind": "ball",
+      "projectileMassKg": 0.0096,
+      "cartridgeMassKg": 0.0218,
+      "diameterM": 0.00792,
+      "drag": {
+        "a": 0.2,
+        "b": 105,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 5.5,
+        "atVelocityMps": 325
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/7.62%C3%9754mmR"
+      ],
+      "confidence": "low",
+      "note": "7.62 mm x 54 R light ball with mild-steel core (57-N-323S class): 9.6 g. Drag fitted to typical published velocities (825 -> about 600 m/s at 300 m). Penetration is a game value somewhat above the lead-core NATO ball. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
+    },
+    {
+      "id": "ru-762r-t46",
+      "nameKey": "ammo.ru-762r-t46",
+      "calibre": "7.62x54R",
+      "kind": "tracer",
+      "projectileMassKg": 0.0096,
+      "cartridgeMassKg": 0.0218,
+      "diameterM": 0.00792,
+      "drag": {
+        "a": 0.205,
+        "b": 110,
+        "max": 0.5
+      },
+      "tracerBurnoutM": 1000,
+      "penetration": {
+        "steelMm": 3.8,
+        "atVelocityMps": 325
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/7.62%C3%9754mmR"
+      ],
+      "confidence": "low",
+      "note": "7.62 mm x 54 R tracer (T-46 class) for belts, every fifth round. Derived from the ball round. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
     }
   ]
 }

@@ -162,9 +162,15 @@ export const WeaponSchema = withProv({
   reloadSeconds: Num(0.1, 120), setupSeconds: Num(0, 600),
   /** Chance of a stoppage per round fired. */
   jamProbability: Num(0, 0.1),
-  sights: z.array(z.object({ kind: z.enum(["iron", "reflex", "magnified", "night", "thermal"]), magnification: Num(1, 60) }).strict()).min(1),
+  sights: z.array(z.object({ kind: z.enum(["iron", "reflex", "magnified", "telescopic", "night", "thermal"]), magnification: Num(1, 60) }).strict()).min(1),
   /** Ammunition this weapon fires, with its muzzle velocity from this barrel, m/s. */
   ammo: z.record(Id, z.number().positive().max(3000)),
+  /** Machine guns: always fires bursts of this many rounds, this many seconds apart, whatever the range. */
+  sustained: z.object({
+    burstRounds: z.number().int().min(2).max(50), intervalS: Num(0.1, 60),
+    /** How much of a rifle's climb within a burst this weapon shows (bipod and mass hold it down). */
+    recoilFactor: Num(0, 1),
+  }).strict().optional(),
 });
 export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict();
 export type BallisticsT = z.infer<typeof BallisticsFile>;
@@ -333,6 +339,8 @@ export const FactionManifest = withProv({
   formatVersion: z.literal(1),
   /** Default unit quality for generated forces. */
   defaultQuality: Id,
+  /** Unit template the demo scenario and the app start with (default "demo-team"). */
+  demoTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -369,6 +377,8 @@ export const ItemSchema = withProv({
   chargeCapacity: z.number().int().positive().optional(),
   chargeMassKg: z.number().min(0).max(100).optional(),
   chargeItem: Id.optional(),
+  /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
+  tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */
   armour: z.array(z.object({
     zone: z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]),

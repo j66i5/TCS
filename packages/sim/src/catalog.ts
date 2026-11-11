@@ -21,6 +21,9 @@ export interface ItemTypeDef {
   chargeMassKg?: number;
   /** Which ammunition type the charge consists of (for magazines and belts). */
   chargeItem?: DefId;
+  /** Belts: every `tracerEvery`-th round is `tracerItem`. */
+  tracerItem?: DefId;
+  tracerEvery?: number;
   /** Body armour and helmets: zones covered (zone group: "arm" and "leg" cover both sides). */
   armour?: { zone: string; coverageFront: number; coverageSide: number; protectionSteelMm: number }[];
 }
@@ -171,6 +174,8 @@ export interface WeaponDef {
   sights: { kind: string; magnification: number }[];
   /** Ammunition ID -> muzzle velocity from this weapon, m/s. */
   ammo: Record<DefId, number>;
+  /** Machine guns: always fires bursts of this many rounds, this many seconds apart, whatever the range. */
+  sustained?: { burstRounds: number; intervalS: number; recoilFactor: number };
 }
 
 /** Aiming error and fire control parameters (core/shooting.json). */

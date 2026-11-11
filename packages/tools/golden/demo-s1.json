@@ -22,7 +22,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 6,
+   "target": 8,
    "kind": "move",
    "waypoints": [
     {
@@ -48,7 +48,7 @@
   {
    "tick": 3600,
    "issuer": "red",
-   "target": 6,
+   "target": 8,
    "kind": "move",
    "waypoints": [
     {
@@ -60,18 +60,18 @@
   }
  ],
  "checkpoints": {
-  "600": "24944ae71bd4972d",
-  "1200": "921ebd380cec4945",
-  "1800": "ba5ae8b4d58a37d3",
-  "2400": "42b47fc8216c1474",
-  "3000": "bdeb9efc2b0407ce",
-  "3600": "e6a9865ffa8596e7",
-  "4200": "9ee8a5e3df6894b4",
-  "4800": "e4a4bd8a2707ffe5",
-  "5400": "247b4f14c843c412",
-  "6000": "86f6bdcce5b2b715",
-  "6600": "f73ba574cf01420a",
-  "7200": "131f40bfbf5b1a40"
+  "600": "2632d2e4b3e824b0",
+  "1200": "394dfd6f8c0afe69",
+  "1800": "08f9b590c52cc74c",
+  "2400": "15e333c43d9ad8cb",
+  "3000": "368c04d9bb70e2f8",
+  "3600": "208be7ff5d4c964f",
+  "4200": "ee145087c6b8e0cc",
+  "4800": "213b268bf1f39343",
+  "5400": "905f8d4185333ca0",
+  "6000": "ecd5cbf757b0c505",
+  "6600": "802a8f7b82b3e259",
+  "7200": "874f26306d052eeb"
  },
- "catalogFingerprint": "85f67093b26bb05a"
+ "catalogFingerprint": "d91b436d1b571ad1"
 }

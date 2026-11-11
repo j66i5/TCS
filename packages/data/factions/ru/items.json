@@ -4,10 +4,10 @@
       "id": "ru-basic-load",
       "nameKey": "item.ru-basic-load",
       "category": "load",
-      "massKg": 24,
+      "massKg": 18,
       "sources": [],
       "confidence": "low",
-      "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2 itemises weapons and kit. Owner decision 2026-11-11: load counts from M1.3."
+      "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2.5 itemises kit; rifle and magazines are now separate items."
     },
     {
       "id": "ru-ak74-mag",

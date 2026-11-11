@@ -31,6 +31,8 @@ export interface SimContext {
   mapFingerprint: string;
   /** Derived ballistics tables (coarse grids, wall and material properties). Never saved. */
   ballistics: BallisticsCtx;
+  /** Drop tables per ammunition and muzzle velocity (built on first use). Never saved. */
+  dropTables: Record<string, Float32Array>;
   /** Derived navigation grids and search scratch per movement class (built on first use). Never saved. */
   nav: Record<string, { grid: NavGrid; search: NavSearch }>;
   rules: BattleRules;

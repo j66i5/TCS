@@ -88,6 +88,8 @@ export interface Unit {
   comms: CommState;
   /** True while executing a move order (cleared on arrival). */
   moving: boolean;
+  /** True while members are carrying out a fire order. */
+  firing: boolean;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -109,4 +111,32 @@ export interface TerrainState {
   craters: { x: number; y: number; radiusM: number; depthM: number; tick: number }[];
   /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
   vegetationLoss: [number, number][];
+}
+
+/** A soldier's personal weapon. The loaded magazine is here, not in his container, while it is in the weapon. */
+export interface WeaponState {
+  weapon: DefId;
+  magazine: { item: DefId; rounds: number } | null;
+  nextShotTick: number;
+  /** Rounds still to fire in the current burst, and rounds already fired in it (recoil builds up). */
+  burstLeft: number;
+  burstIndex: number;
+  jammed: boolean;
+  lastShotTick: number;
+  /** He has already reported that he is down to his last magazine (reset when he loads a fresh one). */
+  lowAmmoReported: boolean;
+  /** He has sent that report by radio (one report per unit). */
+  lowAmmoRadioed: boolean;
+}
+
+/** A soldier's task to fire at a point (from a fire order). */
+export interface FireTask {
+  x: number;
+  y: number;
+  /** Aim height above the ground at the target point, m. */
+  heightM: number;
+  /** Tick of the last reason to fire at the full rate (the order, incoming fire near the unit). */
+  reasonTick: number;
+  /** His error in judging the range to this target, as a fraction (constant for the task). */
+  rangeError: number;
 }

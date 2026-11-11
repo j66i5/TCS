@@ -39,9 +39,11 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   if (!data.ballistics) throw new Error("core/ballistics.json is missing or invalid");
   const ballistics = noProv(data.ballistics) as Catalog["ballistics"];
   const ammoIds = Object.keys(ammo).sort();
+  if (!data.shooting) throw new Error("core/shooting.json is missing or invalid");
+  const shooting = { aim: noProv(data.shooting.aim), fire: noProv(data.shooting.fire) } as Catalog["shooting"];
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, ammo, ammoIds, weapons };
+  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, ammo, ammoIds, weapons };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 
@@ -74,6 +76,6 @@ export function bodyCatalog(data: DataSet): BodyDef {
     return JSON.parse(JSON.stringify(rest)) as Omit<T, "sources" | "confidence" | "note">;
   };
   const postures = {} as BodyDef["postures"];
-  for (const p of b.postures) postures[p.id] = { heightM: p.heightM, speedFactor: p.speedFactor };
+  for (const p of b.postures) postures[p.id] = { heightM: p.heightM, speedFactor: p.speedFactor, muzzleHeightM: p.muzzleHeightM };
   return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: strip(b.physiology) };
 }

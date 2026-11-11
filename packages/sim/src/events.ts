@@ -26,6 +26,11 @@ export type SimEvent =
       /** Material ID struck; for surface "vegetation" the vegetation kind's ID. */
       material: DefId; ammo: DefId; owner: EntityId;
     }
+  /** dirX, dirY: horizontal unit direction of the shot. */
+  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId }
+  | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
+  | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
+  | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }

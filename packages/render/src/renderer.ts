@@ -27,7 +27,8 @@ export interface Overlay {
 }
 
 /** A short-lived mark where a projectile struck. */
-interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" }
+interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" }
+const FLASH_TICKS = 5;
 const PUFF_TICKS = 24;
 const MAX_PUFFS = 600;
 /** Most non-tracer bullets drawn per frame (they are nearly invisible anyway). */
@@ -139,13 +140,16 @@ export class BattleRenderer {
         if (wp) this.markers.push({ x: wp.x, y: wp.y, seq: e.seq, untilTick: e.deliverTick + 120, delivered: false });
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
+      } else if (e.kind === "shot.fired") {
+        if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
+        this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + FLASH_TICKS, result: "flash" });
       } else if (e.kind === "impact") {
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + PUFF_TICKS, result: e.result });
       }
     }
     this.markers = this.markers.filter((m) => m.untilTick > state.tick);
-    if (this.puffs.length > 0 && this.puffs[0]!.untilTick <= state.tick) this.puffs = this.puffs.filter((p) => p.untilTick > state.tick);
+    if (this.puffs.some((p) => p.untilTick <= state.tick)) this.puffs = this.puffs.filter((p) => p.untilTick > state.tick);
   }
 
   draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
@@ -247,6 +251,10 @@ export class BattleRenderer {
     for (const p of this.puffs) {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
+      if (p.result === "flash") { // muzzle flash: brief and bright
+        g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
+        continue;
+      }
       const age = 1 - (p.untilTick - state.tick) / PUFF_TICKS; // 0 new .. 1 gone
       const colour = p.result === "ricochet" ? 0xffe27a : p.result === "penetrated" ? 0xffffff : 0xcdb894;
       g.circle(sx, sy, 1.5 + 4 * age).fill({ color: colour, alpha: 0.55 * (1 - age) });
@@ -271,7 +279,7 @@ export class BattleRenderer {
         g.moveTo(sx, sy).lineTo(sx - (vx / speed) * len, sy - (vy / speed) * len);
       }
       if (wantTracer) g.stroke({ width: 2, color: 0xffb347, alpha: 0.95 });
-      else g.stroke({ width: 1, color: 0xffffff, alpha: overlay.debug ? 0.6 : 0.1 });
+      else g.stroke({ width: 1, color: 0xffffff, alpha: overlay.debug ? 0.7 : 0.28 });
     }
   }
 

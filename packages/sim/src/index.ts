@@ -12,6 +12,7 @@ export * from "./spatial";
 export * from "./projectiles";
 export * from "./ballistics";
 export { launchProjectile } from "./systems/ballistics";
+export { aimErrorMrad, skillFactor } from "./systems/fire";
 export * from "./hash";
 export * from "./store";
 export * from "./items";

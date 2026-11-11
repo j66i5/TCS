@@ -13,6 +13,9 @@ export interface HudCallbacks {
   onNextMap(): void;
   onSpeed(speed: number): void; // 0 = paused
   onMoveMode(mode: string): void;
+  /** What a tap on the map means: move there, or fire at that point. */
+  onTapMode(mode: "move" | "fire"): void;
+  onCeaseFire(): void;
   /** Formation for the next move orders. */
   onFormation(formation: string): void;
   /** Order the selected unit into a posture. */
@@ -68,6 +71,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     modeBtn.classList.toggle("on", mode !== "walk");
     cb.onMoveMode(mode);
   };
+  let tapMode: "move" | "fire" = "move";
+  const tapBtn = el("button", "hud-btn", s.t("app.tapMove"));
+  tapBtn.onclick = () => {
+    tapMode = tapMode === "move" ? "fire" : "move";
+    tapBtn.textContent = s.t(tapMode === "move" ? "app.tapMove" : "app.tapFire");
+    tapBtn.classList.toggle("on", tapMode === "fire");
+    cb.onTapMode(tapMode);
+  };
+  const ceaseBtn = el("button", "hud-btn", s.t("app.ceaseFire"));
+  ceaseBtn.onclick = () => cb.onCeaseFire();
   const formations = [cb.defaultFormation, ...cb.formations.filter((f) => f !== cb.defaultFormation)];
   let formation = 0;
   const formBtn = el("button", "hud-btn", s.t(`formation.${formations[0]}`));
@@ -91,7 +104,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const mapBtn = el("button", "hud-btn", cb.mapLabel);
   mapBtn.setAttribute("aria-label", s.t("app.map"));
   mapBtn.onclick = () => cb.onNextMap();
-  bar.append(title, clock, ...speedBtns, modeBtn, formBtn, postureBtn, mapBtn, dbgBtn);
+  bar.append(title, clock, ...speedBtns, tapBtn, ceaseBtn, modeBtn, formBtn, postureBtn, mapBtn, dbgBtn);
 
   const hint = el("div", "hud-hint", s.t("app.hint"));
   const log = el("div", "hud-radio");

@@ -1,7 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
-  "app.hint": "Tap the map to send the blue team there. Buttons: pace (walk/run/sneak/crawl), posture, map.",
+  "app.hint": "Tap the map to send the blue team there. 'tap: move' switches to 'tap: fire' - then a tap orders fire at that point.",
   "app.pause": "Pause",
   "app.resume": "Resume",
   "app.speed": "Speed",
@@ -88,5 +88,13 @@
   "formation.file": "file",
   "formation.line": "line",
   "app.formation": "Formation",
-  "material.water": "Water"
+  "material.water": "Water",
+  "radio.ack.fire": "{callsign}: firing.",
+  "radio.ack.ceaseFire": "{callsign}: ceasing fire.",
+  "radio.noTarget": "{callsign}: no target, ceasing fire.",
+  "radio.lowAmmo": "{callsign}: low on ammunition.",
+  "app.tapMove": "tap: move",
+  "app.tapFire": "tap: fire",
+  "app.ceaseFire": "cease fire",
+  "radio.unable": "{callsign}: unable."
 }

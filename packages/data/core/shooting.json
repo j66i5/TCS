@@ -1,0 +1,64 @@
+{
+  "aim": {
+    "baseMrad": 1.13,
+    "skillSlope": 2.0,
+    "minSkillFactor": 0.3,
+    "postureFactor": {
+      "prone": 1.0,
+      "crouching": 1.5,
+      "standing": 2.2
+    },
+    "fatigueK": 1.5,
+    "heartRateK": 0.6,
+    "heartRateCalmBpm": 100,
+    "suppressionK": 3.0,
+    "rapidFactor": 1.6,
+    "burstGrowth": 0.8,
+    "sightFactor": {
+      "iron": 1.0,
+      "reflex": 0.95,
+      "magnified": 0.85,
+      "night": 1.0,
+      "thermal": 0.9
+    },
+    "rangeErrorFraction": 0.12,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decision 2026-11-11: a regular soldier, prone, rested and calm, firing aimed single shots, hits a man-sized standing target about 50 % of the time at 300 m; training level scales it (conscript worse, veteran better). The base error (1.13 mrad at skill 0.5) is set so the firing range lab shows that. Posture, fatigue, heart-rate, suppression, rapid-fire and burst factors are game values to be tuned in the lab and in M4."
+  },
+  "fire": {
+    "bands": [
+      {
+        "maxRangeM": 30,
+        "mode": "burst",
+        "intervalS": 1.0,
+        "burstRounds": 3
+      },
+      {
+        "maxRangeM": 100,
+        "mode": "rapid",
+        "intervalS": 1.0,
+        "burstRounds": 1
+      },
+      {
+        "maxRangeM": 100000,
+        "mode": "aimed",
+        "intervalS": 2.5,
+        "burstRounds": 1
+      }
+    ],
+    "fullRateSeconds": 30,
+    "trickleIntervalS": 10,
+    "trickleSeconds": 60,
+    "incomingRadiusM": 30,
+    "topUpAfterSeconds": 5,
+    "clearStoppageSeconds": 4,
+    "aimPointHeightM": 0.9,
+    "safetyConeDeg": 4,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decision 2026-11-11: rate of fire depends on range (aimed single shots every 2-3 s beyond 100 m, about one shot a second closer, short bursts inside 30 m). A fire order lasts until cease fire, but the unit manages its ammunition: after 30 s without incoming fire near it, it slows to one aimed shot per man every 10 s, and after another 60 s it ceases fire and reports; incoming fire restores the full rate; each man stops when only the magazine in his weapon is left. Men swap a partly used magazine for a fuller one after 5 s without firing. From M3 'expects an enemy' will use what the men see, not only incoming fire.",
+    "topUpBelowFraction": 0.7,
+    "incomingReachM": 800
+  }
+}

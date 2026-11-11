@@ -406,3 +406,52 @@ tests and the screenshot tool (in battles only weapon systems will call it, from
 customary units where the sources do (mm of steel, degrees, rounds per minute, milliradians), named with their
 unit and converted when the battle tables are built. Golden replays were regenerated for M2.1 (new data files
 and state shape) and again for these fixes (data values).
+
+## 2026-11-11 — Owner answers for M2.2 (the shooter)
+**Marksmanship:** a regular soldier, prone, rested and calm, firing aimed single shots, hits a man-sized
+standing target about 50 % of the time at 300 m, and this depends on training level (conscripts worse,
+veterans better). **Rate of fire:** depends on range (aimed single shots every 2–3 s beyond about 100 m, about
+one shot a second closer, short bursts inside about 30 m). **Fire order:** lasts until cease fire, but with
+**ammunition-management authority**: if the unit no longer expects an enemy it slows and then ceases fire by
+itself. Until spotting exists (M3) "expects an enemy" is judged by incoming fire near the unit: 30 s at the
+ordered rate, then one aimed shot per man every 10 s for 60 s, then cease fire and report; incoming fire
+restores the full rate; each man stops when only the magazine in his weapon is left. **Magazines:** men top up
+in lulls already now (swap a partly used magazine for a fuller one after a few seconds without firing).
+Loads from the research: five G36 magazines per German rifleman, six AK-74 magazines (180 rounds) per Russian.
+
+## 2026-11-11 — M2.2 the shooter: model choices
+**Weapons and magazines:** each armed soldier has a weapon state (the magazine in the weapon is held there, not
+in his load, while loaded). Every round fired comes out of that magazine; an empty magazine is exchanged for
+his fullest spare by a timed reload action and the empty one is kept as an item; a stoppage (chance per round
+from the weapon data) is cleared by another timed action. His carried load now includes the weapon and the
+loaded magazine; the aggregate "basic fighting load" placeholder dropped from 24 to 18 kg. **Aiming error:**
+one standard deviation in milliradians = base (1.13 at skill 0.5) x skill factor x posture (prone 1, crouching
+1.5, standing 2.2) x fatigue x pulse x suppression x sight (magnified 0.85) x rapid fire (1.6) x recoil
+growth within a burst, combined with the weapon's own dispersion; plus a per-target error in judging the range
+(12 % at skill 0.5) that shifts the point of aim through a drop table. The base value was set so the firing
+range lab shows the owner's benchmark; the 3x optic gives the G36 about 60 % at 300 m against 49 % for the
+AK-74M with iron sights. Posture, fatigue, pulse and rate factors are game values for the owner to judge from
+the lab table. **Fire order:** `fire` (point, optional aim height) and `ceaseFire`; rate-of-fire bands by range
+and the ammunition-management clock are data (`core/shooting.json`). "Reason to keep firing" is, until M3,
+only incoming enemy rounds striking within 30 m of the unit. **Safety:** a man does not fire when a member of
+his own unit is in front of his muzzle within a 4-degree cone. **Not yet:** nobody is hit (M2.3); men do not
+check whether the ground blocks their line of fire (prone men on rolling ground may shoot into the ground in
+front of them; line of sight arrives in M3); rifle magazines hold ball only, so tracers appear with machine
+guns in M2.5. The screenshot-only volley hook was removed; the app's debug object now only issues orders.
+Golden replays regenerated (new data, weapons in state, schema v5).
+
+## 2026-11-11 — Fixes from the independent M2.2 review (goldens regenerated)
+The reviewer found no rule violations and confirmed ammunition conservation, determinism and that the range
+lab measures real geometric hits. Fixed, each with a test: **incoming fire** now also counts enemy rounds fired
+past the unit (within 30 m of a member, out to 800 m from the muzzle), not only rounds striking within 30 m —
+before, two teams shooting at each other at 180 m both reported "no target" after 90 s; a unit on the slow rate
+now answers within half a second instead of at its next slow shot. **Magazine top-up** happens only when the
+man has no fire task and his magazine is below 70 % (before, men on the slow rate swapped a 29-round magazine
+for a 30 after almost every shot). **Elevation** uses proper angles (aiming at a point far above him put rounds
+metres high). A fire order to men without usable weapons is answered "unable"; a dead or unarmed man ends his
+task with reason "unable", not "ammunition"; "low on ammunition" is reported once per unit. Shot events carry
+the direction of fire. **Honest gaps recorded:** the aiming error does not yet include bracing on cover, time
+spent aiming or target movement (they need cover and targets, M3/M4); nothing interrupts a reload yet except
+losing the weapon (wounds will, M2.3) — an interrupted reload is tested to lose nothing; a man whose line of
+fire is blocked by a comrade only waits (in file formation firing forward only the front man shoots); the range
+lab holds fatigue and pulse constant by writing them directly (a lab harness, not gameplay).

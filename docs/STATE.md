@@ -1,10 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
+_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1 and M2.2 done)._
 
 ## Current milestone
-**M2 Ballistics and wounds** — slice **M2.1 projectile engine: done**. Next slice: **M2.2 the shooter**
-(weapon handling, magazines, reload, aiming error, the fire-at-point order, firing range lab).
+**M2 Ballistics and wounds** — slices **M2.1 projectile engine** and **M2.2 the shooter: done**. Next slice:
+**M2.3 body, armour and wounds** (hit zones, helmet and plates, wound records, bleeding on a realistic clock,
+casualties, friendly fire, casualty lab for the owner's review).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -42,13 +43,22 @@ _Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
   (`npm run lab -- cover`) reproduces the public figures. G36 + DM11/DM21 and AK-74M + 7N10/7T3 in the data.
   20,000 live bullets + 304 soldiers: about 7× real time here (target 8×; see DECISIONS.md).
 - Research files: `docs/research/ballistics.md` (used) and `docs/research/squads.md` (for the owner's review).
-- Tests: 183, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.2 the shooter**: soldiers carry a rifle and magazines (G36 x5, AK-74 x6); `fire` and `ceaseFire` orders;
+  rounds counted out of magazines, reloads and stoppages as timed actions, empties kept, last magazine held
+  back, top-up in lulls; rate of fire by range; aiming error from skill, posture, fatigue, pulse, sight and
+  rate of fire; the unit slows and ceases fire by itself when nothing comes back; muzzle flashes; "tap: fire"
+  and "cease fire" buttons. Firing range lab (`npm run lab -- range`): regular, prone, 300 m: G36 60 %,
+  AK-74M 49 %.
+- Tests: 206, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
-- **Nobody can shoot or be hit yet**: bullets only exist in the labs, the benchmark and a screenshot tool hook
-  (M2.2 adds shooting, M2.3 wounds). Roofs do not stop anything yet (M2.4).
+- **Nobody is hit yet**: bullets pass through people (M2.3 adds wounds). Roofs do not stop anything yet (M2.4).
+- Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
+  into the ground in front of them.
+- Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
+- The phone top bar now wraps onto three rows (interface work is M5).
 - Research values come from search extracts, not from reading the pages; confidence medium at best.
 - The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 7×).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
@@ -62,9 +72,9 @@ _Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
 - The map kinds' recipes are code (they name terrain IDs); terrain *properties* are data. See DECISIONS.md.
 - German/Russian unit templates, roles and doctrine are still placeholders (low confidence).
 
-## Blocked / needs the owner
-1. **Enable GitHub Pages once**: *Settings → Pages → Source: GitHub Actions*, then re-run the latest CI run on
-   `main` (or ask Claude). Until then https://j66i5.github.io/TCS/ does not exist.
+## Live build
+https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge (first successful deploy
+2026-11-11, after the owner enabled GitHub Pages with source "GitHub Actions").
 
 ## Answered by the owner (2026-11-11)
 - First squads: German **Panzergrenadier dismounts of a Puma**; Russian **motor-rifle squad on a BMP**.
@@ -79,7 +89,7 @@ _Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
   cover preference stays **balanced**.
 
 ## Next
-**M2.2 The shooter** (ROADMAP.md, M2 slice 2).
+**M2.3 Body, armour and wounds** (ROADMAP.md, M2 slice 3).
 
 ## Open questions for the owner
 - **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per

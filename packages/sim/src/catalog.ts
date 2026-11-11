@@ -96,7 +96,7 @@ export interface BuildingKindDef {
 
 /** Body model parameters (core/body.json): postures, movement and physiology. All data-driven. */
 export interface BodyDef {
-  postures: Record<"standing" | "crouching" | "prone", { heightM: number; speedFactor: number }>;
+  postures: Record<"standing" | "crouching" | "prone", { heightM: number; speedFactor: number; muzzleHeightM: number }>;
   transitions: { values: Record<string, number>; freeLoadKg: number; slowdownPerKg: number };
   movement: {
     slopeK: number; slopeOffset: number; loadFreeKg: number; loadSpeedPerKg: number; minLoadSpeedFactor: number;
@@ -159,6 +159,21 @@ export interface WeaponDef {
   ammo: Record<DefId, number>;
 }
 
+/** Aiming error and fire control parameters (core/shooting.json). */
+export interface ShootingDef {
+  aim: {
+    baseMrad: number; skillSlope: number; minSkillFactor: number;
+    postureFactor: Record<"standing" | "crouching" | "prone", number>;
+    fatigueK: number; heartRateK: number; heartRateCalmBpm: number; suppressionK: number;
+    rapidFactor: number; burstGrowth: number; sightFactor: Record<string, number>; rangeErrorFraction: number;
+  };
+  fire: {
+    bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
+    fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
+    topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
+  };
+}
+
 export interface TerrainCatalog {
   materials: Record<DefId, MaterialDef>;
   surfaces: Record<DefId, SurfaceDef>;
@@ -200,6 +215,7 @@ export interface Catalog {
   body: BodyDef;
   formations: Record<DefId, FormationDef>;
   ballistics: BallisticsDef;
+  shooting: ShootingDef;
   ammo: Record<DefId, AmmoDef>;
   /** Ammunition IDs in ascending order; projectiles store the index into this list. */
   ammoIds: DefId[];

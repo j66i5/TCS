@@ -146,8 +146,30 @@ hedge, a wooden fence, a car door and a 41 cm log wall, but is stopped by a sing
 or a row of sandbags; the Russian steel-core 5.45 mm bullet also gets through those three at close range, but
 not at 300 m. Double brick, a 45 cm sandbag wall, reinforced concrete and stone walls stop both.
 
-Tracer rounds are drawn as clear orange streaks, all other bullets as very faint ones, and every strike leaves a
-small puff. Nobody can shoot yet and nobody is hit yet: those are the next two slices.
+Tracer rounds are drawn as clear orange streaks, all other bullets as faint ones, and every strike leaves a
+small puff. Nobody is hit yet: that is the next slice.
+
+## Shooting
+
+A soldier's rifle holds one magazine; his other magazines are items in his load. A **fire order** names a point.
+Each man of the unit turns to it and fires at the rate the range calls for: aimed single shots every 2–3
+seconds beyond about 100 m, about a shot a second closer, short bursts inside 30 m. Every shot takes one round
+out of the magazine in his weapon. When it is empty he changes it (about 3 seconds) and keeps the empty one;
+when only the magazine in his weapon is left he stops and reports "low on ammunition". Now and then a weapon
+jams and takes a few seconds to clear. Nobody fires with a comrade in front of his muzzle.
+
+**Where a shot goes** is not looked up in a table. The man has an aiming error — small when he is skilled,
+prone, rested and calm, larger when he is poorly trained, crouching or standing, tired, with a racing pulse, or
+firing fast — and the weapon adds its own scatter. He also has to judge the range, and a wrong guess puts his
+shots high or low. The bullet then simply flies; whether it hits is geometry. On the firing range a regular
+soldier lying down hits a man-sized board about half the time at 300 m (a little better with the G36's optic),
+a veteran about 70 %, a conscript about 40–45 %; standing, about 20–25 %.
+
+**Ammunition management:** the unit decides how long firing makes sense. It fires at the full rate for half a
+minute; if nothing comes back at it, it slows to one aimed shot per man every ten seconds, and after another
+minute it ceases fire and reports "no target". Enemy rounds cracking past or landing near it put it back to the
+full rate at once. In a lull (no fire order) each man swaps a magazine that is less than about two-thirds full
+for a full one and keeps the partly used one.
 
 ## One order, traced step by step
 
@@ -178,7 +200,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 183 automated tests, including:
+- `npm test` runs 206 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

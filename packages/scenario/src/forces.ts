@@ -52,6 +52,7 @@ function buildUnit(
       family,
       rank: slot.rank,
       role: slot.role,
+      ...(slot.weapon === undefined ? {} : { weapon: slot.weapon }),
       skills: sk,
       fatigue: 0,
       stress: 0,

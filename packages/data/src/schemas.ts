@@ -46,7 +46,7 @@ export const StringsFile = z.record(z.string(), z.string());
 // ---------- body (core/body.json): postures, movement and physiology parameters ----------
 const Num = (lo: number, hi: number) => z.number().min(lo).max(hi);
 export const BodyFile = z.object({
-  postures: z.array(withProv({ id: PostureId, heightM: Num(0.1, 2.5), speedFactor: Num(0.05, 1) })).length(3),
+  postures: z.array(withProv({ id: PostureId, heightM: Num(0.1, 2.5), speedFactor: Num(0.05, 1), muzzleHeightM: Num(0.05, 2.5) })).length(3),
   transitions: withProv({
     values: z.record(z.string().regex(/^(standing|crouching|prone)>(standing|crouching|prone)$/), Num(0.05, 10)),
     freeLoadKg: Num(0, 100), slowdownPerKg: Num(0, 0.2),
@@ -135,6 +135,35 @@ export const WeaponsFile = z.object({ weapons: z.array(WeaponSchema) }).strict()
 export type BallisticsT = z.infer<typeof BallisticsFile>;
 export type AmmoT = z.infer<typeof AmmoSchema>;
 export type WeaponT = z.infer<typeof WeaponSchema>;
+
+// ---------- shooting (core/shooting.json): aiming error and fire control ----------
+const PostureFactors = z.object({ standing: Num(0.1, 20), crouching: Num(0.1, 20), prone: Num(0.1, 20) }).strict();
+export const ShootingFile = z.object({
+  aim: withProv({
+    /** Aiming error (one standard deviation, mrad) of a soldier of skill 0.5: prone, rested, calm, aimed fire. */
+    baseMrad: Num(0, 50), skillSlope: Num(0, 10), minSkillFactor: Num(0.05, 1),
+    postureFactor: PostureFactors,
+    fatigueK: Num(0, 10), heartRateK: Num(0, 10), heartRateCalmBpm: Num(40, 200), suppressionK: Num(0, 20),
+    rapidFactor: Num(1, 10), burstGrowth: Num(0, 10),
+    sightFactor: z.record(z.string(), Num(0.1, 3)),
+    /** Error in judging the range (one standard deviation, as a fraction of the range) at skill 0.5. */
+    rangeErrorFraction: Num(0, 1),
+  }),
+  fire: withProv({
+    /** Rate of fire by range: the first band whose maxRangeM is not exceeded applies. */
+    bands: z.array(z.object({
+      maxRangeM: z.number().positive(), mode: z.enum(["aimed", "rapid", "burst"]),
+      intervalS: Num(0.05, 600), burstRounds: z.number().int().min(1).max(50),
+    }).strict()).min(1),
+    fullRateSeconds: Num(0, 3600), trickleIntervalS: Num(0.1, 600), trickleSeconds: Num(0, 3600), incomingRadiusM: Num(1, 500),
+    /** In a lull a man changes a magazine that is below this fraction of full, if he has a fuller one. */
+    topUpBelowFraction: Num(0, 1),
+    /** Enemy rounds fired past a unit within incomingRadiusM, out to this distance from the muzzle, count as incoming fire. */
+    incomingReachM: Num(1, 5000),
+    topUpAfterSeconds: Num(0.5, 600), clearStoppageSeconds: Num(0.1, 120), aimPointHeightM: Num(0, 3), safetyConeDeg: Num(0, 45),
+  }),
+}).strict();
+export type ShootingT = z.infer<typeof ShootingFile>;
 
 // ---------- formations (core/formations.json) ----------
 export const FormationSchema = withProv({
@@ -246,7 +275,12 @@ export const ItemSchema = withProv({
 export const ItemsFile = z.object({ items: z.array(ItemSchema) }).strict();
 
 const LoadEntry = z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict();
-const MemberSlot = z.object({ role: Id, rank: Id, load: z.array(LoadEntry).default([]) }).strict();
+const MemberSlot = z.object({
+  role: Id, rank: Id,
+  /** Personal weapon (weapons.json); its magazines are in `load`. */
+  weapon: Id.optional(),
+  load: z.array(LoadEntry).default([]),
+}).strict();
 export const UnitTemplateSchema = withProv({
   id: Id,
   echelon: Id,

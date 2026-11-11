@@ -28,7 +28,10 @@ export type OrderBody =
   | { kind: "move"; waypoints: Waypoint[]; formation?: DefId }
   | { kind: "halt" }
   /** Stop and take a posture. */
-  | { kind: "posture"; posture: Posture };
+  | { kind: "posture"; posture: Posture }
+  /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
+  | { kind: "fire"; x: number; y: number; heightM?: number }
+  | { kind: "ceaseFire" };
 
 export type OrderKind = OrderBody["kind"];
 

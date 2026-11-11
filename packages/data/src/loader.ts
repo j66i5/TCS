@@ -10,6 +10,7 @@
 import type { z } from "zod";
 import {
   BodyFile, type BodyT, FormationsFile, type FormationT,
+  ShootingFile, type ShootingT,
   AmmunitionFile, BallisticsFile, WeaponsFile, type AmmoT, type BallisticsT, type ItemT as ItemTT, type WeaponT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
@@ -51,6 +52,7 @@ export interface TerrainData {
 }
 
 export interface DataSet {
+  shooting: ShootingT | null;
   ballistics: BallisticsT | null;
   body: BodyT | null;
   formations: Record<string, FormationT>;
@@ -148,7 +150,9 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
   surfs?.surfaces.forEach((s, i) => {
     if (!terrain.materials[s.material]) errors.push({ file: T("surfaces"), path: `surfaces[${i}].material`, message: `unknown material '${s.material}' (known: ${known(terrain.materials)})`, severity: "error" });
   });
+  const shooting = parse(ShootingFile, "core/shooting.json", files["core/shooting.json"], errors);
   const data: DataSet = {
+    shooting,
     ballistics,
     body,
     formations: fm ? indexById(fm.formations, "core/formations.json", "formations", errors) : {},
@@ -284,6 +288,13 @@ function loadFaction(
     }
     u.members.forEach((m, j) => {
       if (!pack.roles[m.role]) errors.push({ file: f("units.json"), path: `${p}.members[${j}].role`, message: `unknown role '${m.role}' (known: ${known(pack.roles)})`, severity: "error" });
+      if (m.weapon !== undefined) {
+        const wd = pack.weapons[m.weapon];
+        if (!wd) errors.push({ file: f("units.json"), path: `${p}.members[${j}].weapon`, message: `unknown weapon '${m.weapon}' (known: ${known(pack.weapons)})`, severity: "error" });
+        else if (!m.load.some((l) => l.item === wd.feed.magazine)) {
+          errors.push({ file: f("units.json"), path: `${p}.members[${j}].load`, message: `carries a ${m.weapon} but no '${wd.feed.magazine}' for it`, severity: "warning" });
+        }
+      }
       if (!pack.ranks[m.rank]) errors.push({ file: f("units.json"), path: `${p}.members[${j}].rank`, message: `unknown rank '${m.rank}' (known: ${known(pack.ranks)})`, severity: "error" });
       m.load.forEach((l, k) => {
         const def = pack.items[l.item];

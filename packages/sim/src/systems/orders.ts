@@ -9,6 +9,8 @@ import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "
 import { atan2, hypot2 } from "../math";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
+import { assignFireTask } from "./fire";
+import type { Unit } from "../components";
 import type { SimState } from "../state";
 
 function sideOf(state: SimState, target: EntityId): string | null {
@@ -36,6 +38,12 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "posture":
       return o.posture === "standing" || o.posture === "crouching" || o.posture === "prone" ? null : "invalid-params";
+    case "fire":
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
+      return null;
+    case "ceaseFire":
+      return null;
   }
 }
 
@@ -86,10 +94,10 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   state.pendingOrders = rest;
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
   for (const p of due) {
-    const ok = applyOrder(ctx, state, p.order, events);
+    const res = applyOrder(ctx, state, p.order, events);
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
-    radioFromTarget(state, p.order.target, ok ? `radio.ack.${p.order.kind}` : "radio.noRoute", events);
-    if (!ok) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
+    radioFromTarget(state, p.order.target, res === true ? `radio.ack.${p.order.kind}` : res === "unable" ? "radio.unable" : "radio.noRoute", events);
+    if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
   }
 }
 
@@ -115,8 +123,8 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   events.emit({ kind: "radio", tick: state.tick, side: unit.side, from, key, params: { callsign: unit.callsign } });
 }
 
-/** Apply a delivered order. Returns false if a move order found no route (nothing changes then). */
-function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean {
+/** Apply a delivered order. Returns false if a move order found no route, "unable" if nobody can carry it out. */
+function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean | "unable" {
   const isUnit = state.unit.has(order.target);
   const soldiers = isUnit ? unitSoldiers(state, order.target) : [order.target];
   switch (order.kind) {
@@ -147,6 +155,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         m.endPosture = null;
         m.endHeading = null;
       };
+      // Moving ends a fire order.
+      endFire(state, order.target, soldiers, "moved", events);
       assign(refId, route.map((w) => ({ ...w })), null);
       followers.forEach((s, k) => {
         const t = state.transform.req(s);
@@ -184,6 +194,24 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
       }
       stopUnit(state, order.target);
+      break;
+    }
+    case "fire": {
+      // Stop where they are and open fire; each man keeps his posture (order a posture first if wanted).
+      stopUnit(state, order.target);
+      let any = false;
+      for (const s of soldiers) {
+        const m = state.mover.get(s);
+        if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
+        if (assignFireTask(ctx, state, s, order.x, order.y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) any = true;
+      }
+      const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
+      if (!any) return "unable"; // nobody there has a weapon he can use
+      if (u !== undefined) topUnitOf(state, u).firing = true;
+      break;
+    }
+    case "ceaseFire": {
+      endFire(state, order.target, soldiers, "ordered", events);
       break;
     }
     case "posture": {
@@ -287,6 +315,27 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
+}
+
+function topUnitOf(state: SimState, unit: EntityId): Unit {
+  let u = state.unit.req(unit);
+  while (u.parent !== null) u = state.unit.req(u.parent);
+  return u;
+}
+
+/** Remove the fire tasks of these soldiers; report once if their unit was firing. */
+function endFire(state: SimState, target: EntityId, soldiers: EntityId[], reason: "ordered" | "moved", events: EventSink): void {
+  let had = false;
+  for (const s of soldiers) if (state.fire.has(s)) { state.fire.delete(s); had = true; }
+  const uid = state.unit.has(target) ? target : state.identity.get(target)?.unit;
+  if (uid === undefined) return;
+  let top = uid;
+  for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;
+  const unit = state.unit.req(top);
+  if (unit.firing && !unitSoldiers(state, top).some((m) => state.fire.has(m))) {
+    unit.firing = false;
+    if (had) events.emit({ kind: "fire.ceased", tick: state.tick, unit: top, reason });
+  }
 }
 
 /** A halted unit is no longer "moving", so no "in position" report follows. */

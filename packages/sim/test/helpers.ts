@@ -7,7 +7,8 @@ export const testCatalog: Catalog = {
   fingerprint: "test",
   items: {
     round: { id: "round", massKg: 0.012, category: "ammunition" },
-    mag: { id: "mag", massKg: 0.1, category: "magazine", chargeCapacity: 30, chargeMassKg: 0.012, chargeItem: "round" },
+    ball: { id: "ball", massKg: 0.012, category: "ammunition" },
+    mag: { id: "mag", massKg: 0.1, category: "magazine", chargeCapacity: 30, chargeMassKg: 0.012, chargeItem: "ball" },
     brick: { id: "brick", massKg: 2, category: "supply" },
   },
   movementModes: {
@@ -28,7 +29,22 @@ export const testCatalog: Catalog = {
     ball: { id: "ball", calibre: "5.56x45", kind: "ball", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 3.5, atVelocityMps: 325, breakupVelocityMps: 724 }, tracer: false, fuse: "none", guidance: "unguided" },
   },
   ammoIds: ["ball"],
-  weapons: {},
+  weapons: {
+    rifle: {
+      id: "rifle", type: "rifle", calibre: "5.56x45", massKg: 3.6, feed: { magazine: "mag" }, fireModes: ["semi", "auto"], cyclicRpm: 750,
+      dispersionMrad: 0.4, reloadSeconds: 3, setupSeconds: 0, jamProbability: 0, sights: [{ kind: "iron", magnification: 1 }], ammo: { ball: 920 },
+    },
+  },
+  shooting: {
+    aim: {
+      baseMrad: 1.13, skillSlope: 2, minSkillFactor: 0.3, postureFactor: { prone: 1, crouching: 1.5, standing: 2.2 }, fatigueK: 1.5,
+      heartRateK: 0.6, heartRateCalmBpm: 100, suppressionK: 3, rapidFactor: 1.6, burstGrowth: 0.8, sightFactor: { iron: 1 }, rangeErrorFraction: 0.12,
+    },
+    fire: {
+      bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],
+      fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
+    },
+  },
   formations: {
     line: { id: "line", slots: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0]] },
     wedge: { id: "wedge", slots: [[0, 0], [-0.71, 0.71], [0.71, 0.71], [-1.42, 1.42], [1.42, 1.42]] },
@@ -50,7 +66,7 @@ export const testCatalog: Catalog = {
     buildings: { house: { id: "house", widthM: [8, 12], depthM: [8, 11], storeys: [1, 2], storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColours: ["#8c4a3b"] } },
   },
   body: {
-    postures: { standing: { heightM: 1.75, speedFactor: 1 }, crouching: { heightM: 1.1, speedFactor: 0.6 }, prone: { heightM: 0.4, speedFactor: 0.25 } },
+    postures: { standing: { heightM: 1.75, speedFactor: 1, muzzleHeightM: 1.45 }, crouching: { heightM: 1.1, speedFactor: 0.6, muzzleHeightM: 0.95 }, prone: { heightM: 0.4, speedFactor: 0.25, muzzleHeightM: 0.25 } },
     transitions: {
       values: { "standing>crouching": 0.5, "crouching>standing": 0.6, "standing>prone": 1, "prone>standing": 1.5, "crouching>prone": 0.7, "prone>crouching": 1 },
       freeLoadKg: 10, slowdownPerKg: 0.02,
@@ -94,4 +110,12 @@ export function testInput(seed = 1, seconds = 60): BattleInput {
     seed,
     orders: [],
   };
+}
+
+/** testInput with every soldier carrying the test rifle (3 magazines of 30: one in the weapon, two spare). */
+export function armedInput(seed = 1, seconds = 600): BattleInput {
+  const input = testInput(seed, seconds);
+  const arm = (u: UnitInput) => { for (const m of u.members) m.weapon = "rifle"; u.subunits.forEach(arm); };
+  for (const f of input.forces) f.units.forEach(arm);
+  return input;
 }

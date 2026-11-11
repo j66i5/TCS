@@ -8,7 +8,7 @@
 import type { Action } from "./components";
 import type { EventSink } from "./events";
 import type { EntityId } from "./ids";
-import { transferItems } from "./items";
+import { addItems, removeItems, transferItems } from "./items";
 import type { SimContext } from "./context";
 import type { SimState } from "./state";
 
@@ -40,8 +40,43 @@ const transferHandler: ActionHandler = {
   },
 };
 
+/** Change magazine: the one in the weapon goes back into the load (even empty), the fullest one goes in. */
+const reloadHandler: ActionHandler = {
+  check(_ctx, state, actor) {
+    return state.weapon.has(actor) ? null : "no-weapon";
+  },
+  complete(ctx, state, actor, _a, events) {
+    const w = state.weapon.req(actor);
+    const wd = ctx.catalog.weapons[w.weapon];
+    const c = state.container.get(actor);
+    if (!wd || !c) return;
+    const best = c.stacks.filter((s) => s.type === wd.feed.magazine).reduce((m, s) => Math.max(m, s.charge ?? 0), 0);
+    if (best <= (w.magazine?.rounds ?? 0)) return; // nothing better to load
+    const taken = removeItems(c, wd.feed.magazine, 1, best)[0];
+    if (!taken) return;
+    if (w.magazine) addItems(c, w.magazine.item, 1, w.magazine.rounds);
+    w.magazine = { item: taken.type, rounds: taken.charge ?? 0 };
+    w.burstLeft = 0; w.burstIndex = 0;
+    w.lowAmmoReported = false;
+    w.lowAmmoRadioed = false;
+    events.emit({ kind: "weapon.reloaded", tick: state.tick, soldier: actor, rounds: w.magazine.rounds });
+  },
+};
+
+/** Clear a stoppage. */
+const clearStoppageHandler: ActionHandler = {
+  check(_ctx, state, actor) {
+    return state.weapon.has(actor) ? null : "no-weapon";
+  },
+  complete(_ctx, state, actor) {
+    state.weapon.req(actor).jammed = false;
+  },
+};
+
 export const ACTION_HANDLERS: Record<string, ActionHandler> = {
   transferItems: transferHandler,
+  reload: reloadHandler,
+  clearStoppage: clearStoppageHandler,
 };
 
 /** Start an action, interrupting any current one. */

@@ -5,6 +5,9 @@
 import type { Strings } from "@tcs/data";
 
 export interface HudCallbacks {
+  /** Formation IDs available (from data) and the faction default shown first. */
+  formations: string[];
+  defaultFormation: string;
   /** Short label of the current map, shown in the bar; tapping the map button calls onNextMap. */
   mapLabel: string;
   onNextMap(): void;
@@ -65,9 +68,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     modeBtn.classList.toggle("on", mode !== "walk");
     cb.onMoveMode(mode);
   };
-  const formations = ["wedge", "file", "line"];
+  const formations = [cb.defaultFormation, ...cb.formations.filter((f) => f !== cb.defaultFormation)];
   let formation = 0;
-  const formBtn = el("button", "hud-btn", s.t("formation.wedge"));
+  const formBtn = el("button", "hud-btn", s.t(`formation.${formations[0]}`));
   formBtn.setAttribute("aria-label", s.t("app.formation"));
   formBtn.onclick = () => {
     formation = (formation + 1) % formations.length;

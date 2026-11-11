@@ -9,15 +9,23 @@ import { atan2, clamp, cos, exp, hypot2, sin } from "../math";
 
 /** Distance a follower may be ahead of or behind his formation slot before adjusting speed, m. */
 const FORMATION_SLACK_M = 3;
+/** The leader slows to half pace while any follower is more than this far behind his slot, m. */
+const LEADER_WAIT_LAG_M = 15;
 import { heightAt } from "../terrain";
 import { loadKg, requestPosture } from "./body";
 import type { SimState } from "../state";
 import { radioFromTarget, unitSoldiers } from "./orders";
+import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
+  // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
+  const worstLag = new Map<EntityId, number>();
+  for (const [, m] of state.mover.entries()) {
+    if (m.formation && m.waypoints.length > 0) worstLag.set(m.formation.leader, Math.max(worstLag.get(m.formation.leader) ?? 0, m.slotLagM));
+  }
   for (const [id, m] of state.mover.entries()) {
     const wp = m.waypoints[0];
     if (!wp) {
@@ -58,7 +66,9 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
     }
-    // Formation keeping: a follower ahead of his slot eases off, one behind it hurries (while the leader moves).
+    // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
+    // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.
+    m.slotLagM = 0;
     if (m.formation) {
       const lm = state.mover.get(m.formation.leader);
       const lt = state.transform.get(m.formation.leader);
@@ -66,10 +76,13 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
         const fx = cos(lt.heading), fy = sin(lt.heading);
         const sx = lt.x - fy * m.formation.rightM - fx * m.formation.backM, sy = lt.y + fx * m.formation.rightM - fy * m.formation.backM;
         const ahead = (t.x - sx) * fx + (t.y - sy) * fy;
+        m.slotLagM = Math.max(0, -ahead);
         if (ahead > FORMATION_SLACK_M) speed *= 0.7;
-        else if (ahead < -FORMATION_SLACK_M) speed *= 1.2;
+        else if (ahead < -FORMATION_SLACK_M) speed = Math.min(speed * 1.2, mode.speedMps * B.postures[posture].speedFactor / B.postures[mode.posture].speedFactor);
       }
     }
+    const lag = worstLag.get(id) ?? 0;
+    if (lag > LEADER_WAIT_LAG_M) speed *= 0.5;
     const step = speed * DT;
     if (dist > 1e-9) t.heading = atan2(dy, dx);
     if (dist <= step) {

@@ -39,6 +39,8 @@ export interface Mover {
   mode: DefId | null;
   /** Formation slot of a follower: offset from the leader in metres (right, back of his heading). */
   formation: { leader: EntityId; rightM: number; backM: number } | null;
+  /** How far behind his slot this follower was last tick (m, 0 if not behind); the leader waits for laggards. */
+  slotLagM: number;
   /** On reaching the last waypoint: take this posture and face this way (halt drill). */
   endPosture: Posture | null;
   endHeading: number | null;

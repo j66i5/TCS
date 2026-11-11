@@ -143,11 +143,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (!m) return;
         m.waypoints = ws;
         m.formation = slot && (slot[0] !== 0 || slot[1] !== 0) ? { leader: refId, rightM: slot[0] * spacing, backM: slot[1] * spacing } : null;
+        m.slotLagM = 0;
+        m.endPosture = null;
+        m.endHeading = null;
       };
       assign(refId, route.map((w) => ({ ...w })), null);
       followers.forEach((s, k) => {
         const t = state.transform.req(s);
-        const slot = formation ? (formation.slots[(k + 1) % formation.slots.length] ?? [0, 0]) : null;
+        const slot = formation ? slotFor(formation.slots, k + 1) : null;
         const ws = slot
           ? formationRoute(ctx, t.x, t.y, ref.x, ref.y, route, slot[0] * spacing, slot[1] * spacing, coverW)
           : personalRoute(ctx, t.x, t.y, t.x - ref.x, t.y - ref.y, route);
@@ -163,7 +166,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const spot = bestCoverNear(grid, last.x, last.y, HALT_COVER_RADIUS_M);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
           const leg = findPath(search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
-          if (leg) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...last, x: leg.points[i]!, y: leg.points[i + 1]! });
+          // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
+          if (leg && leg.cost <= HALT_COVER_RADIUS_M * 2.5) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...last, x: leg.points[i]!, y: leg.points[i + 1]! });
         }
         const fin = m.waypoints[m.waypoints.length - 1]!;
         const ox = fin.x - end.x, oy = fin.y - end.y;
@@ -210,6 +214,13 @@ function routeThrough(ctx: SimContext, x: number, y: number, wps: readonly Waypo
     px = p.goalX; py = p.goalY;
   }
   return out;
+}
+
+/** Slot `i` of a formation; beyond the listed slots, extra men extend the last slot straight back. */
+function slotFor(slots: readonly [number, number][], i: number): [number, number] {
+  if (i < slots.length) return slots[i]!;
+  const last = slots[slots.length - 1]!;
+  return [last[0], last[1] + (i - slots.length + 1)];
 }
 
 /** Radius within which each man looks for cover when the unit halts (owner decision: ~15 m). */

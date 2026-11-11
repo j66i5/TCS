@@ -304,3 +304,16 @@ average about 18 % instead of 13 % of their length in cover — a real but modes
 farmland offers no cover within a 30 % detour; and the halt drill often finds only crops (partial concealment).
 Cover relative to known enemies (dead ground, facing threats) is the bigger lever and comes with spotting (M3)
 and behaviour (M4). Golden replays regenerated.
+
+## 2026-11-11 — Fixes from the independent M1.4 review (goldens regenerated)
+The reviewer found no mechanical defects in routing or determinism but showed that two acceptance tests
+overstated their result. Corrected honestly: the cover-route test now claims "on average more time in cover,
+never much longer" (the effect is modest; the owner decides whether to strengthen it), and the halt test claims
+"prone at the best spot near the slot" (often only crops are within reach). Fixed: the app no longer sends a
+hard-coded "wedge" — until the player picks a formation, each faction's doctrine default applies, and the
+formation button lists the formations from data; catching up to a slot can no longer exceed a man's unimpaired
+pace (fatigue and load penalties stay); the leader slows to half pace while any follower is more than 15 m
+behind his slot (furthest man from the leader in the village test: 35–37 m, was up to 66 m); men beyond the
+formation's slot list extend the last slot backwards instead of stacking on the leader; the halt cover move is
+skipped if the walk to it would be long (behind a wall); leftover end-of-move settings are cleared by new orders.
+Known, recorded: slots are assigned by soldier ID, not by where men stand (men may cross at the start).

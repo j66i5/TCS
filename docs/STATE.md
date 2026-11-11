@@ -44,7 +44,8 @@ armour, wound records, small arms and grenades for both factions; real squad org
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
   loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
 - The 24 kg load is one placeholder item, not real kit (M2).
-- Routes prefer roads only mildly (asphalt is 10 % quicker than grass); they do not yet look for cover (M1.4).
+- Routes prefer roads only mildly (asphalt is 10 % quicker than grass) and cover only modestly (balanced
+  preference; see DECISIONS.md, M1.4) — the owner may choose to strengthen it.
 - **Industrial maps are the plainest**: sparse business-park lots with a few sheds and warehouses each.
 - Wood edges and scrub still show a faint 4 m grid pattern when zoomed in close.
 - The phone top bar wraps onto two rows.

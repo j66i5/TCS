@@ -79,7 +79,7 @@ function addSoldier(
     unit,
   });
   state.transform.set(id, { x: p.x, y: p.y, z: 0, heading: p.heading });
-  state.mover.set(id, { waypoints: [], speedMps: 0, grade: 0, mode: null, formation: null, endPosture: null, endHeading: null });
+  state.mover.set(id, { waypoints: [], speedMps: 0, grade: 0, mode: null, formation: null, slotLagM: 0, endPosture: null, endHeading: null });
   const s: SoldierState = {
     skills: { ...rec.skills },
     posture: "standing",

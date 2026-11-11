@@ -46,9 +46,13 @@ async function main(): Promise<void> {
 
   let speed = 1;
   let moveMode = "walk";
-  let formation = "wedge";
+  /** Undefined until the player picks one: then the faction's doctrine default applies. */
+  let formation: string | undefined;
   const kinds = [...MAP_KINDS, "flat"];
+  const playerFaction = sim.state.sides.find((s) => s.id === playerSide)?.faction ?? "";
   const hud = createHud(hudRoot, strings, {
+    formations: Object.keys(input.catalog.formations).sort(),
+    defaultFormation: input.catalog.factions[playerFaction]?.defaultFormation ?? Object.keys(input.catalog.formations)[0] ?? "",
     mapLabel: `${strings.t(`map.${mapKind ?? "flat"}`)} ${seed}`,
     onNextMap: () => {
       const next = kinds[(kinds.indexOf(mapKind ?? "flat") + 1) % kinds.length]!;
@@ -99,7 +103,7 @@ async function main(): Promise<void> {
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
-      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], formation });
+      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], ...(formation ? { formation } : {}) });
     },
   });
 
@@ -132,7 +136,7 @@ async function main(): Promise<void> {
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
-    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], formation }),
+    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     hash: () => simHash(sim),
     ready: true,

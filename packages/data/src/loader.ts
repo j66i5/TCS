@@ -9,6 +9,7 @@
  */
 import type { z } from "zod";
 import {
+  BodyFile, type BodyT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
@@ -47,6 +48,7 @@ export interface TerrainData {
 }
 
 export interface DataSet {
+  body: BodyT | null;
   terrain: TerrainData;
   movementModes: Record<string, MovementModeT>;
   qualities: Record<string, QualityT>;
@@ -128,7 +130,16 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (!terrain.materials[b.wallMaterial]) errors.push({ file: T("buildings"), path: `buildings[${i}].wallMaterial`, message: `unknown material '${b.wallMaterial}' (known: ${known(terrain.materials)})`, severity: "error" });
   });
 
+  const body = parse(BodyFile, "core/body.json", files["core/body.json"], errors);
+  if (body) {
+    for (const from of ["standing", "crouching", "prone"]) for (const to of ["standing", "crouching", "prone"]) {
+      if (from !== to && body.transitions.values[`${from}>${to}`] === undefined) {
+        errors.push({ file: "core/body.json", path: `transitions.values`, message: `missing posture change '${from}>${to}'`, severity: "error" });
+      }
+    }
+  }
   const data: DataSet = {
+    body,
     terrain,
     movementModes: mm ? indexById(mm.movementModes, "core/movement-modes.json", "movementModes", errors) : {},
     qualities: q ? indexById(q.qualities, "core/qualities.json", "qualities", errors) : {},

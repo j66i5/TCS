@@ -29,5 +29,6 @@
   "rank.de.leutnant.abbr": "Lt",
   "rank.de.oberleutnant": "Oberleutnant",
   "rank.de.oberleutnant.abbr": "OLt",
-  "radio.noRoute": "{callsign}: no route to that point, staying put."
+  "radio.noRoute": "{callsign}: no route to that point, staying put.",
+  "item.de-basic-load": "Basic fighting load"
 }

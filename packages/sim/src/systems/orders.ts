@@ -7,6 +7,7 @@ import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
 import { clearLine, findPath } from "../nav";
 import { navFor } from "../navctx";
+import { requestPosture } from "./body";
 import type { SimState } from "../state";
 
 function sideOf(state: SimState, target: EntityId): string | null {
@@ -30,6 +31,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "halt":
       return null;
+    case "posture":
+      return o.posture === "standing" || o.posture === "crouching" || o.posture === "prone" ? null : "invalid-params";
   }
 }
 
@@ -138,6 +141,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; }
+      }
+      break;
+    }
+    case "posture": {
+      for (const s of soldiers) {
+        const m = state.mover.get(s);
+        if (m) { m.waypoints = []; m.speedMps = 0; }
+        requestPosture(ctx, state, s, order.posture);
       }
       break;
     }

@@ -25,3 +25,4 @@ export * from "./setup";
 export * from "./sim";
 export * from "./run";
 export { unitSoldiers } from "./systems/orders";
+export { loadKg, postureChangeSeconds } from "./systems/body";

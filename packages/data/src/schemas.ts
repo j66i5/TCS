@@ -22,7 +22,14 @@ const withProv = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...
 
 // ---------- core ----------
 export const MovementClass = z.enum(["foot", "wheeled", "tracked"]);
-export const MovementModeSchema = withProv({ id: Id, nameKey: z.string(), class: MovementClass, speedMps: z.number().positive().max(40) });
+export const PostureId = z.enum(["standing", "crouching", "prone"]);
+export const MovementModeSchema = withProv({
+  id: Id, nameKey: z.string(), class: MovementClass, speedMps: z.number().positive().max(40),
+  /** Posture a soldier takes for this mode (vehicles: ignored). */
+  posture: PostureId,
+  /** Work rate of moving in this mode (0 = resting, ~0.85 = running); drives heart rate and fatigue. */
+  exertion: z.number().min(0).max(2),
+});
 export const MovementModesFile = z.object({ movementModes: z.array(MovementModeSchema).min(1) }).strict();
 
 export const SKILL_KEYS = ["marksmanship", "fieldcraft", "medical", "leadership", "experience"] as const;
@@ -35,6 +42,26 @@ export const QualitySchema = withProv({
 export const QualitiesFile = z.object({ qualities: z.array(QualitySchema).min(1) }).strict();
 
 export const StringsFile = z.record(z.string(), z.string());
+
+// ---------- body (core/body.json): postures, movement and physiology parameters ----------
+const Num = (lo: number, hi: number) => z.number().min(lo).max(hi);
+export const BodyFile = z.object({
+  postures: z.array(withProv({ id: PostureId, heightM: Num(0.1, 2.5), speedFactor: Num(0.05, 1) })).length(3),
+  transitions: withProv({
+    values: z.record(z.string().regex(/^(standing|crouching|prone)>(standing|crouching|prone)$/), Num(0.05, 10)),
+    freeLoadKg: Num(0, 100), slowdownPerKg: Num(0, 0.2),
+  }),
+  movement: withProv({
+    slopeK: Num(0, 10), slopeOffset: Num(-0.5, 0.5), loadFreeKg: Num(0, 100), loadSpeedPerKg: Num(0, 0.05),
+    minLoadSpeedFactor: Num(0.1, 1), fatigueSpeedPenalty: Num(0, 1), noRunFatigue: Num(0, 1),
+  }),
+  physiology: withProv({
+    bodyMassKg: Num(30, 150), loadExertionK: Num(0, 5), slopeExertionK: Num(0, 20), sustainable: Num(0, 2),
+    fatigueGainPerS: Num(0, 0.1), recoveryPerS: Num(0, 0.1), hrRestBpm: Num(30, 120), hrMaxBpm: Num(120, 230),
+    hrRiseTauS: Num(1, 600), hrFallTauS: Num(1, 600), heatThresholdC: Num(-50, 60), heatPerC: Num(0, 1),
+  }),
+}).strict();
+export type BodyT = z.infer<typeof BodyFile>;
 
 // ---------- terrain (core/terrain/*.json) ----------
 const Colour = z.string().regex(/^#[0-9a-f]{6}$/i, "colour must be #rrggbb");

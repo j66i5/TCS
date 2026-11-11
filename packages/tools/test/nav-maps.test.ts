@@ -56,13 +56,14 @@ describe("navigation on generated maps", () => {
 
   it("a team ordered through a village walks around the houses (positions checked every tick)", () => {
     for (const seed of [1, 3, 5]) {
-      const input = demoBattle(data, { seed, factions: ["de", "ru"], mapKind: "village", timeLimitSeconds: 900 });
+      const input = demoBattle(data, { seed, factions: ["de", "ru"], mapKind: "village", timeLimitSeconds: 1800 });
       const sim = createSim(input);
       const team = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue")![0];
       // Through the middle of the map (the village) to the far side.
-      submitOrder(sim, { tick: 0, issuer: "blue", target: team, kind: "move", waypoints: [{ x: 1700, y: 1000, mode: "run" }] });
+      // Walking (sustainable with a 24 kg load); running 1.4 km loaded would exhaust them (M1.3 fatigue).
+      submitOrder(sim, { tick: 0, issuer: "blue", target: team, kind: "move", waypoints: [{ x: 1700, y: 1000, mode: "walk" }] });
       let arrived = false;
-      for (let t = 0; t < 60 * 900 && !arrived; t++) {
+      for (let t = 0; t < 60 * 1800 && !arrived; t++) {
         for (const e of step(sim)) if (e.kind === "unit.arrived") arrived = true;
         if (t % 6 === 0) {
           for (const [id, ident] of sim.state.identity.entries()) {

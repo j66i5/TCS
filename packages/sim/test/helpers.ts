@@ -10,7 +10,11 @@ export const testCatalog: Catalog = {
     mag: { id: "mag", massKg: 0.1, category: "magazine", chargeCapacity: 30, chargeMassKg: 0.012, chargeItem: "round" },
     brick: { id: "brick", massKg: 2, category: "supply" },
   },
-  movementModes: { walk: { id: "walk", class: "foot", speedMps: 1.5 }, run: { id: "run", class: "foot", speedMps: 3 } },
+  movementModes: {
+    walk: { id: "walk", class: "foot", speedMps: 1.5, posture: "standing", exertion: 0.25 },
+    run: { id: "run", class: "foot", speedMps: 3, posture: "standing", exertion: 0.85 },
+    crawl: { id: "crawl", class: "foot", speedMps: 0.3, posture: "prone", exertion: 0.5 },
+  },
   qualities: {},
   factions: { fa: { id: "fa", nameKey: "fa", doctrine: {} }, fb: { id: "fb", nameKey: "fb", doctrine: {} } },
   terrain: {
@@ -22,6 +26,19 @@ export const testCatalog: Catalog = {
     vegetation: { wood: { id: "wood", heightM: 15, concealmentPerM: 0.06, stoppingPerM: 0.004, moveCost: { foot: 1.25, wheeled: null, tracked: 3 }, colour: "#2f4a26" } },
     obstacles: { wall: { id: "wall", heightM: 2, thicknessM: 0.25, material: "brick", seeThrough: 0, footCrossTimeS: 6, wheeledCrossable: false, trackedCrossable: true, colour: "#8a5a44" } },
     buildings: { house: { id: "house", widthM: [8, 12], depthM: [8, 11], storeys: [1, 2], storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColours: ["#8c4a3b"] } },
+  },
+  body: {
+    postures: { standing: { heightM: 1.75, speedFactor: 1 }, crouching: { heightM: 1.1, speedFactor: 0.6 }, prone: { heightM: 0.4, speedFactor: 0.25 } },
+    transitions: {
+      values: { "standing>crouching": 0.5, "crouching>standing": 0.6, "standing>prone": 1, "prone>standing": 1.5, "crouching>prone": 0.7, "prone>crouching": 1 },
+      freeLoadKg: 10, slowdownPerKg: 0.02,
+    },
+    // Neutral movement factors so the order tests keep exact speeds (no load, flat ground).
+    movement: { slopeK: 3.5, slopeOffset: 0.05, loadFreeKg: 10, loadSpeedPerKg: 0.006, minLoadSpeedFactor: 0.5, fatigueSpeedPenalty: 0.35, noRunFatigue: 0.9 },
+    physiology: {
+      bodyMassKg: 80, loadExertionK: 0.8, slopeExertionK: 4, sustainable: 0.35, fatigueGainPerS: 0.0062, recoveryPerS: 0.0067,
+      hrRestBpm: 70, hrMaxBpm: 190, hrRiseTauS: 20, hrFallTauS: 45, heatThresholdC: 25, heatPerC: 0.03,
+    },
   },
 };
 

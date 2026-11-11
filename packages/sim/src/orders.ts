@@ -25,7 +25,9 @@ export interface Waypoint {
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */
 export type OrderBody =
   | { kind: "move"; waypoints: Waypoint[] }
-  | { kind: "halt" };
+  | { kind: "halt" }
+  /** Stop and take a posture. */
+  | { kind: "posture"; posture: Posture };
 
 export type OrderKind = OrderBody["kind"];
 

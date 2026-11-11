@@ -166,15 +166,29 @@ export class BattleRenderer {
       const s = worldToScreen(c, p.x, p.y);
       const colour = SIDE_COLOURS[(sideIndex.get(ident.side) ?? 0) % SIDE_COLOURS.length]!;
       const selected = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, ident.unit);
-      if (selected) g.circle(s.x, s.y, r + 4).stroke({ width: 2, color: 0xffffff });
-      g.circle(s.x, s.y, r).fill({ color: colour });
+      // Posture: full disc standing, smaller crouching, a flat oval along the heading when prone.
+      const sol = state.soldier.get(id);
+      const posture = sol?.posture ?? "standing";
+      const pr = posture === "crouching" ? r * 0.8 : r;
+      if (selected) g.circle(s.x, s.y, pr + 4).stroke({ width: 2, color: 0xffffff });
+      if (posture === "prone") {
+        const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+        const L = r * 1.5, Wd = r * 0.6;
+        g.poly([s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd]).fill({ color: colour });
+      } else {
+        g.circle(s.x, s.y, pr).fill({ color: colour });
+      }
+      if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
       const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
       g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       const unit = state.unit.get(ident.unit);
       if (unit && unit.leader === id && c.scale > 0.5) {
         this.label(label++, unit.callsign, s.x + r + 4, s.y - r - 14, colour);
       }
-      if (overlay.debug) this.label(label++, String(id), s.x + r + 2, s.y + 2, 0xffffff);
+      if (overlay.debug && sol && c.scale > 1.5) { // only when zoomed in enough to read
+        // Debug: id, fatigue and heart rate per man.
+        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm`, s.x + r + 2, s.y + 2, 0xffffff);
+      }
     }
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
   }

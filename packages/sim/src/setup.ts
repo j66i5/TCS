@@ -76,10 +76,12 @@ function addSoldier(
     unit,
   });
   state.transform.set(id, { x: p.x, y: p.y, z: 0, heading: p.heading });
-  state.mover.set(id, { waypoints: [], speedMps: 0 });
+  state.mover.set(id, { waypoints: [], speedMps: 0, grade: 0, mode: null });
   const s: SoldierState = {
     skills: { ...rec.skills },
     posture: "standing",
+    postureTo: null,
+    postureDoneTick: 0,
     physical: { fatigue: rec.fatigue, heartRateBpm: 70, hydration: 1 },
     mental: { stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady" },
     physiology: healthyPhysiology(),

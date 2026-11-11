@@ -16,6 +16,7 @@ import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
 } from "./state";
 import { movementSystem } from "./systems/movement";
+import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
 
 export interface Sim {
@@ -68,7 +69,9 @@ export function step(sim: Sim): SimEvent[] {
   receiveOrders(ctx, state, events);
   deliverOrders(ctx, state, events);
   actionSystem(ctx, state, events);
+  postureSystem(ctx, state, events);
   movementSystem(ctx, state, events);
+  physiologySystem(ctx, state);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

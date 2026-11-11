@@ -9,22 +9,42 @@
         {
           "role": "team-leader",
           "rank": "mladshiy-serzhant",
-          "load": []
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "yefreytor",
-          "load": []
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "ryadovoy",
-          "load": []
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "ryadovoy",
-          "load": []
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            }
+          ]
         }
       ],
       "subunits": [],

@@ -4,7 +4,7 @@
       "id": "xf-round",
       "nameKey": "item.xf-round",
       "calibre": "9x99",
-      "kind": "ball",
+      "kind": "tracer",
       "projectileMassKg": 0.008,
       "cartridgeMassKg": 0.012,
       "diameterM": 0.009,

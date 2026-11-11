@@ -15,7 +15,8 @@
       },
       "penetration": {
         "steelMm": 3.5,
-        "atVelocityMps": 425
+        "atVelocityMps": 325,
+        "breakupVelocityMps": 724
       },
       "tracer": false,
       "fuse": "none",
@@ -27,7 +28,7 @@
         "https://forum.cartridgecollectors.org/t/223-5-56-id-reason-for-green-tip/37004"
       ],
       "confidence": "medium",
-      "note": "Drag curve fitted to the published SS109 downrange velocities (914 -> 451 m/s at 500 m). Penetration: 3.5 mm mild steel at 570-640 m (about 425 m/s). Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+      "note": "Drag curve fitted to the published SS109 downrange velocities (914 -> 451 m/s at 500 m). Penetration anchor: 3.5 mm mild steel at 570-640 m (the bullet is at about 340 m/s at 640 m; set slightly lower for margin), which also gives the published 9.5 mm steel door at up to 100 m. Soft-core bullet: against masonry, concrete, soil and wood its penetration does not rise above the 200 m value (US manual: penetration peaks at 200 m, the round breaks up at close range). Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     },
     {
       "id": "de-556-dm21",
@@ -44,7 +45,8 @@
       },
       "penetration": {
         "steelMm": 2.5,
-        "atVelocityMps": 425
+        "atVelocityMps": 325,
+        "breakupVelocityMps": 724
       },
       "tracer": true,
       "fuse": "none",

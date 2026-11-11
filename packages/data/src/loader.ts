@@ -217,6 +217,14 @@ function loadFaction(
   const ammoF = files[f("ammunition.json")] === undefined ? { ammunition: [] } : parse(AmmunitionFile, f("ammunition.json"), files[f("ammunition.json")], errors);
   const weaponsF = files[f("weapons.json")] === undefined ? { weapons: [] } : parse(WeaponsFile, f("weapons.json"), files[f("weapons.json")], errors);
   if (!ammoF || !weaponsF) return null;
+  ammoF.ammunition.forEach((a, i) => {
+    if (itemsF.items.some((it) => it.id === a.id)) {
+      errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
+    }
+    if ((a.kind === "tracer") !== a.tracer && (a.kind === "tracer" || a.kind === "ball")) {
+      errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].tracer`, message: `kind '${a.kind}' and tracer ${a.tracer} contradict each other`, severity: "error" });
+    }
+  });
   // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
   const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({
     id: a.id, nameKey: a.nameKey, category: "ammunition", massKg: a.cartridgeMassKg,
@@ -248,11 +256,22 @@ function loadFaction(
   });
   weaponsF.weapons.forEach((wp, i) => {
     const mag = pack.items[wp.feed.magazine];
-    if (!mag) errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `unknown item '${wp.feed.magazine}'`, severity: "error" });
+    const magPath = `weapons[${i}].feed.magazine`;
+    if (!mag) errors.push({ file: f("weapons.json"), path: magPath, message: `unknown item '${wp.feed.magazine}'`, severity: "error" });
+    else if (mag.chargeItem === undefined || mag.chargeCapacity === undefined) {
+      errors.push({ file: f("weapons.json"), path: magPath, message: `item '${mag.id}' is not a magazine or belt (it needs chargeItem and chargeCapacity)`, severity: "error" });
+    } else {
+      const round = pack.ammunition[mag.chargeItem];
+      if (round && mag.chargeMassKg !== undefined && Math.abs(mag.chargeMassKg - round.cartridgeMassKg) > 1e-9) {
+        errors.push({ file: f("items.json"), path: `${mag.id}.chargeMassKg`, message: `${mag.chargeMassKg} kg per round, but '${round.id}' weighs ${round.cartridgeMassKg} kg: a magazine and its loose rounds must weigh the same`, severity: "error" });
+      }
+    }
     const ids = Object.keys(wp.ammo);
     if (ids.length === 0) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo`, message: "a weapon needs at least one kind of ammunition", severity: "error" });
     for (const a of ids) {
-      if (!pack.ammunition[a]) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `unknown ammunition '${a}' (known: ${known(pack.ammunition)})`, severity: "error" });
+      const ad = pack.ammunition[a];
+      if (!ad) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `unknown ammunition '${a}' (known: ${known(pack.ammunition)})`, severity: "error" });
+      else if (ad.calibre !== wp.calibre) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `calibre ${ad.calibre} does not fit this ${wp.calibre} weapon`, severity: "error" });
     }
     if (mag && mag.chargeItem !== undefined && !ids.includes(mag.chargeItem)) {
       errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });

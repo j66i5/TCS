@@ -15,7 +15,7 @@
       },
       "penetration": {
         "steelMm": 16,
-        "atVelocityMps": 805
+        "atVelocityMps": 760
       },
       "tracer": false,
       "fuse": "none",
@@ -26,7 +26,7 @@
         "https://www.armoury-online.ru/articles/ar/ru/ak-74/"
       ],
       "confidence": "medium",
-      "note": "Drag curve fitted to the AK-74 manual's 7N6 velocities (900 -> 543 m/s at 400 m), applied to the heavier 7N10. Penetration: 16 mm St3 steel at 100 m (about 805 m/s). Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+      "note": "Drag curve fitted to the AK-74 manual's 7N6 velocities (900 -> 543 m/s at 400 m), applied to the heavier 7N10. Penetration anchor: 16 mm St3 steel at 100 m (the bullet is at about 793 m/s there; set slightly lower for margin). Hardened steel core: no close-range break-up limit. Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     },
     {
       "id": "ru-545-7t3",
@@ -43,7 +43,8 @@
       },
       "penetration": {
         "steelMm": 3,
-        "atVelocityMps": 665
+        "atVelocityMps": 600,
+        "breakupVelocityMps": 706
       },
       "tracer": true,
       "fuse": "none",

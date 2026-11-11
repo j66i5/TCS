@@ -60,6 +60,11 @@ at best, and the tables should be re-checked against the pages when possible.
   (https://www.globalsecurity.org/military/library/policy/army/accp/en0065/le1.htm).
 - Cars: rifle rounds pass doors; the engine block stops them (informal tests).
 
+**How the game uses these (after review):** each bullet's steel penetration is anchored at the speed it has at
+the published range (5.56 mm: 3.5 mm at 640 m; 7N10: 16 mm at 100 m) and scales with speed^1.5. Soft-core bullets
+have a break-up speed above which their penetration of masonry, concrete, soil and wood no longer rises. The
+lab test `packages/tools/test/lab-cover.test.ts` checks every figure above at its stated range.
+
 ## C. Ricochet — largest angle from the surface at which bullets still ricochet (used per material)
 - Concrete 10.8°, cement 13.2° (7.62x39;
   https://www.researchgate.net/publication/352237057_Ricochet_of_AK_bullets_762_39_mm_on_concrete_and_cement_surfaces_a_forensic-based_study).

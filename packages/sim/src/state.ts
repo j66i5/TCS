@@ -19,8 +19,11 @@ import {
 } from "./projectiles";
 
 /** Deeply read-only type: what controllers, the renderer and UI may see of the state. */
+/** Read-only face of a typed array (index and length only). */
+export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
+
 export type DeepReadonly<T> =
-  T extends Float64Array | Float32Array | Int32Array | Uint16Array | Uint8Array ? T
+  T extends Float64Array | Float32Array | Int32Array | Uint16Array | Uint8Array ? ReadonlyNumbers
   : T extends Store<infer V> ? ReadonlyStore<DeepReadonly<V>>
   : T extends (infer R)[] ? ReadonlyArray<DeepReadonly<R>>
   : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> }

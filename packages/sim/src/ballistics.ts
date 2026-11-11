@@ -26,6 +26,7 @@ export interface MaterialRT {
   resistance: number;
   /** sin of the largest angle from the surface at which a ricochet is possible. */
   sinCrit: number;
+  breaks: boolean;
 }
 
 export interface AmmoRT {
@@ -37,6 +38,8 @@ export interface AmmoRT {
   dragMax: number;
   penSteelMm: number;
   penV: number;
+  /** Impact speed above which penetration of bullet-breaking materials no longer rises (Infinity if none). */
+  penCapV: number;
   tracer: boolean;
 }
 
@@ -45,9 +48,9 @@ export interface BallisticsCtx {
   bucketM: number;
   bcols: number;
   brows: number;
-  /** Highest ground in each bucket (with a margin for neighbours). */
+  /** Highest ground in each bucket and its eight neighbours. */
   maxGround: Float32Array;
-  /** Highest vegetation top in each bucket (absolute), or -Infinity if none. */
+  /** Highest vegetation top in each bucket and its eight neighbours (absolute), or -Infinity if none. */
   maxVegTop: Float32Array;
   /** 1 if a wall segment runs through the bucket or one of its eight neighbours. */
   nearWall: Uint8Array;
@@ -70,7 +73,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const matIds = Object.keys(catalog.terrain.materials).sort();
   const materials: MaterialRT[] = matIds.map((id) => {
     const m = catalog.terrain.materials[id]!;
-    return { id, resistance: m.resistance, sinCrit: sin((m.ricochetAngleDeg * PI) / 180) };
+    return { id, resistance: m.resistance, sinCrit: sin((m.ricochetAngleDeg * PI) / 180), breaks: m.breaksBullets };
   });
   const matIndex = (id: string) => Math.max(0, matIds.indexOf(id));
 
@@ -95,6 +98,22 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
       }
     }
   }
+
+  // Widen by one bucket (highest of the 3 x 3 neighbourhood), so point samples along a path cannot miss a
+  // higher neighbouring bucket the path clips.
+  const widen = (src: Float32Array): Float32Array => {
+    const out = new Float32Array(src.length);
+    for (let r = 0; r < brows; r++) for (let c = 0; c < bcols; c++) {
+      let m = -Infinity;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr >= 0 && cc >= 0 && rr < brows && cc < bcols && src[rr * bcols + cc]! > m) m = src[rr * bcols + cc]!;
+      }
+      out[r * bcols + c] = m;
+    }
+    return out;
+  };
+  const maxGroundWide = widen(maxGround), maxVegTopWide = widen(maxVegTop);
 
   const obstacles = new Map(map.obstacles.map((o) => [o.id, o]));
   const buildings = new Map(map.buildings.map((bd) => [bd.id, bd]));
@@ -128,10 +147,10 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const ammo: AmmoRT[] = catalog.ammoIds.map((id) => {
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
-    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, tracer: a.tracer };
+    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, tracer: a.tracer };
   });
   return {
-    bucketM, bcols, brows, maxGround, maxVegTop, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
+    bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,
     minSpeed2: b.minSpeedMps * b.minSpeedMps,

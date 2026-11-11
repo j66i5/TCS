@@ -23,7 +23,7 @@ export function flightTable(catalog: Catalog, ranges = [0, 100, 200, 300, 400, 5
   const rows: FlightRow[] = [];
   for (const w of Object.values(catalog.weapons).sort((a, b) => (a.id < b.id ? -1 : 1))) {
     for (const [ammo, v0] of Object.entries(w.ammo).sort()) {
-      const sim = labSim(catalog, flatMap("flight", 700, 40, 4));
+      const sim = labSim(catalog, flatMap("flight", 900, 40, 4));
       launchProjectile(sim.ctx, sim.state, ammo, 5, 20, 100, v0, 0, 0, 0);
       const P = sim.state.projectiles;
       let next = 0;
@@ -71,7 +71,8 @@ export function coverTable(catalog: Catalog, ammoIds: string[], ranges = [50, 30
         const map = flatMap("cover", range + 60, 60, 4);
         map.obstacles.push({ id: 1, kind: "brick-wall", points: [range + 10, 0, range + 10, 60], heightM: 30, thicknessM: panel.thicknessM, material: panel.material });
         const sim = labSim(catalog, map);
-        for (let k = 0; k < shots; k++) launchProjectile(sim.ctx, sim.state, ammo, 10, 10 + k * 2, 15, muzzle(ammo), 0, 0, k + 1);
+        // Small spread of muzzle velocities (+-2 %), as between real rounds: a mixed cell means "marginal".
+        for (let k = 0; k < shots; k++) launchProjectile(sim.ctx, sim.state, ammo, 10, 10 + k * 2, 15, muzzle(ammo) * (0.98 + (0.04 * k) / (shots - 1)), 0, 0, k + 1);
         const P = sim.state.projectiles;
         let pen = 0, vin = 0, vout = 0, hits = 0;
         for (let t = 0; t < 120 && hits < shots; t++) {
@@ -94,6 +95,23 @@ export function coverTable(catalog: Catalog, ammoIds: string[], ranges = [50, 30
   return rows;
 }
 
+/**
+ * One bullet fired square-on at a panel `rangeM` away; `velocityScale` varies the muzzle velocity (to check
+ * that a result does not hinge on a few m/s). Square-on penetration has no randomness.
+ */
+export function shotPasses(catalog: Catalog, ammo: string, material: string, thicknessM: number, rangeM: number, velocityScale = 1): boolean {
+  const map = flatMap("shot", rangeM + 60, 40, 4);
+  map.obstacles.push({ id: 1, kind: "brick-wall", points: [rangeM + 10, 0, rangeM + 10, 40], heightM: 200, thicknessM, material });
+  const sim = labSim(catalog, map);
+  const v0 = Math.max(...Object.values(catalog.weapons).map((w) => w.ammo[ammo] ?? 0)) * velocityScale;
+  launchProjectile(sim.ctx, sim.state, ammo, 10, 20, 100, v0, 0, 0, 1);
+  for (let t = 0; t < 600; t++) {
+    for (const e of step(sim)) if (e.kind === "impact" && e.surface === "obstacle") return e.result === "penetrated";
+    if (sim.state.projectiles.count === 0) return false;
+  }
+  return false;
+}
+
 export function coverLab(data: DataSet): { flight: FlightRow[]; cover: CoverRow[]; ammo: string[] } {
   const catalog = buildCatalog(data, ["de", "ru"]);
   const ammo = catalog.ammoIds.filter((id) => catalog.ammo[id]!.kind === "ball");
@@ -109,7 +127,9 @@ export function coverLabMarkdown(r: ReturnType<typeof coverLab>): string {
   for (const p of PANELS) {
     const cells = cols.map((c) => {
       const row = r.cover.find((x) => x.panel === p.name && x.ammo === c.a && x.rangeM === c.rg)!;
-      return row.penetrated === 0 ? "stops" : `passes (${row.speedInMps.toFixed(0)} -> ${row.speedOutMps.toFixed(0)})`;
+      if (row.penetrated === 0) return "stops";
+      const speeds = `(${row.speedInMps.toFixed(0)} -> ${row.speedOutMps.toFixed(0)})`;
+      return row.penetrated === 1 ? `passes ${speeds}` : `marginal: ${(row.penetrated * 100).toFixed(0)} % pass ${speeds}`;
     });
     lines.push(`| ${p.name} | ${cells.join(" | ")} |`);
   }

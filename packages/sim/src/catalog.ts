@@ -47,6 +47,8 @@ export interface MaterialDef {
   resistance: number;
   /** Largest angle from the surface at which a bullet can still ricochet, degrees. */
   ricochetAngleDeg: number;
+  /** Soft-core bullets break up in this material at high impact speed. */
+  breaksBullets: boolean;
 }
 
 export interface SurfaceDef {
@@ -133,7 +135,7 @@ export interface AmmoDef {
   /** Cd(v) = a + b / v, capped at max. */
   drag: { a: number; b: number; max: number };
   tracerBurnoutM?: number;
-  penetration: { steelMm: number; atVelocityMps: number };
+  penetration: { steelMm: number; atVelocityMps: number; breakupVelocityMps?: number };
   tracer: boolean;
   fuse: string;
   guidance: string;

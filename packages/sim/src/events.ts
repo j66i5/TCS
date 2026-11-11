@@ -23,6 +23,7 @@ export type SimEvent =
       kind: "impact"; tick: number; x: number; y: number; z: number;
       surface: "ground" | "obstacle" | "building" | "vegetation";
       result: "stopped" | "penetrated" | "ricochet";
+      /** Material ID struck; for surface "vegetation" the vegetation kind's ID. */
       material: DefId; ammo: DefId; owner: EntityId;
     }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }

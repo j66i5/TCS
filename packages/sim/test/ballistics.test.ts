@@ -149,6 +149,62 @@ describe("walls: swept hits, penetration, ricochet, openings", () => {
   });
 });
 
+describe("wind, vegetation, ground ricochet, doors", () => {
+  it("a crosswind pushes the bullet sideways (about 0.5-1 m at 300 m in 10 m/s)", () => {
+    const input = testInput(1, 600);
+    input.map = flatMap("r", 1000, 100, 4);
+    input.environment = { timeOfDaySeconds: 0, light: 1, windX: 0, windY: 10, rain: 0, visibilityM: 1e4, temperatureC: 15 };
+    const sim = createSim(input);
+    launchProjectile(sim.ctx, sim.state, "ball", 5, 50, 30, 920, 0, 0, 0);
+    const P = sim.state.projectiles;
+    while (P.x[0]! < 305) step(sim);
+    expect(P.y[0]! - 50).toBeGreaterThan(0.5);
+    expect(P.y[0]! - 50).toBeLessThan(1.0);
+  });
+
+  it("woodland stops about as many bullets as its stopping chance per metre says", () => {
+    const m = flatMap("r", 400, 400, 4);
+    m.vegetationPalette = ["wood"]; // test catalog: 0.004 per metre, 15 m high
+    for (let r = 0; r < m.rows; r++) for (let c = 25; c < 75; c++) m.vegetation[r * m.cols + c] = 1; // x = 100..300
+    const sim = range(m);
+    const n = 2000;
+    for (let k = 0; k < n; k++) launchProjectile(sim.ctx, sim.state, "ball", 50, 20 + k * 0.18, 3, 900, 0, 12, k + 1);
+    const stopped = run(sim, 40).filter((h) => h.surface === "vegetation");
+    for (const h of stopped) { expect(h.material).toBe("wood"); expect(h.x).toBeGreaterThan(99); expect(h.x).toBeLessThan(301); }
+    const expected = n * (1 - Math.pow(1 - 0.004, 200)); // 200 m of wood
+    expect(stopped.length).toBeGreaterThan(expected * 0.9);
+    expect(stopped.length).toBeLessThan(expected * 1.1);
+  });
+
+  it("bullets skip off the ground at very shallow angles and dig in at steeper ones", () => {
+    const share = (downMps: number) => {
+      const sim = range(flatMap("r", 1000, 400, 4));
+      for (let k = 0; k < 400; k++) launchProjectile(sim.ctx, sim.state, "ball", 20, 20 + k * 0.9, 0.3, 600, 0, -downMps, k + 1);
+      const first = new Map<number, string>();
+      for (const h of run(sim, 30)) if (h.surface === "ground" && !first.has(h.owner)) first.set(h.owner, h.result);
+      return [...first.values()].filter((x) => x === "ricochet").length / 400;
+    };
+    expect(share(10)).toBeGreaterThan(0.7); // about 1 degree: soil ricochets below 8 degrees
+    expect(share(52)).toBeGreaterThan(0.2); // about 5 degrees
+    expect(share(52)).toBeLessThan(0.6);
+    expect(share(110)).toBe(0); // about 10 degrees
+  });
+
+  it("an open door lets a bullet in; the far wall then has to stop it", () => {
+    const m = flatMap("r", 200, 200, 4);
+    m.buildings.push({
+      id: 1, kind: "house", footprint: [100, 80, 110, 80, 110, 90, 100, 90], storeys: 1, storeyHeightM: 2.8,
+      wallMaterial: "brick", wallThicknessM: 0.3, roofColour: "#8c4a3b",
+      openings: [{ wall: 3, offsetM: 3, widthM: 1.0, kind: "door", sillM: 0, headM: 2.1 }], // west wall, y = 87
+    });
+    const sim = range(m);
+    launchProjectile(sim.ctx, sim.state, "ball", 60, 87, 1.0, 900, 0, 0, 1);
+    const hits = run(sim, 10).filter((h) => h.surface === "building");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.x).toBeCloseTo(110, 4);
+  });
+});
+
 describe("projectiles are battle state", () => {
   it("pool grows beyond its first size and removal keeps the others intact", () => {
     const sim = range(flatMap("r", 2000, 2000, 4));

@@ -21,8 +21,9 @@ import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 
 const PAST_M = 0.01; // how far beyond a wall a penetrating bullet is placed
-const GROUND_MARGIN_M = 1.0;
-const VEG_MARGIN_M = 0.3;
+// The coarse grids already include neighbouring buckets; small margins cover rounding only.
+const GROUND_MARGIN_M = 0.2;
+const VEG_MARGIN_M = 0.1;
 
 /** Put a projectile into the world. z is absolute height (heightfield datum). Internal: called by weapon systems. */
 export function launchProjectile(
@@ -50,6 +51,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
   const ammoRT = B.ammo, minSpeed2 = B.minSpeed2, maxAge = B.maxAgeTicks;
 
+  // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
+  // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
     let vx = VX[i]!, vy = VY[i]!, vz = VZ[i]!;
@@ -149,7 +152,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const len2 = sq(dx * dx + dy * dy) * tEnd;
       const n = len2 <= map.cellSizeM ? 1 : Math.ceil(len2 / map.cellSizeM);
       const stepLen = (sq(dx * dx + dy * dy + dz * dz) * tEnd) / n;
-      let pass = 1;
+      let pass = 1, vegIdx = 0, tFirst = 2, tLast = 0;
       for (let k = 0; k < n; k++) {
         const t = ((k + 0.5) / n) * tEnd;
         const px = x0 + t * dx, py = y0 + t * dy;
@@ -160,10 +163,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const stop = B.vegStopPerM[v - 1]!;
         if (stop <= 0 || z0 + t * dz - hAt(map, px, py) > B.vegHeightM[v - 1]!) continue;
         pass *= 1 - stop * stepLen;
+        vegIdx = v;
+        if (tFirst > 1) tFirst = (k / n) * tEnd;
+        tLast = ((k + 1) / n) * tEnd;
       }
       if (pass < 1 && rnd(rng, BAL) > pass) {
-        const t = tEnd * rnd(rng, BAL);
-        events.emit({ kind: "impact", tick, x: x0 + t * dx, y: y0 + t * dy, z: z0 + t * dz, surface: "vegetation", result: "stopped", material: "vegetation", ammo: am.id, owner: P.owner[i]! });
+        const t = tFirst + (tLast - tFirst) * rnd(rng, BAL); // somewhere in the vegetated stretch
+        events.emit({ kind: "impact", tick, x: x0 + t * dx, y: y0 + t * dy, z: z0 + t * dz, surface: "vegetation", result: "stopped", material: map.vegetationPalette[vegIdx - 1] ?? "", ammo: am.id, owner: P.owner[i]! });
         remove(P, i);
         continue;
       }
@@ -234,7 +240,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       continue;
     }
     const need = (mat.resistance * info.thicknessM * 1000) / (cosInc < 0.05 ? 0.05 : cosInc);
-    const can = am.penSteelMm * pow(speed / am.penV, bal.penetrationVelocityExponent);
+    // Soft-core bullets break up on masonry, concrete, soil and wood: no gain above their break-up speed.
+    const vEff = mat.breaks && speed > am.penCapV ? am.penCapV : speed;
+    const can = am.penSteelMm * pow(vEff / am.penV, bal.penetrationVelocityExponent);
     if (can > need) {
       const frac = need / can;
       const d = B.deflectionRad * frac;

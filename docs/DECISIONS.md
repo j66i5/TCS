@@ -383,3 +383,26 @@ loop by projectile kind.
 To check projectile drawing before soldiers can shoot (M2.2), the app's debug object has `debugVolley`, used
 only by the screenshot tool. It bypasses orders on purpose, is not reachable from the game's controls, and is to
 be removed when the fire order exists. Recorded because it is an exception to "orders are the only input".
+
+## 2026-11-11 — Fixes from the independent M2.1 review (goldens regenerated twice for M2.1)
+The reviewer found no determinism, tunnelling or rule defects, but showed that the first calibration missed its
+own anchors at the ranges the sources state (3.5 mm steel at 570–640 m; the 9.5 mm steel door at 100 m; 16 mm
+at 100 m for 7N10) and that several lab rows sat within 2–3 % of flipping. Fixed: penetration anchors are now
+set at the speed the bullet really has at the published range (with a small margin), and a **break-up rule**
+was added: a soft-core bullet's penetration of masonry, concrete, soil and wood does not rise above its value
+at a data-given impact speed (5.56 mm: its 200 m speed, after the US manual's "penetration peaks at 200 m, the
+round breaks up at close range"). That reconciles the US findings (brick veneer, 5 cm concrete and sandbags
+stop 5.56 mm up close) with the steel figures and with the Russian brick norm for steel-core 5.45 mm. Material
+resistances were re-set accordingly (brick 0.12, concrete 0.26, wood 0.016 ...). The lab tests now check every
+published figure at its stated range, and require the same result at −3 %, nominal and +3 % muzzle velocity;
+the lab table fires rounds with ±2 % velocity spread and prints "marginal" where results are mixed. Also fixed:
+the loader now rejects a weapon whose calibre differs from its ammunition, a feed item that is not a magazine,
+a magazine whose per-round mass differs from the cartridge, a ball round flagged as tracer, and ammunition IDs
+duplicated in items.json; the coarse ground and vegetation grids include neighbouring buckets (steep imported
+terrain could otherwise be missed); vegetation impacts report the vegetation kind and a position inside the
+vegetation; the renderer and controllers see projectile arrays read-only; tests added for wind drift,
+vegetation stopping, ground ricochet and doors. Accepted and recorded: `launchProjectile` is exported for labs,
+tests and the screenshot tool (in battles only weapon systems will call it, from M2.2); data files carry
+customary units where the sources do (mm of steel, degrees, rounds per minute, milliradians), named with their
+unit and converted when the battle tables are built. Golden replays were regenerated for M2.1 (new data files
+and state shape) and again for these fixes (data values).

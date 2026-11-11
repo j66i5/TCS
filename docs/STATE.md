@@ -42,7 +42,7 @@ _Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
   (`npm run lab -- cover`) reproduces the public figures. G36 + DM11/DM21 and AK-74M + 7N10/7T3 in the data.
   20,000 live bullets + 304 soldiers: about 7× real time here (target 8×; see DECISIONS.md).
 - Research files: `docs/research/ballistics.md` (used) and `docs/research/squads.md` (for the owner's review).
-- Tests: 174, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 183, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

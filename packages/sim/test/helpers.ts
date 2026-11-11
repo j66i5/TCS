@@ -25,7 +25,7 @@ export const testCatalog: Catalog = {
     ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 12,
   },
   ammo: {
-    ball: { id: "ball", calibre: "5.56x45", kind: "ball", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 3.5, atVelocityMps: 425 }, tracer: false, fuse: "none", guidance: "unguided" },
+    ball: { id: "ball", calibre: "5.56x45", kind: "ball", projectileMassKg: 0.004, cartridgeMassKg: 0.012, diameterM: 0.0057, drag: { a: 0.061, b: 193, max: 0.5 }, penetration: { steelMm: 3.5, atVelocityMps: 325, breakupVelocityMps: 724 }, tracer: false, fuse: "none", guidance: "unguided" },
   },
   ammoIds: ["ball"],
   weapons: {},
@@ -36,10 +36,10 @@ export const testCatalog: Catalog = {
   },
   terrain: {
     materials: {
-      brick: { id: "brick", densityKgM3: 1900, resistance: 0.1, ricochetAngleDeg: 11 },
-      soil: { id: "soil", densityKgM3: 1600, resistance: 0.07, ricochetAngleDeg: 8 },
-      wood: { id: "wood", densityKgM3: 550, resistance: 0.012, ricochetAngleDeg: 11 },
-      steel: { id: "steel", densityKgM3: 7850, resistance: 1, ricochetAngleDeg: 15 },
+      brick: { id: "brick", densityKgM3: 1900, resistance: 0.12, ricochetAngleDeg: 11, breaksBullets: true },
+      soil: { id: "soil", densityKgM3: 1600, resistance: 0.07, ricochetAngleDeg: 8, breaksBullets: true },
+      wood: { id: "wood", densityKgM3: 550, resistance: 0.016, ricochetAngleDeg: 11, breaksBullets: true },
+      steel: { id: "steel", densityKgM3: 7850, resistance: 1, ricochetAngleDeg: 15, breaksBullets: false },
     },
     surfaces: {
       grass: { id: "grass", moveCost: { foot: 1, wheeled: 1.4, tracked: 1.1 }, noise: 0.2, dust: 0.1, colour: "#6f8f4a", material: "soil" },

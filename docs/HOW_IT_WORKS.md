@@ -140,9 +140,11 @@ own largest ricochet angle: sheet metal about 20°, concrete 12°, soil 8°). Ot
 still has enough punch for that material and thickness — every bullet has a published steel-penetration figure
 that shrinks as it slows, and every material is worth so many millimetres of steel per millimetre (a wall hit
 at a slant is thicker along the bullet's path); going through costs speed and bends its path slightly.
-Otherwise it **stops**. Example from the cover lab: a 5.56 mm bullet passes a hedge, a wooden fence, a car door
-and a 41 cm log wall, but is stopped by a single brick wall, 5 cm of concrete or a row of sandbags; the Russian
-steel-core 5.45 mm bullet also gets through a single brick wall at close range, but not at 300 m.
+Otherwise it **stops**. Soft-core bullets also break up on brick, concrete, soil and wood when they hit very
+fast, so they do not gain penetration at close range. Example from the cover lab: a 5.56 mm bullet passes a
+hedge, a wooden fence, a car door and a 41 cm log wall, but is stopped by a single brick wall, 5 cm of concrete
+or a row of sandbags; the Russian steel-core 5.45 mm bullet also gets through those three at close range, but
+not at 300 m. Double brick, a 45 cm sandbag wall, reinforced concrete and stone walls stop both.
 
 Tracer rounds are drawn as clear orange streaks, all other bullets as very faint ones, and every strike leaves a
 small puff. Nobody can shoot yet and nobody is hit yet: those are the next two slices.
@@ -176,7 +178,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 174 automated tests, including:
+- `npm test` runs 183 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

@@ -101,7 +101,12 @@ export const AmmoSchema = withProv({
   /** Distance at which a tracer burns out, m (display only). */
   tracerBurnoutM: Num(1, 5000).optional(),
   /** Mild-steel penetration at a reference impact speed; scaled by speed (ballistics.json). */
-  penetration: z.object({ steelMm: Num(0, 2000), atVelocityMps: z.number().positive().max(3000) }).strict(),
+  penetration: z.object({
+    steelMm: Num(0, 2000), atVelocityMps: z.number().positive().max(3000),
+    /** Soft-core bullets break up on hard or granular materials: against materials with `breaksBullets`,
+     *  penetration does not increase above this impact speed. Omit for hardened-core rounds. */
+    breakupVelocityMps: z.number().positive().max(3000).optional(),
+  }).strict(),
   tracer: z.boolean(), fuse: FuseKind, guidance: GuidanceKind,
   /** Explosive filling and fragments (M2.4). */
   explosive: z.object({
@@ -154,6 +159,8 @@ export const MaterialSchema = withProv({
   resistance: z.number().min(0).max(3),
   /** Largest angle from the surface at which a bullet can still ricochet, degrees (0 = never). */
   ricochetAngleDeg: z.number().min(0).max(45),
+  /** Masonry, concrete, soil, wood: soft-core bullets break up in it at high impact speed. */
+  breaksBullets: z.boolean(),
 });
 export const SurfaceSchema = withProv({
   id: Id, nameKey: z.string(), moveCost: MoveCost,

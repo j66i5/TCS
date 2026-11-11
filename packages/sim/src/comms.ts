@@ -9,18 +9,26 @@ import type { CommState } from "./components";
 import type { EntityId } from "./ids";
 import { secondsToTicks } from "./ids";
 import type { Order } from "./orders";
+import { nextFloat, Streams } from "./rng";
 import type { SimState } from "./state";
 
 export interface CommsParams {
   /** Base delay from the issuing headquarters to a unit on the radio net, seconds. */
   orderDelaySeconds: number;
+  /** Random extra delay, uniform in [0, this], seconds: radio traffic, the leader being busy. */
+  orderDelayJitterSeconds: number;
   /** Delay for contact reports shared by radio, seconds (used from M3). */
   contactShareDelaySeconds: number;
   /** Voice range for shouted orders / contacts, metres (used from M3). */
   voiceRangeM: number;
 }
 
-export const DEFAULT_COMMS: CommsParams = { orderDelaySeconds: 1, contactShareDelaySeconds: 5, voiceRangeM: 40 };
+export const DEFAULT_COMMS: CommsParams = {
+  orderDelaySeconds: 1,
+  orderDelayJitterSeconds: 1,
+  contactShareDelaySeconds: 5,
+  voiceRangeM: 40,
+};
 
 export interface CommsModel {
   readonly id: string;
@@ -50,7 +58,8 @@ export const simpleComms: CommsModel = {
     const u = unitOf(state, order.target);
     const unit = u === null ? undefined : state.unit.get(u);
     if (!unit || unit.comms.link === "none") return null;
-    return secondsToTicks(params.orderDelaySeconds + unit.comms.extraDelaySeconds);
+    const jitter = params.orderDelayJitterSeconds > 0 ? nextFloat(state.rng, Streams.comms) * params.orderDelayJitterSeconds : 0;
+    return secondsToTicks(params.orderDelaySeconds + jitter + unit.comms.extraDelaySeconds);
   },
   contactShareDelayTicks(_state, params) {
     return secondsToTicks(params.contactShareDelaySeconds);

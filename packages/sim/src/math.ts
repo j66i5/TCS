@@ -22,7 +22,8 @@ export const tan = (x: number): number => Math.tan(x);
 export const asin = (x: number): number => Math.asin(x);
 export const acos = (x: number): number => Math.acos(x);
 export const atan = (x: number): number => Math.atan(x);
-export const atan2 = (y: number, x: number): number => Math.atan2(y, x);
+/** atan2 with -0 normalised to +0 (JSON saves cannot hold -0; see state.ts toPlain). */
+export const atan2 = (y: number, x: number): number => Math.atan2(y, x) + 0;
 export const pow = (x: number, y: number): number => Math.pow(x, y);
 export const exp = (x: number): number => Math.exp(x);
 export const log = (x: number): number => Math.log(x);

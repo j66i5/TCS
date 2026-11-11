@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import type { EntityId, MapDef, SimEvent, SimState } from "@tcs/sim";
+import type { EntityId, MapDef, SimEvent, SimView } from "@tcs/sim";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 
 /** Colours per side INDEX (scenario order), never per faction. */
@@ -60,7 +60,7 @@ export class BattleRenderer {
   }
 
   /** Remember positions before a simulation step (for interpolation). */
-  capturePrevious(state: Readonly<SimState>): void {
+  capturePrevious(state: SimView): void {
     for (const [id, t] of state.transform.entries()) {
       const p = this.prev.get(id);
       if (p) { p.x = t.x; p.y = t.y; } else this.prev.set(id, { x: t.x, y: t.y });
@@ -68,7 +68,7 @@ export class BattleRenderer {
   }
 
   /** Feed events (e.g. to show where an order was sent). */
-  onEvents(events: readonly SimEvent[], state: Readonly<SimState>, overlay: Overlay): void {
+  onEvents(events: readonly SimEvent[], state: SimView, overlay: Overlay): void {
     for (const e of events) {
       if (e.kind === "order.received" && e.issuer === overlay.playerSide) {
         const p = state.pendingOrders.find((o) => o.seq === e.seq);
@@ -81,7 +81,7 @@ export class BattleRenderer {
     this.markers = this.markers.filter((m) => m.untilTick > state.tick);
   }
 
-  draw(state: Readonly<SimState>, map: MapDef, alpha: number, overlay: Overlay): void {
+  draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
     const c = this.camera;
     this.drawGround(map);
     const g = this.units;
@@ -145,7 +145,7 @@ export class BattleRenderer {
     t.position.set(Math.round(x), Math.round(y));
   }
 
-  private pos(state: Readonly<SimState>, id: EntityId, alpha: number): { x: number; y: number } {
+  private pos(state: SimView, id: EntityId, alpha: number): { x: number; y: number } {
     const t = state.transform.req(id);
     const p = this.prev.get(id);
     if (!p) return t;
@@ -173,7 +173,7 @@ export class BattleRenderer {
   }
 }
 
-function unitIsOrContains(state: Readonly<SimState>, ancestor: EntityId, unit: EntityId): boolean {
+function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): boolean {
   let u: EntityId | null = unit;
   while (u !== null) {
     if (u === ancestor) return true;

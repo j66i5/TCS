@@ -4,10 +4,10 @@
  *
  * M0 contains only a trivial scripted controller used by the batch runner and tests.
  */
-import { createRng, nextRange, secondsToTicks, type Controller, type EntityId, type Order, type SideId, type SimState } from "@tcs/sim";
+import { createRng, nextRange, secondsToTicks, type Controller, type EntityId, type Order, type RngState, type SideId, type SimView } from "@tcs/sim";
 
 /** Top-level units (no parent) of a side, ascending ID. */
-export function topUnits(state: SimState, side: SideId): EntityId[] {
+export function topUnits(state: SimView, side: SideId): EntityId[] {
   const out: EntityId[] = [];
   for (const [id, u] of state.unit.entries()) if (u.side === side && u.parent === null) out.push(id);
   return out;
@@ -18,7 +18,7 @@ export function topUnits(state: SimState, side: SideId): EntityId[] {
  * Uses its OWN random generator (never the simulation's), so it influences the battle only via orders.
  */
 export function wanderController(side: SideId, seed: number, map: { widthM: number; heightM: number }, intervalSeconds = 60): Controller {
-  const rng = createRng(seed);
+  let rng: RngState = createRng(seed);
   const every = secondsToTicks(intervalSeconds);
   return {
     side,
@@ -36,5 +36,7 @@ export function wanderController(side: SideId, seed: number, map: { widthM: numb
         }],
       }));
     },
+    saveState: () => JSON.parse(JSON.stringify(rng)) as unknown,
+    loadState: (data) => { rng = JSON.parse(JSON.stringify(data)) as RngState; },
   };
 }

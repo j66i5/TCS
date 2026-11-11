@@ -1,10 +1,10 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
-import type { BattleInput, BattleResult, RunOptions, SideResult } from "./battle";
+import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
 import type { SimEventKind } from "./events";
 import { secondsToTicks, ticksToSeconds } from "./ids";
 import type { Order } from "./orders";
 import { unitsFromState } from "./setup";
-import { createSim, simHash, step, submitOrder, type Sim } from "./sim";
+import { createSim, loadSim, saveSim, simHash, step, submitOrder, type Sim } from "./sim";
 
 export function runBattle(input: BattleInput, opts: RunOptions = {}): BattleResult {
   // Orders from the input stream are fed tick by tick (not all at once) so that a recorded
@@ -34,6 +34,7 @@ export function continueBattle(sim: Sim, input: BattleInput, opts: RunOptions = 
     for (const c of opts.controllers ?? []) {
       for (const o of c.think(sim.state, tick)) {
         if (o.issuer !== c.side) throw new Error(`controller for ${c.side} issued an order as ${o.issuer}`);
+        if (o.tick !== tick) throw new Error(`controller for ${c.side} issued an order for tick ${o.tick} at tick ${tick}`);
         submitOrder(sim, o);
         allOrders.push(o);
       }
@@ -77,4 +78,24 @@ function summarize(
     orders,
     eventCounts,
   };
+}
+
+/** Save a running battle: simulation state plus each controller's memory. Plain data (JSON-safe). */
+export function saveGame(sim: Sim, controllers: readonly Controller[] = []): SaveGame {
+  const out: SaveGame = { state: saveSim(sim), controllers: {} };
+  for (const c of controllers) if (c.saveState) out.controllers[c.side] = c.saveState();
+  return out;
+}
+
+/** Load a save game; restores the given (freshly created) controllers' memory. */
+export function loadGame(input: BattleInput, save: SaveGame, controllers: readonly Controller[] = []): Sim {
+  const sim = loadSim(input, save.state);
+  for (const c of controllers) {
+    const data = save.controllers[c.side];
+    if (data !== undefined) {
+      if (!c.loadState) throw new Error(`save has memory for controller '${c.side}' but the controller cannot load it`);
+      c.loadState(data);
+    }
+  }
+  return sim;
 }

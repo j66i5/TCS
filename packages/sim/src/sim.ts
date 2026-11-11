@@ -27,15 +27,24 @@ export function createContext(input: BattleInput): SimContext {
   return { catalog: input.catalog, map: input.map, rules: input.rules, comms, physiology: null };
 }
 
-/** Create a simulation at tick 0. Orders in `input.orders` are queued immediately. */
+/**
+ * Create a simulation at tick 0. `input.orders` is NOT queued here: an order stream is fed tick by tick
+ * by `runBattle` / `continueBattle`, so that a save never contains orders the stream will feed again.
+ */
 export function createSim(input: BattleInput): Sim {
-  const sim: Sim = { ctx: createContext(input), state: buildInitialState(input) };
-  for (const o of input.orders) submitOrder(sim, o);
-  return sim;
+  return { ctx: createContext(input), state: buildInitialState(input) };
 }
 
-/** Submit an order. Its `tick` must not be in the past (it would be rejected as late). */
+/**
+ * Submit an order for the CURRENT tick (`order.tick === state.tick`); it is processed by the next `step`.
+ * Orders for a past tick are accepted here and rejected as "late" by the step (network peers may be late).
+ * Orders for a future tick throw: the caller must hold them until their tick. This keeps the simulation's
+ * order inbox empty between ticks, so live play, replays and loaded saves see exactly the same state.
+ */
 export function submitOrder(sim: Sim, order: Order): number {
+  if (order.tick > sim.state.tick) {
+    throw new Error(`order for future tick ${order.tick} submitted at tick ${sim.state.tick}; hold it until its tick`);
+  }
   return enqueueOrder(sim.state, order);
 }
 
@@ -67,8 +76,14 @@ export function saveSim(sim: Sim): SerializedState {
   return serializeState(sim.state);
 }
 
-/** Load a save into a fresh Sim with the same context. */
+/** Load a save into a fresh Sim. The save must come from the same data (catalog fingerprint). */
 export function loadSim(input: BattleInput, saved: SerializedState): Sim {
+  if (saved.catalogFingerprint !== input.catalog.fingerprint) {
+    throw new Error(
+      `save was made with data ${saved.catalogFingerprint}, but the loaded data is ${input.catalog.fingerprint}; ` +
+      "the battle would not continue identically",
+    );
+  }
   return { ctx: createContext(input), state: deserializeState(saved) };
 }
 

@@ -11,8 +11,18 @@ import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
 import type { InboxOrder, PendingOrder } from "./orders";
 import { createRng, type RngState } from "./rng";
-import { Store } from "./store";
+import { Store, type ReadonlyStore } from "./store";
 import type { BattleEndReason } from "./events";
+
+/** Deeply read-only type: what controllers, the renderer and UI may see of the state. */
+export type DeepReadonly<T> =
+  T extends Store<infer V> ? ReadonlyStore<DeepReadonly<V>>
+  : T extends (infer R)[] ? ReadonlyArray<DeepReadonly<R>>
+  : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+  : T;
+
+/** The simulation state as seen from outside: read-only. Changes go through orders. */
+export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
 export const STATE_SCHEMA_VERSION = 1;
@@ -23,6 +33,8 @@ export interface SideState {
 }
 
 export interface SimState {
+  /** Fingerprint of the data (catalog) this battle runs with; checked when a save is loaded. */
+  catalogFingerprint: string;
   tick: number;
   rng: RngState;
   nextEntityId: number;
@@ -46,8 +58,9 @@ export interface SimState {
 const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
-export function createState(seed: number): SimState {
+export function createState(seed: number, catalogFingerprint = ""): SimState {
   return {
+    catalogFingerprint,
     tick: 0,
     rng: createRng(seed),
     nextEntityId: 1,
@@ -74,6 +87,7 @@ export function newEntity(state: SimState): EntityId {
 /** Plain JSON-compatible form of the state. */
 export interface SerializedState {
   schema: number;
+  catalogFingerprint: string;
   tick: number;
   rng: RngState;
   nextEntityId: number;
@@ -89,10 +103,12 @@ export interface SerializedState {
 export function serializeState(s: SimState): SerializedState {
   const stores = {} as Record<StoreKey, [EntityId, unknown][]>;
   for (const k of STORE_KEYS) stores[k] = (s[k] as Store<unknown>).toEntries();
-  // Deep copy so the serialised form never aliases live state.
-  return JSON.parse(
-    JSON.stringify({
+  // Deep copy so the serialised form never aliases live state; rejects NaN/Infinity (they would turn
+  // into null in JSON and silently change the battle after a load).
+  return toPlain(
+    {
       schema: STATE_SCHEMA_VERSION,
+      catalogFingerprint: s.catalogFingerprint,
       tick: s.tick,
       rng: s.rng,
       nextEntityId: s.nextEntityId,
@@ -103,15 +119,35 @@ export function serializeState(s: SimState): SerializedState {
       pendingOrders: s.pendingOrders,
       ended: s.ended,
       stores,
-    }),
+    },
+    "state",
   ) as SerializedState;
+}
+
+/**
+ * Deep copy into JSON-compatible plain data. Throws on NaN/Infinity (naming the path), drops undefined
+ * object fields, and normalises -0 to 0 (JSON cannot store -0; simulation code must not depend on the
+ * sign of zero - sim/math.atan2 never returns -0).
+ */
+export function toPlain(value: unknown, path: string): unknown {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`non-finite number ${value} at ${path}`);
+    return value === 0 ? 0 : value;
+  }
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v, i) => toPlain(v, `${path}[${i}]`));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v !== undefined) out[k] = toPlain(v, `${path}.${k}`);
+  }
+  return out;
 }
 
 export function deserializeState(data: SerializedState): SimState {
   if (data.schema !== STATE_SCHEMA_VERSION) {
     throw new Error(`save has state schema ${data.schema}, this build expects ${STATE_SCHEMA_VERSION}`);
   }
-  const d = JSON.parse(JSON.stringify(data)) as SerializedState;
+  const d = toPlain(data, "save") as SerializedState;
   const st = (k: StoreKey) => Store.fromEntries(d.stores[k] ?? []);
   return {
     tick: d.tick,
@@ -123,6 +159,7 @@ export function deserializeState(data: SerializedState): SimState {
     inbox: d.inbox,
     pendingOrders: d.pendingOrders,
     ended: d.ended,
+    catalogFingerprint: d.catalogFingerprint,
     identity: st("identity") as Store<Identity>,
     transform: st("transform") as Store<Transform>,
     mover: st("mover") as Store<Mover>,

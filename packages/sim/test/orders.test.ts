@@ -58,12 +58,34 @@ describe("orders", () => {
     ]);
   });
 
-  it("holds future orders in the inbox until their tick", () => {
+  it("refuses orders for future ticks (callers hold them), so the inbox is empty between ticks", () => {
     const sim = createSim(testInput());
     const unit = blueUnit(sim);
-    submitOrder(sim, { tick: 30, issuer: "blue", target: unit, kind: "halt" });
-    const ev = runTicks(sim, 31);
-    expect(ev.find((e) => e.kind === "order.received")?.tick).toBe(30);
+    expect(() => submitOrder(sim, { tick: 30, issuer: "blue", target: unit, kind: "halt" })).toThrow(/future tick/);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: unit, kind: "halt" });
+    runTicks(sim, 1);
+    expect(sim.state.inbox).toEqual([]);
+  });
+
+  it("adds random delivery jitter from the simulation's own 'comms' stream, reproducibly", () => {
+    const deliverTicks = (seed: number) => {
+      const input = testInput(seed);
+      input.rules.comms.orderDelayJitterSeconds = 1;
+      const sim = createSim(input);
+      const unit = blueUnit(sim);
+      const out: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unit, kind: "halt" });
+        for (const e of step(sim)) if (e.kind === "order.received") out.push(e.deliverTick - e.tick);
+      }
+      expect(sim.state.rng.streams["comms"]).toBeDefined();
+      return out;
+    };
+    const a = deliverTicks(3);
+    expect(deliverTicks(3)).toEqual(a);
+    expect(deliverTicks(4)).not.toEqual(a);
+    for (const d of a) { expect(d).toBeGreaterThanOrEqual(60); expect(d).toBeLessThanOrEqual(120); }
+    expect(new Set(a).size).toBeGreaterThan(5);
   });
 
   it("ends the battle at the time limit and then ignores further steps", () => {

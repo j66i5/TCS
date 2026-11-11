@@ -7,7 +7,18 @@
  */
 import type { EntityId } from "./ids";
 
-export class Store<T> {
+/** Read-only face of a Store, handed to code that must not change simulation state. */
+export interface ReadonlyStore<T> {
+  readonly size: number;
+  get(id: EntityId): T | undefined;
+  req(id: EntityId): T;
+  has(id: EntityId): boolean;
+  entries(): IterableIterator<[EntityId, T]>;
+  keys(): IterableIterator<EntityId>;
+  values(): IterableIterator<T>;
+}
+
+export class Store<T> implements ReadonlyStore<T> {
   private map = new Map<EntityId, T>();
   private maxKey = -Infinity;
 

@@ -124,3 +124,20 @@ environmental).
 and state hashes every 10 s plus the catalog fingerprint. The test replays the stored orders without the
 controllers. This checks determinism and that a recorded stream reproduces a live battle. Initial goldens:
 `demo-s1` (DE vs RU, 120 s) and `fixture-s7` (fixture faction vs DE, 90 s).
+
+## 2026-11-11 — Fixes from the independent M0 review (goldens regenerated)
+An independent reviewer found six problems; all fixed, each with a test.
+(1) **Orders may only be submitted for the current tick**; a future-tick order throws, and `createSim` no
+longer pre-queues the input stream (`runBattle`/`continueBattle` feed it tick by tick). Before, a save taken
+while orders waited in the inbox was continued with those orders fed a second time, so the battle diverged.
+Holding future orders (lockstep input delay, scheduled AI plans) is the caller's job. (2) **Saving refuses
+NaN/Infinity** and names the field; before, JSON silently turned NaN into `null`. `-0` is normalised to `0`
+and `sim/math.atan2` never returns `-0`, so a save round trip is exact. (3) **The simulation now uses its own
+randomness**: order delivery gets a random extra delay of 0-1 s (`comms.orderDelayJitterSeconds`, stream
+`comms`), so every determinism, replay and save test now also covers RNG state. (4) **Controllers see a
+read-only view** (`SimView`, a deep read-only type) and a test checks that thinking never changes the state
+hash. (5) **Controllers can save their memory** (`saveState`/`loadState`; `saveGame`/`loadGame`), and an
+AI-versus-AI battle saved halfway now resumes identically (tested). (6) **Saves record the data fingerprint**
+and refuse to load against different data. Golden replays were regenerated because the state gained the
+`catalogFingerprint` field and delivery times changed with the jitter. Rejected for (1): matching saved inbox
+orders against the stream (fragile when identical orders are legitimately repeated).

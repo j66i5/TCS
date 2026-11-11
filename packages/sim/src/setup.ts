@@ -11,7 +11,7 @@ import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
 
 export function buildInitialState(input: BattleInput): SimState {
-  const state = createState(input.seed);
+  const state = createState(input.seed, input.catalog.fingerprint);
   state.environment = input.environment ? { ...input.environment } : defaultEnvironment();
   for (const force of input.forces) {
     if (state.sides.some((s) => s.id === force.side)) throw new Error(`duplicate side '${force.side}'`);

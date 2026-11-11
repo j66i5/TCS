@@ -17,11 +17,14 @@ _Last updated: 2026-11-11, end of session 1 (M0 Bootstrap)._
   skeleton packs (ranks, names, radio phrasing; placeholder team template and doctrine); made-up fixture
   faction `xf`.
 - Tools: headless runner, batch runner with Markdown/JSON reports, golden replays, screenshot script.
-- Tests: 54, all green — determinism (incl. continuing from a mid-battle save), 2 golden replays, fixture
+- Tests: 61, all green — determinism (incl. continuing from a mid-battle save), 2 golden replays, fixture
   faction battle, architecture guards, performance floor (304 soldiers: ~460× real time, movement only), data
   loader errors, items, orders, actions, camera.
 - App: map with the German team (blue) and the Russian team (red); tap to move the blue team (walk/run
   toggle), pause / 1× / 4×, radio log, debug counters (FPS, sim rate, tick, state hash); pinch/drag/wheel camera.
+- Independent review found 6 problems (save/load with queued orders, NaN in saves, simulation randomness not
+  exercised, controllers could write state, AI memory not saved, saves not tied to their data); all fixed with
+  tests (DECISIONS.md, last entry).
 - CI on every push; deployment job from `main` to GitHub Pages; Stop hook; four project skills; reviewer agent.
 
 ## What is weak or missing (honest list)

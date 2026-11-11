@@ -61,7 +61,12 @@ interface BattleResult {
   orders: Order[];                    // full stream incl. orders produced by controllers
   eventCounts;
 }
-interface Controller { side: SideId; think(view: SimState, tick: number): Order[] }
+interface Controller {
+  side: SideId;
+  think(view: SimView, tick: number): Order[];   // read-only view; orders for this tick only
+  saveState?(): unknown; loadState?(data: unknown): void;  // controller memory for save games
+}
+saveGame(sim, controllers): SaveGame;  loadGame(input, save, controllers): Sim
 ```
 
 The roster format (`SoldierRecord`, `UnitInput`) is separate from battle state: the campaign stores
@@ -69,7 +74,9 @@ records, a battle turns them into entities (`setup.ts: buildInitialState`) and b
 (`soldierRecordFromState`, `unitsFromState`). `continueBattle(sim, input)` runs a loaded save to the end.
 
 Controllers (AI commanders, scripted tests, later network peers) only return orders; `runBattle` records
-every order it submits, so an AI-vs-AI battle is reproducible from `result.orders` alone.
+every order it submits, so an AI-vs-AI battle is reproducible from `result.orders` alone. A save game is the
+serialised state plus each controller's memory; saves record the data fingerprint and refuse to load
+against different data. Outside code sees the state as `SimView` (deeply read-only type).
 
 ## 3. Simulation state (SPEC 4.3 rules 4, 6) — `sim/src/state.ts`, `components.ts`, `store.ts`
 
@@ -96,7 +103,7 @@ interface SimState {
   between a live state (component removed and re-added) and the same state after load — a silent
   determinism bug. All stores go through the wrapper.
 - `serializeState` → `SerializedState` (plain JSON; stores as sorted `[id, component]` arrays, with a schema
-  version). `deserializeState` rebuilds. `hashState` = 64-bit hash of the canonical (key-sorted) JSON.
+  version and the catalog fingerprint). It refuses NaN/Infinity (naming the field) and normalises -0 to 0. `deserializeState` rebuilds. `hashState` = 64-bit hash of the canonical (key-sorted) JSON.
 - High-count objects (projectiles, fragments) will live in typed-array pools with no per-tick allocation
   (rule 6). 🟡 Arrives with ballistics in M2; the pool will serialise into `SerializedState` the same way.
 
@@ -141,7 +148,9 @@ type OrderBody = { kind: "move"; waypoints: Waypoint[] } | { kind: "halt" };   /
 interface Waypoint { x; y; mode: DefId /* movement mode */; posture?: Posture }
 ```
 
-Life cycle: `submitOrder` puts it in `state.inbox` (deep-copied, numbered `seq`) → at its tick it is
+Life cycle: `submitOrder` puts it in `state.inbox` (deep-copied, numbered `seq`). Only orders for the
+**current** tick may be submitted (future ticks throw; the caller holds them), so the inbox is empty between
+ticks and a save never contains orders the stream will feed again. During the step it is
 validated (`late`, `unknown-target`, `not-your-unit`, `invalid-params`, `battle-ended`) → the CommsModel
 gives a delay → `pendingOrders` → delivered: applied, `order.delivered` event, and the unit leader's radio
 acknowledgement (`radio.ack.<kind>`). Orders with the same tick are processed in submission order.
@@ -218,7 +227,8 @@ interface CommsModel {
 ```
 
 All order delivery already goes through `ctx.comms`. M0 model `simple`: every unit on the radio net,
-constant delay from `rules.comms.orderDelaySeconds` (default 1 s). Command & EW (M14) supplies a richer model.
+delay `rules.comms.orderDelaySeconds` (default 1 s) plus a random 0–`orderDelayJitterSeconds` (default 1 s)
+drawn from the simulation's `comms` random stream. Command & EW (M14) supplies a richer model.
 
 ## 13. Catalog and data (rule 8) — `sim/src/catalog.ts`, `packages/data`
 
@@ -252,10 +262,10 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | SPEC | Requirement | Where | Status | Guard |
 |---|---|---|---|---|
 | 4.3.1 | Deterministic, fixed timestep, same input ⇒ identical state | sim.ts, rng.ts, store.ts | ✅ | `tools/test/determinism.test.ts`, `tools/test/golden.test.ts`, `sim/test/rng.test.ts` |
-| 4.3.1 | Named RNG sub-streams isolate systems | rng.ts | ✅ | `sim/test/rng.test.ts` "isolates streams" |
+| 4.3.1 | Named RNG sub-streams isolate systems; sim RNG state survives save/replay | rng.ts, comms.ts (jitter) | ✅ | `sim/test/rng.test.ts`; `orders.test.ts` "delivery jitter"; determinism + golden tests (jitter draws every order) |
 | 4.3.2 | Transcendental maths only in sim/math | math.ts | ✅ | `architecture.test.ts`, ESLint |
-| 4.3.3 | Orders are the only external input | orders.ts, run.ts | ✅ | `sim/test/orders.test.ts`; replay test in determinism.test.ts |
-| 4.3.4 | Whole state serialisable; save/load continues identically | state.ts | ✅ | `sim/test/state.test.ts`; determinism "mid-battle save" |
+| 4.3.3 | Orders are the only external input | orders.ts, run.ts, `SimView` | ✅ | `determinism.test.ts` "controllers do not change simulation state"; read-only `SimView` type for controllers and renderer. (`startAction` is internal: no order starts an action until M4 adds ammunition hand-over.) |
+| 4.3.4 | Whole state serialisable; save/load continues identically | state.ts, run.ts | ✅ | `sim/test/state.test.ts` (round trip, NaN, -0, data fingerprint); determinism "mid-battle save", "future orders", "AI-vs-AI resumes" |
 | 4.3.5 | Event stream for all consumers | events.ts | ✅ (M0 kinds) | `sim/test/orders.test.ts` |
 | 4.3.6 | Entities as IDs, component stores, typed-array pools for projectiles | store.ts | 🟡 pools in M2 | `sim/test/state.test.ts` (ordering) |
 | 4.3.7 | SI units inside the sim | all sim types | ✅ by convention | review |
@@ -274,7 +284,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.2 | Weapons consume specific item types; no free ammunition | — | ⬜ M2 | (M2: firing range lab) |
 | 9.2 | Vehicles have fuel and component states | — | ⬜ M7 | — |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
-| 9.3 | AI able to play both sides unattended; headless batch runner | ai, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts`, `npm run batch` |
+| 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |
 | 9.3 | Persistent map damage stored as data | map.ts layers | ⬜ M1/M2 | — |
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |

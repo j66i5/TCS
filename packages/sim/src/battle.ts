@@ -15,7 +15,7 @@ import type { ItemStack } from "./items";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
 import type { Wound } from "./wounds";
-import type { SimState } from "./state";
+import type { SerializedState, SimView } from "./state";
 import type { Sim } from "./sim";
 
 /** A soldier as the ROSTER knows him: persists between battles (campaign, SPEC 9.3). */
@@ -97,11 +97,24 @@ export interface BattleResult {
   eventCounts: Partial<Record<SimEventKind, number>>;
 }
 
-/** Something that issues orders during a battle: an AI commander, a scripted test, a network peer. */
+/**
+ * Something that issues orders during a battle: an AI commander, a scripted test, a network peer.
+ * It sees the state READ-ONLY and acts only through the orders it returns.
+ */
 export interface Controller {
   side: SideId;
-  /** Called every tick before the step. Returns orders to issue now (their `tick` must be >= current). */
-  think(view: SimState, tick: number): Order[];
+  /** Called every tick before the step. Returns orders for THIS tick (`order.tick === tick`). */
+  think(view: SimView, tick: number): Order[];
+  /** Plain-data snapshot of the controller's own memory (its RNG, plans), stored in save games. */
+  saveState?(): unknown;
+  /** Restore what `saveState` returned. */
+  loadState?(data: unknown): void;
+}
+
+/** A complete save game: simulation state plus the memory of every controller. */
+export interface SaveGame {
+  state: SerializedState;
+  controllers: Record<SideId, unknown>;
 }
 
 export interface RunOptions {

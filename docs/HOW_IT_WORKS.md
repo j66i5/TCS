@@ -63,9 +63,10 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 2. **Inbox.** The order waits in the simulation's inbox until its tick (`systems/orders.ts`).
 3. **Received.** At tick 61 it is checked: is that your unit? is the point on the map? is "walk" a known
    movement mode? If not, it is rejected with a reason (the radio log shows it). Here it is fine, so the
-   **communication model** (`comms.ts`) decides how long it takes to reach the team: 1 second. Event:
-   `order.received`.
-4. **Delivered.** At tick 121 the team gets the order. Every man is given his destination: the tapped point
+   **communication model** (`comms.ts`) decides how long it takes to reach the team: 1 second plus a random
+   0–1 second (radio traffic, the leader being busy). The random part comes from the battle's own seeded
+   random numbers, so a replay gets exactly the same delays. Event: `order.received`.
+4. **Delivered.** A second or two later (say tick 150) the team gets the order. Every man is given his destination: the tapped point
    plus his own offset from the team leader, so the team keeps its shape (a stand-in until real formations
    arrive in M1). Events: `order.delivered`, and a `radio` event from the team leader with the key
    `radio.ack.move`.
@@ -80,9 +81,10 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 54 automated tests, including:
+- `npm test` runs 61 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
-    saved halfway, loaded and continued ends identically to one that ran straight through;
+    saved halfway, loaded and continued ends identically to one that ran straight through — also when both
+    sides are computer-controlled and the AIs' own memory has to be saved;
   - **golden replays**: recorded battles must still produce their recorded fingerprints — a change shows up
     immediately;
   - **fixture faction**: the made-up faction loads and fights;

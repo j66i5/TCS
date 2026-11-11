@@ -45,8 +45,10 @@ export interface MaterialDef {
   densityKgM3: number;
   /** Penetration resistance, mm of mild steel equivalent per mm of material. */
   resistance: number;
-  /** 0..1, ricochet tendency. */
-  hardness: number;
+  /** Largest angle from the surface at which a bullet can still ricochet, degrees. */
+  ricochetAngleDeg: number;
+  /** Soft-core bullets break up in this material at high impact speed. */
+  breaksBullets: boolean;
 }
 
 export interface SurfaceDef {
@@ -56,6 +58,8 @@ export interface SurfaceDef {
   dust: number;
   /** Presentation colour (#rrggbb), kept in data so new surfaces need no code. */
   colour: string;
+  /** Material of the ground for bullet impacts and ricochets. */
+  material: DefId;
 }
 
 export interface VegetationDef {
@@ -107,6 +111,54 @@ export interface BodyDef {
   };
 }
 
+/** Global ballistics parameters (core/ballistics.json). */
+export interface BallisticsDef {
+  gravityMps2: number;
+  airDensityKgM3: number;
+  referenceTempC: number;
+  penetrationVelocityExponent: number;
+  penetrationDeflectionDeg: number;
+  ricochetSpeedRetention: [number, number];
+  ricochetScatterDeg: number;
+  minSpeedMps: number;
+  maxFlightSeconds: number;
+}
+
+export interface AmmoDef {
+  id: DefId;
+  calibre: string;
+  /** "ball", "tracer", "high-explosive", ... (SPEC 6.3 list; data, not code branches on IDs). */
+  kind: string;
+  projectileMassKg: number;
+  cartridgeMassKg: number;
+  diameterM: number;
+  /** Cd(v) = a + b / v, capped at max. */
+  drag: { a: number; b: number; max: number };
+  tracerBurnoutM?: number;
+  penetration: { steelMm: number; atVelocityMps: number; breakupVelocityMps?: number };
+  tracer: boolean;
+  fuse: string;
+  guidance: string;
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentMassKg: number; fragmentVelocityMps: [number, number] };
+}
+
+export interface WeaponDef {
+  id: DefId;
+  type: string;
+  calibre: string;
+  massKg: number;
+  feed: { magazine: DefId };
+  fireModes: string[];
+  cyclicRpm: number;
+  dispersionMrad: number;
+  reloadSeconds: number;
+  setupSeconds: number;
+  jamProbability: number;
+  sights: { kind: string; magnification: number }[];
+  /** Ammunition ID -> muzzle velocity from this weapon, m/s. */
+  ammo: Record<DefId, number>;
+}
+
 export interface TerrainCatalog {
   materials: Record<DefId, MaterialDef>;
   surfaces: Record<DefId, SurfaceDef>;
@@ -147,6 +199,11 @@ export interface Catalog {
   terrain: TerrainCatalog;
   body: BodyDef;
   formations: Record<DefId, FormationDef>;
+  ballistics: BallisticsDef;
+  ammo: Record<DefId, AmmoDef>;
+  /** Ammunition IDs in ascending order; projectiles store the index into this list. */
+  ammoIds: DefId[];
+  weapons: Record<DefId, WeaponDef>;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

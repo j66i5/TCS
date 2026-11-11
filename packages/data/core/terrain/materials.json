@@ -5,111 +5,153 @@
       "nameKey": "material.steel",
       "densityKgM3": 7850,
       "resistance": 1.0,
-      "hardness": 0.9,
-      "sources": [
-        "https://en.wikipedia.org/wiki/Steel"
-      ],
-      "confidence": "medium"
+      "sources": [],
+      "confidence": "low",
+      "ricochetAngleDeg": 15,
+      "note": "Reference material: 1 mm of mild steel. Ricochet angle for thick plate is an estimate between concrete and sheet metal. See docs/research/ballistics.md.",
+      "breaksBullets": false
     },
     {
       "id": "sheet-metal",
       "nameKey": "material.sheet-metal",
       "densityKgM3": 7850,
       "resistance": 0.8,
-      "hardness": 0.6,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "sources": [
+        "https://kar.kent.ac.uk/103084/1/C.%20Shepherd%20-%20effects%20of%20a%20range%20of%20projectiles%20on%20bullet%20ricochet%20-%20AAM.pdf"
+      ],
+      "confidence": "medium",
+      "note": "Car bodies and cladding: rifle bullets pass; critical ricochet angle about 20 degrees. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 20,
+      "breaksBullets": false
     },
     {
       "id": "wire-mesh",
       "nameKey": "material.wire-mesh",
       "densityKgM3": 300,
       "resistance": 0.01,
-      "hardness": 0.2,
       "sources": [],
       "confidence": "low",
-      "note": "Mostly air; stops almost nothing."
+      "note": "Mostly air; stops almost nothing. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 0,
+      "breaksBullets": false
     },
     {
       "id": "concrete",
       "nameKey": "material.concrete",
       "densityKgM3": 2400,
-      "resistance": 0.12,
-      "hardness": 0.7,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "resistance": 0.26,
+      "sources": [
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm",
+        "https://www.researchgate.net/publication/352237057_Ricochet_of_AK_bullets_762_39_mm_on_concrete_and_cement_surfaces_a_forensic-based_study"
+      ],
+      "confidence": "medium",
+      "note": "A 2 in (5 cm) unreinforced concrete wall stops 5.56 mm at under 50 m; 7.62 mm ball penetrates 2 in. Critical ricochet angle 10.8-13.2 degrees. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 12,
+      "breaksBullets": true
     },
     {
       "id": "reinforced-concrete",
       "nameKey": "material.reinforced-concrete",
       "densityKgM3": 2500,
-      "resistance": 0.16,
-      "hardness": 0.75,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "resistance": 0.3,
+      "sources": [
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm",
+        "https://www.researchgate.net/publication/352237057_Ricochet_of_AK_bullets_762_39_mm_on_concrete_and_cement_surfaces_a_forensic-based_study"
+      ],
+      "confidence": "medium",
+      "note": "Single rifle rounds do not pass 8 in of reinforced concrete (about 35 rounds for a first hole). See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 12,
+      "breaksBullets": true
     },
     {
       "id": "brick",
       "nameKey": "material.brick",
       "densityKgM3": 1900,
-      "resistance": 0.08,
-      "hardness": 0.5,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "resistance": 0.12,
+      "sources": [
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm",
+        "https://www.armoury-online.ru/articles/ar/ru/ak-74/"
+      ],
+      "confidence": "medium",
+      "note": "Russian norm: 5.45 mm 7N6 penetrates 10-12 cm of brickwork at 100 m; US finding: brick veneer stops 5.56 mm at close range (the soft-core bullet breaks up). Both hold with this value and the break-up limit on soft-core bullets. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 11,
+      "breaksBullets": true
     },
     {
       "id": "stone",
       "nameKey": "material.stone",
       "densityKgM3": 2600,
-      "resistance": 0.14,
-      "hardness": 0.8,
+      "resistance": 0.24,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Assumed like concrete. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 12,
+      "breaksBullets": true
     },
     {
       "id": "wood",
       "nameKey": "material.wood",
       "densityKgM3": 550,
-      "resistance": 0.025,
-      "hardness": 0.15,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "resistance": 0.016,
+      "sources": [
+        "https://www.armoury-online.ru/articles/ar/ru/ak-74/",
+        "https://kar.kent.ac.uk/81477",
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm"
+      ],
+      "confidence": "medium",
+      "note": "Pine: 5.56 mm passes about 60 cm at 200 m (forum-quoted); a 41 cm log wall takes 1-3 rounds of 5.56 mm (US manual); 20 cm beams stop half of 5.45 mm 7N6 at 650 m. Critical ricochet angle 10-13 degrees. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 11,
+      "breaksBullets": true
     },
     {
       "id": "soil",
       "nameKey": "material.soil",
       "densityKgM3": 1600,
-      "resistance": 0.04,
-      "hardness": 0.1,
-      "sources": [],
-      "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "resistance": 0.07,
+      "sources": [
+        "https://www.globalsecurity.org/military/library/policy/army/fm/3-06-11/ch7.htm",
+        "https://www.globalsecurity.org/military/library/policy/army/accp/en0065/le1.htm",
+        "https://apps.dtic.mil/sti/tr/pdf/AD0479824.pdf"
+      ],
+      "confidence": "medium",
+      "note": "One thickness of packed sandbags stops 5.56 mm; 45 cm sandbag walls stop small arms. Ricochet off soil below about 8 degrees. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 8,
+      "breaksBullets": true
     },
     {
       "id": "hedge",
       "nameKey": "material.hedge",
       "densityKgM3": 150,
-      "resistance": 0.004,
-      "hardness": 0.05,
+      "resistance": 0.0006,
       "sources": [],
       "confidence": "low",
-      "note": "Branches and leaves; little bullet stopping, good concealment."
+      "note": "Mostly air: a 1.5 m hedge is worth about 1 mm of steel; good concealment, almost no protection. Game value. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 0,
+      "breaksBullets": false
     },
     {
       "id": "glass",
       "nameKey": "material.glass",
       "densityKgM3": 2500,
       "resistance": 0.03,
-      "hardness": 0.3,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Window glass; game value. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 5,
+      "breaksBullets": false
+    },
+    {
+      "id": "water",
+      "nameKey": "material.water",
+      "densityKgM3": 1000,
+      "resistance": 0.003,
+      "sources": [
+        "https://www.ojp.gov/ncjrs/virtual-library/abstracts/ricochet-dynamics-nine-millimetre-parabellum-bullet"
+      ],
+      "confidence": "medium",
+      "note": "Bullets skip off water below about 6.5 degrees. See docs/research/ballistics.md.",
+      "ricochetAngleDeg": 7,
+      "breaksBullets": false
     }
   ]
 }

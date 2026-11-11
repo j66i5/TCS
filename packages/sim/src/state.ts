@@ -14,10 +14,17 @@ import { createRng, type RngState } from "./rng";
 import { Store, type ReadonlyStore } from "./store";
 import type { BattleEndReason } from "./events";
 import { canonicalJson, hashText } from "./hash";
+import {
+  createProjectilePool, deserializeProjectiles, serializeProjectiles, type ProjectilePool, type SerializedProjectiles,
+} from "./projectiles";
 
 /** Deeply read-only type: what controllers, the renderer and UI may see of the state. */
+/** Read-only face of a typed array (index and length only). */
+export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
+
 export type DeepReadonly<T> =
-  T extends Store<infer V> ? ReadonlyStore<DeepReadonly<V>>
+  T extends Float64Array | Float32Array | Int32Array | Uint16Array | Uint8Array ? ReadonlyNumbers
+  : T extends Store<infer V> ? ReadonlyStore<DeepReadonly<V>>
   : T extends (infer R)[] ? ReadonlyArray<DeepReadonly<R>>
   : T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
   : T;
@@ -26,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 3;
+export const STATE_SCHEMA_VERSION = 4;
 
 export interface SideState {
   id: SideId;
@@ -48,6 +55,8 @@ export interface SimState {
   pendingOrders: PendingOrder[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
+  /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
+  projectiles: ProjectilePool;
 
   // Component stores
   identity: Store<Identity>;
@@ -67,6 +76,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     catalogFingerprint,
     mapFingerprint,
     terrain: { breaches: [], craters: [], vegetationLoss: [] },
+    projectiles: createProjectilePool(),
     tick: 0,
     rng: createRng(seed),
     nextEntityId: 1,
@@ -105,6 +115,7 @@ export interface SerializedState {
   pendingOrders: PendingOrder[];
   ended: SimState["ended"];
   terrain: TerrainState;
+  projectiles: SerializedProjectiles;
   stores: Record<StoreKey, [EntityId, unknown][]>;
 }
 
@@ -119,6 +130,7 @@ export function serializeState(s: SimState): SerializedState {
       catalogFingerprint: s.catalogFingerprint,
       mapFingerprint: s.mapFingerprint,
       terrain: s.terrain,
+      projectiles: serializeProjectiles(s.projectiles),
       tick: s.tick,
       rng: s.rng,
       nextEntityId: s.nextEntityId,
@@ -172,6 +184,7 @@ export function deserializeState(data: SerializedState): SimState {
     catalogFingerprint: d.catalogFingerprint,
     mapFingerprint: d.mapFingerprint,
     terrain: d.terrain,
+    projectiles: deserializeProjectiles(d.projectiles),
     identity: st("identity") as Store<Identity>,
     transform: st("transform") as Store<Transform>,
     mover: st("mover") as Store<Mover>,

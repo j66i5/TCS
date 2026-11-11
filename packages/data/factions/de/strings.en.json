@@ -30,5 +30,9 @@
   "rank.de.oberleutnant": "Oberleutnant",
   "rank.de.oberleutnant.abbr": "OLt",
   "radio.noRoute": "{callsign}: no route to that point, staying put.",
-  "item.de-basic-load": "Basic fighting load"
+  "item.de-basic-load": "Basic fighting load",
+  "ammo.de-556-dm11": "5.56 mm DM11 ball",
+  "ammo.de-556-dm21": "5.56 mm DM21 tracer",
+  "weapon.de-g36": "G36",
+  "item.de-g36-mag": "G36 magazine (30)"
 }

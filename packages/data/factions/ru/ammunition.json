@@ -1,0 +1,60 @@
+{
+  "ammunition": [
+    {
+      "id": "ru-545-7n10",
+      "nameKey": "ammo.ru-545-7n10",
+      "calibre": "5.45x39",
+      "kind": "ball",
+      "projectileMassKg": 0.00362,
+      "cartridgeMassKg": 0.0107,
+      "diameterM": 0.0056,
+      "drag": {
+        "a": 0.16,
+        "b": 89,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 16,
+        "atVelocityMps": 760
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/5.45%C3%9739mm",
+        "http://nastavleniya.ru/AK74/ak74_10.html",
+        "https://www.armoury-online.ru/articles/ar/ru/ak-74/"
+      ],
+      "confidence": "medium",
+      "note": "Drag curve fitted to the AK-74 manual's 7N6 velocities (900 -> 543 m/s at 400 m), applied to the heavier 7N10. Penetration anchor: 16 mm St3 steel at 100 m (the bullet is at about 793 m/s there; set slightly lower for margin). Hardened steel core: no close-range break-up limit. Bullet diameter from memory. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "ru-545-7t3",
+      "nameKey": "ammo.ru-545-7t3",
+      "calibre": "5.45x39",
+      "kind": "tracer",
+      "projectileMassKg": 0.00323,
+      "cartridgeMassKg": 0.0105,
+      "diameterM": 0.0056,
+      "drag": {
+        "a": 0.17,
+        "b": 95,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 3,
+        "atVelocityMps": 600,
+        "breakupVelocityMps": 706
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/5.45%C3%9739mm"
+      ],
+      "confidence": "medium",
+      "note": "Tracer: mass and burn-out distance published; drag and penetration are game values. See docs/research/ballistics.md (values from search extracts of the cited pages).",
+      "tracerBurnoutM": 800
+    }
+  ]
+}

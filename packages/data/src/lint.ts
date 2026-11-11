@@ -24,6 +24,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   Object.values(data.movementModes).forEach((m) => check("core/movement-modes.json", m.id, m, false));
   Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
   Object.values(data.formations).forEach((m) => check("core/formations.json", m.id, m, false));
+  if (data.ballistics) check("core/ballistics.json", "ballistics", data.ballistics, false);
   if (data.body) {
     for (const p of data.body.postures) check("core/body.json", `postures.${p.id}`, p, false);
     check("core/body.json", "transitions", data.body.transitions, false);
@@ -43,6 +44,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     Object.values(pack.roles).forEach((x) => check(`${d}/roles.json`, x.id, x, fx));
     Object.values(pack.items).forEach((x) => check(`${d}/items.json`, x.id, x, fx));
     Object.values(pack.units).forEach((x) => check(`${d}/units.json`, x.id, x, fx));
+    Object.values(pack.weapons).forEach((x) => check(`${d}/weapons.json`, x.id, x, fx));
     // Plausibility beyond the schema.
     for (const u of Object.values(pack.units)) {
       if (u.members.length > 60) errors.push({ file: `${d}/units.json`, path: u.id, message: `${u.members.length} direct members is implausible; use subunits`, severity: "warning" });

@@ -76,6 +76,12 @@ try {
     await page.waitForTimeout(300);
     const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-40s-debug.png`;
     await page.screenshot({ path: p1 }); shots.push(p1);
+    // Projectile drawing: a fan of test bullets from the blue team, a few ticks into their flight, in the
+    // normal view (tracers clear, other bullets very faint) and in the debug view (all clear).
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setDebug(false); t.debugVolley(40); t.stepTicks(9);") as () => void);
+    await page.waitForTimeout(300);
+    const p2 = `${outDir}/${mapKind}-${seed}-${name}-2-volley.png`;
+    await page.screenshot({ path: p2 }); shots.push(p2);
     const info = await page.evaluate(new Function("const t = globalThis.__tcs; return { tick: t.sim.state.tick, hash: t.hash(), orders: t.orderLog.length };") as () => { tick: number; hash: string; orders: number });
     console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();

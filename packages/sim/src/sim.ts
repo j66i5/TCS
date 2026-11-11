@@ -11,6 +11,8 @@ import { secondsToTicks, TICK_HZ } from "./ids";
 import type { Order } from "./orders";
 import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
+import { buildBallistics } from "./ballistics";
+import { projectileSystem } from "./systems/ballistics";
 import { buildInitialState } from "./setup";
 import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
@@ -29,8 +31,10 @@ export function createContext(input: BattleInput): SimContext {
   if (!comms) throw new Error(`unknown comms model '${input.rules.commsModel}'`);
   const problems = validateMap(input.map, input.catalog.terrain);
   if (problems.length > 0) throw new Error(`map '${input.map.id}' does not fit the data: ${problems.slice(0, 5).join("; ")}`);
+  const mapIndex = buildMapIndex(input.map);
   return {
-    catalog: input.catalog, map: input.map, mapIndex: buildMapIndex(input.map), mapFingerprint: mapFingerprint(input.map), nav: {},
+    catalog: input.catalog, map: input.map, mapIndex, mapFingerprint: mapFingerprint(input.map), nav: {},
+    ballistics: buildBallistics(input.map, input.catalog, mapIndex, TICK_HZ),
     rules: input.rules, comms, physiology: null,
   };
 }
@@ -72,6 +76,7 @@ export function step(sim: Sim): SimEvent[] {
   postureSystem(ctx, state, events);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
+  projectileSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

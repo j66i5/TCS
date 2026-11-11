@@ -1,0 +1,21 @@
+{
+  "gravityMps2": 9.80665,
+  "airDensityKgM3": 1.225,
+  "referenceTempC": 15,
+  "penetrationVelocityExponent": 1.5,
+  "penetrationDeflectionDeg": 6,
+  "ricochetSpeedRetention": [
+    0.55,
+    0.9
+  ],
+  "ricochetScatterDeg": 6,
+  "minSpeedMps": 40,
+  "maxFlightSeconds": 12,
+  "sources": [
+    "https://en.wikipedia.org/wiki/Standard_gravity",
+    "https://en.wikipedia.org/wiki/Density_of_air",
+    "https://en.wikipedia.org/wiki/Ricochet"
+  ],
+  "confidence": "low",
+  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md."
+}

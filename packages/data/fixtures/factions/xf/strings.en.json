@@ -9,5 +9,6 @@
   "item.xf-round": "round",
   "item.xf-mag": "magazine",
   "item.xf-crate": "crate",
-  "radio.ack.move": "{callsign} goes."
+  "radio.ack.move": "{callsign} goes.",
+  "weapon.xf-blaster": "Blaster"
 }

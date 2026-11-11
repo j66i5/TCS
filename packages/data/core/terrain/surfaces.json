@@ -13,7 +13,8 @@
       "colour": "#6f8f4a",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "meadow",
@@ -28,7 +29,8 @@
       "colour": "#7f9a52",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "ploughed",
@@ -43,7 +45,8 @@
       "colour": "#7a6247",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "stubble",
@@ -58,7 +61,8 @@
       "colour": "#b4a46c",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "forest-floor",
@@ -73,7 +77,8 @@
       "colour": "#4d5a35",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "dirt-track",
@@ -88,7 +93,8 @@
       "colour": "#9a8562",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "gravel",
@@ -103,7 +109,8 @@
       "colour": "#a39d8f",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "stone"
     },
     {
       "id": "asphalt",
@@ -118,7 +125,8 @@
       "colour": "#5c5d5f",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "concrete"
     },
     {
       "id": "concrete",
@@ -133,7 +141,8 @@
       "colour": "#8e8c87",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "concrete"
     },
     {
       "id": "yard",
@@ -148,7 +157,8 @@
       "colour": "#8d8068",
       "sources": [],
       "confidence": "low",
-      "note": "Farmyard: cobbles and packed earth."
+      "note": "Farmyard: cobbles and packed earth.",
+      "material": "stone"
     },
     {
       "id": "garden",
@@ -163,7 +173,8 @@
       "colour": "#5f8a45",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "floor",
@@ -178,7 +189,8 @@
       "colour": "#7b6f66",
       "sources": [],
       "confidence": "low",
-      "note": "Inside buildings."
+      "note": "Inside buildings.",
+      "material": "concrete"
     },
     {
       "id": "mud",
@@ -193,7 +205,8 @@
       "colour": "#5d5140",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "soil"
     },
     {
       "id": "water-shallow",
@@ -208,7 +221,8 @@
       "colour": "#4f7184",
       "sources": [],
       "confidence": "low",
-      "note": "Wadeable stream or pond edge, under ~0.8 m."
+      "note": "Wadeable stream or pond edge, under ~0.8 m.",
+      "material": "water"
     },
     {
       "id": "water-deep",
@@ -223,7 +237,8 @@
       "colour": "#36576b",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
+      "material": "water"
     }
   ]
 }

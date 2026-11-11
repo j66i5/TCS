@@ -1,0 +1,39 @@
+{
+  "weapons": [
+    {
+      "id": "de-g36",
+      "nameKey": "weapon.de-g36",
+      "type": "rifle",
+      "calibre": "5.56x45",
+      "massKg": 3.63,
+      "feed": {
+        "magazine": "de-g36-mag"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 750,
+      "dispersionMrad": 0.4,
+      "reloadSeconds": 3.0,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 3
+        }
+      ],
+      "ammo": {
+        "de-556-dm11": 920,
+        "de-556-dm21": 920
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_G36",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/gewehr-g36"
+      ],
+      "confidence": "medium",
+      "note": "Mass, rate of fire and muzzle velocity published. Dispersion (about 15 cm groups at 100 m with service ammunition), reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    }
+  ]
+}

@@ -15,6 +15,7 @@ recommended option first — never as a typed list in the chat.
 - Determinism / perf only: `npm run test:determinism` · `npm run test:perf`
 - Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]`
 - Generate a map and print stats/problems: `npm run map -- --kind village --seed 3` · all kinds: `npm run map -- --all --seeds 5`
+- Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover`
 - Batch report: `npm run batch -- --scenario demo --runs 200 --seconds 120` (writes `reports/`)
 - Golden replays (only for intended changes, log in DECISIONS.md): `npm run golden:update`
 - Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` → `screenshots/`
@@ -44,4 +45,7 @@ recommended option first — never as a typed list in the chat.
 - Wikipedia and most of the web are blocked from the container; data source URLs cannot be fetched here.
 - `packages/scenario` (map generation) follows the sim's determinism lint rules: maps are battle input.
 - New data folders must also be bundled by the app (`packages/app/src/data.ts` glob); a test checks core/** and factions/**.
+- Hot loops (projectiles): copy imported functions/constants into locals first — module getters cost ~15 % in tsx/vitest.
+- Timing tests (`perf*.test.ts`) fail if another heavy command runs at the same time; run `npm run check` alone.
+- Research cannot open web pages here (network), only search extracts: mark such data `confidence: "medium"` at most.
 - The Stop hook (`.claude/hooks/stop-check.sh`) blocks ending the session on red checks; escape hatch documented in the script.

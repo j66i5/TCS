@@ -99,10 +99,56 @@ of a line of sight blocked per metre of it (M3). `colour` is how the renderer pa
 no code. The map generator places specific kinds by ID (e.g. `"hedge"`, `"farmhouse"`), so removing or
 renaming one of those IDs makes generation fail with a message naming the missing ID.
 
-## Add a weapon or a vehicle
+## Add ammunition
 
-Not yet possible: the weapon and ammunition file format arrives with ballistics in **M2**, vehicles in **M7**.
-This guide will gain those sections then. (Magazines and other carried items can already be added as items.)
+In `factions/<id>/ammunition.json`. One entry per kind of round; it automatically also becomes a counted item
+(one round, with the cartridge mass), so magazines can hold it.
+
+```json
+{ "id": "de-556-dm11", "nameKey": "ammo.de-556-dm11", "calibre": "5.56x45", "kind": "ball",
+  "projectileMassKg": 0.004, "cartridgeMassKg": 0.0123, "diameterM": 0.0057,
+  "drag": { "a": 0.061, "b": 193, "max": 0.5 },
+  "penetration": { "steelMm": 3.5, "atVelocityMps": 425 },
+  "tracer": false, "fuse": "none", "guidance": "unguided",
+  "sources": ["https://..."], "confidence": "medium", "note": "..." }
+```
+
+- `drag`: the air-resistance coefficient is `a + b / speed`, capped at `max`. To fit a new bullet, take a
+  published table of speed at 100, 200, 300 ... m, adjust `a` and `b`, and compare with `npm run lab -- cover`
+  (flight table) until the speeds match.
+- `penetration`: a published "x mm of mild steel at y m" figure, entered as the thickness and the bullet's speed
+  at that distance. The game scales it with speed.
+- `kind`, `fuse`, `guidance`: from fixed lists (ball, armour-piercing, tracer, high-explosive, fragmentation,
+  shaped-charge ... / none, impact, time ... / unguided, command-wire ...). Explosive rounds add an `explosive`
+  block (used from M2.4).
+- Tracers: `"tracer": true` and `"tracerBurnoutM"`.
+
+## Add a weapon
+
+In `factions/<id>/weapons.json`:
+
+```json
+{ "id": "de-g36", "nameKey": "weapon.de-g36", "type": "rifle", "calibre": "5.56x45", "massKg": 3.63,
+  "feed": { "magazine": "de-g36-mag" }, "fireModes": ["semi", "auto"], "cyclicRpm": 750,
+  "dispersionMrad": 0.4, "reloadSeconds": 3.0, "setupSeconds": 0, "jamProbability": 0.0002,
+  "sights": [ { "kind": "magnified", "magnification": 3 } ],
+  "ammo": { "de-556-dm11": 920, "de-556-dm21": 920 },
+  "sources": ["https://..."], "confidence": "medium" }
+```
+
+`ammo` lists what the weapon fires with the muzzle velocity from this barrel (m/s). The magazine is an item in
+`items.json` whose `chargeItem` is one of those ammunition IDs. `dispersionMrad` is the weapon's own scatter
+(one standard deviation; 1 mrad = 10 cm at 100 m). The loader checks all these links.
+
+## Change what stops a bullet
+
+`core/terrain/materials.json`: `resistance` is millimetres of mild steel per millimetre of the material
+(brick 0.10 means 11 cm of brick is worth 11 mm of steel); `ricochetAngleDeg` is the largest angle from the
+surface at which bullets still glance off. `npm run lab -- cover` shows the effect on typical walls.
+
+## Add a vehicle
+
+Not yet possible: the vehicle format arrives in **M7**.
 
 ## Add a whole faction
 

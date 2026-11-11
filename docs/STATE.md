@@ -1,11 +1,10 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 and M1 done)._
+_Last updated: 2026-11-11 (M0 and M1 done; M2 slice M2.1 done)._
 
 ## Current milestone
-**M1 Map and movement — done** (terrain and maps, navigation, the soldier's body, formations and cover).
-Next milestone: **M2 Ballistics and wounds** (projectiles, materials and penetration, fragments, body zones,
-armour, wound records, small arms and grenades for both factions; real squad organisation and kit data).
+**M2 Ballistics and wounds** — slice **M2.1 projectile engine: done**. Next slice: **M2.2 the shooter**
+(weapon handling, magazines, reload, aiming error, the fire-at-point order, firing range lab).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -36,11 +35,22 @@ armour, wound records, small arms and grenades for both factions; real squad org
   their slot; at the halt each man takes the best cover within 15 m, goes prone and faces outward; formation
   button; zoomed far out, units show as infantry symbols. Cover effect is modest on open farmland (see
   DECISIONS.md).
-- Tests: 154, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.1 projectile engine**: bullets as real objects (typed arrays) with drag fitted to published velocity
+  tables, gravity, air density from temperature; hits on ground, walls, hedges, house walls (doors and windows
+  open), chance of being stopped in vegetation; penetration and ricochet per material from published norms;
+  impact events; tracers drawn clearly, other bullets very faintly, impact puffs. Cover lab
+  (`npm run lab -- cover`) reproduces the public figures. G36 + DM11/DM21 and AK-74M + 7N10/7T3 in the data.
+  20,000 live bullets + 304 soldiers: about 7× real time here (target 8×; see DECISIONS.md).
+- Research files: `docs/research/ballistics.md` (used) and `docs/research/squads.md` (for the owner's review).
+- Tests: 183, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
+- **Nobody can shoot or be hit yet**: bullets only exist in the labs, the benchmark and a screenshot tool hook
+  (M2.2 adds shooting, M2.3 wounds). Roofs do not stop anything yet (M2.4).
+- Research values come from search extracts, not from reading the pages; confidence medium at best.
+- The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 7×).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
   loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
 - The 24 kg load is one placeholder item, not real kit (M2).
@@ -64,5 +74,16 @@ armour, wound records, small arms and grenades for both factions; real squad org
 - M1.3: posture change time **depends on load**; fatigue **winded after 2–3 min running**, ~5 min to recover;
   **load slows and tires men from now**.
 
+- M2 planning: owner **dictates the squad tables**; **G36** and **AK-74M** default rifles; **helmet + plates**;
+  **realistic bleeding clock**; **realistic lethality mix**; **tracers clear, other bullets very faint**;
+  cover preference stays **balanced**.
+
+## Next
+**M2.2 The shooter** (ROADMAP.md, M2 slice 2).
+
 ## Open questions for the owner
+- **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
+  man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`
+  (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the
+  owner decides.
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.

@@ -63,4 +63,23 @@ describe("data loader", () => {
     const { errors } = lintDataSet(files);
     expect(formatErrors(errors)).toContain("no sources: either add a source URL");
   });
+
+  it("rejects inconsistent weapon data: wrong calibre, non-magazine feed, mass mismatch, ball marked tracer, duplicate IDs", () => {
+    const files = clone(read(["core", "factions"]));
+    const weapons = files["factions/de/weapons.json"] as { weapons: { calibre: string; feed: { magazine: string } }[] };
+    const ammo = files["factions/de/ammunition.json"] as { ammunition: { id: string; tracer: boolean; cartridgeMassKg: number }[] };
+    const items = files["factions/de/items.json"] as { items: Record<string, unknown>[] };
+    weapons.weapons[0]!.calibre = "7.62x51";
+    ammo.ammunition[0]!.tracer = true; // a "ball" round flagged as tracer
+    ammo.ammunition[0]!.cartridgeMassKg = 0.02; // the magazine still says 12.3 g per round
+    items.items.push({ id: ammo.ammunition[1]!.id, nameKey: "x", category: "ammunition", massKg: 0.01, sources: [], confidence: "low", note: "dup" });
+    const out = formatErrors(loadDataSet(files).errors);
+    expect(out).toContain("calibre 5.56x45 does not fit this 7.62x51 weapon");
+    expect(out).toContain("contradict each other");
+    expect(out).toContain("a magazine and its loose rounds must weigh the same");
+    expect(out).toContain("ammunition becomes an item automatically");
+    const files2 = clone(read(["core", "factions"]));
+    (files2["factions/de/weapons.json"] as typeof weapons).weapons[0]!.feed.magazine = "de-basic-load";
+    expect(formatErrors(loadDataSet(files2).errors)).toContain("is not a magazine or belt");
+  });
 });

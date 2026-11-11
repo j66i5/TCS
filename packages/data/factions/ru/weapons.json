@@ -1,0 +1,39 @@
+{
+  "weapons": [
+    {
+      "id": "ru-ak74m",
+      "nameKey": "weapon.ru-ak74m",
+      "type": "rifle",
+      "calibre": "5.45x39",
+      "massKg": 3.4,
+      "feed": {
+        "magazine": "ru-ak74-mag"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 650,
+      "dispersionMrad": 0.5,
+      "reloadSeconds": 3.2,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "iron",
+          "magnification": 1
+        }
+      ],
+      "ammo": {
+        "ru-545-7n10": 900,
+        "ru-545-7t3": 900
+      },
+      "sources": [
+        "https://www.army-technology.com/projects/ak-74m-assault-rifle-russian-army-military/",
+        "https://structure.mil.ru/structure/forces/ground/weapons/arma/more.htm?id=10344196@morfMilitaryModel"
+      ],
+      "confidence": "medium",
+      "note": "Mass, rate of fire (600-650) and muzzle velocity published. Dispersion, reload time and stoppage rate are estimates. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    }
+  ]
+}

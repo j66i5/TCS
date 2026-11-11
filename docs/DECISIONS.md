@@ -317,3 +317,92 @@ behind his slot (furthest man from the leader in the village test: 35–37 m, wa
 formation's slot list extend the last slot backwards instead of stacking on the leader; the halt cover move is
 skipped if the walk to it would be long (behind a wall); leftover end-of-move settings are cleared by new orders.
 Known, recorded: slots are assigned by soldier ID, not by where men stand (men may cross at the start).
+
+## 2026-11-11 — Owner answers: cover preference stays balanced; M2 planning decisions
+Cover preference stays **balanced** for now (the larger gain comes in M3/M4 when men avoid ground the enemy can
+see; revisit at the M6 review). For M2: the **owner dictates the squad tables** (Panzergrenadier dismounts of a
+Puma; motor-rifle squad on a BMP) — Claude enters them and flags anything that cannot be backed by a public
+source; default rifles **G36** (German) and **AK-74M** (Russian), with G95A1 and AK-12 in the data as
+alternative loadouts; both sides wear **helmet and a vest with rifle-rated plates** front and back by default;
+the simple wound model runs on a **realistic clock** (untreated massive bleeding: unconscious in roughly 1–3 min,
+dead in roughly 3–10 min; moderate wounds tens of minutes; minor wounds never kill); lethality is a **realistic
+mix** (with plates and helmets most hits wound or incapacitate; roughly one casualty in four or five killed
+outright, tuned in the casualty lab and shown to the owner); bullets in flight: **tracer rounds as clear
+streaks, all other bullets as very faint streaks**, plus muzzle flashes and impact puffs (all bullets fully
+visible in the debug view).
+
+## 2026-11-11 — M2 slice plan and software choices
+Five slices, one session each (ROADMAP.md). Order chosen by technical risk: the projectile engine and its
+performance come first with one researched rifle per side, then the shooter, then the body, then explosives,
+then the full squad data. Claude's choices: scope of M2 weapons is rifles, machine guns, marksman rifle, hand
+grenades and 40 mm / under-barrel grenade launchers (shoulder-fired anti-tank weapons wait for M7 as the spec's
+roadmap says); friendly fire is on, because hits come from geometry (pillar 2); firing in M2 is driven by a
+minimal "fire at point" order and lab scripts — target choice and fire discipline are M4; near-miss events are
+emitted from M2 but only become suppression in M4.
+
+## 2026-11-11 — Research from public sources (owner request) and how it is used
+The owner asked for real-world research for both the ballistics and the squad organisations. Two research
+tasks searched public sources (manufacturer data, bundeswehr.de, mil.ru, US Army field manuals on public sites,
+forensic ballistics papers, defence journalism, Wikipedia). **Limit: the pages themselves could not be opened
+from the development environment; all values come from search-result extracts**, so the data built on them is
+marked `confidence: "medium"` at best and the tables need re-checking when the pages can be read. Results:
+`docs/research/ballistics.md` (used in M2.1) and `docs/research/squads.md` (input for the owner's squad tables
+before M2.5; sources conflict on several points, listed there).
+
+## 2026-11-11 — M2.1 projectile engine: model choices
+**Storage:** projectiles live in typed arrays in the state (`state.projectiles`), saved as plain arrays of the
+live rows; removal moves the last row into the gap (deterministic). Projectile height is absolute (same datum as
+the terrain). **Flight:** drag with a speed-dependent coefficient Cd(v) = a + b/v (capped), fitted per bullet to
+published downrange velocities — a constant coefficient could not match them (real drag rises as a bullet slows
+toward the speed of sound); result within 3 % of the published 5.56 mm table at 100–500 m. Air density follows
+temperature; drag is relative to the wind (zero for now). **Collisions:** each tick the straight path is tested
+against the ground, wall segments (obstacles and building walls, with doors and windows open) and vegetation
+(chance per metre of being stopped). A coarse 8 m grid of highest ground, highest vegetation and "wall nearby"
+lets most bullets skip the tests. **Penetration:** each bullet has a published steel-penetration figure at a
+speed (5.56 mm: 3.5 mm at ~425 m/s; 7N10: 16 mm at ~805 m/s), scaled by speed^1.5; each material has a
+resistance in mm of steel per mm, set from published norms (brick, concrete, wood, sand); a wall struck at an
+angle is thicker along the path; passing costs energy in proportion and deflects the bullet a little.
+**Ricochet:** each material has a largest ricochet angle from forensic studies (concrete ~12°, wood ~11°, sheet
+metal ~20°, soil ~8°, water ~7°); the chance falls linearly from grazing to that angle; 55–90 % of speed kept.
+**Not yet:** people are not hit (M2.3), roofs are not modelled (M2.4), terrain damage is not created (M2.4).
+Known simplifications: bullets do not break up at very close range (the US manual notes reduced penetration
+under 25 m), and brick is set between the Russian norm (5.45 mm passes 10–12 cm) and the US finding (brick
+veneer stops 5.56 mm). Rejected: constant drag coefficient; G1/G7 standard drag tables (more code, no visible
+gain at these ranges); per-bullet objects (allocation, slower).
+
+## 2026-11-11 — Performance with 20,000 live projectiles: 7x here, target 8x
+The benchmark battle (304 soldiers) with 20,000 bullets kept in the air runs at about 7x real time on the
+development container (6.8–7.4 over runs; 2.3 ms per tick, ~110 ns per bullet). The SPEC target is 8x on a
+laptop, which is likely met on a current laptop but is not demonstrated here. The test floor is 3x, because CI
+machines are roughly half as fast. Optimisations done: coarse rejection grid, wall tests only near walls, loop
+constants and imported functions held in locals. Next options if needed (M2.4, when fragments multiply
+projectiles): statistical level of detail for fragments far from anyone (allowed by the SPEC), and splitting the
+loop by projectile kind.
+
+## 2026-11-11 — Screenshot-only volley hook
+To check projectile drawing before soldiers can shoot (M2.2), the app's debug object has `debugVolley`, used
+only by the screenshot tool. It bypasses orders on purpose, is not reachable from the game's controls, and is to
+be removed when the fire order exists. Recorded because it is an exception to "orders are the only input".
+
+## 2026-11-11 — Fixes from the independent M2.1 review (goldens regenerated twice for M2.1)
+The reviewer found no determinism, tunnelling or rule defects, but showed that the first calibration missed its
+own anchors at the ranges the sources state (3.5 mm steel at 570–640 m; the 9.5 mm steel door at 100 m; 16 mm
+at 100 m for 7N10) and that several lab rows sat within 2–3 % of flipping. Fixed: penetration anchors are now
+set at the speed the bullet really has at the published range (with a small margin), and a **break-up rule**
+was added: a soft-core bullet's penetration of masonry, concrete, soil and wood does not rise above its value
+at a data-given impact speed (5.56 mm: its 200 m speed, after the US manual's "penetration peaks at 200 m, the
+round breaks up at close range"). That reconciles the US findings (brick veneer, 5 cm concrete and sandbags
+stop 5.56 mm up close) with the steel figures and with the Russian brick norm for steel-core 5.45 mm. Material
+resistances were re-set accordingly (brick 0.12, concrete 0.26, wood 0.016 ...). The lab tests now check every
+published figure at its stated range, and require the same result at −3 %, nominal and +3 % muzzle velocity;
+the lab table fires rounds with ±2 % velocity spread and prints "marginal" where results are mixed. Also fixed:
+the loader now rejects a weapon whose calibre differs from its ammunition, a feed item that is not a magazine,
+a magazine whose per-round mass differs from the cartridge, a ball round flagged as tracer, and ammunition IDs
+duplicated in items.json; the coarse ground and vegetation grids include neighbouring buckets (steep imported
+terrain could otherwise be missed); vegetation impacts report the vegetation kind and a position inside the
+vegetation; the renderer and controllers see projectile arrays read-only; tests added for wind drift,
+vegetation stopping, ground ricochet and doors. Accepted and recorded: `launchProjectile` is exported for labs,
+tests and the screenshot tool (in battles only weapon systems will call it, from M2.2); data files carry
+customary units where the sources do (mm of steel, degrees, rounds per minute, milliradians), named with their
+unit and converted when the battle tables are built. Golden replays were regenerated for M2.1 (new data files
+and state shape) and again for these fixes (data values).

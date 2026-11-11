@@ -8,6 +8,7 @@ import type { MapDef } from "./map";
 import type { MapIndex } from "./terrain";
 import type { NavGrid, NavSearch } from "./nav";
 import type { PhysiologyModel } from "./wounds";
+import type { BallisticsCtx } from "./ballistics";
 
 export interface BattleRules {
   /** The battle ends when this much game time has passed. */
@@ -28,6 +29,8 @@ export interface SimContext {
   /** Derived from the map at creation: spatial index of wall segments. */
   mapIndex: MapIndex;
   mapFingerprint: string;
+  /** Derived ballistics tables (coarse grids, wall and material properties). Never saved. */
+  ballistics: BallisticsCtx;
   /** Derived navigation grids and search scratch per movement class (built on first use). Never saved. */
   nav: Record<string, { grid: NavGrid; search: NavSearch }>;
   rules: BattleRules;

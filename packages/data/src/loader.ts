@@ -10,6 +10,7 @@
 import type { z } from "zod";
 import {
   BodyFile, type BodyT, FormationsFile, type FormationT,
+  AmmunitionFile, BallisticsFile, WeaponsFile, type AmmoT, type BallisticsT, type ItemT as ItemTT, type WeaponT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
@@ -28,6 +29,8 @@ export interface DataError {
 export type StringTables = Record<string, Record<string, string>>; // lang -> key -> text
 
 export interface FactionPack {
+  ammunition: Record<string, AmmoT>;
+  weapons: Record<string, WeaponT>;
   dir: string;
   manifest: FactionManifestT;
   ranks: Record<string, RankT>;
@@ -48,6 +51,7 @@ export interface TerrainData {
 }
 
 export interface DataSet {
+  ballistics: BallisticsT | null;
   body: BodyT | null;
   formations: Record<string, FormationT>;
   terrain: TerrainData;
@@ -140,7 +144,12 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     }
   }
   const fm = parse(FormationsFile, "core/formations.json", files["core/formations.json"], errors);
+  const ballistics = parse(BallisticsFile, "core/ballistics.json", files["core/ballistics.json"], errors);
+  surfs?.surfaces.forEach((s, i) => {
+    if (!terrain.materials[s.material]) errors.push({ file: T("surfaces"), path: `surfaces[${i}].material`, message: `unknown material '${s.material}' (known: ${known(terrain.materials)})`, severity: "error" });
+  });
   const data: DataSet = {
+    ballistics,
     body,
     formations: fm ? indexById(fm.formations, "core/formations.json", "formations", errors) : {},
     terrain,
@@ -204,7 +213,27 @@ function loadFaction(
   if (!data.qualities[manifest.defaultQuality]) {
     errors.push({ file: f("manifest.json"), path: "defaultQuality", message: `unknown quality '${manifest.defaultQuality}' (known: ${known(data.qualities)})`, severity: "error" });
   }
+  // Optional files: packs without weapons simply have none.
+  const ammoF = files[f("ammunition.json")] === undefined ? { ammunition: [] } : parse(AmmunitionFile, f("ammunition.json"), files[f("ammunition.json")], errors);
+  const weaponsF = files[f("weapons.json")] === undefined ? { weapons: [] } : parse(WeaponsFile, f("weapons.json"), files[f("weapons.json")], errors);
+  if (!ammoF || !weaponsF) return null;
+  ammoF.ammunition.forEach((a, i) => {
+    if (itemsF.items.some((it) => it.id === a.id)) {
+      errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
+    }
+    if ((a.kind === "tracer") !== a.tracer && (a.kind === "tracer" || a.kind === "ball")) {
+      errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].tracer`, message: `kind '${a.kind}' and tracer ${a.tracer} contradict each other`, severity: "error" });
+    }
+  });
+  // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
+  const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({
+    id: a.id, nameKey: a.nameKey, category: "ammunition", massKg: a.cartridgeMassKg,
+    sources: a.sources, confidence: a.confidence, ...(a.note === undefined ? {} : { note: a.note }),
+  }));
+  itemsF.items.push(...roundItems);
   const pack: FactionPack = {
+    ammunition: indexById(ammoF.ammunition, f("ammunition.json"), "ammunition", errors),
+    weapons: indexById(weaponsF.weapons, f("weapons.json"), "weapons", errors),
     dir,
     manifest,
     ranks: indexById(ranksF.ranks, f("ranks.json"), "ranks", errors),
@@ -223,6 +252,29 @@ function loadFaction(
     }
     if ((it.chargeCapacity === undefined) !== (it.chargeMassKg === undefined)) {
       errors.push({ file: f("items.json"), path: `items[${i}]`, message: "chargeCapacity and chargeMassKg must be given together", severity: "error" });
+    }
+  });
+  weaponsF.weapons.forEach((wp, i) => {
+    const mag = pack.items[wp.feed.magazine];
+    const magPath = `weapons[${i}].feed.magazine`;
+    if (!mag) errors.push({ file: f("weapons.json"), path: magPath, message: `unknown item '${wp.feed.magazine}'`, severity: "error" });
+    else if (mag.chargeItem === undefined || mag.chargeCapacity === undefined) {
+      errors.push({ file: f("weapons.json"), path: magPath, message: `item '${mag.id}' is not a magazine or belt (it needs chargeItem and chargeCapacity)`, severity: "error" });
+    } else {
+      const round = pack.ammunition[mag.chargeItem];
+      if (round && mag.chargeMassKg !== undefined && Math.abs(mag.chargeMassKg - round.cartridgeMassKg) > 1e-9) {
+        errors.push({ file: f("items.json"), path: `${mag.id}.chargeMassKg`, message: `${mag.chargeMassKg} kg per round, but '${round.id}' weighs ${round.cartridgeMassKg} kg: a magazine and its loose rounds must weigh the same`, severity: "error" });
+      }
+    }
+    const ids = Object.keys(wp.ammo);
+    if (ids.length === 0) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo`, message: "a weapon needs at least one kind of ammunition", severity: "error" });
+    for (const a of ids) {
+      const ad = pack.ammunition[a];
+      if (!ad) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `unknown ammunition '${a}' (known: ${known(pack.ammunition)})`, severity: "error" });
+      else if (ad.calibre !== wp.calibre) errors.push({ file: f("weapons.json"), path: `weapons[${i}].ammo.${a}`, message: `calibre ${ad.calibre} does not fit this ${wp.calibre} weapon`, severity: "error" });
+    }
+    if (mag && mag.chargeItem !== undefined && !ids.includes(mag.chargeItem)) {
+      errors.push({ file: f("weapons.json"), path: `weapons[${i}].feed.magazine`, message: `magazine '${mag.id}' holds '${mag.chargeItem}', which this weapon does not fire`, severity: "error" });
     }
   });
   unitsF.units.forEach((u, i) => {
@@ -272,6 +324,7 @@ function loadFaction(
   ranksF.ranks.forEach((r, i) => { needKey(r.nameKey, f("ranks.json"), `ranks[${i}].nameKey`); needKey(r.abbrKey, f("ranks.json"), `ranks[${i}].abbrKey`); });
   rolesF.roles.forEach((r, i) => needKey(r.nameKey, f("roles.json"), `roles[${i}].nameKey`));
   itemsF.items.forEach((r, i) => needKey(r.nameKey, f("items.json"), `items[${i}].nameKey`));
+  weaponsF.weapons.forEach((r, i) => needKey(r.nameKey, f("weapons.json"), `weapons[${i}].nameKey`));
   return pack;
 }
 

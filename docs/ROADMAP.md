@@ -42,7 +42,7 @@ Proposed slices (to confirm at the start of M1):
 Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
 motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
-### M2 Ballistics and wounds — 🔨 in progress (M2.1, M2.2, M2.3 done)
+### M2 Ballistics and wounds — 🔨 in progress (M2.1–M2.4 done)
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,
 small arms and grenades for both factions.
 Acceptance: firing range, cover and fragmentation labs produce plausible tables; performance floor holds
@@ -65,11 +65,11 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
    time-stepped physiology on a realistic clock; capabilities (walk, use arms, fight, speak); casualties stay
    in the world as entities; friendly fire; **casualty lab** (wound distribution, killed/incapacitated/wounded
    mix, time to incapacitation) — table shown to the owner for review.
-4. ⏳ **M2.4 Grenades and fragments** — hand grenades (throw as an action), 40 mm and under-barrel grenade
+4. ✅ **M2.4 Grenades and fragments** (2026-11-11) — hand grenades (throw as an action), 40 mm and under-barrel grenade
    launchers; fuses; fragments spawned as projectiles with a velocity spread; blast by distance with shielding
    by obstacles; craters and wall breaches written to terrain damage (and read by navigation);
    **fragmentation lab** (casualty radius by posture and cover); 20,000-fragment benchmark.
-5. **M2.5 Squads and kit data** — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
+5. ⏳ **M2.5 Squads and kit data** — the owner's squad tables for the Puma Panzergrenadier dismounts and the BMP
    motor-rifle squad; rifles (G36 default, G95A1; AK-74M default, AK-12), machine guns, marksman rifles,
    grenade launchers, grenades, magazines and belts, helmets and plate carriers, each with sources and
    confidence; itemised loads replace the 24 kg placeholder; DATA_GUIDE sections for weapons and ammunition;

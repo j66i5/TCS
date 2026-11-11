@@ -42,5 +42,10 @@
   "radio.unable": "{callsign}: unable to comply.",
   "item.de-helmet": "Combat helmet",
   "item.de-vest": "Protective vest with plates",
-  "radio.manDown": "{callsign}: man down - {name}!"
+  "radio.manDown": "{callsign}: man down - {name}!",
+  "ammo.de-dm51": "DM51 hand grenade",
+  "ammo.de-dm51-fragment": "DM51 fragment",
+  "ammo.de-40mm-he": "40 mm HE round",
+  "ammo.de-40mm-fragment": "40 mm fragment",
+  "item.de-ag36-launcher": "AG36 grenade launcher"
 }

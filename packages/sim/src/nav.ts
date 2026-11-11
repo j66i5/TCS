@@ -48,7 +48,10 @@ export interface NavGrid {
   coverWeight: number;
 }
 
-export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0): NavGrid {
+export function buildNavGrid(
+  map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0,
+  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[] = [],
+): NavGrid {
   const cols = Math.ceil(map.widthM / cellM), rows = Math.ceil(map.heightM / cellM);
   const n = cols * rows;
   const cost = new Float32Array(n);
@@ -92,7 +95,9 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
       const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
       const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
       const steps = Math.max(1, Math.ceil(len / step));
+      const holes = breaches.filter((b) => b.owner === "obstacle" && b.id === o.id && b.part === i / 2);
       for (let s = 0; s <= steps; s++) {
+        if (holes.length > 0) { const off = (len * s) / steps; if (holes.some((b) => off >= b.offsetM - b.widthM / 2 && off <= b.offsetM + b.widthM / 2)) continue; }
         const x = ax + ((bx - ax) * s) / steps, y = ay + ((by - ay) * s) / steps;
         const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
         if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
@@ -105,7 +110,25 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
       }
     }
   }
+  // Holes blown in walls: the cell at the middle of each hole is open ground again (a man gets through a
+  // metre-wide gap even though the grid is coarser than that).
+  for (const b of breaches) {
+    if (b.owner !== "obstacle") continue;
+    const o = map.obstacles.find((x) => x.id === b.id);
+    const i = b.part * 2;
+    if (!o || i + 3 >= o.points.length) continue;
+    const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
+    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)) || 1;
+    const x = ax + ((bx - ax) * b.offsetM) / len, y = ay + ((by - ay) * b.offsetM) / len;
+    const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
+    if (c < 0 || r < 0 || c >= cols || r >= rows || building[r * cols + c] === 1) continue;
+    const mr = Math.min(map.rows - 1, Math.floor(y / map.cellSizeM)), mc = Math.min(map.cols - 1, Math.floor(x / map.cellSizeM));
+    const k = cellMoveCost(map, terrain, mr * map.cols + mc, cls);
+    wall[r * cols + c] = 0;
+    cost[r * cols + c] = k === null ? 0 : k;
+  }
   const exposure = exposureMap(map, terrain, cellM, cols, rows, wall, building);
+
   // Cover-seeking routes: open ground costs up to (1 + coverWeight) times more, so a route may be up to that
   // much longer to stay in cover (owner decision: balanced, 0.3).
   if (coverWeight > 0) for (let i = 0; i < n; i++) if (cost[i]! > 0) cost[i] = cost[i]! * (1 + coverWeight * exposure[i]!);

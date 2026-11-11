@@ -55,6 +55,131 @@
       "confidence": "medium",
       "note": "Tracer: mass and burn-out distance published; drag and penetration are game values. See docs/research/ballistics.md (values from search extracts of the cited pages).",
       "tracerBurnoutM": 800
+    },
+    {
+      "id": "ru-rgd5",
+      "nameKey": "ammo.ru-rgd5",
+      "calibre": "hand-grenade",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.31,
+      "cartridgeMassKg": 0.31,
+      "diameterM": 0.058,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.11,
+        "fragmentCount": 350,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          700,
+          1100
+        ],
+        "fuseSeconds": 3.7
+      },
+      "delivery": {
+        "method": "thrown"
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "RGD-5 hand grenade: about 310 g, 110 g TNT, UZRGM fuse 3.2-4.2 s, some hundreds of light fragments. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
+    },
+    {
+      "id": "ru-rgd5-fragment",
+      "nameKey": "ammo.ru-rgd5-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0004,
+      "cartridgeMassKg": 0.0004,
+      "diameterM": 0.0045,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 2.5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the munition (game abstraction: all fragments equal). Drag of a rough sphere; penetration is a game value."
+    },
+    {
+      "id": "ru-vog25",
+      "nameKey": "ammo.ru-vog25",
+      "calibre": "40mm-caseless",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.25,
+      "cartridgeMassKg": 0.3,
+      "diameterM": 0.04,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.048,
+        "fragmentCount": 250,
+        "fragmentAmmo": "ru-vog25-fragment",
+        "fragmentVelocityMps": [
+          1000,
+          1400
+        ],
+        "armingSeconds": 0.3
+      },
+      "delivery": {
+        "method": "launched",
+        "velocityMps": 76,
+        "launcher": "ru-gp25",
+        "maxRangeM": 350
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "VOG-25 round for the GP-25/GP-30 under-barrel launcher: about 250 g, 48 g filling, about 76 m/s, arms after 10-40 m. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
+    },
+    {
+      "id": "ru-vog25-fragment",
+      "nameKey": "ammo.ru-vog25-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0003,
+      "cartridgeMassKg": 0.0003,
+      "diameterM": 0.004,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 2.2,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the munition (game abstraction: all fragments equal). Drag of a rough sphere; penetration is a game value."
     }
   ]
 }

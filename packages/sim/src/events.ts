@@ -29,6 +29,9 @@ export type SimEvent =
     }
   /** dirX, dirY: horizontal unit direction of the shot. */
   /** A projectile struck a soldier. armour: none worn there / penetrated / stopped the round. */
+  | { kind: "explosion"; tick: number; x: number; y: number; z: number; ammo: DefId; owner: EntityId; stunRadiusM: number }
+  | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched"; x: number; y: number }
+  | { kind: "terrain.breached"; tick: number; x: number; y: number; owner: "obstacle" | "building"; id: number }
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
   | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }

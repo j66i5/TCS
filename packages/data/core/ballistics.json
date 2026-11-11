@@ -11,11 +11,28 @@
   "ricochetScatterDeg": 6,
   "minSpeedMps": 40,
   "maxFlightSeconds": 12,
+  "blast": {
+    "severeScaledM": 3,
+    "injuryScaledM": 6,
+    "stunScaledM": 25,
+    "stunSeconds": 4,
+    "craterScaledM": 0.6,
+    "breachSteelMmScaled": 15,
+    "breachReachScaledM": 2.5,
+    "breachWidthScaledM": 2.5
+  },
+  "fragments": {
+    "bandDeg": [
+      -3,
+      40
+    ],
+    "maxPerBurst": 4000
+  },
   "sources": [
     "https://en.wikipedia.org/wiki/Standard_gravity",
     "https://en.wikipedia.org/wiki/Density_of_air",
     "https://en.wikipedia.org/wiki/Ricochet"
   ],
   "confidence": "low",
-  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md."
+  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md. Blast (owner decision 2026-11-11: injury within a few metres, stunned out to about 10 m for a hand grenade): radii scale with the cube root of the filling; for 60 g: severe 1.2 m, injury 2.3 m, stun 9.8 m. Only fragments leaving between 3 degrees below and 40 degrees above the horizon are simulated (the rest go into the ground or the sky). Breach and crater sizes are game values."
 }

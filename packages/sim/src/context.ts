@@ -40,4 +40,6 @@ export interface SimContext {
   physiology: PhysiologyModel | null;
   /** Rates for the physiology model: data (core/wounds.json) overridden by the scenario rules. */
   physiologyParams: Record<string, number>;
+  /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
+  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[];
 }

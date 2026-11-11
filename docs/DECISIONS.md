@@ -515,3 +515,54 @@ fixture faction, data checks on the body outline, the body search margin now der
 **Recorded, not changed:** the "coming round" path cannot happen in this model (nothing restores consciousness
 before M10); the 20,000-projectile benchmark now wounds its own marching soldiers, so it measures a force under
 fire rather than a clean march (still above the floor).
+
+## 2026-11-11 — Owner review of the M2.3 casualty lab, and answers for M2.4
+**Casualty lab reviewed:** lethality "about right, keep it"; share of wounded who keep fighting "fine for now"
+(M4 adds fear and men choosing to stop). **M2.4:** Russian default hand grenade **RGD-5** (German DM51 with
+fragmentation sleeve); a regular soldier in full kit throws **about 30 m standing** (about 20 m crouching,
+10-12 m prone; training scales it), landing within a few metres of the aim point; **a close burst that does
+not wound** injures by blast within a few metres and **stuns for a few seconds out to about 10 m**.
+
+## 2026-11-11 — M2.4 grenades, fragments, blast, roofs, terrain damage (goldens regenerated)
+**Munitions as data:** a grenade is an ammunition entry with an `explosive` block (filling, fragment count,
+the ammunition entry describing one fragment, fragment speed range, time fuse seconds or arming time) and a
+`delivery` (thrown, or launched from a launcher item at a muzzle velocity). It is a counted item like every
+round. In the data: DM51 with sleeve and RGD-5 (thrown, time fuse), a 40 mm x 46 HE round with the AG36 and the
+VOG-25 with the GP-25 (launched, impact fuse with arming distance). **Sources:** the research session's search
+tool declined three of the four look-ups (its own content rules), so DM51, RGD-5, VOG-25 and both launchers
+are entered from general published figures as remembered, `confidence: "low"`, no source URL, to be verified;
+the 40 mm round has sources (medium). Fragment sizes, counts for the 40 mm rounds and all fragment penetration
+values are game values. **Order and action:** new order `grenade` at a point: one man acts — the nearest who
+can throw that far (owner: about 30 m standing, 20 m crouching, 11 m prone, scaled by training), else the
+nearest with a launcher and a round (beyond arming distance, within 350 m); nobody throws nearer than 12 m.
+Preparing takes 2.5 s (throw) or 4 s (launcher) as an interruptible action; the item leaves the load when it is
+released. Landing error: 0.6 m + 7 % of the distance (launcher 1 m + 5 %), scaled by training. **Flight:** the
+normal projectile engine. A time-fuse grenade stops where it lands (no bounce or roll), drops at the foot of
+a wall it strikes, passes through windows and doors, and bursts when the fuse runs out (also in the air). An
+impact-fuse round bursts on ground, wall or roof if armed, else is a dud. Grenades do not wound by striking.
+**Burst:** (1) blast by distance, radii = coefficient x cube root of the filling — for 60 g: blast wound within
+2.3 m (fatal within about 1.2 m), stunned 1-4 s out to 9.8 m (owner decision); a wall between burst and man
+shields him completely. (2) Fragments are real projectiles; only those leaving between 3 degrees below and 40
+degrees above the horizon are simulated (about 35 % of the count; the rest go into the ground or the sky). A
+fragment below 3 J does not wound and is removed; severity grows with the square root of its energy relative
+to 50 J; armour is tested as for bullets (helmets and soft armour stop most small fragments — owner decision).
+Fragments can hit the thrower. They cause no impact events (thousands per burst). (3) A crater (record only,
+too small to matter for movement), and a breach in any wall within reach whose steel-equivalent thickness is
+below 15 mm x cube root of the filling: a hand grenade holes a wooden fence, not a brick wall. Breaches are
+state: bullets, blast and routes pass through them, also after a save. **Many wounds:** every further wound
+adds half its severity to the pain; at pain 0.95 a man collapses until it eases (new; also applies to several
+bullet wounds). **Knock-down now takes 0.3 s** (a man does not drop before the fragments of the same burst
+arrive). **Roofs:** every building has a flat roof at wall height with a material and thickness per building
+kind; it stops or is pierced like a wall (no ricochet); grenades rest or burst on it. No floors between storeys.
+**Air drag** is now integrated exactly for speed (v / (1 + a)), because light fragments lose most of their
+speed within one tick; bullets change by less than a thousandth (range and cover lab bands unchanged).
+**Fragmentation lab** (`npm run lab -- fragmentation`): DM51 standing men wounded 100 % at 5 m, 93 % at 10 m,
+43 % at 20 m, none at 30 m; down at once 47 % at 5 m; lying down cuts wounds per man about five-fold; RGD-5,
+40 mm and VOG-25 wound about a third to a half at 5 m; behind a brick wall nobody is touched.
+**Performance:** bullets: 20,000 live + 304 soldiers 5-6x real time here (floor 3x; was about 7x before bodies
+and roofs were tested). Fragments: a volley of nine sleeve grenades in one tick (20,000 fragments at once)
+every second runs at 26x real time, longest single tick about 30 ms. Keeping 20,000 fragments in the air ALL
+the time needs about 450 bursts a second and ran at about 2x real time — measured once, not a test, far
+beyond any battle in scope. **Gaps recorded:** no bounce or roll; no cooking off or throwing back; ground is
+perfectly smooth, so prone men are not shielded by small folds; men do not take cover from a grenade (M4);
+the launcher is an item, not a weapon with its own state; one grenade per order; the AI never uses grenades.

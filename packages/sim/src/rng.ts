@@ -29,6 +29,7 @@ export const Streams = {
   comms: "comms",
   movement: "movement",
   fire: "fire",
+  fragments: "fragments",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */
@@ -81,6 +82,17 @@ function stream(rng: RngState, name: string): StreamState {
     rng.streams[name] = s;
   }
   return s;
+}
+
+/**
+ * For hot loops: fetch a stream once, then draw from it with `streamFloat` (the same numbers, in the same
+ * order, as repeated `nextFloat(rng, name)` calls).
+ */
+export function rngStream(rng: RngState, name: string): StreamState {
+  return stream(rng, name);
+}
+export function streamFloat(s: StreamState): number {
+  return sfc32Next(s) / 4294967296;
 }
 
 /** Uniform uint32. */

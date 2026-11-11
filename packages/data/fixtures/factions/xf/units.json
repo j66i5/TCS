@@ -18,6 +18,10 @@
             {
               "item": "xf-vest",
               "count": 1
+            },
+            {
+              "item": "xf-bomb",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"

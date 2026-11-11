@@ -37,6 +37,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   if (data.shooting) {
     check("core/shooting.json", "aim", data.shooting.aim, false);
     check("core/shooting.json", "fire", data.shooting.fire, false);
+    check("core/shooting.json", "grenades", data.shooting.grenades, false);
   }
   if (data.body) {
     for (const p of data.body.postures) check("core/body.json", `postures.${p.id}`, p, false);

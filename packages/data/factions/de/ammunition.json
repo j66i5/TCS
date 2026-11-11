@@ -57,6 +57,134 @@
       "confidence": "medium",
       "note": "Soft-core tracer: mass and burn distance from the manufacturer; drag slightly above ball and reduced penetration are game values. See docs/research/ballistics.md (values from search extracts of the cited pages).",
       "tracerBurnoutM": 600
+    },
+    {
+      "id": "de-dm51",
+      "nameKey": "ammo.de-dm51",
+      "calibre": "hand-grenade",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.435,
+      "cartridgeMassKg": 0.435,
+      "diameterM": 0.057,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.06,
+        "fragmentCount": 6500,
+        "fragmentAmmo": "de-dm51-fragment",
+        "fragmentVelocityMps": [
+          1000,
+          1500
+        ],
+        "fuseSeconds": 4
+      },
+      "delivery": {
+        "method": "thrown"
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "DM51 hand grenade with fragmentation sleeve: about 435 g, 60 g filling, about 6,500 steel balls of 2-2.5 mm, delay about 4 s. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
+    },
+    {
+      "id": "de-dm51-fragment",
+      "nameKey": "ammo.de-dm51-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 5e-05,
+      "cartridgeMassKg": 5e-05,
+      "diameterM": 0.0023,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 1.5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the munition (game abstraction: all fragments equal). Drag of a rough sphere; penetration is a game value."
+    },
+    {
+      "id": "de-40mm-he",
+      "nameKey": "ammo.de-40mm-he",
+      "calibre": "40x46",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.18,
+      "cartridgeMassKg": 0.23,
+      "diameterM": 0.04,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.032,
+        "fragmentCount": 300,
+        "fragmentAmmo": "de-40mm-fragment",
+        "fragmentVelocityMps": [
+          1200,
+          1500
+        ],
+        "armingSeconds": 0.25
+      },
+      "delivery": {
+        "method": "launched",
+        "velocityMps": 76,
+        "launcher": "de-ag36-launcher",
+        "maxRangeM": 350
+      },
+      "sources": [
+        "https://www.bulletpicker.com/cartridge_-40mm-he_-m406.html",
+        "https://en.wikipedia.org/wiki/40_mm_grenade"
+      ],
+      "confidence": "medium",
+      "note": "40 mm x 46 low-velocity high-explosive round of the M406 class as a stand-in for the Bundeswehr round: 32 g filling, about 76 m/s, arms after 14-28 m, lethal radius about 5 m (published). Fragment count and mass are game values."
+    },
+    {
+      "id": "de-40mm-fragment",
+      "nameKey": "ammo.de-40mm-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0002,
+      "cartridgeMassKg": 0.0002,
+      "diameterM": 0.0035,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 2.0,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the munition (game abstraction: all fragments equal). Drag of a rough sphere; penetration is a game value."
     }
   ]
 }

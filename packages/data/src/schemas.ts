@@ -80,11 +80,21 @@ export const BallisticsFile = withProv({
   ricochetSpeedRetention: z.tuple([Num(0, 1), Num(0, 1)]), ricochetScatterDeg: Num(0, 45),
   /** Projectiles slower than this, or older than maxFlightSeconds, are removed as spent. */
   minSpeedMps: Num(1, 200), maxFlightSeconds: Num(1, 120),
+  /** Blast (M2.4): effect radii = these x cube root of the filling in kg. */
+  blast: z.object({
+    severeScaledM: Num(0, 50), injuryScaledM: Num(0, 100), stunScaledM: Num(0, 300),
+    stunSeconds: Num(0, 60), craterScaledM: Num(0, 20),
+    /** A wall whose steel-equivalent thickness (mm) is below this x cube root of the filling is breached,
+     *  if the burst is within breachReachScaledM x cube root of the filling of it. */
+    breachSteelMmScaled: Num(0, 1000), breachReachScaledM: Num(0, 50), breachWidthScaledM: Num(0, 50),
+  }).strict(),
+  /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
+  fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000) }).strict(),
 });
 /** SPEC 6.3: shell and warhead types supported by the data model from the start. */
 export const AmmoKind = z.enum([
   "ball", "armour-piercing", "tracer", "high-explosive", "fragmentation", "shaped-charge", "tandem-shaped-charge",
-  "kinetic-penetrator", "airburst", "smoke", "illumination", "thermobaric",
+  "kinetic-penetrator", "airburst", "smoke", "illumination", "thermobaric", "fragment",
 ]);
 export const FuseKind = z.enum(["none", "impact", "time", "proximity", "programmable"]);
 /** SPEC 6.3: guidance types reserved in the data model. */
@@ -111,7 +121,18 @@ export const AmmoSchema = withProv({
   /** Explosive filling and fragments (M2.4). */
   explosive: z.object({
     fillingKg: Num(0, 100), fragmentCount: z.number().int().min(0).max(20000),
-    fragmentMassKg: Num(0, 1), fragmentVelocityMps: z.tuple([Num(0, 4000), Num(0, 4000)]),
+    /** The ammunition entry (kind "fragment") that describes one fragment: mass, size, drag, penetration. */
+    fragmentAmmo: Id, fragmentVelocityMps: z.tuple([Num(0, 4000), Num(0, 4000)]),
+    /** Time fuse: seconds from release to burst. Omit for an impact fuse. */
+    fuseSeconds: Num(0.1, 60).optional(),
+    /** An impact fuse is live only after this flight time (a round that strikes earlier is a dud). */
+    armingSeconds: Num(0, 5).optional(),
+  }).strict().optional(),
+  /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
+   *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
+  delivery: z.object({
+    method: z.enum(["thrown", "launched"]), velocityMps: Num(1, 400).optional(), launcher: Id.optional(),
+    maxRangeM: Num(1, 2000).optional(),
   }).strict().optional(),
 });
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
@@ -162,6 +183,15 @@ export const ShootingFile = z.object({
     incomingReachM: Num(1, 5000),
     topUpAfterSeconds: Num(0.5, 600), clearStoppageSeconds: Num(0.1, 120), aimPointHeightM: Num(0, 3), safetyConeDeg: Num(0, 45),
   }),
+  grenades: withProv({
+    /** How far a soldier of skill 0.5 in full kit throws a hand grenade, by posture, m. */
+    throwRangeM: z.object({ standing: Num(1, 100), crouching: Num(1, 100), prone: Num(1, 100) }).strict(), throwElevationDeg: Num(5, 80),
+    /** Where it lands: one standard deviation = errorMinM + errorFraction x distance (skill 0.5). */
+    throwErrorFraction: Num(0, 1), throwErrorMinM: Num(0, 10), throwSeconds: Num(0.1, 30),
+    launchErrorFraction: Num(0, 1), launchErrorMinM: Num(0, 20), launchSeconds: Num(0.1, 60),
+    /** A man does not throw or fire at a point nearer than this (his own fragments). */
+    minSafeDistanceM: Num(0, 100),
+  }),
 }).strict();
 export type ShootingT = z.infer<typeof ShootingFile>;
 
@@ -190,14 +220,16 @@ export const WoundsFile = z.object({
   wounding: withProv({
     referenceEnergyJ: Num(1, 100000), energyFactorMin: Num(0, 2), energyFactorMax: Num(0, 5),
     bleedFloor: Num(0, 1), bleedPower: Num(0.5, 10), bluntSeverity: Num(0, 1), knockdownSeconds: Num(0, 120), flagSeverity: Num(0, 1), energyExponent: Num(0, 2), throughArmChance: Num(0, 1), throughArmEnergy: Num(0, 1),
+    fragment: z.object({ minEnergyJ: Num(0, 1000), referenceEnergyJ: Num(1, 100000), exponent: Num(0, 2), factorMin: Num(0, 2), factorMax: Num(0, 5) }).strict(),
+    blast: z.object({ severityInjury: Num(0, 1), severitySevere: Num(0, 1), bleedLps: Num(0, 0.2) }).strict(),
   }),
   physiology: withProv({
     bloodVolumeL: Num(1, 10), unconsciousLossFraction: Num(0.05, 1), deathLossFraction: Num(0.05, 1), shockStartFraction: Num(0, 1),
     clotBelowLps: Num(0, 0.1), clotTauS: Num(1, 100000), breathingShockPerS: Num(0, 1), airwayShockPerS: Num(0, 1),
-    painDecayPerS: Num(0, 1), stepSeconds: Num(0.05, 10),
+    painDecayPerS: Num(0, 1), stepSeconds: Num(0.05, 10), painCollapseAt: Num(0, 2),
   }),
   effects: withProv({
-    legNoWalkSeverity: Num(0, 2), armNoFightSeverity: Num(0, 2), painNoFightAt: Num(0, 2),
+    legNoWalkSeverity: Num(0, 2), armNoFightSeverity: Num(0, 2), painNoFightAt: Num(0, 2), painPerWoundK: Num(0, 2),
     moveSeverityK: Num(0, 10), aimSeverityK: Num(0, 20), aimPainK: Num(0, 20), minMoveFactor: Num(0.01, 1),
   }),
 }).strict();
@@ -252,6 +284,8 @@ export const ObstacleKindSchema = withProv({
 export const BuildingKindSchema = withProv({
   id: Id, nameKey: z.string(), widthM: Range, depthM: Range, storeys: IntRange, storeyHeightM: z.number().positive().max(20),
   wallMaterial: Id, wallThicknessM: z.number().positive().max(3), roofColours: z.array(Colour).min(1),
+  /** What the roof is made of and how thick (stops bullets, fragments and grenades from above). */
+  roofMaterial: Id, roofThicknessM: z.number().positive().max(2),
 });
 export const MaterialsFile = z.object({ materials: z.array(MaterialSchema).min(1) }).strict();
 export const SurfacesFile = z.object({ surfaces: z.array(SurfaceSchema).min(1) }).strict();

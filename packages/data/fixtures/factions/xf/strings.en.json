@@ -11,5 +11,7 @@
   "item.xf-crate": "crate",
   "radio.ack.move": "{callsign} goes.",
   "weapon.xf-blaster": "Blaster",
-  "item.xf-vest": "Test vest"
+  "item.xf-vest": "Test vest",
+  "ammo.xf-bomb": "Test bomb",
+  "ammo.xf-shard": "Test shard"
 }

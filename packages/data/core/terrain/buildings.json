@@ -24,9 +24,11 @@
         "#6d6a68",
         "#9a5a40"
       ],
+      "roofMaterial": "wood",
+      "roofThicknessM": 0.06,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "farmhouse",
@@ -51,9 +53,11 @@
         "#7a3f34",
         "#85513e"
       ],
+      "roofMaterial": "wood",
+      "roofThicknessM": 0.06,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "barn",
@@ -78,9 +82,11 @@
         "#5c5a58",
         "#7a4e3c"
       ],
+      "roofMaterial": "wood",
+      "roofThicknessM": 0.05,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "shed",
@@ -104,9 +110,11 @@
         "#5c5a58",
         "#6b5b4c"
       ],
+      "roofMaterial": "wood",
+      "roofThicknessM": 0.03,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "church",
@@ -130,9 +138,11 @@
         "#5f5650",
         "#7a3f34"
       ],
+      "roofMaterial": "wood",
+      "roofThicknessM": 0.08,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "apartment-block",
@@ -156,9 +166,11 @@
         "#6e6e6c",
         "#77736d"
       ],
+      "roofMaterial": "reinforced-concrete",
+      "roofThicknessM": 0.2,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "warehouse",
@@ -183,9 +195,11 @@
         "#6b7175",
         "#8a8478"
       ],
+      "roofMaterial": "sheet-metal",
+      "roofThicknessM": 0.004,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     },
     {
       "id": "office",
@@ -209,9 +223,11 @@
         "#6e6e6c",
         "#5d6063"
       ],
+      "roofMaterial": "reinforced-concrete",
+      "roofThicknessM": 0.2,
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs."
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Roof: tiles on timber are entered as a wood-equivalent thickness (game value)."
     }
   ]
 }

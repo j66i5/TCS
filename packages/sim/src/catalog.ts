@@ -94,6 +94,8 @@ export interface BuildingKindDef {
   wallMaterial: DefId;
   wallThicknessM: number;
   roofColours: string[];
+  roofMaterial: DefId;
+  roofThicknessM: number;
 }
 
 /** Body model parameters (core/body.json): postures, movement and physiology. All data-driven. */
@@ -124,6 +126,11 @@ export interface BallisticsDef {
   ricochetScatterDeg: number;
   minSpeedMps: number;
   maxFlightSeconds: number;
+  blast: {
+    severeScaledM: number; injuryScaledM: number; stunScaledM: number; stunSeconds: number; craterScaledM: number;
+    breachSteelMmScaled: number; breachReachScaledM: number; breachWidthScaledM: number;
+  };
+  fragments: { bandDeg: [number, number]; maxPerBurst: number };
 }
 
 export interface AmmoDef {
@@ -141,7 +148,9 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentMassKg: number; fragmentVelocityMps: [number, number] };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number };
+  /** Thrown by hand or fired from a launcher item the soldier carries. */
+  delivery?: { method: "thrown" | "launched"; velocityMps?: number; launcher?: DefId; maxRangeM?: number };
 }
 
 export interface WeaponDef {
@@ -174,6 +183,11 @@ export interface ShootingDef {
     fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
   };
+  grenades: {
+    throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
+    throwErrorFraction: number; throwErrorMinM: number; throwSeconds: number;
+    launchErrorFraction: number; launchErrorMinM: number; launchSeconds: number; minSafeDistanceM: number;
+  };
 }
 
 export interface HitboxDef {
@@ -195,10 +209,14 @@ export interface WoundsDef {
     throughArmChance: number; throughArmEnergy: number;
     /** Severity scales with (energy / referenceEnergyJ) to this power. */
     energyExponent: number;
+    /** Fragments: below minEnergyJ no wound; severity factor = (energy / referenceEnergyJ)^exponent within [factorMin, factorMax]. */
+    fragment: { minEnergyJ: number; referenceEnergyJ: number; exponent: number; factorMin: number; factorMax: number };
+    /** Blast wounds: severity at the edge of the injury radius and at the severe radius or nearer. */
+    blast: { severityInjury: number; severitySevere: number; bleedLps: number };
   };
   physiology: Record<string, number>;
   effects: {
-    legNoWalkSeverity: number; armNoFightSeverity: number; painNoFightAt: number;
+    legNoWalkSeverity: number; armNoFightSeverity: number; painNoFightAt: number; painPerWoundK: number;
     moveSeverityK: number; aimSeverityK: number; aimPainK: number; minMoveFactor: number;
   };
 }

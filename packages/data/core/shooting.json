@@ -60,5 +60,23 @@
     "note": "Owner decision 2026-11-11: rate of fire depends on range (aimed single shots every 2-3 s beyond 100 m, about one shot a second closer, short bursts inside 30 m). A fire order lasts until cease fire, but the unit manages its ammunition: after 30 s without incoming fire near it, it slows to one aimed shot per man every 10 s, and after another 60 s it ceases fire and reports; incoming fire restores the full rate; each man stops when only the magazine in his weapon is left. Men swap a partly used magazine for a fuller one after 5 s without firing. From M3 'expects an enemy' will use what the men see, not only incoming fire.",
     "topUpBelowFraction": 0.7,
     "incomingReachM": 800
+  },
+  "grenades": {
+    "throwRangeM": {
+      "standing": 30,
+      "crouching": 20,
+      "prone": 11
+    },
+    "throwElevationDeg": 40,
+    "throwErrorFraction": 0.07,
+    "throwErrorMinM": 0.6,
+    "throwSeconds": 2.5,
+    "launchErrorFraction": 0.05,
+    "launchErrorMinM": 1.0,
+    "launchSeconds": 4,
+    "minSafeDistanceM": 12,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values."
   }
 }

@@ -83,3 +83,14 @@ lab test `packages/tools/test/lab-cover.test.ts` checks every figure above at it
 Bullet diameters (5.70 mm and 5.60 mm are from memory), official dispersion tables, a 7N10 velocity table,
 time-of-flight and drop tables, rifle-specific ricochet angles for soil and steel plate, German machine-gun belt
 tracer ratio.
+
+## Grenades (M2.4) — not researched
+
+The search tool available to the research session declined the look-ups for the DM51, the RGD-5 and the
+VOG-25 (its own content rules). Their figures in the game data are therefore from general published references
+as remembered, without a source URL, and marked `confidence: "low"`: DM51 about 435 g with 60 g filling and
+about 6,500 steel balls in the sleeve, delay about 4 s; RGD-5 about 310 g with 110 g TNT, delay 3.2-4.2 s;
+VOG-25 about 250 g with 48 g filling at about 76 m/s, arming after 10-40 m. **To do: the owner or a later
+session verifies them against a public source.** Found by search: 40 mm x 46 M406-class HE — 32 g Composition B,
+about 76 m/s, arming distance 14-28 m, lethal radius about 5 m
+(https://www.bulletpicker.com/cartridge_-40mm-he_-m406.html , https://en.wikipedia.org/wiki/40_mm_grenade).

@@ -29,6 +29,7 @@ export interface Overlay {
 /** A short-lived mark where a projectile struck. */
 interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" | "hit" }
 const FLASH_TICKS = 5;
+const BURST_TICKS = 50;
 const PUFF_TICKS = 24;
 const MAX_PUFFS = 600;
 /** Most non-tracer bullets drawn per frame (they are nearly invisible anyway). */
@@ -52,6 +53,9 @@ export class BattleRenderer {
   /** Per ammunition index: is it a tracer, and how far does the trace burn (m). */
   private tracer: boolean[] = [];
   private burnoutM: number[] = [];
+  /** Per ammunition index: 1 = a grenade or shell (drawn as a dot), 2 = a fragment (not drawn). */
+  private special: number[] = [];
+  private bursts: { x: number; y: number; untilTick: number; radiusM: number }[] = [];
   private labelPool: Text[] = [];
 
   private constructor(app: Application) {
@@ -81,6 +85,7 @@ export class BattleRenderer {
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
+    this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.terrain = buildTerrain(map, catalog.terrain);
     this.worldLayer.addChild(this.terrain);
   }
@@ -146,12 +151,15 @@ export class BattleRenderer {
       } else if (e.kind === "impact") {
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + PUFF_TICKS, result: e.result });
+      } else if (e.kind === "explosion") {
+        this.bursts.push({ x: e.x, y: e.y, untilTick: e.tick + BURST_TICKS, radiusM: Math.max(1.5, e.stunRadiusM * 0.25) });
       } else if (e.kind === "hit") {
         const t = state.transform.get(e.target);
         if (t) { if (this.puffs.length >= MAX_PUFFS) this.puffs.shift(); this.puffs.push({ x: t.x, y: t.y, untilTick: e.tick + PUFF_TICKS, result: e.armour === "stopped" ? "ricochet" : "hit" }); }
       }
     }
     this.markers = this.markers.filter((m) => m.untilTick > state.tick);
+    if (this.bursts.length > 0) this.bursts = this.bursts.filter((b) => b.untilTick > state.tick);
     if (this.puffs.some((p) => p.untilTick <= state.tick)) this.puffs = this.puffs.filter((p) => p.untilTick > state.tick);
   }
 
@@ -267,6 +275,21 @@ export class BattleRenderer {
    */
   private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay): void {
     const c = this.camera, W = this.width, H = this.height;
+    // Craters stay (terrain damage is part of the battle state).
+    for (const cr of state.terrain.craters) {
+      const sx = (cr.x - c.x) * c.scale, sy = (cr.y - c.y) * c.scale;
+      if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
+      g.circle(sx, sy, Math.max(2, cr.radiusM * 2.2 * c.scale)).fill({ color: 0x2b2018, alpha: 0.55 });
+    }
+    // Bursts: a bright flash that becomes a spreading grey-brown cloud.
+    for (const b of this.bursts) {
+      const sx = (b.x - c.x) * c.scale, sy = (b.y - c.y) * c.scale;
+      if (sx < -80 || sy < -80 || sx > W + 80 || sy > H + 80) continue;
+      const age = 1 - (b.untilTick - state.tick) / BURST_TICKS;
+      const rad = Math.max(5, b.radiusM * c.scale * (0.5 + age));
+      if (age < 0.12) g.circle(sx, sy, rad).fill({ color: 0xfff0a8, alpha: 0.95 });
+      else g.circle(sx, sy, rad).fill({ color: 0x8a7c6a, alpha: 0.5 * (1 - age) });
+    }
     for (const p of this.puffs) {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
@@ -281,10 +304,20 @@ export class BattleRenderer {
     const P = state.projectiles;
     if (P.count === 0) return;
     const back = (1 - alpha) * DT; // the picture is drawn between two simulation ticks
+    const grenades: number[] = [];
     for (let pass = 0; pass < 2; pass++) {
       const wantTracer = pass === 0;
       let drawn = 0;
       for (let i = 0; i < P.count; i++) {
+        const sp = this.special[P.ammo[i]!]!;
+        if (sp !== 0) {
+          // Fragments are too many and too fast to draw; a grenade in flight or lying is a dark dot.
+          if (sp === 1 && wantTracer) {
+            const gx = (P.x[i]! - c.x) * c.scale, gy = (P.y[i]! - c.y) * c.scale;
+            if (gx > -10 && gy > -10 && gx < W + 10 && gy < H + 10) grenades.push(gx, gy);
+          }
+          continue;
+        }
         const isTracer = this.tracer[P.ammo[i]!] === true
           && ((state.tick - P.bornTick[i]!) / 60) * 800 < this.burnoutM[P.ammo[i]!]! && state.tick - P.bornTick[i]! >= 2;
         if (isTracer !== wantTracer) continue;
@@ -300,6 +333,7 @@ export class BattleRenderer {
       if (wantTracer) g.stroke({ width: 2, color: 0xffb347, alpha: 0.95 });
       else g.stroke({ width: 1, color: 0xffffff, alpha: overlay.debug ? 0.7 : 0.28 });
     }
+    for (let k = 0; k < grenades.length; k += 2) g.circle(grenades[k]!, grenades[k + 1]!, Math.max(2.5, 0.15 * c.scale)).fill({ color: 0x1c1c1c }).stroke({ width: 1, color: 0xffd27a });
   }
 
   private label(i: number, text: string, x: number, y: number, colour: number): void {

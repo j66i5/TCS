@@ -1,11 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1, M2.2 and M2.3 done)._
+_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1 to M2.4 done)._
 
 ## Current milestone
-**M2 Ballistics and wounds** — slices **M2.1 projectile engine**, **M2.2 the shooter** and **M2.3 body, armour
-and wounds: done**. Next slice: **M2.4 grenades and fragments** (hand grenades, grenade launchers, fragments as
-projectiles, blast, roofs, craters and breaches, fragmentation lab). Ask the owner before starting it.
+**M2 Ballistics and wounds** — slices **M2.1 projectile engine**, **M2.2 the shooter**, **M2.3 body, armour
+and wounds** and **M2.4 grenades and fragments: done**. Next slice: **M2.5 squads and kit data** — it needs
+the owner's two squad tables first (research in `docs/research/squads.md`). Ask the owner before starting it.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -57,14 +57,22 @@ projectiles, blast, roofs, craters and breaches, fragmentation lab). Ask the own
   "man down" is reported; friendly fire is real. Casualty lab (`npm run lab -- casualty`): at 100 m from the
   front, plates save about half the men struck; of the wounded about 1 in 7 dies at once, 4 in 10 within the
   hour without care.
-- Tests: 234, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.4 grenades and fragments**: hand grenades (DM51, RGD-5) thrown as a timed action, 40 mm rounds from
+  under-barrel launchers (AG36, GP-25); time and impact fuses, arming distance, duds; bursts with blast by
+  distance (wound close in, stun to about 10 m, walls shield), thousands of fragments as real projectiles,
+  craters, holes blown in thin walls (bullets and routes then pass); roofs stop or are pierced; a "tap: grenade"
+  button; fragmentation lab (`npm run lab -- fragmentation`).
+- Tests: 253, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab
   table. No first aid: a bleeding man is never treated (M10). A round stays in the first body it strikes.
-  Nobody reacts to being shot at or to casualties (M4). Roofs do not stop anything yet (M2.4).
+  Nobody reacts to being shot at, to casualties or to a grenade landing next to him (M4).
+- **Grenade data is unverified**: the search tool declined most look-ups, so DM51, RGD-5, VOG-25 and the
+  launchers are from memory of published figures (`confidence: "low"`). Grenades do not bounce or roll; the
+  ground is perfectly smooth (no small folds to shield a prone man); the AI never throws; one grenade per order.
 - Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
   into the ground in front of them.
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
@@ -101,11 +109,15 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - M2.3: **helmets stop fragments, not rifle rounds**; a round stopped by a plate **knocks down and bruises**; a
   wounded man who still can **carries on, impaired**.
 
+- M2.3 review: lethality **about right**; wounded who keep fighting **fine for now**.
+- M2.4: Russian default hand grenade **RGD-5**; throw **about 30 m standing**; a close burst that does not wound
+  **stuns briefly** (blast injury within a few metres).
+
 ## Next
-**M2.4 Grenades and fragments** (ROADMAP.md, M2 slice 4) — only after the owner says so.
+**M2.5 Squads and kit data** (ROADMAP.md, M2 slice 5) — only after the owner has given the squad tables.
 
 ## Open questions for the owner
-- **Review of the casualty lab table** (M2.3 report): too deadly, about right, or not deadly enough?
+- **Review of the fragmentation lab table** (M2.4 report).
 - **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
   man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the

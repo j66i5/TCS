@@ -119,9 +119,12 @@ describe("contacts (M3.3)", () => {
       const t1 = sim.state.transform.req(target);
       expect(Math.hypot(sim.state.fire.req(shooter).x - t1.x, sim.state.fire.req(shooter).y - t1.y)).toBeLessThan(6);
     }
-    // A contact order naming a friend is rejected.
-    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "fire", x: 0, y: 0, contact: blue.members[0]! });
-    expect(run(sim, 1).some((e) => e.kind === "order.rejected")).toBe(true);
+    // A contact order naming a friend (or a dead man) is not rejected — that would tell the player something his men
+    // do not know — the men fire at the point given.
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "fire", x: 60, y: 150, contact: blue.members[0]! });
+    const ev2 = run(sim, 2);
+    expect(ev2.some((e) => e.kind === "order.rejected")).toBe(false);
+    expect(sim.state.fire.get(shooter)?.contact).toBeUndefined();
   });
 
   it("reports on their way and every man's contacts are saved: the battle continues identically after loading", () => {

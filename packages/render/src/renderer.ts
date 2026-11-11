@@ -182,7 +182,7 @@ export class BattleRenderer {
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
       } else if (e.kind === "shot.fired") {
-        if (overlay.known && !overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide) continue; // fog: an unseen flash
+        if (!overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide) continue; // fog: an unseen flash
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + FLASH_TICKS, result: "flash" });
       } else if (e.kind === "impact") {
@@ -191,7 +191,7 @@ export class BattleRenderer {
       } else if (e.kind === "explosion") {
         this.bursts.push({ x: e.x, y: e.y, untilTick: e.tick + BURST_TICKS, radiusM: Math.max(1.5, e.stunRadiusM * 0.25) });
       } else if (e.kind === "hit") {
-        if (overlay.known && !overlay.debug && state.identity.get(e.target)?.side !== overlay.playerSide) continue;
+        if (!overlay.debug && state.identity.get(e.target)?.side !== overlay.playerSide) continue;
         const t = state.transform.get(e.target);
         if (t) { if (this.puffs.length >= MAX_PUFFS) this.puffs.shift(); this.puffs.push({ x: t.x, y: t.y, untilTick: e.tick + PUFF_TICKS, result: e.armour === "stopped" ? "ricochet" : "hit" }); }
       }
@@ -245,8 +245,9 @@ export class BattleRenderer {
       g.stroke({ width: 1, color: 0xffe066, alpha: 0.5 });
     }
 
-    this.drawProjectiles(g, state, alpha, overlay);
-    const fog = !overlay.debug && overlay.known !== undefined && overlay.known !== null;
+    // Fog of war is on whenever Debug is off (the app supplies what the side knows).
+    const fog = !overlay.debug;
+    this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
     let label = 0;
     if (c.scale < OVERVIEW_SCALE) {
@@ -362,7 +363,7 @@ export class BattleRenderer {
    * Bullets in flight and impact marks (owner decision 2026-11-11): tracer rounds as clear streaks, all other
    * bullets as very faint streaks (clear in the debug view), plus a puff where each one strikes.
    */
-  private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay): void {
+  private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, fog = false): void {
     const c = this.camera, W = this.width, H = this.height;
     // Craters stay (terrain damage is part of the battle state).
     for (const cr of state.terrain.craters) {
@@ -398,7 +399,11 @@ export class BattleRenderer {
       const wantTracer = pass === 0;
       let drawn = 0;
       for (let i = 0; i < P.count; i++) {
+        // Fog of war: of the enemy's projectiles only burning tracers are seen (not his bullets near the muzzle,
+        // not his grenades in flight).
+        const enemyOwned = fog && P.owner[i]! > 0 && state.identity.get(P.owner[i]!)?.side !== overlay.playerSide;
         const sp = this.special[P.ammo[i]!]!;
+        if (enemyOwned && (sp !== 0 || !wantTracer)) continue;
         if (sp !== 0) {
           // Fragments are too many and too fast to draw; a grenade in flight or lying is a dark dot.
           if (sp === 1 && wantTracer) {

@@ -24,7 +24,8 @@ export interface KnownEnemy {
 export function sideKnowledge(ctx: SimContext, state: SimView, side: string): KnownEnemy[] {
   const best = new Map<EntityId, { c: Contact; err: number }>();
   for (const [id, s] of state.soldier.entries()) {
-    if (!s.physiology.alive || state.identity.get(id)?.side !== side) continue;
+    // Only men who are alive and conscious (what they know can still be passed on).
+    if (!s.physiology.alive || s.physiology.consciousness < 0.5 || state.identity.get(id)?.side !== side) continue;
     for (const c of s.contacts) {
       const err = contactErrorM(ctx, c, state.tick);
       const b = best.get(c.target);

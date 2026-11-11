@@ -105,7 +105,8 @@ async function main(): Promise<void> {
     setCamera: (c) => { renderer.camera = c; },
     onTap: (w) => {
       // Tap on one of your men: select his top-level unit. Elsewhere: move the selected unit there.
-      const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1);
+      // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
+      const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide) {
         overlay.selectedUnit = topUnitOf(sim, sim.state.identity.req(hit).unit);
         return;
@@ -119,10 +120,11 @@ async function main(): Promise<void> {
       }
       if (tapMode === "fire") {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
+        // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
         const known = sideKnowledge(sim.ctx, sim.state, playerSide);
         const near = known
           .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
-          .filter(({ k, d }) => d <= Math.max(k.errM, 25 / renderer.scale()))
+          .filter(({ d }) => d <= 20 / renderer.scale())
           .sort((a, b) => a.d - b.d)[0];
         if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target });
         else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
@@ -171,6 +173,7 @@ async function main(): Promise<void> {
     }
     return { vis, cols: n, rows: n, cellM, x0, y0 };
   };
+  let knownTick = -1;
   let sightAt = -1, sightFor: EntityId | null = null, sightReal = -1e9;
   const stepOnce = () => {
     for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) issue(o);
@@ -211,7 +214,9 @@ async function main(): Promise<void> {
       renderer.setSightOverlay(sightView());
     }
     // Fog of war: the enemy is drawn only as the player's side knows him (Debug shows him as he is).
-    overlay.known = overlay.debug ? null : sideKnowledge(sim.ctx, sim.state, playerSide);
+    // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
+    if (overlay.debug) { overlay.known = null; knownTick = -1; }
+    else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     frames++;
     if (now - fpsT0 >= 1000) {
@@ -224,11 +229,12 @@ async function main(): Promise<void> {
   });
 }
 
-function nearestSoldier(sim: Sim, x: number, y: number, radius: number): EntityId | null {
+function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: string | null): EntityId | null {
   const ids = queryRadius(buildSpatialHash(sim.state), sim.state, x, y, radius);
   let best: EntityId | null = null;
   let bestD = Infinity;
   for (const id of ids) {
+    if (side !== null && sim.state.identity.get(id)?.side !== side) continue;
     const t = sim.state.transform.req(id);
     const d = (t.x - x) ** 2 + (t.y - y) ** 2;
     if (d < bestD) { bestD = d; best = id; }

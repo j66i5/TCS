@@ -45,7 +45,6 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "fire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
-      if (o.contact !== undefined && (state.soldier.get(o.contact)?.physiology.alive !== true || state.identity.get(o.contact)?.side === o.issuer)) return "invalid-params";
       return null;
     case "ceaseFire":
       return null;
@@ -223,14 +222,17 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // At a contact: where this man believes the enemy to be, else the point given with the order (what
         // comrades know reaches him only through contact sharing).
         let x = order.x, y = order.y;
-        if (order.contact !== undefined) {
-          const c = state.soldier.get(s)?.contacts.find((k) => k.target === order.contact);
+        // (A contact naming a man who is dead or of the issuer's own side is simply ignored: rejecting the order
+        // would tell the player something his men do not know.)
+        const named = order.contact !== undefined && state.soldier.get(order.contact)?.physiology.alive === true && state.identity.get(order.contact)?.side !== order.issuer ? order.contact : undefined;
+        if (named !== undefined) {
+          const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
           if (c) { x = c.x; y = c.y; }
         }
         if (assignFireTask(ctx, state, s, x, y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) {
           any = true;
           const ft = state.fire.get(s);
-          if (ft && order.contact !== undefined) ft.contact = order.contact;
+          if (ft && named !== undefined) ft.contact = named;
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;

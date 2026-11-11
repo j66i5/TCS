@@ -925,3 +925,17 @@ point, not drawn as a bearing line.
 ## 2026-11-11 — Owner: remind him of the "only what reached the leader" fog-of-war option after M6
 Recorded in ROADMAP (M6 review) and STATE (reminders). It is a rendering choice on top of the same contact
 model: the leader's contacts instead of the union of the side's.
+
+## 2026-11-11 — Fixes from the independent M3.4 review (M3 complete)
+No rule violations. Fixed: **enemy bullets were drawn as faint streaks from the muzzle** (pointing at hidden
+shooters) and **enemy grenades in flight were drawn** — under fog only burning enemy tracers are drawn; **a
+fire tap on a marker could be rejected** (dead enemy, or a heard guess off the map), which revealed what the
+men did not know — the simulation now ignores such a contact and fires at the point, and heard guesses stay
+on the map; **the marker's pick radius was the contact's uncertainty** (up to 200 m), swallowing ordinary
+fire taps — now only a tap on the marker itself (20 px); **hidden enemies could stand in the way of selecting
+your own men**; **the side's picture was recomputed every frame** (2 ms with 304 men) — once per tick now;
+only conscious men's knowledge counts; fog filtering no longer depends on the first frame. The screenshot tool
+has a fog-of-war picture, and its casualty picture uses Debug (the symbols it checks).
+**Recorded:** one colour for all enemy contacts (fine with two sides); rarely a hollow marker for a man also in
+sight from farther away (the more certain, older sighting wins); the renderer path itself has no unit test —
+evidence is the screenshot pair "3-casualties" (Debug) / "3b-fog-of-war".

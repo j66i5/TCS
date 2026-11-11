@@ -132,7 +132,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         if (i >= 0 && (tick - s.contacts[i]!.tick < every || contactErrorM(ctx, s.contacts[i]!, tick) <= Math.max(10, K.rangeErrorFraction * range))) continue;
         const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
         const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
-        const c = { target: shooter, x: me.x + cos(a) * guess, y: me.y + sin(a) * guess, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick };
+        const gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
+        const c = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick };
         const isNew = i < 0;
         learn(ctx, s.contacts, c, -1e9, tick);
         fresh.push({ who: id, c, isNew });

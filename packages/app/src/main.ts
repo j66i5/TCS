@@ -149,6 +149,7 @@ async function main(): Promise<void> {
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
+    focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
     hash: () => simHash(sim),
     ready: true,
   };

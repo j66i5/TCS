@@ -1,11 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1 and M2.2 done)._
+_Last updated: 2026-11-11 (M0 and M1 done; M2 slices M2.1, M2.2 and M2.3 done)._
 
 ## Current milestone
-**M2 Ballistics and wounds** — slices **M2.1 projectile engine** and **M2.2 the shooter: done**. Next slice:
-**M2.3 body, armour and wounds** (hit zones, helmet and plates, wound records, bleeding on a realistic clock,
-casualties, friendly fire, casualty lab for the owner's review).
+**M2 Ballistics and wounds** — slices **M2.1 projectile engine**, **M2.2 the shooter** and **M2.3 body, armour
+and wounds: done**. Next slice: **M2.4 grenades and fragments** (hand grenades, grenade launchers, fragments as
+projectiles, blast, roofs, craters and breaches, fragmentation lab). Ask the owner before starting it.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -49,12 +49,22 @@ casualties, friendly fire, casualty lab for the owner's review).
   rate of fire; the unit slows and ceases fire by itself when nothing comes back; muzzle flashes; "tap: fire"
   and "cease fire" buttons. Firing range lab (`npm run lab -- range`): regular, prone, 300 m: G36 60 %,
   AK-74M 49 %.
-- Tests: 206, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2.3 body, armour and wounds**: bullets strike bodies (zones by posture: legs, pelvis, abdomen, chest, arms,
+  neck, head); helmet and vest are items with coverage and protection; a plate hit knocks the man down and
+  bruises him; other hits make wound records (severity, bleeding, breathing/airway); a simple physiology runs the
+  bleeding clock; the wounded carry on impaired (slower, crawl only, worse aim, cannot use the rifle); the
+  unconscious and the dead stay on the map with their own symbols; the next man takes over a fallen leader and
+  "man down" is reported; friendly fire is real. Casualty lab (`npm run lab -- casualty`): at 100 m from the
+  front, plates save about half the men struck; of the wounded about 1 in 7 dies at once, 4 in 10 within the
+  hour without care.
+- Tests: 227, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
-- **Nobody is hit yet**: bullets pass through people (M2.3 adds wounds). Roofs do not stop anything yet (M2.4).
+- **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab
+  table. No first aid: a bleeding man is never treated (M10). A round stays in the first body it strikes.
+  Nobody reacts to being shot at or to casualties (M4). Roofs do not stop anything yet (M2.4).
 - Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
   into the ground in front of them.
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
@@ -88,10 +98,14 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   **realistic bleeding clock**; **realistic lethality mix**; **tracers clear, other bullets very faint**;
   cover preference stays **balanced**.
 
+- M2.3: **helmets stop fragments, not rifle rounds**; a round stopped by a plate **knocks down and bruises**; a
+  wounded man who still can **carries on, impaired**.
+
 ## Next
-**M2.3 Body, armour and wounds** (ROADMAP.md, M2 slice 3).
+**M2.4 Grenades and fragments** (ROADMAP.md, M2 slice 4) — only after the owner says so.
 
 ## Open questions for the owner
+- **Review of the casualty lab table** (M2.3 report): too deadly, about right, or not deadly enough?
 - **Squad tables wanted before M2.5**: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
   man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the

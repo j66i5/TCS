@@ -11,6 +11,7 @@
  */
 import type { DefId, EntityId, SideId } from "./ids";
 import type { OrderKind, OrderRejectReason } from "./orders";
+import type { BodyZone, WoundMechanism } from "./wounds";
 
 export type SimEvent =
   | { kind: "order.received"; tick: number; seq: number; issuer: SideId; target: EntityId; orderKind: OrderKind; deliverTick: number }
@@ -27,6 +28,10 @@ export type SimEvent =
       material: DefId; ammo: DefId; owner: EntityId;
     }
   /** dirX, dirY: horizontal unit direction of the shot. */
+  /** A projectile struck a soldier. armour: none worn there / penetrated / stopped the round. */
+  | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
+  | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
+  | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }

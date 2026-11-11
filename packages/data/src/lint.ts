@@ -25,6 +25,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
   Object.values(data.formations).forEach((m) => check("core/formations.json", m.id, m, false));
   if (data.ballistics) check("core/ballistics.json", "ballistics", data.ballistics, false);
+  if (data.wounds) for (const k of ["hitboxes", "zones", "wounding", "physiology", "effects"] as const) check("core/wounds.json", k, data.wounds[k], false);
   if (data.shooting) {
     check("core/shooting.json", "aim", data.shooting.aim, false);
     check("core/shooting.json", "fire", data.shooting.fire, false);

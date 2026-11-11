@@ -27,7 +27,7 @@ export interface Overlay {
 }
 
 /** A short-lived mark where a projectile struck. */
-interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" }
+interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" | "hit" }
 const FLASH_TICKS = 5;
 const PUFF_TICKS = 24;
 const MAX_PUFFS = 600;
@@ -146,6 +146,9 @@ export class BattleRenderer {
       } else if (e.kind === "impact") {
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + PUFF_TICKS, result: e.result });
+      } else if (e.kind === "hit") {
+        const t = state.transform.get(e.target);
+        if (t) { if (this.puffs.length >= MAX_PUFFS) this.puffs.shift(); this.puffs.push({ x: t.x, y: t.y, untilTick: e.tick + PUFF_TICKS, result: e.armour === "stopped" ? "ricochet" : "hit" }); }
       }
     }
     this.markers = this.markers.filter((m) => m.untilTick > state.tick);
@@ -220,6 +223,20 @@ export class BattleRenderer {
       const posture = sol?.posture ?? "standing";
       const pr = posture === "crouching" ? r * 0.8 : r;
       if (selected) g.circle(s.x, s.y, pr + 4).stroke({ width: 2, color: 0xffffff });
+      // Casualties stay on the map: a dead man is a dark shape outlined in his side's colour; an unconscious
+      // man is a pale shape with a red cross. Neither shows a facing line.
+      if (sol && sol.casualty !== "none") {
+        const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+        const L = r * 1.5, Wd = r * 0.6;
+        const shape = [s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd];
+        if (sol.casualty === "killed") g.poly(shape).fill({ color: 0x14110f, alpha: 0.85 }).stroke({ width: 1.5, color: colour, alpha: 0.8 });
+        else {
+          g.poly(shape).fill({ color: colour, alpha: 0.45 }).stroke({ width: 1, color: 0xffffff, alpha: 0.7 });
+          const k = Math.max(3, r * 0.7);
+          g.moveTo(s.x - k, s.y).lineTo(s.x + k, s.y).moveTo(s.x, s.y - k).lineTo(s.x, s.y + k).stroke({ width: 2, color: 0xff4a3d });
+        }
+        continue;
+      }
       if (posture === "prone") {
         const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
         const L = r * 1.5, Wd = r * 0.6;
@@ -228,6 +245,8 @@ export class BattleRenderer {
         g.circle(s.x, s.y, pr).fill({ color: colour });
       }
       if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+      // Wounded but carrying on: a white spot with a red centre on him.
+      if (sol && sol.wounds.some((w) => w.mechanism !== "blunt")) g.circle(s.x, s.y, Math.max(2.5, r * 0.55)).fill({ color: 0xffffff }).circle(s.x, s.y, Math.max(1.5, r * 0.33)).fill({ color: 0xd4141a });
       const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
       g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       const unit = state.unit.get(ident.unit);
@@ -236,7 +255,7 @@ export class BattleRenderer {
       }
       if (overlay.debug && sol && c.scale > 1.5) { // only when zoomed in enough to read
         // Debug: id, fatigue and heart rate per man.
-        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm`, s.x + r + 2, s.y + 2, 0xffffff);
+        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
@@ -256,7 +275,7 @@ export class BattleRenderer {
         continue;
       }
       const age = 1 - (p.untilTick - state.tick) / PUFF_TICKS; // 0 new .. 1 gone
-      const colour = p.result === "ricochet" ? 0xffe27a : p.result === "penetrated" ? 0xffffff : 0xcdb894;
+      const colour = p.result === "hit" ? 0xff4a3d : p.result === "ricochet" ? 0xffe27a : p.result === "penetrated" ? 0xffffff : 0xcdb894;
       g.circle(sx, sy, 1.5 + 4 * age).fill({ color: colour, alpha: 0.55 * (1 - age) });
     }
     const P = state.projectiles;

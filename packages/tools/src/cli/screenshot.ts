@@ -90,6 +90,22 @@ try {
     await page.screenshot({ path: p2 }); shots.push(p2);
     const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; let rounds = 0, prone = 0; for (const [, w] of s.weapon.entries()) rounds += w.magazine ? w.magazine.rounds : 0; for (const [, m] of s.soldier.entries()) if (m.posture === 'prone') prone++; return { tick: s.tick, hash: t.hash(), orders: t.orderLog.length, inFlight: s.projectiles.count, loaded: rounds, prone, tasks: s.fire.size };") as () => { tick: number; hash: string; orders: number; inFlight: number; loaded: number; prone: number; tasks: number });
     console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, bullets in flight ${info.inFlight}, rounds in weapons ${info.loaded}, men prone ${info.prone}, fire tasks ${info.tasks}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+    // Casualties (M2.3): on the open flat map the blue team fires at the red team for 4 minutes (re-aimed every 10 s); the picture looks
+    // at the red team so the wounded, unconscious and dead symbols can be checked.
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=flat`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    const cas = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.posture("prone"); t.stepTicks(240);
+      let x = 0, y = 0, n = 0;
+      const find = () => { x = 0; y = 0; n = 0; for (const [id, i] of s.identity.entries()) if (i.side !== "blue") { const p = s.transform.req(id); x += p.x; y += p.y; n++; } };
+      for (let k = 0; k < 24; k++) { find(); t.fireAt(x / n, y / n); t.stepTicks(60 * 10); }
+      find(); t.focus(x / n, y / n, 60);
+      let wounded = 0, down = 0, dead = 0;
+      for (const [, m] of s.soldier.entries()) { if (m.casualty === "killed") dead++; else if (m.casualty === "incapacitated") down++; else if (m.wounds.length > 0) wounded++; }
+      return { wounded, down, dead };`) as () => { wounded: number; down: number; dead: number });
+    await page.waitForTimeout(300);
+    const p3 = `${outDir}/${mapKind}-${seed}-${name}-3-casualties.png`;
+    await page.screenshot({ path: p3 }); shots.push(p3);
+    console.log(`${name}: after 4 minutes of fire on the flat map: ${cas.wounded} wounded and carrying on, ${cas.down} unconscious, ${cas.dead} dead`);
     await page.close();
   }
   await browser.close();

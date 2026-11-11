@@ -17,6 +17,7 @@ import type { FireTask, WeaponState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { isAble } from "../impair";
 import type { Container } from "../items";
 import { atan2, cos, hypot2, PI, sin, sqrt } from "../math";
 import { nextFloat, nextNormal, Streams } from "../rng";
@@ -46,13 +47,13 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const sight = ctx.catalog.weapons[w.weapon]?.sights[0]?.kind ?? "iron";
   return a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
-    * (a.sightFactor[sight] ?? 1) * (aimed ? 1 : a.rapidFactor) * (1 + a.burstGrowth * w.burstIndex);
+    * (a.sightFactor[sight] ?? 1) * (aimed ? 1 : a.rapidFactor) * (1 + a.burstGrowth * w.burstIndex) * s.impair.aim;
 }
 
 /** Give a soldier a fire task (from a fire order). */
 export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
-  if (!w || !s || !t || !s.physiology.alive) return false;
+  if (!w || !s || !t || !isAble(s) || !s.impair.canFight) return false;
   const a = ctx.catalog.shooting.aim;
   state.fire.set(id, {
     x, y, heightM, reasonTick: state.tick,
@@ -136,7 +137,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   for (const [id, w] of state.weapon.entries()) {
     if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
-    if (state.soldier.get(id)?.physiology.alive !== true) continue;
+    if (!isAble(state.soldier.get(id))) continue;
     const wd = ctx.catalog.weapons[w.weapon];
     const capacity = wd ? (ctx.catalog.items[wd.feed.magazine]?.chargeCapacity ?? 0) : 0;
     if (wd && w.magazine.rounds <= capacity * F.topUpBelowFraction && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {
@@ -154,7 +155,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       const top = topUnit(state, id);
       if (top !== null && ended.get(top) !== "no-target" && !(ended.get(top) === "ammunition" && why === "unable")) ended.set(top, why);
     };
-    if (!w || !s || !wd || !s.physiology.alive) { stop("unable"); continue; }
+    if (!w || !s || !wd || !isAble(s) || !s.impair.canFight) { stop("unable"); continue; }
+    if (tick < s.stunnedUntilTick) continue; // knocked down
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;

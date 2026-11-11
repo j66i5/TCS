@@ -165,6 +165,44 @@ export const ShootingFile = z.object({
 }).strict();
 export type ShootingT = z.infer<typeof ShootingFile>;
 
+// ---------- wounds (core/wounds.json): body outline, wound effects, simple physiology ----------
+const BodyZoneGroup = z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]);
+const Hitbox = z.object({
+  widthM: Num(0.1, 3), depthM: Num(0.1, 3), heightM: Num(0.1, 3),
+  /** Zones are stacked by height (upright) or along the body from the head (prone). */
+  along: z.enum(["height", "length"]),
+  bands: z.array(z.object({
+    zone: BodyZoneGroup, from: Num(0, 1), to: Num(0, 1), halfWidthM: Num(0.01, 1),
+    /** If given, hits between halfWidthM and this distance from the centre line strike an arm. */
+    armsToM: Num(0.01, 1).optional(),
+  }).strict()).min(1),
+}).strict();
+const ZoneWound = z.object({
+  severityBase: Num(0, 1), severitySpread: Num(0, 1),
+  /** Severity at or above which the wound kills at once / knocks out (2 = never). */
+  fatalAt: Num(0, 2), unconsciousAt: Num(0, 2),
+  /** Bleeding of the worst case, litres per second. */
+  bleedLps: Num(0, 0.2), compressible: z.boolean(), airway: z.boolean(), breathing: z.boolean(),
+}).strict();
+export const WoundsFile = z.object({
+  hitboxes: withProv({ standing: Hitbox, crouching: Hitbox, prone: Hitbox }),
+  zones: withProv({ head: ZoneWound, neck: ZoneWound, chest: ZoneWound, abdomen: ZoneWound, pelvis: ZoneWound, arm: ZoneWound, leg: ZoneWound }),
+  wounding: withProv({
+    referenceEnergyJ: Num(1, 100000), energyFactorMin: Num(0, 2), energyFactorMax: Num(0, 5),
+    bleedFloor: Num(0, 1), bleedPower: Num(0.5, 10), bluntSeverity: Num(0, 1), knockdownSeconds: Num(0, 120), flagSeverity: Num(0, 1), energyExponent: Num(0, 2), throughArmChance: Num(0, 1), throughArmEnergy: Num(0, 1),
+  }),
+  physiology: withProv({
+    bloodVolumeL: Num(1, 10), unconsciousLossFraction: Num(0.05, 1), deathLossFraction: Num(0.05, 1), shockStartFraction: Num(0, 1),
+    clotBelowLps: Num(0, 0.1), clotTauS: Num(1, 100000), breathingShockPerS: Num(0, 1), airwayShockPerS: Num(0, 1),
+    painDecayPerS: Num(0, 1), stepSeconds: Num(0.05, 10),
+  }),
+  effects: withProv({
+    legNoWalkSeverity: Num(0, 2), armNoFightSeverity: Num(0, 2), painNoFightAt: Num(0, 2),
+    moveSeverityK: Num(0, 10), aimSeverityK: Num(0, 20), aimPainK: Num(0, 20), minMoveFactor: Num(0.01, 1),
+  }),
+}).strict();
+export type WoundsT = z.infer<typeof WoundsFile>;
+
 // ---------- formations (core/formations.json) ----------
 export const FormationSchema = withProv({
   id: Id, nameKey: z.string(),
@@ -271,6 +309,14 @@ export const ItemSchema = withProv({
   chargeCapacity: z.number().int().positive().optional(),
   chargeMassKg: z.number().min(0).max(100).optional(),
   chargeItem: Id.optional(),
+  /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */
+  armour: z.array(z.object({
+    zone: z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]),
+    /** Share of the zone covered, seen from the front or back / from the side. */
+    coverageFront: z.number().min(0).max(1), coverageSide: z.number().min(0).max(1),
+    /** Protection in mm of mild steel equivalent (compared with the bullet's penetration at impact). */
+    protectionSteelMm: z.number().min(0).max(200),
+  }).strict()).optional(),
 });
 export const ItemsFile = z.object({ items: z.array(ItemSchema) }).strict();
 

@@ -7,6 +7,7 @@ import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
 import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "../nav";
 import { atan2, hypot2 } from "../math";
+import { isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
@@ -118,7 +119,8 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   const unitId = state.unit.has(target) ? target : state.identity.get(target)?.unit;
   if (unitId === undefined) return;
   const unit = state.unit.req(unitId);
-  const from = unit.leader ?? unit.members[0];
+  // The leader speaks; if he is down, the first man who still can.
+  const from = unit.leader !== null && isAble(state.soldier.get(unit.leader)) ? unit.leader : unitSoldiers(state, unitId).find((m) => isAble(state.soldier.get(m)));
   if (from === undefined) return;
   events.emit({ kind: "radio", tick: state.tick, side: unit.side, from, key, params: { callsign: unit.callsign } });
 }
@@ -126,7 +128,9 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
 /** Apply a delivered order. Returns false if a move order found no route, "unable" if nobody can carry it out. */
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean | "unable" {
   const isUnit = state.unit.has(order.target);
-  const soldiers = isUnit ? unitSoldiers(state, order.target) : [order.target];
+  // Only men who are alive and conscious carry out orders; casualties stay where they fell.
+  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)));
+  if (soldiers.length === 0) return "unable";
   switch (order.kind) {
     case "move": {
       // The unit's route is planned once from its reference man (leader, else first man), seeking cover as
@@ -134,7 +138,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // rotated with each leg), repairing legs that would cross walls or houses; at the end every man takes
       // the best cover within ~15 m of his slot, goes prone and faces outward (owner decisions 2026-11-11).
       const unit = isUnit ? state.unit.req(order.target) : null;
-      const refId = unit ? (unit.leader ?? soldiers[0]) : order.target;
+      const refId = unit ? (unit.leader !== null && soldiers.includes(unit.leader) ? unit.leader : soldiers[0]) : order.target;
       const ref = refId === undefined ? undefined : state.transform.get(refId);
       if (refId === undefined || !ref) return false;
       const factionId = unit ? unit.faction : state.identity.req(order.target).faction;

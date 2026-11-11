@@ -96,5 +96,15 @@
   "app.tapMove": "tap: move",
   "app.tapFire": "tap: fire",
   "app.ceaseFire": "cease fire",
-  "radio.unable": "{callsign}: unable."
+  "radio.unable": "{callsign}: unable.",
+  "radio.manDown": "{callsign}: man down - {name}.",
+  "zone.head": "head",
+  "zone.neck": "neck",
+  "zone.chest": "chest",
+  "zone.abdomen": "abdomen",
+  "zone.pelvis": "pelvis",
+  "zone.armL": "left arm",
+  "zone.armR": "right arm",
+  "zone.legL": "left leg",
+  "zone.legR": "right leg"
 }

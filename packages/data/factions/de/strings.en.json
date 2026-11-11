@@ -39,5 +39,8 @@
   "radio.ack.ceaseFire": "{callsign}: roger, ceasing fire.",
   "radio.noTarget": "{callsign}: no target, ceasing fire.",
   "radio.lowAmmo": "{callsign}: ammunition low.",
-  "radio.unable": "{callsign}: unable to comply."
+  "radio.unable": "{callsign}: unable to comply.",
+  "item.de-helmet": "Combat helmet",
+  "item.de-vest": "Protective vest with plates",
+  "radio.manDown": "{callsign}: man down - {name}!"
 }

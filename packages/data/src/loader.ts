@@ -10,7 +10,7 @@
 import type { z } from "zod";
 import {
   BodyFile, type BodyT, FormationsFile, type FormationT,
-  ShootingFile, type ShootingT,
+  ShootingFile, type ShootingT, WoundsFile, type WoundsT,
   AmmunitionFile, BallisticsFile, WeaponsFile, type AmmoT, type BallisticsT, type ItemT as ItemTT, type WeaponT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
@@ -52,6 +52,7 @@ export interface TerrainData {
 }
 
 export interface DataSet {
+  wounds: WoundsT | null;
   shooting: ShootingT | null;
   ballistics: BallisticsT | null;
   body: BodyT | null;
@@ -151,7 +152,9 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (!terrain.materials[s.material]) errors.push({ file: T("surfaces"), path: `surfaces[${i}].material`, message: `unknown material '${s.material}' (known: ${known(terrain.materials)})`, severity: "error" });
   });
   const shooting = parse(ShootingFile, "core/shooting.json", files["core/shooting.json"], errors);
+  const wounds = parse(WoundsFile, "core/wounds.json", files["core/wounds.json"], errors);
   const data: DataSet = {
+    wounds,
     shooting,
     ballistics,
     body,

@@ -63,6 +63,12 @@ export interface SoldierState {
   physiology: Physiology;
   wounds: Wound[];
   nextWoundId: number;
+  /** What his wounds and condition allow, refreshed when they change (see systems/wounds.ts). */
+  impair: { move: number; aim: number; canWalk: boolean; canFight: boolean };
+  /** Knocked down (e.g. a round stopped by his plate): no moving or firing until this tick. */
+  stunnedUntilTick: number;
+  /** Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed. */
+  casualty: "none" | "incapacitated" | "killed";
 }
 
 export type CommLink = "voice" | "radio" | "none";

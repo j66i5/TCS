@@ -7,6 +7,7 @@ import type { SoldierState } from "./components";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
 import type { Catalog } from "./catalog";
+import { updateImpairment } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
@@ -91,7 +92,11 @@ function addSoldier(
     physiology: healthyPhysiology(),
     wounds: rec.wounds.map((w) => ({ ...w, treatments: [...w.treatments] })),
     nextWoundId: rec.wounds.reduce((m, w) => Math.max(m, w.id + 1), 0),
+    impair: { move: 1, aim: 1, canWalk: true, canFight: true },
+    stunnedUntilTick: 0,
+    casualty: "none",
   };
+  updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
   for (const st of rec.load) addItems(c, st.type, st.count, st.charge);

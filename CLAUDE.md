@@ -15,7 +15,7 @@ recommended option first — never as a typed list in the chat.
 - Determinism / perf only: `npm run test:determinism` · `npm run test:perf`
 - Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]`
 - Generate a map and print stats/problems: `npm run map -- --kind village --seed 3` · all kinds: `npm run map -- --all --seeds 5`
-- Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range`
+- Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range` · `npm run lab -- casualty`
 - Batch report: `npm run batch -- --scenario demo --runs 200 --seconds 120` (writes `reports/`)
 - Golden replays (only for intended changes, log in DECISIONS.md): `npm run golden:update`
 - Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` → `screenshots/`

@@ -199,21 +199,25 @@ startAction(state, events, actor, kind, durationTicks, params); interruptAction(
 Reloading, handing over ammunition, first aid, setting up a weapon all become actions. Handlers are
 registered per kind (generic, not per faction). Interrupts emit `action.interrupted` with a reason.
 
-## 11. Wounds and physiology (rule 10) — `sim/src/wounds.ts`
+## 11. Wounds and physiology (rule 10) — `sim/src/wounds.ts`, `impair.ts`, `systems/wounds.ts`
 
 ```ts
 interface Wound { id; zone: BodyZone; mechanism; severity; bleedingLps; compressible;
                   airway; breathing; consciousness; tickInflicted; source?; treatments: TreatmentRecord[] }
-interface Physiology { bloodVolumeL; shock; consciousness; pain; alive }
-interface PhysiologyModel {
-  id; step(physiology, wounds, dtSeconds, params): void;   // data-driven rates in params
-  capabilities(physiology, wounds): { walk; useArms; fight; speak };
-}
+interface Physiology { bloodVolumeL; shock; consciousness; pain; respiratory; alive }
+interface PhysiologyModel { id; step(physiology, wounds, dtSeconds, params): void }   // rates from data
 ```
 
-🟡 Types exist and every soldier carries `wounds[]` and `physiology`; a casualty stays a soldier entity
-(entities are never deleted). The simple model and wound creation arrive in M2; the medical system (M10)
-replaces the model's contents, not this interface. `BattleRules.physiologyModel/physiologyParams` select it.
+✅ (M2.3) Every soldier carries `wounds[]`, `physiology`, `impair { move, aim, canWalk, canFight }`,
+`stunnedUntilTick` and `casualty` ("none" | "incapacitated" | "killed"). A casualty stays a soldier entity
+(entities are never deleted). `resolveBodyHit` (systems/wounds.ts) is the single place where a projectile
+meets a body: armour items in the man's container (`ItemTypeDef.armour`: zone, coverage front/side,
+protection in mm of steel), then either a "stopped" hit (knock-down, blunt wound) or a wound record.
+`woundSystem` steps the selected `PhysiologyModel` (`BattleRules.physiologyModel`: `"simple"` or `"none"`;
+parameters from `core/wounds.json` merged with `physiologyParams`) every `stepSeconds` and calls
+`refreshStatus`, which recomputes `impair` and handles the transition to casualty (drop tasks, leader
+succession, `casualty` and `radio.manDown` events). `isAble()` (alive and conscious) is the one test other
+systems use. The medical system (M10) replaces the model's contents and adds treatments, not this interface.
 
 ## 12. Communication state (SPEC 6.5, 9.5) — `sim/src/comms.ts`
 
@@ -334,6 +338,17 @@ aimErrorMrad(ctx, state, id, weapon, aimed); dropAt(ctx, ammoId, v0, rangeM) // 
 `SoldierRecord.weapon` carries the weapon in and out of battles; the loaded magazine returns to the load in the
 battle result. Tick order: … movement, physiology, **fire**, projectiles, **incoming fire**. Lab:
 `tools/src/labs/range.ts`.
+
+## 16e. Bodies as targets (SPEC 6.4) — `sim/src/systems/ballistics.ts`, `core/wounds.json`
+
+Each tick the projectile system fills a soldier grid (typed arrays in `ctx.ballistics.soldiers`, bucketed on
+the 8 m ballistic grid with a "soldier near" flag per bucket; derived, never saved). A projectile whose path
+touches a flagged bucket is tested against each nearby man's body bands in his own frame (forward, left, up):
+`hitboxes[posture].bands` from data, upright bands by height, prone bands along the body. The nearest of
+body / wall / ground wins. The owner of a projectile is skipped; side is never looked at (friendly fire is
+physical). On a body hit the projectile is removed and `resolveBodyHit` is called with the round's
+penetration capacity and kinetic energy. A projectile leaving the map flies to the edge first, so targets near
+the edge can be struck.
 
 ## 17. Foundation requirements of the extensions, and their guards
 

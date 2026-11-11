@@ -96,6 +96,8 @@ export interface BallisticsCtx {
   ammo: AmmoRT[];
   /** Body outlines per posture code (0 standing, 1 crouching, 2 prone). */
   hitboxes: HitboxRT[];
+  /** Farthest any part of a body outline lies from the man's position, m (search margin). */
+  bodyReachM: number;
   /** Soldiers this tick, in arrays, bucketed on the coarse grid (rebuilt every tick; never saved). */
   soldiers: SoldierGrid;
   deflectionRad: number;
@@ -194,7 +196,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     };
   });
   return {
-    hitboxes, soldiers: createSoldierGrid(bcols * brows),
+    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows),
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,

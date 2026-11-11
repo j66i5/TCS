@@ -10,5 +10,6 @@
   "item.xf-mag": "magazine",
   "item.xf-crate": "crate",
   "radio.ack.move": "{callsign} goes.",
-  "weapon.xf-blaster": "Blaster"
+  "weapon.xf-blaster": "Blaster",
+  "item.xf-vest": "Test vest"
 }

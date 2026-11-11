@@ -97,6 +97,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     SG.n = n;
   }
+  const reach = B.bodyReachM;
   const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, solNear = SG.near;
 
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
@@ -189,7 +190,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     let tBody = 2, bodyIdx = -1, bodyGroup = 0, bodyBand = 0, bodyLeft = false, bodyFrontal = true;
     if (nearSoldier) {
       const owner = P.owner[i]!;
-      let c0 = ((minX - 1) * invBm) | 0, c1 = ((maxX + 1) * invBm) | 0, r0 = ((minY - 1) * invBm) | 0, r1 = ((maxY + 1) * invBm) | 0;
+      let c0 = ((minX - reach) * invBm) | 0, c1 = ((maxX + reach) * invBm) | 0, r0 = ((minY - reach) * invBm) | 0, r1 = ((maxY + reach) * invBm) | 0;
       if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= bcols) c1 = bcols - 1; if (r1 >= brows) r1 = brows - 1;
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
         for (let j = SG.head[r * bcols + c]!; j !== -1; j = SG.next[j]!) {
@@ -221,7 +222,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
           }
           if (group < 0 || best >= tBody) continue;
           const tmin = best, el = bestEl;
-          tBody = tmin; bodyIdx = j; bodyGroup = group; bodyBand = band; bodyLeft = el > 0;
+          tBody = tmin; bodyIdx = j; bodyGroup = group; bodyBand = band; bodyLeft = el < 0; // +l is his right (y grows south)
           const adf = df < 0 ? -df : df, adl = dl < 0 ? -dl : dl;
           // Plates sit on the chest and back: a prone man struck along his length is not behind his plate.
           bodyFrontal = !hb.alongLength && adf >= adl;

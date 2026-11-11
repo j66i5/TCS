@@ -500,3 +500,18 @@ may strike on the way, and is then removed. **Placeholder load:** `basic-load` i
 separate items (total load about the same as before). **Gaps recorded:** no organs or bones, only zones; no
 exit wounds or shoot-through; armour never degrades; nobody reacts to being shot at or to casualties (M4); no
 first aid (M10); the enemy still fires only when ordered (M4).
+
+## 2026-11-11 — Fixes from the independent M2.3 review (goldens regenerated)
+The reviewer found no determinism, save/load or hard-rule violations and confirmed the casualty lab measures
+what it claims. Fixed, each with a test: **a unit stayed "firing" forever** when its last firing man fell (now
+the fire ends with reason "unable"); **a dead or unconscious man fed into the next battle came back to life**
+(the roster record now carries his physiology, and status killed/incapacitated is honoured on the way in);
+**left and right were swapped** in wound records; **a wiped-out unit reported "in position"**; **leader
+succession** looked only at the unit's own men, not its sub-teams; **a knocked-down man** could still change
+posture, reload or top up (now none of these until it has passed; a reload in progress is broken off);
+**without a physiology model** pain never faded (now it does; nothing bleeds in that mode). Added: `canUseArms`
+and `canSpeak` (a man with a wounded airway does not report; someone else does), an armour item for the
+fixture faction, data checks on the body outline, the body search margin now derived from the outline.
+**Recorded, not changed:** the "coming round" path cannot happen in this model (nothing restores consciousness
+before M10); the 20,000-projectile benchmark now wounds its own marching soldiers, so it measures a force under
+fire rather than a clean march (still above the floor).

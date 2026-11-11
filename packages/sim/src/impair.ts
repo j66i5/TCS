@@ -12,7 +12,10 @@ export function updateImpairment(catalog: Catalog, s: SoldierState): void {
   const p = s.physiology;
   const conscious = p.alive && p.consciousness >= 0.5;
   s.impair.canWalk = conscious && leg < e.legNoWalkSeverity;
-  s.impair.canFight = conscious && arm < e.armNoFightSeverity && p.pain < e.painNoFightAt;
+  s.impair.canUseArms = conscious && arm < e.armNoFightSeverity;
+  s.impair.canFight = s.impair.canUseArms && p.pain < e.painNoFightAt;
+  // A man whose airway is wounded cannot report.
+  s.impair.canSpeak = conscious && !s.wounds.some((w) => w.airway);
   s.impair.move = !conscious ? 0 : Math.max(e.minMoveFactor, (1 - e.moveSeverityK * leg) * (1 - 0.5 * p.shock));
   s.impair.aim = 1 + e.aimSeverityK * arm + e.aimPainK * p.pain;
 }
@@ -20,4 +23,9 @@ export function updateImpairment(catalog: Catalog, s: SoldierState): void {
 /** Alive and conscious: can take orders and act. */
 export function isAble(s: SoldierState | undefined): boolean {
   return s !== undefined && s.physiology.alive && s.physiology.consciousness >= 0.5;
+}
+
+/** Able and can talk: may send a radio message. */
+export function canReport(s: SoldierState | undefined): boolean {
+  return isAble(s) && s!.impair.canSpeak;
 }

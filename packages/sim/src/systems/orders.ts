@@ -7,7 +7,7 @@ import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
 import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "../nav";
 import { atan2, hypot2 } from "../math";
-import { isAble } from "../impair";
+import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
@@ -120,7 +120,7 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   if (unitId === undefined) return;
   const unit = state.unit.req(unitId);
   // The leader speaks; if he is down, the first man who still can.
-  const from = unit.leader !== null && isAble(state.soldier.get(unit.leader)) ? unit.leader : unitSoldiers(state, unitId).find((m) => isAble(state.soldier.get(m)));
+  const from = unit.leader !== null && canReport(state.soldier.get(unit.leader)) ? unit.leader : unitSoldiers(state, unitId).find((m) => canReport(state.soldier.get(m)));
   if (from === undefined) return;
   events.emit({ kind: "radio", tick: state.tick, side: unit.side, from, key, params: { callsign: unit.callsign } });
 }
@@ -130,7 +130,12 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   const isUnit = state.unit.has(order.target);
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)));
-  if (soldiers.length === 0) return "unable";
+  if (soldiers.length === 0) {
+    // Nobody left to obey: the unit is neither moving nor firing any more.
+    const u = isUnit ? order.target : state.identity.get(order.target)?.unit;
+    if (u !== undefined && state.unit.has(u)) { state.unit.req(u).moving = false; topUnitOf(state, u).firing = false; }
+    return "unable";
+  }
   switch (order.kind) {
     case "move": {
       // The unit's route is planned once from its reference man (leader, else first man), seeking cover as

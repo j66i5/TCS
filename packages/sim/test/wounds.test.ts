@@ -1,10 +1,10 @@
 /** M2.3: hits on bodies, armour, wound records, the bleeding clock, casualties (SPEC 6.4, rule 10). */
 import { describe, expect, it } from "vitest";
 import {
-  createSim, EventSink, hashState, healthyPhysiology, launchProjectile, loadSim, resolveBodyHit, saveSim, secondsToTicks, simplePhysiology,
-  soldierRecordFromState, step, submitOrder, type Sim, type SimEvent, type Wound,
+  createSim, EventSink, hashState, healthyPhysiology, launchProjectile, loadSim, refreshStatus, resolveBodyHit, saveSim, secondsToTicks, simplePhysiology,
+  soldierRecordFromState, step, submitOrder, unitsFromState, type Sim, type SimEvent, type Wound,
 } from "../src/index";
-import { armedInput, testCatalog } from "./helpers";
+import { armedInput, rec, testCatalog } from "./helpers";
 
 const unitOf = (sim: Sim, side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side)!;
 function run(sim: Sim, seconds: number): SimEvent[] {
@@ -108,17 +108,16 @@ describe("wounds are records and casualties stay in the world", () => {
     const sim = createSim(physio());
     const man = unitOf(sim, "blue")[1].members[1]!;
     const s = sim.state.soldier.req(man);
-    for (let k = 0; k < 30 && s.impair.canWalk; k++) strike(sim, man, "leg", 10, 2500);
+    s.wounds.push({ id: 0, zone: "legL", mechanism: "bullet", severity: 0.7, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    refreshStatus(sim.ctx, sim.state, new EventSink(), man);
     expect(s.impair.canWalk).toBe(false);
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: man, kind: "move", waypoints: [{ x: 60, y: 15, mode: "walk" }] });
     const x0 = sim.state.transform.req(man).x;
     run(sim, 20);
-    if (s.physiology.alive && s.physiology.consciousness >= 0.5) {
-      expect(s.posture).toBe("prone");
-      const moved = sim.state.transform.req(man).x - x0;
-      expect(moved).toBeGreaterThan(0.2);
-      expect(moved).toBeLessThan(8); // walking would be ~27 m
-    }
+    expect(s.posture).toBe("prone");
+    const moved = sim.state.transform.req(man).x - x0;
+    expect(moved).toBeGreaterThan(0.2);
+    expect(moved).toBeLessThan(8); // walking would be ~27 m
   });
 });
 
@@ -231,5 +230,133 @@ describe("bullets strike bodies", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
     run(sim, 30); run(copy, 30);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
+  });
+});
+
+/** Kill a man outright (test helper: the status change goes through the real casualty handling). */
+function kill(sim: Sim, id: number): SimEvent[] {
+  const sink = new EventSink();
+  const s = sim.state.soldier.req(id);
+  s.physiology.alive = false; s.physiology.consciousness = 0;
+  refreshStatus(sim.ctx, sim.state, sink, id);
+  return sink.events;
+}
+
+describe("fixes from the independent review", () => {
+  it("when the last man firing falls, the unit's fire ends and is reported; a wiped-out unit never 'arrives'", () => {
+    const sim = createSim(physio());
+    const [uid, unit] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "fire", x: 150, y: 15 });
+    run(sim, 3);
+    expect(unit.firing).toBe(true);
+    const ev = unit.members.flatMap((m) => kill(sim, m));
+    expect(unit.firing).toBe(false);
+    expect(ev.filter((e) => e.kind === "fire.ceased")).toMatchObject([{ reason: "unable", unit: uid }]);
+
+    const sim2 = createSim(physio());
+    const [uid2, unit2] = unitOf(sim2, "blue");
+    submitOrder(sim2, { tick: 0, issuer: "blue", target: uid2, kind: "move", waypoints: [{ x: 150, y: 15, mode: "walk" }] });
+    run(sim2, 5);
+    for (const m of unit2.members) kill(sim2, m);
+    const later = run(sim2, 5);
+    expect(later.some((e) => e.kind === "unit.arrived")).toBe(false);
+    expect(unit2.moving).toBe(false);
+    // An order to a unit with nobody left is answered by nobody and leaves no flags set.
+    submitOrder(sim2, { tick: sim2.state.tick, issuer: "blue", target: uid2, kind: "halt" });
+    expect(run(sim2, 3).some((e) => e.kind === "radio")).toBe(false);
+  });
+
+  it("a casualty's record carries his condition into the next battle: the dead stay dead", () => {
+    const sim = createSim(physio());
+    const [, unit] = unitOf(sim, "blue");
+    const [dead, bled] = unit.members as [number, number];
+    strike(sim, dead, "leg");
+    kill(sim, dead);
+    const b = sim.state.soldier.req(bled);
+    b.wounds.push({ id: 0, zone: "legL", mechanism: "bullet", severity: 0.5, bleedingLps: 0.004, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    run(sim, 120);
+    const blood = b.physiology.bloodVolumeL;
+    expect(blood).toBeLessThan(4.7);
+    const input = physio();
+    input.forces[0]!.units = unitsFromState(sim.state, "blue", input.forces[0]!.units);
+    expect(input.forces[0]!.units[0]!.members[0]!.status).toBe("killed");
+    const next = createSim(input);
+    const [, u2] = unitOf(next, "blue");
+    const d2 = next.state.soldier.req(u2.members[0]!), b2 = next.state.soldier.req(u2.members[1]!);
+    expect(d2.physiology.alive).toBe(false);
+    expect(d2.casualty).toBe("killed");
+    expect(b2.physiology.bloodVolumeL).toBeCloseTo(blood, 6);
+    expect(run(next, 5).filter((e) => e.kind === "casualty")).toHaveLength(0);
+    expect(d2.physiology.alive).toBe(false);
+  });
+
+  it("left and right: a round into the arm on his left side is recorded as the left arm", () => {
+    const sideOf = (dy: number) => {
+      const sim = createSim(physio());
+      const target = unitOf(sim, "red")[1].members[0]!;
+      const b = sim.state.transform.req(target); // heading 0: he faces east (+x); y grows south, so north is his left
+      launchProjectile(sim.ctx, sim.state, "ball", b.x - 30, b.y + dy, 1.3, 900, 0, 0, 0); // from behind him
+      const hit = run(sim, 1).find((e) => e.kind === "hit");
+      return hit && hit.kind === "hit" ? hit.zone : "";
+    };
+    expect(sideOf(-0.21)).toBe("armL");
+    expect(sideOf(0.21)).toBe("armR");
+  });
+
+  it("in a squad with sub-teams the next able man of a sub-team takes over and reports", () => {
+    const input = physio();
+    const sub = { key: "a/1", callsign: "a/1", echelon: "team", leaderIndex: 0, members: [rec("a1.0"), rec("a1.1")], subunits: [] };
+    input.forces[0]!.units = [{ key: "a", callsign: "a", echelon: "squad", leaderIndex: 0, members: [rec("a.0")], subunits: [sub] }];
+    input.forces[0]!.placements = ["a.0", "a1.0", "a1.1"].map((personId, i) => ({ personId, x: 10, y: 10 + i * 5, heading: 0 }));
+    const sim = createSim(input);
+    const [, squad] = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === null)!;
+    const leader = squad.leader!;
+    const ev = kill(sim, leader);
+    expect(squad.leader).not.toBeNull();
+    expect(squad.leader).not.toBe(leader);
+    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.manDown" });
+  });
+
+  it("a man knocked down by a plate hit cannot get up, reload or change posture until it has passed", () => {
+    const input = physio();
+    for (const m of input.forces[1]!.units[0]!.members) m.load.push({ type: "vest", count: 1 });
+    const sim = createSim(input);
+    const [rid, runit] = unitOf(sim, "red");
+    const man = runit.members[0]!;
+    run(sim, 1);
+    strike(sim, man, "chest");
+    const s = sim.state.soldier.req(man);
+    const until = s.stunnedUntilTick;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "posture", posture: "standing" });
+    while (sim.state.tick < until) { step(sim); expect(s.posture).toBe("prone"); }
+    run(sim, 5);
+    expect(s.posture).toBe("standing");
+  });
+
+  it("without a physiology model nothing bleeds, but pain still fades and the man fights again", () => {
+    const sim = createSim(armedInput()); // physiologyModel "none"
+    const man = unitOf(sim, "red")[1].members[0]!;
+    const s = sim.state.soldier.req(man);
+    s.wounds.push({ id: 0, zone: "abdomen", mechanism: "bullet", severity: 0.5, bleedingLps: 0.01, compressible: false, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    s.physiology.pain = 0.72;
+    refreshStatus(sim.ctx, sim.state, new EventSink(), man);
+    expect(s.impair.canFight).toBe(false);
+    run(sim, 600);
+    expect(s.physiology.bloodVolumeL).toBe(5);
+    expect(s.physiology.pain).toBeLessThan(0.6);
+    expect(s.impair.canFight).toBe(true);
+  });
+
+  it("a man with a wounded airway cannot report; someone else does", () => {
+    const sim = createSim(physio());
+    const [uid, unit] = unitOf(sim, "blue");
+    const leader = unit.leader!;
+    const s = sim.state.soldier.req(leader);
+    s.wounds.push({ id: 0, zone: "neck", mechanism: "bullet", severity: 0.55, bleedingLps: 0, compressible: true, airway: true, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    refreshStatus(sim.ctx, sim.state, new EventSink(), leader);
+    expect(s.impair.canSpeak).toBe(false);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "halt" });
+    const radio = run(sim, 3).find((e) => e.kind === "radio");
+    expect(radio && radio.kind === "radio" ? radio.from : leader).not.toBe(leader);
   });
 });

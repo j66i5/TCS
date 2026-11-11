@@ -137,7 +137,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   for (const [id, w] of state.weapon.entries()) {
     if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
-    if (!isAble(state.soldier.get(id))) continue;
+    const sol = state.soldier.get(id);
+    if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
     const wd = ctx.catalog.weapons[w.weapon];
     const capacity = wd ? (ctx.catalog.items[wd.feed.magazine]?.chargeCapacity ?? 0) : 0;
     if (wd && w.magazine.rounds <= capacity * F.topUpBelowFraction && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {

@@ -89,13 +89,19 @@ function addSoldier(
     postureDoneTick: 0,
     physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
     mental: { stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady" },
-    physiology: healthyPhysiology(),
+    // A man who comes into the battle already hurt keeps his condition (rule 11: records in and out).
+    physiology: rec.physiology ? { ...rec.physiology } : { ...healthyPhysiology(), ...(rec.status === "killed" ? { alive: false, consciousness: 0 } : rec.status === "incapacitated" ? { consciousness: 0 } : {}) },
     wounds: rec.wounds.map((w) => ({ ...w, treatments: [...w.treatments] })),
     nextWoundId: rec.wounds.reduce((m, w) => Math.max(m, w.id + 1), 0),
-    impair: { move: 1, aim: 1, canWalk: true, canFight: true },
+    impair: { move: 1, aim: 1, canWalk: true, canUseArms: true, canFight: true, canSpeak: true },
     stunnedUntilTick: 0,
     casualty: "none",
   };
+  if (!s.physiology.alive || s.physiology.consciousness < 0.5) {
+    s.casualty = s.physiology.alive ? "incapacitated" : "killed";
+    s.mental.behaviour = "incapacitated";
+    s.posture = "prone";
+  }
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
@@ -124,7 +130,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
   const w = state.weapon.get(id);
   const status: SoldierRecord["status"] = !s.physiology.alive
     ? "killed"
-    : s.mental.behaviour === "incapacitated"
+    : s.casualty === "incapacitated"
       ? "incapacitated"
       : s.wounds.length > 0
         ? "wounded"
@@ -142,6 +148,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     load: loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null),
     ...(w ? { weapon: w.weapon } : {}),
+    ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
   };
 }

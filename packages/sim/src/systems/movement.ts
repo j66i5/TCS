@@ -18,6 +18,7 @@ import { radioFromTarget, unitSoldiers } from "./orders";
 import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
+import { isAble } from "../impair";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
@@ -112,7 +113,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   // Unit arrival: a moving unit whose men have all finished their waypoints.
   for (const [uid, u] of state.unit.entries()) {
     if (!u.moving) continue;
-    const men = unitSoldiers(state, uid);
+    const men = unitSoldiers(state, uid).filter((s) => isAble(state.soldier.get(s)));
+    if (men.length === 0) { u.moving = false; continue; } // nobody left to arrive
     if (men.every((s) => (state.mover.get(s)?.waypoints.length ?? 0) === 0)) {
       u.moving = false;
       events.emit({ kind: "unit.arrived", tick: state.tick, unit: uid });

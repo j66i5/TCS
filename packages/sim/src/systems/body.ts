@@ -50,7 +50,8 @@ export function requestPosture(ctx: SimContext, state: SimState, id: EntityId, t
   }
   const secs = postureChangeSeconds(ctx, s.posture, to, loadKg(ctx, state, id));
   s.postureTo = to;
-  s.postureDoneTick = state.tick + Math.max(1, secondsToTicks(secs));
+  // A man who has been knocked down starts only when he has his wits back.
+  s.postureDoneTick = Math.max(state.tick, s.stunnedUntilTick) + Math.max(1, secondsToTicks(secs));
 }
 
 /** Complete posture changes whose time is up. */

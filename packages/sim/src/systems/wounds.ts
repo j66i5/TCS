@@ -8,7 +8,8 @@ import { interruptAction } from "../actions";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
-import { isAble, updateImpairment } from "../impair";
+import { canReport, isAble, updateImpairment } from "../impair";
+import { unitSoldiers } from "./orders";
 import { clamp, pow } from "../math";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -61,6 +62,7 @@ export function resolveBodyHit(
       addWound(ctx, state, events, target, { zone, mechanism: "blunt", severity: W.wounding.bluntSeverity, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false }, owner);
       s.stunnedUntilTick = Math.max(s.stunnedUntilTick, state.tick + secondsToTicks(W.wounding.knockdownSeconds));
       s.posture = "prone"; s.postureTo = null;
+      interruptAction(state, events, target, "knocked-down"); // a reload in progress is broken off
     }
     return;
   }
@@ -117,6 +119,7 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
   // He drops where he is.
   const m = state.mover.get(id);
   if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; m.mode = null; }
+  const hadTask = state.fire.has(id);
   state.fire.delete(id);
   interruptAction(state, events, id, "casualty");
   s.posture = "prone"; s.postureTo = null;
@@ -124,23 +127,36 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
   const ident = state.identity.req(id);
   const unit = state.unit.get(ident.unit);
   if (unit) {
-    if (unit.leader === id) unit.leader = unit.members.find((x) => isAble(state.soldier.get(x))) ?? null;
-    const from = unit.members.find((x) => x !== id && isAble(state.soldier.get(x)));
+    // The next able man leads: one of the unit's own men first, else one from its sub-units.
+    const able = (x: EntityId) => isAble(state.soldier.get(x));
+    if (unit.leader === id) unit.leader = unit.members.find(able) ?? unitSoldiers(state, ident.unit).find(able) ?? null;
+    let top = ident.unit;
+    for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;
+    const all = unitSoldiers(state, top);
+    const speaker = (x: EntityId) => x !== id && canReport(state.soldier.get(x));
+    const from = unit.members.find(speaker) ?? all.find(speaker);
     if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key: "radio.manDown", params: { callsign: unit.callsign, name: ident.family } });
+    // If he was the last man firing, the unit's fire has ended.
+    const tu = state.unit.req(top);
+    if (hadTask && tu.firing && !all.some((m) => state.fire.has(m))) {
+      tu.firing = false;
+      events.emit({ kind: "fire.ceased", tick: state.tick, unit: top, reason: "unable" });
+    }
   }
 }
 
 /** Physiology on its clock: every living wounded man deteriorates (or clots) every step. */
 export function woundSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const model = ctx.physiology;
-  if (!model) return;
   const params = ctx.physiologyParams;
   const every = Math.max(1, secondsToTicks(params["stepSeconds"] ?? 0.5));
   if (state.tick % every !== 0) return;
   const dt = every / secondsToTicks(1);
   for (const [id, s] of state.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive) continue;
-    model.step(s.physiology, s.wounds, dt, params);
+    // Without a physiology model ("none") nothing bleeds, but pain still fades.
+    if (model) model.step(s.physiology, s.wounds, dt, params);
+    else s.physiology.pain = Math.max(0, s.physiology.pain - (params["painDecayPerS"] ?? 0) * dt);
     refreshStatus(ctx, state, events, id);
   }
 }

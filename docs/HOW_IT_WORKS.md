@@ -52,6 +52,42 @@ listen to events instead of poking around inside the simulation.
 `radio.ack.move`. The string table turns a key into text — in the faction's own phrasing ("Trupp 1: roger,
 moving." vs "Gruppa 1: understood, moving out.") and later in other languages.
 
+## The map
+
+A map is 2 × 2 km by default, cut into a grid of 4 × 4 m squares (cells).
+
+- **Height**: every corner of every cell has a height. Between corners the height is blended smoothly, so
+  hills are gentle slopes, not steps.
+- **Ground and plants**: every cell has a ground type (grass, ploughed field, asphalt, yard, water ...) and
+  optionally plants (crops, scrub, woodland, orchard ...). Each type comes from the terrain data files and says
+  how fast you can cross it on foot, on wheels or on tracks, how much it hides you, and later how much it
+  stops bullets.
+- **Things with exact shapes** are drawn as lines and outlines on top: walls, fences, hedges, embankments
+  (each with height, thickness and material), buildings (outline, storeys, wall material and thickness,
+  doors and windows), roads and water.
+- **Damage** (holes in walls, craters, shot-up trees) belongs to the battle, not to the map, so it is saved
+  with the battle. Nothing creates damage yet; shooting arrives in M2.
+
+**Generated maps.** `generateMap` builds a map from a kind and a seed number. The same seed always gives the
+same map on every device, so a map never needs to be sent anywhere — the seed is enough. For a village it:
+shapes gentle hills (and a valley if a stream runs through); lays the main road and a crossing road; picks a
+street village or a clustered village; places farm plots along the roads (house near the road, yard, barn
+closing the yard, garden, orchard at the back, a wall or fence with a gate in front, fences between plots), a
+church with a walled churchyard, maybe a pond and a few apartment blocks; then fills the rest with long field
+strips (stubble, crops, ploughed, meadow) with hedges, tree lines and field tracks, and woods where a noise
+pattern is high. Woodland-edge, farmland and industrial maps follow the same idea with their own recipes.
+Every generated map is checked: no buildings overlap or stand on roads or in water, every road joins the
+network, and the amounts of buildings, woods and fields are in a plausible range for its kind.
+
+**Drawing the map.** The ground is painted once into one picture: colours blended between neighbouring cells
+so edges look natural, tree crowns in woods, rows of trees in orchards, light and shade on slopes (light from
+the north-west) and faint contour lines every 2.5 m (stronger every 10 m). Roads, water, hedges, walls and
+buildings (roof colour, ridge line and a shadow) are drawn on top. Moving or zooming the camera only moves
+the finished picture.
+
+What the map does **not** do yet: the soldiers ignore it — they still walk in straight lines, through
+houses and woods. Finding paths around obstacles is the next slice (M1.2).
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -81,7 +117,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 61 automated tests, including:
+- `npm test` runs 88 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -97,5 +133,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No terrain, no pathfinding, no shooting, no wounds, no spotting (everyone sees everything), no real squad
+No pathfinding (men walk through houses), no postures or fatigue yet, no shooting, no wounds, no spotting (everyone sees everything), no real squad
 organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.

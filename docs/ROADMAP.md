@@ -8,7 +8,7 @@ Status: ✅ done · 🔨 in progress · ⏳ next · ⬜ not started
 
 ## Stage A — foundations
 
-### M0 Bootstrap — ✅ code complete (deploy pending: see STATE.md)
+### M0 Bootstrap — ✅ done (merged; live once GitHub Pages is enabled, see STATE.md)
 Repository, tooling, CI, deployment, documents, simulation loop with seeded randomness, serialisable state,
 order interface, event stream, determinism test, headless runner, an app page showing a moving dot driven
 by the simulation.
@@ -20,17 +20,17 @@ Acceptance:
 
 Slices: M0.1 (this session) — everything above in one slice.
 
-### M1 Map and movement — ⏳ next
+### M1 Map and movement — 🔨 in progress (M1.1 done)
 Heightfield, terrain layers, procedural test maps, pathfinding, soldiers with postures and fatigue, squads in
 formation, camera and zoom, first order (move).
 Acceptance: a squad crosses a generated village map choosing covered routes; movement lab passes.
 
 Proposed slices (to confirm at the start of M1):
-1. **M1.1 Terrain model and generator** — heightfield, surface/vegetation/obstacle/building/road/water
+1. ✅ **M1.1 Terrain model and generator** (2026-11-11) — heightfield, surface/vegetation/obstacle/building/road/water
    layers and materials as data; procedural generator for village, woodland edge, farmland, industrial;
    terrain drawn in the renderer; map format (JSON + heightmap image) with save/load. Destructible-terrain
    state stored as data.
-2. **M1.2 Navigation** — navigation grid with costs per movement mode (walk, run, sneak, crawl; wheeled and
+2. ⏳ **M1.2 Navigation** — navigation grid with costs per movement mode (walk, run, sneak, crawl; wheeled and
    tracked reserved), A* pathfinding, spatial hash for neighbourhood queries, path debug overlay.
 3. **M1.3 The individual soldier moving** — postures with change times; speed from mode, slope, surface and
    load mass; fatigue and heart rate rising and recovering (reading temperature from the environment);

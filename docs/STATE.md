@@ -64,5 +64,14 @@ armour, wound records, small arms and grenades for both factions; real squad org
 - M1.3: posture change time **depends on load**; fatigue **winded after 2–3 min running**, ~5 min to recover;
   **load slows and tires men from now**.
 
+- M2 planning: owner **dictates the squad tables**; **G36** and **AK-74M** default rifles; **helmet + plates**;
+  **realistic bleeding clock**; **realistic lethality mix**; **tracers clear, other bullets very faint**;
+  cover preference stays **balanced**.
+
+## Next
+**M2.1 Projectile engine** (ROADMAP.md, M2 slice 1).
+
 ## Open questions for the owner
+- **Squad tables wanted before M2.5** (owner dictates): Panzergrenadier dismounts of a Puma and motor-rifle
+  squad on a BMP — per man: role, rank, weapon; ammunition and grenades if he wants to set them.
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.

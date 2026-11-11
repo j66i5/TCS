@@ -317,3 +317,25 @@ behind his slot (furthest man from the leader in the village test: 35–37 m, wa
 formation's slot list extend the last slot backwards instead of stacking on the leader; the halt cover move is
 skipped if the walk to it would be long (behind a wall); leftover end-of-move settings are cleared by new orders.
 Known, recorded: slots are assigned by soldier ID, not by where men stand (men may cross at the start).
+
+## 2026-11-11 — Owner answers: cover preference stays balanced; M2 planning decisions
+Cover preference stays **balanced** for now (the larger gain comes in M3/M4 when men avoid ground the enemy can
+see; revisit at the M6 review). For M2: the **owner dictates the squad tables** (Panzergrenadier dismounts of a
+Puma; motor-rifle squad on a BMP) — Claude enters them and flags anything that cannot be backed by a public
+source; default rifles **G36** (German) and **AK-74M** (Russian), with G95A1 and AK-12 in the data as
+alternative loadouts; both sides wear **helmet and a vest with rifle-rated plates** front and back by default;
+the simple wound model runs on a **realistic clock** (untreated massive bleeding: unconscious in roughly 1–3 min,
+dead in roughly 3–10 min; moderate wounds tens of minutes; minor wounds never kill); lethality is a **realistic
+mix** (with plates and helmets most hits wound or incapacitate; roughly one casualty in four or five killed
+outright, tuned in the casualty lab and shown to the owner); bullets in flight: **tracer rounds as clear
+streaks, all other bullets as very faint streaks**, plus muzzle flashes and impact puffs (all bullets fully
+visible in the debug view).
+
+## 2026-11-11 — M2 slice plan and software choices
+Five slices, one session each (ROADMAP.md). Order chosen by technical risk: the projectile engine and its
+performance come first with one researched rifle per side, then the shooter, then the body, then explosives,
+then the full squad data. Claude's choices: scope of M2 weapons is rifles, machine guns, marksman rifle, hand
+grenades and 40 mm / under-barrel grenade launchers (shoulder-fired anti-tank weapons wait for M7 as the spec's
+roadmap says); friendly fire is on, because hits come from geometry (pillar 2); firing in M2 is driven by a
+minimal "fire at point" order and lab scripts — target choice and fire discipline are M4; near-miss events are
+emitted from M2 but only become suppression in M4.

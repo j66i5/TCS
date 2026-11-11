@@ -36,8 +36,8 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: wanderBoth,
   },
   shootout: {
-    description: "M2 demonstration: the two squads 250 m apart on a generated farmland map under a fixed script (prone, fire, one grenade each, cease fire after 150 s).",
-    build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "farmland", mapWidthM: 800, mapHeightM: 600, frontM: 250 }),
+    description: "M2 demonstration, firing-range style: the two squads 250 m apart on an open flat field under a fixed script (prone, fire, one grenade each, cease fire after 150 s).",
+    build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapWidthM: 800, mapHeightM: 600, frontM: 250 }),
     controllers: () => [shootoutController("blue"), shootoutController("red")],
   },
   "demo-fixture": {

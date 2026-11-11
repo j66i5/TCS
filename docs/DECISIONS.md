@@ -765,3 +765,39 @@ The bullet benchmark failed once more on GitHub (2.9x against the 3x floor) whil
 commit passed: the timing test shared the build machine's cores with the other test files. `npm test` now
 leaves out `perf*.test.ts`; `npm run test:perf` runs both timing files one after the other, alone, as its own
 step in `npm run check` and in CI. The floor stays 3x.
+
+## 2026-11-11 — M3 plan and owner answers
+**Slices:** M3.1 line of sight and line of fire (3D over the heightfield, walls with openings, roofs,
+vegetation thinning the view; men do not fire into a bank in front of them; lab and debug view); M3.2
+detection (per observer and target on a schedule; range, posture, movement, firing, concealment, light, optic,
+look direction, stress; spotting lab); M3.3 contacts and sharing (per-man contacts with confidence and age,
+sound contacts, shouting and radio through the comms model, call-outs, fire at a contact); M3.4 fog of war
+(the player sees only reported contacts, fading; debug shows all). **Owner answers:** a regular looking the
+right way spots a man **standing still in the open at 300 m in about 5-15 s**; a man **lying still in long
+grass or crops at 100 m is very hard to spot until he moves or fires**; a rifle shot gives everyone in earshot
+**the direction at once, his position only if he is seen** (flash, dust); the player sees **what his men have
+reported**, with the delay that takes, and old contacts fade.
+
+## 2026-11-11 — M3.1 line of sight and line of fire (state schema v9, goldens regenerated)
+**Line of sight** (`sim/src/los.ts`, `sight(ctx, from, to)`): a pure query, heights absolute. The ground
+blocks (sampled every half cell; whole 8 m buckets whose ground and vegetation lie a metre or more below the
+line are skipped); a wall blocks unless the line passes a door, window or breach; an obstacle kind's
+`seeThrough` (wire fence 0.95, wooden fence 0.5, hedge 0.1) lets a share through; a roof blocks a line that
+crosses its plane over the footprint; vegetation the line passes through below its top thins the view by
+exp(-concealment per metre x metres). The result is a visibility 0..1, what blocked it and where. The last
+0.3 m at each end are not tested against the ground (eyes and targets close to it). Detection (M3.2) will
+turn visibility into a chance. **Line-of-sight lab** (`npm run lab -- sight`): open ground clear at every
+range; a man lying in crops at 100 m 0.14 % visible, kneeling 3 %, standing 100 %; both prone in tall grass
+0.03 %; woodland 52 % after 10 m, 0.2 % after 100 m; a hedge 10 %, a wire fence 95 %; a 1.1 m wall hides a
+kneeling man; dead ground beyond a 4 m crest; a house blocks unless windows line up. Speed: about 4 microseconds
+per random line of up to 400 m on a village map. **Line of fire:** once a second, before a shot or a burst,
+a man checks the line from his muzzle to the point he is told to fire at; if the ground, a wall or a roof
+blocks it in the first 85 % of the way he rises to a kneel or to his feet if that clears it, otherwise he
+holds his fire and the unit reports "no line of fire" once per fire order (closes the M2 gap of prone men
+firing into a bank). **Consequence found at once:** in the scripted shoot-out on generated farmland the two
+squads 250 m apart were in each other's dead ground and one side correctly held its fire; the demonstration
+scenario now uses an open flat field ("firing-range style", as the roadmap says). **Debug view:** with Debug
+on, the ground the selected unit's leader cannot see a kneeling man on (within 400 m) is darkened, partly
+seen ground tinted; refreshed every 2 s of game time. **Not yet:** smoke (M8); light and night (M9); the
+line of fire does not consider friends beyond the 4-degree safety cone or the target's own cover; men do not
+move sideways to get a line of fire.

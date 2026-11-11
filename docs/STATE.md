@@ -3,9 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M2 Ballistics and wounds is complete** (M2.1 projectile engine, M2.2 the shooter, M2.3 body, armour and wounds,
-M2.4/M2.4b grenades and fragments, M2.5 squads and kit). Next milestone: **M3 Spotting and knowledge** (line of
-sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices and ask the owner before starting.
+**M3 Spotting and knowledge** — slice **M3.1 line of sight and line of fire: done**. Next: **M3.2 detection**
+(owner anchors in DECISIONS.md: a standing man in the open at 300 m spotted in about 5-15 s; a still man in
+crops at 100 m very hard to spot until he moves or fires; shots give direction at once, position if seen).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -75,7 +75,11 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
 - **M2 completion**: aiming time (first shots hurried) and bracing on cover in the aiming error; bullets go
   through a body, slowed, and can hit the man behind; G95A1 and AK-12 as data (not issued by default); cover
   rows in the fragmentation lab.
-- Tests: 289, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M3.1 line of sight**: sight lines over hills, walls (openings let sight through), see-through fences and
+  hedges, roofs and vegetation (`npm run lab -- sight`); men no longer fire into a bank in front of them —
+  they kneel or stand to fire over it, or hold fire and report "no line of fire"; Debug shows what the
+  selected unit's leader can see.
+- Tests: 298, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
@@ -87,8 +91,6 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
 - **Grenade data is unverified**: the search tool declined most look-ups, so DM51, RGD-5, VOG-25 and the
   launchers are from memory of published figures (`confidence: "low"`). **Speed with fragments is at the
   limit**: nine grenades bursting in the same instant cost a stutter of about two frames (see DECISIONS.md). The AI never throws; grenades are not thrown back; a man running from a grenade runs in a straight line.
-- Men do not check whether the ground blocks their line of fire (M3); prone men on rolling ground may fire
-  into the ground in front of them.
 - Soldiers only fire where ordered; the enemy team never shoots (choosing targets is M4).
 - The phone top bar wraps onto three rows (interface work is M5).
 - Research values come from search extracts, not from reading the pages; confidence medium at best.

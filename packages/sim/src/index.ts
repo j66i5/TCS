@@ -11,6 +11,7 @@ export * from "./navctx";
 export * from "./spatial";
 export * from "./projectiles";
 export * from "./ballistics";
+export * from "./los";
 export { launchProjectile } from "./systems/ballistics";
 export { aimErrorMrad, skillFactor } from "./systems/fire";
 export { resolveBodyHit, refreshStatus, applyBlast } from "./systems/wounds";

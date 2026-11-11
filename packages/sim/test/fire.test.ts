@@ -352,3 +352,35 @@ describe("aiming time and bracing (M2 completion)", () => {
     expect(err(atWall, "prone")).toBeCloseTo(err(inOpen, "prone"), 6);
   });
 });
+
+describe("line of fire (M3.1)", () => {
+  it("a prone man behind a bank does not fire into it: he rises to a kneel and fires over it", () => {
+    const input = armedInput();
+    // A 0.8 m bank 3 m in front of the blue team.
+    const m = input.map;
+    for (let r = 0; r <= m.rows; r++) for (let c = 0; c <= m.cols; c++) { const x = c * m.cellSizeM; if (x >= 12 && x <= 16) m.heights[r * (m.cols + 1) + c] = 0.8; }
+    const sim = createSim(input);
+    const [uid, unit] = blue(sim);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
+    run(sim, 5);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("prone");
+    fireAt(sim, uid, 150, 15);
+    const ev = run(sim, 12);
+    const shots = kinds(ev, "shot.fired");
+    expect(shots.length).toBeGreaterThan(3);
+    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("crouching");
+    // No round struck the bank.
+    expect(ev.filter((e) => e.kind === "impact" && e.x < 20).length).toBe(0);
+  });
+
+  it("behind a wall too high to fire over he holds his fire, and the unit reports it once", () => {
+    const input = armedInput();
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [13, 0, 13, 40], heightM: 2, thicknessM: 0.25, material: "brick" });
+    const sim = createSim(input);
+    const [uid] = blue(sim);
+    fireAt(sim, uid, 150, 15);
+    const ev = run(sim, 15);
+    expect(kinds(ev, "shot.fired")).toHaveLength(0);
+    expect(ev.filter((e) => e.kind === "radio" && e.key === "radio.noLineOfFire")).toHaveLength(1);
+  });
+});

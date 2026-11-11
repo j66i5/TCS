@@ -223,7 +223,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
       if (!any) return "unable"; // nobody there has a weapon he can use
-      if (u !== undefined) topUnitOf(state, u).firing = true;
+      if (u !== undefined) { const top = topUnitOf(state, u); top.firing = true; top.lineBlockedReported = false; }
       break;
     }
     case "ceaseFire": {

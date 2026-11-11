@@ -98,6 +98,8 @@ export interface Unit {
   moving: boolean;
   /** True while members are carrying out a fire order. */
   firing: boolean;
+  /** "No line of fire" has been reported for the current fire order (reset by the next fire order). */
+  lineBlockedReported: boolean;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -149,4 +151,7 @@ export interface FireTask {
   rangeError: number;
   /** Tick at which he began to aim at this point (his aim settles over the first seconds). */
   startTick: number;
+  /** When his line of fire was last checked, and whether it was clear from where he is. */
+  lineCheckTick: number;
+  lineClear: boolean;
 }

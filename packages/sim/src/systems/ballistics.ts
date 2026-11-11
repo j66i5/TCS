@@ -382,15 +382,34 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
 
     if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
-      // ---- a man is hit: armour, wound, and the round stays in him
+      // ---- a man is hit: armour, wound; a bullet may go through him
       const speedB = rs / (1 + a * tBody); // its speed where it strikes, not at the end of the tick
       const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
       const energy = 0.5 * am.massKg * speedB * speedB;
-      bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);
+      let through = bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);
       // Through the arm from the side and on into the trunk behind it.
       const WG = ctx.catalog.wounds.wounding;
+      let trunk = bodyGroup !== 5 && bodyGroup !== 6;
       if (bodyGroup === 5 && !bodyFrontal && bodyBand !== 5 && rnd(state.rng, Streams.wounds) < WG.throughArmChance) {
-        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyBand]!, bodyLeft, false, can * WG.throughArmEnergy, energy * WG.throughArmEnergy, am.id, P.owner[i]!, am.fragment);
+        through *= bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyBand]!, bodyLeft, false, can * WG.throughArmEnergy, energy * WG.throughArmEnergy, am.id, P.owner[i]!, am.fragment);
+        trunk = true;
+      }
+      // A bullet that was not stopped flies on, much slowed (fragments stay in the body): the man behind is
+      // not safe. It leaves the body outline where its path does.
+      if (!am.fragment && through > 0) {
+        const j = bodyIdx, hb = hitboxes[SG.posture[j]!]!;
+        const rx = x0 - SX[j]!, ry = y0 - SY[j]!, cf = SCF[j]!, sf = SSF[j]!;
+        clipT0 = 0; clipT1 = 1;
+        const inside = clip(rx * cf + ry * sf, dx * cf + dy * sf, -hb.halfF, hb.halfF) && clip(-rx * sf + ry * cf, -dx * sf + dy * cf, -hb.halfL, hb.halfL) && clip(z0 - SGZ[j]!, dz, 0, hb.height);
+        const out = speedB * (trunk ? WG.exit.trunk : WG.exit.limb) * sq(through);
+        // (If the tick's path ends inside the outline — along a prone man — the round stays in him.)
+        if (inside && clipT1 < 1 && out * out > am.minSpeed2) {
+          const end = sq(speed2), k = out / end, tOut = clipT1 + 0.05 / (sq(dx * dx + dy * dy + dz * dz) + 1e-9);
+          X[i] = x0 + tOut * dx; Y[i] = y0 + tOut * dy; Z[i] = z0 + tOut * dz;
+          VX[i] = vx * k; VY[i] = vy * k; VZ[i] = vz * k;
+          i++;
+          continue;
+        }
       }
       remove(P, i);
       continue;

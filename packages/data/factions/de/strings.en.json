@@ -66,5 +66,7 @@
   "role.de.at-gunner": "Panzerfaustschuetze",
   "role.de.marksman": "Gruppenscharfschuetze (ZF)",
   "role.de.grenadier": "Granatpistolenschuetze",
-  "role.de.panzergrenadier": "Panzergrenadier"
+  "role.de.panzergrenadier": "Panzergrenadier",
+  "weapon.de-g95a1": "G95A1",
+  "item.de-g95-mag": "G95 magazine"
 }

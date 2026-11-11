@@ -186,6 +186,18 @@
       "sources": [],
       "confidence": "low",
       "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
+    },
+    {
+      "id": "de-g95-mag",
+      "nameKey": "item.de-g95-mag",
+      "category": "magazine",
+      "massKg": 0.13,
+      "chargeCapacity": 30,
+      "chargeMassKg": 0.0123,
+      "chargeItem": "de-556-dm11",
+      "sources": [],
+      "confidence": "low",
+      "note": "30-round STANAG-type magazine for the G95A1; mass typical, not sourced."
     }
   ]
 }

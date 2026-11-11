@@ -19,7 +19,9 @@ import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { Container } from "../items";
-import { atan2, cos, hypot2, PI, sin, sqrt } from "../math";
+import { atan2, cos, exp, hypot2, PI, sin, sqrt } from "../math";
+import { exposureAt } from "../nav";
+import { navFor } from "../navctx";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -48,7 +50,14 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const sight = wdef?.sights[0]?.kind ?? "iron";
   // A machine gun on its bipod is built for bursts: no penalty for firing fast, and far less climb.
   const sus = wdef?.sustained;
-  return a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
+  // Time spent aiming: the first shots at a new point are hurried.
+  const task = state.fire.get(id);
+  const settle = task ? 1 + a.settleK * exp(-(state.tick - task.startTick) / (a.settleTauS * TICK_HZ)) : 1;
+  // Bracing: off the ground, next to a wall, tree or other cover, he rests the weapon on it (a bipod gun and a
+  // prone man are steady already).
+  const t = state.transform.get(id);
+  const braced = !sus && s.posture !== "prone" && t !== undefined && exposureAt(navFor(ctx, "foot").grid, t.x, t.y) <= a.bracedBelowExposure ? a.bracedFactor : 1;
+  return settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;
 }
@@ -58,8 +67,11 @@ export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
   if (!w || !s || !t || !isAble(s) || !s.impair.canFight) return false;
   const a = ctx.catalog.shooting.aim;
+  const prev = state.fire.get(id);
   state.fire.set(id, {
     x, y, heightM, reasonTick: state.tick,
+    // A renewed order at (nearly) the same point does not make him start aiming afresh.
+    startTick: prev !== undefined && hypot2(prev.x - x, prev.y - y) < 3 ? prev.startTick : state.tick,
     rangeError: a.rangeErrorFraction * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * nextNormal(state.rng, Streams.fire),
   });
   // Men do not all fire on the same tick.

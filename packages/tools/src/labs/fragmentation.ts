@@ -10,7 +10,8 @@ import {
   type BattleInput, type Catalog, type Posture, type SoldierRecord,
 } from "@tcs/sim";
 
-export interface FragCase { ammo: string; targetFaction: string; posture: Posture; distanceM: number; wall?: boolean; seeds?: number }
+export type FragCover = "brick wall 2 m" | "brick wall 1 m" | "wooden fence 1.8 m" | "hedge 1.5 m";
+export interface FragCase { ammo: string; targetFaction: string; posture: Posture; distanceM: number; wall?: boolean; cover?: FragCover; seeds?: number }
 export interface FragRow extends FragCase {
   men: number;
   /** Men with at least one wound from a fragment or the blast. */
@@ -36,11 +37,13 @@ export function burstCase(catalog: Catalog, c: FragCase): FragRow {
   for (let seed = 1; seed <= (c.seeds ?? 10); seed++) {
     const map = flatMap("frag", 120, 120, 4);
     const cx = 60, cy = 60;
-    if (c.wall) {
-      // A brick garden wall all round the burst, 1.5 m inside the ring of men.
+    const cover: FragCover | undefined = c.cover ?? (c.wall ? "brick wall 2 m" : undefined);
+    if (cover) {
+      // The cover runs all round the burst, 1.5 m inside the ring of men.
       const r = Math.max(1, c.distanceM - 1.5), pts: number[] = [];
       for (let k = 0; k <= 24; k++) pts.push(cx + r * Math.cos((k / 24) * 2 * Math.PI), cy + r * Math.sin((k / 24) * 2 * Math.PI));
-      map.obstacles.push({ id: 1, kind: "brick-wall", points: pts, heightM: 2, thicknessM: 0.24, material: "brick" });
+      const spec = { "brick wall 2 m": ["brick-wall", 2, 0.24, "brick"], "brick wall 1 m": ["brick-wall", 1, 0.24, "brick"], "wooden fence 1.8 m": ["wooden-fence", 1.8, 0.02, "wood"], "hedge 1.5 m": ["hedge", 1.5, 1, "hedge"] }[cover] as [string, number, number, string];
+      map.obstacles.push({ id: 1, kind: spec[0], points: pts, heightM: spec[1], thicknessM: spec[2], material: spec[3] });
     }
     const members: SoldierRecord[] = Array.from({ length: perRing }, (_, i) => ({
       personId: `m#${i}`, given: "Lab", family: `m${i}`, rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, fatigue: 0, stress: 0, wounds: [], load: armour.map((a) => ({ ...a })), status: "fit",
@@ -83,15 +86,18 @@ export function burstCase(catalog: Catalog, c: FragCase): FragRow {
 
 export const FRAG_DISTANCES = [2, 5, 10, 15, 20, 30];
 
-export function fragmentationLab(data: DataSet): { open: FragRow[]; wall: FragRow[] } {
+export function fragmentationLab(data: DataSet): { open: FragRow[]; wall: FragRow[]; cover: FragRow[] } {
   const cat = buildCatalog(data, ["de", "ru"]);
   const munitions: [string, string][] = [["de-dm51", "ru"], ["ru-rgd5", "de"], ["de-40mm-he", "ru"], ["ru-vog25", "de"]];
-  const open: FragRow[] = [], wall: FragRow[] = [];
+  const open: FragRow[] = [], wall: FragRow[] = [], cover: FragRow[] = [];
   for (const [ammo, targetFaction] of munitions) {
     for (const posture of ["standing", "prone"] as Posture[]) for (const distanceM of FRAG_DISTANCES) open.push(burstCase(cat, { ammo, targetFaction, posture, distanceM }));
     wall.push(burstCase(cat, { ammo, targetFaction, posture: "standing", distanceM: 5, wall: true }));
+    if (ammo === munitions[0]![0] || ammo === munitions[1]![0]) {
+      for (const cv of ["brick wall 1 m", "wooden fence 1.8 m", "hedge 1.5 m"] as FragCover[]) for (const posture of ["standing", "crouching"] as Posture[]) cover.push(burstCase(cat, { ammo, targetFaction, posture, distanceM: 5, cover: cv }));
+    }
   }
-  return { open, wall };
+  return { open, wall, cover };
 }
 
 export function fragmentationLabMarkdown(r: ReturnType<typeof fragmentationLab>): string {
@@ -106,5 +112,7 @@ export function fragmentationLabMarkdown(r: ReturnType<typeof fragmentationLab>)
   for (const x of r.open) out.push(line(x));
   out.push("", "### Behind a brick wall (2 m high, 24 cm), men standing 5 m from the burst", "", "| munition | posture | distance m | men | wounded | fragment wounds per man | stopped by armour per man | down at once | dead at once | dead within 60 min | only stunned |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
   for (const x of r.wall) out.push(line(x));
+  out.push("", "### Behind other cover, 5 m from the burst (hand grenades)", "", "| munition | cover | posture | men | wounded | fragment wounds per man | down at once | dead within 60 min | only stunned |", "|---|---|---|---:|---:|---:|---:|---:|---:|");
+  for (const x of r.cover) out.push(`| ${x.ammo} | ${x.cover ?? ""} | ${x.posture} | ${x.men} | ${pct(x.wounded, x.men)} | ${x.woundsPerMan.toFixed(1)} | ${pct(x.downAtOnce, x.men)} | ${pct(x.dead60min, x.men)} | ${pct(x.stunnedOnly, x.men)} |`);
   return out.join("\n");
 }

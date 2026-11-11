@@ -72,13 +72,17 @@ sight, detection, per-soldier contacts, sharing, fog of war). Propose its slices
   fifth round; the marksman rifle has a telescopic sight.
 - **Scripted shoot-out** (`npm run headless -- --scenario shootout`): the two squads 250 m apart fire at each
   other under a fixed script; it is a golden replay and a test (about 1,000 rounds, both grenades, casualties).
-- Tests: 281, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M2 completion**: aiming time (first shots hurried) and bracing on cover in the aiming error; bullets go
+  through a body, slowed, and can hit the man behind; G95A1 and AK-12 as data (not issued by default); cover
+  rows in the fragmentation lab.
+- Tests: 287, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
 - **Wound values are untested guesses** (all `confidence: "low"`) until the owner has reviewed the casualty lab
-  table. No first aid: a bleeding man is never treated (M10). A round stays in the first body it strikes.
+  table. No first aid: a bleeding man is never treated (M10). Target movement is not in the aiming error yet
+  (needs targets: M3/M4).
   Nobody reacts to being shot at, to casualties or to a grenade landing next to him (M4).
 - **Grenade data is unverified**: the search tool declined most look-ups, so DM51, RGD-5, VOG-25 and the
   launchers are from memory of published figures (`confidence: "low"`). **Speed with fragments is at the

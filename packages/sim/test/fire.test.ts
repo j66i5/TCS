@@ -320,3 +320,35 @@ describe("belt-fed sustained fire (M2.5; faction-neutral test catalog)", () => {
     expect(aimErrorMrad(sim.ctx, sim.state, gunner, wg, false)).toBeLessThan(aimErrorMrad(sim.ctx, sim.state, rifleman, wr, false) * 0.5);
   });
 });
+
+describe("aiming time and bracing (M2 completion)", () => {
+  it("the first shots at a new point are hurried: the error starts about 60 % larger and settles within seconds", () => {
+    const sim = createSim(armedInput());
+    const [uid, unit] = blue(sim);
+    const man = unit.members[0]!;
+    fireAt(sim, uid, 150, 15);
+    run(sim, 1.1); // the order arrives after 1 s
+    const w = sim.state.weapon.req(man);
+    const early = aimErrorMrad(sim.ctx, sim.state, man, w, true);
+    sim.state.fire.req(man).startTick = sim.state.tick - secondsToTicks(10);
+    const settled = aimErrorMrad(sim.ctx, sim.state, man, w, true);
+    expect(early / settled).toBeGreaterThan(1.4);
+    expect(early / settled).toBeLessThan(1.65);
+    // A new fire order at another point starts the settling again.
+    fireAt(sim, uid, 150, 80);
+    run(sim, 1.1);
+    expect(sim.state.tick - sim.state.fire.req(man).startTick).toBeLessThan(10);
+  });
+
+  it("kneeling or standing next to a wall a man rests his weapon on it; prone or in the open it makes no difference", () => {
+    const input = armedInput();
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [11.5, 0, 11.5, 12], heightM: 1, thicknessM: 0.25, material: "brick" });
+    const sim = createSim(input);
+    const [, unit] = blue(sim);
+    const [atWall, , inOpen] = unit.members as [number, number, number]; // y = 10 (wall ends at 12) and y = 20
+    const err = (id: number, posture: "standing" | "crouching" | "prone") => { sim.state.soldier.req(id).posture = posture; return aimErrorMrad(sim.ctx, sim.state, id, sim.state.weapon.req(id), true); };
+    expect(err(atWall, "crouching") / err(inOpen, "crouching")).toBeCloseTo(0.8, 2);
+    expect(err(atWall, "standing") / err(inOpen, "standing")).toBeCloseTo(0.8, 2);
+    expect(err(atWall, "prone")).toBeCloseTo(err(inOpen, "prone"), 6);
+  });
+});

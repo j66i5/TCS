@@ -66,4 +66,16 @@ describe("fragmentation lab", () => {
     expect(at("ru-rgd5", "standing", 15).stunnedOnly).toBe(0);
     for (const w of r.wall) { expect(w.wounded).toBe(0); expect(w.stunnedOnly).toBe(0); }
   });
+
+  it("cover at 5 m: a chest-high brick wall protects a kneeling man completely and a standing man partly; a fence or hedge hardly at all", () => {
+    const c = (ammo: string, cover: string, posture: string) => r.cover.find((x) => x.ammo === ammo && x.cover === cover && x.posture === posture)!;
+    const openStanding = at("de-dm51", "standing", 5);
+    expect(c("de-dm51", "brick wall 1 m", "crouching").wounded).toBe(0);
+    expect(c("de-dm51", "brick wall 1 m", "standing").woundsPerMan).toBeLessThan(openStanding.woundsPerMan * 0.2);
+    expect(c("de-dm51", "brick wall 1 m", "standing").wounded).toBeGreaterThan(0); // head and shoulders show
+    for (const cover of ["wooden fence 1.8 m", "hedge 1.5 m"]) {
+      expect(c("de-dm51", cover, "standing").woundsPerMan).toBeGreaterThan(openStanding.woundsPerMan * 0.6);
+      expect(share(c("ru-rgd5", cover, "standing").wounded, 160)).toBeGreaterThan(0.25);
+    }
+  });
 });

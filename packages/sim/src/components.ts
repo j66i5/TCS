@@ -147,4 +147,6 @@ export interface FireTask {
   reasonTick: number;
   /** His error in judging the range to this target, as a fraction (constant for the task). */
   rangeError: number;
+  /** Tick at which he began to aim at this point (his aim settles over the first seconds). */
+  startTick: number;
 }

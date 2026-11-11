@@ -177,7 +177,8 @@ Every soldier has a simple body outline that depends on his posture: standing he
 divided by height into legs, pelvis, abdomen, chest (with the arms beside it), neck and head; prone he is a
 low shape 1.75 m long with the head toward where he faces. Each bullet's path is checked against the men near
 it. The part it enters first is where he is struck; a round passing beside his head misses. Bullets do not
-know sides, so men can hit their own comrades.
+know sides, so men can hit their own comrades. A bullet that is not stopped by armour comes out the other
+side, much slowed, and can still wound the man behind.
 
 What he wears is in his load: a helmet and a vest are items that say which parts they cover, how much of each
 part seen from the front and from the side, and how much they stop. The rifle plates stop every rifle bullet in
@@ -258,7 +259,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 281 automated tests, including:
+- `npm test` runs 287 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

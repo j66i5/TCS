@@ -6,6 +6,8 @@ import type { Catalog } from "./catalog";
 import type { CommsModel, CommsParams } from "./comms";
 import type { MapDef } from "./map";
 import type { MapIndex } from "./terrain";
+import type { MovementClass } from "./catalog";
+import type { NavGrid, NavSearch } from "./nav";
 import type { PhysiologyModel } from "./wounds";
 
 export interface BattleRules {
@@ -27,6 +29,8 @@ export interface SimContext {
   /** Derived from the map at creation: spatial index of wall segments. */
   mapIndex: MapIndex;
   mapFingerprint: string;
+  /** Derived navigation grids and search scratch per movement class (built on first use). Never saved. */
+  nav: Partial<Record<MovementClass, { grid: NavGrid; search: NavSearch }>>;
   rules: BattleRules;
   comms: CommsModel;
   physiology: PhysiologyModel | null;

@@ -5,7 +5,8 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import type { EntityId, MapDef, SimEvent, SimView, TerrainCatalog } from "@tcs/sim";
+import type { EntityId, MapDef, NavGrid, SimEvent, SimView, TerrainCatalog } from "@tcs/sim";
+import { Sprite, Texture } from "pixi.js";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 
@@ -30,6 +31,7 @@ export class BattleRenderer {
   /** World-space layer (metres); the camera moves and scales it. */
   private worldLayer = new Container();
   private terrain: Container | null = null;
+  private navOverlay: Sprite | null = null;
   private world = new Graphics();
   private units = new Graphics();
   private labels = new Container();
@@ -64,6 +66,32 @@ export class BattleRenderer {
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
     this.terrain = buildTerrain(map, terrain);
     this.worldLayer.addChild(this.terrain);
+  }
+
+  /**
+   * Debug overlay of a navigation grid: red = blocked (buildings, deep water), orange = walls/fences/hedges
+   * (crossing costs time), yellow = slow ground (cost > 1.2). Pass null to remove it.
+   */
+  setNavOverlay(nav: NavGrid | null): void {
+    if (this.navOverlay) { this.worldLayer.removeChild(this.navOverlay); this.navOverlay.destroy({ texture: true }); this.navOverlay = null; }
+    if (!nav) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = nav.cols; canvas.height = nav.rows;
+    const ctx = canvas.getContext("2d")!;
+    const img = ctx.createImageData(nav.cols, nav.rows);
+    for (let i = 0; i < nav.cost.length; i++) {
+      const o = i * 4, k = nav.cost[i]!;
+      if (k <= 0) { img.data[o] = 230; img.data[o + 1] = 40; img.data[o + 2] = 40; img.data[o + 3] = 150; }
+      else if (nav.wall[i] === 1) { img.data[o] = 255; img.data[o + 1] = 150; img.data[o + 2] = 0; img.data[o + 3] = 200; }
+      else if (k > 1.2) { img.data[o] = 255; img.data[o + 1] = 230; img.data[o + 2] = 0; img.data[o + 3] = Math.min(140, 40 + (k - 1.2) * 120); }
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = Texture.from(canvas);
+    tex.source.scaleMode = "nearest";
+    this.navOverlay = new Sprite(tex);
+    this.navOverlay.width = nav.cols * nav.cellM;
+    this.navOverlay.height = nav.rows * nav.cellM;
+    this.worldLayer.addChild(this.navOverlay);
   }
 
   /** Centre the camera on a point showing `widthM` metres across the free area. */

@@ -29,7 +29,7 @@ export function createContext(input: BattleInput): SimContext {
   const problems = validateMap(input.map, input.catalog.terrain);
   if (problems.length > 0) throw new Error(`map '${input.map.id}' does not fit the data: ${problems.slice(0, 5).join("; ")}`);
   return {
-    catalog: input.catalog, map: input.map, mapIndex: buildMapIndex(input.map), mapFingerprint: mapFingerprint(input.map),
+    catalog: input.catalog, map: input.map, mapIndex: buildMapIndex(input.map), mapFingerprint: mapFingerprint(input.map), nav: {},
     rules: input.rules, comms, physiology: null,
   };
 }

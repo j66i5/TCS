@@ -4,7 +4,9 @@
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
-import type { Order, OrderRejectReason, PendingOrder } from "../orders";
+import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
+import { clearLine, findPath } from "../nav";
+import { navFor } from "../navctx";
 import type { SimState } from "../state";
 
 function sideOf(state: SimState, target: EntityId): string | null {
@@ -69,7 +71,7 @@ export function receiveOrders(ctx: SimContext, state: SimState, events: EventSin
 }
 
 /** Deliver orders whose comms delay has elapsed. */
-export function deliverOrders(_ctx: SimContext, state: SimState, events: EventSink): void {
+export function deliverOrders(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.pendingOrders.length === 0) return;
   const due: PendingOrder[] = [];
   const rest: PendingOrder[] = [];
@@ -78,9 +80,10 @@ export function deliverOrders(_ctx: SimContext, state: SimState, events: EventSi
   state.pendingOrders = rest;
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
   for (const p of due) {
-    applyOrder(state, p.order, events);
+    const ok = applyOrder(ctx, state, p.order, events);
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
-    radioFromTarget(state, p.order.target, `radio.ack.${p.order.kind}`, events);
+    radioFromTarget(state, p.order.target, ok ? `radio.ack.${p.order.kind}` : "radio.noRoute", events);
+    if (!ok) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
   }
 }
 
@@ -106,22 +109,26 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   events.emit({ kind: "radio", tick: state.tick, side: unit.side, from, key, params: { callsign: unit.callsign } });
 }
 
-function applyOrder(state: SimState, order: Order, events: EventSink): void {
+/** Apply a delivered order. Returns false if a move order found no route (nothing changes then). */
+function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean {
   const isUnit = state.unit.has(order.target);
   const soldiers = isUnit ? unitSoldiers(state, order.target) : [order.target];
   switch (order.kind) {
     case "move": {
-      // M0: every man keeps his offset from the unit's reference point (leader, else first man).
-      // M1 replaces this with formations and individual cover-seeking near the formation slot.
+      // The unit's route is found once, from its reference man (leader, else first man) through all waypoints.
+      // Every man joins that route from where he stands and leaves it for his own spot at the end: the
+      // destination plus his current offset from the reference man. (M1.4 replaces this with formations.)
       const unit = isUnit ? state.unit.req(order.target) : null;
       const refId = unit ? (unit.leader ?? soldiers[0]) : order.target;
       const ref = refId === undefined ? undefined : state.transform.get(refId);
+      if (!ref) return false;
+      const route = routeThrough(ctx, ref.x, ref.y, order.waypoints);
+      if (!route) return false;
       for (const s of soldiers) {
         const t = state.transform.get(s);
         const m = state.mover.get(s);
-        if (!t || !m || !ref) continue;
-        const ox = t.x - ref.x, oy = t.y - ref.y;
-        m.waypoints = order.waypoints.map((w) => ({ ...w, x: w.x + ox, y: w.y + oy }));
+        if (!t || !m) continue;
+        m.waypoints = s === refId ? route.map((w) => ({ ...w })) : personalRoute(ctx, t.x, t.y, t.x - ref.x, t.y - ref.y, route);
       }
       if (unit) unit.moving = true;
       else markUnitMoving(state, order.target);
@@ -136,6 +143,49 @@ function applyOrder(state: SimState, order: Order, events: EventSink): void {
     }
   }
   void events;
+  return true;
+}
+
+/** Path through the order's waypoints (each leg with its own mode). null if any leg has no route. */
+function routeThrough(ctx: SimContext, x: number, y: number, wps: readonly Waypoint[]): Waypoint[] | null {
+  const out: Waypoint[] = [];
+  let px = x, py = y;
+  for (const w of wps) {
+    const mode = ctx.catalog.movementModes[w.mode];
+    if (!mode) return null;
+    const { search } = navFor(ctx, mode.class);
+    const p = findPath(search, px, py, w.x, w.y);
+    if (!p) return null;
+    for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });
+    px = p.goalX; py = p.goalY;
+  }
+  return out;
+}
+
+/**
+ * A follower's route: join the reference route at its start, follow it, then go to the destination plus
+ * his offset. Joins and the final leg are short bounded searches; if they fail he just follows the route.
+ */
+function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: number, route: Waypoint[]): Waypoint[] {
+  const first = route[0]!, last = route[route.length - 1]!;
+  const mode = ctx.catalog.movementModes[last.mode];
+  const { grid, search } = navFor(ctx, mode ? mode.class : "foot");
+  // Open ground: walk a parallel copy of the reference route, keeping the formation's shape.
+  const shifted = route.map((w) => ({ ...w, x: w.x + ox, y: w.y + oy }));
+  let px = x, py = y, parallel = true;
+  for (const w of shifted) {
+    if (!clearLine(grid, px, py, w.x, w.y, Infinity)) { parallel = false; break; }
+    px = w.x; py = w.y;
+  }
+  if (parallel) return shifted;
+  // Otherwise join the reference route, follow it, and leave it for his own spot at the end.
+  const out: Waypoint[] = [];
+  const join = findPath(search, x, y, first.x, first.y, { maxExpansions: 3000 });
+  if (join) for (let i = 0; i + 2 < join.points.length; i += 2) out.push({ ...first, x: join.points[i]!, y: join.points[i + 1]! });
+  for (const w of route) out.push({ ...w });
+  const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
+  if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
+  return out;
 }
 
 function markUnitMoving(state: SimState, soldier: EntityId): void {

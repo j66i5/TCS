@@ -69,10 +69,12 @@ try {
     await page.waitForTimeout(300);
     const p0 = `${outDir}/${mapKind}-${seed}-${name}-0-start.png`;
     await page.screenshot({ path: p0 }); shots.push(p0);
-    // Order the blue team to (200 m, 90 m), then advance 20 s of game time.
-    await page.evaluate(new Function("globalThis.__tcs.tap(200, 90); globalThis.__tcs.stepTicks(60 * 20);") as () => void);
+    // Order the blue team toward the map centre (through the village on village maps), advance 40 s of game
+    // time, and switch the debug view on so the navigation grid and the planned route are visible.
+    await page.evaluate(new Function(`const t = globalThis.__tcs; const m = t.sim.ctx.map;
+      t.tap(m.widthM > 600 ? m.widthM * 0.55 : 200, m.widthM > 600 ? m.heightM * 0.5 : 90); t.stepTicks(60 * 40); t.setDebug(true);`) as () => void);
     await page.waitForTimeout(300);
-    const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-20s.png`;
+    const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-40s-debug.png`;
     await page.screenshot({ path: p1 }); shots.push(p1);
     const info = await page.evaluate(new Function("const t = globalThis.__tcs; return { tick: t.sim.state.tick, hash: t.hash(), orders: t.orderLog.length };") as () => { tick: number; hash: string; orders: number });
     console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);

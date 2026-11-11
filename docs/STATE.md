@@ -27,8 +27,8 @@ movement lab).
 - **M1.2 navigation**: 2 m navigation grid from the terrain; routes go round houses, through gates (or over
   walls when that is quicker), along roads, around ponds; slower in woods and ploughed fields; "no route"
   reported by radio; debug view shows the grid (red blocked, orange walls, yellow slow) and routes. Long route
-  on a 2 km map ~30 ms; benchmark 51× real time.
-- Tests: 134, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+  on a 2 km map ~30 ms; unreachable goals rejected at once; benchmark ~42–51× real time. Independent review found 6 navigation defects (one put followers inside houses); all fixed with tests.
+- Tests: 139, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

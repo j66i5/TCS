@@ -9,7 +9,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   for (const fid of [...new Set(factionIds)].sort()) {
     const pack = data.factions[fid];
     if (!pack) throw new Error(`faction '${fid}' is not loaded (loaded: ${Object.keys(data.factions).join(", ")})`);
-    factions[fid] = { id: fid, nameKey: pack.manifest.nameKey, doctrine: { ...pack.doctrine.values } };
+    factions[fid] = { id: fid, nameKey: pack.manifest.nameKey, doctrine: { ...pack.doctrine.values }, defaultFormation: pack.doctrine.defaultFormation };
     for (const it of Object.values(pack.items)) {
       const d: ItemTypeDef = { id: it.id, massKg: it.massKg, category: it.category };
       if (it.chargeCapacity !== undefined) d.chargeCapacity = it.chargeCapacity;
@@ -24,7 +24,9 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   }
   const qualities: Catalog["qualities"] = {};
   for (const q of Object.values(data.qualities)) qualities[q.id] = { id: q.id, skills: { ...q.skills } };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data) };
+  const formations: Catalog["formations"] = {};
+  for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
+  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 

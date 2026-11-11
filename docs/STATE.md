@@ -1,12 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0 done; M1 slices M1.1, M1.2 and M1.3 done)._
+_Last updated: 2026-11-11 (M0 and M1 done)._
 
 ## Current milestone
-**M1 Map and movement** — slices **M1.1 terrain**, **M1.2 navigation** and **M1.3 the individual soldier
-moving: done**. Next and last slice of M1: **M1.4 squads in formation** (formations as data, men choosing
-covered spots near their slot, waypoint chains, zoom levels; acceptance: a squad crosses a generated village on
-covered routes).
+**M1 Map and movement — done** (terrain and maps, navigation, the soldier's body, formations and cover).
+Next milestone: **M2 Ballistics and wounds** (projectiles, materials and penetration, fragments, body zones,
+armour, wound records, small arms and grenades for both factions; real squad organisation and kit data).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -33,7 +32,11 @@ covered routes).
   pace, posture, slope (Tobler), load, fatigue and ground; fatigue and heart rate rise with effort, load, uphill
   and heat and recover at rest; movement lab (`npm run lab -- movement`) with checked bands; posture and 4-pace
   buttons; debug labels show fatigue and heart rate. Each DE/RU soldier carries a 24 kg placeholder load.
-- Tests: 152, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M1.4 formations**: wedge/file/line from data; ~10 m spacing; routes prefer cover (balanced); followers keep
+  their slot; at the halt each man takes the best cover within 15 m, goes prone and faces outward; formation
+  button; zoomed far out, units show as infantry symbols. Cover effect is modest on open farmland (see
+  DECISIONS.md).
+- Tests: 154, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 
@@ -41,7 +44,8 @@ covered routes).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet), and the team moves as
   loose parallel lines, not a formation (M1.4). Stress does not yet raise heart rate (M4).
 - The 24 kg load is one placeholder item, not real kit (M2).
-- Routes prefer roads only mildly (asphalt is 10 % quicker than grass); they do not yet look for cover (M1.4).
+- Routes prefer roads only mildly (asphalt is 10 % quicker than grass) and cover only modestly (balanced
+  preference; see DECISIONS.md, M1.4) — the owner may choose to strengthen it.
 - **Industrial maps are the plainest**: sparse business-park lots with a few sheds and warehouses each.
 - Wood edges and scrub still show a faint 4 m grid pattern when zoomed in close.
 - The phone top bar wraps onto two rows.

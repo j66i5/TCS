@@ -285,3 +285,35 @@ heart-rate weights, hard-pace threshold, exhausted speed, slope look-ahead, star
 change; halt and posture orders end a move without an "in position" call; the lab test now also checks that a
 loaded runner is not yet winded after 60 s and not yet recovered after 60 s of rest; the state schema version is
 3. The debug fatigue/heart-rate label is debug-only and not routed through the string table (accepted).
+
+## 2026-11-11 — Owner answers for M1.4 and the formation/cover design
+Owner: default formation **wedge**; spacing **about 10 m**; cover preference **balanced** (accept routes about
+30 % longer to stay in cover); at the halt **each man takes the nearest cover within about 15 m of his slot and
+goes prone**. Design: formations are slot lists in `core/formations.json` ([right, back] in units of the
+doctrine spacing; wedge, file, line); each faction's doctrine names its default formation, spacing and
+`coverPreference` (both factions: wedge, 10 m, 0.3 — identical until M4). A static **exposure** map per
+navigation grid marks cover: tall vegetation by concealment x height, and a 4 m strip beside walls, hedges,
+embankments and buildings. Routes are planned on a cover-weighted grid (open ground costs up to 1 +
+coverPreference); movement speed still uses plain costs. Followers walk their slot alongside the leader's route
+(offset rotated with each leg), with blocked legs repaired by search; they ease off or hurry (x0.7 / x1.2) to
+keep within 3 m of the slot while the leader moves. Halt drill: best cover cell within 15 m (exposure + a small
+distance term), prone, facing outward from the group. Overview zoom (< 0.35 px/m) draws one infantry symbol per
+unit. Search estimate scaled on cover grids (otherwise long searches explored far too much: benchmark 14x -> 24x).
+Honest result: on generated villages, cover-seeking routes are 94–101 % of the quickest length and spend on
+average about 18 % instead of 13 % of their length in cover — a real but modest effect, because most open
+farmland offers no cover within a 30 % detour; and the halt drill often finds only crops (partial concealment).
+Cover relative to known enemies (dead ground, facing threats) is the bigger lever and comes with spotting (M3)
+and behaviour (M4). Golden replays regenerated.
+
+## 2026-11-11 — Fixes from the independent M1.4 review (goldens regenerated)
+The reviewer found no mechanical defects in routing or determinism but showed that two acceptance tests
+overstated their result. Corrected honestly: the cover-route test now claims "on average more time in cover,
+never much longer" (the effect is modest; the owner decides whether to strengthen it), and the halt test claims
+"prone at the best spot near the slot" (often only crops are within reach). Fixed: the app no longer sends a
+hard-coded "wedge" — until the player picks a formation, each faction's doctrine default applies, and the
+formation button lists the formations from data; catching up to a slot can no longer exceed a man's unimpaired
+pace (fatigue and load penalties stay); the leader slows to half pace while any follower is more than 15 m
+behind his slot (furthest man from the leader in the village test: 35–37 m, was up to 66 m); men beyond the
+formation's slot list extend the last slot backwards instead of stacking on the leader; the halt cover move is
+skipped if the walk to it would be long (behind a wall); leftover end-of-move settings are cleared by new orders.
+Known, recorded: slots are assigned by soldier ID, not by where men stand (men may cross at the start).

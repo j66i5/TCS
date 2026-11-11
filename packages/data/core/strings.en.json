@@ -83,5 +83,9 @@
   "posture.crouching": "crouching",
   "posture.prone": "prone",
   "app.posture": "Posture",
-  "radio.ack.posture": "{callsign}: understood."
+  "radio.ack.posture": "{callsign}: understood.",
+  "formation.wedge": "wedge",
+  "formation.file": "file",
+  "formation.line": "line",
+  "app.formation": "Formation"
 }

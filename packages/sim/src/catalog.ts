@@ -127,6 +127,14 @@ export interface FactionDef {
   nameKey: string;
   /** Doctrine profile values (data-driven behaviour weights; SPEC 6.6). */
   doctrine: Record<string, number>;
+  /** Formation used when an order names none. */
+  defaultFormation: DefId;
+}
+
+export interface FormationDef {
+  id: DefId;
+  /** [right, back] offsets in units of spacing; slot 0 = leader. */
+  slots: [number, number][];
 }
 
 export interface Catalog {
@@ -138,6 +146,7 @@ export interface Catalog {
   factions: Record<DefId, FactionDef>;
   terrain: TerrainCatalog;
   body: BodyDef;
+  formations: Record<DefId, FormationDef>;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

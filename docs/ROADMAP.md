@@ -20,7 +20,7 @@ Acceptance:
 
 Slices: M0.1 (this session) — everything above in one slice.
 
-### M1 Map and movement — 🔨 in progress (M1.1, M1.2, M1.3 done)
+### M1 Map and movement — ✅ done (M1.1–M1.4; deploy pending GitHub Pages)
 Heightfield, terrain layers, procedural test maps, pathfinding, soldiers with postures and fatigue, squads in
 formation, camera and zoom, first order (move).
 Acceptance: a squad crosses a generated village map choosing covered routes; movement lab passes.
@@ -35,14 +35,14 @@ Proposed slices (to confirm at the start of M1):
 3. ✅ **M1.3 The individual soldier moving** (2026-11-11) — postures with change times; speed from mode, slope, surface and
    load mass; fatigue and heart rate rising and recovering (reading temperature from the environment);
    movement & fatigue lab with tables.
-4. ⏳ **M1.4 Squads in formation** — formations as data, men choosing covered positions near their slot,
+4. ✅ **M1.4 Squads in formation** (2026-11-11) — formations as data, men choosing covered positions near their slot,
    waypoint chains with a mode per leg, camera zoom levels (close / tactical / overview). Acceptance demo:
    squad crosses the village on covered routes; screenshots.
 
 Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
 motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
-### M2 Ballistics and wounds — ⬜
+### M2 Ballistics and wounds — ⏳ next
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,
 small arms and grenades for both factions.
 Acceptance: firing range, cover and fragmentation labs produce plausible tables; performance floor holds

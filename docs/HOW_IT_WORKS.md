@@ -116,6 +116,16 @@ climbing, carrying a lot, in the heat — and recovers when he walks easy or res
 clearly winded after two to three minutes and fresh again after about five minutes' rest. His **heart rate**
 follows his effort. The movement lab (`npm run lab -- movement`) prints a table of these numbers.
 
+## Moving as a squad
+
+A squad moves in a **formation** (wedge by default; file or line from the formation button), with the spacing
+from its faction's doctrine (10 m). The leader's route is planned on a version of the navigation grid where open
+ground is a little more expensive than ground with cover (woods, scrub, the strip along a hedge, wall or house),
+so the route bends toward cover when that costs at most about 30 % more. Each man walks his place in the
+formation next to the leader's route, goes round walls and houses where his line would cross them, and slows
+down or hurries to keep his place. When the squad stops, every man looks for the best cover within about 15 m of
+his place, goes there, lies down and faces outward. Zoomed far out, each unit is shown as one symbol.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -145,7 +155,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 152 automated tests, including:
+- `npm test` runs 154 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -161,5 +171,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No formations, no shooting, no wounds, no spotting (everyone sees everything), no real squad
+No shooting, no wounds, no spotting (everyone sees everything), no real squad
 organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.

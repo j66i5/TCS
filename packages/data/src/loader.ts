@@ -9,7 +9,7 @@
  */
 import type { z } from "zod";
 import {
-  BodyFile, type BodyT,
+  BodyFile, type BodyT, FormationsFile, type FormationT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
@@ -49,6 +49,7 @@ export interface TerrainData {
 
 export interface DataSet {
   body: BodyT | null;
+  formations: Record<string, FormationT>;
   terrain: TerrainData;
   movementModes: Record<string, MovementModeT>;
   qualities: Record<string, QualityT>;
@@ -138,8 +139,10 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
       }
     }
   }
+  const fm = parse(FormationsFile, "core/formations.json", files["core/formations.json"], errors);
   const data: DataSet = {
     body,
+    formations: fm ? indexById(fm.formations, "core/formations.json", "formations", errors) : {},
     terrain,
     movementModes: mm ? indexById(mm.movementModes, "core/movement-modes.json", "movementModes", errors) : {},
     qualities: q ? indexById(q.qualities, "core/qualities.json", "qualities", errors) : {},
@@ -194,6 +197,9 @@ function loadFaction(
 
   if (manifest.id !== folder) {
     errors.push({ file: f("manifest.json"), path: "id", message: `id '${manifest.id}' must equal the folder name '${folder}'`, severity: "error" });
+  }
+  if (doctrine && !data.formations[doctrine.defaultFormation]) {
+    errors.push({ file: f("doctrine.json"), path: "defaultFormation", message: `unknown formation '${doctrine.defaultFormation}' (known: ${known(data.formations)})`, severity: "error" });
   }
   if (!data.qualities[manifest.defaultQuality]) {
     errors.push({ file: f("manifest.json"), path: "defaultQuality", message: `unknown quality '${manifest.defaultQuality}' (known: ${known(data.qualities)})`, severity: "error" });

@@ -23,6 +23,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   };
   Object.values(data.movementModes).forEach((m) => check("core/movement-modes.json", m.id, m, false));
   Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
+  Object.values(data.formations).forEach((m) => check("core/formations.json", m.id, m, false));
   if (data.body) {
     for (const p of data.body.postures) check("core/body.json", `postures.${p.id}`, p, false);
     check("core/body.json", "transitions", data.body.transitions, false);

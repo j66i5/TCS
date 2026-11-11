@@ -15,7 +15,7 @@ import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
-import { isAble } from "../impair";
+import { canReport, isAble } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -36,14 +36,17 @@ function findContact(list: Contact[], target: EntityId): number {
   return -(lo + 1);
 }
 
-/** Put a contact into a man's list (sorted by target), or update it if the news is fresher. Returns true if new. */
-function learn(list: Contact[], c: Omit<Contact, "reportedTick">, reportedTick: number): boolean {
+/**
+ * Put a contact into a man's list (sorted by target), or update it if the news is better: what he sees beats
+ * everything; otherwise the one that is more certain NOW (its uncertainty plus how far the man may have moved
+ * since) wins — so an exact sighting reported a few seconds ago beats a fresh guess from the sound of a shot.
+ * Returns true if the contact is new to him.
+ */
+function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick">, reportedTick: number, now: number): boolean {
   const i = findContact(list, c.target);
   if (i >= 0) {
     const old = list[i]!;
-    if (c.tick < old.tick) return false;
-    // Seeing him beats hearing or being told; a newer guess of the same kind replaces the older one.
-    if (old.kind === "seen" && c.kind !== "seen" && c.tick - old.tick < TICK_HZ) return false;
+    if (c.kind !== "seen" && contactErrorM(ctx, c as Contact, now) > contactErrorM(ctx, old, now)) return false;
     old.x = c.x; old.y = c.y; old.errM = c.errM; old.kind = c.kind; old.tick = c.tick;
     return false;
   }
@@ -79,7 +82,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       if (r.deliverTick > tick) { keep.push(r); continue; }
       const s = state.soldier.get(r.to);
       if (!s || !isAble(s)) continue;
-      learn(s.contacts, r.contact, tick); // reports are not passed on again
+      learn(ctx, s.contacts, r.contact, tick, tick); // reports are not passed on again
     }
     state.contactReports = keep;
   }
@@ -96,7 +99,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       const range = sqrt((t.x - me.x) * (t.x - me.x) + (t.y - me.y) * (t.y - me.y));
       const c = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen" as const, tick };
       const isNew = findContact(s.contacts, e.target) < 0;
-      learn(s.contacts, c, -1e9);
+      learn(ctx, s.contacts, c, -1e9, tick);
       fresh.push({ who: id, c, isNew });
     }
   }
@@ -124,14 +127,14 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         const dx = st.x - me.x, dy = st.y - me.y, d2 = dx * dx + dy * dy;
         if (d2 > hear2) continue;
         const i = findContact(s.contacts, shooter);
-        // Already knows where he is (sees him now) or heard him moments ago: nothing new.
-        if (i >= 0 && tick - s.contacts[i]!.tick < (s.contacts[i]!.kind === "seen" ? TICK_HZ : every)) continue;
         const range = sqrt(d2);
+        // Heard him moments ago, or knows where he is better than a sound could tell: nothing new.
+        if (i >= 0 && (tick - s.contacts[i]!.tick < every || contactErrorM(ctx, s.contacts[i]!, tick) <= Math.max(10, K.rangeErrorFraction * range))) continue;
         const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
         const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
         const c = { target: shooter, x: me.x + cos(a) * guess, y: me.y + sin(a) * guess, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick };
         const isNew = i < 0;
-        learn(s.contacts, c, -1e9);
+        learn(ctx, s.contacts, c, -1e9, tick);
         fresh.push({ who: id, c, isNew });
       }
     }
@@ -144,8 +147,10 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const i = findContact(s.contacts, f.c.target);
     if (i < 0) continue;
     const own = s.contacts[i]!;
-    // What he sees he repeats now and then (the enemy moves); a sound only when it is new to him.
+    // What he sees he repeats now and then (the enemy moves); a sound only when it is new to him. A man who
+    // cannot speak (airway wound) passes nothing on.
     if (!f.isNew && (f.c.kind !== "seen" || tick - own.reportedTick < reportEvery)) continue;
+    if (!canReport(s)) continue;
     own.reportedTick = tick;
     const top = topUnit(state, f.who);
     if (top === null) continue;
@@ -153,9 +158,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     for (const m of unitSoldiers(state, top)) {
       const ms = state.soldier.get(m);
       if (m === f.who || !isAble(ms)) continue;
-      // He does not tell a comrade what that man already knows as well (fresh enough).
+      // He does not tell a comrade what that man already knows at least as well.
       const k = findContact(ms!.contacts, f.c.target);
-      if (k >= 0 && tick - ms!.contacts[k]!.tick < reportEvery && (ms!.contacts[k]!.kind !== "reported" || f.c.kind !== "seen")) continue;
+      if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM) continue;
       const d = ctx.comms.contactShareDelayTicks(state, ctx.rules.comms, f.who, m);
       if (d === null) continue;
       state.contactReports.push({ deliverTick: tick + d + secondsToTicks(K.voiceDelaySeconds), from: f.who, to: m, contact: reported });

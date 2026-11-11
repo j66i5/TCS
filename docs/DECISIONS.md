@@ -887,3 +887,21 @@ the aiming error is still to come). **Speed:** 304 men firing at each other in v
 **Not yet:** contacts are not shared between top-level units (a platoon's squads are one top unit; separate
 squads are not linked until a commander layer exists, M6); sound contacts do not distinguish weapons; the
 player's view is still everything (M3.4).
+
+## 2026-11-11 — Fixes from the independent M3.3 review
+No determinism, save/load or rule problems; nothing grows without bound over 20 minutes. Fixed, each with a
+test: **a man who had heard a shooter never learnt his exact position from the comrade beside him who saw him**
+(a fresher guess from the sound always won over an older but exact report, and the repeat reports were
+suppressed because the listener "already knew"): a contact is now replaced only by what is more certain now
+(its uncertainty plus how far the man may have moved since), a sighting always wins, a sound adds nothing to
+a man who already knows the shooter better than a sound could tell, and a comrade is told unless he already
+knows at least as well. **A man who cannot speak** (airway wound) no longer passes contacts on or calls them
+out. **Fire at a contact** uses only each man's own contact, else the point given (no reading of a comrade's
+knowledge outside the comms model), and a dead enemy is rejected. Tests now check what they claim (voice in
+about a second, bearing error, rough distance, forgetting after fog comes down, the reviewer's case).
+**Recorded:** a heard contact keeps a position guess (the direction, and a distance guessed with 35 % error) —
+the owner's answer was "direction at once, position only if seen"; the guess is shown and used as uncertain
+(M3.4 will draw it as a direction), and a fire order at a heard-only contact is fire in that direction;
+a fire order may still name an enemy the side has never detected (to close with M3.4's player view); a man
+drops a seen contact when the target dies even if he did not see it; reports already on their way arrive even
+if the radio was lost meanwhile (cannot happen with the simple comms model; M14).

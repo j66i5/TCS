@@ -45,7 +45,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "fire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
-      if (o.contact !== undefined && (!state.soldier.has(o.contact) || state.identity.get(o.contact)?.side === o.issuer)) return "invalid-params";
+      if (o.contact !== undefined && (state.soldier.get(o.contact)?.physiology.alive !== true || state.identity.get(o.contact)?.side === o.issuer)) return "invalid-params";
       return null;
     case "ceaseFire":
       return null;
@@ -220,12 +220,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
-        // At a contact: where this man believes the enemy to be, else where his leader does, else the point.
+        // At a contact: where this man believes the enemy to be, else the point given with the order (what
+        // comrades know reaches him only through contact sharing).
         let x = order.x, y = order.y;
         if (order.contact !== undefined) {
-          const own = state.soldier.get(s)?.contacts.find((c) => c.target === order.contact);
-          const lead = soldiers.map((m) => state.soldier.get(m)?.contacts.find((c) => c.target === order.contact)).find((c) => c !== undefined);
-          const c = own ?? lead;
+          const c = state.soldier.get(s)?.contacts.find((k) => k.target === order.contact);
           if (c) { x = c.x; y = c.y; }
         }
         if (assignFireTask(ctx, state, s, x, y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) {

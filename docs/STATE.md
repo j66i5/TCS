@@ -86,7 +86,7 @@ debug shows all) — completes M3.
 - **M3.3 contacts**: each man remembers what he has seen, heard (direction and a rough distance of shots) or
   been told of each enemy; he passes it on by voice nearby and by radio with a delay; the unit calls contacts
   out on the radio log; a fire order can name an enemy, and each man aims where he believes him to be.
-- Tests: 318 (314 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 320 (316 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

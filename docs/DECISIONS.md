@@ -905,3 +905,19 @@ the owner's answer was "direction at once, position only if seen"; the guess is 
 a fire order may still name an enemy the side has never detected (to close with M3.4's player view); a man
 drops a seen contact when the target dies even if he did not see it; reports already on their way arrive even
 if the radio was lost meanwhile (cannot happen with the simple comms model; M14).
+
+## 2026-11-11 — M3.4 fog of war (M3 complete)
+**The player sees what his men know** (owner: what they have reported, with the delay that takes; old contacts
+fade): `sideKnowledge(ctx, state, side)` (`sim/src/knowledge.ts`) is the union of the side's living men's
+contacts — for each enemy the most certain one now. The app computes it every frame and the renderer, unless
+Debug is on, draws no enemy soldier, enemy muzzle flash, hit on an enemy or enemy unit symbol; instead each
+known enemy is a diamond — solid where a man is in sight now, hollow where he was last seen or reported, with a
+circle for how far off that may be — and a heard contact a dashed ring with a cross at the guessed place.
+Contacts fade out over two minutes. Debug shows the enemy as he is. A fire tap on or near an enemy marker
+fires at that contact (each man aims where he believes the enemy is). Tracers and impact puffs stay visible
+(they are seen in reality). **Acceptance (M3):** the spotting lab passes; the player view shows only reported
+contacts — tested on `sideKnowledge`, checked by eye on screenshots (the renderer itself has no unit test).
+**Recorded:** the player's picture is the union over all his men (a man's own contacts count at once, without
+the delay of reporting them to the leader) — the owner chose "what your men have reported" over "only what
+reached the leader"; enemy casualties are shown only as contacts; the heard ring is centred on the guessed
+point, not drawn as a bearing line.

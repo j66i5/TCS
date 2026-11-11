@@ -3,9 +3,10 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M3 Spotting and knowledge** — slices **M3.1 line of sight**, **M3.2 detection** and **M3.3 contacts and
-sharing: done**. Next: **M3.4 fog of war** (the player sees only what his men have reported, fading with age;
-debug shows all) — completes M3.
+**M3 Spotting and knowledge is complete** (M3.1 line of sight and line of fire, M3.2 detection, M3.3 contacts and
+sharing, M3.4 fog of war). Next milestone: **M4 Soldier and squad behaviour** (suppression, morale, cover use,
+fire discipline, ammunition sharing, casualty reaction, drills, doctrine profiles) — the hardest part. Propose
+its slices and ask the owner before starting.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -86,7 +87,10 @@ debug shows all) — completes M3.
 - **M3.3 contacts**: each man remembers what he has seen, heard (direction and a rough distance of shots) or
   been told of each enemy; he passes it on by voice nearby and by radio with a delay; the unit calls contacts
   out on the radio log; a fire order can name an enemy, and each man aims where he believes him to be.
-- Tests: 320 (316 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M3.4 fog of war**: you see the enemy only as your men know him — solid diamonds where he is in sight,
+  hollow ones where he was last seen or reported, rings for the sound of shots; old contacts fade; Debug shows
+  everything. Tapping an enemy marker in fire mode fires at that contact.
+- Tests: 321 (317 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

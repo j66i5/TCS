@@ -82,7 +82,7 @@ Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
 Needed from the owner: the two squad tables (roles, ranks, weapons; ammunition loads if he wants to set them)
 before M2.5; review of the casualty lab table after M2.3.
 
-### M3 Spotting and knowledge — 🔨 in progress
+### M3 Spotting and knowledge — ✅ done (M3.1–M3.4, 2026-11-11)
 Line of sight, detection, per-soldier contacts, sharing, fog of war in the renderer.
 Acceptance: spotting lab passes; the player view shows only reported contacts.
 
@@ -94,10 +94,10 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
    firing, concealment, light, sensor (data), look direction and stress; spotting lab with the owner's anchors.
 3. ✅ **M3.3 Contacts and sharing** (2026-11-11) — per-soldier contacts (seen / heard, confidence, age), sharing by voice and
    radio through the comms model, call-outs in the radio log, fire orders at a contact.
-4. ⏳ **M3.4 Fog of war** — the player sees only what his men have reported, fading with age; debug shows all;
+4. ✅ **M3.4 Fog of war** (2026-11-11) — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
-### M4 Soldier and squad behaviour — ⬜
+### M4 Soldier and squad behaviour — ⏳ next
 Suppression, morale, cover use, fire discipline, ammunition sharing, casualty reaction, drills, doctrine
 profiles.
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains

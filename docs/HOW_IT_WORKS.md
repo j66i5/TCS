@@ -257,6 +257,11 @@ he heard, and what comrades told him. He tells the men of his unit what he sees 
 nearby within a second, by radio to the others after a few seconds — and the unit calls new contacts out on
 the radio log. Old contacts grow vaguer and are forgotten after two minutes. A fire order can name an enemy:
 each man then fires where he believes that enemy is, and follows him as reports come in.
+
+**Fog of war.** You see the enemy only as your men know him: a solid diamond where one of your men sees him now,
+a hollow one where he was last seen or reported, with a ring for how far off that may be, a dashed ring with a
+cross for shots heard. Old contacts fade over two minutes. Tap an enemy marker in fire mode to fire at him.
+Debug shows the enemy as he really is.
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
@@ -289,7 +294,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 320 automated tests (316 plus 4 timing tests run on their own), including:
+- `npm test` runs 321 automated tests (317 plus 4 timing tests run on their own), including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -305,6 +310,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No first aid, no spotting (everyone sees everything), anti-tank weapons are only carried,
+No first aid, anti-tank weapons are only carried,
 nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
-shoots by itself. Those are milestones M3–M7.
+shoots by itself. Those are milestones M4–M7.

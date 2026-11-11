@@ -1,6 +1,6 @@
 /** M3.3: contacts — seen, heard, reported — and sharing through the comms model (SPEC 6.5). */
 import { describe, expect, it } from "vitest";
-import { createSim, hashState, loadSim, saveSim, secondsToTicks, step, submitOrder, type BattleInput, type Sim, type SimEvent } from "../src/index";
+import { createSim, hashState, loadSim, saveSim, secondsToTicks, sideKnowledge, step, submitOrder, type BattleInput, type Sim, type SimEvent } from "../src/index";
 import { armedInput } from "./helpers";
 
 const unitOf = (sim: Sim, side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side)!;
@@ -173,5 +173,30 @@ describe("contacts (M3.3)", () => {
     expect(s.contacts.some((c) => c.kind === "seen")).toBe(true);
     expect(sim.state.soldier.req(x).contacts).toHaveLength(0);
     expect(sim.state.soldier.req(y).contacts).toHaveLength(0);
+  });
+
+  it("fog of war (M3.4): the side's picture holds only what its living men know — the most certain contact per enemy, never its own men", () => {
+    const sim = createSim(setup((i) => {
+      // Red starts behind a wall: blue knows nothing at first.
+      i.map.obstacles.push({ id: 1, kind: "wall", points: [110, 0, 110, 200], heightM: 3, thicknessM: 0.25, material: "brick" });
+    }));
+    expect(sideKnowledge(sim.ctx, sim.state, "blue")).toHaveLength(0);
+    run(sim, 10);
+    expect(sideKnowledge(sim.ctx, sim.state, "blue")).toHaveLength(0); // still hidden
+    // The wall is gone (a fresh battle on the open field): blue sees red within seconds.
+    const open = createSim(setup());
+    run(open, 20);
+    const known = sideKnowledge(open.ctx, open.state, "blue");
+    const red = unitOf(open, "red")[1].members, blue = unitOf(open, "blue")[1].members;
+    expect(known.length).toBeGreaterThan(0);
+    for (const k of known) {
+      expect(red).toContain(k.target);
+      expect(blue).not.toContain(k.target);
+      const best = Math.min(...blue.flatMap((m) => open.state.soldier.req(m).contacts.filter((c) => c.target === k.target).map((c) => c.errM + (open.state.tick - c.tick) / 60)));
+      expect(k.errM).toBeCloseTo(best, 6);
+    }
+    // The knowledge of a dead man does not count.
+    for (const m of blue) { const s = open.state.soldier.req(m); s.physiology.alive = false; }
+    expect(sideKnowledge(open.ctx, open.state, "blue")).toHaveLength(0);
   });
 });

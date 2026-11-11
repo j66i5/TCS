@@ -9,7 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { wanderController } from "@tcs/ai";
 import {
-  eyeHeightM, heightAt, sight,
+  eyeHeightM, heightAt, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
@@ -118,7 +118,14 @@ async function main(): Promise<void> {
         return;
       }
       if (tapMode === "fire") {
-        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
+        // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
+        const known = sideKnowledge(sim.ctx, sim.state, playerSide);
+        const near = known
+          .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
+          .filter(({ k, d }) => d <= Math.max(k.errM, 25 / renderer.scale()))
+          .sort((a, b) => a.d - b.d)[0];
+        if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target });
+        else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
         return;
       }
       issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], ...(formation ? { formation } : {}) });
@@ -203,6 +210,8 @@ async function main(): Promise<void> {
       sightAt = sim.state.tick; sightFor = overlay.selectedUnit; sightReal = now;
       renderer.setSightOverlay(sightView());
     }
+    // Fog of war: the enemy is drawn only as the player's side knows him (Debug shows him as he is).
+    overlay.known = overlay.debug ? null : sideKnowledge(sim.ctx, sim.state, playerSide);
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     frames++;
     if (now - fpsT0 >= 1000) {

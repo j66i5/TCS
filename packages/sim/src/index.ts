@@ -18,6 +18,7 @@ export { resolveBodyHit, refreshStatus, applyBlast } from "./systems/wounds";
 export { detonate, syncTerrainDamage } from "./systems/explosions";
 export { spottingSystem } from "./systems/spotting";
 export { contactErrorM, contactSystem } from "./systems/contacts";
+export * from "./knowledge";
 export { arcLanding, arcRangeM, grenadeOption, throwRangeM } from "./systems/grenades";
 export * from "./impair";
 export * from "./hash";

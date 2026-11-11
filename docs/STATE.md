@@ -51,5 +51,8 @@ movement lab).
 - Callsigns: German **"Gruppe {n}"** (squad) and **"Trupp {n}"** (team); Russian "Gruppa {n}" kept for now.
 - Map look **naturalistic**; villages **mixed street/clustered**; default map **2 × 2 km**.
 
+- M1.3: posture change time **depends on load**; fatigue **winded after 2–3 min running**, ~5 min to recover;
+  **load slows and tires men from now**.
+
 ## Open questions for the owner
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.

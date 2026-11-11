@@ -250,3 +250,11 @@ cost with the route it replaces; (6) start positions just off the grid wrapped t
 Recorded for M2: the navigation grid is built from the map only and must also apply terrain damage from the
 battle state (breaches, craters) once damage exists. Golden replays regenerated for M1.2 (new routes) and again
 for these fixes.
+
+## 2026-11-11 — Owner answers for M1.3 (posture, fatigue, load)
+Posture changes **depend on the load carried**: brisk when lightly loaded (about 0.5 s standing/crouching,
+1.0 s standing to prone, 1.5 s prone to standing), getting slower as the load grows. Fatigue: a loaded soldier
+running in the open is **clearly winded after about 2–3 minutes** and recovers in about 5 minutes of rest.
+**Load counts from now**: the mass of the counted items a man carries slows him and tires him already in M1.3;
+real equipment weights arrive with the weapons data in M2. The owner also asked that all questions to him be
+clickable multiple choice from now on (recorded in CLAUDE.md).

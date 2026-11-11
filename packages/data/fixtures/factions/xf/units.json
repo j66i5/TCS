@@ -1,0 +1,67 @@
+{
+  "units": [
+    {
+      "id": "porter-gang",
+      "echelon": "team",
+      "callsign": "Gang {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 4,
+              "charge": 20
+            }
+          ]
+        },
+        {
+          "role": "porter",
+          "rank": "private",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 10,
+              "charge": 20
+            },
+            {
+              "item": "xf-crate",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "porter",
+          "rank": "private",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 2,
+              "charge": 7
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "porter-band",
+      "echelon": "platoon",
+      "callsign": "Band {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "porter-gang",
+        "porter-gang"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    }
+  ]
+}

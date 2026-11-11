@@ -1,0 +1,36 @@
+{
+  "movementModes": [
+    {
+      "id": "walk",
+      "nameKey": "move.walk",
+      "speedMps": 1.4,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~5 km/h, normal walking pace with load."
+    },
+    {
+      "id": "run",
+      "nameKey": "move.run",
+      "speedMps": 3.5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~12.6 km/h, sustained rush with combat load; sprint bursts come later."
+    },
+    {
+      "id": "sneak",
+      "nameKey": "move.sneak",
+      "speedMps": 0.7,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Slow, deliberate movement using concealment."
+    },
+    {
+      "id": "crawl",
+      "nameKey": "move.crawl",
+      "speedMps": 0.3,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Low crawl."
+    }
+  ]
+}

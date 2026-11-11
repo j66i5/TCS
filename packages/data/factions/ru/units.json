@@ -1,0 +1,36 @@
+{
+  "units": [
+    {
+      "id": "demo-team",
+      "echelon": "team",
+      "callsign": "Gruppa {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "team-leader",
+          "rank": "mladshiy-serzhant",
+          "load": []
+        },
+        {
+          "role": "rifleman",
+          "rank": "yefreytor",
+          "load": []
+        },
+        {
+          "role": "rifleman",
+          "rank": "ryadovoy",
+          "load": []
+        },
+        {
+          "role": "rifleman",
+          "rank": "ryadovoy",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    }
+  ]
+}

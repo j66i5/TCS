@@ -1,0 +1,91 @@
+{
+  "qualities": [
+    {
+      "id": "conscript",
+      "nameKey": "quality.conscript",
+      "skills": {
+        "marksmanship": {
+          "mean": 0.35,
+          "sd": 0.1
+        },
+        "fieldcraft": {
+          "mean": 0.35,
+          "sd": 0.1
+        },
+        "medical": {
+          "mean": 0.2,
+          "sd": 0.1
+        },
+        "leadership": {
+          "mean": 0.24999999999999997,
+          "sd": 0.1
+        },
+        "experience": {
+          "mean": 0.1,
+          "sd": 0.08
+        }
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+    },
+    {
+      "id": "regular",
+      "nameKey": "quality.regular",
+      "skills": {
+        "marksmanship": {
+          "mean": 0.5,
+          "sd": 0.1
+        },
+        "fieldcraft": {
+          "mean": 0.5,
+          "sd": 0.1
+        },
+        "medical": {
+          "mean": 0.2,
+          "sd": 0.1
+        },
+        "leadership": {
+          "mean": 0.4,
+          "sd": 0.1
+        },
+        "experience": {
+          "mean": 0.3,
+          "sd": 0.08
+        }
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+    },
+    {
+      "id": "veteran",
+      "nameKey": "quality.veteran",
+      "skills": {
+        "marksmanship": {
+          "mean": 0.65,
+          "sd": 0.1
+        },
+        "fieldcraft": {
+          "mean": 0.65,
+          "sd": 0.1
+        },
+        "medical": {
+          "mean": 0.2,
+          "sd": 0.1
+        },
+        "leadership": {
+          "mean": 0.55,
+          "sd": 0.1
+        },
+        "experience": {
+          "mean": 0.6,
+          "sd": 0.08
+        }
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+    }
+  ]
+}

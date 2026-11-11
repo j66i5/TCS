@@ -1,0 +1,124 @@
+{
+  "ranks": [
+    {
+      "id": "ryadovoy",
+      "nameKey": "rank.ru.ryadovoy",
+      "abbrKey": "rank.ru.ryadovoy.abbr",
+      "natoCode": "OR-1",
+      "grade": 1,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "yefreytor",
+      "nameKey": "rank.ru.yefreytor",
+      "abbrKey": "rank.ru.yefreytor.abbr",
+      "natoCode": "OR-2",
+      "grade": 2,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "mladshiy-serzhant",
+      "nameKey": "rank.ru.mladshiy-serzhant",
+      "abbrKey": "rank.ru.mladshiy-serzhant.abbr",
+      "natoCode": "OR-4",
+      "grade": 5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "serzhant",
+      "nameKey": "rank.ru.serzhant",
+      "abbrKey": "rank.ru.serzhant.abbr",
+      "natoCode": "OR-5",
+      "grade": 6,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "starshiy-serzhant",
+      "nameKey": "rank.ru.starshiy-serzhant",
+      "abbrKey": "rank.ru.starshiy-serzhant.abbr",
+      "natoCode": "OR-6",
+      "grade": 8,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "starshina",
+      "nameKey": "rank.ru.starshina",
+      "abbrKey": "rank.ru.starshina.abbr",
+      "natoCode": "OR-7",
+      "grade": 9,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "praporshchik",
+      "nameKey": "rank.ru.praporshchik",
+      "abbrKey": "rank.ru.praporshchik.abbr",
+      "natoCode": "OR-8",
+      "grade": 10,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "starshiy-praporshchik",
+      "nameKey": "rank.ru.starshiy-praporshchik",
+      "abbrKey": "rank.ru.starshiy-praporshchik.abbr",
+      "natoCode": "OR-9",
+      "grade": 11,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "leytenant",
+      "nameKey": "rank.ru.leytenant",
+      "abbrKey": "rank.ru.leytenant.abbr",
+      "natoCode": "OF-1",
+      "grade": 14,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    },
+    {
+      "id": "starshiy-leytenant",
+      "nameKey": "rank.ru.starshiy-leytenant",
+      "abbrKey": "rank.ru.starshiy-leytenant.abbr",
+      "natoCode": "OF-1",
+      "grade": 15,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Military_ranks_of_Russia"
+      ],
+      "confidence": "medium",
+      "note": "Transliterated names. NATO equivalents per public comparison tables; abbreviations are game shorthand."
+    }
+  ]
+}

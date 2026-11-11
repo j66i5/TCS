@@ -1,0 +1,60 @@
+# Continuous integration and deployment (SPEC 5.8).
+# Every push and pull request: typecheck, lint, data lint, tests (incl. determinism, golden replays,
+# performance floor, architecture guards) and a production build.
+# Pushes to main additionally deploy the build to GitHub Pages - only if every check passed.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Data lint
+        run: npm run lint:data
+      - name: Tests (unit, determinism, golden replays, architecture, performance floor)
+        run: npm test
+      - name: Build
+        run: npm run build
+        env:
+          TCS_BASE: /${{ github.event.repository.name }}/
+      - name: Upload site
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: packages/app/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

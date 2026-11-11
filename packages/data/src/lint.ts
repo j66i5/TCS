@@ -1,0 +1,44 @@
+/**
+ * Data linter: loader errors plus provenance and plausibility rules (SPEC 7).
+ * Run with `npm run lint:data`.
+ */
+import { loadDataSet, type DataError, type DataSet } from "./loader";
+
+interface Prov { sources: string[]; confidence: string; note?: string | undefined; id?: string }
+
+export function lintDataSet(files: Record<string, unknown>): { data: DataSet | null; errors: DataError[] } {
+  const { data, errors } = loadDataSet(files);
+  if (!data) return { data, errors };
+  const check = (file: string, path: string, p: Prov, fixture: boolean) => {
+    if (p.sources.length === 0 && !fixture) {
+      if (p.confidence !== "low") {
+        errors.push({ file, path, message: "no sources: either add a source URL or mark confidence 'low' with a note", severity: "error" });
+      } else if (!p.note) {
+        errors.push({ file, path, message: "no sources and no note: explain where the value comes from (e.g. 'game-design value')", severity: "error" });
+      }
+    }
+    if (p.confidence === "low" && !fixture) {
+      errors.push({ file, path, message: "confidence is low (needs review)", severity: "warning" });
+    }
+  };
+  Object.values(data.movementModes).forEach((m) => check("core/movement-modes.json", m.id, m, false));
+  Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
+  for (const pack of Object.values(data.factions)) {
+    const fx = pack.manifest.fixture === true;
+    const d = pack.dir;
+    check(`${d}/manifest.json`, "manifest", pack.manifest, fx);
+    check(`${d}/names.json`, "names", pack.names, fx);
+    check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);
+    Object.values(pack.ranks).forEach((x) => check(`${d}/ranks.json`, x.id, x, fx));
+    Object.values(pack.roles).forEach((x) => check(`${d}/roles.json`, x.id, x, fx));
+    Object.values(pack.items).forEach((x) => check(`${d}/items.json`, x.id, x, fx));
+    Object.values(pack.units).forEach((x) => check(`${d}/units.json`, x.id, x, fx));
+    // Plausibility beyond the schema.
+    for (const u of Object.values(pack.units)) {
+      if (u.members.length > 60) errors.push({ file: `${d}/units.json`, path: u.id, message: `${u.members.length} direct members is implausible; use subunits`, severity: "warning" });
+    }
+    const names = new Set(pack.names.family);
+    if (names.size < pack.names.family.length) errors.push({ file: `${d}/names.json`, path: "family", message: "duplicate family names", severity: "warning" });
+  }
+  return { data, errors };
+}

@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "id": "xf-round",
+      "nameKey": "item.xf-round",
+      "category": "ammunition",
+      "massKg": 0.012,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-mag",
+      "nameKey": "item.xf-mag",
+      "category": "magazine",
+      "massKg": 0.1,
+      "chargeCapacity": 20,
+      "chargeMassKg": 0.012,
+      "chargeItem": "xf-round",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-crate",
+      "nameKey": "item.xf-crate",
+      "category": "supply",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    }
+  ]
+}

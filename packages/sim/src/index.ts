@@ -1,0 +1,22 @@
+/** @tcs/sim public interface. Pure simulation: no DOM, no Node, no wall clock, no Math.random. */
+export * from "./ids";
+export * from "./math";
+export * from "./rng";
+export * from "./catalog";
+export * from "./environment";
+export * from "./map";
+export * from "./store";
+export * from "./items";
+export * from "./wounds";
+export * from "./orders";
+export * from "./events";
+export * from "./components";
+export * from "./state";
+export * from "./comms";
+export * from "./context";
+export * from "./actions";
+export * from "./battle";
+export * from "./setup";
+export * from "./sim";
+export * from "./run";
+export { unitSoldiers } from "./systems/orders";

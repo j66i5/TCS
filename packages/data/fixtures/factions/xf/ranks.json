@@ -1,0 +1,24 @@
+{
+  "ranks": [
+    {
+      "id": "private",
+      "nameKey": "rank.xf.private",
+      "abbrKey": "rank.xf.private.abbr",
+      "natoCode": "OR-1",
+      "grade": 1,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "boss",
+      "nameKey": "rank.xf.boss",
+      "abbrKey": "rank.xf.boss.abbr",
+      "natoCode": "OR-6",
+      "grade": 8,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    }
+  ]
+}

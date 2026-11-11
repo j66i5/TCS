@@ -1,0 +1,13 @@
+{
+  "faction.xf": "Fixture Faction",
+  "rank.xf.private": "Private",
+  "rank.xf.private.abbr": "Pte",
+  "rank.xf.boss": "Boss",
+  "rank.xf.boss.abbr": "Bs",
+  "role.xf.boss": "Boss",
+  "role.xf.porter": "Porter",
+  "item.xf-round": "round",
+  "item.xf-mag": "magazine",
+  "item.xf-crate": "crate",
+  "radio.ack.move": "{callsign} goes."
+}

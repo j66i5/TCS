@@ -9,7 +9,8 @@ import { formatErrors, Strings } from "@tcs/data";
 import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { wanderController } from "@tcs/ai";
 import {
-  createSim, DT, simHash, step, submitOrder, ticksToSeconds, type EntityId, type Order, type Sim, type SimEvent,
+  buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
+  type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
 import { attachInput, createHud } from "@tcs/ui";
@@ -56,7 +57,11 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onMoveMode: (m) => { moveMode = m; },
-    onDebug: (on) => { overlay.debug = on; },
+    onDebug: (on) => {
+      overlay.debug = on;
+      // Debug view shows the navigation grid soldiers plan their routes on.
+      renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null);
+    },
   });
 
   // Fit the map into the area not covered by the top bar and the radio log.
@@ -121,6 +126,7 @@ async function main(): Promise<void> {
     sim,
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
+    setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }] }),
     setSpeed: (v: number) => { speed = v; },
     hash: () => simHash(sim),
@@ -150,11 +156,13 @@ async function main(): Promise<void> {
 }
 
 function nearestSoldier(sim: Sim, x: number, y: number, radius: number): EntityId | null {
+  const ids = queryRadius(buildSpatialHash(sim.state), sim.state, x, y, radius);
   let best: EntityId | null = null;
-  let bestD = radius * radius;
-  for (const [id, t] of sim.state.transform.entries()) {
+  let bestD = Infinity;
+  for (const id of ids) {
+    const t = sim.state.transform.req(id);
     const d = (t.x - x) ** 2 + (t.y - y) ** 2;
-    if (d <= bestD) { bestD = d; best = id; }
+    if (d < bestD) { bestD = d; best = id; }
   }
   return best;
 }

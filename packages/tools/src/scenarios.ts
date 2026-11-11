@@ -47,8 +47,9 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) =>
       demoBattle(data, { seed, factions: ["de", "ru"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds }),
     controllers: (input) => [
-      wanderController("blue", input.seed * 2 + 1, input.map, 20),
-      wanderController("red", input.seed * 2 + 2, input.map, 20),
+      // Every unit gets a new long-distance move order every 60 s (heavier than real play; see DECISIONS.md).
+      wanderController("blue", input.seed * 2 + 1, input.map, 60),
+      wanderController("red", input.seed * 2 + 2, input.map, 60),
     ],
   },
 };

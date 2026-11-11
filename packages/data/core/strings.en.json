@@ -77,5 +77,6 @@
   "map.woodland": "Woodland edge",
   "map.farmland": "Farmland",
   "map.industrial": "Industrial",
-  "map.flat": "Flat"
+  "map.flat": "Flat",
+  "radio.noRoute": "{callsign}: no way through to that point."
 }

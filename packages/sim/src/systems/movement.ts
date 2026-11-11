@@ -8,6 +8,8 @@ import { DT } from "../ids";
 import { atan2, hypot2 } from "../math";
 import type { SimState } from "../state";
 import { radioFromTarget, unitSoldiers } from "./orders";
+import { navCostAt } from "../nav";
+import { navFor } from "../navctx";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   for (const [id, m] of state.mover.entries()) {
@@ -18,7 +20,10 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     }
     const t = state.transform.req(id);
     const mode = ctx.catalog.movementModes[wp.mode];
-    const speed = mode ? mode.speedMps : 0;
+    // Terrain slows movement: nominal speed divided by the cost of the ground underfoot (woods, ploughed
+    // fields, climbing a wall). Slope, load and fatigue come in M1.3.
+    const k = mode ? navCostAt(navFor(ctx, mode.class).grid, t.x, t.y) : 0;
+    const speed = mode ? mode.speedMps / (k > 0 ? k : 1) : 0;
     const step = speed * DT;
     const dx = wp.x - t.x;
     const dy = wp.y - t.y;

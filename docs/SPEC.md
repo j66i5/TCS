@@ -115,7 +115,7 @@ When you report, give evidence: the commands, their output, the report tables, t
 - Terrain layers: surface type (movement cost per movement mode, noise, dust), vegetation (concealment, partial bullet stopping), linear and polygonal obstacles with height and material (walls, hedges, fences, embankments, vehicles as obstacles), buildings (wall segments with material and thickness, doors, windows, a `storeys` field reserved for multi-floor interiors later), roads, water.
 - Materials define ballistic resistance, so the same penetration rules handle a wooden fence, a brick wall, a sandbag position and a car door.
 - Terrain is destructible in a simple way from the start (walls breached, craters giving cover, vegetation thinned), stored as state so it saves and replays.
-- Map format: JSON plus heightmap image. Begin with a procedural map generator for test maps (village, woodland edge, open farmland, industrial area). Reserve an importer interface for real-world terrain from open elevation and map data (later).
+- Map format: JSON with the heightfield and terrain grids embedded as compact binary (base64); heightmap image export and import come with the map editor and real-terrain importer (changed 2026-11-11 with the owner's approval, see DECISIONS.md). Begin with a procedural map generator for test maps (village, woodland edge, open farmland, industrial area). Reserve an importer interface for real-world terrain from open elevation and map data (later).
 - Environment state: time of day, light level, weather (wind, rain, fog), temperature. Foundations only need daylight and clear weather, but spotting, ballistics and fatigue read these values from the start.
 
 ### 6.2 Movement

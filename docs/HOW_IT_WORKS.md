@@ -87,8 +87,19 @@ the north-west) and faint contour lines every 2.5 m (stronger every 10 m). Roads
 buildings (roof colour, ridge line and a shadow) are drawn on top. Moving or zooming the camera only moves
 the finished picture.
 
-What the map does **not** do yet: the soldiers ignore it — they still walk in straight lines, through
-houses and woods. Finding paths around obstacles is the next slice (M1.2).
+## Finding the way
+
+When a move order arrives, the team leader's route is planned on a **navigation grid** of 2 × 2 m squares
+made from the map: each square says how long it takes to cross on foot (from the ground and plants under it),
+houses and deep water are closed, and walls, fences and hedges cost the time it takes to climb them. A search
+(A*, a standard method that expands the cheapest-looking squares first) finds the quickest route; it then
+straightens it into a few waypoints. If a gate is close it goes through the gate; if the gate is far it climbs.
+Each man walks a parallel copy of the route next to the leader when the ground allows, otherwise he joins the
+route and leaves it at the end for his own spot. On the way, each man's speed is his walking or running speed
+divided by how hard the ground is (woods, ploughed fields, climbing). If there is no way at all, the leader
+answers "no route" on the radio.
+
+In the app, the **Debug** button shows the grid: red = closed, orange = walls/fences/hedges, yellow = slow.
 
 ## One order, traced step by step
 
@@ -119,7 +130,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 124 automated tests, including:
+- `npm test` runs 139 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -135,5 +146,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No pathfinding (men walk through houses), no postures or fatigue yet, no shooting, no wounds, no spotting (everyone sees everything), no real squad
+No postures or fatigue yet, no formations, no shooting, no wounds, no spotting (everyone sees everything), no real squad
 organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.

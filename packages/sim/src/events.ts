@@ -18,6 +18,7 @@ export type SimEvent =
   | { kind: "order.delivered"; tick: number; seq: number; target: EntityId; orderKind: OrderKind }
   | { kind: "radio"; tick: number; side: SideId; from: EntityId; key: string; params: Record<string, string | number> }
   | { kind: "unit.arrived"; tick: number; unit: EntityId }
+  | { kind: "move.noRoute"; tick: number; target: EntityId }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }

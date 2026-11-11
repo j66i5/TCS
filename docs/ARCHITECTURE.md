@@ -277,6 +277,19 @@ interface MapDef {
 
 ---
 
+## 16a. Navigation (SPEC 6.2) — `sim/src/nav.ts`, `navctx.ts`, `spatial.ts`
+
+```ts
+buildNavGrid(map, terrain, cls, cellM = 2): NavGrid   // cost per cell (0 = blocked), wall flags
+navFor(ctx, cls): { grid, search }                    // lazily built per movement class; derived, not saved
+findPath(search, sx, sy, gx, gy, { maxExpansions?, snapCells? }): { points, cost, expanded, goalX, goalY } | null
+clearLine(nav, ax, ay, bx, by, maxCost): boolean; navCostAt(nav, x, y); nearestPassable(nav, x, y, r)
+buildSpatialHash(state, cellM = 16); queryRadius(hash, state, x, y, r): EntityId[]   // ascending IDs
+```
+
+Routes are assigned when a move order is delivered (`systems/orders.ts`) and stored as mover waypoints
+(state). Movement speed = mode speed / ground cost under the soldier. Weighted A* (x1.1), see DECISIONS.md.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -314,4 +327,5 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
 | 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts | 🟡 state exists; no system reads it yet (movement must from M1) | — |
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
+| 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

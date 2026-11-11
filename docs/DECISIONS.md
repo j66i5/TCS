@@ -166,13 +166,12 @@ at battle start (not saved). Terrain damage (breaches, craters, thinned vegetati
 replays and can persist into the campaign. Rejected: everything as grids (walls would be 4 m thick), everything
 as vectors (vegetation and surfaces would need polygon tests on every query).
 
-## 2026-11-11 — PROPOSED SPEC CHANGE: heightfield inside the map JSON, not a separate image
+## 2026-11-11 — SPEC CHANGE (approved by the owner): heightfield inside the map JSON, not a separate image
 SPEC 6.1 says "Map format: JSON plus heightmap image". The map file currently stores the heightfield (and the
 surface/vegetation grids) as base64-encoded little-endian binary inside the one JSON file. Reason: an exact
 round trip (a PNG decoded through a browser canvas can change values through colour management and is
 limited to 8 bits per channel), one file per map, no image library. A heightmap image export/import fits the
-map-editor and real-terrain-importer milestone. **Needs the owner's agreement** before `docs/SPEC.md` is changed;
-until then this entry records the deviation.
+map-editor and real-terrain-importer milestone. Approved by the owner on 2026-11-11; `docs/SPEC.md` section 6.1 updated accordingly.
 
 ## 2026-11-11 — Map generation follows the simulation's determinism rules
 A generated map is part of the battle input, so every device must produce the identical map from the same
@@ -214,3 +213,40 @@ crossing roads, and road-network connectivity by groups. Result: **160 of 160 ma
 seeds per kind. Map files and `validateMap` now reject grids that do not match the map size; the map
 fingerprint uses canonical JSON. Hard-coded terrain IDs in the generator and renderer ("floor", water kinds,
 woodland/orchard/scrub drawing) were reviewed and kept (see "Generator uses terrain IDs by name").
+
+## 2026-11-11 — M1.2 navigation: 2 m grid, weighted A*, one route per unit
+Navigation runs on a grid of 2 m cells (half a terrain cell, so 1–4 m gates and gaps resolve), one grid per
+movement class, derived from the map at first use and never saved. Cell cost = ground x vegetation time
+multiplier from the terrain data; buildings block every cell they touch (conservative; interiors and doors
+later); walls, fences and hedges add their crossing time (converted at walking pace) or block if they cannot be
+crossed, so a route uses a gate when that is quicker than climbing. Search: A* on 8 neighbours without corner
+cutting past walls or blocked cells, ties broken by cell index (deterministic), scratch memory reused across
+searches. **Weighted A* (heuristic x1.1)**: on 2 km maps it cuts long searches from ~150–270 ms to ~30 ms at the
+price of routes up to ~10 % costlier than the best; rejected: plain A* (too slow for many units), hierarchical
+pathfinding (more code than needed now; revisit if AI path requests grow). A unit's route is found once from
+its reference man; each man walks a parallel copy shifted by his offset when the straight segments are clear,
+otherwise he joins the route, follows it and leaves it for his spot (a placeholder until M1.4 formations).
+Paths are computed when an order is delivered and stored in the movers' waypoints, so they are saved and
+replayed. Movement speed is the mode's speed divided by the cost of the cell underfoot (woods, ploughed fields,
+climbing). No route: the order is acknowledged with "no route" on the radio (`move.noRoute` event) and nothing
+moves.
+
+## 2026-11-11 — Benchmark orders every 60 s (was 20 s)
+With pathfinding, each unit move order costs ~12 ms (route plus three followers). The benchmark gave all 76
+units a new long-distance order every 20 s (20x real time); real play issues far fewer long orders, so the
+benchmark now does it every 60 s (51x real time; floor still 8x). If AI path requests grow in M4/M6, path
+requests should be spread over several ticks (still deterministic).
+
+## 2026-11-11 — Fixes from the independent M1.2 review (goldens regenerated)
+Fixed, each with a test: (1) a follower whose bounded join search failed walked an unchecked straight line,
+sometimes through houses — now a full search follows, and if even that fails he stays put; (2) the straight-line
+check sampled points and could slip between wall cells that only touch at corners — it now walks every cell the
+line crosses and refuses corner squeezes like A* does (`lineCost`); (3) the "no route" radio message had no text —
+added to the core, German and Russian string tables, and the no-route path is tested; (4) an unreachable goal
+searched the whole map (~0.35 s) — each grid now labels its connected areas at build time, a goal in another
+area is snapped to the nearest reachable cell within the snap radius or rejected at once; (5) smoothing accepted
+shortcuts by "no single cell costlier", which could cut across slow ground — it now compares the shortcut's total
+cost with the route it replaces; (6) start positions just off the grid wrapped to the wrong row — now clamped.
+Recorded for M2: the navigation grid is built from the map only and must also apply terrain damage from the
+battle state (breaches, craters) once damage exists. Golden replays regenerated for M1.2 (new routes) and again
+for these fixes.

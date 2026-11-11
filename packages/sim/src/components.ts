@@ -31,8 +31,12 @@ export interface Transform {
 export interface Mover {
   /** Remaining waypoints; empty = idle. */
   waypoints: Waypoint[];
-  /** Current speed, m/s (for renderer interpolation and fatigue later). */
+  /** Current speed, m/s. */
   speedMps: number;
+  /** Grade of the ground along the direction of travel (rise/run), for exertion. */
+  grade: number;
+  /** Movement mode of the current leg (exertion), or null when not moving. */
+  mode: DefId | null;
 }
 
 export type Behaviour =
@@ -43,7 +47,11 @@ export interface SoldierState {
   /** Skills 0..1: marksmanship, fieldcraft, medical, leadership, experience (keys are data). */
   skills: Record<string, number>;
   posture: Posture;
-  physical: { fatigue: number; heartRateBpm: number; hydration: number };
+  /** Posture being taken, or null. The change completes at `postureDoneTick`. */
+  postureTo: Posture | null;
+  postureDoneTick: number;
+  /** winded: reached the exhaustion limit; stays true until fatigue falls below the run-again level. */
+  physical: { fatigue: number; heartRateBpm: number; hydration: number; winded: boolean };
   mental: { stress: number; suppression: number; morale: number; behaviour: Behaviour };
   physiology: Physiology;
   wounds: Wound[];

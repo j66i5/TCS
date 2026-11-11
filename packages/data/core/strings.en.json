@@ -1,7 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
-  "app.hint": "Tap the map to send the blue team there. The walk/run button sets the pace; the map button switches maps.",
+  "app.hint": "Tap the map to send the blue team there. Buttons: pace (walk/run/sneak/crawl), posture, map.",
   "app.pause": "Pause",
   "app.resume": "Resume",
   "app.speed": "Speed",
@@ -78,5 +78,10 @@
   "map.farmland": "Farmland",
   "map.industrial": "Industrial",
   "map.flat": "Flat",
-  "radio.noRoute": "{callsign}: no way through to that point."
+  "radio.noRoute": "{callsign}: no way through to that point.",
+  "posture.standing": "standing",
+  "posture.crouching": "crouching",
+  "posture.prone": "prone",
+  "app.posture": "Posture",
+  "radio.ack.posture": "{callsign}: understood."
 }

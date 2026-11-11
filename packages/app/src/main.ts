@@ -57,6 +57,9 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onMoveMode: (m) => { moveMode = m; },
+    onPosture: (p) => {
+      if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
+    },
     onDebug: (on) => {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.

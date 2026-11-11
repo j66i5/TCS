@@ -19,6 +19,7 @@ export type SimEvent =
   | { kind: "radio"; tick: number; side: SideId; from: EntityId; key: string; params: Record<string, string | number> }
   | { kind: "unit.arrived"; tick: number; unit: EntityId }
   | { kind: "move.noRoute"; tick: number; target: EntityId }
+  | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }

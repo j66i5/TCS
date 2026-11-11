@@ -3,6 +3,9 @@
 Read `docs/STATE.md` (handover) and the current milestone in `docs/ROADMAP.md` first. `docs/SPEC.md` is the
 source of truth. Use the project skills: `start-milestone`, `finish-milestone`, `balance-report`, `add-data-entry`.
 
+**Owner preference:** ask the owner every question as clickable multiple choice (the AskUserQuestion tool),
+recommended option first — never as a typed list in the chat.
+
 ## Commands
 - Install: `npm ci` (Node >= 22.12)
 - Dev server: `npm run dev` (Vite, http://localhost:5173)

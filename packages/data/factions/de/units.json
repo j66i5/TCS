@@ -9,22 +9,42 @@
         {
           "role": "team-leader",
           "rank": "unteroffizier",
-          "load": []
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "obergefreiter",
-          "load": []
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "gefreiter",
-          "load": []
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            }
+          ]
         },
         {
           "role": "rifleman",
           "rank": "gefreiter",
-          "load": []
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            }
+          ]
         }
       ],
       "subunits": [],

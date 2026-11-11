@@ -1,5 +1,5 @@
 /** Turns a validated DataSet into the Catalog the simulation runs with. */
-import { canonicalJson, hashText, type Catalog, type ItemTypeDef, type TerrainCatalog } from "@tcs/sim";
+import { canonicalJson, hashText, type BodyDef, type Catalog, type ItemTypeDef, type TerrainCatalog } from "@tcs/sim";
 import type { DataSet } from "./loader";
 
 /** Build a catalog containing the given factions (and all core data). */
@@ -19,10 +19,12 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     }
   }
   const movementModes: Catalog["movementModes"] = {};
-  for (const m of Object.values(data.movementModes)) movementModes[m.id] = { id: m.id, class: m.class, speedMps: m.speedMps };
+  for (const m of Object.values(data.movementModes)) {
+    movementModes[m.id] = { id: m.id, class: m.class, speedMps: m.speedMps, posture: m.posture, exertion: m.exertion };
+  }
   const qualities: Catalog["qualities"] = {};
   for (const q of Object.values(data.qualities)) qualities[q.id] = { id: q.id, skills: { ...q.skills } };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data) };
+  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data) };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
 }
 
@@ -44,4 +46,17 @@ export function terrainCatalog(data: DataSet): TerrainCatalog {
     obstacles: strip(t.obstacles),
     buildings: strip(t.buildings) as TerrainCatalog["buildings"],
   };
+}
+
+/** Body parameters without provenance fields. */
+export function bodyCatalog(data: DataSet): BodyDef {
+  const b = data.body;
+  if (!b) throw new Error("core/body.json is missing or invalid");
+  const strip = <T extends object>(o: T) => {
+    const { sources: _s, confidence: _c, note: _n, ...rest } = o as T & { sources?: unknown; confidence?: unknown; note?: unknown };
+    return JSON.parse(JSON.stringify(rest)) as Omit<T, "sources" | "confidence" | "note">;
+  };
+  const postures = {} as BodyDef["postures"];
+  for (const p of b.postures) postures[p.id] = { heightM: p.heightM, speedFactor: p.speedFactor };
+  return { postures, transitions: strip(b.transitions), movement: strip(b.movement), physiology: strip(b.physiology) };
 }

@@ -7,7 +7,9 @@
       "sources": [],
       "confidence": "low",
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~5 km/h, normal walking pace with load.",
-      "class": "foot"
+      "class": "foot",
+      "posture": "standing",
+      "exertion": 0.25
     },
     {
       "id": "run",
@@ -16,7 +18,9 @@
       "sources": [],
       "confidence": "low",
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~12.6 km/h, sustained rush with combat load; sprint bursts come later.",
-      "class": "foot"
+      "class": "foot",
+      "posture": "standing",
+      "exertion": 0.85
     },
     {
       "id": "sneak",
@@ -25,7 +29,9 @@
       "sources": [],
       "confidence": "low",
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Slow, deliberate movement using concealment.",
-      "class": "foot"
+      "class": "foot",
+      "posture": "crouching",
+      "exertion": 0.22
     },
     {
       "id": "crawl",
@@ -34,7 +40,9 @@
       "sources": [],
       "confidence": "low",
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Low crawl.",
-      "class": "foot"
+      "class": "foot",
+      "posture": "prone",
+      "exertion": 0.5
     },
     {
       "id": "wheeled",
@@ -43,7 +51,9 @@
       "speedMps": 15,
       "sources": [],
       "confidence": "low",
-      "note": "Reserved for M7 vehicles; road speed placeholder."
+      "note": "Reserved for M7 vehicles; road speed placeholder.",
+      "posture": "standing",
+      "exertion": 0.0
     },
     {
       "id": "tracked",
@@ -52,7 +62,9 @@
       "speedMps": 12,
       "sources": [],
       "confidence": "low",
-      "note": "Reserved for M7 vehicles; placeholder."
+      "note": "Reserved for M7 vehicles; placeholder.",
+      "posture": "standing",
+      "exertion": 0.0
     }
   ]
 }

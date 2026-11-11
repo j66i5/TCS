@@ -250,3 +250,38 @@ cost with the route it replaces; (6) start positions just off the grid wrapped t
 Recorded for M2: the navigation grid is built from the map only and must also apply terrain damage from the
 battle state (breaches, craters) once damage exists. Golden replays regenerated for M1.2 (new routes) and again
 for these fixes.
+
+## 2026-11-11 — Owner answers for M1.3 (posture, fatigue, load)
+Posture changes **depend on the load carried**: brisk when lightly loaded (about 0.5 s standing/crouching,
+1.0 s standing to prone, 1.5 s prone to standing), getting slower as the load grows. Fatigue: a loaded soldier
+running in the open is **clearly winded after about 2–3 minutes** and recovers in about 5 minutes of rest.
+**Load counts from now**: the mass of the counted items a man carries slows him and tires him already in M1.3;
+real equipment weights arrive with the weapons data in M2. The owner also asked that all questions to him be
+clickable multiple choice from now on (recorded in CLAUDE.md).
+
+## 2026-11-11 — M1.3 body model: postures, speed factors, fatigue and heart rate
+All numbers live in `core/body.json`. **Postures** change over data-driven times (standing->prone 1.0 s,
+prone->standing 1.5 s, standing<->crouching ~0.5 s) multiplied by 1 + 0.02 per kg above 10 kg (owner: slower
+with load); a man does not move while changing posture, and each movement mode carries its posture (crawl =
+prone, sneak = crouching). **Speed** = mode speed x posture factor x slope factor (Tobler's hiking function,
+fastest about 5 % downhill) x load factor (-0.6 % per kg above 10 kg, floor 50 %) x fatigue factor
+(-35 % at full fatigue; hard paces halved when exhausted) / ground cost. **Fatigue** builds when the work rate
+(mode exertion x (1 + 0.8 load/body mass) x (1 + 4 x uphill grade)) exceeds a sustainable 0.35 and recovers
+below it; heat above 25 °C speeds the build-up (environment read by fatigue, SPEC 9.7). Rates were chosen so the
+lab shows the owner's choice: loaded running -> fatigue ~0.65 at 150 s, recovered after 5 min rest; loaded
+walking is sustainable. **Heart rate** approaches a target from exertion and fatigue (rise 20 s, fall 45 s).
+**Load**: a 24 kg "basic fighting load" item per German and Russian soldier stands in for helmet, armour,
+webbing, water and rations until M2 itemises kit (flagged low confidence). Physiology runs every tick (cheap);
+benchmark 35x real time. Golden replays regenerated (state gained posture/physiology changes and load).
+Rejected: an energy-expenditure model in watts (more parameters than the game needs now).
+
+## 2026-11-11 — Fixes from the independent M1.3 review (goldens regenerated)
+Fixed, each with a test: an order with an unknown waypoint posture is now rejected (it could crash the
+simulation); an exhausted runner no longer stays at 100 % — once **winded** (fatigue >= 0.9) he shuffles at half
+speed and works at half the sustainable rate until fatigue falls below 0.6, then runs again (bursts; recovering
+from 0.9 to 0.6 takes about 4–5 minutes); the remaining hard-coded model numbers (posture-change exertion,
+heart-rate weights, hard-pace threshold, exhausted speed, slope look-ahead, starting heart rate) moved into
+`core/body.json`; cancelling a posture change before it completes keeps the old posture without reporting a
+change; halt and posture orders end a move without an "in position" call; the lab test now also checks that a
+loaded runner is not yet winded after 60 s and not yet recovered after 60 s of rest; the state schema version is
+3. The debug fatigue/heart-rate label is debug-only and not routed through the string table (accepted).

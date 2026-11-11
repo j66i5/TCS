@@ -18,7 +18,8 @@ export function buildInitialState(input: BattleInput): SimState {
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);
     state.sides.push({ id: force.side, faction: force.faction });
     const placements = new Map(force.placements.map((p) => [p.personId, p]));
-    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements);
+    const hrRest = input.catalog.body.physiology.hrRestBpm;
+    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, hrRest);
   }
   return state;
 }
@@ -30,6 +31,7 @@ function addUnit(
   side: SideId,
   faction: DefId,
   placements: Map<string, { x: number; y: number; heading: number }>,
+  hrRest: number,
 ): EntityId {
   const id = newEntity(state);
   state.unit.set(id, {
@@ -46,11 +48,11 @@ function addUnit(
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {
-    const sid = addSoldier(state, rec, id, side, faction, placements);
+    const sid = addSoldier(state, rec, id, side, faction, placements, hrRest);
     unit.members.push(sid);
     if (i === u.leaderIndex) unit.leader = sid;
   });
-  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements));
+  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, hrRest));
   return id;
 }
 
@@ -61,6 +63,7 @@ function addSoldier(
   side: SideId,
   faction: DefId,
   placements: Map<string, { x: number; y: number; heading: number }>,
+  hrRest: number,
 ): EntityId {
   const id = newEntity(state);
   const p = placements.get(rec.personId);
@@ -76,11 +79,13 @@ function addSoldier(
     unit,
   });
   state.transform.set(id, { x: p.x, y: p.y, z: 0, heading: p.heading });
-  state.mover.set(id, { waypoints: [], speedMps: 0 });
+  state.mover.set(id, { waypoints: [], speedMps: 0, grade: 0, mode: null });
   const s: SoldierState = {
     skills: { ...rec.skills },
     posture: "standing",
-    physical: { fatigue: rec.fatigue, heartRateBpm: 70, hydration: 1 },
+    postureTo: null,
+    postureDoneTick: 0,
+    physical: { fatigue: rec.fatigue, heartRateBpm: hrRest, hydration: 1, winded: false },
     mental: { stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady" },
     physiology: healthyPhysiology(),
     wounds: rec.wounds.map((w) => ({ ...w, treatments: [...w.treatments] })),

@@ -29,6 +29,10 @@ export interface MovementModeDef {
   id: DefId; // "walk" | "run" | "sneak" | "crawl" | "wheeled" | "tracked" ... (data, not code)
   /** Which terrain cost column applies. */
   class: MovementClass;
+  /** Posture taken for this mode. */
+  posture: "standing" | "crouching" | "prone";
+  /** Work rate (0 rest .. ~0.85 running): drives heart rate and fatigue. */
+  exertion: number;
   /** Nominal speed on open, level ground, m/s. */
   speedMps: number;
 }
@@ -86,6 +90,23 @@ export interface BuildingKindDef {
   roofColours: string[];
 }
 
+/** Body model parameters (core/body.json): postures, movement and physiology. All data-driven. */
+export interface BodyDef {
+  postures: Record<"standing" | "crouching" | "prone", { heightM: number; speedFactor: number }>;
+  transitions: { values: Record<string, number>; freeLoadKg: number; slowdownPerKg: number };
+  movement: {
+    slopeK: number; slopeOffset: number; loadFreeKg: number; loadSpeedPerKg: number; minLoadSpeedFactor: number;
+    fatigueSpeedPenalty: number; noRunFatigue: number; hardPaceExertion: number; exhaustedSpeedFactor: number;
+    slopeLookAheadM: number; runAgainFatigue: number;
+  };
+  physiology: {
+    bodyMassKg: number; loadExertionK: number; slopeExertionK: number; sustainable: number; fatigueGainPerS: number;
+    recoveryPerS: number; hrRestBpm: number; hrMaxBpm: number; hrRiseTauS: number; hrFallTauS: number;
+    heatThresholdC: number; heatPerC: number; postureChangeExertion: number; hrExertionWeight: number;
+    hrFatigueWeight: number; exhaustedExertionFactor: number;
+  };
+}
+
 export interface TerrainCatalog {
   materials: Record<DefId, MaterialDef>;
   surfaces: Record<DefId, SurfaceDef>;
@@ -116,6 +137,7 @@ export interface Catalog {
   qualities: Record<DefId, QualityDef>;
   factions: Record<DefId, FactionDef>;
   terrain: TerrainCatalog;
+  body: BodyDef;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

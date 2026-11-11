@@ -1,0 +1,82 @@
+{
+  "postures": [
+    {
+      "id": "standing",
+      "heightM": 1.75,
+      "speedFactor": 1.0,
+      "sources": [],
+      "confidence": "low",
+      "note": "Rough adult standing height; game value."
+    },
+    {
+      "id": "crouching",
+      "heightM": 1.1,
+      "speedFactor": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: crouched movement is slower than upright."
+    },
+    {
+      "id": "prone",
+      "heightM": 0.4,
+      "speedFactor": 0.25,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: only crawling is possible when prone."
+    }
+  ],
+  "transitions": {
+    "values": {
+      "standing>crouching": 0.5,
+      "crouching>standing": 0.6,
+      "standing>prone": 1.0,
+      "prone>standing": 1.5,
+      "crouching>prone": 0.7,
+      "prone>crouching": 1.0
+    },
+    "freeLoadKg": 10,
+    "slowdownPerKg": 0.02,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decision 2026-11-11: brisk when lightly loaded, slower with load (x1.4 at 30 kg, x1.6 at 40 kg)."
+  },
+  "movement": {
+    "slopeK": 3.5,
+    "slopeOffset": 0.05,
+    "loadFreeKg": 10,
+    "loadSpeedPerKg": 0.006,
+    "minLoadSpeedFactor": 0.5,
+    "fatigueSpeedPenalty": 0.35,
+    "noRunFatigue": 0.9,
+    "sources": [
+      "https://en.wikipedia.org/wiki/Tobler%27s_hiking_function"
+    ],
+    "confidence": "medium",
+    "note": "Slope effect follows Tobler's hiking function (speed falls exponentially with grade, fastest slightly downhill); load and fatigue penalties are game values.",
+    "hardPaceExertion": 0.6,
+    "exhaustedSpeedFactor": 0.5,
+    "slopeLookAheadM": 2,
+    "runAgainFatigue": 0.6
+  },
+  "physiology": {
+    "bodyMassKg": 80,
+    "loadExertionK": 0.8,
+    "slopeExertionK": 4,
+    "sustainable": 0.35,
+    "fatigueGainPerS": 0.0062,
+    "recoveryPerS": 0.0067,
+    "hrRestBpm": 70,
+    "hrMaxBpm": 190,
+    "hrRiseTauS": 20,
+    "hrFallTauS": 45,
+    "heatThresholdC": 25,
+    "heatPerC": 0.03,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decision 2026-11-11: a loaded soldier running in the open is clearly winded (fatigue ~0.7) after 2-3 min and recovers in ~5 min of rest; rates chosen to match. Heart-rate range for fit young adults.",
+    "postureChangeExertion": 0.3,
+    "hrExertionWeight": 0.85,
+    "hrFatigueWeight": 0.25,
+    "exhaustedExertionFactor": 0.5
+  }
+}

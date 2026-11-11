@@ -25,7 +25,8 @@
     "batch": "tsx packages/tools/src/cli/batch.ts",
     "golden:update": "tsx packages/tools/src/cli/golden.ts",
     "screenshot": "tsx packages/tools/src/cli/screenshot.ts",
-    "map": "tsx packages/tools/src/cli/map.ts"
+    "map": "tsx packages/tools/src/cli/map.ts",
+    "lab": "tsx packages/tools/src/cli/lab.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

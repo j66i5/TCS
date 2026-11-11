@@ -1,0 +1,263 @@
+{
+  "hitboxes": {
+    "standing": {
+      "widthM": 0.5,
+      "depthM": 0.25,
+      "heightM": 1.75,
+      "along": "height",
+      "bands": [
+        {
+          "zone": "leg",
+          "from": 0,
+          "to": 0.46,
+          "halfWidthM": 0.2
+        },
+        {
+          "zone": "pelvis",
+          "from": 0.46,
+          "to": 0.54,
+          "halfWidthM": 0.18
+        },
+        {
+          "zone": "abdomen",
+          "from": 0.54,
+          "to": 0.66,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "chest",
+          "from": 0.66,
+          "to": 0.85,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "neck",
+          "from": 0.85,
+          "to": 0.885,
+          "halfWidthM": 0.06
+        },
+        {
+          "zone": "head",
+          "from": 0.885,
+          "to": 1,
+          "halfWidthM": 0.09
+        }
+      ]
+    },
+    "crouching": {
+      "widthM": 0.5,
+      "depthM": 0.45,
+      "heightM": 1.1,
+      "along": "height",
+      "bands": [
+        {
+          "zone": "leg",
+          "from": 0,
+          "to": 0.32,
+          "halfWidthM": 0.22
+        },
+        {
+          "zone": "pelvis",
+          "from": 0.32,
+          "to": 0.42,
+          "halfWidthM": 0.18
+        },
+        {
+          "zone": "abdomen",
+          "from": 0.42,
+          "to": 0.56,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "chest",
+          "from": 0.56,
+          "to": 0.8,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "neck",
+          "from": 0.8,
+          "to": 0.84,
+          "halfWidthM": 0.06
+        },
+        {
+          "zone": "head",
+          "from": 0.84,
+          "to": 1,
+          "halfWidthM": 0.09
+        }
+      ]
+    },
+    "prone": {
+      "widthM": 0.5,
+      "depthM": 1.75,
+      "heightM": 0.3,
+      "along": "length",
+      "bands": [
+        {
+          "zone": "head",
+          "from": 0,
+          "to": 0.13,
+          "halfWidthM": 0.09
+        },
+        {
+          "zone": "neck",
+          "from": 0.13,
+          "to": 0.16,
+          "halfWidthM": 0.06
+        },
+        {
+          "zone": "chest",
+          "from": 0.16,
+          "to": 0.35,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "abdomen",
+          "from": 0.35,
+          "to": 0.46,
+          "halfWidthM": 0.17,
+          "armsToM": 0.25
+        },
+        {
+          "zone": "pelvis",
+          "from": 0.46,
+          "to": 0.54,
+          "halfWidthM": 0.18
+        },
+        {
+          "zone": "leg",
+          "from": 0.54,
+          "to": 1,
+          "halfWidthM": 0.2
+        }
+      ]
+    },
+    "sources": [],
+    "confidence": "low",
+    "note": "Body outline as a box per posture, cut into zones (by height when upright, along the body when prone, head toward the facing). Rough adult proportions; game abstraction."
+  },
+  "zones": {
+    "head": {
+      "severityBase": 0.8,
+      "severitySpread": 0.2,
+      "fatalAt": 0.62,
+      "unconsciousAt": 0.35,
+      "bleedLps": 0.004,
+      "compressible": true,
+      "airway": true,
+      "breathing": false
+    },
+    "neck": {
+      "severityBase": 0.65,
+      "severitySpread": 0.25,
+      "fatalAt": 0.72,
+      "unconsciousAt": 0.9,
+      "bleedLps": 0.03,
+      "compressible": true,
+      "airway": true,
+      "breathing": false
+    },
+    "chest": {
+      "severityBase": 0.62,
+      "severitySpread": 0.2,
+      "fatalAt": 0.74,
+      "unconsciousAt": 0.95,
+      "bleedLps": 0.012,
+      "compressible": false,
+      "airway": false,
+      "breathing": true
+    },
+    "abdomen": {
+      "severityBase": 0.52,
+      "severitySpread": 0.2,
+      "fatalAt": 0.86,
+      "unconsciousAt": 0.97,
+      "bleedLps": 0.008,
+      "compressible": false,
+      "airway": false,
+      "breathing": false
+    },
+    "pelvis": {
+      "severityBase": 0.52,
+      "severitySpread": 0.2,
+      "fatalAt": 0.86,
+      "unconsciousAt": 0.97,
+      "bleedLps": 0.014,
+      "compressible": false,
+      "airway": false,
+      "breathing": false
+    },
+    "arm": {
+      "severityBase": 0.3,
+      "severitySpread": 0.15,
+      "fatalAt": 2,
+      "unconsciousAt": 2,
+      "bleedLps": 0.006,
+      "compressible": true,
+      "airway": false,
+      "breathing": false
+    },
+    "leg": {
+      "severityBase": 0.36,
+      "severitySpread": 0.15,
+      "fatalAt": 2,
+      "unconsciousAt": 2,
+      "bleedLps": 0.014,
+      "compressible": true,
+      "airway": false,
+      "breathing": false
+    },
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decisions 2026-11-11: realistic lethality mix (with plates and helmets most hits wound or incapacitate; roughly one casualty in four or five killed outright). Per zone: typical severity and spread of a rifle wound, the severity at which it kills at once or knocks out, the bleeding rate of the worst case (litres per second), whether pressure can stop it. Tuned in the casualty lab; the owner reviews the table."
+  },
+  "wounding": {
+    "referenceEnergyJ": 1000,
+    "energyExponent": 0.3,
+    "energyFactorMin": 0.45,
+    "energyFactorMax": 1.25,
+    "bleedFloor": 0.12,
+    "bleedPower": 3,
+    "bluntSeverity": 0.12,
+    "knockdownSeconds": 4,
+    "flagSeverity": 0.5,
+    "throughArmChance": 0.6,
+    "throughArmEnergy": 0.7,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decisions 2026-11-11: a round stopped by a plate knocks the man down for a few seconds and leaves a minor blunt injury (pain, no bleeding). Severity scales gently with the bullet's remaining energy relative to 1000 J (power 0.3). Most wounds bleed far below the zone's worst case (floor 12 %, rising with the cube of a random draw): few hit a major vessel. A round that strikes an arm from the side goes on into the trunk 6 times in 10 with 70 % of its energy."
+  },
+  "physiology": {
+    "bloodVolumeL": 5.0,
+    "unconsciousLossFraction": 0.38,
+    "deathLossFraction": 0.52,
+    "shockStartFraction": 0.15,
+    "clotBelowLps": 0.002,
+    "clotTauS": 240,
+    "breathingShockPerS": 0.0022,
+    "airwayShockPerS": 0.0033,
+    "painDecayPerS": 0.0004,
+    "stepSeconds": 0.5,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decisions 2026-11-11: realistic clock. Untreated massive bleeding (about 1 litre a minute): unconscious after roughly 2 minutes (38 % of blood lost), dead after roughly 3 (52 %); smaller bleeds take tens of minutes; bleeds under 120 ml a minute clot by themselves. An untreated chest wound that impairs breathing kills in about 7-8 minutes, a blocked airway in about 5. The medical system (M10) replaces this model; the owner reviews it then."
+  },
+  "effects": {
+    "legNoWalkSeverity": 0.45,
+    "armNoFightSeverity": 0.5,
+    "painNoFightAt": 0.6,
+    "moveSeverityK": 1.2,
+    "aimSeverityK": 3.0,
+    "aimPainK": 1.0,
+    "minMoveFactor": 0.15,
+    "sources": [],
+    "confidence": "low",
+    "note": "Owner decisions 2026-11-11: a wounded man who can still function carries on, impaired: leg wounds slow him (above a severity he can only crawl), arm wounds and pain spoil his aim (above a severity he cannot use his rifle). Game values."
+  }
+}

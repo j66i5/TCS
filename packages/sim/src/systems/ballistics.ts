@@ -14,7 +14,8 @@
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, type EntityId } from "../ids";
-import { pow, sqrt } from "../math";
+import { cos, pow, sin, sqrt } from "../math";
+import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -32,12 +33,24 @@ export function launchProjectile(
   addProjectile(state.projectiles, ammoIndexOf(ctx.catalog, ammoId), x, y, z, vx, vy, vz, owner, state.tick);
 }
 
+let clipT0 = 0, clipT1 = 1;
+/** Narrow the path interval [clipT0, clipT1] to where coordinate p + t*d lies in [lo, hi]; false if empty. */
+function clip(p: number, d: number, lo: number, hi: number): boolean {
+  if (d > -1e-12 && d < 1e-12) return p >= lo && p <= hi;
+  let a = (lo - p) / d, b = (hi - p) / d;
+  if (a > b) { const s = a; a = b; b = s; }
+  if (a > clipT0) clipT0 = a;
+  if (b < clipT1) clipT1 = b;
+  return clipT0 <= clipT1;
+}
+
 export function projectileSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const P = state.projectiles;
   if (P.count === 0) return;
   // Local aliases: imported bindings are slower to reach in some module runtimes (tests, tools); this loop
   // runs 20,000 times per tick.
   const dt = DT, sq = sqrt, hAt = heightAt, rnd = nextFloat, BAL = Streams.ballistics, remove = removeProjectile;
+  const cosine = cos, sine = sin, bodyHit = resolveBodyHit;
   const B = ctx.ballistics, bal = ctx.catalog.ballistics, map = ctx.map, index = ctx.mapIndex;
   const env = state.environment;
   const rho = (bal.airDensityKgM3 * (273.15 + bal.referenceTempC)) / (273.15 + env.temperatureC);
@@ -51,6 +64,42 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
   const ammoRT = B.ammo, minSpeed2 = B.minSpeed2, maxAge = B.maxAgeTicks;
 
+  // ---- soldiers this tick, bucketed, so only bullets passing close to someone test against bodies
+  const SG = B.soldiers, hitboxes = B.hitboxes;
+  {
+    for (let q = 0; q < SG.touchedCount; q++) { const kk = SG.touched[q]!; SG.near[kk] = 0; SG.head[kk] = -1; }
+    SG.touchedCount = 0;
+    const count = state.soldier.size;
+    if (count > SG.id.length) {
+      const cap = Math.max(count, SG.id.length * 2);
+      SG.id = new Int32Array(cap); SG.x = new Float64Array(cap); SG.y = new Float64Array(cap); SG.gz = new Float64Array(cap);
+      SG.cf = new Float64Array(cap); SG.sf = new Float64Array(cap); SG.posture = new Uint8Array(cap); SG.next = new Int32Array(cap);
+      SG.touched = new Int32Array(cap * 10);
+    }
+    let n = 0;
+    for (const [id, s] of state.soldier.entries()) {
+      const t = state.transform.get(id);
+      if (!t) continue;
+      SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
+      SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
+      SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
+      let c = (t.x * invBm) | 0, r = (t.y * invBm) | 0;
+      if (c < 0) c = 0; if (r < 0) r = 0; if (c >= bcols) c = bcols - 1; if (r >= brows) r = brows - 1;
+      const home = r * bcols + c;
+      SG.next[n] = SG.head[home]!; SG.head[home] = n;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= brows || cc >= bcols) continue;
+        const kk = rr * bcols + cc;
+        if (SG.near[kk] === 0) { SG.touched[SG.touchedCount++] = kk; SG.near[kk] = 1; }
+      }
+      n++;
+    }
+    SG.n = n;
+  }
+  const reach = B.bodyReachM;
+  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, solNear = SG.near;
+
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
   for (let i = 0; i < P.count; ) {
@@ -63,11 +112,23 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     const a = am.kDrag * rho * (cdv < cap ? cdv : cap) * dt;
     vx -= a * rvx; vy -= a * rvy; vz -= a * vz + gdt;
     const x0 = X[i]!, y0 = Y[i]!, z0 = Z[i]!;
-    const x1 = x0 + vx * dt, y1 = y0 + vy * dt, z1 = z0 + vz * dt;
+    let x1 = x0 + vx * dt, y1 = y0 + vy * dt, z1 = z0 + vz * dt;
     const speed2 = vx * vx + vy * vy + vz * vz;
-    if (speed2 < minSpeed2 || tick - BORN[i]! > maxAge || x1 < 0 || y1 < 0 || x1 >= W || y1 >= H) {
-      remove(P, i); // spent, or left the map
+    if (speed2 < minSpeed2 || tick - BORN[i]! > maxAge) {
+      remove(P, i); // spent
       continue;
+    }
+    // Leaving the map this tick: fly only as far as the edge (it may still strike something on the way),
+    // then it is gone.
+    let leaving = false;
+    if (x1 < 0 || y1 < 0 || x1 >= W || y1 >= H) {
+      leaving = true;
+      let f = 1;
+      if (x1 < 0) f = x0 / (x0 - x1); else if (x1 >= W) f = (W - x0) / (x1 - x0);
+      if (y1 < 0) { const g = y0 / (y0 - y1); if (g < f) f = g; } else if (y1 >= H) { const g = (H - y0) / (y1 - y0); if (g < f) f = g; }
+      f *= 0.999;
+      if (!(f > 1e-6)) { remove(P, i); continue; }
+      x1 = x0 + (x1 - x0) * f; y1 = y0 + (y1 - y0) * f; z1 = z0 + (z1 - z0) * f;
     }
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
     const minX = x0 < x1 ? x0 : x1, maxX = x0 < x1 ? x1 : x0, minY = y0 < y1 ? y0 : y1, maxY = y0 < y1 ? y1 : y0;
@@ -75,7 +136,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- coarse rejection: sample the path every bucket (8 m) and compare its height there with the highest
     // ground / vegetation top of that bucket. Margins cover slopes between samples; a bullet that slips past
     // is caught on the next tick (it would then start below ground).
-    let nearGround = false, nearVeg = false, nearWall = false;
+    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false;
     {
       const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
       const ns = (((adx > ady ? adx : ady) * invBm) | 0) + 1;
@@ -88,6 +149,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         if (pz <= maxGround[kk]! + GROUND_MARGIN_M) nearGround = true;
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
         if (wallNear[kk] === 1) nearWall = true;
+        if (solNear[kk] === 1) nearSoldier = true;
       }
     }
 
@@ -124,6 +186,50 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    // ---- soldiers: the path against each nearby man's body box (in his own frame: forward, left, up)
+    let tBody = 2, bodyIdx = -1, bodyGroup = 0, bodyBand = 0, bodyLeft = false, bodyFrontal = true;
+    if (nearSoldier) {
+      const owner = P.owner[i]!;
+      let c0 = ((minX - reach) * invBm) | 0, c1 = ((maxX + reach) * invBm) | 0, r0 = ((minY - reach) * invBm) | 0, r1 = ((maxY + reach) * invBm) | 0;
+      if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= bcols) c1 = bcols - 1; if (r1 >= brows) r1 = brows - 1;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        for (let j = SG.head[r * bcols + c]!; j !== -1; j = SG.next[j]!) {
+          if (SG.id[j] === owner) continue; // a man is not hit by the round leaving his own muzzle
+          const hb = hitboxes[SG.posture[j]!]!;
+          const rx = x0 - SX[j]!, ry = y0 - SY[j]!, cf = SCF[j]!, sf = SSF[j]!;
+          const pf = rx * cf + ry * sf, pl = -rx * sf + ry * cf, pz = z0 - SGZ[j]!;
+          const df = dx * cf + dy * sf, dl = -dx * sf + dy * cf;
+          // Each band of the body is its own small box (trunk with the arms beside it, the head narrower...):
+          // the round strikes the band it enters first. Space beside the head or between the legs is a miss.
+          const L = hb.alongLength ? 2 * hb.halfF : hb.height;
+          let best = 2, group = -1, bestEl = 0, band = 0;
+          for (let q = 0; q < hb.bands.length; q++) {
+            const bd = hb.bands[q]!;
+            const w = bd.armsTo > bd.halfWidth ? bd.armsTo : bd.halfWidth;
+            clipT0 = 0; clipT1 = 1;
+            if (!clip(pl, dl, -w, w)) continue;
+            if (hb.alongLength) {
+              if (!clip(pf, df, hb.halfF - bd.to * L, hb.halfF - bd.from * L) || !clip(pz, dz, 0, hb.height)) continue;
+            } else {
+              if (!clip(pz, dz, bd.from * L, bd.to * L) || !clip(pf, df, -hb.halfF, hb.halfF)) continue;
+            }
+            if (clipT0 >= best) continue;
+            best = clipT0;
+            bestEl = pl + clipT0 * dl;
+            const lat = bestEl < 0 ? -bestEl : bestEl;
+            group = lat <= bd.halfWidth + 1e-9 ? bd.group : 5; // beside the trunk: an arm
+            band = bd.group;
+          }
+          if (group < 0 || best >= tBody) continue;
+          const tmin = best, el = bestEl;
+          tBody = tmin; bodyIdx = j; bodyGroup = group; bodyBand = band; bodyLeft = el < 0; // +l is his right (y grows south)
+          const adf = df < 0 ? -df : df, adl = dl < 0 ? -dl : dl;
+          // Plates sit on the chest and back: a prone man struck along his length is not behind his plate.
+          bodyFrontal = !hb.alongLength && adf >= adl;
+        }
+      }
+    }
+
     // ---- ground: sample every terrain cell (the surface is smooth within a cell), then bisect
     let tGround = 2;
     if (nearGround) {
@@ -145,7 +251,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         tPrev = t;
       }
     }
-    const tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
+    let tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
+    if (tBody < tEnd) tEnd = tBody;
 
     // ---- vegetation: chance of being stopped along the free part of the path
     if (nearVeg) {
@@ -175,7 +282,23 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    if (tBody <= 1 && tBody < tGround && tBody < tHit) {
+      // ---- a man is hit: armour, wound, and the round stays in him
+      const speedB = sq(speed2);
+      const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
+      const energy = 0.5 * am.massKg * speed2;
+      bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!);
+      // Through the arm from the side and on into the trunk behind it.
+      const WG = ctx.catalog.wounds.wounding;
+      if (bodyGroup === 5 && !bodyFrontal && bodyBand !== 5 && rnd(state.rng, Streams.wounds) < WG.throughArmChance) {
+        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyBand]!, bodyLeft, false, can * WG.throughArmEnergy, energy * WG.throughArmEnergy, am.id, P.owner[i]!);
+      }
+      remove(P, i);
+      continue;
+    }
+
     if (tGround > 1 && hitSeg < 0) {
+      if (leaving) { remove(P, i); continue; }
       // free flight
       X[i] = x1; Y[i] = y1; Z[i] = z1; VX[i] = vx; VY[i] = vy; VZ[i] = vz;
       i++;

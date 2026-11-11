@@ -25,6 +25,15 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   Object.values(data.qualities).forEach((m) => check("core/qualities.json", m.id, m, false));
   Object.values(data.formations).forEach((m) => check("core/formations.json", m.id, m, false));
   if (data.ballistics) check("core/ballistics.json", "ballistics", data.ballistics, false);
+  if (data.wounds) for (const k of ["hitboxes", "zones", "wounding", "physiology", "effects"] as const) check("core/wounds.json", k, data.wounds[k], false);
+  if (data.wounds) for (const posture of ["standing", "crouching", "prone"] as const) {
+    const h = data.wounds.hitboxes[posture];
+    for (const b of h.bands) {
+      if (!(b.from < b.to)) errors.push({ file: "core/wounds.json", path: `hitboxes.${posture}`, message: `hitboxes.${posture}: band '${b.zone}' must have from < to`, severity: "error" });
+      if (b.armsToM !== undefined && b.armsToM <= b.halfWidthM) errors.push({ file: "core/wounds.json", path: `hitboxes.${posture}`, message: `hitboxes.${posture}: band '${b.zone}' armsToM must exceed halfWidthM`, severity: "error" });
+      if (Math.max(b.halfWidthM, b.armsToM ?? 0) > h.widthM / 2 + 1e-9) errors.push({ file: "core/wounds.json", path: `hitboxes.${posture}`, message: `hitboxes.${posture}: band '${b.zone}' is wider than the outline`, severity: "error" });
+    }
+  }
   if (data.shooting) {
     check("core/shooting.json", "aim", data.shooting.aim, false);
     check("core/shooting.json", "fire", data.shooting.fire, false);

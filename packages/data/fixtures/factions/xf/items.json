@@ -20,6 +20,23 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-vest",
+      "nameKey": "item.xf-vest",
+      "category": "armour",
+      "massKg": 5,
+      "armour": [
+        {
+          "zone": "chest",
+          "coverageFront": 0.8,
+          "coverageSide": 0.2,
+          "protectionSteelMm": 20
+        }
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
     }
   ]
 }

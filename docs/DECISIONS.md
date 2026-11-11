@@ -455,3 +455,63 @@ spent aiming or target movement (they need cover and targets, M3/M4); nothing in
 losing the weapon (wounds will, M2.3) — an interrupted reload is tested to lose nothing; a man whose line of
 fire is blocked by a comrade only waits (in file formation firing forward only the front man shoots); the range
 lab holds fatigue and pulse constant by writing them directly (a lab harness, not gameplay).
+
+## 2026-11-11 — Owner answers for M2.3 (body, armour, wounds)
+**Helmets** stop fragments and glancing or very long-range rifle hits; a square rifle hit at normal combat
+ranges penetrates. **A rifle round stopped by a plate** knocks the man down for a few seconds and leaves a
+minor blunt injury (pain, no bleeding); then he carries on. **A wounded man who can still function carries on,
+impaired** (slower, worse aim, cannot run or cannot use his rifle depending on where he is hit) until behaviour
+arrives in M4; pain and blood loss can stop him later. Earlier decisions apply: helmet and rifle-rated plates
+for both sides, a realistic bleeding clock, a realistic lethality mix.
+
+## 2026-11-11 — M2.3 body, armour and wounds (goldens regenerated, state schema v6)
+**Body outline** (`core/wounds.json`): per posture a box of bands — legs, pelvis, abdomen, chest (arms beside
+the trunk), neck, head; upright bands by height, prone bands along the body with the head toward his facing.
+A projectile's path is tested against each band of every man near it (soldiers are bucketed on the 8 m grid
+each tick; a round never strikes the man who fired it); the band it enters first is the zone struck; space
+beside the head or neck is a miss. A round that strikes an arm from the side goes on into the trunk 6 times in
+10. **The round stays in the body** (no shoot-through to the man behind; recorded as a gap). **Armour** is an
+item with, per zone, a covered share from the front and from the side and a protection in millimetres of
+steel; whether the spot struck is covered is a random draw against that share (coverage is a share, not plate
+geometry). Plates 26 mm (no rifle in the data pierces them), soft armour 1.5 mm, helmet 2.5 mm with a random
+glancing factor — in the lab helmets stop almost no rifle rounds out to 300 m, which is the owner's decision.
+A prone man struck along his length is treated as not behind his plate. **Stopped by armour:** hit event,
+knocked down (prone, 4 s unable to move or fire), a blunt wound of severity 0.12 with pain and no bleeding.
+**Through or beside armour:** a wound record — severity drawn per zone and scaled gently with remaining energy
+(power 0.3 of energy / 1000 J), bleeding = the zone's worst rate x severity x a vessel factor (most wounds far
+below the worst case), breathing/airway flags for chest/neck/head above severity 0.5; a severity above the
+zone's fatal threshold kills at once, above its knock-out threshold he is unconscious. **Simple physiology**
+on a 0.5 s clock: blood lost at the wounds' rates (bleeds under 0.12 l/min clot by themselves), unconscious at
+about 34 % blood loss, dead at 52 %; an untreated breathing or airway wound kills in about 5–8 minutes; pain
+fades slowly. Nobody treats anyone yet (M10). **Effects (owner: carries on, impaired):** leg wounds slow him and
+above severity 0.45 he can only crawl; arm wounds and pain worsen his aim; an arm wound above 0.5 or pain above
+0.6 stops him using his rifle (pain fades, so he may fight again); blood loss slows him. **Casualties** stay
+entities where they fell (killed or unconscious), take no orders, are skipped when routes and fire tasks are
+given; if the leader falls the next able man leads, and a comrade reports "man down". Battle records come back
+with status wounded / incapacitated / killed and the wound list. **Friendly fire** is physical: a round does not
+know sides (the existing 4-degree safety check still stops men firing through their own unit).
+**Casualty lab** (`npm run lab -- casualty`, test `lab-casualty.test.ts`): see the table in the M2.3 report;
+headline — struck from the front at 100 m with plates, about half the men are saved by the plate; of those
+wounded about 1 in 7 dies at once and about 4 in 10 within the hour without care; without armour about 3 in 10
+die at once. All values are `confidence: "low"` game abstractions for the owner's review.
+**Bug found and fixed on the way:** a projectile whose step would end outside the map was deleted before its
+collision tests, so nothing within one step (about 13 m) of the map edge could be hit; it now flies to the edge,
+may strike on the way, and is then removed. **Placeholder load:** `basic-load` is now 8 kg; helmet and vest are
+separate items (total load about the same as before). **Gaps recorded:** no organs or bones, only zones; no
+exit wounds or shoot-through; armour never degrades; nobody reacts to being shot at or to casualties (M4); no
+first aid (M10); the enemy still fires only when ordered (M4).
+
+## 2026-11-11 — Fixes from the independent M2.3 review (goldens regenerated)
+The reviewer found no determinism, save/load or hard-rule violations and confirmed the casualty lab measures
+what it claims. Fixed, each with a test: **a unit stayed "firing" forever** when its last firing man fell (now
+the fire ends with reason "unable"); **a dead or unconscious man fed into the next battle came back to life**
+(the roster record now carries his physiology, and status killed/incapacitated is honoured on the way in);
+**left and right were swapped** in wound records; **a wiped-out unit reported "in position"**; **leader
+succession** looked only at the unit's own men, not its sub-teams; **a knocked-down man** could still change
+posture, reload or top up (now none of these until it has passed; a reload in progress is broken off);
+**without a physiology model** pain never faded (now it does; nothing bleeds in that mode). Added: `canUseArms`
+and `canSpeak` (a man with a wounded airway does not report; someone else does), an armour item for the
+fixture faction, data checks on the body outline, the body search margin now derived from the outline.
+**Recorded, not changed:** the "coming round" path cannot happen in this model (nothing restores consciousness
+before M10); the 20,000-projectile benchmark now wounds its own marching soldiers, so it measures a force under
+fire rather than a clean march (still above the floor).

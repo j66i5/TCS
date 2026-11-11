@@ -18,6 +18,7 @@ import { radioFromTarget, unitSoldiers } from "./orders";
 import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
+import { isAble } from "../impair";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
@@ -38,8 +39,11 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     const s = state.soldier.get(id);
     m.mode = wp.mode;
     if (!mode) { m.speedMps = 0; continue; }
+    // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
+    if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
     // Take the leg's posture first (the waypoint's, else the mode's); no movement while changing.
-    const posture = wp.posture ?? mode.posture;
+    // A man whose leg will not carry him crawls.
+    const posture = s && !s.impair.canWalk ? "prone" : (wp.posture ?? mode.posture);
     if (s && (s.posture !== posture || s.postureTo !== null)) {
       requestPosture(ctx, state, id, posture);
       m.speedMps = 0;
@@ -65,6 +69,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       speed *= 1 - B.movement.fatigueSpeedPenalty * s.physical.fatigue;
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
+      speed *= s.impair.move; // wounds: a leg wound, blood loss
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
     // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.
@@ -108,7 +113,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   // Unit arrival: a moving unit whose men have all finished their waypoints.
   for (const [uid, u] of state.unit.entries()) {
     if (!u.moving) continue;
-    const men = unitSoldiers(state, uid);
+    const men = unitSoldiers(state, uid).filter((s) => isAble(state.soldier.get(s)));
+    if (men.length === 0) { u.moving = false; continue; } // nobody left to arrive
     if (men.every((s) => (state.mover.get(s)?.waypoints.length ?? 0) === 0)) {
       u.moving = false;
       events.emit({ kind: "unit.arrived", tick: state.tick, unit: uid });

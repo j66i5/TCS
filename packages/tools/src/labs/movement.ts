@@ -34,7 +34,7 @@ function strip(data: DataSet, opts: { grade?: number; woods?: boolean }): MapDef
 
 function oneSoldier(data: DataSet, map: MapDef, loadUnits: number, startX: number): { sim: Sim; id: number; input: BattleInput } {
   const catalog = buildCatalog(data, ["de"]);
-  const load = loadUnits > 0 ? [{ type: "de-basic-load", count: loadUnits }] : [];
+  const load = loadUnits > 0 ? [{ type: "de-basic-load", count: loadUnits * 3 }] : [];
   const input: BattleInput = {
     map, catalog, seed: 1, orders: [],
     rules: { timeLimitSeconds: 3600, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "none", physiologyParams: {}, objectives: [] },
@@ -49,7 +49,7 @@ function oneSoldier(data: DataSet, map: MapDef, loadUnits: number, startX: numbe
   return { sim, id, input };
 }
 
-const LOAD_UNIT_KG = 24; // one "de-basic-load"
+const LOAD_UNIT_KG = 24; // three "de-basic-load" items of 8 kg
 
 /** Move `distance` metres east and measure; stops early at `maxSeconds`. */
 function run(data: DataSet, name: string, mode: string, loadUnits: number, distance: number, map: MapDef, maxSeconds = 1800): MoveRow {

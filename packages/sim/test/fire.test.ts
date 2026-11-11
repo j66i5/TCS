@@ -95,7 +95,10 @@ describe("ammunition management (owner decision)", () => {
     submitOrder(sim, { tick: 0, issuer: "red", target: rid, kind: "fire", x: 10, y: 15 });
     run(sim, 100);
     const late = kinds(run(sim, 40), "shot.fired").length;
-    expect(sim.state.fire.size).toBe(bunit.members.length + runit.members.length); // nobody has ceased fire
+    // Nobody has ceased fire except men who were hit meanwhile (from M2.3 the rounds find their mark).
+    const unhurt = [...bunit.members, ...runit.members].filter((m) => sim.state.soldier.req(m).wounds.length === 0);
+    for (const m of unhurt) expect(sim.state.fire.has(m)).toBe(true);
+    expect(sim.state.fire.size).toBeGreaterThan(0);
     expect(late / 40 / sim.state.fire.size).toBeGreaterThan(0.3); // still the full aimed rate (one shot per 2.5 s)
   });
 

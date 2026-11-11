@@ -14,7 +14,7 @@ import type { DefId, SideId } from "./ids";
 import type { ItemStack } from "./items";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
-import type { Wound } from "./wounds";
+import type { Physiology, Wound } from "./wounds";
 import type { SerializedState, SimView } from "./state";
 import type { Sim } from "./sim";
 
@@ -32,6 +32,8 @@ export interface SoldierRecord {
   fatigue: number;
   stress: number;
   wounds: Wound[];
+  /** Blood volume, shock, consciousness... of a man who is already hurt (omitted = healthy, or derived from status). */
+  physiology?: Physiology;
   /** Load: counted items (SPEC 4.3 rule 9). */
   load: ItemStack[];
   /** Outcome status after a battle. "fit" going in. */

@@ -4,10 +4,10 @@
       "id": "de-basic-load",
       "nameKey": "item.de-basic-load",
       "category": "load",
-      "massKg": 18,
+      "massKg": 8,
       "sources": [],
       "confidence": "low",
-      "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2.5 itemises kit; rifle and magazines are now separate items."
+      "note": "Aggregate placeholder for webbing, water, rations and small kit until M2.5 itemises it; rifle, magazines, helmet and vest are separate items."
     },
     {
       "id": "de-g36-mag",
@@ -22,6 +22,68 @@
       ],
       "confidence": "medium",
       "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "de-helmet",
+      "nameKey": "item.de-helmet",
+      "category": "armour",
+      "massKg": 1.4,
+      "armour": [
+        {
+          "zone": "head",
+          "coverageFront": 0.8,
+          "coverageSide": 0.85,
+          "protectionSteelMm": 2.5
+        }
+      ],
+      "sources": [
+        "https://www.soldiermod.com/volume-8/idz-es.html"
+      ],
+      "confidence": "medium",
+      "note": "Helmet mass from the published 1.4 kg requirement; protection against fragments and pistol rounds (game value: 2.5 mm steel equivalent, so square rifle hits penetrate). See docs/research/squads.md."
+    },
+    {
+      "id": "de-vest",
+      "nameKey": "item.de-vest",
+      "category": "armour",
+      "massKg": 9.5,
+      "armour": [
+        {
+          "zone": "chest",
+          "coverageFront": 0.75,
+          "coverageSide": 0.15,
+          "protectionSteelMm": 26
+        },
+        {
+          "zone": "abdomen",
+          "coverageFront": 0.35,
+          "coverageSide": 0.05,
+          "protectionSteelMm": 26
+        },
+        {
+          "zone": "chest",
+          "coverageFront": 0.95,
+          "coverageSide": 0.9,
+          "protectionSteelMm": 1.5
+        },
+        {
+          "zone": "abdomen",
+          "coverageFront": 0.9,
+          "coverageSide": 0.85,
+          "protectionSteelMm": 1.5
+        },
+        {
+          "zone": "pelvis",
+          "coverageFront": 0.4,
+          "coverageSide": 0.2,
+          "protectionSteelMm": 1.5
+        }
+      ],
+      "sources": [
+        "https://esut.de/2024/12/meldungen/55553/das-200-000ste-schutzwesten-system-mobast-ist-ausgeliefert/"
+      ],
+      "confidence": "low",
+      "note": "Hard plates class SK4 (rifle rounds up to 7.62x51) front and back, soft armour SK1 around them. Mass is an estimate (not found); plate coverage of the chest is a game value. See docs/research/squads.md."
     }
   ]
 }

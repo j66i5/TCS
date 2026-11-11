@@ -40,7 +40,39 @@ export interface AmmoRT {
   penV: number;
   /** Impact speed above which penetration of bullet-breaking materials no longer rises (Infinity if none). */
   penCapV: number;
+  massKg: number;
   tracer: boolean;
+}
+
+export interface HitboxRT {
+  halfF: number; // half extent along the facing
+  halfL: number; // half extent across it
+  height: number;
+  alongLength: boolean;
+  bands: { group: number; from: number; to: number; halfWidth: number; armsTo: number }[];
+}
+
+export interface SoldierGrid {
+  n: number;
+  id: Int32Array;
+  x: Float64Array; y: Float64Array; gz: Float64Array; cf: Float64Array; sf: Float64Array;
+  posture: Uint8Array;
+  /** Linked lists per bucket: head[bucket] -> soldier index -> next[index] ... (-1 ends). */
+  head: Int32Array;
+  next: Int32Array;
+  /** 1 if a soldier is in the bucket or one of its eight neighbours. */
+  near: Uint8Array;
+  touched: Int32Array;
+  touchedCount: number;
+}
+
+export function createSoldierGrid(buckets: number, capacity = 256): SoldierGrid {
+  return {
+    n: 0, id: new Int32Array(capacity), x: new Float64Array(capacity), y: new Float64Array(capacity), gz: new Float64Array(capacity),
+    cf: new Float64Array(capacity), sf: new Float64Array(capacity), posture: new Uint8Array(capacity),
+    head: new Int32Array(buckets).fill(-1), next: new Int32Array(capacity), near: new Uint8Array(buckets),
+    touched: new Int32Array(capacity * 10), touchedCount: 0,
+  };
 }
 
 export interface BallisticsCtx {
@@ -62,6 +94,12 @@ export interface BallisticsCtx {
   vegStopPerM: Float32Array;
   vegHeightM: Float32Array;
   ammo: AmmoRT[];
+  /** Body outlines per posture code (0 standing, 1 crouching, 2 prone). */
+  hitboxes: HitboxRT[];
+  /** Farthest any part of a body outline lies from the man's position, m (search margin). */
+  bodyReachM: number;
+  /** Soldiers this tick, in arrays, bucketed on the coarse grid (rebuilt every tick; never saved). */
+  soldiers: SoldierGrid;
   deflectionRad: number;
   scatterRad: number;
   minSpeed2: number;
@@ -147,9 +185,18 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const ammo: AmmoRT[] = catalog.ammoIds.map((id) => {
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
-    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, tracer: a.tracer };
+    return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer };
+  });
+  const groups = ["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"];
+  const hitboxes: HitboxRT[] = (["standing", "crouching", "prone"] as const).map((p) => {
+    const h = catalog.wounds.hitboxes[p];
+    return {
+      halfF: h.depthM / 2, halfL: h.widthM / 2, height: h.heightM, alongLength: h.along === "length",
+      bands: h.bands.map((b) => ({ group: groups.indexOf(b.zone), from: b.from, to: b.to, halfWidth: b.halfWidthM, armsTo: b.armsToM ?? 0 })),
+    };
   });
   return {
+    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows),
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, nearWall, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,

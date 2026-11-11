@@ -13,6 +13,8 @@ export * from "./projectiles";
 export * from "./ballistics";
 export { launchProjectile } from "./systems/ballistics";
 export { aimErrorMrad, skillFactor } from "./systems/fire";
+export { resolveBodyHit, refreshStatus } from "./systems/wounds";
+export * from "./impair";
 export * from "./hash";
 export * from "./store";
 export * from "./items";

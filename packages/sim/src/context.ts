@@ -38,4 +38,6 @@ export interface SimContext {
   rules: BattleRules;
   comms: CommsModel;
   physiology: PhysiologyModel | null;
+  /** Rates for the physiology model: data (core/wounds.json) overridden by the scenario rules. */
+  physiologyParams: Record<string, number>;
 }

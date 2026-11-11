@@ -18,6 +18,14 @@
             {
               "item": "ru-basic-load",
               "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
             }
           ],
           "weapon": "ru-ak74m"
@@ -34,21 +42,13 @@
             {
               "item": "ru-basic-load",
               "count": 1
-            }
-          ],
-          "weapon": "ru-ak74m"
-        },
-        {
-          "role": "rifleman",
-          "rank": "ryadovoy",
-          "load": [
-            {
-              "item": "ru-ak74-mag",
-              "count": 6,
-              "charge": 30
             },
             {
-              "item": "ru-basic-load",
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
               "count": 1
             }
           ],
@@ -65,6 +65,38 @@
             },
             {
               "item": "ru-basic-load",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "rifleman",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
               "count": 1
             }
           ],

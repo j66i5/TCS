@@ -35,7 +35,7 @@ export function defaultRules(timeLimitSeconds = 600): BattleRules {
     timeLimitSeconds,
     commsModel: "simple",
     comms: { ...DEFAULT_COMMS },
-    physiologyModel: "none",
+    physiologyModel: "simple",
     physiologyParams: {},
     objectives: [],
   };

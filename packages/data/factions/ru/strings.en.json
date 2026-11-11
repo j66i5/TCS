@@ -35,5 +35,8 @@
   "radio.ack.ceaseFire": "{callsign}: understood, ceasing fire.",
   "radio.noTarget": "{callsign}: no targets, fire ceased.",
   "radio.lowAmmo": "{callsign}: ammunition running low.",
-  "radio.unable": "{callsign}: cannot do that."
+  "radio.unable": "{callsign}: cannot do that.",
+  "item.ru-helmet": "6B47 helmet",
+  "item.ru-vest": "6B45 vest with plates",
+  "radio.manDown": "{callsign}: {name} is hit!"
 }

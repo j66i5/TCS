@@ -4,10 +4,10 @@
       "id": "ru-basic-load",
       "nameKey": "item.ru-basic-load",
       "category": "load",
-      "massKg": 18,
+      "massKg": 8,
       "sources": [],
       "confidence": "low",
-      "note": "Aggregate placeholder for helmet, body armour, webbing, water and rations until M2.5 itemises kit; rifle and magazines are now separate items."
+      "note": "Aggregate placeholder for webbing, water, rations and small kit until M2.5 itemises it; rifle, magazines, helmet and vest are separate items."
     },
     {
       "id": "ru-ak74-mag",
@@ -22,6 +22,70 @@
       ],
       "confidence": "medium",
       "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
+    },
+    {
+      "id": "ru-helmet",
+      "nameKey": "item.ru-helmet",
+      "category": "armour",
+      "massKg": 1.1,
+      "armour": [
+        {
+          "zone": "head",
+          "coverageFront": 0.8,
+          "coverageSide": 0.85,
+          "protectionSteelMm": 2.5
+        }
+      ],
+      "sources": [
+        "https://armyrecognition.com/focus-analysis-conflicts/army/defence-security-industry-technology/russian-soldiers-will-receive-new-6b43-6b45-body-armour-and-6b47-combat-helmets-tass-12705162",
+        "https://www.thefirearmblog.com/blog/2015/10/07/the-ratnik-russias-warrior-of-the-future"
+      ],
+      "confidence": "medium",
+      "note": "1.0-1.25 kg, pistol and fragment protection (game value: 2.5 mm steel equivalent). See docs/research/squads.md."
+    },
+    {
+      "id": "ru-vest",
+      "nameKey": "item.ru-vest",
+      "category": "armour",
+      "massKg": 7.8,
+      "armour": [
+        {
+          "zone": "chest",
+          "coverageFront": 0.75,
+          "coverageSide": 0.15,
+          "protectionSteelMm": 26
+        },
+        {
+          "zone": "abdomen",
+          "coverageFront": 0.35,
+          "coverageSide": 0.05,
+          "protectionSteelMm": 26
+        },
+        {
+          "zone": "chest",
+          "coverageFront": 0.95,
+          "coverageSide": 0.9,
+          "protectionSteelMm": 1.5
+        },
+        {
+          "zone": "abdomen",
+          "coverageFront": 0.9,
+          "coverageSide": 0.85,
+          "protectionSteelMm": 1.5
+        },
+        {
+          "zone": "pelvis",
+          "coverageFront": 0.4,
+          "coverageSide": 0.2,
+          "protectionSteelMm": 1.5
+        }
+      ],
+      "sources": [
+        "https://armyrecognition.com/focus-analysis-conflicts/army/defence-security-industry-technology/russian-soldiers-will-receive-new-6b43-6b45-body-armour-and-6b47-combat-helmets-tass-12705162",
+        "https://en.wikipedia.org/wiki/Ratnik_(program)"
+      ],
+      "confidence": "medium",
+      "note": "About 7.5-8 kg; plates rated against rifle rounds (class given as Br5/Br6 depending on source), soft armour around them. Plate coverage of the chest is a game value. See docs/research/squads.md."
     }
   ]
 }

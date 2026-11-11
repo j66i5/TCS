@@ -147,7 +147,7 @@ or a row of sandbags; the Russian steel-core 5.45 mm bullet also gets through th
 not at 300 m. Double brick, a 45 cm sandbag wall, reinforced concrete and stone walls stop both.
 
 Tracer rounds are drawn as clear orange streaks, all other bullets as faint ones, and every strike leaves a
-small puff. Nobody is hit yet: that is the next slice.
+small puff. What happens when a bullet meets a man is described under "Getting hit".
 
 ## Shooting
 
@@ -170,6 +170,31 @@ minute; if nothing comes back at it, it slows to one aimed shot per man every te
 minute it ceases fire and reports "no target". Enemy rounds cracking past or landing near it put it back to the
 full rate at once. In a lull (no fire order) each man swaps a magazine that is less than about two-thirds full
 for a full one and keeps the partly used one.
+
+## Getting hit
+
+Every soldier has a simple body outline that depends on his posture: standing he is a 1.75 m tall shape
+divided by height into legs, pelvis, abdomen, chest (with the arms beside it), neck and head; prone he is a
+low shape 1.75 m long with the head toward where he faces. Each bullet's path is checked against the men near
+it. The part it enters first is where he is struck; a round passing beside his head misses. Bullets do not
+know sides, so men can hit their own comrades.
+
+What he wears is in his load: a helmet and a vest are items that say which parts they cover, how much of each
+part seen from the front and from the side, and how much they stop. The rifle plates stop every rifle bullet in
+the game; the soft parts of the vest and the helmet do not (owner's decision: helmets are for fragments). A
+round stopped by a plate knocks the man flat for about four seconds and bruises him.
+
+A round that gets through makes a **wound record**: where, how severe, how fast it bleeds, whether it affects
+breathing. Severe head, neck and chest wounds can kill at once. Otherwise a clock runs: blood is lost at the
+wound's rate (small bleeds stop by themselves), he passes out after losing about a third of his blood and dies
+at about half; an untreated chest wound that stops him breathing kills in some minutes. Nobody gives first aid
+yet. Until then a wounded man carries on as well as he can: a leg wound slows him or leaves him crawling, an
+arm wound or strong pain spoils his aim or stops him using his rifle.
+
+The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
+carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
+down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what
+happened to them.
 
 ## One order, traced step by step
 
@@ -200,7 +225,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 206 automated tests, including:
+- `npm test` runs 234 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;
@@ -216,5 +241,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No shooting, no wounds, no spotting (everyone sees everything), no real squad
-organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.
+No first aid, no grenades (M2.4), no spotting (everyone sees everything), no real squad organisation (M2.5),
+nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
+shoots by itself. Those are milestones M2.4–M6.

@@ -21,6 +21,8 @@ export interface ItemTypeDef {
   chargeMassKg?: number;
   /** Which ammunition type the charge consists of (for magazines and belts). */
   chargeItem?: DefId;
+  /** Body armour and helmets: zones covered (zone group: "arm" and "leg" cover both sides). */
+  armour?: { zone: string; coverageFront: number; coverageSide: number; protectionSteelMm: number }[];
 }
 
 export type MovementClass = "foot" | "wheeled" | "tracked";
@@ -174,6 +176,33 @@ export interface ShootingDef {
   };
 }
 
+export interface HitboxDef {
+  widthM: number; depthM: number; heightM: number; along: "height" | "length";
+  bands: { zone: string; from: number; to: number; halfWidthM: number; armsToM?: number }[];
+}
+export interface ZoneWoundDef {
+  severityBase: number; severitySpread: number; fatalAt: number; unconsciousAt: number;
+  bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
+}
+/** Body outline, wounding and simple physiology parameters (core/wounds.json). */
+export interface WoundsDef {
+  hitboxes: Record<"standing" | "crouching" | "prone", HitboxDef>;
+  zones: Record<string, ZoneWoundDef>;
+  wounding: {
+    referenceEnergyJ: number; energyFactorMin: number; energyFactorMax: number; bleedFloor: number; bleedPower: number;
+    bluntSeverity: number; knockdownSeconds: number; flagSeverity: number;
+    /** A round striking an arm from the side goes on into the trunk with this chance, keeping this share of its energy. */
+    throughArmChance: number; throughArmEnergy: number;
+    /** Severity scales with (energy / referenceEnergyJ) to this power. */
+    energyExponent: number;
+  };
+  physiology: Record<string, number>;
+  effects: {
+    legNoWalkSeverity: number; armNoFightSeverity: number; painNoFightAt: number;
+    moveSeverityK: number; aimSeverityK: number; aimPainK: number; minMoveFactor: number;
+  };
+}
+
 export interface TerrainCatalog {
   materials: Record<DefId, MaterialDef>;
   surfaces: Record<DefId, SurfaceDef>;
@@ -216,6 +245,7 @@ export interface Catalog {
   formations: Record<DefId, FormationDef>;
   ballistics: BallisticsDef;
   shooting: ShootingDef;
+  wounds: WoundsDef;
   ammo: Record<DefId, AmmoDef>;
   /** Ammunition IDs in ascending order; projectiles store the index into this list. */
   ammoIds: DefId[];

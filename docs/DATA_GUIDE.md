@@ -146,6 +146,35 @@ In `factions/<id>/weapons.json`:
 (brick 0.10 means 11 cm of brick is worth 11 mm of steel); `ricochetAngleDeg` is the largest angle from the
 surface at which bullets still glance off. `npm run lab -- cover` shows the effect on typical walls.
 
+## Add armour (helmet, vest)
+
+Armour is an ordinary item in `factions/<id>/items.json` with an `armour` list. Each line says which body zone
+it covers (`head`, `neck`, `chest`, `abdomen`, `pelvis`, `arm`, `leg`), what share of that zone it covers seen
+from the front/back and from the side (0–1), and how much it stops in millimetres of mild steel (the same
+measure as walls and bullets):
+
+```json
+{ "id": "de-vest", "nameKey": "item.de-vest", "category": "armour", "massKg": 9.5,
+  "armour": [
+    { "zone": "chest",   "coverageFront": 0.75, "coverageSide": 0.15, "protectionSteelMm": 26 },
+    { "zone": "chest",   "coverageFront": 0.2,  "coverageSide": 0.6,  "protectionSteelMm": 1.5 },
+    { "zone": "abdomen", "coverageFront": 0.35, "coverageSide": 0.05, "protectionSteelMm": 26 }
+  ],
+  "sources": ["https://..."], "confidence": "medium", "note": "..." }
+```
+
+A man wears what is in his load (unit template `load`). A bullet's own figure (`penetration.steelMm`, scaled
+with its speed) is compared with the protection at the spot struck. `npm run lab -- casualty` shows the effect.
+
+## Change how wounds work
+
+`core/wounds.json`: `hitboxes` (body outline per posture: bands with zone, from–to share of the height or
+length, half width), `zones` (typical severity of a rifle wound, the severity that kills at once or knocks
+out, worst-case bleeding in litres per second), `wounding` (knock-down seconds, energy scaling), `physiology`
+(blood volume, the blood-loss shares for unconsciousness and death, clotting, the breathing clock) and
+`effects` (when a man can no longer walk or use his rifle). After a change run `npm run lab -- casualty` and
+compare the table.
+
 ## Add a vehicle
 
 Not yet possible: the vehicle format arrives in **M7**.

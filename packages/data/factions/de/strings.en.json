@@ -38,5 +38,6 @@
   "radio.ack.fire": "{callsign}: roger, opening fire.",
   "radio.ack.ceaseFire": "{callsign}: roger, ceasing fire.",
   "radio.noTarget": "{callsign}: no target, ceasing fire.",
-  "radio.lowAmmo": "{callsign}: ammunition low."
+  "radio.lowAmmo": "{callsign}: ammunition low.",
+  "radio.unable": "{callsign}: unable to comply."
 }

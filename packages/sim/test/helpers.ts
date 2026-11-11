@@ -42,7 +42,7 @@ export const testCatalog: Catalog = {
     },
     fire: {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],
-      fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
+      fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
     },
   },
   formations: {

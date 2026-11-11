@@ -49,7 +49,7 @@ casualties, friendly fire, casualty lab for the owner's review).
   rate of fire; the unit slows and ceases fire by itself when nothing comes back; muzzle flashes; "tap: fire"
   and "cease fire" buttons. Firing range lab (`npm run lab -- range`): regular, prone, 300 m: G36 60 %,
   AK-74M 49 %.
-- Tests: 201, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 206, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark ~200× real time.
 

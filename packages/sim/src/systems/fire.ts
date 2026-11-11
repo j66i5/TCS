@@ -20,7 +20,6 @@ import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import type { Container } from "../items";
 import { atan2, cos, hypot2, PI, sin, sqrt } from "../math";
 import { nextFloat, nextNormal, Streams } from "../rng";
-import { buildSpatialHash, queryRadius, type SpatialHash } from "../spatial";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 import { launchProjectile } from "./ballistics";
@@ -112,7 +111,7 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
   // He sets his point of aim for the range he believes it is.
   const believed = range * (1 + task.rangeError);
-  const e0 = (tz - mz) / range + dropAt(ctx, ammoId, v0, believed) / believed;
+  const e0 = atan2(tz - mz, range) + atan2(dropAt(ctx, ammoId, v0, believed), believed);
   const sd = aimErrorMrad(ctx, state, id, w, aimed);
   const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
   const az = a0 + total * nextNormal(state.rng, Streams.fire);
@@ -121,7 +120,7 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   launchProjectile(ctx, state, ammoId, mx, my, mz, v0 * cos(az) * ce, v0 * sin(az) * ce, v0 * sin(el), id);
   w.magazine!.rounds--;
   w.lastShotTick = state.tick;
-  events.emit({ kind: "shot.fired", tick: state.tick, shooter: id, x: mx, y: my, z: mz, weapon: w.weapon, ammo: ammoId });
+  events.emit({ kind: "shot.fired", tick: state.tick, shooter: id, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon: w.weapon, ammo: ammoId });
   if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) {
     w.jammed = true;
     w.burstLeft = 0;
@@ -133,26 +132,29 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   const F = ctx.catalog.shooting.fire;
   const tick = state.tick;
   // ---- lulls: swap a partly used magazine for a fuller one (staggered check, twice a second per man)
+  // Not while he has a fire task (even a slow one), and only if the magazine is well below full.
   for (const [id, w] of state.weapon.entries()) {
-    if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id)) continue;
+    if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
+    if (state.soldier.get(id)?.physiology.alive !== true) continue;
     const wd = ctx.catalog.weapons[w.weapon];
-    if (wd && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {
+    const capacity = wd ? (ctx.catalog.items[wd.feed.magazine]?.chargeCapacity ?? 0) : 0;
+    if (wd && w.magazine.rounds <= capacity * F.topUpBelowFraction && fullestSpare(state.container.get(id), wd.feed.magazine) > w.magazine.rounds) {
       startAction(state, events, id, "reload", secondsToTicks(wd.reloadSeconds), {});
     }
   }
   if (state.fire.size === 0) return;
 
   const fullTicks = secondsToTicks(F.fullRateSeconds), endTicks = fullTicks + secondsToTicks(F.trickleSeconds);
-  const ended = new Map<EntityId, "no-target" | "ammunition">(); // top unit -> why a member stopped
+  const ended = new Map<EntityId, "no-target" | "ammunition" | "unable">(); // top unit -> why a member stopped
   for (const [id, task] of state.fire.toEntries()) {
     const w = state.weapon.get(id), s = state.soldier.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
-    const stop = (why: "no-target" | "ammunition") => {
+    const stop = (why: "no-target" | "ammunition" | "unable") => {
       state.fire.delete(id);
       const top = topUnit(state, id);
-      if (top !== null && ended.get(top) !== "no-target") ended.set(top, why);
+      if (top !== null && ended.get(top) !== "no-target" && !(ended.get(top) === "ammunition" && why === "unable")) ended.set(top, why);
     };
-    if (!w || !s || !wd || !s.physiology.alive) { stop("ammunition"); continue; }
+    if (!w || !s || !wd || !s.physiology.alive) { stop("unable"); continue; }
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;
@@ -166,8 +168,12 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     }
     if (spare <= 0) {
       // Only the magazine in the weapon is left: he keeps it and reports.
-      if (!w.lowAmmoReported) {
-        w.lowAmmoReported = true;
+      // One report per unit, not one per man.
+      const top = topUnit(state, id);
+      const already = top !== null && unitSoldiers(state, top).some((m) => m !== id && state.weapon.get(m)?.lowAmmoReported === true);
+      if (!w.lowAmmoReported) w.lowAmmoReported = true;
+      if (!already && !w.lowAmmoRadioed) {
+        w.lowAmmoRadioed = true;
         events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
       stop("ammunition");
@@ -210,26 +216,54 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
 }
 
 /**
- * Incoming fire: an enemy round striking near a unit gives its firing members reason to keep up the full rate.
- * (Suppression and fear come in M4; this is only the ammunition-management clock.)
+ * Incoming fire: an enemy round fired past a unit (within the incoming radius of any member, out to the reach
+ * distance from the muzzle) or striking near it gives its firing members reason to keep up the full rate.
+ * A unit that had slowed to a trickle answers at once. (Suppression and fear come in M4; this is only the
+ * ammunition-management clock.)
  */
 export function incomingFireSystem(ctx: SimContext, state: SimState, events: readonly SimEvent[]): void {
   if (state.fire.size === 0) return;
-  let hash: SpatialHash | null = null;
-  const radius = ctx.catalog.shooting.fire.incomingRadiusM;
+  const F = ctx.catalog.shooting.fire;
+  const r2 = F.incomingRadiusM * F.incomingRadiusM;
+  let targets: { id: EntityId; x: number; y: number; side: string }[] | null = null;
+  const refresh = new Set<EntityId>(); // top units
   for (const e of events) {
-    if (e.kind !== "impact" || e.owner <= 0) continue;
-    const side = state.identity.get(e.owner)?.side;
+    let side: string | undefined;
+    if (e.kind === "shot.fired") side = state.identity.get(e.shooter)?.side;
+    else if (e.kind === "impact" && e.owner > 0) side = state.identity.get(e.owner)?.side;
+    else continue;
     if (side === undefined) continue;
-    hash ??= buildSpatialHash(state, 32);
-    for (const near of queryRadius(hash, state, e.x, e.y, radius)) {
-      if (state.identity.get(near)?.side === side) continue;
-      const top = topUnit(state, near);
-      if (top === null) continue;
-      for (const m of unitSoldiers(state, top)) {
-        const task = state.fire.get(m);
-        if (task) task.reasonTick = state.tick;
+    if (targets === null) {
+      targets = [];
+      for (const [id] of state.fire.entries()) {
+        const t = state.transform.req(id);
+        targets.push({ id, x: t.x, y: t.y, side: state.identity.req(id).side });
       }
+    }
+    for (const m of targets) {
+      if (m.side === side) continue;
+      const dx = m.x - e.x, dy = m.y - e.y;
+      let near: boolean;
+      if (e.kind === "impact") near = dx * dx + dy * dy <= r2;
+      else {
+        const along = dx * e.dirX + dy * e.dirY;
+        const across = dx * -e.dirY + dy * e.dirX;
+        near = along > 0 && along <= F.incomingReachM && across * across <= r2;
+      }
+      if (near) { const top = topUnit(state, m.id); if (top !== null) refresh.add(top); }
+    }
+  }
+  const fullTicks = secondsToTicks(F.fullRateSeconds);
+  for (const top of [...refresh].sort((a, b) => a - b)) {
+    for (const m of unitSoldiers(state, top)) {
+      const task = state.fire.get(m);
+      if (!task) continue;
+      if (state.tick - task.reasonTick > fullTicks) {
+        // He was on the slow rate: answer now, not at the next slow shot.
+        const w = state.weapon.get(m);
+        if (w) w.nextShotTick = Math.min(w.nextShotTick, state.tick + TICK_HZ / 2);
+      }
+      task.reasonTick = state.tick;
     }
   }
 }

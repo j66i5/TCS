@@ -125,6 +125,8 @@ export interface WeaponState {
   lastShotTick: number;
   /** He has already reported that he is down to his last magazine (reset when he loads a fresh one). */
   lowAmmoReported: boolean;
+  /** He has sent that report by radio (one report per unit). */
+  lowAmmoRadioed: boolean;
 }
 
 /** A soldier's task to fire at a point (from a fire order). */

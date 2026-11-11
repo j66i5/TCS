@@ -34,5 +34,6 @@
   "radio.ack.fire": "{callsign}: understood, opening fire.",
   "radio.ack.ceaseFire": "{callsign}: understood, ceasing fire.",
   "radio.noTarget": "{callsign}: no targets, fire ceased.",
-  "radio.lowAmmo": "{callsign}: ammunition running low."
+  "radio.lowAmmo": "{callsign}: ammunition running low.",
+  "radio.unable": "{callsign}: cannot do that."
 }

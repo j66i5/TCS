@@ -439,3 +439,19 @@ check whether the ground blocks their line of fire (prone men on rolling ground 
 front of them; line of sight arrives in M3); rifle magazines hold ball only, so tracers appear with machine
 guns in M2.5. The screenshot-only volley hook was removed; the app's debug object now only issues orders.
 Golden replays regenerated (new data, weapons in state, schema v5).
+
+## 2026-11-11 — Fixes from the independent M2.2 review (goldens regenerated)
+The reviewer found no rule violations and confirmed ammunition conservation, determinism and that the range
+lab measures real geometric hits. Fixed, each with a test: **incoming fire** now also counts enemy rounds fired
+past the unit (within 30 m of a member, out to 800 m from the muzzle), not only rounds striking within 30 m —
+before, two teams shooting at each other at 180 m both reported "no target" after 90 s; a unit on the slow rate
+now answers within half a second instead of at its next slow shot. **Magazine top-up** happens only when the
+man has no fire task and his magazine is below 70 % (before, men on the slow rate swapped a 29-round magazine
+for a 30 after almost every shot). **Elevation** uses proper angles (aiming at a point far above him put rounds
+metres high). A fire order to men without usable weapons is answered "unable"; a dead or unarmed man ends his
+task with reason "unable", not "ammunition"; "low on ammunition" is reported once per unit. Shot events carry
+the direction of fire. **Honest gaps recorded:** the aiming error does not yet include bracing on cover, time
+spent aiming or target movement (they need cover and targets, M3/M4); nothing interrupts a reload yet except
+losing the weapon (wounds will, M2.3) — an interrupted reload is tested to lose nothing; a man whose line of
+fire is blocked by a comrade only waits (in file formation firing forward only the front man shoots); the range
+lab holds fatigue and pulse constant by writing them directly (a lab harness, not gameplay).

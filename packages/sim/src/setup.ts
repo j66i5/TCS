@@ -104,7 +104,7 @@ function addSoldier(
     state.weapon.set(id, {
       weapon: rec.weapon,
       magazine: mag && (mag.charge ?? 0) > 0 ? { item: mag.type, rounds: mag.charge ?? 0 } : null,
-      nextShotTick: 0, burstLeft: 0, burstIndex: 0, jammed: false, lastShotTick: -100000, lowAmmoReported: false,
+      nextShotTick: 0, burstLeft: 0, burstIndex: 0, jammed: false, lastShotTick: -100000, lowAmmoReported: false, lowAmmoRadioed: false,
     });
     if (mag && (mag.charge ?? 0) <= 0) addItems(c, mag.type, 1, mag.charge);
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  aimErrorMrad, createSim, hashState, launchProjectile, loadSim, saveSim, secondsToTicks, step, submitOrder,
+  aimErrorMrad, createSim, EventSink, hashState, interruptAction, loadSim, saveSim, secondsToTicks, step, submitOrder,
   type Sim, type SimEvent,
 } from "../src/index";
 import { armedInput } from "./helpers";
@@ -62,7 +62,7 @@ describe("fire order", () => {
       const mags = sim.state.container.req(m).stacks.filter((s) => s.type === "mag");
       expect(mags).toEqual([{ type: "mag", count: 2, charge: 0 }]); // empties are kept
     }
-    expect(ev.filter((e) => e.kind === "radio" && e.key === "radio.lowAmmo")).toHaveLength(unit.members.length);
+    expect(ev.filter((e) => e.kind === "radio" && e.key === "radio.lowAmmo")).toHaveLength(1); // one report per unit
     expect(kinds(ev, "fire.ceased").at(-1)).toMatchObject({ reason: "ammunition" });
     expect(sim.state.fire.size).toBe(0);
   });
@@ -85,19 +85,40 @@ describe("ammunition management (owner decision)", () => {
     expect(kinds(run(sim, 20), "shot.fired")).toHaveLength(0);
   });
 
-  it("incoming fire near the unit keeps it firing at the full rate", () => {
+  it("two teams firing at each other both keep up the full rate (rounds cracking past count as incoming fire)", () => {
+    const sim = createSim(armedInput(3));
+    const [bid, bunit] = blue(sim);
+    const [rid, runit] = [...sim.state.unit.entries()].find(([, u]) => u.side === "red")!;
+    // plenty of ammunition for a long exchange
+    for (const m of [...bunit.members, ...runit.members]) sim.state.container.req(m).stacks = [{ type: "mag", count: 12, charge: 30 }];
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "fire", x: 190, y: 12 });
+    submitOrder(sim, { tick: 0, issuer: "red", target: rid, kind: "fire", x: 10, y: 15 });
+    run(sim, 100);
+    const late = kinds(run(sim, 40), "shot.fired").length;
+    expect(sim.state.fire.size).toBe(bunit.members.length + runit.members.length); // nobody has ceased fire
+    expect(late / 40 / sim.state.fire.size).toBeGreaterThan(0.3); // still the full aimed rate (one shot per 2.5 s)
+  });
+
+  it("a unit on the slow rate answers at once when rounds come its way", () => {
+    const sim = createSim(armedInput(4));
+    const [bid, bunit] = blue(sim);
+    const [rid] = [...sim.state.unit.entries()].find(([, u]) => u.side === "red")!;
+    fireAt(sim, bid, 190, 12);
+    run(sim, 45); // blue is now on the trickle
+    const quiet = kinds(run(sim, 10), "shot.fired").filter((e) => e.kind === "shot.fired" && bunit.members.includes(e.shooter)).length;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "fire", x: 10, y: 15 });
+    run(sim, 4); // red's order arrives and its first rounds are on the way
+    const answer = kinds(run(sim, 6), "shot.fired").filter((e) => e.kind === "shot.fired" && bunit.members.includes(e.shooter)).length;
+    expect(quiet).toBeLessThanOrEqual(bunit.members.length * 2);
+    expect(answer).toBeGreaterThanOrEqual(bunit.members.length * 2); // back to a shot every ~2.5 s each
+  });
+
+  it("no magazine swapping while the unit is still firing slowly", () => {
     const sim = createSim(armedInput());
-    const [uid, unit] = blue(sim);
-    const red = [...sim.state.identity.entries()].find(([, i]) => i.side === "red")![0];
+    const [uid] = blue(sim);
     fireAt(sim, uid, 180, 15);
-    let late = 0;
-    for (let t = 0; t < secondsToTicks(100); t++) {
-      // every 5 s an enemy round strikes the ground among the blue men
-      if (t % 300 === 0) launchProjectile(sim.ctx, sim.state, "ball", 12, 15, 2, 0, 0, -100, red);
-      for (const e of step(sim)) if (e.kind === "shot.fired" && t > secondsToTicks(60)) late++;
-    }
-    expect(sim.state.fire.size).toBe(unit.members.length); // still at it after 100 s
-    expect(late / 40 / unit.members.length).toBeGreaterThan(0.3); // still the full aimed rate
+    run(sim, 32);
+    expect(kinds(run(sim, 55), "weapon.reloaded")).toHaveLength(0);
   });
 
   it("cease fire and a move order both end the firing", () => {
@@ -118,10 +139,13 @@ describe("ammunition management (owner decision)", () => {
   it("in a lull a man swaps his partly used magazine for a full one and keeps the partly used one", () => {
     const sim = createSim(armedInput());
     const [uid, unit] = blue(sim);
-    fireAt(sim, uid, 180, 15);
-    run(sim, 12);
+    fireAt(sim, uid, 30, 15); // close range: bursts, so the magazines are soon well below full
+    run(sim, 7);
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "ceaseFire" });
+    run(sim, 2.5); // the order takes a second or two to arrive
     const m = unit.members[0]!;
+    expect(sim.state.fire.size).toBe(0);
+    expect(sim.state.weapon.req(m).magazine!.rounds).toBeLessThan(21);
     const before = rounds(sim, m);
     const ev = run(sim, 15);
     expect(kinds(ev, "weapon.reloaded").length).toBeGreaterThanOrEqual(unit.members.length);
@@ -186,5 +210,56 @@ describe("handling and safety", () => {
     expect(hashState(b.state)).toBe(hashState(a.state));
     run(a, 30); run(b, 30);
     expect(hashState(b.state)).toBe(hashState(a.state));
+  });
+
+  it("aims correctly at a point far above him (steep angles)", () => {
+    const sim = createSim(armedInput());
+    const id = blue(sim)[1].members[0]!;
+    sim.state.soldier.req(id).skills["marksmanship"] = 1;
+    submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "fire", x: 70, y: 10, heightM: 30 });
+    const P = sim.state.projectiles;
+    const miss: number[] = [];
+    for (let t = 0; t < secondsToTicks(12); t++) {
+      const before = new Map<number, [number, number]>();
+      for (let i = 0; i < P.count; i++) before.set(P.bornTick[i]!, [P.x[i]!, P.z[i]!]);
+      step(sim);
+      for (let i = 0; i < P.count; i++) {
+        const b = before.get(P.bornTick[i]!);
+        if (b && b[0] < 70 && P.x[i]! >= 70) miss.push(b[1] + ((70 - b[0]) / (P.x[i]! - b[0])) * (P.z[i]! - b[1]) - 30);
+      }
+    }
+    expect(miss.length).toBeGreaterThan(3);
+    for (const m of miss) expect(Math.abs(m)).toBeLessThan(0.6); // was 2.5 m high before the fix
+  });
+
+  it("an interrupted reload changes nothing: no round or magazine is lost", () => {
+    const sim = createSim(armedInput());
+    const [uid, unit] = blue(sim);
+    fireAt(sim, uid, 30, 15);
+    let who = -1;
+    for (let t = 0; t < secondsToTicks(40) && who < 0; t++) {
+      step(sim);
+      for (const m of unit.members) if (sim.state.action.get(m)?.kind === "reload") who = m;
+    }
+    expect(who).toBeGreaterThan(0);
+    const before = { rounds: rounds(sim, who), mags: JSON.stringify(sim.state.container.req(who).stacks), loaded: JSON.stringify(sim.state.weapon.req(who).magazine) };
+    const sink = new EventSink();
+    interruptAction(sim.state, sink, who, "test");
+    expect(sink.events[0]).toMatchObject({ kind: "action.interrupted", action: "reload" });
+    expect(rounds(sim, who)).toBe(before.rounds);
+    expect(JSON.stringify(sim.state.container.req(who).stacks)).toBe(before.mags);
+    expect(JSON.stringify(sim.state.weapon.req(who).magazine)).toBe(before.loaded);
+  });
+
+  it("a unit without usable weapons answers 'unable' to a fire order", () => {
+    const input = armedInput();
+    for (const f of input.forces) for (const u of f.units) for (const m of u.members) delete m.weapon;
+    const sim = createSim(input);
+    const [uid, unit] = blue(sim);
+    fireAt(sim, uid, 150, 15);
+    const ev = run(sim, 5);
+    expect(ev.find((e) => e.kind === "radio")).toMatchObject({ key: "radio.unable" });
+    expect(unit.firing).toBe(false);
+    expect(kinds(ev, "shot.fired")).toHaveLength(0);
   });
 });

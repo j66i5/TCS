@@ -167,8 +167,9 @@ a veteran about 70 %, a conscript about 40–45 %; standing, about 20–25 %.
 
 **Ammunition management:** the unit decides how long firing makes sense. It fires at the full rate for half a
 minute; if nothing comes back at it, it slows to one aimed shot per man every ten seconds, and after another
-minute it ceases fire and reports "no target". Enemy rounds landing near it put it back to the full rate. In a
-lull each man swaps a partly used magazine for a full one and keeps the partly used one.
+minute it ceases fire and reports "no target". Enemy rounds cracking past or landing near it put it back to the
+full rate at once. In a lull (no fire order) each man swaps a magazine that is less than about two-thirds full
+for a full one and keeps the partly used one.
 
 ## One order, traced step by step
 
@@ -199,7 +200,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 201 automated tests, including:
+- `npm test` runs 206 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

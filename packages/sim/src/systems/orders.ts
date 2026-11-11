@@ -94,10 +94,10 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   state.pendingOrders = rest;
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
   for (const p of due) {
-    const ok = applyOrder(ctx, state, p.order, events);
+    const res = applyOrder(ctx, state, p.order, events);
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
-    radioFromTarget(state, p.order.target, ok ? `radio.ack.${p.order.kind}` : "radio.noRoute", events);
-    if (!ok) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
+    radioFromTarget(state, p.order.target, res === true ? `radio.ack.${p.order.kind}` : res === "unable" ? "radio.unable" : "radio.noRoute", events);
+    if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
   }
 }
 
@@ -123,8 +123,8 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   events.emit({ kind: "radio", tick: state.tick, side: unit.side, from, key, params: { callsign: unit.callsign } });
 }
 
-/** Apply a delivered order. Returns false if a move order found no route (nothing changes then). */
-function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean {
+/** Apply a delivered order. Returns false if a move order found no route, "unable" if nobody can carry it out. */
+function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean | "unable" {
   const isUnit = state.unit.has(order.target);
   const soldiers = isUnit ? unitSoldiers(state, order.target) : [order.target];
   switch (order.kind) {
@@ -206,7 +206,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (assignFireTask(ctx, state, s, order.x, order.y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) any = true;
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
-      if (any && u !== undefined) topUnitOf(state, u).firing = true;
+      if (!any) return "unable"; // nobody there has a weapon he can use
+      if (u !== undefined) topUnitOf(state, u).firing = true;
       break;
     }
     case "ceaseFire": {

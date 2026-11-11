@@ -156,6 +156,10 @@ export const ShootingFile = z.object({
       intervalS: Num(0.05, 600), burstRounds: z.number().int().min(1).max(50),
     }).strict()).min(1),
     fullRateSeconds: Num(0, 3600), trickleIntervalS: Num(0.1, 600), trickleSeconds: Num(0, 3600), incomingRadiusM: Num(1, 500),
+    /** In a lull a man changes a magazine that is below this fraction of full, if he has a fuller one. */
+    topUpBelowFraction: Num(0, 1),
+    /** Enemy rounds fired past a unit within incomingRadiusM, out to this distance from the muzzle, count as incoming fire. */
+    incomingReachM: Num(1, 5000),
     topUpAfterSeconds: Num(0.5, 600), clearStoppageSeconds: Num(0.1, 120), aimPointHeightM: Num(0, 3), safetyConeDeg: Num(0, 45),
   }),
 }).strict();

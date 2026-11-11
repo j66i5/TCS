@@ -170,7 +170,7 @@ export interface ShootingDef {
   fire: {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
     fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
-    topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
+    topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
   };
 }
 

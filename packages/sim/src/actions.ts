@@ -58,6 +58,7 @@ const reloadHandler: ActionHandler = {
     w.magazine = { item: taken.type, rounds: taken.charge ?? 0 };
     w.burstLeft = 0; w.burstIndex = 0;
     w.lowAmmoReported = false;
+    w.lowAmmoRadioed = false;
     events.emit({ kind: "weapon.reloaded", tick: state.tick, soldier: actor, rounds: w.magazine.rounds });
   },
 };

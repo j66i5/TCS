@@ -236,3 +236,17 @@ With pathfinding, each unit move order costs ~12 ms (route plus three followers)
 units a new long-distance order every 20 s (20x real time); real play issues far fewer long orders, so the
 benchmark now does it every 60 s (51x real time; floor still 8x). If AI path requests grow in M4/M6, path
 requests should be spread over several ticks (still deterministic).
+
+## 2026-11-11 — Fixes from the independent M1.2 review (goldens regenerated)
+Fixed, each with a test: (1) a follower whose bounded join search failed walked an unchecked straight line,
+sometimes through houses — now a full search follows, and if even that fails he stays put; (2) the straight-line
+check sampled points and could slip between wall cells that only touch at corners — it now walks every cell the
+line crosses and refuses corner squeezes like A* does (`lineCost`); (3) the "no route" radio message had no text —
+added to the core, German and Russian string tables, and the no-route path is tested; (4) an unreachable goal
+searched the whole map (~0.35 s) — each grid now labels its connected areas at build time, a goal in another
+area is snapped to the nearest reachable cell within the snap radius or rejected at once; (5) smoothing accepted
+shortcuts by "no single cell costlier", which could cut across slow ground — it now compares the shortcut's total
+cost with the route it replaces; (6) start positions just off the grid wrapped to the wrong row — now clamped.
+Recorded for M2: the navigation grid is built from the map only and must also apply terrain damage from the
+battle state (breaches, craters) once damage exists. Golden replays regenerated for M1.2 (new routes) and again
+for these fixes.

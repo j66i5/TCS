@@ -34,6 +34,11 @@ export interface NavGrid {
   wall: Uint8Array;
   /** Cheapest cost on the grid (for an admissible heuristic). */
   minCost: number;
+  /**
+   * Connected-area label per cell (0 = blocked); two cells are mutually reachable iff their labels match.
+   * Lets an unreachable goal be rejected at once instead of searching the whole map.
+   */
+  region: Int32Array;
 }
 
 export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2): NavGrid {
@@ -94,7 +99,38 @@ export function buildNavGrid(map: MapDef, terrain: TerrainCatalog, cls: Movement
   }
   let minCost = Infinity;
   for (let i = 0; i < n; i++) if (cost[i]! > 0 && cost[i]! < minCost) minCost = cost[i]!;
-  return { cls, cellM, cols, rows, cost, wall, minCost: Number.isFinite(minCost) ? minCost : 1 };
+  return { cls, cellM, cols, rows, cost, wall, minCost: Number.isFinite(minCost) ? minCost : 1, region: labelRegions(cols, rows, cost, wall) };
+}
+
+/** Flood-fill connected areas using exactly the moves A* may make (8 neighbours, no corner cutting). */
+function labelRegions(cols: number, rows: number, cost: Float32Array, wall: Uint8Array): Int32Array {
+  const region = new Int32Array(cols * rows);
+  const stack = new Int32Array(cols * rows);
+  let label = 0;
+  for (let i0 = 0; i0 < region.length; i0++) {
+    if (cost[i0]! <= 0 || region[i0] !== 0) continue;
+    label++;
+    let sp = 0;
+    stack[sp++] = i0;
+    region[i0] = label;
+    while (sp > 0) {
+      const cur = stack[--sp]!;
+      const cc = cur % cols, cr = (cur - cc) / cols;
+      for (let k = 0; k < 8; k++) {
+        const nc = cc + DC[k]!, nr = cr + DR[k]!;
+        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+        const ni = nr * cols + nc;
+        if (cost[ni]! <= 0 || region[ni] !== 0) continue;
+        if (k >= 4) {
+          const a = cr * cols + nc, b = nr * cols + cc;
+          if (cost[a]! <= 0 || cost[b]! <= 0 || wall[a] === 1 || wall[b] === 1) continue;
+        }
+        region[ni] = label;
+        stack[sp++] = ni;
+      }
+    }
+  }
+  return region;
 }
 
 /** Grow a convex polygon outward by `d` metres (each edge moved out along its normal). */
@@ -198,7 +234,7 @@ export interface PathOptions {
 }
 
 /** Nearest passable cell to (x, y) within `radius` cells (ring search, deterministic order), or -1. */
-export function nearestPassable(nav: NavGrid, x: number, y: number, radius: number): number {
+export function nearestPassable(nav: NavGrid, x: number, y: number, radius: number, region = 0): number {
   const c0 = Math.floor(x / nav.cellM), r0 = Math.floor(y / nav.cellM);
   for (let d = 0; d <= radius; d++) {
     let best = -1, bestD = Infinity;
@@ -209,6 +245,7 @@ export function nearestPassable(nav: NavGrid, x: number, y: number, radius: numb
         if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) continue;
         const i = r * nav.cols + c;
         if (nav.cost[i]! <= 0 || nav.wall[i] === 1) continue;
+        if (region !== 0 && nav.region[i] !== region) continue;
         const dd = dr * dr + dc * dc;
         if (dd < bestD || (dd === bestD && i < best)) { bestD = dd; best = i; }
       }
@@ -264,15 +301,23 @@ const DR = [0, 0, 1, -1, 1, -1, 1, -1];
 export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: number, o: PathOptions = {}): PathResult | null {
   const nav = s.nav;
   const C = nav.cols;
-  const startRaw = Math.floor(sy / nav.cellM) * C + Math.floor(sx / nav.cellM);
-  const start = nav.cost[startRaw]! > 0 ? startRaw : nearestPassable(nav, sx, sy, 6);
-  let goal = Math.floor(gy / nav.cellM) * C + Math.floor(gx / nav.cellM);
+  const W = nav.cols * nav.cellM, H = nav.rows * nav.cellM;
+  const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const cellOf = (x: number, y: number) => Math.floor(y / nav.cellM) * C + Math.floor(x / nav.cellM);
+  const startRaw = inside(sx, sy) ? cellOf(sx, sy) : -1;
+  const start = startRaw >= 0 && nav.cost[startRaw]! > 0
+    ? startRaw
+    : nearestPassable(nav, Math.min(Math.max(sx, 0), W - 0.01), Math.min(Math.max(sy, 0), H - 0.01), 6);
+  if (start < 0) return null;
+  const reg = nav.region[start]!;
+  let goal = inside(gx, gy) ? cellOf(gx, gy) : -1;
   let goalX = gx, goalY = gy;
-  if (gx < 0 || gy < 0 || gx >= nav.cols * nav.cellM || gy >= nav.rows * nav.cellM || nav.cost[goal]! <= 0 || nav.wall[goal] === 1) {
-    goal = nearestPassable(nav, gx, gy, o.snapCells ?? 12);
+  if (goal < 0 || nav.cost[goal]! <= 0 || nav.wall[goal] === 1 || nav.region[goal] !== reg) {
+    // Blocked, off the map or in an area that cannot be reached: nearest reachable open cell, if close.
+    goal = nearestPassable(nav, Math.min(Math.max(gx, 0), W - 0.01), Math.min(Math.max(gy, 0), H - 0.01), o.snapCells ?? 12, reg);
     if (goal >= 0) { goalX = ((goal % C) + 0.5) * nav.cellM; goalY = (Math.floor(goal / C) + 0.5) * nav.cellM; }
   }
-  if (start < 0 || goal < 0) return null;
+  if (goal < 0) return null;
   const gc = goal % C, gr = (goal - gc) / C;
   // Weighted A*: the heuristic is scaled above the admissible minimum (HEURISTIC_WEIGHT x a 1.0-cost cell),
   // which cuts the search on 2 km maps several-fold; routes are at most ~10 % costlier than optimal.
@@ -330,21 +375,28 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
 
 /**
  * Turn a cell path into few waypoints: from each anchor, jump to the farthest later cell whose straight line
- * from the anchor crosses only passable, wall-free cells no costlier than the route it replaces.
+ * from the anchor crosses no blocked or wall cell and costs no more than the part of the route it replaces.
  */
 function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: number, gy: number): number[] {
   const C = nav.cols, m = nav.cellM;
   const cx = (i: number) => ((i % C) + 0.5) * m, cy = (i: number) => (Math.floor(i / C) + 0.5) * m;
+  // Cumulative route cost (metres at nominal speed) up to each cell, as A* counted it.
+  const cum = new Float64Array(cells.length);
+  for (let j = 1; j < cells.length; j++) {
+    const a = cells[j - 1]!, b = cells[j]!;
+    const diag = a % C !== b % C && Math.floor(a / C) !== Math.floor(b / C);
+    cum[j] = cum[j - 1]! + (diag ? SQRT2 : 1) * m * 0.5 * (nav.cost[a]! + nav.cost[b]!);
+  }
   const out: number[] = [];
   let ax = sx, ay = sy, a = 0;
   while (a < cells.length - 1) {
-    let maxCost = 0;
     let best = a + 1;
+    let fails = 0;
     for (let j = a + 1; j < cells.length; j++) {
-      maxCost = Math.max(maxCost, nav.cost[cells[j]!]!);
       const tx = j === cells.length - 1 ? gx : cx(cells[j]!), ty = j === cells.length - 1 ? gy : cy(cells[j]!);
-      if (clearLine(nav, ax, ay, tx, ty, maxCost)) best = j;
-      else if (j > best + 8) break; // far past the last clear point: stop looking
+      const c = lineCost(nav, ax, ay, tx, ty);
+      if (c >= 0 && c <= (cum[j]! - cum[a]!) * 1.02 + m) { best = j; fails = 0; }
+      else if (++fails > 8) break; // far past the last good shortcut: stop looking
     }
     const tx = best === cells.length - 1 ? gx : cx(cells[best]!), ty = best === cells.length - 1 ? gy : cy(cells[best]!);
     out.push(tx, ty);
@@ -354,18 +406,45 @@ function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: numbe
   return out;
 }
 
-/** Does the straight line stay on passable, wall-free cells with cost <= maxCost (+1 %)? */
-export function clearLine(nav: NavGrid, ax: number, ay: number, bx: number, by: number, maxCost: number): boolean {
+/**
+ * Walk every cell a straight line passes through (grid traversal, including both cells beside an exact corner
+ * crossing). Returns the line's cost (metres x cell cost), or -1 if it touches a blocked or wall cell or leaves
+ * the grid. Corner crossings are refused if either side cell is blocked or a wall, as in A*.
+ */
+export function lineCost(nav: NavGrid, ax: number, ay: number, bx: number, by: number): number {
+  const m = nav.cellM, C = nav.cols;
+  let c = Math.floor(ax / m), r = Math.floor(ay / m);
+  const ec = Math.floor(bx / m), er = Math.floor(by / m);
+  const ok = (cc: number, rr: number) => cc >= 0 && rr >= 0 && cc < C && rr < nav.rows && nav.cost[rr * C + cc]! > 0 && nav.wall[rr * C + cc] !== 1;
+  if (!ok(c, r)) return -1;
   const dx = bx - ax, dy = by - ay;
   const len = sqrt(dx * dx + dy * dy);
-  const steps = Math.max(1, Math.ceil(len / (nav.cellM * 0.4)));
-  for (let s = 0; s <= steps; s++) {
-    const x = ax + (dx * s) / steps, y = ay + (dy * s) / steps;
-    const c = Math.floor(x / nav.cellM), r = Math.floor(y / nav.cellM);
-    if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) return false;
-    const i = r * nav.cols + c;
-    const k = nav.cost[i]!;
-    if (k <= 0 || nav.wall[i] === 1 || k > maxCost * 1.01) return false;
+  if (len === 0) return 0;
+  const stepC = dx > 0 ? 1 : -1, stepR = dy > 0 ? 1 : -1;
+  const tDeltaX = dx !== 0 ? Math.abs(m / dx) : Infinity, tDeltaY = dy !== 0 ? Math.abs(m / dy) : Infinity;
+  let tMaxX = dx !== 0 ? ((dx > 0 ? (c + 1) * m : c * m) - ax) / dx : Infinity;
+  let tMaxY = dy !== 0 ? ((dy > 0 ? (r + 1) * m : r * m) - ay) / dy : Infinity;
+  let t = 0, cost = 0;
+  for (let guard = 0; guard < 100000; guard++) {
+    const tNext = Math.min(tMaxX, tMaxY, 1);
+    cost += (tNext - t) * len * nav.cost[r * C + c]!;
+    t = tNext;
+    if (t >= 1 || (c === ec && r === er)) {
+      if (t < 1) cost += (1 - t) * len * nav.cost[r * C + c]!;
+      return cost;
+    }
+    if (Math.abs(tMaxX - tMaxY) < 1e-12) {
+      // Exactly through a corner: both side cells must be open (no squeezing between two wall cells).
+      if (!ok(c + stepC, r) || !ok(c, r + stepR)) return -1;
+      c += stepC; r += stepR; tMaxX += tDeltaX; tMaxY += tDeltaY;
+    } else if (tMaxX < tMaxY) { c += stepC; tMaxX += tDeltaX; }
+    else { r += stepR; tMaxY += tDeltaY; }
+    if (!ok(c, r)) return -1;
   }
-  return true;
+  return -1;
+}
+
+/** Does the straight line stay on passable, wall-free cells (every cell it crosses)? */
+export function clearLine(nav: NavGrid, ax: number, ay: number, bx: number, by: number): boolean {
+  return lineCost(nav, ax, ay, bx, by) >= 0;
 }

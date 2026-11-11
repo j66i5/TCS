@@ -76,4 +76,27 @@ describe("navigation on generated maps", () => {
       void heightAt;
     }
   });
+
+  it("many units given repeated long orders never put a man inside a building (review finding)", () => {
+    const input = demoBattle(data, { seed: 3, factions: ["de", "ru"], mapKind: "village", unitsPerSide: 12, timeLimitSeconds: 200 });
+    const sim = createSim(input);
+    const units = [...sim.state.unit.entries()].filter(([, u]) => u.parent === null).map(([id, u]) => ({ id, side: u.side }));
+    let k = 0;
+    for (let t = 0; t < 60 * 200; t++) {
+      if (t % (60 * 30) === 0) {
+        for (const u of units) {
+          k++;
+          const x = 100 + ((k * 7919) % 1800), y = 100 + ((k * 104729) % 1800);
+          submitOrder(sim, { tick: sim.state.tick, issuer: u.side, target: u.id, kind: "move", waypoints: [{ x, y, mode: "run" }] });
+        }
+      }
+      step(sim);
+      if (t % 6 === 0) {
+        for (const [id] of sim.state.identity.entries()) {
+          const p = sim.state.transform.req(id);
+          expect(buildingAt(input.map, p.x, p.y), `soldier ${id} inside a building at tick ${t}`).toBeNull();
+        }
+      }
+    }
+  });
 });

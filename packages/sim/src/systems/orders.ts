@@ -174,14 +174,16 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   const shifted = route.map((w) => ({ ...w, x: w.x + ox, y: w.y + oy }));
   let px = x, py = y, parallel = true;
   for (const w of shifted) {
-    if (!clearLine(grid, px, py, w.x, w.y, Infinity)) { parallel = false; break; }
+    if (!clearLine(grid, px, py, w.x, w.y)) { parallel = false; break; }
     px = w.x; py = w.y;
   }
   if (parallel) return shifted;
   // Otherwise join the reference route, follow it, and leave it for his own spot at the end.
   const out: Waypoint[] = [];
-  const join = findPath(search, x, y, first.x, first.y, { maxExpansions: 3000 });
-  if (join) for (let i = 0; i + 2 < join.points.length; i += 2) out.push({ ...first, x: join.points[i]!, y: join.points[i + 1]! });
+  // Join the route: a quick bounded search first, then a full one. Never an unchecked straight line.
+  const join = findPath(search, x, y, first.x, first.y, { maxExpansions: 3000 }) ?? findPath(search, x, y, first.x, first.y);
+  if (!join) return []; // cannot reach the route at all: he stays where he is
+  for (let i = 0; i + 2 < join.points.length; i += 2) out.push({ ...first, x: join.points[i]!, y: join.points[i + 1]! });
   for (const w of route) out.push({ ...w });
   const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });

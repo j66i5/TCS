@@ -24,5 +24,6 @@
   "rank.ru.leytenant": "Leytenant",
   "rank.ru.leytenant.abbr": "Lt.",
   "rank.ru.starshiy-leytenant": "Starshiy leytenant",
-  "rank.ru.starshiy-leytenant.abbr": "St. lt."
+  "rank.ru.starshiy-leytenant.abbr": "St. lt.",
+  "radio.noRoute": "{callsign}: cannot get through there, holding position."
 }

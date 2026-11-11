@@ -42,20 +42,20 @@ Proposed slices (to confirm at the start of M1):
 Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
 motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
-### M2 Ballistics and wounds — ⏳ next
+### M2 Ballistics and wounds — 🔨 in progress (M2.1 done)
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,
 small arms and grenades for both factions.
 Acceptance: firing range, cover and fragmentation labs produce plausible tables; performance floor holds
 with 20,000 projectiles.
 
 Slices (planned 2026-11-11; owner decisions in DECISIONS.md):
-1. ⏳ **M2.1 Projectile engine** — weapon and ammunition data format (one researched rifle and its
+1. ✅ **M2.1 Projectile engine** (2026-11-11) — weapon and ammunition data format (one researched rifle and its
    cartridge per side to start); projectiles in typed-array pools (no per-tick allocation); flight with drag
    and gravity; swept tests against ground, walls, hedges, buildings and vegetation; penetration by material and
    thickness with energy loss; ricochet by angle and hardness; impact events; tracer and faint-bullet drawing;
    **cover lab** (penetration by material and thickness); benchmark with 20,000 live projectiles and the
    performance floor re-baselined. No one is hurt yet: bullets pass through people.
-2. **M2.2 The shooter** — weapon handling: fire modes, cyclic rate, rounds drawn from counted magazines, reload
+2. ⏳ **M2.2 The shooter** — weapon handling: fire modes, cyclic rate, rounds drawn from counted magazines, reload
    as an interruptible action, jams; aiming error from skill, fatigue, heart rate, posture, bracing, aiming
    time, target movement and range estimation, combined with weapon dispersion (no hit tables); a minimal
    "fire at point" order; muzzle flash and shot events; **firing range lab** (hit rates by range, posture,

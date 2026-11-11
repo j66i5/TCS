@@ -339,3 +339,47 @@ grenades and 40 mm / under-barrel grenade launchers (shoulder-fired anti-tank we
 roadmap says); friendly fire is on, because hits come from geometry (pillar 2); firing in M2 is driven by a
 minimal "fire at point" order and lab scripts — target choice and fire discipline are M4; near-miss events are
 emitted from M2 but only become suppression in M4.
+
+## 2026-11-11 — Research from public sources (owner request) and how it is used
+The owner asked for real-world research for both the ballistics and the squad organisations. Two research
+tasks searched public sources (manufacturer data, bundeswehr.de, mil.ru, US Army field manuals on public sites,
+forensic ballistics papers, defence journalism, Wikipedia). **Limit: the pages themselves could not be opened
+from the development environment; all values come from search-result extracts**, so the data built on them is
+marked `confidence: "medium"` at best and the tables need re-checking when the pages can be read. Results:
+`docs/research/ballistics.md` (used in M2.1) and `docs/research/squads.md` (input for the owner's squad tables
+before M2.5; sources conflict on several points, listed there).
+
+## 2026-11-11 — M2.1 projectile engine: model choices
+**Storage:** projectiles live in typed arrays in the state (`state.projectiles`), saved as plain arrays of the
+live rows; removal moves the last row into the gap (deterministic). Projectile height is absolute (same datum as
+the terrain). **Flight:** drag with a speed-dependent coefficient Cd(v) = a + b/v (capped), fitted per bullet to
+published downrange velocities — a constant coefficient could not match them (real drag rises as a bullet slows
+toward the speed of sound); result within 3 % of the published 5.56 mm table at 100–500 m. Air density follows
+temperature; drag is relative to the wind (zero for now). **Collisions:** each tick the straight path is tested
+against the ground, wall segments (obstacles and building walls, with doors and windows open) and vegetation
+(chance per metre of being stopped). A coarse 8 m grid of highest ground, highest vegetation and "wall nearby"
+lets most bullets skip the tests. **Penetration:** each bullet has a published steel-penetration figure at a
+speed (5.56 mm: 3.5 mm at ~425 m/s; 7N10: 16 mm at ~805 m/s), scaled by speed^1.5; each material has a
+resistance in mm of steel per mm, set from published norms (brick, concrete, wood, sand); a wall struck at an
+angle is thicker along the path; passing costs energy in proportion and deflects the bullet a little.
+**Ricochet:** each material has a largest ricochet angle from forensic studies (concrete ~12°, wood ~11°, sheet
+metal ~20°, soil ~8°, water ~7°); the chance falls linearly from grazing to that angle; 55–90 % of speed kept.
+**Not yet:** people are not hit (M2.3), roofs are not modelled (M2.4), terrain damage is not created (M2.4).
+Known simplifications: bullets do not break up at very close range (the US manual notes reduced penetration
+under 25 m), and brick is set between the Russian norm (5.45 mm passes 10–12 cm) and the US finding (brick
+veneer stops 5.56 mm). Rejected: constant drag coefficient; G1/G7 standard drag tables (more code, no visible
+gain at these ranges); per-bullet objects (allocation, slower).
+
+## 2026-11-11 — Performance with 20,000 live projectiles: 7x here, target 8x
+The benchmark battle (304 soldiers) with 20,000 bullets kept in the air runs at about 7x real time on the
+development container (6.8–7.4 over runs; 2.3 ms per tick, ~110 ns per bullet). The SPEC target is 8x on a
+laptop, which is likely met on a current laptop but is not demonstrated here. The test floor is 3x, because CI
+machines are roughly half as fast. Optimisations done: coarse rejection grid, wall tests only near walls, loop
+constants and imported functions held in locals. Next options if needed (M2.4, when fragments multiply
+projectiles): statistical level of detail for fragments far from anyone (allowed by the SPEC), and splitting the
+loop by projectile kind.
+
+## 2026-11-11 — Screenshot-only volley hook
+To check projectile drawing before soldiers can shoot (M2.2), the app's debug object has `debugVolley`, used
+only by the screenshot tool. It bypasses orders on purpose, is not reachable from the game's controls, and is to
+be removed when the fire order exists. Recorded because it is an exception to "orders are the only input".

@@ -126,6 +126,27 @@ formation next to the leader's route, goes round walls and houses where his line
 down or hurries to keep his place. When the squad stops, every man looks for the best cover within about 15 m of
 his place, goes there, lies down and faces outward. Zoomed far out, each unit is shown as one symbol.
 
+## Bullets
+
+Every bullet in flight is its own object with a position, a height and a velocity. Sixty times a second each
+one is slowed by the air (more strongly as it gets slower, as real bullets are — the numbers are fitted to
+published velocity tables), pulled down by gravity, and moved along. The straight stretch it covers in that
+sixtieth of a second (up to 15 m) is checked against the ground, walls, fences, hedges, embankments and house
+walls, so a fast bullet can never jump over a thin wall. Doors and windows let bullets through; woods and scrub
+stop a bullet now and then.
+
+At a wall three things can happen. If it strikes at a shallow angle it may **ricochet** (each material has its
+own largest ricochet angle: sheet metal about 20°, concrete 12°, soil 8°). Otherwise it **penetrates** if it
+still has enough punch for that material and thickness — every bullet has a published steel-penetration figure
+that shrinks as it slows, and every material is worth so many millimetres of steel per millimetre (a wall hit
+at a slant is thicker along the bullet's path); going through costs speed and bends its path slightly.
+Otherwise it **stops**. Example from the cover lab: a 5.56 mm bullet passes a hedge, a wooden fence, a car door
+and a 41 cm log wall, but is stopped by a single brick wall, 5 cm of concrete or a row of sandbags; the Russian
+steel-core 5.45 mm bullet also gets through a single brick wall at close range, but not at 300 m.
+
+Tracer rounds are drawn as clear orange streaks, all other bullets as very faint ones, and every strike leaves a
+small puff. Nobody can shoot yet and nobody is hit yet: those are the next two slices.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -155,7 +176,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 154 automated tests, including:
+- `npm test` runs 174 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

@@ -298,6 +298,26 @@ tick: exertion from mover mode, load, uphill grade; heat from `environment.tempe
 items). Movement speed factors in `systems/movement.ts`. Order `{ kind: "posture", posture }`. Event
 `posture.changed`. Lab: `tools/src/labs/movement.ts`.
 
+## 16c. Projectiles and ballistics (SPEC 6.3) — `sim/src/projectiles.ts`, `ballistics.ts`, `systems/ballistics.ts`
+
+```ts
+interface ProjectilePool { count; x, y, z, vx, vy, vz: Float64Array; ammo: Uint16Array; owner, bornTick: Int32Array }
+// state.projectiles; z is ABSOLUTE height; rows [0, count) are live; removal swaps in the last row
+launchProjectile(ctx, state, ammoId, x, y, z, vx, vy, vz, owner)      // internal: weapon systems (M2.2)
+projectileSystem(ctx, state, events)                                  // every tick, after physiology
+event: { kind: "impact", x, y, z, surface: "ground"|"obstacle"|"building"|"vegetation",
+         result: "stopped"|"penetrated"|"ricochet", material, ammo, owner }
+```
+
+Data: `core/ballistics.json` (gravity, air density, penetration exponent, ricochet/deflection parameters);
+per faction `ammunition.json` (mass, diameter, drag {a, b, max}, penetration {steelMm, atVelocityMps}, tracer,
+kind/fuse/guidance enums from SPEC 6.3, explosive block for M2.4) and `weapons.json` (type, calibre, feed
+magazine, fire modes, cyclic rate, dispersion, reload/set-up times, jam chance, sights, muzzle velocity per
+ammunition). Every ammunition entry is also a counted item (rule 9). `catalog.ammoIds` gives the index stored
+per projectile. Derived per battle (`ctx.ballistics`, never saved): 8 m grids of highest ground, highest
+vegetation and "wall nearby"; per wall segment height/thickness/material/openings; per material resistance and
+ricochet threshold; per ammunition drag and penetration numbers. Lab: `tools/src/labs/cover.ts`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -310,21 +330,21 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 4.3.3 | Orders are the only external input | orders.ts, run.ts, `SimView` | ✅ | `determinism.test.ts` "controllers do not change simulation state"; read-only `SimView` type for controllers and renderer. (`startAction` is internal: no order starts an action until M4 adds ammunition hand-over.) |
 | 4.3.4 | Whole state serialisable; save/load continues identically | state.ts, run.ts | ✅ | `sim/test/state.test.ts` (round trip, NaN, -0, data fingerprint); determinism "mid-battle save", "future orders", "AI-vs-AI resumes" |
 | 4.3.5 | Event stream for all consumers | events.ts | ✅ (M0 kinds) | `sim/test/orders.test.ts` |
-| 4.3.6 | Entities as IDs, component stores, typed-array pools for projectiles | store.ts | 🟡 pools in M2 | `sim/test/state.test.ts` (ordering) |
+| 4.3.6 | Entities as IDs, component stores, typed-array pools for projectiles | store.ts, projectiles.ts | ✅ | `sim/test/state.test.ts` (ordering), `sim/test/ballistics.test.ts` "projectiles are battle state" |
 | 4.3.7 | SI units inside the sim | all sim types | ✅ by convention | review |
 | 4.3.8 | No faction in code; fixture faction runs a battle | data, scenario | ✅ | `tools/test/fixture-faction.test.ts`, `architecture.test.ts` |
 | 4.3.9 | Counted items in containers, generic transfer | items.ts | ✅ | `sim/test/items.test.ts` |
 | 4.3.10 | Wounds are records; casualties persist as entities | wounds.ts, components.ts | 🟡 M2 | (M2: casualty lab) |
 | 4.3.11 | Battle is a function; roster in/out | battle.ts, run.ts, setup.ts | ✅ | `fixture-faction.test.ts` (forcesOut), determinism.test.ts |
 | 4.3.12 | Player text through string table | strings.ts, events carry keys | ✅ | `fixture-faction.test.ts` (radio phrasing) |
-| 4.4 | Performance floor (headless ≥ 8× real time on benchmark) | perf.test.ts | ✅ (movement only) | `tools/test/perf.test.ts` |
+| 4.4 | Performance floor (headless ≥ 8× real time on benchmark) | perf.test.ts, perf-projectiles.test.ts | 🟡 soldiers only: ✅ (~22×); with 20,000 projectiles ~7× here, floor 3× | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` |
 | 9.1 | Time-stepped physiology with data-driven rates behind a swappable model | wounds.ts | 🟡 M2 | — |
 | 9.1 | Actions with duration that can be interrupted | actions.ts | ✅ | `sim/test/orders.test.ts` "actions with duration" |
 | 9.1 | Skills per soldier | SoldierState.skills, force builder | ✅ | `fixture-faction.test.ts` |
 | 9.1 | Carrying as a movement mode involving several soldiers | — | ⬜ M4/M10 | — |
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
-| 9.2 | Weapons consume specific item types; no free ammunition | — | ⬜ M2 | (M2: firing range lab) |
+| 9.2 | Weapons consume specific item types; no free ammunition | data: weapon → magazine → ammunition items | 🟡 data and loader checks ✅; consumption in M2.2 | `data/test/loader.test.ts`; (M2.2: firing range lab) |
 | 9.2 | Vehicles have fuel and component states | — | ⬜ M7 | — |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |

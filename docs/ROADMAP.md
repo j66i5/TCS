@@ -8,19 +8,19 @@ Status: ✅ done · 🔨 in progress · ⏳ next · ⬜ not started
 
 ## Stage A — foundations
 
-### M0 Bootstrap — ✅ done (merged; live once GitHub Pages is enabled, see STATE.md)
+### M0 Bootstrap — ✅ done (live at https://j66i5.github.io/TCS/)
 Repository, tooling, CI, deployment, documents, simulation loop with seeded randomness, serialisable state,
 order interface, event stream, determinism test, headless runner, an app page showing a moving dot driven
 by the simulation.
 
 Acceptance:
-- [ ] the deployed URL works on a phone — *waiting for the owner to enable GitHub Pages (STATE.md)*
+- [x] the deployed URL works on a phone — deploy job green on 2026-11-11; the owner to confirm on his phone
 - [x] the determinism test passes (`packages/tools/test/determinism.test.ts`, incl. mid-battle save)
 - [x] the fixture-faction loader test exists (`packages/tools/test/fixture-faction.test.ts`)
 
 Slices: M0.1 (this session) — everything above in one slice.
 
-### M1 Map and movement — ✅ done (M1.1–M1.4; deploy pending GitHub Pages)
+### M1 Map and movement — ✅ done (M1.1–M1.4)
 Heightfield, terrain layers, procedural test maps, pathfinding, soldiers with postures and fatigue, squads in
 formation, camera and zoom, first order (move).
 Acceptance: a squad crosses a generated village map choosing covered routes; movement lab passes.

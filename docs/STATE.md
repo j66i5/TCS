@@ -72,9 +72,9 @@ casualties, friendly fire, casualty lab for the owner's review).
 - The map kinds' recipes are code (they name terrain IDs); terrain *properties* are data. See DECISIONS.md.
 - German/Russian unit templates, roles and doctrine are still placeholders (low confidence).
 
-## Blocked / needs the owner
-1. **Enable GitHub Pages once**: *Settings → Pages → Source: GitHub Actions*, then re-run the latest CI run on
-   `main` (or ask Claude). Until then https://j66i5.github.io/TCS/ does not exist.
+## Live build
+https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge (first successful deploy
+2026-11-11, after the owner enabled GitHub Pages with source "GitHub Actions").
 
 ## Answered by the owner (2026-11-11)
 - First squads: German **Panzergrenadier dismounts of a Puma**; Russian **motor-rifle squad on a BMP**.

@@ -76,8 +76,10 @@ closing the yard, garden, orchard at the back, a wall or fence with a gate in fr
 church with a walled churchyard, maybe a pond and a few apartment blocks; then fills the rest with long field
 strips (stubble, crops, ploughed, meadow) with hedges, tree lines and field tracks, and woods where a noise
 pattern is high. Woodland-edge, farmland and industrial maps follow the same idea with their own recipes.
-Every generated map is checked: no buildings overlap or stand on roads or in water, every road joins the
-network, and the amounts of buildings, woods and fields are in a plausible range for its kind.
+Every generated map is checked: no buildings overlap or touch a road or water, no wall, fence or hedge
+crosses a road (a road always cuts a gate through them), every group of roads reaches the map edge, and the
+amounts of buildings, woods and fields are in a plausible range for its kind. The tests check 48 maps; the
+`npm run map -- --all --seeds 40` tool checks 160.
 
 **Drawing the map.** The ground is painted once into one picture: colours blended between neighbouring cells
 so edges look natural, tree crowns in woods, rows of trees in orchards, light and shade on slopes (light from
@@ -117,7 +119,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 88 automated tests, including:
+- `npm test` runs 124 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

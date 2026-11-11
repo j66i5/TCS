@@ -74,7 +74,10 @@ describe("map file format", () => {
 
   it("rejects corrupt files", () => {
     const f = mapToFile(smallMap());
-    expect(() => mapFromFile({ ...f, cols: 11 })).toThrow(/samples/);
+    expect(() => mapFromFile({ ...f, cols: 11 })).toThrow(/does not cover/);
+    const m = smallMap();
+    m.cols = 8;
+    expect(validateMap(m, testCatalog.terrain)[0]).toMatch(/does not cover/);
   });
 });
 

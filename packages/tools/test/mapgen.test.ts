@@ -7,7 +7,8 @@ import { loadData } from "../src/scenarios";
 
 const data = loadData();
 const terrain = buildCatalog(data, ["de", "ru"]).terrain;
-const SEEDS = [1, 2, 3];
+/** 12 seeds per kind: a generator bug that shows up in ~5 % of maps is caught with high probability. */
+const SEEDS = Array.from({ length: 12 }, (_, i) => i + 1);
 const share = (r: Record<string, number>, ...ids: string[]) => ids.reduce((s, id) => s + (r[id] ?? 0), 0);
 
 /** Plausibility bands per map kind. */

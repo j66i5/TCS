@@ -14,7 +14,7 @@
  * stored in the state and checked when a save is loaded.
  */
 import type { DefId } from "./ids";
-import { hashText } from "./hash";
+import { canonicalJson, hashText } from "./hash";
 
 export const MAX_MAP_SIZE_M = 4000;
 export const MAP_FORMAT_VERSION = 1;
@@ -167,6 +167,9 @@ export function mapFromFile(f: MapFile): MapDef {
   if (f.format !== "tcs-map" || f.formatVersion !== MAP_FORMAT_VERSION) {
     throw new Error(`not a TCS map file of format version ${MAP_FORMAT_VERSION}`);
   }
+  if (f.cols !== Math.ceil(f.widthM / f.cellSizeM) || f.rows !== Math.ceil(f.heightM / f.cellSizeM)) {
+    throw new Error(`map '${f.id}': grid ${f.cols} x ${f.rows} does not cover ${f.widthM} x ${f.heightM} m in ${f.cellSizeM} m cells`);
+  }
   const hb = fromBase64(f.heights);
   const n = (f.cols + 1) * (f.rows + 1);
   if (hb.length !== n * 4) throw new Error(`map '${f.id}': heights have ${hb.length / 4} samples, expected ${n}`);
@@ -188,7 +191,7 @@ export function mapFromFile(f: MapFile): MapDef {
 
 /** Content hash of a map (same map <=> same fingerprint). */
 export function mapFingerprint(m: MapDef): string {
-  return hashText(JSON.stringify(mapToFile(m)));
+  return hashText(canonicalJson(mapToFile(m)));
 }
 
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

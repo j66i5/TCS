@@ -23,8 +23,9 @@ _Last updated: 2026-11-11, session 1 (M0 done; M1 slice M1.1 done)._
     hedges, walls, fences, buildings with roofs and shadows.
   - App: `?map=village|woodland|farmland|industrial|flat&seed=N`, a map button that cycles kinds, start view
     centred on your team.
-- Tests: 88, all green (incl. 12 generated-map validity/plausibility checks, determinism of maps, map file
-  round trip, terrain damage save/load). Benchmark 203× real time.
+- Tests: 124, all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+  file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
+  check after the independent review's fixes. Benchmark ~200× real time.
 
 ## What is weak or missing (honest list)
 - **Soldiers ignore the terrain**: they still walk in straight lines, through houses, woods and ponds.

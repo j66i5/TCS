@@ -11,14 +11,16 @@ import {
   addObstacleAvoiding, angleOf, meander, paintFields, paintRelief, paintTreeline, paintWoods, ray,
 } from "./landscape";
 import { fbm } from "./noise";
+import { EDGE_TOL } from "./stats";
 import { apartmentBlocks, church, farmstead, plotsAlongRoad } from "./settlement";
 
 const R = "mapgen/kinds";
 
 /** Is a point on the road network (near a road) or at the map edge? */
 function joinsNetwork(b: MapBuilder, x: number, y: number): boolean {
-  if (x <= 2 || y <= 2 || x >= b.widthM - 2 || y >= b.heightM - 2) return true;
-  return b.map.roads.some((r) => distToPolyline(x, y, r.points) < r.widthM / 2 + 4);
+  if (x <= EDGE_TOL || y <= EDGE_TOL || x >= b.widthM - EDGE_TOL || y >= b.heightM - EDGE_TOL) return true;
+  // Same rule as checkMap: within both half-widths plus 2 m of another road (field tracks are 3 m wide).
+  return b.map.roads.some((r) => distToPolyline(x, y, r.points) < r.widthM / 2 + 1.5 + 2);
 }
 
 function hedgesAndTracks(b: MapBuilder, f: ReturnType<typeof paintFields>): void {
@@ -40,8 +42,13 @@ function hedgesAndTracks(b: MapBuilder, f: ReturnType<typeof paintFields>): void
   for (const h of f.hedges) addObstacleAvoiding(b, "hedge", h, avoid);
 }
 
-function pond(b: MapBuilder, x: number, y: number, r: number, seed: number): void {
-  b.addPond(blob(x, y, r, 14, (i) => (fbm(i * 0.4, 0.5, seed, 2) - 0.5) * 0.5), nextRange(b.rng, R, 1.5, 3));
+/** A pond near (x, y): tries a few spots and gives up if every one touches a building or road. */
+function pond(b: MapBuilder, x: number, y: number, r: number, seed: number): boolean {
+  for (let k = 0; k < 8; k++) {
+    const px = x + (k === 0 ? 0 : nextRange(b.rng, R, -80, 80)), py = y + (k === 0 ? 0 : nextRange(b.rng, R, -80, 80));
+    if (b.addPond(blob(px, py, r, 14, (i) => (fbm(i * 0.4, 0.5, seed, 2) - 0.5) * 0.5), nextRange(b.rng, R, 1.5, 3))) return true;
+  }
+  return false;
 }
 
 /** Try several spots near the village centre (both sides of the main road) until a church fits. */
@@ -86,7 +93,6 @@ export function village(b: MapBuilder, seed: number): string {
     const sq = rect(centre.x, centre.y + 30, 55, 45, angleOf(centre.tx, centre.ty));
     b.paintSurface(sq, "gravel");
     b.reserve(sq);
-    placeChurch(b, main, sc, 70);
     const lanes = 3 + nextInt(b.rng, R, 3);
     const lanePts: Coords[] = [];
     for (let k = 0; k < lanes; k++) {
@@ -95,6 +101,7 @@ export function village(b: MapBuilder, seed: number): string {
       b.addRoad(lane, 4, chance(b.rng, R, 0.5) ? "asphalt" : "dirt-track");
       lanePts.push(lane);
     }
+    placeChurch(b, main, sc, 70); // after the lanes, so no lane runs through the church
     for (const side of [1, -1] as const) plotsAlongRoad(b, main, sc - radius, sc + radius, side, plots);
     for (const lane of lanePts) for (const side of [1, -1] as const) plotsAlongRoad(b, lane, 35, 400, side, { ...plots, roadWidthM: 4, depthM: [50, 85] });
     for (const side of [1, -1] as const) plotsAlongRoad(b, crossN, 40, radius, side, { ...plots, roadWidthM: 5, depthM: [50, 80] });
@@ -213,7 +220,8 @@ export function industrial(b: MapBuilder, seed: number): string {
 
   // Road grid.
   const midY = (zy0 + zy1) / 2;
-  const main = meander(b, seed + 1, "west", midY, 25, 900, 40);
+  // Straight main road: the lot rectangles and their fences are laid out against it.
+  const main: Coords = [0, midY, W, midY];
   b.addRoad(main, 8, "asphalt");
   const nx = 3 + nextInt(b.rng, R, 2);
   const xs: number[] = [];

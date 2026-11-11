@@ -201,3 +201,16 @@ The headless `demo` scenario now runs on a generated 2 km village and the benchm
 golden replays and the performance floor exercise map loading. The flat map stays available as `demo-flat`.
 Golden replays were regenerated (intended: new map, new terrain data in the catalog). Benchmark: 203x real
 time (was 463x on the flat map; the difference is building the map index and fingerprint per battle).
+
+## 2026-11-11 — Fixes from the independent M1.1 review (goldens regenerated)
+The reviewer found that 9 of 160 generated maps (40 seeds x 4 kinds) broke the generator's own rules and that
+the checks were too weak to notice more. Fixed: ponds are only placed where they touch no building or road
+(several spots tried); industrial main road runs straight so lot fences no longer cross it; every road cuts a
+gap in walls, fences and hedges it crosses, in whichever order they were added (railway embankments excepted);
+building placement also tests the exact road outline, not just the 4 m cells; clustered villages lay their lanes
+before the church; generator and validator use the same "reaches the map edge" tolerance. The validity check
+(`checkMap`) is now strict: building corners (not only centres) against roads and water, walls/fences/hedges
+crossing roads, and road-network connectivity by groups. Result: **160 of 160 maps valid**; the tests cover 12
+seeds per kind. Map files and `validateMap` now reject grids that do not match the map size; the map
+fingerprint uses canonical JSON. Hard-coded terrain IDs in the generator and renderer ("floor", water kinds,
+woodland/orchard/scrub drawing) were reviewed and kept (see "Generator uses terrain IDs by name").

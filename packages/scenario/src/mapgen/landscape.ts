@@ -166,12 +166,19 @@ export function addObstacleAvoiding(b: MapBuilder, kind: string, line: Coords, a
       const cell = r * b.cols + c;
       const blocked = c < 0 || r < 0 || c >= b.cols || r >= b.rows
         || (b.occ[cell]! & (OCC_ROAD | OCC_WATER | OCC_BUILDING | OCC_RESERVED)) !== 0
-        || avoidVeg.includes(b.vegetation[cell]!);
+        || avoidVeg.includes(b.vegetation[cell]!)
+        || nearRoad(b, x, y);
       if (blocked) flush();
       else cur.push(x, y);
     }
   }
   flush();
+}
+
+/** Exact test against road outlines (the cell grid can miss a thin diagonal crossing). */
+function nearRoad(b: MapBuilder, x: number, y: number): boolean {
+  for (const r of b.map.roads) if (distToPolyline(x, y, r.points) < r.widthM / 2 + 1.5) return true;
+  return false;
 }
 
 function segLen(c: Coords): number {

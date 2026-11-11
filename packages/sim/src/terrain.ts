@@ -5,7 +5,7 @@
  */
 import type { MovementClass, TerrainCatalog } from "./catalog";
 import type { DefId } from "./ids";
-import type { MapDef } from "./map";
+import { MAX_MAP_SIZE_M, type MapDef } from "./map";
 
 /** Index of the cell containing (x, y), or -1 outside the map. */
 export function cellIndex(m: MapDef, x: number, y: number): number {
@@ -143,6 +143,11 @@ export function buildingAt(m: MapDef, x: number, y: number): number | null {
 /** Check a map against the catalog: sizes consistent, every referenced data ID known. Returns problems. */
 export function validateMap(m: MapDef, t: TerrainCatalog): string[] {
   const p: string[] = [];
+  if (!(m.cellSizeM >= 2 && m.cellSizeM <= 5)) p.push(`cell size ${m.cellSizeM} m is outside 2..5 m`);
+  if (!(m.widthM > 0 && m.heightM > 0 && m.widthM <= MAX_MAP_SIZE_M && m.heightM <= MAX_MAP_SIZE_M)) p.push(`map size ${m.widthM} x ${m.heightM} m is outside 0..${MAX_MAP_SIZE_M} m`);
+  if (m.cols !== Math.ceil(m.widthM / m.cellSizeM) || m.rows !== Math.ceil(m.heightM / m.cellSizeM)) {
+    p.push(`grid ${m.cols} x ${m.rows} does not cover ${m.widthM} x ${m.heightM} m in ${m.cellSizeM} m cells`);
+  }
   if (m.heights.length !== (m.cols + 1) * (m.rows + 1)) p.push("heights length does not match grid");
   if (m.surface.length !== m.cols * m.rows) p.push("surface length does not match grid");
   if (m.vegetation.length !== m.cols * m.rows) p.push("vegetation length does not match grid");

@@ -126,6 +126,7 @@ export class MapBuilder {
       this.occ[i]! |= OCC_ROAD;
     });
     this.map.roads.push({ id: this.id(), points: round(points), widthM, surface });
+    this.cutObstacles(points, widthM / 2 + 1.5);
   }
 
   addStream(points: Coords, widthM: number, depthM: number, bankVeg: string | null, bankM: number): void {
@@ -141,18 +142,70 @@ export class MapBuilder {
     this.map.water.push({ id: this.id(), kind: "stream", points: round(points), widthM, depthM });
   }
 
-  addPond(poly: Coords, depthM: number): void {
+  /** Add a pond unless it would touch a building or a road; returns whether it was added. */
+  addPond(poly: Coords, depthM: number): boolean {
+    let clear = true;
+    this.forPolygon(inflate(poly, 6), (i) => { if (this.occ[i]! & (OCC_BUILDING | OCC_ROAD)) clear = false; });
+    if (!clear) return false;
     const deep = this.sid("water-deep"), shallow = this.sid("water-shallow");
     this.forPolygon(inflate(poly, 3), (i) => { if (!(this.occ[i]! & OCC_ROAD)) { this.surface[i] = shallow; this.vegetation[i] = 0; this.occ[i]! |= OCC_WATER; } });
     this.forPolygon(poly, (i) => { if (!(this.occ[i]! & OCC_ROAD)) this.surface[i] = deep; });
     this.map.water.push({ id: this.id(), kind: "pond", points: round(poly), widthM: 0, depthM });
+    return true;
   }
 
   addObstacle(kind: string, points: Coords): void {
     const k = this.terrain.obstacles[kind];
     if (!k) throw new Error(`map generator uses unknown obstacle '${kind}'`);
     if (points.length < 4) return;
-    this.map.obstacles.push({ id: this.id(), kind, points: round(points), heightM: k.heightM, thicknessM: k.thicknessM, material: k.material });
+    // Existing roads cut the new obstacle, so no wall or fence ever runs across a road.
+    let parts: MapDef["obstacles"] = [{ id: this.id(), kind, points: round(points), heightM: k.heightM, thicknessM: k.thicknessM, material: k.material }];
+    for (const r of this.map.roads) parts = parts.flatMap((o) => this.splitByRoad(o, r.points, r.widthM / 2 + 1.5));
+    this.map.obstacles.push(...parts);
+  }
+
+  /**
+   * A new road cuts a gap (a gate) in every wall, fence or hedge it crosses. Railway embankments are left
+   * whole (the road passes under or over on a bridge).
+   */
+  private cutObstacles(road: Coords, halfGap: number): void {
+    const out: typeof this.map.obstacles = [];
+    for (const o of this.map.obstacles) out.push(...this.splitByRoad(o, road, halfGap));
+    this.map.obstacles = out;
+  }
+
+  /** Split one obstacle where it passes within `halfGap` of a road centre line. */
+  private splitByRoad(o: MapDef["obstacles"][number], road: Coords, halfGap: number): MapDef["obstacles"] {
+    const rb = bbox(road), ob = bbox(o.points);
+    if (o.kind === "embankment" || ob.x1 < rb.x0 - halfGap || ob.x0 > rb.x1 + halfGap || ob.y1 < rb.y0 - halfGap || ob.y0 > rb.y1 + halfGap) return [o];
+    const pieces: Coords[] = [];
+    let cur: Coords = [];
+    let last: [number, number] | null = null; // last sample outside the gap
+    let cut = false;
+    const flush = () => {
+      if (last && cur.length >= 2 && (cur[cur.length - 2] !== last[0] || cur[cur.length - 1] !== last[1])) cur.push(last[0], last[1]);
+      if (cur.length >= 4) pieces.push(cur);
+      cur = [];
+    };
+    for (let i = 0; i + 3 < o.points.length; i += 2) {
+      const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
+      const n = Math.max(1, Math.ceil(hypot2(bx - ax, by - ay) / 0.5));
+      for (let k = i === 0 ? 0 : 1; k <= n; k++) {
+        const x = ax + ((bx - ax) * k) / n, y = ay + ((by - ay) * k) / n;
+        if (distToPolyline(x, y, road) < halfGap) {
+          if (cur.length > 0) flush();
+          cut = true;
+          last = null;
+          continue;
+        }
+        // Keep piece starts and original corners; straight runs between them need no samples.
+        if (cur.length === 0 || k === n) cur.push(x, y);
+        last = [x, y];
+      }
+    }
+    if (cur.length >= 4) pieces.push(cur);
+    if (!cut) return [o];
+    return pieces.map((pc, k) => ({ ...o, id: k === 0 ? o.id : this.id(), points: round(pc) }));
   }
 
   /** True if a footprint (inflated by `margin`) is clear of roads, water, reserved cells and other buildings, and on the map. */
@@ -165,6 +218,17 @@ export class MapBuilder {
     this.forPolygon(grown, (i) => { if (this.occ[i]! & mask) ok = false; });
     if (!ok) return false;
     const gb = bbox(grown);
+    // Exact test against road outlines (the cell grid alone lets corners clip a road edge).
+    const probes: [number, number][] = [];
+    for (let k = 0; k < grown.length; k += 2) {
+      const j = (k + 2) % grown.length;
+      probes.push([grown[k]!, grown[k + 1]!], [(grown[k]! + grown[j]!) / 2, (grown[k + 1]! + grown[j + 1]!) / 2]);
+    }
+    for (const r of this.map.roads) {
+      const rb = bbox(r.points);
+      if (rb.x1 + r.widthM < gb.x0 || rb.x0 - r.widthM > gb.x1 || rb.y1 + r.widthM < gb.y0 || rb.y0 - r.widthM > gb.y1) continue;
+      if (probes.some(([x, y]) => distToPolyline(x, y, r.points) < r.widthM / 2 + 0.3)) return false;
+    }
     for (const p of this.placed) {
       const pb = bbox(p);
       if (pb.x1 < gb.x0 || pb.x0 > gb.x1 || pb.y1 < gb.y0 || pb.y0 > gb.y1) continue;

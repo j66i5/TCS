@@ -1,0 +1,74 @@
+{
+ "name": "fixture-s7",
+ "description": "Fixture faction vs DE, seed 7, 90 s",
+ "scenario": "demo-fixture",
+ "seed": 7,
+ "seconds": 90,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 185.11669848114252,
+     "y": 210.63558264635503,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 10,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 209.00564774870872,
+     "y": 150.949134696275,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 3600,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 277.4729060381651,
+     "y": 230.41892480570823,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 3600,
+   "issuer": "red",
+   "target": 10,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 140.037352591753,
+     "y": 237.4019358213991,
+     "mode": "walk"
+    }
+   ]
+  }
+ ],
+ "checkpoints": {
+  "600": "3b4432bd0c7c8c84",
+  "1200": "9778bdf2b40d0c31",
+  "1800": "4199359c3a290eef",
+  "2400": "fe4b20cde729fd77",
+  "3000": "89de18d6480c9e1f",
+  "3600": "dc5cd1940585c7b8",
+  "4200": "3e184a8741325ba1",
+  "4800": "202a9591439ffec7",
+  "5400": "d5d1e16679189765"
+ },
+ "catalogFingerprint": "345426eac9921466"
+}

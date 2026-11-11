@@ -1,0 +1,19 @@
+{
+  "roles": [
+    {
+      "id": "team-leader",
+      "nameKey": "role.ru.team-leader",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    },
+    {
+      "id": "rifleman",
+      "nameKey": "role.ru.rifleman",
+      "sources": [],
+      "confidence": "low",
+      "note": "M0 placeholder; replaced by researched organisation tables in M1/M2. Owner review needed."
+    }
+  ]
+}

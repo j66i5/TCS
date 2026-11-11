@@ -1,0 +1,11 @@
+{
+  "id": "de",
+  "kind": "faction",
+  "nameKey": "faction.de",
+  "formatVersion": 1,
+  "defaultQuality": "regular",
+  "sources": [
+    "https://www.bundeswehr.de/de/organisation/heer"
+  ],
+  "confidence": "high"
+}

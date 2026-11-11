@@ -1,0 +1,19 @@
+{
+  "roles": [
+    {
+      "id": "boss",
+      "nameKey": "role.xf.boss",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "porter",
+      "nameKey": "role.xf.porter",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "tcs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "TCS - a real-time, top-down tactical combat simulation (platoon to company scale, present day).",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @tcs/app",
+    "build": "npm run build -w @tcs/app",
+    "preview": "npm run preview -w @tcs/app",
+    "typecheck": "node packages/tools/scripts/typecheck.mjs",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:determinism": "vitest run packages/tools/test/determinism.test.ts",
+    "test:perf": "vitest run packages/tools/test/perf.test.ts",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run lint:data",
+    "lint:data": "tsx packages/tools/src/cli/lint-data.ts",
+    "headless": "tsx packages/tools/src/cli/headless.ts",
+    "batch": "tsx packages/tools/src/cli/batch.ts",
+    "golden:update": "tsx packages/tools/src/cli/golden.ts",
+    "screenshot": "tsx packages/tools/src/cli/screenshot.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

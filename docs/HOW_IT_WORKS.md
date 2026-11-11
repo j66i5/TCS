@@ -1,0 +1,101 @@
+# How it works — a guided tour
+
+Plain-language tour of the systems as they exist **now** (end of M0). Updated every session. Words in
+`code font` are names you can search for in the repository.
+
+## The big picture
+
+The game is split into a **simulation** and everything around it.
+
+- The **simulation** (`packages/sim`) is the battle itself: where every man is, what he carries, what orders
+  are on their way. It knows nothing about screens, phones or real time. It moves forward in small fixed
+  steps called **ticks** — 60 per second of game time.
+- The **app** (`packages/app`) is what you open in the browser. It watches the real clock and tells the
+  simulation "do another tick" as often as needed. It draws the picture and turns your taps into orders.
+- The **tools** (`packages/tools`) run the same simulation without a screen, thousands of times faster than
+  real time, to test it.
+
+Because the simulation never looks at the real clock and never uses "real" randomness, running the same battle
+twice with the same starting conditions gives *exactly* the same result, down to the last decimal. That is
+called **determinism**. It is what makes replays, save games, automated testing and (one day) multiplayer
+possible.
+
+## The pieces
+
+**Data, not code.** Everything about a faction lives in JSON text files in `packages/data/factions/<id>/`:
+ranks, roles, name lists, unit templates, equipment items, doctrine values, and radio phrases. The engine never
+says "if German, do X". To prove it, the tests load a third, made-up faction (`xf`, in
+`packages/data/fixtures/`) and fight a battle with it.
+
+**The loader** (`packages/data`) reads those files and checks them: required fields present, numbers in
+plausible ranges, every rank and role a unit template mentions actually exists, every entry has a source or is
+flagged "low confidence". Mistakes are reported with the file and the exact spot.
+
+**Soldiers are individuals.** Each soldier has a name (drawn from the faction's name lists), a rank, a role,
+skills drawn from the unit's quality level (conscript, regular, veteran), a load of counted items, and fields
+waiting for later milestones: fatigue, heart rate, stress, morale, wounds.
+
+**Items are real.** A magazine is an item with a mass; the rounds in it are counted. A half-empty magazine is
+kept separately from full ones. Items sit in **containers** — a soldier's load, and later a vehicle, a crate or
+a depot. There is one way to move items from one container to another (`transferItems`), and it is used for
+everything: passing ammunition, cross-loading, medical kit.
+
+**Orders are the only way in.** Your taps, the computer opponent and a replay all do exactly one thing: create
+an **order** (a small record: when, from which side, to which unit, what to do). Nothing else from outside may
+change the battle.
+
+**Events are the only way out.** The simulation announces what happened — "order received", "order
+delivered", radio message, "unit arrived" — as **events**. The picture, the radio log and the test tools all
+listen to events instead of poking around inside the simulation.
+
+**Text goes through a string table.** Radio messages are not stored as sentences but as keys like
+`radio.ack.move`. The string table turns a key into text — in the faction's own phrasing ("Trupp 1: roger,
+moving." vs "Gruppa 1: understood, moving out.") and later in other languages.
+
+## One order, traced step by step
+
+You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
+
+1. **Tap → order.** The UI (`packages/ui/src/input.ts`) turns your finger position into map metres. The app
+   (`packages/app/src/main.ts`) creates the order
+   `{ tick: 61, issuer: "blue", target: <team>, kind: "move", waypoints: [{ x: 200, y: 90, mode: "walk" }] }`
+   and submits it.
+2. **Inbox.** The order waits in the simulation's inbox until its tick (`systems/orders.ts`).
+3. **Received.** At tick 61 it is checked: is that your unit? is the point on the map? is "walk" a known
+   movement mode? If not, it is rejected with a reason (the radio log shows it). Here it is fine, so the
+   **communication model** (`comms.ts`) decides how long it takes to reach the team: 1 second plus a random
+   0–1 second (radio traffic, the leader being busy). The random part comes from the battle's own seeded
+   random numbers, so a replay gets exactly the same delays. Event: `order.received`.
+4. **Delivered.** A second or two later (say tick 150) the team gets the order. Every man is given his destination: the tapped point
+   plus his own offset from the team leader, so the team keeps its shape (a stand-in until real formations
+   arrive in M1). Events: `order.delivered`, and a `radio` event from the team leader with the key
+   `radio.ack.move`.
+5. **Radio log.** The app looks up `radio.ack.move` for the leader's faction and shows
+   "00:02 Trupp 1: roger, moving." in blue.
+6. **Moving.** Every tick, `movementSystem` moves each man 1/60 of a second at walking speed (1.4 m/s, a value
+   from `core/movement-modes.json`) toward his next waypoint.
+7. **Drawing.** The renderer (`packages/render`) draws each man as a dot with a little heading line; it blends
+   between the last two ticks so motion looks smooth on any screen. The hollow ring where you tapped turns
+   filled once the order is acknowledged.
+8. **Arrival.** When all men have reached their points: event `unit.arrived`, radio "Trupp 1: in position."
+
+## How we know it works
+
+- `npm test` runs 61 automated tests, including:
+  - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
+    saved halfway, loaded and continued ends identically to one that ran straight through — also when both
+    sides are computer-controlled and the AIs' own memory has to be saved;
+  - **golden replays**: recorded battles must still produce their recorded fingerprints — a change shows up
+    immediately;
+  - **fixture faction**: the made-up faction loads and fights;
+  - **architecture guards**: the simulation never touches real time, real randomness or the screen;
+  - **performance floor**: 304 soldiers moving on a 2 × 2 km map must run at least 8× faster than real time
+    (currently ~460×, but there is no shooting yet).
+- `npm run screenshot` opens the app in a headless browser at phone and desktop size and saves pictures that
+  are checked by eye.
+- The Stop hook refuses to let a Claude session end while the typecheck or tests fail.
+
+## What is not there yet
+
+No terrain, no pathfinding, no shooting, no wounds, no spotting (everyone sees everything), no real squad
+organisation, no AI beyond "wander to a random point every 30 s". Those are milestones M1–M6.

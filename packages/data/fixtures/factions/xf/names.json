@@ -1,0 +1,35 @@
+{
+  "given": [
+    "Ax",
+    "Bo",
+    "Cy",
+    "Dov",
+    "Eli",
+    "Fen",
+    "Gus",
+    "Hal",
+    "Ivo",
+    "Jex"
+  ],
+  "givenFemale": [
+    "Kia",
+    "Lu"
+  ],
+  "family": [
+    "Zork",
+    "Quill",
+    "Vang",
+    "Tesh",
+    "Morrow",
+    "Pike",
+    "Rusk",
+    "Sable",
+    "Tor",
+    "Umber"
+  ],
+  "femaleShare": 0.5,
+  "familyFemaleSuffix": "ix",
+  "sources": [],
+  "confidence": "low",
+  "note": "Made-up test fixture."
+}

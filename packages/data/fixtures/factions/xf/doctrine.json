@@ -1,0 +1,14 @@
+{
+  "values": {
+    "preferredSpacingM": 3,
+    "aggressiveness": 0.9,
+    "willingnessToDismount": 0.1,
+    "casualtyToleranceBeforeWithdrawal": 0.9,
+    "relianceOnSupportingFire": 0.0,
+    "droneUse": 1.0,
+    "evacuationPriority": 0.0
+  },
+  "sources": [],
+  "confidence": "low",
+  "note": "Made-up test fixture."
+}

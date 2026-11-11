@@ -1,0 +1,11 @@
+{
+  "id": "ru",
+  "kind": "faction",
+  "nameKey": "faction.ru",
+  "formatVersion": 1,
+  "defaultQuality": "regular",
+  "sources": [
+    "https://en.wikipedia.org/wiki/Russian_Ground_Forces"
+  ],
+  "confidence": "high"
+}

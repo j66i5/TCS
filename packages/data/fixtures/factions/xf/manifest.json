@@ -1,0 +1,11 @@
+{
+  "id": "xf",
+  "kind": "faction",
+  "nameKey": "faction.xf",
+  "formatVersion": 1,
+  "defaultQuality": "veteran",
+  "fixture": true,
+  "sources": [],
+  "confidence": "low",
+  "note": "Made-up test fixture."
+}

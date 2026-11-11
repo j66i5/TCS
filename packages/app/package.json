@@ -1,0 +1,19 @@
+{
+  "name": "@tcs/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@tcs/sim": "*",
+    "@tcs/data": "*",
+    "@tcs/scenario": "*",
+    "@tcs/ai": "*",
+    "@tcs/render": "*",
+    "@tcs/ui": "*"
+  }
+}

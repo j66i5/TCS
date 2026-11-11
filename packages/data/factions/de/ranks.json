@@ -1,0 +1,148 @@
+{
+  "ranks": [
+    {
+      "id": "schuetze",
+      "nameKey": "rank.de.schuetze",
+      "abbrKey": "rank.de.schuetze.abbr",
+      "natoCode": "OR-1",
+      "grade": 1,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "gefreiter",
+      "nameKey": "rank.de.gefreiter",
+      "abbrKey": "rank.de.gefreiter.abbr",
+      "natoCode": "OR-2",
+      "grade": 2,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "obergefreiter",
+      "nameKey": "rank.de.obergefreiter",
+      "abbrKey": "rank.de.obergefreiter.abbr",
+      "natoCode": "OR-3",
+      "grade": 3,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "hauptgefreiter",
+      "nameKey": "rank.de.hauptgefreiter",
+      "abbrKey": "rank.de.hauptgefreiter.abbr",
+      "natoCode": "OR-3",
+      "grade": 4,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "stabsgefreiter",
+      "nameKey": "rank.de.stabsgefreiter",
+      "abbrKey": "rank.de.stabsgefreiter.abbr",
+      "natoCode": "OR-4",
+      "grade": 5,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "unteroffizier",
+      "nameKey": "rank.de.unteroffizier",
+      "abbrKey": "rank.de.unteroffizier.abbr",
+      "natoCode": "OR-5",
+      "grade": 6,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "stabsunteroffizier",
+      "nameKey": "rank.de.stabsunteroffizier",
+      "abbrKey": "rank.de.stabsunteroffizier.abbr",
+      "natoCode": "OR-5",
+      "grade": 7,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "feldwebel",
+      "nameKey": "rank.de.feldwebel",
+      "abbrKey": "rank.de.feldwebel.abbr",
+      "natoCode": "OR-6",
+      "grade": 8,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "oberfeldwebel",
+      "nameKey": "rank.de.oberfeldwebel",
+      "abbrKey": "rank.de.oberfeldwebel.abbr",
+      "natoCode": "OR-6",
+      "grade": 9,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "hauptfeldwebel",
+      "nameKey": "rank.de.hauptfeldwebel",
+      "abbrKey": "rank.de.hauptfeldwebel.abbr",
+      "natoCode": "OR-7",
+      "grade": 10,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "leutnant",
+      "nameKey": "rank.de.leutnant",
+      "abbrKey": "rank.de.leutnant.abbr",
+      "natoCode": "OF-1",
+      "grade": 14,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    },
+    {
+      "id": "oberleutnant",
+      "nameKey": "rank.de.oberleutnant",
+      "abbrKey": "rank.de.oberleutnant.abbr",
+      "natoCode": "OF-1",
+      "grade": 15,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
+      ],
+      "confidence": "medium",
+      "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
+    }
+  ]
+}

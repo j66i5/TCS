@@ -14,7 +14,7 @@
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, type EntityId } from "../ids";
-import { cos, pow, sin, sqrt } from "../math";
+import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
 import type { AmmoRT } from "../ballistics";
@@ -44,20 +44,35 @@ function queueBurst(x: number, y: number, z: number, ammo: number, owner: number
 }
 
 /**
- * An explosive munition has struck something. Time fuse: it comes to rest at (rx, ry, rz) and waits. Impact
- * fuse: it bursts at (bx, by, bz) if it has flown long enough to arm, else it is a dud. Returns true if the
- * projectile is still in the pool.
+ * An explosive munition has struck a surface at (hx, hy, hz) whose normal (nx, ny, nz) points back toward where
+ * it came from, with velocity (vx, vy, vz). Time fuse: it bounces — losing speed, more on soft ground
+ * (`soft` < 1) — until it is slow enough to lie still. Impact fuse: it bursts just off the surface if it has
+ * flown long enough to arm, else it is a dud. Returns true if the projectile is still in the pool.
  */
 function settle(
-  P: SimState["projectiles"], i: number, am: AmmoRT, tick: number, rx: number, ry: number, rz: number, bx: number, by: number, bz: number,
+  P: SimState["projectiles"], i: number, am: AmmoRT, tick: number, hx: number, hy: number, hz: number, nx: number, ny: number, nz: number,
+  vx: number, vy: number, vz: number, soft: number, BN: { restitution: number; tangentKeep: number; stopSpeedMps: number },
   events: EventSink, material: string, surface: "ground" | "obstacle" | "building",
 ): boolean {
   if (am.fuseTicks > 0) {
-    P.x[i] = rx; P.y[i] = ry; P.z[i] = rz; P.vx[i] = 0; P.vy[i] = 0; P.vz[i] = 0;
+    let vn = vx * nx + vy * ny + vz * nz;
+    if (vn > 0) vn = 0;
+    const e = BN.restitution * soft, k = BN.tangentKeep * soft;
+    const bx = (vx - vn * nx) * k - e * vn * nx, by = (vy - vn * ny) * k - e * vn * ny, bz = (vz - vn * nz) * k - e * vn * nz;
+    events.emit({ kind: "grenade.landed", tick, x: hx, y: hy, z: hz, ammo: am.id, burstTick: P.bornTick[i]! + am.fuseTicks });
+    if (bx * bx + by * by + bz * bz < BN.stopSpeedMps * BN.stopSpeedMps) {
+      // Too slow to bounce again: on the ground it lies still; off a wall or ceiling it just drops.
+      P.x[i] = hx + nx * 0.05; P.y[i] = hy + ny * 0.05; P.z[i] = hz + nz * 0.05;
+      P.vx[i] = 0; P.vy[i] = 0; P.vz[i] = nz > 0.5 ? 0 : -0.01;
+    } else {
+      P.x[i] = hx + nx * 0.03; P.y[i] = hy + ny * 0.03; P.z[i] = hz + nz * 0.03;
+      P.vx[i] = bx; P.vy[i] = by; P.vz[i] = bz;
+    }
     return true;
   }
-  if (tick - P.bornTick[i]! >= am.armTicks) queueBurst(bx, by, bz, P.ammo[i]!, P.owner[i]!);
-  else events.emit({ kind: "impact", tick, x: bx, y: by, z: bz, surface, result: "stopped", material, ammo: am.id, owner: P.owner[i]! });
+  const qx = hx + nx * 0.05, qy = hy + ny * 0.05, qz = hz + nz * 0.05;
+  if (tick - P.bornTick[i]! >= am.armTicks) queueBurst(qx, qy, qz, P.ammo[i]!, P.owner[i]!);
+  else events.emit({ kind: "impact", tick, x: qx, y: qy, z: qz, surface, result: "stopped", material, ammo: am.id, owner: P.owner[i]! });
   removeProjectile(P, i);
   return false;
 }
@@ -132,6 +147,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
   detCount = 0;
+  const BN = bal.bounce, clutterH = bal.fragments.clutterHeightM, clutterK = bal.fragments.clutterStopPerM, ex = exp;
   const roofs = B.roofs, roofLow = B.roofLow, roofBuckets = B.roofBuckets, inPoly = pointInPolygon;
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
@@ -321,6 +337,19 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
 
+    // ---- ground clutter: small folds and grass stop fragments that skim the ground (this is what makes
+    // lying down worth it at a distance; the heightfield itself is smooth). Two samples along the free path.
+    if (am.fragment && nearGround && clutterK > 0) {
+      const half = sq(dx * dx + dy * dy) * tEnd * 0.5;
+      let keep = 1;
+      for (let q = 0; q < 2; q++) {
+        const t = tEnd * (q === 0 ? 0.25 : 0.75);
+        const hgt = z0 + t * dz - hAt(map, x0 + t * dx, y0 + t * dy);
+        if (hgt < clutterH) keep *= ex(-clutterK * (1 - (hgt < 0 ? 0 : hgt) / clutterH) * half);
+      }
+      if (keep < 1 && rnd(rng, BAL) > keep) { remove(P, i); continue; }
+    }
+
     // ---- vegetation: chance of being stopped along the free part of the path
     if (nearVeg) {
       const len2 = sq(dx * dx + dy * dy) * tEnd;
@@ -369,9 +398,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const rf = roofs[roofIdx]!, matR = B.materials[rf.material]!;
       const hx = x0 + tRoof * dx, hy = y0 + tRoof * dy, hz = z0 + tRoof * dz;
       if (am.explosive) {
-        // From above it lies on the roof; from below (thrown indoors) it drops to the floor. A burst is set just
-        // off the roof on the side it came from, so its fragments are not swallowed by the roof it struck.
-        if (settle(P, i, am, tick, hx, hy, dz < 0 ? hz + 0.05 : hAt(map, hx, hy) + 0.05, hx, hy, hz + (dz < 0 ? 0.05 : -0.05), events, matR.id, "building")) i++;
+        // It bounces off the roof (from below: off the ceiling, back down into the room). A burst is set just off
+        // the surface on the side it came from, so its fragments are not swallowed by the roof it struck.
+        if (settle(P, i, am, tick, hx, hy, hz, 0, 0, dz < 0 ? 1 : -1, vx, vy, vz, matR.bounce, BN, events, matR.id, "building")) i++;
         continue;
       }
       const endR = sq(speed2), speedR = rs / (1 + a * tRoof);
@@ -395,7 +424,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (tGround > 1 && hitSeg < 0) {
       if (leaving) {
         // A grenade does not vanish at the map edge: it comes down there.
-        if (am.explosive) { if (settle(P, i, am, tick, x1, y1, hAt(map, x1, y1) + 0.05, x1, y1, hAt(map, x1, y1) + 0.05, events, "", "ground")) i++; }
+        if (am.explosive) { if (settle(P, i, am, tick, x1, y1, hAt(map, x1, y1), 0, 0, 1, 0, 0, 0, 1, BN, events, "", "ground")) i++; }
         else remove(P, i);
         continue;
       }
@@ -422,7 +451,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (cell < 0 || cell >= map.surface.length) cell = 0;
       const mat = B.materials[B.surfaceMaterial[map.surface[cell]!]!]!;
       if (am.explosive) {
-        if (settle(P, i, am, tick, hx, hy, hz + 0.05, hx, hy, hz + 0.05, events, mat.id, "ground")) i++;
+        if (settle(P, i, am, tick, hx, hy, hz, nx, ny, nz, vx, vy, vz, map.vegetation[cell]! > 0 ? mat.bounce * BN.vegetationFactor : mat.bounce, BN, events, mat.id, "ground")) i++;
         continue;
       }
       if (cosInc < mat.sinCrit && rnd(rng, BAL) < 1 - cosInc / mat.sinCrit) {
@@ -453,9 +482,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     const cosInc = dot < 0 ? -dot : dot;
     const surface = segs[hitSeg]!.owner;
     if (am.explosive) {
-      // It drops at the foot of the wall on the side it came from (or bursts on it, with an impact fuse).
-      const fx = hx - ux * 0.15, fy = hy - uy * 0.15;
-      if (settle(P, i, am, tick, fx, fy, hAt(map, fx, fy) + 0.05, hx - ux * 0.05, hy - uy * 0.05, hz, events, mat.id, surface)) i++;
+      // It bounces back off the wall (or bursts on it, with an impact fuse).
+      const sgn = dot > 0 ? -1 : 1;
+      if (settle(P, i, am, tick, hx, hy, hz, info.nx * sgn, info.ny * sgn, 0, vx, vy, vz, mat.bounce, BN, events, mat.id, surface)) i++;
       continue;
     }
     if (cosInc < mat.sinCrit && rnd(rng, BAL) < 1 - cosInc / mat.sinCrit) {

@@ -75,8 +75,20 @@
     "launchErrorMinM": 1.0,
     "launchSeconds": 4,
     "minSafeDistanceM": 12,
+    "throwAnglesDeg": [
+      40,
+      25,
+      12,
+      60
+    ],
+    "throwPowerMargin": 1.15,
+    "carrySeconds": 0.25,
+    "staggerSeconds": 0.6,
+    "reactRadiusM": 10,
+    "runRadiusM": 3,
+    "reactDelaySeconds": 0.4,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values."
+    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values. Owner requests 2026-11-11: the thrower chooses a flatter or higher throw when the lob would hit a ceiling or wall; several grenades per order are thrown 0.6 s apart; a man within 10 m of a landing grenade drops flat, within 3 m he runs from it first. Angles, power margin, carry and delays are game values."
   }
 }

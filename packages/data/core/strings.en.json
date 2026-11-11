@@ -1,7 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
-  "app.hint": "Tap the map to send the blue team there. 'tap: move' switches to 'tap: fire' and 'tap: grenade' - then a tap orders fire or a grenade at that point.",
+  "app.hint": "Tap the map to send the blue team there. The 'tap: move' button switches to fire, one grenade, or grenades from every man in reach - then a tap orders that at the point.",
   "app.pause": "Pause",
   "app.resume": "Resume",
   "app.speed": "Speed",
@@ -108,5 +108,6 @@
   "zone.legL": "left leg",
   "zone.legR": "right leg",
   "radio.ack.grenade": "{callsign}: grenade!",
-  "app.tapGrenade": "tap: grenade"
+  "app.tapGrenade": "tap: 1 grenade",
+  "app.tapGrenades": "tap: all grenades"
 }

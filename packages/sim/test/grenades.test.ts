@@ -281,3 +281,142 @@ describe("roofs and terrain damage", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 });
+
+describe("M2.4b: bounce, chosen arcs, several grenades, reaction (owner requests 2026-11-11)", () => {
+  const withCatalog = (input: BattleInput, f: (c: BattleInput["catalog"]) => void): BattleInput => { input.catalog = JSON.parse(JSON.stringify(input.catalog)) as BattleInput["catalog"]; f(input.catalog); return input; };
+
+  it("a grenade bounces and rolls on before it lies still, further on hard ground than on soft; off a wall it comes back", () => {
+    const roll = (soft: boolean) => {
+      const input = withCatalog(setup(100), (c) => { c.terrain.materials["soil"]!.densityKgM3 = soft ? 1600 : 2400; });
+      const sim = createSim(input);
+      launchProjectile(sim.ctx, sim.state, "bomb", 50, 50, 1.5, 12, 0, 6, 0);
+      const ev = run(sim, 3.5);
+      const landed = ev.filter((e) => e.kind === "grenade.landed");
+      const first = landed[0]!;
+      if (first.kind !== "grenade.landed") throw new Error("unreachable");
+      expect(sim.state.projectiles.count).toBe(1);
+      expect(sim.state.projectiles.vx[0]).toBe(0); // it has come to rest
+      return { contacts: landed.length, carry: sim.state.projectiles.x[0]! - first.x };
+    };
+    const hard = roll(false), soft = roll(true);
+    expect(hard.contacts).toBeGreaterThan(1);
+    expect(soft.carry).toBeGreaterThan(0.2);
+    expect(hard.carry).toBeGreaterThan(soft.carry * 1.5);
+    expect(hard.carry).toBeLessThan(15);
+
+    const input = setup(100);
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [60, 40, 60, 60], heightM: 2, thicknessM: 0.25, material: "brick" });
+    const sim = createSim(input);
+    launchProjectile(sim.ctx, sim.state, "bomb", 50, 50, 1.5, 12, 0, 4, 0); // into the wall
+    run(sim, 3.5);
+    expect(sim.state.projectiles.x[0]).toBeLessThan(59.5); // back on the thrower's side, clear of the wall
+    expect(sim.state.projectiles.x[0]).toBeGreaterThan(50);
+  });
+
+  it("thrown grenades land on the point on average although they roll on (the thrower allows for it)", () => {
+    let along = 0, n = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const sim = createSim(setup(100, { seed }));
+      const [uid] = unitOf(sim, "blue");
+      submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 35, y: 15 });
+      for (const e of run(sim, 9)) if (e.kind === "explosion") { along += e.x - 35; n++; }
+    }
+    expect(n).toBe(30);
+    expect(Math.abs(along / n)).toBeLessThan(1.5);
+  });
+
+  it("indoors the thrower takes a flat throw under the ceiling: the grenade reaches the far end of the room", () => {
+    let near = 0;
+    for (let seed = 1; seed <= 10; seed++) {
+      const input = setup(100, { seed });
+      input.map.buildings.push({ id: 1, kind: "house", footprint: [5, 5, 65, 5, 65, 35, 5, 35], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, openings: [], roofColour: "#8c4a3b" });
+      const sim = createSim(input);
+      const [uid] = unitOf(sim, "blue");
+      submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 24, y: 15 });
+      const ex = run(sim, 10).find((e) => e.kind === "explosion");
+      if (!ex || ex.kind !== "explosion") throw new Error("no burst");
+      expect(ex.z).toBeLessThan(0.5);
+      if (Math.hypot(ex.x - 24, ex.y - 15) < 5) near++;
+    }
+    expect(near).toBeGreaterThanOrEqual(8); // before: it struck the ceiling 2 m from the thrower every time
+  });
+
+  it("an order for several grenades: that many men throw, a moment apart, each using one of his own", () => {
+    const sim = createSim(setup(25));
+    const [uid, unit] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "grenade", x: 35, y: 15, count: 3 });
+    const ev = run(sim, 12);
+    const thrown = ev.filter((e) => e.kind === "grenade.launched");
+    expect(thrown).toHaveLength(3);
+    expect(new Set(thrown.map((e) => (e.kind === "grenade.launched" ? e.soldier : 0))).size).toBe(3);
+    const ticks = thrown.map((e) => e.tick).sort((a, b) => a - b);
+    expect(ticks[1]! - ticks[0]!).toBeGreaterThanOrEqual(30);
+    expect(ticks[2]! - ticks[1]!).toBeGreaterThanOrEqual(30);
+    expect(ev.filter((e) => e.kind === "explosion")).toHaveLength(3);
+    for (const m of unit.members) expect(count(sim, m, "bomb")).toBe(1);
+    // More asked for than men who can: all who can, no error.
+    const sim2 = createSim(setup(25));
+    const [uid2] = unitOf(sim2, "blue");
+    submitOrder(sim2, { tick: 0, issuer: "blue", target: uid2, kind: "grenade", x: 35, y: 15, count: 20 });
+    expect(run(sim2, 14).filter((e) => e.kind === "grenade.launched")).toHaveLength(3);
+  });
+
+  it("a man with a grenade landing 6 m away drops flat before it bursts; one within 3 m runs from it first; behind a wall nobody stirs", () => {
+    const input = setup(100);
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [90, 104, 110, 104], heightM: 2, thicknessM: 0.25, material: "brick" });
+    input.forces[1]!.placements = [{ personId: "b.0", x: 106, y: 100, heading: 0 }, { personId: "b.1", x: 101.5, y: 100.5, heading: 0 }];
+    input.forces[0]!.placements = input.forces[0]!.placements.map((p, i) => ({ ...p, x: 98 + i * 2, y: 106 })); // behind the wall
+    const sim = createSim(input);
+    const [far, close] = unitOf(sim, "red")[1].members as [number, number];
+    const behind = unitOf(sim, "blue")[1].members;
+    const d0 = Math.hypot(1.5, 0.5);
+    launchProjectile(sim.ctx, sim.state, "bomb", 100, 100, 0.3, 0, 0, -1, 0); // dropped at (100, 100): 4 s fuse
+    let burst = false, dAtBurst = 0, proneAtBurst = false, closeProne = false;
+    for (let i = 0; i < 60 * 6 && !burst; i++) {
+      const ev = step(sim);
+      if (ev.some((e) => e.kind === "explosion")) {
+        burst = true;
+        const c = sim.state.transform.req(close);
+        dAtBurst = Math.hypot(c.x - 100, c.y - 100);
+        proneAtBurst = sim.state.soldier.req(far).posture === "prone";
+        closeProne = sim.state.soldier.req(close).posture === "prone";
+      }
+    }
+    expect(burst).toBe(true);
+    expect(proneAtBurst).toBe(true);
+    expect(dAtBurst).toBeGreaterThan(d0 + 4); // he ran several metres in the seconds he had
+    expect(closeProne).toBe(true); // and threw himself down before the burst
+    for (const m of behind) { expect(sim.state.soldier.req(m).posture).toBe("standing"); expect(sim.state.soldier.req(m).evade).toBeNull(); }
+    run(sim, 2);
+    expect(sim.state.soldier.req(far).evade).toBeNull(); // over: he is free to act again
+  });
+
+  it("the reaction is state: a save taken while men are diving away replays identically", () => {
+    const mk = () => { const i = setup(100); i.forces[1]!.placements = [{ personId: "b.0", x: 104, y: 100, heading: 0 }, { personId: "b.1", x: 101.5, y: 100.5, heading: 0 }]; return i; };
+    const sim = createSim(mk());
+    launchProjectile(sim.ctx, sim.state, "bomb", 100, 100, 0.3, 0, 0, -1, 0);
+    run(sim, 1.5);
+    expect([...sim.state.soldier.entries()].some(([, s]) => s.evade !== null)).toBe(true);
+    const copy = loadSim(mk(), JSON.parse(JSON.stringify(saveSim(sim))));
+    run(sim, 6); run(copy, 6);
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
+  });
+
+  it("rough ground: fragments skimming the ground are thinned out, so a prone man 10 m away is hit less than on a billiard table", () => {
+    const hits = (clutter: number) => {
+      let n = 0;
+      for (let seed = 1; seed <= 12; seed++) {
+        const input = withCatalog(setup(100, { seed }), (c) => { c.ballistics.fragments.clutterStopPerM = clutter; });
+        input.forces[1]!.placements = [{ personId: "b.0", x: 110, y: 100, heading: Math.PI }, { personId: "b.1", x: 90, y: 100, heading: 0 }];
+        const sim = createSim(input);
+        for (const m of unitOf(sim, "red")[1].members) sim.state.soldier.req(m).posture = "prone";
+        detonate(sim.ctx, sim.state, new EventSink(), 100, 100, 0.05, bomb, 0);
+        n += run(sim, 1).filter((e) => e.kind === "hit").length;
+      }
+      return n;
+    };
+    const smooth = hits(0), rough = hits(0.15);
+    expect(smooth).toBeGreaterThan(10);
+    expect(rough).toBeLessThan(smooth * 0.8);
+  });
+});

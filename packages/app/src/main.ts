@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   let speed = 1;
   let moveMode = "walk";
-  let tapMode: "move" | "fire" | "grenade" = "move";
+  let tapMode: "move" | "fire" | "grenade" | "grenades" = "move";
   /** Undefined until the player picks one: then the faction's doctrine default applies. */
   let formation: string | undefined;
   const kinds = [...MAP_KINDS, "flat"];
@@ -108,8 +108,9 @@ async function main(): Promise<void> {
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
-      if (tapMode === "grenade") {
-        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y });
+      if (tapMode === "grenade" || tapMode === "grenades") {
+        // "grenades": every man who can reach the point throws or fires, a moment apart.
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(tapMode === "grenades" ? { count: 50 } : {}) });
         return;
       }
       if (tapMode === "fire") {
@@ -148,7 +149,7 @@ async function main(): Promise<void> {
     sim,
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
-    grenadeAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y }),
+    grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y, count }),
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); },

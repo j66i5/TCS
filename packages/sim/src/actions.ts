@@ -11,7 +11,6 @@ import type { EntityId } from "./ids";
 import { addItems, removeItems, transferItems } from "./items";
 import type { SimContext } from "./context";
 import type { SimState } from "./state";
-import { grenadeHandler } from "./systems/grenades";
 
 export interface ActionHandler {
   /** Return a reason string to interrupt, or null to continue. Called every tick. */
@@ -78,8 +77,12 @@ export const ACTION_HANDLERS: Record<string, ActionHandler> = {
   transferItems: transferHandler,
   reload: reloadHandler,
   clearStoppage: clearStoppageHandler,
-  grenade: grenadeHandler,
 };
+
+/** Systems with their own actions register them here when their module loads (e.g. "grenade"). */
+export function registerActionHandler(kind: string, handler: ActionHandler): void {
+  ACTION_HANDLERS[kind] = handler;
+}
 
 /** Start an action, interrupting any current one. */
 export function startAction(

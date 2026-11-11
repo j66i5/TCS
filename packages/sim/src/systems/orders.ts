@@ -50,6 +50,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      if (o.count !== undefined && !(Number.isInteger(o.count) && o.count >= 1 && o.count <= 50)) return "invalid-params";
       return null;
   }
 }
@@ -230,18 +231,21 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "grenade": {
-      // One man acts: a thrower in range first (the nearest), else a man with a launcher (the nearest).
-      let best: EntityId | null = null, bestOpt: GrenadeOption | null = null;
+      // The best-placed men act: throwers in range first (nearest first), then men with a launcher (nearest
+      // first). Each further man lets go a moment later, so the grenades do not all burst in the same instant.
+      const able: { id: EntityId; opt: GrenadeOption }[] = [];
       for (const s of soldiers) {
         const opt = grenadeOption(ctx, state, s, order.x, order.y);
-        if (!opt) continue;
-        if (bestOpt === null || (opt.method === "thrown" && bestOpt.method !== "thrown") || (opt.method === bestOpt.method && opt.distanceM < bestOpt.distanceM)) { best = s; bestOpt = opt; }
+        if (opt) able.push({ id: s, opt });
       }
-      if (best === null || bestOpt === null) return "unable"; // out of range, too close, or nothing to send
+      if (able.length === 0) return "unable"; // out of range, too close, or nothing to send
+      able.sort((p, q) => (p.opt.method === q.opt.method ? p.opt.distanceM - q.opt.distanceM || p.id - q.id : p.opt.method === "thrown" ? -1 : 1));
       const G = ctx.catalog.shooting.grenades;
-      const t = state.transform.req(best);
-      t.heading = atan2(order.y - t.y, order.x - t.x);
-      startAction(state, events, best, "grenade", secondsToTicks(bestOpt.method === "thrown" ? G.throwSeconds : G.launchSeconds), { ammo: bestOpt.ammo, x: order.x, y: order.y });
+      able.slice(0, order.count ?? 1).forEach(({ id, opt }, k) => {
+        const t = state.transform.req(id);
+        t.heading = atan2(order.y - t.y, order.x - t.x);
+        startAction(state, events, id, "grenade", secondsToTicks((opt.method === "thrown" ? G.throwSeconds : G.launchSeconds) + k * G.staggerSeconds), { ammo: opt.ammo, x: order.x, y: order.y });
+      });
       break;
     }
     case "posture": {

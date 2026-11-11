@@ -29,6 +29,8 @@ export interface MaterialRT {
   /** sin of the largest angle from the surface at which a ricochet is possible. */
   sinCrit: number;
   breaks: boolean;
+  /** Bounce factor for grenades: 1 on hard surfaces, less on soft ones. */
+  bounce: number;
 }
 
 export interface AmmoRT {
@@ -131,7 +133,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const matIds = Object.keys(catalog.terrain.materials).sort();
   const materials: MaterialRT[] = matIds.map((id) => {
     const m = catalog.terrain.materials[id]!;
-    return { id, resistance: m.resistance, sinCrit: sin((m.ricochetAngleDeg * PI) / 180), breaks: m.breaksBullets };
+    return { id, resistance: m.resistance, sinCrit: sin((m.ricochetAngleDeg * PI) / 180), breaks: m.breaksBullets, bounce: m.densityKgM3 < b.bounce.softBelowDensityKgM3 ? b.bounce.softFactor : 1 };
   });
   const matIndex = (id: string) => Math.max(0, matIds.indexOf(id));
 

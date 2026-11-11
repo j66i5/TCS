@@ -93,7 +93,17 @@ export const BallisticsFile = withProv({
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
     /** A burst higher than this above the ground also throws fragments downward. */
-    airburstAboveM: Num(0, 10) }).strict(),
+    airburstAboveM: Num(0, 10),
+    /** Small folds and grass: a fragment flying lower than clutterHeightM above the ground is stopped with
+     *  this chance per metre at ground level, falling to zero at that height. */
+    clutterHeightM: Num(0, 2), clutterStopPerM: Num(0, 1) }).strict(),
+  /** How a grenade that has not yet burst bounces: speed kept along the surface normal and along the surface;
+   *  both are multiplied by softFactor on soft ground (material lighter than softBelowDensityKgM3) and by
+   *  vegetationFactor in vegetation. Below stopSpeedMps it lies still. */
+  bounce: z.object({
+    restitution: Num(0, 1), tangentKeep: Num(0, 1), softFactor: Num(0, 1), vegetationFactor: Num(0, 1),
+    softBelowDensityKgM3: Num(0, 20000), stopSpeedMps: Num(0.1, 20),
+  }).strict(),
 });
 /** SPEC 6.3: shell and warhead types supported by the data model from the start. */
 export const AmmoKind = z.enum([
@@ -195,6 +205,18 @@ export const ShootingFile = z.object({
     launchErrorFraction: Num(0, 1), launchErrorMinM: Num(0, 20), launchSeconds: Num(0.1, 60),
     /** A man does not throw or fire at a point nearer than this (his own fragments). */
     minSafeDistanceM: Num(0, 100),
+    /** Throw angles he considers, in order of preference: the first whose path is clear of ceilings and walls
+     *  (openings count as clear) is used. throwElevationDeg is the angle the ranges above are given for. */
+    throwAnglesDeg: z.array(Num(1, 85)).min(1).max(8),
+    /** He can throw this much harder than a full-range lob needs (flat throws need more speed). */
+    throwPowerMargin: Num(1, 2),
+    /** He aims short by this many seconds of the grenade's landing speed, because it bounces and rolls on. */
+    carrySeconds: Num(0, 5),
+    /** With several grenades in one order, each further man lets go this much later. */
+    staggerSeconds: Num(0, 10),
+    /** A grenade landing within reactRadiusM makes a man drop flat (after reactDelaySeconds); within
+     *  runRadiusM he runs from it first (owner decision 2026-11-11). */
+    reactRadiusM: Num(0, 100), runRadiusM: Num(0, 100), reactDelaySeconds: Num(0, 10),
   }),
 }).strict();
 export type ShootingT = z.infer<typeof ShootingFile>;

@@ -41,6 +41,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!mode) { m.speedMps = 0; continue; }
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
+    // Getting away from a grenade comes first (grenades.ts moves him); he resumes his way afterwards.
+    if (s && s.evade !== null && state.tick >= s.evade.startTick) { m.speedMps = 0; continue; }
     // Take the leg's posture first (the waypoint's, else the mode's); no movement while changing.
     // A man whose leg will not carry him crawls.
     const posture = s && !s.impair.canWalk ? "prone" : (wp.posture ?? mode.posture);

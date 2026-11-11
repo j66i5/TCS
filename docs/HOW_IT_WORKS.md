@@ -204,14 +204,16 @@ with a grenade launcher. Getting it ready takes a few seconds and can be interru
 meanwhile does not throw and keeps the grenade. Then the grenade flies as a projectile on an arc, with an
 error that grows with distance.
 
-A hand grenade has a time fuse: it stays where it lands (or at the foot of the wall it hits, or it goes in
-through a window) and bursts when the seconds are up. A launcher round bursts when it strikes, provided it
+The thrower picks his throw: normally a lob, but a flat throw under a ceiling or through a window, or a high
+one over a wall, if the lob would hit something. A hand grenade has a time fuse: it bounces and rolls a little
+after landing (further on hard ground), comes back off a wall, and bursts when the seconds are up. Men who have
+it land near them throw themselves flat; a man within about three metres runs from it first. A launcher round bursts when it strikes, provided it
 has flown far enough to arm; otherwise it is a dud.
 
 The burst does three things. **Blast** wounds men within a couple of metres and stuns men out to about ten
 metres for a few seconds; a wall in between protects. **Fragments** — hundreds to thousands — fly outward as
 real projectiles, lose speed very quickly, and wound whoever they meet; helmet and vest stop many; a man lying
-down is hit far less. **Damage**: a small crater, and a hole in a thin wall such as a wooden fence, which
+down is hit far less, also because small folds in the ground stop fragments that skim it. **Damage**: a small crater, and a hole in a thin wall such as a wooden fence, which
 bullets and men can then pass through. Houses now have roofs, so a grenade lobbed onto a house bursts on the
 roof instead of falling inside. The **fragmentation lab** (`npm run lab -- fragmentation`) bursts grenades
 among rings of men and prints who was hurt at which distance.
@@ -245,7 +247,7 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## How we know it works
 
-- `npm test` runs 256 automated tests, including:
+- `npm test` runs 263 automated tests, including:
   - **determinism**: the same battle run twice gives identical fingerprints ("hashes") every 5 s; a battle
     saved halfway, loaded and continued ends identically to one that ran straight through — also when both
     sides are computer-controlled and the AIs' own memory has to be saved;

@@ -39,7 +39,8 @@ Proposed slices (to confirm at the start of M1):
    waypoint chains with a mode per leg, camera zoom levels (close / tactical / overview). Acceptance demo:
    squad crosses the village on covered routes; screenshots.
 
-Domain input needed before M1.4: which German and Russian squad organisation to model first (see STATE.md).
+Owner decision (2026-11-11): first squads are German Panzergrenadier dismounts of a Puma and a Russian
+motor-rifle squad on a BMP; German callsigns "Gruppe {n}" / "Trupp {n}".
 
 ### M2 Ballistics and wounds — ⬜
 Projectiles, materials and penetration, fragments, body zones, armour, wound records with simple physiology,

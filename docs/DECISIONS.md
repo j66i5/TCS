@@ -141,3 +141,10 @@ AI-versus-AI battle saved halfway now resumes identically (tested). (6) **Saves 
 and refuse to load against different data. Golden replays were regenerated because the state gained the
 `catalogFingerprint` field and delivery times changed with the jitter. Rejected for (1): matching saved inbox
 orders against the stream (fragile when identical orders are legitimately repeated).
+
+## 2026-11-11 — Owner answers: first squads and callsigns
+First German squad to model: **Panzergrenadier dismounts of a Puma** (leads naturally into the vehicle
+milestone). First Russian squad: **motor-rifle squad on a BMP** (the mirror of the German choice). Callsigns:
+German units use **"Gruppe {n}"** for the squad and **"Trupp {n}"** for the team; the Russian placeholder
+"Gruppa {n}" stays for now. Organisation tables will be researched from public sources in M1/M2 and shown to
+the owner for review before they are fixed.

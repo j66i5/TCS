@@ -16,6 +16,7 @@ import { assignFireTask } from "./fire";
 import { grenadeOption, type GrenadeOption } from "./grenades";
 import { startAction } from "../actions";
 import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
+import { dischargeSmoke, stationCeaseFire, stationFireOrder } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
 import { secondsToTicks } from "../ids";
 import type { Unit } from "../components";
@@ -31,6 +32,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
   const side = sideOf(state, o.target);
   if (side === null) return "unknown-target";
   if (side !== o.issuer) return "not-your-unit";
+  if (!orderApplies(state, o)) return "not-applicable";
   switch (o.kind) {
     case "move":
       if (o.waypoints.length === 0 || o.waypoints.length > 64) return "invalid-params";
@@ -56,6 +58,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "fire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
+      if (o.nature !== undefined && o.nature !== "ap" && o.nature !== "he" && o.nature !== "mg") return "invalid-params";
       return null;
     case "ceaseFire":
       return null;
@@ -83,7 +86,24 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.vehicle !== undefined && state.vehicle.get(o.vehicle)?.side !== o.issuer) return "invalid-params";
       return null;
     case "dismount":
+    case "discharge":
       return null;
+  }
+}
+
+/**
+ * Does this kind of order mean anything to its target (plan §11, M7.3)? A vehicle crew does not take a posture,
+ * assault, withdraw or throw grenades; smoke dischargers belong to a vehicle crew or a unit with vehicles.
+ */
+function orderApplies(state: SimState, o: Order): boolean {
+  const crew = state.unit.get(o.target)?.vehicle !== undefined;
+  switch (o.kind) {
+    case "posture": case "assault": case "withdraw": case "grenade":
+      return !crew;
+    case "discharge":
+      return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
+    default:
+      return true;
   }
 }
 
@@ -198,13 +218,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   }
   // A vehicle crew: move and halt drive the vehicle; rules and cease-fire as for any unit.
   const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
-  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ceaseFire") return vehicleOrder(ctx, state, order, crewOf);
+  if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
+  if (crewOf !== undefined && order.kind !== "rules") return vehicleOrder(ctx, state, order, crewOf);
   // A parent unit's vehicles (M7.1c): moves and halts are split to them; their own fire rules stay theirs.
   const vehicles = isUnit ? vehicleChildren(state, order.target) : [];
   // Men still aboard (owner Q12): a squad (or a man) gets out first, then carries the order out. Orders to a
   // platoon with vehicles go to the vehicles (the squads ride along). Rules, cease-fire, a call for fire and a
   // halt need nobody to get out.
-  const passThrough = order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt";
+  const passThrough = order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
   if (!afterDismount && !passThrough && crewOf === undefined && vehicles.length === 0) {
     const aboard = isUnit ? hasRiders(state, order.target) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
@@ -218,6 +239,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (!isUnit) leaveBoarding(state, order.target);
   let vehicleRes: OrderResult | null = null;
   if (vehicles.length > 0) vehicleRes = splitToVehicles(ctx, state, order, vehicles, events);
+  // Smoke (M7.3) is the vehicles' alone: nothing else changes.
+  if (order.kind === "discharge") return vehicleRes ?? "unable";
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
   // Men of a broken unit, running back, do not listen (M4.3). Men aboard vehicles ride (M7).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined);
@@ -362,7 +385,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
-      if (!any) return "unable"; // nobody there has a weapon he can use
+      if (!any) return vehicleRes ?? "unable"; // nobody there has a weapon he can use (its vehicles may)
       if (u !== undefined) { const top = topUnitOf(state, u); top.firing = true; top.lineBlockedReported = false; }
       break;
     }
@@ -371,6 +394,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // They hold their fire until they are fired upon again (M4.2).
       const cu = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
       if (cu !== undefined) topUnitOf(state, cu).ceaseFireTick = state.tick;
+      // Its vehicles (M7.3): only an order to their own platoon (or a unit above them) reaches them (plan C19).
+      for (const c of vehicles) stationCeaseFire(state, c, events);
       break;
     }
     case "assault":
@@ -472,6 +497,17 @@ function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: 
   if (order.kind === "halt") {
     for (const c of crews) { const v = state.unit.get(c)?.vehicle; if (v !== undefined) vehicleHalt(state, v); }
     return true;
+  }
+  if (order.kind === "fire" || order.kind === "discharge") {
+    // Fire (M7.3): every vehicle under the unit engages too; smoke: every vehicle fires a salvo.
+    let res: OrderResult | null = null;
+    for (const c of crews) {
+      const vid = state.unit.get(c)?.vehicle;
+      if (vid === undefined) continue;
+      const r = order.kind === "fire" ? stationFireOrder(ctx, state, vid, order, order.issuer) : dischargeSmoke(ctx, state, vid);
+      if (res !== true) res = r;
+    }
+    return res;
   }
   if (order.kind !== "move") return null;
   const last = order.waypoints[order.waypoints.length - 1]!;

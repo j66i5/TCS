@@ -80,7 +80,10 @@ export function resolveBodyHit(
   const ef = fragment
     ? clamp(pow(residual / FW.referenceEnergyJ, FW.exponent), FW.factorMin, FW.factorMax)
     : clamp(pow(residual / W.wounding.referenceEnergyJ, W.wounding.energyExponent), W.wounding.energyFactorMin, W.wounding.energyFactorMax);
-  const severity = clamp((zd.severityBase + zd.severitySpread * nextNormal(rng, Streams.wounds)) * ef, 0.03, 1);
+  let severity = clamp((zd.severityBase + zd.severitySpread * nextNormal(rng, Streams.wounds)) * ef, 0.03, 1);
+  // A heavy projectile (cannon, heavy machine gun; M7.3) wounds at least this badly.
+  const heavy = W.wounding.heavy;
+  if (heavy && !fragment && (ctx.catalog.ammo[ammoId]?.diameterM ?? 0) >= heavy.minDiameterM && severity < heavy.severityMin) severity = heavy.severityMin;
   // Most wounds bleed far less than the worst case; a few strike a major vessel.
   const vessel = W.wounding.bleedFloor + (1 - W.wounding.bleedFloor) * pow(nextFloat(rng, Streams.wounds), W.wounding.bleedPower);
   addWound(ctx, state, events, target, {

@@ -30,6 +30,9 @@ const END_CLEARANCE_M = 0.3;
 const GRAZE_M = 0.05;
 /** Scratch list of sample parameters (reused: no allocation per call). */
 const LOS_TS: number[] = [];
+/** Scratch: grid-line crossings in x and in y, each ascending (reused). */
+const LOS_TX: number[] = [];
+const LOS_TY: number[] = [];
 /** Scratch: wall segments near the line, and a roof's footprint crossings (reused: no allocation per call). */
 const LOS_SEGS: number[] = [];
 const ROOF_TS: number[] = [];
@@ -133,11 +136,33 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
   // lie a metre or more below the line are skipped.
   const cs = map.cellSizeM;
   const ts = LOS_TS;
+  // The crossings with the x and y grid lines, each list ascending in t, merged (M7.3: the same sorted list a
+  // sort gave, without its cost).
+  const tx = LOS_TX, ty = LOS_TY;
+  let nx = 0, ny = 0;
+  if (dx !== 0) {
+    const a0 = Math.ceil(Math.min(x0, x1) / cs), a1 = Math.floor(Math.max(x0, x1) / cs);
+    if (dx > 0) for (let k = a0; k <= a1; k++) tx[nx++] = (k * cs - x0) / dx;
+    else for (let k = a1; k >= a0; k--) tx[nx++] = (k * cs - x0) / dx;
+  }
+  if (dy !== 0) {
+    const a0 = Math.ceil(Math.min(y0, y1) / cs), a1 = Math.floor(Math.max(y0, y1) / cs);
+    if (dy > 0) for (let k = a0; k <= a1; k++) ty[ny++] = (k * cs - y0) / dy;
+    else for (let k = a1; k >= a0; k--) ty[ny++] = (k * cs - y0) / dy;
+  }
   ts.length = 0;
-  ts.push(0, 1);
-  if (dx !== 0) { const a0 = Math.ceil(Math.min(x0, x1) / cs), a1 = Math.floor(Math.max(x0, x1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - x0) / dx); }
-  if (dy !== 0) { const a0 = Math.ceil(Math.min(y0, y1) / cs), a1 = Math.floor(Math.max(y0, y1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - y0) / dy); }
-  ts.sort((p, q) => p - q);
+  {
+    // 0, then the merged crossings, then 1 (values tied with 0 or 1 keep their place among equals).
+    let i = 0, j = 0, startDone = false, endDone = false;
+    const n = nx + ny + 2;
+    while (ts.length < n) {
+      const vx = i < nx ? tx[i]! : Infinity, vy = j < ny ? ty[j]! : Infinity;
+      const v = vx <= vy ? vx : vy;
+      if (!startDone && 0 <= v) { ts.push(0); startDone = true; continue; }
+      if (!endDone && 1 <= v) { ts.push(1); endDone = true; continue; }
+      if (vx <= vy) { ts.push(vx); i++; } else { ts.push(vy); j++; }
+    }
+  }
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows;
   let vegM = 0, conceal = 0;
   const tEnd0 = len > 0 ? END_CLEARANCE_M / len : 0;

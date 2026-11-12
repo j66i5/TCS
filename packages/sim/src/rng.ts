@@ -32,6 +32,8 @@ export const Streams = {
   fragments: "fragments",
   contacts: "contacts",
   support: "support",
+  /** Vehicle gunnery (M7.3): range errors of station tasks. Created on first use (vehicle-free battles never draw). */
+  station: "station",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

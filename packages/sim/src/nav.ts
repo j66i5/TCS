@@ -589,33 +589,37 @@ function heapPush(s: NavSearch, node: number, f: number): void {
     const h = new Int32Array(s.heap.length * 2); h.set(s.heap); s.heap = h;
     const hf = new Float64Array(s.heapF.length * 2); hf.set(s.heapF); s.heapF = hf;
   }
+  const H = s.heap, HF = s.heapF;
   let i = s.heapSize++;
   while (i > 0) {
     const p = (i - 1) >> 1;
-    const pf = s.heapF[p]!, pn = s.heap[p]!;
+    const pf = HF[p]!, pn = H[p]!;
     if (pf < f || (pf === f && pn < node)) break;
-    s.heap[i] = pn; s.heapF[i] = pf;
+    H[i] = pn; HF[i] = pf;
     i = p;
   }
-  s.heap[i] = node; s.heapF[i] = f;
+  H[i] = node; HF[i] = f;
 }
 
 function heapPop(s: NavSearch): number {
-  const top = s.heap[0]!;
+  const H = s.heap, HF = s.heapF;
+  const top = H[0]!;
   const n = --s.heapSize;
   if (n > 0) {
-    const node = s.heap[n]!, f = s.heapF[n]!;
+    const node = H[n]!, f = HF[n]!;
     let i = 0;
     for (;;) {
       const l = 2 * i + 1, r = l + 1;
       if (l >= n) break;
       let m = l;
-      if (r < n && (s.heapF[r]! < s.heapF[l]! || (s.heapF[r] === s.heapF[l] && s.heap[r]! < s.heap[l]!))) m = r;
-      if (s.heapF[m]! > f || (s.heapF[m] === f && s.heap[m]! > node)) break;
-      s.heap[i] = s.heap[m]!; s.heapF[i] = s.heapF[m]!;
+      const fl = HF[l]!;
+      if (r < n) { const fr = HF[r]!; if (fr < fl || (fr === fl && H[r]! < H[l]!)) m = r; }
+      const fm = HF[m]!;
+      if (fm > f || (fm === f && H[m]! > node)) break;
+      H[i] = H[m]!; HF[i] = fm;
       i = m;
     }
-    s.heap[i] = node; s.heapF[i] = f;
+    H[i] = node; HF[i] = f;
   }
   return top;
 }
@@ -669,32 +673,36 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
   const max = o.maxExpansions ?? nav.cols * nav.rows;
   let expanded = 0;
   let found = false;
+  // Local aliases (M7.3): the loop below is the hottest code of large battles. Same arithmetic, same order.
+  const cost = nav.cost, wall = nav.wall, closed = s.closed, stamp = s.stamp, gs = s.g, par = s.parent, R = nav.rows;
+  const diagK = SQRT2 - 1, push = heapPush, pop = heapPop;
   while (s.heapSize > 0) {
-    const cur = heapPop(s);
-    if (s.closed[cur] === gen) continue;
-    s.closed[cur] = gen;
+    const cur = pop(s);
+    if (closed[cur] === gen) continue;
+    closed[cur] = gen;
     if (cur === goal) { found = true; break; }
     if (++expanded > max) return null;
     const cc = cur % C, cr = (cur - cc) / C;
-    const ccost = nav.cost[cur]!;
-    const gcur = s.g[cur]!;
+    const ccost = cost[cur]!;
+    const gcur = gs[cur]!;
     for (let k = 0; k < 8; k++) {
       const nc = cc + DC[k]!, nr = cr + DR[k]!;
-      if (nc < 0 || nr < 0 || nc >= C || nr >= nav.rows) continue;
+      if (nc < 0 || nr < 0 || nc >= C || nr >= R) continue;
       const ni = nr * C + nc;
-      const ncost = nav.cost[ni]!;
-      if (ncost <= 0 || s.closed[ni] === gen || (blocked !== undefined && blocked.has(ni))) continue;
+      const ncost = cost[ni]!;
+      if (ncost <= 0 || closed[ni] === gen || (blocked !== undefined && blocked.has(ni))) continue;
       let step = 1;
       if (k >= 4) {
         // No corner cutting past blocked or wall cells.
         const a = cr * C + nc, b = nr * C + cc;
-        if (nav.cost[a]! <= 0 || nav.cost[b]! <= 0 || nav.wall[a] === 1 || nav.wall[b] === 1) continue;
+        if (cost[a]! <= 0 || cost[b]! <= 0 || wall[a] === 1 || wall[b] === 1) continue;
         step = SQRT2;
       }
       const ng = gcur + step * 0.5 * (ccost + ncost);
-      if (s.stamp[ni] !== gen || ng < s.g[ni]!) {
-        s.stamp[ni] = gen; s.g[ni] = ng; s.parent[ni] = cur;
-        heapPush(s, ni, ng + h(ni));
+      if (stamp[ni] !== gen || ng < gs[ni]!) {
+        stamp[ni] = gen; gs[ni] = ng; par[ni] = cur;
+        const hdx = Math.abs(nc - gc), hdy = Math.abs(nr - gr);
+        push(s, ni, ng + hk * (Math.max(hdx, hdy) + diagK * Math.min(hdx, hdy)));
       }
     }
   }

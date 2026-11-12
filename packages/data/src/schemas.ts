@@ -154,7 +154,11 @@ export const AmmoSchema = withProv({
     fuseSeconds: Num(0.1, 60).optional(),
     /** An impact fuse is live only after this flight time (a round that strikes earlier is a dud). */
     armingSeconds: Num(0, 5).optional(),
+    /** Impact HE that bursts on a man it strikes (M7.3, owner Q18: only the new cannon rounds; default false). */
+    burstOnBody: z.boolean().optional(),
   }).strict().optional(),
+  /** Smoke rounds (M7.3): a multispectral cloud also blinds thermal sights (default false). */
+  multispectral: z.boolean().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
@@ -255,7 +259,23 @@ export const SpottingFile = withProv({
   frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
   /** Sensors by kind (weapon sight kinds and item `sensor` kinds): detection factor beyond fromM, and the light
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
-  sensors: z.record(z.string(), z.object({ factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1) }).strict()),
+  sensors: z.record(z.string(), z.object({
+    factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1),
+    /** M7.3: share of the view kept through a standard (not multispectral) smoke cloud (0 = blinded; default 0). */
+    smokeFactor: Num(0, 1).optional(),
+    /** M7.3 vehicle sights: range limit (default: maxRangeM), fog floor (it sees at least this far in fog) and
+     *  the factor rain puts on it. */
+    maxRangeM: Num(10, 20000).optional(), fogFloorM: Num(0, 20000).optional(), rainFactor: Num(0, 1).optional(),
+  }).strict()),
+  /** Vehicles as targets and contacts (M7.3): visible area per 0.7 m^2 of a standing man (geometry gives the
+   *  area), moving above this speed, how many vehicles a man keeps track of besides men, how fast a vehicle
+   *  contact's uncertainty grows and when it is forgotten; engine noise is heard every engineEverySeconds within
+   *  the vehicle's noise range x (surfaceBase + surface noise) x (1 - rainK x rain), x downwind / upwind. */
+  vehicles: z.object({
+    referenceAreaM2: Num(0.1, 10), targetMaxRangeM: Num(100, 20000), movingAboveMps: Num(0, 10), maxTracked: z.number().int().min(0).max(20),
+    driftMps: Num(0, 50), forgetSeconds: Num(1, 3600), engineEverySeconds: Num(0.5, 60), surfaceBase: Num(0, 2),
+    rainK: Num(0, 1), downwind: Num(0.5, 2), upwind: Num(0.1, 2),
+  }).strict(),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
   contacts: z.object({
@@ -268,7 +288,9 @@ export type SpottingT = z.infer<typeof SpottingFile>;
 
 // ---------- behaviour (core/behaviour.json, M4)
 export const BehaviourFile = withProv({
-  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1) }).strict(),
+  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1),
+    /** M7.3: the energy factor of a near miss is capped at 2; heavy rounds (12.7 mm and up) at this. */
+    heavyEnergyCap: Num(0.25, 20).optional() }).strict(),
   stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1) }).strict(),
   states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
   effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
@@ -296,6 +318,13 @@ export const BehaviourFile = withProv({
     completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
     remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
     resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+  }).strict(),
+  /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
+  gunnery: z.object({
+    stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60), reportedErrorM: Num(0, 200), reportedWithinSeconds: Num(0, 120),
+    groupRadiusM: Num(0, 100), coaxSingleWithinM: Num(0, 3000), vehicleScore: Num(0.01, 10), firingScore: Num(0.01, 10),
+    lrfRangeErrorFraction: Num(0, 1), refillBelowFraction: Num(0, 1),
+    friendlyClearM: Num(0, 500), scanReturnSeconds: Num(0, 600), dischargeAheadM: Num(0, 200),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -329,6 +358,8 @@ export const WoundsFile = z.object({
     blast: z.object({ severityInjury: Num(0, 1), severitySevere: Num(0, 1), bleedLps: Num(0, 0.2) }).strict(),
     /** Run over by a vehicle (M7.1c). */
     crush: z.object({ severityMin: Num(0, 1), severityMax: Num(0, 1), bleedLps: Num(0, 0.2) }).strict().optional(),
+    /** Heavy projectiles (M7.3): a round of at least this diameter that strikes a man wounds at least this badly. */
+    heavy: z.object({ minDiameterM: Num(0.001, 0.5), severityMin: Num(0, 1) }).strict().optional(),
     /** A bullet that is not stopped by armour leaves the body with this share of its speed (limb / trunk or head). */
     exit: z.object({ limb: Num(0, 1), trunk: Num(0, 1) }).strict(),
   }),
@@ -568,14 +599,29 @@ export const VehicleSchema = withProv({
     traverseDegS: Num(0, 360), elevateDegS: Num(0, 180), elevationDeg: Span(-30, 90), traverseArcDeg: Span(-180, 180).optional(),
     stabiliser: z.enum(["none", "one-plane", "two-plane"]), baseErrorMrad: Num(0, 50), movingMradPerMps: Num(0, 20),
     layToleranceMrad: Num(0, 100), rangefinder: z.boolean(), readyRefillInBattle: z.boolean(),
+    /** Refilling the ready belts from stowage, halted (M7.3, owner Q17: both vehicles, about 90 s). */
+    refillSeconds: Num(1, 1200).optional(),
     /** The station's weapons (filled in M7.3 for the real vehicles). */
     weapons: z.array(VehicleWeaponSchema).default([]),
   })).default([]),
   /** Stowed items in the hull (belts, smoke charges, extinguisher charges ...). */
   stowed: z.array(z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict()).default([]),
   /** Reserved blocks (declared now so the schema shape is known; filled by the slices that use them). */
-  dischargers: z.unknown().optional(), armour: z.unknown().optional(), components: z.unknown().optional(),
-  cookOffAmmo: Id.optional(), signature: z.unknown().optional(), activeProtection: z.null().optional(), recovery: z.null().optional(),
+  /** Smoke grenade dischargers (M7.3): `perSalvo` rounds of `item` (counted in the container) burst `rangeM` out
+   *  over `arcDeg` ahead of the turret after `delaySeconds`, each a cloud of `cloudRadiusM` for `cloudSeconds`. */
+  dischargers: withProv({
+    item: Id, perSalvo: z.number().int().min(1).max(20), salvos: z.number().int().min(1).max(20), arcDeg: Num(1, 360),
+    rangeM: Num(1, 200), delaySeconds: Num(0, 30), cloudRadiusM: Num(1, 100), cloudSeconds: Num(1, 1200), component: Id.optional(),
+  }).optional(),
+  armour: z.unknown().optional(), components: z.unknown().optional(),
+  cookOffAmmo: Id.optional(),
+  /** How it is seen and heard (M7.3). sizeFactor multiplies the area its boxes show (camouflage, shape);
+   *  identifyM: its type is known within this range (owner Q6); noise ranges idle / moving; aim points [f, r, u]. */
+  signature: withProv({
+    sizeFactor: Num(0.05, 5), movingFactor: Num(1, 50), firingFactor: Num(1, 500), identifyM: Num(0, 10000),
+    noiseIdleM: Num(0, 10000), noiseMovingM: Num(0, 20000), aimPoints: z.array(Pos3).min(1).max(8),
+  }).optional(),
+  activeProtection: z.null().optional(), recovery: z.null().optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
 export type VehicleT = z.infer<typeof VehicleSchema>;
@@ -610,7 +656,12 @@ export const DoctrineFile = withProv({
   }).strict().optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
-  dismount: withProv({ distanceM: Num(0, 5000) }).optional(),
+  dismount: withProv({
+    distanceM: Num(0, 5000),
+    /** After the squads are out (M7.3): the vehicles stay in overwatch where they dropped them, or follow the
+     *  squads this far behind, supporting them by fire. Default overwatch. */
+    afterward: z.enum(["overwatch", "follow"]).optional(), followM: Num(0, 2000).optional(),
+  }).optional(),
 });
 
 export type FactionManifestT = z.infer<typeof FactionManifest>;

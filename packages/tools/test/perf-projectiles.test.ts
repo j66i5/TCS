@@ -34,11 +34,13 @@ function benchInput(parked: number): ReturnType<ReturnType<typeof getScenario>["
 }
 
 /** Fastest of three 100-tick windows of the bench battle with 20,000 bullets in the air: ms per tick. */
-function bulletBench(parked: number): { msPerTick: number; live: number; soldiers: number; eventsPerTick: number; hullHits: number } {
-  const sc = getScenario("bench");
-  const input = benchInput(parked);
+function bulletBench(parked: number, scenario = "bench", hold = false): { msPerTick: number; live: number; soldiers: number; eventsPerTick: number; hullHits: number; vehicleShots: number } {
+  const sc = getScenario(scenario);
+  const input = scenario === "bench" ? benchInput(parked) : sc.build(loadData(), 1, 600);
   const sim = createSim(input);
-  const ctrls = sc.controllers!(input);
+  // hold: the same battle (moving the same way) with everyone holding fire: the load "out of the fire".
+  const ctrls = hold ? getScenario("bench-vehicles").controllers!(input) : sc.controllers!(input);
+  if (hold) for (const [id, u] of sim.state.unit.entries()) if (u.parent === null) submitOrder(sim, { tick: 0, issuer: u.side, target: id, kind: "rules", fire: "hold" });
   const rng = createRng(99);
   // Bullets only: grenades and their fragments have their own benchmark below.
   // Pinned (M7.1a): new ammunition in the data must not change the benchmark's mix.
@@ -53,12 +55,12 @@ function bulletBench(parked: number): { msPerTick: number; live: number; soldier
         v * Math.cos(az) * Math.cos(el), v * Math.sin(az) * Math.cos(el), v * Math.sin(el), 0);
     }
   };
-  let hullHits = 0;
+  let hullHits = 0, vehicleShots = 0;
   const tickOnce = () => {
     for (const c of ctrls) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o);
     topUp();
     const ev = step(sim);
-    for (const e of ev) if (e.kind === "vehicle.hit") hullHits += e.rounds;
+    for (const e of ev) { if (e.kind === "vehicle.hit") hullHits += e.rounds; else if (e.kind === "shot.fired" && e.vehicle !== undefined) vehicleShots++; }
     return ev.length;
   };
   for (let i = 0; i < 120; i++) tickOnce(); // warm-up: JIT, pool growth, first orders
@@ -71,7 +73,7 @@ function bulletBench(parked: number): { msPerTick: number; live: number; soldier
     for (let i = 0; i < ticks; i++) events += tickOnce();
     wall = Math.min(wall, (performance.now() - t0) / 1000);
   }
-  return { msPerTick: (wall / ticks) * 1000, live: sim.state.projectiles.count, soldiers: sim.state.identity.size, eventsPerTick: events / 300, hullHits };
+  return { msPerTick: (wall / ticks) * 1000, live: sim.state.projectiles.count, soldiers: sim.state.identity.size, eventsPerTick: events / 300, hullHits, vehicleShots };
 }
 
 describe("performance with 20,000 live projectiles", () => {
@@ -92,6 +94,19 @@ describe("performance with 20,000 live projectiles", () => {
     console.log(`projectile bench with 30 parked hulls: ${hulls.msPerTick.toFixed(2)} vs ${base.msPerTick.toFixed(2)} ms per tick without (${((ratio - 1) * 100).toFixed(1)} %); ${hulls.hullHits} rounds stopped by hulls`);
     expect(hulls.hullHits).toBeGreaterThan(0);
     expect(ratio).toBeLessThan(1.2);
+  });
+
+  it(`bench-combined (about 300 men + 30 IFVs firing at will + ${LIVE} projectiles) runs at >= ${PROJECTILE_FLOOR_X_REALTIME}x real time, close to the same load parked out of the fire (C32)`, () => {
+    // Alternately, twice each, the fastest of each counting (as above).
+    const runs = [bulletBench(0, "bench-combined", true), bulletBench(0, "bench-combined"), bulletBench(0, "bench-combined", true), bulletBench(0, "bench-combined")];
+    const parked = runs[0]!.msPerTick <= runs[2]!.msPerTick ? runs[0]! : runs[2]!;
+    const live = runs[1]!.msPerTick <= runs[3]!.msPerTick ? runs[1]! : runs[3]!;
+    const speed = 1000 / 60 / live.msPerTick, ratio = live.msPerTick / parked.msPerTick;
+    console.log(`bench-combined: ${live.live} live projectiles + ${live.soldiers} soldiers + 30 vehicles: ${live.msPerTick.toFixed(2)} ms per tick = ${speed.toFixed(1)}x real time (SPEC target 8x); parked and holding fire ${parked.msPerTick.toFixed(2)} ms (${((ratio - 1) * 100).toFixed(1)} %); ${live.vehicleShots} vehicle rounds, ${live.hullHits} hull hits`);
+    expect(live.live).toBeGreaterThanOrEqual(LIVE * 0.95);
+    expect(speed).toBeGreaterThanOrEqual(PROJECTILE_FLOOR_X_REALTIME);
+    // Plan target 5 %; asserted within 25 % (run-to-run noise here is about 10 %).
+    expect(ratio).toBeLessThan(1.25);
   });
 });
 

@@ -23,6 +23,7 @@ import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
+import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
@@ -103,10 +104,16 @@ export function step(sim: Sim): SimEvent[] {
   vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
+  // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
+  turretSystem(ctx, state);
   fireSystem(ctx, state, events);
+  stationFireSystem(ctx, state, events);
   supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
   grenadeReactionSystem(ctx, state, events);
+  // Hits on hulls and fire near vehicles (M7.3) before the infantry's incoming fire: its early return no longer
+  // skips station tasks (plan C34).
+  vehicleIncomingSystem(ctx, state, events.events);
   incomingFireSystem(ctx, state, events.events);
   woundSystem(ctx, state, events);
   moraleSystem(ctx, state, events, events.events);
@@ -115,6 +122,7 @@ export function step(sim: Sim): SimEvent[] {
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
   surrenderSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
+  stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
   // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
   boardingSystem(ctx, state, events);

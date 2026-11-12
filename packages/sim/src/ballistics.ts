@@ -60,6 +60,8 @@ export interface AmmoRT {
   minSpeed2: number;
   /** 12.7 mm and up (M7): each hit on a vehicle is its own event; smaller rounds are aggregated per tick. */
   heavy: boolean;
+  /** Impact high explosive that bursts on a man it strikes (M7.3, owner Q18; only the cannon rounds). */
+  burstOnBody: boolean;
 }
 
 /** A roof: a flat lid on a building's walls (M2.4). */
@@ -364,7 +366,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
     return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
-      explosive: a.explosive !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125,
+      explosive: a.explosive !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125, burstOnBody: a.explosive?.burstOnBody === true,
       fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
       armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
       minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };

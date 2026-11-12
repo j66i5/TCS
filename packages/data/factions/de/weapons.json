@@ -141,6 +141,85 @@
       ],
       "confidence": "low",
       "note": "G95A1 (HK416 A8): 16.5 inch (419 mm) barrel, overall 860-942 mm (published). Mass (about 3.8 kg), rate of fire (about 850 rounds/min) and muzzle velocity (a little below the longer-barrelled G36) are from memory of HK416 figures, not confirmed by the search; dispersion is a game value. Not issued in the default squad (owner: G36 is the default; first G95 deliveries December 2025)."
+    },
+    {
+      "id": "de-mk30-2",
+      "nameKey": "weapon.de-mk30-2",
+      "type": "autocannon",
+      "calibre": "30x173",
+      "massKg": 160,
+      "feed": {
+        "magazine": "de-30x173-belt-he"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 200,
+      "dispersionMrad": 0.5,
+      "reloadSeconds": 10,
+      "setupSeconds": 0,
+      "jamProbability": 5e-05,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "de-30x173-pmc287": 1405,
+        "de-30x173-he": 1050
+      },
+      "sustained": {
+        "burstRounds": 3,
+        "intervalS": 2.0,
+        "recoilFactor": 0.1
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Mauser_MK_30",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "MK30-2/ABM, dual feed, 200 rounds/min (published). Bursts of 3 every 2 s, dispersion and mass are game values. The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "de-mg5-coax",
+      "nameKey": "weapon.de-mg5-coax",
+      "type": "machine-gun",
+      "calibre": "7.62x51",
+      "massKg": 11,
+      "feed": {
+        "magazine": "de-mg5-coax-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 800,
+      "dispersionMrad": 0.6,
+      "reloadSeconds": 8,
+      "setupSeconds": 0,
+      "jamProbability": 0.0003,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "de-762-dm111": 815,
+        "de-762-dm21": 815
+      },
+      "sustained": {
+        "burstRounds": 6,
+        "intervalS": 1.5,
+        "recoilFactor": 0.1
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_MG5",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "MG5 as the Puma's coaxial machine gun, fed from the hull; rate as the MG5's upper setting; bursts of 6 every 1.5 s (game values)."
     }
   ]
 }

@@ -89,11 +89,13 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
  * How much of the view survives the smoke along a line (1 = none in the way): exp(-k x metres of smoke). A
  * cloud grows to its full size over `buildTicks` (data: spotting.smokeBuildSeconds).
  */
-export function smokeTransmission(state: SimView, k: number, x0: number, y0: number, x1: number, y1: number, buildTicks = 600): number {
+export function smokeTransmission(state: SimView, k: number, x0: number, y0: number, x1: number, y1: number, buildTicks = 600, only: "all" | "conventional" | "multispectral" = "all"): number {
   if (state.smoke.length === 0 || k <= 0) return 1;
   const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
   let metres = 0;
   for (const c of state.smoke) {
+    // (M7.3: thermal sights see through ordinary smoke in part, not through a multispectral cloud.)
+    if (only !== "all" && (c.multispectral === true) !== (only === "multispectral")) continue;
     const grow = buildTicks > 0 ? Math.min(1, (state.tick - c.startTick) / buildTicks) : 1;
     const r = c.radiusM * (0.3 + 0.7 * grow);
     // Chord of the segment through the circle.

@@ -210,6 +210,50 @@
       "sources": [],
       "confidence": "low",
       "note": "The Puma's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
+    },
+    {
+      "id": "de-30x173-belt-ke",
+      "nameKey": "item.de-30x173-belt-ke",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.66,
+      "chargeItem": "de-30x173-pmc287",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Ready or stowed belt of 100 armour-piercing 30 mm rounds (Puma: 200 ready in two feeds and as many stowed are game values for the published total)."
+    },
+    {
+      "id": "de-30x173-belt-he",
+      "nameKey": "item.de-30x173-belt-he",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.82,
+      "chargeItem": "de-30x173-he",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Ready or stowed belt of 100 high-explosive 30 mm rounds (split of the published total is a game value)."
+    },
+    {
+      "id": "de-mg5-coax-belt",
+      "nameKey": "item.de-mg5-coax-belt",
+      "category": "magazine",
+      "massKg": 3.0,
+      "chargeCapacity": 500,
+      "chargeMassKg": 0.024,
+      "chargeItem": "de-762-dm111",
+      "tracerItem": "de-762-dm21",
+      "tracerEvery": 5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "500-round belt for the coaxial MG5, every fifth round tracer (game values)."
     }
   ]
 }

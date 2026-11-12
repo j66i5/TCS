@@ -125,7 +125,34 @@
             1.6
           ],
           "part": "hull",
-          "hatch": true
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.6,
+                0.6,
+                3.5
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.6,
+                0.6,
+                3.5
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
         },
         {
           "id": "gnr",
@@ -136,7 +163,34 @@
             1.6
           ],
           "part": "hull",
-          "hatch": true
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.3,
+                -0.6,
+                3.2
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                1.3,
+                -0.6,
+                3.2
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
         },
         {
           "id": "drv",
@@ -250,11 +304,62 @@
           "movingMradPerMps": 0.3,
           "layToleranceMrad": 2,
           "rangefinder": true,
-          "readyRefillInBattle": false,
-          "weapons": [],
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "de-mk30-2",
+              "coax": false,
+              "muzzle": [
+                4.4,
+                0,
+                2.85
+              ],
+              "feeds": [
+                {
+                  "item": "de-30x173-belt-ke",
+                  "ready": {
+                    "count": 1,
+                    "charge": 100
+                  }
+                },
+                {
+                  "item": "de-30x173-belt-he",
+                  "ready": {
+                    "count": 1,
+                    "charge": 100
+                  }
+                }
+              ],
+              "switchSeconds": 1,
+              "engageRangeM": 2000,
+              "feedKind": "belt"
+            },
+            {
+              "weapon": "de-mg5-coax",
+              "coax": true,
+              "muzzle": [
+                1.6,
+                0.45,
+                2.8
+              ],
+              "feeds": [
+                {
+                  "item": "de-mg5-coax-belt",
+                  "ready": {
+                    "count": 2,
+                    "charge": 500
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
           "sources": [],
           "confidence": "low",
-          "note": "Unmanned turret; rates, limits and errors are game values. The gun and coaxial machine gun are added with gunnery (M7.3)."
+          "note": "Unmanned turret; rates, limits and errors are game values. M7.3: MK30-2/ABM with two ready feeds (armour-piercing and high explosive, 100 each) and the coaxial MG5 (1000 ready). Owner Q17: the ready belts are refilled from stowage in battle, halted, in about 90 s.",
+          "refillSeconds": 90
         }
       ],
       "stowed": [
@@ -272,6 +377,25 @@
           "item": "de-g28-mag",
           "count": 4,
           "charge": 20
+        },
+        {
+          "item": "de-30x173-belt-ke",
+          "count": 1,
+          "charge": 100
+        },
+        {
+          "item": "de-30x173-belt-he",
+          "count": 1,
+          "charge": 100
+        },
+        {
+          "item": "de-mg5-coax-belt",
+          "count": 2,
+          "charge": 500
+        },
+        {
+          "item": "de-76mm-smoke",
+          "count": 16
         }
       ],
       "sources": [
@@ -279,7 +403,45 @@
         "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
       ],
       "confidence": "medium",
-      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle."
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value).",
+      "dischargers": {
+        "item": "de-76mm-smoke",
+        "perSalvo": 4,
+        "salvos": 4,
+        "arcDeg": 90,
+        "rangeM": 35,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "76 mm smoke dischargers on the turret: salvo size, number, arc, range, delay and cloud are game values."
+      },
+      "signature": {
+        "sizeFactor": 1.0,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.45
+          ],
+          [
+            0.4,
+            0,
+            2.9
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the area comes from the hull and turret boxes; type known within 1.5 km (owner Q6); engine heard 400 m idling, 1200 m driving."
+      }
     }
   ]
 }

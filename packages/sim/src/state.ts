@@ -67,7 +67,8 @@ export interface SimState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
+  /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -151,7 +152,8 @@ export interface SerializedState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
+  /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;

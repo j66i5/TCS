@@ -1526,3 +1526,94 @@ crew can only let its passengers out); a second tap on an own hull selects the u
 aboard cannot be tapped; the vehicle's status line adds "aboard n of m"; the hull of a selected squad's vehicle is
 ringed. `__tcs.mount/dismount/riders`. Screenshots `--scene vehicles` now also take the mounted start
 (`mounted-*`). No sim change, no golden update.
+
+## 2026-11-12 — M7 owner answers (third round, at the start of M7.3)
+Plan §16 numbers; applied in M7.3 unless noted:
+- Q5 **hatches:** buttoned up in M7 (no head-out). The driver therefore drives and does not search for the enemy
+  (decided with it; his seat has no sensor).
+- Q6 **enemy vehicle type under fog:** shown once seen within about 1.5 km (`signature.identifyM` 1500).
+- Q7 **thermal sights and smoke:** ordinary smoke blinds eyes and day sights fully; thermal sights still see a
+  vehicle through it at reduced strength (`smokeFactor` 0.5), as the SPEC asks; multispectral smoke blinds all.
+- Q16 **Puma second ammunition:** impact HE in M7, air-burst later.
+- Q17 **ready ammunition in battle:** owner chose (b), not the plan's recommended (a): **both** vehicles refill
+  ready belts and racks from stowage when halted, taking about 90 s (`refillSeconds` 90; `transferItems`,
+  counted items).
+- Q18 **a 30 mm HE round hitting a man directly bursts on him** (only the new cannon rounds, `burstOnBody`;
+  rifle grenades and mortar bombs unchanged).
+- Q23 **map size:** keep 1200 × 900 m.
+- Q20 (for M7.4a, recorded now): firing shoulder-fired AT from a room is not allowed unless the room is breached
+  or large.
+
+## 2026-11-12 — M7.3 turret and guns, vehicle senses, smoke (golden update)
+Plan §7/§10/§12/§15 M7.3. Decisions where the plan was open (all values game values, confidence low unless the
+data says otherwise; the data notes give each):
+- **Data:** MK30-2 (200 rpm, dual feed), 2A42 (550 rpm), coaxial MG5 and PKT; PMC287 APFSDS-T (132.5 mm
+  mild-steel equivalent = 106 mm RHA × 1.25 at the speed the drag model gives at 1000 m, 1317 m/s), Puma impact
+  HE (Q16), 3UBR8 APDS-T (62.5 mm = 50 × 1.25 at 844 m/s, its 1500 m speed), 3UOF8 HE-I; 80 fragments per 30 mm
+  shell (plan: 30; 80 is closer to a 30 mm shell and still cheap); belts and stowage (plan figures); 76 mm /
+  81 mm smoke grenades (ordinary smoke). Station weapon `muzzle` is in the turret frame about its pivot.
+  Schemas made strict: `dischargers`, `signature` (defaults when absent, so the fixture cart needs none).
+  `armour` and `components` stay reserved (M7.4).
+- **Turret and fire:** a station fires only laid (tolerance), with a clear line from the muzzle (own hull and a
+  target hull ignored; fire at the ground — HE at men's feet — is checked to 0.6 m above it, a grazing line is
+  not a wall), no comrade on foot in the cone, with the weapon's `sustained` bursts. Error = (base + moving ×
+  speed, ×1.5/×3 for one-plane/no stabiliser) × the gunner's skill factor × burst growth, plus the weapon's
+  dispersion; range error 0.5 % with a laser rangefinder, else the eye's. Lead from the crew's contact velocity ×
+  time of flight (drop tables built to 2500 m for 2 km guns). The commander fires the gun when the gunner is out
+  (no delay modelled: the seat swap still takes 20 s). Single-round feeds: a round loaded per `roundLoadSeconds`
+  (× `noLoaderFactor` without an able man in the loader's station), counted on the rack until fired.
+- **Target choice** (1 Hz): what the crew saw in the last 4 s, or a comrade reported within 20 m in the last
+  15 s; vehicles first (score × 0.3), men firing (× 0.5), nearest; the best of the first four the gun has a line
+  to; AP at vehicles, HE at groups (two within 15 m) and at men beyond 400 m, coax at a single man within 400 m;
+  never HE within 60 m of own men on foot (coax if in reach, else no target). A crew out of one nature uses
+  another. "Return fire" answers fire on the crew or on its platoon (an IFV supports its men) — decided without
+  the owner, for review. Ordered tasks follow the full-rate/trickle/end clock of infantry fire; incoming fire near
+  the vehicle renews them (`vehicleIncomingSystem`, before `incomingFireSystem`, C34).
+- **Orders:** `fire` gains `nature` (`ap`/`he`/`mg`); new `discharge`; reject reason `not-applicable` for
+  posture, assault, withdraw and grenades to a crew, and smoke to a unit without vehicles. A fire order to a
+  platoon also tasks its vehicles; a cease-fire to the platoon reaches its vehicles, to a squad not (C19).
+- **Refill (Q17):** halted (< 0.3 m/s, no route left), a feed at or below a quarter of its ready capacity with a
+  whole stowed belt that fits: the operator's `reloadStation` action, `refillSeconds` (90 s), whole belts moved
+  through `transferItems`; the station does not fire meanwhile.
+- **Smoke:** a salvo removes `perSalvo` grenades (counted) and lays that many clouds (10 m, 90 s) 30–35 m out
+  over 90° ahead of the turret after 1.5 s; none left: `radio.noSmoke`. The AI does not use smoke yet (crew
+  reactions, M7.4b).
+- **Spotting:** vehicles are targets (area of hull and turret boxes at the observer's aspect / 0.7 m² ×
+  `sizeFactor`; ×4 moving, ×15 firing; the best aim point, the turret's share if only it shows; the observer's
+  and target's hulls ignored). Crewmen (not passengers, not the driver) observe through their seats' sensors
+  (arc, side and rear factors, following hull or turret, range 3000 m, thermal fog floor 1800 m, rain ×0.85).
+  Men track up to 2 vehicles besides 6 men. **Cost bounds (decided without the owner):** men on foot look for
+  vehicles, and crewmen search, every fourth scan with four times the scan time (the same chance per second on
+  average); one careful look at a new vehicle per such scan, two at new men for a crewman; a foot observer sees a
+  hull no farther than a man (1200 m). Without them `bench-vehicles` fell from 8.7× to 4.6×.
+- **Contacts:** vehicle contacts carry `cls`, `vtype` (within `identifyM`, Q6), heading and velocity, drift
+  6 m/s and are forgotten after 300 s; a station's shots are heard as the vehicle; engines every 2 s within
+  400 m idling / 1200 m moving × (0.6 + surface noise) × (1 − 0.4 rain), ×1.2 downwind, ×0.8 upwind (the plan's
+  "× surface noise" alone would have made a moving IFV inaudible at 300 m on grass).
+- **Wounds and suppression:** a round ≥ 12.5 mm striking a man wounds at least at severity 0.85; a 30 mm HE shell
+  strikes and bursts on him (Q18; unarmed shells only strike); heavy near misses suppress up to 4× a rifle round.
+- **AI (plan §12):** no mortar, grenade or rifle base of fire at vehicle contacts; after the ride, crews fire
+  free; doctrine `dismount.afterward` — Germany `overwatch` (stay where the squads got out), Russia `follow`
+  150 m behind its squad (research file, low); during the assault every 20 s each vehicle is ordered to fire at an
+  enemy its side knows within 150 m of the objective, none within 80 m of its own men on foot.
+- **AAR and batch:** `tallyExpenditure` (sim, from events): small arms, grenades, per vehicle cannon rounds by
+  ammunition, coax rounds, smoke salvos; the AAR lists them per side, the batch report gives the means.
+- **Speed-ups with identical results** (checked: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1
+  event streams unchanged): `sight()` merges its x and y grid crossings instead of sorting them; A* search and its
+  heap read typed arrays through locals; spotting targets reuse their rows; contact reports look up a platoon's
+  men once per tick.
+- **Golden update** (catalog fingerprint; vehicle goldens also change because vehicles now fire). Checked first:
+  headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s) print the identical event stream and
+  casualties as on the base commit (aa989ff).
+- **Batch, 10 × 900 s each:** infantry `platoon` red 10/10, casualties blue 16.1 / red 8.2, `platoon-ru` blue 10/10,
+  7.8 / 15.4 — **identical** to the M7.2 baseline (orders 79.3 / 86.7 as before). With vehicles: `platoon-vehicles`
+  (Germany attacks mounted) red 9/10 (M7.2: 9/10), casualties blue 14.7 / red 10.8 (13.6 / 9.1), cannon rounds per
+  battle blue 660 / red 380, coax 391 / 31, 67× real time; `platoon-ru-vehicles` (Russia attacks) blue 10/10
+  (M7.2: 8/10), casualties blue 10.6 / red 18.2 (11.0 / 18.5), cannon 283 / 350, 76×. No vehicle lost (rounds stop
+  at the hull until M7.4a): IFVs spend much of their AP on each other.
+- **Gunnery lab** (`npm run lab -- gunnery`): AP at a halted hull side-on, Puma 91 % at 1000 m / 72 % at 1500 m,
+  BMP-2 83 % / 51 %; on the move (~20 km/h) 33 % / 12 %; order to first round with the target 90° off 3.3 / 4.4 s;
+  every round counted; refill 90 s.
+- **Deferred:** AI smoke and reverse-out (M7.4b); per-vehicle weapon choice by the player beyond the nature
+  (coax vs cannon at the same nature); the radio-component comms rule (M7.4b); Uint8 vehicle grids (as M7.1c);
+  vehicle contacts from mortar/air observation; air-burst (ABM) later (Q16).

@@ -38,7 +38,11 @@ export type OrderBody =
   /** Stop and take a posture. */
   | { kind: "posture"; posture: Posture }
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
-  | { kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId }
+  | {
+    kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId;
+    /** Vehicles (M7.3): armour-piercing, high explosive or the machine gun; absent: the crew chooses. */
+    nature?: "ap" | "he" | "mg";
+  }
   | { kind: "ceaseFire" }
   /** Standing rules for the unit and its sub-units (M4.2, M5); only the rules given change. */
   | { kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max" }
@@ -55,7 +59,9 @@ export type OrderBody =
    *  own carrier. `vehicle` (an own vehicle) overrides the carrier. */
   | { kind: "mount"; vehicle?: EntityId }
   /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
-  | { kind: "dismount" };
+  | { kind: "dismount" }
+  /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
+  | { kind: "discharge" };
 
 export type OrderKind = OrderBody["kind"];
 
@@ -85,4 +91,6 @@ export type OrderRejectReason =
   | "unknown-target"
   | "not-your-unit"
   | "invalid-params"
+  /** This kind of order means nothing to that kind of unit (M7.3: a grenade to a vehicle crew, smoke to men on foot). */
+  | "not-applicable"
   | "battle-ended";

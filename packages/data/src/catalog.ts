@@ -12,7 +12,10 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     if (!pack) throw new Error(`faction '${fid}' is not loaded (loaded: ${Object.keys(data.factions).join(", ")})`);
     factions[fid] = { id: fid, nameKey: pack.manifest.nameKey, doctrine: { ...pack.doctrine.values }, defaultFormation: pack.doctrine.defaultFormation };
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
-    if (pack.doctrine.dismount) factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
+    if (pack.doctrine.dismount) {
+      factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
+      if (pack.doctrine.dismount.afterward !== undefined) factions[fid]!.afterDismount = { kind: pack.doctrine.dismount.afterward, followM: pack.doctrine.dismount.followM ?? 150 };
+    }
     for (const it of Object.values(pack.items)) {
       const d: ItemTypeDef = { id: it.id, massKg: it.massKg, category: it.category };
       if (it.chargeCapacity !== undefined) d.chargeCapacity = it.chargeCapacity;
@@ -104,10 +107,16 @@ export function vehicleDef(v: VehicleT): VehicleDef {
       ...(s.traverseArcDeg ? { traverseArcRad: [rad(s.traverseArcDeg[0]), rad(s.traverseArcDeg[1])] as [number, number] } : {}),
       stabiliser: s.stabiliser, baseErrorMrad: s.baseErrorMrad, movingMradPerMps: s.movingMradPerMps, layToleranceMrad: s.layToleranceMrad,
       rangefinder: s.rangefinder, readyRefillInBattle: s.readyRefillInBattle,
+      ...(s.refillSeconds === undefined ? {} : { refillSeconds: s.refillSeconds }),
       weapons: noProv(s.weapons) as VehicleDef["stations"][number]["weapons"],
     })),
     stowed: noProv(v.stowed) as VehicleDef["stowed"],
     ...(v.cookOffAmmo === undefined ? {} : { cookOffAmmo: v.cookOffAmmo }),
+    ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds } } : {}),
+    // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
+    signature: v.signature
+      ? { sizeFactor: v.signature.sizeFactor, movingFactor: v.signature.movingFactor, firingFactor: v.signature.firingFactor, identifyM: v.signature.identifyM, noiseIdleM: v.signature.noiseIdleM, noiseMovingM: v.signature.noiseMovingM, aimPoints: v.signature.aimPoints.map((p) => [...p] as [number, number, number]) }
+      : { sizeFactor: 1, movingFactor: 4, firingFactor: 15, identifyM: 1000, noiseIdleM: 300, noiseMovingM: 800, aimPoints: [[0, 0, (v.body.hull.u[0] + v.body.hull.u[1]) / 2]] },
   };
 }
 

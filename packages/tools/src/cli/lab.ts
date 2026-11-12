@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -11,6 +11,7 @@ import { coverLab, coverLabMarkdown } from "../labs/cover";
 import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { driveLab, driveLabMarkdown } from "../labs/drive";
 import { mountLab, mountLabMarkdown } from "../labs/mount";
+import { gunneryLab, gunneryLabMarkdown } from "../labs/gunnery";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
 import { loadData } from "../scenarios";
 
@@ -26,6 +27,7 @@ const LABS: Record<string, () => string> = {
   cover: () => `# Cover and flight lab\n\n${coverLabMarkdown(coverLab(loadData()))}\n`,
   drive: () => `# Drive lab\n\n${driveLabMarkdown(driveLab(loadData(true)))}\n`,
   mount: () => `# Mount lab\n\n${mountLabMarkdown(mountLab(loadData(true)))}\n`,
+  gunnery: () => `# Gunnery lab\n\n${gunneryLabMarkdown(gunneryLab(loadData()))}\n`,
 };
 const name = process.argv[2] ?? "movement";
 const lab = LABS[name];

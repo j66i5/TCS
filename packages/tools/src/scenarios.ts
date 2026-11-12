@@ -63,7 +63,7 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles": {
-    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (vehicles cannot fire or be hit yet).",
+    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a).",
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
@@ -73,7 +73,7 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   vehicles: {
-    description: "M7.1c: a platoon of two Pumas with their squads on foot against two BMP-2s with theirs, on a generated 1200 x 900 m farmland map; vehicles and squads wander (no vehicle weapons yet).",
+    description: "M7.1c: a platoon of two Pumas with their squads on foot against two BMP-2s with theirs, on a generated 1200 x 900 m farmland map; vehicles and squads wander (M7.3: crews fire on their own when fired upon).",
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], mapKind: "farmland", timeLimitSeconds: seconds }),
     controllers: vehicleWanderBoth,
   },
@@ -82,6 +82,14 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     fixtures: true,
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["xf", "de"], squadTemplates: ["porter-band", "pzgren-schuetzentrupp"], mapWidthM: 800, mapHeightM: 600, timeLimitSeconds: seconds }),
     controllers: vehicleWanderBoth,
+  },
+  "bench-combined": {
+    description: "Benchmark (M7.3, plan C32): bench-vehicles (30 IFVs and about 270 men moving) with everyone free to fire; the perf test adds a load of 20,000 live projectiles.",
+    build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 5, vehiclesPerPlatoon: 3, mapKind: "farmland", mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds }),
+    controllers: (input) => [
+      freeFire(vehicleWanderController("blue", input.seed * 2 + 1, input.map, 60)),
+      freeFire(vehicleWanderController("red", input.seed * 2 + 2, input.map, 60)),
+    ],
   },
   "bench-vehicles": {
     description: "Benchmark (M7.1c): 15 IFVs per side (30), each with its squad on foot (about 300 men in all), on a generated 2 x 2 km farmland map, all moving.",
@@ -102,6 +110,18 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     ],
   },
 };
+
+/** A controller that first sets every platoon of its side to fire at will (benchmarks), then does what `c` does. */
+function freeFire(c: Controller): Controller {
+  return {
+    side: c.side,
+    think(view, tick) {
+      const out = c.think(view, tick);
+      if (tick === 0) for (const [id, u] of view.unit.entries()) if (u.side === c.side && u.parent === null) out.push({ tick, issuer: c.side, target: id, kind: "rules", fire: "free" });
+      return out;
+    },
+  };
+}
 
 export function getScenario(name: string): NamedScenario {
   const s = SCENARIOS[name];

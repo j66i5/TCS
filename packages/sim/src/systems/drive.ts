@@ -33,6 +33,7 @@ import { syncTerrainDamage } from "./explosions";
 import { cellIndex, heightAt } from "../terrain";
 import { radioFromTarget } from "./orders";
 import { seatWorld } from "../setup";
+import { dischargeSmoke, stationFireOrder } from "./gunnery";
 
 const G = 9.80665;
 /** Time constant of the speed controller on each track / the body, s. */
@@ -729,6 +730,11 @@ export function vehicleOrder(ctx: SimContext, state: SimState, order: Order, vid
     case "halt":
       vehicleHalt(state, vid);
       return true;
+    // Gunnery (M7.3).
+    case "fire":
+      return stationFireOrder(ctx, state, vid, order, order.issuer);
+    case "discharge":
+      return dischargeSmoke(ctx, state, vid);
     default:
       return "unable";
   }

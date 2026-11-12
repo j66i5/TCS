@@ -40,7 +40,8 @@ export type SimEvent =
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
   | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }
-  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId }
+  /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
+  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
@@ -76,6 +77,10 @@ export type SimEvent =
   | { kind: "unit.dismounted"; tick: number; unit: EntityId; vehicle: EntityId }
   /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
   | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }
+  /** A vehicle's smoke dischargers fired (M7.3): the screen's centre. */
+  | { kind: "vehicle.smoke"; tick: number; vehicle: EntityId; x: number; y: number }
+  /** A vehicle station's decision changed (M7.3; debug overlay): its target (if any) and the reasons (string keys). */
+  | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | null; keys: string[] }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

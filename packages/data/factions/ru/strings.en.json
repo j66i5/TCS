@@ -70,5 +70,14 @@
   "role.ru.komandir-mashiny": "Vehicle commander",
   "role.ru.operator-navodchik": "Gunner-operator",
   "role.ru.mekhanik-voditel": "Driver-mechanic",
-  "item.ru-bmp2-diesel": "BMP-2 fuel"
+  "item.ru-bmp2-diesel": "BMP-2 fuel",
+  "ammo.ru-30x165-3ubr8": "30 mm 3UBR8 APDS-T",
+  "ammo.ru-30x165-3uof8": "30 mm 3UOF8 HE-I",
+  "ammo.ru-30mm-fragment": "30 mm HE fragment",
+  "ammo.ru-81mm-smoke": "81 mm smoke grenade",
+  "weapon.ru-2a42": "2A42",
+  "weapon.ru-pkt": "PKT",
+  "item.ru-30x165-belt-ap": "30 mm belt, AP (160)",
+  "item.ru-30x165-belt-he": "30 mm belt, HE (340)",
+  "item.ru-pkt-belt": "PKT belt (250)"
 }

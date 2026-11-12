@@ -196,7 +196,9 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean };
+  /** Smoke (M7.3): a multispectral cloud blinds thermal sights too. */
+  multispectral?: boolean;
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched"; velocityMps?: number; launcher?: DefId; maxRangeM?: number };
 }
@@ -252,7 +254,7 @@ export interface ZoneWoundDef {
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
 export interface BehaviourDef {
-  suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number };
+  suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
   stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number };
   states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
   effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
@@ -301,6 +303,22 @@ export interface BehaviourDef {
     completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
     remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
   };
+  /**
+   * Vehicle gunnery (M7.3). stepSeconds: how often a crew chooses its target. A crew engages what it has seen
+   * within seenWithinSeconds, or a comrade's report no vaguer than reportedErrorM and younger than
+   * reportedWithinSeconds. groupRadiusM: men this close together are a group (HE); a single man within
+   * coaxSingleWithinM gets the coaxial machine gun. Target score = range x vehicleScore for a vehicle x
+   * firingScore for an enemy firing now (lower is first). The commander fires the gun when the gunner is out. lrfRangeErrorFraction: range error with a laser
+   * rangefinder. refillBelowFraction: halted, a crew refills a ready belt below this share of full.
+   * friendlyClearM: no fire at a point this close to own men on foot. scanReturnSeconds: the turret comes back
+   * to the front this long after its last target. dischargeAheadM: unused distance reserve for the smoke screen.
+   */
+  gunnery: {
+    stepSeconds: number; seenWithinSeconds: number; reportedErrorM: number; reportedWithinSeconds: number;
+    groupRadiusM: number; coaxSingleWithinM: number; vehicleScore: number; firingScore: number;
+    lrfRangeErrorFraction: number; refillBelowFraction: number;
+    friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
+  };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -316,7 +334,12 @@ export interface SpottingDef {
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
-  sensors: Record<string, { factor: number; fromM: number; nightLight: number }>;
+  sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number }>;
+  /** Vehicles as targets and contacts (M7.3). */
+  vehicles: {
+    referenceAreaM2: number; targetMaxRangeM: number; movingAboveMps: number; maxTracked: number; driftMps: number; forgetSeconds: number;
+    engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
+  };
   skillSlope: number; stressK: number; lightFloor: number;
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
   contacts: {
@@ -343,6 +366,8 @@ export interface WoundsDef {
     blast: { severityInjury: number; severitySevere: number; bleedLps: number };
     /** Run over by a vehicle (M7.1c): severity drawn between min and max, bleeding per unit severity. */
     crush?: { severityMin: number; severityMax: number; bleedLps: number };
+    /** Heavy projectiles (M7.3): a round this wide or wider wounds at least this badly. */
+    heavy?: { minDiameterM: number; severityMin: number };
     /** Share of its speed a bullet keeps on leaving a limb / the trunk or head. */
     exit: { limb: number; trunk: number };
   };
@@ -380,6 +405,8 @@ export interface FactionDef {
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
   dismountM?: number;
+  /** After the squads are out (M7.3): vehicles stay in overwatch, or follow the squads `followM` behind. */
+  afterDismount?: { kind: "overwatch" | "follow"; followM: number };
 }
 
 export interface FormationDef {
@@ -449,6 +476,8 @@ export interface VehicleDef {
     traverseRadS: number; elevateRadS: number; elevationRad: [number, number]; traverseArcRad?: [number, number];
     stabiliser: "none" | "one-plane" | "two-plane"; baseErrorMrad: number; movingMradPerMps: number; layToleranceMrad: number;
     rangefinder: boolean; readyRefillInBattle: boolean;
+    /** Seconds to refill the ready belts from stowage, halted (absent: no refill in battle). */
+    refillSeconds?: number;
     weapons: {
       weapon: DefId; coax: boolean; muzzle: [number, number, number]; feeds: { item: DefId; ready: { count: number; charge: number } }[];
       switchSeconds: number; engageRangeM: number; feedKind: "belt" | "single" | "autoloader";
@@ -457,6 +486,10 @@ export interface VehicleDef {
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];
   cookOffAmmo?: DefId;
+  /** Smoke dischargers (M7.3). */
+  dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
+  /** How it is seen and heard (M7.3; defaults when the data gives none). */
+  signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

@@ -195,6 +195,50 @@
       "sources": [],
       "confidence": "low",
       "note": "The BMP-2's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
+    },
+    {
+      "id": "ru-30x165-belt-ap",
+      "nameKey": "item.ru-30x165-belt-ap",
+      "category": "magazine",
+      "massKg": 3.0,
+      "chargeCapacity": 160,
+      "chargeMassKg": 0.775,
+      "chargeItem": "ru-30x165-3ubr8",
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "The BMP-2's armour-piercing ready belt: 160 rounds (published total 500 in two belts; the split is commonly quoted, low)."
+    },
+    {
+      "id": "ru-30x165-belt-he",
+      "nameKey": "item.ru-30x165-belt-he",
+      "category": "magazine",
+      "massKg": 6.0,
+      "chargeCapacity": 340,
+      "chargeMassKg": 0.842,
+      "chargeItem": "ru-30x165-3uof8",
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "The BMP-2's high-explosive ready belt: 340 rounds (see the AP belt)."
+    },
+    {
+      "id": "ru-pkt-belt",
+      "nameKey": "item.ru-pkt-belt",
+      "category": "magazine",
+      "massKg": 1.5,
+      "chargeCapacity": 250,
+      "chargeMassKg": 0.0218,
+      "chargeItem": "ru-762r-lps",
+      "tracerItem": "ru-762r-t46",
+      "tracerEvery": 4,
+      "sources": [
+        "https://en.wikipedia.org/wiki/PK_machine_gun"
+      ],
+      "confidence": "medium",
+      "note": "250-round belt for the PKT, every fourth round tracer (game value)."
     }
   ]
 }

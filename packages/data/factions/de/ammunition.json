@@ -326,6 +326,123 @@
       ],
       "confidence": "low",
       "note": "Smoke mortar bomb: a counted round of the mortar section's stock (rule 9); its cloud is in the faction's fireSupport (game values)."
+    },
+    {
+      "id": "de-30x173-pmc287",
+      "nameKey": "ammo.de-30x173-pmc287",
+      "calibre": "30x173",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 0.2,
+      "cartridgeMassKg": 0.66,
+      "diameterM": 0.015,
+      "drag": {
+        "a": 0.12,
+        "b": 0,
+        "max": 0.2
+      },
+      "tracerBurnoutM": 2500,
+      "penetration": {
+        "steelMm": 132.5,
+        "atVelocityMps": 1317
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
+        "https://en.wikipedia.org/wiki/Mauser_MK_30"
+      ],
+      "confidence": "low",
+      "note": "PMC287 APFSDS-T for the MK30-2/ABM (Puma): muzzle velocity about 1405 m/s (published). Penetration: 106 mm RHA (line of sight) at 1000 m x rhaToMildSteel 1.25 = 132.5 mm mild-steel equivalent at the speed the drag model gives at 1000 m (1317 m/s). Flight mass, cartridge mass and drag of the sub-calibre penetrator are game values. The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "de-30x173-he",
+      "nameKey": "ammo.de-30x173-he",
+      "calibre": "30x173",
+      "kind": "high-explosive",
+      "projectileMassKg": 0.36,
+      "cartridgeMassKg": 0.82,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.28,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.05,
+        "fragmentCount": 80,
+        "fragmentAmmo": "de-30mm-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ],
+        "armingSeconds": 0.02,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Impact-fused high explosive for the Puma (owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "de-30mm-fragment",
+      "nameKey": "ammo.de-30mm-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0015,
+      "cartridgeMassKg": 0.0015,
+      "diameterM": 0.007,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 3,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal)."
+    },
+    {
+      "id": "de-76mm-smoke",
+      "nameKey": "ammo.de-76mm-smoke",
+      "calibre": "76mm-discharger",
+      "kind": "smoke",
+      "projectileMassKg": 1.0,
+      "cartridgeMassKg": 1.2,
+      "diameterM": 0.076,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "multispectral": false,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "76 mm smoke grenade for the Puma's dischargers (ordinary smoke, not multispectral; game values). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
     }
   ]
 }

@@ -32,13 +32,16 @@ export function pickRound(catalog: Catalog, wd: WeaponDef, feedItem: string, rou
 export function launchShot(
   ctx: SimContext, state: SimState, events: EventSink, owner: EntityId, weapon: string, ammoId: string, v0: number,
   mx: number, my: number, mz: number, tz: number, a0: number, range: number, believedRange: number, errRad: number,
+  vehicle?: EntityId, tableRangeM = 1500,
 ): number {
-  const e0 = atan2(tz - mz, range) + atan2(dropAt(ctx, ammoId, v0, believedRange), believedRange);
+  const e0 = atan2(tz - mz, range) + atan2(dropAt(ctx, ammoId, v0, believedRange, tableRangeM), believedRange);
   const az = a0 + errRad * nextNormal(state.rng, Streams.fire);
   const el = e0 + errRad * nextNormal(state.rng, Streams.fire);
   const ce = cos(el);
   launchProjectile(ctx, state, ammoId, mx, my, mz, v0 * cos(az) * ce, v0 * sin(az) * ce, v0 * sin(el), owner);
-  events.emit({ kind: "shot.fired", tick: state.tick, shooter: owner, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon, ammo: ammoId });
+  events.emit(vehicle === undefined
+    ? { kind: "shot.fired", tick: state.tick, shooter: owner, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon, ammo: ammoId }
+    : { kind: "shot.fired", tick: state.tick, shooter: owner, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon, ammo: ammoId, vehicle });
   return az;
 }
 

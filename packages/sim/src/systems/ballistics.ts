@@ -159,6 +159,8 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const reach = B.bodyReachM;
   const SUP = ctx.catalog.behaviour.suppression;
   const supR = SUP.nearMissRadiusM, supR2 = supR * supR, supPer = SUP.perRound, supERef = SUP.energyRefJ;
+  // Heavy rounds (12.7 mm and up) crack past harder (M7.3, calibre scaling).
+  const heavyCap = SUP.heavyEnergyCap ?? 2;
   const supCentreZ = [0, 1, 2].map((p) => hitboxes[p]!.height * (hitboxes[p]!.alongLength ? 0.5 : 0.6));
   const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf;
 
@@ -234,7 +236,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
-    if (am.explosive) { nearSoldier = false; nearVeg = false; } // a grenade does not wound by striking, and is not stopped by leaves
+    // A grenade does not wound by striking, and is not stopped by leaves; a cannon shell that bursts on a man
+    // (M7.3, owner Q18) is tested against bodies (rifle grenades and mortar bombs are not).
+    if (am.explosive) { if (!am.burstOnBody) nearSoldier = false; nearVeg = false; }
 
     // ---- walls (obstacles and building walls), nearest hit
     let tHit = 2, hitSeg = -1;
@@ -396,7 +400,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
             const ex2 = rx - t * dx, ey2 = ry - t * dy, ez2 = rz - t * dz;
             const d2 = ex2 * ex2 + ey2 * ey2 + ez2 * ez2;
             if (d2 > supR2) continue;
-            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); if (eK > 2) eK = 2; if (eK < 0.25) eK = 0.25; }
+            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); const capK = am.heavy ? heavyCap : 2; if (eK > capK) eK = capK; if (eK < 0.25) eK = 0.25; }
             SG.sup[j] = SG.sup[j]! + supPer * eK * (1 - 0.5 * sq(d2) / supR);
           }
         }
@@ -481,6 +485,14 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
       // ---- a man is hit: armour, wound; a bullet may go through him
       const speedB = rs / (1 + a * tBody); // its speed where it strikes, not at the end of the tick
+      if (am.explosive) {
+        // A cannon shell (M7.3, owner Q18): it strikes him and bursts on him (an unarmed one only strikes).
+        const hx = x0 + tBody * dx, hy = y0 + tBody * dy, hz = z0 + tBody * dz;
+        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, am.penSteelMm, 0.5 * am.massKg * speedB * speedB, am.id, P.owner[i]!, false);
+        if (tick - BORN[i]! >= am.armTicks) queueBurst(hx, hy, hz, AMMO[i]!, P.owner[i]!);
+        remove(P, i);
+        continue;
+      }
       const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
       const energy = 0.5 * am.massKg * speedB * speedB;
       let through = bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);

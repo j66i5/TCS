@@ -252,7 +252,11 @@
     },
     "sources": [],
     "confidence": "low",
-    "note": "Owner decisions 2026-11-11: a round stopped by a plate knocks the man down for a few seconds and leaves a minor blunt injury (pain, no bleeding). Severity scales gently with the bullet's remaining energy relative to 1000 J (power 0.3). Most wounds bleed far below the zone's worst case (floor 12 %, rising with the cube of a random draw): few hit a major vessel. A round that strikes an arm from the side goes on into the trunk 6 times in 10 with 70 % of its energy. Fragments: one below 3 J does not wound; severity grows with the square root of its energy relative to 90 J. Blast: lung and ear injury, severity 0.2 at the edge of the injury radius rising to 0.75 at the severe radius. Run over by a vehicle (M7.1c, owner decision): a crush wound to the pelvis (chest if he lay flat), severity 0.75-1.0, heavy internal bleeding: mostly fatal. A bullet that goes through a man flies on with 70 % of its speed after a limb and 30 % after the trunk or head (it tumbles and breaks up there); fragments stay in the body. Game values."
+    "note": "Owner decisions 2026-11-11: a round stopped by a plate knocks the man down for a few seconds and leaves a minor blunt injury (pain, no bleeding). Severity scales gently with the bullet's remaining energy relative to 1000 J (power 0.3). Most wounds bleed far below the zone's worst case (floor 12 %, rising with the cube of a random draw): few hit a major vessel. A round that strikes an arm from the side goes on into the trunk 6 times in 10 with 70 % of its energy. Fragments: one below 3 J does not wound; severity grows with the square root of its energy relative to 90 J. Blast: lung and ear injury, severity 0.2 at the edge of the injury radius rising to 0.75 at the severe radius. Run over by a vehicle (M7.1c, owner decision): a crush wound to the pelvis (chest if he lay flat), severity 0.75-1.0, heavy internal bleeding: mostly fatal. A bullet that goes through a man flies on with 70 % of its speed after a limb and 30 % after the trunk or head (it tumbles and breaks up there); fragments stay in the body. Game values. M7.3: a round of 12.5 mm or more (cannon, heavy machine gun) that strikes a man wounds him at least at severity 0.85 (game value, low).",
+    "heavy": {
+      "minDiameterM": 0.0125,
+      "severityMin": 0.85
+    }
   },
   "physiology": {
     "bloodVolumeL": 5.0,

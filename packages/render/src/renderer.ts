@@ -31,6 +31,10 @@ export interface Overlay {
   known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number }[] | null;
   /** The order being planned (M5): route with its pace per leg, the formation marker with its handles. */
   plan?: PlanOverlay | null;
+  /** Objectives (M6) as the player's side sees them (holders are public: who stands on them is visible). */
+  objectives?: readonly { x: number; y: number; radiusM: number; holder: string | null; contested: boolean; label: string }[];
+  /** After-action heat map (M6): shots as (x, y, side index) triples, men fallen as (x, y, side index). */
+  heat?: { shots: readonly number[]; falls: readonly number[] } | null;
 }
 
 export interface PlanOverlay {
@@ -283,6 +287,7 @@ export class BattleRenderer {
         if (overlay.selectedUnit === uid) g.rect(s.x - w / 2 - 3, s.y - h / 2 - 3, w + 6, h + 6).stroke({ width: 2, color: 0xffffff });
         this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
       }
+      label = this.drawObjectives(g, overlay, sideIndex, label);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
       for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
@@ -356,6 +361,7 @@ export class BattleRenderer {
         this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
+    label = this.drawObjectives(g, overlay, sideIndex, label);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
@@ -366,6 +372,41 @@ export class BattleRenderer {
    * one where he was last seen or reported, a circle for how far off that may be; a sound is a dashed ring with
    * a cross at the guessed place. Old contacts fade out over two minutes.
    */
+  /**
+   * Objectives (M6): a ring in the colour of the side that holds it (grey: nobody), dashed while contested, with
+   * its name. After the battle, the heat map: where shots came from (small dots in the firing side's colour)
+   * and where men fell (crosses).
+   */
+  private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, label: number): number {
+    const c = this.camera;
+    for (const o of overlay.objectives ?? []) {
+      const s = worldToScreen(c, o.x, o.y);
+      const colour = o.holder === null ? 0xb0b0b0 : SIDE_COLOURS[(sideIndex.get(o.holder) ?? 0) % SIDE_COLOURS.length]!;
+      const r = Math.max(10, o.radiusM * c.scale);
+      if (o.contested) {
+        for (let k = 0; k < 24; k += 2) {
+          const a0 = (k / 24) * 2 * Math.PI, a1 = ((k + 1) / 24) * 2 * Math.PI;
+          g.moveTo(s.x + Math.cos(a0) * r, s.y + Math.sin(a0) * r).lineTo(s.x + Math.cos(a1) * r, s.y + Math.sin(a1) * r);
+        }
+        g.stroke({ width: 3, color: colour, alpha: 0.95 });
+      } else g.circle(s.x, s.y, r).fill({ color: colour, alpha: 0.08 }).stroke({ width: 3, color: colour, alpha: 0.9 });
+      this.label(label++, o.label, s.x - 20, s.y - r - 16, colour);
+    }
+    const h = overlay.heat;
+    if (h) {
+      for (let i = 0; i < h.shots.length; i += 3) {
+        const s = worldToScreen(c, h.shots[i]!, h.shots[i + 1]!);
+        g.circle(s.x, s.y, 2.2).fill({ color: SIDE_COLOURS[h.shots[i + 2]! % SIDE_COLOURS.length]!, alpha: 0.5 });
+      }
+      for (let i = 0; i < h.falls.length; i += 3) {
+        const s = worldToScreen(c, h.falls[i]!, h.falls[i + 1]!);
+        const col = SIDE_COLOURS[h.falls[i + 2]! % SIDE_COLOURS.length]!;
+        g.moveTo(s.x - 5, s.y - 5).lineTo(s.x + 5, s.y + 5).moveTo(s.x + 5, s.y - 5).lineTo(s.x - 5, s.y + 5).stroke({ width: 2.5, color: col });
+      }
+    }
+    return label;
+  }
+
   /** The order being planned: route legs coloured by pace, the men's places, the facing arrow, the handles. */
   private drawPlan(g: Graphics, plan: PlanOverlay): void {
     const c = this.camera;

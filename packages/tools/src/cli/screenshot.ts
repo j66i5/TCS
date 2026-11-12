@@ -57,7 +57,7 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${mapKind}`);
+    await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     } catch (e) {
@@ -103,7 +103,7 @@ try {
     console.log(`${name}: tick ${info.tick}, orders ${info.orders}, hash ${info.hash}, bullets in flight ${info.inFlight}, rounds in weapons ${info.loaded}, men prone ${info.prone}, fire tasks ${info.tasks}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     // Casualties (M2.3): on the open flat map the blue team fires at the red team for 4 minutes (re-aimed every 10 s); the picture looks
     // at the red team so the wounded, unconscious and dead symbols can be checked.
-    await page.goto(`http://localhost:${port}/?seed=${seed}&map=flat`);
+    await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=flat`);
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     const cas = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state; t.posture("prone"); t.stepTicks(240);
       let x = 0, y = 0, n = 0;
@@ -124,7 +124,7 @@ try {
     console.log(`${name}: after 4 minutes of fire on the flat map: ${cas.wounded} wounded and carrying on, ${cas.down} unconscious, ${cas.dead} dead`);
     // Grenade (M2.4): on the flat map one man throws a hand grenade 25 m; pictures in flight, at the burst
     // and two seconds later (cloud gone, crater left).
-    await page.goto(`http://localhost:${port}/?seed=${seed}&map=flat`);
+    await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=flat`);
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     const gr = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
       let x = 0, y = 0, n = 0;
@@ -160,6 +160,29 @@ try {
     await page.screenshot({ path: p7 }); shots.push(p7);
     console.log(`${name}: assault scene ${JSON.stringify(as)}`);
     console.log(`${name}: grenade thrown after ${gr.thrownAfterTicks} ticks (${gr.inFlight} in flight); at the burst ${burst.fragments} fragments in the air, ${burst.craters} crater(s), page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+    await page.close();
+  }
+  // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
+  // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
+  for (const [name, vp] of [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+    const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&side=red&attacker=blue&limit=600`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(60);") as () => void);
+    await page.waitForTimeout(700);
+    const q0 = `${outDir}/platoon-${seed}-${name}-0-start.png`;
+    await page.screenshot({ path: q0 }); shots.push(q0);
+    await page.evaluate(new Function("globalThis.__tcs.stepTicks(600 * 60);") as () => void);
+    await page.waitForTimeout(900);
+    const q1 = `${outDir}/platoon-${seed}-${name}-1-after-action.png`;
+    await page.screenshot({ path: q1 }); shots.push(q1);
+    await page.evaluate(new Function("const b = [...document.querySelectorAll('.hud-aar button')][0]; if (b) b.click();") as () => void);
+    await page.waitForTimeout(500);
+    const q2 = `${outDir}/platoon-${seed}-${name}-2-heat-map.png`;
+    await page.screenshot({ path: q2 }); shots.push(q2);
+    console.log(`${name}: platoon battle, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }
   await browser.close();

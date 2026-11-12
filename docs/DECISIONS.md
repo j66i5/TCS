@@ -968,3 +968,9 @@ behind, 3 s hand-over. (5) Casualty care (drag, first aid) waits for the medical
 shoot-out now sets "hold" with its cease-fire; the machine-gun range test sets "hold" on both sides; the
 shoot-out ammunition check counts every magazine and belt (men now hand them over). On the 2 km demo map the
 wandering squads rarely meet; the attack-versus-defence batch comes with M4.4.
+
+## 2026-11-12 — Owner confirmed the provisional M4.1/M4.2 choices
+Suppression strength as tuned (machine gun pins in 1-2 s at 200 m, ~8 s at 600 m; fire team ~6 s; one rifle
+rarely) — keep. Default fire rule "return" — keep. Panicked men cower now; a broken unit routs (runs back) in
+M4.3 when several panic. Casualty care stays with the medical system; decide at the M6 review whether to pull it
+forward. These are no longer provisional.

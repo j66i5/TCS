@@ -1164,3 +1164,20 @@ interface (only the relevant actions for each unit). Planned as **M7.5 Look and 
 top-down figures, flat readable terrain), not a copy of that game's sprites or look. The design questions (how
 big the figures are at each zoom, how interiors are shown, where the sidebar sits on a phone) are asked when
 the milestone starts.
+
+## 2026-11-12 — M7.5 owner answers (look and interface)
+1. **Figures and scale:** true scale when zoomed in (pixel figures at true size next to houses and vehicles);
+   zoomed out, each squad or vehicle becomes a small symbol. The battle opens zoomed in on the player's men.
+2. **Sides:** each faction in its own uniform tones, plus a thin blue or red outline or marker.
+3. **Map look:** flat pixel style — flat muted ground colours, crisp pixel edges, simple tree and roof shapes,
+   thin dark outlines, no blending or hill shading; contour lines only when zoomed out.
+4. **Roofs:** drawn as now; a building's roof fades away when the player's men are inside or next to it, or
+   when zoomed in close, showing rooms, inner walls and doors.
+5. **Interiors:** ALL floors with stairs (not only the ground floor): upper floors, stairs, a floor switch on
+   the map; men can fire from upstairs windows. (The owner chose the larger option.)
+6. **Order bar with nothing selected:** visible but greyed out until a unit is selected.
+7. **Dragging the order bar:** it docks to an edge — top, bottom, left or right — as a full-width or
+   full-height strip.
+8. **Unit sidebar:** a slim strip on the left with one small tile per unit (symbol, callsign, men fit, a colour
+   for its state); a tap on a tile selects; a tap on the strip's head opens the full list with details; open
+   all the time on a wide screen.

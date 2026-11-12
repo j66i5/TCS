@@ -40,6 +40,36 @@ const server = spawn(process.execPath, [`${ROOT}/node_modules/vite/bin/vite.js`,
 const outDir = `${ROOT}/screenshots`;
 mkdirSync(outDir, { recursive: true });
 
+/**
+ * M7.1c vehicles (`--scene vehicles`): the vehicles scenario at the start (hulls at true size, facing east), a
+ * Puma selected and ordered forward then back in reverse, 30 s on; the same in Debug (both sides, the tracked
+ * grid with its clearance).
+ */
+async function vehicleScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const map = args["map"] ?? "farmland";
+  await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+    const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focus(p.x + 20, p.y, 90); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const p0 = `${outDir}/vehicles-${seed}-${name}-0-start.png`;
+  await page.screenshot({ path: p0 }); shots.push(p0);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const [vid, unit] = t.vehicles()[0]; const p = s.transform.get(vid);
+    t.planMove([{ x: p.x + 120, y: p.y - 40, mode: "drive" }, { x: p.x + 60, y: p.y - 40, mode: "reverse" }], 0); t.go(); t.stepTicks(60 * 30);
+    const q = s.transform.get(vid); t.focus(q.x + 10, q.y, 120); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const p1 = `${outDir}/vehicles-${seed}-${name}-1-after-30s.png`;
+  await page.screenshot({ path: p1 }); shots.push(p1);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.setDebug(true); const s = t.sim.state; t.stepTicks(60 * 20);
+    let x = 0, y = 0, n = 0; for (const [id] of s.vehicle.entries()) { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+    t.focus(x / n, y / n, Math.max(300, t.sim.ctx.map.widthM * 0.6)); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const p2 = `${outDir}/vehicles-${seed}-${name}-2-debug-overview.png`;
+  await page.screenshot({ path: p2 }); shots.push(p2);
+  const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; return { tick: s.tick, vehicles: s.vehicle.size, hash: t.hash(), orders: t.orderLog.length };") as () => object);
+  console.log(`${name}: vehicles scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -57,6 +87,7 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });

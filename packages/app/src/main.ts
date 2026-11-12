@@ -6,16 +6,16 @@
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
 import { formatErrors, Strings } from "@tcs/data";
-import { buildScenario, demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
-import { commanderController, wanderController } from "@tcs/ai";
+import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
+import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
-  eyeHeightM, heightAt, sideKnowledge, sight,
+  eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
-import { createAar, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { createAar, ordersFor, paceToWaypoint, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -41,10 +41,15 @@ async function main(): Promise<void> {
   const playerSide = params.get("side") === "red" ? "red" : "blue";
   const enemySide = playerSide === "blue" ? "red" : "blue";
   const attacker = params.get("attacker") === "red" ? "red" : "blue";
+  // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
+    : scenario === "vehicles"
+    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400 })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400 });
-  const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)] : [commanderController(enemySide, input)];
+  const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
+    : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
+    : [commanderController(enemySide, input)];
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const SAVE_KEY = "tcs.save";
   let sim: Sim = createSim(input);
@@ -127,7 +132,7 @@ async function main(): Promise<void> {
     onGo: () => {
       if (plan && overlay.selectedUnit !== null) {
         const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
-        if (o) issue(o);
+        if (o) issue(forUnit(o));
       }
       endPlan();
       orderMode = "move"; hud.setOrderMode("move");
@@ -160,7 +165,8 @@ async function main(): Promise<void> {
     onDebug: (on) => {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.
-      renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null);
+      // (A vehicle selected: its class's grid, with the clearance, M7.1c.)
+      renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null);
       // ... and what the selected unit's leader can see (refreshed every 2 s of game time).
       renderer.setSightOverlay(on ? sightView() : null);
       sightAt = sim.state.tick;
@@ -181,6 +187,26 @@ async function main(): Promise<void> {
     renderer.fitToMap(input.map, insets);
   }
 
+  /** The order bar for the selected unit: a vehicle crew has its own orders and paces (M7.1c). */
+  let ordersShownFor: EntityId | null | undefined;
+  const vehicleClassOf = (uid: EntityId | null) => {
+    const vid = uid === null ? undefined : sim.state.unit.get(uid)?.vehicle;
+    const v = vid === undefined ? undefined : sim.state.vehicle.get(vid);
+    return v ? input.catalog.vehicles[v.def]?.class ?? null : null;
+  };
+  const syncOrders = () => {
+    if (ordersShownFor === overlay.selectedUnit) return;
+    ordersShownFor = overlay.selectedUnit;
+    hud.setOrders(ordersFor(vehicleClassOf(overlay.selectedUnit), input.catalog.movementModes));
+    if (overlay.debug) renderer.setNavOverlay(navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid);
+  };
+  /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
+  const forUnit = (o: Order): Order => {
+    const cls = vehicleClassOf(o.target);
+    if (cls === null || o.kind !== "move") return o;
+    const set = ordersFor(cls, input.catalog.movementModes);
+    return { tick: o.tick, issuer: o.issuer, target: o.target, kind: "move", waypoints: o.waypoints.map((w) => ({ x: w.x, y: w.y, ...paceToWaypoint(w.mode, set) })), ...(o.facing !== undefined ? { facing: o.facing } : {}) };
+  };
   const issue = (order: Order) => {
     orderLog.push(order);
     submitOrder(sim, order);
@@ -192,6 +218,9 @@ async function main(): Promise<void> {
     onTap: (w) => {
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
+      // A tap on one of your vehicles selects its crew unit (M7.1c).
+      const hull = !plan ? vehicleAt(sim, w.x, w.y, 10 / renderer.camera.scale, playerSide) : null;
+      if (hull !== null) { overlay.selectedUnit = hull; return; }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
         // His own unit (his squad; the platoon's own men select the platoon).
@@ -330,11 +359,15 @@ async function main(): Promise<void> {
       if (frontageM !== undefined) plan = { ...plan!, frontageM };
     },
     cancelPlan: () => { endPlan(); },
-    go: () => { if (plan && overlay.selectedUnit !== null) { const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(o); } endPlan(); },
+    go: () => { if (plan && overlay.selectedUnit !== null) { const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(forUnit(o)); } endPlan(); },
+    /** Select a unit (screenshots: a vehicle's crew unit). */
+    select: (uid: EntityId) => { overlay.selectedUnit = uid; syncOrders(); },
+    /** Own vehicles: [entity, crew unit] (screenshots). */
+    vehicles: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.side === playerSide).map(([id, v]) => [id, v.unit]),
     showRules: () => { (document.querySelector(".hud-orders button:last-child") as HTMLButtonElement | null)?.click(); },
     assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "assault", x, y }),
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
-    setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
+    setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
@@ -348,6 +381,14 @@ async function main(): Promise<void> {
     const uid = overlay.selectedUnit;
     const u = uid === null ? undefined : sim.state.unit.get(uid);
     if (!u || uid === null) { hud.setUnit(null, ""); return; }
+    const veh = u.vehicle !== undefined ? sim.state.vehicle.get(u.vehicle) : undefined;
+    if (veh && u.vehicle !== undefined) {
+      const def = input.catalog.vehicles[veh.def];
+      const crew = veh.seats.filter((x) => x !== null && !isOut(sim.state.soldier.req(x))).length;
+      const status = strings.t("status.vehicle", { callsign: u.callsign, status: strings.t(`vehicle.status.${veh.status}`), speed: Math.round(Math.abs(veh.drive.speed) * 3.6), fuel: def ? Math.round(fuelLitres(sim.state, u.vehicle, def)) : 0, crew });
+      hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, ...(pendingRules.get(uid) ?? {}) }, status);
+      return;
+    }
     const men = unitSoldierIds(sim, uid);
     let fit = 0, wounded = 0, down = 0;
     const states = new Map<string, number>();
@@ -434,6 +475,7 @@ async function main(): Promise<void> {
     // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
+    syncOrders();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();
@@ -446,6 +488,16 @@ async function main(): Promise<void> {
     }
     hud.update({ simSeconds: ticksToSeconds(sim.state.tick), tick: sim.state.tick, fps, simRate, hash, entities: sim.state.nextEntityId - 1 });
   });
+}
+
+/** The crew unit of the side's vehicle whose hull (grown by `tolM`) holds the point, or null. */
+function vehicleAt(sim: Sim, x: number, y: number, tolM: number, side: string): EntityId | null {
+  for (const [vid, v] of sim.state.vehicle.entries()) {
+    if (v.side !== side || v.unit === null) continue;
+    const def = sim.ctx.catalog.vehicles[v.def], t = sim.state.transform.get(vid);
+    if (def && t && pointInObb(hullObb(def, t.x, t.y, t.heading), x, y, tolM)) return v.unit;
+  }
+  return null;
 }
 
 function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: string | null): EntityId | null {

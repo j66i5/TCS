@@ -3,9 +3,13 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M6.6 Surrender is done** (on top of M6/M6.5, first playable). Next: **M7 Vehicles** (Puma and BMP-2; owner
-answers in DECISIONS.md, research in `docs/research/vehicles.md`; the architecture design was not finished),
-then **M7.5 Look and interface** (owner answers in DECISIONS.md).
+**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b and **M7.1c are done** — vehicles
+drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each other,
+make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn at
+true size and can be ordered (move, halt, reverse legs) in `?scenario=vehicles` and the tools scenarios
+`vehicles`, `vehicles-fixture`, `bench-vehicles`. They are in no other battle yet. Next: **M7.2** (passengers,
+mount and dismount, mounted-man runtime test, surrender gate), then M7.3/M7.4a/M7.4b, then **M7.5 Look and
+interface**. Deferred items from M7.1c are listed in DECISIONS.md (M7.1c part 3).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable

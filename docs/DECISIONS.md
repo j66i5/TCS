@@ -1401,3 +1401,28 @@ Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, con
 - **Perf (alone):** bench 13×, spotting 9.0×, `bench-vehicles` 8.8× (floor 8×), projectile bench 4.43 ms/tick
   (3.8×), with 30 parked hulls 4.38 vs 4.23 ms/tick (+3.5 %, best of three alternated runs; asserted < 20 %
   because run-to-run noise here is ~10 %), fragment volley 12.5×.
+
+## 2026-11-12 — M7.1c part 3: drawing, selection and orders for vehicles; what is deferred
+- **Renderer:** hulls at true size (never under 10 px long) from the data's hull and turret boxes, tracks along
+  the sides, a nose wedge for the heading, turret and barrel at the station's azimuth, side colour, a ring when
+  its unit is selected, its route from where it is (reverse legs orange), callsign when zoomed in; wrecks dark
+  with a red cross. Men aboard are not drawn. `vehicle.hit` draws one spark cluster per vehicle and tick. Under
+  fog of war only the player's own vehicles are drawn (enemy vehicles come with vehicle contacts, M7.3).
+- **App/UI:** `?scenario=vehicles` (default map farmland; the AI side wanders); a tap on an own hull selects its
+  crew unit; `ordersFor` (ui) gives a crew unit move, halt, cease fire and rules, its class's paces (drive first)
+  and "reverse" (the slowest pace backwards, `Waypoint.reverse`); the rules panel shows status, speed, fuel and
+  crew; Debug shows the class grid (with clearance) when a vehicle is selected. `npm run screenshot -- --scene
+  vehicles` takes the vehicle scenes. New strings: `move.reverse`, `status.vehicle`, `vehicle.status.*` (strings
+  are not in the catalog fingerprint: goldens unchanged).
+- **Not changed:** CLAUDE.md's scenario list (vehicles, vehicles-fixture, bench-vehicles; `?scenario=vehicles`;
+  `--scene vehicles`) — left for the owner/session lead to update.
+- **Deferred from M7.1c (with where they go):** Uint8/Uint16 compaction of vehicle grids (Float32 kept; 13 MB at
+  2 × 2 km); pre-drive pose (`x0, y0, ch0, sh0`) in the vehicle grid — rounds are tested against the post-drive
+  pose (no tunnelling at ≤ 20 m/s hull speed and 1400 m/s rounds: tested); the DDA over near-byte buckets in
+  `sight()` (a bounding-box pass over the ≤ 30 rows instead); `fireTop` in the fire systems, ceaseFire routing
+  to vehicle children and `orderApplies`/"not-applicable" (M7.3, when vehicles fire); crew observing through
+  seat sensors (M7.3); `radio.noSmoke`/`radio.noSeats` (M7.2/M7.3); the radio-component comms rule and
+  `comms.test` (components M7.4b); "men blocked for 1 s → rejoinRoute" (men are pushed out of hulls instead);
+  the debug overlay's look-ahead, corridor and per-track speeds, `perf-render.test.ts`, the plan outline of a
+  vehicle move (M7.3/M7.5); surrender gate for men aboard (M7.2; surrender.ts untouched here); `bench-combined`
+  (M7.3); vehicle contacts drawn under fog (M7.3).

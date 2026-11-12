@@ -9,6 +9,7 @@
  * All text comes from the string table.
  */
 import type { Strings } from "@tcs/data";
+import type { OrderSet } from "./orders-for";
 
 export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades" | "mortar" | "smoke";
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max" }
@@ -60,6 +61,8 @@ export interface Hud {
   setUnit(rules: UnitRules | null, status: string): void;
   /** The score line under the top bar (objectives held, M6). */
   setScore(text: string): void;
+  /** Which orders and paces the bars offer for the selected unit (M7.1c: a vehicle has fewer, and its paces). */
+  setOrders(set: OrderSet): void;
 }
 
 const fmtTime = (s: number) => {
@@ -130,7 +133,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   // ---- plan bar
   const plan = el("div", "hud-plan");
   plan.hidden = true;
-  const paces = ["walk", "run", "sneak", "crawl"];
+  let paces = ["walk", "run", "sneak", "crawl"];
   let pace = 0;
   const paceBtn = el("button", "hud-btn", `${s.t("order.pace")}: ${s.t("move.walk")}`);
   paceBtn.onclick = () => { pace = (pace + 1) % paces.length; paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[pace]!}`)}`; cb.onPace(paces[pace]!); };
@@ -230,6 +233,15 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       undoBtn.hidden = kind !== "move";
     },
     setOrderMode(m) { setMode(m); },
+    setOrders(set) {
+      for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
+      haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire; postureBtn.hidden = !set.posture; rulesBtn.hidden = !set.rules;
+      if (set.paces.join() !== paces.join()) {
+        paces = [...set.paces]; pace = 0;
+        paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[0]!}`)}`;
+        cb.onPace(paces[0]!);
+      }
+    },
     setScore(text) { const was = score.hidden; score.textContent = text; score.hidden = text === ""; if (was !== score.hidden) place(); },
     setUnit(rules, text) {
       status.textContent = text;

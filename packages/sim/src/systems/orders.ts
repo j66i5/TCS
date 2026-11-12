@@ -1,6 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
+import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
@@ -47,6 +48,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
       return null;
     case "ceaseFire":
+      return null;
+    case "rules":
+      return o.fire === "free" || o.fire === "return" || o.fire === "hold" ? null : "invalid-params";
+    case "assault":
+    case "withdraw":
+      if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       return null;
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
@@ -136,7 +144,16 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean | "unable" {
   const isUnit = state.unit.has(order.target);
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
-  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)));
+  // Men of a broken unit, running back, do not listen (M4.3).
+  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed");
+  // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
+  if (order.kind !== "rules") {
+    const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
+    if (isUnit) clearDrills(state, ou);
+    releaseFromParentDrills(state, ou, soldiers);
+    // (An order to one man takes him out of his own unit's drill too.)
+    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") d.groups = d.groups.map((g) => g.filter((m) => m !== order.target)); }
+  }
   if (soldiers.length === 0) {
     // Nobody left to obey: the unit is neither moving nor firing any more.
     const u = isUnit ? order.target : state.identity.get(order.target)?.unit;
@@ -200,8 +217,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         m.endPosture = "prone";
         m.endHeading = s === refId || ox * ox + oy * oy < 4 ? travel : atan2(oy, ox);
       }
-      if (unit) unit.moving = true;
-      else markUnitMoving(state, order.target);
+      if (unit) { unit.moving = true; unit.moveTick = state.tick; }
+      else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
     }
     case "halt": {
@@ -242,6 +259,26 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     }
     case "ceaseFire": {
       endFire(state, order.target, soldiers, "ordered", events);
+      // They hold their fire until they are fired upon again (M4.2).
+      const cu = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
+      if (cu !== undefined) topUnitOf(state, cu).ceaseFireTick = state.tick;
+      break;
+    }
+    case "assault":
+    case "withdraw": {
+      const du = isUnit ? order.target : state.identity.get(order.target)?.unit;
+      if (du === undefined) return "unable";
+      endFire(state, order.target, soldiers, "moved", events);
+      stopUnit(state, order.target);
+      const groups = drillGroups(state, du);
+      if (groups.length === 0) return "unable";
+      state.unit.req(du).drill = { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
+      break;
+    }
+    case "rules": {
+      const ru = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
+      const set = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.fireRule = order.fire; x.children.forEach(set); };
+      if (ru !== undefined) set(ru);
       break;
     }
     case "grenade": {

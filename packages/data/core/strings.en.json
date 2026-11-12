@@ -113,5 +113,13 @@
   "radio.grenadeBlocked": "{callsign}: no clear throw!",
   "radio.noLineOfFire": "{callsign}: no line of fire from here.",
   "radio.contactSeen": "{callsign}: enemy, {range} m, bearing {bearing}.",
-  "radio.contactHeard": "{callsign}: shots from bearing {bearing}."
+  "radio.contactHeard": "{callsign}: shots from bearing {bearing}.",
+  "radio.ack.rules": "{callsign}: understood.",
+  "radio.ack.assault": "{callsign}: assaulting.",
+  "radio.ack.withdraw": "{callsign}: breaking contact.",
+  "radio.contactReact": "{callsign}: contact! Taking cover.",
+  "radio.objectiveTaken": "{callsign}: on the objective.",
+  "radio.withdrawn": "{callsign}: back at the rally point.",
+  "radio.broken": "{callsign}: falling back!",
+  "radio.rallied": "{callsign}: rallied."
 }

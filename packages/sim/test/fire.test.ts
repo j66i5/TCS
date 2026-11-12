@@ -93,8 +93,17 @@ describe("ammunition management (owner decision)", () => {
     for (const m of [...bunit.members, ...runit.members]) sim.state.container.req(m).stacks = [{ type: "mag", count: 12, charge: 30 }];
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "fire", x: 190, y: 12 });
     submitOrder(sim, { tick: 0, issuer: "red", target: rid, kind: "fire", x: 10, y: 15 });
-    run(sim, 100);
-    const late = kinds(run(sim, 40), "shot.fired").length;
+    // This is about the ammunition clock, not fear: nobody is let be pinned or shaken (M4.1) here.
+    const calm = (secs: number) => {
+      const out: SimEvent[] = [];
+      for (let k = 0; k < secs * 60; k++) {
+        for (const [, s] of sim.state.soldier.entries()) { s.mental.suppression = 0; s.mental.stress = 0; }
+        out.push(...step(sim));
+      }
+      return out;
+    };
+    calm(100);
+    const late = kinds(calm(40), "shot.fired").length;
     // Nobody has ceased fire except men who were hit meanwhile (from M2.3 the rounds find their mark).
     const unhurt = [...bunit.members, ...runit.members].filter((m) => sim.state.soldier.req(m).wounds.length === 0);
     for (const m of unhurt) expect(sim.state.fire.has(m)).toBe(true);

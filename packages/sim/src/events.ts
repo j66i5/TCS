@@ -9,6 +9,7 @@
  * Text is never put in events. Radio messages carry a string-table key and parameters, so the UI can
  * render them in any language and in the faction's own phrasing (SPEC 4.3 rule 12).
  */
+import type { Behaviour } from "./components";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { OrderKind, OrderRejectReason } from "./orders";
 import type { BodyZone, WoundMechanism } from "./wounds";
@@ -43,6 +44,7 @@ export type SimEvent =
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
+  | { kind: "behaviour.changed"; tick: number; soldier: EntityId; from: Behaviour; to: Behaviour }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }
   | { kind: "items.transferred"; tick: number; from: EntityId; to: EntityId; item: DefId; count: number }
   | { kind: "action.started"; tick: number; actor: EntityId; action: string; durationTicks: number }

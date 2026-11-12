@@ -19,6 +19,7 @@ import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { isAble } from "../impair";
+import { isCowering } from "./morale";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
@@ -45,6 +46,12 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!mode) { m.speedMps = 0; continue; }
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
+    // Pinned or panicked (M4.1): he lies flat where he is; his way is kept for when he gets up again.
+    if (s && isCowering(s) && s.evade === null) {
+      m.speedMps = 0;
+      if (s.posture !== "prone" && s.postureTo === null) requestPosture(ctx, state, id, "prone");
+      continue;
+    }
     // Take the leg's posture first (the waypoint's, else the mode's); no movement while changing.
     // A man whose leg will not carry him crawls.
     const posture = s && !s.impair.canWalk ? "prone" : (wp.posture ?? mode.posture);

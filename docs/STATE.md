@@ -3,10 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M3 Spotting and knowledge is complete** (M3.1 line of sight and line of fire, M3.2 detection, M3.3 contacts and
-sharing, M3.4 fog of war). Next milestone: **M4 Soldier and squad behaviour** (suppression, morale, cover use,
-fire discipline, ammunition sharing, casualty reaction, drills, doctrine profiles) — the hardest part. Propose
-its slices and ask the owner before starting.
+**M4 Soldier and squad behaviour is complete** (M4.1 suppression and morale, M4.2 soldier
+decisions, M4.3 squad drills, M4.4 doctrine and the attack lab); the independent milestone review and its fixes
+are done (all ten findings fixed); next **M5 Orders and interface**.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -90,7 +89,18 @@ its slices and ask the owner before starting.
 - **M3.4 fog of war**: you see the enemy only as your men know him — solid diamonds where he is in sight,
   hollow ones where he was last seen or reported, rings for the sound of shots; old contacts fade; Debug shows
   everything. Tapping an enemy marker in fire mode fires at that contact.
-- Tests: 321 (317 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M4.1 suppression and morale**: enemy rounds cracking past or striking near a man suppress him (bursts a lot);
+  pinned men drop flat, stop and fire less (yellow ring), stress from fire, fallen comrades, a fallen leader and
+  wounds, damped by experience and a leader nearby; shaken men fire less, panicked men lie flat and do not fire
+  (red ring); suppression lab (`npm run lab -- suppression`).
+- **M4.2 soldier decisions**: fire rules per unit (free / return / hold; `rules` order), men open fire on their
+  own at enemies they see, run to cover from the known threat when under fire, hand over magazines and belts;
+  Debug shows each man's decision as a line.
+- **M4.3 squad drills**: units halt and go down on contact; `assault` and `withdraw` orders bound by halves
+  with covering fire; a unit breaks when half its men panic, runs back and rallies.
+- **M4.4 doctrine and attack lab**: drill values from faction doctrine; `npm run lab -- attack` shows an
+  unsupported squad attack across the open failing every time, a supported one succeeding about 40 %.
+- Tests: 347 (343 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
@@ -160,3 +170,6 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the
   owner decides.
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.
+- **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
+  tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
+  Germany and Russia for lack of a public source on a difference.

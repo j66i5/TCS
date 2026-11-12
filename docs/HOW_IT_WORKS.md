@@ -265,6 +265,55 @@ Debug shows the enemy as he really is.
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
+## Under fire
+
+Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little
+(heavier rounds more); a grenade or shell bursting nearby a lot. Suppression fades within seconds when the fire
+stops. A suppressed man aims worse and is slower to spot; heavily suppressed he is **pinned**: he drops flat,
+stops moving and fires only now and then until it lets up (a yellow ring). **Stress** builds more slowly: under
+fire, when a comrade falls close by, when his leader falls, when he is wounded himself; experience and a leader
+nearby steady him. A stressed man is shaken (fires less, faint ring); at the end of his tether he **panics**: he
+lies flat and does not fire (a red ring) until he has calmed down. In practice a machine gun pins the men it
+fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fire team within about 6 s; a
+single aimed rifle seldom pins anyone. `npm run lab -- suppression` prints the table. Debug labels show
+suppression / stress per man.
+
+## Thinking for themselves
+
+Between orders each man decides a few things for himself, once a second. **Fire rules** (per unit, set with
+the `rules` order): *free* — fire at any enemy you see; *return* (the default) — only once your unit has been
+fired on in the last 30 s; *hold* — never without an order. A cease-fire order holds until the unit is fired on
+again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
+600 m, machine gun 800 m), choosing the one who matters most: close, firing (a machine gun most of all),
+standing. He stops when he has lost sight of him. An order always wins over his own choice. **Under fire** and
+visible to the enemy he knows of, he runs to the nearest spot within 15 m where that enemy cannot see him lying
+down — preferably one he can fire from on his knees (a bank, a low wall). **Out of spare magazines or belts**,
+he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
+comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
+(orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
+
+## Squad drills
+
+**Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
+and fire back under their fire rule; the radio says "contact! Taking cover." **Assault** (order, with a point):
+the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
+goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
+spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
+40 s. **Withdraw** (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
+the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
+unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
+not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
+("rallied"), still uneasy (stress reduced to 60 %).
+
+## Does an attack work?
+
+`npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low
+stone wall it fails every time (the attackers break or lose half their men after two or three are hit). Against
+the same squad lying in the open it fails faster still (prone men at 300 m are hard to hit, men running upright
+are not). With a second squad firing on the position from the start line the whole time, about 4 attacks in 10
+succeed, usually because the defenders break. Bound lengths come from the faction's doctrine (`boundM`,
+`finalAssaultM`), the same for both sides for now.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -311,5 +360,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 ## What is not there yet
 
 No first aid, anti-tank weapons are only carried,
-nobody reacts to fire or casualties, and no AI beyond "wander to a random point every 30 s" — the enemy never
+men and squads fight on their own (fire back, take cover, share ammunition, react to contact, bound, break and rally) but doctrine does not differ between the sides yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

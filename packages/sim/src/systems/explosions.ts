@@ -8,6 +8,7 @@
  * 3. Terrain damage: a crater, and a hole in any nearby wall thin enough to be blown through. Both are stored
  *    in the battle state (they save, replay and can be carried into a campaign).
  */
+import { suppressByBurst } from "./morale";
 import { applyBreaches, lineBlocked } from "../ballistics";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -34,6 +35,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const cube = pow(ex.fillingKg, 1 / 3);
   const severeR = BL.severeScaledM * cube, injuryR = BL.injuryScaledM * cube, stunR = BL.stunScaledM * cube;
   events.emit({ kind: "explosion", tick: state.tick, x, y, z, ammo: ammoId, owner, stunRadiusM: stunR });
+  suppressByBurst(ctx, state, x, y, stunR, state.identity.get(owner)?.side);
 
   // ---- blast
   for (const [id, s] of state.soldier.entries()) {

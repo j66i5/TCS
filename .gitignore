@@ -7,3 +7,4 @@ screenshots/
 reports/*
 !reports/.gitkeep
 .DS_Store
+packages/tools/scratch/

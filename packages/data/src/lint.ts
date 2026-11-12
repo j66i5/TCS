@@ -39,6 +39,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     check("core/shooting.json", "fire", data.shooting.fire, false);
     check("core/shooting.json", "grenades", data.shooting.grenades, false);
   }
+  if (data.behaviour) check("core/behaviour.json", "behaviour", data.behaviour, false);
   if (data.spotting) {
     check("core/spotting.json", "spotting", data.spotting, false);
   }

@@ -85,6 +85,23 @@ export const testCatalog: Catalog = {
     obstacles: { wall: { id: "wall", heightM: 2, thicknessM: 0.25, material: "brick", seeThrough: 0, footCrossTimeS: 6, wheeledCrossable: false, trackedCrossable: true, colour: "#8a5a44" } },
     buildings: { house: { id: "house", widthM: [8, 12], depthM: [8, 11], storeys: [1, 2], storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColours: ["#8c4a3b"], roofMaterial: "wood", roofThicknessM: 0.06 } },
   },
+  behaviour: {
+    suppression: { nearMissRadiusM: 4, perRound: 0.3, energyRefJ: 1700, blastFactor: 0.8, blastRadiusScale: 1.5, decayPerS: 0.1, max: 1 },
+    stress: { fromSuppressionPerS: 0.02, casualtyNearbyM: 60, fromCasualty: 0.15, fromLeaderLoss: 0.2, fromWound: 0.25, decayPerS: 0.01, experienceDamp: 0.6, leaderNearbyM: 30, leaderNearbyDamp: 0.3, quietBelowSuppression: 0.3 },
+    states: { pinnedSuppression: 0.6, unpinnedBelow: 0.35, cautiousStress: 0.3, shakenStress: 0.55, panickedStress: 0.85, calmBelowStress: 0.7 },
+    effects: { pinnedFireRateFactor: 0.35, shakenFireRateFactor: 0.7 },
+    stepSeconds: 0.5,
+    decisions: {
+      stepSeconds: 1, defaultFireRule: "hold", engageRangeM: { rifle: 400, magnified: 600, sustained: 800 },
+      underFireSuppression: 0.05, underFireMemorySeconds: 30, seenWithinSeconds: 2, contactLostSeconds: 10,
+      seekCoverSuppression: 0.1, coverSearchM: 15, coverRetrySeconds: 20, threatEyeHeightM: 1.0,
+      shareRangeM: 30, keepSpare: 2, passSeconds: 3,
+    },
+    drills: {
+      stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
+      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6,
+    },
+  },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,
     postureSize: { standing: 1, crouching: 0.55, prone: 0.2 },

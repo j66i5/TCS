@@ -253,6 +253,27 @@ export const SpottingFile = withProv({
 });
 export type SpottingT = z.infer<typeof SpottingFile>;
 
+// ---------- behaviour (core/behaviour.json, M4)
+export const BehaviourFile = withProv({
+  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1) }).strict(),
+  stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1) }).strict(),
+  states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
+  effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
+  stepSeconds: Num(0.05, 10),
+  decisions: z.object({
+    stepSeconds: Num(0.1, 10), defaultFireRule: z.enum(["free", "return", "hold"]),
+    engageRangeM: z.object({ rifle: Num(0, 5000), magnified: Num(0, 5000), sustained: Num(0, 5000) }).strict(),
+    underFireSuppression: Num(0, 1), underFireMemorySeconds: Num(0, 600), seenWithinSeconds: Num(0, 60), contactLostSeconds: Num(0, 600),
+    seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
+    shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
+  }).strict(),
+  drills: z.object({
+    stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
+    breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1),
+  }).strict(),
+});
+export type BehaviourT = z.infer<typeof BehaviourFile>;
+
 // ---------- wounds (core/wounds.json): body outline, wound effects, simple physiology ----------
 const BodyZoneGroup = z.enum(["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"]);
 const Hitbox = z.object({
@@ -449,6 +470,9 @@ export const DOCTRINE_KEYS = [
   "evacuationPriority",
   /** How much longer a route may be to stay in cover: 0.3 = accept ~30 % longer (owner decision). */
   "coverPreference",
+  /** Fire and movement (M4.4): length of one bound, m, and the last stretch rushed together, m. */
+  "boundM",
+  "finalAssaultM",
 ] as const;
 export const DoctrineFile = withProv({
   /** Formation used when an order does not name one (core/formations.json). */

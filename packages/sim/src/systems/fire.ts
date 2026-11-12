@@ -12,6 +12,7 @@
  * only the magazine in his weapon is left. In lulls men swap a partly used magazine for a fuller one.
  */
 import { startAction } from "../actions";
+import { fireRateFactor, isCowering } from "./morale";
 import { dropAt } from "../ballistics";
 import type { FireTask, WeaponState } from "../components";
 import { sight } from "../los";
@@ -99,7 +100,8 @@ export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x
     startTick: prev !== undefined && hypot2(prev.x - x, prev.y - y) < 3 ? prev.startTick : state.tick,
     lineCheckTick: -100000, lineClear: true, linePosture: s.posture,
     // The posture he goes back to when rising is no longer needed: his own, or the one he was firing from.
-    basePosture: prev?.basePosture ?? s.posture,
+    // (If he is changing posture now, the one he is going to: a man ordered down who opens fire meanwhile.)
+    basePosture: prev?.basePosture ?? s.postureTo ?? s.posture,
     rangeError: a.rangeErrorFraction * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * nextNormal(state.rng, Streams.fire),
   });
   // Men do not all fire on the same tick.
@@ -206,6 +208,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     };
     if (!w || !s || !wd || !isAble(s) || !s.impair.canFight) { stop("unable"); continue; }
     if (tick < s.stunnedUntilTick) continue; // knocked down
+    const rateK = fireRateFactor(ctx, s);
+    if (rateK <= 0) continue; // panicked: he does not fire (the task stays for when he recovers)
     if (s.evade !== null && tick >= s.evade.startTick) continue; // diving away from a grenade
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
@@ -246,7 +250,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
         if (c && (c.x !== task.x || c.y !== task.y)) { task.x = c.x; task.y = c.y; }
       }
       const order: Posture[] = ["prone", "crouching", "standing"];
-      const from = order.slice(order.indexOf(task.basePosture));
+      // A pinned man does not raise himself to clear a bank: he fires from where he lies or not at all.
+      const from = isCowering(s) ? ["prone" as Posture] : order.slice(order.indexOf(task.basePosture));
       const ok = from.find((p) => lineOfFireClear(ctx, state, id, task, p));
       task.lineClear = ok !== undefined;
       task.linePosture = ok ?? s.posture;
@@ -285,7 +290,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       w.burstLeft = 0;
       const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
       // +-15 % so men do not fire in step.
-      w.nextShotTick = tick + Math.max(1, Math.round(secondsToTicks(interval) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
+      w.nextShotTick = tick + Math.max(1, Math.round((secondsToTicks(interval) / rateK) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
     }
   }
 

@@ -190,6 +190,18 @@ out, worst-case bleeding in litres per second), `wounding` (knock-down seconds, 
 `effects` (when a man can no longer walk or use his rifle). After a change run `npm run lab -- casualty` and
 compare the table.
 
+## Change how fire frightens men
+
+`core/behaviour.json` (M4): `suppression` (near-miss radius, suppression per round and the energy it is scaled
+to, bursts, how fast it fades), `stress` (growth under suppression, blows from a comrade falling, the leader
+lost, an own wound; damping by experience and a leader nearby; how fast it fades under light fire), `states`
+(the suppression that pins and releases, the stress for cautious / shaken / panicked and for calming down) and
+`effects` (rate-of-fire factors), `decisions` (the default fire rule, engagement ranges by weapon, what counts
+as being under fire and for how long, cover search radius and how often, ammunition sharing range, spare kept,
+hand-over time), `drills` (reaction to contact on or off, bound length, the last stretch rushed together,
+how long a bound may take, spread on the objective, the share of panicked men that breaks a unit, how far it
+runs and how long it must be quiet to rally, stress after rallying). After a change run `npm run lab -- suppression` and compare the table.
+
 ## Add a grenade or launcher round
 
 Two entries in `factions/<id>/ammunition.json`: the munition and one of its fragments.

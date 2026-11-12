@@ -76,6 +76,12 @@ export interface SoldierGrid {
   id: Int32Array;
   x: Float64Array; y: Float64Array; gz: Float64Array; cf: Float64Array; sf: Float64Array;
   posture: Uint8Array;
+  /** Side of each man (index into `sides`), and suppression gathered from rounds passing him this tick (M4.1). */
+  side: Int32Array;
+  sup: Float64Array;
+  sides: string[];
+  /** Soldier ID -> side index, rebuilt every tick (to know which side fired a round). */
+  sideOf: Map<number, number>;
   /** Linked lists per bucket: head[bucket] -> soldier index -> next[index] ... (-1 ends). */
   head: Int32Array;
   next: Int32Array;
@@ -89,6 +95,7 @@ export function createSoldierGrid(buckets: number, capacity = 256): SoldierGrid 
   return {
     n: 0, id: new Int32Array(capacity), x: new Float64Array(capacity), y: new Float64Array(capacity), gz: new Float64Array(capacity),
     cf: new Float64Array(capacity), sf: new Float64Array(capacity), posture: new Uint8Array(capacity),
+    side: new Int32Array(capacity), sup: new Float64Array(capacity), sides: [], sideOf: new Map(),
     head: new Int32Array(buckets).fill(-1), next: new Int32Array(capacity), near: new Uint8Array(buckets),
     touched: new Int32Array(capacity * 10), touchedCount: 0,
   };

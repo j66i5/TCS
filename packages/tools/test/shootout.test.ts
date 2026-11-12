@@ -30,7 +30,9 @@ describe("scripted shoot-out of the two squads (M2 demonstration)", () => {
     const byWeapon = new Map<string, number>();
     for (const e of shots) byWeapon.set(e.weapon, (byWeapon.get(e.weapon) ?? 0) + 1);
     console.log([...byWeapon.entries()].sort().map(([w, n]) => `${w} ${n}`).join(", "));
-    for (const w of ["de-g36", "de-mg5", "de-g28", "ru-ak74m", "ru-pkp"]) expect(byWeapon.get(w) ?? 0).toBeGreaterThan(20);
+    // (The marksman lies in the beaten zone of the enemy machine gun: pinned since M4.1, he fires less.)
+    for (const w of ["de-g36", "de-mg5", "ru-ak74m", "ru-pkp"]) expect(byWeapon.get(w) ?? 0).toBeGreaterThan(20);
+    expect(byWeapon.get("de-g28") ?? 0).toBeGreaterThan(8);
     // The machine guns fire more than any single rifle, and their belts show tracers.
     expect(byWeapon.get("de-mg5")!).toBeGreaterThan(byWeapon.get("de-g36")! / 4);
     expect(shots.some((e) => input.catalog.ammo[e.ammo]?.tracer === true)).toBe(true);
@@ -45,14 +47,12 @@ describe("scripted shoot-out of the two squads (M2 demonstration)", () => {
     const fresh = createSim(input);
     const rounds = (s: typeof sim) => {
       let n = 0;
-      for (const [id, w] of s.state.weapon.entries()) {
-        n += w.magazine?.rounds ?? 0;
-        const mag = input.catalog.weapons[w.weapon]!.feed.magazine;
-        for (const st of s.state.container.req(id).stacks) if (st.type === mag) n += st.count * (st.charge ?? 0);
-      }
+      const feeds = new Set(Object.values(input.catalog.weapons).map((w) => w.feed.magazine));
+      for (const [, w] of s.state.weapon.entries()) n += w.magazine?.rounds ?? 0;
+      for (const [, c] of s.state.container.entries()) for (const st of c.stacks) if (feeds.has(st.type)) n += st.count * (st.charge ?? 0);
       return n;
     };
-    // (Belts carried by other men are not counted on either side of the comparison: only each man's own weapon's feed.)
+    // (All magazines and belts, whoever carries them: since M4.2 men hand them to each other.)
     expect(rounds(fresh) - rounds(sim)).toBe(shots.length);
   });
 

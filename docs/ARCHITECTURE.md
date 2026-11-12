@@ -418,6 +418,40 @@ function. Fire tasks may carry `contact` and follow it.
 (pure query). The app passes it to the renderer as `Overlay.known`; with it (and Debug off) the renderer draws
 the enemy only from it. An AI commander (M6) is meant to plan on the same picture.
 
+## 16k. Suppression and morale (SPEC 6.4, M4.1) — `sim/src/systems/morale.ts`, `core/behaviour.json`
+The projectile system gathers suppression in the soldier grid: for each enemy round near a man (grid side
+index per man, owner's side from `sideOf`), the point of its flight closest to him counts once (the tick whose
+path holds it, or the impact if it ends first), scaled by the square root of its energy and by distance; it is
+added to `mental.suppression` after the projectile pass. Bursts add suppression around them
+(`suppressByBurst`, from `detonate`). `moraleSystem` runs after the wound system: it applies stress for this
+tick's wound and casualty events, then every 0.5 s (staggered by ID) fades suppression and stress, grows stress
+from suppression, and sets `mental.behaviour` with hysteresis, emitting `behaviour.changed`. Leader loss calls
+`leaderLost` from the casualty path. Effects: movement holds a cowering man (route kept), the fire system scales
+the interval by `fireRateFactor` (0 = no fire) and keeps a pinned man prone; aim and spotting already used
+suppression. No new state fields: `mental` existed since M0.
+
+## 16l. Soldier decisions (SPEC 8, M4.2) — `sim/src/systems/decisions.ts`
+Runs after contacts. First it stamps `underFireTick` on the top unit of every man with suppression; then each
+man every `decisions.stepSeconds` (staggered by ID): a giver on a `bringAmmo` intent walks over and starts the
+generic `transferItems` action; a self-started fire task (`FireTask.self`) is kept at the full rate while its
+contact is seen and dropped when lost; under fire he may seek cover (sight from the threat to candidate spots on
+5 rings x 12 directions, then a short path search); halted and allowed by `Unit.fireRule` (+ `ceaseFireTick`)
+he starts a self fire task at the best seen contact; out of spare he calls a giver. Ordered fire tasks are never
+replaced. New state: `Unit.fireRule/underFireTick/ceaseFireTick`, `SoldierState.intent/coverTick`,
+`FireTask.self` (schema 12). New order: `rules`.
+
+## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
+Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:
+two groups of soldier IDs, the group moving now, its start tick, the final rush) or a rout (rally point);
+`Unit.broken` marks a broken unit. Orders `assault` / `withdraw` set the drill; every other order (except
+`rules`) clears drills of the target unit and its sub-units (a rout is not cleared: routed men are filtered out
+of every order). Phases: the movers get paths of one bound (each from his own position), the others halt and
+get an ordered fire task at the objective (assault) or the known enemy (withdraw); the phase ends when no mover
+has waypoints or after the timeout. Reaction to contact compares the top unit's `contactTick` (stamped by
+decisions when fire starts after a quiet spell) with `Unit.moveTick`. Breaking: a top unit where half the able
+men are `panicked` sets them `routed` (morale leaves routed men alone; fire factor 0; decisions skip them) and
+sends them to a rally point away from the mean of their contacts; rally resets them to `cautious`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

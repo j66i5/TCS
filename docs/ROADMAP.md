@@ -97,13 +97,27 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
 4. ✅ **M3.4 Fog of war** (2026-11-11) — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
-### M4 Soldier and squad behaviour — ⏳ next
+### M4 Soldier and squad behaviour — ✅
 Suppression, morale, cover use, fire discipline, ammunition sharing, casualty reaction, drills, doctrine
-profiles.
+profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for his review):
+- **M4.1 Suppression and morale** ✅ — rounds cracking past or striking near a man raise his suppression; it
+  worsens his aim, pins him (prone, stops, fires less) and raises stress; stress also from comrades falling,
+  losing the leader, own wounds, damped by experience and a leader nearby; states steady / cautious / shaken /
+  pinned / panicked; `npm run lab -- suppression`.
+- **M4.2 Soldier decisions** ✅ — fire rules per unit (free / return / hold, `rules` order), own fire at seen
+  enemies with target choice, cover from the known threat when under fire, ammunition hand-over (also belts),
+  debug overlay of decisions. Casualty care (dragging, first aid) moved to the medical system.
+- **M4.3 Squad drills** ✅ — reaction to contact, `assault` order (two halves bounding, one firing), `withdraw`
+  order (bounding back under covering fire), all together onto the objective / rally point at the end; a unit
+  breaks when half its men panic, runs back and rallies when quiet.
+- **M4.4 Doctrine profiles and batch** ✅ — drill values from faction doctrine (`boundM`, `finalAssaultM`; the
+  same for both sides until a public source gives a difference); attack lab (`npm run lab -- attack`): one squad
+  across 300 m of open ground against a squad behind a wall fails every time; with a second squad firing in
+  support it succeeds in about 40 %.
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 
-### M5 Orders and interface — ⬜
+### M5 Orders and interface — ⏳ next
 Full order set, waypoints, standing rules, unit panels, radio log, time controls, touch controls.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 

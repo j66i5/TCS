@@ -939,3 +939,78 @@ has a fog-of-war picture, and its casualty picture uses Debug (the symbols it ch
 **Recorded:** one colour for all enemy contacts (fine with two sides); rarely a hollow marker for a man also in
 sight from farther away (the more certain, older sighting wins); the renderer path itself has no unit test —
 evidence is the screenshot pair "3-casualties" (Debug) / "3b-fog-of-war".
+
+## 2026-11-11 — M4 slices and M4.1 suppression and morale (owner asleep: provisional, for his review)
+The owner asked to work through to M6 overnight. Decisions that are his are taken as recommended and listed
+here as **provisional**: (1) M4 slices: 4.1 suppression and morale, 4.2 soldier decisions, 4.3 squad drills,
+4.4 doctrine profiles and batch. (2) Suppression numbers (core/behaviour.json, confidence low, game values tuned
+with the new suppression lab): an enemy round within 4 m adds up to 0.3 (energy-scaled, half at 4 m), fades
+0.1/s; pinned at 0.6 until below 0.35. Result: machine gun pins in 1-2 s at 200 m, ~8 s at 600 m; fire team ~6 s
+at 200 m; one aimed rifle rarely. (3) Stress: grows 0.02/s x suppression; comrade down within 60 m +0.15, leader
+lost +0.2, own wound +0.25 x severity; experience damps (x(1 - 0.6 x exp)), leader within 30 m x0.7; fades
+0.01/s under light fire. Shaken at 0.55 (fires at 0.7 the rate), panicked at 0.85 (flat, no fire) until under
+0.7. In the scripted shoot-out the two men in each machine gun's beaten zone are pinned at ~20 s and panic after
+~90 s of continuous fire. (4) Own rounds never suppress; fragments do not count as near misses (the burst does).
+**Recorded:** routing (running away) is left to M4.3 with the drills; the shoot-out test now expects the marksman
+(pinned in the beaten zone) to fire fewer rounds; the fire-rate test that checks the ammunition clock keeps its
+men calm. The rings on the map (yellow pinned, red panicked) show own men only under fog of war.
+
+## 2026-11-12 — M4.2 soldier decisions (owner asleep: provisional, for his review)
+(1) Fire rules per unit: free / return / hold; **default "return"** (fire on your own only once fired upon,
+remembered 30 s); a cease-fire order holds until fired upon again. (2) Own engagement ranges: rifle 400 m,
+sight of 4x or more 600 m, machine gun 800 m; target choice: nearest, x0.35 if a machine gun firing, x0.6 if a
+rifle firing, x1.3 if lying down. (3) Under fire (suppression 0.1+) a halted man not covered from the threat
+he knows runs to cover within 15 m (sight from the threat at 1 m to him lying), preferring a spot he can fire
+from kneeling; at most every 20 s. Pinned men do not move (they stay flat where they are). (4) Ammunition:
+a comrade within 30 m with more than 2 spare (or carrying them for another's weapon) brings one, coming up
+behind, 3 s hand-over. (5) Casualty care (drag, first aid) waits for the medical system (owner's M6 question).
+**Recorded:** the sim test catalog defaults to "hold" so the older tests keep passive targets; the scripted
+shoot-out now sets "hold" with its cease-fire; the machine-gun range test sets "hold" on both sides; the
+shoot-out ammunition check counts every magazine and belt (men now hand them over). On the 2 km demo map the
+wandering squads rarely meet; the attack-versus-defence batch comes with M4.4.
+
+## 2026-11-12 — Owner confirmed the provisional M4.1/M4.2 choices
+Suppression strength as tuned (machine gun pins in 1-2 s at 200 m, ~8 s at 600 m; fire team ~6 s; one rifle
+rarely) — keep. Default fire rule "return" — keep. Panicked men cower now; a broken unit routs (runs back) in
+M4.3 when several panic. Casualty care stays with the medical system; decide at the M6 review whether to pull it
+forward. These are no longer provisional.
+
+## 2026-11-12 — M4.3 squad drills (owner said "go ahead"; values are game values, confidence low)
+Following the owner's answers (panicked men cower; a broken unit runs back): reaction to contact on by default
+(a moving unit fired upon after a 30 s quiet spell halts and goes down); assault and withdraw are orders, two
+halves (two teams, else alternate men), bounds of 30 m, final 25 m (assault) / 30 m (withdraw) together, 40 s
+per bound at most, 4 m spread at the end; a top unit breaks when half its able men panic, runs 150 m from the
+mean of its known contacts, ignores orders ("unable"), rallies after 30 s without fire at the rally point with
+stress x0.6. **Recorded:** the morale test of one pinned man turns reaction to contact off (it would halt his
+whole unit); assault and withdraw are not yet on the app's buttons (M5 order interface).
+
+## 2026-11-12 — M4.4 doctrine profiles and the attack lab
+Doctrine gets `boundM` (30) and `finalAssaultM` (25) for both factions — **the same values for Germany and
+Russia**: no public source was at hand for a difference (confidence low; owner to review; the fixture faction
+uses 20/15 to prove the values are read from data). Attack lab: one squad over 300 m of open ground against a
+squad behind a 0.7 m field-stone wall (fire rule free, prone) fails 10/10; against the defenders lying in the
+open, 10/10 too (they are harder to hit than men kneeling behind the wall to fire over it); two squads, one
+supporting by fire from the start line, succeed 4/10. M4 acceptance ("attackers in the open against a prepared
+defence lose most of the time"; "varied outcomes") holds. **Bug fixed on the way:** a man ordered down who
+opened fire while still going down took "standing" as the lowest posture to fire from, and stood up to fire;
+he now takes the posture he is going to. Covering fire in a bounding drill now goes at the enemies each man
+knows near the objective (else the point), so it spreads over the position.
+
+## 2026-11-12 — M4 independent review: findings and fixes
+All hard rules held. Ten findings fixed: (1) a bounding drill that lost one half turned into a single charge
+over the whole distance — survivors now split again and keep bounding (a lone man bounds alone); (2) a second
+comrade was sent with ammunition while the first was still handing it over — a running hand-over counts as
+"on his way", and a giver turns back if the man has spare again; (3) an order to a squad was overridden by its
+platoon's drill — ordered men leave any drill above them (an order to one man takes him out of his unit's
+drill); (4) assault / withdraw to a single man set off his whole unit — now rejected (invalid-params); (5) cover
+search gave up when the best spot needed a long detour — up to six candidates are tried in order; (6) rallying
+emitted one event (possibly for soldier -1) — now one per man; (7) bounds could overshoot the start of the
+final rush when boundM > finalAssaultM — limited; (8) the final rush had no time limit (pinned men kept their
+paths) — ends after twice the bound time; (9) own-side bursts suppressed men and so lifted cease-fires and set
+off reactions to contact — own bursts no longer suppress (the blast still stuns and wounds); (10) stale intents
+on the debug overlay — cleared when cover is reached or own fire is replaced by an order. Debug now shows the
+unit's drill on the leader's label; screenshot `7-assault-debug` is the overlay evidence.
+**Recorded (weak points):** defenders lying in the open are almost never hit by an unsupported attack (prone men
+at 300 m are small targets and the attackers break within ~45 s); the supported attack succeeds 4/5 with
+Germany attacking and 1/5 with Russia (weapons and optics differ: G36 3x optic, MG5) — a finding for the
+owner's review, not tuned away.

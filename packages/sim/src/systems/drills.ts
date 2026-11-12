@@ -27,11 +27,13 @@ import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
 import { unitSoldiers } from "./orders";
+import { footSoldiers } from "../mount";
 
 const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !== "routed";
 
 function radio(state: SimState, uid: EntityId, key: string, events: EventSink): void {
   const u = state.unit.req(uid);
+  // mounted: ok the radio reaches every man
   const from = u.leader !== null && canReport(state.soldier.get(u.leader)) ? u.leader : unitSoldiers(state, uid).find((m) => canReport(state.soldier.get(m)));
   if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign } });
 }
@@ -82,13 +84,13 @@ function centroid(state: SimState, men: EntityId[]): { x: number; y: number } {
 /** The two halves for a bounding drill: its first two sub-units if it has them, else alternate men. */
 export function drillGroups(state: SimState, uid: EntityId): EntityId[][] {
   const u = state.unit.req(uid);
-  const kids = u.children.map((c) => unitSoldiers(state, c).filter((m) => able(state.soldier.get(m)))).filter((g) => g.length > 0);
+  const kids = u.children.map((c) => footSoldiers(state, c).filter((m) => able(state.soldier.get(m)))).filter((g) => g.length > 0);
   if (kids.length >= 2) {
     const own = u.members.filter((m) => able(state.soldier.get(m)));
     const rest = kids.slice(2).flat();
     return [[...own, ...kids[0]!].sort((a, b) => a - b), [...kids[1]!, ...rest].sort((a, b) => a - b)];
   }
-  const all = unitSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
+  const all = footSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
   return [all.filter((_, i) => i % 2 === 0), all.filter((_, i) => i % 2 === 1)].filter((g) => g.length > 0);
 }
 
@@ -108,6 +110,8 @@ export function clearDrills(state: SimState, uid: EntityId): void {
   const u = state.unit.get(uid);
   if (!u) return;
   if (u.drill?.kind !== "rout") u.drill = null;
+  // Getting in or out (M7.2) is replaced by the new order too (bailing out is not).
+  if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
   u.children.forEach((c) => clearDrills(state, c));
 }
 
@@ -184,8 +188,9 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   const D = ctx.catalog.behaviour.drills, d = u.drill!;
   const moving = (m: EntityId) => (state.mover.get(m)?.waypoints.length ?? 0) > 0;
   if (d.kind === "rout") {
-    const men = unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)) && state.soldier.req(m).mental.behaviour === "routed");
+    const men = footSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)) && state.soldier.req(m).mental.behaviour === "routed");
     // Every runner gave up (M6.6): the unit stays broken, nobody rallies.
+    // mounted: ok a prisoner is never aboard
     if (men.length === 0 && unitSoldiers(state, uid).some((m) => isCaptive(state.soldier.get(m)))) { u.drill = null; return; }
     if (men.length === 0 || (!men.some(moving) && state.tick - u.underFireTick >= secondsToTicks(D.rallyQuietSeconds))) {
       for (const m of men) {
@@ -222,7 +227,7 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
 /** Break a unit: its men run back from the enemy they know. */
 function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills, u = state.unit.req(uid);
-  const men = unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)));
+  const men = footSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)));
   const c = centroid(state, men);
   const enemy = knownEnemy(state, men);
   let ax = 0, ay = 0;
@@ -254,7 +259,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
   for (const [uid, u] of state.unit.entries()) {
     // ---- break: half the able men of a top unit panic
     if (u.parent === null) {
-      const men = unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)));
+      const men = footSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)));
       const panicked = men.filter((m) => state.soldier.req(m).mental.behaviour === "panicked");
       if (!u.broken && men.length > 0 && panicked.length > 0 && panicked.length >= D.breakPanickedFraction * men.length) { breakUnit(ctx, state, uid, events); continue; }
       // In a broken unit, a man who panics later runs too.
@@ -266,7 +271,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
       if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
-        for (const m of unitSoldiers(state, uid)) {
+        for (const m of footSoldiers(state, uid)) {
           const s = state.soldier.get(m);
           if (!able(s)) continue;
           const w = state.mover.get(m)?.waypoints;
@@ -277,7 +282,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
         radio(state, uid, "radio.contactReact", events);
         // Standing rule "fall back" (M5): break contact away from the enemy they know.
         if (u.onContact === "back") {
-          const men = unitSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
+          const men = footSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
           let enemy = knownEnemy(state, men);
           // Fired upon by an enemy nobody has placed: fall back the way they came (away from where they were going).
           if (!enemy && men.length > 0) {

@@ -85,6 +85,30 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-bolt",
+      "nameKey": "item.xf-bolt",
+      "calibre": "bolt",
+      "kind": "ball",
+      "projectileMassKg": 0.05,
+      "cartridgeMassKg": 0.06,
+      "diameterM": 0.02,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 6,
+        "atVelocityMps": 120
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
     }
   ]
 }

@@ -63,6 +63,15 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     Object.values(pack.items).forEach((x) => check(`${d}/items.json`, x.id, x, fx));
     Object.values(pack.units).forEach((x) => check(`${d}/units.json`, x.id, x, fx));
     Object.values(pack.weapons).forEach((x) => check(`${d}/weapons.json`, x.id, x, fx));
+    // Vehicles (M7): provenance per vehicle and per block; power-to-weight within what tracked and wheeled
+    // fighting vehicles have (8-40 kW/t).
+    for (const v of Object.values(pack.vehicles)) {
+      check(`${d}/vehicles.json`, v.id, v, fx);
+      for (const [k, b] of [["body", v.body], ["mass", v.mass], ["drive", v.drive], ["ramp", v.ramp]] as const) check(`${d}/vehicles.json`, `${v.id}.${k}`, b, fx);
+      v.stations.forEach((sn) => check(`${d}/vehicles.json`, `${v.id}.stations.${sn.id}`, sn, fx));
+      const kwPerT = v.drive.powerKw / (v.mass.kg / 1000);
+      if (kwPerT < 8 || kwPerT > 40) errors.push({ file: `${d}/vehicles.json`, path: v.id, message: `${kwPerT.toFixed(1)} kW/t is outside the plausible 8-40 kW/t`, severity: "warning" });
+    }
     // Plausibility beyond the schema.
     for (const u of Object.values(pack.units)) {
       if (u.members.length > 60) errors.push({ file: `${d}/units.json`, path: u.id, message: `${u.members.length} direct members is implausible; use subunits`, severity: "warning" });

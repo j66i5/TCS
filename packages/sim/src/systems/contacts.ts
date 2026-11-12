@@ -23,11 +23,14 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
+import { cellIndex } from "../terrain";
 import { unitSoldiers } from "./orders";
 
 /** Uncertainty of a contact now: its own, plus how far the man may have moved since. */
 export function contactErrorM(ctx: SimContext, c: Contact, tick: number): number {
-  return c.errM + ctx.catalog.spotting.contacts.driftMps * Math.max(0, tick - c.tick) / TICK_HZ;
+  // (A vehicle can have gone much farther than a man on foot, M7.3.)
+  const drift = c.cls === "vehicle" ? ctx.catalog.spotting.vehicles.driftMps : ctx.catalog.spotting.contacts.driftMps;
+  return c.errM + drift * Math.max(0, tick - c.tick) / TICK_HZ;
 }
 
 function findContact(list: Contact[], target: EntityId): number {
@@ -52,8 +55,12 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
     const old = list[i]!;
     // "He gave up" is kept even from a vaguer report, and never taken back.
     if (c.surrendered === true && old.surrendered !== true) old.surrendered = true;
+    // What he knows a vehicle to be is kept (its type once identified, M7.3).
+    if (c.cls !== undefined) old.cls = c.cls;
+    if (c.vtype !== undefined) old.vtype = c.vtype;
     if (c.kind !== "seen" && contactErrorM(ctx, c as Contact, now) > contactErrorM(ctx, old, now)) return false;
     old.x = c.x; old.y = c.y; old.errM = c.errM; old.kind = c.kind; old.tick = c.tick;
+    if (c.heading !== undefined) { old.heading = c.heading; old.vx = c.vx ?? 0; old.vy = c.vy ?? 0; }
     return false;
   }
   list.splice(-(i + 1), 0, { ...c, reportedTick });
@@ -95,6 +102,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   }
 
   // ---- what each man sees this tick (only men who scanned: their `seen` was confirmed now)
+  // mounted: ok men aboard see nothing (spotting gives them no `seen`)
   for (const [id, s] of state.soldier.entries()) {
     if (s.seen.length === 0) continue;
     const me = state.transform.get(id);
@@ -108,6 +116,13 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       // With his own eyes, this tick: he sees that the man has given up (the only place the flag is created).
       const gaveUp = isCaptive(state.soldier.get(e.target));
       const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen", tick, ...(gaveUp ? { surrendered: true as const } : {}) };
+      // A vehicle (M7.3): its heading and movement; its type once within the range it can be told at (owner Q6).
+      const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
+      if (veh) {
+        const def = ctx.catalog.vehicles[veh.def];
+        c.cls = "vehicle"; c.heading = t.heading; c.vx = cos(t.heading) * veh.drive.speed; c.vy = sin(t.heading) * veh.drive.speed;
+        if (def && range <= def.signature.identifyM) c.vtype = veh.def;
+      }
       const news = isNew || (gaveUp && s.contacts[k]!.surrendered !== true);
       learn(ctx, s.contacts, c, -1e9, tick);
       fresh.push({ who: id, c, isNew, news });
@@ -120,16 +135,17 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const hear2 = K.hearingRangeM * K.hearingRangeM, every = secondsToTicks(K.heardEverySeconds);
     const bearErr = (K.bearingErrorDeg * PI) / 180;
     // One sound per shooter per tick is enough (a burst is one sound).
-    const shooters = [...new Set(shots.map((e) => e.shooter))].sort((a, b) => a - b);
+    // (A cannon or coaxial machine gun is heard as its vehicle, M7.3.)
+    const shooters = [...new Set(shots.map((e) => e.vehicle ?? e.shooter))].sort((a, b) => a - b);
     // Everyone who can hear, once per tick (ID order).
     const L: { id: EntityId; side: string; x: number; y: number; s: SoldierState }[] = [];
     for (const [id, s] of state.soldier.entries()) {
-      if (!isAble(s)) continue;
+      if (!isAble(s) || s.mount !== undefined) continue; // men aboard hear nothing outside (M7)
       const t = state.transform.get(id), side = state.identity.get(id)?.side;
       if (t && side !== undefined) L.push({ id, side, x: t.x, y: t.y, s });
     }
     for (const shooter of shooters) {
-      const side = state.identity.get(shooter)?.side, st = state.transform.get(shooter);
+      const side = state.identity.get(shooter)?.side ?? state.vehicle.get(shooter)?.side, st = state.transform.get(shooter);
       if (side === undefined || !st) continue;
       for (const l of L) {
         if (l.side === side) continue;
@@ -143,7 +159,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
         const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
         const gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
-        const c = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick };
+        const c: Omit<Contact, "reportedTick"> = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick, ...(state.vehicle.has(shooter) ? { cls: "vehicle" as const } : {}) };
         const isNew = i < 0;
         learn(ctx, s.contacts, c, -1e9, tick);
         fresh.push({ who: id, c, isNew, news: isNew });
@@ -151,8 +167,13 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     }
   }
 
+  // ---- engines (M7.3): every few seconds, each man on foot hears the vehicles within their noise range
+  if (state.vehicle.size > 0) hearEngines(ctx, state, fresh);
+
   // ---- pass on what he saw or heard himself; call new contacts out on the radio
   const called = new Set<EntityId>();
+  // The men of each top unit, worked out once per tick (a platoon with many squads reports often, M7.3).
+  const menOf = new Map<EntityId, EntityId[]>();
   for (const f of fresh) {
     const s = state.soldier.req(f.who);
     const i = findContact(s.contacts, f.c.target);
@@ -166,7 +187,10 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const top = topUnit(state, f.who);
     if (top === null) continue;
     const reported = { ...f.c, kind: "reported" as const, errM: f.c.errM + K.reportedErrorM };
-    for (const m of unitSoldiers(state, top)) {
+    // mounted: ok what a comrade reports reaches men aboard by radio/intercom
+    let men = menOf.get(top);
+    if (!men) { men = unitSoldiers(state, top); menOf.set(top, men); }
+    for (const m of men) {
       const ms = state.soldier.get(m);
       if (m === f.who || !isAble(ms)) continue;
       // He does not tell a comrade what that man already knows at least as well (unless it is news to him
@@ -193,8 +217,78 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   }
 
   // ---- forget old contacts (once a second per man, staggered), and those he saw die
+  // mounted: ok contacts age for every man
+  const forgetVeh = secondsToTicks(ctx.catalog.spotting.vehicles.forgetSeconds);
   for (const [id, s] of state.soldier.entries()) {
     if ((id + tick) % TICK_HZ !== 0 || s.contacts.length === 0) continue;
-    s.contacts = s.contacts.filter((c) => tick - c.tick <= forget && !(c.kind === "seen" && state.soldier.get(c.target)?.physiology.alive === false));
+    s.contacts = s.contacts.filter((c) => tick - c.tick <= (c.cls === "vehicle" ? forgetVeh : forget) && !(c.kind === "seen" && state.soldier.get(c.target)?.physiology.alive === false));
+  }
+}
+
+/**
+ * Engine noise (M7.3, plan §10): within the vehicle's noise range (idling or moving) x (base + the surface's
+ * noise) x (1 - rainK x rain), longer downwind and shorter upwind, a man on foot hears a vehicle: its direction
+ * and a rough distance, as for a shot. Every `engineEverySeconds`; men aboard hear nothing outside.
+ */
+export function engineRangeM(ctx: SimContext, state: SimState, vid: EntityId, lx: number, ly: number): number {
+  const v = state.vehicle.get(vid), t = state.transform.get(vid);
+  const def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  if (!v || !t || !def || v.status === "destroyed" || v.status === "abandoned") return 0;
+  const V = ctx.catalog.spotting.vehicles, env = state.environment;
+  const moving = Math.abs(v.drive.speed) > V.movingAboveMps;
+  const base = moving ? def.signature.noiseMovingM : def.signature.noiseIdleM;
+  const cell = cellIndex(ctx.map, t.x, t.y);
+  const surf = ctx.catalog.terrain.surfaces[ctx.map.surfacePalette[ctx.map.surface[cell] ?? 0] ?? ""];
+  let k = (V.surfaceBase + (surf?.noise ?? 0.4)) * Math.max(0, 1 - V.rainK * env.rain);
+  const wl = sqrt(env.windX * env.windX + env.windY * env.windY);
+  const dx = lx - t.x, dy = ly - t.y, dl = sqrt(dx * dx + dy * dy);
+  if (wl > 0.1 && dl > 1e-6) {
+    const ca = (dx * env.windX + dy * env.windY) / (wl * dl);
+    k *= ca >= 0 ? 1 + (V.downwind - 1) * ca : 1 + (1 - V.upwind) * ca;
+  }
+  return base * k;
+}
+
+function hearEngines(ctx: SimContext, state: SimState, fresh: { who: EntityId; c: Omit<Contact, "reportedTick">; isNew: boolean; news: boolean }[]): void {
+  const K = ctx.catalog.spotting.contacts, V = ctx.catalog.spotting.vehicles, tick = state.tick;
+  const every = Math.max(1, secondsToTicks(V.engineEverySeconds));
+  if (tick % every !== 0) return;
+  const bearErr = (K.bearingErrorDeg * PI) / 180;
+  // The listeners, once (men on foot able to hear).
+  const L: { id: EntityId; side: string; x: number; y: number; s: SoldierState }[] = [];
+  // mounted: ok men aboard are skipped below
+  for (const [id, s] of state.soldier.entries()) {
+    if (!isAble(s) || s.mount !== undefined) continue;
+    const side = state.identity.get(id)?.side, me = state.transform.get(id);
+    if (side !== undefined && me) L.push({ id, side, x: me.x, y: me.y, s });
+  }
+  const wind = Math.max(1, ctx.catalog.spotting.vehicles.downwind);
+  for (const [vid, v] of state.vehicle.entries()) {
+    const vt = state.transform.get(vid);
+    if (!vt) continue;
+    // The farthest it can be heard (downwind): men beyond are not looked at further.
+    const Rmax = engineRangeM(ctx, state, vid, vt.x, vt.y) * wind;
+    if (Rmax <= 0) continue;
+    for (const l of L) {
+      if (l.side === v.side) continue;
+      const id = l.id, s = l.s;
+      const dx = vt.x - l.x, dy = vt.y - l.y, d2 = dx * dx + dy * dy;
+      if (d2 > Rmax * Rmax) continue;
+      const i = findContact(s.contacts, vid);
+      // Heard (or seen) it lately: nothing new.
+      if (i >= 0 && tick - s.contacts[i]!.tick < 3 * every) continue;
+      const R = engineRangeM(ctx, state, vid, l.x, l.y);
+      if (d2 > R * R) continue;
+      const range = sqrt(d2);
+      if (i >= 0 && contactErrorM(ctx, s.contacts[i]!, tick) <= Math.max(10, K.rangeErrorFraction * range)) continue;
+      const me = l;
+      const a = atan2(dy, dx) + bearErr * nextNormal(state.rng, Streams.contacts);
+      const guess = Math.max(10, range * (1 + K.rangeErrorFraction * nextNormal(state.rng, Streams.contacts)));
+      const gx = Math.min(Math.max(me.x + cos(a) * guess, 0), ctx.map.widthM), gy = Math.min(Math.max(me.y + sin(a) * guess, 0), ctx.map.heightM);
+      const c: Omit<Contact, "reportedTick"> = { target: vid, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard", tick, cls: "vehicle" };
+      const isNew = i < 0;
+      learn(ctx, s.contacts, c, -1e9, tick);
+      fresh.push({ who: id, c, isNew, news: isNew });
+    }
   }
 }

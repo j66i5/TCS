@@ -125,13 +125,15 @@
       "note": "20-round polymer magazine (published); mass estimated."
     },
     {
-      "id": "de-pzf3",
-      "nameKey": "item.de-pzf3",
+      "id": "de-pzf3-firing-unit",
+      "nameKey": "item.de-pzf3-firing-unit",
       "category": "anti-tank",
-      "massKg": 15.2,
-      "sources": [],
-      "confidence": "low",
-      "note": "Panzerfaust 3 with one round, carried: about 15 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
+      "massKg": 2.3,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Panzerfaust_3"
+      ],
+      "confidence": "medium",
+      "note": "Panzerfaust 3 firing unit with sight, 2.3 kg (search extracts); kept after a shot, it takes the next round (de-pzf3-dm12, a 12.9 kg tube). Firing unit and one round: 15.2 kg as before M7.4a."
     },
     {
       "id": "de-water",
@@ -199,6 +201,70 @@
       "sources": [],
       "confidence": "low",
       "note": "30-round STANAG-type magazine for the G95A1; mass typical, not sourced."
+    },
+    {
+      "id": "de-puma-diesel",
+      "nameKey": "item.de-puma-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 900,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The Puma's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
+    },
+    {
+      "id": "de-30x173-belt-ke",
+      "nameKey": "item.de-30x173-belt-ke",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.66,
+      "chargeItem": "de-30x173-pmc287",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Ready or stowed belt of 100 armour-piercing 30 mm rounds (Puma: 200 ready in two feeds and as many stowed are game values for the published total)."
+    },
+    {
+      "id": "de-30x173-belt-he",
+      "nameKey": "item.de-30x173-belt-he",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.82,
+      "chargeItem": "de-30x173-he",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Ready or stowed belt of 100 high-explosive 30 mm rounds (split of the published total is a game value)."
+    },
+    {
+      "id": "de-mg5-coax-belt",
+      "nameKey": "item.de-mg5-coax-belt",
+      "category": "magazine",
+      "massKg": 3.0,
+      "chargeCapacity": 500,
+      "chargeMassKg": 0.024,
+      "chargeItem": "de-762-dm111",
+      "tracerItem": "de-762-dm21",
+      "tracerEvery": 5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "500-round belt for the coaxial MG5, every fifth round tracer (game values)."
+    },
+    {
+      "id": "de-puma-extinguisher",
+      "nameKey": "item.de-puma-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
     }
   ]
 }

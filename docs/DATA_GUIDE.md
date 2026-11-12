@@ -5,7 +5,7 @@ How to add or change game data without touching engine code. All data lives in `
 ```
 packages/data/
   core/                       shared by all factions
-    movement-modes.json       walk, run, sneak, crawl (speeds)
+    movement-modes.json       foot paces (walk, run, sneak, crawl) and vehicle paces (drive-slow, drive, drive-fast; wdrive-* wheeled)
     qualities.json            conscript, regular, veteran (skill distributions)
     strings.en.json           interface text (English)
     terrain/
@@ -22,6 +22,7 @@ packages/data/
     items.json                equipment items (magazines, grenades, kit) with mass
     units.json                unit templates (who is in a team/squad/platoon, with what load)
     doctrine.json             doctrine profile values
+    vehicles.json             vehicle types (optional; M7)
     strings.en.json           names of ranks/roles/items, radio phrasing
   fixtures/factions/xf/       a made-up faction used by the tests; a good template to copy
 ```
@@ -153,7 +154,10 @@ The squad the game starts with is named in the faction's `manifest.json`: `"demo
 `core/spotting.json` lists `sensors` by kind: `factor` (how much easier he spots beyond `fromM` metres) and
 `nightLight` (the light level it gives at least: 0.5 for night vision, 1 for thermal). A weapon sight's `kind`
 is looked up there; an item gets a sensor with `"sensor": "night"` (for example a night-vision goggle in a
-man's load). Every man also has `eye`.
+man's load). Every man also has `eye`. Optional per sensor (M7.3): `smokeFactor` (share of the view kept
+through ordinary smoke; 0 = blinded, thermal 0.5), `maxRangeM`, `fogFloorM` (sees at least this far in fog) and
+`rainFactor`. The `vehicles` block sets how vehicles are seen and heard (reference area, tracking, drift and
+forgetting of vehicle contacts, engine-noise factors).
 
 ## Change what stops a bullet
 
@@ -233,7 +237,45 @@ Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` an
 
 ## Add a vehicle
 
-Not yet possible: the vehicle format arrives in **M7**.
+Vehicle types live in `factions/<id>/vehicles.json` (optional file; M7). Units are SI except where the field name
+says otherwise (`*Kmh`, `*Deg`, `*Kw` are converted when the catalog is built). Every block with numbers carries
+its own `sources`/`confidence`/`note` (`body`, `mass`, `drive`, `ramp`, each station). Hull coordinates are
+metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
+
+- `class`: `"tracked"` or `"wheeled"`; `drive.steering.kind` must match. Tracked vehicles need
+  `body.trackGaugeM` and `body.trackContactM`, wheeled ones `body.wheelbaseM`.
+- `mass.kg`; `drive`: engine `powerKw`, drive-train `efficiency`, `topSpeedKmh` and `reverseTopSpeedKmh` (the
+  last gear band must end there), `brakeMps2`, gear bands `gears`/`reverseGears` (`toKmh`, rising), `shiftSeconds`,
+  steering (tracked: `pivot`, `pivotRateDegS`, `maxLatAccelMps2`, `slipCoeff`, `turnResistance`; wheeled:
+  `maxSteerDeg`, `steerRateDegS`, `maxLatAccelMps2`), `idleKw` and `litresPerKwh` (fuel use).
+- `fuel`: `{ "item": "<tank item>", "capacityL": 900 }`. The tank is an item in `items.json` (category `fuel`,
+  `massKg` 0, `chargeCapacity` = litres, `chargeMassKg` = kg per litre); the litres in it are its charge, the
+  only count of the fuel (rule 9). A new vehicle record starts with a full tank.
+- `seats`: `{ id, station, pos: [f, r, u], part: "hull"|"turret", hatch }`; station is one of `commander`,
+  `gunner`, `driver`, `loader`, `passenger`. Exactly one driver seat. Without a driver a vehicle does not move.
+- `ramp` (exits and the time to open, get in and out), `stations` (turret or mount: traverse and elevation
+  rates and limits, stabiliser, errors, weapons with their ready belts and `feedKind` `belt`/`single`/
+  `autoloader`; a `single` feed needs `roundLoadSeconds`, and `loaderStation` must be a seat kind of the
+  vehicle), `stowed` items. M7.3: a station weapon's `muzzle` is `[f, r, u]` in the turret's frame about its
+  pivot (`u` from the ground); `readyRefillInBattle` with `refillSeconds` lets the crew refill ready belts from
+  stowed belts of the same item while halted; seat `sensors` (`kind` from `core/spotting.json`, `pos`, `arcDeg`,
+  `sideFactor`/`rearFactor` outside the arc, `follows` `"own"` (the hull) or `"station"` (the turret), `lrf`);
+  `dischargers` (`item` smoke ammunition counted in `stowed`, `perSalvo`, `salvos`, `arcDeg`, `rangeM`,
+  `delaySeconds`, `cloudRadiusM`, `cloudSeconds`); `signature` (`sizeFactor` on the area of the boxes,
+  `movingFactor`, `firingFactor`, `identifyM` within which its type is told, engine `noiseIdleM`/`noiseMovingM`,
+  `aimPoints` `[f, r, u]`). Ammunition may set `explosive.burstOnBody` (cannon HE bursting on a man struck) and
+  `multispectral` (smoke that also blinds thermal sights). `armour` and `components` are reserved (M7.4).
+- Crew: a unit template with `"echelon": "vehicle"` and `"vehicle": "<type>"`; each member may name his `seat`
+  (default: crew seats in the order commander, gunner, loader, driver). A parent template may give
+  `carriage: [{ "crew": <sub-unit index>, "carries": [<sub-unit indices>] }]` (M7.2).
+- Ground: `core/terrain/surfaces.json` entries have a `vehicle` block (`rolling` resistance coefficient,
+  `traction` and `lateral` friction, optional `capKmh`, and `wetTractionFactor`/`wetRollingFactor` applied in
+  full rain); a surface without it cannot be driven on. Obstacles have `vehicle: { tracked, wheeled }`, each
+  `null` (goes round) or `{ crossCostCells, capKmh, flattens }`.
+- Paces: a move order to a crew names a vehicle pace or a foot pace (mapped by the foot pace's `vehiclePace`).
+- Check it with `npm run lab -- drive` (acceleration, top speed, braking, pivot, ground and rain, slope, fuel).
+- Armour figures from sources in mm RHA are multiplied by `rhaToMildSteel` (core/ballistics.json, 1.25) to the
+  mild-steel scale the simulation uses; the `armour-steel` material has the same resistance.
 
 ## Add a whole faction
 

@@ -40,5 +40,29 @@ export function wanderController(side: SideId, seed: number, map: { widthM: numb
     loadState: (data) => { rng = JSON.parse(JSON.stringify(data)) as RngState; },
   };
 }
+/**
+ * Vehicle wander (M7.1c tools scenarios): every `intervalSeconds`, each vehicle crew unit of the side drives to a
+ * random point in the middle of the map (at "run", which a vehicle drives at its "drive" pace), and every other
+ * leaf unit on foot walks to a point near it. Its own random generator; acts only through orders.
+ */
+export function vehicleWanderController(side: SideId, seed: number, map: { widthM: number; heightM: number }, intervalSeconds = 45): Controller {
+  let rng: RngState = createRng(seed);
+  const every = secondsToTicks(intervalSeconds);
+  return {
+    side,
+    think(state, tick): Order[] {
+      if (tick % every !== 0) return [];
+      const out: Order[] = [];
+      for (const [id, u] of state.unit.entries()) {
+        if (u.side !== side || u.children.length > 0) continue;
+        const x = nextRange(rng, "wander", map.widthM * 0.25, map.widthM * 0.75), y = nextRange(rng, "wander", map.heightM * 0.2, map.heightM * 0.8);
+        out.push({ tick, issuer: side, target: id, kind: "move", waypoints: [{ x, y, mode: u.vehicle !== undefined ? "run" : "walk" }] });
+      }
+      return out;
+    },
+    saveState: () => JSON.parse(JSON.stringify(rng)) as unknown,
+    loadState: (data) => { rng = JSON.parse(JSON.stringify(data)) as RngState; },
+  };
+}
 export * from "./shootout";
 export * from "./commander";

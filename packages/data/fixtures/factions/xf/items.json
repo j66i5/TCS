@@ -37,6 +37,47 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-bolt-rack",
+      "nameKey": "item.xf-bolt-rack",
+      "category": "magazine",
+      "massKg": 1,
+      "chargeCapacity": 6,
+      "chargeMassKg": 0.06,
+      "chargeItem": "xf-bolt",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-hay",
+      "nameKey": "item.xf-hay",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture. The cart's fuel (litres)."
+    },
+    {
+      "id": "xf-charm",
+      "nameKey": "item.xf-charm",
+      "category": "vehicle-supply",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.4b)."
+    },
+    {
+      "id": "xf-shingle",
+      "nameKey": "item.xf-shingle",
+      "category": "vehicle-supply",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.4b)."
     }
   ]
 }

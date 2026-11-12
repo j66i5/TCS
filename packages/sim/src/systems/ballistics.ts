@@ -19,7 +19,10 @@ import { DT, type EntityId } from "../ids";
 import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
-import type { AmmoRT } from "../ballistics";
+import { resolveVehicleHit } from "./armour";
+import { addStoppedHit } from "../hulls";
+import { HULL_HIT, hullEntry, NEAR_SOLDIER, NEAR_VEHICLE, NEAR_WALL, type AmmoRT } from "../ballistics";
+
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -54,7 +57,7 @@ function queueBurst(x: number, y: number, z: number, ammo: number, owner: number
 function settle(
   P: SimState["projectiles"], i: number, am: AmmoRT, tick: number, hx: number, hy: number, hz: number, nx: number, ny: number, nz: number,
   vx: number, vy: number, vz: number, soft: number, BN: { restitution: number; tangentKeep: number; stopSpeedMps: number },
-  events: EventSink, material: string, surface: "ground" | "obstacle" | "building",
+  events: EventSink, material: string, surface: "ground" | "obstacle" | "building" | "vehicle",
 ): boolean {
   if (am.fuseTicks > 0) {
     let vn = vx * nx + vy * ny + vz * nz;
@@ -78,6 +81,16 @@ function settle(
   else events.emit({ kind: "impact", tick, x: qx, y: qy, z: qz, surface, result: "stopped", material, ammo: am.id, owner: P.owner[i]! });
   removeProjectile(P, i);
   return false;
+}
+
+/** Hull hits for the armour to decide after the loop (M7.4a): row, x, y, z, vx, vy, vz, speed, ammo, owner, part, face, age. */
+const HQ: number[] = [];
+const HQ_STRIDE = 13;
+let hullCount = 0;
+function queueHull(row: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, speed: number, ammo: number, owner: number, part: number, face: number, age: number): void {
+  const o = hullCount++ * HQ_STRIDE;
+  HQ[o] = row; HQ[o + 1] = x; HQ[o + 2] = y; HQ[o + 3] = z; HQ[o + 4] = vx; HQ[o + 5] = vy; HQ[o + 6] = vz; HQ[o + 7] = speed;
+  HQ[o + 8] = ammo; HQ[o + 9] = owner; HQ[o + 10] = part; HQ[o + 11] = face; HQ[o + 12] = age;
 }
 
 let clipT0 = 0, clipT1 = 1;
@@ -105,7 +118,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const gdt = bal.gravityMps2 * dt;
   const W = map.widthM, H = map.heightM;
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows, maxGround = B.maxGround, maxVegTop = B.maxVegTop;
-  const invBm = 1 / bm, wallNear = B.nearWall;
+  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry, stoppedHit = addStoppedHit;
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
@@ -114,7 +127,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // ---- soldiers this tick, bucketed, so only bullets passing close to someone test against bodies
   const SG = B.soldiers, hitboxes = B.hitboxes;
   {
-    for (let q = 0; q < SG.touchedCount; q++) { const kk = SG.touched[q]!; SG.near[kk] = 0; SG.head[kk] = -1; }
+    for (let q = 0; q < SG.touchedCount; q++) { const kk = SG.touched[q]!; near[kk] = near[kk]! & ~NS; SG.head[kk] = -1; }
     SG.touchedCount = 0;
     const count = state.soldier.size;
     if (count > SG.id.length) {
@@ -126,13 +139,16 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     let n = 0;
     SG.sideOf.clear();
+    // mounted: ok men aboard are skipped below (no body row), but keep their side for SG.sideOf
     for (const [id, s] of state.soldier.entries()) {
       const t = state.transform.get(id);
       if (!t) continue;
       const sd = state.identity.get(id)?.side ?? "";
       let sc = SG.sides.indexOf(sd);
       if (sc < 0) { sc = SG.sides.length; SG.sides.push(sd); }
-      SG.side[n] = sc; SG.sup[n] = 0; SG.sideOf.set(id, sc);
+      SG.sideOf.set(id, sc);
+      if (s.mount !== undefined) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
+      SG.side[n] = sc; SG.sup[n] = 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
       SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
@@ -144,7 +160,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const rr = r + dr, cc = c + dc;
         if (rr < 0 || cc < 0 || rr >= brows || cc >= bcols) continue;
         const kk = rr * bcols + cc;
-        if (SG.near[kk] === 0) { SG.touched[SG.touchedCount++] = kk; SG.near[kk] = 1; }
+        if ((near[kk]! & NS) === 0) { SG.touched[SG.touchedCount++] = kk; near[kk] = near[kk]! | NS; }
       }
       n++;
     }
@@ -153,14 +169,18 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const reach = B.bodyReachM;
   const SUP = ctx.catalog.behaviour.suppression;
   const supR = SUP.nearMissRadiusM, supR2 = supR * supR, supPer = SUP.perRound, supERef = SUP.energyRefJ;
+  // Heavy rounds (12.7 mm and up) crack past harder (M7.3, calibre scaling).
+  const heavyCap = SUP.heavyEnergyCap ?? 2;
   const supCentreZ = [0, 1, 2].map((p) => hitboxes[p]!.height * (hitboxes[p]!.alongLength ? 0.5 : 0.6));
-  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, solNear = SG.near;
+  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf;
 
+  hullCount = 0;
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
   detCount = 0;
   const BN = bal.bounce, clutterH = bal.fragments.clutterHeightM, clutterK = bal.fragments.clutterStopPerM, ex = exp;
   const roofs = B.roofs, roofLow = B.roofLow, roofBuckets = B.roofBuckets, inPoly = pointInPolygon;
+  P.watch = B; B.inLoop = true;
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
     let vx = VX[i]!, vy = VY[i]!, vz = VZ[i]!;
@@ -168,6 +188,14 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       // A time fuse runs out wherever the grenade is: in the air or lying on the ground.
       if (am.fuseTicks > 0 && tick - BORN[i]! >= am.fuseTicks) { queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!); remove(P, i); continue; }
       if (vx === 0 && vy === 0 && vz === 0) { i++; continue; } // lying where it landed
+      // A rocket (M7.4a): it bursts by itself after its time; its motor pushes it along its path while it burns
+      // (the same arithmetic as flight.ts flightStep).
+      const age = tick - BORN[i]!;
+      if (am.selfDestructTicks > 0 && age >= am.selfDestructTicks) { queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!); remove(P, i); continue; }
+      if (am.thrust > 0 && age >= am.ignTicks && age < am.burnEndTicks) {
+        const sp = sq(vx * vx + vy * vy + vz * vz);
+        if (sp > 1e-6) { const k = 1 + (am.thrust * dt) / sp; vx *= k; vy *= k; vz *= k; }
+      }
     }
     const rvx = vx - wx, rvy = vy - wy;
     // Drag: Cd(v) x v = min(dragMax x v, dragA x v + dragB), no powers needed.
@@ -208,7 +236,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- coarse rejection: sample the path every bucket (8 m) and compare its height there with the highest
     // ground / vegetation top of that bucket. Margins cover slopes between samples; a bullet that slips past
     // is caught on the next tick (it would then start below ground).
-    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false;
+    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false, nearVehicle = false;
     const zTop = z0 > z1 ? z0 : z1;
     {
       const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
@@ -221,12 +249,16 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const kk = r * bcols + c, pz = z0 + t * dz;
         if (pz <= maxGround[kk]! + GROUND_MARGIN_M) nearGround = true;
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
-        if (wallNear[kk] === 1) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
-        if (solNear[kk] === 1) nearSoldier = true;
+        const nb = near[kk]!;
+        if ((nb & NW) !== 0) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
+        if ((nb & NS) !== 0) nearSoldier = true;
+        if ((nb & NV) !== 0) nearVehicle = true;
       }
     }
 
-    if (am.explosive) { nearSoldier = false; nearVeg = false; } // a grenade does not wound by striking, and is not stopped by leaves
+    // A grenade does not wound by striking, and is not stopped by leaves; a cannon shell that bursts on a man
+    // (M7.3, owner Q18) is tested against bodies (rifle grenades and mortar bombs are not).
+    if (am.explosive) { if (!am.burstOnBody) nearSoldier = false; nearVeg = false; }
 
     // ---- walls (obstacles and building walls), nearest hit
     let tHit = 2, hitSeg = -1;
@@ -326,6 +358,21 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    // ---- vehicles (M7.1c): the path against each nearby hull and turret box; every round stops there for now
+    let tVeh = 2, vehRow = -1, vehPart = 0, vehFace = 0;
+    if (nearVehicle) {
+      let own = -2;
+      for (let j = 0; j < VG.n; j++) {
+        if (VG.maxX[j]! < minX || VG.minX[j]! > maxX || VG.maxY[j]! < minY || VG.minY[j]! > maxY) continue;
+        const t = hullAt(VG, j, x0, y0, z0, dx, dy, dz);
+        if (t >= tVeh) continue;
+        // (Its own hull does not stop a round its gunner fires.)
+        if (own === -2) own = state.soldier.get(P.owner[i]!)?.mount?.vehicle ?? -1;
+        if (VG.id[j] === own) continue;
+        tVeh = t; vehRow = j; vehPart = HULL_HIT.part; vehFace = HULL_HIT.face;
+      }
+    }
+
     // ---- ground: sample every terrain cell (the surface is smooth within a cell), then bisect
     let tGround = 2;
     if (nearGround) {
@@ -350,6 +397,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     let tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
     if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
+    if (tVeh < tEnd) tEnd = tVeh;
 
     // ---- suppression (M4.1): an enemy round passing within a few metres of a man, or striking near him,
     // cracks past him. Each round counts once per man: at the point of its flight closest to him (on this
@@ -372,7 +420,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
             const ex2 = rx - t * dx, ey2 = ry - t * dy, ez2 = rz - t * dz;
             const d2 = ex2 * ex2 + ey2 * ey2 + ez2 * ez2;
             if (d2 > supR2) continue;
-            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); if (eK > 2) eK = 2; if (eK < 0.25) eK = 0.25; }
+            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); const capK = am.heavy ? heavyCap : 2; if (eK > capK) eK = capK; if (eK < 0.25) eK = 0.25; }
             SG.sup[j] = SG.sup[j]! + supPer * eK * (1 - 0.5 * sq(d2) / supR);
           }
         }
@@ -420,9 +468,69 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    if (tVeh <= 1 && tVeh < tGround && tVeh < tHit && tVeh < tRoof && tVeh <= tBody) {
+      // ---- a vehicle is hit (M7.1c; armour and penetration M7.4a): rounds that could get through the thinnest
+      // plate, shaped charges and impact high explosive are queued and resolved after the loop
+      // (systems/armour.ts); everything else stops here as before.
+      const hx = x0 + tVeh * dx, hy = y0 + tVeh * dy, hz = z0 + tVeh * dz;
+      if (am.shaped && VG.minNeed[vehRow]! < Infinity) {
+        const sp = rs / (1 + a * tVeh);
+        queueHull(vehRow, hx, hy, hz, vx, vy, vz, sp, AMMO[i]!, P.owner[i]!, vehPart, vehFace, tick - BORN[i]!);
+        remove(P, i);
+        continue;
+      }
+      if (am.explosive && am.fuseTicks === 0 && VG.minNeed[vehRow]! < Infinity && tick - BORN[i]! >= am.armTicks) {
+        // Impact high explosive: it bursts on the plate as before; its blast may hole a thin plate or a track.
+        queueHull(vehRow, hx, hy, hz, vx, vy, vz, 0, AMMO[i]!, P.owner[i]!, vehPart, vehFace, tick - BORN[i]!);
+      }
+      if (am.explosive) {
+        if (vehFace === 3 && am.fuseTicks > 0) {
+          // A grenade that lands on top rolls off: it ends on the ground beside the hull, at the nearer side.
+          const c = VG.ch[vehRow]!, sn = VG.sh[vehRow]!, rx = hx - VG.x[vehRow]!, ry = hy - VG.y[vehRow]!;
+          const lat = -rx * sn + ry * c, out = (lat >= 0 ? VG.r1[vehRow]! : VG.r0[vehRow]!) + (lat >= 0 ? 0.4 : -0.4);
+          const f = rx * c + ry * sn;
+          const gx = VG.x[vehRow]! + c * f - sn * out, gy = VG.y[vehRow]! + sn * f + c * out;
+          if (settle(P, i, am, tick, gx, gy, hAt(map, gx, gy), 0, 0, 1, 0, 0, 0, 1, BN, events, "steel", "vehicle")) i++;
+          continue;
+        }
+        // Off the face it struck (front/rear along the facing, sides across it, top up).
+        const c = vehPart === 0 ? VG.ch[vehRow]! : VG.tch[vehRow]!, sn = vehPart === 0 ? VG.sh[vehRow]! : VG.tsh[vehRow]!;
+        let nx = 0, ny = 0, nz = 0;
+        if (vehFace === 3) nz = 1;
+        else if (vehFace === 1) { const lat = -(dx) * sn + dy * c; nx = lat > 0 ? sn : -sn; ny = lat > 0 ? -c : c; }
+        else { const sg = vehFace === 0 ? 1 : -1; nx = c * sg; ny = sn * sg; }
+        if (settle(P, i, am, tick, hx, hy, hz, nx, ny, nz, vx, vy, vz, 1, BN, events, "steel", "vehicle")) i++;
+        continue;
+      }
+      const spH = rs / (1 + a * tVeh), rr = spH / am.penV;
+      if (!am.fragment && am.penSteelMm * (rr > 1 ? rr * rr : 1) >= VG.minNeed[vehRow]!) {
+        // It might get through (an upper bound of its penetration at this speed, no power needed): the plate
+        // decides after the loop.
+        const sp = spH;
+        queueHull(vehRow, hx, hy, hz, vx, vy, vz, sp, AMMO[i]!, P.owner[i]!, vehPart, vehFace, tick - BORN[i]!);
+        remove(P, i);
+        continue;
+      }
+      if (!am.fragment) {
+        const face = vehFace === 0 ? "front" : vehFace === 1 ? "side" : vehFace === 2 ? "rear" : "top";
+        if (am.heavy) events.emit({ kind: "vehicle.hit", tick, vehicle: VG.id[vehRow]!, x: hx, y: hy, z: hz, face, zone: vehPart === 0 ? "hull" : "turret", result: "stopped", ammo: am.id, owner: P.owner[i]!, rounds: 1, components: [] });
+        else stoppedHit(state, VG, vehRow, P.owner[i]!, AMMO[i]!, hx, hy, hz, vehFace * 2 + vehPart);
+      }
+      remove(P, i);
+      continue;
+    }
+
     if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
       // ---- a man is hit: armour, wound; a bullet may go through him
       const speedB = rs / (1 + a * tBody); // its speed where it strikes, not at the end of the tick
+      if (am.explosive) {
+        // A cannon shell (M7.3, owner Q18): it strikes him and bursts on him (an unarmed one only strikes).
+        const hx = x0 + tBody * dx, hy = y0 + tBody * dy, hz = z0 + tBody * dz;
+        bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, am.penSteelMm, 0.5 * am.massKg * speedB * speedB, am.id, P.owner[i]!, false);
+        if (tick - BORN[i]! >= am.armTicks) queueBurst(hx, hy, hz, AMMO[i]!, P.owner[i]!);
+        remove(P, i);
+        continue;
+      }
       const can = am.penSteelMm * pow(speedB / am.penV, bal.penetrationVelocityExponent);
       const energy = 0.5 * am.massKg * speedB * speedB;
       let through = bodyHit(ctx, state, events, SG.id[bodyIdx]!, ZONE_GROUPS[bodyGroup]!, bodyLeft, bodyFrontal, can, energy, am.id, P.owner[i]!, am.fragment);
@@ -588,6 +696,26 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
     remove(P, i);
+  }
+  B.inLoop = false;
+  // Hull hits that the armour decides (M7.4a), in the order they were found; new rounds (an exiting
+  // penetrator, a ricochet) and warhead bursts are added only now, after the loop.
+  if (hullCount > 0) {
+    for (let q = 0; q < hullCount; q++) {
+      const o = q * HQ_STRIDE;
+      resolveVehicleHit(ctx, state, events, HQ[o]!, HQ[o + 1]!, HQ[o + 2]!, HQ[o + 3]!, HQ[o + 4]!, HQ[o + 5]!, HQ[o + 6]!, HQ[o + 7]!, HQ[o + 8]!, HQ[o + 9]!, HQ[o + 10]!, HQ[o + 11]!, HQ[o + 12]!, queueBurst);
+    }
+    hullCount = 0;
+  }
+  // Rifle-calibre hits on vehicles: one aggregated event per vehicle and side of the shooters (M7.1c; slot 0
+  // the other side's rounds, 1 its own side's). Only the other side's rounds count as the vehicle being hit.
+  for (let q = 0; q < 2 * VG.n; q++) {
+    const k = VG.hits[q]!;
+    if (k === 0) continue;
+    const fp = VG.hitFace[q]!, fc = fp >> 1, vid = VG.id[q >> 1]!;
+    events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x: VG.hitX[q]!, y: VG.hitY[q]!, z: VG.hitZ[q]!, face: fc === 0 ? "front" : fc === 1 ? "side" : fc === 2 ? "rear" : "top", zone: (fp & 1) === 0 ? "hull" : "turret", result: "stopped", ammo: ammoRT[VG.hitAmmo[q]!]!.id, owner: VG.hitOwner[q]!, rounds: k, components: [] });
+    if ((q & 1) === 0) { const v = state.vehicle.get(vid); if (v) { v.lastHitTick = tick; v.hitsThisTick = k; } }
+    VG.hits[q] = 0;
   }
   // Suppression gathered from rounds passing close (M4.1).
   for (let j = 0; j < SG.n; j++) {

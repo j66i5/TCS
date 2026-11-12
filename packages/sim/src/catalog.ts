@@ -32,16 +32,41 @@ export interface ItemTypeDef {
 
 export type MovementClass = "foot" | "wheeled" | "tracked";
 
-export interface MovementModeDef {
-  id: DefId; // "walk" | "run" | "sneak" | "crawl" | "wheeled" | "tracked" ... (data, not code)
+/** A pace on foot ("walk", "run", "sneak", "crawl" ... data, not code). */
+export interface FootModeDef {
+  id: DefId;
   /** Which terrain cost column applies. */
-  class: MovementClass;
+  class: "foot";
   /** Posture taken for this mode. */
   posture: "standing" | "crouching" | "prone";
   /** Work rate (0 rest .. ~0.85 running): drives heart rate and fatigue. */
   exertion: number;
   /** Nominal speed on open, level ground, m/s. */
   speedMps: number;
+  /** The vehicle pace a vehicle given this foot pace drives at, per vehicle class (M7). */
+  vehiclePace: { tracked: DefId; wheeled: DefId };
+}
+
+/** A vehicle pace (M7): a share of the vehicle's own top speed. */
+export interface VehiclePaceDef {
+  id: DefId;
+  class: "tracked" | "wheeled";
+  speedFraction: number;
+}
+
+export type MovementModeDef = FootModeDef | VehiclePaceDef;
+
+/** A foot pace by id; throws on a vehicle pace or an unknown id (foot code reads modes only through this). */
+export function footMode(catalog: Catalog, id: DefId): FootModeDef {
+  const m = catalog.movementModes[id];
+  if (!m || m.class !== "foot") throw new Error(`'${id}' is not a foot pace`);
+  return m;
+}
+
+/** A foot pace by id, or undefined (unknown id or a vehicle pace). */
+export function footModeOrUndefined(catalog: Catalog, id: DefId): FootModeDef | undefined {
+  const m = catalog.movementModes[id];
+  return m && m.class === "foot" ? m : undefined;
 }
 
 /** Time multiplier per movement class; null = impassable. */
@@ -52,6 +77,8 @@ export interface MaterialDef {
   densityKgM3: number;
   /** Penetration resistance, mm of mild steel equivalent per mm of material. */
   resistance: number;
+  /** Resistance against shaped-charge jets, if it differs (M7). */
+  resistanceShaped?: number;
   /** Largest angle from the surface at which a bullet can still ricochet, degrees. */
   ricochetAngleDeg: number;
   /** Soft-core bullets break up in this material at high impact speed. */
@@ -67,7 +94,18 @@ export interface SurfaceDef {
   colour: string;
   /** Material of the ground for bullet impacts and ricochets. */
   material: DefId;
+  /** How vehicles drive on it (M7); absent: no vehicle can. */
+  vehicle?: SurfaceVehicleDef;
 }
+
+/** Vehicle driving on a surface (M7): rolling resistance and friction coefficients, cap, rain factors. */
+export interface SurfaceVehicleDef {
+  rolling: number; traction: number; lateral: number; capKmh?: number;
+  wetTractionFactor: number; wetRollingFactor: number;
+}
+
+/** A vehicle crossing a linear obstacle (M7). */
+export interface VehicleCrossingDef { crossCostCells: number; capKmh: number; flattens: boolean }
 
 export interface VegetationDef {
   id: DefId;
@@ -85,8 +123,8 @@ export interface ObstacleKindDef {
   material: DefId;
   seeThrough: number;
   footCrossTimeS: number | null;
-  wheeledCrossable: boolean;
-  trackedCrossable: boolean;
+  /** Per vehicle class: null = cannot cross (goes round). */
+  vehicle: { tracked: VehicleCrossingDef | null; wheeled: VehicleCrossingDef | null };
   colour: string;
 }
 
@@ -131,6 +169,8 @@ export interface BallisticsDef {
   ricochetScatterDeg: number;
   minSpeedMps: number;
   maxFlightSeconds: number;
+  /** mm RHA x this = mild-steel-equivalent mm (M7). */
+  rhaToMildSteel: number;
   blast: {
     severeScaledM: number; injuryScaledM: number; stunScaledM: number; stunSeconds: number; craterScaledM: number;
     breachSteelMmScaled: number; breachReachScaledM: number; breachWidthScaledM: number;
@@ -139,6 +179,8 @@ export interface BallisticsDef {
   };
   fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
+  /** Rounds against vehicle armour (M7.4a). */
+  armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number };
 }
 
 export interface AmmoDef {
@@ -156,9 +198,17 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number };
+  /** Rocket motor (M7.4a). */
+  propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
+  /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
+  ricochetFactor?: number;
+  /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
+  behindArmour?: { spallCount: number; spallConeDeg: number; spallEnergyJ: number };
+  /** Smoke (M7.3): a multispectral cloud blinds thermal sights too. */
+  multispectral?: boolean;
   /** Thrown by hand or fired from a launcher item the soldier carries. */
-  delivery?: { method: "thrown" | "launched"; velocityMps?: number; launcher?: DefId; maxRangeM?: number };
+  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
 }
 
 export interface WeaponDef {
@@ -212,7 +262,7 @@ export interface ZoneWoundDef {
   bleedLps: number; compressible: boolean; airway: boolean; breathing: boolean;
 }
 export interface BehaviourDef {
-  suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number };
+  suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
   stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number };
   states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
   effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
@@ -236,13 +286,61 @@ export interface BehaviourDef {
    * stepSeconds: how often each man reconsiders. downedEnemyM / comradeNearM: a wounded man who cannot fight
    * gives up with a known enemy this close and no fit comrade this close. caughtEnemyM: a panicked or routed
    * man gives up with a known enemy this close. captureM: a fit enemy this close takes him prisoner.
+   * attackerDownedEnemyM / attackerPanicGivesUp: the same for a man of the attacking side or of a unit in an
+   * assault (owner: attackers are less likely to give up).
    * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
    * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
    */
   surrender: {
-    stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; captureM: number;
+    stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
   };
+  /**
+   * Getting in and out of vehicles (M7.2). boardReachM: a man this close to an exit can board; approachReplanM:
+   * his walk to the exit is planned again when the hull has moved this far; casualtyLoadM / carriersWithinM: a
+   * wounded man this close to an exit is loaded by two comrades if two able men are this close to him (owner
+   * Q25); completeAfterSeconds / giveUpSeconds: boarding ends this long after the first man got in, or after
+   * this long at all; exitFanMinM/MaxM: men getting out land this far behind the exit; remountM: a withdrawing
+   * squad this close to its vehicle gets back in (Q24); holdDismountM: a squad aboard this close to an objective
+   * it holds gets out; resupplyRangeM / resupplyReachM / resupplyCount: a man out of spare walks to a halted own
+   * vehicle this close and takes this many from it standing this close to an exit; seatSwapCheckSeconds: how
+   * often a crew sees whether a fallen driver or gunner must be replaced.
+   */
+  mounting: {
+    boardReachM: number; approachReplanM: number; casualtyLoadM: number; carriersWithinM: number;
+    completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
+    remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
+  };
+  /**
+   * Vehicle gunnery (M7.3). stepSeconds: how often a crew chooses its target. A crew engages what it has seen
+   * within seenWithinSeconds, or a comrade's report no vaguer than reportedErrorM and younger than
+   * reportedWithinSeconds. groupRadiusM: men this close together are a group (HE); a single man within
+   * coaxSingleWithinM gets the coaxial machine gun. Target score = range x vehicleScore for a vehicle x
+   * firingScore for an enemy firing now (lower is first). The commander fires the gun when the gunner is out. lrfRangeErrorFraction: range error with a laser
+   * rangefinder. refillBelowFraction: halted, a crew refills a ready belt below this share of full.
+   * friendlyClearM: no fire at a point this close to own men on foot. scanReturnSeconds: the turret comes back
+   * to the front this long after its last target. dischargeAheadM: unused distance reserve for the smoke screen.
+   */
+  gunnery: {
+    stepSeconds: number; seenWithinSeconds: number; reportedErrorM: number; reportedWithinSeconds: number;
+    groupRadiusM: number; coaxSingleWithinM: number; vehicleScore: number; firingScore: number;
+    lrfRangeErrorFraction: number; refillBelowFraction: number;
+    friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
+  };
+  /**
+   * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;
+   * a man looks once per stepSeconds for an enemy vehicle he saw within seenWithinSeconds; his range error
+   * (fraction) and aiming error (mrad, regular soldier) add to the round's dispersion. No shot from inside a
+   * house smaller than largeRoomM2 that is not breached, nor with a wall within wallBehindM behind him; a
+   * comrade within handOverM brings him a round when he has none.
+   */
+  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number };
+  /**
+   * Crews of damaged vehicles (M7.4a, owner Q14/Q15): men get out bailOnFireSeconds after a fire starts; a fire
+   * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;
+   * a burning vehicle makes smoke; men still inside a destroyed vehicle are burnt (severity range).
+   */
+  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -258,7 +356,12 @@ export interface SpottingDef {
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
-  sensors: Record<string, { factor: number; fromM: number; nightLight: number }>;
+  sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number }>;
+  /** Vehicles as targets and contacts (M7.3). */
+  vehicles: {
+    referenceAreaM2: number; targetMaxRangeM: number; movingAboveMps: number; maxTracked: number; driftMps: number; forgetSeconds: number;
+    engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
+  };
   skillSlope: number; stressK: number; lightFloor: number;
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
   contacts: {
@@ -283,6 +386,10 @@ export interface WoundsDef {
     fragment: { minEnergyJ: number; referenceEnergyJ: number; exponent: number; factorMin: number; factorMax: number };
     /** Blast wounds: severity at the edge of the injury radius and at the severe radius or nearer. */
     blast: { severityInjury: number; severitySevere: number; bleedLps: number };
+    /** Run over by a vehicle (M7.1c): severity drawn between min and max, bleeding per unit severity. */
+    crush?: { severityMin: number; severityMax: number; bleedLps: number };
+    /** Heavy projectiles (M7.3): a round this wide or wider wounds at least this badly. */
+    heavy?: { minDiameterM: number; severityMin: number };
     /** Share of its speed a bullet keeps on leaving a limb / the trunk or head. */
     exit: { limb: number; trunk: number };
   };
@@ -317,6 +424,11 @@ export interface FactionDef {
   defaultFormation: DefId;
   /** Mortar fire the platoon can call (M6.5c); none if absent. */
   fireSupport?: { heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number };
+  /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
+   *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
+  dismountM?: number;
+  /** After the squads are out (M7.3): vehicles stay in overwatch, or follow the squads `followM` behind. */
+  afterDismount?: { kind: "overwatch" | "follow"; followM: number };
 }
 
 export interface FormationDef {
@@ -346,6 +458,78 @@ export interface Catalog {
   /** Ammunition IDs in ascending order; projectiles store the index into this list. */
   ammoIds: DefId[];
   weapons: Record<DefId, WeaponDef>;
+  /** Vehicle types of the factions taking part (M7). */
+  vehicles: Record<DefId, VehicleDef>;
+}
+
+/** Generic crew and passenger station kinds (code keys). */
+export type StationKind = "commander" | "gunner" | "driver" | "loader" | "passenger";
+
+/** A box in hull coordinates (f forward, r right, u up from the ground), [min, max] metres. */
+export interface HullBox { f: [number, number]; r: [number, number]; u: [number, number] }
+
+/** A vehicle type (M7, factions/<id>/vehicles.json). SI units: speeds m/s, angles rad, power W. */
+export interface VehicleDef {
+  id: DefId;
+  class: "tracked" | "wheeled";
+  body: {
+    lengthM: number; widthM: number; heightM: number; groundClearanceM: number;
+    hull: HullBox;
+    turret?: { pivotF: number; f: [number, number]; r: [number, number]; u: [number, number]; barrelM: number; trunnionU: number };
+    trackContactM?: number; trackGaugeM?: number; wheelbaseM?: number;
+  };
+  massKg: number;
+  drive: {
+    powerW: number; efficiency: number; topSpeedMps: number; reverseTopSpeedMps: number; brakeMps2: number;
+    /** Upper end of each gear band, m/s (ascending; the last is the top speed). */
+    gearsMps: number[]; reverseGearsMps: number[];
+    shiftSeconds: number;
+    steering:
+      | { kind: "tracked"; pivot: boolean; pivotRateRadS: number; maxLatAccelMps2: number; slipCoeff: number; turnResistance: number }
+      | { kind: "wheeled"; maxSteerRad: number; steerRateRadS: number; maxLatAccelMps2: number };
+    idleW: number; litresPerKwh: number;
+  };
+  fuel: { item: DefId; capacityL: number };
+  seats: { id: string; station: StationKind; pos: [number, number, number]; part: "hull" | "turret"; hatch: boolean;
+    sensors?: { kind: string; pos?: [number, number, number]; arcRad: number; sideFactor: number; rearFactor: number; follows: "own" | "station"; lrf?: boolean }[] }[];
+  ramp: { exits: [number, number][]; openSeconds: number; mountSecondsPerMan: number; dismountSecondsPerMan: number; bailOutSeconds: number; seatSwapSeconds: number; loadCasualtySeconds: number };
+  stations: {
+    id: string; kind: "turret" | "mount"; operator: StationKind; commanderOverride: boolean;
+    traverseRadS: number; elevateRadS: number; elevationRad: [number, number]; traverseArcRad?: [number, number];
+    stabiliser: "none" | "one-plane" | "two-plane"; baseErrorMrad: number; movingMradPerMps: number; layToleranceMrad: number;
+    rangefinder: boolean; readyRefillInBattle: boolean;
+    /** Seconds to refill the ready belts from stowage, halted (absent: no refill in battle). */
+    refillSeconds?: number;
+    weapons: {
+      weapon: DefId; coax: boolean; muzzle: [number, number, number]; feeds: { item: DefId; ready: { count: number; charge: number } }[];
+      switchSeconds: number; engageRangeM: number; feedKind: "belt" | "single" | "autoloader";
+      loaderStation?: StationKind; roundLoadSeconds?: number; noLoaderFactor?: number;
+    }[];
+  }[];
+  stowed: { item: DefId; count: number; charge?: number }[];
+  cookOffAmmo?: DefId;
+  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. Add-on tiles
+   *  against shaped charges (M7.4b): one `item` used up per hit on that part and face, `factor` times the need. */
+  armour?: { plates: VehiclePlate[]; tiles?: { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; item: DefId; factor: number }[] };
+  /** Fire extinguishing (M7.4b): charges `item` in the container, each puts a fire out with `chance`. */
+  extinguisher?: { item: DefId; chance: number; delaySeconds: number };
+  /** Active protection (M7.4b, fixture only): charges `item`, engaged rockets burst `standoffM` short. */
+  activeProtection?: { item: DefId; detectM: number; standoffM: number; interceptChance: number; cooldownSeconds: number };
+  /** Components a penetrating round can damage (M7.4a). Index = `VehicleState.comp`. */
+  components?: VehicleComponent[];
+  /** Smoke dischargers (M7.3). */
+  dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
+  /** How it is seen and heard (M7.3; defaults when the data gives none). */
+  signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
+}
+
+export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
+/** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
+export type ComponentKind = "engine" | "transmission" | "track" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
+export interface VehicleComponent {
+  id: string; kind: ComponentKind; part: "hull" | "turret";
+  box: { f: [number, number]; r: [number, number]; u: [number, number] };
+  external?: boolean; toughnessMm: number; absorbMm: number; fireChance?: number; cookOffChance?: number;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

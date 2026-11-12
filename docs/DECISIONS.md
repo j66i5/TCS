@@ -1221,3 +1221,603 @@ his unit. A broken unit whose runners all gave up stays broken.
 owner's values: 0.4 / 0.1 men per side surrendered or taken in a German attack, 0.0 / 0.2 in a Russian attack;
 winners unchanged (defender 10 of 10 both ways), casualties within 0.3. Golden replays regenerated (catalog
 fingerprint; schema 15). Data values (core/behaviour.json `surrender`) are game values, confidence low.
+
+## 2026-11-12 — M7 architecture plan and owner answers (vehicles, second round)
+The architecture and slice plan is `docs/plans/m7-vehicles.md` (M7.1a–c, M7.2, M7.3, M7.4a/b). Owner answers
+(plan §16 numbers):
+- Q3 **walls:** vehicles flatten fences, hedges and wire (leaving a gap) and go round brick and stone walls.
+- Q4 **men in the path:** vehicles avoid their own men (men step aside) but **may run over enemy soldiers**
+  (the owner chose this over the recommended "stop or steer for everyone").
+- Q1 **German seats:** a fourth Puma carries the platoon leader and radio operator.
+- Q2 **Russian seats:** fixed three-man BMP-2 crews; squad leaders ride in the back with their squads; the
+  platoon commander rides in the back of the first BMP-2.
+- Q12 **orders to a squad aboard:** it gets out first, then carries the order out.
+- Q9 **points:** destroyed or abandoned IFV 20, immobilised 10.
+- Q10 **objectives:** men inside vehicles count too when holding or contesting (owner chose this over
+  "only men on foot").
+- Q26 **publishing:** vehicle battles stay behind `&vehicles=1` until Panzerfaust/RPG work (M7.4a).
+- Q25 **wounded when mounting:** two comrades load a wounded man within a few metres of the vehicle; others stay.
+- Q22 **where the AI gets out:** research doctrine per side now and set sourced values (not one shared 550 m).
+- Q24 **withdrawal:** squads within about 100 m of their IFV get back in.
+The remaining plan questions (5–8, 11, 13–21, 23) are asked at the start of the slice that needs them.
+
+## 2026-11-12 — M7.1a refactor (behaviour unchanged; goldens unchanged)
+Plan §15 M7.1a. The projectile loop reads one byte per path sample (`BallisticsCtx.near`: bit 0 static wall,
+bit 1 soldier this tick, cleared through the soldier grid's touched list; bit 2 is kept for vehicles in M7.1c);
+`nearWall` and `SoldierGrid.near` are gone. `segmentsInRectInto` (scratch stamp, strictly ascending ids: insertion
+sort for small sets, a pass over the stamps in id order when a large rectangle collects many — same result,
+tested against `segmentsInRect` on random walls and all four map kinds) serves `sight`, `lineBlocked` and
+`detonate`; `sight()` handles roofs with a stamp array and scratch lists (allocation-free). Fire helpers
+`pickRound`, `launchShot`, `burstCadence` moved to `systems/shot.ts`. Drop tables: cache key
+`ammo@v0@maxRange`, `{drop, tof}` and `flightTimeAt`; the table builder stops after 120 s of flight (a long table
+for a slow round looped forever once the round fell straight down short of the range; 1500 m small-arms tables
+are bit-identical). The bullet mix and the volley grenade of `perf-projectiles` are pinned by id. Headless
+demo-s1, shootout-s1, fixture-s7 identical (hashes included). Perf, three runs each, alone, before → after:
+projectile bench 4.73–5.32 → 3.60–4.56 ms/tick (3.1–3.5× → 3.7–4.6×), bench 12–13× → 12–14×, spotting
+8.0–9.8× → 9.5–10.1×, fragment volley 13–17.5× → 14.7–18×.
+
+## 2026-11-12 — M7.1b data, state and drive (one golden update)
+Plan §15 M7.1b, with these decisions where the plan was open or the code differed (all game values low):
+- **Golden update** (catalog fingerprint: vehicle data, movement-mode union, surface/obstacle vehicle blocks,
+  materials, `rhaToMildSteel`; state schema 15 → 16 with the empty `vehicle` store). Checked first: headless
+  demo-s1, shootout-s1 and fixture-s7 print the identical event stream and casualties as before (only the state
+  hash differs). No new RNG stream is drawn (the drive model uses none).
+- **Scope cut to the core.** Real-vehicle station weapons (MK30-2, 2A42, coax), their ammunition and belts,
+  armour plates, components, signature, smoke dischargers, cook-off ammunition and seat sensors are not in the
+  data yet; their schema blocks are reserved (`armour`, `components`, `signature`, `dischargers` accept anything
+  for now and become strict in M7.3/M7.4a). Stations exist with traverse/elevation/stabiliser data and empty
+  weapon lists; the fixture `xf-cart` has its single-feed `xf-sling` (rack `xf-bolt-rack`, round `xf-bolt`) so
+  the station-weapon checks run. Also deferred: `core/spotting.json` smoke factors, `core/behaviour.json` crew
+  block, xf `cart-band` / `platoonTemplate` and APS/add-on fixture items (no vehicles in existing scenarios yet).
+- **Mass as a block:** `mass: {kg, sources, confidence, note}` (a bare number cannot carry provenance).
+- **Ready belts on output** stay in `VehicleRecord.ready` (station weapons in order, each a list of feeds) rather
+  than being added into `load`, so a record fed back in is not counted twice.
+- **Orders to a crew unit (M7.1b):** `move` (route = the order's waypoints as straight legs; a leg through a
+  building or deep water, judged on the foot grid, answers "no route") and `halt` drive the vehicle; `rules` and
+  `ceaseFire` apply as to any unit; every other order answers "unable". No driver able to act: "unable"
+  (`radio.noDriver` comes in M7.1c). An order to a mounted man answers "unable" until M7.2. A foot pace given to
+  a crew maps to its `vehiclePace`; a vehicle pace given to men on foot, or a `reverse` leg, is rejected.
+  Arrival: on reaching (or passing) the last point within 1.5 m and below 0.3 m/s.
+- **Drive model as plan §4** with: speed controller time constant 0.3 s per track; gear hysteresis up at 95 % of
+  the band, down below 50 % of the band below (narrower bands made the pause of each up-shift bring a down-shift
+  at once, hunting on soft ground); pivot steering gain 4/s; the follower is pure pursuit on the waypoints
+  (stuck re-plans, collisions with buildings/walls/hulls/men and the one-weak-track compensation by the follower
+  come with navigation in M7.1c; the drift itself is in `drive.test.ts`). Pitch from the ground under the front
+  and rear of the hull (roll and the four-corner pose come with M7.1c). Vegetation caps the speed at top speed /
+  its tracked or wheeled move cost; a surface without a `vehicle` block cannot be driven on.
+- **Surfaces:** asphalt and concrete wet rolling factor 1.05 (a little more resistance in rain, so rain is slower
+  on every surface); mud rolling 0.12 and wet factor 1.3 (with 1.5 a Puma could not move in mud in rain).
+- **Mounted men** are skipped by foot movement; other soldier loops are gated in M7.1c (vehicles appear only in
+  the drive lab and tests until then). Crew templates carry no personal weapons yet (M7.2).
+- Drive lab (`npm run lab -- drive`), Puma / BMP-2: 0-50 km/h 10.4 / 11.9 s, top 70 / 65 km/h, reverse 30 /
+  12 km/h, braking from 50 km/h 15.7 / 14.6 m, Puma from 70 km/h 30.6 m, pivot 90° 2.5 / 2.3 s, 300 m on asphalt
+  22.2 / 23.4 s, mud 55.9 / 56.0 s, rain slower everywhere, 20 % slope 20 / 7 km/h, 1.9 / 0.6 L per km at full
+  pace, no movement without a driver.
+- Perf after M7.1b (three runs, alone): projectile bench 3.77–4.29 ms/tick (3.9–4.4×), bench 13×, spotting
+  9.9–10.1×, fragment volley 14.1–17.9× — unchanged from M7.1a (vehicle systems return at once without vehicles).
+
+## 2026-11-12 — Owner: attackers less likely to surrender
+Owner request "make it less likely for attackers / assaulting troops to surrender", answer "panicked attackers
+don't surrender": a man of the attacking side (new optional `ForceInput.posture` / `SideState.posture`, set by
+the scenario builder) or of any unit in an assault drill does not give up when panicked or routed (he runs back
+instead); a downed attacker gives up only with a known enemy within 25 m (`surrender.attackerDownedEnemyM`,
+`attackerPanicGivesUp: false`; defenders unchanged at 50 m / 30 m). Batch (10 x 900 s): men surrendered or
+taken per side, German attack blue 0.40 → 0.10, red 0.10 → 0.10; Russian attack red (attacker) 0.20 → 0.00.
+Golden replays regenerated (catalog fingerprint only; demoBattle states no posture).
+
+## 2026-11-12 — M7.1c part 1: navigation, orders, collisions, hulls against rounds and sight (one golden update)
+Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, confidence low):
+- **Owner Q4 changed (logged):** vehicles avoid their OWN men — able men in the corridor ahead step aside (an
+  `evade` with `aside: true`: a short run out of the hull's way, no dive), and the hull waits for an own man who
+  cannot move (casualty, prone, pinned, captive), planning round him after 3 s — but a vehicle **does not stop or
+  steer for enemy soldiers**. Able enemies in the corridor still step aside by the same evade; an enemy the hull
+  drives over (under it, or within 0.5 m ahead of/behind it inside its track width, hull moving > 0.2 m/s) gets a
+  **crush wound record** (`applyCrush`: pelvis, chest if he lay flat; severity 0.75–1.0 from the "wounds" stream;
+  heavy internal bleeding; knocked flat; fatal at the zone's fatal severity — mostly fatal), once per pass, and the
+  event `vehicle.ranOver`. New optional data block `wounding.crush` in `core/wounds.json`. Men who are down are
+  left where they lie (not shoved along).
+- **Owner Q3:** fences, hedges and wire are flattened (a breach of `min(width/max(|sin θ|, 0.3), 3·width)` at
+  the hull centre-line crossing, `terrain.breached`, see- and shoot-through there); brick, stone and concrete walls
+  block (`vehicle[cls] = null`) and the planner goes round them; crossing caps the speed (`capKmh`).
+- **Grids:** `tracked:c1` / `wheeled:c1` (2 m cells): hard-blocked cells (houses, deep water, woods for vehicles,
+  uncrossable walls, wrecks) grown by one cell (disc); a breach is passable for a class only if at least as wide
+  as its widest hull + 0.5 m, and its cells and those beside them are kept open; linear obstacles cost
+  `crossCostCells`; vehicle grids carry no exposure. Cost stays Float32 (the Uint8/Uint16 compaction of plan §5
+  is deferred: 1200 × 900 m is ~1.3 MB per grid as is).
+- **`patchNavGrids`** replaces `ctx.nav = {}` after a breach: each built grid is re-derived over the rectangle
+  grown by everything a cell depends on (clearance + cover radius), computed in a window grown once more, then
+  minimum cost and regions (full O(N) flood). Tested equal to a full rebuild cell for cell (cost, wall,
+  exposure, region) for foot, cover-weighted and tracked grids after a breach, a flattening and a wreck stamp.
+  Wrecks (destroyed, abandoned, immobilised > 30 s) are stamped (blocked in every grid; the ring round them is
+  "wall" in foot grids, so men take cover there), re-derived when the set changes (no producer before M7.4).
+- **Routing and follower:** routes on the class grid through every ordered point (snap 6 cells), starting with
+  the hull's own position, so the first leg has a line to follow; pure pursuit on the leg (look-ahead
+  4 + 0.8|v| m, waypoint switch at max(2.5, 0.3L) m), corner speeds 1.5/3/8 m/s for turns > 60°/30°/less, and
+  a slowdown while the tracks do not give the wanted turn (one track at 0.3 is held within 1 m over 100 m).
+  Corner guard: a hull that strikes something stops and backs off for 1 s turning toward the way on.
+  Stuck = the way to go has not shrunk 0.5 m in 6 s → re-plan (one per tick, ID order); after 3 → `move.noRoute`,
+  `radio.noRoute`. Vehicle vs vehicle: a corridor ahead (stopping distance + 3 m, hull width + 0.6 m each side);
+  the one with the other's hull in its corridor waits; both: the higher ID; after 3 s waiting it plans round the
+  other hull (temporary stamp on its grid, restored by a second patch).
+- **Collisions:** the proposed pose against true building outlines and wall segments under the hull (house walls
+  always block, a breached stretch of an uncrossable wall only where open over the hull), outline points on
+  ground the class cannot drive (water, woods), and the other hulls (separating axes). Men are pushed out of hulls
+  and wrecks (grown 0.4 m); a waypoint of theirs under a hull is skipped.
+- **Orders:** `applyOrder` may answer `{unable: key}`: `radio.noDriver`, `radio.immobilised`. A parent's move is
+  split: each vehicle under it gets its own route to a slot 12 m apart across the last leg, at its foot pace's
+  vehicle pace (a foot pace addressed to the vehicle itself also maps, as in M7.1b, rather than "not-applicable");
+  halts stop them; a `rules` order sets the vehicle's `maxEngageM` only when addressed to it. `unitArrived`:
+  foot men done and every vehicle under the unit arrived. `fireTop` is in place but the fire systems still read
+  `topUnit` (vehicles do not fire before M7.3, which switches them).
+- **Rounds and sight against hulls:** `VehicleGrid` (rebuilt after the drive, at creation and load; four-corner
+  pitch/roll), near-byte bit 2 on the hull's buckets and their neighbours; every round stops at a hull or turret
+  box for now (no penetration before M7.4a): ≥ 12.7 mm one `vehicle.hit` each, smaller rounds one aggregated
+  `vehicle.hit` per vehicle per tick (`rounds` = n); explosives bounce off the face (a grenade landing on the roof
+  ends on the ground beside the hull); fragments stop silently. `sight()` (optional `ignoreA/ignoreB`) and
+  `lineBlocked` (blast shielding, grenade arcs) test the hull boxes independently of their samples.
+- **Mounted-man gates:** men aboard are not body rows, not spotting targets or observers (seat sensors M7.3), hear
+  nothing outside, take no fire task, no lull reload, no decisions, no grenade reaction, no blast or burst
+  suppression; they never block a comrade's line of fire; drills use `footSoldiers`; `sideKnowledge` never lists
+  them. Surrender is not gated yet (surrender.ts left untouched in this slice; men aboard are never seen, so
+  rarely affected) — M7.2.
+- **Golden update:** catalog fingerprint only (`wounding.crush`, `radio.noDriver`, `radio.immobilised`). Checked
+  first: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s, 7 breaches patched) print the identical
+  event stream and casualties as before.
+- Perf (alone): bench 13×, spotting 9.7×, projectile bench 4.37 ms/tick (3.8×), fragment volley 15.9× —
+  unchanged within noise.
+
+## 2026-11-12 — M7.1c part 2: vehicle scenarios, goldens, A7, perf (golden update: two new goldens only)
+- **Scenarios (tools only; no existing scenario or the default app changes):** `vehicles` (a platoon of two Pumas
+  with their squads on foot vs two BMP-2s with theirs, generated 1200 × 900 m farmland), `vehicles-fixture` (xf
+  wheeled carts vs Pumas, flat 800 × 600 m; crew seats from `MemberSlot.seat`), `bench-vehicles` (15 IFVs a side,
+  each with its squad: 30 vehicles, 270 men, 2 × 2 km farmland). Built by `vehicleBattle` (packages/scenario):
+  crew template = the faction's first template with `vehicle`, a fresh `VehicleRecord` per crew (tank full,
+  stowage from data, `vehicleId` = the crew unit's key), hulls placed on the class grid with 3 cells' clearance
+  in the map's main area. `vehicleWanderController` (ai) sends each crew unit to a random point at "run" (its
+  drive pace) and each squad at "walk". Mounted starts (passengers) wait for M7.2.
+- **Goldens added:** `vehicles-s1` (150 s) and `fixture-cart-s3` (90 s); the three existing goldens unchanged.
+- **Drive fixes found by the map runs:** a hull that strikes something takes the best free small move (back,
+  forward, pivot, four arcs; tested kinematically over its 0.5 s; new optional `DriveState.escape`) toward its
+  way on; with no room to turn and the way on behind it, the leg is driven in reverse. Outline points block only
+  on deep water (a house's 4 m floor cells reach past its walls; walls and footprints decide there); the hull's
+  centre must be on ground the class can drive (woods). Village: 100 random routed Puma moves, 98 arrived,
+  2 stalled (2 %), no tick with the hull in a house, an uncrossable wall or water (`vehicle-maps.test.ts`).
+  Known limit: narrow gates in industrial walls (8 m, one 2 m cell open after the clearance) can wedge a hull
+  that comes at them askew (one wedge in 2 × 50 moves); it gives up with "no way through" after three re-plans.
+- **Grid budget (Float32 kept):** `tracked:c1` at 2 × 2 km is 13.0 MB and builds in ~90 ms (test < 14 MB).
+- **A7 widened** (architecture test): every loop over `state.soldier/identity/mover/weapon/fire` and every
+  `unitSoldiers(`/`allMembers(`/`sideKnowledge(` call in sim, ai, render and app has a mount gate
+  (`isMounted`/`isExposed`/`footSoldiers`/`.mount`) or a `// mounted: ok <reason>` marker within a few lines;
+  `systems/surrender.ts` is listed as not yet gated (M7.2). The faction-literal scan now covers `scenario` and
+  `de-`/`ru-`/`xf-` prefixed ids (fixture faction included).
+- **Determinism:** the `vehicles` battle saved at 130 s (fences already flattened) continues identically.
+- **Speed of terrain damage and re-plans (found by `bench-vehicles`, first 5.7×):** a patched grid's minimum cost
+  and areas are derived lazily (`ensureNavGrid`, at the next search; they depend only on the cells); a patch that
+  only opens cells (no cell closed, no wall added: every flattening and wall breach) merges the joined areas
+  (union-find, smaller label kept) instead of a full flood — the same areas, numbered differently (the equality
+  test compares partitions). A re-plan round a hull or a man closes its cells for that one search
+  (`PathOptions.blocked`, smoothing respects them) instead of patching the grid twice. Corridor and run-over
+  scans use one per-tick list of men on foot.
+- **Perf (alone):** bench 13×, spotting 9.0×, `bench-vehicles` 8.8× (floor 8×), projectile bench 4.43 ms/tick
+  (3.8×), with 30 parked hulls 4.38 vs 4.23 ms/tick (+3.5 %, best of three alternated runs; asserted < 20 %
+  because run-to-run noise here is ~10 %), fragment volley 12.5×.
+
+## 2026-11-12 — M7.1c part 3: drawing, selection and orders for vehicles; what is deferred
+- **Renderer:** hulls at true size (never under 10 px long) from the data's hull and turret boxes, tracks along
+  the sides, a nose wedge for the heading, turret and barrel at the station's azimuth, side colour, a ring when
+  its unit is selected, its route from where it is (reverse legs orange), callsign when zoomed in; wrecks dark
+  with a red cross. Men aboard are not drawn. `vehicle.hit` draws one spark cluster per vehicle and tick. Under
+  fog of war only the player's own vehicles are drawn (enemy vehicles come with vehicle contacts, M7.3).
+- **App/UI:** `?scenario=vehicles` (default map farmland; the AI side wanders); a tap on an own hull selects its
+  crew unit; `ordersFor` (ui) gives a crew unit move, halt, cease fire and rules, its class's paces (drive first)
+  and "reverse" (the slowest pace backwards, `Waypoint.reverse`); the rules panel shows status, speed, fuel and
+  crew; Debug shows the class grid (with clearance) when a vehicle is selected. `npm run screenshot -- --scene
+  vehicles` takes the vehicle scenes. New strings: `move.reverse`, `status.vehicle`, `vehicle.status.*` (strings
+  are not in the catalog fingerprint: goldens unchanged).
+- **Not changed:** CLAUDE.md's scenario list (vehicles, vehicles-fixture, bench-vehicles; `?scenario=vehicles`;
+  `--scene vehicles`) — left for the owner/session lead to update.
+- **Deferred from M7.1c (with where they go):** Uint8/Uint16 compaction of vehicle grids (Float32 kept; 13 MB at
+  2 × 2 km); pre-drive pose (`x0, y0, ch0, sh0`) in the vehicle grid — rounds are tested against the post-drive
+  pose (no tunnelling at ≤ 20 m/s hull speed and 1400 m/s rounds: tested); the DDA over near-byte buckets in
+  `sight()` (a bounding-box pass over the ≤ 30 rows instead); `fireTop` in the fire systems, ceaseFire routing
+  to vehicle children and `orderApplies`/"not-applicable" (M7.3, when vehicles fire); crew observing through
+  seat sensors (M7.3); `radio.noSmoke`/`radio.noSeats` (M7.2/M7.3); the radio-component comms rule and
+  `comms.test` (components M7.4b); "men blocked for 1 s → rejoinRoute" (men are pushed out of hulls instead);
+  the debug overlay's look-ahead, corridor and per-track speeds, `perf-render.test.ts`, the plan outline of a
+  vehicle move (M7.3/M7.5); surrender gate for men aboard (M7.2; surrender.ts untouched here); `bench-combined`
+  (M7.3); vehicle contacts drawn under fog (M7.3).
+
+## 2026-11-12 — M7.2 part 1: getting in and out of vehicles in the simulation (one golden update)
+Plan §6/§15 M7.2 steps 2–4 and 10, owner answers Q10, Q12, Q24, Q25 applied; game values (confidence low) in
+`core/behaviour.json` `mounting` and the vehicles' `ramp` blocks:
+- **Infantry baseline (plan step 2), recorded before any M7.2 change** (base commit 528b81c, 10 × 900 s each,
+  AI v AI, infantry only): `platoon` (Germany attacks, village) red (defender) wins 10 of 10, mean score blue
+  −36.5 / red 127.5, casualties blue 16.1 / red 8.2, prisoners 0.1 / 0.1; `platoon-ru` (Russia attacks,
+  farmland) blue (defender) wins 10 of 10, score 128.5 / −49.0, casualties blue 7.8 / red 15.4, prisoners 0 / 0.
+- **Orders** `mount {vehicle?}` and `dismount` (`radio.ack.mount/dismount`). Mount: to a unit, each foot unit of
+  it boards its own carrier (`Unit.carrier`, from `UnitInput.carrierId`; a unit without one rides with the
+  carrier of the unit above it); `vehicle` names another own vehicle. Fewer free passenger seats than men (men
+  already walking to that vehicle counted) → `radio.noSeats` (no partial mount); no vehicle → `radio.noVehicle`;
+  to a crew → unable. Dismount: to a unit, its men aboard; to a vehicle's crew, every passenger; to one man, him.
+- **Boarding** (`Unit.boarding`, `systems/boarding.ts`, after the drills each tick; nothing runs without
+  vehicles): men run to the nearest exit; within 2.5 m and with the hull halted they get in one at a time per
+  exit (`mount` action, `mountSecondsPerMan`), lowest ID first, after the ramp has opened once (`openSeconds`);
+  the walk is re-planned when the hull has moved 3 m. The hull holds (`holdForDismount`, its route kept) while
+  men pass. Complete when every able man and every loadable casualty is in, 60 s after the first man got in, or
+  after 300 s. Dismount: the hull holds; once below 0.3 m/s and the ramp open, one man per exit
+  (`dismountSecondsPerMan`, the free exit nearest his seat); he lands 3–8 m out of the exit in a fan by seat (on
+  passable ground), crouching, facing away. Wounded men aboard stay aboard. `unit.mounted/dismounted`,
+  `soldier.mounted/dismounted`, `radio.mounted/dismounted`. A new order clears a boarding (`clearDrills`); an order
+  to one man takes him out of his unit's queue.
+- **Q12:** an order other than rules, cease fire, call for fire or halt to a squad (or one man) with men aboard:
+  `radio.dismountFirst`, it gets out, then the order is carried out (`Boarding.then`, applied without a second
+  comms delay; a refusal is radioed then). An order to a platoon with vehicles goes to the vehicles (the squads
+  ride along) — decided without the owner, for review. `unitArrived` is false while a `then` is pending.
+- **Q25:** a wounded man of the unit who cannot walk, lying within 5 m of an exit when the order comes, is
+  carried in by the two lowest-ID able men of the unit within 30 m of him (both walk to him; a two-man
+  `loadCasualty` action, `loadCasualtySeconds`); two able men stay outside until he is in. Others stay where they
+  are and do not hold up completion.
+- **Seat swap (plan Q13, recommended option, decided without the owner, for review):** checked once a second: a
+  fallen (or missing) driver is replaced by the commander, else a loader, else the gunner; a fallen gunner by the
+  commander or a loader; `seatSwapSeconds` (20 s); the casualty moves into the seat the crewman left
+  (`vehicle.seatSwap`, `radio.seatSwap`). Passengers never take a crew seat.
+- **Resupply from the vehicle (rule 9):** a man down to the magazine in his weapon walks to a halted own vehicle
+  within 30 m (his unit's carrier first) that stows his magazines or belts, and standing within 5 m of an exit
+  takes 3 (the fullest) through `transferItems` (`takeFromVehicle` action, `passSeconds`); before asking a
+  comrade. Puma stows 20 G36 magazines, 6 MG5 belts, 4 G28 magazines; BMP-2 24 AK-74 magazines and 6 PKP belts
+  (game values, low). Rockets stay out of the stowage until the launcher items are settled in M7.4a.
+- **Gates:** a man aboard does not surrender, takes nobody prisoner and is not fetched as a captor (A7 now has
+  no file exempted); the intercom: men in the same vehicle share contacts at once, a man aboard and a man outside
+  only by radio. **Q10 (owner (b))**: men aboard hold and contest objectives (already so since M7.1c); a side
+  whose men are all aboard is neither wiped out nor broken (tested).
+- **Doctrine (owner Q22):** `doctrine.json` gains a sourced `dismount.distanceM`: Russia 400 m (2005 combat
+  manual, study notes "up to 400 m", medium), Germany 300 m (Bundeswehr principles, no published figure, low);
+  the AI uses it in part 2.
+- **Golden update (catalog fingerprint: `mounting`, `dismount`, vehicle stowage; vehicles-s1/fixture-cart-s3 also
+  by the stowed items).** Checked first: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s) print
+  the identical event stream and casualties as on the base commit; every golden's order stream is unchanged.
+
+## 2026-11-12 — M7.2 part 2: platoons with vehicles, mounted start, AI ride and dismount (golden update)
+- **Templates (owner Q1, Q2):** `pzgren-zug` = 3 squads + 4 × `puma-besatzung`, `carriage` Puma 1–3 carry squads
+  1–3, Puma 4 the platoon's own men (new `carriage[].hq`, loader: counted in the seats, only one per parent);
+  `motor-rifle-platoon` = 3 squads + 3 × `bmp2-ekipazh`, the first carrying squad 1 and the commander (7 seats).
+  Crews come after the squads in the templates, so names and skills of the squads are drawn as before. Sub-units
+  are numbered among siblings of the same template ("Puma 1..4"). Crewmen carry a rifle with 3 magazines, helmet
+  and vest (low). xf fixture: `cart-band` (two porter gangs, each on its cart), `manifest.platoonTemplate`.
+- **Scenario:** `buildForceWithVehicles` gives crews a `vehicleId` and carried units a `carrierId`;
+  `withoutVehicles` strips crews for infantry battles. `ScenarioDef.vehicles` (default off, Q26): the attacker
+  starts aboard in a line 20 m apart, 8 % in from its edge, on the class grid with 3 cells' clearance (roads not
+  preferred yet — deferred); the defender's vehicles stand 60–120 m behind the main objective, staggered, crews
+  only. Map stays 1200 × 900 (plan Q23, recommended option). App `&vehicles=1`; tools `platoon-vehicles`,
+  `platoon-ru-vehicles`. The `vehicles` scenarios' squads now have their vehicle as carrier.
+- **AI (plan §12):** squads and crews split (crews are left out of strength and loss counts). Mounted start →
+  phase `ride`: each carrying vehicle gets its own slot 60 m apart across the way in, at the faction's doctrine
+  distance (Q22: 300 m DE, 400 m RU) from **every** objective (the nearer one may be on a flank), the first point
+  there or up to 100 m farther back that is out of sight of the objectives' near edges and of enemies its men know
+  (sight on the AI's own context, built once when first needed, never saved); none hidden → at the distance; the
+  HQ vehicle 40 m behind. A squad is given its advance (Q12: out first) when its vehicle has arrived, at once when
+  any own hull was hit since the last look (polled `lastHitTick`), or after 300 s. The advance skips the walk
+  leg when the squad is already past it. Vehicles stay where they dropped the squads (German overwatch / Russian
+  following, with base of fire, come with the guns in M7.3 — decided). Withdrawal (losses beyond the doctrine
+  tolerance, or two thirds of the vehicles lost): squads within 100 m of their vehicle get back in (Q24), the
+  rest withdraw on foot; each vehicle drives back (forward, to its own slot) once its men are in or after 60 s
+  (reversing out comes with M7.4b — decided without the owner). A squad still aboard within 100 m of an
+  objective's edge is ordered out [C29].
+- **Batch** (`npm run batch`) gains vehicles lost/immobilised and the first dismount time per side. 10 × 900 s:
+  infantry `platoon` / `platoon-ru` after M7.2 **identical** to the baseline (same casualties, orders, winners);
+  `platoon-vehicles` (Germany attacks mounted) red wins 9 of 10 (infantry: 10), casualties blue 13.6 / red 9.1,
+  first dismount 52 s, 75× real time; `platoon-ru-vehicles` blue (defender) wins 8 of 10 (infantry: 10),
+  casualties blue 11.0 / red 18.5, first dismount 37 s, 89× real time. No vehicle lost (they cannot be yet).
+- **Mount lab** (`npm run lab -- mount`): Puma 6 men in 17.7 s from 10 m, out in 11.9 s; BMP-2 12.3 / 8.2 s;
+  xf cart 3 men 5.9 / 4.7 s.
+- **Golden update:** vehicles-s1 and fixture-cart-s3 change (their squads now have a carrier; order streams
+  unchanged); new golden `platoon-vehicles-s1` (150 s, the Germans ride in and get out). demo-s1, shootout-s1,
+  fixture-s7 unchanged; headless platoon-s1 (900 s) event stream identical to the base commit.
+- **Perf (alone):** bench 13×, spotting 9.6×, bench-vehicles 9.2×, projectile bench 3.97 ms/tick (4.2×), with
+  30 parked hulls +9 % (noise ~10 %), fragment volley 14.9× — unchanged within noise.
+- **Deferred:** vehicle points (Q9) to M7.4a (nothing can be lost before); road preference for the attacker's
+  start; choosing another vehicle to mount by tapping it (the Mount button boards the own carrier; the order
+  takes `vehicle`); CLAUDE.md's scenario list (`platoon-vehicles`, `platoon-ru-vehicles`, `lab -- mount`,
+  `&vehicles=1`) is left for the session lead (not edited here).
+
+## 2026-11-12 — M7.2 part 3: interface
+"+n" by each hull for the men aboard; Mount / Dismount buttons in the order bar when the selected unit can (a
+crew can only let its passengers out); a second tap on an own hull selects the units riding in it, in turn; men
+aboard cannot be tapped; the vehicle's status line adds "aboard n of m"; the hull of a selected squad's vehicle is
+ringed. `__tcs.mount/dismount/riders`. Screenshots `--scene vehicles` now also take the mounted start
+(`mounted-*`). No sim change, no golden update.
+
+## 2026-11-12 — M7 owner answers (third round, at the start of M7.3)
+Plan §16 numbers; applied in M7.3 unless noted:
+- Q5 **hatches:** buttoned up in M7 (no head-out). The driver therefore drives and does not search for the enemy
+  (decided with it; his seat has no sensor).
+- Q6 **enemy vehicle type under fog:** shown once seen within about 1.5 km (`signature.identifyM` 1500).
+- Q7 **thermal sights and smoke:** ordinary smoke blinds eyes and day sights fully; thermal sights still see a
+  vehicle through it at reduced strength (`smokeFactor` 0.5), as the SPEC asks; multispectral smoke blinds all.
+- Q16 **Puma second ammunition:** impact HE in M7, air-burst later.
+- Q17 **ready ammunition in battle:** owner chose (b), not the plan's recommended (a): **both** vehicles refill
+  ready belts and racks from stowage when halted, taking about 90 s (`refillSeconds` 90; `transferItems`,
+  counted items).
+- Q18 **a 30 mm HE round hitting a man directly bursts on him** (only the new cannon rounds, `burstOnBody`;
+  rifle grenades and mortar bombs unchanged).
+- Q23 **map size:** keep 1200 × 900 m.
+- Q20 (for M7.4a, recorded now): firing shoulder-fired AT from a room is not allowed unless the room is breached
+  or large.
+
+## 2026-11-12 — M7.3 turret and guns, vehicle senses, smoke (golden update)
+Plan §7/§10/§12/§15 M7.3. Decisions where the plan was open (all values game values, confidence low unless the
+data says otherwise; the data notes give each):
+- **Data:** MK30-2 (200 rpm, dual feed), 2A42 (550 rpm), coaxial MG5 and PKT; PMC287 APFSDS-T (132.5 mm
+  mild-steel equivalent = 106 mm RHA × 1.25 at the speed the drag model gives at 1000 m, 1317 m/s), Puma impact
+  HE (Q16), 3UBR8 APDS-T (62.5 mm = 50 × 1.25 at 844 m/s, its 1500 m speed), 3UOF8 HE-I; 80 fragments per 30 mm
+  shell (plan: 30; 80 is closer to a 30 mm shell and still cheap); belts and stowage (plan figures); 76 mm /
+  81 mm smoke grenades (ordinary smoke). Station weapon `muzzle` is in the turret frame about its pivot.
+  Schemas made strict: `dischargers`, `signature` (defaults when absent, so the fixture cart needs none).
+  `armour` and `components` stay reserved (M7.4).
+- **Turret and fire:** a station fires only laid (tolerance), with a clear line from the muzzle (own hull and a
+  target hull ignored; fire at the ground — HE at men's feet — is checked to 0.6 m above it, a grazing line is
+  not a wall), no comrade on foot in the cone, with the weapon's `sustained` bursts. Error = (base + moving ×
+  speed, ×1.5/×3 for one-plane/no stabiliser) × the gunner's skill factor × burst growth, plus the weapon's
+  dispersion; range error 0.5 % with a laser rangefinder, else the eye's. Lead from the crew's contact velocity ×
+  time of flight (drop tables built to 2500 m for 2 km guns). The commander fires the gun when the gunner is out
+  (no delay modelled: the seat swap still takes 20 s). Single-round feeds: a round loaded per `roundLoadSeconds`
+  (× `noLoaderFactor` without an able man in the loader's station), counted on the rack until fired.
+- **Target choice** (1 Hz): what the crew saw in the last 4 s, or a comrade reported within 20 m in the last
+  15 s; vehicles first (score × 0.3), men firing (× 0.5), nearest; the best of the first four the gun has a line
+  to; AP at vehicles, HE at groups (two within 15 m) and at men beyond 400 m, coax at a single man within 400 m;
+  never HE within 60 m of own men on foot (coax if in reach, else no target). A crew out of one nature uses
+  another. "Return fire" answers fire on the crew or on its platoon (an IFV supports its men) — decided without
+  the owner, for review. Ordered tasks follow the full-rate/trickle/end clock of infantry fire; incoming fire near
+  the vehicle renews them (`vehicleIncomingSystem`, before `incomingFireSystem`, C34).
+- **Orders:** `fire` gains `nature` (`ap`/`he`/`mg`); new `discharge`; reject reason `not-applicable` for
+  posture, assault, withdraw and grenades to a crew, and smoke to a unit without vehicles. A fire order to a
+  platoon also tasks its vehicles; a cease-fire to the platoon reaches its vehicles, to a squad not (C19).
+- **Refill (Q17):** halted (< 0.3 m/s, no route left), a feed at or below a quarter of its ready capacity with a
+  whole stowed belt that fits: the operator's `reloadStation` action, `refillSeconds` (90 s), whole belts moved
+  through `transferItems`; the station does not fire meanwhile.
+- **Smoke:** a salvo removes `perSalvo` grenades (counted) and lays that many clouds (10 m, 90 s) 30–35 m out
+  over 90° ahead of the turret after 1.5 s; none left: `radio.noSmoke`. The AI does not use smoke yet (crew
+  reactions, M7.4b).
+- **Spotting:** vehicles are targets (area of hull and turret boxes at the observer's aspect / 0.7 m² ×
+  `sizeFactor`; ×4 moving, ×15 firing; the best aim point, the turret's share if only it shows; the observer's
+  and target's hulls ignored). Crewmen (not passengers, not the driver) observe through their seats' sensors
+  (arc, side and rear factors, following hull or turret, range 3000 m, thermal fog floor 1800 m, rain ×0.85).
+  Men track up to 2 vehicles besides 6 men. **Cost bounds (decided without the owner):** men on foot look for
+  vehicles, and crewmen search, every fourth scan with four times the scan time (the same chance per second on
+  average); one careful look at a new vehicle per such scan, two at new men for a crewman; a foot observer sees a
+  hull no farther than a man (1200 m). Without them `bench-vehicles` fell from 8.7× to 4.6×.
+- **Contacts:** vehicle contacts carry `cls`, `vtype` (within `identifyM`, Q6), heading and velocity, drift
+  6 m/s and are forgotten after 300 s; a station's shots are heard as the vehicle; engines every 2 s within
+  400 m idling / 1200 m moving × (0.6 + surface noise) × (1 − 0.4 rain), ×1.2 downwind, ×0.8 upwind (the plan's
+  "× surface noise" alone would have made a moving IFV inaudible at 300 m on grass).
+- **Wounds and suppression:** a round ≥ 12.5 mm striking a man wounds at least at severity 0.85; a 30 mm HE shell
+  strikes and bursts on him (Q18; unarmed shells only strike); heavy near misses suppress up to 4× a rifle round.
+- **AI (plan §12):** no mortar, grenade or rifle base of fire at vehicle contacts; after the ride, crews fire
+  free; doctrine `dismount.afterward` — Germany `overwatch` (stay where the squads got out), Russia `follow`
+  150 m behind its squad (research file, low); during the assault every 20 s each vehicle is ordered to fire at an
+  enemy its side knows within 150 m of the objective, none within 80 m of its own men on foot.
+- **AAR and batch:** `tallyExpenditure` (sim, from events): small arms, grenades, per vehicle cannon rounds by
+  ammunition, coax rounds, smoke salvos; the AAR lists them per side, the batch report gives the means.
+- **Speed-ups with identical results** (checked: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1
+  event streams unchanged): `sight()` merges its x and y grid crossings instead of sorting them; A* search and its
+  heap read typed arrays through locals; spotting targets reuse their rows; contact reports look up a platoon's
+  men once per tick.
+- **Golden update** (catalog fingerprint; vehicle goldens also change because vehicles now fire). Checked first:
+  headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s) print the identical event stream and
+  casualties as on the base commit (aa989ff).
+- **Batch, 10 × 900 s each:** infantry `platoon` red 10/10, casualties blue 16.1 / red 8.2, `platoon-ru` blue 10/10,
+  7.8 / 15.4 — **identical** to the M7.2 baseline (orders 79.3 / 86.7 as before). With vehicles: `platoon-vehicles`
+  (Germany attacks mounted) red 9/10 (M7.2: 9/10), casualties blue 14.7 / red 10.8 (13.6 / 9.1), cannon rounds per
+  battle blue 660 / red 380, coax 391 / 31, 67× real time; `platoon-ru-vehicles` (Russia attacks) blue 10/10
+  (M7.2: 8/10), casualties blue 10.6 / red 18.2 (11.0 / 18.5), cannon 283 / 350, 76×. No vehicle lost (rounds stop
+  at the hull until M7.4a): IFVs spend much of their AP on each other.
+- **Gunnery lab** (`npm run lab -- gunnery`): AP at a halted hull side-on, Puma 91 % at 1000 m / 72 % at 1500 m,
+  BMP-2 83 % / 51 %; on the move (~20 km/h) 33 % / 12 %; order to first round with the target 90° off 3.3 / 4.4 s;
+  every round counted; refill 90 s.
+- **Perf (alone, part 2's check):** bench 14×, spotting bench 10.9× (9.5× before: the faster `sight()`),
+  bench-vehicles 8.6× (floor 8×; base 8.7× measured the same day), projectile bench 4.21 ms/tick (4.0×), with 30
+  parked hulls +5.7 %, **bench-combined** (270 men + 30 IFVs at will + 20,000 projectiles) 3.9× (floor 3×, SPEC
+  target 8× not reached), +2.2 % against the same load holding fire (asserted < 25 %: noise ~10 %), fragment
+  volley 13.6×; **render proxy** (`render/test/perf-render.test.ts`, headless Pixi geometry: 30 hulls + 270 men +
+  2000 tracers) 1.0 ms per frame (< 4 ms).
+- **Interface (part 2):** a crew gets Fire (with "Gun: crew's choice / AP / HE / machine gun") and "Smoke screen";
+  its status line adds ready rounds per weapon, stowed belts and smoke grenades; enemy vehicles under fog as hull
+  outlines (type size once identified, heading as last seen); the vehicle debug overlay (Debug with a vehicle
+  selected: turret lay, the station's target line and reasons from `vehicle.decision`, ammunition, track
+  speeds); the AAR lists ammunition used. `__tcs.discharge/fireNature`; screenshots `--scene vehicles` add
+  `gunnery-*` (firing, turret close-up, debug, smoke).
+- **Deferred:** AI smoke and reverse-out (M7.4b); per-vehicle weapon choice by the player beyond the nature
+  (coax vs cannon at the same nature); the radio-component comms rule (M7.4b); Uint8 vehicle grids (as M7.1c);
+  vehicle contacts from mortar/air observation; air-burst (ABM) later (Q16).
+
+## 2026-11-12 — M7 owner answers (fourth round, at the start of M7.4a)
+Plan §16 numbers (answers given 2026-11-12, recorded and applied in M7.4a):
+- Q8 **wrecks:** both sides know of a wreck at once.
+- Q9 **points** (already answered in M7.2, deferred until vehicles could be lost; applied now): a vehicle destroyed
+  or abandoned costs its side 20 points, immobilised 10.
+- Q11 **what a penetrating hit does inside:** the penetrator's (or jet's) path plus a fragment cone behind the hole
+  (the plan's recommended option).
+- Q14 **bailing out:** the crew get out when the vehicle burns, or when it is immobilised and then penetrated again;
+  passengers get out with them.
+- Q15 **a crew that cannot drive but can shoot** stays and fights while hits bounce off; it bails out if penetrated
+  again or burning (same rule as Q14).
+- Q19 **default anti-tank rule for new units:** Panzerfaust and RPG fired on their own only at vehicles; the player
+  may order a shot at a building (or anything). Each unit can change it in its Rules panel.
+- Q20 (recorded in M7.3) **firing shoulder-fired AT from a room:** not allowed unless the room is breached or large.
+- Q21 **Puma front against an RPG-7:** owner chose (b), NOT the plan's recommended (a): the Puma's FRONT stops a
+  single PG-7VL; its sides, rear and roof do not.
+- Q26 **publishing:** the platoon battle now starts mounted by default after a fresh baseline (below); `&vehicles=0`
+  gives the infantry battle; the tools scenarios `platoon` / `platoon-ru` stay infantry (goldens and baselines
+  comparable), `platoon-vehicles` / `platoon-ru-vehicles` are the mounted ones. (The plan says "the platoon
+  scenarios' `vehicles` default turns on"; the owner's instruction to keep the tools scenarios unchanged wins: the
+  default changes in the app.)
+- Q13 (decided without the owner in M7.2: a crewman takes over after ~20 s) unchanged.
+
+## 2026-11-12 — M7.4a armour, penetration, Panzerfaust 3 and RPG-7, damage outcome (golden update)
+Plan §8/§9/§15 M7.4a, owner answers above. Decisions where the plan was open (game values, confidence low unless
+the data says otherwise; the data notes give each):
+- **Fresh baseline** before any M7.4a change (base commit 9eb2b12, 10 × 900 s): `platoon` red 10/10, casualties blue
+  16.1 / red 8.2; `platoon-ru` blue 10/10, 7.8 / 15.4; `platoon-vehicles` red 9/10, 14.7 / 10.8; `platoon-ru-vehicles`
+  blue 10/10, 10.6 / 18.2 — identical to M7.3.
+- **Plates:** one per part (hull, turret) and face (front, side, rear, top) — no upper/lower glacis zones, no spaced
+  skirts (simplification). Normal leans back by `slopeDeg`; path = t / max(cos, 0.05); `can ≥ need` (C43). Puma
+  (Q21 b): hull front 150 mm composite at 60° (750 mm against a jet head-on, 480 kinetic), turret front 140 at 60°
+  (700 / 448), sides 30 composite, rear 30 (turret 26), roof 20 / 15 armour steel: the front stops 30 mm and a
+  PG-7VL (still at 5° plunge), everything else stops 14.5 mm and is penetrated by 30 mm and rockets. BMP-2: hull
+  front 18 mm at 60°, sides 18, rear 16, roof 7; turret front 23 at 35°, sides 16 at 20°, rear 15, roof 7 (armour
+  steel): front stops 23 mm and 12.7 mm, sides stop 7.62 mm AP but not 12.7 mm. Armour lab (`npm run lab --
+  armour`) checks these and the C43 boundaries (PMC287 vs 53 mm at 60°, 3UBR8 vs 25 mm at 60°, ±3 %).
+- **Hot loop:** an inline early-out keeps rounds that cannot beat the thinnest plate (upper bound penSteelMm ×
+  max(1, (v/penV)²), no `pow`) stopping as before; everything else at a hull goes to a queue resolved after the loop
+  (C44: no pool rows added in the loop; exiting penetrators and heavy ricochets are re-added after it). Impact HE
+  keeps bursting on the plate as before; its blast holes a plate thinner than the breach rule (mortar bombs on a
+  BMP-2 roof) and damages a track it strikes. Shaped charges: graze fuse failure below cos 0.1, unarmed dud.
+- **Inside (Q11):** path through seat boxes (0.6 × 0.6 × 0.95 m) and component boxes; jet loses 400 mm per metre;
+  behind the hole `behindArmour.spallCount` fragments (30 mm: 8 in 20°, rockets 20–25 in 25°, HE breach 12 in
+  45°) strike the first man or part on their line (each −0.15 on a part). Components M7.4a: engine, left/right
+  track, gun, ready ammunition, fuel (Puma one tank, BMP-2 rear doors and centre) with toughness/absorb and fire
+  and cook-off chances (BMP-2 ammunition cook-off 25 %, Puma's isolated turret ammunition 10 %). Turret seats are
+  taken in the hull frame (the BMP-2's turret crew sit near the pivot).
+- **Outcome:** engine or a track at 0 → immobilised (route dropped); gun at 0 → disarmed; fire: men out after 2 s,
+  burnt out after 120 s, cook-off checks 8 % every 5 s → destroyed; men still inside burnt (severity 0.7–1.0,
+  `applyBurn`). Crew reaction: Q14/Q15, plus — decided without the owner, for review — bail out when it can neither
+  move nor fire, and when no crewman can act any more (crew all killed or wounded); an abandoned vehicle counts as
+  lost for points. Bail-out after the ramp's `bailOutSeconds` (Puma/BMP-2 6 s) through the exits in turn; men who
+  cannot walk stay aboard (rule 10). A crew that bailed out stays a unit on foot (orders to it still address the
+  vehicle; commanding a dismounted crew is M7.4b). No extinguisher yet (M7.4b).
+- **Wrecks (Q8):** destroyed and abandoned hulls (and immobilised after 30 s) are stamped in the nav grids (as built
+  in M7.1c), listed in `BattleResult.wrecks`; every contact on them is marked `wreck`, spotting, station targeting and
+  the launcher skip them, and the renderer draws enemy wrecks under fog. A station's task on a target that is down
+  or wrecked ends at the next decision (`why.hold.targetDown`).
+- **Points (Q9):** `VictoryRules.vehiclePoints` {lost 20, immobilised 10}, set by the scenario builder for battles
+  with vehicles; `SideScore.vehiclesLost/vehiclesImmobilised`.
+- **Panzerfaust 3 / RPG-7:** `ru-pg7vl` moved to ru/ammunition.json (same id; now category "ammunition", mass 2.6 kg
+  = cartridge; string `ammo.ru-pg7vl`); `de-pzf3` replaced by `de-pzf3-firing-unit` (2.3 kg, kept) + `de-pzf3-dm12`
+  (12.9 kg tube, the round): the load stays 15.2 kg. Values (search extracts, medium; motor timing, drag, dispersion
+  low): PG-7VL 625 mm (500 RHA × 1.25), 115 m/s → ~300 m/s, self-destruct 4.5 s, effective 300 m, danger zone
+  30 m; DM12 875 mm (700 × 1.25), 152 m/s → ~210 m/s, 400 m, danger zone 10 m. `delivery.method "direct"`; aim from
+  the shared flight step (`flight.ts`, tested against the projectile loop within 0.5 m at 300 m). Error: round
+  dispersion 1.5 mrad + 2.5 mrad × skill factor, range error 5 % (low). Anti-tank lab (`npm run lab -- antitank`,
+  20 trials): Panzerfaust vs BMP-2 side-on hits ~100 % at 100 m, ~50 % at 300–400 m, nearly every hit knocks it out;
+  RPG-7 vs Puma side similar, front never penetrated.
+- **Who fires (Q19, C1):** `Unit.atRule` (rules order `at`, cascading; default `behaviour.antitank.atRuleDefault`
+  "vehicles"); own decision when halted and the fire rule allows, at a vehicle seen in the last 6 s (men on foot
+  look for vehicles every fourth scan, so 3 s missed most) within the round's range, line clear; `vehiclesAndPositions`
+  adds men in houses and machine-gunners. Order: `fire {nature: "at"}` (the "Anti-tank" button): the best-placed
+  loaded man fires once, the unit's drill goes on. A comrade within 30 m (not an anti-tank gunner himself) brings a
+  round to a gunner who has none (`Intent.item`).
+- **Q20:** no shot from inside a building footprint under 60 m² that has no breach (houses are solid for now, so
+  this binds only once men can enter them), with a wall within 2 m behind, or an own man within the danger zone in
+  a 60° cone behind; an order then answers "unable".
+- **Not done (M7.4b, with the plan):** APS and add-on tiles on the fixture (C12/C16), the hull-hit perf-projectiles
+  variant (bench-combined now includes penetrating hull hits), extinguishers, finer component effects (sights,
+  radio, turret drive, half power), crew reactions beyond bail-out (reverse out, smoke), AI dismount on an AT
+  threat and AI anti-tank tasks, cross-loading from abandoned hulls, `ForceResult`/`wrecks` round-trip test.
+- **AAR / batch:** timeline lines for vehicles penetrated, immobilised, disarmed, burning, destroyed, abandoned;
+  a vehicles line per side; wrecks on the heat map; anti-tank rounds by type in the expenditure (`rockets`) and a
+  batch column.
+- **Golden update** (catalog fingerprint; the vehicle goldens also by behaviour). Checked first: headless demo-s1,
+  shootout-s1, fixture-s7 and platoon-s1 (900 s) print the identical event stream and casualties as on the base
+  commit (only the state hash and wall time differ): the Panzerfaust split keeps the load mass, and no anti-tank
+  round is fired in an infantry battle (no vehicles; default rule "vehicles").
+- **Batch, 10 × 900 s each, vs M7.3:** infantry `platoon` red 10/10, 16.1 / 8.2; `platoon-ru` blue 10/10, 7.8 / 15.4
+  — identical. `platoon-vehicles` (Germany attacks mounted): red 7/10 (M7.3: 9/10), casualties blue 11.4 / red 18.3
+  (14.7 / 10.8), vehicles lost blue 0.2 / red 2.4 of 3, anti-tank rounds blue 0.2 / red 0.0, cannon blue 100 / red 16
+  (660 / 380: the BMP-2s die early), coax 509 / 6, 76× real time. `platoon-ru-vehicles` (Russia attacks): blue 10/10
+  (10/10), casualties blue 8.8 / red 18.2 (10.6 / 18.2), vehicles lost blue 0 / red 1.3 of 3 (immobilised 0.2 / 0.1),
+  anti-tank rounds blue 0.0 / red 0.9, cannon 71 / 226, 99×. The Pumas' fronts make them nearly untouchable for
+  the BMP-2's 30 mm and the RPG; the BMP-2s burn readily (owner Q21 b).
+- **Perf (alone):** bench 14×, spotting 9.4×, bench-vehicles 8.5× (floor 8×), projectile bench 3.76 ms/tick (4.4×),
+  with 30 parked hulls +13.5–15 % (base measured the same day +12.6 %; noise ~10 %), bench-combined 4.0× (−5 %
+  against parked), fragment volley 18×, render 0.97 ms per frame.
+
+## 2026-11-12 — M7.4b components, fire, crew reactions, AI anti-tank tasks (golden update) — M7 done
+Plan §6/§8/§12/§13/§15 M7.4b; no new owner answers were needed (Q13 stays as decided in M7.2). Decided without the
+owner, **for review** (game values, confidence low unless the data says otherwise):
+- **Components:** the Puma and BMP-2 gain transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke
+  dischargers and extinguisher (boxes where they commonly sit; toughness/absorb game values). Effects as the plan's
+  table: engine < 0.5 half power; each track pulls with its condition; transmission 0 immobilised; turret drive
+  < 0.5 hand traverse ×0.25; stabiliser 0 unstabilised; gun 0 / coax 0 that weapon out (both: disarmed); sights 0
+  vision blocks and ×3 error; radio 0 crew off the net (and a squad whose living men are all aboard); dischargers 0
+  no smoke. Not done: rounds removed from damaged ammunition racks.
+- **Extinguisher:** Puma 2 charges, 1 s, 70 %; BMP-2 2 charges, 2 s, 40 % (the owner's "BMP-2 burns easily");
+  chance halved for a fire in the ammunition; the crew waits for it and bails out only when no try is left.
+- **Crew reactions:** reverse out (smoke toward the threat, 60 m back from where the last heavy/penetrating/rocket hit
+  came, reverse legs if it is ahead, end facing it, held 30 s) when penetrated, struck by any rocket (also one the
+  Puma's front stops), disarmed, commander shaken/panicked, or enemy men it saw within 150 m while its fire rule is
+  not "free". Bail-out rules unchanged (Q14/Q15).
+- **A crew that bailed out** becomes a foot unit (`Unit.exVehicle`; the hull keeps no crew unit): it takes orders
+  like any squad; the AI sends it back to its side's start.
+- **Cross-loading:** an abandoned hull of either side with nobody able aboard is a source for a man out of spare
+  magazines/belts (only what fits his weapon; `transferItems`).
+- **Active protection / add-on tiles** (fixture `xf-wagon` only): resolved in the hit resolution, not in a hot-loop
+  pre-check; a failed intercept strikes at once (the plan re-adds it next tick). Equivalent for the tests; no cost
+  for vehicles without APS.
+- **AI anti-tank tasks:** every 5 s after the ride: enemy vehicles its men saw or were told of in the last 10 s; a man
+  with a loaded launcher (unit anti-tank rule not "hold") within range gets `fire {nature: "at"}` (every 12 s at
+  most); a comrade in his danger zone → he first steps 8 m aside (Q20 stays strict); up to 2 hunters go after a
+  halted vehicle up to 300 m beyond their range, to 80 % of it, for at most 150 s. Ride: out at once when the crews
+  know enemy men within 400 m of the carrier or have seen an enemy vehicle within 600 m (the plan's "an enemy vehicle
+  is seen" at any range made the Germans get out at the map edge after 13–18 s; 600 m keeps the doctrine dismount
+  point in most battles: first dismount 41 s vs 51 s in M7.4a). Withdrawal: vehicles reverse 80 m first. A following
+  vehicle that is reversing out is not re-ordered for 30 s. Lost vehicles are counted from the side's hulls.
+- **Gunnery lab:** its target hull is held still (a penetrated crew would otherwise reverse out of the lab); figures
+  as in M7.3/M7.4a.
+- **Deferred (not cheap here):** Uint8/Uint16 vehicle grids (Float32 kept, 13 MB at 2 × 2 km); the APS hot-loop
+  pre-check; per-component bars in the vehicle panel (a list of damaged parts with % instead); extinguisher charges
+  in the expenditure (the batch counts fires and fires put out).
+- **Golden update** (commit 1/3; catalog fingerprint, schema 17; vehicle goldens by behaviour). Checked first: headless
+  demo-s1, shootout-s1, demo-fixture-s7 (120 s) and platoon-s1 (900 s) print the identical event stream and
+  casualties as on the base commit (only the state hash and wall time differ).
+- **Batch, 10 × 900 s, vs M7.4a:** `platoon` red 10/10, 16.1 / 8.2 and `platoon-ru` blue 10/10, 7.8 / 15.4 — identical.
+  `platoon-vehicles` (Germany attacks mounted): red 6/10 (M7.4a 7/10), casualties blue 10.9 / red 20.2 (11.4 / 18.3),
+  vehicles lost blue 0.1 / red 2.5 (0.2 / 2.4), anti-tank rounds blue 1.5 / red 1.7 (0.2 / 0.0), crews reversed out
+  0.1 / 0.3, fires 0 / 2.1 (0.5 put out). `platoon-ru-vehicles` (Russia attacks): blue 10/10 (10/10), casualties blue
+  8.5 / red 19.8 (8.8 / 18.2), lost blue 0 / red 1.5 (0 / 1.3), anti-tank rounds blue 0.9 / red 2.1 (0 / 0.9), reversed
+  out 0.3 / 1.2, fires 0 / 1.2 (0.2 put out).
+- **Perf (alone):** bench 12× (14× in M7.4a), spotting 10.7×, bench-vehicles 8.2× (floor 8×), projectile bench
+  3.82 ms/tick (4.4×), 30 parked hulls +9 % (noisy: 9–29 % on this branch, 13–15 % on the base the same hour), new
+  hull-hit variant (one round in 25 a 30 mm APFSDS at a parked hull) +5–24 % against the hulls alone (asserted
+  within 25 %), bench-combined 4.0×, fragment volley 14×, render 0.99 ms per frame.
+
+## 2026-11-12 — Parked-hulls perf test bound widened to 35 %
+The '30 parked hulls' projectile benchmark measured +9 % to +29 % on the same build across runs (true cost about +13 %), so its 20 % bound failed at random (21.2 % in one full check). The bound is now 35 %: it still catches a real regression (a doubling of the hull cost) without failing CI on noise. The plan's 5 % target is not met and stays open (vehicle grid compaction, deferred).
+
+## 2026-11-12 — M7 review fixes
+An independent review of M7 found seven issues; all are fixed on `m7-review-fixes`.
+- **Rule 3 in the gunnery lab:** the lab no longer writes `vehicle.status` into a running sim; the target hull enters
+  the battle immobilised through its `VehicleRecord.status` (battle input). Lab table identical to the base commit.
+- **Friendly fire on hulls:** only rounds of the other side set `lastHitTick`, `lastShapedHitTick`, `threatAz` and the
+  crew's under-fire stamp (`resolveVehicleHit`, the aggregated rifle-calibre hits), so the AI no longer dismounts and a
+  crew no longer smokes or reverses because its own side hit it; the damage itself is unchanged. Stopped rifle-calibre
+  rounds are aggregated per vehicle **and** side of the shooters (two slots per grid row, `addStoppedHit`): one
+  `vehicle.hit` per (vehicle, side) per tick, so an enemy round is never folded into a friendly one.
+- **Save/load and the vehicle grid:** `step` now rebuilds the vehicle grid (hull boxes, turret pose, wreck stamps) from
+  the tick's state before anything queries it (orders, routes, grenades, back-blast), so a loaded save and an
+  unbroken run see the same grid; the drive system still rebuilds it after moving. New determinism test: a save on the
+  tick a hull becomes a wreck (30 s after its last penetration), while a turret slews, with a move through and a
+  grenade over the hull delivered on that tick; it failed before the fix. Cost: one more grid rebuild per tick with
+  vehicles (perf floors hold).
+- **The AI's own context:** `viewGround(input)` (ai) keeps the commander's lazily built context up with the view:
+  `syncTerrainDamage` when the view has new breaches, `rebuildVehicleGrid` once per look; sight lines (`hidden`) and
+  `backblastBlocked` now see breaches and hulls as the sim does. Test: a hull right behind a launcher man blocks him in
+  the AI's view as in the sim's (a bare context did not).
+- **Smoke salvo and the turret:** a crew reversing out no longer snaps its turret to the threat: it lays it there at
+  the turret's rate (a damaged drive at a quarter), the turret does not return to the front while the salvo is on its
+  way, and the salvo goes off along the turret wherever it points when due. Test: a damaged drive lays the screen
+  well off the threat's bearing, an intact one close to it.
+- **`VehicleRecord` contract:** `load` is the container only and `ready` the rounds on the belts, on input and on
+  output alike (the doc and plan §2.5 said the belts were added back into `load` on output; the code did not, and
+  adding them would count them twice when the record goes back in). Doc and plan fixed; the round-trip test now also
+  checks `ready` and the total rounds. `BattleResult.wrecks` lists `isWreck` hulls only (destroyed, abandoned,
+  immobilised and not penetrated for more than 30 s), as the plan said; a freshly immobilised hull is not a wreck.
+- **Guard tests (plan C45, C54 and others), `tools/test/guards-m7.test.ts`:** a debug counter `ctx.ballistics.loopAdds`
+  (projectiles added while the loop runs; the pool's derived, never-saved `watch`) stays 0 with hull penetrations,
+  over-penetrations, stopped rifle rounds and an active-protection intercept; a man sent alone past a wreck goes round
+  its end without turning back or entering it; a hull behind a wall up to its hull top is hit only on the turret;
+  rockets are never thrown or lobbed (`grenadeOption`, a grenade order); every man on foot in `platoon` and
+  `platoon-ru` carries 22–45 kg with the anti-tank weapons split.
+- **Golden update:** `fixture-cart-s3` only (from tick 2400; the fixture's carts are hit by their own side's rounds,
+  which no longer count as enemy hits). Checked first: headless demo-s1, shootout-s1, demo-fixture-s7 (120 s) and
+  platoon-s1 (900 s) print the identical event stream and casualties as on the base commit (only wall time differs);
+  every other golden unchanged. `npm run check` green, timing tests included.

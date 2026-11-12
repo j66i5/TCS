@@ -11,6 +11,7 @@ import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
+import type { VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
@@ -51,6 +52,35 @@ export interface UnitInput {
   leaderIndex: number;
   members: SoldierRecord[];
   subunits: UnitInput[];
+  /** A vehicle crew unit (M7): the `vehicleId` of the force's vehicle it crews. */
+  vehicleId?: string;
+  /** A unit on foot (M7.2): the `vehicleId` of the vehicle that carries it (its own men; sub-units without a
+   *  carrier of their own ride in it too). */
+  carrierId?: string;
+}
+
+/**
+ * A vehicle as the ROSTER knows it (M7): a force-level asset, linked to its crew unit by `vehicleId`, so it
+ * comes out of the battle whatever happened to the crew.
+ */
+export interface VehicleRecord {
+  /** Stable key within the roster. */
+  vehicleId: string;
+  /** Vehicle type (catalog `vehicles`). */
+  type: DefId;
+  /** Contents of its container only: fuel tank (charge = litres), stowed belts, smoke and extinguisher charges.
+   *  The rounds on the ready belts are NOT in it (they are in `ready`), on input and on output alike, so a record
+   *  that comes out goes back in unchanged and nothing is counted twice: its rounds = `load` + `ready`. */
+  load: ItemStack[];
+  /** Rounds on the ready belts/racks per station weapon (station weapons in order, station by station; per feed),
+   *  on input (omitted = full from the data) and on output (as they stand). */
+  ready?: { item: DefId; rounds: number }[][];
+  /** Condition of each component (omitted = all 1). */
+  components?: number[];
+  status?: VehicleStatus;
+  /** Reserved: the side holding it (campaign). */
+  capturedBy?: SideId | null;
+  recovery?: null;
 }
 
 export interface Placement {
@@ -58,6 +88,10 @@ export interface Placement {
   x: number;
   y: number;
   heading: number;
+  /** M7: he starts aboard this vehicle (`vehicleId`) ... */
+  mountedIn?: string;
+  /** ... in this seat (index into the vehicle's seats); also overrides a crewman's seat. */
+  seat?: number;
 }
 
 export interface ForceInput {
@@ -66,6 +100,11 @@ export interface ForceInput {
   units: UnitInput[];
   /** Where each soldier starts. Chosen by the scenario (deployment zones), not the roster. */
   placements: Placement[];
+  /** The force's vehicles (M7), and where each starts. */
+  vehicles?: VehicleRecord[];
+  vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
+  /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
+  posture?: "attack" | "defend";
 }
 
 export interface BattleInput {
@@ -89,6 +128,8 @@ export interface SideResult {
   /** Living prisoners (M6.6): start = fit + wounded + killed + surrendered + captured. */
   surrendered: number;
   captured: number;
+  /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
+  vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number };
 }
 
 export interface BattleResult {
@@ -100,7 +141,10 @@ export interface BattleResult {
   finalStateHash: string;
   sides: SideResult[];
   /** The forces as they come out: same units and persons, updated condition and load. */
-  forcesOut: { side: SideId; faction: DefId; units: UnitInput[] }[];
+  forcesOut: { side: SideId; faction: DefId; units: UnitInput[]; /** M7: every vehicle of the force. */ vehicles?: VehicleRecord[] }[];
+  /** Wrecks left on the map (M7; persistent map damage as data): destroyed, abandoned, and immobilised hulls not
+   *  penetrated for more than 30 s (`isWreck`, the same hulls stamped into the navigation grids). */
+  wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

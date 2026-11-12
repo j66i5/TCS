@@ -152,6 +152,29 @@
       "note": "Bullets skip off water below about 6.5 degrees. See docs/research/ballistics.md.",
       "ricochetAngleDeg": 7,
       "breaksBullets": false
+    },
+    {
+      "id": "armour-steel",
+      "nameKey": "material.armour-steel",
+      "densityKgM3": 7850,
+      "resistance": 1.25,
+      "ricochetAngleDeg": 20,
+      "breaksBullets": false,
+      "sources": [],
+      "confidence": "low",
+      "note": "Rolled homogeneous armour (M7): 1.25 mm of mild steel per mm, equal to rhaToMildSteel in core/ballistics.json (game value)."
+    },
+    {
+      "id": "composite",
+      "nameKey": "material.composite",
+      "densityKgM3": 4000,
+      "resistance": 1.6,
+      "resistanceShaped": 2.5,
+      "ricochetAngleDeg": 15,
+      "breaksBullets": false,
+      "sources": [],
+      "confidence": "low",
+      "note": "Generic modular composite armour (M7): game values; composition of real modules is not public."
     }
   ]
 }

@@ -26,6 +26,7 @@ export const atan = (x: number): number => Math.atan(x);
 export const atan2 = (y: number, x: number): number => Math.atan2(y, x) + 0;
 export const pow = (x: number, y: number): number => Math.pow(x, y);
 export const exp = (x: number): number => Math.exp(x);
+export const cbrt = (x: number): number => Math.cbrt(x);
 export const log = (x: number): number => Math.log(x);
 export const hypot2 = (x: number, y: number): number => Math.sqrt(x * x + y * y);
 export const hypot3 = (x: number, y: number, z: number): number => Math.sqrt(x * x + y * y + z * z);

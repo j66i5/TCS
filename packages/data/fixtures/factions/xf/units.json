@@ -73,6 +73,61 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "cart-crew",
+      "echelon": "vehicle",
+      "callsign": "Cart {n}",
+      "leaderIndex": 1,
+      "vehicle": "xf-cart",
+      "members": [
+        {
+          "role": "slinger",
+          "rank": "private",
+          "seat": "slinger",
+          "load": []
+        },
+        {
+          "role": "carter",
+          "rank": "boss",
+          "seat": "carter",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture. Two crew, no commander station."
+    },
+    {
+      "id": "cart-band",
+      "echelon": "platoon",
+      "callsign": "Band {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "porter-gang",
+        "porter-gang",
+        "cart-crew",
+        "cart-crew"
+      ],
+      "carriage": [
+        {
+          "crew": 2,
+          "carries": [
+            0
+          ]
+        },
+        {
+          "crew": 3,
+          "carries": [
+            1
+          ]
+        }
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.2): two porter gangs, each riding its own cart."
     }
   ]
 }

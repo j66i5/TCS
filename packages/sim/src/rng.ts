@@ -32,6 +32,12 @@ export const Streams = {
   fragments: "fragments",
   contacts: "contacts",
   support: "support",
+  /** Vehicle gunnery (M7.3): range errors of station tasks. Created on first use (vehicle-free battles never draw). */
+  station: "station",
+  /** Armour (M7.4a): ricochets, fuses, what a penetration strikes inside, fires. Created on first use. */
+  armour: "armour",
+  /** Shoulder-fired anti-tank weapons (M7.4a): aiming errors. Created on first use. */
+  antitank: "antitank",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

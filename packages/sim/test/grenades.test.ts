@@ -268,7 +268,7 @@ describe("roofs and terrain damage", () => {
 
   it("a burst next to a thin wooden fence blows a hole that bullets and routes then pass through; a brick wall stands", () => {
     const input = setup(100);
-    input.catalog = { ...input.catalog, terrain: { ...input.catalog.terrain, obstacles: { ...input.catalog.terrain.obstacles, fence: { id: "fence", heightM: 1.8, thicknessM: 0.02, material: "wood", seeThrough: 0, footCrossTimeS: null, wheeledCrossable: false, trackedCrossable: true, colour: "#6b5a3c" }, wall: { ...input.catalog.terrain.obstacles["wall"]!, footCrossTimeS: null } } } };
+    input.catalog = { ...input.catalog, terrain: { ...input.catalog.terrain, obstacles: { ...input.catalog.terrain.obstacles, fence: { id: "fence", heightM: 1.8, thicknessM: 0.02, material: "wood", seeThrough: 0, footCrossTimeS: null, vehicle: { tracked: { crossCostCells: 2, capKmh: 10, flattens: true }, wheeled: null }, colour: "#6b5a3c" }, wall: { ...input.catalog.terrain.obstacles["wall"]!, footCrossTimeS: null } } } };
     // A fence right across the map, and a brick wall further east.
     input.map.obstacles.push({ id: 1, kind: "fence", points: [100, 0, 100, 200], heightM: 1.8, thicknessM: 0.02, material: "wood" });
     input.map.obstacles.push({ id: 2, kind: "wall", points: [140, 0, 140, 200], heightM: 2, thicknessM: 0.25, material: "brick" });

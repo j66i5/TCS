@@ -320,6 +320,187 @@
       ],
       "confidence": "low",
       "note": "Smoke mortar bomb: a counted round of the mortar section's stock (rule 9); its cloud is in the faction's fireSupport (game values)."
+    },
+    {
+      "id": "ru-30x165-3ubr8",
+      "nameKey": "ammo.ru-30x165-3ubr8",
+      "calibre": "30x165",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 0.165,
+      "cartridgeMassKg": 0.775,
+      "diameterM": 0.018,
+      "drag": {
+        "a": 0.2,
+        "b": 0,
+        "max": 0.3
+      },
+      "tracerBurnoutM": 2000,
+      "penetration": {
+        "steelMm": 62.5,
+        "atVelocityMps": 844
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2A42",
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "3UBR8 APDS-T for the 2A42: muzzle velocity 1120 m/s (published). Penetration 50 mm RHA (line of sight) at 1500 m x rhaToMildSteel 1.25 = 62.5 mm mild-steel equivalent at the speed the drag model gives at 1500 m (844 m/s). Masses and drag are game values. The search tool cannot open pages in this container: values from published references as remembered (search extracts only). M7.4a (game values, low): ricochets off armour only below 0.6 x the plate's ricochet angle (a long rod bites at steep angles); 8 fragments of plate and round in a 20-degree cone inside a hull it penetrates.",
+      "ricochetFactor": 0.6,
+      "behindArmour": {
+        "spallCount": 8,
+        "spallConeDeg": 20,
+        "spallEnergyJ": 120
+      }
+    },
+    {
+      "id": "ru-30x165-3uof8",
+      "nameKey": "ammo.ru-30x165-3uof8",
+      "calibre": "30x165",
+      "kind": "high-explosive",
+      "projectileMassKg": 0.389,
+      "cartridgeMassKg": 0.842,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.28,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.049,
+        "fragmentCount": 80,
+        "fragmentAmmo": "ru-30mm-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ],
+        "armingSeconds": 0.02,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/2A42"
+      ],
+      "confidence": "low",
+      "note": "3UOF8 HE-I for the 2A42: muzzle velocity 960 m/s, projectile 389 g (published); filling 49 g, fragments and arming are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "ru-30mm-fragment",
+      "nameKey": "ammo.ru-30mm-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0015,
+      "cartridgeMassKg": 0.0015,
+      "diameterM": 0.007,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 3,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal)."
+    },
+    {
+      "id": "ru-81mm-smoke",
+      "nameKey": "ammo.ru-81mm-smoke",
+      "calibre": "81mm-discharger",
+      "kind": "smoke",
+      "projectileMassKg": 2.2,
+      "cartridgeMassKg": 2.4,
+      "diameterM": 0.081,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "multispectral": false,
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "81 mm 3D6 smoke grenade for the BMP-2's 902V dischargers (ordinary smoke; game values). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "ru-pg7vl",
+      "nameKey": "ammo.ru-pg7vl",
+      "calibre": "93mm-rocket",
+      "kind": "shaped-charge",
+      "projectileMassKg": 2.2,
+      "cartridgeMassKg": 2.6,
+      "diameterM": 0.093,
+      "drag": {
+        "a": 0.25,
+        "b": 0,
+        "max": 0.3
+      },
+      "penetration": {
+        "steelMm": 625,
+        "atVelocityMps": 300
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.73,
+        "fragmentCount": 120,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.05,
+        "selfDestructSeconds": 4.5
+      },
+      "propulsion": {
+        "ignitionSeconds": 0.1,
+        "burnSeconds": 0.5,
+        "accelMps2": 370
+      },
+      "behindArmour": {
+        "spallCount": 20,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 250
+      },
+      "delivery": {
+        "method": "direct",
+        "velocityMps": 115,
+        "launcher": "ru-rpg7",
+        "maxRangeM": 300,
+        "dispersionMrad": 1.5,
+        "aimSeconds": 3,
+        "backblastM": 30,
+        "disposable": false
+      },
+      "sources": [
+        "https://vmz.bg/en/production/ammunition-for-rpg-7v-portable-anti-tank-rocket-propelled-grenade-launcher/izstrel-pg-7vl-s-protivotankova-granata-pg-7l",
+        "https://en.wikipedia.org/wiki/RPG-7",
+        "https://metis.fenixinsight.com/munition/projectile/pg-7vl"
+      ],
+      "confidence": "medium",
+      "note": "PG-7VL (search extracts, pages not opened): 93 mm, round 2.59-2.6 kg (grenade 2.2 kg, booster 0.39 kg), muzzle 112-115 m/s, the motor ignites about 11 m out and brings it to about 300 m/s, 0.73 kg OKFOL filling; penetration 500 mm RHA (manufacturer; other sources up to 600 mm): 500 x 1.25 = 625 mm mild-steel equivalent; effective range 300 m against a vehicle. Game values (low): motor 0.1 s after launch for 0.5 s at 370 m/s2, drag, self-destruct 4.5 s (the 920 m figure belongs to the OG-7V), dispersion 1.5 mrad, 3 s to aim, danger zone 30 m behind, 120 fragments of its body, 20 fragments thrown inside a hull it penetrates."
     }
   ]
 }

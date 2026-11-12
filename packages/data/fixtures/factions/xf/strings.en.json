@@ -13,5 +13,16 @@
   "weapon.xf-blaster": "Blaster",
   "item.xf-vest": "Test vest",
   "ammo.xf-bomb": "Test bomb",
-  "ammo.xf-shard": "Test shard"
+  "ammo.xf-shard": "Test shard",
+  "vehicle.xf.cart": "Cart",
+  "role.xf.carter": "Carter",
+  "role.xf.slinger": "Slinger",
+  "item.xf-bolt": "bolt",
+  "item.xf-bolt-rack": "bolt rack",
+  "item.xf-hay": "hay",
+  "weapon.xf-sling": "Sling",
+  "radio.ack.mount": "{callsign} climbs on.",
+  "vehicle.xf.wagon": "Wagon",
+  "item.xf-charm": "Charm",
+  "item.xf-shingle": "Shingle"
 }

@@ -6,9 +6,9 @@ import type { Catalog } from "./catalog";
 import type { CommsModel, CommsParams } from "./comms";
 import type { MapDef } from "./map";
 import type { MapIndex } from "./terrain";
-import type { NavGrid, NavSearch } from "./nav";
+import type { NavGrid, NavSearch, NavStamp } from "./nav";
 import type { PhysiologyModel } from "./wounds";
-import type { BallisticsCtx } from "./ballistics";
+import type { BallisticsCtx, DropTable } from "./ballistics";
 import type { SideId } from "./ids";
 
 export interface BattleRules {
@@ -50,6 +50,8 @@ export interface VictoryRules {
   casualtyPoints: number;
   /** End the battle as soon as one side has broken or has nobody left. */
   endOnDefeat: boolean;
+  /** Vehicles (M7.4a, owner Q9): points off for each own vehicle destroyed or abandoned (`lost`) or immobilised. */
+  vehiclePoints?: { lost: number; immobilised: number };
 }
 
 export interface SimContext {
@@ -61,7 +63,7 @@ export interface SimContext {
   /** Derived ballistics tables (coarse grids, wall and material properties). Never saved. */
   ballistics: BallisticsCtx;
   /** Drop tables per ammunition and muzzle velocity (built on first use). Never saved. */
-  dropTables: Record<string, Float32Array>;
+  dropTables: Record<string, DropTable>;
   /** Derived navigation grids and search scratch per movement class (built on first use). Never saved. */
   nav: Record<string, { grid: NavGrid; search: NavSearch }>;
   rules: BattleRules;
@@ -71,4 +73,7 @@ export interface SimContext {
   physiologyParams: Record<string, number>;
   /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
   breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[];
+  /** Wrecks stamped into the navigation grids (derived from the vehicle store; M7), and their key. */
+  navStamps: NavStamp[];
+  navStampKey: string;
 }

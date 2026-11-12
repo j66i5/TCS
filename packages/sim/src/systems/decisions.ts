@@ -19,7 +19,7 @@
  */
 import { startAction } from "../actions";
 import type { Intent, SoldierState, Unit } from "../components";
-import type { Container } from "../items";
+import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
@@ -32,7 +32,9 @@ import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 import { assignFireTask } from "./fire";
 import { isCowering } from "./morale";
-import { unitSoldiers } from "./orders";
+import { footSoldiers } from "../mount";
+import { stepFetchAmmo, vehicleSource } from "./boarding";
+import { launcherDecision } from "./launcher";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -155,8 +157,16 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   if (!w || !wd) return;
   const type = wd.feed.magazine;
   if (spareCount(state.container.get(id), type) > 0) return;
+  // A halted own vehicle close by that carries them (M7.2): he goes and takes some himself.
+  if (state.soldier.get(id)?.intent?.kind === "fetchAmmo" || state.action.get(id)?.kind === "takeFromVehicle") return;
+  const src = vehicleSource(ctx, state, id, type);
+  if (src !== null) {
+    state.soldier.req(id).intent = { kind: "fetchAmmo", tick: state.tick, target: src };
+    if (!stepFetchAmmo(ctx, state, events, id, src, type, state.tick)) state.soldier.req(id).intent = null;
+    return;
+  }
   // Already someone on his way?
-  const men = unitSoldiers(state, top);
+  const men = footSoldiers(state, top);
   for (const g of men) {
     const it = state.soldier.get(g)?.intent, act = state.action.get(g);
     if (it?.kind === "bringAmmo" && it.target === id) return;
@@ -185,12 +195,15 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   const gs = state.soldier.req(g), it = gs.intent!;
   const to = it.target!;
   const rs = state.soldier.get(to), rw = state.weapon.get(to), wd = rw ? ctx.catalog.weapons[rw.weapon] : undefined;
-  if (!rs || !isAble(rs) || !wd || state.tick - it.tick > 60 * TICK_HZ || spareCount(state.container.get(to), wd.feed.magazine) > 0) { gs.intent = null; return; }
+  // What he brings: an anti-tank round (M7.4a: counted as items, he has none left), else the receiver's magazine.
+  const item = it.item ?? wd?.feed.magazine;
+  const has = (c: Container | undefined) => (it.item !== undefined ? (c ? countItems(c, it.item) : 0) : spareCount(c, item ?? ""));
+  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0)) { gs.intent = null; return; }
   if (state.action.has(g)) return;
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
   if (d <= 2.4) {
-    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item: wd.feed.magazine, count: 1 });
+    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item, count: 1 });
     gs.intent = null;
     return;
   }
@@ -212,6 +225,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
   const D = ctx.catalog.behaviour.decisions;
   const every = Math.max(1, secondsToTicks(D.stepSeconds));
   // ---- who is under fire: the unit remembers it (for the "return fire" rule)
+  // mounted: ok a man aboard who is under fire still tells his unit it is under fire
   for (const [id, s] of state.soldier.entries()) {
     if (s.mental.suppression < D.underFireSuppression || !isAble(s)) continue;
     const u = state.identity.get(id)?.unit;
@@ -225,6 +239,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
   for (const [id, s] of state.soldier.entries()) {
     if ((id + state.tick) % every !== 0) continue;
     if (!isAble(s)) { s.intent = null; continue; }
+    if (s.mount !== undefined) { s.intent = null; continue; } // aboard: no decisions of his own (M7)
     if (state.tick < s.stunnedUntilTick || s.evade !== null) continue;
     const ident = state.identity.get(id);
     const unit = ident ? state.unit.get(ident.unit) : undefined;
@@ -233,6 +248,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.behaviour === "routed") { s.intent = null; continue; } // running back: no decisions of his own
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
+    if (s.intent?.kind === "fetchAmmo") {
+      const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+      if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;
+      continue;
+    }
     // On his way to take a prisoner (systems/surrender.ts runs that errand): nothing else of his own meanwhile.
     if (s.intent?.kind === "takePrisoner") continue;
     const m = state.mover.get(id);
@@ -263,6 +283,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       s.coverTick = state.tick;
       if (threat && seekCover(ctx, state, id, s, threat)) continue;
     }
+
+    // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
+    if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
 
     // ---- open fire on his own
     const current = state.fire.get(id);

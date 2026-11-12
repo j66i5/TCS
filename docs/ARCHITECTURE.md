@@ -495,6 +495,151 @@ commander, panels), `rosterStatus`. Knowledge: `Contact.surrendered` is set only
 the walk-over errand is an `Intent` of kind `takePrisoner` run by this system (orders clear it; `Unit.orderTick`
 blocks new errands right after an order). Events `surrendered`, `captured`; schema 15.
 
+## 16h. Vehicles (M7.1b) — `components.ts` (`VehicleState`), `mount.ts`, `systems/drive.ts`
+
+A vehicle is an entity with a Transform, a Container (fuel tank item, stowed load) and an entry in the
+`vehicle` store; it has no Identity, Mover, SoldierState or WeaponState, so soldier loops ignore it. It is a
+roster asset at force level (`ForceInput.vehicles`, `forcesOut[].vehicles`), commanded through its crew unit
+(`Unit.vehicle`, echelon "vehicle"); crewmen stay soldiers with `SoldierState.mount = {vehicle, seat}` and ride
+in their seats (`vehicleSyncSystem`). `move`/`halt` orders to the crew unit set the drive route;
+`vehicleDriveSystem` (after evading, before foot movement) runs the pure dynamics core `stepDriveDynamics` (per-
+track speeds, gears, rain) and burns fuel from the tank item. Plan and later slices: `docs/plans/m7-vehicles.md`.
+Schema 16.
+
+## 16i. Passengers, getting in and out (M7.2) — `systems/boarding.ts`, `systems/orders.ts`
+
+Orders `mount {vehicle?}` / `dismount` set `Unit.boarding` (a state record, not a drill). `boardingSystem` (after
+the drills, every tick; nothing without vehicles) walks the men to the nearest exit, starts the timed actions
+`mount` / `dismount` / `loadCasualty` (two men) one man per exit, holds the hull (`DriveState.holdForDismount`,
+route kept) while men pass, and lets a fallen driver or gunner be replaced (`seatSwap` action). Only these
+handlers and the battle setup write `VehicleState.seats` and `SoldierState.mount`. An order to a squad aboard is
+kept as `Boarding.then` and applied without a second comms delay once it is out (`applyOrderNow`). The scenario
+builder pairs squads and carriers from the templates' `carriage` (`UnitInput.carrierId` → `Unit.carrier`); the AI
+reads `Unit.carrier`, `Unit.boarding`, `drive.arrived` and `lastHitTick` from its read-only view.
+
+## 16j. Turrets, guns and vehicle senses (M7.3) — `systems/gunnery.ts`, `systems/spotting.ts`, `systems/contacts.ts`
+
+Station weapons live only in `VehicleState.stations[i].weapons` (ready rounds per feed, counted; rule 9). Tick
+order: `turretSystem` (after physiology: lays each station on its `task` with lead from the drop table's time of
+flight and elevation with drop; traverse/elevation rates, limits, arc; a stabilised turret holds its bearing
+against the hull's yaw; `laidTick`) → `fireSystem` → `stationFireSystem` (operator, feed switch, single-round
+loading by the loader station, line of fire from the muzzle with `sight()` ignoring the own hull, `friendInLine`
+over men on foot, bursts from the weapon's `sustained` data; every round through `launchShot` with
+`shot.fired.vehicle`; due smoke salvos) → … → `projectileSystem` → `vehicleIncomingSystem` (hull hits stamp
+`lastHitTick` and `underFireTick`/`contactTick` of the crew unit and its platoon; fire near a vehicle renews its
+ordered tasks — the infantry `incomingFireSystem` returns early without fire tasks, plan C34) → … →
+`decisionSystem` → `stationDecisionSystem` (1 Hz per vehicle, staggered: target choice from the crew's contacts,
+nature AP/HE/MG, `station.why` keys, `vehicle.decision` events on change; halted refill of ready belts from
+stowage through `transferItems`, action `reloadStation`). Fire control is the crew unit's own (`fireTop`): a
+cease-fire to a squad never silences its IFV; to the platoon it reaches the vehicles (`stationCeaseFire`); "return
+fire" answers fire on the crew or its platoon. Orders: `fire` (+`nature`), `discharge`; `not-applicable` for
+orders a crew (or a foot unit, for smoke) cannot carry out.
+
+Spotting: vehicles are targets (area of hull and turret boxes at the observer's aspect, aim points, the target's
+own hull ignored); crewmen observe through their seats' sensors (arc, following hull or turret, range, fog floor,
+rain), every fourth scan; men on foot look for vehicles every fourth scan (cost bounds; detection rates are per
+second, so unchanged on average). Each sensor keeps `smokeFactor` of its view through ordinary smoke and none
+through a multispectral cloud (`throughSmoke`). Contacts on vehicles carry `cls`, `vtype` (within the type's
+`identifyM`), heading and velocity; shots from a station are heard as the vehicle; engines are heard every 2 s
+(`engineRangeM`: idle/moving range × surface × rain × wind). Ammunition expenditure for the AAR and the batch
+report is tallied from events (`tallyExpenditure`: vehicle rounds credited to the vehicle).
+
+## 16k. Armour, damage and shoulder-fired anti-tank weapons (M7.4a) — `systems/armour.ts`, `systems/launcher.ts`, `flight.ts`
+
+**Plates.** `VehicleDef.armour.plates` (one per part × face) become `VehicleRT` (`buildVehicleRT`, derived per
+battle, never saved): mild-steel-equivalent mm per mm (`resistance`, `resistanceShaped`), slope, ricochet angle,
+and `minNeedMm` (thinnest plate square on), copied per row into `VehicleGrid.minNeed`. **Hot loop**
+(`projectileSystem`): at a hull or turret hit, a non-explosive round with `penSteelMm × 2.5 < minNeed` stops inline
+as before (aggregated `vehicle.hit` per row and tick, no call); every other kinetic round, every shaped charge and
+every armed impact-HE round is queued (`HQ`, stride 13: row, point, velocity, speed, ammo, owner, part, face, age)
+— kinetic and shaped rounds are removed from the pool, HE still settles and bursts as before. Rockets: the
+explosive branch applies the motor's push (`thrust` from tick `ignTicks` to `burnEndTicks`) and the self-destruct
+(`selfDestructTicks`); `flight.ts` `flightStep` is the same arithmetic for aiming (tested equal). **After the loop**,
+before the aggregated events and the bursts: `resolveVehicleHit` per queued hit — `plateNeed` (path thickness =
+t / max(cos incidence, 0.05) × resistance), kinetic ricochet (heavy rounds re-added slowed) / penetrate if `can ≥
+need` / stop; shaped: graze fuse failure, unarmed dud, else a burst queued just off the plate and the jet if
+`penSteelMm ≥ needS`; HE: the blast breach rule on thin plates, external components (tracks) by filling. Inside
+(owner Q11): `interior` walks the path through seat boxes (`resolveBodyHit`) and component boxes (condition −=
+residual / toughness; −absorb), the jet losing `jetDecayMmPerM`; a kinetic round with enough left for the far
+plate is re-added beyond it (`addProjectile`, only after the loop); then `behindArmour.spallCount` fragments in a
+cone strike the first seat or component on their line. Stream `armour` (lazy). Events `vehicle.hit` (now with
+`components`), `vehicle.component`, `vehicle.fire`, `vehicle.status`, `vehicle.destroyed`, `vehicle.abandoned`.
+
+**Outcome** (`afterDamage`, `vehicleDamageSystem` after `projectileSystem`, every tick, returns at once without
+vehicles): engine/track at 0 → `immobilised` (route cleared); gun at 0 → `disarmed`; ammunition `cookOffChance` →
+`destroyed` at once; `fireChance` → `fire` (+ a smoke cloud), bail-out after `bailOnFireSeconds`, cook-off checks,
+burnt out after `burnSeconds` → `destroyed`. Crew reaction (Q14/Q15): `bailOut` when burning, immobilised and
+penetrated again (`wasImmobilised && pen`), immobilised and disarmed, or no crewman able; else `continue`. The
+bail-out (`ramp.bailOutSeconds` later) moves every man aboard who can walk out (`getOut`, shared with dismount),
+ends their units' boardings, sets `abandoned`. `destroyVehicle` burns everyone still aboard (`applyBurn`). Wrecks:
+every contact on it gets `wreck: true` (Q8: both sides know at once), spotting/targeting skip it, the renderer
+draws enemy wrecks under fog, `deriveWrecks` stamps it into the nav grids, `BattleResult.wrecks` lists it.
+Points: `VictoryRules.vehiclePoints` (Q9) in `battleScore` (`SideScore.vehiclesLost/vehiclesImmobilised`).
+
+**Launchers.** Ammunition with `delivery.method "direct"` (+ `launcher`, `dispersionMrad`, `aimSeconds`,
+`backblastM`, `disposable`) is skipped by the grenade code. `Unit.atRule` (rules order `at`, cascading;
+`atRuleOf` falls back to `behaviour.antitank.atRuleDefault`). `launcherDecision` (from `decisionSystem`, halted, fire
+rule allows): a seen vehicle contact (or, with `vehiclesAndPositions`, a man in a house or with a machine gun)
+within the round's range, clear line (target hull ignored), `backblastBlocked` (Q20 room rule, wall within
+`wallBehindM` behind, own man in the 60° cone within `backblastM`) → action `fireLauncher` (`aimSeconds`); at its end
+`fireRound`: contact position + velocity × time of flight, elevation from `aimSolution` (bisection over
+`flightStep`), range error and angular error (stream `antitank`), the round removed (rule 9), `grenade.launched
+{method: "direct"}`. Order `fire {nature: "at"}` → `orderLauncherShot` (best-placed man, once; keeps drills). Out of
+rounds: a comrade within `handOverM` gets `bringAmmo` with `Intent.item`. Expenditure: `SideExpenditure.rockets`.
+
+## 16l. Components, fire, crew reactions, cross-loading, AI anti-tank tasks (M7.4b) — `systems/armour.ts`, `mount.ts`, `ai/commander.ts`
+
+**Components.** `ComponentKind` (data enum `COMPONENT_KINDS`): engine, transmission, track, turret-drive, stabiliser,
+gun, coax, sights, radio, dischargers, extinguisher, ammo, fuel. `compCondition(v, def, kind)` (mount.ts) = the worst
+of that kind, 1 if none listed (old data behaves as before). Effects where they act: `driveFactors` (drive.ts: engine
+< 0.5 → half power; each track pulls with its condition); `mobile()` (engine, track or transmission at 0 →
+immobilised); `turretSystem` (turret drive < 0.5 → ×0.25 traverse and elevation; stabiliser 0 → unstabilised);
+`stationFireSystem` (stabiliser 0 → error as "none"; sights 0 → ×3); `weaponOut` / `pickFeed(…, v)` (gun 0 → the
+cannon, coax 0 → the coaxial MG; both out → disarmed); `crewScan` (sights 0 → gunner/commander through
+`vision-block`); `simpleComms.update(state, params, catalog)` (radio 0 → crew unit `link "none"`, and any unit
+whose living men are all aboard that vehicle); `dischargeSmoke` (dischargers 0 → `radio.noSmoke`; any crew in a
+vehicle that is not abandoned or destroyed may fire them).
+
+**Fire.** `VehicleState.fire.intensity` 2 for an ammunition fire, `nextExtTick` (−1 = no try left). With a working
+extinguisher component and a charge (`VehicleDef.extinguisher.item`, counted in the container) the crew waits:
+`tryExtinguish` removes one charge, puts the fire out with `chance / intensity` (`vehicle.extinguished`,
+`radio.fireOut`), else tries the next charge after `delaySeconds`; with none left it orders the bail-out
+(`reaction.burning`). Without an extinguisher: bail-out at once, as in M7.4a.
+
+**Crew reactions.** `crewReactionSystem` (after `moraleSystem`, staggered `reactionStepSeconds`): for a crewed
+vehicle that is `ok`/`disarmed` with a driver and an able crewman, reasons `reaction.penetrated` (lastPenTick),
+`reaction.rocketHit` (`lastShapedHitTick`, set by every shaped-charge strike), `reaction.disarmed`,
+`reaction.shaken` (commander shaken/panicked), `reaction.atThreat` (enemy men its crew saw within `atThreatM` while
+its fire rule is not free) → `reverseOut`: smoke (turret swung to the threat if idle), `vehicleMove` `reverseOutM`
+away from `threatAz` (the bearing the last heavy/penetrating/shaped hit came from), reverse legs if the threat is
+ahead, ending facing it; held `reverseHoldSeconds`; `vehicle.reaction` event (debug overlay: `VehicleDebug` keeps
+the last per vehicle). Bail-out stays in `afterDamage`/`vehicleDamageSystem`.
+
+**Crew on foot.** When the bail-out has run, the crew unit loses `vehicle`, gains `exVehicle`, and the hull's `unit`
+becomes null: every order path (`orderApplies`, `vehicleClassOf`, `applyOrder`) then treats it as a foot unit.
+
+**Cross-loading.** `vehicleSource` accepts, besides own halted vehicles, an `abandoned` hull of either side with
+nobody able aboard (`emptyHull`); the man takes what fits his weapon through `takeFromVehicle` (`transferItems`,
+`items.transferred` from the hull).
+
+**Active protection and tiles (fixture only).** `VehicleDef.activeProtection` {item, detectM, standoffM,
+interceptChance, cooldownSeconds}: in `resolveVehicleHit`'s shaped branch, before the fuse and plate, a charge
+(container item) and the cooldown → draw: intercepted = one charge removed, the warhead bursts `standoffM` back
+along its path, `vehicle.hit {result: "intercepted"}`, no jet; failed = the hit goes on as usual (simplification
+of the plan's re-add next tick). `armour.tiles` {part, face, item, factor}: one item used up per armed shaped hit on
+that face, `needS × factor`.
+
+**AI** (`commander.ts`, every `atEverySeconds` after the ride): enemy vehicle contacts of its men (seen or
+reported within `atContactSeconds`, not wrecks); each able man on foot with a loaded launcher (`launcherReady`,
+from his own container) whose unit's `atRule` is not `hold`: a vehicle within his round's range → if
+`backblastBlocked` (its own lazily built context) he is moved `atSidestepM` aside first, else `fire {nature: "at",
+contact}` to him (rate `atRefireSeconds`); a halted vehicle up to `huntBeyondM` beyond → up to `huntersMax` hunters
+sent to a point at `huntAtRangeShare` of their range (re-sent while stopped short, released after `huntSeconds`).
+Ride: squads (and the HQ) get out at once when the crews know enemy men within `dismountThreatMenM` of the
+carrier or have seen an enemy vehicle within `dismountThreatVehicleM`. Withdrawal: vehicles first reverse
+`withdrawReverseM`. A following vehicle that is reversing out is left alone `reverseOutHoldSeconds`. Lost vehicles
+are counted from the side's hulls (a bailed crew has none); bailed crews (`exVehicle`) are sent back to the start.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -522,7 +667,20 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
 | 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
-| 9.2 | Vehicles have fuel and component states | — | ⬜ M7 | — |
+| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts, systems/armour.ts | ✅ fuel M7.1b; components with immobilised/disarmed/fire M7.4a; full component table, extinguisher M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt"; `tools/test/armour.test.ts`; `tools/test/components.test.ts` "component effects" |
+| 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts, hulls.ts, nav.ts (`tracked:c1`) | ✅ dynamics, gears, rain, fuel M7.1b; navigation, follower, collisions, flattening M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `sim/test/vehicles.test.ts`, `tools/test/vehicle-maps.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
+| 4.3.5 | "vehicle hit" event | systems/ballistics.ts, systems/armour.ts | ✅ every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; result ricochet/stopped/penetrated with components M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick"; `tools/test/armour.test.ts` |
+| 6.7 | Plates per facing, penetration, components | systems/armour.ts, ballistics.ts (`VehicleRT`) | ✅ M7.4a/b | `tools/test/lab-armour.test.ts`, `tools/test/armour.test.ts`, `tools/test/lab-antitank.test.ts`, `tools/test/components.test.ts` |
+| 6.6 | Standing anti-tank rule | systems/launcher.ts (`atRuleOf`), rules order `at`, Rules panel | ✅ M7.4a | `tools/test/lab-antitank.test.ts` "standing anti-tank rule" |
+| 4.4 | Scale with vehicles | perf.test.ts, perf-projectiles.test.ts, perf-render.test.ts | ✅ `bench-vehicles` ≥ 8× (M7.1c); `bench-combined` (300 men + 30 IFVs firing + 20,000 projectiles) ≥ 3× floor and close to the same load holding fire; render proxy < 4 ms (M7.3) | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls", "bench-combined"; `render/test/perf-render.test.ts` |
+| 6.7 | Turret, sights, ammo racks | systems/gunnery.ts | ✅ M7.3 (penetration M7.4a) | `tools/test/lab-gunnery.test.ts`, `tools/test/gunnery.test.ts` (conservation, cease-fire routing C19, incoming fire C34, sling loader C10) |
+| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | ✅ smoke M7.3; APS and add-on tiles on the fixture M7.4b (recovery stays reserved) | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke"; `tools/test/components.test.ts` "the charm intercepts…", "a shingle…" |
+| 6.6/5.7 | Decision debug overlay | render/src/vehicle-debug.ts, `vehicle.decision` | ✅ station why M7.3; reaction why M7.4b | `render/test/debug-overlay.test.ts` "draws the station's why", "draws the crew's reaction" |
+| — | Mounted-man invariants | architecture.test.ts A7, mounted-invariants.test.ts | ✅ source guard M7.1c (no file exempt since M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated"; `tools/test/mounted-invariants.test.ts` |
+| 6.7 | Crew seats, no driver no movement, passengers are soldiers | systems/boarding.ts, systems/drive.ts, mount.ts | ✅ M7.2 | `sim/test/mount.test.ts`; `sim/test/vehicles.test.ts` "no driver answers radio.noDriver" |
+| 9.1 | Casualties loaded into a vehicle | systems/boarding.ts (`loadCasualty`) | 🟡 within 5 m of an exit, by two men (M7.2); carrying over distance M10 | `sim/test/mount.test.ts` "a casualty within 5 m of the exit is loaded by two men" |
+| 9.2 | Vehicle-carried reserves, cross-loading | systems/boarding.ts (`takeFromVehicle`), systems/decisions.ts | ✅ refill from an own halted vehicle (M7.2); abandoned hulls of either side (M7.4b) | `sim/test/mount.test.ts` "refills from the halted carrier; items are conserved"; `tools/test/components.test.ts` "men take belts from an abandoned enemy hull" |
+| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | ✅ records in/out M7.1b; wrecks M7.4a; round trip M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out"; `tools/test/components.test.ts` "BattleResult.wrecks and ForceResult.vehicles round-trip" |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |
@@ -530,7 +688,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts | ✅ orders / 🟡 contacts M3 | `sim/test/orders.test.ts` "delayed by the comms model" |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
-| 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts, systems/body.ts | 🟡 fatigue reads temperature ✅; spotting (M3) and ballistics (M2) not yet | `sim/test/body.test.ts` "heat makes running more tiring" |
+| 9.7 | Environment state exists and is read by spotting, ballistics, movement (vehicles: rain → traction/rolling), fatigue, hearing | environment.ts, systems/body.ts, systems/drive.ts, systems/contacts.ts | 🟡 fatigue reads temperature ✅; vehicle movement reads rain ✅ (M7.1b); engine hearing reads rain and wind, vehicle sights read fog and rain ✅ (M7.3); ballistics reads wind and temperature | `sim/test/body.test.ts` "heat makes running more tiring"; `tools/test/lab-drive.test.ts` "rain slower than dry"; `tools/test/vehicle-senses.test.ts` "rain shortens engine hearing" |
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

@@ -1,7 +1,7 @@
 /** M6.1: objectives and victory (owner decisions 2026-11-12). */
 import { describe, expect, it } from "vitest";
 import { battleScore, createSim, runBattle, saveSim, loadSim, hashState, secondsToTicks, step, submitOrder, type BattleInput, type Sim, type SimEvent } from "../src/index";
-import { armedInput } from "./helpers";
+import { armedInput, vehicleInput } from "./helpers";
 
 const unitOf = (sim: Sim, side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side)!;
 function run(sim: Sim, seconds: number): SimEvent[] {
@@ -99,5 +99,19 @@ describe("objectives and victory (M6.1)", () => {
     expect(sim.state.endLoser).toBeNull();
     // Red still holds the farm (100 points), blue nothing; both lost all their men.
     expect(battleScore(sim.ctx, sim.state).winner).toBe("red");
+  });
+
+  it("a side whose men are all aboard is not wiped out or broken, and holds an objective its vehicle stands in (owner Q10: men inside count)", () => {
+    const input = vehicleInput(1, 600);
+    // The red man far off; blue is only the crew, aboard, inside the objective's ring.
+    input.rules.objectives = [{ id: "farm", nameKey: "objective.farm", x: 60, y: 100, radiusM: 20, points: 100, holder: "red" }];
+    input.rules.victory = { casualtyPoints: 10, endOnDefeat: true };
+    const sim = createSim(input);
+    // mounted: ok every blue man is aboard
+    expect([...sim.state.soldier.entries()].filter(([id]) => sim.state.identity.req(id).side === "blue").every(([, s]) => s.mount !== undefined)).toBe(true);
+    const ev = run(sim, 5);
+    expect(ev.some((e) => e.kind === "battle.ended")).toBe(false);
+    expect(sim.state.ended).toBeNull();
+    expect(ev.find((e) => e.kind === "objective.changed")).toMatchObject({ objective: "farm", holder: "blue" });
   });
 });

@@ -47,4 +47,21 @@ describe("performance floor", () => {
     expect(tracked).toBeGreaterThan(1000);
     expect(30 / s).toBeGreaterThanOrEqual(8);
   });
+
+  it(`bench-vehicles (30 IFVs + their squads, all moving) runs at >= ${PERF_FLOOR_X_REALTIME}x real time`, () => {
+    const sc = getScenario("bench-vehicles");
+    const data = loadData();
+    const seconds = 60;
+    const input = sc.build(data, 1, seconds);
+    runBattle(sc.build(data, 2, 10), { controllers: sc.controllers!(input) });
+    const t0 = performance.now();
+    const r = runBattle(input, { controllers: sc.controllers!(input) });
+    const wall = (performance.now() - t0) / 1000;
+    const speed = seconds / wall;
+    const soldiers = r.sides.reduce((n, s) => n + s.soldiersStart, 0);
+    console.log(`bench-vehicles: 30 vehicles + ${soldiers} soldiers, ${seconds} s game time in ${wall.toFixed(3)} s wall = ${speed.toFixed(1)}x real time`);
+    expect(input.forces.reduce((n, f) => n + (f.vehicles?.length ?? 0), 0)).toBe(30);
+    expect(soldiers).toBeGreaterThanOrEqual(250);
+    expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
+  });
 });

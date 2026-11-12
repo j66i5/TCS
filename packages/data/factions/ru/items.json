@@ -119,16 +119,7 @@
       "massKg": 6.3,
       "sources": [],
       "confidence": "low",
-      "note": "RPG-7V2 launcher with sight, about 6.3 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
-    },
-    {
-      "id": "ru-pg7vl",
-      "nameKey": "item.ru-pg7vl",
-      "category": "anti-tank",
-      "massKg": 2.6,
-      "sources": [],
-      "confidence": "low",
-      "note": "PG-7VL rocket, about 2.6 kg (from memory of published figures). Not usable before M7."
+      "note": "RPG-7V2 launcher with sight, about 6.3 kg (from memory of published figures). Fires the PG-7VL (ammunition.json, M7.4a)."
     },
     {
       "id": "ru-water",
@@ -184,6 +175,70 @@
       "sources": [],
       "confidence": "low",
       "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
+    },
+    {
+      "id": "ru-bmp2-diesel",
+      "nameKey": "item.ru-bmp2-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 460,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The BMP-2's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
+    },
+    {
+      "id": "ru-30x165-belt-ap",
+      "nameKey": "item.ru-30x165-belt-ap",
+      "category": "magazine",
+      "massKg": 3.0,
+      "chargeCapacity": 160,
+      "chargeMassKg": 0.775,
+      "chargeItem": "ru-30x165-3ubr8",
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "The BMP-2's armour-piercing ready belt: 160 rounds (published total 500 in two belts; the split is commonly quoted, low)."
+    },
+    {
+      "id": "ru-30x165-belt-he",
+      "nameKey": "item.ru-30x165-belt-he",
+      "category": "magazine",
+      "massKg": 6.0,
+      "chargeCapacity": 340,
+      "chargeMassKg": 0.842,
+      "chargeItem": "ru-30x165-3uof8",
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "The BMP-2's high-explosive ready belt: 340 rounds (see the AP belt)."
+    },
+    {
+      "id": "ru-pkt-belt",
+      "nameKey": "item.ru-pkt-belt",
+      "category": "magazine",
+      "massKg": 1.5,
+      "chargeCapacity": 250,
+      "chargeMassKg": 0.0218,
+      "chargeItem": "ru-762r-lps",
+      "tracerItem": "ru-762r-t46",
+      "tracerEvery": 4,
+      "sources": [
+        "https://en.wikipedia.org/wiki/PK_machine_gun"
+      ],
+      "confidence": "medium",
+      "note": "250-round belt for the PKT, every fourth round tracer (game value)."
+    },
+    {
+      "id": "ru-bmp2-extinguisher",
+      "nameKey": "item.ru-bmp2-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
     }
   ]
 }

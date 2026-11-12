@@ -24,5 +24,16 @@
     "smokeRadiusM": 25,
     "smokeSeconds": 120,
     "roundsFactor": 2
+  },
+  "dismount": {
+    "distanceM": 400,
+    "sources": [
+      "https://studfile.net/preview/6159989/page:10/",
+      "https://base.garant.ru/72245250/a496d02287c1e8a2f8df9041972293a4/"
+    ],
+    "confidence": "medium",
+    "note": "Owner Q22 (M7.2): sourced per side. Russian combat manual (2005, part 3, 'Attack'): the dismount line as close as possible to the enemy forward edge, covered from his machine guns and anti-tank weapons; study notes give 'up to 400 m'. Search extracts only (docs/research/dismount.md). M7.3: afterwards the BMPs follow the dismounted chain about 150 m behind it and support it by fire (study notes and a teaching text: 100-200 m behind the chain, from cover to cover; docs/research/dismount.md, low).",
+    "afterward": "follow",
+    "followM": 150
   }
 }

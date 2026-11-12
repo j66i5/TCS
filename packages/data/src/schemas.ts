@@ -23,13 +23,22 @@ const withProv = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...
 // ---------- core ----------
 export const MovementClass = z.enum(["foot", "wheeled", "tracked"]);
 export const PostureId = z.enum(["standing", "crouching", "prone"]);
-export const MovementModeSchema = withProv({
-  id: Id, nameKey: z.string(), class: MovementClass, speedMps: z.number().positive().max(40),
-  /** Posture a soldier takes for this mode (vehicles: ignored). */
+/** A pace on foot (M1). */
+export const FootModeSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.literal("foot"), speedMps: z.number().positive().max(40),
+  /** Posture a soldier takes for this mode. */
   posture: PostureId,
   /** Work rate of moving in this mode (0 = resting, ~0.85 = running); drives heart rate and fatigue. */
   exertion: z.number().min(0).max(2),
+  /** The vehicle pace a vehicle given this foot pace drives at (M7: a platoon order in "walk" moves its IFVs
+   *  at a slow drive), per vehicle class. */
+  vehiclePace: z.object({ tracked: Id, wheeled: Id }).strict(),
 });
+/** A vehicle pace (M7): a share of the vehicle's own top speed. */
+export const VehiclePaceSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]), speedFraction: z.number().positive().max(1),
+});
+export const MovementModeSchema = z.discriminatedUnion("class", [FootModeSchema, VehiclePaceSchema]);
 export const MovementModesFile = z.object({ movementModes: z.array(MovementModeSchema).min(1) }).strict();
 
 export const SKILL_KEYS = ["marksmanship", "fieldcraft", "medical", "leadership", "experience"] as const;
@@ -90,6 +99,19 @@ export const BallisticsFile = withProv({
     /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
     shieldSteelMm: Num(0, 1000),
   }).strict(),
+  /** Armour (M7): published penetration and plate figures in mm of rolled homogeneous armour (RHA) are multiplied
+   *  by this to give mild-steel-equivalent mm, the one scale the simulation uses. Equal to the `armour-steel`
+   *  material's resistance (a test checks it). */
+  rhaToMildSteel: Num(0.5, 3),
+  /** Rounds against vehicle armour (M7.4a). losFloorCos: the path through a plate is at most 1 / this times its
+   *  thickness; graze: an impact-fused warhead striking at a cosine below this may fail to go off (chance rising
+   *  to 1 at 0); jetDecayMmPerM: a shaped-charge jet loses this much penetration per metre inside; a kinetic round
+   *  inside keeps going to the far side. Spall: a fragment striking a component takes this off its condition. */
+  armour: z.object({
+    losFloorCos: Num(0.01, 1), grazeFuseCos: Num(0, 1), jetDecayMmPerM: Num(0, 5000), spallComponentDamage: Num(0, 1),
+    /** Seated men inside (M7.4a): a box this wide and deep round each seat's position, from the floor to its head. */
+    seatHalfM: Num(0.05, 2), seatHeightM: Num(0.1, 3),
+  }).strict(),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
     /** A burst higher than this above the ground also throws fragments downward. */
@@ -141,18 +163,36 @@ export const AmmoSchema = withProv({
     fuseSeconds: Num(0.1, 60).optional(),
     /** An impact fuse is live only after this flight time (a round that strikes earlier is a dud). */
     armingSeconds: Num(0, 5).optional(),
+    /** Impact HE that bursts on a man it strikes (M7.3, owner Q18: only the new cannon rounds; default false). */
+    burstOnBody: z.boolean().optional(),
+    /** Rockets (M7.4a): it bursts by itself this long after launch if it has struck nothing. */
+    selfDestructSeconds: Num(0.1, 60).optional(),
   }).strict().optional(),
+  /** Rockets (M7.4a): a motor that ignites `ignitionSeconds` after launch and speeds it up at `accelMps2` for
+   *  `burnSeconds` along its flight path. */
+  propulsion: z.object({ ignitionSeconds: Num(0, 10), burnSeconds: Num(0, 30), accelMps2: Num(0, 5000) }).strict().optional(),
+  /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
+  ricochetFactor: Num(0, 2).optional(),
+  /** What a round that gets through armour throws inside (M7.4a, owner Q11): fragments of the plate and the
+   *  round in a cone behind the hole. */
+  behindArmour: z.object({ spallCount: z.number().int().min(0).max(200), spallConeDeg: Num(0, 90), spallEnergyJ: Num(0, 100000) }).strict().optional(),
+  /** Smoke rounds (M7.3): a multispectral cloud also blinds thermal sights (default false). */
+  multispectral: z.boolean().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
-    method: z.enum(["thrown", "launched"]), velocityMps: Num(1, 400).optional(), launcher: Id.optional(),
+    method: z.enum(["thrown", "launched", "direct"]), velocityMps: Num(1, 400).optional(), launcher: Id.optional(),
     maxRangeM: Num(1, 2000).optional(),
+    /** "direct" (M7.4a: shoulder-fired anti-tank rockets, aimed at what the firer sees): dispersion of launcher
+     *  and round (one standard deviation, mrad), time to aim, danger zone behind the tube, and whether the tube
+     *  is thrown away (the round item is the tube). */
+    dispersionMrad: Num(0, 50).optional(), aimSeconds: Num(0, 60).optional(), backblastM: Num(0, 200).optional(), disposable: z.boolean().optional(),
   }).strict().optional(),
 });
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
 export const WeaponSchema = withProv({
   id: Id, nameKey: z.string(),
-  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher"]),
+  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon"]),
   calibre: z.string(), massKg: Num(0.1, 500),
   feed: z.object({ magazine: Id }).strict(),
   fireModes: z.array(z.enum(["semi", "burst", "auto"])).min(1),
@@ -242,7 +282,23 @@ export const SpottingFile = withProv({
   frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
   /** Sensors by kind (weapon sight kinds and item `sensor` kinds): detection factor beyond fromM, and the light
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
-  sensors: z.record(z.string(), z.object({ factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1) }).strict()),
+  sensors: z.record(z.string(), z.object({
+    factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1),
+    /** M7.3: share of the view kept through a standard (not multispectral) smoke cloud (0 = blinded; default 0). */
+    smokeFactor: Num(0, 1).optional(),
+    /** M7.3 vehicle sights: range limit (default: maxRangeM), fog floor (it sees at least this far in fog) and
+     *  the factor rain puts on it. */
+    maxRangeM: Num(10, 20000).optional(), fogFloorM: Num(0, 20000).optional(), rainFactor: Num(0, 1).optional(),
+  }).strict()),
+  /** Vehicles as targets and contacts (M7.3): visible area per 0.7 m^2 of a standing man (geometry gives the
+   *  area), moving above this speed, how many vehicles a man keeps track of besides men, how fast a vehicle
+   *  contact's uncertainty grows and when it is forgotten; engine noise is heard every engineEverySeconds within
+   *  the vehicle's noise range x (surfaceBase + surface noise) x (1 - rainK x rain), x downwind / upwind. */
+  vehicles: z.object({
+    referenceAreaM2: Num(0.1, 10), targetMaxRangeM: Num(100, 20000), movingAboveMps: Num(0, 10), maxTracked: z.number().int().min(0).max(20),
+    driftMps: Num(0, 50), forgetSeconds: Num(1, 3600), engineEverySeconds: Num(0.5, 60), surfaceBase: Num(0, 2),
+    rainK: Num(0, 1), downwind: Num(0.5, 2), upwind: Num(0.1, 2),
+  }).strict(),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
   contacts: z.object({
@@ -255,7 +311,9 @@ export type SpottingT = z.infer<typeof SpottingFile>;
 
 // ---------- behaviour (core/behaviour.json, M4)
 export const BehaviourFile = withProv({
-  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1) }).strict(),
+  suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1),
+    /** M7.3: the energy factor of a near miss is capped at 2; heavy rounds (12.7 mm and up) at this. */
+    heavyEnergyCap: Num(0.25, 20).optional() }).strict(),
   stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1) }).strict(),
   states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
   effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
@@ -274,8 +332,35 @@ export const BehaviourFile = withProv({
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({
-    stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), captureM: Num(0, 50),
+    stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
+  }).strict(),
+  /** Getting in and out of vehicles (M7.2): the same for every side. */
+  mounting: z.object({
+    boardReachM: Num(0.5, 20), approachReplanM: Num(0.5, 50), casualtyLoadM: Num(0, 50), carriersWithinM: Num(0, 500),
+    completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
+    remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
+    resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+  }).strict(),
+  /** Vehicle gunnery (M7.3): the same for every side. See BehaviourDef.gunnery. */
+  gunnery: z.object({
+    stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60), reportedErrorM: Num(0, 200), reportedWithinSeconds: Num(0, 120),
+    groupRadiusM: Num(0, 100), coaxSingleWithinM: Num(0, 3000), vehicleScore: Num(0.01, 10), firingScore: Num(0.01, 10),
+    lrfRangeErrorFraction: Num(0, 1), refillBelowFraction: Num(0, 1),
+    friendlyClearM: Num(0, 500), scanReturnSeconds: Num(0, 600), dischargeAheadM: Num(0, 200),
+  }).strict(),
+  /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
+  antitank: z.object({
+    atRuleDefault: z.enum(["vehicles", "vehiclesAndPositions", "hold"]), stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60),
+    rangeErrorFraction: Num(0, 1), skillMrad: Num(0, 50), largeRoomM2: Num(0, 10000), wallBehindM: Num(0, 20), handOverM: Num(0, 200),
+  }).strict(),
+  /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
+  crew: z.object({
+    bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),
+    fireSmokeRadiusM: Num(0, 100), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
+    /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
+     *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
+    reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -307,6 +392,10 @@ export const WoundsFile = z.object({
     bleedFloor: Num(0, 1), bleedPower: Num(0.5, 10), bluntSeverity: Num(0, 1), knockdownSeconds: Num(0, 120), flagSeverity: Num(0, 1), energyExponent: Num(0, 2), throughArmChance: Num(0, 1), throughArmEnergy: Num(0, 1),
     fragment: z.object({ minEnergyJ: Num(0, 1000), referenceEnergyJ: Num(1, 100000), exponent: Num(0, 2), factorMin: Num(0, 2), factorMax: Num(0, 5) }).strict(),
     blast: z.object({ severityInjury: Num(0, 1), severitySevere: Num(0, 1), bleedLps: Num(0, 0.2) }).strict(),
+    /** Run over by a vehicle (M7.1c). */
+    crush: z.object({ severityMin: Num(0, 1), severityMax: Num(0, 1), bleedLps: Num(0, 0.2) }).strict().optional(),
+    /** Heavy projectiles (M7.3): a round of at least this diameter that strikes a man wounds at least this badly. */
+    heavy: z.object({ minDiameterM: Num(0.001, 0.5), severityMin: Num(0, 1) }).strict().optional(),
     /** A bullet that is not stopped by armour leaves the body with this share of its speed (limb / trunk or head). */
     exit: z.object({ limb: Num(0, 1), trunk: Num(0, 1) }).strict(),
   }),
@@ -343,6 +432,8 @@ export const MaterialSchema = withProv({
   densityKgM3: z.number().positive().max(20000),
   /** Penetration resistance in mm of mild steel equivalent per mm of material. */
   resistance: z.number().min(0).max(3),
+  /** Resistance against shaped-charge jets, if it differs from `resistance` (composites, M7). */
+  resistanceShaped: z.number().min(0).max(5).optional(),
   /** Largest angle from the surface at which a bullet can still ricochet, degrees (0 = never). */
   ricochetAngleDeg: z.number().min(0).max(45),
   /** Masonry, concrete, soil, wood: soft-core bullets break up in it at high impact speed. */
@@ -353,6 +444,13 @@ export const SurfaceSchema = withProv({
   /** What the ground is made of, for bullet impacts and ricochets (materials.json). */
   material: Id,
   noise: z.number().min(0).max(1), dust: z.number().min(0).max(1), colour: Colour,
+  /** How vehicles drive on it (M7): rolling resistance coefficient, traction and lateral friction coefficients,
+   *  an optional speed cap, and what rain does to traction and rolling resistance (factors at full wetness).
+   *  Absent: vehicles cannot drive on it. */
+  vehicle: z.object({
+    rolling: Num(0.001, 1), traction: Num(0.05, 1.5), lateral: Num(0.05, 1.5), capKmh: Num(1, 200).optional(),
+    wetTractionFactor: Num(0.1, 1), wetRollingFactor: Num(1, 3),
+  }).strict().optional(),
 });
 export const VegetationSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(60),
@@ -362,11 +460,15 @@ export const VegetationSchema = withProv({
   stoppingPerM: z.number().min(0).max(0.1),
   moveCost: MoveCost, colour: Colour,
 });
+const VehicleCrossing = z.object({ crossCostCells: Num(0, 50), capKmh: Num(1, 100), flattens: z.boolean() }).strict();
 export const ObstacleKindSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(20), thicknessM: z.number().positive().max(30),
   material: Id, seeThrough: z.number().min(0).max(1),
   footCrossTimeS: z.number().positive().max(600).nullable(),
-  wheeledCrossable: z.boolean(), trackedCrossable: z.boolean(), colour: Colour,
+  /** Vehicles (M7), per class: null = it cannot cross (goes round); otherwise the extra route cost in cells, the
+   *  speed while crossing, and whether the hull flattens it (leaving a gap as wide as the hull's path). */
+  vehicle: z.object({ tracked: VehicleCrossing.nullable(), wheeled: VehicleCrossing.nullable() }).strict(),
+  colour: Colour,
 });
 export const BuildingKindSchema = withProv({
   id: Id, nameKey: z.string(), widthM: Range, depthM: Range, storeys: IntRange, storeyHeightM: z.number().positive().max(20),
@@ -452,6 +554,8 @@ export const ItemsFile = z.object({ items: z.array(ItemSchema) }).strict();
 const LoadEntry = z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict();
 const MemberSlot = z.object({
   role: Id, rank: Id,
+  /** Crew templates (M7): the seat (vehicle seat id) this man takes; default: crew seats in station order. */
+  seat: Id.optional(),
   /** Personal weapon (weapons.json); its magazines are in `load`. */
   weapon: Id.optional(),
   load: z.array(LoadEntry).default([]),
@@ -465,8 +569,128 @@ export const UnitTemplateSchema = withProv({
   leaderIndex: z.number().int().min(-1),
   members: z.array(MemberSlot),
   subunits: z.array(Id).default([]),
+  /** Crew templates (M7): the vehicle type (vehicles.json) this unit crews. */
+  vehicle: Id.optional(),
+  /** Parent templates (M7): which sub-unit (index into `subunits`) is the crew of a vehicle that carries which
+   *  other sub-units. A crew template never names its siblings itself. */
+  carriage: z.array(z.object({
+    crew: z.number().int().min(0), carries: z.array(z.number().int().min(0)),
+    /** The parent's own men (its headquarters) ride in this vehicle too (M7.2). */
+    hq: z.boolean().optional(),
+  }).strict()).optional(),
 });
 export const UnitsFile = z.object({ units: z.array(UnitTemplateSchema).min(1) }).strict();
+
+// ---------- vehicles (factions/<id>/vehicles.json, optional; M7) ----------
+/** Generic crew station kinds (code keys, not faction words). */
+export const StationKind = z.enum(["commander", "gunner", "driver", "loader", "passenger"]);
+const Span = (lo: number, hi: number) => z.tuple([Num(lo, hi), Num(lo, hi)]).refine((r) => r[0] <= r[1], "range must be [min, max]");
+/** A box in hull coordinates: f forward (+) / back, r right (+) / left, u up from the ground, metres. */
+const Box = z.object({ f: Span(-20, 20), r: Span(-10, 10), u: Span(0, 10) }).strict();
+const Pos3 = z.tuple([Num(-20, 20), Num(-10, 10), Num(0, 10)]);
+export const VehicleWeaponSchema = z.object({
+  weapon: Id, coax: z.boolean(), muzzle: Pos3,
+  feeds: z.array(z.object({ item: Id, ready: z.object({ count: z.number().int().min(0), charge: z.number().int().min(0) }).strict() }).strict()).min(1),
+  switchSeconds: Num(0, 60), engageRangeM: Num(0, 10000),
+  /** "belt": rounds come off the ready belt; "single": one round loaded at a time (needs `roundLoadSeconds`);
+   *  "autoloader": single rounds without a loader. */
+  feedKind: z.enum(["belt", "single", "autoloader"]),
+  loaderStation: StationKind.optional(), roundLoadSeconds: Num(0.1, 120).optional(), noLoaderFactor: Num(1, 20).optional(),
+}).strict();
+/** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
+export const COMPONENT_KINDS = ["engine", "transmission", "track", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
+export const VehicleSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
+  body: withProv({
+    lengthM: Num(1, 20), widthM: Num(0.5, 6), heightM: Num(0.5, 6), groundClearanceM: Num(0, 2),
+    hull: Box,
+    turret: z.object({ pivotF: Num(-10, 10), f: Span(-10, 10), r: Span(-5, 5), u: Span(0, 10), barrelM: Num(0, 15), trunnionU: Num(0, 10) }).strict().optional(),
+    trackContactM: Num(0.5, 15).optional(), trackGaugeM: Num(0.5, 6).optional(), wheelbaseM: Num(0.5, 15).optional(),
+  }),
+  mass: withProv({ kg: Num(500, 200000) }),
+  drive: withProv({
+    powerKw: Num(10, 5000), efficiency: Num(0.1, 1), topSpeedKmh: Num(1, 200), reverseTopSpeedKmh: Num(1, 100), brakeMps2: Num(0.5, 15),
+    gears: z.array(z.object({ toKmh: Num(1, 200) }).strict()).min(1).max(12),
+    reverseGears: z.array(z.object({ toKmh: Num(1, 100) }).strict()).min(1).max(6),
+    shiftSeconds: Num(0, 5),
+    steering: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("tracked"), pivot: z.boolean(), pivotRateDegS: Num(1, 180), maxLatAccelMps2: Num(0.5, 15), slipCoeff: Num(0, 2), turnResistance: Num(0, 3) }).strict(),
+      z.object({ kind: z.literal("wheeled"), maxSteerDeg: Num(5, 60), steerRateDegS: Num(1, 180), maxLatAccelMps2: Num(0.5, 15) }).strict(),
+    ]),
+    idleKw: Num(0, 500), litresPerKwh: Num(0.05, 2),
+  }),
+  /** The tank: an item whose charge is litres (counted in the vehicle's container, SPEC 4.3 rule 9). */
+  fuel: z.object({ item: Id, capacityL: Num(1, 5000) }).strict(),
+  seats: z.array(z.object({
+    id: Id, station: StationKind, pos: Pos3, part: z.enum(["hull", "turret"]), hatch: z.boolean(),
+    /** Sensor kinds (core/spotting.json) this seat looks through (M7.3). */
+    sensors: z.array(z.object({ kind: z.string(), pos: Pos3.optional(), arcDeg: Num(1, 360), sideFactor: Num(0, 1), rearFactor: Num(0, 1), follows: z.enum(["own", "station"]), lrf: z.boolean().optional() }).strict()).optional(),
+  }).strict()).min(1),
+  ramp: withProv({
+    /** Exit points in hull coordinates [f, r]. */
+    exits: z.array(z.tuple([Num(-20, 20), Num(-10, 10)])).min(1),
+    openSeconds: Num(0, 60), mountSecondsPerMan: Num(0, 60), dismountSecondsPerMan: Num(0, 60), bailOutSeconds: Num(0, 120),
+    seatSwapSeconds: Num(0, 300), loadCasualtySeconds: Num(0, 300),
+  }),
+  stations: z.array(withProv({
+    id: Id, kind: z.enum(["turret", "mount"]), operator: StationKind, commanderOverride: z.boolean(),
+    traverseDegS: Num(0, 360), elevateDegS: Num(0, 180), elevationDeg: Span(-30, 90), traverseArcDeg: Span(-180, 180).optional(),
+    stabiliser: z.enum(["none", "one-plane", "two-plane"]), baseErrorMrad: Num(0, 50), movingMradPerMps: Num(0, 20),
+    layToleranceMrad: Num(0, 100), rangefinder: z.boolean(), readyRefillInBattle: z.boolean(),
+    /** Refilling the ready belts from stowage, halted (M7.3, owner Q17: both vehicles, about 90 s). */
+    refillSeconds: Num(1, 1200).optional(),
+    /** The station's weapons (filled in M7.3 for the real vehicles). */
+    weapons: z.array(VehicleWeaponSchema).default([]),
+  })).default([]),
+  /** Stowed items in the hull (belts, smoke charges, extinguisher charges ...). */
+  stowed: z.array(z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict()).default([]),
+  /** Reserved blocks (declared now so the schema shape is known; filled by the slices that use them). */
+  /** Smoke grenade dischargers (M7.3): `perSalvo` rounds of `item` (counted in the container) burst `rangeM` out
+   *  over `arcDeg` ahead of the turret after `delaySeconds`, each a cloud of `cloudRadiusM` for `cloudSeconds`. */
+  dischargers: withProv({
+    item: Id, perSalvo: z.number().int().min(1).max(20), salvos: z.number().int().min(1).max(20), arcDeg: Num(1, 360),
+    rangeM: Num(1, 200), delaySeconds: Num(0, 30), cloudRadiusM: Num(1, 100), cloudSeconds: Num(1, 1200), component: Id.optional(),
+  }).optional(),
+  /** Armour (M7.4a): one plate per part and face. Thickness in mm of `material` (resistance per mm from
+   *  materials.json, kinetic and shaped); slopeDeg: the plate's lean back from upright (top plates: ignored). */
+  armour: withProv({
+    plates: z.array(z.object({
+      part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), material: Id, thicknessMm: Num(0, 2000), slopeDeg: Num(0, 89),
+    }).strict()).min(1),
+    /** Add-on tiles against shaped charges (M7.4b; reactive or similar): a shaped-charge hit on that part and face
+     *  uses up one `item` from the vehicle's container (counted) and needs `factor` times the penetration. */
+    tiles: z.array(z.object({ part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), item: Id, factor: Num(1, 20) }).strict()).optional(),
+  }).optional(),
+  /** Parts inside and outside the hull a penetrating round can damage (M7.4a). Box in the part's frame (turret:
+   *  about the turret pivot); toughnessMm: residual penetration that wrecks it outright (less: that share of its
+   *  condition), absorbMm: what passing through it takes off the round; fireChance: a penetrating hit on it
+   *  starts a fire; cookOffChance (ammunition): it blows up at once. external: struck from outside (tracks). */
+  components: withProv({
+    parts: z.array(z.object({
+      id: Id, kind: z.enum(COMPONENT_KINDS), part: z.enum(["hull", "turret"]), box: Box,
+      external: z.boolean().optional(), toughnessMm: Num(0.1, 2000), absorbMm: Num(0, 2000),
+      fireChance: Num(0, 1).optional(), cookOffChance: Num(0, 1).optional(),
+    }).strict()).min(1),
+  }).optional(),
+  cookOffAmmo: Id.optional(),
+  /** Fire extinguishing (M7.4b): when a fire starts, after `delaySeconds` one charge `item` from the container
+   *  (counted) puts it out with `chance` (half that for a fire in the ammunition); another try with the next
+   *  charge while the fire burns. Needs a working "extinguisher" component if the vehicle lists one. */
+  extinguisher: withProv({ item: Id, chance: Num(0, 1), delaySeconds: Num(0, 60) }).optional(),
+  /** How it is seen and heard (M7.3). sizeFactor multiplies the area its boxes show (camouflage, shape);
+   *  identifyM: its type is known within this range (owner Q6); noise ranges idle / moving; aim points [f, r, u]. */
+  signature: withProv({
+    sizeFactor: Num(0.05, 5), movingFactor: Num(1, 50), firingFactor: Num(1, 500), identifyM: Num(0, 10000),
+    noiseIdleM: Num(0, 10000), noiseMovingM: Num(0, 20000), aimPoints: z.array(Pos3).min(1).max(8),
+  }).optional(),
+  /** Active protection (M7.4b; only the fixture uses it): a rocket coming within `detectM` is engaged; with
+   *  `interceptChance` one charge `item` (counted in the container) bursts it `standoffM` short of the hull (no jet
+   *  reaches the plate); the next engagement no sooner than `cooldownSeconds` later. */
+  activeProtection: withProv({ item: Id, detectM: Num(0.5, 100), standoffM: Num(0.5, 50), interceptChance: Num(0, 1), cooldownSeconds: Num(0, 60) }).optional(),
+  recovery: z.null().optional(),
+});
+export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
+export type VehicleT = z.infer<typeof VehicleSchema>;
 
 export const DOCTRINE_KEYS = [
   "preferredSpacingM",
@@ -496,6 +720,14 @@ export const DoctrineFile = withProv({
      *  Russian mortar rather than a heavier one). */
     roundsFactor: Num(0.1, 10).default(1),
   }).strict().optional(),
+  /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
+   *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
+  dismount: withProv({
+    distanceM: Num(0, 5000),
+    /** After the squads are out (M7.3): the vehicles stay in overwatch where they dropped them, or follow the
+     *  squads this far behind, supporting them by fire. Default overwatch. */
+    afterward: z.enum(["overwatch", "follow"]).optional(), followM: Num(0, 2000).optional(),
+  }).optional(),
 });
 
 export type FactionManifestT = z.infer<typeof FactionManifest>;
@@ -506,4 +738,5 @@ export type ItemT = z.infer<typeof ItemSchema>;
 export type UnitTemplateT = z.infer<typeof UnitTemplateSchema>;
 export type DoctrineT = z.infer<typeof DoctrineFile>;
 export type MovementModeT = z.infer<typeof MovementModeSchema>;
+export type FootModeT = z.infer<typeof FootModeSchema>;
 export type QualityT = z.infer<typeof QualitySchema>;

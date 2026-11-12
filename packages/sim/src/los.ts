@@ -10,13 +10,14 @@
  */
 import type { SimContext } from "./context";
 import { exp, sqrt } from "./math";
-import { heightAt, pointInPolygon, segmentsInRect } from "./terrain";
+import { vehicleOnLine } from "./ballistics";
+import { heightAt, pointInPolygon, segmentsInRectInto } from "./terrain";
 
 export interface Sight {
   /** 0 (nothing gets through) .. 1 (a clear view). Product of see-through obstacles and vegetation. */
   visibility: number;
   /** What stopped the line completely, if anything. */
-  blockedBy: "ground" | "wall" | "roof" | null;
+  blockedBy: "ground" | "wall" | "roof" | "vehicle" | null;
   /** Metres of vegetation the line passed through below its top. */
   vegetationM: number;
   /** Where along the line (0 start .. 1 end) it was stopped; 1 if it was not. */
@@ -29,15 +30,26 @@ const END_CLEARANCE_M = 0.3;
 const GRAZE_M = 0.05;
 /** Scratch list of sample parameters (reused: no allocation per call). */
 const LOS_TS: number[] = [];
+/** Scratch: grid-line crossings in x and in y, each ascending (reused). */
+const LOS_TX: number[] = [];
+const LOS_TY: number[] = [];
+/** Scratch: wall segments near the line, and a roof's footprint crossings (reused: no allocation per call). */
+const LOS_SEGS: number[] = [];
+const ROOF_TS: number[] = [];
 
-export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): Sight {
+/**
+ * `ignoreA` / `ignoreB`: vehicles whose own hull does not block (the observer's or the target's, M7).
+ */
+export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ignoreA = -1, ignoreB = -1): Sight {
   const map = ctx.map, B = ctx.ballistics, index = ctx.mapIndex;
   const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
   const len = sqrt(dx * dx + dy * dy);
   let visibility = 1, tWall = 2;
 
   // ---- walls, fences, hedges, house walls (doors, windows and breaches let it through)
-  for (const si of segmentsInRect(index, x0, y0, x1, y1)) {
+  const nSeg = segmentsInRectInto(index, x0, y0, x1, y1, LOS_SEGS);
+  for (let q = 0; q < nSeg; q++) {
+    const si = LOS_SEGS[q]!;
     const s = index.segments[si]!;
     const ex = s.bx - s.ax, ey = s.by - s.ay;
     const denom = dx * ey - dy * ex;
@@ -64,27 +76,41 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
   if (len > 1e-9) {
     const c0 = Math.max(0, Math.floor(Math.min(x0, x1) / index.bucketM)), c1 = Math.min(index.bcols - 1, Math.floor(Math.max(x0, x1) / index.bucketM));
     const r0 = Math.max(0, Math.floor(Math.min(y0, y1) / index.bucketM)), r1 = Math.min(index.brows - 1, Math.floor(Math.max(y0, y1) / index.bucketM));
-    const seen = new Set<number>();
+    let gen = B.roofGen + 1;
+    if (gen > 0xfffffff0) { B.roofStamp.fill(0); gen = 1; }
+    B.roofGen = gen;
+    const seen = B.roofStamp, ts = ROOF_TS;
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-      for (const ri of B.roofBuckets[r * index.bcols + c]!) {
-        if (seen.has(ri)) continue;
-        seen.add(ri);
+      const list = B.roofBuckets[r * index.bcols + c]!;
+      for (let q = 0; q < list.length; q++) {
+        const ri = list[q]!;
+        if (seen[ri] === gen) continue;
+        seen[ri] = gen;
         const rf = B.roofs[ri]!, fp = rf.footprint, n = fp.length / 2;
         // Where the line enters and leaves the footprint (parameters of its crossings with the outline).
-        const ts: number[] = [];
+        let nt = 0;
         for (let k = 0; k < n; k++) {
           const ax = fp[k * 2]!, ay = fp[k * 2 + 1]!, bx = fp[((k + 1) % n) * 2]!, by = fp[((k + 1) % n) * 2 + 1]!;
           const fx = bx - ax, fy = by - ay, de = dx * fy - dy * fx;
           if (de > -1e-12 && de < 1e-12) continue;
           const t = ((ax - x0) * fy - (ay - y0) * fx) / de, u = ((ax - x0) * dy - (ay - y0) * dx) / de;
-          if (t > 0 && t < 1 && u >= 0 && u <= 1) ts.push(t);
+          if (t > 0 && t < 1 && u >= 0 && u <= 1) ts[nt++] = t;
         }
-        if (pointInPolygon(fp, x0, y0)) ts.push(0);
-        if (pointInPolygon(fp, x1, y1)) ts.push(1);
-        ts.sort((a, b) => a - b);
+        if (pointInPolygon(fp, x0, y0)) ts[nt++] = 0;
+        if (pointInPolygon(fp, x1, y1)) ts[nt++] = 1;
+        for (let i = 1; i < nt; i++) { // ascending (a handful of values)
+          const v = ts[i]!;
+          let j = i - 1;
+          while (j >= 0 && ts[j]! > v) { ts[j + 1] = ts[j]!; j--; }
+          ts[j + 1] = v;
+        }
         // A line through a corner crosses two edges at the same point: count it once.
-        for (let k = ts.length - 1; k > 0; k--) if (ts[k]! - ts[k - 1]! < 1e-9) ts.splice(k, 1);
-        for (let k = 0; k + 1 < ts.length; k += 2) {
+        if (nt > 1) {
+          let w = 1, prev = ts[0]!;
+          for (let k = 1; k < nt; k++) { const v = ts[k]!; if (v - prev >= 1e-9) ts[w++] = v; prev = v; }
+          nt = w;
+        }
+        for (let k = 0; k + 1 < nt; k += 2) {
           const ta = ts[k]!, tb = ts[k + 1]!;
           const za = z0 + ta * dz - heightAt(map, x0 + ta * dx, y0 + ta * dy) - rf.heightM;
           const zb = z0 + tb * dz - heightAt(map, x0 + tb * dx, y0 + tb * dy) - rf.heightM;
@@ -98,17 +124,45 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
     }
   }
 
+  // ---- vehicle hulls and wrecks (M7.1c): independent of the samples below (a hull between two samples counts)
+  if (B.vehicles.n > 0) {
+    const tv = vehicleOnLine(B.vehicles, x0, y0, z0, x1, y1, z1, ignoreA, ignoreB, tBlock);
+    if (tv < tBlock) { tBlock = tv; blockedBy = "vehicle"; }
+  }
+
   // ---- ground and vegetation. The ground is bilinear between height points, so its highest points along the
   // line lie where the line crosses the grid lines: it is sampled at every crossing and half-way between
   // (a crest one height point wide cannot slip between samples). Whole 8 m buckets whose ground and vegetation
   // lie a metre or more below the line are skipped.
   const cs = map.cellSizeM;
   const ts = LOS_TS;
+  // The crossings with the x and y grid lines, each list ascending in t, merged (M7.3: the same sorted list a
+  // sort gave, without its cost).
+  const tx = LOS_TX, ty = LOS_TY;
+  let nx = 0, ny = 0;
+  if (dx !== 0) {
+    const a0 = Math.ceil(Math.min(x0, x1) / cs), a1 = Math.floor(Math.max(x0, x1) / cs);
+    if (dx > 0) for (let k = a0; k <= a1; k++) tx[nx++] = (k * cs - x0) / dx;
+    else for (let k = a1; k >= a0; k--) tx[nx++] = (k * cs - x0) / dx;
+  }
+  if (dy !== 0) {
+    const a0 = Math.ceil(Math.min(y0, y1) / cs), a1 = Math.floor(Math.max(y0, y1) / cs);
+    if (dy > 0) for (let k = a0; k <= a1; k++) ty[ny++] = (k * cs - y0) / dy;
+    else for (let k = a1; k >= a0; k--) ty[ny++] = (k * cs - y0) / dy;
+  }
   ts.length = 0;
-  ts.push(0, 1);
-  if (dx !== 0) { const a0 = Math.ceil(Math.min(x0, x1) / cs), a1 = Math.floor(Math.max(x0, x1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - x0) / dx); }
-  if (dy !== 0) { const a0 = Math.ceil(Math.min(y0, y1) / cs), a1 = Math.floor(Math.max(y0, y1) / cs); for (let k = a0; k <= a1; k++) ts.push((k * cs - y0) / dy); }
-  ts.sort((p, q) => p - q);
+  {
+    // 0, then the merged crossings, then 1 (values tied with 0 or 1 keep their place among equals).
+    let i = 0, j = 0, startDone = false, endDone = false;
+    const n = nx + ny + 2;
+    while (ts.length < n) {
+      const vx = i < nx ? tx[i]! : Infinity, vy = j < ny ? ty[j]! : Infinity;
+      const v = vx <= vy ? vx : vy;
+      if (!startDone && 0 <= v) { ts.push(0); startDone = true; continue; }
+      if (!endDone && 1 <= v) { ts.push(1); endDone = true; continue; }
+      if (vx <= vy) { ts.push(vx); i++; } else { ts.push(vy); j++; }
+    }
+  }
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows;
   let vegM = 0, conceal = 0;
   const tEnd0 = len > 0 ? END_CLEARANCE_M / len : 0;

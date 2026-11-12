@@ -15,7 +15,7 @@ import {
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
-  StringsFile, UnitsFile,
+  StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   type DoctrineT, type FactionManifestT, type ItemT, type MovementModeT, type NamesT, type QualityT, type RankT,
   type RoleT, type UnitTemplateT,
 } from "./schemas";
@@ -39,6 +39,8 @@ export interface FactionPack {
   names: NamesT;
   items: Record<string, ItemT>;
   units: Record<string, UnitTemplateT>;
+  /** Vehicle types (M7; optional file vehicles.json). */
+  vehicles: Record<string, VehicleT>;
   doctrine: DoctrineT;
   strings: StringTables;
 }
@@ -140,6 +142,14 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     if (!terrain.materials[b.wallMaterial]) errors.push({ file: T("buildings"), path: `buildings[${i}].wallMaterial`, message: `unknown material '${b.wallMaterial}' (known: ${known(terrain.materials)})`, severity: "error" });
   });
 
+  // Foot paces name the vehicle pace a vehicle given them drives at (M7).
+  mm?.movementModes.forEach((m, i) => {
+    if (m.class !== "foot") return;
+    for (const cls of ["tracked", "wheeled"] as const) {
+      const v = mm.movementModes.find((x) => x.id === m.vehiclePace[cls]);
+      if (!v || v.class !== cls) errors.push({ file: "core/movement-modes.json", path: `movementModes[${i}].vehiclePace.${cls}`, message: `'${m.vehiclePace[cls]}' is not a ${cls} pace`, severity: "error" });
+    }
+  });
   const body = parse(BodyFile, "core/body.json", files["core/body.json"], errors);
   if (body) {
     for (const from of ["standing", "crouching", "prone"]) for (const to of ["standing", "crouching", "prone"]) {
@@ -229,7 +239,8 @@ function loadFaction(
   // Optional files: packs without weapons simply have none.
   const ammoF = files[f("ammunition.json")] === undefined ? { ammunition: [] } : parse(AmmunitionFile, f("ammunition.json"), files[f("ammunition.json")], errors);
   const weaponsF = files[f("weapons.json")] === undefined ? { weapons: [] } : parse(WeaponsFile, f("weapons.json"), files[f("weapons.json")], errors);
-  if (!ammoF || !weaponsF) return null;
+  const vehiclesF = files[f("vehicles.json")] === undefined ? { vehicles: [] } : parse(VehiclesFile, f("vehicles.json"), files[f("vehicles.json")], errors);
+  if (!ammoF || !weaponsF || !vehiclesF) return null;
   ammoF.ammunition.forEach((a, i) => {
     if (itemsF.items.some((it) => it.id === a.id)) {
       errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
@@ -282,6 +293,7 @@ function loadFaction(
     names,
     items: indexById(itemsF.items, f("items.json"), "items", errors),
     units: indexById(unitsF.units, f("units.json"), "units", errors),
+    vehicles: indexById(vehiclesF.vehicles, f("vehicles.json"), "vehicles", errors),
     doctrine,
     strings,
   };
@@ -355,6 +367,7 @@ function loadFaction(
       if (!pack.units[s]) errors.push({ file: f("units.json"), path: `${p}.subunits[${j}]`, message: `unknown unit template '${s}'`, severity: "error" });
     });
   });
+  checkVehicles(pack, vehiclesF.vehicles, unitsF.units, data, f, errors);
   // Cycle check in unit templates.
   const visiting = new Set<string>();
   const done = new Set<string>();
@@ -383,7 +396,118 @@ function loadFaction(
   rolesF.roles.forEach((r, i) => needKey(r.nameKey, f("roles.json"), `roles[${i}].nameKey`));
   itemsF.items.forEach((r, i) => needKey(r.nameKey, f("items.json"), `items[${i}].nameKey`));
   weaponsF.weapons.forEach((r, i) => needKey(r.nameKey, f("weapons.json"), `weapons[${i}].nameKey`));
+  vehiclesF.vehicles.forEach((r, i) => needKey(r.nameKey, f("vehicles.json"), `vehicles[${i}].nameKey`));
   return pack;
+}
+
+/** Cross-checks of vehicles.json and of crew and carriage templates (M7). */
+function checkVehicles(
+  pack: FactionPack, vehicles: VehicleT[], units: UnitTemplateT[], data: DataSet, f: (n: string) => string, errors: DataError[],
+): void {
+  const file = f("vehicles.json");
+  vehicles.forEach((v, i) => {
+    const err = (path: string, message: string, severity: "error" | "warning" = "error") => errors.push({ file, path: `vehicles[${i}].${path}`, message, severity });
+    const st = v.drive.steering;
+    if (st.kind !== v.class) err("drive.steering.kind", `a ${v.class} vehicle needs ${v.class} steering`);
+    if (v.class === "tracked" && (v.body.trackGaugeM === undefined || v.body.trackContactM === undefined)) err("body", "a tracked vehicle needs trackGaugeM and trackContactM");
+    if (v.class === "wheeled" && v.body.wheelbaseM === undefined) err("body.wheelbaseM", "a wheeled vehicle needs its wheelbase");
+    const asc = (gs: { toKmh: number }[]) => gs.every((g, k) => k === 0 || g.toKmh > gs[k - 1]!.toKmh);
+    if (!asc(v.drive.gears)) err("drive.gears", "gear bands must rise");
+    if (!asc(v.drive.reverseGears)) err("drive.reverseGears", "gear bands must rise");
+    if (Math.abs(v.drive.gears[v.drive.gears.length - 1]!.toKmh - v.drive.topSpeedKmh) > 1e-9) err("drive.gears", "the top gear must end at topSpeedKmh");
+    if (Math.abs(v.drive.reverseGears[v.drive.reverseGears.length - 1]!.toKmh - v.drive.reverseTopSpeedKmh) > 1e-9) err("drive.reverseGears", "the top reverse gear must end at reverseTopSpeedKmh");
+    const tank = pack.items[v.fuel.item];
+    if (!tank) err("fuel.item", `unknown item '${v.fuel.item}'`);
+    else if (tank.chargeCapacity === undefined || tank.chargeCapacity < v.fuel.capacityL) err("fuel.item", `'${tank.id}' must hold its charge in litres, at least ${v.fuel.capacityL}`);
+    else if (tank.chargeItem !== undefined) err("fuel.item", `'${tank.id}' is a magazine (chargeItem), not a tank`);
+    const ids = new Set<string>();
+    v.seats.forEach((s, k) => { if (ids.has(s.id)) err(`seats[${k}].id`, `duplicate seat '${s.id}'`); ids.add(s.id); });
+    const drivers = v.seats.filter((s) => s.station === "driver").length;
+    if (drivers !== 1) err("seats", `exactly one driver seat is needed (found ${drivers})`);
+    v.seats.forEach((s, k) => s.sensors?.forEach((x, j) => {
+      if (data.spotting && !data.spotting.sensors[x.kind]) err(`seats[${k}].sensors[${j}].kind`, `unknown sensor kind '${x.kind}' (core/spotting.json sensors)`);
+    }));
+    const kinds = new Set(v.seats.map((s) => s.station));
+    v.stations.forEach((sn, k) => {
+      if (!kinds.has(sn.operator)) err(`stations[${k}].operator`, `no ${sn.operator} seat on this vehicle`);
+      sn.weapons.forEach((w, j) => {
+        const p = `stations[${k}].weapons[${j}]`;
+        const wd = pack.weapons[w.weapon];
+        if (!wd) { err(`${p}.weapon`, `unknown weapon '${w.weapon}'`); return; }
+        w.feeds.forEach((fd, q) => {
+          const it = pack.items[fd.item];
+          if (!it) err(`${p}.feeds[${q}].item`, `unknown item '${fd.item}'`);
+          else if (it.chargeItem === undefined || wd.ammo[it.chargeItem] === undefined) err(`${p}.feeds[${q}].item`, `'${fd.item}' must hold rounds (chargeItem) that '${w.weapon}' fires`);
+          else if (it.chargeCapacity !== undefined && fd.ready.charge > it.chargeCapacity) err(`${p}.feeds[${q}].ready.charge`, `more than '${fd.item}' holds`);
+        });
+        if (w.feedKind === "single" && w.roundLoadSeconds === undefined) err(`${p}.roundLoadSeconds`, "a single-round feed needs roundLoadSeconds");
+        if (w.loaderStation !== undefined && !kinds.has(w.loaderStation)) err(`${p}.loaderStation`, `no ${w.loaderStation} seat on this vehicle`);
+        if (w.noLoaderFactor !== undefined && w.loaderStation === undefined) err(`${p}.noLoaderFactor`, "noLoaderFactor needs a loaderStation");
+      });
+    });
+    v.stowed.forEach((x, k) => { if (!pack.items[x.item]) err(`stowed[${k}].item`, `unknown item '${x.item}'`); });
+    if (v.cookOffAmmo !== undefined && !pack.ammunition[v.cookOffAmmo]) err("cookOffAmmo", `unknown ammunition '${v.cookOffAmmo}'`);
+    // Armour (M7.4a): known materials, one plate per part and face, a turret plate only with a turret.
+    if (v.armour) {
+      const seen = new Set<string>();
+      v.armour.plates.forEach((pl, k) => {
+        if (data.terrain && !data.terrain.materials[pl.material]) err(`armour.plates[${k}].material`, `unknown material '${pl.material}'`);
+        if (pl.part === "turret" && !v.body.turret) err(`armour.plates[${k}].part`, "a turret plate on a vehicle without a turret");
+        const key = `${pl.part}/${pl.face}`;
+        if (seen.has(key)) err(`armour.plates[${k}]`, `two plates for ${key}`);
+        seen.add(key);
+      });
+      for (const part of v.body.turret ? ["hull", "turret"] : ["hull"]) for (const face of ["front", "side", "rear", "top"]) {
+        if (!seen.has(`${part}/${face}`)) err("armour.plates", `no plate for ${part}/${face}`, "warning");
+      }
+    }
+    v.components?.parts.forEach((c, k) => {
+      if (c.part === "turret" && !v.body.turret) err(`components.parts[${k}].part`, "a turret component on a vehicle without a turret");
+      if (v.components!.parts.findIndex((x) => x.id === c.id) !== k) err(`components.parts[${k}].id`, `component '${c.id}' twice`);
+    });
+    // M7.4b: extinguisher charges, active protection charges and add-on tiles are counted items.
+    if (v.extinguisher && !pack.items[v.extinguisher.item]) err("extinguisher.item", `unknown item '${v.extinguisher.item}'`);
+    if (v.activeProtection && !pack.items[v.activeProtection.item]) err("activeProtection.item", `unknown item '${v.activeProtection.item}'`);
+    v.armour?.tiles?.forEach((t, k) => {
+      if (!pack.items[t.item]) err(`armour.tiles[${k}].item`, `unknown item '${t.item}'`);
+      if (t.part === "turret" && !v.body.turret) err(`armour.tiles[${k}].part`, "a turret tile on a vehicle without a turret");
+    });
+  });
+  // Crew and carriage templates.
+  const byId = new Map(vehicles.map((v) => [v.id, v]));
+  units.forEach((u, i) => {
+    const err = (path: string, message: string, severity: "error" | "warning" = "error") => errors.push({ file: f("units.json"), path: `units[${i}].${path}`, message, severity });
+    if (u.vehicle !== undefined) {
+      const v = byId.get(u.vehicle);
+      if (!v) err("vehicle", `unknown vehicle '${u.vehicle}' (known: ${known(pack.vehicles)})`);
+      else {
+        const crewSeats = v.seats.filter((s) => s.station !== "passenger");
+        if (u.members.length > crewSeats.length) err("members", `${u.members.length} crew but '${v.id}' has ${crewSeats.length} crew seats`);
+        const used = new Set<string>();
+        u.members.forEach((m, j) => {
+          if (m.seat === undefined) return;
+          if (!v.seats.some((s) => s.id === m.seat)) err(`members[${j}].seat`, `'${v.id}' has no seat '${m.seat}'`);
+          else if (used.has(m.seat)) err(`members[${j}].seat`, `seat '${m.seat}' is taken twice`);
+          used.add(m.seat);
+        });
+      }
+    } else if (u.members.some((m) => m.seat !== undefined)) err("members", "only a crew template (with `vehicle`) can name seats");
+    u.carriage?.forEach((c, k) => {
+      const crewT = u.subunits[c.crew] === undefined ? undefined : pack.units[u.subunits[c.crew]!];
+      if (!crewT) { err(`carriage[${k}].crew`, `no sub-unit ${c.crew}`); return; }
+      const v = crewT.vehicle === undefined ? undefined : byId.get(crewT.vehicle);
+      if (!v) { err(`carriage[${k}].crew`, `sub-unit ${c.crew} ('${crewT.id}') is not a vehicle crew`); return; }
+      let men = c.hq === true ? u.members.length : 0;
+      if (c.hq === true && u.carriage!.filter((x) => x.hq === true).length > 1) err(`carriage[${k}].hq`, "only one vehicle carries the headquarters");
+      for (const ci of c.carries) {
+        const t = u.subunits[ci] === undefined ? undefined : pack.units[u.subunits[ci]!];
+        if (!t || ci === c.crew) { err(`carriage[${k}].carries`, `no sub-unit ${ci} to carry`); continue; }
+        men += t.members.length;
+      }
+      const seats = v.seats.filter((s) => s.station === "passenger").length;
+      if (men > seats) err(`carriage[${k}].carries`, `${men} men to carry but '${v.id}' has ${seats} passenger seats`, "warning");
+    });
+  });
 }
 
 export function formatErrors(errors: DataError[]): string {

@@ -1,0 +1,503 @@
+{
+  "vehicles": [
+    {
+      "id": "xf-cart",
+      "nameKey": "vehicle.xf.cart",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 5.0,
+        "widthM": 2.2,
+        "heightM": 2.0,
+        "groundClearanceM": 0.5,
+        "hull": {
+          "f": [
+            -2.5,
+            2.5
+          ],
+          "r": [
+            -1.1,
+            1.1
+          ],
+          "u": [
+            0.5,
+            1.6
+          ]
+        },
+        "wheelbaseM": 3.2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "mass": {
+        "kg": 3000,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "drive": {
+        "powerKw": 60,
+        "efficiency": 0.8,
+        "topSpeedKmh": 40,
+        "reverseTopSpeedKmh": 10,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 40
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 10
+          }
+        ],
+        "shiftSeconds": 0.3,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 35,
+          "steerRateDegS": 60,
+          "maxLatAccelMps2": 4
+        },
+        "idleKw": 3,
+        "litresPerKwh": 0.3,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "fuel": {
+        "item": "xf-hay",
+        "capacityL": 100
+      },
+      "seats": [
+        {
+          "id": "carter",
+          "station": "driver",
+          "pos": [
+            1.8,
+            0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "slinger",
+          "station": "gunner",
+          "pos": [
+            0,
+            0,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "bench1",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench2",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            -0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench3",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench4",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            -0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -2.8,
+            0
+          ]
+        ],
+        "openSeconds": 0,
+        "mountSecondsPerMan": 1,
+        "dismountSecondsPerMan": 1,
+        "bailOutSeconds": 2,
+        "seatSwapSeconds": 5,
+        "loadCasualtySeconds": 10,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "stations": [
+        {
+          "id": "sling",
+          "kind": "mount",
+          "operator": "gunner",
+          "commanderOverride": false,
+          "traverseDegS": 30,
+          "elevateDegS": 20,
+          "elevationDeg": [
+            -5,
+            40
+          ],
+          "traverseArcDeg": [
+            -60,
+            60
+          ],
+          "stabiliser": "none",
+          "baseErrorMrad": 5,
+          "movingMradPerMps": 3,
+          "layToleranceMrad": 10,
+          "rangefinder": false,
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "xf-sling",
+              "coax": false,
+              "muzzle": [
+                0.5,
+                0,
+                1.8
+              ],
+              "feeds": [
+                {
+                  "item": "xf-bolt-rack",
+                  "ready": {
+                    "count": 1,
+                    "charge": 6
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 300,
+              "feedKind": "single",
+              "loaderStation": "passenger",
+              "roundLoadSeconds": 4,
+              "noLoaderFactor": 3
+            }
+          ],
+          "sources": [],
+          "confidence": "low",
+          "note": "Made-up test fixture."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "xf-bolt-rack",
+          "count": 2,
+          "charge": 6
+        }
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture. Deliberately unlike the real vehicles: wheeled, no commander, a single-feed weapon loaded by a passenger."
+    },
+    {
+      "id": "xf-wagon",
+      "nameKey": "vehicle.xf.wagon",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 5.0,
+        "widthM": 2.2,
+        "heightM": 2.0,
+        "groundClearanceM": 0.5,
+        "hull": {
+          "f": [
+            -2.5,
+            2.5
+          ],
+          "r": [
+            -1.1,
+            1.1
+          ],
+          "u": [
+            0.5,
+            1.6
+          ]
+        },
+        "wheelbaseM": 3.2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "mass": {
+        "kg": 3000,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "drive": {
+        "powerKw": 60,
+        "efficiency": 0.8,
+        "topSpeedKmh": 40,
+        "reverseTopSpeedKmh": 10,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 40
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 10
+          }
+        ],
+        "shiftSeconds": 0.3,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 35,
+          "steerRateDegS": 60,
+          "maxLatAccelMps2": 4
+        },
+        "idleKw": 3,
+        "litresPerKwh": 0.3,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "fuel": {
+        "item": "xf-hay",
+        "capacityL": 100
+      },
+      "seats": [
+        {
+          "id": "carter",
+          "station": "driver",
+          "pos": [
+            1.8,
+            0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "slinger",
+          "station": "gunner",
+          "pos": [
+            0,
+            0,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "bench1",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench2",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            -0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench3",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench4",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            -0.5,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -2.8,
+            0
+          ]
+        ],
+        "openSeconds": 0,
+        "mountSecondsPerMan": 1,
+        "dismountSecondsPerMan": 1,
+        "bailOutSeconds": 2,
+        "seatSwapSeconds": 5,
+        "loadCasualtySeconds": 10,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "stations": [
+        {
+          "id": "sling",
+          "kind": "mount",
+          "operator": "gunner",
+          "commanderOverride": false,
+          "traverseDegS": 30,
+          "elevateDegS": 20,
+          "elevationDeg": [
+            -5,
+            40
+          ],
+          "traverseArcDeg": [
+            -60,
+            60
+          ],
+          "stabiliser": "none",
+          "baseErrorMrad": 5,
+          "movingMradPerMps": 3,
+          "layToleranceMrad": 10,
+          "rangefinder": false,
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "xf-sling",
+              "coax": false,
+              "muzzle": [
+                0.5,
+                0,
+                1.8
+              ],
+              "feeds": [
+                {
+                  "item": "xf-bolt-rack",
+                  "ready": {
+                    "count": 1,
+                    "charge": 6
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 300,
+              "feedKind": "single",
+              "loaderStation": "passenger",
+              "roundLoadSeconds": 4,
+              "noLoaderFactor": 3
+            }
+          ],
+          "sources": [],
+          "confidence": "low",
+          "note": "Made-up test fixture."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "xf-bolt-rack",
+          "count": 2,
+          "charge": 6
+        },
+        {
+          "item": "xf-charm",
+          "count": 2
+        },
+        {
+          "item": "xf-shingle",
+          "count": 3
+        }
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.4b): an armoured cart with active protection and add-on tiles, for the tests only.",
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 10,
+            "slopeDeg": 0
+          }
+        ],
+        "tiles": [
+          {
+            "part": "hull",
+            "face": "side",
+            "item": "xf-shingle",
+            "factor": 4
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "activeProtection": {
+        "item": "xf-charm",
+        "detectM": 10,
+        "standoffM": 4,
+        "interceptChance": 1,
+        "cooldownSeconds": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      }
+    }
+  ]
+}

@@ -326,6 +326,186 @@
       ],
       "confidence": "low",
       "note": "Smoke mortar bomb: a counted round of the mortar section's stock (rule 9); its cloud is in the faction's fireSupport (game values)."
+    },
+    {
+      "id": "de-30x173-pmc287",
+      "nameKey": "ammo.de-30x173-pmc287",
+      "calibre": "30x173",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 0.2,
+      "cartridgeMassKg": 0.66,
+      "diameterM": 0.015,
+      "drag": {
+        "a": 0.12,
+        "b": 0,
+        "max": 0.2
+      },
+      "tracerBurnoutM": 2500,
+      "penetration": {
+        "steelMm": 132.5,
+        "atVelocityMps": 1317
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
+        "https://en.wikipedia.org/wiki/Mauser_MK_30"
+      ],
+      "confidence": "low",
+      "note": "PMC287 APFSDS-T for the MK30-2/ABM (Puma): muzzle velocity about 1405 m/s (published). Penetration: 106 mm RHA (line of sight) at 1000 m x rhaToMildSteel 1.25 = 132.5 mm mild-steel equivalent at the speed the drag model gives at 1000 m (1317 m/s). Flight mass, cartridge mass and drag of the sub-calibre penetrator are game values. The search tool cannot open pages in this container: values from published references as remembered (search extracts only). M7.4a (game values, low): ricochets off armour only below 0.4 x the plate's ricochet angle (a long rod bites at steep angles); 8 fragments of plate and round in a 20-degree cone inside a hull it penetrates.",
+      "ricochetFactor": 0.4,
+      "behindArmour": {
+        "spallCount": 8,
+        "spallConeDeg": 20,
+        "spallEnergyJ": 120
+      }
+    },
+    {
+      "id": "de-30x173-he",
+      "nameKey": "ammo.de-30x173-he",
+      "calibre": "30x173",
+      "kind": "high-explosive",
+      "projectileMassKg": 0.36,
+      "cartridgeMassKg": 0.82,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.28,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.05,
+        "fragmentCount": 80,
+        "fragmentAmmo": "de-30mm-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ],
+        "armingSeconds": 0.02,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://www.rheinmetall.com/en/products/ammunition/medium-calibre-ammunition",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "Impact-fused high explosive for the Puma (owner Q16: impact HE in M7, the ABM air-burst round later). Muzzle velocity, filling, fragments and arming distance are game values (low). Bursts on a man it strikes (owner Q18). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "de-30mm-fragment",
+      "nameKey": "ammo.de-30mm-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0015,
+      "cartridgeMassKg": 0.0015,
+      "diameterM": 0.007,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 3,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the 30 mm HE round (game abstraction: all fragments equal)."
+    },
+    {
+      "id": "de-76mm-smoke",
+      "nameKey": "ammo.de-76mm-smoke",
+      "calibre": "76mm-discharger",
+      "kind": "smoke",
+      "projectileMassKg": 1.0,
+      "cartridgeMassKg": 1.2,
+      "diameterM": 0.076,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "multispectral": false,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "76 mm smoke grenade for the Puma's dischargers (ordinary smoke, not multispectral; game values). The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "de-pzf3-dm12",
+      "nameKey": "ammo.de-pzf3-dm12",
+      "calibre": "110mm-rocket",
+      "kind": "shaped-charge",
+      "projectileMassKg": 3.9,
+      "cartridgeMassKg": 12.9,
+      "diameterM": 0.11,
+      "drag": {
+        "a": 0.25,
+        "b": 0,
+        "max": 0.3
+      },
+      "penetration": {
+        "steelMm": 875,
+        "atVelocityMps": 200
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.6,
+        "fragmentCount": 120,
+        "fragmentAmmo": "de-dm51-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.15
+      },
+      "propulsion": {
+        "ignitionSeconds": 0.05,
+        "burnSeconds": 0.4,
+        "accelMps2": 150
+      },
+      "behindArmour": {
+        "spallCount": 25,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 250
+      },
+      "delivery": {
+        "method": "direct",
+        "velocityMps": 152,
+        "launcher": "de-pzf3-firing-unit",
+        "maxRangeM": 400,
+        "dispersionMrad": 1.5,
+        "aimSeconds": 3.5,
+        "backblastM": 10,
+        "disposable": true
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Panzerfaust_3",
+        "https://www.army-technology.com/projects/panzerfaust-3-anti-tank-weapon-germany/"
+      ],
+      "confidence": "medium",
+      "note": "Panzerfaust 3 round (tube with the DM12 110 mm warhead; search extracts, pages not opened): 12.9 kg, penetration 700 mm RHA (x 1.25 = 875 mm mild-steel equivalent), muzzle about 152 m/s (sources give 149-160), effective range 400 m at a halted target, 300 m moving. The tube is thrown away after firing; the firing unit (2.3 kg) is kept. Game values (low): flying mass 3.9 kg, motor to about 210 m/s, 0.6 kg filling, dispersion 1.5 mrad, 3.5 s to aim, danger zone 10 m behind (it is built to be fired from enclosed spaces, but owner rule Q20 applies to it as to the RPG)."
     }
   ]
 }

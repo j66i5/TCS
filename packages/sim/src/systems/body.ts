@@ -7,6 +7,7 @@
  * heat speeds the build-up. Heart rate approaches a target set by exertion and fatigue with separate rise and
  * fall time constants. Fatigue slows movement (movement.ts) and later aiming and morale.
  */
+import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
@@ -56,6 +57,7 @@ export function requestPosture(ctx: SimContext, state: SimState, id: EntityId, t
 
 /** Complete posture changes whose time is up. */
 export function postureSystem(_ctx: SimContext, state: SimState, events: EventSink): void {
+  // mounted: ok a man aboard requests no posture (movement and morale skip him); one in progress completes
   for (const [id, s] of state.soldier.entries()) {
     if (s.postureTo !== null && state.tick >= s.postureDoneTick) {
       s.posture = s.postureTo;
@@ -70,10 +72,11 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
   const p = ctx.catalog.body.physiology;
   const heat = 1 + p.heatPerC * Math.max(0, state.environment.temperatureC - p.heatThresholdC);
   const riseK = 1 - exp(-DT / p.hrRiseTauS), fallK = 1 - exp(-DT / p.hrFallTauS);
+  // mounted: ok fatigue and heart rate recover aboard too
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive) continue;
     const m = state.mover.get(id);
-    const mode = m && m.mode !== null && m.speedMps > 0 ? ctx.catalog.movementModes[m.mode] : undefined;
+    const mode = m && m.mode !== null && m.speedMps > 0 ? footModeOrUndefined(ctx.catalog, m.mode) : undefined;
     let w = mode ? mode.exertion : s.postureTo !== null ? p.postureChangeExertion : 0;
     if (w > 0) {
       w *= 1 + (p.loadExertionK * loadKg(ctx, state, id)) / p.bodyMassKg;

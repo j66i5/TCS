@@ -2,9 +2,9 @@
  * Component types. Entities are numbers; each kind of state lives in its own store (SPEC 4.3 rule 6).
  * All components are plain data (no methods, no class instances) so the whole state serialises.
  */
-import type { AmmoRule, ContactRule, FireRule } from "./catalog";
+import type { AmmoRule, ContactRule, FireRule, StationKind } from "./catalog";
 import type { DefId, EntityId, SideId } from "./ids";
-import type { Posture, Waypoint } from "./orders";
+import type { OrderBody, Posture, Waypoint } from "./orders";
 import type { Physiology, Wound } from "./wounds";
 
 /** Who a soldier is. Persistent across battles via the roster (`personId`). */
@@ -83,7 +83,7 @@ export interface SoldierState {
   /** What he knows of the enemy (M3.3), ascending target ID: from his own eyes, his ears, or reports. */
   contacts: Contact[];
   /** Getting away from a grenade at (x, y): from startTick he runs from it (`run`) or drops flat; over at untilTick. */
-  evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean } | null;
+  evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean; /** Stepping out of a vehicle's way (M7): no dive, back to his way at once. */ aside?: true } | null;
   /** What he decided on his own last (M4.2), for the debug overlay and to pace his decisions. */
   intent: Intent | null;
   /** Last tick he went looking for cover on his own. */
@@ -98,6 +98,8 @@ export interface SoldierState {
    * a prisoner can also be incapacitated or killed.
    */
   captive: Captive | null;
+  /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
+  mount?: { vehicle: EntityId; seat: number };
 }
 
 export type CommLink = "voice" | "radio" | "none";
@@ -120,9 +122,11 @@ export interface CommState {
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo";
   tick: number;
   target?: EntityId;
+  /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
+  item?: DefId;
   x?: number;
   y?: number;
 }
@@ -140,6 +144,13 @@ export interface Contact {
   reportedTick: number;
   /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact lasts. */
   surrendered?: true;
+  /** Vehicles (M7, filled from M7.3): what he believes the contact is and how it moves. */
+  cls?: "vehicle";
+  vtype?: DefId;
+  heading?: number;
+  vx?: number;
+  vy?: number;
+  wreck?: true;
 }
 
 /** A contact report on its way from one soldier to another. */
@@ -188,6 +199,16 @@ export interface Unit {
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
   drill: Drill | null;
   broken: boolean;
+  /** A vehicle crew unit (M7): the vehicle it crews. */
+  vehicle?: EntityId;
+  /** A crew that bailed out (M7.4b): the vehicle it left. It is a unit on foot from then on (`vehicle` cleared). */
+  exVehicle?: EntityId;
+  /** A foot unit's own carrier (M7.2). */
+  carrier?: EntityId;
+  /** Getting in or out of a vehicle (M7.2); not a drill. */
+  boarding?: Boarding;
+  /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
+  atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }
 
 /**
@@ -264,4 +285,123 @@ export interface FireTask {
   /** The posture that check was worked out for, and the lowest posture he may go back down to. */
   linePosture: Posture;
   basePosture: Posture;
+}
+
+// ---------------------------------------------------------------- vehicles (M7, schema 16)
+
+export type VehicleStatus = "ok" | "immobilised" | "disarmed" | "abandoned" | "destroyed";
+export type { StationKind };
+
+/** Drive state of a vehicle: everything history-dependent the drive model needs (rule 1). */
+export interface DriveState {
+  /** Tracked: ground speed of each track (signed m/s, + forward). Body speed and yaw rate follow from them. */
+  trackL: number; trackR: number;
+  /** Signed speed along the heading, m/s (= (L + R) / 2 for tracked vehicles; integrated for wheeled). */
+  speed: number;
+  /** rad/s, + = clockwise on screen (heading 0 = east, PI/2 = south). */
+  yawRate: number;
+  /** >= 1 forward, <= -1 reverse, 0 neutral. */
+  gear: number;
+  shiftUntilTick: number;
+  /** Wheeled: wheel angle, rad (0 for tracked). */
+  steer: number;
+  /** Last commanded, 0..1 (labs, debug). */
+  throttle: number; brake: number;
+  route: Waypoint[]; routeIdx: number;
+  endHeading: number | null;
+  arrived: boolean;
+  holdForDismount: boolean;
+  /** Consecutive ticks the hull was blocked; re-plans since the order. */
+  stuckTicks: number; replans: number;
+  /** Getting clear after striking something (M7.1c): a small move held until `untilTick`. Absent normally. */
+  escape?: { speed: number; yawRate: number; untilTick: number };
+  progressX: number; progressY: number; progressTick: number;
+  yieldTo: EntityId | null; yieldSinceTick: number;
+  crossing: { obstacle: number; part: number; untilTick: number; capMps: number } | null;
+  /** Sub-litre remainder of fuel burnt but not yet taken from the tank item (the litres are its charge). */
+  fuelAccL: number;
+  /** Last pose hidden from known threats (reverse-out target, M7.4b). */
+  backX: number; backY: number;
+}
+
+export interface VehicleWeaponState {
+  weapon: DefId;
+  /** Ready belts/racks; index = the def's feed index. */
+  feeds: { item: DefId; rounds: number }[];
+  feed: number;
+  switchUntilTick: number;
+  nextShotTick: number; burstLeft: number; burstIndex: number;
+  /** Single-round feeds: a round is in the chamber. */
+  loadedRound: boolean;
+  jammed: boolean; lastShotTick: number;
+  lowAmmoReported: boolean[];
+}
+
+export interface StationState {
+  /** Relative to the hull, rad. */
+  azimuth: number; elevation: number;
+  azCmd: number; elCmd: number;
+  laidTick: number;
+  weapons: VehicleWeaponState[];
+  task: FireTask | null;
+  taskWeapon: number; taskFeed: number;
+  scanAz: number;
+  /** Last decision and its reasons (string keys), for the debug overlay. */
+  why: { tick: number; keys: string[] };
+}
+
+/** Getting in or out (M7.2). */
+export interface Boarding {
+  kind: "mount" | "dismount" | "bailOut";
+  vehicle: EntityId;
+  startTick: number;
+  /** Men still to pass an exit, ascending id. */
+  queue: EntityId[];
+  /** Order to carry out after getting out. */
+  then: OrderBody | null;
+  /** -1 = not open yet. */
+  rampOpenTick: number;
+  /** Who `then` is for when not the unit itself (an order to one man aboard, Q12). */
+  thenTarget?: EntityId;
+  /** Mount: when the first man got in (-1 = none yet); boarding ends `completeAfterSeconds` later. */
+  firstTick?: number;
+  /** Mount: where the hull stood when the walk to it was planned (re-planned when it has moved). */
+  hullX?: number; hullY?: number;
+  /** Mount: wounded men to load (two comrades carry each in, owner Q25). */
+  casualties?: EntityId[];
+}
+
+/** A vehicle (entity with a Transform, a Container and this; no Identity, Mover or SoldierState). */
+export interface VehicleState {
+  def: DefId; vehicleId: string;
+  side: SideId; faction: DefId;
+  /** Its crew unit, or null (a parked or abandoned hull). */
+  unit: EntityId | null;
+  /** Occupant of each seat (index = def.seats). */
+  seats: (EntityId | null)[];
+  drive: DriveState;
+  stations: StationState[];
+  /** Condition 0..1 of each component (index = def.components; empty until M7.4b). */
+  comp: number[];
+  status: VehicleStatus;
+  /** Burning (M7.4a): since when, the next cook-off check, how hard (2 = in the ammunition: harder to put out),
+   *  and the next try of the extinguisher (M7.4b; -1 = none left). */
+  fire: { startTick: number; nextCheckTick: number; intensity: number; nextExtTick: number } | null;
+  smokeReadyTick: number;
+  pendingSmokeTick: number;
+  crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
+  reactionWhy: string[];
+  lastHitTick: number; lastPenTick: number; hitsThisTick: number;
+  /** Last hit by a rocket or other shaped charge, through or not (M7.4b: the crew reverses out of its reach). */
+  lastShapedHitTick: number;
+  /** Bearing (world, rad) the last heavy or penetrating hit came from, null before any (M7.4b: away from it). */
+  threatAz: number | null;
+  seatSwap: { seat: number; actor: EntityId; untilTick: number } | null;
+  /** Reserved ("open" = commander head-out, later). */
+  hatches: "closed";
+  /** Active protection (M7.4b, fixture): when it can engage again; charges are container items only. */
+  aps: { nextReadyTick: number } | null;
+  recovery: { state: "none" } | null;
+  /** Reserved: the side holding an abandoned hull (campaign). */
+  capturedBy: SideId | null;
 }

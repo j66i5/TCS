@@ -82,4 +82,66 @@ describe("data loader", () => {
     (files2["factions/de/weapons.json"] as typeof weapons).weapons[0]!.feed.magazine = "de-basic-load";
     expect(formatErrors(loadDataSet(files2).errors)).toContain("is not a magazine or belt");
   });
+
+  describe("vehicles (M7)", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- clone-and-break edits of raw JSON
+    type V = Record<string, any>;
+    const broken = (edit: (files: Record<string, unknown>) => void, withFixtures = false) => {
+      const files = clone(read(withFixtures ? ["core", "factions", "fixtures"] : ["core", "factions"]));
+      edit(files);
+      return formatErrors(loadDataSet(files).errors);
+    };
+    const puma = (f: Record<string, unknown>) => (f["factions/de/vehicles.json"] as { vehicles: V[] }).vehicles[0]!;
+    const cart = (f: Record<string, unknown>) => (f["fixtures/factions/xf/vehicles.json"] as { vehicles: V[] }).vehicles[0]!;
+    const units = (f: Record<string, unknown>, dir: string) => (f[`${dir}/units.json`] as { units: V[] }).units;
+
+    it("loads the Puma, the BMP-2 and the fixture cart", () => {
+      const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
+      expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma"]);
+      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2"]);
+      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon"]);
+    });
+    it("rejects an unknown or non-litre fuel item", () => {
+      expect(broken((f) => { puma(f)["fuel"].item = "de-nothing"; })).toContain("vehicles[0].fuel.item: unknown item 'de-nothing'");
+      expect(broken((f) => { puma(f)["fuel"].item = "de-g36-mag"; })).toContain("vehicles[0].fuel.item:");
+    });
+    it("needs exactly one driver seat and unique seat ids", () => {
+      expect(broken((f) => { puma(f)["seats"][2].station = "passenger"; })).toContain("exactly one driver seat is needed (found 0)");
+      expect(broken((f) => { puma(f)["seats"][1].id = "cmd"; })).toContain("duplicate seat 'cmd'");
+    });
+    it("checks gears against the top speed and steering against the class", () => {
+      expect(broken((f) => { puma(f)["drive"].topSpeedKmh = 75; })).toContain("the top gear must end at topSpeedKmh");
+      expect(broken((f) => { puma(f)["class"] = "wheeled"; })).toContain("a wheeled vehicle needs wheeled steering");
+    });
+    it("checks station weapons: feed items that hold the weapon's rounds, and the loader station", () => {
+      expect(broken((f) => { cart(f)["stations"][0].weapons[0].feeds[0].item = "xf-mag"; }, true)).toContain("'xf-mag' must hold rounds (chargeItem) that 'xf-sling' fires");
+      expect(broken((f) => { cart(f)["stations"][0].weapons[0].loaderStation = "loader"; }, true)).toContain("loaderStation: no loader seat on this vehicle");
+      expect(broken((f) => { delete cart(f)["stations"][0].weapons[0].roundLoadSeconds; }, true)).toContain("a single-round feed needs roundLoadSeconds");
+    });
+    it("checks crew templates: the vehicle, crew seats, seat names", () => {
+      const crew = (f: Record<string, unknown>) => units(f, "factions/de").find((u) => u["id"] === "puma-besatzung")!;
+      expect(broken((f) => { crew(f)["vehicle"] = "de-leopard"; })).toContain("unknown vehicle 'de-leopard'");
+      expect(broken((f) => { crew(f)["members"][1].seat = "cmd"; })).toContain("seat 'cmd' is taken twice");
+      expect(broken((f) => { crew(f)["members"][1].seat = "roof"; })).toContain("'de-puma' has no seat 'roof'");
+      expect(broken((f) => { crew(f)["members"].push(clone(crew(f)["members"][0]), clone(crew(f)["members"][0])); crew(f)["members"][3].seat = undefined; crew(f)["members"][4].seat = undefined; })).toContain("5 crew but 'de-puma' has 3 crew seats");
+    });
+    it("checks carriage: indices into the parent's sub-units, a crew that crews, a warning for too many men", () => {
+      const add = (f: Record<string, unknown>, carriage: V[]) => {
+        const zug = units(f, "factions/de").find((u) => u["id"] === "pzgren-zug")!;
+        zug["subunits"] = [...zug["subunits"], "puma-besatzung"];
+        zug["carriage"] = carriage;
+      };
+      expect(broken((f) => add(f, [{ crew: 9, carries: [0] }]))).toContain("carriage[0].crew: no sub-unit 9");
+      expect(broken((f) => add(f, [{ crew: 0, carries: [1] }]))).toContain("is not a vehicle crew");
+      expect(broken((f) => add(f, [{ crew: 3, carries: [9] }]))).toContain("carriage[0].carries: no sub-unit 9 to carry");
+      expect(broken((f) => add(f, [{ crew: 3, carries: [0, 1] }]))).toContain("12 men to carry but 'de-puma' has 6 passenger seats");
+      // The headquarters (the platoon's own two men) counted in the seats; only one vehicle carries it (M7.2).
+      expect(broken((f) => add(f, [{ crew: 3, carries: [0], hq: true }]))).toContain("8 men to carry but 'de-puma' has 6 passenger seats");
+      expect(broken((f) => add(f, [{ crew: 3, carries: [], hq: true }, { crew: 4, carries: [], hq: true }]))).toContain("only one vehicle carries the headquarters");
+    });
+    it("checks that a foot pace names vehicle paces of the right class", () => {
+      expect(broken((f) => { (f["core/movement-modes.json"] as { movementModes: V[] }).movementModes[0]!["vehiclePace"].tracked = "wdrive"; })).toContain("movementModes[0].vehiclePace.tracked: 'wdrive' is not a tracked pace");
+    });
+  });
 });

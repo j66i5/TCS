@@ -352,12 +352,136 @@ not take orders ("unable"). Once they are there and nothing has been fired at th
 
 A man who is wounded and can no longer fight gives himself up when an enemy he knows of is within about 50 m
 and no fit comrade is within about 30 m. A panicked or fleeing man gives up when an enemy he knows of is within
-about 30 m, comrades or not. From then on he is out of the fight: he takes no orders, does not fire and does
+about 30 m, comrades or not. Attackers are tougher: a man of the attacking side, or of a squad in the middle of an assault, does not give up when he panics (he runs back instead), and a wounded attacker gives up only when an enemy is within about 25 m. From then on he is out of the fight: he takes no orders, does not fire and does
 not use the radio; a white flag shows over him. The enemy stops shooting at him once they have SEEN him give
 up (until then he can still be hit, and shells and grenades aimed at the area can still hit him). An enemy who
 comes within a few metres takes him prisoner (a white square); when it is quiet, one enemy nearby who saw it
 walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
+
+## Vehicles and riding in them (M7)
+A **vehicle** (so far the German Puma and the Russian BMP-2) is a thing on the map with a fuel tank and stowed
+ammunition, crewed by a small unit of its own: commander, gunner, driver. It drives by a physical model (engine
+power, the two tracks, gears, ground and rain), finds its way on a map of where a hull fits, flattens fences and
+hedges, drives round walls and houses, waits for its own men and runs over the enemy's. Without an able driver
+it does not move; if the driver falls, the commander moves into his seat after about 20 seconds (the dead or
+wounded man stays aboard). The vehicles shoot (below) and can be knocked out (armour, below).
+
+**Riding.** Men in a vehicle stay soldiers sitting in seats: they move with it, see nothing outside, cannot fire
+or be shot at, and never give up while aboard; they still count for holding an objective. A squad told to
+**Mount** runs to the back of its own vehicle and climbs in one man at a time through each door, after the ramp
+opens; the vehicle waits meanwhile. A wounded man lying within a few metres of the ramp is carried in by two
+comrades; men lying farther off stay where they are (the medics come in a later milestone). **Dismount**: the
+vehicle stops, the ramp opens and the men get out one at a time, landing a few metres behind it, crouching. Give
+a squad aboard any other order (move, assault, fire ...) and it gets out first, then does it. A man who runs out
+of magazines walks over to a stopped vehicle of his side nearby and takes three from its stowage.
+
+**Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
+ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
+belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about
+90 seconds; both vehicles can, by the owner's choice). The turret turns at its real speed toward the target; a
+stabilised turret keeps pointing at it while the hull turns. The gun fires only when it is laid, the line from
+the muzzle is clear and none of its own men on foot is in the way. Where the rounds go follows from the sight
+(the Puma's laser rangefinder makes it more accurate at range), the gunner's skill and whether the vehicle is
+moving. The crew picks its own targets when its fire rules allow ("return fire" also answers fire on its
+platoon): an enemy vehicle first (armour-piercing), then men firing now, nearest first — high explosive at their
+feet for a group or a man beyond 400 m, the machine gun for a single man close by; never high explosive close to
+its own men. A cannon shell that strikes a man bursts on him. You can order a vehicle to fire at a point or an
+enemy marker (with "Gun: AP / HE / machine gun", or leave the choice to the crew), to cease fire (an order to a
+squad does not silence its vehicle; one to the platoon does), and to throw a **smoke screen** (its smoke
+grenades are counted; when they are gone it says so). Debug with a vehicle selected shows where the turret
+points, what it aims at and why.
+
+**Seeing vehicles.** A vehicle is big: the area of its hull and turret seen from where a man stands decides how
+easily it is spotted (side-on far more than head-on; only the turret of a hull behind a crest). Its crew look
+out through their sights — the commander all round, the gunner where the turret points; the driver drives —
+and see further than a man (to 3 km). Thermal sights see a vehicle through ordinary smoke at half strength;
+eyes and day sights not at all. Engines are heard: idling about 400 m, driving about 1.2 km, less in rain, more
+downwind. An enemy vehicle shows on your map as a hull outline once your men have seen it, with its type once
+seen within about 1.5 km.
+
+**Armour (M7.4a).** Each vehicle has an armour plate on every face of its hull and turret (front, sides, rear,
+roof), with its thickness, its material and how far it leans back. A round that strikes a plate has to get
+through the plate's thickness *along its path*: a plate leaning back, or struck at an angle, is thicker that way.
+A bullet or cannon round gets through if its penetration at the speed it strikes is at least that much; at a very
+glancing angle it may bounce off. A rocket (shaped charge) bursts on the plate and its jet gets through if its
+penetration (which does not depend on speed) is enough; composite armour is especially good against jets; a
+rocket that strikes at a very flat angle may fail to go off. What gets through goes on inside along its path:
+men in their seats are wounded (by the same rules as any wound) and parts of the vehicle are damaged — engine,
+tracks, gun, ammunition, fuel — and a cone of fragments of the plate and the round strikes whatever is behind the
+hole (the owner's choice). A rocket's jet weakens as it goes; a cannon round that still has enough left flies out
+through the far side. A hit on fuel or ammunition may start a fire, and a hit on the ammunition may blow it up at
+once. High explosive bursts on the plate: it holes only a very thin plate (a mortar bomb on a BMP-2's roof), but
+can break a track. Rifle bullets never get through either vehicle.
+- *Puma*: its heavy front (add-on composite modules) stops 30 mm rounds and — the owner's choice — a single RPG-7
+  rocket; its sides, rear and roof stop machine-gun rounds up to 14.5 mm, but not a 30 mm round or a rocket.
+- *BMP-2*: its front stops 23 mm and 12.7 mm, its sides stop rifle-calibre armour-piercing rounds but not 12.7 mm;
+  every cannon round and rocket goes through it.
+
+**Knocked out.** A wrecked engine or track: the vehicle is *immobilised*; a wrecked gun: *disarmed*. The crew of
+an immobilised vehicle whose gun still works stays and fights while hits bounce off; it **bails out** — with any
+passengers — when the vehicle is penetrated again, when it burns, when it can neither move nor fire, or when no
+crewman can act any more (owner's choice). Men who cannot move stay inside. A burning vehicle is left at once;
+it burns out after about two minutes, and its ammunition may blow up before that: *destroyed*; men still inside
+are burnt. A destroyed or abandoned vehicle is a **wreck**: both sides know of it at once (it is drawn for both),
+men take cover beside it and nobody drives through it; it is listed in the battle's result for the campaign.
+Points (owner's choice): a vehicle destroyed or abandoned costs its side 20 points, immobilised 10.
+
+**Panzerfaust and RPG (M7.4a).** The German anti-tank man carries a Panzerfaust 3 (the firing unit and one round
+— the round is a tube he throws away after the shot), the Russian one an RPG-7 with two PG-7VL rockets (his
+assistant carries three more and brings one over when he has none). A shot takes a few seconds to aim; he lays on
+where he believes the target is, leads a moving vehicle by the rocket's flight time and sets the elevation from
+the rocket's real flight (it speeds up when its motor fires and slows in the air); his aim and his judgement of
+the range are not perfect, and wind pushes the rocket. The anti-tank lab: against a halted BMP-2 side-on, a
+Panzerfaust hits nearly always at 100 m and about half the time at 300–400 m; an RPG-7 against a Puma likewise —
+but never gets through its front. **When they fire on their own** is a standing rule of each unit (Rules panel,
+"Anti-tank weapons"): *vehicles only* (the default for new units, owner's choice), *vehicles and positions* (also
+at enemies in houses and at machine guns) or *only on order*; always within the unit's fire rule. You can order a
+shot at anything with the **Anti-tank** button and a tap (the best-placed man with a loaded launcher fires once).
+Nobody fires with a comrade in the danger zone behind the tube or a wall right behind him, nor from inside a house
+unless it is large or has a hole blown in it (owner's choice).
+
+**Parts of a vehicle (M7.4b).** Besides engine, tracks, gun, ammunition and fuel, a round that gets inside can
+now damage the transmission (immobilised), the turret drive (below half: the turret is turned by hand, four times
+slower), the stabiliser (it then shoots badly on the move), the coaxial machine gun (the cannon and the machine gun
+are knocked out separately; with both gone the vehicle is disarmed), the sights (gunner and commander look through
+their small vision blocks and shoot three times worse), the radio (the crew — and a squad riding inside — is off the
+net: orders and reports no longer reach it), the smoke dischargers and the fire extinguisher. An engine below half
+gives half power; a damaged track pulls less. The vehicle's panel lists every damaged part with its condition.
+
+**Fire and the extinguisher.** When a vehicle catches fire, its fire-extinguishing system tries first: one charge
+(counted, like every other item; the Puma carries two, the BMP-2 two) puts the fire out with a fair chance (Puma
+better than BMP-2; a fire in the ammunition is twice as hard to put out). If it fails and a charge is left, it
+tries again a moment later; with none left — or with the extinguisher wrecked — the crew gets out as before.
+
+**Crews that back off.** A crew whose vehicle can still drive decides once a second whether to fight on or to
+**reverse out**: when it has been penetrated, struck by a rocket (even one that did not get through, like an RPG on
+a Puma's front), lost its weapons, when its commander is shaken, or when enemy infantry is close and it has not been
+told to fire at will. It fires its smoke screen toward the danger and backs away about 60 m — in reverse if the
+danger is in front, so its front armour and gun still face it — and stays there for half a minute. The radio says
+"under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
+select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
+it from an abandoned vehicle of either side if it carries what their weapon uses.
+
+**Anti-tank fire by the AI (M7.4b).** Before, men fired their Panzerfaust or RPG only if they happened to see a
+vehicle within range at the right moment (about one rocket a battle). Now the AI commander gives anti-tank tasks:
+every few seconds it looks at the enemy vehicles its men have seen or been told of in the last ten seconds, and
+orders each man with a loaded launcher who has one within range to fire at it (always within his unit's anti-tank
+rule); if a comrade stands in the danger zone behind him, he first steps a few metres aside. Up to two men are sent
+after a halted vehicle a little out of range, to a point well inside their range. Attacking squads get out at once
+when their vehicle's crew sees enemy infantry within 400 m or an enemy vehicle within 600 m, and in a withdrawal the
+vehicles first back away before turning for home.
+
+**In a battle** (the default since M7.4a; `&vehicles=0` gives the battle on foot): the attacking platoons
+start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
+operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up
+to a point out of sight of the objectives, 300 m short of them for the Germans and 400 m for the Russians (from
+their published doctrine), and the squads get out and go on as before; they get out at once if a vehicle is hit.
+If the attack fails, squads within 100 m of their vehicle get back in and ride back. The defender's vehicles
+stand behind its position with only their crews and fire at will. Once the squads are out, the German Pumas stay
+where they dropped them and support by fire from there; the Russian BMP-2s follow their squads about 150 m behind
+(both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
+knows near the objective, never close to its own men.
 
 ## Does an attack work?
 
@@ -413,6 +537,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No first aid, anti-tank weapons are only carried,
+No first aid,
 men and squads fight on their own (fire back, take cover, share ammunition, react to contact, bound, break and rally) but doctrine does not differ between the sides yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

@@ -8,6 +8,8 @@ import {
   submitOrder, type Order,
 } from "@tcs/sim";
 import { getScenario, loadData } from "../src/scenarios";
+import { driveBattle } from "../src/labs/drive";
+import { duel } from "../src/labs/gunnery";
 
 const data = loadData();
 const sc = getScenario("demo");
@@ -111,5 +113,93 @@ describe("determinism", () => {
       }
       step(sim);
     }
+  });
+
+  it("a vehicle-only run driven by move orders is identical twice and through a JSON save mid-pivot", () => {
+    const vdata = loadData(true);
+    const orders = (unit: number): Order[] => [
+      { tick: 0, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 600, y: 200, mode: "drive" }, { x: 600, y: 380, mode: "run" }, { x: 300, y: 380, mode: "drive-fast" }] },
+      { tick: 1800, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 700, y: 50, mode: "walk", reverse: true }] },
+    ];
+    const run = (saveAt: number | null) => {
+      const b = driveBattle(vdata, "de-puma", { surface: "grass", rain: 0.5 });
+      const { unit, input } = b;
+      let sim = b.sim;
+      const os = orders(unit);
+      const hashes: string[] = [];
+      let pivotSaved = false;
+      for (let t = 0; t < 3600; t++) {
+        for (const o of os) if (o.tick === sim.state.tick) submitOrder(sim, o);
+        step(sim);
+        if (sim.state.tick % 300 === 0) hashes.push(simHash(sim));
+        const d = [...sim.state.vehicle.values()][0]!.drive;
+        // Save while turning on the spot (or at the given tick), reload through JSON, carry on.
+        if (saveAt !== null && !pivotSaved && sim.state.tick >= saveAt && Math.abs(d.yawRate) > 0.2 && Math.abs(d.speed) < 0.5) {
+          pivotSaved = true;
+          sim = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+        }
+      }
+      if (saveAt !== null) expect(pivotSaved).toBe(true);
+      return hashes;
+    };
+    const a = run(null), b = run(null), c = run(600);
+    expect(b).toEqual(a);
+    expect(c).toEqual(a);
+  });
+
+  it("a vehicle battle (vehicles scenario: hulls driving, yielding, flattening fences) saved halfway continues identically", () => {
+    const vs = getScenario("vehicles");
+    const input = vs.build(data, 2, 240);
+    const full = runBattle(input, { controllers: vs.controllers!(input) });
+    input.orders = full.orders;
+    const sim = createSim({ ...input, orders: [] });
+    const stream = [...input.orders].sort((x, y) => x.tick - y.tick);
+    let next = 0;
+    while (sim.state.tick < secondsToTicks(130)) {
+      while (next < stream.length && stream[next]!.tick <= sim.state.tick) submitOrder(sim, stream[next++]!);
+      step(sim);
+    }
+    expect(sim.state.terrain.breaches.length).toBeGreaterThan(0); // fences flattened before the save
+    const loaded = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+    expect(simHash(loaded)).toBe(simHash(sim));
+    expect(continueBattle(loaded, input).finalStateHash).toBe(full.finalStateHash);
+  });
+
+  it("a save at the 30 s wreck boundary while a turret slews loads into the same vehicle grid (M7 review finding 3)", () => {
+    // A red hull immobilised (a wreck for navigation 30 s after its last penetration), a red squad beside it
+    // ordered to walk through where it stands and to throw a grenade over it, a blue Puma laying its turret round.
+    // The save falls on the tick the orders are delivered, which is also the first tick the hull counts as a
+    // wreck: the loaded run must route and throw past the same hulls and stamps as the unbroken one.
+    const ORDER = 60;
+    const run = (lastPen: number, saveAt: number) => {
+      const input = duel(data, ["de", "ru"], { blue: { x: 400, y: 640, heading: 0 }, red: { x: 430, y: 600, heading: Math.PI / 2 }, redSquadAt: { x: 448, y: 600, spacing: 2 } });
+      for (const rec of input.forces[1]!.vehicles ?? []) rec.status = "immobilised";
+      let sim = createSim(input);
+      [...sim.state.vehicle.values()].find((v) => v.side === "red")!.lastPenTick = lastPen; // (test set-up, alike in every run)
+      const units = [...sim.state.unit.entries()];
+      for (const [uid, u] of units) if (u.parent === null) submitOrder(sim, { tick: 0, issuer: u.side, target: uid, kind: "rules", fire: "hold" });
+      const blueCrew = units.find(([, u]) => u.side === "blue" && u.vehicle !== undefined)![0];
+      const squad = units.find(([, u]) => u.side === "red" && u.vehicle === undefined && u.members.length > 0)![0];
+      const hashes: string[] = [];
+      let delivered = -1;
+      while (sim.state.tick < ORDER + 900) {
+        const t = sim.state.tick;
+        if (t === ORDER) {
+          submitOrder(sim, { tick: t, issuer: "red", target: squad, kind: "move", waypoints: [{ x: 410, y: 600, mode: "walk" }] });
+          submitOrder(sim, { tick: t, issuer: "red", target: squad, kind: "grenade", x: 418, y: 600 });
+          submitOrder(sim, { tick: t, issuer: "blue", target: blueCrew, kind: "fire", x: 400, y: 1100, heightM: 1.2, nature: "mg" });
+        }
+        if (t === saveAt) sim = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+        for (const e of step(sim)) if (delivered < 0 && e.kind === "order.delivered" && e.target === squad && e.orderKind === "move") delivered = e.tick;
+        if (sim.state.tick % 30 === 0) hashes.push(simHash(sim));
+      }
+      return { hashes, delivered };
+    };
+    const D = run(-1e9, -1).delivered;
+    expect(D).toBeGreaterThan(ORDER);
+    const L = D - 30 * 60 - 1; // a wreck from tick D on (isWreck: tick - lastPenTick > 1800)
+    const unbroken = run(L, -1), loaded = run(L, D);
+    expect(unbroken.delivered).toBe(D);
+    expect(loaded.hashes).toEqual(unbroken.hashes);
   });
 });

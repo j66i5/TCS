@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import { checkMap, demoBattle, generateMap, MAP_KINDS, mapStats, type MapKind } from "@tcs/scenario";
-import { buildingAt, cellIndex, cellMoveCost, mapFingerprint, mapFromFile, mapToFile, validateMap } from "@tcs/sim";
+import { buildingAt, buildMapIndex, cellIndex, cellMoveCost, mapFingerprint, segmentsInRect, segmentsInRectInto, mapFromFile, mapToFile, validateMap } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -57,6 +57,22 @@ describe("procedural maps", () => {
       const a = mapFingerprint(generateMap(terrain, { kind, seed: 5 }));
       expect(mapFingerprint(generateMap(terrain, { kind, seed: 5 }))).toBe(a);
       expect(mapFingerprint(generateMap(terrain, { kind, seed: 6 }))).not.toBe(a);
+    }
+  });
+
+  it("segmentsInRectInto returns the same ids in the same order as segmentsInRect on every map kind", () => {
+    for (const kind of MAP_KINDS) {
+      const ix = buildMapIndex(generateMap(terrain, { kind, seed: 3 }));
+      const out: number[] = [];
+      let k = 11;
+      const rnd = () => { k = (k * 1103515245 + 12345) % 2147483648; return k / 2147483648; };
+      for (let q = 0; q < 300; q++) {
+        // Short sight lines and blast boxes, and some long lines across half the map.
+        const x0 = rnd() * 2000, y0 = rnd() * 2000, r = q % 3 === 0 ? 1000 : 60;
+        const x1 = x0 + (rnd() - 0.5) * r, y1 = y0 + (rnd() - 0.5) * r;
+        const n = segmentsInRectInto(ix, x0, y0, x1, y1, out);
+        expect(out.slice(0, n)).toEqual(segmentsInRect(ix, x0, y0, x1, y1));
+      }
     }
   });
 

@@ -83,14 +83,40 @@ describe("simulation purity (packages/sim)", () => {
 
 describe("no faction is hard-coded (SPEC 4.3 rule 8)", () => {
   it("engine packages contain no faction ID literals", () => {
-    const factionIds = readdirSync(join(PKG, "data", "factions"));
-    const pat = new RegExp(`["'\`](${factionIds.join("|")})["'\`]`);
+    // Faction IDs and IDs prefixed with one (de-puma, ru-pg7vl, xf-cart), the fixture faction included (M7.1c).
+    const factionIds = [...readdirSync(join(PKG, "data", "factions")), ...readdirSync(join(PKG, "data", "fixtures", "factions"))];
+    const pat = new RegExp(`["'\`](${factionIds.join("|")})(-[a-z0-9-]+)?["'\`]`);
     const bad: string[] = [];
-    for (const pkg of ["sim", "ai", "render", "ui"]) {
+    for (const pkg of ["sim", "ai", "render", "ui", "scenario"]) {
       for (const f of sourceFiles(join(PKG, pkg, "src"))) {
         const t = stripComments(readFileSync(f, "utf8"));
         const m = pat.exec(t);
         if (m) bad.push(`${relative(ROOT, f)}: ${m[0]}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
+describe("men aboard vehicles are gated (A7, plan §15 M7.1c)", () => {
+  /** Loops over the soldier stores and calls that list a unit's men: each must skip men aboard, or say why not. */
+  const LOOP = /state\.(soldier|identity|mover|weapon|fire)\.(entries|values|keys)\(\)|\bunitSoldiers\(|\ballMembers\(|\bsideKnowledge\(/;
+  const GATE = /isMounted\(|isExposed\(|footSoldiers\(|\.mount\b|mounted: ok/;
+  /** Not gated yet, with the reason (logged in DECISIONS.md). Empty since M7.2 (surrender gated). */
+  const NOT_YET: string[] = [];
+  it("every soldier loop and unit-men call in sim, ai, render and app has a mount gate or a `mounted: ok` marker", () => {
+    const bad: string[] = [];
+    for (const pkg of ["sim", "ai", "render", "app"]) {
+      for (const f of sourceFiles(join(PKG, pkg, "src"))) {
+        if (NOT_YET.some((n) => f.endsWith(n))) continue;
+        const lines = readFileSync(f, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          const code = stripComments(line);
+          if (!LOOP.test(code) || /^\s*export function/.test(line)) return;
+          // The gate may sit on the line itself, a marker comment just above, or the next few lines.
+          const near = lines.slice(Math.max(0, i - 2), i + 4).join("\n");
+          if (!GATE.test(near)) bad.push(`${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
       }
     }
     expect(bad).toEqual([]);

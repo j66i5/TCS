@@ -12,15 +12,19 @@ import type { Order } from "./orders";
 import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
 import { buildBallistics } from "./ballistics";
+import { rebuildVehicleGrid } from "./hulls";
 import { syncTerrainDamage } from "./systems/explosions";
 import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
+import { crewReactionSystem, vehicleDamageSystem } from "./systems/armour";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
 import { drillSystem } from "./systems/drills";
+import { boardingSystem } from "./systems/boarding";
+import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
@@ -31,6 +35,7 @@ import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
 } from "./state";
 import { movementSystem } from "./systems/movement";
+import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
 
@@ -51,7 +56,7 @@ export function createContext(input: BattleInput): SimContext {
     rules: input.rules, comms,
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
     physiologyParams: { ...input.catalog.wounds.physiology, ...input.rules.physiologyParams },
-    breaches: [],
+    breaches: [], navStamps: [], navStampKey: "",
   };
 }
 
@@ -66,6 +71,7 @@ export function createSim(input: BattleInput): Sim {
   initObjectives(ctx, state);
   initSupport(ctx, state);
   syncTerrainDamage(ctx, state);
+  rebuildVehicleGrid(ctx, state);
   return { ctx, state };
 }
 
@@ -88,27 +94,46 @@ export function step(sim: Sim): SimEvent[] {
   const events = new EventSink();
   if (state.ended) return events.events;
 
-  if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms);
+  // The vehicle grid (hull boxes, turret pose, wreck stamps) from this tick's state, before anything queries it
+  // (orders, grenades, launchers, routes): a loaded save and an unbroken run see the same grid (M7 review).
+  if (state.vehicle.size > 0 || ctx.ballistics.vehicles.n > 0) rebuildVehicleGrid(ctx, state);
+  if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms, ctx.catalog);
   receiveOrders(ctx, state, events);
   deliverOrders(ctx, state, events);
   actionSystem(ctx, state, events);
   postureSystem(ctx, state, events);
   evadeSystem(ctx, state, events);
+  // Vehicles (M7): drive, then the men aboard move with their seats.
+  vehicleDriveSystem(ctx, state, events);
+  vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
+  // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
+  turretSystem(ctx, state);
   fireSystem(ctx, state, events);
+  stationFireSystem(ctx, state, events);
   supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
+  // Fire, cook-off and bailing out of damaged vehicles (M7.4a; returns at once without vehicles).
+  vehicleDamageSystem(ctx, state, events);
   grenadeReactionSystem(ctx, state, events);
+  // Hits on hulls and fire near vehicles (M7.3) before the infantry's incoming fire: its early return no longer
+  // skips station tasks (plan C34).
+  vehicleIncomingSystem(ctx, state, events.events);
   incomingFireSystem(ctx, state, events.events);
   woundSystem(ctx, state, events);
   moraleSystem(ctx, state, events, events.events);
+  // Crews decide to fight on or reverse out of reach (M7.4b; returns at once without vehicles).
+  crewReactionSystem(ctx, state, events);
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
   surrenderSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
+  stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
+  // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
+  boardingSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
@@ -142,6 +167,7 @@ export function loadSim(input: BattleInput, saved: SerializedState): Sim {
   }
   const state = deserializeState(saved);
   syncTerrainDamage(ctx, state);
+  rebuildVehicleGrid(ctx, state);
   return { ctx, state };
 }
 

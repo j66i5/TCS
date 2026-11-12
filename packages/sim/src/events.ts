@@ -23,7 +23,7 @@ export type SimEvent =
   | { kind: "move.noRoute"; tick: number; target: EntityId }
   | {
       kind: "impact"; tick: number; x: number; y: number; z: number;
-      surface: "ground" | "obstacle" | "building" | "vegetation";
+      surface: "ground" | "obstacle" | "building" | "vegetation" | "vehicle";
       result: "stopped" | "penetrated" | "ricochet";
       /** Material ID struck; for surface "vegetation" the vegetation kind's ID. */
       material: DefId; ammo: DefId; owner: EntityId;
@@ -35,12 +35,13 @@ export type SimEvent =
   | { kind: "explosion"; tick: number; x: number; y: number; z: number; ammo: DefId; owner: EntityId; stunRadiusM: number }
   /** A grenade with a running fuse has struck the ground (or a wall or roof) at this point; it will burst at burstTick. */
   | { kind: "grenade.landed"; tick: number; x: number; y: number; z: number; ammo: DefId; burstTick: number }
-  | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched"; x: number; y: number }
+  | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched" | "direct"; x: number; y: number }
   | { kind: "terrain.breached"; tick: number; x: number; y: number; owner: "obstacle" | "building"; id: number }
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
   | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }
-  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId }
+  /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
+  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
@@ -56,6 +57,44 @@ export type SimEvent =
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
   | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
+  /**
+   * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
+   * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).
+   */
+  | {
+      kind: "vehicle.hit"; tick: number; vehicle: EntityId; x: number; y: number; z: number;
+      face: "front" | "side" | "rear" | "top"; zone: "hull" | "turret";
+      result: "ricochet" | "stopped" | "penetrated" | "intercepted"; ammo: DefId; owner: EntityId; rounds: number; components: number[];
+    }
+  /** A penetrating hit damaged a component (M7.4a): its condition now (0 = wrecked). */
+  | { kind: "vehicle.component"; tick: number; vehicle: EntityId; component: number; condition: number }
+  /** A vehicle caught fire (M7.4a). */
+  | { kind: "vehicle.fire"; tick: number; vehicle: EntityId }
+  /** Its extinguisher put a fire out (M7.4b). */
+  | { kind: "vehicle.extinguished"; tick: number; vehicle: EntityId }
+  /** A crew's reaction to damage or danger (M7.4b): what it does and why (string keys; debug overlay). */
+  | { kind: "vehicle.reaction"; tick: number; vehicle: EntityId; reaction: "reverseOut" | "continue" | "bailOut"; keys: string[] }
+  /** A vehicle can no longer move ("immobilised") or fire ("disarmed") (M7.4a). */
+  | { kind: "vehicle.status"; tick: number; vehicle: EntityId; status: "immobilised" | "disarmed" }
+  /** A vehicle is destroyed (M7.4a): its ammunition blew up, or it burnt out. */
+  | { kind: "vehicle.destroyed"; tick: number; vehicle: EntityId; cause: "cookOff" | "burnt" }
+  /** Its crew (and passengers) bailed out, or its crew is out of action (M7.4a, owner Q14/Q15). */
+  | { kind: "vehicle.abandoned"; tick: number; vehicle: EntityId; reason: string }
+  /** A vehicle drove over (and, if it flattens it, through) a wall, fence or hedge. */
+  | { kind: "vehicle.crossed"; tick: number; vehicle: EntityId; obstacle: number }
+  /** A vehicle ran over a man. */
+  | { kind: "vehicle.ranOver"; tick: number; vehicle: EntityId; soldier: EntityId }
+  /** A man got into (or out of) a vehicle seat (M7.2); a unit's boarding is complete. */
+  | { kind: "soldier.mounted"; tick: number; soldier: EntityId; vehicle: EntityId; seat: number }
+  | { kind: "soldier.dismounted"; tick: number; soldier: EntityId; vehicle: EntityId; seat: number }
+  | { kind: "unit.mounted"; tick: number; unit: EntityId; vehicle: EntityId }
+  | { kind: "unit.dismounted"; tick: number; unit: EntityId; vehicle: EntityId }
+  /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
+  | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }
+  /** A vehicle's smoke dischargers fired (M7.3): the screen's centre. */
+  | { kind: "vehicle.smoke"; tick: number; vehicle: EntityId; x: number; y: number }
+  /** A vehicle station's decision changed (M7.3; debug overlay): its target (if any) and the reasons (string keys). */
+  | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | null; keys: string[] }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

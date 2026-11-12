@@ -129,6 +129,37 @@ describe("who gives up (M6.6)", () => {
     }
   });
 
+  it("attackers (owner): a panicked man of the attacking side, or of a unit in an assault, does not give up; a downed attacker only within 25 m", () => {
+    // Panicked attacker 25 m from a known enemy: no surrender (the defender would).
+    for (const [posture, expectIt] of [["attack", false], ["defend", true]] as const) {
+      const sim = createSim(setup(35, (i) => { i.forces[0]!.posture = posture; }));
+      const a = unitOf(sim, "blue")[1].members[0]!;
+      const ev = run(sim, 6, () => { sim.state.soldier.req(a).mental.stress = 1; });
+      if (expectIt) expect(gaveUp(ev, a)).toBeDefined(); else expect(gaveUp(ev, a)).toBeUndefined();
+    }
+    // A unit in an assault counts as attacking whatever its side's posture.
+    {
+      const sim = createSim(setup(35));
+      const [, blue] = unitOf(sim, "blue");
+      const a = blue.members[0]!;
+      const ev = run(sim, 6, () => {
+        sim.state.soldier.req(a).mental.stress = 1;
+        blue.drill = { kind: "assault", x: 35, y: 15, groups: [], mover: 0, phaseTick: sim.state.tick, final: false } as unknown as typeof blue.drill;
+      });
+      expect(gaveUp(ev, a)).toBeUndefined();
+    }
+    // Downed attacker alone: not at 40 m, yes at 20 m.
+    for (const [redX, expectIt] of [[50, false], [30, true]] as const) {
+      const sim = createSim(setup(redX, (i) => { i.forces[0]!.posture = "attack"; }));
+      const [, blue] = unitOf(sim, "blue");
+      const [a, b, c] = blue.members as [number, number, number];
+      place(sim, b, 10, 150); place(sim, c, 10, 180);
+      downed(sim, a);
+      const ev = run(sim, 5);
+      if (expectIt) expect(gaveUp(ev, a)).toMatchObject({ reason: "wounded" }); else expect(gaveUp(ev, a)).toBeUndefined();
+    }
+  });
+
   it("the same rule holds for both sides", () => {
     const sim = createSim(setup());
     const [, red] = unitOf(sim, "red");

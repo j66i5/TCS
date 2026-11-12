@@ -79,6 +79,28 @@
       ],
       "confidence": "low",
       "note": "Post-2008 platoon: three squads and the platoon commander, no separate headquarters (search extract only)."
+    },
+    {
+      "id": "komandir-mashiny",
+      "nameKey": "role.ru.komandir-mashiny",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "operator-navodchik",
+      "nameKey": "role.ru.operator-navodchik",
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "mekhanik-voditel",
+      "nameKey": "role.ru.mekhanik-voditel",
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
     }
   ]
 }

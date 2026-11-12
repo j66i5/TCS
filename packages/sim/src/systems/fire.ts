@@ -13,7 +13,6 @@
  */
 import { startAction } from "../actions";
 import { fireRateFactor, isCowering } from "./morale";
-import { dropAt } from "../ballistics";
 import type { FireTask, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
@@ -29,8 +28,9 @@ import { navFor } from "../navctx";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
-import { launchProjectile } from "./ballistics";
+import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
+import { isMounted } from "../mount";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -91,7 +91,7 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
 /** Give a soldier a fire task (from a fire order). */
 export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
-  if (!w || !s || !t || !isAble(s) || !s.impair.canFight) return false;
+  if (!w || !s || !t || !isAble(s) || !s.impair.canFight || s.mount !== undefined) return false; // aboard: the station fires (M7.3)
   const a = ctx.catalog.shooting.aim;
   const prev = state.fire.get(id);
   state.fire.set(id, {
@@ -122,7 +122,7 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
 }
 
 /** Is a man of the same unit in front of the muzzle, inside the safety cone and nearer than the target? */
-function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number): boolean {
   const top = topUnit(state, id);
   if (top === null) return false;
   const me = state.transform.req(id);
@@ -132,7 +132,8 @@ function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
   for (const other of unitSoldiers(state, top)) {
-    if (other === id) continue;
+    // (Men aboard a vehicle never block a comrade's fire: they are behind armour, M7.)
+    if (other === id || isMounted(state.soldier.get(other))) continue;
     const o = state.transform.req(other);
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
     if (along <= 0.5 || along >= range) continue;
@@ -145,11 +146,7 @@ function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number
 function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, w: WeaponState, task: FireTask, aimed: boolean): void {
   const wd = ctx.catalog.weapons[w.weapon]!;
   const s = state.soldier.req(id), t = state.transform.req(id);
-  // A belt mixes in a tracer every few rounds.
-  const magDef = ctx.catalog.items[w.magazine!.item];
-  const tracerDue = magDef?.tracerItem !== undefined && magDef.tracerEvery !== undefined && w.magazine!.rounds % magDef.tracerEvery === 0 && wd.ammo[magDef.tracerItem] !== undefined;
-  const ammoId = (tracerDue ? magDef!.tracerItem : magDef?.chargeItem) ?? "";
-  const v0 = wd.ammo[ammoId];
+  const { ammoId, v0 } = pickRound(ctx.catalog, wd, w.magazine!.item, w.magazine!.rounds);
   if (v0 === undefined) return;
   const a0 = atan2(task.y - t.y, task.x - t.x);
   t.heading = a0;
@@ -160,16 +157,11 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
   // He sets his point of aim for the range he believes it is.
   const believed = range * (1 + task.rangeError);
-  const e0 = atan2(tz - mz, range) + atan2(dropAt(ctx, ammoId, v0, believed), believed);
   const sd = aimErrorMrad(ctx, state, id, w, aimed);
   const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
-  const az = a0 + total * nextNormal(state.rng, Streams.fire);
-  const el = e0 + total * nextNormal(state.rng, Streams.fire);
-  const ce = cos(el);
-  launchProjectile(ctx, state, ammoId, mx, my, mz, v0 * cos(az) * ce, v0 * sin(az) * ce, v0 * sin(el), id);
+  launchShot(ctx, state, events, id, w.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total);
   w.magazine!.rounds--;
   w.lastShotTick = state.tick;
-  events.emit({ kind: "shot.fired", tick: state.tick, shooter: id, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon: w.weapon, ammo: ammoId });
   if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) {
     w.jammed = true;
     w.burstLeft = 0;
@@ -184,6 +176,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   // Not while he has a fire task (even a slow one), and only if the magazine is well below full.
   for (const [id, w] of state.weapon.entries()) {
     if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
+    if (isMounted(state.soldier.get(id))) continue; // aboard: no reloading his own weapon (M7)
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
     const sol = state.soldier.get(id);
     if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
@@ -230,6 +223,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // fires his last belt: the rule was made for rifle magazines, and a gun with a belt in it is no reserve.)
       // One report per unit, not one per man.
       const top = topUnit(state, id);
+      // mounted: ok only men who fire report low ammunition, and men aboard do not fire
       const already = top !== null && unitSoldiers(state, top).some((m) => m !== id && state.weapon.get(m)?.lowAmmoReported === true);
       if (!w.lowAmmoReported) w.lowAmmoReported = true;
       if (!already && !w.lowAmmoRadioed) {
@@ -288,7 +282,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     w.burstLeft--;
     w.burstIndex++;
     if (w.burstLeft > 0 && w.magazine.rounds > 0 && !w.jammed) {
-      w.nextShotTick = tick + Math.max(1, Math.round((TICK_HZ * 60) / wd.cyclicRpm));
+      w.nextShotTick = tick + burstCadence(wd.cyclicRpm);
     } else {
       w.burstLeft = 0;
       const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
@@ -304,6 +298,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   for (const [uid, why] of [...ended.entries()].sort((a, b) => a[0] - b[0])) {
     const unit = state.unit.get(uid);
     if (!unit || !unit.firing) continue;
+    // mounted: ok fire tasks belong to men on foot only
     if (unitSoldiers(state, uid).some((m) => state.fire.has(m))) continue;
     unit.firing = false;
     events.emit({ kind: "fire.ceased", tick, unit: uid, reason: why });
@@ -331,6 +326,7 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
     if (side === undefined) continue;
     if (targets === null) {
       targets = [];
+      // mounted: ok fire tasks belong to men on foot only
       for (const [id] of state.fire.entries()) {
         const t = state.transform.req(id);
         targets.push({ id, x: t.x, y: t.y, side: state.identity.req(id).side });
@@ -351,6 +347,7 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
   }
   const fullTicks = secondsToTicks(F.fullRateSeconds);
   for (const top of [...refresh].sort((a, b) => a - b)) {
+    // mounted: ok fire tasks belong to men on foot only
     for (const m of unitSoldiers(state, top)) {
       const task = state.fire.get(m);
       if (!task) continue;

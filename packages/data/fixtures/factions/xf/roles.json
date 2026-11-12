@@ -14,6 +14,21 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "carter",
+      "nameKey": "role.xf.carter",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture.",
+      "leader": true
+    },
+    {
+      "id": "slinger",
+      "nameKey": "role.xf.slinger",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
     }
   ]
 }

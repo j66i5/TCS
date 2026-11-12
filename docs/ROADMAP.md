@@ -167,7 +167,8 @@ white flags on the map; the after-action review lists surrendered and captured m
 
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired
-  anti-tank weapons; then main battle tanks. ⬜
+  anti-tank weapons. ✅ (2026-11-12; M7.1a–c, M7.2, M7.3, M7.4a, M7.4b — plan `docs/plans/m7-vehicles.md`).
+  Main battle tanks, wheeled carriers and IFV missiles later (owner: not in M7).
 - **M7.5 Look and interface** (owner request 2026-11-12, after M7) — ⬜
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.

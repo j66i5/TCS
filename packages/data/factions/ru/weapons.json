@@ -107,6 +107,84 @@
       ],
       "confidence": "low",
       "note": "AK-12 (6P70): about 3.5 kg empty, 415 mm barrel, about 650 rounds/min (published; sources differ between 3.3 and 3.5 kg). Uses the AK-74 magazines. Muzzle velocity set slightly below the AK-74M, dispersion 10 % better than the AK-74M (one source's comparison); both game values. Not issued in the default squad (owner: AK-74M is the default)."
+    },
+    {
+      "id": "ru-2a42",
+      "nameKey": "weapon.ru-2a42",
+      "type": "autocannon",
+      "calibre": "30x165",
+      "massKg": 115,
+      "feed": {
+        "magazine": "ru-30x165-belt-he"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 550,
+      "dispersionMrad": 0.8,
+      "reloadSeconds": 10,
+      "setupSeconds": 0,
+      "jamProbability": 0.0001,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 6
+        }
+      ],
+      "ammo": {
+        "ru-30x165-3ubr8": 1120,
+        "ru-30x165-3uof8": 960
+      },
+      "sustained": {
+        "burstRounds": 4,
+        "intervalS": 2.0,
+        "recoilFactor": 0.15
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/2A42"
+      ],
+      "confidence": "low",
+      "note": "2A42, dual feed, high rate 550 rounds/min (published, 200-300 on the low setting). Bursts of 4 every 2 s, dispersion and mass are game values. The search tool cannot open pages in this container: values from published references as remembered (search extracts only)."
+    },
+    {
+      "id": "ru-pkt",
+      "nameKey": "weapon.ru-pkt",
+      "type": "machine-gun",
+      "calibre": "7.62x54R",
+      "massKg": 10.5,
+      "feed": {
+        "magazine": "ru-pkt-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 750,
+      "dispersionMrad": 0.7,
+      "reloadSeconds": 10,
+      "setupSeconds": 0,
+      "jamProbability": 0.0003,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 6
+        }
+      ],
+      "ammo": {
+        "ru-762r-lps": 855,
+        "ru-762r-t46": 855
+      },
+      "sustained": {
+        "burstRounds": 6,
+        "intervalS": 1.5,
+        "recoilFactor": 0.1
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/PK_machine_gun",
+        "https://en.wikipedia.org/wiki/BMP-2"
+      ],
+      "confidence": "low",
+      "note": "PKT coaxial machine gun (BMP-2): 250-round belts, 2000 rounds carried (published); bursts are game values."
     }
   ]
 }

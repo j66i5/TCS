@@ -29,6 +29,36 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-sling",
+      "nameKey": "weapon.xf-sling",
+      "type": "launcher",
+      "calibre": "bolt",
+      "massKg": 40,
+      "feed": {
+        "magazine": "xf-bolt-rack"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 15,
+      "dispersionMrad": 6,
+      "reloadSeconds": 4,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "iron",
+          "magnification": 1
+        }
+      ],
+      "ammo": {
+        "xf-bolt": 120
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture."
     }
   ]
 }

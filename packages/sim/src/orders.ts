@@ -20,6 +20,8 @@ export interface Waypoint {
   mode: DefId;
   /** Posture for the leg; reserved (M1). */
   posture?: Posture;
+  /** Vehicles (M7): drive this leg in reverse. */
+  reverse?: true;
 }
 
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */
@@ -36,10 +38,19 @@ export type OrderBody =
   /** Stop and take a posture. */
   | { kind: "posture"; posture: Posture }
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
-  | { kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId }
+  | {
+    kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId;
+    /** Vehicles (M7.3): armour-piercing, high explosive or the machine gun; absent: the crew chooses. "at" (M7.4a):
+     *  men on foot fire one anti-tank round (Panzerfaust, RPG) at it — any target the player picks (owner Q19). */
+    nature?: "ap" | "he" | "mg" | "at";
+  }
   | { kind: "ceaseFire" }
   /** Standing rules for the unit and its sub-units (M4.2, M5); only the rules given change. */
-  | { kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max" }
+  | {
+    kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max";
+    /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
+    at?: "vehicles" | "vehiclesAndPositions" | "hold";
+  }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
   | { kind: "assault"; x: number; y: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
@@ -48,7 +59,14 @@ export type OrderBody =
    *  who can still use the radio) passes it on; the side's allotment pays for it. */
   | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke"; rounds: number }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
-  | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number };
+  | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number }
+  /** Get in (M7.2): the men on foot walk to the vehicle and board it; to a parent, each unit under it boards its
+   *  own carrier. `vehicle` (an own vehicle) overrides the carrier. */
+  | { kind: "mount"; vehicle?: EntityId }
+  /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
+  | { kind: "dismount" }
+  /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
+  | { kind: "discharge" };
 
 export type OrderKind = OrderBody["kind"];
 
@@ -78,4 +96,6 @@ export type OrderRejectReason =
   | "unknown-target"
   | "not-your-unit"
   | "invalid-params"
+  /** This kind of order means nothing to that kind of unit (M7.3: a grenade to a vehicle crew, smoke to men on foot). */
+  | "not-applicable"
   | "battle-ended";

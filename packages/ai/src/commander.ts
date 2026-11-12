@@ -16,19 +16,84 @@
  *
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
-import { atan2, hypot2, isCaptive, isOut, supportLeft, type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimView, type SoldierState } from "@tcs/sim";
+import {
+  atan2, backblastBlocked, cos, createContext, heightAt, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, sight, supportLeft, syncTerrainDamage,
+  type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
+} from "@tcs/sim";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4 } as const;
+export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+  // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
+  // long a man waits between shots, how far beyond his weapon's range he goes after a halted vehicle (and where
+  // he stops: this share of the range), how many such hunters a side sends at once and for how long.
+  atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
+  // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
+  // vehicle seen this close; a crew reversing out is left to it this long; vehicles reverse this far on withdrawal.
+  dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 30, withdrawReverseM: 80 } as const;
 
-type Phase = "start" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
-interface Memory { phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number }
+type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
+interface Memory {
+  phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number;
+  /** M7.2 ride and dismount: the last vehicle hit it has seen (polled `lastHitTick`), squads and men ordered out,
+   *  vehicles waiting for their squad to get back in during a withdrawal. */
+  lastHitSeen?: number; out?: number[]; remount?: number[];
+  /** M7.3 after the dismount: vehicle crews set loose (fire free), where each following vehicle was last sent,
+   *  and when the vehicles last got a fire order. */
+  crewsFree?: boolean; followAt?: Record<string, [number, number]>; lastVehicleFire?: number;
+  /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
+   *  order, and the men sent after a vehicle (target, since when). */
+  sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+}
+
+/**
+ * A controller's own view of the ground (built once, when first needed; derived, never saved): before each use it
+ * is brought up to the view it is given, holes blown in walls (when there are new ones) and the hulls and wrecks
+ * as they stand (once per tick), so sight lines and back-blast checks agree with the sim's (M7 review).
+ */
+export function viewGround(input: BattleInput): (view: SimView, tick: number) => SimContext {
+  let ctx: SimContext | null = null;
+  let seenBreaches = -1, groundTick = -1;
+  return (view, tick) => {
+    const c = ctx ??= createContext({ ...input, orders: [] });
+    const st = view as unknown as SimState;
+    if (st.terrain.breaches.length !== seenBreaches) { syncTerrainDamage(c, st); seenBreaches = st.terrain.breaches.length; }
+    if (groundTick !== tick) { rebuildVehicleGrid(c, st); groundTick = tick; }
+    return c;
+  };
+}
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
 
+/** The men of a unit and its sub-units, vehicle crews left out (they fight from their vehicles). */
 function members(view: SimView, uid: EntityId): EntityId[] {
   const u = view.unit.get(uid);
   if (!u) return [];
-  return [...u.members, ...u.children.flatMap((c) => members(view, c))];
+  return [...u.members, ...u.children.filter((c) => isFootUnit(view, c)).flatMap((c) => members(view, c))];
+}
+
+/** A unit on foot that fights as a squad: not a vehicle crew, nor a crew that bailed out (M7.4b). */
+function isFootUnit(view: SimView, uid: EntityId): boolean {
+  const u = view.unit.get(uid);
+  return u !== undefined && u.vehicle === undefined && u.exVehicle === undefined;
+}
+
+/** Able men of a unit who are aboard a vehicle (not crew): they ride, and are never ordered to walk. */
+function riders(view: SimView, uid: EntityId): EntityId[] {
+  const u = view.unit.get(uid);
+  if (!u || u.vehicle !== undefined) return [];
+  return u.members.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return s?.mount !== undefined && able(s) && s.impair.canWalk; });
+}
+
+/** The anti-tank round (and its effective range) a man of the side carries ready to fire: a launcher and a round. */
+function launcherReady(view: SimView, input: BattleInput, m: EntityId): { range: number; ammo: string } | null {
+  const c = view.container.get(m);
+  if (!c) return null;
+  for (const st of c.stacks) {
+    if (st.count <= 0) continue;
+    const d = input.catalog.ammo[st.type]?.delivery;
+    if (d?.method !== "direct" || d.launcher === undefined) continue;
+    if (c.stacks.some((x) => x.type === d.launcher && x.count > 0)) return { range: d.maxRangeM ?? 300, ammo: st.type };
+  }
+  return null;
 }
 
 export function commanderController(side: SideId, input: BattleInput): Controller {
@@ -44,29 +109,126 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   const defending = objectives.length > 0 && objectives[0]!.holder === side;
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
   const every = COMMANDER.stepSeconds * 60;
+  // Where the attacker gets out (M7.2, owner Q22): this far short of the objective, from its faction's doctrine;
+  // without one, the plan's formula from the willingness to dismount.
+  const dismountM = input.catalog.factions[force.faction]?.dismountM ?? 300 + (1 - (doctrine["willingnessToDismount"] ?? 0.5)) * 500;
+  const M = input.catalog.behaviour.mounting;
+  // Its own view of the ground for sight lines and back-blast checks [C58], kept up with the view (M7 review).
+  const groundOf = viewGround(input);
+  let curView: SimView | null = null, curTick = -1;
+  const ground = (): SimContext => groundOf(curView!, curTick);
+  /** Out of sight of (ox, oy) from a man standing there to a hull's top at (x, y)? */
+  const hidden = (ox: number, oy: number, x: number, y: number): boolean => {
+    const ctx = ground();
+    const z0 = heightAt(input.map, ox, oy) + 1.7, z1 = heightAt(input.map, x, y) + 2.2;
+    return sight(ctx, ox, oy, z0, x, y, z1).blockedBy !== null;
+  };
 
   return {
     side,
     think(view, tick): Order[] {
       if (view.ended || tick % every !== 0) return [];
+      curView = view; curTick = tick;
       const out: Order[] = [];
       const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       const tops = [...view.unit.entries()].filter(([, u]) => u.side === side && u.parent === null);
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
-      const squads = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
+      // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
+      const children = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
+      const squads = children.filter((c) => isFootUnit(view, c));
+      const crews = children.filter((c) => view.unit.get(c)?.vehicle !== undefined);
+      // Crews that bailed out (M7.4b): on foot, they go back to where the side started (once each).
+      const bailed = children.filter((c) => view.unit.get(c)?.exVehicle !== undefined);
+      const crewOfVehicle = (vid: EntityId | undefined) => crews.find((c) => view.unit.get(c)?.vehicle === vid);
       const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
       // given up (M6.6: the commander does not fire, shell or throw at him).
       const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => c.surrendered !== true); };
+      // Men only (M7.3): no mortar, grenade or rifle base of fire at a vehicle contact (plan §12).
+      const knownMen = (m: EntityId) => known(m).filter((c) => c.cls !== "vehicle");
       // Fire is called through the first platoon that still has a man who can use the radio.
       const caller = topIds.find((id) => members(view, id).some((m) => { const s = view.soldier.get(m); return able(s as SoldierState | undefined) && s!.impair.canSpeak; })) ?? topIds[0]!;
       const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length / ms.length : 0; };
       const all = topIds.flatMap((id) => members(view, id));
+      // Vehicles (M7.2): the polled state the plan lists (§12): status, arrival, hits since the last look.
+      const vehicleOf = (c: EntityId) => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.vehicle.get(vid); };
+      const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
+      for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
+      // Its own vehicles (a crew that bailed out no longer has one: count the hulls of its side).
+      const ownVehicles = [...view.vehicle.values()].filter((v) => v.side === side);
+      const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
+      mem.sentBack ??= [];
+      for (const c of bailed) {
+        if (mem.sentBack.includes(c)) continue;
+        order(c, { kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] });
+        mem.sentBack.push(c);
+      }
+      // ---- anti-tank tasks (M7.4b): men with a Panzerfaust or an RPG engage the enemy vehicles their side knows
+      // within their weapon's range (an order to the man: he fires once, his squad's drill goes on), under their
+      // unit's anti-tank rule; a halted vehicle a little beyond it is stalked by up to two of them, who go to a
+      // point inside their range on the line to it (the AI's "tank-hunting team").
+      if (mem.phase !== "start" && mem.phase !== "ride" && tick - (mem.lastAt ?? -1e9) >= COMMANDER.atEverySeconds * 60) {
+        mem.lastAt = tick;
+        mem.atShot ??= {}; mem.hunt ??= {};
+        // Enemy vehicles its men know (seen or reported recently, not wrecks), the freshest report of each.
+        const vk = new Map<EntityId, { x: number; y: number; tick: number; moving: boolean }>();
+        for (const m of all) for (const c of known(m)) {
+          if (c.cls !== "vehicle" || c.wreck === true || c.kind === "heard" || tick - c.tick > COMMANDER.atContactSeconds * 60) continue;
+          const prev = vk.get(c.target);
+          if (!prev || c.tick > prev.tick) vk.set(c.target, { x: c.x, y: c.y, tick: c.tick, moving: Math.abs(c.vx ?? 0) + Math.abs(c.vy ?? 0) > 1 });
+        }
+        // Hunters whose target is gone, or who have been out long enough, are let go (their squad's next order takes them back).
+        for (const [k, h] of Object.entries(mem.hunt)) if (!vk.has(h[0]) || tick - h[1] > COMMANDER.huntSeconds * 60) delete mem.hunt[k];
+        if (vk.size > 0) {
+          const atRule = (uid: EntityId): string => {
+            for (let u = view.unit.get(uid); u; u = u.parent === null ? undefined : view.unit.get(u.parent)) if (u.atRule !== undefined) return u.atRule;
+            return input.catalog.behaviour.antitank.atRuleDefault;
+          };
+          const targets = [...vk.entries()].sort((a, b) => a[0] - b[0]);
+          for (const m of all) {
+            const s = view.soldier.get(m) as SoldierState | undefined;
+            if (!able(s) || s!.mount !== undefined || !s!.impair.canUseArms || view.action.has(m)) continue;
+            const uid = view.identity.get(m)?.unit;
+            if (uid === undefined || atRule(uid) === "hold") continue;
+            const rd = launcherReady(view, input, m);
+            const t = view.transform.get(m);
+            if (!rd || !t) continue;
+            let best: { id: EntityId; x: number; y: number; d: number; moving: boolean } | null = null;
+            for (const [id, k] of targets) { const d = hypot2(k.x - t.x, k.y - t.y); if (!best || d < best.d) best = { id, x: k.x, y: k.y, d, moving: k.moving }; }
+            if (!best) continue;
+            if (best.d <= rd.range && best.d >= 20) {
+              if (tick - (mem.atShot[String(m)] ?? -1e9) < COMMANDER.atRefireSeconds * 60) continue;
+              // A comrade (or a wall) in the danger zone behind him (owner Q20): he first steps a few metres aside,
+              // and fires at the next look.
+              const az = atan2(best.y - t.y, best.x - t.x);
+              if (backblastBlocked(ground(), view as unknown as SimState, m, rd.ammo, az) !== null) {
+                const side = m % 2 === 0 ? 1 : -1;
+                order(m, { kind: "move", waypoints: [{ x: clamp(t.x - sin(az) * side * COMMANDER.atSidestepM, W), y: clamp(t.y + cos(az) * side * COMMANDER.atSidestepM, H), mode: "run" }] });
+                mem.atShot[String(m)] = tick - (COMMANDER.atRefireSeconds - COMMANDER.atEverySeconds) * 60;
+                continue;
+              }
+              order(m, { kind: "fire", x: best.x, y: best.y, contact: best.id, nature: "at" });
+              mem.atShot[String(m)] = tick;
+              continue;
+            }
+            // Stalk a halted vehicle a little out of reach (not while the platoon breaks off).
+            if (mem.phase === "withdraw" || best.moving || best.d > rd.range + COMMANDER.huntBeyondM) continue;
+            const h = mem.hunt[String(m)];
+            // A hunter already out: sent on again if he has stopped short (pulled back by a squad order, or gone to ground).
+            if (h !== undefined && (h[0] !== best.id || (view.mover.get(m)?.waypoints.length ?? 0) > 0)) continue;
+            if (h === undefined && Object.keys(mem.hunt).length >= COMMANDER.huntersMax) continue;
+            const goal = rd.range * COMMANDER.huntAtRangeShare;
+            const gx = clamp(best.x + ((t.x - best.x) / best.d) * goal, W), gy = clamp(best.y + ((t.y - best.y) / best.d) * goal, H);
+            order(m, { kind: "move", waypoints: [{ x: gx, y: gy, mode: "run" }] });
+            if (h === undefined) mem.hunt[String(m)] = [best.id, tick];
+          }
+        }
+      }
       const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
@@ -90,7 +252,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         // Mortars on attackers its men have seen out in the open (not near its own men).
         if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
           let sx2 = 0, sy2 = 0, n = 0;
-          for (const m of all) for (const c of known(m)) {
+          for (const m of all) for (const c of knownMen(m)) {
             if (c.kind === "reported" || hypot2(c.x - main.x, c.y - main.y) < 120) continue;
             sx2 += c.x; sy2 += c.y; n++;
           }
@@ -113,32 +275,204 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
 
       // ---- attack
       // (Holding what it took, it stays: breaking off would give the objectives back.)
-      if (mem.phase !== "withdraw" && mem.phase !== "hold" && down > tolerance) {
-        for (const sq of squads) order(sq, { kind: "withdraw", x: sx, y: sy });
-        for (const m of hq) order(m, { kind: "move", waypoints: [{ x: sx, y: sy, mode: "run" }] });
+      const tgt = objectives[mem.target] ?? main;
+      const dx = tgt.x - sx, dy = tgt.y - sy, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      /** Back to the start, each vehicle to its own spot in a line across the way in. */
+      const back = (c: EntityId): Record<string, unknown> => {
+        const off = (crews.indexOf(c) - (crews.length - 1) / 2) * 20;
+        const end = { x: clamp(sx - uy * off, W), y: clamp(sy + ux * off, H), mode: "run" };
+        // M7.4b: it first reverses out a little (its front and gun still toward the enemy), then turns for home.
+        const vt = (() => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.transform.get(vid); })();
+        if (!vt || hypot2(vt.x - sx, vt.y - sy) < COMMANDER.withdrawReverseM * 2) return { kind: "move", waypoints: [end] };
+        return { kind: "move", waypoints: [{ x: clamp(vt.x - ux * COMMANDER.withdrawReverseM, W), y: clamp(vt.y - uy * COMMANDER.withdrawReverseM, H), mode: "run", reverse: true }, end] };
+      };
+      const vehiclesLost = ownVehicles.length > 0 && lostVehicles >= COMMANDER.vehicleLossShare * ownVehicles.length;
+      if (mem.phase !== "withdraw" && mem.phase !== "hold" && (down > tolerance || vehiclesLost)) {
+        // Squads within reach of their vehicle get back in (owner Q24); the others break contact on foot.
+        mem.remount = [];
+        const near = (uid: EntityId, men: EntityId[]): EntityId | undefined => {
+          const vid = view.unit.get(uid)?.carrier;
+          const v = vid === undefined ? undefined : view.vehicle.get(vid);
+          const vt = vid === undefined ? undefined : view.transform.get(vid);
+          const crew = crewOfVehicle(vid);
+          if (!v || !vt || crew === undefined || v.status !== "ok") return undefined;
+          const fit = men.filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+          if (fit.length === 0) return undefined;
+          const cx = fit.reduce((a, m) => a + view.transform.get(m)!.x, 0) / fit.length, cy = fit.reduce((a, m) => a + view.transform.get(m)!.y, 0) / fit.length;
+          return hypot2(cx - vt.x, cy - vt.y) <= M.remountM ? crew : undefined;
+        };
+        for (const sq of squads) {
+          const crew = near(sq, members(view, sq));
+          if (riders(view, sq).length > 0 && crew !== undefined) { mem.remount.push(crew); continue; } // still aboard: ride back
+          if (crew !== undefined) { order(sq, { kind: "mount" }); mem.remount.push(crew); } else order(sq, { kind: "withdraw", x: sx, y: sy });
+        }
+        const hqFoot = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount === undefined);
+        const hqCrew = tops.length > 0 ? near(tops[0]![0], hqFoot) : undefined;
+        for (const m of hqFoot) order(m, hqCrew !== undefined ? { kind: "mount" } : { kind: "move", waypoints: [{ x: sx, y: sy, mode: "run" }] });
+        if (hqCrew !== undefined && !mem.remount.includes(hqCrew)) mem.remount.push(hqCrew);
+        // Vehicles with nobody to pick up go back at once.
+        for (const c of crews) if (!mem.remount.includes(c) && vehicleOf(c)?.status === "ok") order(c, back(c));
         mem.phase = "withdraw"; mem.phaseTick = tick;
         return out;
       }
-      const tgt = objectives[mem.target] ?? main;
-      const dx = tgt.x - sx, dy = tgt.y - sy, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      // A vehicle drives back once its men are in (or after a minute).
+      if (mem.phase === "withdraw" && (mem.remount?.length ?? 0) > 0) {
+        mem.remount = mem.remount!.filter((c) => {
+          const vid = view.unit.get(c)?.vehicle;
+          const boarding = [...view.unit.values()].some((u) => u.boarding?.kind === "mount" && u.boarding.vehicle === vid);
+          if (boarding && tick - mem.phaseTick < 60 * 60) return true;
+          order(c, back(c));
+          return false;
+        });
+      }
+      // A squad still aboard close to an objective gets out to hold it [C29].
+      if (mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
+        for (const sq of squads) {
+          const vid = view.unit.get(sq)?.carrier;
+          const vt = vid === undefined ? undefined : view.transform.get(vid);
+          if (!vt || riders(view, sq).length === 0 || view.unit.get(sq)?.boarding) continue;
+          if (objectives.some((o) => hypot2(o.x - vt.x, o.y - vt.y) <= M.holdDismountM + o.radiusM)) order(sq, { kind: "dismount" });
+        }
+      }
       const support = { x: clamp(tgt.x - ux * COMMANDER.supportM, W), y: clamp(tgt.y - uy * COMMANDER.supportM, H) };
       const lateral = (k: number) => ({ x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) });
+      /** The advance on foot to the support line: walk most of the way, sneak the last stretch (from where the
+       *  squad is: men who got out near the line only sneak). */
+      const advance = (sq: EntityId, i: number) => {
+        const lat = (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
+        const p = lateral(lat);
+        const q = { x: clamp(p.x - ux * COMMANDER.sneakM, W), y: clamp(p.y - uy * COMMANDER.sneakM, H) };
+        const ms = members(view, sq).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+        const here = ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : { x: sx, y: sy };
+        const ahead = hypot2(q.x - tgt.x, q.y - tgt.y) < hypot2(here.x - tgt.x, here.y - tgt.y);
+        order(sq, { kind: "move", waypoints: ahead ? [{ x: q.x, y: q.y, mode: "walk" }, { x: p.x, y: p.y, mode: "sneak" }] : [{ x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
+      };
+      // ---- vehicles after the dismount (M7.3, plan §12): fire free; German overwatch (they stay where they dropped
+      // the squads), Russian following (each about followM behind its squad); support by fire on the objective.
+      if (crews.length > 0 && mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
+        const fighting = crews.filter((c) => { const v = vehicleOf(c); return v !== undefined && (v.status === "ok" || v.status === "immobilised"); });
+        if (!mem.crewsFree) { for (const c of fighting) order(c, { kind: "rules", fire: "free" }); mem.crewsFree = true; }
+        const after = input.catalog.factions[force.faction]?.afterDismount;
+        if (after?.kind === "follow") {
+          mem.followAt ??= {};
+          for (const c of fighting) {
+            const vid = view.unit.get(c)?.vehicle;
+            const sq = squads.find((u) => view.unit.get(u)?.carrier === vid);
+            const v = vehicleOf(c), vt = vid === undefined ? undefined : view.transform.get(vid);
+            if (sq === undefined || !v || !vt || v.status !== "ok" || riders(view, sq).length > 0 || view.unit.get(sq)?.boarding) continue;
+            // A crew reversing out of danger (M7.4b) is left to it for a while.
+            if (v.crewReaction === "reverseOut" && tick - v.reactionTick < COMMANDER.reverseOutHoldSeconds * 60) continue;
+            const men = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+            if (men.length === 0) continue;
+            const cx = men.reduce((a, b) => a + b.x, 0) / men.length, cy = men.reduce((a, b) => a + b.y, 0) / men.length;
+            const px = clamp(cx - ux * after.followM, W), py = clamp(cy - uy * after.followM, H);
+            const prev = mem.followAt[String(c)];
+            // Only once the squad has moved on (and the vehicle is not on its way already).
+            if (prev && hypot2(prev[0] - px, prev[1] - py) < COMMANDER.followReplanM) continue;
+            if (hypot2(vt.x - px, vt.y - py) < COMMANDER.followReplanM) { mem.followAt[String(c)] = [px, py]; continue; }
+            order(c, { kind: "move", waypoints: [{ x: px, y: py, mode: "walk" }], facing: atan2(uy, ux) });
+            mem.followAt[String(c)] = [px, py];
+          }
+        }
+        // Support by fire: during the assault each vehicle fires at an enemy its side knows near the objective,
+        // never close to its own men on foot (they shift or stop, plan §12).
+        if ((mem.phase === "assault" || mem.phase === "second") && tick - (mem.lastVehicleFire ?? -1e9) >= COMMANDER.supportFireEverySeconds * 60) {
+          const used = new Set<number>();
+          const ownFoot = all.filter((f) => { const s = view.soldier.get(f); return s !== undefined && s.mount === undefined && s.physiology.alive; }).map((f) => view.transform.get(f)).filter((x) => x !== undefined);
+          for (const c of fighting) {
+            let best: { target: EntityId; x: number; y: number } | null = null, bestD = 150;
+            for (const m of all) for (const k of known(m)) {
+              if (k.kind === "heard") continue;
+              const d = hypot2(k.x - tgt.x, k.y - tgt.y) + (used.has(k.target) ? 60 : 0);
+              if (d >= bestD) continue;
+              if (ownFoot.some((f) => hypot2(f.x - k.x, f.y - k.y) < COMMANDER.vehicleFireNearOwnM)) continue;
+              bestD = d; best = { target: k.target, x: k.x, y: k.y };
+            }
+            if (!best) continue;
+            used.add(best.target);
+            order(c, { kind: "fire", x: best.x, y: best.y, contact: best.target });
+          }
+          mem.lastVehicleFire = tick;
+        }
+      }
       switch (mem.phase) {
         case "start":
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
+          // Mounted (M7.2): the vehicles drive the squads to their dismount points; the squads ride.
+          if (squads.some((sq) => riders(view, sq).length > 0)) {
+            // The dismount point: this far short of the objective along the way in, the nearest point at or beyond
+            // it out of sight of the objective (and of enemies its men know); none hidden: at the distance itself.
+            // Each vehicle its own slot across the way in; "short of the objective" counts from every objective
+            // (the nearer one may lie on a flank), and "out of sight" from the objectives' near edges.
+            const known0 = all.flatMap((m) => known(m)).slice(0, 4);
+            const eyes = [...objectives.flatMap((o) => [{ x: o.x - ux * o.radiusM, y: o.y - uy * o.radiusM }, { x: o.x - uy * o.radiusM, y: o.y + ux * o.radiusM }, { x: o.x + uy * o.radiusM, y: o.y - ux * o.radiusM }]), ...known0];
+            const carried = crews.filter((c) => squads.some((sq) => view.unit.get(sq)?.carrier === view.unit.get(c)?.vehicle) || topIds.some((tp) => view.unit.get(tp)?.carrier === view.unit.get(c)?.vehicle));
+            carried.forEach((c, i) => {
+              const off = (i - (carried.length - 1) / 2) * COMMANDER.vehicleSlotM;
+              // The headquarters' vehicle a little behind the others.
+              const hqV = topIds.some((tp) => view.unit.get(tp)?.carrier === view.unit.get(c)?.vehicle) && !squads.some((sq) => view.unit.get(sq)?.carrier === view.unit.get(c)?.vehicle);
+              const behind = hqV ? 40 : 0;
+              const at = (d: number) => ({ x: clamp(tgt.x - ux * d - uy * off, W), y: clamp(tgt.y - uy * d + ux * off, H) });
+              const far = (p: { x: number; y: number }) => objectives.every((o) => hypot2(o.x - p.x, o.y - p.y) >= dismountM);
+              // The first point far enough from every objective, then up to 100 m farther back for one out of sight.
+              let k0 = 0;
+              while (k0 < 20 && !far(at(dismountM + behind + k0 * COMMANDER.dismountStepM))) k0++;
+              const first = at(dismountM + behind + k0 * COMMANDER.dismountStepM);
+              let spot: { x: number; y: number } | null = null;
+              for (let k = k0; k < k0 + COMMANDER.dismountCandidates && spot === null; k++) {
+                const p = at(dismountM + behind + k * COMMANDER.dismountStepM);
+                if (eyes.every((e) => hidden(e.x, e.y, p.x, p.y))) spot = p;
+              }
+              const p = spot ?? first;
+              order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
+            });
+            toAll({ kind: "rules", fire: "return" });
+            mem.out = [];
+            mem.phase = "ride"; mem.phaseTick = tick;
+            break;
+          }
           // Walk most of the way, sneak the last stretch to the support line (M6.5b); routes keep to cover as
           // the faction's doctrine prefers (systems/orders.ts).
-          squads.forEach((sq, i) => {
-            const lat = (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
-            const p = lateral(lat);
-            const q = { x: clamp(p.x - ux * COMMANDER.sneakM, W), y: clamp(p.y - uy * COMMANDER.sneakM, H) };
-            order(sq, { kind: "move", waypoints: [{ x: q.x, y: q.y, mode: "walk" }, { x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
-          });
+          squads.forEach((sq, i) => advance(sq, i));
           for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
           mem.phase = "advance"; mem.phaseTick = tick;
           break;
+        case "ride": {
+          // An anti-tank threat (M7.4b, plan §12): enemy men its crews know close to the carrier (any of them may
+          // carry a Panzerfaust or an RPG), or an enemy vehicle seen: out at once.
+          const crewKnown = crews.flatMap((c) => view.unit.get(c)?.members ?? []).flatMap((m) => known(m));
+          const atThreat = (vid: EntityId): boolean => {
+            const vt = view.transform.get(vid);
+            if (!vt) return false;
+            return crewKnown.some((c) => c.wreck !== true && tick - c.tick <= 60 * 60 && c.kind !== "heard"
+              && hypot2(c.x - vt.x, c.y - vt.y) <= (c.cls === "vehicle" ? (c.kind === "seen" ? COMMANDER.dismountThreatVehicleM : 0) : COMMANDER.dismountThreatMenM));
+          };
+          // Out when its vehicle has arrived, at once when a vehicle was hit, or after the ride has taken too long:
+          // the squad is ordered to its support-line position and gets out first (Q12).
+          const late = tick - mem.phaseTick >= COMMANDER.rideTimeoutSeconds * 60;
+          mem.out ??= [];
+          squads.forEach((sq, i) => {
+            if (mem.out!.includes(sq)) return;
+            const vid = view.unit.get(sq)?.carrier;
+            const v = vid === undefined ? undefined : view.vehicle.get(vid);
+            const there = v === undefined || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length || v.status !== "ok";
+            if (riders(view, sq).length > 0 && !(there || hitNow || late || (vid !== undefined && atThreat(vid)))) return;
+            advance(sq, i);
+            mem.out!.push(sq);
+          });
+          const hqIn = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount !== undefined);
+          const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
+          const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
+          if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNow || late || (hqV !== undefined && atThreat(hqV)))) {
+            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
+            mem.out.push(-1);
+          }
+          if (squads.every((sq) => mem.out!.includes(sq))) { mem.phase = "advance"; mem.phaseTick = tick; }
+          break;
+        }
         case "advance": {
-          const arrived = squads.every((sq) => !view.unit.get(sq)?.moving);
+          // (A squad still getting out before its move has not arrived.)
+          const arrived = squads.every((sq) => !view.unit.get(sq)?.moving && !view.unit.get(sq)?.boarding);
           if (arrived || tick - mem.phaseTick > 600 * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
           break;
         }
@@ -149,7 +483,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // Call the mortars now (they take a minute or more), and go in when their rounds are landing.
           if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
             let hx = tgt.x, hy = tgt.y, best = 150;
-            for (const m of all) for (const c of known(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
+            for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
             order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
             mem.lastHe = tick;
           }
@@ -181,7 +515,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && d.kind === "assault" && hypot2(d.x - px, d.y - py) < 150; });
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
-            for (const m of all) for (const c of known(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
+            for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
             if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) }); mem.lastHe = tick; }
           }
           if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
@@ -198,7 +532,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             const used = new Set<number>();
             for (const base of bases) {
               let best: { target: EntityId; x: number; y: number } | null = null, bestD = 120;
-              for (const m of members(view, base)) for (const c of known(m)) {
+              for (const m of members(view, base)) for (const c of knownMen(m)) {
                 const d = hypot2(c.x - tgt.x, c.y - tgt.y) + (used.has(c.target) ? 60 : 0);
                 if (d < bestD) { bestD = d; best = { target: c.target, x: c.x, y: c.y }; }
               }
@@ -216,7 +550,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             for (const m of men) {
               const t = view.transform.get(m);
               if (!t) continue;
-              for (const c of known(m)) {
+              for (const c of knownMen(m)) {
                 if (hypot2(c.x - t.x, c.y - t.y) > COMMANDER.grenadeRangeM) continue;
                 // Never where a friend is close to the burst.
                 if (all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - c.x, ft.y - c.y) < 15; })) continue;

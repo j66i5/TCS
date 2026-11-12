@@ -9,7 +9,11 @@
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~5 km/h, normal walking pace with load.",
       "class": "foot",
       "posture": "standing",
-      "exertion": 0.25
+      "exertion": 0.25,
+      "vehiclePace": {
+        "tracked": "drive-slow",
+        "wheeled": "wdrive-slow"
+      }
     },
     {
       "id": "run",
@@ -20,7 +24,11 @@
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. ~12.6 km/h, sustained rush with combat load; sprint bursts come later.",
       "class": "foot",
       "posture": "standing",
-      "exertion": 0.85
+      "exertion": 0.85,
+      "vehiclePace": {
+        "tracked": "drive",
+        "wheeled": "wdrive"
+      }
     },
     {
       "id": "sneak",
@@ -31,7 +39,11 @@
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Slow, deliberate movement using concealment.",
       "class": "foot",
       "posture": "crouching",
-      "exertion": 0.22
+      "exertion": 0.22,
+      "vehiclePace": {
+        "tracked": "drive-slow",
+        "wheeled": "wdrive-slow"
+      }
     },
     {
       "id": "crawl",
@@ -42,29 +54,65 @@
       "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Low crawl.",
       "class": "foot",
       "posture": "prone",
-      "exertion": 0.5
+      "exertion": 0.5,
+      "vehiclePace": {
+        "tracked": "drive-slow",
+        "wheeled": "wdrive-slow"
+      }
     },
     {
-      "id": "wheeled",
-      "nameKey": "move.wheeled",
-      "class": "wheeled",
-      "speedMps": 15,
-      "sources": [],
-      "confidence": "low",
-      "note": "Reserved for M7 vehicles; road speed placeholder.",
-      "posture": "standing",
-      "exertion": 0.0
-    },
-    {
-      "id": "tracked",
-      "nameKey": "move.tracked",
+      "id": "drive-slow",
+      "nameKey": "move.drive-slow",
       "class": "tracked",
-      "speedMps": 12,
+      "speedFraction": 0.3,
       "sources": [],
       "confidence": "low",
-      "note": "Reserved for M7 vehicles; placeholder.",
-      "posture": "standing",
-      "exertion": 0.0
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
+    },
+    {
+      "id": "drive",
+      "nameKey": "move.drive",
+      "class": "tracked",
+      "speedFraction": 0.7,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
+    },
+    {
+      "id": "drive-fast",
+      "nameKey": "move.drive-fast",
+      "class": "tracked",
+      "speedFraction": 1.0,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
+    },
+    {
+      "id": "wdrive-slow",
+      "nameKey": "move.wdrive-slow",
+      "class": "wheeled",
+      "speedFraction": 0.3,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
+    },
+    {
+      "id": "wdrive",
+      "nameKey": "move.wdrive",
+      "class": "wheeled",
+      "speedFraction": 0.7,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
+    },
+    {
+      "id": "wdrive-fast",
+      "nameKey": "move.wdrive-fast",
+      "class": "wheeled",
+      "speedFraction": 1.0,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game-design value (M7): share of the vehicle's own top speed at this pace; tune in the drive lab."
     }
   ]
 }

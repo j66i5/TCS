@@ -511,14 +511,114 @@
       "subunits": [
         "motor-rifle-squad",
         "motor-rifle-squad",
-        "motor-rifle-squad"
+        "motor-rifle-squad",
+        "bmp2-ekipazh",
+        "bmp2-ekipazh",
+        "bmp2-ekipazh"
       ],
       "sources": [
         "https://warontherocks.com/not-built-for-purpose-the-russian-militarys-ill-fated-force-design/",
         "https://www.battleorder.org/rus-bmp-platoon"
       ],
       "confidence": "low",
-      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct."
+      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios).",
+      "carriage": [
+        {
+          "crew": 3,
+          "carries": [
+            0
+          ],
+          "hq": true
+        },
+        {
+          "crew": 4,
+          "carries": [
+            1
+          ]
+        },
+        {
+          "crew": 5,
+          "carries": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bmp2-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "BMP {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-bmp2",
+      "members": [
+        {
+          "role": "komandir-mashiny",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "operator-navodchik",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "BMP-2 crew (M7; owner 2026-11-12: a fixed three-man crew; squad leaders ride in the back). Ranks are typical, not sourced; personal weapons come with M7.2. M7.2: each crewman carries an AK-74M with three magazines, helmet and vest (game value, low)."
     }
   ]
 }

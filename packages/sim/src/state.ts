@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, WeaponState } from "./components";
+import type { Action, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
@@ -33,12 +33,16 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 15;
+export const STATE_SCHEMA_VERSION = 17;
 
 export interface SideState {
   id: SideId;
   faction: DefId;
+  /** Whether this side attacks or defends in this battle (scenario); absent = not stated. */
+  posture?: SidePosture;
 }
+
+export type SidePosture = "attack" | "defend";
 
 export interface SimState {
   /** Fingerprint of the data (catalog) this battle runs with; checked when a save is loaded. */
@@ -63,7 +67,8 @@ export interface SimState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
+  /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -79,9 +84,11 @@ export interface SimState {
   action: Store<Action>;
   weapon: Store<WeaponState>;
   fire: Store<FireTask>;
+  /** Vehicles (M7). */
+  vehicle: Store<VehicleState>;
 }
 
-const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire"] as const;
+const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
 export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
@@ -114,6 +121,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     action: new Store(),
     weapon: new Store(),
     fire: new Store(),
+    vehicle: new Store(),
   };
 }
 
@@ -144,7 +152,8 @@ export interface SerializedState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
+  /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;
@@ -238,6 +247,7 @@ export function deserializeState(data: SerializedState): SimState {
     action: st("action") as Store<Action>,
     weapon: st("weapon") as Store<WeaponState>,
     fire: st("fire") as Store<FireTask>,
+    vehicle: st("vehicle") as Store<VehicleState>,
   };
 }
 

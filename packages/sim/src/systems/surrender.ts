@@ -12,11 +12,14 @@
  *   capture    A fit enemy within `captureM` with a clear line to him takes him prisoner (checked every tick).
  *              When it is quiet, ONE fit enemy within `fetchWithinM` who has seen the surrender walks over to
  *              take him and then returns to where he stood (`takePrisoner` intent; any order ends the errand).
+ *   attackers  A man of the attacking side (SideState.posture) or of a unit in an assault does not give up when
+ *              panicked or routed (he runs back), and when downed only with an enemy within `attackerDownedEnemyM`.
  *   cost       Like a casualty: `isOut` (objectives.ts score, commander losses). No stress to comrades (owner);
  *              a leader giving up still shakes his unit (the shared leader-loss path).
  * This file owns `captive`; target choice elsewhere reads only the chooser's own contact flag.
  * No random draws. Squared distances only.
  */
+import { isMounted } from "../mount";
 import type { SoldierState, SurrenderReason } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -55,15 +58,30 @@ function nearestKnownEnemy2(ctx: SimContext, state: SimState, id: EntityId, s: S
   return best;
 }
 
+/** Is he an attacker: his side attacks in this battle, or his unit (or one above it) is in an assault? */
+function attacking(state: SimState, id: EntityId): boolean {
+  const ident = state.identity.req(id);
+  if (state.sides.find((x) => x.id === ident.side)?.posture === "attack") return true;
+  for (let u: EntityId | null = ident.unit; u !== null; u = state.unit.get(u)?.parent ?? null) {
+    if (state.unit.get(u)?.drill?.kind === "assault") return true;
+  }
+  return false;
+}
+
 function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): SurrenderReason | null {
   const R = ctx.catalog.behaviour.surrender;
   const scared = s.mental.behaviour === "panicked" || s.mental.behaviour === "routed";
   const downed = isDowned(s);
   if (!scared && !downed) return null;
+  // Attackers (the attacking side, or any unit in an assault) are less likely to give up (owner).
+  const att = attacking(state, id);
+  if (att && !downed && !R.attackerPanicGivesUp) return null;
   const d2 = nearestKnownEnemy2(ctx, state, id, s);
-  if (downed && R.downedEnemyM > 0 && d2 <= R.downedEnemyM * R.downedEnemyM) {
+  const downedM = att ? R.attackerDownedEnemyM : R.downedEnemyM;
+  if (downed && downedM > 0 && d2 <= downedM * downedM) {
     const me = state.transform.req(id), side = state.identity.req(id).side, r2 = R.comradeNearM * R.comradeNearM;
     let comrade = false;
+    // mounted: ok a comrade aboard a vehicle close by still counts as help at hand
     for (const [m, ms] of state.soldier.entries()) {
       if (m === id || state.identity.get(m)?.side !== side || !isFit(ms)) continue;
       const t = state.transform.req(m);
@@ -71,7 +89,7 @@ function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState
     }
     if (!comrade) return "wounded";
   }
-  if (scared && R.caughtEnemyM > 0 && d2 <= R.caughtEnemyM * R.caughtEnemyM) return s.mental.behaviour === "panicked" ? "panicked" : "routed";
+  if (scared && (!att || R.attackerPanicGivesUp) && R.caughtEnemyM > 0 && d2 <= R.caughtEnemyM * R.caughtEnemyM) return s.mental.behaviour === "panicked" ? "panicked" : "routed";
   return null;
 }
 
@@ -94,7 +112,8 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
   const R = ctx.catalog.behaviour.surrender;
   const p = state.transform.req(id), ps = state.soldier.req(id), side = state.identity.req(id).side, r2 = R.captureM * R.captureM;
   for (const [m, ms] of state.soldier.entries()) {
-    if (state.identity.get(m)?.side === side || !isFit(ms)) continue;
+    // A man aboard a vehicle takes nobody prisoner (M7.2).
+    if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms)) continue;
     const t = state.transform.req(m);
     if ((t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y) > r2) continue;
     const ez = heightAt(ctx.map, t.x, t.y) + eyeHeightM(ctx, ms.posture);
@@ -138,6 +157,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
 
   // ---- the walk-over errands (one walker per prisoner)
   const walkers = new Map<EntityId, EntityId>(); // prisoner -> walker (lookups only)
+  // mounted: ok a man aboard has no errand (decisions clear his intent)
   for (const [id, s] of state.soldier.entries()) {
     const it = s.intent;
     if (it?.kind !== "takePrisoner" || it.target === undefined) continue;
@@ -152,6 +172,8 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
   }
 
   for (const [id, s] of state.soldier.entries()) {
+    // A man aboard a vehicle does not give up (M7.2, plan §6); a prisoner is never aboard.
+    if (isMounted(s)) continue;
     if (s.captive !== null) {
       // A surrendered man is taken prisoner by a fit enemy who reaches him (every tick).
       if (s.captive.state === "surrendered" && s.physiology.alive && R.captureM > 0) {
@@ -167,7 +189,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
           const seen = secondsToTicks(D.seenWithinSeconds);
           let best: EntityId | null = null, bestD = Infinity;
           for (const [m, ms] of state.soldier.entries()) {
-            if (state.identity.get(m)?.side === side || !isFit(ms) || ms.intent !== null || ms.evade !== null) continue;
+            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null) continue;
             if (ms.mental.suppression >= D.underFireSuppression || state.fire.has(m) || state.action.has(m)) continue;
             if ((state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
             const c = ms.contacts.find((k) => k.target === id);

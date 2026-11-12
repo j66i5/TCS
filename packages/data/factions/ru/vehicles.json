@@ -1,0 +1,838 @@
+{
+  "vehicles": [
+    {
+      "id": "ru-bmp2",
+      "nameKey": "vehicle.ru.bmp2",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.72,
+        "widthM": 3.15,
+        "heightM": 2.45,
+        "groundClearanceM": 0.42,
+        "hull": {
+          "f": [
+            -3.36,
+            3.36
+          ],
+          "r": [
+            -1.575,
+            1.575
+          ],
+          "u": [
+            0.42,
+            1.9
+          ]
+        },
+        "turret": {
+          "pivotF": 0.3,
+          "f": [
+            -1.0,
+            1.0
+          ],
+          "r": [
+            -1.0,
+            1.0
+          ],
+          "u": [
+            1.9,
+            2.45
+          ],
+          "barrelM": 2.9,
+          "trunnionU": 2.2
+        },
+        "trackContactM": 4.0,
+        "trackGaugeM": 2.65,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the size is the commonly quoted one but was not in the research extracts."
+      },
+      "mass": {
+        "kg": 14000,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2",
+          "https://www.tanks-encyclopedia.com/coldwar/ussr/BMP-2.php"
+        ],
+        "confidence": "medium",
+        "note": "14.0-14.3 t (Janes via issuu, redstar.gr)."
+      },
+      "drive": {
+        "powerKw": 225,
+        "efficiency": 0.75,
+        "topSpeedKmh": 65,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 6.5,
+        "gears": [
+          {
+            "toKmh": 7
+          },
+          {
+            "toKmh": 14
+          },
+          {
+            "toKmh": 24
+          },
+          {
+            "toKmh": 36
+          },
+          {
+            "toKmh": 50
+          },
+          {
+            "toKmh": 65
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.4,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 45,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 15,
+        "litresPerKwh": 0.28,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2",
+          "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+        ],
+        "confidence": "low",
+        "note": "Engine 225 kW (UTD-20, 300 hp) and road speed 65 km/h are published; reverse speed, gear bands, efficiency, braking, steering, idle power and fuel use are game values."
+      },
+      "fuel": {
+        "item": "ru-bmp2-diesel",
+        "capacityL": 460
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.3,
+            0.45,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.1,
+                0.45,
+                2.6
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.3,
+            -0.45,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.6,
+                -0.45,
+                2.5
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            },
+            {
+              "kind": "vehicle-night-ir",
+              "pos": [
+                0.6,
+                -0.45,
+                2.5
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.3,
+            -0.8,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            1.4,
+            -0.8,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -2.0,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -2.0,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -3.5,
+            0.6
+          ],
+          [
+            -3.5,
+            -0.6
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 2.5,
+        "dismountSecondsPerMan": 1.5,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 15,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game value (M7), not in the public sources; tuned in the drive lab. Two rear doors."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 35,
+          "elevateDegS": 6.0,
+          "elevationDeg": [
+            -5,
+            74
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.6,
+          "movingMradPerMps": 0.8,
+          "layToleranceMrad": 3,
+          "rangefinder": false,
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "ru-2a42",
+              "coax": false,
+              "muzzle": [
+                3.9,
+                0,
+                2.2
+              ],
+              "feeds": [
+                {
+                  "item": "ru-30x165-belt-ap",
+                  "ready": {
+                    "count": 1,
+                    "charge": 160
+                  }
+                },
+                {
+                  "item": "ru-30x165-belt-he",
+                  "ready": {
+                    "count": 1,
+                    "charge": 340
+                  }
+                }
+              ],
+              "switchSeconds": 1,
+              "engageRangeM": 1500,
+              "feedKind": "belt"
+            },
+            {
+              "weapon": "ru-pkt",
+              "coax": true,
+              "muzzle": [
+                1.2,
+                0.35,
+                2.15
+              ],
+              "feeds": [
+                {
+                  "item": "ru-pkt-belt",
+                  "ready": {
+                    "count": 1,
+                    "charge": 250
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [
+            "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+          ],
+          "confidence": "low",
+          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. M7.3: 2A42 with both belts ready (160 AP, 340 HE: the published 500) and the PKT (250 ready, 7 belts stowed: the published 2000); owner Q17: ready belts refilled from stowage in battle, halted, about 90 s.",
+          "refillSeconds": 90
+        }
+      ],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 24,
+          "charge": 30
+        },
+        {
+          "item": "ru-pkp-belt",
+          "count": 6,
+          "charge": 100
+        },
+        {
+          "item": "ru-pkt-belt",
+          "count": 7,
+          "charge": 250
+        },
+        {
+          "item": "ru-81mm-smoke",
+          "count": 6
+        },
+        {
+          "item": "ru-bmp2-extinguisher",
+          "count": 2
+        }
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2",
+        "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+      ],
+      "confidence": "medium",
+      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: 2A42 and PKT, smoke dischargers, seat sights (commander day, gunner day and night). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value).",
+      "dischargers": {
+        "item": "ru-81mm-smoke",
+        "perSalvo": 6,
+        "salvos": 1,
+        "arcDeg": 90,
+        "rangeM": 30,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2"
+        ],
+        "confidence": "low",
+        "note": "902V Tucha, six 81 mm launchers (published); range, delay and cloud are game values."
+      },
+      "signature": {
+        "sizeFactor": 1.0,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.2
+          ],
+          [
+            0.3,
+            0,
+            2.2
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values, as the Puma."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 18,
+            "slopeDeg": 60
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 18,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 16,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 23,
+            "slopeDeg": 35
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 16,
+            "slopeDeg": 20
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2"
+        ],
+        "confidence": "low",
+        "note": "Rolled steel armour (resistance 1.25 = RHA). Search extracts give the BMP-1/2 hull as welded steel of about 7-19 mm on the front (upper glacis 7 mm at 80 degrees, lower 19 mm at 57 degrees), 16-18 mm sides, 16 mm rear, the turret up to 23 mm, protection against 12.7 mm from the front and small arms elsewhere; one plate per part and face here: hull front 18 mm at 60 degrees (45 mm mild steel along a level path), sides 18 mm (22.5), rear 16, roof 7, turret front 23 mm at 35 degrees, sides 16 at 20, rear 15, roof 7. Effect: the front stops 23 mm AP at 500 m, the sides stop 7.62 mm AP but not 12.7 mm; every cannon round and rocket in the game penetrates."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.4,
+                3.3
+              ],
+              "r": [
+                0.0,
+                1.5
+              ],
+              "u": [
+                0.5,
+                1.6
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1,
+                3.1
+              ],
+              "r": [
+                -1.575,
+                -1.2
+              ],
+              "u": [
+                0.42,
+                0.95
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1,
+                3.1
+              ],
+              "r": [
+                1.2,
+                1.575
+              ],
+              "u": [
+                0.42,
+                0.95
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                -0.25,
+                0.25
+              ],
+              "u": [
+                2.0,
+                2.35
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "ammo-ready",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.6,
+                1.1
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.4,
+            "cookOffChance": 0.25
+          },
+          {
+            "id": "fuel-doors",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.36,
+                -2.95
+              ],
+              "r": [
+                -1.2,
+                1.2
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 20,
+            "fireChance": 0.35
+          },
+          {
+            "id": "fuel-centre",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.6,
+                -0.9
+              ],
+              "r": [
+                -0.25,
+                0.25
+              ],
+              "u": [
+                0.5,
+                1.3
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.25
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.85,
+                3.35
+              ],
+              "r": [
+                -1.3,
+                1.3
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.7,
+                0.7
+              ],
+              "r": [
+                -0.7,
+                0.7
+              ],
+              "u": [
+                1.75,
+                1.95
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.1,
+                0.6
+              ],
+              "r": [
+                -0.2,
+                0.2
+              ],
+              "u": [
+                1.95,
+                2.3
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                0.25,
+                0.5
+              ],
+              "u": [
+                2.0,
+                2.3
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.4,
+                0.95
+              ],
+              "r": [
+                -0.7,
+                -0.2
+              ],
+              "u": [
+                2.3,
+                2.55
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.9,
+                -0.4
+              ],
+              "r": [
+                0.2,
+                0.8
+              ],
+              "u": [
+                1.9,
+                2.3
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.2,
+                0.4
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                2.3,
+                2.45
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.2,
+                1.4
+              ],
+              "r": [
+                0.0,
+                1.5
+              ],
+              "u": [
+                0.5,
+                1.4
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2"
+        ],
+        "confidence": "low",
+        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values)."
+      },
+      "extinguisher": {
+        "item": "ru-bmp2-extinguisher",
+        "chance": 0.4,
+        "delaySeconds": 2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the BMP-2 carries a fire-extinguishing system (search extracts); its charges, delay and chance are not published. Lower than the Puma's: fuel in the rear doors and between the seats (owner: the BMP-2 burns easily)."
+      }
+    }
+  ]
+}

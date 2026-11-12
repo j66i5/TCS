@@ -9,9 +9,10 @@
  * All text comes from the string table.
  */
 import type { Strings } from "@tcs/data";
+import type { OrderSet } from "./orders-for";
 
-export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades" | "mortar" | "smoke";
-export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max" }
+export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
+export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
 
 export interface HudCallbacks {
   /** Formation IDs available (from data) and the faction default shown first. */
@@ -25,6 +26,12 @@ export interface HudCallbacks {
   onOrderMode(mode: OrderMode): void;
   onHalt(): void;
   onCeaseFire(): void;
+  /** Get in / get out (M7.2). */
+  onMount(): void;
+  onDismount(): void;
+  /** Vehicles (M7.3): fire the smoke dischargers; the gun and round of the next fire order (null = crew's choice). */
+  onDischarge(): void;
+  onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
   onPace(mode: string): void;
@@ -60,6 +67,8 @@ export interface Hud {
   setUnit(rules: UnitRules | null, status: string): void;
   /** The score line under the top bar (objectives held, M6). */
   setScore(text: string): void;
+  /** Which orders and paces the bars offer for the selected unit (M7.1c: a vehicle has fewer, and its paces). */
+  setOrders(set: OrderSet): void;
 }
 
 const fmtTime = (s: number) => {
@@ -124,13 +133,29 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     cb.onPosture(postures[posture]!);
   };
   const rulesBtn = el("button", "hud-btn", s.t("order.rules"));
-  orders.append(mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
-    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), haltBtn, ceaseBtn, postureBtn, rulesBtn);
+  const mountBtn = el("button", "hud-btn", s.t("order.mount"));
+  mountBtn.onclick = () => cb.onMount();
+  const dismountBtn = el("button", "hud-btn", s.t("order.dismount"));
+  dismountBtn.onclick = () => cb.onDismount();
+  mountBtn.hidden = true; dismountBtn.hidden = true;
+  const dischargeBtn = el("button", "hud-btn", s.t("order.discharge"));
+  dischargeBtn.onclick = () => cb.onDischarge();
+  const natures = [null, "ap", "he", "mg"] as const;
+  let nature = 0;
+  const natureBtn = el("button", "hud-btn", s.t("order.nature.auto"));
+  natureBtn.onclick = () => {
+    nature = (nature + 1) % natures.length;
+    natureBtn.textContent = s.t(`order.nature.${natures[nature] ?? "auto"}`);
+    cb.onNature(natures[nature]!);
+  };
+  dischargeBtn.hidden = true; natureBtn.hidden = true;
+  orders.append(natureBtn, dischargeBtn, mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"), mode("antitank", "order.antitank"),
+    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), mountBtn, dismountBtn, haltBtn, ceaseBtn, postureBtn, rulesBtn);
 
   // ---- plan bar
   const plan = el("div", "hud-plan");
   plan.hidden = true;
-  const paces = ["walk", "run", "sneak", "crawl"];
+  let paces = ["walk", "run", "sneak", "crawl"];
   let pace = 0;
   const paceBtn = el("button", "hud-btn", `${s.t("order.pace")}: ${s.t("move.walk")}`);
   paceBtn.onclick = () => { pace = (pace + 1) % paces.length; paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[pace]!}`)}`; cb.onPace(paces[pace]!); };
@@ -156,6 +181,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     { key: "maxEngageM", label: "rules.range", options: [[0, "rules.range.none"], [400, "400"], [200, "200"], [100, "100"]] },
     { key: "onContact", label: "rules.contact", options: [["ground", "rules.contact.ground"], ["push", "rules.contact.push"], ["back", "rules.contact.back"]] },
     { key: "ammo", label: "rules.ammo", options: [["conserve", "rules.ammo.conserve"], ["normal", "rules.ammo.normal"], ["max", "rules.ammo.max"]] },
+    { key: "at", label: "rules.at", options: [["vehicles", "rules.at.vehicles"], ["vehiclesAndPositions", "rules.at.vehiclesAndPositions"], ["hold", "rules.at.hold"]] },
   ];
   const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
   panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);
@@ -230,6 +256,17 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       undoBtn.hidden = kind !== "move";
     },
     setOrderMode(m) { setMode(m); },
+    setOrders(set) {
+      for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
+      haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire; postureBtn.hidden = !set.posture; rulesBtn.hidden = !set.rules;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount;
+      dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
+      if (set.paces.join() !== paces.join()) {
+        paces = [...set.paces]; pace = 0;
+        paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[0]!}`)}`;
+        cb.onPace(paces[0]!);
+      }
+    },
     setScore(text) { const was = score.hidden; score.textContent = text; score.hidden = text === ""; if (was !== score.hidden) place(); },
     setUnit(rules, text) {
       status.textContent = text;

@@ -2,6 +2,7 @@
  * Movement, M0 version: straight lines between waypoints at the movement mode's nominal speed.
  * M1 adds the heightfield, terrain costs, pathfinding, postures, formations and fatigue.
  */
+import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT } from "../ids";
@@ -14,25 +15,30 @@ const LEADER_WAIT_LAG_M = 15;
 import { heightAt } from "../terrain";
 import { loadKg, requestPosture } from "./body";
 import type { SimState } from "../state";
-import { radioFromTarget, unitSoldiers } from "./orders";
+import { radioFromTarget } from "./orders";
 import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { isAble } from "../impair";
 import { isCowering } from "./morale";
+import { pointInObb, PUSH, type Obb } from "../hulls";
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
+  // mounted: ok a man aboard has no waypoints
   for (const [, m] of state.mover.entries()) {
     if (m.formation && m.waypoints.length > 0) worstLag.set(m.formation.leader, Math.max(worstLag.get(m.formation.leader) ?? 0, m.slotLagM));
   }
+  // mounted: ok men aboard are skipped below (they ride in their seats)
   for (const [id, m] of state.mover.entries()) {
     // Getting away from a grenade comes first (grenades.ts moves him and records his speed); he resumes his
     // way afterwards.
     const ev = state.soldier.get(id)?.evade;
     if (ev && state.tick >= ev.startTick) continue;
+    // A man aboard a vehicle rides in his seat (M7; drive.ts moves him).
+    if (state.soldier.get(id)?.mount !== undefined) { m.speedMps = 0; m.mode = null; continue; }
     const wp = m.waypoints[0];
     if (!wp) {
       m.speedMps = 0;
@@ -40,7 +46,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       continue;
     }
     const t = state.transform.req(id);
-    const mode = ctx.catalog.movementModes[wp.mode];
+    const mode = footModeOrUndefined(ctx.catalog, wp.mode);
     const s = state.soldier.get(id);
     m.mode = wp.mode;
     if (!mode) { m.speedMps = 0; continue; }
@@ -121,15 +127,72 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     }
   }
 
-  // Unit arrival: a moving unit whose men have all finished their waypoints.
+  // Men against hulls (M7.1c): a man inside a hull or a wreck (grown by 0.4 m) is moved out to its nearest side.
+  if (ctx.ballistics.vehicles.n > 0) slideOffHulls(ctx, state);
+
+  // Unit arrival: a moving unit whose men have all finished their waypoints (and whose vehicles have arrived).
   for (const [uid, u] of state.unit.entries()) {
     if (!u.moving) continue;
-    const men = unitSoldiers(state, uid).filter((s) => isAble(state.soldier.get(s)));
-    if (men.length === 0) { u.moving = false; continue; } // nobody left to arrive
-    if (men.every((s) => (state.mover.get(s)?.waypoints.length ?? 0) === 0)) {
+    if (u.vehicle !== undefined) continue; // a vehicle crew arrives with its vehicle (drive.ts)
+    const a = unitArrived(state, uid);
+    if (a === null) { u.moving = false; continue; } // nobody left to arrive
+    if (a) {
       u.moving = false;
       events.emit({ kind: "unit.arrived", tick: state.tick, unit: uid });
       radioFromTarget(state, uid, "radio.arrived", events);
+    }
+  }
+}
+
+/**
+ * Has a moving unit arrived (plan §5)? Every able man on foot of it and its sub-units has finished his way, and
+ * every vehicle under it has arrived (or has no route). Men aboard vehicles are not counted. null: nobody left.
+ */
+export function unitArrived(state: SimState, uid: EntityId): boolean | null {
+  let men = 0, done = true;
+  const walk = (u: EntityId) => {
+    const x = state.unit.get(u);
+    if (!x) return;
+    // Still getting out before carrying an order out (Q12): not there yet.
+    if (x.boarding?.then) done = false;
+    if (x.vehicle !== undefined && u !== uid) {
+      const v = state.vehicle.get(x.vehicle);
+      if (v) { men++; if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) done = false; }
+      return;
+    }
+    for (const m of x.members) {
+      const s = state.soldier.get(m);
+      if (!isAble(s) || s!.mount !== undefined) continue;
+      men++;
+      if ((state.mover.get(m)?.waypoints.length ?? 0) !== 0) done = false;
+    }
+    for (const c of x.children) walk(c);
+  };
+  walk(uid);
+  return men === 0 ? null : done;
+}
+
+const HULL: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
+/** A man is never inside a hull: push him out to its nearest side (he walks round it from there). */
+function slideOffHulls(ctx: SimContext, state: SimState): void {
+  const G = ctx.ballistics.vehicles;
+  for (const [id, s] of state.soldier.entries()) {
+    // (A man down is left where he lies: a hull passes over him, it does not shove him along.)
+    if (s.mount !== undefined || !isAble(s)) continue;
+    const t = state.transform.get(id);
+    if (!t) continue;
+    for (let j = 0; j < G.n; j++) {
+      if (t.x < G.minX[j]! - 1 || t.x > G.maxX[j]! + 1 || t.y < G.minY[j]! - 1 || t.y > G.maxY[j]! + 1) continue;
+      const c = G.ch[j]!, sn = G.sh[j]!;
+      const fc = (G.f0[j]! + G.f1[j]!) / 2, rc = (G.r0[j]! + G.r1[j]!) / 2;
+      HULL.x = G.x[j]! + c * fc - sn * rc; HULL.y = G.y[j]! + sn * fc + c * rc; HULL.c = c; HULL.s = sn;
+      HULL.hl = (G.f1[j]! - G.f0[j]!) / 2; HULL.hw = (G.r1[j]! - G.r0[j]!) / 2;
+      if (pointInObb(HULL, t.x, t.y, 0.4)) {
+        t.x += PUSH.x; t.y += PUSH.y;
+        // A point of his way under the hull: he is there as near as he can get.
+        const m = state.mover.get(id), wp = m?.waypoints[0];
+        if (m && wp && pointInObb(HULL, wp.x, wp.y, 0.6)) { m.waypoints.shift(); if (m.waypoints.length === 0) m.formation = null; }
+      }
     }
   }
 }

@@ -1,0 +1,834 @@
+{
+  "vehicles": [
+    {
+      "id": "de-puma",
+      "nameKey": "vehicle.de.puma",
+      "class": "tracked",
+      "body": {
+        "lengthM": 7.6,
+        "widthM": 4.0,
+        "heightM": 3.6,
+        "groundClearanceM": 0.45,
+        "hull": {
+          "f": [
+            -3.8,
+            3.8
+          ],
+          "r": [
+            -2.0,
+            2.0
+          ],
+          "u": [
+            0.45,
+            2.45
+          ]
+        },
+        "turret": {
+          "pivotF": 0.4,
+          "f": [
+            -1.2,
+            1.4
+          ],
+          "r": [
+            -1.15,
+            1.15
+          ],
+          "u": [
+            2.45,
+            3.3
+          ],
+          "barrelM": 3.0,
+          "trunnionU": 2.85
+        },
+        "trackContactM": 4.9,
+        "trackGaugeM": 3.0,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Length, width and height are the published figures for protection level C (7.6 x 4.0 x 3.6 m); the hull and turret boxes, track contact length and gauge are game values."
+      },
+      "mass": {
+        "kg": 43000,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)",
+          "https://www.army-technology.com/projects/puma_tracked/"
+        ],
+        "confidence": "medium",
+        "note": "43 t at protection level C, the combat configuration (31.45 t at level A)."
+      },
+      "drive": {
+        "powerKw": 800,
+        "efficiency": 0.75,
+        "topSpeedKmh": 70,
+        "reverseTopSpeedKmh": 30,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 8
+          },
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 25
+          },
+          {
+            "toKmh": 38
+          },
+          {
+            "toKmh": 52
+          },
+          {
+            "toKmh": 70
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 30
+          }
+        ],
+        "shiftSeconds": 0.4,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 40,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 40,
+        "litresPerKwh": 0.28,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Engine power 800 kW (MTU V10 892) and road speed 70 km/h are published; reverse speed, gear bands, efficiency, braking, steering, idle power and fuel use are game values."
+      },
+      "fuel": {
+        "item": "de-puma-diesel",
+        "capacityL": 900
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.8,
+            0.6,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.6,
+                0.6,
+                3.5
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.6,
+                0.6,
+                3.5
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.8,
+            -0.6,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.3,
+                -0.6,
+                3.2
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                1.3,
+                -0.6,
+                3.2
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            -0.9,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.9,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -1.9,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -4.0,
+            0
+          ]
+        ],
+        "openSeconds": 3,
+        "mountSecondsPerMan": 2.0,
+        "dismountSecondsPerMan": 1.2,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 15,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game value (M7), not in the public sources; tuned in the drive lab."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 60,
+          "elevateDegS": 40,
+          "elevationDeg": [
+            -10,
+            45
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.3,
+          "movingMradPerMps": 0.3,
+          "layToleranceMrad": 2,
+          "rangefinder": true,
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "de-mk30-2",
+              "coax": false,
+              "muzzle": [
+                4.4,
+                0,
+                2.85
+              ],
+              "feeds": [
+                {
+                  "item": "de-30x173-belt-ke",
+                  "ready": {
+                    "count": 1,
+                    "charge": 100
+                  }
+                },
+                {
+                  "item": "de-30x173-belt-he",
+                  "ready": {
+                    "count": 1,
+                    "charge": 100
+                  }
+                }
+              ],
+              "switchSeconds": 1,
+              "engageRangeM": 2000,
+              "feedKind": "belt"
+            },
+            {
+              "weapon": "de-mg5-coax",
+              "coax": true,
+              "muzzle": [
+                1.6,
+                0.45,
+                2.8
+              ],
+              "feeds": [
+                {
+                  "item": "de-mg5-coax-belt",
+                  "ready": {
+                    "count": 2,
+                    "charge": 500
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [],
+          "confidence": "low",
+          "note": "Unmanned turret; rates, limits and errors are game values. M7.3: MK30-2/ABM with two ready feeds (armour-piercing and high explosive, 100 each) and the coaxial MG5 (1000 ready). Owner Q17: the ready belts are refilled from stowage in battle, halted, in about 90 s.",
+          "refillSeconds": 90
+        }
+      ],
+      "stowed": [
+        {
+          "item": "de-g36-mag",
+          "count": 20,
+          "charge": 30
+        },
+        {
+          "item": "de-mg5-belt",
+          "count": 6,
+          "charge": 120
+        },
+        {
+          "item": "de-g28-mag",
+          "count": 4,
+          "charge": 20
+        },
+        {
+          "item": "de-30x173-belt-ke",
+          "count": 1,
+          "charge": 100
+        },
+        {
+          "item": "de-30x173-belt-he",
+          "count": 1,
+          "charge": 100
+        },
+        {
+          "item": "de-mg5-coax-belt",
+          "count": 2,
+          "charge": 500
+        },
+        {
+          "item": "de-76mm-smoke",
+          "count": 16
+        },
+        {
+          "item": "de-puma-extinguisher",
+          "count": 2
+        }
+      ],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "medium",
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value).",
+      "dischargers": {
+        "item": "de-76mm-smoke",
+        "perSalvo": 4,
+        "salvos": 4,
+        "arcDeg": 90,
+        "rangeM": 35,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "76 mm smoke dischargers on the turret: salvo size, number, arc, range, delay and cloud are game values."
+      },
+      "signature": {
+        "sizeFactor": 1.0,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.45
+          ],
+          [
+            0.4,
+            0,
+            2.9
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the area comes from the hull and turret boxes; type known within 1.5 km (owner Q6); engine heard 400 m idling, 1200 m driving."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite",
+            "thicknessMm": 150,
+            "slopeDeg": 60
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "composite",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite",
+            "thicknessMm": 140,
+            "slopeDeg": 60
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 25,
+            "slopeDeg": 20
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "composite",
+            "thicknessMm": 26,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Game values. Public descriptions (search extracts only; the pages could not be opened here) give protection level C (43 t, add-on composite modules) as proof of the frontal arc against medium-calibre (30 mm) armour-piercing rounds and of the whole vehicle against 14.5 mm and fragments, and say the add-on modules also protect against hand-held shaped charges. Owner decision Q21 (b), 2026-11-12: the FRONT stops a single PG-7VL (625 mm mild-steel equivalent = 500 mm RHA x 1.25): hull front 150 mm and turret front 140 mm of composite at 60 degrees give 750 / 700 mm against a jet head on (resistance 2.5 per mm) and 480 / 448 mm against kinetic rounds (1.6 per mm); sides and rear (30 mm composite, 48 / 75 mm; turret rear 26 mm) stop 14.5 mm all round as published for the basic protection; roof are penetrated by a PG-7VL; sides stop 14.5 mm but not 30 mm APDS at battle ranges. One plate per part and face (no upper/lower glacis, no spaced skirts)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.7
+              ],
+              "r": [
+                0.0,
+                1.9
+              ],
+              "u": [
+                0.6,
+                1.9
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                3.6
+              ],
+              "r": [
+                -2.0,
+                -1.55
+              ],
+              "u": [
+                0.45,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                3.6
+              ],
+              "r": [
+                1.55,
+                2.0
+              ],
+              "u": [
+                0.45,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.6,
+                1.4
+              ],
+              "r": [
+                -0.35,
+                0.35
+              ],
+              "u": [
+                2.65,
+                3.05
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "ammo-ready",
+            "kind": "ammo",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.1,
+                0.3
+              ],
+              "r": [
+                -0.9,
+                0.9
+              ],
+              "u": [
+                2.5,
+                3.1
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.1
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -0.2
+              ],
+              "r": [
+                1.55,
+                1.95
+              ],
+              "u": [
+                1.1,
+                1.9
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.2
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                3.0,
+                3.75
+              ],
+              "r": [
+                -1.6,
+                0.0
+              ],
+              "u": [
+                0.6,
+                1.5
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.8,
+                0.8
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                2.25,
+                2.6
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.4,
+                0.4
+              ],
+              "r": [
+                0.3,
+                0.8
+              ],
+              "u": [
+                2.6,
+                3.0
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.6,
+                1.3
+              ],
+              "r": [
+                0.4,
+                0.7
+              ],
+              "u": [
+                2.7,
+                3.0
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.9,
+                1.35
+              ],
+              "r": [
+                -1.0,
+                -0.5
+              ],
+              "u": [
+                2.9,
+                3.25
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.0,
+                0.6
+              ],
+              "r": [
+                1.2,
+                1.9
+              ],
+              "u": [
+                1.4,
+                2.2
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.5
+              ],
+              "r": [
+                -1.15,
+                1.15
+              ],
+              "u": [
+                3.0,
+                3.3
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.2,
+                1.5
+              ],
+              "r": [
+                0.5,
+                1.5
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: where the engine (front right), tracks, gun, ready ammunition (in the unmanned turret) and fuel lie, how much a round must have left to wreck each, what passing through costs it, and the chance that a penetrating hit on fuel or ammunition starts a fire or blows the ammunition up. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values)."
+      },
+      "extinguisher": {
+        "item": "de-puma-extinguisher",
+        "chance": 0.7,
+        "delaySeconds": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the Puma has an automatic fire suppression system (search extracts); its charges, the delay and the chance to put a fire out are not published."
+      }
+    }
+  ]
+}

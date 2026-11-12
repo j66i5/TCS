@@ -13,8 +13,15 @@
       "colour": "#6f8f4a",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.06,
+        "traction": 0.6,
+        "lateral": 0.55,
+        "wetTractionFactor": 0.8,
+        "wetRollingFactor": 1.2
+      }
     },
     {
       "id": "meadow",
@@ -29,8 +36,15 @@
       "colour": "#7f9a52",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.065,
+        "traction": 0.6,
+        "lateral": 0.55,
+        "wetTractionFactor": 0.8,
+        "wetRollingFactor": 1.2
+      }
     },
     {
       "id": "ploughed",
@@ -45,8 +59,16 @@
       "colour": "#7a6247",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.1,
+        "traction": 0.5,
+        "lateral": 0.45,
+        "capKmh": 35,
+        "wetTractionFactor": 0.7,
+        "wetRollingFactor": 1.4
+      }
     },
     {
       "id": "stubble",
@@ -61,8 +83,15 @@
       "colour": "#b4a46c",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.065,
+        "traction": 0.6,
+        "lateral": 0.55,
+        "wetTractionFactor": 0.8,
+        "wetRollingFactor": 1.2
+      }
     },
     {
       "id": "forest-floor",
@@ -77,8 +106,16 @@
       "colour": "#4d5a35",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.08,
+        "traction": 0.5,
+        "lateral": 0.45,
+        "capKmh": 30,
+        "wetTractionFactor": 0.75,
+        "wetRollingFactor": 1.3
+      }
     },
     {
       "id": "dirt-track",
@@ -93,8 +130,15 @@
       "colour": "#9a8562",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.04,
+        "traction": 0.65,
+        "lateral": 0.6,
+        "wetTractionFactor": 0.75,
+        "wetRollingFactor": 1.2
+      }
     },
     {
       "id": "gravel",
@@ -109,8 +153,15 @@
       "colour": "#a39d8f",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "stone"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "stone",
+      "vehicle": {
+        "rolling": 0.035,
+        "traction": 0.65,
+        "lateral": 0.6,
+        "wetTractionFactor": 0.85,
+        "wetRollingFactor": 1.1
+      }
     },
     {
       "id": "asphalt",
@@ -125,8 +176,15 @@
       "colour": "#5c5d5f",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "concrete"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "concrete",
+      "vehicle": {
+        "rolling": 0.02,
+        "traction": 0.8,
+        "lateral": 0.7,
+        "wetTractionFactor": 0.85,
+        "wetRollingFactor": 1.05
+      }
     },
     {
       "id": "concrete",
@@ -141,8 +199,15 @@
       "colour": "#8e8c87",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "concrete"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "concrete",
+      "vehicle": {
+        "rolling": 0.02,
+        "traction": 0.8,
+        "lateral": 0.7,
+        "wetTractionFactor": 0.85,
+        "wetRollingFactor": 1.05
+      }
     },
     {
       "id": "yard",
@@ -157,8 +222,15 @@
       "colour": "#8d8068",
       "sources": [],
       "confidence": "low",
-      "note": "Farmyard: cobbles and packed earth.",
-      "material": "stone"
+      "note": "Farmyard: cobbles and packed earth. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "stone",
+      "vehicle": {
+        "rolling": 0.035,
+        "traction": 0.7,
+        "lateral": 0.6,
+        "wetTractionFactor": 0.85,
+        "wetRollingFactor": 1.1
+      }
     },
     {
       "id": "garden",
@@ -173,8 +245,15 @@
       "colour": "#5f8a45",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.07,
+        "traction": 0.55,
+        "lateral": 0.5,
+        "wetTractionFactor": 0.8,
+        "wetRollingFactor": 1.2
+      }
     },
     {
       "id": "floor",
@@ -205,8 +284,16 @@
       "colour": "#5d5140",
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value; tuned in the M2 cover/penetration labs.",
-      "material": "soil"
+      "note": "Game-design value; tuned in the M2 cover/penetration labs. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "soil",
+      "vehicle": {
+        "rolling": 0.12,
+        "traction": 0.35,
+        "lateral": 0.3,
+        "capKmh": 20,
+        "wetTractionFactor": 0.6,
+        "wetRollingFactor": 1.3
+      }
     },
     {
       "id": "water-shallow",
@@ -221,8 +308,16 @@
       "colour": "#4f7184",
       "sources": [],
       "confidence": "low",
-      "note": "Wadeable stream or pond edge, under ~0.8 m.",
-      "material": "water"
+      "note": "Wadeable stream or pond edge, under ~0.8 m. Vehicle block (M7): game values (rolling resistance and traction typical of tracked vehicles on such ground), tuned in the drive lab.",
+      "material": "water",
+      "vehicle": {
+        "rolling": 0.2,
+        "traction": 0.3,
+        "lateral": 0.25,
+        "capKmh": 10,
+        "wetTractionFactor": 1.0,
+        "wetRollingFactor": 1.0
+      }
     },
     {
       "id": "water-deep",

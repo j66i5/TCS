@@ -10,7 +10,7 @@ import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { TICK_HZ, type EntityId, type SideId } from "../ids";
-import { isAble } from "../impair";
+import { isAble, isOut } from "../impair";
 import type { SimState, SimView } from "../state";
 
 export interface SideScore { side: SideId; objectivePoints: number; menDown: number; score: number }
@@ -72,7 +72,8 @@ export function battleScore(ctx: SimContext, state: SimView): BattleScore {
     let pts = 0;
     ctx.rules.objectives.forEach((o, i) => { if (state.objectives[i]?.holder === sd.id) pts += o.points; });
     let down = 0;
-    for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && state.soldier.req(id).casualty !== "none") down++;
+    // Men lost: killed, incapacitated, surrendered or captured (M6.6), each counted once.
+    for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && isOut(state.soldier.req(id))) down++;
     return { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
   });
   let winner: SideId | null = null;

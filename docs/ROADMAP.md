@@ -160,6 +160,11 @@ Acceptance: AI-versus-AI attacks succeed some of the time (neither side wins eve
 call mortar fire and smoke. **Result:** the German attack now wins 2 of 10 (was 0 of 20); the Russian attack
 still 0 of 10 (its 82 mm mortar is far lighter than the German 120 mm) — for the owner's review.
 
+### M6.6 Surrender — ✅ (owner request 2026-11-12)
+Wounded men who can no longer fight, and panicked or fleeing men, give up when a known enemy is close; enemies
+hold fire once they see it; prisoners are taken (a quiet enemy walks over); surrender costs like a casualty;
+white flags on the map; the after-action review lists surrendered and captured men.
+
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired
   anti-tank weapons; then main battle tanks. ⬜

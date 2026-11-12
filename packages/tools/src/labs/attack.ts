@@ -8,7 +8,7 @@
  */
 import type { DataSet } from "@tcs/data";
 import { demoBattle } from "@tcs/scenario";
-import { createSim, step, submitOrder, type Sim } from "@tcs/sim";
+import { createSim, isOut, step, submitOrder, type Sim } from "@tcs/sim";
 
 export interface AttackRun { seed: number; attacker: string; wall: boolean; support: boolean; winner: "attacker" | "defender"; how: string; durationS: number; attackerDown: number; defenderDown: number; attackerMen: number; defenderMen: number; attackerBroke: boolean; defenderBroke: boolean; shots: number }
 
@@ -34,7 +34,7 @@ export function attackRun(data: DataSet, seed: number, attacker: "de" | "ru", wa
   const men = (side: string) => [...sim.state.identity.entries()].filter(([, i]) => i.side === side).map(([id]) => id);
   // The assaulting squad is what counts for the attacker (the supporting squad stays on the start line).
   const blue = men("blue").filter((m) => { let u = sim.state.identity.req(m).unit; for (let p = sim.state.unit.get(u)?.parent ?? null; p !== null; p = sim.state.unit.get(u)?.parent ?? null) u = p; return u === aid; }), redMen = men("red");
-  const fit = (ids: number[]) => ids.filter((m) => sim.state.soldier.req(m).casualty === "none").length;
+  const fit = (ids: number[]) => ids.filter((m) => !isOut(sim.state.soldier.req(m))).length; // (prisoners are lost too)
   let shots = 0, winner: AttackRun["winner"] = "defender", how = "time", aBroke = false, dBroke = false, taken = false;
   for (let k = 0; k < seconds * 60; k++) {
     if (k === 120) submitOrder(sim, { tick: k, issuer: "blue", target: aid, kind: "assault", x: ox, y: oy });
@@ -45,7 +45,7 @@ export function attackRun(data: DataSet, seed: number, attacker: "de" | "ru", wa
       if (e.kind === "radio" && e.key === "radio.objectiveTaken" && e.side === "blue") taken = true;
     }
     if (k % 30 !== 0) continue;
-    const routedOrDown = (ids: number[]) => ids.filter((m) => { const s = sim.state.soldier.req(m); return s.casualty !== "none" || s.mental.behaviour === "routed"; }).length;
+    const routedOrDown = (ids: number[]) => ids.filter((m) => { const s = sim.state.soldier.req(m); return isOut(s) || s.mental.behaviour === "routed"; }).length;
     if (aBroke || fit(blue) * 2 < blue.length) { winner = "defender"; how = aBroke ? "attacker broke" : "attacker lost half"; break; }
     if (dBroke || routedOrDown(redMen) === redMen.length || fit(redMen) * 2 < redMen.length) { winner = "attacker"; how = dBroke ? "defender broke" : "defender lost half"; break; }
     if (taken) { winner = "attacker"; how = "objective taken"; break; }

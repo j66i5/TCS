@@ -17,7 +17,7 @@ const firstSeed = Number(args["seed"] ?? 1);
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
-interface Row { seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number> }
+interface Row { seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; prisoners: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number> }
 const rows: Row[] = [];
 const t0 = performance.now();
 for (let i = 0; i < runs; i++) {
@@ -28,6 +28,7 @@ for (let i = 0; i < runs; i++) {
   rows.push({
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
+    prisoners: Object.fromEntries(r.sides.map((s) => [s.side, s.surrendered + s.captured])),
     wallMs: performance.now() - s0,
     winner: r.winner, scores: Object.fromEntries(r.scores.map((s) => [s.side, s.score])),
   });
@@ -53,6 +54,7 @@ const md = [
   `- End reasons: ${Object.entries(ends).map(([k, v]) => `${k} ${v}`).join(", ")}`,
   `- Mean orders per battle: ${mean(rows.map((r) => r.orders)).toFixed(1)}`,
   `- Mean casualties per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.casualties[s] ?? 0)).toFixed(2)}`).join(", ")}`,
+  `- Mean surrendered or taken prisoner per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.prisoners[s] ?? 0)).toFixed(2)}`).join(", ")}`,
   "",
   `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",

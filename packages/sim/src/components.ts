@@ -47,8 +47,18 @@ export interface Mover {
   endHeading: number | null;
 }
 
+/**
+ * "surrendered" is set together with `captive` and is never overwritten while `captive !== null`; it is for
+ * display and the `behaviour.changed` event — code asks `isCaptive`. There is no "captured" behaviour.
+ */
 export type Behaviour =
   | "steady" | "cautious" | "pinned" | "shaken" | "panicked" | "routed" | "surrendered" | "incapacitated";
+
+/** Why a man gave up (carried by the `surrendered` event). */
+export type SurrenderReason = "wounded" | "panicked" | "routed";
+
+/** A man who has given up. Moves forward only: null -> surrendered -> captured. Never back. */
+export interface Captive { state: "surrendered" | "captured"; /** Tick at which he gave up. */ tick: number }
 
 /** Individual soldier state (SPEC 6.4). M0 holds the fields; systems that change them come in M1-M4. */
 export interface SoldierState {
@@ -78,8 +88,16 @@ export interface SoldierState {
   intent: Intent | null;
   /** Last tick he went looking for cover on his own. */
   coverTick: number;
-  /** Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed. */
+  /**
+   * Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed.
+   * Physical only: surrender lives in `captive`.
+   */
   casualty: "none" | "incapacitated" | "killed";
+  /**
+   * The one source of truth for surrender (M6.6): null while he is in the fight. `casualty` stays physical, so
+   * a prisoner can also be incapacitated or killed.
+   */
+  captive: Captive | null;
 }
 
 export type CommLink = "voice" | "radio" | "none";
@@ -96,9 +114,13 @@ export interface CommState {
  * uncertainty; `tick` is when that information was true. `target` identifies the enemy inside the simulation
  * (for merging reports and for fire orders); the player's view shows only kind, position, uncertainty, age.
  */
-/** A soldier's own decision (M4.2): firing at an enemy, going to cover, bringing or waiting for ammunition. */
+/**
+ * A soldier's own decision (M4.2): firing at an enemy, going to cover, bringing or waiting for ammunition.
+ * takePrisoner (M6.6, set and carried out by systems/surrender.ts): he walks over to the surrendered enemy
+ * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
+ */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner";
   tick: number;
   target?: EntityId;
   x?: number;
@@ -116,6 +138,8 @@ export interface Contact {
   tick: number;
   /** When he last passed this contact on (reports are not passed on again: no gossip chains). */
   reportedTick: number;
+  /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact lasts. */
+  surrendered?: true;
 }
 
 /** A contact report on its way from one soldier to another. */
@@ -159,6 +183,8 @@ export interface Unit {
   /** When the unit's current spell under fire began (fire after a quiet spell), and its last move order (M4.3). */
   contactTick: number;
   moveTick: number;
+  /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
+  orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
   drill: Drill | null;
   broken: boolean;

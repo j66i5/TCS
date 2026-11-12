@@ -3,12 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M6 Opposing commander and scenarios is complete — first playable.** The app opens a generated platoon battle
-(Germany against Russia, either side, either attacking); the AI commands the other side; objectives, score,
-save and load, after-action review with casualty lists, timeline and heat map. Owner reviewed it
-(2026-11-12); **M6.5 Attack balance done** (two attacking platoons, better AI attack, mortars and smoke): the
-German attack now wins 2 of 10 AI-versus-AI battles, the Russian 0 of 10 (for the owner). Next: **M7 Vehicles**
-(after the owner has tried M6/M6.5).
+**M6.6 Surrender is done** (on top of M6/M6.5, first playable). Next: **M7 Vehicles** (Puma and BMP-2; owner
+answers in DECISIONS.md, research in `docs/research/vehicles.md`; the architecture design was not finished),
+then **M7.5 Look and interface** (owner answers in DECISIONS.md).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable

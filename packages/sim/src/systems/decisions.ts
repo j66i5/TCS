@@ -11,6 +11,9 @@
  *   bringAmmo  A comrade has run out of spare magazines or belts: the nearest man within 30 m who has spare
  *              (more than he keeps for himself) or carries them for him runs over and hands one over.
  *
+ * He never fires on his own at, nor takes cover from, an enemy he KNOWS has given up (the `surrendered` flag on
+ * his own contact, M6.6) — the enemy's real state is not read for that.
+ *
  * Every man decides once per `decisions.stepSeconds`, staggered by ID; values are data (core/behaviour.json).
  * Casualty care (dragging, first aid) comes with the medical system.
  */
@@ -69,6 +72,7 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
   let best: { target: EntityId; x: number; y: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
+    if (c.surrendered) continue; // he knows this man has given up (M6.6)
     const d = hypot2(c.x - me.x, c.y - me.y);
     if (d > rangeM) continue;
     const ew = state.weapon.get(c.target), es = state.soldier.get(c.target);
@@ -93,6 +97,7 @@ function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; 
   const me = state.transform.req(id);
   let best: { x: number; y: number } | null = null, bestD = Infinity;
   for (const c of s.contacts) {
+    if (c.surrendered) continue; // a man he knows has given up is no threat to take cover from
     const ew = state.weapon.get(c.target);
     const firing = ew !== undefined && state.tick - ew.lastShotTick <= 5 * TICK_HZ && c.kind !== "reported";
     const d = hypot2(c.x - me.x, c.y - me.y) * (firing ? 0.5 : 1);
@@ -228,6 +233,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.behaviour === "routed") { s.intent = null; continue; } // running back: no decisions of his own
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
+    // On his way to take a prisoner (systems/surrender.ts runs that errand): nothing else of his own meanwhile.
+    if (s.intent?.kind === "takePrisoner") continue;
     const m = state.mover.get(id);
     const halted = !m || m.waypoints.length === 0;
     const task = state.fire.get(id);
@@ -238,7 +245,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
       const beyond = c !== undefined && unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM;
-      if (!c || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
+      if (!c || c.surrendered === true || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {

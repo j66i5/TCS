@@ -7,7 +7,7 @@ import type { SoldierState } from "./components";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
 import type { Catalog } from "./catalog";
-import { updateImpairment } from "./impair";
+import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
@@ -56,6 +56,7 @@ function addUnit(
     ceaseFireTick: -1e9,
     contactTick: -1e9,
     moveTick: -1e9,
+    orderTick: -1e9,
     drill: null,
     broken: false,
     lastCallTick: -100000,
@@ -113,12 +114,15 @@ function addSoldier(
     intent: null,
     coverTick: -1e9,
     casualty: "none",
+    captive: null,
   };
   if (!s.physiology.alive || s.physiology.consciousness < 0.5) {
     s.casualty = s.physiology.alive ? "incapacitated" : "killed";
     s.mental.behaviour = "incapacitated";
     s.posture = "prone";
   }
+  // A prisoner record (M6.6) enters the battle out of the fight.
+  if (rec.status === "surrendered" || rec.status === "captured") { s.captive = { state: rec.status, tick: 0 }; s.mental.behaviour = "surrendered"; }
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
@@ -145,13 +149,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
   const s = state.soldier.req(id);
   const c = state.container.get(id);
   const w = state.weapon.get(id);
-  const status: SoldierRecord["status"] = !s.physiology.alive
-    ? "killed"
-    : s.casualty === "incapacitated"
-      ? "incapacitated"
-      : s.wounds.length > 0
-        ? "wounded"
-        : "fit";
+  const status: SoldierRecord["status"] = rosterStatus(s);
   return {
     personId: ident.personId,
     given: ident.given,

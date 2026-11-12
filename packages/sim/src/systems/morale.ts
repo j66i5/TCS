@@ -87,7 +87,7 @@ export function isCowering(s: SoldierState): boolean {
 export function fireRateFactor(ctx: SimContext, s: SoldierState): number {
   const E = ctx.catalog.behaviour.effects;
   switch (s.mental.behaviour) {
-    case "panicked": case "routed": return 0;
+    case "panicked": case "routed": case "surrendered": return 0;
     case "pinned": return E.pinnedFireRateFactor;
     case "shaken": return E.shakenFireRateFactor;
     default: return 1;

@@ -19,6 +19,7 @@ import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
+import { surrenderSystem } from "./systems/surrender";
 import { drillSystem } from "./systems/drills";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { initSupport, supportSystem } from "./systems/support";
@@ -104,6 +105,8 @@ export function step(sim: Sim): SimEvent[] {
   moraleSystem(ctx, state, events, events.events);
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
+  // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
+  surrenderSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);

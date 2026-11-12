@@ -207,6 +207,9 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (top !== null && ended.get(top) !== "no-target" && !(ended.get(top) === "ammunition" && why === "unable")) ended.set(top, why);
     };
     if (!w || !s || !wd || !isAble(s) || !s.impair.canFight) { stop("unable"); continue; }
+    // He knows the man he is firing at has given up (his own contact says so, M6.6): he holds his fire —
+    // whether the task came from an order, a drill or himself. (Fire at a point is not stopped by this.)
+    if (task.contact !== undefined && s.contacts.find((k) => k.target === task.contact)?.surrendered === true) { stop("no-target"); continue; }
     if (tick < s.stunnedUntilTick) continue; // knocked down
     const rateK = fireRateFactor(ctx, s);
     if (rateK <= 0) continue; // panicked: he does not fire (the task stays for when he recovers)

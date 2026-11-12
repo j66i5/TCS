@@ -485,6 +485,16 @@ calls `detonate` (owner = the caller, so own-side suppression rules hold); smoke
 (`support.smoke`). Spotting multiplies visibility by `smokeTransmission` (exp(-k x metres of smoke along the
 line; k in `core/spotting.json`). Smoke does not stop bullets.
 
+## 16q. Surrender (M6.6) — `sim/src/systems/surrender.ts`
+Runs after contacts and before decisions. `SoldierState.captive` (null → surrendered → captured) is the one
+record; `impair.ts` predicates: `isConscious`, `isCaptive`, `isAble` (= conscious and not a prisoner: every
+"may act" check), `isFit` (able, can walk and fight, not panicked/routed), `isOut` (casualty or prisoner: score,
+commander, panels), `rosterStatus`. Knowledge: `Contact.surrendered` is set only by the observer's own sight in
+`contactSystem`, carried by reports (passed on at once), never cleared; every target choice reads only that flag.
+`fireSystem` stops a task whose contact is flagged. Capture by a fit enemy within `captureM` with a clear line;
+the walk-over errand is an `Intent` of kind `takePrisoner` run by this system (orders clear it; `Unit.orderTick`
+blocks new errands right after an order). Events `surrendered`, `captured`; schema 15.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

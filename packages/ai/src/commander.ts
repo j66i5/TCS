@@ -16,14 +16,14 @@
  *
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
-import { atan2, hypot2, supportLeft, type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimView, type SoldierState } from "@tcs/sim";
+import { atan2, hypot2, isCaptive, isOut, supportLeft, type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimView, type SoldierState } from "@tcs/sim";
 
 export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4 } as const;
 
 type Phase = "start" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
 interface Memory { phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number }
 
-const able = (s: SoldierState | undefined) => s !== undefined && s.casualty === "none" && s.mental.behaviour !== "routed";
+const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
 
 function members(view: SimView, uid: EntityId): EntityId[] {
   const u = view.unit.get(uid);
@@ -58,13 +58,16 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const squads = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
       const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
+      // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
+      // given up (M6.6: the commander does not fire, shell or throw at him).
+      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => c.surrendered !== true); };
       // Fire is called through the first platoon that still has a man who can use the radio.
-      const caller = topIds.find((id) => members(view, id).some((m) => { const s = view.soldier.get(m); return s !== undefined && s.casualty === "none" && s.mental.behaviour !== "routed" && s.impair.canSpeak; })) ?? topIds[0]!;
+      const caller = topIds.find((id) => members(view, id).some((m) => { const s = view.soldier.get(m); return able(s as SoldierState | undefined) && s!.impair.canSpeak; })) ?? topIds[0]!;
       const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
-      const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => view.soldier.get(m)?.casualty === "none").length / ms.length : 0; };
+      const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length / ms.length : 0; };
       const all = topIds.flatMap((id) => members(view, id));
-      const down = all.filter((m) => view.soldier.get(m)?.casualty !== "none").length / Math.max(1, all.length);
+      const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
       if (!main) return out;
@@ -87,7 +90,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         // Mortars on attackers its men have seen out in the open (not near its own men).
         if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
           let sx2 = 0, sy2 = 0, n = 0;
-          for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) {
+          for (const m of all) for (const c of known(m)) {
             if (c.kind === "reported" || hypot2(c.x - main.x, c.y - main.y) < 120) continue;
             sx2 += c.x; sy2 += c.y; n++;
           }
@@ -141,17 +144,17 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         }
         case "recon": {
           // Look for the enemy around the objective before going in (what the men have seen or heard).
-          let known = 0;
-          for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) if (hypot2(c.x - tgt.x, c.y - tgt.y) < 150) known++;
+          let nKnown = 0;
+          for (const m of all) for (const c of known(m)) if (hypot2(c.x - tgt.x, c.y - tgt.y) < 150) nKnown++;
           // Call the mortars now (they take a minute or more), and go in when their rounds are landing.
           if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
             let hx = tgt.x, hy = tgt.y, best = 150;
-            for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
+            for (const m of all) for (const c of known(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
             order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
             mem.lastHe = tick;
           }
           const fireLanding = mem.lastHe === undefined || tick - mem.lastHe >= (fireDelayS + 10) * 60;
-          if ((known > 0 && fireLanding) || tick - mem.phaseTick >= Math.max(COMMANDER.reconSeconds, fireDelayS + 30) * 60) { mem.phase = "assault"; mem.phaseTick = tick; mem.lastAssault = {}; }
+          if ((nKnown > 0 && fireLanding) || tick - mem.phaseTick >= Math.max(COMMANDER.reconSeconds, fireDelayS + 30) * 60) { mem.phase = "assault"; mem.phaseTick = tick; mem.lastAssault = {}; }
           break;
         }
         case "hold":
@@ -178,7 +181,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && d.kind === "assault" && hypot2(d.x - px, d.y - py) < 150; });
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
-            for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
+            for (const m of all) for (const c of known(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
             if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) }); mem.lastHe = tick; }
           }
           if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
@@ -195,7 +198,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             const used = new Set<number>();
             for (const base of bases) {
               let best: { target: EntityId; x: number; y: number } | null = null, bestD = 120;
-              for (const m of members(view, base)) for (const c of (view.soldier.get(m)?.contacts ?? [])) {
+              for (const m of members(view, base)) for (const c of known(m)) {
                 const d = hypot2(c.x - tgt.x, c.y - tgt.y) + (used.has(c.target) ? 60 : 0);
                 if (d < bestD) { bestD = d; best = { target: c.target, x: c.x, y: c.y }; }
               }
@@ -213,7 +216,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             for (const m of men) {
               const t = view.transform.get(m);
               if (!t) continue;
-              for (const c of (view.soldier.get(m)?.contacts ?? [])) {
+              for (const c of known(m)) {
                 if (hypot2(c.x - t.x, c.y - t.y) > COMMANDER.grenadeRangeM) continue;
                 // Never where a friend is close to the burst.
                 if (all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - c.x, ft.y - c.y) < 15; })) continue;

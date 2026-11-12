@@ -10,12 +10,16 @@
  * to those within the comms model's voice range, by radio to the others after the comms model's delay; at most
  * every few seconds per enemy. Reports are not passed on again. A unit calls a new contact out on the radio log.
  * All of it passes through the CommsModel, so a richer model (radio nets, jamming: M14) changes it in one place.
+ *
+ * Surrender (M6.6): a man who sees an enemy who has given up marks his own contact `surrendered` — the only
+ * place the flag is created — and passes that news on at once; a report carries it, and nothing clears it
+ * while the contact lasts. Who may be fired at is decided on this flag, never on the enemy's real state.
  */
 import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
-import { canReport, isAble } from "../impair";
+import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -46,6 +50,8 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
   const i = findContact(list, c.target);
   if (i >= 0) {
     const old = list[i]!;
+    // "He gave up" is kept even from a vaguer report, and never taken back.
+    if (c.surrendered === true && old.surrendered !== true) old.surrendered = true;
     if (c.kind !== "seen" && contactErrorM(ctx, c as Contact, now) > contactErrorM(ctx, old, now)) return false;
     old.x = c.x; old.y = c.y; old.errM = c.errM; old.kind = c.kind; old.tick = c.tick;
     return false;
@@ -73,7 +79,8 @@ function bearingDeg(dx: number, dy: number): number {
 export function contactSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const K = ctx.catalog.spotting.contacts, tick = state.tick;
   const forget = secondsToTicks(K.forgetSeconds), reportEvery = secondsToTicks(K.reportEverySeconds);
-  const fresh: { who: EntityId; c: Omit<Contact, "reportedTick">; isNew: boolean }[] = [];
+  // (`news`: new to him, or he has just seen that the man gave up — passed on at once.)
+  const fresh: { who: EntityId; c: Omit<Contact, "reportedTick">; isNew: boolean; news: boolean }[] = [];
 
   // ---- deliver reports that have arrived
   if (state.contactReports.length > 0) {
@@ -97,10 +104,13 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       const t = state.transform.get(e.target);
       if (!t) continue;
       const range = sqrt((t.x - me.x) * (t.x - me.x) + (t.y - me.y) * (t.y - me.y));
-      const c = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen" as const, tick };
-      const isNew = findContact(s.contacts, e.target) < 0;
+      const k = findContact(s.contacts, e.target), isNew = k < 0;
+      // With his own eyes, this tick: he sees that the man has given up (the only place the flag is created).
+      const gaveUp = isCaptive(state.soldier.get(e.target));
+      const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen", tick, ...(gaveUp ? { surrendered: true as const } : {}) };
+      const news = isNew || (gaveUp && s.contacts[k]!.surrendered !== true);
       learn(ctx, s.contacts, c, -1e9, tick);
-      fresh.push({ who: id, c, isNew });
+      fresh.push({ who: id, c, isNew, news });
     }
   }
 
@@ -136,7 +146,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         const c = { target: shooter, x: gx, y: gy, errM: Math.max(10, K.rangeErrorFraction * range), kind: "heard" as const, tick };
         const isNew = i < 0;
         learn(ctx, s.contacts, c, -1e9, tick);
-        fresh.push({ who: id, c, isNew });
+        fresh.push({ who: id, c, isNew, news: isNew });
       }
     }
   }
@@ -148,9 +158,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const i = findContact(s.contacts, f.c.target);
     if (i < 0) continue;
     const own = s.contacts[i]!;
-    // What he sees he repeats now and then (the enemy moves); a sound only when it is new to him. A man who
-    // cannot speak (airway wound) passes nothing on.
-    if (!f.isNew && (f.c.kind !== "seen" || tick - own.reportedTick < reportEvery)) continue;
+    // What he sees he repeats now and then (the enemy moves); a sound only when it is new to him; that a man
+    // has given up at once. A man who cannot speak (airway wound) passes nothing on.
+    if (!f.news && (f.c.kind !== "seen" || tick - own.reportedTick < reportEvery)) continue;
     if (!canReport(s)) continue;
     own.reportedTick = tick;
     const top = topUnit(state, f.who);
@@ -159,16 +169,17 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     for (const m of unitSoldiers(state, top)) {
       const ms = state.soldier.get(m);
       if (m === f.who || !isAble(ms)) continue;
-      // He does not tell a comrade what that man already knows at least as well.
+      // He does not tell a comrade what that man already knows at least as well (unless it is news to him
+      // that the enemy has given up).
       const k = findContact(ms!.contacts, f.c.target);
-      if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM) continue;
+      if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM && (reported.surrendered !== true || ms!.contacts[k]!.surrendered === true)) continue;
       const d = ctx.comms.contactShareDelayTicks(state, ctx.rules.comms, f.who, m);
       if (d === null) continue;
       state.contactReports.push({ deliverTick: tick + d + secondsToTicks(K.voiceDelaySeconds), from: f.who, to: m, contact: reported });
     }
-    // Call-out: a contact new to him, his unit not having called out for a while.
+    // Call-out: a contact new to him, his unit not having called out for a while (not about a man who gave up).
     const u = state.unit.get(top);
-    if (f.isNew && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds)) {
+    if (f.isNew && f.c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds)) {
       called.add(top);
       u.lastCallTick = tick;
       const me = state.transform.req(f.who);

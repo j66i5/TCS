@@ -148,29 +148,18 @@ function addWound(ctx: SimContext, state: SimState, events: EventSink, target: E
   updateImpairment(ctx.catalog, s);
 }
 
-/** Recompute what the man can do; if he has just become a casualty, stop what he was doing and report it. */
-export function refreshStatus(ctx: SimContext, state: SimState, events: EventSink, id: EntityId): void {
-  const s = state.soldier.req(id);
-  updateImpairment(ctx.catalog, s);
-  const now = !s.physiology.alive ? "killed" : s.physiology.consciousness < 0.5 ? "incapacitated" : "none";
-  if (now === s.casualty || (now === "none" && s.casualty !== "incapacitated")) return;
-  if (now === "none") { // came round
-    s.casualty = "none";
-    if (s.mental.behaviour === "incapacitated") s.mental.behaviour = "steady";
-    return;
-  }
-  const first = s.casualty === "none";
-  s.casualty = now;
-  s.mental.behaviour = "incapacitated";
-  events.emit({ kind: "casualty", tick: state.tick, soldier: id, status: now });
-  if (!first) return; // already down: died of his wounds
-  // He drops where he is.
+/**
+ * Take a man out of the fight where he is: he stops, his fire task and action end, the lead passes on,
+ * and his unit's fire ends if he was the last man firing. Shared by a new casualty and a surrender.
+ * `reportKey`: the radio message a comrade sends about it, or null for none.
+ */
+export function takeOutOfFight(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, interruptReason: string, reportKey: string | null): void {
+  // He stops where he is.
   const m = state.mover.get(id);
   if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; m.mode = null; }
   const hadTask = state.fire.has(id);
   state.fire.delete(id);
-  interruptAction(state, events, id, "casualty");
-  s.posture = "prone"; s.postureTo = null;
+  interruptAction(state, events, id, interruptReason);
   // His unit: someone else leads if he led, and a comrade reports him down.
   const ident = state.identity.req(id);
   const unit = state.unit.get(ident.unit);
@@ -184,9 +173,11 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
     let top = ident.unit;
     for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;
     const all = unitSoldiers(state, top);
-    const speaker = (x: EntityId) => x !== id && canReport(state.soldier.get(x));
-    const from = unit.members.find(speaker) ?? all.find(speaker);
-    if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key: "radio.manDown", params: { callsign: unit.callsign, name: ident.family } });
+    if (reportKey !== null) {
+      const speaker = (x: EntityId) => x !== id && canReport(state.soldier.get(x));
+      const from = unit.members.find(speaker) ?? all.find(speaker);
+      if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key: reportKey, params: { callsign: unit.callsign, name: ident.family } });
+    }
     // If he was the last man firing, the unit's fire has ended.
     const tu = state.unit.req(top);
     if (hadTask && tu.firing && !all.some((m) => state.fire.has(m))) {
@@ -194,6 +185,28 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
       events.emit({ kind: "fire.ceased", tick: state.tick, unit: top, reason: "unable" });
     }
   }
+}
+
+/** Recompute what the man can do; if he has just become a casualty, stop what he was doing and report it. */
+export function refreshStatus(ctx: SimContext, state: SimState, events: EventSink, id: EntityId): void {
+  const s = state.soldier.req(id);
+  updateImpairment(ctx.catalog, s);
+  const now = !s.physiology.alive ? "killed" : s.physiology.consciousness < 0.5 ? "incapacitated" : "none";
+  if (now === s.casualty || (now === "none" && s.casualty !== "incapacitated")) return;
+  if (now === "none") { // came round (a prisoner who comes round is still a prisoner: his behaviour is not "incapacitated")
+    s.casualty = "none";
+    if (s.mental.behaviour === "incapacitated") s.mental.behaviour = "steady";
+    return;
+  }
+  const first = s.casualty === "none";
+  s.casualty = now;
+  // (A prisoner keeps "surrendered": `casualty` is the physical record, `captive` the surrender.)
+  if (s.captive === null) s.mental.behaviour = "incapacitated";
+  events.emit({ kind: "casualty", tick: state.tick, soldier: id, status: now });
+  if (!first) return; // already down: died of his wounds
+  // He drops where he is. (For a prisoner there is nothing left to stop and nobody radios "man down".)
+  s.posture = "prone"; s.postureTo = null;
+  takeOutOfFight(ctx, state, events, id, "casualty", s.captive !== null ? null : "radio.manDown");
 }
 
 /** Physiology on its clock: every living wounded man deteriorates (or clots) every step. */

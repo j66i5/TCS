@@ -38,7 +38,8 @@ export interface SoldierRecord {
   /** Load: counted items (SPEC 4.3 rule 9). */
   load: ItemStack[];
   /** Outcome status after a battle. "fit" going in. */
-  status: "fit" | "wounded" | "incapacitated" | "killed" | "missing";
+  /** "surrendered" / "captured" (M6.6): such a record placed in a battle is a prisoner from the first tick. */
+  status: "fit" | "wounded" | "incapacitated" | "killed" | "missing" | "surrendered" | "captured";
 }
 
 export interface UnitInput {
@@ -85,6 +86,9 @@ export interface SideResult {
   soldiersFit: number;
   wounded: number;
   killed: number;
+  /** Living prisoners (M6.6): start = fit + wounded + killed + surrendered + captured. */
+  surrendered: number;
+  captured: number;
 }
 
 export interface BattleResult {

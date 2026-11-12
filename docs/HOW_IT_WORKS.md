@@ -292,6 +292,19 @@ he gets one from the nearest comrade within 30 m who has more than two (or carri
 comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
 (orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
 
+## Squad drills
+
+**Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
+and fire back under their fire rule; the radio says "contact! Taking cover." **Assault** (order, with a point):
+the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
+goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
+spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
+40 s. **Withdraw** (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
+the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
+unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
+not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
+("rallied"), still uneasy (stress reduced to 60 %).
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -338,5 +351,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 ## What is not there yet
 
 No first aid, anti-tank weapons are only carried,
-men fight as individuals (fire back, take cover, share ammunition, get pinned or panic) but squads have no drills yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
+men and squads fight on their own (fire back, take cover, share ammunition, react to contact, bound, break and rally) but doctrine does not differ between the sides yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

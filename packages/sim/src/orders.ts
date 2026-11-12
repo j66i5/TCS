@@ -34,6 +34,10 @@ export type OrderBody =
   | { kind: "ceaseFire" }
   /** Standing rules for the unit and its sub-units (M4.2; the full set in M5). */
   | { kind: "rules"; fire: "free" | "return" | "hold" }
+  /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
+  | { kind: "assault"; x: number; y: number }
+  /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
+  | { kind: "withdraw"; x: number; y: number }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
   | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number };
 

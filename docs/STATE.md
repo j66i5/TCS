@@ -3,9 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale and M4.2 soldier decisions done (see
-ROADMAP for the slices, DECISIONS for the provisional values taken while the owner slept). Next: **M4.3 squad
-drills** (reaction to contact, fire and movement, break contact, consolidate, routing).
+**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale, M4.2 soldier decisions and M4.3 squad
+drills done (see ROADMAP for the slices, DECISIONS for the values). Next: **M4.4 doctrine profiles and the
+attack-versus-defence batch**, then the milestone review.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -96,7 +96,9 @@ drills** (reaction to contact, fire and movement, break contact, consolidate, ro
 - **M4.2 soldier decisions**: fire rules per unit (free / return / hold; `rules` order), men open fire on their
   own at enemies they see, run to cover from the known threat when under fire, hand over magazines and belts;
   Debug shows each man's decision as a line.
-- Tests: 336 (332 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M4.3 squad drills**: units halt and go down on contact; `assault` and `withdraw` orders bound by halves
+  with covering fire; a unit breaks when half its men panic, runs back and rallies.
+- Tests: 341 (337 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

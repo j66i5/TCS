@@ -198,7 +198,9 @@ lost, an own wound; damping by experience and a leader nearby; how fast it fades
 (the suppression that pins and releases, the stress for cautious / shaken / panicked and for calming down) and
 `effects` (rate-of-fire factors), `decisions` (the default fire rule, engagement ranges by weapon, what counts
 as being under fire and for how long, cover search radius and how often, ammunition sharing range, spare kept,
-hand-over time). After a change run `npm run lab -- suppression` and compare the table.
+hand-over time), `drills` (reaction to contact on or off, bound length, the last stretch rushed together,
+how long a bound may take, spread on the objective, the share of panicked men that breaks a unit, how far it
+runs and how long it must be quiet to rally, stress after rallying). After a change run `npm run lab -- suppression` and compare the table.
 
 ## Add a grenade or launcher round
 

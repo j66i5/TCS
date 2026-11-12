@@ -225,6 +225,11 @@ export interface BehaviourDef {
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
   };
+  /** Squad drills (M4.3). */
+  drills: {
+    stepSeconds: number; reactToContact: boolean; boundM: number; finalM: number; phaseTimeoutSeconds: number; spreadM: number;
+    breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number;
+  };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */

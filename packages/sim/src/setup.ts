@@ -51,6 +51,10 @@ function addUnit(
     fireRule: catalog.behaviour.decisions.defaultFireRule,
     underFireTick: -1e9,
     ceaseFireTick: -1e9,
+    contactTick: -1e9,
+    moveTick: -1e9,
+    drill: null,
+    broken: false,
     lastCallTick: -100000,
   });
   const unit = state.unit.req(id);

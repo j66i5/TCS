@@ -107,8 +107,9 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
 - **M4.2 Soldier decisions** ✅ — fire rules per unit (free / return / hold, `rules` order), own fire at seen
   enemies with target choice, cover from the known threat when under fire, ammunition hand-over (also belts),
   debug overlay of decisions. Casualty care (dragging, first aid) moved to the medical system.
-- **M4.3 Squad drills** — reaction to contact, assault with fire and movement (bounding), break contact and
-  withdraw, consolidate; routing when a unit breaks.
+- **M4.3 Squad drills** ✅ — reaction to contact, `assault` order (two halves bounding, one firing), `withdraw`
+  order (bounding back under covering fire), all together onto the objective / rally point at the end; a unit
+  breaks when half its men panic, runs back and rallies when quiet.
 - **M4.4 Doctrine profiles and batch** — German / Russian doctrine values; batch: attack in the open against a
   prepared defence loses most of the time.
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains

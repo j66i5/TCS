@@ -203,7 +203,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.suppression < D.underFireSuppression || !isAble(s)) continue;
     const u = state.identity.get(id)?.unit;
     const top = u !== undefined ? topUnit(state, u) : undefined;
-    if (top) top.underFireTick = state.tick;
+    if (top) {
+      // A new spell under fire (after a quiet spell): the drills react to it (M4.3).
+      if (state.tick - top.underFireTick > secondsToTicks(D.underFireMemorySeconds)) top.contactTick = state.tick;
+      top.underFireTick = state.tick;
+    }
   }
   for (const [id, s] of state.soldier.entries()) {
     if ((id + state.tick) % every !== 0) continue;
@@ -213,6 +217,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const unit = ident ? state.unit.get(ident.unit) : undefined;
     if (!ident || !unit) continue;
     const top = topUnit(state, ident.unit)!;
+    if (s.mental.behaviour === "routed") { s.intent = null; continue; } // running back: no decisions of his own
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
     const m = state.mover.get(id);

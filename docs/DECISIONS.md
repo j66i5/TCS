@@ -974,3 +974,12 @@ Suppression strength as tuned (machine gun pins in 1-2 s at 200 m, ~8 s at 600 m
 rarely) — keep. Default fire rule "return" — keep. Panicked men cower now; a broken unit routs (runs back) in
 M4.3 when several panic. Casualty care stays with the medical system; decide at the M6 review whether to pull it
 forward. These are no longer provisional.
+
+## 2026-11-12 — M4.3 squad drills (owner said "go ahead"; values are game values, confidence low)
+Following the owner's answers (panicked men cower; a broken unit runs back): reaction to contact on by default
+(a moving unit fired upon after a 30 s quiet spell halts and goes down); assault and withdraw are orders, two
+halves (two teams, else alternate men), bounds of 30 m, final 25 m (assault) / 30 m (withdraw) together, 40 s
+per bound at most, 4 m spread at the end; a top unit breaks when half its able men panic, runs 150 m from the
+mean of its known contacts, ignores orders ("unable"), rallies after 30 s without fire at the rally point with
+stress x0.6. **Recorded:** the morale test of one pinned man turns reaction to contact off (it would halt his
+whole unit); assault and withdraw are not yet on the app's buttons (M5 order interface).

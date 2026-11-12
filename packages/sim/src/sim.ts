@@ -19,6 +19,7 @@ import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
+import { drillSystem } from "./systems/drills";
 import { spottingSystem } from "./systems/spotting";
 import { contactSystem } from "./systems/contacts";
 import { PHYSIOLOGY_MODELS } from "./wounds";
@@ -99,6 +100,7 @@ export function step(sim: Sim): SimEvent[] {
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
+  drillSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;

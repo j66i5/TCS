@@ -84,7 +84,7 @@ export function isCowering(s: SoldierState): boolean {
 export function fireRateFactor(ctx: SimContext, s: SoldierState): number {
   const E = ctx.catalog.behaviour.effects;
   switch (s.mental.behaviour) {
-    case "panicked": return 0;
+    case "panicked": case "routed": return 0;
     case "pinned": return E.pinnedFireRateFactor;
     case "shaken": return E.shakenFireRateFactor;
     default: return 1;
@@ -119,7 +119,7 @@ export function moraleSystem(ctx: SimContext, state: SimState, events: EventSink
     if (isAble(s)) m.stress = Math.min(1, m.stress + B.stress.fromSuppressionPerS * m.suppression * dt * damping(ctx, state, id, s));
     if (quiet) m.stress = Math.max(0, m.stress - B.stress.decayPerS * dt);
     m.suppression = Math.max(0, m.suppression - B.suppression.decayPerS * dt);
-    if (!isAble(s)) continue;
+    if (!isAble(s) || m.behaviour === "routed") continue; // a routed man stays so until his unit rallies (drills)
     const next = nextBehaviour(ctx, s);
     if (next === m.behaviour) continue;
     const from = m.behaviour;

@@ -97,6 +97,10 @@ export const testCatalog: Catalog = {
       seekCoverSuppression: 0.1, coverSearchM: 15, coverRetrySeconds: 20, threatEyeHeightM: 1.0,
       shareRangeM: 30, keepSpare: 2, passSeconds: 3,
     },
+    drills: {
+      stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
+      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6,
+    },
   },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,

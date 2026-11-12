@@ -40,7 +40,11 @@ describe("suppression (M4.1)", () => {
   });
 
   it("a pinned man drops flat and stops; when the fire stops he recovers and goes on", () => {
-    const sim = createSim(setup());
+    // (The unit's reaction to contact, M4.3, would halt the whole move: off for this test of one man.)
+    const sim = createSim(setup((i) => {
+      const b = i.catalog.behaviour;
+      i.catalog = { ...i.catalog, behaviour: { ...b, drills: { ...b.drills, reactToContact: false } } };
+    }));
     const [bid, blue] = unitOf(sim, "blue");
     const a = blue.members[0]!;
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 10, y: 150, mode: "walk" }] });

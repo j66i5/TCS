@@ -151,6 +151,27 @@ export interface Unit {
   /** Last tick a man of this unit (or its sub-units) came under fire, and of its last cease-fire order. */
   underFireTick: number;
   ceaseFireTick: number;
+  /** When the unit's current spell under fire began (fire after a quiet spell), and its last move order (M4.3). */
+  contactTick: number;
+  moveTick: number;
+  /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
+  drill: Drill | null;
+  broken: boolean;
+}
+
+/**
+ * A unit drill (M4.3). assault / withdraw: two groups take turns, one bounding toward (x, y) while the other
+ * covers; `mover` is the group bounding now, since `phaseTick`; `final`: the last rush (or the last leg back).
+ * rout: the unit has broken and runs to (x, y), where it rallies.
+ */
+export interface Drill {
+  kind: "assault" | "withdraw" | "rout";
+  x: number;
+  y: number;
+  groups: EntityId[][];
+  mover: number;
+  phaseTick: number;
+  final: boolean;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */

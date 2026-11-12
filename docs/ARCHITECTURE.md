@@ -440,6 +440,18 @@ he starts a self fire task at the best seen contact; out of spare he calls a giv
 replaced. New state: `Unit.fireRule/underFireTick/ceaseFireTick`, `SoldierState.intent/coverTick`,
 `FireTask.self` (schema 12). New order: `rules`.
 
+## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
+Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:
+two groups of soldier IDs, the group moving now, its start tick, the final rush) or a rout (rally point);
+`Unit.broken` marks a broken unit. Orders `assault` / `withdraw` set the drill; every other order (except
+`rules`) clears drills of the target unit and its sub-units (a rout is not cleared: routed men are filtered out
+of every order). Phases: the movers get paths of one bound (each from his own position), the others halt and
+get an ordered fire task at the objective (assault) or the known enemy (withdraw); the phase ends when no mover
+has waypoints or after the timeout. Reaction to contact compares the top unit's `contactTick` (stamped by
+decisions when fire starts after a quiet spell) with `Unit.moveTick`. Breaking: a top unit where half the able
+men are `panicked` sets them `routed` (morale leaves routed men alone; fire factor 0; decisions skip them) and
+sends them to a rally point away from the mean of their contacts; rally resets them to `cautious`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

@@ -50,15 +50,17 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       if (view.ended || tick % every !== 0) return [];
       const out: Order[] = [];
       const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
-      const top = [...view.unit.entries()].find(([, u]) => u.side === side && u.parent === null);
-      if (!top) return out;
-      const [topId, topUnit] = top;
-      const squads = [...topUnit.children].sort((a, b) => a - b);
-      const hq = topUnit.members.filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+      // Every platoon of the side (the attacker may have two): their squads and their own men.
+      const tops = [...view.unit.entries()].filter(([, u]) => u.side === side && u.parent === null);
+      if (tops.length === 0) return out;
+      const topIds = tops.map(([id]) => id);
+      const squads = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
+      const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+      const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => view.soldier.get(m)?.casualty === "none").length / ms.length : 0; };
-      const all = members(view, topId);
+      const all = topIds.flatMap((id) => members(view, id));
       const down = all.filter((m) => view.soldier.get(m)?.casualty !== "none").length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
@@ -66,8 +68,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
 
       if (defending) {
         if (mem.phase === "start") {
-          order(topId, { kind: "rules", fire: "free", maxEngageM: COMMANDER.defenceRangeM });
-          order(topId, { kind: "posture", posture: "prone" });
+          toAll({ kind: "rules", fire: "free", maxEngageM: COMMANDER.defenceRangeM });
+          toAll({ kind: "posture", posture: "prone" });
           mem.phase = "hold";
           return out;
         }
@@ -104,14 +106,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const lateral = (k: number) => ({ x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) });
       switch (mem.phase) {
         case "start":
-          order(topId, { kind: "rules", fire: "return", onContact: "ground" });
+          toAll({ kind: "rules", fire: "return", onContact: "ground" });
           squads.forEach((sq, i) => { const p = lateral((i - (squads.length - 1) / 2) * 60); order(sq, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: atan2(uy, ux) }); });
           for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
           mem.phase = "advance"; mem.phaseTick = tick;
           break;
         case "advance": {
           const arrived = squads.every((sq) => !view.unit.get(sq)?.moving);
-          if (arrived || tick - mem.phaseTick > 600 * 60) { mem.phase = "recon"; mem.phaseTick = tick; order(topId, { kind: "rules", fire: "free" }); }
+          if (arrived || tick - mem.phaseTick > 600 * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
           break;
         }
         case "recon": {
@@ -131,7 +133,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (mem.phase === "second" && !holds(0)) { mem.target = 0; mem.phase = "assault"; mem.lastAssault = {}; }
           if (holds(mem.target)) {
             if (mem.target + 1 < objectives.length) { mem.target++; mem.phase = "second"; mem.phaseTick = tick; mem.lastAssault = {}; }
-            else { mem.phase = "hold"; order(topId, { kind: "posture", posture: "prone" }); }
+            else { mem.phase = "hold"; toAll({ kind: "posture", posture: "prone" }); }
             break;
           }
           // The base of fire: the first squad still standing (in the second phase the weakest), the rest assault.

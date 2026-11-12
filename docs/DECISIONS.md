@@ -1154,3 +1154,13 @@ Owner request: "Include surrendering, especially for downed men". Answers (all t
    guns, the machine guns and the shoulder-fired Panzerfaust 3 / RPG-7.
 4. **Battle start:** the attacker's platoons ride in their IFVs from the map edge and dismount where the player
    or the AI decides; the defender's men are in position on foot with their IFVs behind them in support.
+
+## 2026-11-12 — Owner request: look and interface after M7
+"After M7 is done, beautify the game": the order bar permanently visible and draggable without selecting a unit
+first; a sidebar with every unit to select; soldiers as pixel characters; building interiors; true scale
+between house, soldier and map; a map style closer to the classic top-down pixel wargame he named; a decluttered
+interface (only the relevant actions for each unit). Planned as **M7.5 Look and interface** (ROADMAP).
+**Recorded:** the pixel soldiers and the map style will be our own original art in that genre's manner (small
+top-down figures, flat readable terrain), not a copy of that game's sprites or look. The design questions (how
+big the figures are at each zoom, how interiors are shown, where the sidebar sits on a phone) are asked when
+the milestone starts.

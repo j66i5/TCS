@@ -266,10 +266,11 @@ export const BehaviourFile = withProv({
     underFireSuppression: Num(0, 1), underFireMemorySeconds: Num(0, 600), seenWithinSeconds: Num(0, 60), contactLostSeconds: Num(0, 600),
     seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
+    ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
   }).strict(),
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
-    breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1),
+    breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1), fallBackM: Num(0, 2000),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;

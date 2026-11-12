@@ -258,7 +258,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     // ---- open fire on his own
     const current = state.fire.get(id);
     if (halted && (!current || current.self) && fireAllowed(state, ctx, unit, top)) {
-      const pick = pickTarget(ctx, state, id, s, engageRange(ctx, state, id));
+      // (A unit rule may hold fire to a shorter range, e.g. for an ambush.)
+      const range = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+      const pick = pickTarget(ctx, state, id, s, range);
       if (pick && (!current || current.contact !== pick.target)) {
         if (assignFireTask(ctx, state, id, pick.x, pick.y, ctx.catalog.shooting.fire.aimPointHeightM)) {
           const ft = state.fire.get(id)!;

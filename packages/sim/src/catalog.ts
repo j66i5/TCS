@@ -224,16 +224,21 @@ export interface BehaviourDef {
     underFireSuppression: number; underFireMemorySeconds: number; seenWithinSeconds: number; contactLostSeconds: number;
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
+    ammoIntervalFactor: Record<AmmoRule, number>;
   };
   /** Squad drills (M4.3). */
   drills: {
     stepSeconds: number; reactToContact: boolean; boundM: number; finalM: number; phaseTimeoutSeconds: number; spreadM: number;
-    breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number;
+    breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number; fallBackM: number;
   };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
 export type FireRule = "free" | "return" | "hold";
+/** Standing rule for contact while moving (M5): go to ground, push on, or fall back. */
+export type ContactRule = "ground" | "push" | "back";
+/** Ammunition discipline (M5): slower, normal or faster fire. */
+export type AmmoRule = "conserve" | "normal" | "max";
 
 export interface SpottingDef {
   scanSeconds: number; baseRatePerS: number; referenceRangeM: number; rangeExponent: number; minRangeM: number; maxRangeM: number;

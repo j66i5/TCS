@@ -25,15 +25,21 @@ export interface Waypoint {
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */
 export type OrderBody =
   /** Move along waypoints; `formation` (data ID) overrides the faction's default formation. */
-  | { kind: "move"; waypoints: Waypoint[]; formation?: DefId }
+  | {
+    kind: "move"; waypoints: Waypoint[]; formation?: DefId;
+    /** Facing at the destination, rad (0 = east, PI/2 = south): the formation is laid out facing this way (M5). */
+    facing?: number;
+    /** Width of the formation at the destination, m (its slots are spaced to fit; M5). */
+    frontageM?: number;
+  }
   | { kind: "halt" }
   /** Stop and take a posture. */
   | { kind: "posture"; posture: Posture }
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
   | { kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId }
   | { kind: "ceaseFire" }
-  /** Standing rules for the unit and its sub-units (M4.2; the full set in M5). */
-  | { kind: "rules"; fire: "free" | "return" | "hold" }
+  /** Standing rules for the unit and its sub-units (M4.2, M5); only the rules given change. */
+  | { kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max" }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
   | { kind: "assault"; x: number; y: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */

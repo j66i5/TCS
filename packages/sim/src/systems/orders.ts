@@ -7,7 +7,7 @@ import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
 import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "../nav";
-import { atan2, hypot2 } from "../math";
+import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
@@ -38,6 +38,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
         if (w.posture !== undefined && w.posture !== "standing" && w.posture !== "crouching" && w.posture !== "prone") return "invalid-params";
       }
       if (o.formation !== undefined && !ctx.catalog.formations[o.formation]) return "invalid-params";
+      if (o.facing !== undefined && !Number.isFinite(o.facing)) return "invalid-params";
+      if (o.frontageM !== undefined && !(o.frontageM >= 1 && o.frontageM <= 500)) return "invalid-params";
       return null;
     case "halt":
       return null;
@@ -50,7 +52,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "ceaseFire":
       return null;
     case "rules":
-      return o.fire === "free" || o.fire === "return" || o.fire === "hold" ? null : "invalid-params";
+      if (o.fire !== undefined && o.fire !== "free" && o.fire !== "return" && o.fire !== "hold") return "invalid-params";
+      if (o.maxEngageM !== undefined && !(o.maxEngageM >= 0 && o.maxEngageM <= 5000)) return "invalid-params";
+      if (o.onContact !== undefined && o.onContact !== "ground" && o.onContact !== "push" && o.onContact !== "back") return "invalid-params";
+      if (o.ammo !== undefined && o.ammo !== "conserve" && o.ammo !== "normal" && o.ammo !== "max") return "invalid-params";
+      return null;
     case "assault":
     case "withdraw":
       if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
@@ -199,14 +205,38 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           : personalRoute(ctx, t.x, t.y, t.x - ref.x, t.y - ref.y, route);
         assign(s, ws, slot);
       });
-      // Halt drill: cover near the slot, prone, facing outward from the group.
-      const travel = route.length >= 2 ? atan2(end.y - route[route.length - 2]!.y, end.x - route[route.length - 2]!.x) : atan2(end.y - ref.y, end.x - ref.x);
+      // Formation laid out at the destination (M5, the dragged marker): each man's slot, turned to the given
+      // facing, spaced to the given frontage. He goes there, then takes cover close by and faces that way.
+      const laid = order.facing !== undefined || order.frontageM !== undefined;
+      if (laid) {
+        const face = order.facing ?? (route.length >= 2 ? atan2(end.y - route[route.length - 2]!.y, end.x - route[route.length - 2]!.x) : atan2(end.y - ref.y, end.x - ref.x));
+        const fx = cos(face), fy = sin(face);
+        const slots = soldiers.map((s) => (s === refId ? [0, 0] as [number, number] : formation ? slotFor(formation.slots, followers.indexOf(s) + 1) : [0, 0] as [number, number]));
+        const rights = slots.map((sl) => sl[0]);
+        const span = Math.max(...rights) - Math.min(...rights);
+        const sp = order.frontageM !== undefined && span > 1e-6 ? order.frontageM / span : spacing;
+        soldiers.forEach((s, i) => {
+          const m = state.mover.get(s);
+          if (!m) return;
+          const [r, b] = slots[i]!;
+          let tx = end.x + -fy * r * sp - fx * b * sp, ty = end.y + fx * r * sp - fy * b * sp;
+          tx = Math.min(Math.max(tx, 1), ctx.map.widthM - 1); ty = Math.min(Math.max(ty, 1), ctx.map.heightM - 1);
+          const from = m.waypoints[m.waypoints.length - 1] ?? { ...end, x: state.transform.req(s).x, y: state.transform.req(s).y };
+          if (hypot2(from.x - tx, from.y - ty) < 1) return;
+          const { search } = navFor(ctx, ctx.catalog.movementModes[from.mode]?.class ?? "foot");
+          const leg = findPath(search, from.x, from.y, tx, ty, { maxExpansions: 6000, snapCells: 3 });
+          if (leg) for (let k = 0; k < leg.points.length; k += 2) m.waypoints.push({ ...from, x: leg.points[k]!, y: leg.points[k + 1]! });
+        });
+      }
+      // Halt drill: cover near the slot, prone, facing outward from the group (or the ordered facing).
+      const travel = order.facing ?? (route.length >= 2 ? atan2(end.y - route[route.length - 2]!.y, end.x - route[route.length - 2]!.x) : atan2(end.y - ref.y, end.x - ref.x));
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (!m || m.waypoints.length === 0) continue;
         const last = m.waypoints[m.waypoints.length - 1]!;
         const { grid, search } = navFor(ctx, ctx.catalog.movementModes[last.mode]?.class ?? "foot");
-        const spot = bestCoverNear(grid, last.x, last.y, HALT_COVER_RADIUS_M);
+        // (With a laid-out formation, cover only close by, so the shape the player chose holds.)
+        const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
           const leg = findPath(search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
@@ -215,7 +245,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const fin = m.waypoints[m.waypoints.length - 1]!;
         const ox = fin.x - end.x, oy = fin.y - end.y;
         m.endPosture = "prone";
-        m.endHeading = s === refId || ox * ox + oy * oy < 4 ? travel : atan2(oy, ox);
+        m.endHeading = laid || s === refId || ox * ox + oy * oy < 4 ? travel : atan2(oy, ox);
       }
       if (unit) { unit.moving = true; unit.moveTick = state.tick; }
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
@@ -277,7 +307,15 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     }
     case "rules": {
       const ru = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
-      const set = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.fireRule = order.fire; x.children.forEach(set); };
+      const set = (u: EntityId) => {
+        const x = state.unit.get(u);
+        if (!x) return;
+        if (order.fire !== undefined) x.fireRule = order.fire;
+        if (order.maxEngageM !== undefined) x.maxEngageM = order.maxEngageM;
+        if (order.onContact !== undefined) x.onContact = order.onContact;
+        if (order.ammo !== undefined) x.ammoRule = order.ammo;
+        x.children.forEach(set);
+      };
       if (ru !== undefined) set(ru);
       break;
     }
@@ -341,6 +379,8 @@ function slotFor(slots: readonly [number, number][], i: number): [number, number
 
 /** Radius within which each man looks for cover when the unit halts (owner decision: ~15 m). */
 const HALT_COVER_RADIUS_M = 15;
+/** The same when the player laid the formation out himself (M5): cover only this close to his slot. */
+const LAID_COVER_RADIUS_M = 4;
 
 /**
  * A follower's route in formation: each reference-route point shifted by his slot (right/back of the leg's

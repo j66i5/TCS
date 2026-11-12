@@ -1,0 +1,5 @@
+{
+  "uniform": { "base": "#5f6b45", "dark": "#3b4430", "light": "#828c5e", "helmet": "#4c5638", "skin": "#d2a77f" },
+  "vehicle": { "hull": "#56603f", "dark": "#353c29" },
+  "note": "Original colour choices (M7.5, docs/ASSETS.md): muted olive tones in the spirit of a woodland camouflage; NATO-style green paint. Presentation only, outside the catalog."
+}

@@ -1,0 +1,20 @@
+{
+  "surfaces": {
+    "grass": "#6a8648", "meadow": "#7a9450", "ploughed": "#76604a", "stubble": "#a99b68", "forest-floor": "#4b5734",
+    "dirt-track": "#958160", "gravel": "#9c968a", "asphalt": "#58595b", "concrete": "#898782", "yard": "#877b64",
+    "garden": "#5c8444", "floor": "#7b6f66", "mud": "#5a4f3f", "water-shallow": "#4d6e80", "water-deep": "#365669"
+  },
+  "vegetation": {
+    "crops": "#a19b4e", "tall-grass": "#8a9c55", "scrub": "#5a7539", "woodland": "#2f4827", "orchard": "#4c7536", "treeline": "#34572b"
+  },
+  "roofs": {
+    "house": "#8c4a3a", "farmhouse": "#7e4636", "barn": "#6a5a4a", "shed": "#5f5a52", "church": "#5a5f66",
+    "apartment-block": "#6b6b6b", "warehouse": "#7a8088", "office": "#62666b"
+  },
+  "floors": {
+    "house": "#a08a70", "farmhouse": "#9a8268", "barn": "#8a7a62", "shed": "#857a68", "church": "#a4a098",
+    "apartment-block": "#9a968e", "warehouse": "#8c8c88", "office": "#9c9a94"
+  },
+  "outline": "#1d2419",
+  "note": "Original flat palette (M7.5, docs/ASSETS.md), muted from the terrain colours; used by the flat pixel map from M7.5b. Presentation only, outside the catalog."
+}

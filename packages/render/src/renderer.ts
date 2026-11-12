@@ -7,8 +7,10 @@
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { DT, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView } from "@tcs/sim";
 import { Sprite, Texture } from "pixi.js";
+import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
+import { placeLabels, type LabelRequest, type Rect } from "./labels";
 
 /** Below this many pixels per metre the map is shown as an overview with unit symbols. */
 export const OVERVIEW_SCALE = 0.35;
@@ -85,6 +87,14 @@ export class BattleRenderer {
   private special: number[] = [];
   private bursts: { x: number; y: number; untilTick: number; radiusM: number }[] = [];
   private labelPool: Text[] = [];
+  /** This frame's label requests (M7.5a: placed by `placeLabels`, never overlapping). */
+  private reqs: LabelRequest[] = [];
+  private nReqs = 0;
+  /** Vehicle label requests by vehicle entity this frame (a dismounted squad near its vehicle joins its label). */
+  private vehReq = new Map<EntityId, number>();
+  /** Uniform tones and vehicle paint (M7.5a), outside the catalog. */
+  private appearance: Appearance | null = null;
+  private hudRects: Rect[] = [];
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
 
@@ -126,6 +136,15 @@ export class BattleRenderer {
     this.terrain = buildTerrain(map, catalog.terrain);
     this.worldLayer.addChild(this.terrain);
   }
+
+  /** The screen areas the HUD covers (top bar, order bar, sidebar): no label is placed there (M7.5a). */
+  setHudInsets(i: Insets): void {
+    const W = this.width, H = this.height;
+    this.hudRects = [{ x: 0, y: 0, w: W, h: i.top }, { x: 0, y: H - i.bottom, w: W, h: i.bottom }, { x: 0, y: 0, w: i.left, h: H }, { x: W - i.right, y: 0, w: i.right, h: H }].filter((r) => r.w > 0 && r.h > 0);
+  }
+
+  /** How factions look (M7.5a: vehicle paint; uniforms from M7.5b). Absent: the neutral look. */
+  setAppearance(app: Appearance | null): void { this.appearance = app; }
 
   /** What the renderer needs to know of the data: ammunition looks and vehicle shapes. */
   setCatalog(catalog: Catalog): void {
@@ -193,10 +212,10 @@ export class BattleRenderer {
 
   /** Centre the camera on a point showing `widthM` metres across the free area. */
   focus(x: number, y: number, widthM: number, insets?: Insets): void {
-    const top = insets?.top ?? 0, bottom = insets?.bottom ?? 0;
-    const scale = this.width / widthM;
-    const cy = top + (this.height - top - bottom) / 2;
-    this.camera = { scale, x: x - this.width / 2 / scale, y: y - cy / scale };
+    const top = insets?.top ?? 0, bottom = insets?.bottom ?? 0, left = insets?.left ?? 0, right = insets?.right ?? 0;
+    const scale = Math.max(1, this.width - left - right) / widthM;
+    const cx = left + (this.width - left - right) / 2, cy = top + (this.height - top - bottom) / 2;
+    this.camera = { scale, x: x - cx / scale, y: y - cy / scale };
   }
 
   fitToMap(map: MapDef, insets?: Insets): void {
@@ -252,6 +271,8 @@ export class BattleRenderer {
     this.drawGround(map);
     const g = this.units;
     g.clear();
+    this.nReqs = 0;
+    this.vehReq.clear();
     const sideIndex = new Map(state.sides.map((s, i) => [s.id, i]));
     const r = Math.max(3, 0.6 * c.scale); // a man is ~0.6 m radius; never smaller than 3 px
 
@@ -303,36 +324,17 @@ export class BattleRenderer {
     // Fog of war is on whenever Debug is off (the app supplies what the side knows).
     const fog = !overlay.debug;
     this.drawProjectiles(g, state, alpha, overlay, fog);
-    // Overview zoom (far out): one infantry symbol per top-level unit instead of individual men.
-    let label = 0;
+    // Overview zoom (far out): symbols instead of men and hulls (M7.5a: a vehicle symbol per vehicle — near ones
+    // stacked into one — and an infantry symbol only for a unit with men on foot).
     if (c.scale < OVERVIEW_SCALE) {
-      for (const [uid, u] of state.unit.entries()) {
-        if (u.parent !== null) continue;
-        if (fog && u.side !== overlay.playerSide) continue;
-        let sx = 0, sy = 0, n = 0;
-        const walk = (x: EntityId) => {
-          const uu = state.unit.get(x);
-          if (!uu) return;
-          for (const m of uu.members) { const p = this.pos(state, m, alpha); sx += p.x; sy += p.y; n++; }
-          for (const ch of uu.children) walk(ch);
-        };
-        walk(uid);
-        if (n === 0) continue;
-        const s = worldToScreen(c, sx / n, sy / n);
-        const colour = SIDE_COLOURS[(sideIndex.get(u.side) ?? 0) % SIDE_COLOURS.length]!;
-        const w = 22, h = 15;
-        g.rect(s.x - w / 2, s.y - h / 2, w, h).fill({ color: 0x10140f, alpha: 0.75 }).stroke({ width: 2, color: colour });
-        g.moveTo(s.x - w / 2, s.y - h / 2).lineTo(s.x + w / 2, s.y + h / 2).moveTo(s.x + w / 2, s.y - h / 2).lineTo(s.x - w / 2, s.y + h / 2).stroke({ width: 1.5, color: colour });
-        if (overlay.selectedUnit === uid) g.rect(s.x - w / 2 - 3, s.y - h / 2 - 3, w + 6, h + 6).stroke({ width: 2, color: 0xffffff });
-        this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
-      }
-      label = this.drawObjectives(g, overlay, sideIndex, label, state);
+      this.drawOverview(g, state, alpha, overlay, sideIndex, fog);
+      this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
-      for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
+      this.flushLabels();
       return;
     }
-    label = this.drawVehicles(g, state, alpha, overlay, sideIndex, fog, label);
+    this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
     // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {
       if (fog && ident.side !== overlay.playerSide) continue;
@@ -386,12 +388,19 @@ export class BattleRenderer {
       const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
       g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       const unit = state.unit.get(ident.unit);
-      if (unit && unit.leader === id && c.scale > 0.5) {
+      if (unit && unit.leader === id) {
         // Debug: the unit's drill (assault / withdraw: which half is running; broken and running back).
         const top = unit.parent === null ? unit : undefined;
         const d = unit.drill ?? top?.drill ?? null;
         const drill = !overlay.debug ? "" : unit.broken ? " BROKEN" : d ? ` ${d.kind}${d.kind === "rout" ? "" : d.final ? " final rush" : ` half ${d.mover + 1} runs`}` : "";
-        this.label(label++, unit.callsign + drill, s.x + r + 4, s.y - r - 14, colour);
+        // A squad got out next to its vehicle (within 15 m): one label for both (M7.5a).
+        const vr = unit.carrier !== undefined ? this.vehReq.get(unit.carrier) : undefined;
+        const vt = unit.carrier !== undefined ? state.transform.get(unit.carrier) : undefined;
+        if (vr !== undefined && vt && (vt.x - t.x) ** 2 + (vt.y - t.y) ** 2 <= 15 * 15 && drill === "") {
+          const q = this.reqs[vr]!;
+          q.text = `${q.text} · ${unit.callsign}`;
+          if (selected) q.priority = 0;
+        } else this.request(unit.callsign + drill, s.x, s.y, r + 2, colour, selected ? 0 : 2, ident.unit);
       }
       // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
       // he brings ammunition to.
@@ -406,13 +415,85 @@ export class BattleRenderer {
       }
       if (overlay.debug && sol && c.scale > 1.5) { // only when zoomed in enough to read
         // Debug: id, fatigue and heart rate per man.
-        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
+        this.force(`${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
-    label = this.drawObjectives(g, overlay, sideIndex, label, state);
+    this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
-    for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
+    this.flushLabels();
+  }
+
+  /**
+   * The overview (zoomed far out, M7.5a): one vehicle symbol per vehicle — an original design, a frame with a
+   * track oval — and vehicles closer than a symbol stacked into one ("×n" on its label); one infantry symbol per
+   * top-level unit at its men on foot (none while they all ride). Labels go through the decluttering.
+   */
+  private drawOverview(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
+    const c = this.camera;
+    const W = 22, H = 15;
+    // Vehicles: greedy stacks in screen space (ID order), each drawn once.
+    const stacks: { x: number; y: number; side: string; n: number; first: EntityId; unit: EntityId | null; wreck: boolean; selected: boolean; aboard: number }[] = [];
+    for (const [vid, v] of state.vehicle.entries()) {
+      if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
+      if (!state.transform.has(vid)) continue;
+      const p = this.pos(state, vid, alpha), s = worldToScreen(c, p.x, p.y);
+      const wreck = v.status === "destroyed" || v.status === "abandoned";
+      const def = this.vehicleDefs[v.def];
+      let aboard = 0, carries = false;
+      v.seats.forEach((o, i) => {
+        if (o === null || def?.seats[i]?.station !== "passenger") return;
+        aboard++;
+        const u = state.identity.get(o)?.unit;
+        if (u !== undefined && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, u)) carries = true;
+      });
+      const selected = carries || (v.unit !== null && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, v.unit));
+      const near = stacks.find((k) => k.side === v.side && k.wreck === wreck && Math.abs(k.x - s.x) < W && Math.abs(k.y - s.y) < H);
+      if (near) { near.n++; near.selected ||= selected; near.aboard += aboard; continue; }
+      stacks.push({ x: s.x, y: s.y, side: v.side, n: 1, first: vid, unit: v.unit, wreck, selected, aboard });
+    }
+    for (const k of stacks) {
+      const colour = SIDE_COLOURS[(sideIndex.get(k.side) ?? 0) % SIDE_COLOURS.length]!;
+      if (k.n > 1) g.rect(k.x - W / 2 + 3, k.y - H / 2 - 3, W, H).fill({ color: 0x10140f, alpha: 0.75 }).stroke({ width: 1.5, color: colour });
+      g.rect(k.x - W / 2, k.y - H / 2, W, H).fill({ color: 0x10140f, alpha: 0.85 }).stroke({ width: 2, color: colour });
+      g.roundRect(k.x - 7, k.y - 3.5, 14, 7, 3.5).stroke({ width: 1.8, color: colour });
+      if (k.wreck) g.moveTo(k.x - W / 2, k.y - H / 2).lineTo(k.x + W / 2, k.y + H / 2).moveTo(k.x + W / 2, k.y - H / 2).lineTo(k.x - W / 2, k.y + H / 2).stroke({ width: 2, color: 0xff4a3d });
+      if (k.selected) g.rect(k.x - W / 2 - 3, k.y - H / 2 - 3, W + 6, H + 6).stroke({ width: 2, color: 0xffffff });
+      const call = k.unit !== null ? state.unit.get(k.unit)?.callsign : undefined;
+      if (call === undefined) continue;
+      const text = `${call}${k.n > 1 ? ` ×${k.n}` : ""}${k.aboard > 0 ? ` +${k.aboard}` : ""}`;
+      this.request(text, k.x, k.y, W / 2, colour, k.selected ? 0 : 2, k.unit ?? k.first);
+    }
+    // Infantry: a symbol per top-level unit at its men on foot; one that would sit on a vehicle symbol (men just
+    // out beside their vehicles) is lifted clear of it, with a line to where the men are.
+    const taken = stacks.map((k) => ({ x: k.x, y: k.y }));
+    for (const [uid, u] of state.unit.entries()) {
+      if (u.parent !== null) continue;
+      if (fog && u.side !== overlay.playerSide) continue;
+      let sx = 0, sy = 0, n = 0;
+      const walk = (x: EntityId) => {
+        const uu = state.unit.get(x);
+        if (!uu || uu.vehicle !== undefined) return; // crews are drawn with their vehicles
+        for (const m of uu.members) {
+          if (state.soldier.get(m)?.mount !== undefined) continue; // aboard: inside the vehicle symbol
+          const p = this.pos(state, m, alpha); sx += p.x; sy += p.y; n++;
+        }
+        for (const ch of uu.children) walk(ch);
+      };
+      walk(uid);
+      if (n === 0) continue;
+      const at = worldToScreen(c, sx / n, sy / n);
+      const s = { x: at.x, y: at.y };
+      for (let k = 0; k < 6 && taken.some((q) => Math.abs(q.x - s.x) < W + 2 && Math.abs(q.y - s.y) < H + 2); k++) s.y -= H + 4;
+      taken.push(s);
+      const colour = SIDE_COLOURS[(sideIndex.get(u.side) ?? 0) % SIDE_COLOURS.length]!;
+      if (s.y !== at.y) { g.moveTo(at.x, at.y).lineTo(s.x, s.y + H / 2).stroke({ width: 1.5, color: colour, alpha: 0.9 }); g.circle(at.x, at.y, 2.5).fill({ color: colour }); }
+      g.rect(s.x - W / 2, s.y - H / 2, W, H).fill({ color: 0x10140f, alpha: 0.85 }).stroke({ width: 2, color: colour });
+      g.moveTo(s.x - W / 2, s.y - H / 2).lineTo(s.x + W / 2, s.y + H / 2).moveTo(s.x + W / 2, s.y - H / 2).lineTo(s.x - W / 2, s.y + H / 2).stroke({ width: 1.5, color: colour });
+      const sel = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, uid);
+      if (overlay.selectedUnit === uid) g.rect(s.x - W / 2 - 3, s.y - H / 2 - 3, W + 6, H + 6).stroke({ width: 2, color: 0xffffff });
+      this.request(u.callsign, s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
+    }
   }
 
   /**
@@ -420,7 +501,7 @@ export class BattleRenderer {
    * heading, the turret and barrel; side colour; a ring when its unit is selected; its route (reverse legs orange);
    * the callsign when zoomed in. Under fog of war only the player's own (enemy vehicles come with contacts, M7.3).
    */
-  private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean, label: number): number {
+  private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {
       // (Owner Q8, M7.4a: both sides know of a wreck at once, so enemy wrecks are drawn under fog too.)
@@ -458,7 +539,8 @@ export class BattleRenderer {
           a = b;
         }
       }
-      g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1])).fill({ color: wreck ? 0x1a1714 : 0x2b3324, alpha: 0.95 }).stroke({ width: 2, color: colour });
+      const look = lookOf(this.appearance, v.faction).vehicle;
+      g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1])).fill({ color: wreck ? 0x1a1714 : look.dark, alpha: 0.95 }).stroke({ width: 2, color: colour });
       // Tracks along both sides, and the nose (a wedge at the front).
       const tw = (h.r[1] - h.r[0]) * 0.18;
       g.poly(box(h.f[0], h.f[1], h.r[0], h.r[0] + tw)).fill({ color: 0x111111, alpha: 0.8 });
@@ -469,7 +551,7 @@ export class BattleRenderer {
       if (tr) {
         const az = t.heading + (v.stations[0]?.azimuth ?? 0), tc = Math.cos(az), ts = Math.sin(az);
         const px = p.x + ch * tr.pivotF * k, py = p.y + sh * tr.pivotF * k;
-        g.poly(box(tr.f[0], tr.f[1], tr.r[0], tr.r[1], px, py, tc, ts)).fill({ color: 0x3a4530 }).stroke({ width: 1.5, color: colour });
+        g.poly(box(tr.f[0], tr.f[1], tr.r[0], tr.r[1], px, py, tc, ts)).fill({ color: wreck ? 0x2a2622 : look.hull }).stroke({ width: 1.5, color: colour });
         const b0 = at(tr.f[1], 0, px, py, tc, ts), b1 = at(tr.f[1] + tr.barrelM, 0, px, py, tc, ts);
         g.moveTo(b0.x, b0.y).lineTo(b1.x, b1.y).stroke({ width: Math.max(2, 0.15 * c.scale * k), color: 0x10140f });
       }
@@ -490,7 +572,10 @@ export class BattleRenderer {
       const s = worldToScreen(c, p.x, p.y);
       if (selected) g.circle(s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 5).stroke({ width: 2, color: 0xffffff });
       const unit = v.unit !== null ? state.unit.get(v.unit) : undefined;
-      if (unit && c.scale > 0.5) this.label(label++, aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x + (def.body.lengthM / 2) * c.scale * k + 8, s.y - 8, colour);
+      if (unit && v.unit !== null) {
+        this.vehReq.set(vid, this.nReqs);
+        this.request(aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 2, colour, selected ? 0 : 2, v.unit);
+      }
       // Debug overlay (M7.3): the target line of each station and its reasons beside the hull.
       const dbg = overlay.vehicleDebug;
       if (overlay.debug && dbg && dbg.vehicle === vid) {
@@ -499,10 +584,9 @@ export class BattleRenderer {
         const lx = s.x + (def.body.lengthM / 2) * c.scale * k + 170, ly = s.y - 20;
         const wpx = Math.max(...dbg.lines.map((ln) => ln.length)) * 6.6 + 10;
         g.rect(lx - 5, ly - 3, wpx, dbg.lines.length * 14 + 6).fill({ color: 0x10140f, alpha: 0.85 });
-        dbg.lines.forEach((ln, i) => this.label(label++, ln, lx, ly + i * 14, 0xffe066));
+        dbg.lines.forEach((ln, i) => this.force(ln, lx, ly + i * 14, 0xffe066));
       }
     }
-    return label;
   }
 
   /**
@@ -515,7 +599,7 @@ export class BattleRenderer {
    * its name. After the battle, the heat map: where shots came from (small dots in the firing side's colour)
    * and where men fell (crosses).
    */
-  private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, label: number, state?: SimView): number {
+  private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, state?: SimView): void {
     const c = this.camera;
     // Smoke (M6.5c): grey clouds, thin while they build up and as they clear (everyone can see smoke).
     if (state) for (const sm of state.smoke) {
@@ -525,6 +609,7 @@ export class BattleRenderer {
       g.circle(s.x, s.y, r).fill({ color: 0xd8d8d0, alpha: 0.55 * fade });
       g.circle(s.x - r * 0.3, s.y - r * 0.2, r * 0.6).fill({ color: 0xeeeeea, alpha: 0.35 * fade });
     }
+    let k = 0;
     for (const o of overlay.objectives ?? []) {
       const s = worldToScreen(c, o.x, o.y);
       const colour = o.holder === null ? 0xb0b0b0 : SIDE_COLOURS[(sideIndex.get(o.holder) ?? 0) % SIDE_COLOURS.length]!;
@@ -536,7 +621,7 @@ export class BattleRenderer {
         }
         g.stroke({ width: 3, color: colour, alpha: 0.95 });
       } else g.circle(s.x, s.y, r).fill({ color: colour, alpha: 0.08 }).stroke({ width: 3, color: colour, alpha: 0.9 });
-      this.label(label++, o.label, s.x - 20, s.y - r - 16, colour);
+      this.request(o.label, s.x, s.y - r - 9, 4, colour, 1, k++);
     }
     const h = overlay.heat;
     if (h) {
@@ -550,7 +635,6 @@ export class BattleRenderer {
         g.moveTo(s.x - 5, s.y - 5).lineTo(s.x + 5, s.y + 5).moveTo(s.x + 5, s.y - 5).lineTo(s.x - 5, s.y + 5).stroke({ width: 2.5, color: col });
       }
     }
-    return label;
   }
 
   /** The order being planned: route legs coloured by pace, the men's places, the facing arrow, the handles. */
@@ -719,17 +803,41 @@ export class BattleRenderer {
     for (let k = 0; k < grenades.length; k += 2) g.circle(grenades[k]!, grenades[k + 1]!, Math.max(2.5, 0.15 * c.scale)).fill({ color: 0x1c1c1c }).stroke({ width: 1, color: 0xffd27a });
   }
 
-  private label(i: number, text: string, x: number, y: number, colour: number): void {
-    let t = this.labelPool[i];
-    if (!t) {
-      t = new Text({ text, style: { fontFamily: "system-ui, sans-serif", fontSize: 12, fill: colour } });
-      this.labelPool.push(t);
-      this.labels.addChild(t);
+  /** Ask for a label beside an anchor point (placed at the end of the frame, M7.5a). */
+  private request(text: string, x: number, y: number, r: number, colour: number, priority: number, id: number, force = false): void {
+    let q = this.reqs[this.nReqs];
+    if (!q) { q = { text, x, y, r, colour, priority, id }; this.reqs.push(q); }
+    q.text = text; q.x = x; q.y = y; q.r = r; q.colour = colour; q.priority = priority; q.id = id; q.force = force;
+    // Its symbol is kept clear of other labels (a small one: a big hull close up may carry labels over it).
+    q.block = force || priority === 1 ? 0 : Math.min(r, 12);
+    this.nReqs++;
+  }
+
+  /** Debug text at a fixed place (its top-left corner). */
+  private force(text: string, x: number, y: number, colour: number): void { this.request(text, x, y, 0, colour, -1, 0, true); }
+
+  /** Place this frame's labels without overlaps and show them (the rest of the pool hidden). */
+  private flushLabels(): void {
+    this.reqs.length = Math.max(this.reqs.length, this.nReqs);
+    const live = this.nReqs === this.reqs.length ? this.reqs : this.reqs.slice(0, this.nReqs);
+    const placed = placeLabels(live, this.width, this.height, this.hudRects);
+    let i = 0;
+    for (const p of placed) {
+      const q = live[p.index]!;
+      let t = this.labelPool[i];
+      if (!t) {
+        // (A dark outline keeps the side's colour readable on any ground, M7.5a.)
+        t = new Text({ text: q.text, style: { fontFamily: "system-ui, sans-serif", fontSize: 12, fill: q.colour, stroke: { color: 0x0b0f0a, width: 3, join: "round" } } });
+        this.labelPool.push(t);
+        this.labels.addChild(t);
+      }
+      if (t.text !== q.text) t.text = q.text;
+      if (t.style.fill !== q.colour) t.style.fill = q.colour;
+      t.visible = true;
+      t.position.set(p.x, p.y);
+      i++;
     }
-    if (t.text !== text) t.text = text;
-    t.style.fill = colour;
-    t.visible = true;
-    t.position.set(Math.round(x), Math.round(y));
+    for (; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
   }
 
   private pos(state: SimView, id: EntityId, alpha: number): { x: number; y: number } {

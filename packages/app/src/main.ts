@@ -5,7 +5,7 @@
  * as many fixed 1/60 s simulation steps as fit; the renderer interpolates between the last two.
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
-import { formatErrors, Strings } from "@tcs/data";
+import { buildAppearance, formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
 import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
@@ -16,7 +16,7 @@ import {
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, VehicleDebug, type Overlay } from "@tcs/render";
-import { createAar, ordersFor, paceToWaypoint, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { createAar, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -74,8 +74,10 @@ async function main(): Promise<void> {
 
   const renderer = await BattleRenderer.create(mapRoot);
   renderer.setMap(input.map, input.catalog);
-  const topUnits = [...sim.state.unit.entries()].filter(([, u]) => u.side === playerSide && u.parent === null).map(([id]) => id);
-  const overlay: Overlay = { playerSide, selectedUnit: topUnits[0] ?? null, debug: false };
+  // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
+  renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
+  // The battle opens with nothing selected (M7.5a): the order bar is greyed until a unit is picked.
+  const overlay: Overlay = { playerSide, selectedUnit: null, debug: false };
 
   let speed = 1;
   let pace = "walk";
@@ -174,6 +176,9 @@ async function main(): Promise<void> {
       q.set("load", "1");
       location.search = q.toString();
     },
+    onLayout: () => { renderer.setHudInsets(hud.insets()); },
+    onSelectUnit: (u) => { endPlan(); overlay.selectedUnit = overlay.selectedUnit === u ? null : u; syncOrders(); refreshTiles(); },
+    sideColour: `#${(SIDE_COLOURS[Math.max(0, sim.state.sides.findIndex((x) => x.id === playerSide))] ?? 0xffffff).toString(16).padStart(6, "0")}`,
     onDebug: (on) => {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.
@@ -185,9 +190,9 @@ async function main(): Promise<void> {
     },
   });
 
-  // Fit the map into the area not covered by the top bar and the radio log.
-  const barH = (hudRoot.querySelector(".hud-bar") as HTMLElement | null)?.offsetHeight ?? 50;
-  const insets = { top: barH, right: 0, bottom: 64, left: 0 };
+  // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
+  const insets = hud.insets();
+  renderer.setHudInsets(insets);
   // Start in the tactical view: about 500 m across, centred between your team and the map centre.
   // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
@@ -206,28 +211,28 @@ async function main(): Promise<void> {
     const v = vid === undefined ? undefined : sim.state.vehicle.get(vid);
     return v ? input.catalog.vehicles[v.def]?.class ?? null : null;
   };
-  /** Can the selected unit get in (men on foot and a vehicle to ride in) or out (men aboard; a vehicle with passengers)? */
-  const boardingOf = (uid: EntityId | null) => {
-    const u = uid === null ? undefined : sim.state.unit.get(uid);
-    if (!u || uid === null) return { mount: false, dismount: false };
-    if (u.vehicle !== undefined) {
-      const v = sim.state.vehicle.get(u.vehicle), def = v ? input.catalog.vehicles[v.def] : undefined;
-      return { mount: false, dismount: !!v && !!def && v.seats.some((o, i) => o !== null && def.seats[i]?.station === "passenger") };
-    }
-    let carrier = false;
-    for (let x: EntityId | null = uid; x !== null; x = sim.state.unit.get(x)?.parent ?? null) if (sim.state.unit.get(x)?.carrier !== undefined) carrier = true;
-    const men = unitSoldierIds(sim, uid).filter((m) => sim.state.unit.get(sim.state.identity.get(m)?.unit ?? -1)?.vehicle === undefined && !isOut(sim.state.soldier.req(m)));
-    return { mount: carrier && men.some((m) => sim.state.soldier.req(m).mount === undefined), dismount: men.some((m) => sim.state.soldier.req(m).mount !== undefined) };
-  };
+  /**
+   * The order bar shows only what the selected unit can do now (M7.5a): its capabilities are read from the state
+   * (checked every frame, cheap; the bar is rebuilt only when they change). Nothing selected: greyed.
+   */
   let ordersKey = "";
   const syncOrders = () => {
-    const b = boardingOf(overlay.selectedUnit);
-    const key = `${overlay.selectedUnit}|${b.mount}|${b.dismount}`;
+    const cap = unitCapabilities(sim.state, input.catalog, overlay.selectedUnit);
+    const key = `${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
     if (ordersShownFor === overlay.selectedUnit && key === ordersKey) return;
+    const changedUnit = ordersShownFor !== undefined && ordersShownFor !== overlay.selectedUnit;
     ordersShownFor = overlay.selectedUnit; ordersKey = key;
-    hud.setOrders(ordersFor(vehicleClassOf(overlay.selectedUnit), input.catalog.movementModes, b));
+    const set = ordersFor(cap, input.catalog.movementModes);
+    hud.setOrders(set);
+    // The order mode on show must be one the unit has (a squad without grenades: back to Move); a new unit
+    // starts with Move.
+    if ((changedUnit && orderMode !== "move") || !set.modes.includes(orderMode)) { orderMode = "move"; hud.setOrderMode("move"); }
+    if (changedUnit && plan) endPlan();
     if (overlay.debug) renderer.setNavOverlay(navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid);
   };
+  /** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
+  let tilesAt = -1e9;
+  const refreshTiles = () => { hud.setTiles(unitTiles(sim.state, playerSide, input.catalog), overlay.selectedUnit); };
   /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
   const forUnit = (o: Order): Order => {
     const cls = vehicleClassOf(o.target);
@@ -253,12 +258,14 @@ async function main(): Promise<void> {
         const cycle = [hull, ...ridersIn(sim, hull)];
         const k = overlay.selectedUnit === null ? -1 : cycle.indexOf(overlay.selectedUnit);
         overlay.selectedUnit = cycle[(k + 1) % cycle.length]!;
+        refreshTiles();
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
         // His own unit (his squad; the platoon's own men select the platoon).
         overlay.selectedUnit = sim.state.identity.req(hit).unit;
+        refreshTiles();
         return;
       }
       if (overlay.selectedUnit === null) return;
@@ -396,15 +403,21 @@ async function main(): Promise<void> {
     handleEvents(step(sim));
   };
 
-  // Hook for the headless screenshot script and for debugging in the browser console.
+  // Hook for the headless screenshot script and for debugging in the browser console. The battle opens with nothing
+  // selected (M7.5a): an order through the hook with nothing selected goes to (and selects) the first own unit.
+  const sel = (): EntityId => {
+    if (overlay.selectedUnit === null) { overlay.selectedUnit = [...sim.state.unit.entries()].find(([, u]) => u.side === playerSide && u.parent === null)?.[0] ?? null; syncOrders(); }
+    return overlay.selectedUnit as EntityId;
+  };
   (window as unknown as { __tcs: unknown }).__tcs = {
     sim,
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
-    grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y, count }),
-    fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
+    grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
+    fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {
+      sel();
       startPlan("move");
       for (const p of pts) plan = addPoint(plan!, p.x, p.y, p.mode ?? pace);
       if (facing !== undefined) plan = { ...plan!, facing };
@@ -413,24 +426,32 @@ async function main(): Promise<void> {
     cancelPlan: () => { endPlan(); },
     go: () => { if (plan && overlay.selectedUnit !== null) { const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(forUnit(o)); } endPlan(); },
     /** Select a unit (screenshots: a vehicle's crew unit). */
-    select: (uid: EntityId) => { overlay.selectedUnit = uid; syncOrders(); },
+    select: (uid: EntityId | null) => { overlay.selectedUnit = uid; syncOrders(); refreshTiles(); },
+    /** M7.5a screenshots: dock the order bar, open the sidebar's list, the order set shown, the free area. */
+    dock: (e: "top" | "bottom" | "left" | "right") => hud.setDock(e),
+    expandSidebar: (on: boolean) => hud.setSidebarExpanded(on),
+    orderSet: () => hud.orderSet(),
+    insets: () => hud.insets(),
+    /** Own top-level units and all own units (sidebar order). */
+    units: () => unitTiles(sim.state, playerSide, input.catalog).map((t) => ({ unit: t.unit, callsign: t.callsign, kind: t.kind, depth: t.depth })),
     /** Own vehicles: [entity, crew unit] (screenshots). */
     vehicles: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.side === playerSide).map(([id, v]) => [id, v.unit]),
     /** Get in / get out (M7.2), for the selected unit. */
-    mount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "mount" }),
-    dismount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "dismount" }),
+    mount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "mount" }),
+    dismount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "dismount" }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */
     riders: (crew: EntityId) => ridersIn(sim, crew),
-    showRules: () => { (document.querySelector(".hud-orders button:last-child") as HTMLButtonElement | null)?.click(); },
-    assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "assault", x, y }),
-    posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
+    showRules: () => hud.showRules(),
+    assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "assault", x, y }),
+    posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
-    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
+    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
-    discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "discharge" }),
-    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y, nature: n }),
-    focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
+    discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
+    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n }),
+    focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
+    renderer,
     hash: () => simHash(sim),
     ready: true,
   };
@@ -573,6 +594,7 @@ async function main(): Promise<void> {
     }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     syncOrders();
+    if (now - tilesAt >= 250) { tilesAt = now; refreshTiles(); }
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();

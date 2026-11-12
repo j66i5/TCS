@@ -1,0 +1,5 @@
+{
+  "uniform": { "base": "#9a8a5e", "dark": "#6d603f", "light": "#b9aa7c", "helmet": "#7a6c48", "skin": "#c89a74" },
+  "vehicle": { "hull": "#8a7a52", "dark": "#5c5036" },
+  "note": "Made-up fixture look (sand tones) so the fixture faction is told apart from the real ones."
+}

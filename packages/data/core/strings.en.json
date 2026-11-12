@@ -1,7 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
-  "app.hint": "Tap one of your men to select his squad. Then: Move - tap the map for each point of the route (pace per leg), drag the formation marker, its arrow to turn it, its yellow handle to widen it, and press Go. Assault / Withdraw - tap the point, Go. Fire / Grenade / Mortar / Smoke - tap the target (mortar rounds land after a minute or more). Pause any time: orders still work.",
+  "app.hint": "Pick a unit: tap one of your men or vehicles, or its tile in the unit list. Then: Move - tap the map for each point of the route (pace per leg), drag the formation marker, its arrow to turn it, its yellow handle to widen it, and press Go. Assault / Withdraw - tap the point, Go. Fire / Grenade / Mortar / Smoke - tap the target (mortar rounds land after a minute or more). Drag the order bar's grip to dock it to another edge. Pause any time: orders still work.",
   "app.pause": "Pause",
   "app.resume": "Resume",
   "app.speed": "Speed",
@@ -337,5 +337,21 @@
   "status.vehicle.partsOk": "no damage",
   "status.vehicle.reaction": "crew: {reaction} ({why})",
   "aar.vehicle.extinguished": "{vehicle}: fire put out",
-  "aar.vehicle.reversedOut": "{vehicle} reversed out under fire"
+  "aar.vehicle.reversedOut": "{vehicle} reversed out under fire",
+  "app.dockGrip": "Drag to dock the order bar to another edge",
+  "app.more": "More orders",
+  "side.units": "Units",
+  "side.unitsShort": "☰",
+  "side.unitsOpen": "Units",
+  "side.men": "{fit}/{total}",
+  "side.riding": "{n} riding",
+  "side.state.ok": "ready",
+  "side.state.moving": "moving",
+  "side.state.firing": "firing",
+  "side.state.aboard": "aboard",
+  "side.state.pinned": "pinned",
+  "side.state.damaged": "damaged",
+  "side.state.broken": "broken",
+  "side.state.lost": "out of action",
+  "order.ceaseFire": "Cease fire"
 }

@@ -19,7 +19,7 @@ recommended option first — never as a typed list in the chat.
 - Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range` · `npm run lab -- casualty` · `npm run lab -- fragmentation` · `npm run lab -- sight` · `npm run lab -- spotting` · `npm run lab -- suppression` · `npm run lab -- attack` · `npm run lab -- drive` · `npm run lab -- mount` · `npm run lab -- gunnery` · `npm run lab -- armour` · `npm run lab -- antitank [trials]`
 - Batch report: `npm run batch -- --scenario demo --runs 200 --seconds 120` (writes `reports/`)
 - Golden replays (only for intended changes, log in DECISIONS.md): `npm run golden:update`
-- Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` (vehicles, gunnery, armour: `-- --scene vehicles`) → `screenshots/`
+- Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` (vehicles, gunnery, armour, antitank: `-- --scene vehicles`) → `screenshots/`
 - Production build: `npm run build` (set `TCS_BASE=/TCS/` for the Pages path)
 - Deploy: merge to `main`; GitHub Actions (`.github/workflows/ci.yml`) checks, builds and deploys to Pages.
 
@@ -48,7 +48,8 @@ recommended option first — never as a typed list in the chat.
 - New data folders must also be bundled by the app (`packages/app/src/data.ts` glob); a test checks core/** and factions/**.
 - Hot loops (projectiles): copy imported functions/constants into locals first — module getters cost ~15 % in tsx/vitest.
 - Timing tests (`perf*.test.ts`) fail if another heavy command runs at the same time; run `npm run check` alone.
-- `bench-vehicles` sits close to its 8× floor: new per-tick work in spotting, contacts or vehicles needs a perf check. The parked-hulls perf test is noisy (~+13 % base): rerun alone before calling it a regression.
+- `bench-vehicles` sits close to its 8× floor: new per-tick work in spotting, contacts or vehicles needs a perf check. The parked-hulls perf test is noisy (+9 to +29 % on one build): rerun alone before calling it a regression.
+- A crew that bails out loses `Unit.vehicle` (gets `exVehicle`): count a side's vehicles from `state.vehicle`, not its crews. Labs shooting at a crewed hull must hold it still (penetrated crews reverse out).
 - Men on foot look for vehicles only every fourth scan: any "seen within" window for vehicles must be at least ~5 s.
 - Research cannot open web pages here (network), only search extracts: mark such data `confidence: "medium"` at most.
 - The Stop hook (`.claude/hooks/stop-check.sh`) blocks ending the session on red checks; escape hatch documented in the script.

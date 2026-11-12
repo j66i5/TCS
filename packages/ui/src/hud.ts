@@ -287,8 +287,10 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     // The dock: full width under the bars (top) or at the bottom; full height below the bars at a side.
     dock.style.top = edge === "bottom" ? "" : `${below}px`;
     const side = sidebarSide(edge);
-    sidebar.el.style.top = `${below + (edge === "top" ? dock.offsetHeight : 0)}px`;
-    sidebar.el.style.bottom = `${edge === "bottom" ? dock.offsetHeight : 0}px`;
+    // The sidebar hangs from the bars, as long as its tiles (a short list makes a short strip).
+    const sTop = below + (edge === "top" ? dock.offsetHeight : 0);
+    sidebar.el.style.top = `${sTop}px`;
+    sidebar.el.style.maxHeight = `${Math.max(80, (root.clientHeight || globalThis.innerHeight) - sTop - (edge === "bottom" ? dock.offsetHeight : 0))}px`;
     fit();
     const dw = dock.offsetWidth, dh = dock.offsetHeight, sw = sidebar.width();
     free = {

@@ -27,7 +27,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-radio-time { color: var(--muted); font-variant-numeric: tabular-nums; }
 .hud-debug { position: absolute; right: 8px; top: 60px; margin: 0; padding: 6px 8px; background: var(--panel);
   font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; border-radius: 4px; }
-.hud-error { position: absolute; inset: 60px 8px auto 8px; margin: 0; padding: 8px; background: #3b1212; color: #ffd7d7;
+.hud-error { position: absolute; z-index: 6; inset: 60px 8px auto 8px; margin: 0; padding: 8px; background: #3b1212; color: #ffd7d7;
   white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; pointer-events: auto; border-radius: 4px; }
 /* M5: plan bar, rules panel; M7.5a: the order bar docks to any edge, the unit sidebar */
 #hud { --free-top: 50px; --free-right: 0px; --free-bottom: 0px; --free-left: 0px; }
@@ -70,8 +70,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-dock-preview.preview-right { right: 0; top: 0; bottom: 0; width: 120px; }
 .hud-go { background: #4a5c2f; border-color: var(--accent); font-weight: 700; margin-left: auto; min-width: 64px; }
 .hud-plan.vertical .hud-go { margin-left: 0; margin-top: auto; }
-.hud-panel { position: absolute; right: calc(var(--free-right) + 8px); top: 60px; max-width: min(420px, 94vw); background: var(--panel); padding: 8px;
-  border-radius: 8px; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; z-index: 1; }
+.hud-panel { position: absolute; right: calc(var(--free-right) + 8px); top: 60px; max-width: min(420px, calc(100vw - var(--free-left) - var(--free-right) - 16px));
+  background: rgba(15, 20, 14, 0.94); padding: 8px; border-radius: 8px; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
 .hud-panel-title { font-weight: 700; }
 .hud-status { color: var(--muted); font-size: 14px; white-space: pre-line; }
 .hud-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
@@ -117,7 +117,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 /* M6: score line and after-action review */
 .hud-score { position: absolute; left: 0; right: 0; padding: 3px 10px; background: var(--panel); font-size: 13px; color: var(--muted); }
 .hud-aar { position: absolute; inset: 56px 8px 8px 8px; background: rgba(16, 20, 15, 0.94); border: 1px solid var(--accent); border-radius: 8px;
-  padding: 10px; overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; }
+  padding: 10px; overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
 .hud-aar.hud-aar-small { inset: auto 8px 8px 8px; max-height: 30vh; }
 .hud-aar-title { font-size: 20px; font-weight: 700; color: var(--accent); }
 .hud-aar-line { font-size: 15px; }

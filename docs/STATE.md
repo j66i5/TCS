@@ -1,9 +1,9 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.2 done)._
+_Last updated: 2026-11-12 (M7.3 done)._
 
 ## Current milestone
-**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b, M7.1c and **M7.2 are done** —
+**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b, M7.1c, M7.2 and **M7.3 are done** —
 vehicles drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each
 other, make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn
 at true size and can be ordered (move, halt, reverse legs). **M7.2:** squads get in and out (Mount / Dismount
@@ -13,9 +13,16 @@ vehicle; a crewman takes over a fallen driver's seat); the platoon battle can st
 (tools: `platoon-vehicles`, `platoon-ru-vehicles`): the attacker rides in from its edge and the AI gets its
 squads out 300 m (German) / 400 m (Russian) short of the objectives, out of sight where it can, at once when a
 vehicle is hit, and gets them back in when it withdraws. The default battle stays on foot until M7.4a (owner
-Q26). Vehicles still cannot fire or be damaged. Next: **M7.3** (turret, 30 mm and coax, vehicle spotting,
-smoke), then M7.4a/M7.4b, then **M7.5 Look and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7.2
-parts 1–3).
+Q26). **M7.3:** turrets lay and fire the 30 mm cannon (AP/HE) and the coaxial machine gun with counted ready
+belts, refilled from stowage when halted (owner Q17: both vehicles, ~90 s); crews pick targets under their own
+fire rules (a cease-fire to a squad does not silence its IFV); 30 mm HE bursts on a man it strikes (Q18); fire
+orders with a choice of round, smoke dischargers; crews observe through seat sights, vehicles are spotted by
+their visible area, heard by their engines (rain, wind), shown under fog as hull outlines with their type within
+1.5 km (Q6); thermal sights see through ordinary smoke at half strength (Q7); after the dismount the AI's Pumas
+overwatch and its BMP-2s follow 150 m behind, both supporting the assault by fire; AAR and batch count
+ammunition by source; gunnery lab (`npm run lab -- gunnery`). Rounds still stop at the hull (penetration M7.4a).
+Next: **M7.4a** (armour, penetration, Panzerfaust 3/RPG-7, default vehicle battles), then M7.4b, then **M7.5 Look
+and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7.2 parts 1–3, M7.3).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -125,9 +132,13 @@ parts 1–3).
   Q2); mounted start behind `&vehicles=1`; AI ride, dismount (doctrine distances, Q22), re-mount on withdrawal
   within 100 m (Q24), dismount near an objective it holds; mount lab (`npm run lab -- mount`); "+n" aboard by
   each hull, a second tap on a hull selects the squad riding in it.
+- **M7.3 guns and senses**: `systems/gunnery.ts` (turret lay, station fire, target choice with `why` keys,
+  refill, smoke), crew seat sensors and vehicle targets in spotting, vehicle contacts and engine hearing,
+  `fire`(+`nature`)/`discharge` orders and `not-applicable`, expenditure tally, vehicle debug overlay, Gun/Smoke
+  buttons; scenario `bench-combined`; `sight()` and the path search made faster (identical results).
 - **M6.5 attack balance**: two platoons attack one; AI sneaks up, splits fire and assault, throws grenades,
   calls mortars; Mortar and Smoke orders for the player (rounds land after 75-90 s; smoke blocks sight).
-- Tests: 382 (378 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 522 (514 + 8 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
@@ -197,6 +208,15 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
   tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
   Germany and Russia for lack of a public source on a difference.
+- **New data (M7.3), for review (all game values unless marked):** MK30-2 (200 rpm S), 2A42 (550 rpm S), coax
+  MG5 / PKT; PMC287 (1405 m/s S; 106 mm RHA at 1000 m → 132.5 mild-steel mm), Puma impact HE (Q16), 3UBR8
+  (1120 m/s S; 50 mm RHA at 1500 m → 62.5), 3UOF8 (960 m/s, 389 g S); belts (Puma 100 AP + 100 HE ready and as
+  many stowed, coax 1000 + 1000; BMP-2 160 AP + 340 HE ready (S total 500), PKT 250 + 7 × 250 stowed (S 2000));
+  smoke dischargers (Puma 4 × 4 of 76 mm, BMP-2 6 of 81 mm (S)); seat sights, arcs, sensor factors and smoke
+  factors (`core/spotting.json`), vehicle signature (area from the boxes, ×4 moving, ×15 firing, type told
+  within 1.5 km, engine 400/1200 m), `core/behaviour.json` `gunnery`, heavy-round wounding (≥ 12.5 mm,
+  severity ≥ 0.85), doctrine `dismount.afterward` (DE overwatch, RU follow 150 m: research file, low). The
+  driver does not search for the enemy (buttoned up, Q5).
 - **New data (M7.2), for review:** `core/behaviour.json` `mounting` (reach, timings, 100 m re-mount and hold
   distances, refill of 3 magazines; game values, low); vehicle stowage (Puma 20 G36 magazines, 6 MG5 belts,
   4 G28 magazines; BMP-2 24 AK-74 magazines, 6 PKP belts; low); crews carry a rifle with 3 magazines, helmet and

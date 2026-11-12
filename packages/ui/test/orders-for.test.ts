@@ -17,7 +17,10 @@ describe("ordersFor (M7.1c)", () => {
 
   it("a tracked vehicle gets move, halt, cease fire and rules; its own paces (drive first) and reverse", () => {
     const o = ordersFor("tracked", modes);
-    expect(o.modes).toEqual(["move"]);
+    expect(o.modes).toEqual(["move", "fire"]); // M7.3: the guns
+    expect(o.discharge).toBe(true);
+    expect(o.nature).toBe(true);
+    expect(ordersFor(null, modes).discharge).toBe(false);
     expect(o.posture).toBe(false);
     expect(o.halt && o.ceaseFire && o.rules).toBe(true);
     expect(o.paces).toEqual(["drive", "drive-slow", "drive-fast", "reverse"]);

@@ -28,7 +28,13 @@ export interface Overlay {
    * Fog of war (M3.4): what the player's side knows of the enemy (from `sideKnowledge`). When given and debug is
    * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
    */
-  known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number; /** Known to have surrendered (M6.6). */ surrendered?: boolean }[] | null;
+  known?: readonly {
+    target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number; /** Known to have surrendered (M6.6). */ surrendered?: boolean;
+    /** A vehicle (M7.3): drawn as a hull outline, its type's size once identified (owner Q6), facing as last seen. */
+    cls?: "vehicle"; vtype?: string; heading?: number;
+  }[] | null;
+  /** Debug, a vehicle selected (M7.3): its turret, target and reasons (text lines), and where its stations aim. */
+  vehicleDebug?: { vehicle: EntityId; lines: string[]; targets: { x: number; y: number }[] } | null;
   /** The order being planned (M5): route with its pace per leg, the formation marker with its handles. */
   plan?: PlanOverlay | null;
   /** Objectives (M6) as the player's side sees them (holders are public: who stands on them is visible). */
@@ -101,18 +107,32 @@ export class BattleRenderer {
     return new BattleRenderer(app);
   }
 
+  /**
+   * A renderer without a canvas or WebGL (M7.3: the render-cost test draws into it; Pixi builds its geometry in
+   * plain JavaScript). Nothing is shown; `setCatalog` instead of `setMap` (no terrain picture).
+   */
+  static headless(width: number, height: number): BattleRenderer {
+    const fake = { stage: new Container(), renderer: { width, height, resolution: 1 } } as unknown as Application;
+    return new BattleRenderer(fake);
+  }
+
   get width(): number { return this.app.renderer.width / this.app.renderer.resolution; }
   get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
 
   /** Build the terrain picture for a map (once per map). */
   setMap(map: MapDef, catalog: Catalog): void {
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
+    this.setCatalog(catalog);
+    this.terrain = buildTerrain(map, catalog.terrain);
+    this.worldLayer.addChild(this.terrain);
+  }
+
+  /** What the renderer needs to know of the data: ammunition looks and vehicle shapes. */
+  setCatalog(catalog: Catalog): void {
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.vehicleDefs = catalog.vehicles;
-    this.terrain = buildTerrain(map, catalog.terrain);
-    this.worldLayer.addChild(this.terrain);
   }
 
   /**
@@ -459,6 +479,16 @@ export class BattleRenderer {
       if (selected) g.circle(s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 5).stroke({ width: 2, color: 0xffffff });
       const unit = v.unit !== null ? state.unit.get(v.unit) : undefined;
       if (unit && c.scale > 0.5) this.label(label++, aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x + (def.body.lengthM / 2) * c.scale * k + 8, s.y - 8, colour);
+      // Debug overlay (M7.3): the target line of each station and its reasons beside the hull.
+      const dbg = overlay.vehicleDebug;
+      if (overlay.debug && dbg && dbg.vehicle === vid) {
+        for (const tg of dbg.targets) { const b = worldToScreen(c, tg.x, tg.y); g.moveTo(s.x, s.y).lineTo(b.x, b.y).stroke({ width: 1.5, color: 0xff6a4d, alpha: 0.8 }); g.circle(b.x, b.y, 6).stroke({ width: 1.5, color: 0xff6a4d }); }
+        // On a dark panel to the right of the hull (the men's debug labels are beside them).
+        const lx = s.x + (def.body.lengthM / 2) * c.scale * k + 170, ly = s.y - 20;
+        const wpx = Math.max(...dbg.lines.map((ln) => ln.length)) * 6.6 + 10;
+        g.rect(lx - 5, ly - 3, wpx, dbg.lines.length * 14 + 6).fill({ color: 0x10140f, alpha: 0.85 });
+        dbg.lines.forEach((ln, i) => this.label(label++, ln, lx, ly + i * 14, 0xffe066));
+      }
     }
     return label;
   }
@@ -548,6 +578,34 @@ export class BattleRenderer {
     }
   }
 
+  /**
+   * An enemy vehicle as the side knows it (M7.3): a hull outline at its true size (its type's, once identified,
+   * else a generic 7 x 3.5 m box), facing as last seen; solid while in sight, hollow and fading after; a dashed
+   * ring and a cross for one only heard.
+   */
+  private drawKnownVehicle(g: Graphics, k: NonNullable<Overlay["known"]>[number], s: { x: number; y: number }, colour: number, fade: number): void {
+    const c = this.camera;
+    const def = k.vtype !== undefined ? this.vehicleDefs[k.vtype] : undefined;
+    const L = def ? def.body.lengthM : 7, W = def ? def.body.widthM : 3.5;
+    const k2 = L * c.scale < 12 ? 12 / (L * c.scale) : 1;
+    const h = k.heading ?? 0, ch = Math.cos(h), sh = Math.sin(h);
+    const pt = (f: number, r: number) => [s.x + (ch * f - sh * r) * c.scale * k2, s.y + (sh * f + ch * r) * c.scale * k2];
+    const box = [...pt(L / 2, -W / 2), ...pt(L / 2, W / 2), ...pt(-L / 2, W / 2), ...pt(-L / 2, -W / 2)];
+    if (k.kind === "heard") {
+      const rr = Math.max(8, k.errM * c.scale), n = 16;
+      for (let q = 0; q < n; q += 2) {
+        const a0 = (q / n) * Math.PI * 2, a1 = ((q + 1) / n) * Math.PI * 2;
+        g.moveTo(s.x + Math.cos(a0) * rr, s.y + Math.sin(a0) * rr).lineTo(s.x + Math.cos(a1) * rr, s.y + Math.sin(a1) * rr);
+      }
+      g.stroke({ width: 1.5, color: colour, alpha: 0.7 * fade });
+      g.poly(box).stroke({ width: 1.5, color: colour, alpha: 0.6 * fade });
+      return;
+    }
+    const nose = [...pt(L / 2, -W / 3), ...pt(L / 2, W / 3), ...pt(L / 2 - L * 0.18, 0)];
+    if (k.kind === "seen" && k.ageS < 2) { g.poly(box).fill({ color: colour, alpha: 0.85 }).stroke({ width: 1, color: 0x000000, alpha: 0.6 }); g.poly(nose).fill({ color: 0x10140f, alpha: 0.8 }); }
+    else { g.poly(box).stroke({ width: 2, color: colour, alpha: fade }); g.poly(nose).stroke({ width: 1, color: colour, alpha: fade }); }
+  }
+
   private drawKnown(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>): void {
     const c = this.camera;
     let enemy = 0;
@@ -557,6 +615,7 @@ export class BattleRenderer {
     for (const k of overlay.known ?? []) {
       const s = worldToScreen(c, k.x, k.y);
       const fade = Math.max(0.15, 1 - k.ageS / 120);
+      if (k.cls === "vehicle") { this.drawKnownVehicle(g, k, s, colour, fade); continue; }
       const rr = k.errM * c.scale;
       const diamond = [s.x, s.y - d, s.x + d, s.y, s.x, s.y + d, s.x - d, s.y];
       if (k.kind === "heard") {

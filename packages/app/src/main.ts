@@ -12,9 +12,10 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  type EntityId, type Order, type Sim, type SimEvent,
+  tallyExpenditure, vehicleItems,
+  type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
+import { BattleRenderer, SIDE_COLOURS, VehicleDebug, type Overlay } from "@tcs/render";
 import { createAar, ordersFor, paceToWaypoint, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
@@ -56,7 +57,7 @@ async function main(): Promise<void> {
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const SAVE_KEY = "tcs.save";
   let sim: Sim = createSim(input);
-  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[] };
+  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[]; exp?: Expenditure };
   let loadedRecord = null as AarRecord | null;
   let loadFailed = false;
   if (params.get("load") === "1") {
@@ -81,6 +82,9 @@ async function main(): Promise<void> {
   /** Rules ordered for a unit and not yet in force there (shown as chosen meanwhile). */
   const pendingRules = new Map<EntityId, Partial<UnitRules>>();
   let orderMode: OrderMode = "move";
+  /** Gun and round of the next fire order to a vehicle (M7.3; null = the crew chooses). */
+  let nature: "ap" | "he" | "mg" | null = null;
+  const vehicleDebug = new VehicleDebug();
   let plan: Plan | null = null;
   let dragHandle: Handle | null = null;
   /** Undefined until the player picks one: then the faction's doctrine default applies. */
@@ -125,6 +129,9 @@ async function main(): Promise<void> {
     onHalt: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
     onMount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "mount" }); },
     onDismount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "dismount" }); },
+    // Vehicles (M7.3): smoke screen now; the gun and round of the next fire order.
+    onDischarge: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "discharge" }); },
+    onNature: (n) => { nature = n; },
     onCeaseFire: () => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "ceaseFire" });
     },
@@ -155,7 +162,7 @@ async function main(): Promise<void> {
     onSave: () => {
       try {
         // The after-action record so far goes with the save (the timeline and heat map cover the whole battle).
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls } }));
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls, exp } }));
         hud.radio(strings.t("app.saved"), ticksToSeconds(sim.state.tick), "#d8e0c8");
       } catch { hud.radio(strings.t("app.saveFailed"), ticksToSeconds(sim.state.tick), "#ffb4b4"); }
     },
@@ -278,8 +285,10 @@ async function main(): Promise<void> {
         const near = hits.find((h) => !h.k.surrendered);
         // A tap on an enemy your men know has surrendered: no order (fire at that point would hit him).
         if (!near && hits.length > 0) { hud.radio(strings.t("order.surrenderedTarget"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
-        if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target });
-        else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
+        // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
+        const nat = vehicleClassOf(overlay.selectedUnit) !== null && nature !== null ? { nature } : {};
+        if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
+        else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y, ...nat });
         return;
       }
       // Move / assault / withdraw: each tap adds a point to the plan; Go sends it.
@@ -306,12 +315,16 @@ async function main(): Promise<void> {
   const sideName = (side: string) => { const f = sim.state.sides.find((x) => x.id === side)?.faction ?? ""; return strings.t(`faction.${f}`, {}, f); };
   const heatShots: number[] = [...(loadedRecord?.heatShots ?? [])], heatFalls: number[] = [...(loadedRecord?.heatFalls ?? [])];
   const timeline: { tick: number; text: string; colour: string }[] = [...(loadedRecord?.timeline ?? [])];
+  // Ammunition used per side (M7.3): vehicle rounds credited to the vehicle, from the events.
+  const exp: Expenditure = loadedRecord?.exp ?? {};
   if (loadFailed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
   const callsignOf = (id: EntityId) => sim.state.unit.get(sim.state.identity.get(id)?.unit ?? -1)?.callsign ?? "";
   let aarShown = false;
   const objName = (id: string) => { const o = input.rules.objectives.find((x) => x.id === id); return o ? strings.t(o.nameKey) : id; };
   const handleEvents = (events: SimEvent[]) => {
     renderer.onEvents(events, sim.state, overlay);
+    vehicleDebug.onEvents(events);
+    tallyExpenditure(exp, events, sim.state, input.catalog);
     for (const e of events) {
       if (e.kind === "shot.fired") { if (heatShots.length < 300000) heatShots.push(e.x, e.y, sideIdx(sim.state.identity.get(e.shooter)?.side ?? "")); continue; }
       if (e.kind === "casualty") {
@@ -402,6 +415,9 @@ async function main(): Promise<void> {
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
+    /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
+    discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "discharge" }),
+    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y, nature: n }),
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
     hash: () => simHash(sim),
     ready: true,
@@ -420,7 +436,13 @@ async function main(): Promise<void> {
       const pax = veh.seats.filter((x, i) => x !== null && def?.seats[i]?.station === "passenger").length;
       const seats = def ? def.seats.filter((q) => q.station === "passenger").length : 0;
       const status = strings.t("status.vehicle", { callsign: u.callsign, status: strings.t(`vehicle.status.${veh.status}`), speed: Math.round(Math.abs(veh.drive.speed) * 3.6), fuel: def ? Math.round(fuelLitres(sim.state, u.vehicle, def)) : 0, crew })
-        + (seats > 0 ? `, ${strings.t("status.passengers", { n: pax, seats })}` : "");
+        + (seats > 0 ? `, ${strings.t("status.passengers", { n: pax, seats })}` : "")
+        // Ammunition (M7.3): ready per weapon, stowed belts, smoke grenades.
+        + (def && veh.stations.length > 0 ? `\n${strings.t("status.vehicle.ammo", {
+          ready: veh.stations.flatMap((st) => st.weapons.map((w) => `${strings.t(`weapon.${w.weapon}`, {}, veh.faction)} ${w.feeds.map((f) => f.rounds).join("/")}`)).join(", "),
+          stowed: [...new Set(veh.stations.flatMap((st) => st.weapons.flatMap((w) => w.feeds.map((f) => f.item))))].map((it) => (sim.state.container.get(u.vehicle!)?.stacks ?? []).filter((x) => x.type === it).reduce((n, x) => n + (x.charge ?? 0) * x.count, 0)).join("/"),
+          smoke: def.dischargers ? vehicleItems(sim.state, u.vehicle, def.dischargers.item) : 0,
+        })}` : "");
       hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, ...(pendingRules.get(uid) ?? {}) }, status);
       return;
     }
@@ -471,7 +493,20 @@ async function main(): Promise<void> {
           return { order: rank, text: strings.t("aar.man", { rank: strings.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: strings.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
         }).sort((a, b) => a.order - b.order);
         const down = sc.scores.find((x) => x.side === sd.id)?.menDown ?? 0; // the same count as the score
-        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: rows.map((r) => r.text) };
+        // Ammunition used (M7.3, plan C4).
+        const e = exp[sd.id];
+        const spent: string[] = [];
+        if (e) {
+          spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }));
+          for (const [vid, v] of Object.entries(e.vehicles).sort(([a], [b]) => (a < b ? -1 : 1))) {
+            const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
+            const name = call && call.unit !== null ? sim.state.unit.get(call.unit)?.callsign ?? vid : vid;
+            for (const [ammo, n] of Object.entries(v.cannon)) spent.push(strings.t("aar.exp.cannon", { vehicle: name, ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
+            if (v.coax > 0) spent.push(strings.t("aar.exp.coax", { vehicle: name, n: v.coax }));
+            if (v.smoke > 0) spent.push(strings.t("aar.exp.smoke", { vehicle: name, n: v.smoke }));
+          }
+        }
+        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: [...rows.map((r) => r.text), ...spent] };
       }),
       timeline: timeline.map((t) => ({ time: fmtClock(ticksToSeconds(t.tick)), text: t.text, colour: t.colour })),
     };
@@ -509,6 +544,11 @@ async function main(): Promise<void> {
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
     // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
+    // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
+    {
+      const vid = overlay.debug && overlay.selectedUnit !== null ? sim.state.unit.get(overlay.selectedUnit)?.vehicle : undefined;
+      overlay.vehicleDebug = vid === undefined ? null : { vehicle: vid, ...vehicleDebug.view(sim.state, vid, strings) };
+    }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     syncOrders();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);

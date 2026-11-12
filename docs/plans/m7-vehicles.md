@@ -2,8 +2,8 @@
 
 This plan is for the implementing engineer to follow as written. It keeps the base of design 3 ("hot paths and invariants first") and deals with all 68 critic points. Every WRONG and MISSING point is fixed in the section it concerns, and every RISK point has a mitigation in §17. Each fix carries its critic number as **[Cn]**. File and symbol names were checked against the code on 2026-11-12. Line numbers have moved since M6.6, so the plan names symbols, not lines.
 
-**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, **M7.2 ✅** (2026-11-12; what was decided where the
-plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3"). Next: M7.3.
+**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, M7.2 ✅, **M7.3 ✅** (2026-11-12; what was decided where
+the plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3" and "M7.3"). Next: M7.4a.
 
 **Current facts the plan depends on (checked):**
 - `STATE_SCHEMA_VERSION = 15` (`packages/sim/src/state.ts`). `STORE_KEYS = identity, transform, mover, soldier, unit, container, action, weapon, fire`.
@@ -1051,7 +1051,7 @@ Its memory keeps last-seen ticks to detect changes ("a hit since my last think" 
   - `fixture-faction.test.ts`; `lab-mount.test.ts`.
 - **Acceptance:** with `&vehicles=1`, platoon battles start mounted. The owner note states that the vehicles cannot fire or be damaged yet and that the default stays infantry until M7.4a.
 
-### M7.3 Turret, 30 mm and coax with counted ammunition, sights and vehicle spotting, fire orders and own fire, smoke dischargers
+### M7.3 Turret, 30 mm and coax with counted ammunition, sights and vehicle spotting, fire orders and own fire, smoke dischargers — ✅ done
 - **Files:** as revision 1, plus `render/test/debug-overlay.test.ts`, `packages/tools/src/cli/batch.ts` (expenditure columns).
 - **Steps:**
   1. Weapons, ammunition, belts, smoke items.

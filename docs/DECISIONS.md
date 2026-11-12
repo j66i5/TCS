@@ -1614,6 +1614,18 @@ data says otherwise; the data notes give each):
 - **Gunnery lab** (`npm run lab -- gunnery`): AP at a halted hull side-on, Puma 91 % at 1000 m / 72 % at 1500 m,
   BMP-2 83 % / 51 %; on the move (~20 km/h) 33 % / 12 %; order to first round with the target 90° off 3.3 / 4.4 s;
   every round counted; refill 90 s.
+- **Perf (alone, part 2's check):** bench 14×, spotting bench 10.9× (9.5× before: the faster `sight()`),
+  bench-vehicles 8.6× (floor 8×; base 8.7× measured the same day), projectile bench 4.21 ms/tick (4.0×), with 30
+  parked hulls +5.7 %, **bench-combined** (270 men + 30 IFVs at will + 20,000 projectiles) 3.9× (floor 3×, SPEC
+  target 8× not reached), +2.2 % against the same load holding fire (asserted < 25 %: noise ~10 %), fragment
+  volley 13.6×; **render proxy** (`render/test/perf-render.test.ts`, headless Pixi geometry: 30 hulls + 270 men +
+  2000 tracers) 1.0 ms per frame (< 4 ms).
+- **Interface (part 2):** a crew gets Fire (with "Gun: crew's choice / AP / HE / machine gun") and "Smoke screen";
+  its status line adds ready rounds per weapon, stowed belts and smoke grenades; enemy vehicles under fog as hull
+  outlines (type size once identified, heading as last seen); the vehicle debug overlay (Debug with a vehicle
+  selected: turret lay, the station's target line and reasons from `vehicle.decision`, ammunition, track
+  speeds); the AAR lists ammunition used. `__tcs.discharge/fireNature`; screenshots `--scene vehicles` add
+  `gunnery-*` (firing, turret close-up, debug, smoke).
 - **Deferred:** AI smoke and reverse-out (M7.4b); per-vehicle weapon choice by the player beyond the nature
   (coax vs cannon at the same nature); the radio-component comms rule (M7.4b); Uint8 vehicle grids (as M7.1c);
   vehicle contacts from mortar/air observation; air-burst (ABM) later (Q16).

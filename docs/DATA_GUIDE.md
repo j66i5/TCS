@@ -154,7 +154,10 @@ The squad the game starts with is named in the faction's `manifest.json`: `"demo
 `core/spotting.json` lists `sensors` by kind: `factor` (how much easier he spots beyond `fromM` metres) and
 `nightLight` (the light level it gives at least: 0.5 for night vision, 1 for thermal). A weapon sight's `kind`
 is looked up there; an item gets a sensor with `"sensor": "night"` (for example a night-vision goggle in a
-man's load). Every man also has `eye`.
+man's load). Every man also has `eye`. Optional per sensor (M7.3): `smokeFactor` (share of the view kept
+through ordinary smoke; 0 = blinded, thermal 0.5), `maxRangeM`, `fogFloorM` (sees at least this far in fog) and
+`rainFactor`. The `vehicles` block sets how vehicles are seen and heard (reference area, tracking, drift and
+forgetting of vehicle contacts, engine-noise factors).
 
 ## Change what stops a bullet
 
@@ -253,8 +256,15 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
 - `ramp` (exits and the time to open, get in and out), `stations` (turret or mount: traverse and elevation
   rates and limits, stabiliser, errors, weapons with their ready belts and `feedKind` `belt`/`single`/
   `autoloader`; a `single` feed needs `roundLoadSeconds`, and `loaderStation` must be a seat kind of the
-  vehicle), `stowed` items. `armour`, `components`, `signature`, `dischargers` are reserved and arrive with
-  gunnery and armour (M7.3, M7.4).
+  vehicle), `stowed` items. M7.3: a station weapon's `muzzle` is `[f, r, u]` in the turret's frame about its
+  pivot (`u` from the ground); `readyRefillInBattle` with `refillSeconds` lets the crew refill ready belts from
+  stowed belts of the same item while halted; seat `sensors` (`kind` from `core/spotting.json`, `pos`, `arcDeg`,
+  `sideFactor`/`rearFactor` outside the arc, `follows` `"own"` (the hull) or `"station"` (the turret), `lrf`);
+  `dischargers` (`item` smoke ammunition counted in `stowed`, `perSalvo`, `salvos`, `arcDeg`, `rangeM`,
+  `delaySeconds`, `cloudRadiusM`, `cloudSeconds`); `signature` (`sizeFactor` on the area of the boxes,
+  `movingFactor`, `firingFactor`, `identifyM` within which its type is told, engine `noiseIdleM`/`noiseMovingM`,
+  `aimPoints` `[f, r, u]`). Ammunition may set `explosive.burstOnBody` (cannon HE bursting on a man struck) and
+  `multispectral` (smoke that also blinds thermal sights). `armour` and `components` are reserved (M7.4).
 - Crew: a unit template with `"echelon": "vehicle"` and `"vehicle": "<type>"`; each member may name his `seat`
   (default: crew seats in the order commander, gunner, loader, driver). A parent template may give
   `carriage: [{ "crew": <sub-unit index>, "carries": [<sub-unit indices>] }]` (M7.2).

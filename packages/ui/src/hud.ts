@@ -29,6 +29,9 @@ export interface HudCallbacks {
   /** Get in / get out (M7.2). */
   onMount(): void;
   onDismount(): void;
+  /** Vehicles (M7.3): fire the smoke dischargers; the gun and round of the next fire order (null = crew's choice). */
+  onDischarge(): void;
+  onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
   onPace(mode: string): void;
@@ -135,7 +138,18 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const dismountBtn = el("button", "hud-btn", s.t("order.dismount"));
   dismountBtn.onclick = () => cb.onDismount();
   mountBtn.hidden = true; dismountBtn.hidden = true;
-  orders.append(mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
+  const dischargeBtn = el("button", "hud-btn", s.t("order.discharge"));
+  dischargeBtn.onclick = () => cb.onDischarge();
+  const natures = [null, "ap", "he", "mg"] as const;
+  let nature = 0;
+  const natureBtn = el("button", "hud-btn", s.t("order.nature.auto"));
+  natureBtn.onclick = () => {
+    nature = (nature + 1) % natures.length;
+    natureBtn.textContent = s.t(`order.nature.${natures[nature] ?? "auto"}`);
+    cb.onNature(natures[nature]!);
+  };
+  dischargeBtn.hidden = true; natureBtn.hidden = true;
+  orders.append(natureBtn, dischargeBtn, mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
     mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), mountBtn, dismountBtn, haltBtn, ceaseBtn, postureBtn, rulesBtn);
 
   // ---- plan bar
@@ -245,6 +259,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire; postureBtn.hidden = !set.posture; rulesBtn.hidden = !set.rules;
       mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount;
+      dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
       if (set.paces.join() !== paces.join()) {
         paces = [...set.paces]; pace = 0;
         paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[0]!}`)}`;

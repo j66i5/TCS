@@ -365,7 +365,8 @@ ammunition, crewed by a small unit of its own: commander, gunner, driver. It dri
 power, the two tracks, gears, ground and rain), finds its way on a map of where a hull fits, flattens fences and
 hedges, drives round walls and houses, waits for its own men and runs over the enemy's. Without an able driver
 it does not move; if the driver falls, the commander moves into his seat after about 20 seconds (the dead or
-wounded man stays aboard). The vehicles cannot fire or be damaged yet (that is M7.3 and M7.4).
+wounded man stays aboard). The vehicles shoot (below) but cannot be damaged yet: rounds stop at the hull until
+M7.4.
 
 **Riding.** Men in a vehicle stay soldiers sitting in seats: they move with it, see nothing outside, cannot fire
 or be shot at, and never give up while aboard; they still count for holding an objective. A squad told to
@@ -376,13 +377,40 @@ vehicle stops, the ramp opens and the men get out one at a time, landing a few m
 a squad aboard any other order (move, assault, fire ...) and it gets out first, then does it. A man who runs out
 of magazines walks over to a stopped vehicle of his side nearby and takes three from its stowage.
 
+**Guns (M7.3).** Each vehicle has a turret with a 30 mm cannon (armour-piercing and high-explosive rounds on two
+ready belts) and a machine gun beside it. Every round is counted: off the ready belt as it is fired, and when a
+belt runs low and the vehicle is standing still, the crew refills it from the rounds stowed in the hull (about
+90 seconds; both vehicles can, by the owner's choice). The turret turns at its real speed toward the target; a
+stabilised turret keeps pointing at it while the hull turns. The gun fires only when it is laid, the line from
+the muzzle is clear and none of its own men on foot is in the way. Where the rounds go follows from the sight
+(the Puma's laser rangefinder makes it more accurate at range), the gunner's skill and whether the vehicle is
+moving. The crew picks its own targets when its fire rules allow ("return fire" also answers fire on its
+platoon): an enemy vehicle first (armour-piercing), then men firing now, nearest first — high explosive at their
+feet for a group or a man beyond 400 m, the machine gun for a single man close by; never high explosive close to
+its own men. A cannon shell that strikes a man bursts on him. You can order a vehicle to fire at a point or an
+enemy marker (with "Gun: AP / HE / machine gun", or leave the choice to the crew), to cease fire (an order to a
+squad does not silence its vehicle; one to the platoon does), and to throw a **smoke screen** (its smoke
+grenades are counted; when they are gone it says so). Debug with a vehicle selected shows where the turret
+points, what it aims at and why.
+
+**Seeing vehicles.** A vehicle is big: the area of its hull and turret seen from where a man stands decides how
+easily it is spotted (side-on far more than head-on; only the turret of a hull behind a crest). Its crew look
+out through their sights — the commander all round, the gunner where the turret points; the driver drives —
+and see further than a man (to 3 km). Thermal sights see a vehicle through ordinary smoke at half strength;
+eyes and day sights not at all. Engines are heard: idling about 400 m, driving about 1.2 km, less in rain, more
+downwind. An enemy vehicle shows on your map as a hull outline once your men have seen it, with its type once
+seen within about 1.5 km.
+
 **In a battle** (for now only with `&vehicles=1`, until the vehicles can be knocked out): the attacking platoons
 start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
 operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up
 to a point out of sight of the objectives, 300 m short of them for the Germans and 400 m for the Russians (from
 their published doctrine), and the squads get out and go on as before; they get out at once if a vehicle is hit.
 If the attack fails, squads within 100 m of their vehicle get back in and ride back. The defender's vehicles
-stand behind its position with only their crews.
+stand behind its position with only their crews and fire at will. Once the squads are out, the German Pumas stay
+where they dropped them and support by fire from there; the Russian BMP-2s follow their squads about 150 m behind
+(both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
+knows near the objective, never close to its own men.
 
 ## Does an attack work?
 

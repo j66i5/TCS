@@ -517,6 +517,33 @@ kept as `Boarding.then` and applied without a second comms delay once it is out 
 builder pairs squads and carriers from the templates' `carriage` (`UnitInput.carrierId` → `Unit.carrier`); the AI
 reads `Unit.carrier`, `Unit.boarding`, `drive.arrived` and `lastHitTick` from its read-only view.
 
+## 16j. Turrets, guns and vehicle senses (M7.3) — `systems/gunnery.ts`, `systems/spotting.ts`, `systems/contacts.ts`
+
+Station weapons live only in `VehicleState.stations[i].weapons` (ready rounds per feed, counted; rule 9). Tick
+order: `turretSystem` (after physiology: lays each station on its `task` with lead from the drop table's time of
+flight and elevation with drop; traverse/elevation rates, limits, arc; a stabilised turret holds its bearing
+against the hull's yaw; `laidTick`) → `fireSystem` → `stationFireSystem` (operator, feed switch, single-round
+loading by the loader station, line of fire from the muzzle with `sight()` ignoring the own hull, `friendInLine`
+over men on foot, bursts from the weapon's `sustained` data; every round through `launchShot` with
+`shot.fired.vehicle`; due smoke salvos) → … → `projectileSystem` → `vehicleIncomingSystem` (hull hits stamp
+`lastHitTick` and `underFireTick`/`contactTick` of the crew unit and its platoon; fire near a vehicle renews its
+ordered tasks — the infantry `incomingFireSystem` returns early without fire tasks, plan C34) → … →
+`decisionSystem` → `stationDecisionSystem` (1 Hz per vehicle, staggered: target choice from the crew's contacts,
+nature AP/HE/MG, `station.why` keys, `vehicle.decision` events on change; halted refill of ready belts from
+stowage through `transferItems`, action `reloadStation`). Fire control is the crew unit's own (`fireTop`): a
+cease-fire to a squad never silences its IFV; to the platoon it reaches the vehicles (`stationCeaseFire`); "return
+fire" answers fire on the crew or its platoon. Orders: `fire` (+`nature`), `discharge`; `not-applicable` for
+orders a crew (or a foot unit, for smoke) cannot carry out.
+
+Spotting: vehicles are targets (area of hull and turret boxes at the observer's aspect, aim points, the target's
+own hull ignored); crewmen observe through their seats' sensors (arc, following hull or turret, range, fog floor,
+rain), every fourth scan; men on foot look for vehicles every fourth scan (cost bounds; detection rates are per
+second, so unchanged on average). Each sensor keeps `smokeFactor` of its view through ordinary smoke and none
+through a multispectral cloud (`throughSmoke`). Contacts on vehicles carry `cls`, `vtype` (within the type's
+`identifyM`), heading and velocity; shots from a station are heard as the vehicle; engines are heard every 2 s
+(`engineRangeM`: idle/moving range × surface × rain × wind). Ammunition expenditure for the AAR and the batch
+report is tallied from events (`tallyExpenditure`: vehicle rounds credited to the vehicle).
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -547,7 +574,10 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts | 🟡 fuel (tank item's charge, burnt by the drive) M7.1b; components M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt" |
 | 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts, hulls.ts, nav.ts (`tracked:c1`) | ✅ dynamics, gears, rain, fuel M7.1b; navigation, follower, collisions, flattening M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `sim/test/vehicles.test.ts`, `tools/test/vehicle-maps.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
 | 4.3.5 | "vehicle hit" event | systems/ballistics.ts | 🟡 every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; penetration M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick" |
-| 4.4 | Scale with vehicles | perf.test.ts | 🟡 `bench-vehicles` ≥ 8× (M7.1c); `bench-combined`, render proxy M7.3 | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls" |
+| 4.4 | Scale with vehicles | perf.test.ts, perf-projectiles.test.ts, perf-render.test.ts | ✅ `bench-vehicles` ≥ 8× (M7.1c); `bench-combined` (300 men + 30 IFVs firing + 20,000 projectiles) ≥ 3× floor and close to the same load holding fire; render proxy < 4 ms (M7.3) | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls", "bench-combined"; `render/test/perf-render.test.ts` |
+| 6.7 | Turret, sights, ammo racks | systems/gunnery.ts | ✅ M7.3 (penetration M7.4a) | `tools/test/lab-gunnery.test.ts`, `tools/test/gunnery.test.ts` (conservation, cease-fire routing C19, incoming fire C34, sling loader C10) |
+| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | 🟡 smoke M7.3; APS M7.4a | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke" |
+| 6.6/5.7 | Decision debug overlay | render/src/vehicle-debug.ts, `vehicle.decision` | 🟡 station why M7.3; reaction why M7.4b | `render/test/debug-overlay.test.ts` "draws the station's why" |
 | — | Mounted-man invariants | architecture.test.ts A7, mounted-invariants.test.ts | ✅ source guard M7.1c (no file exempt since M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated"; `tools/test/mounted-invariants.test.ts` |
 | 6.7 | Crew seats, no driver no movement, passengers are soldiers | systems/boarding.ts, systems/drive.ts, mount.ts | ✅ M7.2 | `sim/test/mount.test.ts`; `sim/test/vehicles.test.ts` "no driver answers radio.noDriver" |
 | 9.1 | Casualties loaded into a vehicle | systems/boarding.ts (`loadCasualty`) | 🟡 within 5 m of an exit, by two men (M7.2); carrying over distance M10 | `sim/test/mount.test.ts` "a casualty within 5 m of the exit is loaded by two men" |
@@ -560,7 +590,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts | ✅ orders / 🟡 contacts M3 | `sim/test/orders.test.ts` "delayed by the comms model" |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
-| 9.7 | Environment state exists and is read by spotting, ballistics, movement (vehicles: rain → traction/rolling), fatigue | environment.ts, systems/body.ts, systems/drive.ts | 🟡 fatigue reads temperature ✅; vehicle movement reads rain ✅ (M7.1b); spotting (M3) and ballistics (M2) not yet | `sim/test/body.test.ts` "heat makes running more tiring"; `tools/test/lab-drive.test.ts` "rain slower than dry" |
+| 9.7 | Environment state exists and is read by spotting, ballistics, movement (vehicles: rain → traction/rolling), fatigue, hearing | environment.ts, systems/body.ts, systems/drive.ts, systems/contacts.ts | 🟡 fatigue reads temperature ✅; vehicle movement reads rain ✅ (M7.1b); engine hearing reads rain and wind, vehicle sights read fog and rain ✅ (M7.3); ballistics reads wind and temperature | `sim/test/body.test.ts` "heat makes running more tiring"; `tools/test/lab-drive.test.ts` "rain slower than dry"; `tools/test/vehicle-senses.test.ts` "rain shortens engine hearing" |
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

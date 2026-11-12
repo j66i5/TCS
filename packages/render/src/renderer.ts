@@ -287,7 +287,7 @@ export class BattleRenderer {
         if (overlay.selectedUnit === uid) g.rect(s.x - w / 2 - 3, s.y - h / 2 - 3, w + 6, h + 6).stroke({ width: 2, color: 0xffffff });
         this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
       }
-      label = this.drawObjectives(g, overlay, sideIndex, label);
+      label = this.drawObjectives(g, overlay, sideIndex, label, state);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
       for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
@@ -361,7 +361,7 @@ export class BattleRenderer {
         this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
-    label = this.drawObjectives(g, overlay, sideIndex, label);
+    label = this.drawObjectives(g, overlay, sideIndex, label, state);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
@@ -377,8 +377,16 @@ export class BattleRenderer {
    * its name. After the battle, the heat map: where shots came from (small dots in the firing side's colour)
    * and where men fell (crosses).
    */
-  private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, label: number): number {
+  private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, label: number, state?: SimView): number {
     const c = this.camera;
+    // Smoke (M6.5c): grey clouds, thin while they build up and as they clear (everyone can see smoke).
+    if (state) for (const sm of state.smoke) {
+      const s = worldToScreen(c, sm.x, sm.y);
+      const grow = Math.min(1, (state.tick - sm.startTick) / 600), fade = Math.min(1, (sm.untilTick - state.tick) / 1200);
+      const r = Math.max(6, sm.radiusM * (0.3 + 0.7 * grow) * c.scale);
+      g.circle(s.x, s.y, r).fill({ color: 0xd8d8d0, alpha: 0.55 * fade });
+      g.circle(s.x - r * 0.3, s.y - r * 0.2, r * 0.6).fill({ color: 0xeeeeea, alpha: 0.35 * fade });
+    }
     for (const o of overlay.objectives ?? []) {
       const s = worldToScreen(c, o.x, o.y);
       const colour = o.holder === null ? 0xb0b0b0 : SIDE_COLOURS[(sideIndex.get(o.holder) ?? 0) % SIDE_COLOURS.length]!;

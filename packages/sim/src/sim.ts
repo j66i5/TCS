@@ -21,6 +21,7 @@ import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { drillSystem } from "./systems/drills";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
+import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
 import { contactSystem } from "./systems/contacts";
 import { PHYSIOLOGY_MODELS } from "./wounds";
@@ -62,6 +63,7 @@ export function createSim(input: BattleInput): Sim {
   const state = buildInitialState(input);
   state.mapFingerprint = ctx.mapFingerprint;
   initObjectives(ctx, state);
+  initSupport(ctx, state);
   syncTerrainDamage(ctx, state);
   return { ctx, state };
 }
@@ -94,6 +96,7 @@ export function step(sim: Sim): SimEvent[] {
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
   fireSystem(ctx, state, events);
+  supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
   grenadeReactionSystem(ctx, state, events);
   incomingFireSystem(ctx, state, events.events);

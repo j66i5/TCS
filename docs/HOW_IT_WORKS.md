@@ -20,6 +20,14 @@ brings it back exactly. At the end the **after-action review** shows the result 
 battlefield, a **heat map** (dots where shots came from, crosses where men fell).
 `?scenario=demo` opens the old one-squad sandbox.
 
+**Mortars and smoke (M6.5).** The attacker has two platoons. Each side can call mortar fire (the line under the
+top bar shows the rounds left; the attacker has more, and more smoke): pick **Mortar** or **Smoke** and tap the
+target. The selected unit's leader calls it by radio; the first round lands after a minute or more (German
+120 mm: 90 s, Russian 82 mm: 75 s), then one every few seconds, scattered about the point. High explosive bursts
+like a big grenade; smoke lays grey clouds for two minutes or more that nobody can see through (bullets still
+go through). The AI attacker calls fire while it looks for the enemy and goes in as it lands, with smoke on
+the near edge of the objective; the AI defender shells attackers it sees out in the open.
+
 ## How to play (M5)
 
 Tap one of your men to select his unit. The bar at the bottom holds the orders:

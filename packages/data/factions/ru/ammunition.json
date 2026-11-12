@@ -233,6 +233,67 @@
       ],
       "confidence": "low",
       "note": "7.62 mm x 54 R tracer (T-46 class) for belts, every fifth round. Derived from the ball round. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
+    },
+    {
+      "id": "ru-82-he",
+      "nameKey": "ammo.ru-82-he",
+      "calibre": "82mm-mortar",
+      "kind": "high-explosive",
+      "projectileMassKg": 3.1,
+      "cartridgeMassKg": 3.1,
+      "diameterM": 0.082,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.4,
+        "fragmentCount": 500,
+        "fragmentAmmo": "ru-82-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ]
+      },
+      "sources": [
+        "https://bulcomersks.com/military-products/ammunition/mortar-rounds/82mm-mortar-round-vo-832du/",
+        "https://arcus.bg/82mm-he-mortar-bomb-vo-832du/",
+        "https://en.wikipedia.org/wiki/2B9_Vasilek"
+      ],
+      "confidence": "medium",
+      "note": "82 mm HE mortar bomb (VO-832DU type, fired by the 2B14 Podnos): 3.1 kg, about 400 g TNT (manufacturer listings, search extracts); 400-600 fragments for an 82 mm HE shell (2B9 article). Fragment velocity is a game value."
+    },
+    {
+      "id": "ru-82-fragment",
+      "nameKey": "ammo.ru-82-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0015,
+      "cartridgeMassKg": 0.0015,
+      "diameterM": 0.007,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 3.5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the 82 mm bomb (game abstraction: all fragments equal; mass = about the casing over the fragment count)."
     }
   ]
 }

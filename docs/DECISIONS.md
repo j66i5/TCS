@@ -1098,3 +1098,15 @@ even against a single defending squad left, the attacking platoon is pinned at ~
 2. **Fog of war:** keep "what your men have reported" (the M3 reminder is closed).
 3. **Medical system:** after vehicles, as planned.
 4. **Formation marker:** keep the laid-out formation for every move (the M5 change is confirmed).
+
+## 2026-11-12 — M6.5 attack balance (owner's M6 review: "do 1, 2 and 3")
+(a) The generator gives the attacker two platoons; the commander leads every platoon's squads. (b) Better AI
+attack: walk, then sneak the last 200 m to the support line; half the squads (each at another known enemy)
+fire while the others assault; grenades at enemies within 35 m (never with a friend within 15 m of the burst);
+mortar fire called while it reconnoitres, the assault going in as it lands; a grenade order no longer ends the
+squad's drill. (c) Mortars and smoke from M8: German 120 mm (filling a game value, confidence low), Russian
+82 mm (0.4 kg TNT from manufacturer listings, medium); delay 90 / 75 s, spread 30 / 25 m, cadence 6 / 4 s,
+smoke 35 m for 150 s / 25 m for 120 s (game values); allotment attacker 24 HE + 12 smoke, defender 12 + 4; smoke
+cuts the view by exp(-0.15/m). **Result (10 battles each way):** German attack wins 2 of 10 (defenders lose
+~13 of 20, attackers ~20 of 40); Russian attack 0 of 10 (attackers ~20 of 40, defenders ~12 of 20). The
+Russian attack's weaker mortar is the main difference; left for the owner rather than tuned without sources.

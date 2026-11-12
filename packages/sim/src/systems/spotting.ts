@@ -13,6 +13,7 @@
  * Exactly one random draw per observer, target and scan, always, from the "spotting" stream: the line-of-sight
  * check is skipped when the draw could not succeed even with a perfect view, which saves most of the cost.
  */
+import { smokeTransmission } from "./support";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
@@ -116,6 +117,8 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
         const top = sight(ctx, ot.x, ot.y, ez, tg.x, tg.y, tg.vegTopZ + 0.1);
         if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
       }
+      // Smoke (M6.5c) between them hides him.
+      if (state.smoke.length > 0) vis *= smokeTransmission(state, D.smokeExtinctionPerM, ot.x, ot.y, tg.x, tg.y);
       if (vis < D.minVisibility) vis = 0;
       if (u >= 1 - exp(-rate * vis * scanS)) continue;
       if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }

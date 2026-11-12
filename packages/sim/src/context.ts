@@ -24,6 +24,8 @@ export interface BattleRules {
   objectives: ObjectiveDef[];
   /** How the battle is won (M6). Without it the battle simply runs to its time limit. */
   victory?: VictoryRules;
+  /** Mortar rounds each side may call (M6.5c); the kind of fire is the faction's `fireSupport`. */
+  support?: { side: SideId; he: number; smoke: number }[];
 }
 
 /** An area worth holding (M6). */

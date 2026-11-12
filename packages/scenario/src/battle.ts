@@ -30,6 +30,9 @@ export interface ScenarioDef {
   mapHeightM?: number;
 }
 
+/** Mortar rounds each side may call (game values). */
+export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
+
 /** Points of the main and the second objective, and what each man down costs his side. */
 export const SCENARIO_POINTS = { main: 100, second: 50, perManDown: 5 } as const;
 
@@ -101,5 +104,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
+  // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
+  rules.support = SIDES.map((side) => side === def.attacker ? { side, he: SCENARIO_SUPPORT.attackerHe, smoke: SCENARIO_SUPPORT.attackerSmoke } : { side, he: SCENARIO_SUPPORT.defenderHe, smoke: SCENARIO_SUPPORT.defenderSmoke });
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }

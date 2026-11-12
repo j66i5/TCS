@@ -44,6 +44,9 @@ export type OrderBody =
   | { kind: "assault"; x: number; y: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
   | { kind: "withdraw"; x: number; y: number }
+  /** Call mortar fire (M6.5c): high explosive or smoke, this many rounds at (x, y); the unit's leader (or a man
+   *  who can still use the radio) passes it on; the side's allotment pays for it. */
+  | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke"; rounds: number }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
   | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number };
 

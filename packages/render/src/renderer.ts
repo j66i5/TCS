@@ -323,9 +323,20 @@ export class BattleRenderer {
       if (unit && unit.leader === id && c.scale > 0.5) {
         this.label(label++, unit.callsign, s.x + r + 4, s.y - r - 14, colour);
       }
+      // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
+      // he brings ammunition to.
+      if (overlay.debug && sol?.intent) {
+        const it = sol.intent;
+        const to = it.target !== undefined ? state.transform.get(it.target) : it.x !== undefined && it.y !== undefined ? { x: it.x, y: it.y } : undefined;
+        if (to) {
+          const q = worldToScreen(c, to.x, to.y);
+          const col = it.kind === "engage" ? 0xff8a3d : it.kind === "cover" ? 0x6ad4ff : 0x9dff6a;
+          g.moveTo(s.x, s.y).lineTo(q.x, q.y).stroke({ width: 1, color: col, alpha: 0.7 });
+        }
+      }
       if (overlay.debug && sol && c.scale > 1.5) { // only when zoomed in enough to read
         // Debug: id, fatigue and heart rate per man.
-        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
+        this.label(label++, `${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
     if (fog) this.drawKnown(g, overlay, sideIndex);

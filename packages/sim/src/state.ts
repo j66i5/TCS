@@ -33,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 11;
+export const STATE_SCHEMA_VERSION = 12;
 
 export interface SideState {
   id: SideId;

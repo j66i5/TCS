@@ -33,7 +33,27 @@
     "shakenFireRateFactor": 0.7
   },
   "stepSeconds": 0.5,
+  "decisions": {
+    "stepSeconds": 1,
+    "defaultFireRule": "return",
+    "engageRangeM": {
+      "rifle": 400,
+      "magnified": 600,
+      "sustained": 800
+    },
+    "underFireSuppression": 0.05,
+    "underFireMemorySeconds": 30,
+    "seenWithinSeconds": 2,
+    "contactLostSeconds": 10,
+    "seekCoverSuppression": 0.1,
+    "coverSearchM": 15,
+    "coverRetrySeconds": 20,
+    "threatEyeHeightM": 1.0,
+    "shareRangeM": 30,
+    "keepSpare": 2,
+    "passSeconds": 3
+  },
   "sources": [],
   "confidence": "low",
-  "note": "M4.1 game values, decided without the owner (asleep; listed for his review): a round passing within 4 m of a man adds up to 0.3 suppression (heavier rounds more: square root of energy over 1,700 J, between x0.25 and x2; half as much at 4 m as at 0 m); a round striking near him counts at the distance of its impact; a burst within 1.5 x its stun radius adds up to 0.8. Suppression fades 0.1 per second (tuned with the suppression lab: a fire team at 200 m pins the men it fires at within about 6 s, a machine gun within 1-2 s, at 600 m within about 8 s; one aimed rifle rarely pins). At 0.6 he is pinned (prone, does not move, fires at a third of the rate) until it falls below 0.35. Stress grows by 0.02 per second x suppression, +0.15 for a comrade falling within 60 m, +0.2 when his leader falls, +0.25 x severity for his own wound; experience damps it (x(1 - 0.6 x experience)), his leader within 30 m too (x0.7). Under light fire (suppression below 0.3) it fades 0.01 per second. Stress over 0.3 cautious, 0.55 shaken (fires at 0.7 the rate), 0.85 panicked (lies flat, does not fire) until it is back under 0.7."
+  "note": "M4.1 game values, decided without the owner (asleep; listed for his review): a round passing within 4 m of a man adds up to 0.3 suppression (heavier rounds more: square root of energy over 1,700 J, between x0.25 and x2; half as much at 4 m as at 0 m); a round striking near him counts at the distance of its impact; a burst within 1.5 x its stun radius adds up to 0.8. Suppression fades 0.1 per second (tuned with the suppression lab: a fire team at 200 m pins the men it fires at within about 6 s, a machine gun within 1-2 s, at 600 m within about 8 s; one aimed rifle rarely pins). At 0.6 he is pinned (prone, does not move, fires at a third of the rate) until it falls below 0.35. Stress grows by 0.02 per second x suppression, +0.15 for a comrade falling within 60 m, +0.2 when his leader falls, +0.25 x severity for his own wound; experience damps it (x(1 - 0.6 x experience)), his leader within 30 m too (x0.7). Under light fire (suppression below 0.3) it fades 0.01 per second. Stress over 0.3 cautious, 0.55 shaken (fires at 0.7 the rate), 0.85 panicked (lies flat, does not fire) until it is back under 0.7. M4.2 (same terms): a man fires on his own at an enemy he sees within 400 m (rifle), 600 m (magnified sight of 4x or more) or 800 m (machine gun) \u2014 under the default rule 'return' only once his unit has been fired upon in the last 30 s (a cease-fire order holds until it is fired upon again); under fire (suppression from 0.1) and not covered from the enemy he knows, he runs to cover within 15 m (preferring a spot where he can fire over it kneeling), at most every 20 s; a man out of spare magazines or belts gets one from the nearest comrade within 30 m who has more than 2 (or carries them for him), handed over in 3 s."
 }

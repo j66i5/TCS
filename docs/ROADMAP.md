@@ -104,8 +104,9 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
   worsens his aim, pins him (prone, stops, fires less) and raises stress; stress also from comrades falling,
   losing the leader, own wounds, damped by experience and a leader nearby; states steady / cautious / shaken /
   pinned / panicked; `npm run lab -- suppression`.
-- **M4.2 Soldier decisions** — cover from known threats, return fire at contacts on his own (rules of
-  engagement, target choice), ammunition sharing (also belts), reaction to casualties, debug overlay of decisions.
+- **M4.2 Soldier decisions** ✅ — fire rules per unit (free / return / hold, `rules` order), own fire at seen
+  enemies with target choice, cover from the known threat when under fire, ammunition hand-over (also belts),
+  debug overlay of decisions. Casualty care (dragging, first aid) moved to the medical system.
 - **M4.3 Squad drills** — reaction to contact, assault with fire and movement (bounding), break contact and
   withdraw, consolidate; routing when a unit breaks.
 - **M4.4 Doctrine profiles and batch** — German / Russian doctrine values; batch: attack in the open against a

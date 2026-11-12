@@ -61,6 +61,8 @@ describe("squads and kit (M2.5)", () => {
     const t = s2.state.transform.req(gunner);
     const before = (s2.state.weapon.req(gunner).magazine?.rounds ?? 0) + s2.state.container.req(gunner).stacks.filter((st) => st.type === "de-mg5-belt").reduce((k, st) => k + st.count * (st.charge ?? 0), 0);
     submitOrder(s2, { tick: 0, issuer: "blue", target: gunner, kind: "posture", posture: "prone" });
+    // A range exercise: nobody fires on his own (M4.2), so the enemy does not answer and the gun is not suppressed.
+    for (const [uid, u] of s2.state.unit.entries()) if (u.parent === null) submitOrder(s2, { tick: 0, issuer: u.side, target: uid, kind: "rules", fire: "hold" });
     for (let i = 0; i < 240; i++) step(s2);
     submitOrder(s2, { tick: s2.state.tick, issuer: "blue", target: gunner, kind: "fire", x: Math.min(t.x + 300, s2.ctx.map.widthM - 5), y: t.y });
     const shots: Extract<SimEvent, { kind: "shot.fired" }>[] = [];

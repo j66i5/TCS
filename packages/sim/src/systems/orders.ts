@@ -48,6 +48,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "ceaseFire":
       return null;
+    case "rules":
+      return o.fire === "free" || o.fire === "return" || o.fire === "hold" ? null : "invalid-params";
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.count !== undefined && !(Number.isInteger(o.count) && o.count >= 1 && o.count <= 50)) return "invalid-params";
@@ -242,6 +244,15 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     }
     case "ceaseFire": {
       endFire(state, order.target, soldiers, "ordered", events);
+      // They hold their fire until they are fired upon again (M4.2).
+      const cu = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
+      if (cu !== undefined) topUnitOf(state, cu).ceaseFireTick = state.tick;
+      break;
+    }
+    case "rules": {
+      const ru = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
+      const set = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.fireRule = order.fire; x.children.forEach(set); };
+      if (ru !== undefined) set(ru);
       break;
     }
     case "grenade": {

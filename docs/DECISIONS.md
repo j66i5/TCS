@@ -954,3 +954,17 @@ lost +0.2, own wound +0.25 x severity; experience damps (x(1 - 0.6 x exp)), lead
 **Recorded:** routing (running away) is left to M4.3 with the drills; the shoot-out test now expects the marksman
 (pinned in the beaten zone) to fire fewer rounds; the fire-rate test that checks the ammunition clock keeps its
 men calm. The rings on the map (yellow pinned, red panicked) show own men only under fog of war.
+
+## 2026-11-12 — M4.2 soldier decisions (owner asleep: provisional, for his review)
+(1) Fire rules per unit: free / return / hold; **default "return"** (fire on your own only once fired upon,
+remembered 30 s); a cease-fire order holds until fired upon again. (2) Own engagement ranges: rifle 400 m,
+sight of 4x or more 600 m, machine gun 800 m; target choice: nearest, x0.35 if a machine gun firing, x0.6 if a
+rifle firing, x1.3 if lying down. (3) Under fire (suppression 0.1+) a halted man not covered from the threat
+he knows runs to cover within 15 m (sight from the threat at 1 m to him lying), preferring a spot he can fire
+from kneeling; at most every 20 s. Pinned men do not move (they stay flat where they are). (4) Ammunition:
+a comrade within 30 m with more than 2 spare (or carrying them for another's weapon) brings one, coming up
+behind, 3 s hand-over. (5) Casualty care (drag, first aid) waits for the medical system (owner's M6 question).
+**Recorded:** the sim test catalog defaults to "hold" so the older tests keep passive targets; the scripted
+shoot-out now sets "hold" with its cease-fire; the machine-gun range test sets "hold" on both sides; the
+shoot-out ammunition check counts every magazine and belt (men now hand them over). On the 2 km demo map the
+wandering squads rarely meet; the attack-versus-defence batch comes with M4.4.

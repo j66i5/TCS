@@ -37,6 +37,8 @@ export function supCase(catalog: Catalog, c: SupCase): SupRow {
     const red = ids.find(([, i]) => i.side === "red")!;
     for (const id of blue) sim.state.soldier.req(id).posture = c.posture;
     for (const [id, i] of ids) if (i.side === "red") sim.state.soldier.req(id).posture = "prone";
+    // The men under fire hold their fire (this lab measures what the fire does to them, not a firefight).
+    submitOrder(sim, { tick: 0, issuer: "blue", target: sim.state.identity.req(blue[0]!).unit, kind: "rules", fire: "hold" });
     let first: number | null = null;
     for (let k = 0; k < secs * 60; k++) {
       // The order is renewed every 10 s (a fire order at a point otherwise slows to a trickle and ends).

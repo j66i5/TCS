@@ -278,6 +278,20 @@ fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fi
 single aimed rifle seldom pins anyone. `npm run lab -- suppression` prints the table. Debug labels show
 suppression / stress per man.
 
+## Thinking for themselves
+
+Between orders each man decides a few things for himself, once a second. **Fire rules** (per unit, set with
+the `rules` order): *free* — fire at any enemy you see; *return* (the default) — only once your unit has been
+fired on in the last 30 s; *hold* — never without an order. A cease-fire order holds until the unit is fired on
+again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
+600 m, machine gun 800 m), choosing the one who matters most: close, firing (a machine gun most of all),
+standing. He stops when he has lost sight of him. An order always wins over his own choice. **Under fire** and
+visible to the enemy he knows of, he runs to the nearest spot within 15 m where that enemy cannot see him lying
+down — preferably one he can fire from on his knees (a bank, a low wall). **Out of spare magazines or belts**,
+he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
+comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
+(orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
@@ -324,5 +338,5 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 ## What is not there yet
 
 No first aid, anti-tank weapons are only carried,
-men react to fire only by being pinned or panicking (no seeking cover, no drills yet), and no AI beyond "wander to a random point every 30 s" — the enemy never
+men fight as individuals (fire back, take cover, share ammunition, get pinned or panic) but squads have no drills yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

@@ -217,7 +217,18 @@ export interface BehaviourDef {
   states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
   effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
   stepSeconds: number;
+  /** Soldier decisions (M4.2). */
+  decisions: {
+    stepSeconds: number; defaultFireRule: FireRule;
+    engageRangeM: { rifle: number; magnified: number; sustained: number };
+    underFireSuppression: number; underFireMemorySeconds: number; seenWithinSeconds: number; contactLostSeconds: number;
+    seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
+    shareRangeM: number; keepSpare: number; passSeconds: number;
+  };
 }
+
+/** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
+export type FireRule = "free" | "return" | "hold";
 
 export interface SpottingDef {
   scanSeconds: number; baseRatePerS: number; referenceRangeM: number; rangeExponent: number; minRangeM: number; maxRangeM: number;

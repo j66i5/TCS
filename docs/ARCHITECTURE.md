@@ -430,6 +430,16 @@ from suppression, and sets `mental.behaviour` with hysteresis, emitting `behavio
 the interval by `fireRateFactor` (0 = no fire) and keeps a pinned man prone; aim and spotting already used
 suppression. No new state fields: `mental` existed since M0.
 
+## 16l. Soldier decisions (SPEC 8, M4.2) — `sim/src/systems/decisions.ts`
+Runs after contacts. First it stamps `underFireTick` on the top unit of every man with suppression; then each
+man every `decisions.stepSeconds` (staggered by ID): a giver on a `bringAmmo` intent walks over and starts the
+generic `transferItems` action; a self-started fire task (`FireTask.self`) is kept at the full rate while its
+contact is seen and dropped when lost; under fire he may seek cover (sight from the threat to candidate spots on
+5 rings x 12 directions, then a short path search); halted and allowed by `Unit.fireRule` (+ `ceaseFireTick`)
+he starts a self fire task at the best seen contact; out of spare he calls a giver. Ordered fire tasks are never
+replaced. New state: `Unit.fireRule/underFireTick/ceaseFireTick`, `SoldierState.intent/coverTick`,
+`FireTask.self` (schema 12). New order: `rules`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

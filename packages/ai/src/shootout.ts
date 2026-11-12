@@ -28,7 +28,8 @@ export function shootoutController(side: SideId, script: ShootoutScript = DEFAUL
       for (const [uid, u] of view.unit.entries()) {
         if (u.side !== side || u.parent !== null) continue;
         if (prone) out.push({ tick, issuer: side, target: uid, kind: "posture", posture: "prone" });
-        if (cease) out.push({ tick, issuer: side, target: uid, kind: "ceaseFire" });
+        // The fight is over: cease fire, and hold it even if a last round from the other side comes in (M4.2).
+        if (cease) out.push({ tick, issuer: side, target: uid, kind: "rules", fire: "hold" }, { tick, issuer: side, target: uid, kind: "ceaseFire" });
         if (n === 0) continue;
         if (fire) out.push({ tick, issuer: side, target: uid, kind: "fire", x: ex / n, y: ey / n, heightM: 0.3 });
         if (grenade) out.push({ tick, issuer: side, target: uid, kind: "grenade", x: ex / n, y: ey / n });

@@ -2,6 +2,7 @@
  * Component types. Entities are numbers; each kind of state lives in its own store (SPEC 4.3 rule 6).
  * All components are plain data (no methods, no class instances) so the whole state serialises.
  */
+import type { FireRule } from "./catalog";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Posture, Waypoint } from "./orders";
 import type { Physiology, Wound } from "./wounds";
@@ -73,6 +74,10 @@ export interface SoldierState {
   contacts: Contact[];
   /** Getting away from a grenade at (x, y): from startTick he runs from it (`run`) or drops flat; over at untilTick. */
   evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean } | null;
+  /** What he decided on his own last (M4.2), for the debug overlay and to pace his decisions. */
+  intent: Intent | null;
+  /** Last tick he went looking for cover on his own. */
+  coverTick: number;
   /** Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed. */
   casualty: "none" | "incapacitated" | "killed";
 }
@@ -91,6 +96,15 @@ export interface CommState {
  * uncertainty; `tick` is when that information was true. `target` identifies the enemy inside the simulation
  * (for merging reports and for fire orders); the player's view shows only kind, position, uncertainty, age.
  */
+/** A soldier's own decision (M4.2): firing at an enemy, going to cover, bringing or waiting for ammunition. */
+export interface Intent {
+  kind: "engage" | "cover" | "bringAmmo";
+  tick: number;
+  target?: EntityId;
+  x?: number;
+  y?: number;
+}
+
 export interface Contact {
   target: EntityId;
   x: number;
@@ -132,6 +146,11 @@ export interface Unit {
   lineBlockedReported: boolean;
   /** Tick of this unit's last contact call-out on the radio (call-outs are spaced out). */
   lastCallTick: number;
+  /** Standing fire rule (M4.2): when its men open fire on their own. */
+  fireRule: FireRule;
+  /** Last tick a man of this unit (or its sub-units) came under fire, and of its last cease-fire order. */
+  underFireTick: number;
+  ceaseFireTick: number;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -188,6 +207,8 @@ export interface FireTask {
   lineClear: boolean;
   /** Fire at this enemy as each man knows him (his contact), not at a fixed point. */
   contact?: EntityId;
+  /** He opened fire on his own (M4.2), not on an order: he stops when he loses sight of the enemy. */
+  self?: boolean;
   /** The posture that check was worked out for, and the lowest posture he may go back down to. */
   linePosture: Posture;
   basePosture: Posture;

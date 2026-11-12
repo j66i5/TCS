@@ -32,6 +32,8 @@ export type OrderBody =
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
   | { kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId }
   | { kind: "ceaseFire" }
+  /** Standing rules for the unit and its sub-units (M4.2; the full set in M5). */
+  | { kind: "rules"; fire: "free" | "return" | "hold" }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
   | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number };
 

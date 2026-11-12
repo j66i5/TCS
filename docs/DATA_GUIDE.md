@@ -196,7 +196,9 @@ compare the table.
 to, bursts, how fast it fades), `stress` (growth under suppression, blows from a comrade falling, the leader
 lost, an own wound; damping by experience and a leader nearby; how fast it fades under light fire), `states`
 (the suppression that pins and releases, the stress for cautious / shaken / panicked and for calming down) and
-`effects` (rate-of-fire factors). After a change run `npm run lab -- suppression` and compare the table.
+`effects` (rate-of-fire factors), `decisions` (the default fire rule, engagement ranges by weapon, what counts
+as being under fire and for how long, cover search radius and how often, ammunition sharing range, spare kept,
+hand-over time). After a change run `npm run lab -- suppression` and compare the table.
 
 ## Add a grenade or launcher round
 

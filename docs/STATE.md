@@ -3,9 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale done (see ROADMAP for the slices,
-DECISIONS for the provisional values taken while the owner slept). Next: **M4.2 soldier decisions** (cover from
-known threats, return fire on his own, ammunition sharing, reaction to casualties, decision overlay).
+**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale and M4.2 soldier decisions done (see
+ROADMAP for the slices, DECISIONS for the provisional values taken while the owner slept). Next: **M4.3 squad
+drills** (reaction to contact, fire and movement, break contact, consolidate, routing).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -93,7 +93,10 @@ known threats, return fire on his own, ammunition sharing, reaction to casualtie
   pinned men drop flat, stop and fire less (yellow ring), stress from fire, fallen comrades, a fallen leader and
   wounds, damped by experience and a leader nearby; shaken men fire less, panicked men lie flat and do not fire
   (red ring); suppression lab (`npm run lab -- suppression`).
-- Tests: 329 (325 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M4.2 soldier decisions**: fire rules per unit (free / return / hold; `rules` order), men open fire on their
+  own at enemies they see, run to cover from the known threat when under fire, hand over magazines and belts;
+  Debug shows each man's decision as a line.
+- Tests: 336 (332 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

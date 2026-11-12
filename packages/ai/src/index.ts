@@ -41,3 +41,4 @@ export function wanderController(side: SideId, seed: number, map: { widthM: numb
   };
 }
 export * from "./shootout";
+export * from "./commander";

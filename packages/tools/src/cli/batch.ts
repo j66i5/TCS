@@ -17,7 +17,7 @@ const firstSeed = Number(args["seed"] ?? 1);
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
-interface Row { seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; wallMs: number }
+interface Row { seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number> }
 const rows: Row[] = [];
 const t0 = performance.now();
 for (let i = 0; i < runs; i++) {
@@ -29,6 +29,7 @@ for (let i = 0; i < runs; i++) {
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
     wallMs: performance.now() - s0,
+    winner: r.winner, scores: Object.fromEntries(r.scores.map((s) => [s.side, s.score])),
   });
 }
 const totalMs = performance.now() - t0;
@@ -53,12 +54,12 @@ const md = [
   `- Mean orders per battle: ${mean(rows.map((r) => r.orders)).toFixed(1)}`,
   `- Mean casualties per side: ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.casualties[s] ?? 0)).toFixed(2)}`).join(", ")}`,
   "",
-  "Note (M0): there is no combat yet, so casualties are always zero and there is no winner. This report",
-  "proves the batch pipeline works; outcome statistics become meaningful from M2/M4.",
+  `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
+  "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",
   "",
-  "| seed | duration s | end | orders | casualties blue/red | hash |",
-  "|---:|---:|---|---:|---|---|",
-  ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
+  "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",
+  "|---:|---:|---|---|---|---:|---|---|",
+  ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
 const base = join(dir, `batch-${name}-${stamp}`);

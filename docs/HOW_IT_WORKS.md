@@ -124,7 +124,18 @@ crosses a road (a road always cuts a gate through them), every group of roads re
 amounts of buildings, woods and fields are in a plausible range for its kind. The tests check 48 maps; the
 `npm run map -- --all --seeds 40` tool checks 160.
 
-**Drawing the map.** The ground is painted once into one picture: colours blended between neighbouring cells
+**Drawing the map (M7.5b: the flat pixel look).** The ground is painted pixel by pixel in flat, muted colours
+(the `appearance.json` palette): each 4 m square its own colour, its edges wobbled a little so fields do not look
+like a staircase, a thin darker line where one kind of ground meets another, furrows in ploughed fields and rows
+in crops, a light speckle. Trees and bushes are round pixel crowns with a dark rim, a lighter top-left and a hard
+shadow; orchards stand in rows. Roads, streams, ponds, hedges, walls and fences are painted in with a one-pixel
+outline. There is no hill shading: the shape of the ground shows as contour lines (every 2.5 m, bold every 10 m),
+and only when zoomed out. The whole map is one picture at about 1 pixel per metre; close up, squares of 64 m are
+painted again at 4 pixels per metre as you look at them (one per frame, the last 48 kept). Buildings are two
+layers: the floor (boards, walls with door gaps and windows) under the men, and the roof above them (see "The
+screen" below). The look before M7.5b — described next — is kept behind `?look=classic` for a while.
+
+**Classic look.** The ground is painted once into one picture: colours blended between neighbouring cells
 so edges look natural, tree crowns in woods, rows of trees in orchards, light and shade on slopes (light from
 the north-west) and faint contour lines every 2.5 m (stronger every 10 m). Roads, water, hedges, walls and
 buildings (roof colour, ridge line and a shadow) are drawn on top. Moving or zooming the camera only moves
@@ -506,12 +517,39 @@ dimmed out of action. The ☰ at its head opens the full list with the details; 
 **Labels never pile up.** Callsigns are placed beside their unit so that no two overlap, none covers another
 labelled unit, a bar or the screen edge; the selected unit's label always wins, and the ones that fit nowhere are
 left out until there is room (zoom in). A squad that got out next to its vehicle shares its label ("Puma 1 ·
-Trupp 1"). Zoomed far out every vehicle becomes a small symbol (vehicles close together are stacked: "Puma 1 ×4
+Trupp 1").
+
+**The top bar** (M7.5b) is one row: time, pause and speeds; on a narrow screen Save, Load, the map and Debug wait
+behind **⋯**. Under it one short line: each objective with a small square in the colour of the side holding it
+(grey: nobody; "(!)" while contested), the time left and your mortar rounds (HE/smoke). Zoomed far out every vehicle becomes a small symbol (vehicles close together are stacked: "Puma 1 ×4
 +18" = four vehicles, 18 men riding); a platoon's infantry symbol appears only for the men on foot.
 
 **Looks are data too.** Each side's uniform tones and vehicle paint, and the colours of the flat map to come, are in
 `appearance.json` files. They are kept apart from everything the battle is computed from, so changing a colour can
 never change the outcome of a battle or a saved game.
+
+## Zoom levels, pixel soldiers and roofs (M7.5b)
+The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
+zoom:
+- **Close** (16 pixels per metre or more): every roof is lifted off, so you look into the buildings; soldiers at
+  their true size once that is big enough to read.
+- **Figures** (5–16 px/m): each soldier is a small top-down pixel figure, never smaller than about 24 pixels on a
+  phone (so close up a man is drawn a little larger than life next to a house).
+- **Dots** (1.2–5 px/m): men are small dots in their side's colour, vehicles at their real size; contour lines show.
+- **Symbols** (below 1.2 px/m): one symbol per unit and per vehicle. You cannot zoom out further than the whole map.
+A level changes a little later on the way back (10 %), so a pinch at a boundary does not flicker.
+
+**The figures** are our own pixel art: a man standing, walking (a boot shows behind him, left and right in turn),
+crouching, lying, crawling; down (on his back, rifle beside him), dead (face down, greyed, blood), surrendered
+(hands up, a white cloth), taken prisoner (kneeling, hands on the helmet). His weapon shows: a rifle, a longer
+machine gun with its belt box, a marksman rifle with a scope, a tube on his back when he carries a Panzerfaust or
+RPG; a flash at the muzzle when he fires; blood and a white dressing when he is wounded but fighting on. He turns
+in 16 steps. Each side wears its own uniform tones (from the appearance data), and a thin blue or red outline
+says whose he is; your selected unit's men have a thin white ring.
+
+**Roofs.** A roof is drawn over each building until one of your own men (on foot, able) is inside it or within
+8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the
+windows. Enemy men never lift a roof. (Rooms and inner walls come with M7.5c.)
 
 ## Does an attack work?
 

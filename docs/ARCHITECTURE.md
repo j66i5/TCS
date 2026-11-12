@@ -475,6 +475,20 @@ from its Text pool. The overview draws vehicle stacks and infantry symbols (men 
 (`buildAppearance(data, factionIds)`) is built beside the catalog and never enters it (fingerprint test);
 `renderer.setAppearance` takes it.
 
+**M7.5b Look** — `render/src/lod.ts` (levels and hysteresis, `figurePx`), `render/src/sprites/soldier-art.ts`
+(frames as string grids, letters = palette slots), `render/src/sprites/atlas.ts` (pure `composeFrame` /
+`rotateFrame` (Scale2x ×2 + nearest) / `outlineMask` / `paletteFor` / `frameKey`; `SoldierAtlas` builds cells
+lazily into one `BufferImageSource` and re-uploads once per frame), `render/src/terrain-flat.ts` (pure
+`paintRegion(map, colours, x, y, w, h, ppm)` → RGBA, no canvas: the base picture and the detail tiles; `FlatTerrain`
+holds base, tiles (LRU) and the contour sprite), `render/src/buildings.ts` (`BuildingLayers`: floors Graphics in the
+world layer, one roof Graphics per building in `roofLayer`; pure `roofShown(index, men, n, close)` over a 32 m
+bucket grid). Stage order: world layer (map, tiles, contours, floors, debug overlays) → `menLayer` (screen-space
+sprite pool, two per man: outline then figure) → `roofLayer` (follows the camera) → border → units Graphics (hulls,
+rings, routes, markers) → labels. The renderer picks the frame from the `SimView` (casualty, captive, posture,
+moved since `capturePrevious`), the firing frame from `shot.fired` events, the weapon look from `WeaponDef.type`.
+`setLook("classic")` keeps the old terrain and discs. `clampCamera` keeps the map in the free area (the app's input
+uses it). Tests `render/test/look.test.ts`, `perf-render.test.ts` (close zoom, roofs).
+
 ## 16o. Objectives, scenarios and the commander (M6)
 `sim/src/systems/objectives.ts`: `BattleRules.objectives` (`ObjectiveDef`: area, points, first holder) and
 `victory` (`casualtyPoints`, `endOnDefeat`); `state.objectives` holds holder / contested (in the order of the

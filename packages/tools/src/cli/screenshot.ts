@@ -116,6 +116,96 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
 }
 
 /**
+ * M7.5b look (`--scene look`): the pixel look against the classic one (`&look=classic`) where a pair helps —
+ * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
+ * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
+ * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
+ */
+async function lookScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/look-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  const open = async (q: string) => {
+    await page.goto(`http://localhost:${port}/?seed=${seed}${q}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+  };
+  const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
+  for (const lk of ["classic", "pixel"]) {
+    const q = `&map=village${lk === "classic" ? "&look=classic" : ""}`;
+    await open(q);
+    await shot(`0-opening-${lk}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 2.5); t.stepTicks(1);`) as () => void);
+    await shot(`1-mid-${lk}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 0.01); t.stepTicks(1);`) as () => void);
+    await shot(`2-far-${lk}`);
+    // A squad on foot firing, close up: the platoon battle on foot, the first squad fires east.
+    await open(`&map=village&vehicles=0${lk === "classic" ? "&look=classic" : ""}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+      let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+      t.fireAt(x + 250, y + 30); t.stepTicks(60 * 8);
+      const justFired = () => { for (const [id, w] of s.weapon.entries()) if (s.identity.get(id)?.unit === sq.unit && w.lastShotTick >= s.tick - 2) return true; return false; };
+      for (let k = 0; k < 900 && !justFired(); k++) t.stepTicks(1);
+      x = 0; y = 0; n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; }
+      t.focusScale(x / n, y / n, ${name === "phone" ? 9 : 12.8}); t.stepTicks(1);`) as () => void);
+    await shot(`3-firing-close-${lk}`);
+  }
+  // Casualties close up: the platoon battle on foot, Russia attacking, until the player's own side has a man
+  // wounded but fighting, a man down, a dead man and (if it comes to it) one who surrendered.
+  await open("&map=village&vehicles=0&attacker=red&limit=1200");
+  const cas = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+    const find = () => { const r = { wounded: null, down: null, dead: null, surrendered: null };
+      for (const [id, x] of s.soldier.entries()) {
+        if (x.mount !== undefined || s.identity.get(id).side !== "blue") continue;
+        if (x.captive && !r.surrendered) r.surrendered = id;
+        else if (x.casualty === "killed" && !r.dead) r.dead = id;
+        else if (x.casualty === "incapacitated" && !r.down) r.down = id;
+        else if (x.casualty === "none" && !x.captive && x.wounds.some((w) => w.mechanism !== "blunt") && !r.wounded) r.wounded = id;
+      } return r; };
+    let r = find();
+    for (let k = 0; k < 80 && !(r.surrendered && r.down && r.dead && r.wounded); k++) { t.stepTicks(60 * 10); r = find(); }
+    globalThis.__cas = r; return { tick: s.tick, ...r };`) as () => object);
+  for (const k of ["surrendered", "down", "wounded", "dead"]) {
+    const ok = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, id = globalThis.__cas["${k}"]; if (id === null) return false;
+      const p = s.transform.get(id); t.focusScale(p.x, p.y, 16); t.stepTicks(1); return true;`) as () => boolean);
+    if (ok) await shot(`4-casualty-${k}`);
+  }
+  // Roofs: the building nearest the lead squad at the figure zoom (roof shown), zoomed in close (faded), then the
+  // squad walked up to it (faded beside the men, shown elsewhere).
+  await open("&map=village&vehicles=0");
+  const roof = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map;
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+    let best = 0, bd = Infinity; map.buildings.forEach((b, i) => { const bx = b.footprint[0], by = b.footprint[1]; const d = (bx - x) ** 2 + (by - y) ** 2; if (d < bd && b.footprint.length === 8 && (b.kind === "house" || b.kind === "farmhouse")) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    globalThis.__b = { i: best, cx, cy, door: b.openings.find((o) => o.kind === "door"), fp: b.footprint };
+    t.focusScale(cx, cy, 7); t.stepTicks(20); return { building: best, dist: Math.sqrt(bd), alpha: t.roofAlpha(best) };`) as () => object);
+  await shot("5-roof-shown");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, b = globalThis.__b; t.focusScale(b.cx, b.cy, 18); t.stepTicks(20);`) as () => void);
+  await shot("6-roof-faded-close");
+  const near = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, b = globalThis.__b;
+    // Walk the squad to a point 4 m outside the middle of the building's front wall.
+    const ax = b.fp[0], ay = b.fp[1], bx = b.fp[2], by = b.fp[3], L = Math.hypot(bx - ax, by - ay);
+    let nx = -(by - ay) / L, ny = (bx - ax) / L; if ((b.cx - ax) * nx + (b.cy - ay) * ny > 0) { nx = -nx; ny = -ny; }
+    t.tap((ax + bx) / 2 + nx * 4, (ay + by) / 2 + ny * 4); t.stepTicks(60 * 5);
+    const sq = t.units().find((u) => u.kind === "infantry"), men = s.unit.get(sq.unit).members;
+    for (let k = 0; k < 60 && men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0); k++) t.stepTicks(60 * 5);
+    t.focusScale(b.cx, b.cy, 7); t.stepTicks(20); return { alpha: t.roofAlpha(b.i) };`) as () => object);
+  await shot("7-roof-faded-men-beside");
+  // The village and the farmland at the middle distance (the flat pixel map, contour lines).
+  for (const map of ["village", "farmland"]) {
+    await open(`&map=${map}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); const m = t.sim.ctx.map; t.focusScale((c.x + m.widthM / 2) / 2, (c.y + m.heightM / 2) / 2, 1.6); t.stepTicks(1);`) as () => void);
+    await shot(`8-${map}-mid`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); const m = t.sim.ctx.map; t.focusScale((c.x + m.widthM / 2) / 2, (c.y + m.heightM / 2) / 2, 5.5); t.stepTicks(30);`) as () => void);
+    await shot(`9-${map}-figure`);
+  }
+  // The sprite sheet: every frame of both sides, the weapon variants and the 16 facings.
+  await page.evaluate(new Function("globalThis.__tcs.showSprites(true);") as () => void);
+  await shot("10-sprite-sheet");
+  console.log(`${name}: look scene casualties ${JSON.stringify(cas)}; roof ${JSON.stringify(roof)} -> ${JSON.stringify(near)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.4b anti-tank and crew reactions (`--scene vehicles`, fifth part): the platoon battle, Russia attacking mounted
  * against the German Pumas, Debug on (both sides shown): the rocket of the first man firing a Panzerfaust or an
  * RPG at a vehicle, in flight; then, in the vehicles scenario with every vehicle firing at the nearest enemy hull,
@@ -279,6 +369,7 @@ try {
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -393,7 +484,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -1890,3 +1890,52 @@ Presentation only: no simulation, scenario or catalog change; every golden repla
   `core/**` / `factions/**` glob.
 - **Perf:** render 0.9 ms per frame (30 hulls, 270 men, 2000 tracers), new case: middle distance with labels
   0.9 ms, overview 0.3 ms (target 4 ms).
+
+## 2026-11-12 — M7.5b Look: implementation choices (decided without the owner, for the morning review)
+Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched (never
+regenerated). The old look stays behind **`?look=classic`** for one milestone (plan §7.17).
+- **Zoom levels (`render/src/lod.ts`).** Symbols below 1.2 px/m (was 0.35: the overview now starts at about
+  325 m across a phone), men as dots with hulls at 1.2–5, pixel soldiers from 5, "close" from **16 px/m** (plan:
+  12) — 16 art pixels per metre, the art's own size — where every roof fades. 10 % hysteresis on each boundary.
+- **Sprite size (changed from plan §7.3).** Art 16 × 16 per metre as planned (a man's shoulders and pack are
+  about 0.55 m), but at true size a man is only 9 px across at 16 px/m — too small to read on a phone (screenshots).
+  So a soldier is drawn at `max(true size, about 24 CSS px)`, snapped to whole device pixels per art pixel (24 px
+  on a phone at 2x, 32 px on a desktop at 1x): crisp pixels, never a jump in size between levels, and true scale
+  once true size is the larger (from about 24 px/m on a phone). Below that the men are drawn larger than life
+  next to houses and vehicles — the owner may prefer smaller figures (then `MIN_FIGURE_PX` 16).
+- **Opening view:** 8 px/m on the player's first squad (its vehicle while it rides; the platoon battle starts
+  mounted), with the detail tiles there built before the first picture. Classic: the old 600 m start.
+- **Far view fits the map (parent review of `ui-1-phone-6-overview`):** the camera never zooms out past the whole
+  map in the free area, and the map stays in view while panning (40 px margin; a map smaller than the area is
+  centred).
+- **Pixel soldiers** (`render/src/sprites/`): 11 original frames as string grids (stand, two walking, crouch,
+  crouch-walk, prone, crawl, down, dead, surrendered, captive); the weapon is the frame's longest run of steel
+  pixels — machine guns and marksman rifles lengthen it (a belt box, a scope), the firing frame adds a muzzle flash
+  for 6 ticks after `shot.fired` (the old round flash is not drawn over pixel soldiers); a man carrying a launcher
+  (any weapon of type `launcher` in his kit) has a tube across his pack; a wounded man who fights on shows blood and
+  a white dressing; the dead are greyed with a blood pool. **Facings pre-rotated** into the atlas (16 steps, Scale2x
+  twice then sampled back), so a turned man keeps clean pixels. Palette swap per faction from the uniform tones in
+  the appearance data; a 1-px outline in the side's colour (blue/red) around each man; the selected unit gets a
+  thin white ring (a white outline read as "white men"). Cells built lazily into one RGBA texture (nearest).
+- **Flat pixel map** (`render/src/terrain-flat.ts`): one painter for the whole map at about 1 px/m and for close
+  detail tiles (64 m at 4 px/m, at most one new tile per frame, 48 kept); flat appearance colours, cell edges
+  wobbled by a smooth offset (no 4 m staircase), a 1-px darker seam where the ground changes, furrows and crop
+  rows, a light speckle; trees and bushes as pixel crowns with a dark rim, a light upper-left and a hard shadow
+  (far out one big crown per cell, so woods do not turn to speckle); water, roads, hedges, walls and fences
+  rasterised with a 1-px outline, no anti-aliasing. Cells under roads, building floors and water take their
+  neighbours' ground. **Contour lines** (2.5 m, bold every 10 m) are their own layer, shown only at the dot and
+  symbol levels. No hill shading. Startup: about 0.3–0.6 s for a 2 km map on this machine.
+- **Buildings** (`render/src/buildings.ts`): a floor layer under the men (floor colour, boards, outer walls with
+  door gaps and window glass) and a roof per building above them (hard shadow, flat colour, ridge with one half a
+  shade darker, tile rows; flat roofs with a parapet band). **Roof fade:** a roof goes (over 8 frames) when zoomed in
+  to 16 px/m or more, or when any of the player's own able men on foot is inside or within 8 m of its walls
+  (bucket grid, every frame); enemy men never lift a roof.
+- **Top bar and status line (parent review):** the top bar stays one row; when it does not fit, Save, Load, the
+  map and Debug go behind "⋯" (and the title goes on a very narrow screen). The status line is compact: each
+  objective with a small square in its holder's side colour (grey: nobody; the holder's name as a tooltip), "(!)"
+  while contested, the time left, "mortar 24/12" (HE/smoke; full text as a tooltip); one line, cut with "…".
+- **Perf** (render proxy, target 4 ms): close zoom with 270 pixel soldiers in view 1.1 ms; 64 buildings with the
+  roof rule 0.3 ms; the M7.3 case (now at the dot level, 1.5 px/m) 0.95 ms; middle distance 1.0 ms; overview
+  0.2 ms. The two older render cases were moved to the new levels (their old zooms are now symbols).
+- **Not done (deferred):** pixel vehicles (hulls stay vector shapes), interiors (M7.5c), smoke and bursts in pixel
+  style, the start hint's size on a phone.

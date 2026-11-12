@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.5a UI shell done; M7 Vehicles complete)._
+_Last updated: 2026-11-12 (M7.5b Look done; M7.5a UI shell done; M7 Vehicles complete)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -13,7 +13,17 @@ state colour) selects units and opens into a detailed list (always open ≥ 1000
 overlaps (`render/src/labels.ts`), a squad beside its vehicle shares its label; zoomed out, vehicles are symbols
 (stacked when close) and infantry symbols show only men on foot; appearance data (`appearance.json`, outside the
 catalog) gives vehicle paint now and uniforms/palette for M7.5b. Presentation only: goldens untouched.
-Screenshots: `npm run screenshot -- --scene ui`. **Next: M7.5b Look** (zoom levels, pixel soldiers, flat map, roofs).
+Screenshots: `npm run screenshot -- --scene ui`.
+**M7.5b Look ✅:** zoom levels (`render/src/lod.ts`: symbols < 1.2 px/m, dots, pixel figures from 5, close from
+16 with every roof lifted; 10 % hysteresis); the battle opens at 8 px/m on the lead squad; the camera never zooms
+out past the whole map; ORIGINAL 16 × 16 pixel soldiers (11 frames, weapon variants, firing flash, launcher on the
+back, wounded, down, dead, surrendered, captive; 16 pre-rotated facings; faction palette swap; blue/red outline);
+the flat pixel map (flat palette, wobbled cell edges, seams, pixel tree crowns, rasterised roads/water/hedges,
+contours only zoomed out, close detail tiles); buildings as floors under the men and roofs above them that fade
+near own men or close up; one-row top bar with "⋯" and a compact status line (parent review). Old look behind
+`?look=classic`. Presentation only: goldens untouched. Screenshots `npm run screenshot -- --scene look`.
+Decisions for the morning review: DECISIONS.md "M7.5b Look". **Next: M7.5c Interiors** (map format v2, goldens
+regenerated once with an equivalence proof).
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —

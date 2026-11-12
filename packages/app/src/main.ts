@@ -9,7 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { commanderController, wanderController } from "@tcs/ai";
 import {
-  battleScore, loadGame, saveGame, supportLeft, type SaveGame,
+  battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, heightAt, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   const defaultFormation = input.catalog.factions[playerFaction]?.defaultFormation ?? Object.keys(input.catalog.formations)[0] ?? "";
   const doctrineSpacing = input.catalog.factions[playerFaction]?.doctrine["preferredSpacingM"] ?? 10;
   /** Able men of the selected unit, and where they are on average. */
-  const unitMen = () => overlay.selectedUnit === null ? [] : unitSoldierIds(sim, overlay.selectedUnit).filter((m) => sim.state.soldier.get(m)?.casualty === "none");
+  const unitMen = () => overlay.selectedUnit === null ? [] : unitSoldierIds(sim, overlay.selectedUnit).filter((m) => { const s = sim.state.soldier.get(m); return s !== undefined && !isOut(s); });
   const unitCentre = () => {
     const men = unitMen();
     if (men.length === 0) return { x: 0, y: 0 };
@@ -213,10 +213,13 @@ async function main(): Promise<void> {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
         // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
         const known = sideKnowledge(sim.ctx, sim.state, playerSide);
-        const near = known
+        const hits = known
           .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
           .filter(({ d }) => d <= 20 / renderer.scale())
-          .sort((a, b) => a.d - b.d)[0];
+          .sort((a, b) => a.d - b.d);
+        const near = hits.find((h) => !h.k.surrendered);
+        // A tap on an enemy your men know has surrendered: no order (fire at that point would hit him).
+        if (!near && hits.length > 0) { hud.radio(strings.t("order.surrenderedTarget"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
         if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target });
         else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
         return;
@@ -259,6 +262,9 @@ async function main(): Promise<void> {
           heatFalls.push(t.x, t.y, sideIdx(id.side));
           timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t("timeline.casualty", { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier), status: strings.t(`status.${e.status}`) }) });
         }
+      } else if (e.kind === "surrendered" || e.kind === "captured") {
+        const id = sim.state.identity.get(e.soldier);
+        if (id) timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t(`timeline.${e.kind}`, { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier) }) });
       } else if (e.kind === "objective.changed" && e.holder !== null) {
         timeline.push({ tick: e.tick, colour: sideColour(e.holder), text: strings.t("timeline.objective", { objective: objName(e.objective), side: sideName(e.holder) }) });
       } else if (e.kind === "radio" && (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken")) {
@@ -345,7 +351,7 @@ async function main(): Promise<void> {
     const states = new Map<string, number>();
     for (const m of men) {
       const s = sim.state.soldier.req(m);
-      if (s.casualty !== "none") { down++; continue; }
+      if (isOut(s)) { down++; continue; } // (prisoners count as lost)
       if (s.wounds.some((w) => w.mechanism !== "blunt")) wounded++; else fit++;
       states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
     }
@@ -379,10 +385,13 @@ async function main(): Promise<void> {
         const men = [...sim.state.identity.entries()].filter(([, i]) => i.side === sd.id);
         const rows = men.map(([id, i]) => {
           const s = sim.state.soldier.req(id);
-          const status = s.casualty !== "none" ? strings.t(`status.${s.casualty}`) : s.wounds.some((w) => w.mechanism !== "blunt") ? strings.t("status.wounded", { zones: zoneNames(id) }) : strings.t("status.fit");
-          return { order: s.casualty === "killed" ? 0 : s.casualty === "incapacitated" ? 1 : s.wounds.length > 0 ? 2 : 3, text: strings.t("aar.man", { rank: strings.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: strings.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
+          const st = rosterStatus(s), hurt = s.wounds.some((w) => w.mechanism !== "blunt");
+          const status = (st === "surrendered" || st === "captured") && hurt ? strings.t(`status.${st}Wounded`, { zones: zoneNames(id) })
+            : st === "wounded" ? (hurt ? strings.t("status.wounded", { zones: zoneNames(id) }) : strings.t("status.fit")) : strings.t(`status.${st}`);
+          const rank = { killed: 0, captured: 1, surrendered: 2, incapacitated: 3, wounded: 4, fit: 5, missing: 6 }[st];
+          return { order: rank, text: strings.t("aar.man", { rank: strings.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: strings.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
         }).sort((a, b) => a.order - b.order);
-        const down = rows.filter((r) => r.order <= 1).length;
+        const down = sc.scores.find((x) => x.side === sd.id)?.menDown ?? 0; // the same count as the score
         return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: rows.map((r) => r.text) };
       }),
       timeline: timeline.map((t) => ({ time: fmtClock(ticksToSeconds(t.tick)), text: t.text, colour: t.colour })),

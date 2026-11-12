@@ -157,7 +157,7 @@ try {
     // M4: an assault by bounds, Debug on: rings, decision lines, the drill on the leader's label.
     const as = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
       let ex = 0, ey = 0, n = 0, ox = 0, oy = 0, k = 0; const me = [...s.identity.entries()].find(([id]) => s.fire.has(id) || true)[1].side;
-      for (const [id, i] of s.identity.entries()) { const p = s.transform.get(id); if (!p || s.soldier.get(id).casualty !== "none") continue; if (i.side === "blue") { ox += p.x; oy += p.y; k++; } else { ex += p.x; ey += p.y; n++; } }
+      for (const [id, i] of s.identity.entries()) { const p = s.transform.get(id); if (!p || s.soldier.get(id).casualty !== "none" || s.soldier.get(id).captive !== null) continue; if (i.side === "blue") { ox += p.x; oy += p.y; k++; } else { ex += p.x; ey += p.y; n++; } }
       if (n === 0 || k === 0) return { ok: false };
       t.assault(ex / n, ey / n); t.stepTicks(60 * 15); t.setDebug(true); t.focus(ox / k + 0.3 * (ex / n - ox / k), oy / k + 0.3 * (ey / n - oy / k), 160); t.stepTicks(1);
       const u = [...s.unit.entries()].find(([, x]) => x.side === "blue" && x.parent === null)[1];

@@ -28,7 +28,7 @@ export interface Overlay {
    * Fog of war (M3.4): what the player's side knows of the enemy (from `sideKnowledge`). When given and debug is
    * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
    */
-  known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number }[] | null;
+  known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number; /** Known to have surrendered (M6.6). */ surrendered?: boolean }[] | null;
   /** The order being planned (M5): route with its pace per leg, the formation marker with its handles. */
   plan?: PlanOverlay | null;
   /** Objectives (M6) as the player's side sees them (holders are public: who stands on them is visible). */
@@ -326,6 +326,7 @@ export class BattleRenderer {
           const k = Math.max(3, r * 0.7);
           g.moveTo(s.x - k, s.y).lineTo(s.x + k, s.y).moveTo(s.x, s.y - k).lineTo(s.x, s.y + k).stroke({ width: 2, color: 0xff4a3d });
         }
+        if (sol.captive !== null && sol.casualty !== "killed") drawWhiteFlag(g, s.x, s.y, r);
         continue;
       }
       if (posture === "prone") {
@@ -336,6 +337,12 @@ export class BattleRenderer {
         g.circle(s.x, s.y, pr).fill({ color: colour });
       }
       if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+      // A prisoner (M6.6): a white flag, a white square once taken; no rings, no facing line.
+      if (sol && sol.captive !== null) {
+        drawWhiteFlag(g, s.x, s.y, r);
+        if (sol.captive.state === "captured") g.rect(s.x - pr - 3, s.y - pr - 3, 2 * pr + 6, 2 * pr + 6).stroke({ width: 1.5, color: 0xffffff, alpha: 0.9 });
+        continue;
+      }
       // Under fire (M4.1): a yellow ring when pinned, a red one when panicked, a faint ring when shaken.
       const bh = sol?.mental.behaviour;
       if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
@@ -479,8 +486,10 @@ export class BattleRenderer {
         }
         g.stroke({ width: 1.5, color: colour, alpha: 0.7 * fade });
         g.moveTo(s.x - d * 0.6, s.y - d * 0.6).lineTo(s.x + d * 0.6, s.y + d * 0.6).moveTo(s.x + d * 0.6, s.y - d * 0.6).lineTo(s.x - d * 0.6, s.y + d * 0.6).stroke({ width: 2, color: colour, alpha: fade });
+        if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d);
         continue;
       }
+      if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d);
       if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
       if (k.kind === "seen" && k.ageS < 2) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
       else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
@@ -605,6 +614,13 @@ export class BattleRenderer {
     g.stroke({ width: 1, color: GRID });
     g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).stroke({ width: 2, color: 0x6b7f69 });
   }
+}
+
+/** A white flag on a pole beside a man who has surrendered (M6.6). */
+function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {
+  const k = Math.max(r, 4);
+  g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a });
+  g.rect(x + 0.6 * k, y - 2.6 * k, 1.4 * k, 0.9 * k).fill({ color: 0xffffff }).stroke({ width: 1, color: 0x2a2a2a });
 }
 
 function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): boolean {

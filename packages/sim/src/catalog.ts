@@ -231,6 +231,18 @@ export interface BehaviourDef {
     stepSeconds: number; reactToContact: boolean; boundM: number; finalM: number; phaseTimeoutSeconds: number; spreadM: number;
     breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number; fallBackM: number;
   };
+  /**
+   * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.
+   * stepSeconds: how often each man reconsiders. downedEnemyM / comradeNearM: a wounded man who cannot fight
+   * gives up with a known enemy this close and no fit comrade this close. caughtEnemyM: a panicked or routed
+   * man gives up with a known enemy this close. captureM: a fit enemy this close takes him prisoner.
+   * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
+   * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
+   */
+  surrender: {
+    stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; captureM: number;
+    fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
+  };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */

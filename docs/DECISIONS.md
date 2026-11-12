@@ -1197,3 +1197,27 @@ Debug still shows every man's own path. Screenshot `1a-moving` shows it.
    giving up still shakes his unit, as losing a leader always does.
 Defaults kept without asking (to confirm if he wishes): the surrender is recognised at any distance at which
 the man is seen; a man who surrendered but was never reached stays "surrendered" in the roster.
+
+## 2026-11-12 — Surrender (M6.6): implementation and game values
+Built on the owner's answers (entries above). **Who:** a conscious wounded man who can no longer fight
+(whether or not he can walk) gives up when an enemy he knows of is within 50 m and no fit comrade (able, can
+walk and fight, not panicked or routed) is within 30 m; a panicked or routed man when such an enemy is within
+30 m. "An enemy he knows of" = one of his own contacts, seen or reported (a sound alone does not count), no
+older than 10 s, not himself known to have given up, not himself down. Checked once a second, no random draw.
+**Effect:** `captive` (surrendered, then captured; never back) — he takes no orders, does not fire or report,
+the lead passes on; `isAble` is false for him everywhere. Enemies hold fire only once THEY have seen it: the
+flag on their own contact (set by their own sight, passed on at once with reports, never cleared) — target
+choice never reads his real state (own fire, ordered fire with a contact, drills' covering fire, the AI
+commander's fire, grenades and mortar aim, the player's fire tap which refuses with a message). Area fire
+(fire at a point, mortars, grenades, strays) can still hit him. **Prisoners:** a fit enemy within 3 m with a
+clear line takes him; when quiet (his unit not fired upon for 10 s, no order to his unit for 10 s, no drill)
+one fit enemy within 50 m who has seen the surrender walks over and returns afterwards; any order ends the
+errand; given up after 120 s. **Cost:** like a casualty (5 points, counted once); a side whose last men gave
+up is out. The roster records "surrendered" / "captured" (such a record placed in a battle is a prisoner from
+the start); the battle result counts them separately. No stress to comrades; a leader giving up still shakes
+his unit. A broken unit whose runners all gave up stays broken.
+**Check:** with the four distances set to 0 the platoon (10 x 900 s), platoon-ru (10 x 900 s) and demo
+(50 x 120 s) batches are identical to main battle for battle (no change when nobody surrenders). With the
+owner's values: 0.4 / 0.1 men per side surrendered or taken in a German attack, 0.0 / 0.2 in a Russian attack;
+winners unchanged (defender 10 of 10 both ways), casualties within 0.3. Golden replays regenerated (catalog
+fingerprint; schema 15). Data values (core/behaviour.json `surrender`) are game values, confidence low.

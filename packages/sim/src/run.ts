@@ -1,4 +1,5 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
+import { rosterStatus } from "./impair";
 import { battleScore } from "./systems/objectives";
 import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
 import type { SimEventKind } from "./events";
@@ -56,16 +57,18 @@ function summarize(
 ): BattleResult {
   const { state } = sim;
   const sides: SideResult[] = state.sides.map((sd) => {
-    let start = 0, fit = 0, wounded = 0, killed = 0;
+    let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0;
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== sd.id) continue;
       start++;
-      const s = state.soldier.req(id);
-      if (!s.physiology.alive) killed++;
-      else if (s.wounds.length > 0) wounded++;
-      else fit++;
+      const st = rosterStatus(state.soldier.req(id));
+      if (st === "killed") killed++;
+      else if (st === "captured") captured++;
+      else if (st === "surrendered") surrendered++;
+      else if (st === "fit") fit++;
+      else wounded++;
     }
-    return { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed };
+    return { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured };
   });
   return {
     seed: input.seed,

@@ -3,9 +3,8 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M6 and M6.5 are done and merged (first playable).** **In progress: surrender (M6.6)** — planned in full,
-implementation only begun and NOT in the code: see `docs/wip/README.md` (plan, unfinished patch, baselines).
-Then **M7 Vehicles** (Puma and BMP-2; owner answers in DECISIONS.md, research in `docs/research/vehicles.md`),
+**M6.6 Surrender is done** (on top of M6/M6.5, first playable). Next: **M7 Vehicles** (Puma and BMP-2; owner
+answers in DECISIONS.md, research in `docs/research/vehicles.md`; the architecture design was not finished),
 then **M7.5 Look and interface** (owner answers in DECISIONS.md).
 
 ## What works

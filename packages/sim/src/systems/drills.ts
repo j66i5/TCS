@@ -19,7 +19,7 @@ import type { Drill, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
-import { canReport, isAble } from "../impair";
+import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 import { findPath } from "../nav";
 import { navFor } from "../navctx";
@@ -68,7 +68,7 @@ function knownEnemy(state: SimState, men: EntityId[]): { x: number; y: number } 
   for (const id of men) {
     const s = state.soldier.get(id);
     if (!s) continue;
-    for (const c of s.contacts) { sx += c.x; sy += c.y; n++; }
+    for (const c of s.contacts) { if (c.surrendered) continue; sx += c.x; sy += c.y; n++; }
   }
   return n > 0 ? { x: sx / n, y: sy / n } : null;
 }
@@ -169,6 +169,7 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     const s = state.soldier.req(m);
     let best: { target: EntityId; x: number; y: number } | null = null, bestD = 40;
     for (const c of s.contacts) {
+      if (c.surrendered) continue; // a man he knows has given up is not fired at (M6.6)
       const dd = hypot2(c.x - at.x, c.y - at.y);
       if (dd < bestD) { bestD = dd; best = c; }
     }
@@ -184,6 +185,8 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   const moving = (m: EntityId) => (state.mover.get(m)?.waypoints.length ?? 0) > 0;
   if (d.kind === "rout") {
     const men = unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)) && state.soldier.req(m).mental.behaviour === "routed");
+    // Every runner gave up (M6.6): the unit stays broken, nobody rallies.
+    if (men.length === 0 && unitSoldiers(state, uid).some((m) => isCaptive(state.soldier.get(m)))) { u.drill = null; return; }
     if (men.length === 0 || (!men.some(moving) && state.tick - u.underFireTick >= secondsToTicks(D.rallyQuietSeconds))) {
       for (const m of men) {
         const s = state.soldier.req(m);

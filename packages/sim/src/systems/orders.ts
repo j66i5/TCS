@@ -122,6 +122,8 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
   for (const p of due) {
     const res = applyOrder(ctx, state, p.order, events);
+    const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
+    if (ou !== undefined) { const mark = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.orderTick = state.tick; x.children.forEach(mark); }; mark(ou); }
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
     radioFromTarget(state, p.order.target, res === true ? `radio.ack.${p.order.kind}` : res === "unable" ? "radio.unable" : "radio.noRoute", events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
@@ -159,6 +161,10 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed");
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
+  // An order ends a walk to take a prisoner (M6.6): orders always win.
+  if (order.kind !== "rules" && order.kind !== "grenade" && order.kind !== "callFire") {
+    for (const m of soldiers) { const ms = state.soldier.get(m); if (ms?.intent?.kind === "takePrisoner") ms.intent = null; }
+  }
   if (order.kind !== "rules" && order.kind !== "grenade" && order.kind !== "callFire") {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
     if (isUnit) clearDrills(state, ou);
@@ -280,6 +286,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const named = order.contact !== undefined && state.soldier.get(order.contact)?.physiology.alive === true && state.identity.get(order.contact)?.side !== order.issuer ? order.contact : undefined;
         if (named !== undefined) {
           const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
+          // A man who knows the named enemy has given up (M6.6) halts with the others but does not fire at him.
+          if (c?.surrendered === true) continue;
           if (c) { x = c.x; y = c.y; }
         }
         if (assignFireTask(ctx, state, s, x, y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) {

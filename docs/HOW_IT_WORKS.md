@@ -348,6 +348,17 @@ unit breaks ("falling back!"): every man runs about 150 m away from the enemy th
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
 ("rallied"), still uneasy (stress reduced to 60 %).
 
+## Surrender
+
+A man who is wounded and can no longer fight gives himself up when an enemy he knows of is within about 50 m
+and no fit comrade is within about 30 m. A panicked or fleeing man gives up when an enemy he knows of is within
+about 30 m, comrades or not. From then on he is out of the fight: he takes no orders, does not fire and does
+not use the radio; a white flag shows over him. The enemy stops shooting at him once they have SEEN him give
+up (until then he can still be hit, and shells and grenades aimed at the area can still hit him). An enemy who
+comes within a few metres takes him prisoner (a white square); when it is quiet, one enemy nearby who saw it
+walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
+down. Your fire tap on an enemy your men know has surrendered gives no order.
+
 ## Does an attack work?
 
 `npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low

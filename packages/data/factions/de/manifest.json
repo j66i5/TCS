@@ -8,5 +8,6 @@
   "sources": [
     "https://www.bundeswehr.de/de/organisation/heer"
   ],
-  "confidence": "high"
+  "confidence": "high",
+  "platoonTemplate": "pzgren-zug"
 }

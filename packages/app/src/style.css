@@ -51,3 +51,15 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   .hud-orders .hud-btn, .hud-plan .hud-btn { min-height: 34px; padding: 0 8px; font-size: 14px; }
   .hud-orders, .hud-plan { gap: 4px; padding: 4px; }
 }
+/* M6: score line and after-action review */
+.hud-score { position: absolute; left: 0; right: 0; padding: 3px 10px; background: var(--panel); font-size: 13px; color: var(--muted); }
+.hud-aar { position: absolute; inset: 56px 8px 8px 8px; background: rgba(16, 20, 15, 0.94); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 10px; overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; }
+.hud-aar.hud-aar-small { inset: auto 8px 8px 8px; max-height: 30vh; }
+.hud-aar-title { font-size: 20px; font-weight: 700; color: var(--accent); }
+.hud-aar-line { font-size: 15px; }
+.hud-aar-body { display: flex; gap: 16px; flex-wrap: wrap; }
+.hud-aar-col { flex: 1 1 280px; min-width: 0; }
+.hud-aar-head { font-weight: 700; margin: 6px 0 2px; }
+.hud-aar-sub { font-weight: 600; margin-top: 4px; }
+.hud-aar-row { font-size: 13px; color: var(--text); }

@@ -13,9 +13,10 @@ recommended option first — never as a typed list in the chat.
 - Typecheck / lint / data lint: `npm run typecheck` · `npm run lint` · `npm run lint:data`
 - All tests except timing: `npm test` · timing tests alone: `npm run test:perf` · single file: `npx vitest run packages/sim/test/orders.test.ts`
 - Determinism only: `npm run test:determinism`
-- Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]`
+- Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]` (scenarios: demo, demo-flat, shootout, platoon, platoon-ru, demo-fixture, bench)
+- App URL options: `?scenario=platoon|demo&side=blue|red&attacker=blue|red&map=village|farmland|woodland|industrial|flat&seed=N&limit=<s>`
 - Generate a map and print stats/problems: `npm run map -- --kind village --seed 3` · all kinds: `npm run map -- --all --seeds 5`
-- Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range` · `npm run lab -- casualty` · `npm run lab -- fragmentation` · `npm run lab -- sight` · `npm run lab -- spotting` · `npm run lab -- suppression`
+- Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range` · `npm run lab -- casualty` · `npm run lab -- fragmentation` · `npm run lab -- sight` · `npm run lab -- spotting` · `npm run lab -- suppression` · `npm run lab -- attack`
 - Batch report: `npm run batch -- --scenario demo --runs 200 --seconds 120` (writes `reports/`)
 - Golden replays (only for intended changes, log in DECISIONS.md): `npm run golden:update`
 - Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` → `screenshots/`

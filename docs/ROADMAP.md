@@ -117,7 +117,7 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 
-### M5 Orders and interface — ⏳ in progress
+### M5 Orders and interface — ✅
 Full order set, waypoints, standing rules, unit panels, radio log, time controls, touch controls.
 Slices (owner answers 2026-11-12):
 - **M5.1 Orders in the simulation** ✅ — `rules` order with engagement range limit, stance on contact (go to
@@ -130,8 +130,18 @@ Slices (owner answers 2026-11-12):
 - **M5.3 Review and polish** ✅ — independent review, eight findings fixed; the owner tries it on his phone.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 
-### M6 Opposing commander and scenarios — ⬜
+### M6 Opposing commander and scenarios — ✅ (owner review due)
 Objectives, scenario format and generator, commander AI for both postures, after-action review, save and load.
+Slices (owner answers 2026-11-12):
+- **M6.1 Objectives and victory** ✅ — objective areas held / contested; score = objectives held at the end
+  minus 5 per man down; a side that breaks or is wiped out loses at once; winner in the battle result.
+- **M6.2 Platoons and generator** ✅ — platoon templates (Germany: Zugfuehrer, Funker, three Schuetzentrupps;
+  Russia: platoon commander, three squads); `ScenarioDef` (plain data) and `buildScenario`: platoon attack
+  against a platoon holding two objectives on a generated map, either side attacking.
+- **M6.3 Commander AI** ✅ — doctrinal and cautious, defence and attack (`@tcs/ai` `commanderController`).
+- **M6.4 First playable** ✅ — the app starts the platoon battle (`?side=`, `?attacker=`, `?map=`, `?seed=`),
+  the AI commands the other side; objectives and score on the map; save and load; after-action review
+  (result, casualty lists, timeline, heat map); AI-versus-AI batch (`npm run batch -- --scenario platoon`).
 Acceptance: **first playable** — a generated platoon-level infantry battle, Germany against Russia, either
 side playable, AI-versus-AI batch report available.
 

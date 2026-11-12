@@ -34,6 +34,9 @@ export interface HudCallbacks {
   onCancel(): void;
   onRules(r: Partial<UnitRules>): void;
   onDebug(on: boolean): void;
+  /** Save the battle / load the last save (M6). */
+  onSave(): void;
+  onLoad(): void;
 }
 
 export interface HudStats {
@@ -55,6 +58,8 @@ export interface Hud {
   setOrderMode(mode: OrderMode): void;
   /** The selected unit's rules and a status line, shown in the rules panel. */
   setUnit(rules: UnitRules | null, status: string): void;
+  /** The score line under the top bar (objectives held, M6). */
+  setScore(text: string): void;
 }
 
 const fmtTime = (s: number) => {
@@ -87,7 +92,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const mapBtn = el("button", "hud-btn", cb.mapLabel);
   mapBtn.setAttribute("aria-label", s.t("app.map"));
   mapBtn.onclick = () => cb.onNextMap();
-  bar.append(title, clock, ...speedBtns, mapBtn, dbgBtn);
+  const saveBtn = el("button", "hud-btn", s.t("app.save"));
+  saveBtn.onclick = () => cb.onSave();
+  const loadBtn = el("button", "hud-btn", s.t("app.load"));
+  loadBtn.onclick = () => cb.onLoad();
+  bar.append(title, clock, ...speedBtns, saveBtn, loadBtn, mapBtn, dbgBtn);
+  const score = el("div", "hud-score");
+  score.hidden = true;
 
   // ---- order bar
   const orders = el("div", "hud-orders");
@@ -175,11 +186,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   err.hidden = true;
   const bottom = el("div", "hud-bottom");
   bottom.append(log, plan, orders);
-  root.append(bar, hint, panel, bottom, dbg, err);
+  root.append(bar, score, hint, panel, bottom, dbg, err);
   setMode("move");
   hint.textContent = s.t("app.hint");
   // Place the hint, the panel and the debug panel just below the bar, whose height depends on wrapping (phones).
-  const place = () => { const h = bar.offsetHeight; hint.style.top = `${h + 8}px`; dbg.style.top = `${h + 8}px`; panel.style.top = `${h + 8}px`; };
+  const place = () => { const h = bar.offsetHeight; score.style.top = `${h}px`; const t = h + (score.hidden ? 8 : score.offsetHeight + 8); hint.style.top = `${t}px`; dbg.style.top = `${t}px`; panel.style.top = `${t}px`; };
   place();
   globalThis.addEventListener("resize", place);
 
@@ -219,6 +230,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       undoBtn.hidden = kind !== "move";
     },
     setOrderMode(m) { setMode(m); },
+    setScore(text) { const was = score.hidden; score.textContent = text; score.hidden = text === ""; if (was !== score.hidden) place(); },
     setUnit(rules, text) {
       status.textContent = text;
       if (!rules) return;

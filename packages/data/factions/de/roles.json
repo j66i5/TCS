@@ -69,6 +69,24 @@
       ],
       "confidence": "low",
       "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "zugfuehrer",
+      "nameKey": "role.de.zugfuehrer",
+      "leader": true,
+      "sources": [
+        "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe"
+      ],
+      "confidence": "low",
+      "note": "Platoon leader dismounted with the platoon (M6). Search extracts only."
+    },
+    {
+      "id": "funker",
+      "nameKey": "role.de.funker",
+      "leader": false,
+      "sources": [],
+      "confidence": "low",
+      "note": "Radio operator with the platoon leader: game assumption (M6)."
     }
   ]
 }

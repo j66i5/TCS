@@ -1059,3 +1059,34 @@ unchanged.
    hurt units; plays by its faction's doctrine values.
 4. **After-action review:** result and casualty list, timeline of events, heat map (where fire came from and
    where men fell). (No replay viewer for now.)
+
+## 2026-11-12 — M6 first playable: implementation decisions and the AI-versus-AI result
+Taken while implementing the owner's M6 answers (game values, for his review): 40-minute battles; main
+objective 100 points, second 50, each man down -5; the generator puts the objectives at buildings on the
+defender's half and the attacker ~500 m away; platoon templates are research defaults (confidence low; the
+German platoon has a Zugfuehrer and a Funker, the Russian a platoon commander, each with three squads). The AI
+commander: defence fires at will out to 300 m; attack support line 300 m from the objective, recon up to 60 s,
+base of fire at the enemy its men know near the objective, assaults re-issued every 30 s while a squad is at
+half strength, withdrawal past the doctrine's casualty tolerance (30 %). Selecting one of your men now selects
+his own squad (the platoon's own men select the platoon).
+**AI-versus-AI batch (20 battles each way, 40 min):** the defending platoon won every battle, whichever side
+attacked (German attack: attackers ~12 of 20 down, defenders ~2; Russian attack: attackers ~11 of 19 down,
+defenders ~4). Moving the support line to 250, 200 or 400 m changed nothing. An even platoon attacking a dug-in
+platoon across open ground fails — believable, but it makes defending against the AI dull. **Question for the
+owner at the M6 review** (with options: give the attacker more men, e.g. two platoons against one; add support
+fire — mortars and smoke are M8; or teach the AI better approach routes).
+
+## 2026-11-12 — M6 independent review: findings and fixes
+All hard rules held. Fixed: (1) the base of fire fired at the objective's centre (a building) instead of the
+enemy — now at the enemy its men know near the objective (fixed before the review saw it); (2) the commander
+counted routed men as losses, so a panicking squad broke off the whole attack — losses now count only men
+killed or out; (3) the attacker ignored an objective retaken by a counterattack — it goes back for it, and
+holding what it took it no longer withdraws; a test now runs the attacker through all its phases against an
+absent defence; (4) both sides defeated in the same second: blue always lost — now neither loses by default
+(the score decides); (5) tests for "side broken" and for routed men not taking objectives; (6) a loaded game's
+after-action timeline and heat map started at the load — they are saved with the game; (7) the defending squads
+started outside the main objective's ring and the two objectives could overlap — squads now inside the ring,
+objectives at least 90 m apart; (9) an English text outside the string table; a failed load now says so.
+**Recorded (8):** the commanders know who holds each objective without seeing it — holders are public (shown
+to the player too), intended. **Balance (for the owner):** the AI attack still fails against the AI defence;
+even against a single defending squad left, the attacking platoon is pinned at ~350 m and breaks off.

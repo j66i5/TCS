@@ -20,6 +20,7 @@ export { spottingSystem } from "./systems/spotting";
 export { contactErrorM, contactSystem } from "./systems/contacts";
 export * from "./knowledge";
 export { arcLanding, arcRangeM, grenadeOption, throwRangeM } from "./systems/grenades";
+export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
 export * from "./impair";
 export * from "./hash";
 export * from "./store";

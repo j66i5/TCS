@@ -1,7 +1,7 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
-import { demoBattle } from "@tcs/scenario";
-import { shootoutController, wanderController } from "@tcs/ai";
+import { buildScenario, demoBattle } from "@tcs/scenario";
+import { commanderController, shootoutController, wanderController } from "@tcs/ai";
 import type { BattleInput, Controller } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 
@@ -46,6 +46,16 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) =>
       demoBattle(data, { seed, factions: ["xf", "de"], templates: ["porter-band", "demo-team"], timeLimitSeconds: seconds }),
     controllers: wanderBoth,
+  },
+  platoon: {
+    description: "M6 first playable: a generated platoon attack against a platoon holding two objectives (village; blue = Germany attacks from the west, red = Russia defends); both commanded by the AI commander.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "platoon-ru": {
+    description: "The same with the sides swapped: Russia (red, east) attacks, Germany (blue, west) defends; farmland.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   bench: {
     description: "Benchmark: 38 four-man teams per side (304 soldiers; the old placeholder team, kept so the benchmark stays comparable) on a generated 2 x 2 km farmland map, all moving.",

@@ -6,15 +6,16 @@
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
 import { formatErrors, Strings } from "@tcs/data";
-import { demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
-import { wanderController } from "@tcs/ai";
+import { buildScenario, demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
+import { commanderController, wanderController } from "@tcs/ai";
 import {
+  battleScore, loadGame, saveGame, type SaveGame,
   eyeHeightM, heightAt, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
-import { addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { createAar, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -34,10 +35,32 @@ async function main(): Promise<void> {
   const mapParam = params.get("map") ?? "village";
   const mapKind = (MAP_KINDS as readonly string[]).includes(mapParam) ? (mapParam as MapKind) : undefined;
 
-  const input = demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed });
-  const sim: Sim = createSim(input);
-  const playerSide = "blue";
-  const ai = [wanderController("red", seed + 1000, input.map, 30)];
+  // M6 first playable: the generated platoon battle (?scenario=demo for the old one-squad sandbox).
+  // ?side=blue|red picks your side, ?attacker=blue|red who attacks; the AI commands the other side.
+  const scenario = params.get("scenario") ?? "platoon";
+  const playerSide = params.get("side") === "red" ? "red" : "blue";
+  const enemySide = playerSide === "blue" ? "red" : "blue";
+  const attacker = params.get("attacker") === "red" ? "red" : "blue";
+  const input = scenario === "demo"
+    ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400 });
+  const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)] : [commanderController(enemySide, input)];
+  // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
+  const SAVE_KEY = "tcs.save";
+  let sim: Sim = createSim(input);
+  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[] };
+  let loadedRecord = null as AarRecord | null;
+  let loadFailed = false;
+  if (params.get("load") === "1") {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const blob = JSON.parse(raw) as { save: SaveGame; record?: AarRecord };
+        sim = loadGame(input, blob.save, ai);
+        loadedRecord = blob.record ?? null;
+      }
+    } catch { loadFailed = true; sim = createSim(input); } // e.g. made with other data: a fresh battle, and we say so
+  }
   const orderLog: Order[] = [];
 
   const renderer = await BattleRenderer.create(mapRoot);
@@ -119,6 +142,21 @@ async function main(): Promise<void> {
     onPosture: (p) => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
     },
+    onSave: () => {
+      try {
+        // The after-action record so far goes with the save (the timeline and heat map cover the whole battle).
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls } }));
+        hud.radio(strings.t("app.saved"), ticksToSeconds(sim.state.tick), "#d8e0c8");
+      } catch { hud.radio(strings.t("app.saveFailed"), ticksToSeconds(sim.state.tick), "#ffb4b4"); }
+    },
+    onLoad: () => {
+      let raw: string | null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch { raw = null; }
+      if (!raw) { hud.radio(strings.t("app.noSave"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
+      const q = new URLSearchParams((JSON.parse(raw) as { url: string }).url);
+      q.set("load", "1");
+      location.search = q.toString();
+    },
     onDebug: (on) => {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.
@@ -155,7 +193,8 @@ async function main(): Promise<void> {
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
-        overlay.selectedUnit = topUnitOf(sim, sim.state.identity.req(hit).unit);
+        // His own unit (his squad; the platoon's own men select the platoon).
+        overlay.selectedUnit = sim.state.identity.req(hit).unit;
         return;
       }
       if (overlay.selectedUnit === null) return;
@@ -196,9 +235,33 @@ async function main(): Promise<void> {
     const i = sim.state.sides.findIndex((s) => s.id === side);
     return `#${(SIDE_COLOURS[i] ?? 0xffffff).toString(16).padStart(6, "0")}`;
   };
+  // ---- After-action record (M6): built from the events as they come (UI consumes events, rule 5).
+  const sideIdx = (side: string) => Math.max(0, sim.state.sides.findIndex((x) => x.id === side));
+  const sideName = (side: string) => { const f = sim.state.sides.find((x) => x.id === side)?.faction ?? ""; return strings.t(`faction.${f}`, {}, f); };
+  const heatShots: number[] = [...(loadedRecord?.heatShots ?? [])], heatFalls: number[] = [...(loadedRecord?.heatFalls ?? [])];
+  const timeline: { tick: number; text: string; colour: string }[] = [...(loadedRecord?.timeline ?? [])];
+  if (loadFailed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
+  const callsignOf = (id: EntityId) => sim.state.unit.get(sim.state.identity.get(id)?.unit ?? -1)?.callsign ?? "";
+  let aarShown = false;
+  const objName = (id: string) => { const o = input.rules.objectives.find((x) => x.id === id); return o ? strings.t(o.nameKey) : id; };
   const handleEvents = (events: SimEvent[]) => {
     renderer.onEvents(events, sim.state, overlay);
     for (const e of events) {
+      if (e.kind === "shot.fired") { if (heatShots.length < 300000) heatShots.push(e.x, e.y, sideIdx(sim.state.identity.get(e.shooter)?.side ?? "")); continue; }
+      if (e.kind === "casualty") {
+        const t = sim.state.transform.get(e.soldier), id = sim.state.identity.get(e.soldier);
+        if (t && id) {
+          heatFalls.push(t.x, t.y, sideIdx(id.side));
+          timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t("timeline.casualty", { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier), status: strings.t(`status.${e.status}`) }) });
+        }
+      } else if (e.kind === "objective.changed" && e.holder !== null) {
+        timeline.push({ tick: e.tick, colour: sideColour(e.holder), text: strings.t("timeline.objective", { objective: objName(e.objective), side: sideName(e.holder) }) });
+      } else if (e.kind === "radio" && (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken")) {
+        const k = e.key === "radio.broken" ? "timeline.broken" : e.key === "radio.rallied" ? "timeline.rallied" : "timeline.taken";
+        timeline.push({ tick: e.tick, colour: sideColour(e.side), text: strings.t(k, { side: sideName(e.side), callsign: String(e.params["callsign"] ?? "") }) });
+      } else if (e.kind === "battle.ended") {
+        timeline.push({ tick: e.tick, colour: "#ffd23d", text: strings.t("timeline.ended", { reason: strings.t(`aar.reason.${e.reason}`, { loser: e.loser ? sideName(e.loser) : "" }) }) });
+      }
       if (e.kind === "radio" && e.side === playerSide) {
         const faction = sim.state.identity.get(e.from)?.faction;
         hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), sideColour(e.side));
@@ -291,6 +354,45 @@ async function main(): Promise<void> {
     hud.setUnit({ ...now, ...(pendingRules.get(uid) ?? {}) }, strings.t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
   };
 
+  const aar = createAar(hudRoot, strings, {
+    onHeat: (on) => { overlay.heat = on ? { shots: heatShots, falls: heatFalls } : null; },
+    onClose: () => { /* the map stays; the battle is over */ },
+  });
+  const zoneNames = (id: EntityId) => [...new Set(sim.state.soldier.req(id).wounds.filter((w) => w.mechanism !== "blunt").map((w) => strings.t(`zone.${w.zone}`)))].join(", ");
+  const showAar = () => {
+    aarShown = true;
+    speed = 0;
+    const sc = battleScore(sim.ctx, sim.state);
+    const reason = sim.state.ended?.reason ?? "time-limit";
+    const model: AarModel = {
+      title: strings.t("aar.title"),
+      summary: [
+        `${sc.winner ? strings.t("aar.winner", { side: sideName(sc.winner) }) : strings.t("aar.draw")} ${reason !== "time-limit" && sim.state.endLoser === null ? strings.t("aar.reason.both") : strings.t(`aar.reason.${reason}`, { loser: sim.state.endLoser ? sideName(sim.state.endLoser) : "" })}`,
+        ...sc.scores.map((x) => strings.t("aar.score", { side: sideName(x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
+      ],
+      casualties: sim.state.sides.map((sd) => {
+        const men = [...sim.state.identity.entries()].filter(([, i]) => i.side === sd.id);
+        const rows = men.map(([id, i]) => {
+          const s = sim.state.soldier.req(id);
+          const status = s.casualty !== "none" ? strings.t(`status.${s.casualty}`) : s.wounds.some((w) => w.mechanism !== "blunt") ? strings.t("status.wounded", { zones: zoneNames(id) }) : strings.t("status.fit");
+          return { order: s.casualty === "killed" ? 0 : s.casualty === "incapacitated" ? 1 : s.wounds.length > 0 ? 2 : 3, text: strings.t("aar.man", { rank: strings.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: strings.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
+        }).sort((a, b) => a.order - b.order);
+        const down = rows.filter((r) => r.order <= 1).length;
+        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: rows.map((r) => r.text) };
+      }),
+      timeline: timeline.map((t) => ({ time: fmtClock(ticksToSeconds(t.tick)), text: t.text, colour: t.colour })),
+    };
+    aar.show(model);
+  };
+  /** Objectives on the map and the score line. */
+  const showObjectives = () => {
+    const defs = input.rules.objectives;
+    overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
+    if (defs.length === 0) { hud.setScore(""); return; }
+    const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
+    hud.setScore([...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
+  };
+
   let acc = 0;
   let last = performance.now();
   let frames = 0, fpsT0 = last, fps = 0, ticksAtT0 = sim.state.tick, simRate = 0, hash = simHash(sim);
@@ -313,7 +415,8 @@ async function main(): Promise<void> {
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
-    if (now - statusAt >= 500) { statusAt = now; showUnit(); }
+    if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
+    if (sim.state.ended && !aarShown) showAar();
     frames++;
     if (now - fpsT0 >= 1000) {
       fps = (frames * 1000) / (now - fpsT0);
@@ -338,6 +441,12 @@ function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: st
   return best;
 }
 
+/** mm:ss of game time. */
+function fmtClock(s: number): string {
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+}
+
 /** All soldiers of a unit and its sub-units. */
 function unitSoldierIds(sim: Sim, unit: EntityId): EntityId[] {
   const u = sim.state.unit.get(unit);
@@ -345,14 +454,6 @@ function unitSoldierIds(sim: Sim, unit: EntityId): EntityId[] {
   return [...u.members, ...u.children.flatMap((c) => unitSoldierIds(sim, c))];
 }
 
-function topUnitOf(sim: Sim, unit: EntityId): EntityId {
-  let u = unit;
-  for (;;) {
-    const p = sim.state.unit.get(u)?.parent ?? null;
-    if (p === null) return u;
-    u = p;
-  }
-}
 
 main().catch((e: unknown) => {
   const pre = document.createElement("pre");

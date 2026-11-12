@@ -452,6 +452,73 @@
       ],
       "confidence": "low",
       "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
+    },
+    {
+      "id": "motor-rifle-platoon",
+      "echelon": "platoon",
+      "callsign": "Vzvod {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "platoon-commander",
+          "rank": "leytenant",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [
+        "motor-rifle-squad",
+        "motor-rifle-squad",
+        "motor-rifle-squad"
+      ],
+      "sources": [
+        "https://warontherocks.com/not-built-for-purpose-the-russian-militarys-ill-fated-force-design/",
+        "https://www.battleorder.org/rus-bmp-platoon"
+      ],
+      "confidence": "low",
+      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct."
     }
   ]
 }

@@ -3,12 +3,11 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M4 Soldier and squad behaviour is complete** (M4.1 suppression and morale, M4.2 soldier
-decisions, M4.3 squad drills, M4.4 doctrine and the attack lab); the independent milestone review and its fixes
-are done (all ten findings fixed). **M5 Orders and interface in progress:** M5.1 (orders in the simulation)
-and M5.2 (interface: draggable formation marker, routes with pace per leg, order bar, rules panel, pause with
-orders) done; the M5 review is done and its findings fixed. Next: the owner tries it on his phone, then
-**M6 Opposing commander and scenarios**.
+**M6 Opposing commander and scenarios is complete — first playable.** The app opens a generated platoon battle
+(Germany against Russia, either side, either attacking); the AI commands the other side; objectives, score,
+save and load, after-action review with casualty lists, timeline and heat map. **Stop here for the owner's
+review** (ROADMAP: is it fun, what is wrong; also the medical system, the fog-of-war reminder below, and the
+balance question: the AI attack never succeeds against the AI defence — DECISIONS.md, M6).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -106,7 +105,12 @@ orders) done; the M5 review is done and its findings fixed. Next: the owner trie
 - **M5.1/M5.2 orders and interface**: drag the formation marker (shape, facing arrow, width handle), routes
   with pace per leg, order bar with assault / withdraw / fire / grenades / halt / cease fire / posture, rules
   panel (fire, range limit, on contact, ammunition) with the unit's state; pause with orders; phone layout.
-- Tests: 364 (360 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M6 first playable**: objectives and victory (held at the end minus losses; early loss when a side breaks or
+  is wiped out), platoon templates, scenario format and generator (`buildScenario`), AI commander for defence
+  and attack, app battle with side/attacker choice, save/load, after-action review (casualties, timeline, heat
+  map), AI-versus-AI batches (`npm run batch -- --scenario platoon` / `platoon-ru`): the defender wins 20 of 20
+  each way.
+- Tests: 378 (374 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

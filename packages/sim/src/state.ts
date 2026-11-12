@@ -33,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 12;
+export const STATE_SCHEMA_VERSION = 13;
 
 export interface SideState {
   id: SideId;
@@ -55,6 +55,10 @@ export interface SimState {
   pendingOrders: PendingOrder[];
   /** Contact reports on their way from one soldier to another (voice or radio, M3.3). */
   contactReports: ContactReport[];
+  /** Who holds each objective (M6), in the order of `rules.objectives`. */
+  objectives: { id: string; holder: SideId | null; contested: boolean }[];
+  /** The side that lost early (broken or wiped out), if one did. */
+  endLoser: SideId | null;
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -90,6 +94,8 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     inbox: [],
     pendingOrders: [],
     contactReports: [],
+    objectives: [],
+    endLoser: null,
     ended: null,
     identity: new Store(),
     transform: new Store(),
@@ -122,6 +128,10 @@ export interface SerializedState {
   pendingOrders: PendingOrder[];
   /** Contact reports on their way from one soldier to another (voice or radio, M3.3). */
   contactReports: ContactReport[];
+  /** Who holds each objective (M6), in the order of `rules.objectives`. */
+  objectives: { id: string; holder: SideId | null; contested: boolean }[];
+  /** The side that lost early (broken or wiped out), if one did. */
+  endLoser: SideId | null;
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;
@@ -149,6 +159,8 @@ export function serializeState(s: SimState): SerializedState {
       inbox: s.inbox,
       pendingOrders: s.pendingOrders,
       contactReports: s.contactReports,
+      objectives: s.objectives,
+      endLoser: s.endLoser,
       ended: s.ended,
       stores,
     },
@@ -191,6 +203,8 @@ export function deserializeState(data: SerializedState): SimState {
     inbox: d.inbox,
     pendingOrders: d.pendingOrders,
     contactReports: d.contactReports,
+    objectives: d.objectives,
+    endLoser: d.endLoser,
     ended: d.ended,
     catalogFingerprint: d.catalogFingerprint,
     mapFingerprint: d.mapFingerprint,

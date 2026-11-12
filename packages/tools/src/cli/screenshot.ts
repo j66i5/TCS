@@ -83,7 +83,14 @@ try {
     // Order the blue team toward the map centre (through the village on village maps), advance 40 s of game
     // time, and switch the debug view on so the navigation grid and the planned route are visible.
     await page.evaluate(new Function(`const t = globalThis.__tcs; const m = t.sim.ctx.map;
-      t.tap(m.widthM > 600 ? m.widthM * 0.55 : 200, m.widthM > 600 ? m.heightM * 0.5 : 90); t.stepTicks(60 * 40); t.setDebug(true);`) as () => void);
+      t.tap(m.widthM > 600 ? m.widthM * 0.55 : 200, m.widthM > 600 ? m.heightM * 0.5 : 90); t.stepTicks(60 * 40);
+      let x = 0, y = 0, n = 0; for (const [id, i] of t.sim.state.identity.entries()) if (i.side === "blue") { const p = t.sim.state.transform.get(id); x += p.x; y += p.y; n++; }
+      t.focus(x / n + 30, y / n, 160); t.stepTicks(1);`) as () => void);
+    await page.waitForTimeout(300);
+    // On the move, normal view: one route line (the leader's) for the selected unit, no trace per man.
+    const p1a = `${outDir}/${mapKind}-${seed}-${name}-1a-moving.png`;
+    await page.screenshot({ path: p1a }); shots.push(p1a);
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setDebug(true); t.stepTicks(1);") as () => void);
     await page.waitForTimeout(300);
     const p1 = `${outDir}/${mapKind}-${seed}-${name}-1-after-40s-debug.png`;
     await page.screenshot({ path: p1 }); shots.push(p1);

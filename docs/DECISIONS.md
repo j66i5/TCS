@@ -1181,3 +1181,8 @@ the milestone starts.
 8. **Unit sidebar:** a slim strip on the left with one small tile per unit (symbol, callsign, men fit, a colour
    for its state); a tap on a tile selects; a tap on the strip's head opens the full list with details; open
    all the time on a wide screen.
+
+## 2026-11-12 — Owner: no path trace for every soldier
+"Stop showing traces for every individual soldier's path." In play the map now draws one route line only: the
+way of the selected unit's leader (and of its sub-units' leaders); the order marker at the destination stays.
+Debug still shows every man's own path. Screenshot `1a-moving` shows it.

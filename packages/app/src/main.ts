@@ -342,12 +342,13 @@ async function main(): Promise<void> {
       } else if (e.kind === "radio" && (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken")) {
         const k = e.key === "radio.broken" ? "timeline.broken" : e.key === "radio.rallied" ? "timeline.rallied" : "timeline.taken";
         timeline.push({ tick: e.tick, colour: sideColour(e.side), text: strings.t(k, { side: sideName(e.side), callsign: String(e.params["callsign"] ?? "") }) });
-      } else if ((e.kind === "vehicle.hit" && e.result === "penetrated") || e.kind === "vehicle.status" || e.kind === "vehicle.fire" || e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
+      } else if ((e.kind === "vehicle.hit" && e.result === "penetrated") || e.kind === "vehicle.status" || e.kind === "vehicle.fire" || e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned" || e.kind === "vehicle.extinguished" || (e.kind === "vehicle.reaction" && e.reaction === "reverseOut")) {
         // Vehicles hit, immobilised, burning, destroyed, abandoned (M7.4a); wrecks go on the heat map.
         const v = sim.state.vehicle.get(e.vehicle);
         if (v) {
-          const name = v.unit !== null ? sim.state.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId;
-          const key = e.kind === "vehicle.hit" ? "aar.vehicle.hit" : e.kind === "vehicle.status" ? `aar.vehicle.${e.status}` : e.kind === "vehicle.fire" ? "aar.vehicle.fire" : e.kind === "vehicle.destroyed" ? "aar.vehicle.destroyed" : "aar.vehicle.abandoned";
+          // (Its crew's callsign, remembered: a crew that bailed out no longer belongs to the hull, M7.4b.)
+          const name = v.unit !== null ? sim.state.unit.get(v.unit)?.callsign ?? v.vehicleId : [...sim.state.unit.values()].find((x) => x.exVehicle === e.vehicle)?.callsign ?? v.vehicleId;
+          const key = e.kind === "vehicle.hit" ? "aar.vehicle.hit" : e.kind === "vehicle.status" ? `aar.vehicle.${e.status}` : e.kind === "vehicle.fire" ? "aar.vehicle.fire" : e.kind === "vehicle.destroyed" ? "aar.vehicle.destroyed" : e.kind === "vehicle.extinguished" ? "aar.vehicle.extinguished" : e.kind === "vehicle.reaction" ? "aar.vehicle.reversedOut" : "aar.vehicle.abandoned";
           timeline.push({ tick: e.tick, colour: sideColour(v.side), text: strings.t(key, { vehicle: `${sideName(v.side)} ${name}` }) });
           const t = sim.state.transform.get(e.vehicle);
           if (t && (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned")) heatFalls.push(t.x, t.y, sideIdx(v.side));
@@ -453,7 +454,13 @@ async function main(): Promise<void> {
           ready: veh.stations.flatMap((st) => st.weapons.map((w) => `${strings.t(`weapon.${w.weapon}`, {}, veh.faction)} ${w.feeds.map((f) => f.rounds).join("/")}`)).join(", "),
           stowed: [...new Set(veh.stations.flatMap((st) => st.weapons.flatMap((w) => w.feeds.map((f) => f.item))))].map((it) => (sim.state.container.get(u.vehicle!)?.stacks ?? []).filter((x) => x.type === it).reduce((n, x) => n + (x.charge ?? 0) * x.count, 0)).join("/"),
           smoke: def.dischargers ? vehicleItems(sim.state, u.vehicle, def.dischargers.item) : 0,
-        })}` : "");
+        })}` : "")
+        // Components (M7.4b, plan C3): every damaged part with its condition; extinguisher charges; the crew's reaction.
+        + (def?.components ? `\n${strings.t("status.vehicle.parts", {
+          parts: def.components.map((c, k) => ({ c, x: veh.comp[k] ?? 1 })).filter((p) => p.x < 1).map((p) => `${strings.t(`vehicle.comp.${p.c.kind}`)} ${Math.round(p.x * 100)} %`).join(", ") || strings.t("status.vehicle.partsOk"),
+          ext: def.extinguisher ? vehicleItems(sim.state, u.vehicle, def.extinguisher.item) : 0,
+        })}` : "")
+        + (veh.crewReaction !== null ? `\n${strings.t("status.vehicle.reaction", { reaction: strings.t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => strings.t(k)).join(", ") })}` : "");
       hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(sim.ctx, sim.state, uid), ...(pendingRules.get(uid) ?? {}) }, status);
       return;
     }

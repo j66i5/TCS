@@ -71,6 +71,48 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
   await mountedScenes(page, name, errors, shots);
   await gunneryScenes(page, name, errors, shots);
   await armourScenes(page, name, errors, shots);
+  await antitankScenes(page, name, errors, shots);
+}
+
+/**
+ * M7.4b anti-tank and crew reactions (`--scene vehicles`, fifth part): the platoon battle, Russia attacking mounted
+ * against the German Pumas, Debug on (both sides shown): the rocket of the first man firing a Panzerfaust or an
+ * RPG at a vehicle, in flight; then, in the vehicles scenario with every vehicle firing at the nearest enemy hull,
+ * the first crew that reverses out under fire, its smoke screen in front of it.
+ */
+async function antitankScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  await page.goto(`http://localhost:${port}/?scenario=platoon&seed=${seed}&map=${args["map"] ?? "farmland"}&attacker=red&side=blue`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  const found = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.setDebug(true); const s = t.sim.state;
+    for (let k = 0; k < 1800; k++) { t.stepTicks(30); for (const [id, a] of s.action.entries()) if (a.kind === "fireLauncher") {
+      const p = s.transform.get(id), x = Number(a.params.x), y = Number(a.params.y);
+      // (A shot at a vehicle that is really there, both in the picture.)
+      let v = null, vd = 1e9; for (const [vid, w] of s.vehicle.entries()) { const q = s.transform.get(vid); const d = Math.hypot(q.x - x, q.y - y); if (w.status !== "destroyed" && d < vd) { vd = d; v = q; } }
+      if (!v || vd > 40) continue;
+      t.stepTicks(Math.max(1, a.startTick + a.durationTicks - s.tick + 40)); t.focus((p.x + v.x) / 2, (p.y + v.y) / 2, Math.max(140, Math.hypot(v.x - p.x, v.y - p.y) + 80)); t.stepTicks(1);
+      return { man: id, x, y, tick: s.tick, vehicleOff: vd }; } }
+    return null;`) as () => object | null);
+  await page.waitForTimeout(400);
+  const t0 = `${outDir}/antitank-${seed}-${name}-0-rocket.png`;
+  await page.screenshot({ path: t0 }); shots.push(t0);
+  // Reversing out: the vehicles scenario, every own vehicle firing at the nearest enemy hull until a crew backs off.
+  await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${args["map"] ?? "farmland"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  const rev = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; t.setSpeed(0); t.setDebug(true); t.stepTicks(60 * 20);
+    const fire = () => { for (const [vid, unit] of t.vehicles()) { const me = s.transform.get(vid); let best = null, bd = 1e9;
+      for (const [id, v] of s.vehicle.entries()) { if (v.side === s.vehicle.get(vid).side || v.status !== "ok") continue; const q = s.transform.get(id); const d = Math.hypot(q.x - me.x, q.y - me.y); if (d < bd) { bd = d; best = q; } }
+      if (best) { t.select(unit); t.fireNature(best.x, best.y, "ap"); } }
+      // ... and the squads on foot fire their Panzerfausts at it ("Anti-tank").
+      for (const [uid, u] of s.unit.entries()) { if (u.side !== "blue" || u.vehicle !== undefined || u.parent === null) continue; const m = s.transform.get(u.members[0]); if (!m) continue;
+        let best = null, bd = 1e9; for (const [id, v] of s.vehicle.entries()) { if (v.side === "blue" || v.status !== "ok") continue; const q = s.transform.get(id); const d = Math.hypot(q.x - m.x, q.y - m.y); if (d < bd) { bd = d; best = q; } }
+        if (best) { t.select(uid); t.fireNature(best.x, best.y, "at"); } } };
+    for (let k = 0; k < 1500; k++) { if (k % 10 === 0) fire(); t.stepTicks(30); for (const [id, v] of s.vehicle.entries()) if (v.crewReaction === "reverseOut" && s.tick - v.reactionTick < 240) {
+      t.stepTicks(60 * 3); const p = s.transform.get(id); t.focus(p.x, p.y, 140); t.stepTicks(1); return { vehicle: id, why: v.reactionWhy, smoke: s.smoke.length, tick: s.tick }; } }
+    return { none: [...s.vehicle.values()].map((v) => [v.side, v.status, v.crewReaction, v.lastPenTick]), tick: s.tick };`) as () => object | null);
+  await page.waitForTimeout(400);
+  const t1 = `${outDir}/antitank-${seed}-${name}-1-reversing-out.png`;
+  await page.screenshot({ path: t1 }); shots.push(t1);
+  console.log(`${name}: anti-tank scene ${JSON.stringify(found)}; reversing out ${JSON.stringify(rev)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

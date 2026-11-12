@@ -22,6 +22,7 @@
     "dispersionM": 30,
     "intervalSeconds": 6,
     "smokeRadiusM": 35,
-    "smokeSeconds": 150
+    "smokeSeconds": 150,
+    "roundsFactor": 1
   }
 }

@@ -105,6 +105,10 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
   // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
-  rules.support = SIDES.map((side) => side === def.attacker ? { side, he: SCENARIO_SUPPORT.attackerHe, smoke: SCENARIO_SUPPORT.attackerSmoke } : { side, he: SCENARIO_SUPPORT.defenderHe, smoke: SCENARIO_SUPPORT.defenderSmoke });
+  rules.support = SIDES.map((side, s) => {
+    const k = catalog.factions[def.factions[s]!]?.fireSupport?.roundsFactor ?? 1;
+    const att = side === def.attacker;
+    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)) };
+  });
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }

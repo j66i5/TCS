@@ -3,6 +3,23 @@
 Plain-language tour of the systems as they exist **now** (end of M0). Updated every session. Words in
 `code font` are names you can search for in the repository.
 
+## The battle (M6)
+
+The app opens a generated battle: a platoon attacks a platoon that holds two objectives (red rings with their
+holder's colour; the line under the top bar shows who holds what and the time left, 40 minutes). By default you
+command the German platoon attacking from the west; `?side=red` gives you the Russians, `?attacker=red` makes
+the Russians attack, `?map=farmland` (or woodland, industrial) another map, `?seed=` another battle. The other
+side is commanded by the computer: in defence it lies in its positions and fires at will out to 300 m, pulls
+back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
+attack it moves up to about 300 m, looks for the enemy, then one squad fires on the objective while the others
+assault it, then the second objective; past its doctrine's loss limit (30 %) it breaks off and withdraws.
+**Winning:** points for the objectives you hold at the end (main 100, second 50), minus 5 for each of your men
+down; a side that breaks or has nobody left loses at once. **Save** keeps the battle in the browser; **Load**
+brings it back exactly. At the end the **after-action review** shows the result and why, both casualty lists
+(who, where wounded), a timeline (men falling, objectives changing hands, units breaking) and, on the
+battlefield, a **heat map** (dots where shots came from, crosses where men fell).
+`?scenario=demo` opens the old one-squad sandbox.
+
 ## How to play (M5)
 
 Tap one of your men to select his unit. The bar at the bottom holds the orders:

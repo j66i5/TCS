@@ -246,6 +246,13 @@ Not yet possible: the vehicle format arrives in **M7**.
 
 No code change is needed. If you find you need one, that is a bug in the engine — report it.
 
+## Platoons for generated battles (M6)
+
+Each faction's `manifest.json` names its `platoonTemplate` (in `units.json`: echelon "platoon", the platoon's
+own men in `members`, its squads in `subunits`). Doctrine values used by the AI commander:
+`casualtyToleranceBeforeWithdrawal` (share of men down before an attack is broken off). Objective names are
+string keys (`objective.main`, `objective.second`).
+
 ## Strings and radio phrasing
 
 `strings.en.json` maps keys to text. `{name}` placeholders are filled in by the game, e.g.

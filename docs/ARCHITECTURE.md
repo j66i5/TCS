@@ -463,6 +463,19 @@ call back into the app, which turns everything into orders (`rules` carries only
 fields `maxEngageM`, `onContact`, `ammoRule` (schema 12, the M4 bump not yet released) feed decisions,
 drills and the fire system.
 
+## 16o. Objectives, scenarios and the commander (M6)
+`sim/src/systems/objectives.ts`: `BattleRules.objectives` (`ObjectiveDef`: area, points, first holder) and
+`victory` (`casualtyPoints`, `endOnDefeat`); `state.objectives` holds holder / contested (in the order of the
+rules), `state.endLoser` the side that lost early. Once a second: an objective changes hands when only one
+side has standing (able, not routed) men inside (`objective.changed`); a side with nobody standing or with all
+top units broken ends the battle (`battle.ended` with `loser`). `battleScore` (also in `BattleResult.scores`,
+`winner`). `scenario/src/battle.ts`: `ScenarioDef` (plain data) → `buildScenario` (deterministic): map,
+objectives at buildings on the defender's half, the platoons (manifest `platoonTemplate`) placed by squad.
+`ai/src/commander.ts`: `commanderController(side, input)` — a Controller with plain-data memory (phase,
+target, timers; saved with the game), reading only its own men's contacts and the public objective holders;
+transcendental maths via sim/math. The app builds the after-action review from the events it receives
+(`ui/src/aar.ts` lays it out) and draws objectives and the heat map through `Overlay.objectives` / `.heat`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

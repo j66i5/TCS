@@ -1059,3 +1059,19 @@ unchanged.
    hurt units; plays by its faction's doctrine values.
 4. **After-action review:** result and casualty list, timeline of events, heat map (where fire came from and
    where men fell). (No replay viewer for now.)
+
+## 2026-11-12 — M6 first playable: implementation decisions and the AI-versus-AI result
+Taken while implementing the owner's M6 answers (game values, for his review): 40-minute battles; main
+objective 100 points, second 50, each man down -5; the generator puts the objectives at buildings on the
+defender's half and the attacker ~500 m away; platoon templates are research defaults (confidence low; the
+German platoon has a Zugfuehrer and a Funker, the Russian a platoon commander, each with three squads). The AI
+commander: defence fires at will out to 300 m; attack support line 300 m from the objective, recon up to 60 s,
+base of fire at the enemy its men know near the objective, assaults re-issued every 30 s while a squad is at
+half strength, withdrawal past the doctrine's casualty tolerance (30 %). Selecting one of your men now selects
+his own squad (the platoon's own men select the platoon).
+**AI-versus-AI batch (20 battles each way, 40 min):** the defending platoon won every battle, whichever side
+attacked (German attack: attackers ~12 of 20 down, defenders ~2; Russian attack: attackers ~11 of 19 down,
+defenders ~4). Moving the support line to 250, 200 or 400 m changed nothing. An even platoon attacking a dug-in
+platoon across open ground fails — believable, but it makes defending against the AI dull. **Question for the
+owner at the M6 review** (with options: give the attacker more men, e.g. two platoons against one; add support
+fire — mortars and smoke are M8; or teach the AI better approach routes).

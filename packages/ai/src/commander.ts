@@ -131,7 +131,16 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const ranked = mem.phase === "second" ? [...live].sort((a, b) => strength(a) - strength(b) || a - b) : live;
           const base = ranked[0]!;
           const assaulters = live.length > 1 ? live.filter((sq) => sq !== base) : [base];
-          if (live.length > 1 && tick - mem.lastFire >= COMMANDER.refireSeconds * 60) { order(base, { kind: "fire", x: tgt.x, y: tgt.y, heightM: 0.5 }); mem.lastFire = tick; }
+          if (live.length > 1 && tick - mem.lastFire >= COMMANDER.refireSeconds * 60) {
+            // At the enemy the base of fire's men know of near the objective (the nearest to it), else the point.
+            let best: { target: EntityId; x: number; y: number } | null = null, bestD = 120;
+            for (const m of members(view, base)) for (const c of (view.soldier.get(m)?.contacts ?? [])) {
+              const d = hypot2(c.x - tgt.x, c.y - tgt.y);
+              if (d < bestD) { bestD = d; best = { target: c.target, x: c.x, y: c.y }; }
+            }
+            order(base, best ? { kind: "fire", x: best.x, y: best.y, contact: best.target } : { kind: "fire", x: tgt.x, y: tgt.y, heightM: 0.5 });
+            mem.lastFire = tick;
+          }
           assaulters.forEach((sq, i) => {
             const u = view.unit.get(sq);
             const last = mem.lastAssault[String(sq)] ?? -1e9;

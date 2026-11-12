@@ -69,6 +69,16 @@
       ],
       "confidence": "low",
       "note": "Research default (docs/research/squads.md); owner review pending."
+    },
+    {
+      "id": "platoon-commander",
+      "nameKey": "role.ru.platoon-commander",
+      "leader": true,
+      "sources": [
+        "https://warontherocks.com/not-built-for-purpose-the-russian-militarys-ill-fated-force-design/"
+      ],
+      "confidence": "low",
+      "note": "Post-2008 platoon: three squads and the platoon commander, no separate headquarters (search extract only)."
     }
   ]
 }

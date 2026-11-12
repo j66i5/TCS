@@ -161,5 +161,7 @@
   "behaviour.shaken": "shaken",
   "behaviour.panicked": "panicked",
   "behaviour.routed": "falling back",
-  "behaviour.broken": "broken - falling back"
+  "behaviour.broken": "broken - falling back",
+  "objective.main": "main objective",
+  "objective.second": "second objective"
 }

@@ -391,6 +391,8 @@ export const FactionManifest = withProv({
   defaultQuality: Id,
   /** Unit template the demo scenario and the app start with (default "demo-team"). */
   demoTemplate: Id.optional(),
+  /** Platoon used by generated battles (M6). */
+  platoonTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });

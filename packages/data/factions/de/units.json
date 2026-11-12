@@ -437,6 +437,121 @@
       ],
       "confidence": "low",
       "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
+    },
+    {
+      "id": "pzgren-zug",
+      "echelon": "platoon",
+      "callsign": "Zug {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "zugfuehrer",
+          "rank": "leutnant",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "pzgren-schuetzentrupp",
+        "pzgren-schuetzentrupp",
+        "pzgren-schuetzentrupp"
+      ],
+      "sources": [
+        "https://www.bundeswehr.de/de/meldungen/schuetzenpanzer-puma-im-angriff-5579452",
+        "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe"
+      ],
+      "confidence": "low",
+      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct."
     }
   ]
 }

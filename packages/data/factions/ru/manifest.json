@@ -8,5 +8,6 @@
   "sources": [
     "https://en.wikipedia.org/wiki/Russian_Ground_Forces"
   ],
-  "confidence": "high"
+  "confidence": "high",
+  "platoonTemplate": "motor-rifle-platoon"
 }

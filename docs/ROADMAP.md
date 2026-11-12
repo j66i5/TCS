@@ -163,6 +163,26 @@ still 0 of 10 (its 82 mm mortar is far lighter than the German 120 mm) — for t
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired
   anti-tank weapons; then main battle tanks. ⬜
+- **M7.5 Look and interface** (owner request 2026-11-12, after M7) — ⬜
+  - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
+    player wants it.
+  - A sidebar lists every unit of the player's side; tapping an entry selects the unit.
+  - Only the actions that make sense for the selected unit are offered (a vehicle: its orders; a squad: its
+    orders; nothing a unit cannot do).
+  - Soldiers are drawn as small top-down pixel-art figures (our own original art: posture, facing, weapon,
+    firing, wounded, down, surrendered).
+  - True scale between house, soldier and map: a man is about 0.5 m across, a door about 1 m, a room a few
+    metres; zoom levels chosen so that this reads correctly.
+  - Building interiors: rooms, inner walls and doors that men move through, see through and fight in.
+  - A cleaner, flatter map style in the manner of classic top-down pixel wargames (original art, not a copy of
+    any existing game's graphics); less clutter.
+  Owner's design answers (2026-11-12, DECISIONS.md): true scale close / unit symbols far, opening zoomed in;
+  faction uniform tones plus a blue or red marker; flat pixel map (no blending or hill shading, contours only
+  when zoomed out); roofs fade when own men are inside or near, or when zoomed in close; **all floors with
+  stairs** and a floor switch (men fire from upstairs windows); order bar greyed until a unit is selected; the
+  bar docks to any of the four edges; the unit sidebar is a slim strip of tiles that expands.
+  Acceptance: the owner finds it clearer and better looking on his phone; nothing about how the simulation
+  resolves fights changes except where interiors and upper floors add walls, stairs and firing positions.
 - **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. ⬜
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜

@@ -1132,3 +1132,57 @@ attacking, 24 + 8 defending), Germany x1 (game values). Alone this changed nothi
 the AI now fires a quarter of its remaining HE per mission (at least 6). **Result (10 battles each way):**
 Russian attack still 0 of 10 (defenders now lose ~12 of 20, attackers ~12 of 40); German attack 1 of 10 (2 of
 10 before: within the spread of 10 battles). Golden replays regenerated (catalog fingerprint).
+
+## 2026-11-12 — Owner: surrender (especially of downed men)
+Owner request: "Include surrendering, especially for downed men". Answers (all the recommended options):
+1. **Who:** a man who is wounded and can no longer fight or walk (but conscious) surrenders when an enemy he
+   knows of is close (~50 m) and no fit comrade is near (~30 m); a panicked or fleeing (routed) man also
+   surrenders when caught with an enemy within ~30 m.
+2. **Effect:** he stops fighting; enemies who see him stop firing at him (until someone has seen the surrender
+   he can still be shot); when an enemy soldier reaches him (a few metres) he is taken prisoner.
+3. **Score / review:** a surrendered or captured man costs his side the same as a casualty (5 points); the
+   after-action review lists him as surrendered / captured, and the timeline shows it.
+4. **Factions:** the same rule for both sides; willingness from the man's state (wounds, stress, being alone)
+   with one data value set for all — no unsourced faction difference.
+
+## 2026-11-12 — M7 owner answers (vehicles)
+1. **Scope:** the Puma and the BMP-2 only (the two tracked infantry fighting vehicles of the existing squads).
+   Wheeled carriers (Boxer, BTR-82A), the BMP-3 and main battle tanks are NOT part of M7 for now.
+2. **Command:** a vehicle is its own unit: tap it and give it orders like a squad (move, fire at, halt, reverse,
+   smoke); its crew drives and shoots on its own under the same fire rules. Squads get Mount and Dismount orders.
+3. **IFV missiles** (MELLS/Spike on the Puma, Konkurs on the BMP-2): wait for M9 (guided weapons). M7 has the
+   guns, the machine guns and the shoulder-fired Panzerfaust 3 / RPG-7.
+4. **Battle start:** the attacker's platoons ride in their IFVs from the map edge and dismount where the player
+   or the AI decides; the defender's men are in position on foot with their IFVs behind them in support.
+
+## 2026-11-12 — Owner request: look and interface after M7
+"After M7 is done, beautify the game": the order bar permanently visible and draggable without selecting a unit
+first; a sidebar with every unit to select; soldiers as pixel characters; building interiors; true scale
+between house, soldier and map; a map style closer to the classic top-down pixel wargame he named; a decluttered
+interface (only the relevant actions for each unit). Planned as **M7.5 Look and interface** (ROADMAP).
+**Recorded:** the pixel soldiers and the map style will be our own original art in that genre's manner (small
+top-down figures, flat readable terrain), not a copy of that game's sprites or look. The design questions (how
+big the figures are at each zoom, how interiors are shown, where the sidebar sits on a phone) are asked when
+the milestone starts.
+
+## 2026-11-12 — M7.5 owner answers (look and interface)
+1. **Figures and scale:** true scale when zoomed in (pixel figures at true size next to houses and vehicles);
+   zoomed out, each squad or vehicle becomes a small symbol. The battle opens zoomed in on the player's men.
+2. **Sides:** each faction in its own uniform tones, plus a thin blue or red outline or marker.
+3. **Map look:** flat pixel style — flat muted ground colours, crisp pixel edges, simple tree and roof shapes,
+   thin dark outlines, no blending or hill shading; contour lines only when zoomed out.
+4. **Roofs:** drawn as now; a building's roof fades away when the player's men are inside or next to it, or
+   when zoomed in close, showing rooms, inner walls and doors.
+5. **Interiors:** ALL floors with stairs (not only the ground floor): upper floors, stairs, a floor switch on
+   the map; men can fire from upstairs windows. (The owner chose the larger option.)
+6. **Order bar with nothing selected:** visible but greyed out until a unit is selected.
+7. **Dragging the order bar:** it docks to an edge — top, bottom, left or right — as a full-width or
+   full-height strip.
+8. **Unit sidebar:** a slim strip on the left with one small tile per unit (symbol, callsign, men fit, a colour
+   for its state); a tap on a tile selects; a tap on the strip's head opens the full list with details; open
+   all the time on a wide screen.
+
+## 2026-11-12 — Owner: no path trace for every soldier
+"Stop showing traces for every individual soldier's path." In play the map now draws one route line only: the
+way of the selected unit's leader (and of its sub-units' leaders); the order marker at the destination stays.
+Debug still shows every man's own path. Screenshot `1a-moving` shows it.

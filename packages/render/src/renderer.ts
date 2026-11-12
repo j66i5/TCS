@@ -225,11 +225,19 @@ export class BattleRenderer {
     const sideIndex = new Map(state.sides.map((s, i) => [s.id, i]));
     const r = Math.max(3, 0.6 * c.scale); // a man is ~0.6 m radius; never smaller than 3 px
 
-    // Waypoint lines (own side; all sides in debug).
+    // Route lines. In play only ONE per unit: the way of the leader of the selected unit (and of the leaders
+    // of its sub-units) — not a trace for every man (owner, 2026-11-12). Debug shows every man's own path.
+    const leaders = new Set<EntityId>();
+    if (!overlay.debug && overlay.selectedUnit !== null) {
+      for (const [uid, u] of state.unit.entries()) {
+        if (u.leader !== null && u.side === overlay.playerSide && unitIsOrContains(state, overlay.selectedUnit, uid)) leaders.add(u.leader);
+      }
+    }
     for (const [id, m] of state.mover.entries()) {
       if (m.waypoints.length === 0) continue;
+      if (!overlay.debug && !leaders.has(id)) continue;
       const ident = state.identity.get(id);
-      if (!ident || (!overlay.debug && ident.side !== overlay.playerSide)) continue;
+      if (!ident) continue;
       const p = this.pos(state, id, alpha);
       let a = worldToScreen(c, p.x, p.y);
       for (const w of m.waypoints) {

@@ -5,7 +5,9 @@
  * simple fixed delay. The command & electronic-warfare extension replaces the model (radio nets, runners,
  * jamming, battle management systems) without touching the callers.
  */
+import type { Catalog } from "./catalog";
 import type { CommState } from "./components";
+import { compCondition } from "./mount";
 import type { EntityId } from "./ids";
 import { secondsToTicks } from "./ids";
 import type { Order } from "./orders";
@@ -33,7 +35,8 @@ export const DEFAULT_COMMS: CommsParams = {
 export interface CommsModel {
   readonly id: string;
   /** Recompute the comm state of every unit (called once per second of game time). */
-  update(state: SimState, params: CommsParams): void;
+  /** Once a second. `catalog` (M7.4b) lets the model read vehicle radios; absent in old callers. */
+  update(state: SimState, params: CommsParams, catalog?: Catalog): void;
   /** Ticks between an order being received and it reaching the target. `null` = cannot be delivered now. */
   orderDelayTicks(state: SimState, params: CommsParams, order: Order): number | null;
   /** Ticks for a contact report to travel from one soldier to another (0 = within shouting distance).
@@ -49,10 +52,28 @@ function unitOf(state: SimState, target: EntityId): EntityId | null {
 /** Foundations model: every unit is on the radio net; delays are constants from the scenario rules. */
 export const simpleComms: CommsModel = {
   id: "simple",
-  update(state) {
+  update(state, _params, catalog) {
     for (const [, u] of state.unit.entries()) {
       const c: CommState = u.comms;
       c.link = "radio";
+    }
+    // A wrecked radio (M7.4b, plan C63): its crew is off the net; so is a unit whose men are all aboard it.
+    if (!catalog || state.vehicle.size === 0) return;
+    for (const [vid, v] of state.vehicle.entries()) {
+      const def = catalog.vehicles[v.def];
+      if (!def?.components || compCondition(v, def, "radio") > 0) continue;
+      if (v.unit !== null) { const u = state.unit.get(v.unit); if (u) u.comms.link = "none"; }
+      for (const [, u] of state.unit.entries()) {
+        if (u.vehicle !== undefined || u.members.length === 0) continue;
+        let aboard = 0, alive = 0;
+        for (const m of u.members) {
+          const s = state.soldier.get(m);
+          if (!s || !s.physiology.alive) continue;
+          alive++;
+          if (s.mount?.vehicle === vid) aboard++;
+        }
+        if (alive > 0 && aboard === alive) u.comms.link = "none";
+      }
     }
   },
   orderDelayTicks(state, params, order) {

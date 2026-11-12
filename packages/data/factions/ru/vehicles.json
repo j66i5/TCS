@@ -377,6 +377,10 @@
         {
           "item": "ru-81mm-smoke",
           "count": 6
+        },
+        {
+          "item": "ru-bmp2-extinguisher",
+          "count": 2
         }
       ],
       "sources": [
@@ -643,13 +647,191 @@
             "toughnessMm": 20,
             "absorbMm": 30,
             "fireChance": 0.25
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.85,
+                3.35
+              ],
+              "r": [
+                -1.3,
+                1.3
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.7,
+                0.7
+              ],
+              "r": [
+                -0.7,
+                0.7
+              ],
+              "u": [
+                1.75,
+                1.95
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.1,
+                0.6
+              ],
+              "r": [
+                -0.2,
+                0.2
+              ],
+              "u": [
+                1.95,
+                2.3
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                0.25,
+                0.5
+              ],
+              "u": [
+                2.0,
+                2.3
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.4,
+                0.95
+              ],
+              "r": [
+                -0.7,
+                -0.2
+              ],
+              "u": [
+                2.3,
+                2.55
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.9,
+                -0.4
+              ],
+              "r": [
+                0.2,
+                0.8
+              ],
+              "u": [
+                1.9,
+                2.3
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.2,
+                0.4
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                2.3,
+                2.45
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.2,
+                1.4
+              ],
+              "r": [
+                0.0,
+                1.5
+              ],
+              "u": [
+                0.5,
+                1.4
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
           }
         ],
         "sources": [
           "https://en.wikipedia.org/wiki/BMP-2"
         ],
         "confidence": "low",
-        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values."
+        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values. M7.4b: transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke dischargers and extinguisher added (where they commonly sit; boxes and toughness are game values)."
+      },
+      "extinguisher": {
+        "item": "ru-bmp2-extinguisher",
+        "chance": 0.4,
+        "delaySeconds": 2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the BMP-2 carries a fire-extinguishing system (search extracts); its charges, delay and chance are not published. Lower than the Puma's: fuel in the rear doors and between the seats (owner: the BMP-2 burns easily)."
       }
     }
   ]

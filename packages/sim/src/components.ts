@@ -201,6 +201,8 @@ export interface Unit {
   broken: boolean;
   /** A vehicle crew unit (M7): the vehicle it crews. */
   vehicle?: EntityId;
+  /** A crew that bailed out (M7.4b): the vehicle it left. It is a unit on foot from then on (`vehicle` cleared). */
+  exVehicle?: EntityId;
   /** A foot unit's own carrier (M7.2). */
   carrier?: EntityId;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
@@ -382,16 +384,22 @@ export interface VehicleState {
   /** Condition 0..1 of each component (index = def.components; empty until M7.4b). */
   comp: number[];
   status: VehicleStatus;
-  fire: { startTick: number; nextCheckTick: number; intensity: number } | null;
+  /** Burning (M7.4a): since when, the next cook-off check, how hard (2 = in the ammunition: harder to put out),
+   *  and the next try of the extinguisher (M7.4b; -1 = none left). */
+  fire: { startTick: number; nextCheckTick: number; intensity: number; nextExtTick: number } | null;
   smokeReadyTick: number;
   pendingSmokeTick: number;
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;
+  /** Last hit by a rocket or other shaped charge, through or not (M7.4b: the crew reverses out of its reach). */
+  lastShapedHitTick: number;
+  /** Bearing (world, rad) the last heavy or penetrating hit came from, null before any (M7.4b: away from it). */
+  threatAz: number | null;
   seatSwap: { seat: number; actor: EntityId; untilTick: number } | null;
   /** Reserved ("open" = commander head-out, later). */
   hatches: "closed";
-  /** Reserved; charges are container items only. */
+  /** Active protection (M7.4b, fixture): when it can engage again; charges are container items only. */
   aps: { nextReadyTick: number } | null;
   recovery: { state: "none" } | null;
   /** Reserved: the side holding an abandoned hull (campaign). */

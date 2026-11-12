@@ -21,5 +21,8 @@
   "item.xf-bolt-rack": "bolt rack",
   "item.xf-hay": "hay",
   "weapon.xf-sling": "Sling",
-  "radio.ack.mount": "{callsign} climbs on."
+  "radio.ack.mount": "{callsign} climbs on.",
+  "vehicle.xf.wagon": "Wagon",
+  "item.xf-charm": "Charm",
+  "item.xf-shingle": "Shingle"
 }

@@ -256,6 +256,15 @@
       ],
       "confidence": "low",
       "note": "500-round belt for the coaxial MG5, every fifth round tracer (game values)."
+    },
+    {
+      "id": "de-puma-extinguisher",
+      "nameKey": "item.de-puma-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
     }
   ]
 }

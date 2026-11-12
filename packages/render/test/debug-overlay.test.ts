@@ -30,3 +30,18 @@ describe("vehicle debug overlay", () => {
     expect(dbg.view(sim.state, bid, strings).lines.join("\n")).toContain(strings.t("why.target.ordered"));
   });
 });
+
+describe("vehicle debug overlay: crew reaction (M7.4b, plan C2)", () => {
+  it("draws the crew's reaction and its reasons from the vehicle.reaction event", () => {
+    const data = loadData();
+    const strings = new Strings(data);
+    const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1100, y: 600, heading: Math.PI / 2 } }));
+    const [rid] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")!;
+    const dbg = new VehicleDebug();
+    dbg.onEvents([{ kind: "vehicle.reaction", tick: 10, vehicle: rid, reaction: "reverseOut", keys: ["reaction.rocketHit", "reaction.penetrated"] }]);
+    const text = dbg.view(sim.state, rid, strings).lines.join("\n");
+    expect(text).toContain(strings.t("reaction.reverseOut"));
+    expect(text).toContain(strings.t("reaction.rocketHit"));
+    expect(text).toContain(strings.t("reaction.penetrated"));
+  });
+});

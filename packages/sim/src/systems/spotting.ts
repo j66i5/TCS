@@ -35,6 +35,7 @@ import type { SpottingDef, VehicleDef } from "../catalog";
 import type { VehicleState } from "../components";
 
 import { canFight } from "./gunnery";
+import { compCondition } from "../mount";
 
 /** How big an angle (radians, 0..PI) lies between heading `h` and bearing `b`. */
 function angleBetween(h: number, b: number): number {
@@ -331,8 +332,10 @@ function crewScan(
   const skill = os.skills["observation"] ?? os.skills["marksmanship"] ?? 0.5;
   const own = Math.max(0.2, 1 + D.skillSlope * (skill - 0.5)) * Math.max(0, 1 - D.stressK * Math.max(os.mental.stress, os.mental.suppression));
   let maxR = 0;
+  // Wrecked sights (M7.4b): the gunner and commander look through their vision blocks instead.
+  const blind = def.components !== undefined && def.seats[seat]!.station !== "driver" && compCondition(v, def, "sights") <= 0 && D.sensors["vision-block"] !== undefined;
   const kinds = sensors.map((sn) => {
-    const k = D.sensors[sn.kind]!;
+    const k = blind ? D.sensors["vision-block"]! : D.sensors[sn.kind]!;
     const range = Math.min(k.maxRangeM ?? D.maxRangeM, Math.max(vis, k.fogFloorM ?? 0));
     if (range > maxR) maxR = range;
     return { def: k, sn, range, rainK: 1 - (1 - (k.rainFactor ?? 1)) * rain };

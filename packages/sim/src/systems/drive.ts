@@ -20,7 +20,7 @@ import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
 import { addItems, removeItems } from "../items";
 import { atan, atan2, clamp, cos, hypot2, PI, sin, sqrt, tan, wrapAngle } from "../math";
-import { hasDriver } from "../mount";
+import { compCondition, hasDriver } from "../mount";
 import type { SimState } from "../state";
 import type { Order, Waypoint } from "../orders";
 import { findPath, type NavStamp } from "../nav";
@@ -59,6 +59,23 @@ export interface DriveSurface {
 /** Condition factors (components, M7.4b): engine power, each track's pull. */
 export interface DriveFactors { engine: number; trackL: number; trackR: number }
 const FULL: DriveFactors = { engine: 1, trackL: 1, trackR: 1 };
+const FACT: DriveFactors = { engine: 1, trackL: 1, trackR: 1 };
+/**
+ * Condition factors from the components (M7.4b, plan §8): an engine below half condition gives half power; each
+ * track pulls with its condition (a damaged track drags the hull round). Shared scratch; FULL without components.
+ */
+function driveFactors(v: VehicleState, def: VehicleDef): DriveFactors {
+  const comps = def.components;
+  if (!comps) return FULL;
+  FACT.engine = compCondition(v, def, "engine") < 0.5 ? 0.5 : 1;
+  FACT.trackL = 1; FACT.trackR = 1;
+  for (let k = 0; k < comps.length; k++) {
+    if (comps[k]!.kind !== "track") continue;
+    const c = Math.max(0.05, v.comp[k] ?? 1), right = comps[k]!.box.r[0] + comps[k]!.box.r[1] > 0;
+    if (right) FACT.trackR = Math.min(FACT.trackR, c); else FACT.trackL = Math.min(FACT.trackL, c);
+  }
+  return FACT;
+}
 
 /** Ground under a hull at (x, y) on a level of wetness 0..1; null fields when no vehicle may drive there. */
 export function driveSurface(ctx: SimContext, def: VehicleDef, x: number, y: number, heading: number, wet: number): DriveSurface {
@@ -424,7 +441,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
       }
     } else if (d.yieldTo !== null) d.yieldTo = null;
     const surf = driveSurface(ctx, def, t.x, t.y, t.heading, wet);
-    const power = driveDynamicsInPlace(def, d, CMD, surf, DT, state.tick);
+    const power = driveDynamicsInPlace(def, d, CMD, surf, DT, state.tick, driveFactors(v, def));
     // Integrate the pose, then check it against houses, walls, water and the other hulls.
     if (d.speed !== 0 || d.yawRate !== 0) {
       const nh = wrapAngle(t.heading + d.yawRate * DT);

@@ -230,6 +230,15 @@
       ],
       "confidence": "medium",
       "note": "250-round belt for the PKT, every fourth round tracer (game value)."
+    },
+    {
+      "id": "ru-bmp2-extinguisher",
+      "nameKey": "item.ru-bmp2-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
     }
   ]
 }

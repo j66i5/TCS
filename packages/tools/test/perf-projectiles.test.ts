@@ -34,7 +34,7 @@ function benchInput(parked: number): ReturnType<ReturnType<typeof getScenario>["
 }
 
 /** Fastest of three 100-tick windows of the bench battle with 20,000 bullets in the air: ms per tick. */
-function bulletBench(parked: number, scenario = "bench", hold = false): { msPerTick: number; live: number; soldiers: number; eventsPerTick: number; hullHits: number; vehicleShots: number } {
+function bulletBench(parked: number, scenario = "bench", hold = false, aimAtHulls = false): { msPerTick: number; live: number; soldiers: number; eventsPerTick: number; hullHits: number; vehicleShots: number } {
   const sc = getScenario(scenario);
   const input = scenario === "bench" ? benchInput(parked) : sc.build(loadData(), 1, 600);
   const sim = createSim(input);
@@ -46,9 +46,22 @@ function bulletBench(parked: number, scenario = "bench", hold = false): { msPerT
   // Pinned (M7.1a): new ammunition in the data must not change the benchmark's mix.
   const ammo = BULLET_MIX;
   for (const id of ammo) expect(input.catalog.ammo[id], id).toBeDefined();
+  // aimAtHulls (M7.4b, the plan's hull-hit variant): one round in 25 is a 30 mm APFSDS fired at a parked hull
+  // from 200-600 m (it penetrates, goes through the inside and may fly on), the rest as usual.
+  const hulls = [...sim.state.vehicle.keys()];
+  let n = 0;
   const topUp = () => {
     const P = sim.state.projectiles;
     while (P.count < LIVE) {
+      if (aimAtHulls && hulls.length > 0 && n++ % 25 === 0) {
+        const t = sim.state.transform.req(hulls[n % hulls.length]!);
+        const az = nextRange(rng, "b", 0, Math.PI * 2), d = nextRange(rng, "b", 200, 600);
+        const x = Math.min(Math.max(t.x - Math.cos(az) * d, 5), input.map.widthM - 5), y = Math.min(Math.max(t.y - Math.sin(az) * d, 5), input.map.heightM - 5);
+        const z = heightAt(input.map, x, y) + 2.5, tz = heightAt(input.map, t.x, t.y) + 1.4, dd = Math.hypot(t.x - x, t.y - y) || 1;
+        const v = 1300;
+        launchProjectile(sim.ctx, sim.state, "de-30x173-pmc287", x, y, z, (v * (t.x - x)) / dd, (v * (t.y - y)) / dd, (v * (tz - z)) / dd, 0);
+        continue;
+      }
       const x = nextRange(rng, "b", 50, input.map.widthM - 50), y = nextRange(rng, "b", 50, input.map.heightM - 50);
       const az = nextRange(rng, "b", 0, Math.PI * 2), el = nextRange(rng, "b", -0.005, 0.06), v = nextRange(rng, "b", 700, 920);
       launchProjectile(sim.ctx, sim.state, ammo[P.count % ammo.length]!, x, y, heightAt(input.map, x, y) + 1.5,
@@ -94,6 +107,16 @@ describe("performance with 20,000 live projectiles", () => {
     console.log(`projectile bench with 30 parked hulls: ${hulls.msPerTick.toFixed(2)} vs ${base.msPerTick.toFixed(2)} ms per tick without (${((ratio - 1) * 100).toFixed(1)} %); ${hulls.hullHits} rounds stopped by hulls`);
     expect(hulls.hullHits).toBeGreaterThan(0);
     expect(ratio).toBeLessThan(1.2);
+  });
+
+  it("the hull-hit variant (M7.4b): 30 mm APFSDS rounds striking and going through 30 parked hulls cost little against the hulls alone (plan 5 %; asserted within 25 %: run-to-run noise here is about 10 %)", () => {
+    const runs = [bulletBench(30), bulletBench(30, "bench", false, true), bulletBench(30), bulletBench(30, "bench", false, true), bulletBench(30), bulletBench(30, "bench", false, true)];
+    const best = (k: number) => [runs[k]!, runs[k + 2]!, runs[k + 4]!].reduce((a, b) => (a.msPerTick <= b.msPerTick ? a : b));
+    const parked = best(0), hits = best(1);
+    const ratio = hits.msPerTick / parked.msPerTick;
+    console.log(`projectile bench with hull hits: ${hits.msPerTick.toFixed(2)} vs ${parked.msPerTick.toFixed(2)} ms per tick with the hulls only (${((ratio - 1) * 100).toFixed(1)} %); ${hits.hullHits} hull hits`);
+    expect(hits.hullHits).toBeGreaterThan(parked.hullHits);
+    expect(ratio).toBeLessThan(1.25);
   });
 
   it(`bench-combined (about 300 men + 30 IFVs firing at will + ${LIVE} projectiles) runs at >= ${PROJECTILE_FLOOR_X_REALTIME}x real time, close to the same load parked out of the fire (C32)`, () => {

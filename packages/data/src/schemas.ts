@@ -358,6 +358,9 @@ export const BehaviourFile = withProv({
   crew: z.object({
     bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),
     fireSmokeRadiusM: Num(0, 100), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
+    /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
+     *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
+    reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -594,6 +597,8 @@ export const VehicleWeaponSchema = z.object({
   feedKind: z.enum(["belt", "single", "autoloader"]),
   loaderStation: StationKind.optional(), roundLoadSeconds: Num(0.1, 120).optional(), noLoaderFactor: Num(1, 20).optional(),
 }).strict();
+/** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
+export const COMPONENT_KINDS = ["engine", "transmission", "track", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
 export const VehicleSchema = withProv({
   id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
   body: withProv({
@@ -652,6 +657,9 @@ export const VehicleSchema = withProv({
     plates: z.array(z.object({
       part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), material: Id, thicknessMm: Num(0, 2000), slopeDeg: Num(0, 89),
     }).strict()).min(1),
+    /** Add-on tiles against shaped charges (M7.4b; reactive or similar): a shaped-charge hit on that part and face
+     *  uses up one `item` from the vehicle's container (counted) and needs `factor` times the penetration. */
+    tiles: z.array(z.object({ part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), item: Id, factor: Num(1, 20) }).strict()).optional(),
   }).optional(),
   /** Parts inside and outside the hull a penetrating round can damage (M7.4a). Box in the part's frame (turret:
    *  about the turret pivot); toughnessMm: residual penetration that wrecks it outright (less: that share of its
@@ -659,19 +667,27 @@ export const VehicleSchema = withProv({
    *  starts a fire; cookOffChance (ammunition): it blows up at once. external: struck from outside (tracks). */
   components: withProv({
     parts: z.array(z.object({
-      id: Id, kind: z.enum(["engine", "track", "gun", "ammo", "fuel"]), part: z.enum(["hull", "turret"]), box: Box,
+      id: Id, kind: z.enum(COMPONENT_KINDS), part: z.enum(["hull", "turret"]), box: Box,
       external: z.boolean().optional(), toughnessMm: Num(0.1, 2000), absorbMm: Num(0, 2000),
       fireChance: Num(0, 1).optional(), cookOffChance: Num(0, 1).optional(),
     }).strict()).min(1),
   }).optional(),
   cookOffAmmo: Id.optional(),
+  /** Fire extinguishing (M7.4b): when a fire starts, after `delaySeconds` one charge `item` from the container
+   *  (counted) puts it out with `chance` (half that for a fire in the ammunition); another try with the next
+   *  charge while the fire burns. Needs a working "extinguisher" component if the vehicle lists one. */
+  extinguisher: withProv({ item: Id, chance: Num(0, 1), delaySeconds: Num(0, 60) }).optional(),
   /** How it is seen and heard (M7.3). sizeFactor multiplies the area its boxes show (camouflage, shape);
    *  identifyM: its type is known within this range (owner Q6); noise ranges idle / moving; aim points [f, r, u]. */
   signature: withProv({
     sizeFactor: Num(0.05, 5), movingFactor: Num(1, 50), firingFactor: Num(1, 500), identifyM: Num(0, 10000),
     noiseIdleM: Num(0, 10000), noiseMovingM: Num(0, 20000), aimPoints: z.array(Pos3).min(1).max(8),
   }).optional(),
-  activeProtection: z.null().optional(), recovery: z.null().optional(),
+  /** Active protection (M7.4b; only the fixture uses it): a rocket coming within `detectM` is engaged; with
+   *  `interceptChance` one charge `item` (counted in the container) bursts it `standoffM` short of the hull (no jet
+   *  reaches the plate); the next engagement no sooner than `cooldownSeconds` later. */
+  activeProtection: withProv({ item: Id, detectM: Num(0.5, 100), standoffM: Num(0.5, 50), interceptChance: Num(0, 1), cooldownSeconds: Num(0, 60) }).optional(),
+  recovery: z.null().optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
 export type VehicleT = z.infer<typeof VehicleSchema>;

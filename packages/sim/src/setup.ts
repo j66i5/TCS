@@ -92,7 +92,7 @@ function addVehicles(state: SimState, force: ForceInput, catalog: Catalog): Map<
       comp: rec.components ? [...rec.components] : (def.components ?? []).map(() => 1),
       status: rec.status ?? "ok",
       fire: null, smokeReadyTick: 0, pendingSmokeTick: -1, crewReaction: null, reactionTick: -1, reactionWhy: [],
-      lastHitTick: -1e9, lastPenTick: -1e9, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null, recovery: null,
+      lastHitTick: -1e9, lastPenTick: -1e9, lastShapedHitTick: -1e9, threatAz: null, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null, recovery: null,
       capturedBy: rec.capturedBy ?? null,
     };
     state.vehicle.set(id, v);

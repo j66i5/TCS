@@ -100,7 +100,7 @@ describe("data loader", () => {
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
       expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma"]);
       expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2"]);
-      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart"]);
+      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon"]);
     });
     it("rejects an unknown or non-litre fuel item", () => {
       expect(broken((f) => { puma(f)["fuel"].item = "de-nothing"; })).toContain("vehicles[0].fuel.item: unknown item 'de-nothing'");

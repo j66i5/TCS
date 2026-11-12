@@ -60,6 +60,24 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture. The cart's fuel (litres)."
+    },
+    {
+      "id": "xf-charm",
+      "nameKey": "item.xf-charm",
+      "category": "vehicle-supply",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.4b)."
+    },
+    {
+      "id": "xf-shingle",
+      "nameKey": "item.xf-shingle",
+      "category": "vehicle-supply",
+      "massKg": 5,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.4b)."
     }
   ]
 }

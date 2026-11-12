@@ -2,7 +2,7 @@
  * Mounted men and vehicles (M7): small helpers every system uses to tell a man aboard a vehicle from a man on
  * foot, and to find a vehicle's crew. Mounted men stay soldiers (Identity, Transform copied from the seat).
  */
-import type { StationKind, VehicleDef } from "./catalog";
+import type { ComponentKind, StationKind, VehicleDef } from "./catalog";
 import type { SoldierState, VehicleState } from "./components";
 import type { DefId, EntityId, SideId } from "./ids";
 import { isAble } from "./impair";
@@ -68,4 +68,16 @@ export function fireTop(state: SimState, unit: EntityId): EntityId {
 export function vehicleItems(state: SimState, v: EntityId, item: DefId): number {
   const c = state.container.get(v);
   return c ? countItems(c, item) : 0;
+}
+
+/**
+ * Condition (0..1) of a vehicle's components of one kind (M7.4b): the worst of them; 1 when it has none (a
+ * vehicle without that part listed works as before).
+ */
+export function compCondition(v: VehicleState, def: VehicleDef, kind: ComponentKind): number {
+  const comps = def.components;
+  if (!comps) return 1;
+  let c = 1;
+  for (let k = 0; k < comps.length; k++) if (comps[k]!.kind === kind) { const x = v.comp[k] ?? 1; if (x < c) c = x; }
+  return c;
 }

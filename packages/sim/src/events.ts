@@ -70,6 +70,10 @@ export type SimEvent =
   | { kind: "vehicle.component"; tick: number; vehicle: EntityId; component: number; condition: number }
   /** A vehicle caught fire (M7.4a). */
   | { kind: "vehicle.fire"; tick: number; vehicle: EntityId }
+  /** Its extinguisher put a fire out (M7.4b). */
+  | { kind: "vehicle.extinguished"; tick: number; vehicle: EntityId }
+  /** A crew's reaction to damage or danger (M7.4b): what it does and why (string keys; debug overlay). */
+  | { kind: "vehicle.reaction"; tick: number; vehicle: EntityId; reaction: "reverseOut" | "continue" | "bailOut"; keys: string[] }
   /** A vehicle can no longer move ("immobilised") or fire ("disarmed") (M7.4a). */
   | { kind: "vehicle.status"; tick: number; vehicle: EntityId; status: "immobilised" | "disarmed" }
   /** A vehicle is destroyed (M7.4a): its ammunition blew up, or it burnt out. */

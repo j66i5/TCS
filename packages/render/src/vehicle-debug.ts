@@ -2,7 +2,8 @@
  * VEHICLE DEBUG OVERLAY (M7.3, plan C2): for the selected vehicle with Debug on — the turret's lay (azimuth,
  * ordered azimuth, laid or slewing and for how long), each station's target and why it chose it (string keys
  * from `vehicle.decision` events, translated), and the track speeds. Fed by events and the render snapshot of
- * the selected vehicle; pure, so it is tested without a canvas.
+ * the selected vehicle; pure, so it is tested without a canvas. M7.4b: the crew's reaction and its reasons
+ * (`vehicle.reaction` events).
  */
 import type { Strings } from "@tcs/data";
 import type { EntityId, SimEvent, SimView } from "@tcs/sim";
@@ -19,9 +20,12 @@ const deg = (r: number) => Math.round((r * 180) / Math.PI);
 export class VehicleDebug {
   /** Last decision per vehicle and station (from events). */
   private last = new Map<string, { tick: number; target: EntityId | null; x: number; y: number; nature: string | null; keys: string[] }>();
+  /** Last crew reaction per vehicle (M7.4b, from `vehicle.reaction` events). */
+  private reaction = new Map<EntityId, { tick: number; reaction: string; keys: string[] }>();
 
   onEvents(events: readonly SimEvent[]): void {
     for (const e of events) {
+      if (e.kind === "vehicle.reaction") { this.reaction.set(e.vehicle, { tick: e.tick, reaction: e.reaction, keys: [...e.keys] }); continue; }
       if (e.kind !== "vehicle.decision") continue;
       this.last.set(`${e.vehicle}:${e.station}`, { tick: e.tick, target: e.target, x: e.x, y: e.y, nature: e.nature, keys: [...e.keys] });
     }
@@ -42,6 +46,10 @@ export class VehicleDebug {
       st.weapons.forEach((w) => out.lines.push(s.t("debug.vehicle.ammo", { weapon: s.t(`weapon.${w.weapon}`, {}, v.faction), rounds: w.feeds.map((f) => f.rounds).join(" / ") })));
     });
     out.lines.push(s.t("debug.vehicle.tracks", { l: v.drive.trackL.toFixed(1), r: v.drive.trackR.toFixed(1) }));
+    // The crew's reaction (M7.4b): what it does and why, from its last event (else the state's reasons).
+    const r = this.reaction.get(vid);
+    const what = r?.reaction ?? v.crewReaction;
+    if (what !== null) out.lines.push(s.t("debug.vehicle.reaction", { reaction: s.t(`reaction.${what}`), why: (r?.keys ?? v.reactionWhy).map((k) => s.t(k)).join("; ") }));
     return out;
   }
 }

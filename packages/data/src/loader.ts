@@ -465,6 +465,13 @@ function checkVehicles(
       if (c.part === "turret" && !v.body.turret) err(`components.parts[${k}].part`, "a turret component on a vehicle without a turret");
       if (v.components!.parts.findIndex((x) => x.id === c.id) !== k) err(`components.parts[${k}].id`, `component '${c.id}' twice`);
     });
+    // M7.4b: extinguisher charges, active protection charges and add-on tiles are counted items.
+    if (v.extinguisher && !pack.items[v.extinguisher.item]) err("extinguisher.item", `unknown item '${v.extinguisher.item}'`);
+    if (v.activeProtection && !pack.items[v.activeProtection.item]) err("activeProtection.item", `unknown item '${v.activeProtection.item}'`);
+    v.armour?.tiles?.forEach((t, k) => {
+      if (!pack.items[t.item]) err(`armour.tiles[${k}].item`, `unknown item '${t.item}'`);
+      if (t.part === "turret" && !v.body.turret) err(`armour.tiles[${k}].part`, "a turret tile on a vehicle without a turret");
+    });
   });
   // Crew and carriage templates.
   const byId = new Map(vehicles.map((v) => [v.id, v]));

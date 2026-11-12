@@ -37,7 +37,7 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, sin, sqrt, wrapAngle } from "../math";
-import { fireTop, occupant } from "../mount";
+import { compCondition, fireTop, occupant } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -95,12 +95,13 @@ function feedIsHe(catalog: Catalog, item: string): boolean {
  * The weapon and feed for a nature on this station, with rounds: "mg" = a coaxial (non-cannon) weapon,
  * "ap" / "he" = a cannon feed of that kind. null if none has rounds.
  */
-export function pickFeed(ctx: SimContext, def: VehicleDef, st: StationState, si: number, nature: Nature): { weapon: number; feed: number } | null {
+export function pickFeed(ctx: SimContext, def: VehicleDef, st: StationState, si: number, nature: Nature, v?: VehicleState): { weapon: number; feed: number } | null {
   const sn = def.stations[si]!;
   for (let wi = 0; wi < sn.weapons.length; wi++) {
     const wdef = sn.weapons[wi]!, w = st.weapons[wi]!;
     const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
     if ((nature === "mg") === cannon) continue;
+    if (v && weaponOut(ctx, v, def, si, wi)) continue; // wrecked (M7.4b)
     for (let fi = 0; fi < wdef.feeds.length; fi++) {
       if ((w.feeds[fi]?.rounds ?? 0) <= 0) continue;
       if (nature === "mg") return { weapon: wi, feed: fi };
@@ -111,10 +112,18 @@ export function pickFeed(ctx: SimContext, def: VehicleDef, st: StationState, si:
 }
 
 /** First choice of nature, then the others in a sensible order (a crew out of one kind uses what it has). */
-function feedFor(ctx: SimContext, def: VehicleDef, st: StationState, si: number, want: Nature): { weapon: number; feed: number; nature: Nature } | null {
+function feedFor(ctx: SimContext, def: VehicleDef, st: StationState, si: number, want: Nature, v: VehicleState): { weapon: number; feed: number; nature: Nature } | null {
   const order: Nature[] = want === "ap" ? ["ap", "he"] : want === "he" ? ["he", "mg", "ap"] : ["mg", "he", "ap"];
-  for (const n of order) { const f = pickFeed(ctx, def, st, si, n); if (f) return { ...f, nature: n }; }
+  for (const n of order) { const f = pickFeed(ctx, def, st, si, n, v); if (f) return { ...f, nature: n }; }
   return null;
+}
+
+/** A station weapon wrecked (M7.4b): the cannon by the "gun" component, a coaxial machine gun by "coax". */
+export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number, wi: number): boolean {
+  const wdef = def.stations[si]?.weapons[wi];
+  if (!wdef || !def.components) return false;
+  const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
+  return compCondition(v, def, cannon ? "gun" : "coax") <= 0;
 }
 
 /** Nature of the weapon/feed a station task uses. */
@@ -304,7 +313,7 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
         if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.noTarget"]); }
         continue;
       }
-      const f = feedFor(ctx, def, st, si, pick.nature);
+      const f = feedFor(ctx, def, st, si, pick.nature, v);
       if (!f) {
         if (st.task) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.ammunition"]); }
         continue;
@@ -332,10 +341,13 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
     if (v.stations.length === 0) continue;
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
     if (!def || !t) continue;
+    // Damaged turret drive (M7.4b): below half, hand traverse at a quarter of the rate; a wrecked stabiliser.
+    const driveK = compCondition(v, def, "turret-drive") < 0.5 ? 0.25 : 1;
+    const stabOut = compCondition(v, def, "stabiliser") <= 0;
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!, sn = def.stations[si]!;
       // A stabilised turret holds its bearing while the hull turns under it.
-      if (sn.stabiliser !== "none") st.azimuth = wrapAngle(st.azimuth - v.drive.yawRate * dt);
+      if (sn.stabiliser !== "none" && !stabOut) st.azimuth = wrapAngle(st.azimuth - v.drive.yawRate * dt);
       const task = st.task;
       // Nothing to lay and already at rest: nothing to do.
       if (!task && st.laidTick < 0 && st.azimuth === st.azCmd && st.elevation === st.elCmd && st.azCmd === st.scanAz && st.elCmd === 0) continue;
@@ -375,7 +387,7 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
         if (tick - last >= secondsToTicks(G.scanReturnSeconds)) { st.azCmd = st.scanAz; st.elCmd = 0; }
       }
       const da = wrapAngle(st.azCmd - st.azimuth), de = st.elCmd - st.elevation;
-      const stepA = sn.traverseRadS * dt, stepE = sn.elevateRadS * dt;
+      const stepA = sn.traverseRadS * driveK * dt, stepE = sn.elevateRadS * driveK * dt;
       st.azimuth = wrapAngle(st.azimuth + (da > stepA ? stepA : da < -stepA ? -stepA : da));
       st.elevation += de > stepE ? stepE : de < -stepE ? -stepE : de;
       const tol = sn.layToleranceMrad / 1000;
@@ -425,6 +437,8 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       if (!wdef || !w) continue;
       const wd = ctx.catalog.weapons[wdef.weapon];
       if (!wd) continue;
+      // The weapon wrecked (M7.4b): the task ends; the next decision picks another weapon if one works.
+      if (weaponOut(ctx, v, def, si, st.taskWeapon)) { st.task = null; continue; }
       // Feed: switch to the task's feed first (a dual-feed cannon takes a moment).
       if (w.feed !== st.taskFeed) { w.feed = st.taskFeed; w.switchUntilTick = tick + secondsToTicks(wdef.switchSeconds); w.burstLeft = 0; w.loadedRound = false; w.burstIndex = 0; }
       if (tick < w.switchUntilTick) continue;
@@ -433,7 +447,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
         if (feed && !w.lowAmmoReported[w.feed] && v.unit !== null) { w.lowAmmoReported[w.feed] = true; radioFromTarget(state, v.unit, "radio.feedEmpty", events); }
         if (!task.self) {
           // Ordered: the same nature from another weapon or feed, else the order cannot be carried out.
-          const f = feedFor(ctx, def, st, si, natureOf(ctx, def, si, st.taskWeapon, st.taskFeed));
+          const f = feedFor(ctx, def, st, si, natureOf(ctx, def, si, st.taskWeapon, st.taskFeed), v);
           if (f) { st.taskWeapon = f.weapon; st.taskFeed = f.feed; } else { st.task = null; if (crew && v.unit !== null) { crew.firing = false; events.emit({ kind: "fire.ceased", tick, unit: v.unit, reason: "ammunition" }); } }
         }
         continue;
@@ -487,8 +501,11 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       const skill = os.skills["marksmanship"] ?? 0.5;
       const speed = Math.abs(v.drive.speed);
       const recoil = wd.sustained?.recoilFactor ?? 1;
-      const sd = (sn.baseErrorMrad + sn.movingMradPerMps * speed * (sn.stabiliser === "none" ? 3 : sn.stabiliser === "one-plane" ? 1.5 : 1))
-        * skillFactor(ctx, skill) * (1 + A.burstGrowth * recoil * w.burstIndex) * os.impair.aim;
+      // Components (M7.4b): a wrecked stabiliser fires as unstabilised; wrecked sights treble the error.
+      const stab = compCondition(v, def, "stabiliser") <= 0 ? "none" : sn.stabiliser;
+      const sightK = compCondition(v, def, "sights") <= 0 ? 3 : 1;
+      const sd = (sn.baseErrorMrad + sn.movingMradPerMps * speed * (stab === "none" ? 3 : stab === "one-plane" ? 1.5 : 1))
+        * skillFactor(ctx, skill) * (1 + A.burstGrowth * recoil * w.burstIndex) * os.impair.aim * sightK;
       const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
       launchShot(ctx, state, events, op, wdef.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total, vid, tr);
       feed.rounds--;
@@ -530,7 +547,8 @@ export function dischargeSmoke(ctx: SimContext, state: SimState, vid: EntityId):
   const def = v ? ctx.catalog.vehicles[v.def] : undefined;
   const D = def?.dischargers;
   const c = state.container.get(vid);
-  if (!v || !def || !D || !c || !canFight(v)) return { unable: "radio.noSmoke" };
+  // Any crew still in a vehicle that is not burnt out can fire its dischargers if they work (M7.4b).
+  if (!v || !def || !D || !c || v.status === "destroyed" || v.status === "abandoned" || compCondition(v, def, "dischargers") <= 0) return { unable: "radio.noSmoke" };
   if (v.pendingSmokeTick >= 0) return true; // a salvo is on its way already
   const have = c.stacks.filter((s) => s.type === D.item).reduce((n, s) => n + s.count, 0);
   if (have < D.perSalvo) return { unable: "radio.noSmoke" };
@@ -645,7 +663,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   let any = false;
   for (let si = 0; si < v.stations.length; si++) {
     if (stationOperator(state, v, def, si) === null) continue;
-    const f = feedFor(ctx, def, v.stations[si]!, si, want);
+    const f = feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
     const h = order.heightM ?? (isVeh ? 1.2 : f.nature === "he" ? 0 : ctx.catalog.shooting.fire.aimPointHeightM);
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);

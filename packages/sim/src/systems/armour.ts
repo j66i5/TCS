@@ -33,13 +33,17 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { isAble } from "../impair";
-import { cbrt, cos, PI, pow, sin, sqrt } from "../math";
+import { atan2, cbrt, cos, hypot2, PI, pow, sin, sqrt, wrapAngle } from "../math";
 import { addProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
 import type { PlateRT, VehicleGrid } from "../ballistics";
 import { applyBurn, resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { getOut } from "./boarding";
+import { removeItems } from "../items";
+import { compCondition, hasDriver, occupant, vehicleItems } from "../mount";
+import { vehicleMove } from "./drive";
+import { dischargeSmoke } from "./gunnery";
 import { radioFromTarget } from "./orders";
 
 const FACE_NAMES = ["front", "side", "rear", "top"] as const;
@@ -148,7 +152,7 @@ function seatedZone(state: SimState): number {
 }
 
 /** What a hit did, for the event and the outcome. */
-interface Damage { components: number[]; fire: boolean; cookOff: boolean; pen: boolean }
+interface Damage { components: number[]; fire: boolean; cookOff: boolean; pen: boolean; fireAmmo: boolean }
 
 function damageComponent(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, k: number, loss: number, ce: boolean, dmg: Damage): void {
   const c: VehicleComponent = ctx.catalog.vehicles[v.def]!.components![k]!;
@@ -160,7 +164,7 @@ function damageComponent(ctx: SimContext, state: SimState, events: EventSink, vi
   events.emit({ kind: "vehicle.component", tick: state.tick, vehicle: vid, component: k, condition: after });
   // A penetrating hit on fuel or ammunition may start a fire; on ammunition it may blow it up at once.
   if (c.cookOffChance !== undefined && nextFloat(state.rng, Streams.armour) < c.cookOffChance * (ce ? 1.2 : 1)) dmg.cookOff = true;
-  else if (c.fireChance !== undefined && nextFloat(state.rng, Streams.armour) < c.fireChance * (ce ? 1.5 : 1)) dmg.fire = true;
+  else if (c.fireChance !== undefined && nextFloat(state.rng, Streams.armour) < c.fireChance * (ce ? 1.5 : 1)) { dmg.fire = true; if (c.kind === "ammo") dmg.fireAmmo = true; }
 }
 
 /**
@@ -262,12 +266,28 @@ export function resolveVehicleHit(
   else { const sg = face === 0 ? 1 : -1; nx = fr.c * sg; ny = fr.s * sg; }
   const tick = state.tick;
   v.lastHitTick = tick;
-  const dmg: Damage = { components: [], fire: false, cookOff: false, pen: false };
+  const dmg: Damage = { components: [], fire: false, cookOff: false, pen: false, fireAmmo: false };
   const wasImmobilised = v.status === "immobilised";
   const zone = part === 1 ? "turret" : "hull";
   let result: "ricochet" | "stopped" | "penetrated" = "stopped";
 
   if (am.shaped) {
+    v.lastShapedHitTick = tick;
+    v.threatAz = atan2(-dy, -dx);
+    // Active protection (M7.4b, plan C16; the fixture only): the rocket is engaged before it reaches the plate. An
+    // intercepted round bursts `standoffM` short along its path (blast and fragments, no jet on the hull); a failed
+    // engagement lets it strike as usual. One charge (a counted item) per intercept.
+    const aps = def.activeProtection;
+    if (aps && v.status !== "destroyed" && v.status !== "abandoned" && tick >= (v.aps?.nextReadyTick ?? 0) && vehicleItems(state, vid, aps.item) > 0) {
+      v.aps = { nextReadyTick: tick + secondsToTicks(aps.cooldownSeconds) };
+      if (nextFloat(state.rng, Streams.armour) < aps.interceptChance) {
+        removeItems(state.container.get(vid)!, aps.item, 1);
+        burst(x - dx * aps.standoffM, y - dy * aps.standoffM, Math.max(z - dz * aps.standoffM, 0.3), ammoIdx, owner);
+        events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone: part === 1 ? "turret" : "hull", result: "intercepted", ammo: am.id, owner, rounds: 1, components: [] });
+        stampUnderFire(state, v);
+        return;
+      }
+    }
     // A grazing strike may not set it off; an unarmed one is a dud.
     const graze = pn.cosInc < A.grazeFuseCos && nextFloat(state.rng, Streams.armour) < 1 - pn.cosInc / Math.max(1e-6, A.grazeFuseCos);
     if (graze || age < am.armTicks) {
@@ -275,9 +295,13 @@ export function resolveVehicleHit(
       result = "ricochet";
     } else {
       burst(x + nx * 0.05, y + ny * 0.05, z + nz * 0.05, ammoIdx, owner);
-      if (am.penSteelMm >= pn.needS) {
+      // An add-on tile on that face (M7.4b, plan C12): used up (a counted item), it multiplies what the jet needs.
+      let needS = pn.needS;
+      const tile = def.armour?.tiles?.find((tl) => tl.part === (part === 1 ? "turret" : "hull") && tl.face === FACE_NAMES[face]);
+      if (tile && vehicleItems(state, vid, tile.item) > 0) { removeItems(state.container.get(vid)!, tile.item, 1); needS *= tile.factor; }
+      if (am.penSteelMm >= needS) {
         result = "penetrated"; dmg.pen = true;
-        interior(ctx, state, events, vid, v, def, x - nx * 0.01, y - ny * 0.01, z - nz * 0.01, dx, dy, dz, am.penSteelMm - pn.needS, 0, "shaped", am.id, owner, adef.behindArmour ?? SPALL_SHAPED, dmg);
+        interior(ctx, state, events, vid, v, def, x - nx * 0.01, y - ny * 0.01, z - nz * 0.01, dx, dy, dz, am.penSteelMm - needS, 0, "shaped", am.id, owner, adef.behindArmour ?? SPALL_SHAPED, dmg);
         // A jet that gets in is hot: it may light what it touches (engine, fuel) even without a listed chance.
       }
     }
@@ -344,7 +368,8 @@ export function resolveVehicleHit(
     }
   }
   events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone, result, ammo: am.id, owner, rounds: 1, components: dmg.components });
-  if (dmg.pen) v.lastPenTick = tick;
+  if (dmg.pen) { v.lastPenTick = tick; v.threatAz = atan2(-dy, -dx); }
+  else if (am.heavy) v.threatAz = atan2(-dy, -dx);
   // The crew and its platoon are under fire.
   stampUnderFire(state, v);
   afterDamage(ctx, state, events, vid, v, def, dmg, wasImmobilised);
@@ -362,7 +387,8 @@ function afterDamage(ctx: SimContext, state: SimState, events: EventSink, vid: E
   if (dmg.cookOff) { destroyVehicle(ctx, state, events, vid, v, "cookOff"); return; }
   if (dmg.fire && v.fire === null) {
     const C = ctx.catalog.behaviour.crew;
-    v.fire = { startTick: state.tick, nextCheckTick: state.tick + secondsToTicks(C.cookOffCheckSeconds), intensity: 1 };
+    // The extinguisher (M7.4b) tries first if it works and has a charge; the crew waits for it.
+    v.fire = { startTick: state.tick, nextCheckTick: state.tick + secondsToTicks(C.cookOffCheckSeconds), intensity: dmg.fireAmmo ? 2 : 1, nextExtTick: canExtinguish(state, vid, v, def) ? state.tick + Math.max(1, secondsToTicks(def.extinguisher!.delaySeconds)) : -1 };
     events.emit({ kind: "vehicle.fire", tick: state.tick, vehicle: vid });
     const t = state.transform.req(vid);
     if (C.fireSmokeRadiusM > 0) state.smoke.push({ x: t.x, y: t.y, radiusM: C.fireSmokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(C.burnSeconds + 60) });
@@ -370,7 +396,7 @@ function afterDamage(ctx: SimContext, state: SimState, events: EventSink, vid: E
   updateStatus(ctx, state, events, vid, v, def);
   if (v.status === "abandoned") return;
   const why: string[] = [];
-  if (v.fire !== null) why.push("reaction.burning");
+  if (v.fire !== null && v.fire.nextExtTick < 0) why.push("reaction.burning");
   if (wasImmobilised && dmg.pen) why.push("reaction.immobilisedPenetrated");
   if (v.status === "immobilised" && !gunWorks(v, def)) why.push("reaction.cannotFight");
   if (!crewCanAct(state, v, def)) why.push("reaction.crewOut");
@@ -378,10 +404,11 @@ function afterDamage(ctx: SimContext, state: SimState, events: EventSink, vid: E
   else if (dmg.pen && v.crewReaction === null) { v.crewReaction = "continue"; v.reactionTick = state.tick; v.reactionWhy = ["reaction.fightOn"]; }
 }
 
+/** Can it still fire anything: the cannon, or the coaxial machine gun (M7.4b: all out = disarmed)? */
 function gunWorks(v: VehicleState, def: VehicleDef): boolean {
   const comps = def.components ?? [];
   let any = false;
-  for (let k = 0; k < comps.length; k++) if (comps[k]!.kind === "gun") { any = true; if ((v.comp[k] ?? 1) > 0) return true; }
+  for (let k = 0; k < comps.length; k++) { const kd = comps[k]!.kind; if (kd === "gun" || kd === "coax") { any = true; if ((v.comp[k] ?? 1) > 0) return true; } }
   return !any;
 }
 
@@ -389,7 +416,7 @@ function mobile(v: VehicleState, def: VehicleDef): boolean {
   const comps = def.components ?? [];
   for (let k = 0; k < comps.length; k++) {
     const kd = comps[k]!.kind;
-    if ((kd === "engine" || kd === "track") && (v.comp[k] ?? 1) <= 0) return false;
+    if ((kd === "engine" || kd === "track" || kd === "transmission") && (v.comp[k] ?? 1) <= 0) return false;
   }
   return true;
 }
@@ -455,9 +482,36 @@ function markWreck(state: SimState, vid: EntityId): void {
   for (const [, s] of state.soldier.entries()) for (const c of s.contacts) if (c.target === vid) c.wreck = true;
 }
 
+/** Is there a working extinguisher with a charge left (M7.4b)? */
+function canExtinguish(state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef): boolean {
+  const E = def.extinguisher;
+  return E !== undefined && compCondition(v, def, "extinguisher") > 0 && vehicleItems(state, vid, E.item) > 0;
+}
+
+/**
+ * The extinguisher's try (M7.4b): one charge out of the container (counted); the fire goes out with the data's
+ * chance (half that in the ammunition). Out: no more cook-off checks, the smoke thins, the crew stays (unless it
+ * has another reason to go). Not out: the next charge after the delay, or the crew bails out when none is left.
+ */
+function tryExtinguish(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef): void {
+  const fire = v.fire!;
+  const E = def.extinguisher;
+  if (!E || !canExtinguish(state, vid, v, def)) { fire.nextExtTick = -1; orderBailOut(ctx, state, events, vid, v, ["reaction.burning"]); return; }
+  removeItems(state.container.get(vid)!, E.item, 1);
+  if (nextFloat(state.rng, Streams.armour) < E.chance / fire.intensity) {
+    v.fire = null;
+    events.emit({ kind: "vehicle.extinguished", tick: state.tick, vehicle: vid });
+    if (v.unit !== null) radioFromTarget(state, v.unit, "radio.fireOut", events);
+    return;
+  }
+  if (canExtinguish(state, vid, v, def)) fire.nextExtTick = state.tick + Math.max(1, secondsToTicks(E.delaySeconds));
+  else { fire.nextExtTick = -1; orderBailOut(ctx, state, events, vid, v, ["reaction.burning"]); }
+}
+
 /**
  * Fire, cook-off and bailing out (M7.4a), every tick (cheap; returns at once without vehicles). Men get out
  * (able ones, through the exits in turn) `bailOutSeconds` after the reaction (`bailOnFireSeconds` when burning).
+ * M7.4b: the extinguisher tries first; a crew that has got out becomes a unit on foot (it can be given orders).
  */
 export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size === 0) return;
@@ -465,6 +519,7 @@ export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: Ev
   for (const [vid, v] of state.vehicle.entries()) {
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
+    if (v.fire !== null && v.status !== "destroyed" && v.fire.nextExtTick >= 0 && state.tick >= v.fire.nextExtTick) tryExtinguish(ctx, state, events, vid, v, def);
     if (v.fire !== null && v.status !== "destroyed") {
       if (state.tick - v.fire.startTick >= secondsToTicks(C.burnSeconds)) destroyVehicle(ctx, state, events, vid, v, "burnt");
       else if (state.tick >= v.fire.nextCheckTick) {
@@ -472,7 +527,7 @@ export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: Ev
         const ammo = (def.components ?? []).some((c, k) => c.kind === "ammo" && (v.comp[k] ?? 1) > 0);
         if (ammo && nextFloat(state.rng, Streams.armour) < C.cookOffChancePerCheck) destroyVehicle(ctx, state, events, vid, v, "cookOff");
       }
-      if (v.crewReaction !== "bailOut" && (v.status as string) !== "destroyed") orderBailOut(ctx, state, events, vid, v, ["reaction.burning"]);
+      if (v.fire !== null && v.fire.nextExtTick < 0 && v.crewReaction !== "bailOut" && (v.status as string) !== "destroyed") orderBailOut(ctx, state, events, vid, v, ["reaction.burning"]);
     }
     if (v.crewReaction !== "bailOut") {
       // A crew all out of action (killed or wounded by rifle fire through no armour, or earlier hits): no one is
@@ -502,7 +557,98 @@ export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: Ev
       events.emit({ kind: "vehicle.abandoned", tick: state.tick, vehicle: vid, reason: v.reactionWhy[0] ?? "reaction.bailOut" });
       markWreck(state, vid);
     }
+    // The crew is out: from now on it is a unit on foot (orders reach its men like any squad's, M7.4b). Men who
+    // could not get out stay in their seats (rule 10). The hull keeps no crew unit.
+    if (v.unit !== null) {
+      const u = state.unit.get(v.unit);
+      if (u && u.vehicle === vid) { delete u.vehicle; u.exVehicle = vid; u.moving = false; u.firing = false; }
+      v.unit = null;
+    }
   }
+}
+
+/**
+ * CREW REACTIONS (M7.4b, plan §8, C2/C21), once a second per vehicle (staggered): a crew in a vehicle that can
+ * still move decides between fighting on and reversing out of reach:
+ *   reverseOut   penetrated without losing its mobility; struck by a rocket (through or not); its weapons wrecked;
+ *                its commander shaken or worse; enemy men on foot it knows within `atThreatM` while its fire rule
+ *                is not "free". It fires its smoke dischargers (if it has salvos) and backs away from where the
+ *                fire came from `reverseOutM` (forward if that is behind it), facing the threat, then holds there.
+ *   continue     everything else (an immobilised vehicle with a working gun fights on under fire that bounces off).
+ * Bailing out is decided where the damage happens (above). The reasons go to `reactionWhy` and a
+ * `vehicle.reaction` event (debug overlay); the crew calls it on the radio.
+ */
+export function crewReactionSystem(ctx: SimContext, state: SimState, events: EventSink): void {
+  if (state.vehicle.size === 0) return;
+  const C = ctx.catalog.behaviour.crew, tick = state.tick;
+  const every = Math.max(1, secondsToTicks(C.reactionStepSeconds));
+  const recent = secondsToTicks(C.recentHitSeconds);
+  for (const [vid, v] of state.vehicle.entries()) {
+    if ((vid + tick) % every !== 0) continue;
+    if (v.unit === null || v.crewReaction === "bailOut" || (v.status !== "ok" && v.status !== "disarmed")) continue;
+    const def = ctx.catalog.vehicles[v.def];
+    if (!def || !def.components) continue;
+    // Still backing off, or holding where it went: nothing new for a while.
+    if (v.crewReaction === "reverseOut" && tick - v.reactionTick < secondsToTicks(C.reverseHoldSeconds)) continue;
+    if (!hasDriver(state, v, def) || !crewCanAct(state, v, def)) continue;
+    const why: string[] = [];
+    if (tick - v.lastPenTick <= recent) why.push("reaction.penetrated");
+    if (tick - v.lastShapedHitTick <= recent) why.push("reaction.rocketHit");
+    if (v.status === "disarmed" && v.crewReaction !== "reverseOut") why.push("reaction.disarmed");
+    const cmd = occupant(v, def, "commander");
+    const cb = cmd !== null ? state.soldier.get(cmd)?.mental.behaviour : undefined;
+    if (cb === "shaken" || cb === "panicked") why.push("reaction.shaken");
+    const crew = state.unit.get(v.unit);
+    let near: { x: number; y: number } | null = null;
+    if (crew && crew.fireRule !== "free" && C.atThreatM > 0) near = closeEnemyFoot(state, v, def, vid, C.atThreatM);
+    if (near) why.push("reaction.atThreat");
+    if (why.length === 0) { if (v.crewReaction === "reverseOut") { v.crewReaction = "continue"; v.reactionTick = tick; v.reactionWhy = ["reaction.fightOn"]; } continue; }
+    const t = state.transform.req(vid);
+    const from = near ? atan2(near.y - t.y, near.x - t.x) : v.threatAz ?? t.heading;
+    reverseOut(ctx, state, events, vid, v, def, from, why);
+  }
+}
+
+/** Enemy men on foot this crew knows of within `r` of the hull (the nearest), or null. */
+function closeEnemyFoot(state: SimState, v: VehicleState, def: VehicleDef, vid: EntityId, r: number): { x: number; y: number } | null {
+  const t = state.transform.req(vid);
+  let best: { x: number; y: number } | null = null, bestD = r;
+  for (let k = 0; k < def.seats.length; k++) {
+    if (def.seats[k]!.station === "passenger") continue;
+    const m = v.seats[k];
+    const s = m === null || m === undefined ? undefined : state.soldier.get(m);
+    if (!s || !isAble(s)) continue;
+    for (const c of s.contacts) {
+      if (c.cls === "vehicle" || c.surrendered || c.kind !== "seen" || state.tick - c.tick > secondsToTicks(10)) continue;
+      const d = hypot2(c.x - t.x, c.y - t.y);
+      if (d < bestD) { bestD = d; best = { x: c.x, y: c.y }; }
+    }
+  }
+  return best;
+}
+
+/** Smoke, then back off away from bearing `from` (reverse if the threat is ahead), ending facing it. */
+function reverseOut(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, from: number, why: string[]): void {
+  const C = ctx.catalog.behaviour.crew;
+  const t = state.transform.req(vid);
+  v.crewReaction = "reverseOut"; v.reactionTick = state.tick; v.reactionWhy = why;
+  events.emit({ kind: "vehicle.reaction", tick: state.tick, vehicle: vid, reaction: "reverseOut", keys: [...why] });
+  // Smoke between it and the threat: the turret swings toward it (the dischargers fire ahead of the turret).
+  if (def.dischargers && v.stations.length > 0 && state.tick >= v.smokeReadyTick) {
+    const st = v.stations[0]!;
+    if (st.task === null) { st.azimuth = wrapAngle(from - t.heading); st.azCmd = st.azimuth; }
+    dischargeSmoke(ctx, state, vid);
+  }
+  const ahead = Math.abs(wrapAngle(from - t.heading)) < PI / 2;
+  const W = ctx.map.widthM, H = ctx.map.heightM;
+  // Straight away from the threat; failing a route, a little to either side.
+  for (const off of [0, 0.5, -0.5]) {
+    const a = from + PI + off;
+    const x = Math.min(Math.max(t.x + cos(a) * C.reverseOutM, 5), W - 5), y = Math.min(Math.max(t.y + sin(a) * C.reverseOutM, 5), H - 5);
+    const res = vehicleMove(ctx, state, vid, [{ x, y, mode: "run", ...(ahead ? { reverse: true as const } : {}) }], from);
+    if (res === true) break;
+  }
+  if (v.unit !== null) radioFromTarget(state, v.unit, "radio.reversingOut", events);
 }
 
 /** For tests and the lab: a vehicle's component index by kind (first), or -1. */

@@ -137,6 +137,11 @@
     "occupantBurnSeverity": [
       0.7,
       1.0
-    ]
+    ],
+    "reactionStepSeconds": 1,
+    "recentHitSeconds": 3,
+    "reverseOutM": 60,
+    "reverseHoldSeconds": 30,
+    "atThreatM": 150
   }
 }

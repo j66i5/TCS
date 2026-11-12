@@ -16,7 +16,7 @@ import { rebuildVehicleGrid } from "./hulls";
 import { syncTerrainDamage } from "./systems/explosions";
 import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
-import { vehicleDamageSystem } from "./systems/armour";
+import { crewReactionSystem, vehicleDamageSystem } from "./systems/armour";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
@@ -94,7 +94,7 @@ export function step(sim: Sim): SimEvent[] {
   const events = new EventSink();
   if (state.ended) return events.events;
 
-  if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms);
+  if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms, ctx.catalog);
   receiveOrders(ctx, state, events);
   deliverOrders(ctx, state, events);
   actionSystem(ctx, state, events);
@@ -120,6 +120,8 @@ export function step(sim: Sim): SimEvent[] {
   incomingFireSystem(ctx, state, events.events);
   woundSystem(ctx, state, events);
   moraleSystem(ctx, state, events, events.events);
+  // Crews decide to fight on or reverse out of reach (M7.4b; returns at once without vehicles).
+  crewReactionSystem(ctx, state, events);
   spottingSystem(ctx, state, events);
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.

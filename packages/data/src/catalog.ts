@@ -112,7 +112,9 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     })),
     stowed: noProv(v.stowed) as VehicleDef["stowed"],
     ...(v.cookOffAmmo === undefined ? {} : { cookOffAmmo: v.cookOffAmmo }),
-    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })) } } : {}),
+    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })), ...(v.armour.tiles ? { tiles: v.armour.tiles.map((t) => ({ ...t })) } : {}) } } : {}),
+    ...(v.extinguisher ? { extinguisher: { item: v.extinguisher.item, chance: v.extinguisher.chance, delaySeconds: v.extinguisher.delaySeconds } } : {}),
+    ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),
     ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.

@@ -82,7 +82,7 @@ describe("damage inside and the outcome (M7.4a)", () => {
     const stuck = v.seats.find((m) => m !== null)!;
     sim.state.soldier.req(stuck!).physiology.consciousness = 0;
     sim.state.soldier.req(stuck!).impair.canWalk = false;
-    v.fire = { startTick: sim.state.tick, nextCheckTick: sim.state.tick + 1e9, intensity: 1 };
+    v.fire = { startTick: sim.state.tick, nextCheckTick: sim.state.tick + 1e9, intensity: 1, nextExtTick: -1 };
     const events: SimEvent[] = [];
     run(sim, 5, (e) => events.push(e));
     expect(events.some((e) => e.kind === "vehicle.abandoned")).toBe(true);

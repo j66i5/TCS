@@ -340,7 +340,7 @@ export interface BehaviourDef {
    * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;
    * a burning vehicle makes smoke; men still inside a destroyed vehicle are burnt (severity range).
    */
-  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number] };
+  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -508,8 +508,13 @@ export interface VehicleDef {
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];
   cookOffAmmo?: DefId;
-  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. */
-  armour?: { plates: VehiclePlate[] };
+  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. Add-on tiles
+   *  against shaped charges (M7.4b): one `item` used up per hit on that part and face, `factor` times the need. */
+  armour?: { plates: VehiclePlate[]; tiles?: { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; item: DefId; factor: number }[] };
+  /** Fire extinguishing (M7.4b): charges `item` in the container, each puts a fire out with `chance`. */
+  extinguisher?: { item: DefId; chance: number; delaySeconds: number };
+  /** Active protection (M7.4b, fixture only): charges `item`, engaged rockets burst `standoffM` short. */
+  activeProtection?: { item: DefId; detectM: number; standoffM: number; interceptChance: number; cooldownSeconds: number };
   /** Components a penetrating round can damage (M7.4a). Index = `VehicleState.comp`. */
   components?: VehicleComponent[];
   /** Smoke dischargers (M7.3). */
@@ -519,8 +524,10 @@ export interface VehicleDef {
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
+/** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
+export type ComponentKind = "engine" | "transmission" | "track" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
 export interface VehicleComponent {
-  id: string; kind: "engine" | "track" | "gun" | "ammo" | "fuel"; part: "hull" | "turret";
+  id: string; kind: ComponentKind; part: "hull" | "turret";
   box: { f: [number, number]; r: [number, number]; u: [number, number] };
   external?: boolean; toughnessMm: number; absorbMm: number; fireChance?: number; cookOffChance?: number;
 }

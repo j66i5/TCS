@@ -155,4 +155,43 @@ describe("platoons with vehicles (M7.2)", () => {
     const { events } = play(input, 30, undefined, (ctrls) => ctrls[0]!.loadState!({ phase: "advance", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9, out: [] }));
     expect(events.filter((e) => e.kind === "unit.dismounted").length).toBeGreaterThanOrEqual(3);
   });
+
+  it("M7.4b anti-tank tasks: a man with a Panzerfaust is ordered to fire at an enemy vehicle his side knows within its range", () => {
+    // Russia attacks; the German defenders are told of a BMP-2 250 m from one of their Panzerfaust gunners.
+    const input = buildScenario(data, def(1, { attacker: "red", mapKind: "farmland" }));
+    let gunner = -1;
+    const { orders } = play(input, 60, (sim) => {
+      if (sim.state.tick !== 20 * 60) return;
+      const red = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")![0];
+      for (const [id, i] of sim.state.identity.entries()) {
+        if (i.side !== "blue" || sim.state.soldier.req(id).mount !== undefined) continue;
+        const c = sim.state.container.req(id);
+        if (!c.stacks.some((x) => x.type === "de-pzf3-firing-unit")) continue;
+        gunner = id;
+        const t = sim.state.transform.req(id);
+        sim.state.soldier.req(id).contacts.push({ target: red, x: Math.min(t.x + 250, input.map.widthM - 5), y: t.y, errM: 5, kind: "seen", tick: sim.state.tick, reportedTick: sim.state.tick, cls: "vehicle" });
+        break;
+      }
+    });
+    expect(gunner).toBeGreaterThan(0);
+    // Either the shot, or first a step aside out of a comrade's danger zone (Q20), then the shot.
+    expect(orders.some((o) => o.target === gunner && o.tick >= 20 * 60 && (o.kind === "fire" || o.kind === "move"))).toBe(true);
+  });
+
+  it("M7.4b: enemy men known close to a carrier get its squad out at once, before the vehicles arrive", () => {
+    const input = buildScenario(data, def(1));
+    let at = -1;
+    const { events } = play(input, 40, (sim) => {
+      if (at >= 0 || sim.state.tick !== 8 * 60) return;
+      const [vid, v] = [...sim.state.vehicle.entries()].find(([, x]) => x.side === "blue" && x.seats.some((m, k) => m !== null && sim.ctx.catalog.vehicles[x.def]!.seats[k]!.station === "passenger"))!;
+      const crewman = v.seats.find((m, k) => m !== null && sim.ctx.catalog.vehicles[v.def]!.seats[k]!.station === "commander")!;
+      const enemy = [...sim.state.identity.entries()].find(([, i]) => i.side === "red")![0];
+      const t = sim.state.transform.req(vid);
+      sim.state.soldier.req(crewman!).contacts.push({ target: enemy, x: t.x + 300, y: t.y, errM: 10, kind: "seen", tick: sim.state.tick, reportedTick: sim.state.tick });
+      at = sim.state.tick;
+    });
+    const out = events.find((e) => e.kind === "unit.dismounted");
+    expect(out).toBeDefined();
+    expect(out!.tick - at).toBeLessThan(25 * 60);
+  });
 });

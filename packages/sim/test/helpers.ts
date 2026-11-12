@@ -115,7 +115,7 @@ export const testCatalog: Catalog = {
       lrfRangeErrorFraction: 0.005, refillBelowFraction: 0.25, friendlyClearM: 60, scanReturnSeconds: 20, dischargeAheadM: 35,
     },
     antitank: { atRuleDefault: "vehicles", stepSeconds: 1, seenWithinSeconds: 3, rangeErrorFraction: 0.05, skillMrad: 2.5, largeRoomM2: 60, wallBehindM: 2, handOverM: 30 },
-    crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0] },
+    crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 30, atThreatM: 150 },
   },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,

@@ -1132,3 +1132,15 @@ attacking, 24 + 8 defending), Germany x1 (game values). Alone this changed nothi
 the AI now fires a quarter of its remaining HE per mission (at least 6). **Result (10 battles each way):**
 Russian attack still 0 of 10 (defenders now lose ~12 of 20, attackers ~12 of 40); German attack 1 of 10 (2 of
 10 before: within the spread of 10 battles). Golden replays regenerated (catalog fingerprint).
+
+## 2026-11-12 — Owner: surrender (especially of downed men)
+Owner request: "Include surrendering, especially for downed men". Answers (all the recommended options):
+1. **Who:** a man who is wounded and can no longer fight or walk (but conscious) surrenders when an enemy he
+   knows of is close (~50 m) and no fit comrade is near (~30 m); a panicked or fleeing (routed) man also
+   surrenders when caught with an enemy within ~30 m.
+2. **Effect:** he stops fighting; enemies who see him stop firing at him (until someone has seen the surrender
+   he can still be shot); when an enemy soldier reaches him (a few metres) he is taken prisoner.
+3. **Score / review:** a surrendered or captured man costs his side the same as a casualty (5 points); the
+   after-action review lists him as surrendered / captured, and the timeline shows it.
+4. **Factions:** the same rule for both sides; willingness from the man's state (wounds, stress, being alone)
+   with one data value set for all — no unsourced faction difference.

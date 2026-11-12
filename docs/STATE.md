@@ -5,9 +5,9 @@ _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 ## Current milestone
 **M6 Opposing commander and scenarios is complete — first playable.** The app opens a generated platoon battle
 (Germany against Russia, either side, either attacking); the AI commands the other side; objectives, score,
-save and load, after-action review with casualty lists, timeline and heat map. **Stop here for the owner's
-review** (ROADMAP: is it fun, what is wrong; also the medical system, the fog-of-war reminder below, and the
-balance question: the AI attack never succeeds against the AI defence — DECISIONS.md, M6).
+save and load, after-action review with casualty lists, timeline and heat map. Owner reviewed it
+(2026-11-12): next **M6.5 Attack balance** (more attackers, better AI attack tactics, mortars and smoke pulled
+forward) — see ROADMAP and DECISIONS.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -167,11 +167,8 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 ## Next
 **M3 Spotting and knowledge** — propose slices, ask the owner's questions, then start when he says so.
 
-## Reminders for the owner (at the review after M6)
-- **Fog of war option "only what reached the squad leader"** (owner asked to be reminded after M6, 2026-11-11):
-  today the player sees what any of his men know at once; the stricter option shows only the leader's picture,
-  with the reporting delay.
-- Pull the medical system forward or not.
+## Reminders for the owner
+- (Answered at the M6 review, 2026-11-12: fog of war stays "what your men have reported"; medical after vehicles.)
 
 ## Open questions for the owner
 - **Corrections to the two squads** (roles, ranks, weapons, ammunition) whenever the owner wishes.

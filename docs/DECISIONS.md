@@ -1090,3 +1090,11 @@ objectives at least 90 m apart; (9) an English text outside the string table; a 
 **Recorded (8):** the commanders know who holds each objective without seeing it — holders are public (shown
 to the player too), intended. **Balance (for the owner):** the AI attack still fails against the AI defence;
 even against a single defending squad left, the attacking platoon is pinned at ~350 m and breaks off.
+
+## 2026-11-12 — Owner's M6 review answers
+1. **Attack balance: all three** — (a) the attacker gets more men (two platoons against one), (b) better AI
+   attack tactics (covered approach routes, crawling the last stretch, closer fire support, grenades), (c)
+   support fire brought forward from M8: mortars and smoke. Planned as **M6.5 Attack balance** before M7.
+2. **Fog of war:** keep "what your men have reported" (the M3 reminder is closed).
+3. **Medical system:** after vehicles, as planned.
+4. **Formation marker:** keep the laid-out formation for every move (the M5 change is confirmed).

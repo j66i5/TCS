@@ -276,11 +276,13 @@ export interface BehaviourDef {
    * stepSeconds: how often each man reconsiders. downedEnemyM / comradeNearM: a wounded man who cannot fight
    * gives up with a known enemy this close and no fit comrade this close. caughtEnemyM: a panicked or routed
    * man gives up with a known enemy this close. captureM: a fit enemy this close takes him prisoner.
+   * attackerDownedEnemyM / attackerPanicGivesUp: the same for a man of the attacking side or of a unit in an
+   * assault (owner: attackers are less likely to give up).
    * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
    * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
    */
   surrender: {
-    stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; captureM: number;
+    stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
   };
 }

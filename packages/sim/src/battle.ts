@@ -98,6 +98,8 @@ export interface ForceInput {
   /** The force's vehicles (M7), and where each starts. */
   vehicles?: VehicleRecord[];
   vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
+  /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
+  posture?: "attack" | "defend";
 }
 
 export interface BattleInput {

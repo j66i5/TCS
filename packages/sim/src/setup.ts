@@ -20,7 +20,7 @@ export function buildInitialState(input: BattleInput): SimState {
   for (const force of input.forces) {
     if (state.sides.some((s) => s.id === force.side)) throw new Error(`duplicate side '${force.side}'`);
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);
-    state.sides.push({ id: force.side, faction: force.faction });
+    state.sides.push(force.posture ? { id: force.side, faction: force.faction, posture: force.posture } : { id: force.side, faction: force.faction });
     const placements = new Map(force.placements.map((p) => [p.personId, p]));
     // Vehicles first (M7): crews are seated in them as their units are added.
     const vehicles = addVehicles(state, force, input.catalog);

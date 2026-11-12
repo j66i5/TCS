@@ -352,7 +352,7 @@ not take orders ("unable"). Once they are there and nothing has been fired at th
 
 A man who is wounded and can no longer fight gives himself up when an enemy he knows of is within about 50 m
 and no fit comrade is within about 30 m. A panicked or fleeing man gives up when an enemy he knows of is within
-about 30 m, comrades or not. From then on he is out of the fight: he takes no orders, does not fire and does
+about 30 m, comrades or not. Attackers are tougher: a man of the attacking side, or of a squad in the middle of an assault, does not give up when he panics (he runs back instead), and a wounded attacker gives up only when an enemy is within about 25 m. From then on he is out of the fight: he takes no orders, does not fire and does
 not use the radio; a white flag shows over him. The enemy stops shooting at him once they have SEEN him give
 up (until then he can still be hit, and shells and grenades aimed at the area can still hit him). An enemy who
 comes within a few metres takes him prisoner (a white square); when it is quiet, one enemy nearby who saw it

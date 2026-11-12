@@ -99,7 +99,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
         placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
       });
     });
-    return { side, faction, units, placements };
+    return { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
   });
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;

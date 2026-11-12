@@ -12,6 +12,8 @@
  *   capture    A fit enemy within `captureM` with a clear line to him takes him prisoner (checked every tick).
  *              When it is quiet, ONE fit enemy within `fetchWithinM` who has seen the surrender walks over to
  *              take him and then returns to where he stood (`takePrisoner` intent; any order ends the errand).
+ *   attackers  A man of the attacking side (SideState.posture) or of a unit in an assault does not give up when
+ *              panicked or routed (he runs back), and when downed only with an enemy within `attackerDownedEnemyM`.
  *   cost       Like a casualty: `isOut` (objectives.ts score, commander losses). No stress to comrades (owner);
  *              a leader giving up still shakes his unit (the shared leader-loss path).
  * This file owns `captive`; target choice elsewhere reads only the chooser's own contact flag.
@@ -55,13 +57,27 @@ function nearestKnownEnemy2(ctx: SimContext, state: SimState, id: EntityId, s: S
   return best;
 }
 
+/** Is he an attacker: his side attacks in this battle, or his unit (or one above it) is in an assault? */
+function attacking(state: SimState, id: EntityId): boolean {
+  const ident = state.identity.req(id);
+  if (state.sides.find((x) => x.id === ident.side)?.posture === "attack") return true;
+  for (let u: EntityId | null = ident.unit; u !== null; u = state.unit.get(u)?.parent ?? null) {
+    if (state.unit.get(u)?.drill?.kind === "assault") return true;
+  }
+  return false;
+}
+
 function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): SurrenderReason | null {
   const R = ctx.catalog.behaviour.surrender;
   const scared = s.mental.behaviour === "panicked" || s.mental.behaviour === "routed";
   const downed = isDowned(s);
   if (!scared && !downed) return null;
+  // Attackers (the attacking side, or any unit in an assault) are less likely to give up (owner).
+  const att = attacking(state, id);
+  if (att && !downed && !R.attackerPanicGivesUp) return null;
   const d2 = nearestKnownEnemy2(ctx, state, id, s);
-  if (downed && R.downedEnemyM > 0 && d2 <= R.downedEnemyM * R.downedEnemyM) {
+  const downedM = att ? R.attackerDownedEnemyM : R.downedEnemyM;
+  if (downed && downedM > 0 && d2 <= downedM * downedM) {
     const me = state.transform.req(id), side = state.identity.req(id).side, r2 = R.comradeNearM * R.comradeNearM;
     let comrade = false;
     for (const [m, ms] of state.soldier.entries()) {
@@ -71,7 +87,7 @@ function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState
     }
     if (!comrade) return "wounded";
   }
-  if (scared && R.caughtEnemyM > 0 && d2 <= R.caughtEnemyM * R.caughtEnemyM) return s.mental.behaviour === "panicked" ? "panicked" : "routed";
+  if (scared && (!att || R.attackerPanicGivesUp) && R.caughtEnemyM > 0 && d2 <= R.caughtEnemyM * R.caughtEnemyM) return s.mental.behaviour === "panicked" ? "panicked" : "routed";
   return null;
 }
 

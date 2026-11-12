@@ -1295,3 +1295,12 @@ Plan §15 M7.1b, with these decisions where the plan was open or the code differ
   pace, no movement without a driver.
 - Perf after M7.1b (three runs, alone): projectile bench 3.77–4.29 ms/tick (3.9–4.4×), bench 13×, spotting
   9.9–10.1×, fragment volley 14.1–17.9× — unchanged from M7.1a (vehicle systems return at once without vehicles).
+
+## 2026-11-12 — Owner: attackers less likely to surrender
+Owner request "make it less likely for attackers / assaulting troops to surrender", answer "panicked attackers
+don't surrender": a man of the attacking side (new optional `ForceInput.posture` / `SideState.posture`, set by
+the scenario builder) or of any unit in an assault drill does not give up when panicked or routed (he runs back
+instead); a downed attacker gives up only with a known enemy within 25 m (`surrender.attackerDownedEnemyM`,
+`attackerPanicGivesUp: false`; defenders unchanged at 50 m / 30 m). Batch (10 x 900 s): men surrendered or
+taken per side, German attack blue 0.40 → 0.10, red 0.10 → 0.10; Russian attack red (attacker) 0.20 → 0.00.
+Golden replays regenerated (catalog fingerprint only; demoBattle states no posture).

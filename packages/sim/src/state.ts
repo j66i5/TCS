@@ -38,7 +38,11 @@ export const STATE_SCHEMA_VERSION = 16;
 export interface SideState {
   id: SideId;
   faction: DefId;
+  /** Whether this side attacks or defends in this battle (scenario); absent = not stated. */
+  posture?: SidePosture;
 }
+
+export type SidePosture = "attack" | "defend";
 
 export interface SimState {
   /** Fingerprint of the data (catalog) this battle runs with; checked when a save is loaded. */

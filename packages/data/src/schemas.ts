@@ -287,7 +287,7 @@ export const BehaviourFile = withProv({
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({
-    stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), captureM: Num(0, 50),
+    stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
   }).strict(),
 });

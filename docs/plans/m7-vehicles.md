@@ -2,10 +2,11 @@
 
 This plan is for the implementing engineer to follow as written. It keeps the base of design 3 ("hot paths and invariants first") and deals with all 68 critic points. Every WRONG and MISSING point is fixed in the section it concerns, and every RISK point has a mitigation in §17. Each fix carries its critic number as **[Cn]**. File and symbol names were checked against the code on 2026-11-12. Line numbers have moved since M6.6, so the plan names symbols, not lines.
 
-**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, M7.2 ✅, M7.3 ✅, **M7.4a ✅** (2026-11-12; what was decided
-where the plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3", "M7.3" and "M7.4a";
-moved to M7.4b from M7.4a: APS/tile fixture tests, the hull-hit perf-projectiles variant; brought forward into
-M7.4a by the owner: bail-out Q14/Q15, wrecks as data and in the nav grids, simple components). Next: M7.4b.
+**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, M7.2 ✅, M7.3 ✅, M7.4a ✅, **M7.4b ✅** (2026-11-12) —
+**M7 done**. What was decided where the plan was open, and what moved on, is in DECISIONS.md ("M7.2 part 1/2/3",
+"M7.3", "M7.4a", "M7.4b"). Still open after M7: Uint8/Uint16 vehicle grids (Float32 kept), the APS pre-check in the
+hot loop (the fixture's APS acts in the hit resolution instead), a failed intercept re-added next tick (it strikes at
+once), spall-free "path only" not needed. Next: M7.5 Look and interface.
 
 **Current facts the plan depends on (checked):**
 - `STATE_SCHEMA_VERSION = 15` (`packages/sim/src/state.ts`). `STORE_KEYS = identity, transform, mover, soldier, unit, container, action, weapon, fire`.
@@ -1099,7 +1100,7 @@ Its memory keeps last-seen ticks to detect changes ("a hit since my last think" 
   - `perf-projectiles.test.ts` hull-hit variant within 5 %.
 - **Acceptance:** IFVs can be penetrated and knocked out by the simple outcome. AT men fire Pzf 3 and RPG-7 on order and per `atRule`. Platoon battles start mounted by default.
 
-### M7.4b Components, fire and cook-off, crew reactions, AI anti-tank use, wrecks as data, batch report
+### M7.4b Components, fire and cook-off, crew reactions, AI anti-tank use, wrecks as data, batch report — ✅ done
 - **Files:** `core/behaviour.json`, `factions/*/vehicles.json` (components tuned), `systems/armour.ts` (full interior walk, spall, `vehicleDamageSystem`, `crewReactionSystem`), `systems/{wounds (applyBurn), explosions, support, decisions}.ts`, `packages/sim/src/{battle,setup,run}.ts` (`BattleResult.wrecks`, `ForceResult.vehicles`), `packages/ai/src/commander.ts`, `packages/render/src/renderer.ts`, `packages/app/src/main.ts`, `packages/ui/src/aar.ts`, `packages/tools/src/labs/{armour,antitank,attack}.ts`, `packages/tools/src/cli/batch.ts`, `docs/STATE.md`.
 - **Steps:**
   1. Full interior walk and spall.

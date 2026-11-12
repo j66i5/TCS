@@ -1730,3 +1730,52 @@ the data says otherwise; the data notes give each):
 - **Perf (alone):** bench 14×, spotting 9.4×, bench-vehicles 8.5× (floor 8×), projectile bench 3.76 ms/tick (4.4×),
   with 30 parked hulls +13.5–15 % (base measured the same day +12.6 %; noise ~10 %), bench-combined 4.0× (−5 %
   against parked), fragment volley 18×, render 0.97 ms per frame.
+
+## 2026-11-12 — M7.4b components, fire, crew reactions, AI anti-tank tasks (golden update) — M7 done
+Plan §6/§8/§12/§13/§15 M7.4b; no new owner answers were needed (Q13 stays as decided in M7.2). Decided without the
+owner, **for review** (game values, confidence low unless the data says otherwise):
+- **Components:** the Puma and BMP-2 gain transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke
+  dischargers and extinguisher (boxes where they commonly sit; toughness/absorb game values). Effects as the plan's
+  table: engine < 0.5 half power; each track pulls with its condition; transmission 0 immobilised; turret drive
+  < 0.5 hand traverse ×0.25; stabiliser 0 unstabilised; gun 0 / coax 0 that weapon out (both: disarmed); sights 0
+  vision blocks and ×3 error; radio 0 crew off the net (and a squad whose living men are all aboard); dischargers 0
+  no smoke. Not done: rounds removed from damaged ammunition racks.
+- **Extinguisher:** Puma 2 charges, 1 s, 70 %; BMP-2 2 charges, 2 s, 40 % (the owner's "BMP-2 burns easily");
+  chance halved for a fire in the ammunition; the crew waits for it and bails out only when no try is left.
+- **Crew reactions:** reverse out (smoke toward the threat, 60 m back from where the last heavy/penetrating/rocket hit
+  came, reverse legs if it is ahead, end facing it, held 30 s) when penetrated, struck by any rocket (also one the
+  Puma's front stops), disarmed, commander shaken/panicked, or enemy men it saw within 150 m while its fire rule is
+  not "free". Bail-out rules unchanged (Q14/Q15).
+- **A crew that bailed out** becomes a foot unit (`Unit.exVehicle`; the hull keeps no crew unit): it takes orders
+  like any squad; the AI sends it back to its side's start.
+- **Cross-loading:** an abandoned hull of either side with nobody able aboard is a source for a man out of spare
+  magazines/belts (only what fits his weapon; `transferItems`).
+- **Active protection / add-on tiles** (fixture `xf-wagon` only): resolved in the hit resolution, not in a hot-loop
+  pre-check; a failed intercept strikes at once (the plan re-adds it next tick). Equivalent for the tests; no cost
+  for vehicles without APS.
+- **AI anti-tank tasks:** every 5 s after the ride: enemy vehicles its men saw or were told of in the last 10 s; a man
+  with a loaded launcher (unit anti-tank rule not "hold") within range gets `fire {nature: "at"}` (every 12 s at
+  most); a comrade in his danger zone → he first steps 8 m aside (Q20 stays strict); up to 2 hunters go after a
+  halted vehicle up to 300 m beyond their range, to 80 % of it, for at most 150 s. Ride: out at once when the crews
+  know enemy men within 400 m of the carrier or have seen an enemy vehicle within 600 m (the plan's "an enemy vehicle
+  is seen" at any range made the Germans get out at the map edge after 13–18 s; 600 m keeps the doctrine dismount
+  point in most battles: first dismount 41 s vs 51 s in M7.4a). Withdrawal: vehicles reverse 80 m first. A following
+  vehicle that is reversing out is not re-ordered for 30 s. Lost vehicles are counted from the side's hulls.
+- **Gunnery lab:** its target hull is held still (a penetrated crew would otherwise reverse out of the lab); figures
+  as in M7.3/M7.4a.
+- **Deferred (not cheap here):** Uint8/Uint16 vehicle grids (Float32 kept, 13 MB at 2 × 2 km); the APS hot-loop
+  pre-check; per-component bars in the vehicle panel (a list of damaged parts with % instead); extinguisher charges
+  in the expenditure (the batch counts fires and fires put out).
+- **Golden update** (commit 1/3; catalog fingerprint, schema 17; vehicle goldens by behaviour). Checked first: headless
+  demo-s1, shootout-s1, demo-fixture-s7 (120 s) and platoon-s1 (900 s) print the identical event stream and
+  casualties as on the base commit (only the state hash and wall time differ).
+- **Batch, 10 × 900 s, vs M7.4a:** `platoon` red 10/10, 16.1 / 8.2 and `platoon-ru` blue 10/10, 7.8 / 15.4 — identical.
+  `platoon-vehicles` (Germany attacks mounted): red 6/10 (M7.4a 7/10), casualties blue 10.9 / red 20.2 (11.4 / 18.3),
+  vehicles lost blue 0.1 / red 2.5 (0.2 / 2.4), anti-tank rounds blue 1.5 / red 1.7 (0.2 / 0.0), crews reversed out
+  0.1 / 0.3, fires 0 / 2.1 (0.5 put out). `platoon-ru-vehicles` (Russia attacks): blue 10/10 (10/10), casualties blue
+  8.5 / red 19.8 (8.8 / 18.2), lost blue 0 / red 1.5 (0 / 1.3), anti-tank rounds blue 0.9 / red 2.1 (0 / 0.9), reversed
+  out 0.3 / 1.2, fires 0 / 1.2 (0.2 put out).
+- **Perf (alone):** bench 12× (14× in M7.4a), spotting 10.7×, bench-vehicles 8.2× (floor 8×), projectile bench
+  3.82 ms/tick (4.4×), 30 parked hulls +9 % (noisy: 9–29 % on this branch, 13–15 % on the base the same hour), new
+  hull-hit variant (one round in 25 a 30 mm APFSDS at a parked hull) +5–24 % against the hulls alone (asserted
+  within 25 %), bench-combined 4.0×, fragment volley 14×, render 0.99 ms per frame.

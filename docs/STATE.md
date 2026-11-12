@@ -1,9 +1,9 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.4a done)._
+_Last updated: 2026-11-12 (M7.4b done: M7 Vehicles complete)._
 
 ## Current milestone
-**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b, M7.1c, M7.2, M7.3 and **M7.4a are done** —
+**M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —
 vehicles drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each
 other, make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn
 at true size and can be ordered (move, halt, reverse legs). **M7.2:** squads get in and out (Mount / Dismount
@@ -31,8 +31,14 @@ button) or on their own per the unit's anti-tank rule (Q19, Rules panel; default
 unbreached room, with a wall right behind or a comrade in the danger zone (Q20); rocket flight with motor and
 self-destruct; armour and anti-tank labs (`npm run lab -- armour|antitank`). **The platoon battle now starts mounted
 by default** (Q26; `&vehicles=0` for the battle on foot; tools `platoon`/`platoon-ru` stay infantry).
-Next: **M7.4b** (finer components, extinguishers, crew reactions, AI anti-tank use, cross-loading, APS fixture),
-then **M7.5 Look and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7.2 parts 1–3, M7.3, M7.4a).
+**M7.4b:** the full component table (transmission, turret drive, stabiliser, coax, sights, radio, dischargers,
+extinguisher — each with its effect), extinguishers with counted charges, crews that reverse out behind smoke when
+penetrated or struck by a rocket, crews that bailed out become foot units you can order, men take ammunition from
+abandoned hulls of either side, the AI gives anti-tank tasks (shots at known vehicles in range, a step aside out of
+the danger zone, two hunters after halted vehicles), gets out at once on an anti-tank threat and reverses out on
+withdrawal; active protection and add-on tiles on the fixture; wrecks and vehicle records round-trip.
+Next: **M7.5 Look and interface** (owner answers already in DECISIONS.md). Deferred items: DECISIONS.md (M7.1c part 3,
+M7.2 parts 1–3, M7.3, M7.4a, M7.4b).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -151,9 +157,14 @@ then **M7.5 Look and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7
   AAR vehicle lines and anti-tank expenditure, Rules panel "Anti-tank weapons", "Anti-tank" order button; mounted
   platoon battle by default. Batch (10 × 900 s): Germany attacks mounted red 7/10 (BMP-2s lost 2.4 of 3), Russia
   attacks mounted blue 10/10; infantry battles unchanged.
+- **M7.4b components and reactions**: `crewReactionSystem`, extinguisher (`tryExtinguish`), `compCondition`,
+  `weaponOut`, radio comms rule, `Unit.exVehicle`, cross-loading, APS/tiles (fixture `xf-wagon`), AI anti-tank tasks,
+  batch crew columns, vehicle panel parts, `--scene vehicles` anti-tank screenshots. Batch (10 × 900 s): Germany
+  attacks mounted red 6/10, anti-tank rounds 1.5 / 1.7 per battle (was 0.2 / 0); Russia attacks blue 10/10, 0.9 / 2.1
+  (was 0 / 0.9); infantry unchanged. Schema 17.
 - **M6.5 attack balance**: two platoons attack one; AI sneaks up, splits fire and assault, throws grenades,
   calls mortars; Mortar and Smoke orders for the player (rounds land after 75-90 s; smoke blocks sight).
-- Tests: 544 (536 + 8 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 559 (550 + 9 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
@@ -170,8 +181,9 @@ then **M7.5 Look and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7
 - Research values come from search extracts, not from reading the pages; confidence medium at best.
 - The 8× speed target with 20,000 projectiles is not demonstrated on this machine (about 5.5×).
 - Soldiers route around houses, but **houses are solid** (no entering through doors yet). Stress does not yet raise heart rate (M4).
-- Anti-tank weapons (M7.4a) are used by the AI only through the men's own decisions (no AI anti-tank tasks yet,
-  M7.4b); a crew that bailed out cannot yet be ordered on foot; belts carried by other men cannot be handed over (M4);
+- Anti-tank fire is still modest (about 1–2 rockets per side per 15-minute battle): the BMP-2s die early to the
+  Pumas' cannon, and RPGs mostly meet the Puma's front, which stops them (owner Q21 b). Belts carried by other men
+  cannot be handed over (M4);
   kit masses (water, webbing, ...) are typical values, not sourced.
 - Routes prefer roads only mildly (asphalt is 10 % quicker than grass) and cover only modestly (balanced
   preference; see DECISIONS.md, M1.4) — the owner may choose to strengthen it.
@@ -224,6 +236,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
   tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
   Germany and Russia for lack of a public source on a difference.
+- **New data (M7.4b), for review (game values):** the new component boxes of the Puma and BMP-2; extinguishers (Puma
+  2 charges, 1 s, 70 %; BMP-2 2 charges, 2 s, 40 %); `core/behaviour.json` `crew` reaction values (1 s, recent hit
+  3 s, reverse 60 m, hold 30 s, infantry threat 150 m); the AI's anti-tank values (COMMANDER in `ai/commander.ts`).
+  Decided without the owner (DECISIONS.md "M7.4b"): a crew reverses out also when a rocket bounces off; a bailed-out
+  crew becomes a foot unit; men may take ammunition from abandoned enemy hulls; the AI gets out on enemy men within
+  400 m or an enemy vehicle within 600 m (not at any range).
 - **New data (M7.4a), for review (game values unless marked):** armour plates of the Puma (owner Q21 b: front 150 /
   140 mm composite at 60°) and the BMP-2 (published thicknesses simplified, low); components (boxes, toughness,
   fire and cook-off chances); `core/ballistics.json` `armour` (LOS floor, graze fuse, jet decay 400 mm/m, spall

@@ -587,6 +587,59 @@ within the round's range, clear line (target hull ignored), `backblastBlocked` (
 {method: "direct"}`. Order `fire {nature: "at"}` → `orderLauncherShot` (best-placed man, once; keeps drills). Out of
 rounds: a comrade within `handOverM` gets `bringAmmo` with `Intent.item`. Expenditure: `SideExpenditure.rockets`.
 
+## 16l. Components, fire, crew reactions, cross-loading, AI anti-tank tasks (M7.4b) — `systems/armour.ts`, `mount.ts`, `ai/commander.ts`
+
+**Components.** `ComponentKind` (data enum `COMPONENT_KINDS`): engine, transmission, track, turret-drive, stabiliser,
+gun, coax, sights, radio, dischargers, extinguisher, ammo, fuel. `compCondition(v, def, kind)` (mount.ts) = the worst
+of that kind, 1 if none listed (old data behaves as before). Effects where they act: `driveFactors` (drive.ts: engine
+< 0.5 → half power; each track pulls with its condition); `mobile()` (engine, track or transmission at 0 →
+immobilised); `turretSystem` (turret drive < 0.5 → ×0.25 traverse and elevation; stabiliser 0 → unstabilised);
+`stationFireSystem` (stabiliser 0 → error as "none"; sights 0 → ×3); `weaponOut` / `pickFeed(…, v)` (gun 0 → the
+cannon, coax 0 → the coaxial MG; both out → disarmed); `crewScan` (sights 0 → gunner/commander through
+`vision-block`); `simpleComms.update(state, params, catalog)` (radio 0 → crew unit `link "none"`, and any unit
+whose living men are all aboard that vehicle); `dischargeSmoke` (dischargers 0 → `radio.noSmoke`; any crew in a
+vehicle that is not abandoned or destroyed may fire them).
+
+**Fire.** `VehicleState.fire.intensity` 2 for an ammunition fire, `nextExtTick` (−1 = no try left). With a working
+extinguisher component and a charge (`VehicleDef.extinguisher.item`, counted in the container) the crew waits:
+`tryExtinguish` removes one charge, puts the fire out with `chance / intensity` (`vehicle.extinguished`,
+`radio.fireOut`), else tries the next charge after `delaySeconds`; with none left it orders the bail-out
+(`reaction.burning`). Without an extinguisher: bail-out at once, as in M7.4a.
+
+**Crew reactions.** `crewReactionSystem` (after `moraleSystem`, staggered `reactionStepSeconds`): for a crewed
+vehicle that is `ok`/`disarmed` with a driver and an able crewman, reasons `reaction.penetrated` (lastPenTick),
+`reaction.rocketHit` (`lastShapedHitTick`, set by every shaped-charge strike), `reaction.disarmed`,
+`reaction.shaken` (commander shaken/panicked), `reaction.atThreat` (enemy men its crew saw within `atThreatM` while
+its fire rule is not free) → `reverseOut`: smoke (turret swung to the threat if idle), `vehicleMove` `reverseOutM`
+away from `threatAz` (the bearing the last heavy/penetrating/shaped hit came from), reverse legs if the threat is
+ahead, ending facing it; held `reverseHoldSeconds`; `vehicle.reaction` event (debug overlay: `VehicleDebug` keeps
+the last per vehicle). Bail-out stays in `afterDamage`/`vehicleDamageSystem`.
+
+**Crew on foot.** When the bail-out has run, the crew unit loses `vehicle`, gains `exVehicle`, and the hull's `unit`
+becomes null: every order path (`orderApplies`, `vehicleClassOf`, `applyOrder`) then treats it as a foot unit.
+
+**Cross-loading.** `vehicleSource` accepts, besides own halted vehicles, an `abandoned` hull of either side with
+nobody able aboard (`emptyHull`); the man takes what fits his weapon through `takeFromVehicle` (`transferItems`,
+`items.transferred` from the hull).
+
+**Active protection and tiles (fixture only).** `VehicleDef.activeProtection` {item, detectM, standoffM,
+interceptChance, cooldownSeconds}: in `resolveVehicleHit`'s shaped branch, before the fuse and plate, a charge
+(container item) and the cooldown → draw: intercepted = one charge removed, the warhead bursts `standoffM` back
+along its path, `vehicle.hit {result: "intercepted"}`, no jet; failed = the hit goes on as usual (simplification
+of the plan's re-add next tick). `armour.tiles` {part, face, item, factor}: one item used up per armed shaped hit on
+that face, `needS × factor`.
+
+**AI** (`commander.ts`, every `atEverySeconds` after the ride): enemy vehicle contacts of its men (seen or
+reported within `atContactSeconds`, not wrecks); each able man on foot with a loaded launcher (`launcherReady`,
+from his own container) whose unit's `atRule` is not `hold`: a vehicle within his round's range → if
+`backblastBlocked` (its own lazily built context) he is moved `atSidestepM` aside first, else `fire {nature: "at",
+contact}` to him (rate `atRefireSeconds`); a halted vehicle up to `huntBeyondM` beyond → up to `huntersMax` hunters
+sent to a point at `huntAtRangeShare` of their range (re-sent while stopped short, released after `huntSeconds`).
+Ride: squads (and the HQ) get out at once when the crews know enemy men within `dismountThreatMenM` of the
+carrier or have seen an enemy vehicle within `dismountThreatVehicleM`. Withdrawal: vehicles first reverse
+`withdrawReverseM`. A following vehicle that is reversing out is left alone `reverseOutHoldSeconds`. Lost vehicles
+are counted from the side's hulls (a bailed crew has none); bailed crews (`exVehicle`) are sent back to the start.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -614,20 +667,20 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
 | 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
-| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts, systems/armour.ts | 🟡 fuel (tank item's charge, burnt by the drive) M7.1b; components (engine, tracks, gun, ammunition, fuel) with immobilised/disarmed/fire M7.4a; finer effects M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt"; `tools/test/armour.test.ts` |
+| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts, systems/armour.ts | ✅ fuel M7.1b; components with immobilised/disarmed/fire M7.4a; full component table, extinguisher M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt"; `tools/test/armour.test.ts`; `tools/test/components.test.ts` "component effects" |
 | 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts, hulls.ts, nav.ts (`tracked:c1`) | ✅ dynamics, gears, rain, fuel M7.1b; navigation, follower, collisions, flattening M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `sim/test/vehicles.test.ts`, `tools/test/vehicle-maps.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
 | 4.3.5 | "vehicle hit" event | systems/ballistics.ts, systems/armour.ts | ✅ every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; result ricochet/stopped/penetrated with components M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick"; `tools/test/armour.test.ts` |
-| 6.7 | Plates per facing, penetration, components | systems/armour.ts, ballistics.ts (`VehicleRT`) | ✅ M7.4a (finer component effects M7.4b) | `tools/test/lab-armour.test.ts`, `tools/test/armour.test.ts`, `tools/test/lab-antitank.test.ts` |
+| 6.7 | Plates per facing, penetration, components | systems/armour.ts, ballistics.ts (`VehicleRT`) | ✅ M7.4a/b | `tools/test/lab-armour.test.ts`, `tools/test/armour.test.ts`, `tools/test/lab-antitank.test.ts`, `tools/test/components.test.ts` |
 | 6.6 | Standing anti-tank rule | systems/launcher.ts (`atRuleOf`), rules order `at`, Rules panel | ✅ M7.4a | `tools/test/lab-antitank.test.ts` "standing anti-tank rule" |
 | 4.4 | Scale with vehicles | perf.test.ts, perf-projectiles.test.ts, perf-render.test.ts | ✅ `bench-vehicles` ≥ 8× (M7.1c); `bench-combined` (300 men + 30 IFVs firing + 20,000 projectiles) ≥ 3× floor and close to the same load holding fire; render proxy < 4 ms (M7.3) | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls", "bench-combined"; `render/test/perf-render.test.ts` |
 | 6.7 | Turret, sights, ammo racks | systems/gunnery.ts | ✅ M7.3 (penetration M7.4a) | `tools/test/lab-gunnery.test.ts`, `tools/test/gunnery.test.ts` (conservation, cease-fire routing C19, incoming fire C34, sling loader C10) |
-| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | 🟡 smoke M7.3; APS M7.4b (moved from M7.4a) | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke" |
-| 6.6/5.7 | Decision debug overlay | render/src/vehicle-debug.ts, `vehicle.decision` | 🟡 station why M7.3; reaction why M7.4b | `render/test/debug-overlay.test.ts` "draws the station's why" |
+| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | ✅ smoke M7.3; APS and add-on tiles on the fixture M7.4b (recovery stays reserved) | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke"; `tools/test/components.test.ts` "the charm intercepts…", "a shingle…" |
+| 6.6/5.7 | Decision debug overlay | render/src/vehicle-debug.ts, `vehicle.decision` | ✅ station why M7.3; reaction why M7.4b | `render/test/debug-overlay.test.ts` "draws the station's why", "draws the crew's reaction" |
 | — | Mounted-man invariants | architecture.test.ts A7, mounted-invariants.test.ts | ✅ source guard M7.1c (no file exempt since M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated"; `tools/test/mounted-invariants.test.ts` |
 | 6.7 | Crew seats, no driver no movement, passengers are soldiers | systems/boarding.ts, systems/drive.ts, mount.ts | ✅ M7.2 | `sim/test/mount.test.ts`; `sim/test/vehicles.test.ts` "no driver answers radio.noDriver" |
 | 9.1 | Casualties loaded into a vehicle | systems/boarding.ts (`loadCasualty`) | 🟡 within 5 m of an exit, by two men (M7.2); carrying over distance M10 | `sim/test/mount.test.ts` "a casualty within 5 m of the exit is loaded by two men" |
-| 9.2 | Vehicle-carried reserves, cross-loading | systems/boarding.ts (`takeFromVehicle`), systems/decisions.ts | 🟡 refill from an own halted vehicle (M7.2); abandoned hulls M7.4b | `sim/test/mount.test.ts` "refills from the halted carrier; items are conserved" |
-| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | 🟡 records in/out M7.1b; wrecks produced and listed M7.4a; round-trip test M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out" |
+| 9.2 | Vehicle-carried reserves, cross-loading | systems/boarding.ts (`takeFromVehicle`), systems/decisions.ts | ✅ refill from an own halted vehicle (M7.2); abandoned hulls of either side (M7.4b) | `sim/test/mount.test.ts` "refills from the halted carrier; items are conserved"; `tools/test/components.test.ts` "men take belts from an abandoned enemy hull" |
+| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | ✅ records in/out M7.1b; wrecks M7.4a; round trip M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out"; `tools/test/components.test.ts` "BattleResult.wrecks and ForceResult.vehicles round-trip" |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |

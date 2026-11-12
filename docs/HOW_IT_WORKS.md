@@ -441,6 +441,37 @@ shot at anything with the **Anti-tank** button and a tap (the best-placed man wi
 Nobody fires with a comrade in the danger zone behind the tube or a wall right behind him, nor from inside a house
 unless it is large or has a hole blown in it (owner's choice).
 
+**Parts of a vehicle (M7.4b).** Besides engine, tracks, gun, ammunition and fuel, a round that gets inside can
+now damage the transmission (immobilised), the turret drive (below half: the turret is turned by hand, four times
+slower), the stabiliser (it then shoots badly on the move), the coaxial machine gun (the cannon and the machine gun
+are knocked out separately; with both gone the vehicle is disarmed), the sights (gunner and commander look through
+their small vision blocks and shoot three times worse), the radio (the crew — and a squad riding inside — is off the
+net: orders and reports no longer reach it), the smoke dischargers and the fire extinguisher. An engine below half
+gives half power; a damaged track pulls less. The vehicle's panel lists every damaged part with its condition.
+
+**Fire and the extinguisher.** When a vehicle catches fire, its fire-extinguishing system tries first: one charge
+(counted, like every other item; the Puma carries two, the BMP-2 two) puts the fire out with a fair chance (Puma
+better than BMP-2; a fire in the ammunition is twice as hard to put out). If it fails and a charge is left, it
+tries again a moment later; with none left — or with the extinguisher wrecked — the crew gets out as before.
+
+**Crews that back off.** A crew whose vehicle can still drive decides once a second whether to fight on or to
+**reverse out**: when it has been penetrated, struck by a rocket (even one that did not get through, like an RPG on
+a Puma's front), lost its weapons, when its commander is shaken, or when enemy infantry is close and it has not been
+told to fire at will. It fires its smoke screen toward the danger and backs away about 60 m — in reverse if the
+danger is in front, so its front armour and gun still face it — and stays there for half a minute. The radio says
+"under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
+select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
+it from an abandoned vehicle of either side if it carries what their weapon uses.
+
+**Anti-tank fire by the AI (M7.4b).** Before, men fired their Panzerfaust or RPG only if they happened to see a
+vehicle within range at the right moment (about one rocket a battle). Now the AI commander gives anti-tank tasks:
+every few seconds it looks at the enemy vehicles its men have seen or been told of in the last ten seconds, and
+orders each man with a loaded launcher who has one within range to fire at it (always within his unit's anti-tank
+rule); if a comrade stands in the danger zone behind him, he first steps a few metres aside. Up to two men are sent
+after a halted vehicle a little out of range, to a point well inside their range. Attacking squads get out at once
+when their vehicle's crew sees enemy infantry within 400 m or an enemy vehicle within 600 m, and in a withdrawal the
+vehicles first back away before turning for home.
+
 **In a battle** (the default since M7.4a; `&vehicles=0` gives the battle on foot): the attacking platoons
 start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
 operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up

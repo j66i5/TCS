@@ -95,11 +95,11 @@ export const testCatalog: Catalog = {
       stepSeconds: 1, defaultFireRule: "hold", engageRangeM: { rifle: 400, magnified: 600, sustained: 800 },
       underFireSuppression: 0.05, underFireMemorySeconds: 30, seenWithinSeconds: 2, contactLostSeconds: 10,
       seekCoverSuppression: 0.1, coverSearchM: 15, coverRetrySeconds: 20, threatEyeHeightM: 1.0,
-      shareRangeM: 30, keepSpare: 2, passSeconds: 3,
+      shareRangeM: 30, keepSpare: 2, passSeconds: 3, ammoIntervalFactor: { conserve: 1.8, normal: 1, max: 0.6 },
     },
     drills: {
       stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
-      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6,
+      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100,
     },
   },
   spotting: {

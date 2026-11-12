@@ -14,7 +14,7 @@ import {
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
-import { attachInput, createHud } from "@tcs/ui";
+import { addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -46,15 +46,42 @@ async function main(): Promise<void> {
   const overlay: Overlay = { playerSide, selectedUnit: topUnits[0] ?? null, debug: false };
 
   let speed = 1;
-  let moveMode = "walk";
-  let tapMode: "move" | "fire" | "grenade" | "grenades" = "move";
+  let pace = "walk";
+  /** Rules ordered for a unit and not yet in force there (shown as chosen meanwhile). */
+  const pendingRules = new Map<EntityId, Partial<UnitRules>>();
+  let orderMode: OrderMode = "move";
+  let plan: Plan | null = null;
+  let dragHandle: Handle | null = null;
   /** Undefined until the player picks one: then the faction's doctrine default applies. */
   let formation: string | undefined;
   const kinds = [...MAP_KINDS, "flat"];
   const playerFaction = sim.state.sides.find((s) => s.id === playerSide)?.faction ?? "";
+  const defaultFormation = input.catalog.factions[playerFaction]?.defaultFormation ?? Object.keys(input.catalog.formations)[0] ?? "";
+  const doctrineSpacing = input.catalog.factions[playerFaction]?.doctrine["preferredSpacingM"] ?? 10;
+  /** Able men of the selected unit, and where they are on average. */
+  const unitMen = () => overlay.selectedUnit === null ? [] : unitSoldierIds(sim, overlay.selectedUnit).filter((m) => sim.state.soldier.get(m)?.casualty === "none");
+  const unitCentre = () => {
+    const men = unitMen();
+    if (men.length === 0) return { x: 0, y: 0 };
+    let x = 0, y = 0;
+    for (const m of men) { const p = sim.state.transform.req(m); x += p.x; y += p.y; }
+    return { x: x / men.length, y: y / men.length };
+  };
+  const slotsOf = (f: string) => input.catalog.formations[f]?.slots ?? [[0, 0]];
+  const startPlan = (kind: PlanKind) => {
+    const f = formation ?? defaultFormation, n = Math.max(1, unitMen().length);
+    plan = newPlan(kind, unitCentre(), f, Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing));
+    hud.setPlanning(kind);
+  };
+  const endPlan = () => { plan = null; dragHandle = null; hud.setPlanning(null); };
+  /** Handles stay this far (on screen) from the marker's centre, so a finger can grab the marker itself. */
+  const HANDLE_PX = 46;
+  /** The formation marker (a move only: an assault or withdrawal ends spread round its point). */
+  const planMarker = () => plan && plan.kind === "move" ? markerGeometry(plan, slotsOf(plan.formation), Math.max(1, unitMen().length), doctrineSpacing, HANDLE_PX / renderer.camera.scale) : null;
+  let dragGapM = 3;
   const hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
-    defaultFormation: input.catalog.factions[playerFaction]?.defaultFormation ?? Object.keys(input.catalog.formations)[0] ?? "",
+    defaultFormation,
     mapLabel: `${strings.t(`map.${mapKind ?? "flat"}`)} ${seed}`,
     onNextMap: () => {
       const next = kinds[(kinds.indexOf(mapKind ?? "flat") + 1) % kinds.length]!;
@@ -63,12 +90,32 @@ async function main(): Promise<void> {
       location.search = q.toString();
     },
     onSpeed: (v) => { speed = v; },
-    onMoveMode: (m) => { moveMode = m; },
-    onTapMode: (m) => { tapMode = m; },
+    onOrderMode: (m) => { orderMode = m; if (plan && plan.kind !== m) endPlan(); },
+    onHalt: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
     onCeaseFire: () => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "ceaseFire" });
     },
-    onFormation: (f) => { formation = f; },
+    onPace: (m) => { pace = m; },
+    onFormation: (f) => {
+      formation = f;
+      if (plan) { const n = Math.max(1, unitMen().length); plan = { ...plan, formation: f, frontageM: Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) }; }
+    },
+    onUndo: () => { if (plan) plan = undoPoint(plan); },
+    onGo: () => {
+      if (plan && overlay.selectedUnit !== null) {
+        const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
+        if (o) issue(o);
+      }
+      endPlan();
+      orderMode = "move"; hud.setOrderMode("move");
+    },
+    onCancel: () => { endPlan(); orderMode = "move"; hud.setOrderMode("move"); },
+    onRules: (r) => {
+      if (overlay.selectedUnit === null) return;
+      // Shown as ordered until the unit has it (radio delay; while paused it waits).
+      pendingRules.set(overlay.selectedUnit, { ...(pendingRules.get(overlay.selectedUnit) ?? {}), ...r });
+      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}) });
+    },
     onPosture: (p) => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
     },
@@ -104,21 +151,21 @@ async function main(): Promise<void> {
     getCamera: () => renderer.camera,
     setCamera: (c) => { renderer.camera = c; },
     onTap: (w) => {
-      // Tap on one of your men: select his top-level unit. Elsewhere: move the selected unit there.
+      // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
-      if (hit !== null && sim.state.identity.req(hit).side === playerSide) {
+      if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
         overlay.selectedUnit = topUnitOf(sim, sim.state.identity.req(hit).unit);
         return;
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
-      if (tapMode === "grenade" || tapMode === "grenades") {
-        // "grenades": every man who can reach the point throws or fires, a moment apart.
-        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(tapMode === "grenades" ? { count: 50 } : {}) });
+      if (orderMode === "grenade" || orderMode === "grenades") {
+        // "All grenades": every man who can reach the point throws or fires, a moment apart.
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
         return;
       }
-      if (tapMode === "fire") {
+      if (orderMode === "fire") {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
         // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
         const known = sideKnowledge(sim.ctx, sim.state, playerSide);
@@ -130,8 +177,19 @@ async function main(): Promise<void> {
         else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y });
         return;
       }
-      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "move", waypoints: [{ x: w.x, y: w.y, mode: moveMode }], ...(formation ? { formation } : {}) });
+      // Move / assault / withdraw: each tap adds a point to the plan; Go sends it.
+      if (!plan) startPlan(orderMode);
+      plan = addPoint(plan!, w.x, w.y, pace);
     },
+    onDragStart: (w) => {
+      if (!plan) return false;
+      const g = planMarker();
+      dragHandle = hitHandle(plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
+      dragGapM = g?.resizeGapM ?? 3;
+      return dragHandle !== null;
+    },
+    onDrag: (w) => { if (plan && dragHandle !== null) plan = dragTo(plan, dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: dragGapM }); },
+    onDragEnd: () => { dragHandle = null; },
   });
 
   const sideColour = (side: string) => {
@@ -188,14 +246,49 @@ async function main(): Promise<void> {
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y, count }),
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
+    /** Plan a move through these points (screenshots): the marker is shown until go(). */
+    planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {
+      startPlan("move");
+      for (const p of pts) plan = addPoint(plan!, p.x, p.y, p.mode ?? pace);
+      if (facing !== undefined) plan = { ...plan!, facing };
+      if (frontageM !== undefined) plan = { ...plan!, frontageM };
+    },
+    cancelPlan: () => { endPlan(); },
+    go: () => { if (plan && overlay.selectedUnit !== null) { const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(o); } endPlan(); },
+    showRules: () => { (document.querySelector(".hud-orders button:last-child") as HTMLButtonElement | null)?.click(); },
     assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "assault", x, y }),
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
-    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: moveMode }], ...(formation ? { formation } : {}) }),
+    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
     hash: () => simHash(sim),
     ready: true,
+  };
+
+  /** The selected unit's rules and state for the rules panel. */
+  let statusAt = 0;
+  const showUnit = () => {
+    const uid = overlay.selectedUnit;
+    const u = uid === null ? undefined : sim.state.unit.get(uid);
+    if (!u || uid === null) { hud.setUnit(null, ""); return; }
+    const men = unitSoldierIds(sim, uid);
+    let fit = 0, wounded = 0, down = 0;
+    const states = new Map<string, number>();
+    for (const m of men) {
+      const s = sim.state.soldier.req(m);
+      if (s.casualty !== "none") { down++; continue; }
+      if (s.wounds.some((w) => w.mechanism !== "blunt")) wounded++; else fit++;
+      states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
+    }
+    const state = u.broken ? strings.t("behaviour.broken") : [...states.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${strings.t(`behaviour.${k}`)}`).join(", ");
+    const now: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule };
+    const pend = pendingRules.get(uid);
+    if (pend) {
+      for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === now[k]) delete pend[k];
+      if (Object.keys(pend).length === 0) pendingRules.delete(uid);
+    }
+    hud.setUnit({ ...now, ...(pendingRules.get(uid) ?? {}) }, strings.t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
   };
 
   let acc = 0;
@@ -218,7 +311,9 @@ async function main(): Promise<void> {
     // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
+    overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
+    if (now - statusAt >= 500) { statusAt = now; showUnit(); }
     frames++;
     if (now - fpsT0 >= 1000) {
       fps = (frames * 1000) / (now - fpsT0);
@@ -241,6 +336,13 @@ function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: st
     if (d < bestD) { bestD = d; best = id; }
   }
   return best;
+}
+
+/** All soldiers of a unit and its sub-units. */
+function unitSoldierIds(sim: Sim, unit: EntityId): EntityId[] {
+  const u = sim.state.unit.get(unit);
+  if (!u) return [];
+  return [...u.members, ...u.children.flatMap((c) => unitSoldierIds(sim, c))];
 }
 
 function topUnitOf(sim: Sim, unit: EntityId): EntityId {

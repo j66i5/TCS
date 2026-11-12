@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": { "lib": ["ES2022"], "types": ["node"] },
+  "compilerOptions": { "lib": ["ES2022", "DOM"], "types": ["node"] },
   "include": ["packages/*/test", "vitest.config.ts", "eslint.config.js", "packages/app/vite.config.ts"]
 }

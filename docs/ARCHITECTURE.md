@@ -452,6 +452,17 @@ decisions when fire starts after a quiet spell) with `Unit.moveTick`. Breaking: 
 men are `panicked` sets them `routed` (morale leaves routed men alone; fire factor 0; decisions skip them) and
 sends them to a rally point away from the mean of their contacts; rally resets them to `cautious`.
 
+## 16n. Orders and interface (SPEC 6.6, M5) — `ui/src/planner.ts`, `ui/src/hud.ts`, `ui/src/input.ts`, `app/src/main.ts`
+The order planner is pure logic in the ui package (no DOM, unit-tested): a `Plan` (kind, route points with a
+pace each, formation, facing, frontage) → `markerGeometry` (where each man will stand, laid out exactly as
+`systems/orders.ts` lays them out: slots turned to the facing, spaced to the frontage), `hitHandle` /
+`dragTo` (body, turn, width, earlier points), `planToOrder` (one `move` with `facing`/`frontageM`, or an
+`assault`/`withdraw`). Input asks the app on every one-finger press whether it starts a drag (a handle under
+the finger) before panning. The renderer draws `Overlay.plan`. The HUD's order bar, plan bar and rules panel
+call back into the app, which turns everything into orders (`rules` carries only the changed rules). Unit
+fields `maxEngageM`, `onContact`, `ammoRule` (schema 12, the M4 bump not yet released) feed decisions,
+drills and the fire system.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

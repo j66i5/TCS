@@ -290,7 +290,10 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       w.burstLeft = 0;
       const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
       // +-15 % so men do not fire in step.
-      w.nextShotTick = tick + Math.max(1, Math.round((secondsToTicks(interval) / rateK) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
+      // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.
+      const rule = state.unit.get(state.identity.req(id).unit)?.ammoRule ?? "normal";
+      const disc = ctx.catalog.behaviour.decisions.ammoIntervalFactor[rule];
+      w.nextShotTick = tick + Math.max(1, Math.round((secondsToTicks(interval) * disc / rateK) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
     }
   }
 

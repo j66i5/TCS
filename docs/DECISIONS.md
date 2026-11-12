@@ -1014,3 +1014,48 @@ unit's drill on the leader's label; screenshot `7-assault-debug` is the overlay 
 at 300 m are small targets and the attackers break within ~45 s); the supported attack succeeds 4/5 with
 Germany attacking and 1/5 with Russia (weapons and optics differ: G36 3x optic, MG5) — a finding for the
 owner's review, not tuned away.
+
+## 2026-11-12 — M5 owner answers (orders and interface)
+1. **Order input:** "drag targets around, like in the firefight game": the move target is a draggable marker in
+   the shape of the unit's formation — a bar for a line, a wedge for a wedge, and so on — with an arrow for the
+   facing, resizable (frontage); changing the formation changes its shape.
+2. **Waypoints:** multi-point path, pace per leg (walk, run, sneak, crawl).
+3. **Time:** pause any time and give orders while paused (they take the radio delay once time runs).
+4. **Standing rules on the unit panel:** fire rule (free / return / hold), engagement range limit, stance on
+   contact (go to ground / push on / fall back), ammunition discipline (conserve / normal / maximum).
+
+## 2026-11-12 — M5.1 / M5.2 orders and interface
+Implemented the owner's answers. Details decided here (game values / interface choices): the formation marker's
+width is the distance between the outermost men (a file keeps the doctrine spacing); with a laid-out formation
+each man looks for cover only within 4 m of his place (15 m otherwise), so the shape holds; engagement range
+choices any / 400 / 200 / 100 m; ammunition discipline stretches the pause between shots or bursts x1.8
+(conserve) or x0.6 (maximum); "fall back" on contact withdraws 100 m from the known enemy by bounds; "push on"
+does not stop. Grenade and all-grenades stay separate buttons. The old one-tap move remains only as a debug hook.
+
+## 2026-11-12 — M5 independent review: findings and fixes
+No hard rule broken; the marker geometry matches how the simulation lays men out (now tested end to end on a
+wedge from the data). Fixed: (1) the rules panel and the plan bar could never be hidden (CSS display overrode
+`hidden`) — a global `[hidden]` rule; (2) at the normal zoom a finger on the marker grabbed the turn handle —
+handles now sit a fixed 46 px from the centre and the nearest part under the finger wins; (3) a range limit did
+not stop fire the men had already opened on their own beyond it — it does now; (4) the rules panel jumped back
+to the old value until the order arrived (all through a pause) — ordered values are shown until in force;
+(5) Halt and cease fire were scrolled off the phone screen — the order bar wraps onto two rows; (6) assault and
+withdraw showed a formation marker the drill does not keep — now only the point and a ring; (8) tests added:
+input (tap / pan / handle drag / pinch with a stand-in element), marker vs simulation (wedge from data), range
+limit set mid-engagement. Minor: "fall back" with no enemy placed falls back the way the unit came; a file has
+no width handle. **Recorded for the owner (7):** every move given in the interface lays the formation out as
+the marker shows (cover within 4 m, facing the arrow) — the M1.4 halt drill (cover within 15 m, facing outward)
+is no longer used from the interface; it follows from "drag the formation marker", to confirm at the review.
+The test typecheck now includes the DOM library (the ui tests use DOM types; the packages' own configs still
+keep DOM out of sim, data, ai, scenario, campaign). Golden replays were regenerated in M5.1 for the new
+behaviour data (ammunition discipline, fall-back distance: catalog fingerprint); the review fixes left them
+unchanged.
+
+## 2026-11-12 — M6 owner answers (first playable)
+1. **Size:** platoon against platoon (about 3 squads a side), one side attacks, the other defends.
+2. **Victory:** objectives held at the end plus losses: points for objectives held when time runs out, minus a
+   share for casualties; a side that breaks or is wiped out loses early.
+3. **Enemy commander:** doctrinal and cautious — reconnoitres, uses fire support and bounding, pulls back badly
+   hurt units; plays by its faction's doctrine values.
+4. **After-action review:** result and casualty list, timeline of events, heat map (where fire came from and
+   where men fell). (No replay viewer for now.)

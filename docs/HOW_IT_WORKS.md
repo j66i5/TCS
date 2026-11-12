@@ -3,6 +3,24 @@
 Plain-language tour of the systems as they exist **now** (end of M0). Updated every session. Words in
 `code font` are names you can search for in the repository.
 
+## How to play (M5)
+
+Tap one of your men to select his unit. The bar at the bottom holds the orders:
+- **Move**: tap the map for each point of the route; the pace button sets the pace of the next leg (walk,
+  run, sneak, crawl — the route shows it in colour). At the end stands the formation marker: one ring per man,
+  in the shape of the formation (change it with the formation button). Drag the marker to move it, drag the
+  yellow handle at the arrow to turn it, the yellow handle at its side to make it wider or narrower. **Go**
+  sends the order; **Undo** drops the last point, **Cancel** the whole plan. The men lay themselves out exactly
+  so, take cover close to their places and face the way the arrow points.
+- **Assault** / **Withdraw**: tap the point, Go (the drills of M4.3).
+- **Fire**: tap the target — on an enemy marker to fire at that enemy. **Grenade** / **All grenades**: tap.
+- **Halt**, **cease fire**, the posture button.
+- **Rules**: the unit's standing rules — fire (at will / return fire / hold), open fire within (any range or
+  400 / 200 / 100 m), on contact (go to ground / push on / fall back), ammunition (conserve / normal /
+  maximum) — and its state (fit, wounded, down; steady, pinned...).
+Pause (❚❚) any time: orders can be given while paused; they go out over the radio when time runs. Speeds 1x,
+2x, 4x.
+
 ## The big picture
 
 The game is split into a **simulation** and everything around it.

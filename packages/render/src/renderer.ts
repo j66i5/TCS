@@ -29,7 +29,19 @@ export interface Overlay {
    * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
    */
   known?: readonly { target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number }[] | null;
+  /** The order being planned (M5): route with its pace per leg, the formation marker with its handles. */
+  plan?: PlanOverlay | null;
 }
+
+export interface PlanOverlay {
+  kind: "move" | "assault" | "withdraw";
+  from: { x: number; y: number };
+  points: readonly { x: number; y: number; mode: string }[];
+  marker: { centre: { x: number; y: number }; men: readonly { x: number; y: number }[]; arrowTip: { x: number; y: number }; rotate: { x: number; y: number }; resize: { x: number; y: number } | null } | null;
+}
+
+/** Colour of a route leg by its pace. */
+const PACE_COLOURS: Record<string, number> = { walk: 0xffffff, run: 0xffc23d, sneak: 0x7fd7ff, crawl: 0xb08cff };
 
 /** A short-lived mark where a projectile struck. */
 interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" | "hit" }
@@ -272,6 +284,7 @@ export class BattleRenderer {
         this.label(label++, u.callsign, s.x + w / 2 + 4, s.y - 7, colour);
       }
       if (fog) this.drawKnown(g, overlay, sideIndex);
+      if (overlay.plan) this.drawPlan(g, overlay.plan);
       for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
       return;
     }
@@ -344,6 +357,7 @@ export class BattleRenderer {
       }
     }
     if (fog) this.drawKnown(g, overlay, sideIndex);
+    if (overlay.plan) this.drawPlan(g, overlay.plan);
     for (let i = label; i < this.labelPool.length; i++) this.labelPool[i]!.visible = false;
   }
 
@@ -352,6 +366,43 @@ export class BattleRenderer {
    * one where he was last seen or reported, a circle for how far off that may be; a sound is a dashed ring with
    * a cross at the guessed place. Old contacts fade out over two minutes.
    */
+  /** The order being planned: route legs coloured by pace, the men's places, the facing arrow, the handles. */
+  private drawPlan(g: Graphics, plan: PlanOverlay): void {
+    const c = this.camera;
+    const main = plan.kind === "assault" ? 0xff6a4d : plan.kind === "withdraw" ? 0x7fd7ff : 0xffffff;
+    let a = worldToScreen(c, plan.from.x, plan.from.y);
+    for (const p of plan.points) {
+      const b = worldToScreen(c, p.x, p.y);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.85 });
+      g.circle(b.x, b.y, 6).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2, color: 0xffffff });
+      a = b;
+    }
+    const m = plan.marker;
+    if (!m) {
+      // Assault / withdraw: the men end spread round the point, facing as the fight takes them.
+      const last = plan.points[plan.points.length - 1];
+      if (last) { const s = worldToScreen(c, last.x, last.y); g.circle(s.x, s.y, Math.max(12, 5 * c.scale)).stroke({ width: 2, color: main, alpha: 0.9 }); }
+      return;
+    }
+    const pts = m.men.map((p) => worldToScreen(c, p.x, p.y));
+    // The formation's shape: each man's place, joined to the leader's.
+    const lead = pts[0]!;
+    for (const p of pts.slice(1)) g.moveTo(lead.x, lead.y).lineTo(p.x, p.y).stroke({ width: 1.5, color: main, alpha: 0.5 });
+    for (const p of pts) g.circle(p.x, p.y, Math.max(4, 0.6 * c.scale)).stroke({ width: 2, color: main, alpha: 0.95 });
+    const ce = worldToScreen(c, m.centre.x, m.centre.y), tip = worldToScreen(c, m.arrowTip.x, m.arrowTip.y);
+    g.moveTo(ce.x, ce.y).lineTo(tip.x, tip.y).stroke({ width: 3, color: main });
+    const ang = Math.atan2(tip.y - ce.y, tip.x - ce.x);
+    g.poly([tip.x + Math.cos(ang) * 10, tip.y + Math.sin(ang) * 10, tip.x + Math.cos(ang + 2.4) * 9, tip.y + Math.sin(ang + 2.4) * 9, tip.x + Math.cos(ang - 2.4) * 9, tip.y + Math.sin(ang - 2.4) * 9]).fill({ color: main });
+    if (plan.kind === "move") {
+      // Handles, big enough for a finger: turn (at the arrow), width (at the side).
+      for (const h of [m.rotate, m.resize]) {
+        if (!h) continue;
+        const s = worldToScreen(c, h.x, h.y);
+        g.circle(s.x, s.y, 11).fill({ color: 0x1b241a, alpha: 0.7 }).stroke({ width: 2.5, color: 0xffd23d });
+      }
+    }
+  }
+
   private drawKnown(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>): void {
     const c = this.camera;
     let enemy = 0;

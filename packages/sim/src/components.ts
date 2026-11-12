@@ -2,7 +2,7 @@
  * Component types. Entities are numbers; each kind of state lives in its own store (SPEC 4.3 rule 6).
  * All components are plain data (no methods, no class instances) so the whole state serialises.
  */
-import type { FireRule } from "./catalog";
+import type { AmmoRule, ContactRule, FireRule } from "./catalog";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Posture, Waypoint } from "./orders";
 import type { Physiology, Wound } from "./wounds";
@@ -148,6 +148,11 @@ export interface Unit {
   lastCallTick: number;
   /** Standing fire rule (M4.2): when its men open fire on their own. */
   fireRule: FireRule;
+  /** Standing rules (M5): no fire on their own beyond this range (0 = the weapon's range), what to do on contact
+   * while moving, and ammunition discipline. */
+  maxEngageM: number;
+  onContact: ContactRule;
+  ammoRule: AmmoRule;
   /** Last tick a man of this unit (or its sub-units) came under fire, and of its last cease-fire order. */
   underFireTick: number;
   ceaseFireTick: number;

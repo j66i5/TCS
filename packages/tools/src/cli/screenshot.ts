@@ -69,6 +69,17 @@ try {
     await page.waitForTimeout(300);
     const p0 = `${outDir}/${mapKind}-${seed}-${name}-0-start.png`;
     await page.screenshot({ path: p0 }); shots.push(p0);
+    // M5: a route of three legs (crawl, run, walk) ending in a wedge marker turned north-east, 50 m wide, with
+    // the rules panel open; then the plan is dropped (nothing is ordered: the scenes below stay as they were).
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; let x = 0, y = 0, n = 0;
+      for (const [id, i] of s.identity.entries()) if (i.side === "blue") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+      x /= n; y /= n;
+      t.planMove([{ x: x + 40, y, mode: "crawl" }, { x: x + 110, y: y - 30, mode: "run" }, { x: x + 170, y: y - 40, mode: "walk" }], -0.6, 50);
+      t.showRules(); t.focus(x + 90, y - 20, 300); t.stepTicks(1);`) as () => void);
+    await page.waitForTimeout(300);
+    const p0b = `${outDir}/${mapKind}-${seed}-${name}-0b-plan-and-rules.png`;
+    await page.screenshot({ path: p0b }); shots.push(p0b);
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.cancelPlan(); t.showRules(); t.stepTicks(1);") as () => void);
     // Order the blue team toward the map centre (through the village on village maps), advance 40 s of game
     // time, and switch the debug view on so the navigation grid and the planned route are visible.
     await page.evaluate(new Function(`const t = globalThis.__tcs; const m = t.sim.ctx.map;

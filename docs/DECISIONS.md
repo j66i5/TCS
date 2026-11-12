@@ -1014,3 +1014,12 @@ unit's drill on the leader's label; screenshot `7-assault-debug` is the overlay 
 at 300 m are small targets and the attackers break within ~45 s); the supported attack succeeds 4/5 with
 Germany attacking and 1/5 with Russia (weapons and optics differ: G36 3x optic, MG5) — a finding for the
 owner's review, not tuned away.
+
+## 2026-11-12 — M5 owner answers (orders and interface)
+1. **Order input:** "drag targets around, like in the firefight game": the move target is a draggable marker in
+   the shape of the unit's formation — a bar for a line, a wedge for a wedge, and so on — with an arrow for the
+   facing, resizable (frontage); changing the formation changes its shape.
+2. **Waypoints:** multi-point path, pace per leg (walk, run, sneak, crawl).
+3. **Time:** pause any time and give orders while paused (they take the radio delay once time runs).
+4. **Standing rules on the unit panel:** fire rule (free / return / hold), engagement range limit, stance on
+   contact (go to ground / push on / fall back), ammunition discipline (conserve / normal / maximum).

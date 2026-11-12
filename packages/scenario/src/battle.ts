@@ -21,12 +21,17 @@ export interface ScenarioDef {
   factions: [string, string];
   /** Which side attacks: the other holds the objectives at the start. */
   attacker: "blue" | "red";
+  /** Platoons on the attacking side (owner, M6 review: two against one); the defender always has one. */
+  attackerPlatoons?: number;
   /** Unit template per side (defaults: the faction manifest's platoon template, else its demo template). */
   templates?: [string, string];
   timeLimitSeconds?: number;
   mapWidthM?: number;
   mapHeightM?: number;
 }
+
+/** Mortar rounds each side may call (game values). */
+export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
 
 /** Points of the main and the second objective, and what each man down costs his side. */
 export const SCENARIO_POINTS = { main: 100, second: 50, perManDown: 5 } as const;
@@ -70,11 +75,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
     const template = def.templates?.[s] ?? pack?.manifest.platoonTemplate ?? pack?.manifest.demoTemplate ?? "demo-team";
-    const unit = buildForce(data, { faction, template, seed: def.seed * 31 + s * 7, keyPrefix: `${side}-1`, number: 1 });
+    const count = side === def.attacker ? Math.max(1, def.attackerPlatoons ?? 2) : 1;
+    const units = Array.from({ length: count }, (_, k) => buildForce(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
     const placements: Placement[] = [];
     const heading = side === "blue" ? 0 : PI; // facing the other side
-    // Each sub-unit (squad) and the platoon's own men get a spot; men stand in a loose line, 6 m apart.
-    const groups = unit.subunits.length > 0 ? [unit.members, ...unit.subunits.map((u) => allMembers(u))].filter((g) => g.length > 0) : [allMembers(unit)];
+    // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
+    const groups = units.flatMap((unit) => unit.subunits.length > 0 ? [unit.members, ...unit.subunits.map((u) => allMembers(u))].filter((g) => g.length > 0) : [allMembers(unit)]);
     groups.forEach((men, gi) => {
       let cx: number, cy: number;
       if (side === defender) {
@@ -86,17 +92,19 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       } else {
         // Attack: start in a line of squads near the own map edge, opposite the objectives.
         cx = side === "blue" ? W * 0.08 : W * 0.92;
-        cy = H / 2 + (gi - (groups.length - 1) / 2) * 70;
+        cy = H / 2 + (gi - (groups.length - 1) / 2) * (groups.length > 4 ? 45 : 70);
       }
       men.forEach((m, mi) => {
         const p = freeSpot(map, catalog, cx, cy + (mi - (men.length - 1) / 2) * 6);
         placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
       });
     });
-    return { side, faction, units: [unit], placements };
+    return { side, faction, units, placements };
   });
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
+  // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
+  rules.support = SIDES.map((side) => side === def.attacker ? { side, he: SCENARIO_SUPPORT.attackerHe, smoke: SCENARIO_SUPPORT.attackerSmoke } : { side, he: SCENARIO_SUPPORT.defenderHe, smoke: SCENARIO_SUPPORT.defenderSmoke });
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }

@@ -33,7 +33,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 13;
+export const STATE_SCHEMA_VERSION = 14;
 
 export interface SideState {
   id: SideId;
@@ -59,6 +59,11 @@ export interface SimState {
   objectives: { id: string; holder: SideId | null; contested: boolean }[];
   /** The side that lost early (broken or wiped out), if one did. */
   endLoser: SideId | null;
+  /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
+   *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
+  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
+  fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -96,6 +101,9 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     contactReports: [],
     objectives: [],
     endLoser: null,
+    support: [],
+    fireMissions: [],
+    smoke: [],
     ended: null,
     identity: new Store(),
     transform: new Store(),
@@ -132,6 +140,11 @@ export interface SerializedState {
   objectives: { id: string; holder: SideId | null; contested: boolean }[];
   /** The side that lost early (broken or wiped out), if one did. */
   endLoser: SideId | null;
+  /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
+   *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
+  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
+  fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
+  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;
@@ -161,6 +174,9 @@ export function serializeState(s: SimState): SerializedState {
       contactReports: s.contactReports,
       objectives: s.objectives,
       endLoser: s.endLoser,
+      support: s.support,
+      fireMissions: s.fireMissions,
+      smoke: s.smoke,
       ended: s.ended,
       stores,
     },
@@ -205,6 +221,9 @@ export function deserializeState(data: SerializedState): SimState {
     contactReports: d.contactReports,
     objectives: d.objectives,
     endLoser: d.endLoser,
+    support: d.support,
+    fireMissions: d.fireMissions,
+    smoke: d.smoke,
     ended: d.ended,
     catalogFingerprint: d.catalogFingerprint,
     mapFingerprint: d.mapFingerprint,

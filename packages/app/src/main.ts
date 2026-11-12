@@ -9,7 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { commanderController, wanderController } from "@tcs/ai";
 import {
-  battleScore, loadGame, saveGame, type SaveGame,
+  battleScore, loadGame, saveGame, supportLeft, type SaveGame,
   eyeHeightM, heightAt, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
@@ -204,6 +204,11 @@ async function main(): Promise<void> {
         issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
         return;
       }
+      if (orderMode === "mortar" || orderMode === "smoke") {
+        // Mortar fire (M6.5c): the unit's leader calls it; it lands after a minute or more.
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "callFire", x: w.x, y: w.y, ammo: orderMode === "mortar" ? "he" : "smoke", rounds: orderMode === "mortar" ? 4 : 2 });
+        return;
+      }
       if (orderMode === "fire") {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
         // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
@@ -390,7 +395,9 @@ async function main(): Promise<void> {
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
     if (defs.length === 0) { hud.setScore(""); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
-    hud.setScore([...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
+    const sup = sim.state.support.some((x) => x.side === playerSide);
+    const supText = sup ? [strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") })] : [];
+    hud.setScore([...supText, ...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
   };
 
   let acc = 0;

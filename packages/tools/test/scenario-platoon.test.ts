@@ -8,13 +8,14 @@ const data = loadData();
 const def = (seed: number, over: Partial<ScenarioDef> = {}): ScenarioDef => ({ kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", ...over });
 
 describe("platoon battle generator (M6.2)", () => {
-  it("platoon against platoon: three squads and the platoon's own men a side; the same definition gives the same battle", () => {
+  it("two platoons attack one: three squads and the platoon's own men each; the same definition gives the same battle", () => {
     const a = buildScenario(data, def(4)), b = buildScenario(data, def(4));
     expect(hashState(createSim(a).state)).toBe(hashState(createSim(b).state));
+    // The attacker (blue here) has two platoons, the defender one (owner, M6 review); each of three squads.
     for (const f of a.forces) {
-      expect(f.units).toHaveLength(1);
-      expect(f.units[0]!.subunits).toHaveLength(3);
-      expect(f.placements.length).toBeGreaterThanOrEqual(19);
+      expect(f.units).toHaveLength(f.side === "blue" ? 2 : 1);
+      for (const u of f.units) expect(u.subunits).toHaveLength(3);
+      expect(f.placements.length).toBeGreaterThanOrEqual(19 * f.units.length);
     }
     // A scenario definition is plain data.
     expect(JSON.parse(JSON.stringify(def(4)))).toEqual(def(4));

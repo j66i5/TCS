@@ -13,6 +13,15 @@
   },
   "sources": [],
   "confidence": "low",
-  "note": "Placeholder values identical for both factions, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover). M4.4: boundM (length of one bound in fire and movement) and finalAssaultM (the last stretch rushed together) are game values, the same for both sides until a public source gives a difference (owner to review).",
-  "defaultFormation": "wedge"
+  "note": "Placeholder values identical for both factions, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover). M4.4: boundM (length of one bound in fire and movement) and finalAssaultM (the last stretch rushed together) are game values, the same for both sides until a public source gives a difference (owner to review). M6.5c fire support: Battalion 120 mm mortars (Moerser 120 mm): game values for the time to first round, spread and cadence. Pulled forward from M8 by the owner (M6 review); low confidence.",
+  "defaultFormation": "wedge",
+  "fireSupport": {
+    "heAmmo": "de-120-he",
+    "smokeAmmo": "de-120-smoke",
+    "delaySeconds": 90,
+    "dispersionM": 30,
+    "intervalSeconds": 6,
+    "smokeRadiusM": 35,
+    "smokeSeconds": 150
+  }
 }

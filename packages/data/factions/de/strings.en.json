@@ -71,5 +71,8 @@
   "item.de-g95-mag": "G95 magazine",
   "role.de.zugfuehrer": "Zugfuehrer",
   "role.de.funker": "Funker",
-  "unit.de.zug": "Zug {n}"
+  "unit.de.zug": "Zug {n}",
+  "ammo.de-120-he": "120 mm HE mortar bomb",
+  "ammo.de-120-fragment": "fragment",
+  "ammo.de-120-smoke": "120 mm smoke mortar bomb"
 }

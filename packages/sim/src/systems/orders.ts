@@ -1,6 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
+import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -57,6 +58,10 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.onContact !== undefined && o.onContact !== "ground" && o.onContact !== "push" && o.onContact !== "back") return "invalid-params";
       if (o.ammo !== undefined && o.ammo !== "conserve" && o.ammo !== "normal" && o.ammo !== "max") return "invalid-params";
       return null;
+    case "callFire":
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      if (o.ammo !== "he" && o.ammo !== "smoke") return "invalid-params";
+      return Number.isInteger(o.rounds) && o.rounds >= 1 && o.rounds <= 24 ? null : "invalid-params";
     case "assault":
     case "withdraw":
       if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
@@ -153,7 +158,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Men of a broken unit, running back, do not listen (M4.3).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed");
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
-  if (order.kind !== "rules") {
+  // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
+  if (order.kind !== "rules" && order.kind !== "grenade" && order.kind !== "callFire") {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
     if (isUnit) clearDrills(state, ou);
     releaseFromParentDrills(state, ou, soldiers);
@@ -303,6 +309,15 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       const groups = drillGroups(state, du);
       if (groups.length === 0) return "unable";
       state.unit.req(du).drill = { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
+      break;
+    }
+    case "callFire": {
+      // The leader calls it (or whoever of the unit can still use the radio); the unit keeps doing what it did.
+      const cu = isUnit ? order.target : state.identity.get(order.target)?.unit;
+      const u = cu !== undefined ? state.unit.get(cu) : undefined;
+      // (A unit: its leader first if he is one of the men who can act; one man: only he.)
+      const callers = isUnit && u && u.leader !== null && soldiers.includes(u.leader) ? [u.leader, ...soldiers] : soldiers;
+      if (!callFire(ctx, state, order.issuer, callers, order.x, order.y, order.ammo, order.rounds)) return "unable";
       break;
     }
     case "rules": {

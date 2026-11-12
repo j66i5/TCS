@@ -1,7 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
-  "app.hint": "Tap one of your men to select his unit. Then: Move - tap the map for each point of the route (pace per leg), drag the formation marker, its arrow to turn it, its yellow handle to widen it, and press Go. Assault / Withdraw - tap the point, Go. Fire / Grenade - tap the target. Pause any time: orders still work.",
+  "app.hint": "Tap one of your men to select his squad. Then: Move - tap the map for each point of the route (pace per leg), drag the formation marker, its arrow to turn it, its yellow handle to widen it, and press Go. Assault / Withdraw - tap the point, Go. Fire / Grenade / Mortar / Smoke - tap the target (mortar rounds land after a minute or more). Pause any time: orders still work.",
   "app.pause": "Pause",
   "app.resume": "Resume",
   "app.speed": "Speed",
@@ -200,5 +200,9 @@
   "zone.leg": "leg",
   "app.saveFailed": "The battle could not be saved.",
   "app.loadFailed": "The saved battle could not be loaded (made with other data?): a new battle has started.",
-  "aar.reason.both": "Both sides were finished at once."
+  "aar.reason.both": "Both sides were finished at once.",
+  "order.mortar": "Mortar",
+  "order.smoke": "Smoke",
+  "score.support": "mortar {he} HE, {smoke} smoke",
+  "radio.ack.callFire": "{callsign}: fire mission called."
 }

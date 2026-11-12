@@ -476,6 +476,15 @@ target, timers; saved with the game), reading only its own men's contacts and th
 transcendental maths via sim/math. The app builds the after-action review from the events it receives
 (`ui/src/aar.ts` lays it out) and draws objectives and the heat map through `Overlay.objectives` / `.heat`.
 
+## 16p. Fire support (M6.5c) — `sim/src/systems/support.ts`
+`rules.support` gives each side's rounds (HE, smoke); faction doctrine `fireSupport` the ammunition, delay,
+spread, cadence and smoke size. A `callFire` order (does not end a drill) goes through the unit's leader or
+whoever can still use the radio; `state.fireMissions` hold the rounds still to come, `state.smoke` the clouds
+(schema 14). `supportSystem` runs before the projectile pass: rounds scatter on the `support` RNG stream; HE
+calls `detonate` (owner = the caller, so own-side suppression rules hold); smoke adds a cloud
+(`support.smoke`). Spotting multiplies visibility by `smokeTransmission` (exp(-k x metres of smoke along the
+line; k in `core/spotting.json`). Smoke does not stop bullets.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.

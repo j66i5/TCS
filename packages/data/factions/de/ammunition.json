@@ -240,6 +240,92 @@
       ],
       "confidence": "low",
       "note": "7.62 mm x 51 tracer for belts (every fifth round). Values derived from the ball round; burn-out about 800 m. Game abstraction. Penetration re-anchored after review (2026-11-11): the first values made 7.62 mm weaker against cover than 5.56/5.45 mm at every range, which is wrong; it is now set somewhat above the small calibres (more with the steel core), as a game value without a measured anchor."
+    },
+    {
+      "id": "de-120-he",
+      "nameKey": "ammo.de-120-he",
+      "calibre": "120mm-mortar",
+      "kind": "high-explosive",
+      "projectileMassKg": 13.2,
+      "cartridgeMassKg": 14,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 2.3,
+        "fragmentCount": 1800,
+        "fragmentAmmo": "de-120-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1400
+        ]
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm",
+        "https://de.wikipedia.org/wiki/M120_(M%C3%B6rser)"
+      ],
+      "confidence": "low",
+      "note": "120 mm HE mortar bomb (DM61 type, Moerser 120 mm): the filling of the DM61 is not public in the sources reached; 2.3 kg and 1800 fragments are game values in the range of 120 mm HE bombs, checked only against the stated ~50 m lethal fragment radius (M120 article). Owner to correct."
+    },
+    {
+      "id": "de-120-fragment",
+      "nameKey": "ammo.de-120-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.003,
+      "cartridgeMassKg": 0.003,
+      "diameterM": 0.009,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 4.5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "One fragment of the 120 mm bomb (game abstraction)."
+    },
+    {
+      "id": "de-120-smoke",
+      "nameKey": "ammo.de-120-smoke",
+      "calibre": "120mm-mortar",
+      "kind": "smoke",
+      "projectileMassKg": 13.0,
+      "cartridgeMassKg": 13.0,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm"
+      ],
+      "confidence": "low",
+      "note": "Smoke mortar bomb: a counted round of the mortar section's stock (rule 9); its cloud is in the faction's fireSupport (game values)."
     }
   ]
 }

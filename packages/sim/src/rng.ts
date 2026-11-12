@@ -31,6 +31,7 @@ export const Streams = {
   fire: "fire",
   fragments: "fragments",
   contacts: "contacts",
+  support: "support",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

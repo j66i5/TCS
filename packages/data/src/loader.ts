@@ -259,6 +259,13 @@ function loadFaction(
     if ((it.tracerItem === undefined) !== (it.tracerEvery === undefined)) errors.push({ file: f("items.json"), path: `items[${i}].tracerItem`, message: "tracerItem and tracerEvery belong together", severity: "error" });
     if (it.tracerItem !== undefined && !ammoF.ammunition.some((a) => a.id === it.tracerItem && a.tracer)) errors.push({ file: f("items.json"), path: `items[${i}].tracerItem`, message: `'${it.tracerItem}' is not a tracer ammunition of this faction`, severity: "error" });
   });
+  // Fire support (M6.5c): its rounds must be ammunition of this faction (HE with an explosive, a smoke round).
+  const fs = doctrine?.fireSupport;
+  if (fs) {
+    const he = ammoF.ammunition.find((a) => a.id === fs.heAmmo);
+    if (!he || !he.explosive) errors.push({ file: f("doctrine.json"), path: "fireSupport.heAmmo", message: `'${fs.heAmmo}' is not an explosive ammunition of this faction`, severity: "error" });
+    if (!ammoF.ammunition.some((a) => a.id === fs.smokeAmmo && a.kind === "smoke")) errors.push({ file: f("doctrine.json"), path: "fireSupport.smokeAmmo", message: `'${fs.smokeAmmo}' is not a smoke ammunition of this faction`, severity: "error" });
+  }
   // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
   const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({
     id: a.id, nameKey: a.nameKey, category: "ammunition", massKg: a.cartridgeMassKg,

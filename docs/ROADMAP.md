@@ -130,7 +130,7 @@ Slices (owner answers 2026-11-12):
 - **M5.3 Review and polish** ✅ — independent review, eight findings fixed; the owner tries it on his phone.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 
-### M6 Opposing commander and scenarios — ✅ (owner review due)
+### M6 Opposing commander and scenarios — ✅ (reviewed by the owner 2026-11-12)
 Objectives, scenario format and generator, commander AI for both postures, after-action review, save and load.
 Slices (owner answers 2026-11-12):
 - **M6.1 Objectives and victory** ✅ — objective areas held / contested; score = objectives held at the end
@@ -148,6 +148,17 @@ side playable, AI-versus-AI batch report available.
 **Stop after M6 for a review with the owner** (is it fun, what is wrong, what to change before adding breadth;
 also: pull the medical system forward or not; **owner asked to be reminded (2026-11-11): fog of war "only what
 reached the squad leader"** instead of "what your men have reported" — see DECISIONS.md, M3.4).
+
+### M6.5 Attack balance — ✅ partly (owner, M6 review; Russian attack still 0 of 10, owner to decide)
+The AI attack never succeeded against the AI defence (40 of 40). All three remedies:
+- **M6.5a More attackers** — two platoons attack one (scenario generator; the AI commander leads both).
+- **M6.5b Better attack tactics** — covered approach routes, crawling the last stretch, fire support closer and
+  at known enemies, grenades at close range.
+- **M6.5c Support fire** — mortars and smoke pulled forward from M8 (indirect fire process, smoke as a
+  concealment volume).
+Acceptance: AI-versus-AI attacks succeed some of the time (neither side wins every battle); the player can
+call mortar fire and smoke. **Result:** the German attack now wins 2 of 10 (was 0 of 20); the Russian attack
+still 0 of 10 (its 82 mm mortar is far lighter than the German 120 mm) — for the owner's review.
 
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired

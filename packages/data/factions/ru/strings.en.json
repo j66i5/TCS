@@ -63,5 +63,8 @@
   "role.ru.senior-rifleman": "Senior rifleman",
   "role.ru.rifleman-gl": "Rifleman (GP-25)",
   "weapon.ru-ak12": "AK-12",
-  "role.ru.platoon-commander": "Platoon commander"
+  "role.ru.platoon-commander": "Platoon commander",
+  "ammo.ru-82-he": "82 mm HE mortar bomb",
+  "ammo.ru-82-fragment": "fragment",
+  "ammo.ru-82-smoke": "82 mm smoke mortar bomb"
 }

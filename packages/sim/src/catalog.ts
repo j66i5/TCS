@@ -248,7 +248,7 @@ export interface SpottingDef {
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
   sensors: Record<string, { factor: number; fromM: number; nightLight: number }>;
   skillSlope: number; stressK: number; lightFloor: number;
-  minVisibility: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+  minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
   contacts: {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
     heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
@@ -303,6 +303,8 @@ export interface FactionDef {
   doctrine: Record<string, number>;
   /** Formation used when an order names none. */
   defaultFormation: DefId;
+  /** Mortar fire the platoon can call (M6.5c); none if absent. */
+  fireSupport?: { heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number };
 }
 
 export interface FormationDef {

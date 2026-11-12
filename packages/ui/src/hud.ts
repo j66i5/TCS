@@ -10,7 +10,7 @@
  */
 import type { Strings } from "@tcs/data";
 
-export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades";
+export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades" | "mortar" | "smoke";
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max" }
 
 export interface HudCallbacks {
@@ -125,7 +125,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   };
   const rulesBtn = el("button", "hud-btn", s.t("order.rules"));
   orders.append(mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
-    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), haltBtn, ceaseBtn, postureBtn, rulesBtn);
+    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), haltBtn, ceaseBtn, postureBtn, rulesBtn);
 
   // ---- plan bar
   const plan = el("div", "hud-plan");

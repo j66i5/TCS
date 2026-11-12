@@ -1090,3 +1090,37 @@ objectives at least 90 m apart; (9) an English text outside the string table; a 
 **Recorded (8):** the commanders know who holds each objective without seeing it — holders are public (shown
 to the player too), intended. **Balance (for the owner):** the AI attack still fails against the AI defence;
 even against a single defending squad left, the attacking platoon is pinned at ~350 m and breaks off.
+
+## 2026-11-12 — Owner's M6 review answers
+1. **Attack balance: all three** — (a) the attacker gets more men (two platoons against one), (b) better AI
+   attack tactics (covered approach routes, crawling the last stretch, closer fire support, grenades), (c)
+   support fire brought forward from M8: mortars and smoke. Planned as **M6.5 Attack balance** before M7.
+2. **Fog of war:** keep "what your men have reported" (the M3 reminder is closed).
+3. **Medical system:** after vehicles, as planned.
+4. **Formation marker:** keep the laid-out formation for every move (the M5 change is confirmed).
+
+## 2026-11-12 — M6.5 attack balance (owner's M6 review: "do 1, 2 and 3")
+(a) The generator gives the attacker two platoons; the commander leads every platoon's squads. (b) Better AI
+attack: walk, then sneak the last 200 m to the support line; half the squads (each at another known enemy)
+fire while the others assault; grenades at enemies within 35 m (never with a friend within 15 m of the burst);
+mortar fire called while it reconnoitres, the assault going in as it lands; a grenade order no longer ends the
+squad's drill. (c) Mortars and smoke from M8: German 120 mm (filling a game value, confidence low), Russian
+82 mm (0.4 kg TNT from manufacturer listings, medium); delay 90 / 75 s, spread 30 / 25 m, cadence 6 / 4 s,
+smoke 35 m for 150 s / 25 m for 120 s (game values); allotment attacker 24 HE + 12 smoke, defender 12 + 4; smoke
+cuts the view by exp(-0.15/m). **Result (10 battles each way):** German attack wins 2 of 10 (defenders lose
+~13 of 20, attackers ~20 of 40); Russian attack 0 of 10 (attackers ~20 of 40, defenders ~12 of 20). The
+Russian attack's weaker mortar is the main difference; left for the owner rather than tuned without sources.
+
+## 2026-11-12 — M6.5 independent review: findings and fixes
+Fixed: (1) **rule 9** — mortar rounds were a per-side number; now each side's mortar section is an off-map
+entity whose container holds its HE and smoke rounds as counted items (new smoke-round ammunition per faction,
+`fireSupport.smokeAmmo`), and a call takes rounds out of it (logistics can later own them); (3) the loader
+checks that `fireSupport.heAmmo` is an explosive and `smokeAmmo` a smoke round of the faction; (4) the AI calls
+no high explosive within 150 m of an objective its own squads are assaulting (they will be there when the rounds
+land); (5) its friend checks count wounded men lying near the target; (6) it calls through the first platoon
+that can still use the radio; (7) a routed leader cannot call fire, and an order to one man uses only him;
+(9) the smoke build-up time is data (`spotting.smokeBuildSeconds`). A test now checks the attacker calls mortar
+fire before it first assaults, and smoke. Golden replays regenerated (new data: catalog fingerprint; schema 14).
+**Recorded:** (2) acceptance is met one way only (German attack 2 of 10, Russian 0 of 10) — for the owner;
+(8) calling fire needs no observer with sight of the target: a simplification until the indirect-fire process
+of M8; the renderer draws smoke growth with a fixed 10 s (display only).

@@ -51,6 +51,7 @@ export type SimEvent =
   | { kind: "action.completed"; tick: number; actor: EntityId; action: string }
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
+  | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

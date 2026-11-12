@@ -21,6 +21,7 @@ export { contactErrorM, contactSystem } from "./systems/contacts";
 export * from "./knowledge";
 export { arcLanding, arcRangeM, grenadeOption, throwRangeM } from "./systems/grenades";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
+export { smokeTransmission, supportLeft } from "./systems/support";
 export * from "./impair";
 export * from "./hash";
 export * from "./store";

@@ -1144,3 +1144,13 @@ Owner request: "Include surrendering, especially for downed men". Answers (all t
    after-action review lists him as surrendered / captured, and the timeline shows it.
 4. **Factions:** the same rule for both sides; willingness from the man's state (wounds, stress, being alone)
    with one data value set for all — no unsourced faction difference.
+
+## 2026-11-12 — M7 owner answers (vehicles)
+1. **Scope:** the Puma and the BMP-2 only (the two tracked infantry fighting vehicles of the existing squads).
+   Wheeled carriers (Boxer, BTR-82A), the BMP-3 and main battle tanks are NOT part of M7 for now.
+2. **Command:** a vehicle is its own unit: tap it and give it orders like a squad (move, fire at, halt, reverse,
+   smoke); its crew drives and shoots on its own under the same fire rules. Squads get Mount and Dismount orders.
+3. **IFV missiles** (MELLS/Spike on the Puma, Konkurs on the BMP-2): wait for M9 (guided weapons). M7 has the
+   guns, the machine guns and the shoulder-fired Panzerfaust 3 / RPG-7.
+4. **Battle start:** the attacker's platoons ride in their IFVs from the map edge and dismount where the player
+   or the AI decides; the defender's men are in position on foot with their IFVs behind them in support.

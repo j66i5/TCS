@@ -262,9 +262,12 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
       const top = state.unit.req(topOf(state, uid));
       if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds)) {
         u.moving = false;
+        const goals = new Map<EntityId, { x: number; y: number }>();
         for (const m of unitSoldiers(state, uid)) {
           const s = state.soldier.get(m);
           if (!able(s)) continue;
+          const w = state.mover.get(m)?.waypoints;
+          if (w && w.length > 0) goals.set(m, { x: w[w.length - 1]!.x, y: w[w.length - 1]!.y });
           halt(state, m);
           requestPosture(ctx, state, m, "prone");
         }
@@ -272,7 +275,13 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
         // Standing rule "fall back" (M5): break contact away from the enemy they know.
         if (u.onContact === "back") {
           const men = unitSoldiers(state, uid).filter((m) => able(state.soldier.get(m)));
-          const enemy = knownEnemy(state, men);
+          let enemy = knownEnemy(state, men);
+          // Fired upon by an enemy nobody has placed: fall back the way they came (away from where they were going).
+          if (!enemy && men.length > 0) {
+            const c = centroid(state, men), lead = u.leader !== null ? goals.get(u.leader) : undefined;
+            if (lead) enemy = { x: lead.x, y: lead.y };
+            else enemy = { x: c.x, y: c.y - 1 };
+          }
           if (enemy && men.length > 0) {
             const c = centroid(state, men), L = hypot2(c.x - enemy.x, c.y - enemy.y) || 1;
             const rx = Math.min(Math.max(c.x + ((c.x - enemy.x) / L) * D.fallBackM, 5), ctx.map.widthM - 5);

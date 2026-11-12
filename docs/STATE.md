@@ -7,7 +7,8 @@ _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 decisions, M4.3 squad drills, M4.4 doctrine and the attack lab); the independent milestone review and its fixes
 are done (all ten findings fixed). **M5 Orders and interface in progress:** M5.1 (orders in the simulation)
 and M5.2 (interface: draggable formation marker, routes with pace per leg, order bar, rules panel, pause with
-orders) done; next the M5 review.
+orders) done; the M5 review is done and its findings fixed. Next: the owner tries it on his phone, then
+**M6 Opposing commander and scenarios**.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -105,7 +106,7 @@ orders) done; next the M5 review.
 - **M5.1/M5.2 orders and interface**: drag the formation marker (shape, facing arrow, width handle), routes
   with pace per leg, order bar with assault / withdraw / fire / grenades / halt / cease fire / posture, rules
   panel (fire, range limit, on contact, ammunition) with the unit's state; pause with orders; phone layout.
-- Tests: 358 (354 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 364 (360 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

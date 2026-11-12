@@ -26,9 +26,11 @@ export interface MarkerGeometry {
   /** Where each man will stand. */
   men: { x: number; y: number }[];
   arrowTip: { x: number; y: number };
-  /** Handle positions (world, m). */
+  /** Handle positions (world, m). No width handle for a formation without width (a file). */
   rotate: { x: number; y: number };
-  resize: { x: number; y: number };
+  resize: { x: number; y: number } | null;
+  /** How far the width handle sits beyond the outermost man, m (kept while dragging it). */
+  resizeGapM: number;
 }
 
 export function newPlan(kind: PlanKind, from: { x: number; y: number }, formation: string, frontageM: number): Plan {
@@ -72,7 +74,7 @@ export function planFacing(plan: Plan): number {
  * The marker at the last point: the men laid out as the simulation will lay them out (slot turned to the
  * facing, spaced to the frontage; a file keeps the doctrine spacing `defaultSpacingM`).
  */
-export function markerGeometry(plan: Plan, slots: readonly (readonly [number, number])[], men: number, defaultSpacingM: number): MarkerGeometry | null {
+export function markerGeometry(plan: Plan, slots: readonly (readonly [number, number])[], men: number, defaultSpacingM: number, minHandleM = 0): MarkerGeometry | null {
   const end = plan.points[plan.points.length - 1];
   if (!end) return null;
   const face = planFacing(plan);
@@ -81,30 +83,38 @@ export function markerGeometry(plan: Plan, slots: readonly (readonly [number, nu
   const span = slotSpan(slots, Math.max(1, men));
   const sp = span > 1e-6 ? plan.frontageM / span : defaultSpacingM;
   const pos = ss.map(([r, b]) => ({ x: end.x - fy * r * sp - fx * b * sp, y: end.y + fx * r * sp - fy * b * sp }));
-  const half = Math.max(plan.frontageM / 2, 4);
-  const arrowLen = Math.max(10, half * 0.8);
+  const half = span > 1e-6 ? plan.frontageM / 2 : 0;
+  // Handles stay at least `minHandleM` from the centre (the app passes a fixed distance on screen), so a finger
+  // on the marker does not grab a handle when zoomed out; the turn handle ahead, the width handle to the side.
+  const arrowLen = Math.max(10, half * 0.8, minHandleM);
+  const gap = Math.max(3, minHandleM - half);
   return {
     centre: { x: end.x, y: end.y }, facing: face, men: pos,
     arrowTip: { x: end.x + fx * arrowLen, y: end.y + fy * arrowLen },
     rotate: { x: end.x + fx * (arrowLen + 4), y: end.y + fy * (arrowLen + 4) },
-    resize: { x: end.x - fy * (half + 3), y: end.y + fx * (half + 3) },
+    resize: span > 1e-6 ? { x: end.x - fy * (half + gap), y: end.y + fx * (half + gap) } : null,
+    resizeGapM: gap,
   };
 }
 
-/** Which part of the plan is under the finger (within `tolM` metres), handles first. */
+/** Which part of the plan is under the finger: the nearest one within `tolM` metres. */
 export function hitHandle(plan: Plan, g: MarkerGeometry | null, x: number, y: number, tolM: number): Handle | null {
-  const near = (p: { x: number; y: number }) => Math.hypot(p.x - x, p.y - y) <= tolM;
+  const d = (p: { x: number; y: number }) => Math.hypot(p.x - x, p.y - y);
+  const cands: [Handle, number][] = [];
   if (g && plan.kind === "move") {
-    if (near(g.rotate)) return "rotate";
-    if (near(g.resize)) return "resize";
+    cands.push(["rotate", d(g.rotate)]);
+    if (g.resize) cands.push(["resize", d(g.resize)]);
   }
-  if (g && (near(g.centre) || g.men.some(near))) return "body";
-  for (let i = plan.points.length - 2; i >= 0; i--) if (near(plan.points[i]!)) return { point: i };
-  return null;
+  if (g) cands.push(["body", Math.min(d(g.centre), ...g.men.map(d))]);
+  else if (plan.points.length > 0) cands.push(["body", d(plan.points[plan.points.length - 1]!)]);
+  for (let i = plan.points.length - 2; i >= 0; i--) cands.push([{ point: i }, d(plan.points[i]!)]);
+  let best: Handle | null = null, bestD = tolM;
+  for (const [h, dd] of cands) if (dd <= bestD) { best = h; bestD = dd; }
+  return best;
 }
 
 /** Drag a handle to a world point. */
-export function dragTo(plan: Plan, h: Handle, x: number, y: number, limits = { minFrontageM: 2, maxFrontageM: 200 }): Plan {
+export function dragTo(plan: Plan, h: Handle, x: number, y: number, limits = { minFrontageM: 2, maxFrontageM: 200, resizeGapM: 3 }): Plan {
   const pts = plan.points.map((p) => ({ ...p }));
   const end = pts[pts.length - 1];
   if (!end) return plan;
@@ -114,7 +124,7 @@ export function dragTo(plan: Plan, h: Handle, x: number, y: number, limits = { m
     // Half the frontage = distance from the centre across the facing.
     const face = planFacing(plan), fx = Math.cos(face), fy = Math.sin(face);
     const across = Math.abs((x - end.x) * -fy + (y - end.y) * fx);
-    return { ...plan, frontageM: Math.min(limits.maxFrontageM, Math.max(limits.minFrontageM, 2 * (across - 3))) };
+    return { ...plan, frontageM: Math.min(limits.maxFrontageM, Math.max(limits.minFrontageM, 2 * (across - limits.resizeGapM))) };
   }
   const p = pts[h.point];
   if (p) { p.x = x; p.y = y; }

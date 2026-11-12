@@ -37,7 +37,7 @@ export interface PlanOverlay {
   kind: "move" | "assault" | "withdraw";
   from: { x: number; y: number };
   points: readonly { x: number; y: number; mode: string }[];
-  marker: { centre: { x: number; y: number }; men: readonly { x: number; y: number }[]; arrowTip: { x: number; y: number }; rotate: { x: number; y: number }; resize: { x: number; y: number } } | null;
+  marker: { centre: { x: number; y: number }; men: readonly { x: number; y: number }[]; arrowTip: { x: number; y: number }; rotate: { x: number; y: number }; resize: { x: number; y: number } | null } | null;
 }
 
 /** Colour of a route leg by its pace. */
@@ -378,7 +378,12 @@ export class BattleRenderer {
       a = b;
     }
     const m = plan.marker;
-    if (!m) return;
+    if (!m) {
+      // Assault / withdraw: the men end spread round the point, facing as the fight takes them.
+      const last = plan.points[plan.points.length - 1];
+      if (last) { const s = worldToScreen(c, last.x, last.y); g.circle(s.x, s.y, Math.max(12, 5 * c.scale)).stroke({ width: 2, color: main, alpha: 0.9 }); }
+      return;
+    }
     const pts = m.men.map((p) => worldToScreen(c, p.x, p.y));
     // The formation's shape: each man's place, joined to the leader's.
     const lead = pts[0]!;
@@ -391,6 +396,7 @@ export class BattleRenderer {
     if (plan.kind === "move") {
       // Handles, big enough for a finger: turn (at the arrow), width (at the side).
       for (const h of [m.rotate, m.resize]) {
+        if (!h) continue;
         const s = worldToScreen(c, h.x, h.y);
         g.circle(s.x, s.y, 11).fill({ color: 0x1b241a, alpha: 0.7 }).stroke({ width: 2.5, color: 0xffd23d });
       }

@@ -236,7 +236,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (task?.self) {
       const c = s.contacts.find((k) => k.target === task.contact);
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
-      if (!c || !es || es.casualty !== "none" || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
+      const me = state.transform.req(id);
+      const beyond = c !== undefined && unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM;
+      if (!c || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {

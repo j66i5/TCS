@@ -44,7 +44,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .hud-row-label { min-width: 7.5em; font-size: 14px; color: var(--muted); }
 .hud-small { min-height: 32px; font-size: 14px; padding: 0 8px; }
+/* Hidden means hidden, whatever display the class sets. */
+[hidden] { display: none !important; }
 @media (max-width: 700px) {
-  .hud-orders, .hud-plan { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .hud-orders .hud-btn, .hud-plan .hud-btn { flex: 0 0 auto; }
+  /* Phones: every order button visible (two rows), a little smaller. */
+  .hud-orders .hud-btn, .hud-plan .hud-btn { min-height: 34px; padding: 0 8px; font-size: 14px; }
+  .hud-orders, .hud-plan { gap: 4px; padding: 4px; }
 }

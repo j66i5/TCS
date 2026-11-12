@@ -127,7 +127,7 @@ Slices (owner answers 2026-11-12):
   widen it), multi-point routes with pace per leg, order bar (move, assault, withdraw, fire, grenade, all
   grenades, halt, cease fire, posture, rules), rules panel with the unit's state, pause / 1x / 2x / 4x with
   orders while paused, phone layout.
-- **M5.3 Review and polish** — independent review, fixes, the owner tries it on his phone.
+- **M5.3 Review and polish** ✅ — independent review, eight findings fixed; the owner tries it on his phone.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 
 ### M6 Opposing commander and scenarios — ⬜

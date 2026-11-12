@@ -27,7 +27,7 @@ describe("order planner", () => {
     let p = addPoint(newPlan("move", { x: 0, y: 0 }, "line", 20), 50, 50, "walk");
     const g = markerGeometry(p, LINE, 5, 10)!;
     expect(hitHandle(p, g, g.rotate.x, g.rotate.y, 3)).toBe("rotate");
-    expect(hitHandle(p, g, g.resize.x, g.resize.y, 3)).toBe("resize");
+    expect(hitHandle(p, g, g.resize!.x, g.resize!.y, 3)).toBe("resize");
     expect(hitHandle(p, g, 50, 50, 3)).toBe("body");
     p = dragTo(p, "body", 60, 40);
     expect(p.points[0]).toMatchObject({ x: 60, y: 40 });

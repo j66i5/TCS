@@ -14,7 +14,7 @@ import {
   type EntityId, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, type Overlay } from "@tcs/render";
-import { addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind } from "@tcs/ui";
+import { addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -47,6 +47,8 @@ async function main(): Promise<void> {
 
   let speed = 1;
   let pace = "walk";
+  /** Rules ordered for a unit and not yet in force there (shown as chosen meanwhile). */
+  const pendingRules = new Map<EntityId, Partial<UnitRules>>();
   let orderMode: OrderMode = "move";
   let plan: Plan | null = null;
   let dragHandle: Handle | null = null;
@@ -72,6 +74,11 @@ async function main(): Promise<void> {
     hud.setPlanning(kind);
   };
   const endPlan = () => { plan = null; dragHandle = null; hud.setPlanning(null); };
+  /** Handles stay this far (on screen) from the marker's centre, so a finger can grab the marker itself. */
+  const HANDLE_PX = 46;
+  /** The formation marker (a move only: an assault or withdrawal ends spread round its point). */
+  const planMarker = () => plan && plan.kind === "move" ? markerGeometry(plan, slotsOf(plan.formation), Math.max(1, unitMen().length), doctrineSpacing, HANDLE_PX / renderer.camera.scale) : null;
+  let dragGapM = 3;
   const hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -105,6 +112,8 @@ async function main(): Promise<void> {
     onCancel: () => { endPlan(); orderMode = "move"; hud.setOrderMode("move"); },
     onRules: (r) => {
       if (overlay.selectedUnit === null) return;
+      // Shown as ordered until the unit has it (radio delay; while paused it waits).
+      pendingRules.set(overlay.selectedUnit, { ...(pendingRules.get(overlay.selectedUnit) ?? {}), ...r });
       issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}) });
     },
     onPosture: (p) => {
@@ -174,12 +183,12 @@ async function main(): Promise<void> {
     },
     onDragStart: (w) => {
       if (!plan) return false;
-      const n = Math.max(1, unitMen().length);
-      const g = markerGeometry(plan, slotsOf(plan.formation), n, doctrineSpacing);
-      dragHandle = hitHandle(plan, g, w.x, w.y, 16 / renderer.camera.scale + 1);
+      const g = planMarker();
+      dragHandle = hitHandle(plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
+      dragGapM = g?.resizeGapM ?? 3;
       return dragHandle !== null;
     },
-    onDrag: (w) => { if (plan && dragHandle !== null) plan = dragTo(plan, dragHandle, w.x, w.y); },
+    onDrag: (w) => { if (plan && dragHandle !== null) plan = dragTo(plan, dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: dragGapM }); },
     onDragEnd: () => { dragHandle = null; },
   });
 
@@ -273,7 +282,13 @@ async function main(): Promise<void> {
       states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
     }
     const state = u.broken ? strings.t("behaviour.broken") : [...states.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${strings.t(`behaviour.${k}`)}`).join(", ");
-    hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule }, strings.t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
+    const now: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule };
+    const pend = pendingRules.get(uid);
+    if (pend) {
+      for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === now[k]) delete pend[k];
+      if (Object.keys(pend).length === 0) pendingRules.delete(uid);
+    }
+    hud.setUnit({ ...now, ...(pendingRules.get(uid) ?? {}) }, strings.t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
   };
 
   let acc = 0;
@@ -296,7 +311,7 @@ async function main(): Promise<void> {
     // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
-    overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: markerGeometry(plan, slotsOf(plan.formation), Math.max(1, unitMen().length), doctrineSpacing) } : null;
+    overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); }
     frames++;

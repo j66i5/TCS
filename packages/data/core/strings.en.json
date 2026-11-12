@@ -1,6 +1,7 @@
 {
   "app.title": "TCS",
   "app.subtitle": "Tactical combat simulation - M0 bootstrap build",
+  "app.hintShort": "Pick a unit: tap one of your men, a vehicle or a tile in the unit list. (Tap here for help.)",
   "app.hint": "Pick a unit: tap one of your men or vehicles, or its tile in the unit list. Then: Move - tap the map for each point of the route (pace per leg), drag the formation marker, its arrow to turn it, its yellow handle to widen it, and press Go. Assault / Withdraw - tap the point, Go. Fire / Grenade / Mortar / Smoke - tap the target (mortar rounds land after a minute or more). Drag the order bar's grip to dock it to another edge. Pause any time: orders still work.",
   "app.pause": "Pause",
   "app.resume": "Resume",
@@ -340,6 +341,10 @@
   "aar.vehicle.reversedOut": "{vehicle} reversed out under fire",
   "app.dockGrip": "Drag to dock the order bar to another edge",
   "app.more": "More orders",
+  "app.menu": "Menu: save, load, map, debug",
+  "score.objective": "{objective}",
+  "score.contestedMark": " (!)",
+  "score.supportShort": "mortar {he}/{smoke}",
   "side.units": "Units",
   "side.unitsShort": "☰",
   "side.unitsOpen": "Units",

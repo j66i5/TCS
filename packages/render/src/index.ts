@@ -2,3 +2,8 @@ export * from "./camera";
 export * from "./renderer";
 export * from "./vehicle-debug";
 export * from "./labels";
+export * from "./lod";
+export * from "./buildings";
+export * from "./terrain-flat";
+export * from "./sprites/atlas";
+export * from "./sprites/soldier-art";

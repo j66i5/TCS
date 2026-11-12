@@ -5,15 +5,25 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView } from "@tcs/sim";
+import { DT, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { Sprite, Texture } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, type LabelRequest, type Rect } from "./labels";
+import { FlatTerrain, flatColours } from "./terrain-flat";
+import { BuildingLayers } from "./buildings";
+import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, figurePx, lodFor, type Lod } from "./lod";
+import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
+import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 
-/** Below this many pixels per metre the map is shown as an overview with unit symbols. */
+/** Classic look (`?look=classic`, kept for one milestone): below this many px/m the overview with unit symbols. */
 export const OVERVIEW_SCALE = 0.35;
+
+/** "pixel" (M7.5b: flat pixel map, pixel soldiers, roofs that fade, zoom levels) or the classic look before it. */
+export type Look = "pixel" | "classic";
+/** Ticks a man shows his firing frame after a shot. */
+const FIRE_FRAME_TICKS = 6;
 
 /** Colours per side INDEX (scenario order), never per faction. */
 export const SIDE_COLOURS = [0x3b82f6, 0xef4444, 0x22c55e, 0xeab308];
@@ -97,10 +107,32 @@ export class BattleRenderer {
   private hudRects: Rect[] = [];
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
+  /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
+  private look: Look = "pixel";
+  private lod: Lod | null = null;
+  private flat: FlatTerrain | null = null;
+  private bld: BuildingLayers | null = null;
+  /** Men sprites (screen space) between the floors and the roofs; roofs follow the camera like the map. */
+  private menLayer = new Container();
+  private roofLayer = new Container();
+  private atlas: SoldierAtlas | null = null;
+  private figures: Sprite[] = [];
+  private outlines: Sprite[] = [];
+  private nSprites = 0;
+  private key: FrameKey = { frame: "stand", weapon: "rifle", launcher: false, firing: false, wounded: false, facing: 0 };
+  /** Last shot per shooter (from `shot.fired` events): the firing frame. */
+  private firedAt = new Map<EntityId, number>();
+  /** Weapon type per weapon id, and which ids are anti-tank launchers (carried on the back). */
+  private weaponType: Record<string, string> = {};
+  private launchers = new Set<string>();
+  private carriesLauncher = new Map<EntityId, { tick: number; yes: boolean }>();
+  private roofMen = new Float64Array(64);
+  private map: MapDef | null = null;
+  private insets: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
   private constructor(app: Application) {
     this.app = app;
-    app.stage.addChild(this.worldLayer, this.world, this.units, this.labels);
+    app.stage.addChild(this.worldLayer, this.menLayer, this.roofLayer, this.world, this.units, this.labels);
   }
 
   static async create(host: HTMLElement): Promise<BattleRenderer> {
@@ -129,16 +161,51 @@ export class BattleRenderer {
   get width(): number { return this.app.renderer.width / this.app.renderer.resolution; }
   get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
 
-  /** Build the terrain picture for a map (once per map). */
+  /** The look (M7.5b): set before `setMap`. */
+  setLook(look: Look): void { this.look = look; this.lod = null; }
+  getLook(): Look { return this.look; }
+  /** The zoom level shown last (0 symbols, 1 dots, 2 figures, 3 close; M7.5b). */
+  zoomLevel(): Lod | null { return this.lod; }
+
+  /** Build the terrain picture for a map (once per map; set the look and the appearance first). */
   setMap(map: MapDef, catalog: Catalog): void {
-    if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); }
+    if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); this.terrain = null; }
+    if (this.flat) { this.flat.destroy(); this.flat = null; }
     this.setCatalog(catalog);
-    this.terrain = buildTerrain(map, catalog.terrain);
+    this.map = map;
+    if (this.look === "classic") {
+      this.terrain = buildTerrain(map, catalog.terrain);
+      this.worldLayer.addChild(this.terrain);
+      return;
+    }
+    this.flat = new FlatTerrain(map, flatColours(map, catalog.terrain, this.appearance));
+    this.terrain = new Container();
+    this.terrain.addChild(this.flat.root);
     this.worldLayer.addChild(this.terrain);
+    this.setBuildings(map);
   }
+
+  /** Building floors and roofs (M7.5b; also used alone by the headless render-cost test). */
+  setBuildings(map: MapDef): void {
+    if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
+    this.map = map;
+    this.bld = new BuildingLayers(map, this.appearance);
+    if (this.terrain) this.terrain.addChild(this.bld.floors); else this.worldLayer.addChild(this.bld.floors);
+    this.roofLayer.addChild(this.bld.roofs);
+  }
+
+  /** Building the detail tiles of an area now (the opening view: the first picture complete). */
+  primeDetail(): void {
+    const c = this.camera;
+    this.flat?.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale });
+  }
+
+  /** Roof alpha of building i (screenshots). */
+  roofAlpha(i: number): number { return this.bld?.roofAlpha(i) ?? 1; }
 
   /** The screen areas the HUD covers (top bar, order bar, sidebar): no label is placed there (M7.5a). */
   setHudInsets(i: Insets): void {
+    this.insets = { ...i };
     const W = this.width, H = this.height;
     this.hudRects = [{ x: 0, y: 0, w: W, h: i.top }, { x: 0, y: H - i.bottom, w: W, h: i.bottom }, { x: 0, y: 0, w: i.left, h: H }, { x: W - i.right, y: 0, w: i.right, h: H }].filter((r) => r.w > 0 && r.h > 0);
   }
@@ -152,6 +219,8 @@ export class BattleRenderer {
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.vehicleDefs = catalog.vehicles;
+    this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
+    this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
   }
 
   /**
@@ -212,14 +281,39 @@ export class BattleRenderer {
 
   /** Centre the camera on a point showing `widthM` metres across the free area. */
   focus(x: number, y: number, widthM: number, insets?: Insets): void {
+    const left = insets?.left ?? 0, right = insets?.right ?? 0;
+    this.focusScale(x, y, Math.max(1, this.width - left - right) / widthM, insets);
+  }
+
+  /** Centre the camera on a point at `scale` px/m in the free area (never further out than the whole map). */
+  focusScale(x: number, y: number, scale: number, insets?: Insets): void {
     const top = insets?.top ?? 0, bottom = insets?.bottom ?? 0, left = insets?.left ?? 0, right = insets?.right ?? 0;
-    const scale = Math.max(1, this.width - left - right) / widthM;
     const cx = left + (this.width - left - right) / 2, cy = top + (this.height - top - bottom) / 2;
-    this.camera = { scale, x: x - cx / scale, y: y - cy / scale };
+    this.camera = this.clampCamera({ scale, x: x - cx / scale, y: y - cy / scale }, insets);
   }
 
   fitToMap(map: MapDef, insets?: Insets): void {
     this.camera = fitCamera(map.widthM, map.heightM, this.width, this.height, insets);
+  }
+
+  /**
+   * Zoomed out no further than the whole map in the free area (the parent's review: the overview left the map
+   * tiny in the middle). A camera further out becomes the fitted one.
+   */
+  clampCamera(c: Camera, insets: Insets = this.insets): Camera {
+    if (!this.map) return c;
+    const fit = fitCamera(this.map.widthM, this.map.heightM, this.width, this.height, insets);
+    if (c.scale < fit.scale) return fit;
+    // The map stays in view: a map wider than the free area keeps its edges at or beyond it (a 40 px margin); a
+    // narrower one is centred.
+    const M = 40;
+    const axis = (pos: number, lo: number, hi: number, worldM: number) => {
+      const free = hi - lo, span = worldM * c.scale;
+      if (span + 2 * M <= free) return -(lo + (free - span) / 2) / c.scale;
+      const min = -(lo + M) / c.scale, max = worldM - (hi - M) / c.scale;
+      return Math.min(max, Math.max(min, pos));
+    };
+    return { scale: c.scale, x: axis(c.x, insets.left, this.width - insets.right, this.map.widthM), y: axis(c.y, insets.top, this.height - insets.bottom, this.map.heightM) };
   }
 
   /** Remember positions before a simulation step (for interpolation). */
@@ -240,6 +334,7 @@ export class BattleRenderer {
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
       } else if (e.kind === "shot.fired") {
+        this.firedAt.set(e.shooter, e.tick);
         if (!overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide) continue; // fog: an unseen flash
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + FLASH_TICKS, result: "flash" });
@@ -268,7 +363,12 @@ export class BattleRenderer {
 
   draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
     const c = this.camera;
-    this.drawGround(map);
+    // Zoom level (M7.5b): the classic look keeps its single overview threshold.
+    const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
+    this.lod = lod;
+    this.drawGround(map, lod);
+    this.updateRoofs(state, overlay, lod);
+    this.nSprites = 0;
     const g = this.units;
     g.clear();
     this.nReqs = 0;
@@ -326,14 +426,18 @@ export class BattleRenderer {
     this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): symbols instead of men and hulls (M7.5a: a vehicle symbol per vehicle — near ones
     // stacked into one — and an infantry symbol only for a unit with men on foot).
-    if (c.scale < OVERVIEW_SCALE) {
+    if (lod === LOD_SYMBOLS) {
       this.drawOverview(g, state, alpha, overlay, sideIndex, fog);
       this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
+      this.flushSprites();
       this.flushLabels();
       return;
     }
+    // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
+    const sprites = this.look === "pixel" && lod >= LOD_FIGURE;
+    const size = Math.max(SPRITE_M * c.scale, figurePx(this.app.renderer.resolution || 1));
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
     // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {
@@ -348,45 +452,58 @@ export class BattleRenderer {
       const sol = state.soldier.get(id);
       const posture = sol?.posture ?? "standing";
       const pr = posture === "crouching" ? r * 0.8 : r;
-      if (selected) g.circle(s.x, s.y, pr + 4).stroke({ width: 2, color: 0xffffff });
-      // Casualties stay on the map: a dead man is a dark shape outlined in his side's colour; an unconscious
-      // man is a pale shape with a red cross. Neither shows a facing line.
-      if (sol && sol.casualty !== "none") {
-        const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
-        const L = r * 1.5, Wd = r * 0.6;
-        const shape = [s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd];
-        if (sol.casualty === "killed") g.poly(shape).fill({ color: 0x14110f, alpha: 0.85 }).stroke({ width: 1.5, color: colour, alpha: 0.8 });
-        else {
-          g.poly(shape).fill({ color: colour, alpha: 0.45 }).stroke({ width: 1, color: 0xffffff, alpha: 0.7 });
-          const k = Math.max(3, r * 0.7);
-          g.moveTo(s.x - k, s.y).lineTo(s.x + k, s.y).moveTo(s.x, s.y - k).lineTo(s.x, s.y + k).stroke({ width: 2, color: 0xff4a3d });
+      let lr = r + 2;
+      if (sprites) {
+        // A pixel soldier (M7.5b): his frame, facing (16 steps), weapon, firing, wounds; the side outline.
+        lr = size * 0.45;
+        this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour);
+        if (selected) g.circle(s.x, s.y, size * 0.42 + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+        if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
+        const bh = sol?.mental.behaviour;
+        if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
+          g.circle(s.x, s.y, size * 0.42 + 4).stroke({ width: bh === "shaken" ? 1 : 2, color: bh === "panicked" ? 0xff4a3d : 0xffd23d, alpha: bh === "shaken" ? 0.5 : 0.9 });
         }
-        if (sol.captive !== null && sol.casualty !== "killed") drawWhiteFlag(g, s.x, s.y, r);
-        continue;
-      }
-      if (posture === "prone") {
-        const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
-        const L = r * 1.5, Wd = r * 0.6;
-        g.poly([s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd]).fill({ color: colour });
       } else {
-        g.circle(s.x, s.y, pr).fill({ color: colour });
+        if (selected) g.circle(s.x, s.y, pr + 4).stroke({ width: 2, color: 0xffffff });
+        // Casualties stay on the map: a dead man is a dark shape outlined in his side's colour; an unconscious
+        // man is a pale shape with a red cross. Neither shows a facing line.
+        if (sol && sol.casualty !== "none") {
+          const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+          const L = r * 1.5, Wd = r * 0.6;
+          const shape = [s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd];
+          if (sol.casualty === "killed") g.poly(shape).fill({ color: 0x14110f, alpha: 0.85 }).stroke({ width: 1.5, color: colour, alpha: 0.8 });
+          else {
+            g.poly(shape).fill({ color: colour, alpha: 0.45 }).stroke({ width: 1, color: 0xffffff, alpha: 0.7 });
+            const k = Math.max(3, r * 0.7);
+            g.moveTo(s.x - k, s.y).lineTo(s.x + k, s.y).moveTo(s.x, s.y - k).lineTo(s.x, s.y + k).stroke({ width: 2, color: 0xff4a3d });
+          }
+          if (sol.captive !== null && sol.casualty !== "killed") drawWhiteFlag(g, s.x, s.y, r);
+          continue;
+        }
+        if (posture === "prone") {
+          const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+          const L = r * 1.5, Wd = r * 0.6;
+          g.poly([s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd]).fill({ color: colour });
+        } else {
+          g.circle(s.x, s.y, pr).fill({ color: colour });
+        }
+        if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+        // A prisoner (M6.6): a white flag, a white square once taken; no rings, no facing line.
+        if (sol && sol.captive !== null) {
+          drawWhiteFlag(g, s.x, s.y, r);
+          if (sol.captive.state === "captured") g.rect(s.x - pr - 3, s.y - pr - 3, 2 * pr + 6, 2 * pr + 6).stroke({ width: 1.5, color: 0xffffff, alpha: 0.9 });
+          continue;
+        }
+        // Under fire (M4.1): a yellow ring when pinned, a red one when panicked, a faint ring when shaken.
+        const bh = sol?.mental.behaviour;
+        if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
+          g.circle(s.x, s.y, pr + 3.5).stroke({ width: bh === "shaken" ? 1 : 2, color: bh === "panicked" ? 0xff4a3d : 0xffd23d, alpha: bh === "shaken" ? 0.5 : 0.95 });
+        }
+        // Wounded but carrying on: a white spot with a red centre on him.
+        if (sol && sol.wounds.some((w) => w.mechanism !== "blunt")) g.circle(s.x, s.y, Math.max(2.5, r * 0.55)).fill({ color: 0xffffff }).circle(s.x, s.y, Math.max(1.5, r * 0.33)).fill({ color: 0xd4141a });
+        const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
+        g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       }
-      if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
-      // A prisoner (M6.6): a white flag, a white square once taken; no rings, no facing line.
-      if (sol && sol.captive !== null) {
-        drawWhiteFlag(g, s.x, s.y, r);
-        if (sol.captive.state === "captured") g.rect(s.x - pr - 3, s.y - pr - 3, 2 * pr + 6, 2 * pr + 6).stroke({ width: 1.5, color: 0xffffff, alpha: 0.9 });
-        continue;
-      }
-      // Under fire (M4.1): a yellow ring when pinned, a red one when panicked, a faint ring when shaken.
-      const bh = sol?.mental.behaviour;
-      if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
-        g.circle(s.x, s.y, pr + 3.5).stroke({ width: bh === "shaken" ? 1 : 2, color: bh === "panicked" ? 0xff4a3d : 0xffd23d, alpha: bh === "shaken" ? 0.5 : 0.95 });
-      }
-      // Wounded but carrying on: a white spot with a red centre on him.
-      if (sol && sol.wounds.some((w) => w.mechanism !== "blunt")) g.circle(s.x, s.y, Math.max(2.5, r * 0.55)).fill({ color: 0xffffff }).circle(s.x, s.y, Math.max(1.5, r * 0.33)).fill({ color: 0xd4141a });
-      const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
-      g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       const unit = state.unit.get(ident.unit);
       if (unit && unit.leader === id) {
         // Debug: the unit's drill (assault / withdraw: which half is running; broken and running back).
@@ -400,7 +517,7 @@ export class BattleRenderer {
           const q = this.reqs[vr]!;
           q.text = `${q.text} · ${unit.callsign}`;
           if (selected) q.priority = 0;
-        } else this.request(unit.callsign + drill, s.x, s.y, r + 2, colour, selected ? 0 : 2, ident.unit);
+        } else this.request(unit.callsign + drill, s.x, s.y, lr, colour, selected ? 0 : 2, ident.unit);
       }
       // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
       // he brings ammunition to.
@@ -421,6 +538,7 @@ export class BattleRenderer {
     this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
+    this.flushSprites();
     this.flushLabels();
   }
 
@@ -756,7 +874,8 @@ export class BattleRenderer {
     for (const p of this.puffs) {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
-      if (p.result === "flash") { // muzzle flash: brief and bright
+      if (p.result === "flash") { // muzzle flash: brief and bright (pixel soldiers show their own, M7.5b)
+        if (this.look === "pixel" && this.lod !== null && this.lod >= LOD_FIGURE) continue;
         g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
         continue;
       }
@@ -847,10 +966,94 @@ export class BattleRenderer {
     return { x: p.x + (t.x - p.x) * alpha, y: p.y + (t.y - p.y) * alpha };
   }
 
-  private drawGround(map: MapDef): void {
+  /**
+   * One pixel soldier (M7.5b): the frame from his state (dead, down, captive, surrendered, posture; walking
+   * frames while he moves, the firing frame just after a shot), his weapon's look, a launcher on his back, wound
+   * marks; snapped to 16 facings. Two sprites from the pool: the figure, and the 1-px outline in the side's
+   * colour (the selected unit gets a thin white ring, drawn by the caller).
+   */
+  private drawMan(state: SimView, id: EntityId, faction: string, sol: DeepReadonly<SoldierState> | undefined, heading: number, x: number, y: number, size: number, colour: number): void {
+    if (!this.atlas) this.atlas = new SoldierAtlas();
+    const k = this.key;
+    const t = state.transform.req(id), p = this.prev.get(id);
+    const moving = p !== undefined && (Math.abs(p.x - t.x) > 1e-4 || Math.abs(p.y - t.y) > 1e-4);
+    const step = ((state.tick + id * 7) / 12 | 0) & 1;
+    let frame: FrameId;
+    if (sol?.casualty === "killed") frame = "dead";
+    else if (sol && sol.casualty !== "none") frame = "down";
+    else if (sol?.captive) frame = sol.captive.state === "captured" ? "captive" : "surrender";
+    else if (sol?.posture === "prone") frame = moving && step ? "crawl" : "prone";
+    else if (sol?.posture === "crouching") frame = moving && step ? "crouchWalk" : "crouch";
+    else frame = moving ? (step ? "walk2" : "walk1") : "stand";
+    k.frame = frame;
+    const w = state.weapon.get(id);
+    k.weapon = (w ? weaponLook(this.weaponType[w.weapon]) : "rifle") as WeaponLook;
+    k.firing = (this.firedAt.get(id) ?? -1e9) >= state.tick - FIRE_FRAME_TICKS;
+    k.wounded = sol !== undefined && sol.wounds.some((wd) => wd.mechanism !== "blunt");
+    // A launcher on his back (refreshed every 2 s of game time).
+    let lc = this.carriesLauncher.get(id);
+    if (!lc || state.tick - lc.tick >= 120 || state.tick < lc.tick) {
+      let yes = false;
+      if (this.launchers.size > 0) for (const st of state.container.get(id)?.stacks ?? []) if (st.count > 0 && this.launchers.has(st.type)) { yes = true; break; }
+      lc = { tick: state.tick, yes };
+      this.carriesLauncher.set(id, lc);
+    }
+    k.launcher = lc.yes;
+    k.facing = facingOf(heading);
+    const cell = this.atlas.get(this.atlas.slot(faction, lookOf(this.appearance, faction)), k);
+    let fig = this.figures[this.nSprites], out = this.outlines[this.nSprites];
+    if (!fig || !out) {
+      fig = new Sprite(cell.figure); out = new Sprite(cell.outline);
+      fig.anchor.set(PIVOT / CELL); out.anchor.set(PIVOT / CELL);
+      this.figures.push(fig); this.outlines.push(out);
+      // All outlines under all figures (a neighbour's outline never cuts into a man).
+      this.menLayer.addChildAt(out, this.nSprites);
+      this.menLayer.addChild(fig);
+    }
+    this.nSprites++;
+    if (fig.texture !== cell.figure) fig.texture = cell.figure;
+    if (out.texture !== cell.outline) out.texture = cell.outline;
+    const sc = size / 16;
+    fig.position.set(x, y); out.position.set(x, y);
+    fig.scale.set(sc); out.scale.set(sc);
+    const dead = frame === "dead";
+    fig.tint = dead ? 0xa8a8a0 : 0xffffff;
+    out.tint = colour;
+    out.alpha = dead ? 0.55 : 1;
+    fig.visible = true; out.visible = true;
+  }
+
+  /** Hide the pool's unused sprites and upload new atlas cells. */
+  private flushSprites(): void {
+    for (let i = this.nSprites; i < this.figures.length; i++) { this.figures[i]!.visible = false; this.outlines[i]!.visible = false; }
+    this.atlas?.flush();
+  }
+
+  /** The roof-fade rule (M7.5b): own able men on foot near a building, or zoomed in close. */
+  private updateRoofs(state: SimView, overlay: Overlay, lod: Lod): void {
+    if (!this.bld) return;
+    this.roofLayer.visible = lod !== LOD_SYMBOLS || this.look === "pixel";
+    let n = 0;
+    for (const [id, ident] of state.identity.entries()) {
+      if (ident.side !== overlay.playerSide) continue;
+      const s = state.soldier.get(id);
+      if (!s || s.mount !== undefined || s.casualty !== "none" || s.captive !== null) continue;
+      const t = state.transform.get(id);
+      if (!t) continue;
+      if (2 * n + 2 > this.roofMen.length) { const b = new Float64Array(this.roofMen.length * 2); b.set(this.roofMen); this.roofMen = b; }
+      this.roofMen[2 * n] = t.x; this.roofMen[2 * n + 1] = t.y; n++;
+    }
+    this.bld.update(this.roofMen, n, lod === LOD_CLOSE);
+  }
+
+  private drawGround(map: MapDef, lod: Lod = LOD_DOTS): void {
     const c = this.camera;
     this.worldLayer.scale.set(c.scale);
     this.worldLayer.position.set(-c.x * c.scale, -c.y * c.scale);
+    this.roofLayer.scale.set(c.scale);
+    this.roofLayer.position.set(-c.x * c.scale, -c.y * c.scale);
+    // Flat map (M7.5b): detail tiles from the figure level in; contour lines only at the dot and symbol levels.
+    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS);
     const g = this.world;
     g.clear();
     if (this.terrain) {

@@ -58,6 +58,8 @@ export interface HudCallbacks {
   onLayout?(): void;
 }
 
+export interface ScorePart { text: string; colour?: string; title?: string }
+
 export interface HudStats {
   simSeconds: number;
   tick: number;
@@ -77,8 +79,9 @@ export interface Hud {
   setOrderMode(mode: OrderMode): void;
   /** The selected unit's rules and a status line, shown in the rules panel. */
   setUnit(rules: UnitRules | null, status: string): void;
-  /** The score line under the top bar (objectives held, M6). */
-  setScore(text: string): void;
+  /** The score line under the top bar (objectives held, M6): text parts, a part with a colour shows a marker
+   *  square in it (the holder's side colour, M7.5b) and its title as a tooltip. Empty: hidden. */
+  setScore(parts: readonly ScorePart[]): void;
   /** Which orders and paces the bars offer for the selected unit (M7.1c: a vehicle has fewer, and its paces).
    *  null or a set with `none`: nothing selected, every button greyed (M7.5a). */
   setOrders(set: OrderSet | null): void;
@@ -131,7 +134,15 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   saveBtn.onclick = () => cb.onSave();
   const loadBtn = el("button", "hud-btn", s.t("app.load"));
   loadBtn.onclick = () => cb.onLoad();
-  bar.append(title, clock, ...speedBtns, saveBtn, loadBtn, mapBtn, dbgBtn);
+  // M7.5b (parent review): on a narrow screen the bar is one row; Save, Load, the map and Debug go behind "⋯".
+  const barMoreBtn = el("button", "hud-btn hud-more-btn", "⋯");
+  barMoreBtn.setAttribute("aria-label", s.t("app.menu"));
+  const barMenu = el("div", "hud-bar-menu");
+  barMenu.hidden = true;
+  barMoreBtn.onclick = () => { barMenu.hidden = !barMenu.hidden; barMoreBtn.classList.toggle("on", !barMenu.hidden); };
+  const rare = [saveBtn, loadBtn, mapBtn, dbgBtn];
+  for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });
+  bar.append(title, clock, ...speedBtns, ...rare, barMoreBtn, barMenu);
   const score = el("div", "hud-score");
   score.hidden = true;
 
@@ -252,7 +263,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   preview.hidden = true;
   root.append(bar, score, hint, panel, bottom, sidebar.el, dock, preview, dbg, err);
   setMode("move");
-  hint.textContent = s.t("app.hint");
+  // On a phone the start hint is one short line (M7.5b: the long one covered the opening view); tapping it shows
+  // the whole text.
+  const narrow = () => (globalThis.innerWidth || 1000) < 700;
+  hint.textContent = narrow() ? s.t("app.hintShort") : s.t("app.hint");
+  hint.style.pointerEvents = "auto";
+  hint.onclick = () => { hint.textContent = hint.textContent === s.t("app.hint") ? s.t("app.hintShort") : s.t("app.hint"); };
 
   // ---- docking and layout
   const store = (): Storage | null => { try { return globalThis.localStorage; } catch { return null; } };
@@ -275,7 +291,19 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (b && !b.hidden) moreMenu.append(b);
     }
   };
+  /** The top bar on one row: the rare buttons behind "⋯" when they do not fit (narrow screens). */
+  const fitBar = () => {
+    for (const b of rare) bar.insertBefore(b, barMoreBtn);
+    barMoreBtn.hidden = true;
+    title.hidden = false;
+    const over = () => bar.scrollWidth > bar.clientWidth + 1 || bar.offsetHeight > 60;
+    if (!over()) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); return; }
+    barMoreBtn.hidden = false;
+    barMenu.append(...rare);
+    if (over()) title.hidden = true;
+  };
   const layout = () => {
+    fitBar();
     const vertical = isVertical(edge);
     dock.className = `hud-dock dock-${edge}`;
     orders.classList.toggle("vertical", vertical);
@@ -391,7 +419,22 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
         cb.onPace(paces[0]!);
       }
     },
-    setScore(text) { const was = score.hidden; score.textContent = text; score.hidden = text === ""; if (was !== score.hidden) layout(); },
+    setScore(parts) {
+      const key = JSON.stringify(parts);
+      if (key === score.dataset["key"]) return;
+      score.dataset["key"] = key;
+      const was = score.hidden;
+      score.replaceChildren(...parts.map((p, i) => {
+        const sp = el("span", "hud-score-part");
+        if (p.colour) { const m = el("span", "hud-score-mark"); m.style.background = p.colour; sp.append(m); }
+        sp.append(document.createTextNode(p.text));
+        if (p.title) sp.title = p.title;
+        if (i > 0) sp.prepend(document.createTextNode(" · "));
+        return sp;
+      }));
+      score.hidden = parts.length === 0;
+      if (was !== score.hidden) layout();
+    },
     setTiles(tiles, selected) { sidebar.update(tiles, selected); },
     insets: () => ({ ...free }),
     dock: () => edge,

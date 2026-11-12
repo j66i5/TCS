@@ -115,7 +115,16 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   .hud-orders .hud-btn, .hud-plan .hud-btn, .hud-more .hud-btn { min-height: 38px; padding: 0 8px; font-size: 14px; }
 }
 /* M6: score line and after-action review */
-.hud-score { position: absolute; left: 0; right: 0; padding: 3px 10px; background: var(--panel); font-size: 13px; color: var(--muted); }
+.hud-score { position: absolute; left: 0; right: 0; padding: 3px 10px; background: var(--panel); font-size: 13px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-score-mark { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: 0; border: 1px solid rgba(0, 0, 0, 0.5); }
+/* M7.5b: the top bar is one row; the rare buttons in a menu under "⋯" on a narrow screen. */
+.hud-bar { flex-wrap: nowrap; }
+.hud-bar-menu { position: absolute; top: calc(100% + 2px); right: 6px; display: flex; flex-direction: column; gap: 4px;
+  background: rgba(15, 20, 14, 0.94); padding: 6px; border-radius: 8px; border: 1px solid #4a5745; z-index: 6; }
+@media (max-width: 420px) {
+  .hud-bar .hud-btn { min-width: 40px; padding: 0 8px; }
+}
 .hud-aar { position: absolute; inset: 56px 8px 8px 8px; background: rgba(16, 20, 15, 0.94); border: 1px solid var(--accent); border-radius: 8px;
   padding: 10px; overflow-y: auto; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
 .hud-aar.hud-aar-small { inset: auto 8px 8px 8px; max-height: 30vh; }

@@ -1,0 +1,168 @@
+/**
+ * Buildings as two layers (M7.5b, plan m7.5 §4; owner answer 4): the FLOOR layer (floor colour, outer walls with
+ * their door gaps and windows; rooms come in M7.5c) under the men, and the ROOF layer above them — one Graphics per
+ * building whose alpha follows the roof-fade rule: a roof fades away when zoomed in close, or when one of the
+ * player's own able men (not riding in a vehicle) is inside the building or within `ROOF_NEAR_M` of its walls.
+ * Original drawings (docs/ASSETS.md).
+ */
+import { Container, Graphics } from "pixi.js";
+import type { Building, MapDef } from "@tcs/sim";
+import type { Appearance } from "@tcs/data";
+import { shade } from "./terrain-flat";
+
+export const ROOF_NEAR_M = 8;
+const BUCKET_M = 32;
+
+/** Buildings bucketed by their bounding box grown by ROOF_NEAR_M (for the per-frame roof test). */
+export interface BuildingIndex { cols: number; rows: number; buckets: number[][]; buildings: readonly Building[] }
+
+export function buildingIndex(map: Pick<MapDef, "widthM" | "heightM" | "buildings">): BuildingIndex {
+  const cols = Math.max(1, Math.ceil(map.widthM / BUCKET_M)), rows = Math.max(1, Math.ceil(map.heightM / BUCKET_M));
+  const buckets: number[][] = Array.from({ length: cols * rows }, () => []);
+  map.buildings.forEach((b, i) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let k = 0; k < b.footprint.length; k += 2) { x0 = Math.min(x0, b.footprint[k]!); x1 = Math.max(x1, b.footprint[k]!); y0 = Math.min(y0, b.footprint[k + 1]!); y1 = Math.max(y1, b.footprint[k + 1]!); }
+    const c0 = Math.max(0, Math.floor((x0 - ROOF_NEAR_M) / BUCKET_M)), c1 = Math.min(cols - 1, Math.floor((x1 + ROOF_NEAR_M) / BUCKET_M));
+    const r0 = Math.max(0, Math.floor((y0 - ROOF_NEAR_M) / BUCKET_M)), r1 = Math.min(rows - 1, Math.floor((y1 + ROOF_NEAR_M) / BUCKET_M));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) buckets[r * cols + c]!.push(i);
+  });
+  return { cols, rows, buckets, buildings: map.buildings };
+}
+
+/** Is (x, y) inside the polygon or within `d` metres of its edges? */
+export function nearPolygon(fp: readonly number[], x: number, y: number, d: number): boolean {
+  const n = fp.length / 2;
+  let inside = false;
+  for (let a = 0, b = n - 1; a < n; b = a++) {
+    const ax = fp[2 * a]!, ay = fp[2 * a + 1]!, bx = fp[2 * b]!, by = fp[2 * b + 1]!;
+    if ((ay > y) !== (by > y) && x < ((bx - ax) * (y - ay)) / (by - ay) + ax) inside = !inside;
+    const ex = bx - ax, ey = by - ay, L2 = ex * ex + ey * ey || 1e-9;
+    let u = ((x - ax) * ex + (y - ay) * ey) / L2;
+    u = u < 0 ? 0 : u > 1 ? 1 : u;
+    const dx = x - ax - u * ex, dy = y - ay - u * ey;
+    if (dx * dx + dy * dy <= d * d) return true;
+  }
+  return inside;
+}
+
+/**
+ * The roof-fade rule (pure): per building 1 = roof shown, 0 = faded. `men` holds (x, y) pairs of the player's
+ * own able men on foot; `close` = zoomed in to true scale.
+ */
+export function roofShown(index: BuildingIndex, men: ArrayLike<number>, nMen: number, close: boolean, out: Uint8Array<ArrayBufferLike> = new Uint8Array(index.buildings.length)): Uint8Array<ArrayBufferLike> {
+  out.fill(close ? 0 : 1);
+  if (close) return out;
+  for (let k = 0; k < nMen; k++) {
+    const x = men[2 * k]!, y = men[2 * k + 1]!;
+    const c = Math.floor(x / BUCKET_M), r = Math.floor(y / BUCKET_M);
+    if (c < 0 || r < 0 || c >= index.cols || r >= index.rows) continue;
+    for (const i of index.buckets[r * index.cols + c]!) if (out[i] && nearPolygon(index.buildings[i]!.footprint, x, y, ROOF_NEAR_M)) out[i] = 0;
+  }
+  return out;
+}
+
+const hexN = (c: string) => parseInt(c.slice(1), 16);
+const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
+
+/** Floors and roofs of a map's buildings. Children are in world metres. */
+export class BuildingLayers {
+  readonly floors = new Graphics();
+  readonly roofs = new Container();
+  private roofG: Graphics[] = [];
+  private alpha: Float32Array;
+  private target: Uint8Array;
+  readonly index: BuildingIndex;
+
+  constructor(map: MapDef, app: Appearance | null) {
+    this.index = buildingIndex(map);
+    this.alpha = new Float32Array(map.buildings.length).fill(1);
+    this.target = new Uint8Array(map.buildings.length).fill(1);
+    const outline = app?.map.outline ?? 0x1d2419;
+    const f = this.floors;
+    for (const b of map.buildings) {
+      const fp = b.footprint, n = fp.length / 2;
+      const floor = app?.map.floors[b.kind] ?? 0x9a8a72;
+      f.poly(fp).fill({ color: floor });
+      // Floorboards / tiles: faint lines every 1 m along the long side.
+      if (n === 4) {
+        const e0 = Math.hypot(fp[2]! - fp[0]!, fp[3]! - fp[1]!), e1 = Math.hypot(fp[6]! - fp[0]!, fp[7]! - fp[1]!);
+        const [ux, uy, L, vx, vy, M] = e0 >= e1
+          ? [(fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0, (fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1]
+          : [(fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1, (fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0];
+        for (let s = 1; s < M; s += 1) f.moveTo(fp[0]! + vx * s, fp[1]! + vy * s).lineTo(fp[0]! + vx * s + ux * L, fp[1]! + vy * s + uy * L);
+        f.stroke({ width: 0.06, color: shade(floor, 0.82) });
+      }
+      // Outer walls, drawn inside the footprint, with gaps for doors and glass in the windows.
+      let cx = 0, cy = 0;
+      for (let k = 0; k < n; k++) { cx += fp[2 * k]!; cy += fp[2 * k + 1]!; }
+      cx /= n; cy /= n;
+      const t = Math.max(0.25, b.wallThicknessM);
+      for (let k = 0; k < n; k++) {
+        const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
+        const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
+        let nx = -uy, ny = ux;
+        if ((cx - ax) * nx + (cy - ay) * ny < 0) { nx = -nx; ny = -ny; }
+        const ox = nx * t / 2, oy = ny * t / 2;
+        const ops = b.openings.filter((o) => o.wall === k).sort((p, q) => p.offsetM - q.offsetM);
+        let s = 0;
+        const piece = (s0: number, s1: number) => { if (s1 > s0) f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy); };
+        for (const o of ops) { piece(s, o.offsetM - o.widthM / 2); s = o.offsetM + o.widthM / 2; }
+        piece(s, L);
+        f.stroke({ width: t, color: outline, cap: "square" });
+        for (const o of ops) {
+          if (o.kind !== "window") continue;
+          const s0 = o.offsetM - o.widthM / 2, s1 = o.offsetM + o.widthM / 2;
+          f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy).stroke({ width: t * 0.6, color: 0xa9cbd6 });
+        }
+      }
+      // Roof: a hard shadow, flat colour, the ridge with one half a shade darker, tile rows, a dark outline.
+      const g = new Graphics();
+      const h = b.storeys * b.storeyHeightM, off = Math.min(5, 0.22 * h + 0.5);
+      g.poly(fp.map((v, i) => v + (i % 2 === 0 ? off * 0.8 : off))).fill({ color: 0x000000, alpha: 0.3 });
+      const roof = app?.map.roofs[b.kind] ?? hexN(b.roofColour);
+      g.poly(fp).fill({ color: roof });
+      if (n === 4) {
+        const e0 = Math.hypot(fp[2]! - fp[0]!, fp[3]! - fp[1]!), e1 = Math.hypot(fp[4]! - fp[2]!, fp[5]! - fp[3]!);
+        const [A, Z] = e0 >= e1 ? [[fp[6]!, fp[7]!, fp[0]!, fp[1]!], [fp[2]!, fp[3]!, fp[4]!, fp[5]!]] : [[fp[0]!, fp[1]!, fp[2]!, fp[3]!], [fp[4]!, fp[5]!, fp[6]!, fp[7]!]];
+        const m0x = (A[0]! + A[2]!) / 2, m0y = (A[1]! + A[3]!) / 2, m1x = (Z[0]! + Z[2]!) / 2, m1y = (Z[1]! + Z[3]!) / 2;
+        if (!PITCHED_FLAT.has(b.kind)) {
+          g.poly([A[0]!, A[1]!, m0x, m0y, m1x, m1y, Z[2]!, Z[3]!]).fill({ color: shade(roof, 0.84) });
+          // Tile rows parallel to the ridge.
+          const half = Math.hypot(A[2]! - A[0]!, A[3]! - A[1]!) / 2;
+          const vx = (A[2]! - m0x) / (half || 1), vy = (A[3]! - m0y) / (half || 1);
+          for (let s = 0.7; s < half; s += 0.7) {
+            g.moveTo(m0x + vx * s, m0y + vy * s).lineTo(m1x + vx * s, m1y + vy * s);
+            g.moveTo(m0x - vx * s, m0y - vy * s).lineTo(m1x - vx * s, m1y - vy * s);
+          }
+          g.stroke({ width: 0.1, color: shade(roof, 0.7), alpha: 0.6 });
+          g.moveTo(m0x, m0y).lineTo(m1x, m1y).stroke({ width: 0.35, color: shade(roof, 0.6) });
+        } else {
+          // Flat roof: a parapet band.
+          g.poly(fp).stroke({ width: 0.6, color: shade(roof, 0.82), alignment: 1 });
+        }
+      }
+      g.poly(fp).stroke({ width: 0.3, color: outline, alignment: 0.5 });
+      this.roofG.push(g);
+      this.roofs.addChild(g);
+    }
+  }
+
+  /** Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). */
+  update(men: ArrayLike<number>, nMen: number, close: boolean): void {
+    roofShown(this.index, men, nMen, close, this.target);
+    for (let i = 0; i < this.roofG.length; i++) {
+      const want = this.target[i]!, a = this.alpha[i]!;
+      if (a === want) continue;
+      const na = want > a ? Math.min(1, a + 0.125) : Math.max(0, a - 0.125);
+      this.alpha[i] = na;
+      const g = this.roofG[i]!;
+      g.alpha = na;
+      g.visible = na > 0;
+    }
+  }
+
+  /** The roof's current alpha (tests, screenshots). */
+  roofAlpha(i: number): number { return this.alpha[i] ?? 1; }
+
+  destroy(): void { this.floors.destroy(); this.roofs.destroy({ children: true }); }
+}

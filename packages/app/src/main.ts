@@ -5,7 +5,7 @@
  * as many fixed 1/60 s simulation steps as fit; the renderer interpolates between the last two.
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
-import { buildAppearance, formatErrors, Strings } from "@tcs/data";
+import { buildAppearance, formatErrors, lookOf, Strings, type Appearance } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
 import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
@@ -15,7 +15,7 @@ import {
   tallyExpenditure, vehicleItems, atRuleOf,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, SIDE_COLOURS, VehicleDebug, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, type FrameId, type Overlay } from "@tcs/render";
 import { createAar, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
@@ -73,9 +73,12 @@ async function main(): Promise<void> {
   const orderLog: Order[] = [];
 
   const renderer = await BattleRenderer.create(mapRoot);
-  renderer.setMap(input.map, input.catalog);
+  // The look (M7.5b): the flat pixel map and pixel soldiers; `?look=classic` keeps the look before it.
+  const look = params.get("look") === "classic" ? "classic" : "pixel";
+  renderer.setLook(look);
   // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
   renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
+  renderer.setMap(input.map, input.catalog);
   // The battle opens with nothing selected (M7.5a): the order bar is greyed until a unit is picked.
   const overlay: Overlay = { playerSide, selectedUnit: null, debug: false };
 
@@ -193,10 +196,27 @@ async function main(): Promise<void> {
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
   const insets = hud.insets();
   renderer.setHudInsets(insets);
-  // Start in the tactical view: about 500 m across, centred between your team and the map centre.
+  // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
+  // while it rides), at true scale. The classic look keeps the old start: about 600 m across.
   // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
-  if (own.length > 0 && input.map.widthM > 600) {
+  const leadAt = (() => {
+    const tiles = unitTiles(sim.state, playerSide, input.catalog);
+    const lead = tiles.find((t) => t.kind === "infantry") ?? tiles[0];
+    if (!lead) return null;
+    let x = 0, y = 0, n = 0;
+    for (const m of unitSoldierIds(sim, lead.unit)) {
+      const s = sim.state.soldier.get(m);
+      const t = s?.mount !== undefined ? sim.state.transform.get(s.mount.vehicle) : sim.state.transform.get(m);
+      if (t) { x += t.x; y += t.y; n++; }
+    }
+    if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
+    return { x: x / n, y: y / n };
+  })();
+  if (look === "pixel" && leadAt) {
+    renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
+    renderer.primeDetail();
+  } else if (own.length > 0 && input.map.widthM > 600) {
     const ox = own.reduce((a, t) => a + t.x, 0) / own.length, oy = own.reduce((a, t) => a + t.y, 0) / own.length;
     // Look from the team toward the map centre, 600 m across.
     renderer.focus(ox + 0.4 * (input.map.widthM / 2 - ox), oy + 0.4 * (input.map.heightM / 2 - oy), 600, insets);
@@ -247,7 +267,8 @@ async function main(): Promise<void> {
 
   attachInput(mapRoot, {
     getCamera: () => renderer.camera,
-    setCamera: (c) => { renderer.camera = c; },
+    // Never further out than the whole map in the free area (M7.5b).
+    setCamera: (c) => { renderer.camera = renderer.clampCamera(c, hud.insets()); },
     onTap: (w) => {
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
@@ -451,6 +472,12 @@ async function main(): Promise<void> {
     discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
     fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n }),
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
+    /** M7.5b screenshots: centre at a zoom (px/m); the zoom level shown; a roof's alpha. */
+    focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); renderer.primeDetail(); },
+    zoomLevel: () => renderer.zoomLevel(),
+    /** M7.5b screenshots: every soldier frame of both sides (with variants) as a sheet over the map; false hides it. */
+    showSprites: (on: boolean) => showSpriteSheet(on, sim.state.sides.map((x) => ({ faction: x.faction, colour: SIDE_COLOURS[sim.state.sides.indexOf(x)] ?? 0xffffff })), buildAppearance(data, sim.state.sides.map((x) => x.faction))),
+    roofAlpha: (i: number) => renderer.roofAlpha(i),
     renderer,
     hash: () => simHash(sim),
     ready: true,
@@ -559,11 +586,19 @@ async function main(): Promise<void> {
   const showObjectives = () => {
     const defs = input.rules.objectives;
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
-    if (defs.length === 0) { hud.setScore(""); return; }
+    if (defs.length === 0) { hud.setScore([]); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
     const sup = sim.state.support.some((x) => x.side === playerSide);
-    const supText = sup ? [strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") })] : [];
-    hud.setScore([...supText, ...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
+    // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
+    // holder's full name as a tooltip), the time left, the mortar rounds left (HE/smoke).
+    hud.setScore([
+      ...defs.map((o, i) => {
+        const st = sim.state.objectives[i];
+        return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };
+      }),
+      { text: strings.t("score.time", { left: fmtClock(left) }) },
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
+    ]);
   };
 
   let acc = 0;
@@ -642,6 +677,50 @@ function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: st
     if (d < bestD) { bestD = d; best = id; }
   }
   return best;
+}
+
+/**
+ * The soldier sprite sheet (M7.5b, screenshots): per side, every frame facing east, then the variants (machine gun
+ * firing, marksman with a launcher wounded) and a turn through the 16 facings, at 3x on a grass-coloured canvas.
+ */
+function showSpriteSheet(on: boolean, sides: { faction: string; colour: number }[], app: Appearance): void {
+  document.getElementById("sprite-sheet")?.remove();
+  if (!on) return;
+  const Z = 3, frames = Object.keys(FRAMES) as FrameId[];
+  const rows: { side: number; frame: FrameId; facing: number; v: { weapon: "rifle" | "mg" | "marksman"; launcher: boolean; firing: boolean; wounded: boolean } }[] = [];
+  sides.forEach((_, si) => {
+    for (const v of [{ weapon: "rifle", launcher: false, firing: false, wounded: false }, { weapon: "mg", launcher: false, firing: true, wounded: false }, { weapon: "marksman", launcher: true, firing: false, wounded: true }] as const) {
+      for (const f of frames) rows.push({ side: si, frame: f, facing: 0, v });
+    }
+    for (let k = 0; k < 16; k++) rows.push({ side: si, frame: k % 2 ? "walk1" : "prone", facing: k, v: { weapon: "rifle", launcher: false, firing: false, wounded: false } });
+  });
+  const perRow = frames.length, cols = 16;
+  const W = cols * CELL * Z, lines = Math.ceil(rows.length / perRow) + 2;
+  const cv = document.createElement("canvas");
+  cv.id = "sprite-sheet";
+  cv.width = W; cv.height = lines * CELL * Z;
+  Object.assign(cv.style, { position: "fixed", left: "0", top: "0", zIndex: "50", width: "100vw", imageRendering: "pixelated", background: "#6a8648" });
+  const g = cv.getContext("2d")!;
+  g.fillStyle = "#6a8648"; g.fillRect(0, 0, cv.width, cv.height);
+  let line = 0, col = 0, last = -1;
+  rows.forEach((r, i) => {
+    const group = r.facing > 0 || (r.frame === "prone" && i > 0 && rows[i - 1]!.facing > 0) ? 1 : 0;
+    const key = r.side * 10 + (r.v.weapon === "rifle" ? 0 : r.v.weapon === "mg" ? 1 : 2) * 2 + group;
+    if (key !== last && col > 0) { line++; col = 0; }
+    last = key;
+    const pal = paletteFor(lookOf(app, sides[r.side]!.faction));
+    const cell = rotateFrame(composeFrame({ frame: r.frame, ...r.v }), r.facing), out = outlineMask(cell);
+    const ox = col * CELL * Z, oy = line * CELL * Z;
+    for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
+      const l = cell[y * CELL + x]!;
+      const c = l ? pal[l]! : out[y * CELL + x] ? sides[r.side]!.colour : -1;
+      if (c < 0) continue;
+      g.fillStyle = `#${c.toString(16).padStart(6, "0")}`;
+      g.fillRect(ox + x * Z, oy + y * Z, Z, Z);
+    }
+    if (++col >= cols) { col = 0; line++; }
+  });
+  document.body.append(cv);
 }
 
 /** mm:ss of game time. */

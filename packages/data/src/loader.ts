@@ -447,6 +447,24 @@ function checkVehicles(
     });
     v.stowed.forEach((x, k) => { if (!pack.items[x.item]) err(`stowed[${k}].item`, `unknown item '${x.item}'`); });
     if (v.cookOffAmmo !== undefined && !pack.ammunition[v.cookOffAmmo]) err("cookOffAmmo", `unknown ammunition '${v.cookOffAmmo}'`);
+    // Armour (M7.4a): known materials, one plate per part and face, a turret plate only with a turret.
+    if (v.armour) {
+      const seen = new Set<string>();
+      v.armour.plates.forEach((pl, k) => {
+        if (data.terrain && !data.terrain.materials[pl.material]) err(`armour.plates[${k}].material`, `unknown material '${pl.material}'`);
+        if (pl.part === "turret" && !v.body.turret) err(`armour.plates[${k}].part`, "a turret plate on a vehicle without a turret");
+        const key = `${pl.part}/${pl.face}`;
+        if (seen.has(key)) err(`armour.plates[${k}]`, `two plates for ${key}`);
+        seen.add(key);
+      });
+      for (const part of v.body.turret ? ["hull", "turret"] : ["hull"]) for (const face of ["front", "side", "rear", "top"]) {
+        if (!seen.has(`${part}/${face}`)) err("armour.plates", `no plate for ${part}/${face}`, "warning");
+      }
+    }
+    v.components?.parts.forEach((c, k) => {
+      if (c.part === "turret" && !v.body.turret) err(`components.parts[${k}].part`, "a turret component on a vehicle without a turret");
+      if (v.components!.parts.findIndex((x) => x.id === c.id) !== k) err(`components.parts[${k}].id`, `component '${c.id}' twice`);
+    });
   });
   // Crew and carriage templates.
   const byId = new Map(vehicles.map((v) => [v.id, v]));

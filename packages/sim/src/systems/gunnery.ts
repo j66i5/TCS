@@ -285,6 +285,8 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
       const st = v.stations[si]!;
       refillCheck(ctx, state, events, vid, v, def, si);
       if (stationOperator(state, v, def, si) === null) continue;
+      // Its target is down or a wreck (M7.4a): the task ends, ordered or not.
+      if (st.task?.contact !== undefined && !targetLive(state, st.task.contact)) { st.task = null; emitDecision(events, state, vid, si, st, null, ["why.hold.targetDown"]); }
       if (st.task && !st.task.self) {
         // An ordered task: follow the named enemy as the crew knows him; the order's nature stays.
         if (st.task.contact !== undefined) {
@@ -639,7 +641,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   const isVeh = named !== undefined && state.vehicle.has(named);
   const d = hypot2(x - t.x, y - t.y);
   const G = ctx.catalog.behaviour.gunnery;
-  const want: Nature = order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
+  const want: Nature = (order.nature === "at" ? undefined : order.nature) ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
   let any = false;
   for (let si = 0; si < v.stations.length; si++) {
     if (stationOperator(state, v, def, si) === null) continue;

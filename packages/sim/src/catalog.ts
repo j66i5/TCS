@@ -179,6 +179,8 @@ export interface BallisticsDef {
   };
   fragments: { bandDeg: [number, number]; maxPerBurst: number; airburstAboveM: number; clutterHeightM: number; clutterStopPerM: number };
   bounce: { restitution: number; tangentKeep: number; softFactor: number; vegetationFactor: number; softBelowDensityKgM3: number; stopSpeedMps: number };
+  /** Rounds against vehicle armour (M7.4a). */
+  armour: { losFloorCos: number; grazeFuseCos: number; jetDecayMmPerM: number; spallComponentDamage: number; seatHalfM: number; seatHeightM: number };
 }
 
 export interface AmmoDef {
@@ -196,11 +198,17 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number };
+  /** Rocket motor (M7.4a). */
+  propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
+  /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
+  ricochetFactor?: number;
+  /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
+  behindArmour?: { spallCount: number; spallConeDeg: number; spallEnergyJ: number };
   /** Smoke (M7.3): a multispectral cloud blinds thermal sights too. */
   multispectral?: boolean;
   /** Thrown by hand or fired from a launcher item the soldier carries. */
-  delivery?: { method: "thrown" | "launched"; velocityMps?: number; launcher?: DefId; maxRangeM?: number };
+  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
 }
 
 export interface WeaponDef {
@@ -319,6 +327,20 @@ export interface BehaviourDef {
     lrfRangeErrorFraction: number; refillBelowFraction: number;
     friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
   };
+  /**
+   * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;
+   * a man looks once per stepSeconds for an enemy vehicle he saw within seenWithinSeconds; his range error
+   * (fraction) and aiming error (mrad, regular soldier) add to the round's dispersion. No shot from inside a
+   * house smaller than largeRoomM2 that is not breached, nor with a wall within wallBehindM behind him; a
+   * comrade within handOverM brings him a round when he has none.
+   */
+  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number };
+  /**
+   * Crews of damaged vehicles (M7.4a, owner Q14/Q15): men get out bailOnFireSeconds after a fire starts; a fire
+   * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;
+   * a burning vehicle makes smoke; men still inside a destroyed vehicle are burnt (severity range).
+   */
+  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number] };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -486,10 +508,21 @@ export interface VehicleDef {
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];
   cookOffAmmo?: DefId;
+  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. */
+  armour?: { plates: VehiclePlate[] };
+  /** Components a penetrating round can damage (M7.4a). Index = `VehicleState.comp`. */
+  components?: VehicleComponent[];
   /** Smoke dischargers (M7.3). */
   dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
   /** How it is seen and heard (M7.3; defaults when the data gives none). */
   signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
+}
+
+export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
+export interface VehicleComponent {
+  id: string; kind: "engine" | "track" | "gun" | "ammo" | "fuel"; part: "hull" | "turret";
+  box: { f: [number, number]; r: [number, number]; u: [number, number] };
+  external?: boolean; toughnessMm: number; absorbMm: number; fireChance?: number; cookOffChance?: number;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

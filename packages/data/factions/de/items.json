@@ -125,13 +125,15 @@
       "note": "20-round polymer magazine (published); mass estimated."
     },
     {
-      "id": "de-pzf3",
-      "nameKey": "item.de-pzf3",
+      "id": "de-pzf3-firing-unit",
+      "nameKey": "item.de-pzf3-firing-unit",
       "category": "anti-tank",
-      "massKg": 15.2,
-      "sources": [],
-      "confidence": "low",
-      "note": "Panzerfaust 3 with one round, carried: about 15 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
+      "massKg": 2.3,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Panzerfaust_3"
+      ],
+      "confidence": "medium",
+      "note": "Panzerfaust 3 firing unit with sight, 2.3 kg (search extracts); kept after a shot, it takes the next round (de-pzf3-dm12, a 12.9 kg tube). Firing unit and one round: 15.2 kg as before M7.4a."
     },
     {
       "id": "de-water",

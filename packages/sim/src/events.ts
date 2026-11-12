@@ -35,7 +35,7 @@ export type SimEvent =
   | { kind: "explosion"; tick: number; x: number; y: number; z: number; ammo: DefId; owner: EntityId; stunRadiusM: number }
   /** A grenade with a running fuse has struck the ground (or a wall or roof) at this point; it will burst at burstTick. */
   | { kind: "grenade.landed"; tick: number; x: number; y: number; z: number; ammo: DefId; burstTick: number }
-  | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched"; x: number; y: number }
+  | { kind: "grenade.launched"; tick: number; soldier: EntityId; ammo: DefId; method: "thrown" | "launched" | "direct"; x: number; y: number }
   | { kind: "terrain.breached"; tick: number; x: number; y: number; owner: "obstacle" | "building"; id: number }
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
@@ -66,6 +66,16 @@ export type SimEvent =
       face: "front" | "side" | "rear" | "top"; zone: "hull" | "turret";
       result: "ricochet" | "stopped" | "penetrated" | "intercepted"; ammo: DefId; owner: EntityId; rounds: number; components: number[];
     }
+  /** A penetrating hit damaged a component (M7.4a): its condition now (0 = wrecked). */
+  | { kind: "vehicle.component"; tick: number; vehicle: EntityId; component: number; condition: number }
+  /** A vehicle caught fire (M7.4a). */
+  | { kind: "vehicle.fire"; tick: number; vehicle: EntityId }
+  /** A vehicle can no longer move ("immobilised") or fire ("disarmed") (M7.4a). */
+  | { kind: "vehicle.status"; tick: number; vehicle: EntityId; status: "immobilised" | "disarmed" }
+  /** A vehicle is destroyed (M7.4a): its ammunition blew up, or it burnt out. */
+  | { kind: "vehicle.destroyed"; tick: number; vehicle: EntityId; cause: "cookOff" | "burnt" }
+  /** Its crew (and passengers) bailed out, or its crew is out of action (M7.4a, owner Q14/Q15). */
+  | { kind: "vehicle.abandoned"; tick: number; vehicle: EntityId; reason: string }
   /** A vehicle drove over (and, if it flattens it, through) a wall, fence or hedge. */
   | { kind: "vehicle.crossed"; tick: number; vehicle: EntityId; obstacle: number }
   /** A vehicle ran over a man. */

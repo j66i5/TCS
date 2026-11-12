@@ -37,6 +37,7 @@ export const testCatalog: Catalog = {
     blast: { severeScaledM: 3, injuryScaledM: 6, stunScaledM: 25, stunSeconds: 4, craterScaledM: 0.6, breachSteelMmScaled: 15, breachReachScaledM: 2.5, breachWidthScaledM: 2.5, shieldSteelMm: 5 },
     fragments: { bandDeg: [-3, 40], maxPerBurst: 6500, airburstAboveM: 0.3, clutterHeightM: 0.25, clutterStopPerM: 0.15 },
     bounce: { restitution: 0.35, tangentKeep: 0.6, softFactor: 0.6, vegetationFactor: 0.6, softBelowDensityKgM3: 1800, stopSpeedMps: 1.2 },
+    armour: { losFloorCos: 0.05, grazeFuseCos: 0.1, jetDecayMmPerM: 400, spallComponentDamage: 0.15, seatHalfM: 0.3, seatHeightM: 0.95 },
   },
   ammo: {
     bomb: { id: "bomb", calibre: "hand-grenade", kind: "fragmentation", projectileMassKg: 0.4, cartridgeMassKg: 0.4, diameterM: 0.057, drag: { a: 0.5, b: 0, max: 0.6 }, penetration: { steelMm: 0, atVelocityMps: 100 }, tracer: false, fuse: "time", guidance: "unguided", explosive: { fillingKg: 0.06, fragmentCount: 3000, fragmentAmmo: "shard", fragmentVelocityMps: [1000, 1400], fuseSeconds: 4 }, delivery: { method: "thrown" } },
@@ -113,6 +114,8 @@ export const testCatalog: Catalog = {
       stepSeconds: 1, seenWithinSeconds: 4, reportedErrorM: 20, reportedWithinSeconds: 15, groupRadiusM: 15, coaxSingleWithinM: 400, vehicleScore: 0.3, firingScore: 0.5,
       lrfRangeErrorFraction: 0.005, refillBelowFraction: 0.25, friendlyClearM: 60, scanReturnSeconds: 20, dischargeAheadM: 35,
     },
+    antitank: { atRuleDefault: "vehicles", stepSeconds: 1, seenWithinSeconds: 3, rangeErrorFraction: 0.05, skillMrad: 2.5, largeRoomM2: 60, wallBehindM: 2, handOverM: 30 },
+    crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0] },
   },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,

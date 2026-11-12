@@ -50,6 +50,8 @@ export interface VictoryRules {
   casualtyPoints: number;
   /** End the battle as soon as one side has broken or has nobody left. */
   endOnDefeat: boolean;
+  /** Vehicles (M7.4a, owner Q9): points off for each own vehicle destroyed or abandoned (`lost`) or immobilised. */
+  vehiclePoints?: { lost: number; immobilised: number };
 }
 
 export interface SimContext {

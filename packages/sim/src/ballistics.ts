@@ -5,7 +5,7 @@
  */
 import type { Catalog } from "./catalog";
 import type { MapDef, Opening } from "./map";
-import { PI, sin, sqrt } from "./math";
+import { cos, PI, sin, sqrt } from "./math";
 import { heightAt, pointInPolygon, segmentsInRectInto, type MapIndex } from "./terrain";
 
 export interface SegInfo {
@@ -62,6 +62,24 @@ export interface AmmoRT {
   heavy: boolean;
   /** Impact high explosive that bursts on a man it strikes (M7.3, owner Q18; only the cannon rounds). */
   burstOnBody: boolean;
+  /** A shaped-charge warhead (M7.4a): its jet, not its speed, decides penetration. */
+  shaped: boolean;
+  /** Rocket motor (M7.4a): acceleration along the path, m/s2 (0 = none), from tick ignTicks to burnEndTicks after launch. */
+  thrust: number;
+  ignTicks: number;
+  burnEndTicks: number;
+  /** Bursts by itself this many ticks after launch (0 = never; M7.4a rockets). */
+  selfDestructTicks: number;
+}
+
+/** One armour plate, ready for the hit test (M7.4a): mild-steel-equivalent mm per mm of thickness. */
+export interface PlateRT { thicknessMm: number; kPerMm: number; sPerMm: number; cosS: number; sinS: number; sinCrit: number; material: string }
+
+/** A vehicle type's armour (M7.4a), derived from the catalog once per battle. Plates indexed part * 4 + face. */
+export interface VehicleRT {
+  plates: (PlateRT | null)[];
+  /** Thinnest plate against kinetic rounds, struck square on (mm mild steel): a round with less can never get in. */
+  minNeedMm: number;
 }
 
 /** A roof: a flat lid on a building's walls (M2.4). */
@@ -98,8 +116,12 @@ export interface VehicleGrid {
   minX: Float64Array; maxX: Float64Array; minY: Float64Array; maxY: Float64Array;
   /** Pitch and roll from the ground under the four corners, rad (+ nose up, + right side down). */
   pitch: Float64Array; roll: Float64Array;
+  /** Thinnest plate of each row's type (VehicleRT.minNeedMm; Infinity = no armour data: every round stops). */
+  minNeed: Float64Array;
   /** Rifle-calibre rounds stopped by each row this tick (one aggregated vehicle.hit per row). */
   hits: Int32Array; hitOwner: Int32Array; hitAmmo: Int32Array; hitX: Float64Array; hitY: Float64Array; hitZ: Float64Array;
+  /** Face and part of the first aggregated hit (face * 2 + part). */
+  hitFace: Int32Array;
   /** Buckets whose NEAR_VEHICLE bit is set (cleared through this list at the next rebuild). */
   touched: Int32Array; touchedCount: number;
 }
@@ -109,8 +131,8 @@ export function createVehicleGrid(capacity = 8): VehicleGrid {
   return {
     n: 0, id: I(), x: F(), y: F(), gz: F(), ch: F(), sh: F(), f0: F(), f1: F(), r0: F(), r1: F(), u0: F(), u1: F(),
     tx: F(), ty: F(), tch: F(), tsh: F(), tf0: F(), tf1: F(), tr0: F(), tr1: F(), tu0: F(), tu1: F(),
-    minX: F(), maxX: F(), minY: F(), maxY: F(), pitch: F(), roll: F(),
-    hits: I(), hitOwner: I(), hitAmmo: I(), hitX: F(), hitY: F(), hitZ: F(),
+    minX: F(), maxX: F(), minY: F(), maxY: F(), pitch: F(), roll: F(), minNeed: F(),
+    hits: I(), hitOwner: I(), hitAmmo: I(), hitX: F(), hitY: F(), hitZ: F(), hitFace: I(),
     touched: new Int32Array(capacity * 16), touchedCount: 0,
   };
 }
@@ -251,6 +273,8 @@ export interface BallisticsCtx {
   soldiers: SoldierGrid;
   /** Vehicles this tick (M7.1c). */
   vehicles: VehicleGrid;
+  /** Armour per vehicle type (M7.4a). */
+  vehicleRT: Record<string, VehicleRT>;
   deflectionRad: number;
   scatterRad: number;
   minSpeed2: number;
@@ -367,6 +391,11 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     const area = (PI * a.diameterM * a.diameterM) / 4;
     return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
       explosive: a.explosive !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125, burstOnBody: a.explosive?.burstOnBody === true,
+      shaped: a.kind === "shaped-charge" || a.kind === "tandem-shaped-charge",
+      thrust: a.propulsion && a.propulsion.burnSeconds > 0 ? a.propulsion.accelMps2 : 0,
+      ignTicks: Math.round((a.propulsion?.ignitionSeconds ?? 0) * tickHz),
+      burnEndTicks: Math.round(((a.propulsion?.ignitionSeconds ?? 0) + (a.propulsion?.burnSeconds ?? 0)) * tickHz),
+      selfDestructTicks: a.explosive?.selfDestructSeconds !== undefined ? Math.round(a.explosive.selfDestructSeconds * tickHz) : 0,
       fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
       armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
       minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };
@@ -379,7 +408,9 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
       bands: h.bands.map((b) => ({ group: groups.indexOf(b.zone), from: b.from, to: b.to, halfWidth: b.halfWidthM, armsTo: b.armsToM ?? 0 })),
     };
   });
+  const vehicleRT = buildVehicleRT(catalog);
   return {
+    vehicleRT,
     hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows), vehicles: createVehicleGrid(),
     roofs, roofBuckets, roofLow, roofStamp: new Uint32Array(roofs.length), roofGen: 0,
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, near, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, ammo,
@@ -388,6 +419,27 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     minSpeed2: b.minSpeedMps * b.minSpeedMps,
     maxAgeTicks: Math.round(b.maxFlightSeconds * tickHz),
   };
+}
+
+
+/** Armour of each vehicle type (M7.4a): plates in mild-steel-equivalent mm per mm, the thinnest plate. */
+export function buildVehicleRT(catalog: Catalog): Record<string, VehicleRT> {
+  const vehicleRT: Record<string, VehicleRT> = {};
+  const FACES = ["front", "side", "rear", "top"] as const;
+  for (const [vid, vd] of Object.entries(catalog.vehicles)) {
+    const plates: (PlateRT | null)[] = [null, null, null, null, null, null, null, null];
+    let minNeed = Infinity;
+    for (const pl of vd.armour?.plates ?? []) {
+      const m = catalog.terrain.materials[pl.material];
+      if (!m) continue;
+      const sl = pl.face === "top" ? 0 : (pl.slopeDeg * PI) / 180;
+      const rt: PlateRT = { thicknessMm: pl.thicknessMm, kPerMm: m.resistance, sPerMm: m.resistanceShaped ?? m.resistance, cosS: cos(sl), sinS: sin(sl), sinCrit: sin((m.ricochetAngleDeg * PI) / 180), material: pl.material };
+      plates[(pl.part === "turret" ? 4 : 0) + FACES.indexOf(pl.face)] = rt;
+      minNeed = Math.min(minNeed, pl.thicknessMm * m.resistance);
+    }
+    vehicleRT[vid] = { plates, minNeedMm: vd.armour ? minNeed : Infinity };
+  }
+  return vehicleRT;
 }
 
 /** Step between entries of a drop table, m. */

@@ -441,6 +441,211 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values: the area comes from the hull and turret boxes; type known within 1.5 km (owner Q6); engine heard 400 m idling, 1200 m driving."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite",
+            "thicknessMm": 150,
+            "slopeDeg": 60
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "composite",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite",
+            "thicknessMm": 140,
+            "slopeDeg": 60
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 25,
+            "slopeDeg": 20
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "composite",
+            "thicknessMm": 26,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Game values. Public descriptions (search extracts only; the pages could not be opened here) give protection level C (43 t, add-on composite modules) as proof of the frontal arc against medium-calibre (30 mm) armour-piercing rounds and of the whole vehicle against 14.5 mm and fragments, and say the add-on modules also protect against hand-held shaped charges. Owner decision Q21 (b), 2026-11-12: the FRONT stops a single PG-7VL (625 mm mild-steel equivalent = 500 mm RHA x 1.25): hull front 150 mm and turret front 140 mm of composite at 60 degrees give 750 / 700 mm against a jet head on (resistance 2.5 per mm) and 480 / 448 mm against kinetic rounds (1.6 per mm); sides and rear (30 mm composite, 48 / 75 mm; turret rear 26 mm) stop 14.5 mm all round as published for the basic protection; roof are penetrated by a PG-7VL; sides stop 14.5 mm but not 30 mm APDS at battle ranges. One plate per part and face (no upper/lower glacis, no spaced skirts)."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.7
+              ],
+              "r": [
+                0.0,
+                1.9
+              ],
+              "u": [
+                0.6,
+                1.9
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                3.6
+              ],
+              "r": [
+                -2.0,
+                -1.55
+              ],
+              "u": [
+                0.45,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                3.6
+              ],
+              "r": [
+                1.55,
+                2.0
+              ],
+              "u": [
+                0.45,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.6,
+                1.4
+              ],
+              "r": [
+                -0.35,
+                0.35
+              ],
+              "u": [
+                2.65,
+                3.05
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "ammo-ready",
+            "kind": "ammo",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.1,
+                0.3
+              ],
+              "r": [
+                -0.9,
+                0.9
+              ],
+              "u": [
+                2.5,
+                3.1
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.1
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -0.2
+              ],
+              "r": [
+                1.55,
+                1.95
+              ],
+              "u": [
+                1.1,
+                1.9
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.2
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: where the engine (front right), tracks, gun, ready ammunition (in the unmanned turret) and fuel lie, how much a round must have left to wreck each, what passing through costs it, and the chance that a penetrating hit on fuel or ammunition starts a fire or blows the ammunition up."
       }
     }
   ]

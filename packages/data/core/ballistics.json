@@ -23,6 +23,14 @@
     "shieldSteelMm": 5
   },
   "rhaToMildSteel": 1.25,
+  "armour": {
+    "losFloorCos": 0.05,
+    "grazeFuseCos": 0.1,
+    "jetDecayMmPerM": 400,
+    "spallComponentDamage": 0.15,
+    "seatHalfM": 0.3,
+    "seatHeightM": 0.95
+  },
   "fragments": {
     "bandDeg": [
       -3,
@@ -47,5 +55,5 @@
     "https://en.wikipedia.org/wiki/Ricochet"
   ],
   "confidence": "low",
-  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md. Blast (owner decision 2026-11-11: injury within a few metres, stunned out to about 10 m for a hand grenade): radii scale with the cube root of the filling; for 60 g: severe 1.2 m, injury 2.3 m, stun 9.8 m. Only fragments leaving between 3 degrees below and 40 degrees above the horizon are simulated (the rest go into the ground or the sky). Breach and crater sizes are game values. A wall of less than 5 mm steel-equivalent (plank fence, wire, hedge) does not shield from blast. A burst more than 0.3 m above the ground also throws its fragments downward. Bounce (owner request 2026-11-11): a grenade keeps 35 % of its speed off the surface and 60 % along it at each bounce, less on soft ground and in vegetation, and lies still below 1.2 m/s. Ground clutter: small folds and grass stop low fragments, 15 % per metre at ground level falling to nothing at 25 cm. All game values. Longest flight 18 s (a launcher round on a high arc needs up to 15 s; an impact-fuse round still flying after that destroys itself, as the real ones do after 14-19 s). rhaToMildSteel (M7): published armour and penetration figures in mm RHA are multiplied by 1.25 to give the mild-steel-equivalent mm the simulation uses (game value; RHA is a hard armour steel, about a quarter more resistant than mild steel)."
+  "note": "Standard gravity and sea-level air density. Penetration scales with speed to the power 1.5 (fits the SS109 steel figures: 3.5 mm at ~425 m/s and 9.5 mm at close range). Speed kept after a ricochet 55-90 % (published: loss up to about 35 %). Deflection and scatter angles are game values. See docs/research/ballistics.md. Blast (owner decision 2026-11-11: injury within a few metres, stunned out to about 10 m for a hand grenade): radii scale with the cube root of the filling; for 60 g: severe 1.2 m, injury 2.3 m, stun 9.8 m. Only fragments leaving between 3 degrees below and 40 degrees above the horizon are simulated (the rest go into the ground or the sky). Breach and crater sizes are game values. A wall of less than 5 mm steel-equivalent (plank fence, wire, hedge) does not shield from blast. A burst more than 0.3 m above the ground also throws its fragments downward. Bounce (owner request 2026-11-11): a grenade keeps 35 % of its speed off the surface and 60 % along it at each bounce, less on soft ground and in vegetation, and lies still below 1.2 m/s. Ground clutter: small folds and grass stop low fragments, 15 % per metre at ground level falling to nothing at 25 cm. All game values. Longest flight 18 s (a launcher round on a high arc needs up to 15 s; an impact-fuse round still flying after that destroys itself, as the real ones do after 14-19 s). rhaToMildSteel (M7): published armour and penetration figures in mm RHA are multiplied by 1.25 to give the mild-steel-equivalent mm the simulation uses (game value; RHA is a hard armour steel, about a quarter more resistant than mild steel). Armour (M7.4a, game values, low): the path through a plate counts at most 20 times its thickness (cos floor 0.05); a rocket striking at a cosine below 0.1 may fail to go off; a shaped-charge jet loses 400 mm of penetration per metre inside the hull; each fragment thrown inside takes 0.15 off the condition of a part it strikes; a seated man inside is a box 0.6 x 0.6 m round his seat position, 0.95 m high."
 }

@@ -119,16 +119,7 @@
       "massKg": 6.3,
       "sources": [],
       "confidence": "low",
-      "note": "RPG-7V2 launcher with sight, about 6.3 kg (from memory of published figures). It cannot be fired yet: anti-tank weapons arrive with vehicles in M7."
-    },
-    {
-      "id": "ru-pg7vl",
-      "nameKey": "item.ru-pg7vl",
-      "category": "anti-tank",
-      "massKg": 2.6,
-      "sources": [],
-      "confidence": "low",
-      "note": "PG-7VL rocket, about 2.6 kg (from memory of published figures). Not usable before M7."
+      "note": "RPG-7V2 launcher with sight, about 6.3 kg (from memory of published figures). Fires the PG-7VL (ammunition.json, M7.4a)."
     },
     {
       "id": "ru-water",

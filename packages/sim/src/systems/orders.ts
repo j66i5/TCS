@@ -14,6 +14,7 @@ import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
 import { grenadeOption, type GrenadeOption } from "./grenades";
+import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
 import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
 import { dischargeSmoke, stationCeaseFire, stationFireOrder } from "./gunnery";
@@ -58,7 +59,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "fire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.heightM !== undefined && !(o.heightM >= 0 && o.heightM <= 50)) return "invalid-params";
-      if (o.nature !== undefined && o.nature !== "ap" && o.nature !== "he" && o.nature !== "mg") return "invalid-params";
+      if (o.nature !== undefined && o.nature !== "ap" && o.nature !== "he" && o.nature !== "mg" && o.nature !== "at") return "invalid-params";
       return null;
     case "ceaseFire":
       return null;
@@ -67,6 +68,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.maxEngageM !== undefined && !(o.maxEngageM >= 0 && o.maxEngageM <= 5000)) return "invalid-params";
       if (o.onContact !== undefined && o.onContact !== "ground" && o.onContact !== "push" && o.onContact !== "back") return "invalid-params";
       if (o.ammo !== undefined && o.ammo !== "conserve" && o.ammo !== "normal" && o.ammo !== "max") return "invalid-params";
+      if (o.at !== undefined && o.at !== "vehicles" && o.at !== "vehiclesAndPositions" && o.at !== "hold") return "invalid-params";
       return null;
     case "callFire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
@@ -100,6 +102,8 @@ function orderApplies(state: SimState, o: Order): boolean {
   switch (o.kind) {
     case "posture": case "assault": case "withdraw": case "grenade":
       return !crew;
+    case "fire":
+      return !(crew && o.nature === "at"); // a crew has no launcher (M7.4a)
     case "discharge":
       return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
     default:
@@ -247,10 +251,12 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
-  if (order.kind !== "rules" && order.kind !== "grenade" && order.kind !== "callFire") {
+  // (An anti-tank shot, M7.4a, is like a grenade: one man acts, the drill goes on.)
+  const keepsDrill = order.kind === "rules" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
+  if (!keepsDrill) {
     for (const m of soldiers) { const ms = state.soldier.get(m); if (ms?.intent?.kind === "takePrisoner") ms.intent = null; }
   }
-  if (order.kind !== "rules" && order.kind !== "grenade" && order.kind !== "callFire") {
+  if (!keepsDrill) {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
     if (isUnit) clearDrills(state, ou);
     releaseFromParentDrills(state, ou, soldiers);
@@ -360,6 +366,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "fire": {
+      if (order.nature === "at") {
+        // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
+        const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
+        return orderLauncherShot(ctx, state, events, soldiers, order.x, order.y, named) ? true : "unable";
+      }
       // Stop where they are and open fire; each man keeps his posture (order a posture first if wanted).
       stopUnit(state, order.target);
       let any = false;
@@ -431,6 +442,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.maxEngageM !== undefined && (x.vehicle === undefined || u === order.target)) x.maxEngageM = order.maxEngageM;
         if (order.onContact !== undefined) x.onContact = order.onContact;
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
+        if (order.at !== undefined) x.atRule = order.at;
         x.children.forEach(set);
       };
       if (ru !== undefined) set(ru);
@@ -498,6 +510,7 @@ function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: 
     for (const c of crews) { const v = state.unit.get(c)?.vehicle; if (v !== undefined) vehicleHalt(state, v); }
     return true;
   }
+  if (order.kind === "fire" && order.nature === "at") return null; // anti-tank rounds are the men's (M7.4a)
   if (order.kind === "fire" || order.kind === "discharge") {
     // Fire (M7.3): every vehicle under the unit engages too; smoke: every vehicle fires a salvo.
     let res: OrderResult | null = null;

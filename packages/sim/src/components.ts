@@ -125,6 +125,8 @@ export interface Intent {
   kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo";
   tick: number;
   target?: EntityId;
+  /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
+  item?: DefId;
   x?: number;
   y?: number;
 }

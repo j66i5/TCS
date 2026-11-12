@@ -42,7 +42,7 @@ export function grenadeOption(ctx: SimContext, state: SimState, id: EntityId, x:
   for (const st of [...c.stacks].sort((a, b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : 0))) {
     if (st.count <= 0) continue;
     const def = ctx.catalog.ammo[st.type];
-    if (!def?.delivery || !def.explosive) continue;
+    if (!def?.delivery || !def.explosive || def.delivery.method === "direct") continue; // rockets are aimed, not lobbed (M7.4a)
     if (def.delivery.method === "thrown") {
       if (d <= throwRangeM(ctx, state, id)) return { ammo: st.type, method: "thrown", distanceM: d };
     } else if (launched === null) {
@@ -122,7 +122,7 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
 function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number): "thrown" | "launched" | "blocked" | null {
   const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
   const s = state.soldier.get(id), t = state.transform.get(id);
-  if (!def?.delivery || !def.explosive || !c || !s || !t) return null;
+  if (!def?.delivery || def.delivery.method === "direct" || !def.explosive || !c || !s || !t) return null;
   if (!c.stacks.some((st) => st.type === ammoId && st.count > 0)) return null; // he no longer has one
   const G = ctx.catalog.shooting.grenades;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammoId)]!;

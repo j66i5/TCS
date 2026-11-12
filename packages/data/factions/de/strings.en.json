@@ -52,7 +52,6 @@
   "weapon.de-g28": "G28",
   "item.de-mg5-belt": "MG5 belt (120)",
   "item.de-g28-mag": "G28 magazine",
-  "item.de-pzf3": "Panzerfaust 3",
   "ammo.de-762-dm111": "7.62 mm ball",
   "ammo.de-762-dm21": "7.62 mm tracer",
   "item.de-water": "Water (2 l)",
@@ -87,5 +86,7 @@
   "weapon.de-mg5-coax": "MG5 (coaxial)",
   "item.de-30x173-belt-ke": "30 mm belt, AP (100)",
   "item.de-30x173-belt-he": "30 mm belt, HE (100)",
-  "item.de-mg5-coax-belt": "coaxial MG5 belt (500)"
+  "item.de-mg5-coax-belt": "coaxial MG5 belt (500)",
+  "ammo.de-pzf3-dm12": "Panzerfaust 3 round (DM12)",
+  "item.de-pzf3-firing-unit": "Panzerfaust 3 firing unit"
 }

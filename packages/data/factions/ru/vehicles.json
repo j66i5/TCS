@@ -422,6 +422,234 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values, as the Puma."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 18,
+            "slopeDeg": 60
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 18,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 16,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 23,
+            "slopeDeg": 35
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 16,
+            "slopeDeg": 20
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2"
+        ],
+        "confidence": "low",
+        "note": "Rolled steel armour (resistance 1.25 = RHA). Search extracts give the BMP-1/2 hull as welded steel of about 7-19 mm on the front (upper glacis 7 mm at 80 degrees, lower 19 mm at 57 degrees), 16-18 mm sides, 16 mm rear, the turret up to 23 mm, protection against 12.7 mm from the front and small arms elsewhere; one plate per part and face here: hull front 18 mm at 60 degrees (45 mm mild steel along a level path), sides 18 mm (22.5), rear 16, roof 7, turret front 23 mm at 35 degrees, sides 16 at 20, rear 15, roof 7. Effect: the front stops 23 mm AP at 500 m, the sides stop 7.62 mm AP but not 12.7 mm; every cannon round and rocket in the game penetrates."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.4,
+                3.3
+              ],
+              "r": [
+                0.0,
+                1.5
+              ],
+              "u": [
+                0.5,
+                1.6
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1,
+                3.1
+              ],
+              "r": [
+                -1.575,
+                -1.2
+              ],
+              "u": [
+                0.42,
+                0.95
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.1,
+                3.1
+              ],
+              "r": [
+                1.2,
+                1.575
+              ],
+              "u": [
+                0.42,
+                0.95
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                -0.25,
+                0.25
+              ],
+              "u": [
+                2.0,
+                2.35
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "ammo-ready",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.6,
+                1.1
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.4,
+            "cookOffChance": 0.25
+          },
+          {
+            "id": "fuel-doors",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.36,
+                -2.95
+              ],
+              "r": [
+                -1.2,
+                1.2
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 20,
+            "fireChance": 0.35
+          },
+          {
+            "id": "fuel-centre",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.6,
+                -0.9
+              ],
+              "r": [
+                -0.25,
+                0.25
+              ],
+              "u": [
+                0.5,
+                1.3
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.25
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2"
+        ],
+        "confidence": "low",
+        "note": "Game values. The fuel tanks in the hollow rear doors and between the troop seats, and the ready ammunition in the turret basket, are as commonly described (search extracts); boxes, toughness and chances are game values."
       }
     }
   ]

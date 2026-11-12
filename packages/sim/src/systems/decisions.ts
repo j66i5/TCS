@@ -19,7 +19,7 @@
  */
 import { startAction } from "../actions";
 import type { Intent, SoldierState, Unit } from "../components";
-import type { Container } from "../items";
+import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
@@ -34,6 +34,7 @@ import { assignFireTask } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
+import { launcherDecision } from "./launcher";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -194,12 +195,15 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   const gs = state.soldier.req(g), it = gs.intent!;
   const to = it.target!;
   const rs = state.soldier.get(to), rw = state.weapon.get(to), wd = rw ? ctx.catalog.weapons[rw.weapon] : undefined;
-  if (!rs || !isAble(rs) || !wd || state.tick - it.tick > 60 * TICK_HZ || spareCount(state.container.get(to), wd.feed.magazine) > 0) { gs.intent = null; return; }
+  // What he brings: an anti-tank round (M7.4a: counted as items, he has none left), else the receiver's magazine.
+  const item = it.item ?? wd?.feed.magazine;
+  const has = (c: Container | undefined) => (it.item !== undefined ? (c ? countItems(c, it.item) : 0) : spareCount(c, item ?? ""));
+  if (!rs || !isAble(rs) || item === undefined || state.tick - it.tick > 60 * TICK_HZ || has(state.container.get(to)) > 0 || (it.item !== undefined && has(state.container.get(g)) === 0)) { gs.intent = null; return; }
   if (state.action.has(g)) return;
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
   if (d <= 2.4) {
-    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item: wd.feed.magazine, count: 1 });
+    startAction(state, events, g, "transferItems", secondsToTicks(ctx.catalog.behaviour.decisions.passSeconds), { to, item, count: 1 });
     gs.intent = null;
     return;
   }
@@ -279,6 +283,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       s.coverTick = state.tick;
       if (threat && seekCover(ctx, state, id, s, threat)) continue;
     }
+
+    // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
+    if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
 
     // ---- open fire on his own
     const current = state.fire.get(id);

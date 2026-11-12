@@ -41,7 +41,7 @@ export interface ScenarioDef {
 export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
 
 /** Points of the main and the second objective, and what each man down costs his side. */
-export const SCENARIO_POINTS = { main: 100, second: 50, perManDown: 5 } as const;
+export const SCENARIO_POINTS = { main: 100, second: 50, perManDown: 5, vehicleLost: 20, vehicleImmobilised: 10 } as const;
 
 function centroid(c: number[]): { x: number; y: number } {
   let x = 0, y = 0;
@@ -129,6 +129,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
+  // Vehicles (M7.4a, owner Q9): an IFV destroyed or abandoned costs 20 points, immobilised 10.
+  if (forces.some((f) => (f.vehicles?.length ?? 0) > 0)) rules.victory.vehiclePoints = { lost: SCENARIO_POINTS.vehicleLost, immobilised: SCENARIO_POINTS.vehicleImmobilised };
   // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
   rules.support = SIDES.map((side, s) => {
     const k = catalog.factions[def.factions[s]!]?.fireSupport?.roundsFactor ?? 1;

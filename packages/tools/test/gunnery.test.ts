@@ -44,8 +44,8 @@ describe("vehicle gunnery (M7.3)", () => {
     expect(shots).toBeGreaterThan(5);
     expect(hits).toBeGreaterThan(shots / 2);
     expect(v.stations[0]!.weapons[0]!.feeds[0]!.rounds).toBe(ready0 - shots);
-    // Rounds still stop at the hull until M7.4a: the target is unharmed.
-    expect(sim.state.vehicle.req(crew(sim, "red").vid).status).toBe("ok");
+    // M7.4a: 30 mm APFSDS goes through a BMP-2's side: it is knocked out.
+    expect(sim.state.vehicle.req(crew(sim, "red").vid).status).not.toBe("ok");
   });
 
   it("station fire is kept up by incoming fire with no infantry fire task (incomingFire early return, C34)", () => {

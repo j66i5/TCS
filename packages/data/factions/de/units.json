@@ -245,7 +245,11 @@
               "charge": 120
             },
             {
-              "item": "de-pzf3",
+              "item": "de-pzf3-firing-unit",
+              "count": 1
+            },
+            {
+              "item": "de-pzf3-dm12",
               "count": 1
             },
             {

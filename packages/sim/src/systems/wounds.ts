@@ -149,6 +149,24 @@ export function applyCrush(ctx: SimContext, state: SimState, events: EventSink, 
   refreshStatus(ctx, state, events, target);
 }
 
+/**
+ * Burnt inside a vehicle that is destroyed (M7.4a): a burn wound record to the chest of the given severity
+ * (with smoke inhalation: breathing), fatal at the zone's fatal severity. Rule 10: he stays where he is.
+ */
+export function applyBurn(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, severity: number, source: EntityId): void {
+  const s = state.soldier.req(target);
+  if (!s.physiology.alive) return;
+  const W = ctx.catalog.wounds;
+  addWound(ctx, state, events, target, {
+    zone: "chest", mechanism: "burn", severity, bleedingLps: 0, compressible: false,
+    airway: true, breathing: true, consciousness: severity >= (W.zones["chest"]?.unconsciousAt ?? 2),
+  }, source);
+  interruptAction(state, events, target, "burn");
+  if (severity >= (W.zones["chest"]?.fatalAt ?? 2)) { s.physiology.alive = false; s.physiology.consciousness = 0; }
+  else if (severity >= (W.zones["chest"]?.unconsciousAt ?? 2)) s.physiology.consciousness = 0;
+  refreshStatus(ctx, state, events, target);
+}
+
 /** He goes down; falling takes a moment (fragments of the same burst still meet him as he stood). */
 const FALL_TICKS = 18;
 function knockDown(state: SimState, s: { posture: string; postureTo: string | null; postureDoneTick: number }): void {

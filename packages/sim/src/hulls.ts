@@ -164,7 +164,7 @@ function openOver(openings: readonly { offsetM: number; widthM: number; sillM: n
 // ---------------------------------------------------------------- the vehicle grid
 
 function growGrid(G: VehicleGrid, cap: number): void {
-  const keys: (keyof VehicleGrid)[] = ["id", "x", "y", "gz", "ch", "sh", "f0", "f1", "r0", "r1", "u0", "u1", "tx", "ty", "tch", "tsh", "tf0", "tf1", "tr0", "tr1", "tu0", "tu1", "minX", "maxX", "minY", "maxY", "pitch", "roll", "hits", "hitOwner", "hitAmmo", "hitX", "hitY", "hitZ"];
+  const keys: (keyof VehicleGrid)[] = ["id", "x", "y", "gz", "ch", "sh", "f0", "f1", "r0", "r1", "u0", "u1", "tx", "ty", "tch", "tsh", "tf0", "tf1", "tr0", "tr1", "tu0", "tu1", "minX", "maxX", "minY", "maxY", "pitch", "roll", "minNeed", "hits", "hitOwner", "hitAmmo", "hitX", "hitY", "hitZ", "hitFace"];
   const g = G as unknown as Record<string, Float64Array | Int32Array>;
   for (const k of keys) {
     const old = g[k]!;
@@ -213,6 +213,7 @@ export function rebuildVehicleGrid(ctx: SimContext, state: SimState): void {
     if (tr) for (const f of [tr.f[0], tr.f[1]]) for (const r of [tr.r[0], tr.r[1]]) R = Math.max(R, Math.abs(tr.pivotF) + sqrt(f * f + r * r));
     G.minX[n] = t.x - R; G.maxX[n] = t.x + R; G.minY[n] = t.y - R; G.maxY[n] = t.y + R;
     G.hits[n] = 0;
+    G.minNeed[n] = B.vehicleRT[v.def]?.minNeedMm ?? Infinity;
     const c0 = Math.max(0, Math.floor((t.x - R) / bm) - 1), c1 = Math.min(bcols - 1, Math.floor((t.x + R) / bm) + 1);
     const r0 = Math.max(0, Math.floor((t.y - R) / bm) - 1), r1 = Math.min(brows - 1, Math.floor((t.y + R) / bm) + 1);
     for (let rr = r0; rr <= r1; rr++) for (let cc = c0; cc <= c1; cc++) {

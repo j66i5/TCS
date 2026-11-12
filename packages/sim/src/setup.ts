@@ -88,7 +88,8 @@ function addVehicles(state: SimState, force: ForceInput, catalog: Catalog): Map<
           lowAmmoReported: w.feeds.map(() => false),
         })),
       })),
-      comp: rec.components ? [...rec.components] : [],
+      // Components (M7.4a): from the record, else all in full working order.
+      comp: rec.components ? [...rec.components] : (def.components ?? []).map(() => 1),
       status: rec.status ?? "ok",
       fire: null, smokeReadyTick: 0, pendingSmokeTick: -1, crewReaction: null, reactionTick: -1, reactionWhy: [],
       lastHitTick: -1e9, lastPenTick: -1e9, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null, recovery: null,

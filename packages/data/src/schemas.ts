@@ -103,6 +103,15 @@ export const BallisticsFile = withProv({
    *  by this to give mild-steel-equivalent mm, the one scale the simulation uses. Equal to the `armour-steel`
    *  material's resistance (a test checks it). */
   rhaToMildSteel: Num(0.5, 3),
+  /** Rounds against vehicle armour (M7.4a). losFloorCos: the path through a plate is at most 1 / this times its
+   *  thickness; graze: an impact-fused warhead striking at a cosine below this may fail to go off (chance rising
+   *  to 1 at 0); jetDecayMmPerM: a shaped-charge jet loses this much penetration per metre inside; a kinetic round
+   *  inside keeps going to the far side. Spall: a fragment striking a component takes this off its condition. */
+  armour: z.object({
+    losFloorCos: Num(0.01, 1), grazeFuseCos: Num(0, 1), jetDecayMmPerM: Num(0, 5000), spallComponentDamage: Num(0, 1),
+    /** Seated men inside (M7.4a): a box this wide and deep round each seat's position, from the floor to its head. */
+    seatHalfM: Num(0.05, 2), seatHeightM: Num(0.1, 3),
+  }).strict(),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
     /** A burst higher than this above the ground also throws fragments downward. */
@@ -156,14 +165,28 @@ export const AmmoSchema = withProv({
     armingSeconds: Num(0, 5).optional(),
     /** Impact HE that bursts on a man it strikes (M7.3, owner Q18: only the new cannon rounds; default false). */
     burstOnBody: z.boolean().optional(),
+    /** Rockets (M7.4a): it bursts by itself this long after launch if it has struck nothing. */
+    selfDestructSeconds: Num(0.1, 60).optional(),
   }).strict().optional(),
+  /** Rockets (M7.4a): a motor that ignites `ignitionSeconds` after launch and speeds it up at `accelMps2` for
+   *  `burnSeconds` along its flight path. */
+  propulsion: z.object({ ignitionSeconds: Num(0, 10), burnSeconds: Num(0, 30), accelMps2: Num(0, 5000) }).strict().optional(),
+  /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
+  ricochetFactor: Num(0, 2).optional(),
+  /** What a round that gets through armour throws inside (M7.4a, owner Q11): fragments of the plate and the
+   *  round in a cone behind the hole. */
+  behindArmour: z.object({ spallCount: z.number().int().min(0).max(200), spallConeDeg: Num(0, 90), spallEnergyJ: Num(0, 100000) }).strict().optional(),
   /** Smoke rounds (M7.3): a multispectral cloud also blinds thermal sights (default false). */
   multispectral: z.boolean().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
-    method: z.enum(["thrown", "launched"]), velocityMps: Num(1, 400).optional(), launcher: Id.optional(),
+    method: z.enum(["thrown", "launched", "direct"]), velocityMps: Num(1, 400).optional(), launcher: Id.optional(),
     maxRangeM: Num(1, 2000).optional(),
+    /** "direct" (M7.4a: shoulder-fired anti-tank rockets, aimed at what the firer sees): dispersion of launcher
+     *  and round (one standard deviation, mrad), time to aim, danger zone behind the tube, and whether the tube
+     *  is thrown away (the round item is the tube). */
+    dispersionMrad: Num(0, 50).optional(), aimSeconds: Num(0, 60).optional(), backblastM: Num(0, 200).optional(), disposable: z.boolean().optional(),
   }).strict().optional(),
 });
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
@@ -325,6 +348,16 @@ export const BehaviourFile = withProv({
     groupRadiusM: Num(0, 100), coaxSingleWithinM: Num(0, 3000), vehicleScore: Num(0.01, 10), firingScore: Num(0.01, 10),
     lrfRangeErrorFraction: Num(0, 1), refillBelowFraction: Num(0, 1),
     friendlyClearM: Num(0, 500), scanReturnSeconds: Num(0, 600), dischargeAheadM: Num(0, 200),
+  }).strict(),
+  /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
+  antitank: z.object({
+    atRuleDefault: z.enum(["vehicles", "vehiclesAndPositions", "hold"]), stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60),
+    rangeErrorFraction: Num(0, 1), skillMrad: Num(0, 50), largeRoomM2: Num(0, 10000), wallBehindM: Num(0, 20), handOverM: Num(0, 200),
+  }).strict(),
+  /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
+  crew: z.object({
+    bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),
+    fireSmokeRadiusM: Num(0, 100), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -613,7 +646,24 @@ export const VehicleSchema = withProv({
     item: Id, perSalvo: z.number().int().min(1).max(20), salvos: z.number().int().min(1).max(20), arcDeg: Num(1, 360),
     rangeM: Num(1, 200), delaySeconds: Num(0, 30), cloudRadiusM: Num(1, 100), cloudSeconds: Num(1, 1200), component: Id.optional(),
   }).optional(),
-  armour: z.unknown().optional(), components: z.unknown().optional(),
+  /** Armour (M7.4a): one plate per part and face. Thickness in mm of `material` (resistance per mm from
+   *  materials.json, kinetic and shaped); slopeDeg: the plate's lean back from upright (top plates: ignored). */
+  armour: withProv({
+    plates: z.array(z.object({
+      part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), material: Id, thicknessMm: Num(0, 2000), slopeDeg: Num(0, 89),
+    }).strict()).min(1),
+  }).optional(),
+  /** Parts inside and outside the hull a penetrating round can damage (M7.4a). Box in the part's frame (turret:
+   *  about the turret pivot); toughnessMm: residual penetration that wrecks it outright (less: that share of its
+   *  condition), absorbMm: what passing through it takes off the round; fireChance: a penetrating hit on it
+   *  starts a fire; cookOffChance (ammunition): it blows up at once. external: struck from outside (tracks). */
+  components: withProv({
+    parts: z.array(z.object({
+      id: Id, kind: z.enum(["engine", "track", "gun", "ammo", "fuel"]), part: z.enum(["hull", "turret"]), box: Box,
+      external: z.boolean().optional(), toughnessMm: Num(0.1, 2000), absorbMm: Num(0, 2000),
+      fireChance: Num(0, 1).optional(), cookOffChance: Num(0, 1).optional(),
+    }).strict()).min(1),
+  }).optional(),
   cookOffAmmo: Id.optional(),
   /** How it is seen and heard (M7.3). sizeFactor multiplies the area its boxes show (camouflage, shape);
    *  identifyM: its type is known within this range (owner Q6); noise ranges idle / moving; aim points [f, r, u]. */

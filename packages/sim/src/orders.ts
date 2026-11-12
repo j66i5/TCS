@@ -40,12 +40,17 @@ export type OrderBody =
   /** Fire at a point (suppressive or at a seen target). `heightM`: aim height above ground there. */
   | {
     kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId;
-    /** Vehicles (M7.3): armour-piercing, high explosive or the machine gun; absent: the crew chooses. */
-    nature?: "ap" | "he" | "mg";
+    /** Vehicles (M7.3): armour-piercing, high explosive or the machine gun; absent: the crew chooses. "at" (M7.4a):
+     *  men on foot fire one anti-tank round (Panzerfaust, RPG) at it — any target the player picks (owner Q19). */
+    nature?: "ap" | "he" | "mg" | "at";
   }
   | { kind: "ceaseFire" }
   /** Standing rules for the unit and its sub-units (M4.2, M5); only the rules given change. */
-  | { kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max" }
+  | {
+    kind: "rules"; fire?: "free" | "return" | "hold"; /** 0 = no limit beyond the weapon's own. */ maxEngageM?: number; onContact?: "ground" | "push" | "back"; ammo?: "conserve" | "normal" | "max";
+    /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
+    at?: "vehicles" | "vehiclesAndPositions" | "hold";
+  }
   /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
   | { kind: "assault"; x: number; y: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */

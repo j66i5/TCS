@@ -16,6 +16,7 @@ import { rebuildVehicleGrid } from "./hulls";
 import { syncTerrainDamage } from "./systems/explosions";
 import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
+import { vehicleDamageSystem } from "./systems/armour";
 import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
@@ -110,6 +111,8 @@ export function step(sim: Sim): SimEvent[] {
   stationFireSystem(ctx, state, events);
   supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
+  // Fire, cook-off and bailing out of damaged vehicles (M7.4a; returns at once without vehicles).
+  vehicleDamageSystem(ctx, state, events);
   grenadeReactionSystem(ctx, state, events);
   // Hits on hulls and fire near vehicles (M7.3) before the infantry's incoming fire: its early return no longer
   // skips station tasks (plan C34).

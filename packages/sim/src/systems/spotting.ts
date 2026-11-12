@@ -219,9 +219,9 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
 /** Reused rows of `soldierTargets` (rebuilt every tick in which someone scans; never kept across ticks). */
 const TARGETS: SoldierTarget[] = [];
 
-/** A vehicle that can still be seen as a target (a burnt-out wreck comes with M7.4). */
+/** A vehicle that can still be seen as a target: not a wreck (owner Q8: both sides know of a wreck at once, M7.4a). */
 function vehicleSeeable(v: VehicleState | undefined): boolean {
-  return v !== undefined && v.status !== "destroyed";
+  return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned";
 }
 
 /** Every vehicle that can be seen this scan, ID order. */

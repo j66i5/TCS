@@ -47,7 +47,6 @@
   "weapon.ru-pkp": "PKP Pecheneg",
   "item.ru-pkp-belt": "PKP belt (100)",
   "item.ru-rpg7": "RPG-7V2",
-  "item.ru-pg7vl": "PG-7VL rocket",
   "ammo.ru-762r-lps": "7.62 mm R ball",
   "ammo.ru-762r-t46": "7.62 mm R tracer",
   "item.ru-water": "Water (2 l)",
@@ -79,5 +78,6 @@
   "weapon.ru-pkt": "PKT",
   "item.ru-30x165-belt-ap": "30 mm belt, AP (160)",
   "item.ru-30x165-belt-he": "30 mm belt, HE (340)",
-  "item.ru-pkt-belt": "PKT belt (250)"
+  "item.ru-pkt-belt": "PKT belt (250)",
+  "ammo.ru-pg7vl": "PG-7VL rocket"
 }

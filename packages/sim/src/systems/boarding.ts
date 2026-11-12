@@ -159,14 +159,23 @@ registerActionHandler("dismount", {
     return null;
   },
   complete(ctx, state, actor, a, events) {
-    const vid = Number(a.params["vehicle"]), v = state.vehicle.req(vid), def = ctx.catalog.vehicles[v.def]!;
+    getOut(ctx, state, actor, Number(a.params["vehicle"]), Number(a.params["exit"]), events);
+  },
+});
+
+/**
+ * A man aboard leaves his seat through exit `exit` and lands outside (dismount, M7.2; bailing out, M7.4a).
+ */
+export function getOut(ctx: SimContext, state: SimState, actor: EntityId, vid: EntityId, exit: number, events: EventSink): void {
+  {
+    const v = state.vehicle.req(vid), def = ctx.catalog.vehicles[v.def]!;
     const s = state.soldier.req(actor), seat = s.mount!.seat;
     v.seats[seat] = null;
     delete s.mount;
     // He lands in a fan behind the exit (each seat its own spot), on ground a man can stand on.
     const M = ctx.catalog.behaviour.mounting, t = state.transform.req(vid);
-    const e = exitWorld(def, Number(a.params["exit"]), t.x, t.y, t.heading);
-    const ex = def.ramp.exits[Number(a.params["exit"])]!;
+    const e = exitWorld(def, exit, t.x, t.y, t.heading);
+    const ex = def.ramp.exits[exit]!;
     // Out of the exit: backwards for a rear exit, sideways for a side door.
     const outA = t.heading + atan2(ex[1], ex[0]);
     const n = Math.max(1, def.seats.length);
@@ -183,8 +192,8 @@ registerActionHandler("dismount", {
     halt(state, actor);
     events.emit({ kind: "soldier.dismounted", tick: state.tick, soldier: actor, vehicle: vid, seat });
     events.emit({ kind: "posture.changed", tick: state.tick, soldier: actor, posture: "crouching" });
-  },
-});
+  }
+}
 
 /**
  * Two men carry a wounded comrade in (Q25). The lead holds the action that seats him; the helper holds an action

@@ -13,7 +13,11 @@ import { TICK_HZ, type EntityId, type SideId } from "../ids";
 import { isAble, isOut } from "../impair";
 import type { SimState, SimView } from "../state";
 
-export interface SideScore { side: SideId; objectivePoints: number; menDown: number; score: number }
+export interface SideScore {
+  side: SideId; objectivePoints: number; menDown: number; score: number;
+  /** Vehicles (M7.4a, Q9; only with vehicle points in the rules): own vehicles lost (destroyed or abandoned) and immobilised. */
+  vehiclesLost?: number; vehiclesImmobilised?: number;
+}
 export interface BattleScore { scores: SideScore[]; winner: SideId | null }
 
 /** Set up the holders at the start of a battle. */
@@ -77,7 +81,18 @@ export function battleScore(ctx: SimContext, state: SimView): BattleScore {
     // Men lost: killed, incapacitated, surrendered or captured (M6.6), each counted once.
     // mounted: ok losses count every man
     for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && isOut(state.soldier.req(id))) down++;
-    return { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
+    const out: SideScore = { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
+    if (V?.vehiclePoints) {
+      let lost = 0, immob = 0;
+      for (const [, v] of state.vehicle.entries()) {
+        if (v.side !== sd.id) continue;
+        if (v.status === "destroyed" || v.status === "abandoned") lost++;
+        else if (v.status === "immobilised") immob++;
+      }
+      out.vehiclesLost = lost; out.vehiclesImmobilised = immob;
+      out.score -= V.vehiclePoints.lost * lost + V.vehiclePoints.immobilised * immob;
+    }
+    return out;
   });
   let winner: SideId | null = null;
   if (state.endLoser !== null) winner = state.sides.find((s) => s.id !== state.endLoser)?.id ?? null;

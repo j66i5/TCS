@@ -11,10 +11,11 @@ describe("vehicle debug overlay", () => {
     const data = loadData();
     const strings = new Strings(data);
     const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1100, y: 600, heading: Math.PI / 2 } }));
-    // Blue fires at will; red is struck and returns fire: its crew chooses the Puma (a vehicle first).
+    // Blue fires HE at the BMP-2 (it does not get through, M7.4a); red is struck and returns fire: its crew
+    // chooses the Puma (a vehicle first), whose front it cannot get through either.
     const [bid, bv] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "blue")!;
     const [rid] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")!;
-    submitOrder(sim, { tick: 0, issuer: "blue", target: bv.unit!, kind: "fire", x: 1100, y: 600, heightM: 1.2, nature: "ap" });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bv.unit!, kind: "fire", x: 1100, y: 600, heightM: 1.2, nature: "he" });
     const dbg = new VehicleDebug();
     const seen: SimEvent[] = [];
     for (let i = 0; i < 40 * TICK_HZ; i++) { const ev = step(sim); dbg.onEvents(ev); seen.push(...ev.filter((e) => e.kind === "vehicle.decision")); }

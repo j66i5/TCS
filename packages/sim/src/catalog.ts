@@ -285,6 +285,22 @@ export interface BehaviourDef {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
   };
+  /**
+   * Getting in and out of vehicles (M7.2). boardReachM: a man this close to an exit can board; approachReplanM:
+   * his walk to the exit is planned again when the hull has moved this far; casualtyLoadM / carriersWithinM: a
+   * wounded man this close to an exit is loaded by two comrades if two able men are this close to him (owner
+   * Q25); completeAfterSeconds / giveUpSeconds: boarding ends this long after the first man got in, or after
+   * this long at all; exitFanMinM/MaxM: men getting out land this far behind the exit; remountM: a withdrawing
+   * squad this close to its vehicle gets back in (Q24); holdDismountM: a squad aboard this close to an objective
+   * it holds gets out; resupplyRangeM / resupplyReachM / resupplyCount: a man out of spare walks to a halted own
+   * vehicle this close and takes this many from it standing this close to an exit; seatSwapCheckSeconds: how
+   * often a crew sees whether a fallen driver or gunner must be replaced.
+   */
+  mounting: {
+    boardReachM: number; approachReplanM: number; casualtyLoadM: number; carriersWithinM: number;
+    completeAfterSeconds: number; giveUpSeconds: number; exitFanMinM: number; exitFanMaxM: number;
+    remountM: number; holdDismountM: number; resupplyRangeM: number; resupplyReachM: number; resupplyCount: number; seatSwapCheckSeconds: number;
+  };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -361,6 +377,9 @@ export interface FactionDef {
   defaultFormation: DefId;
   /** Mortar fire the platoon can call (M6.5c); none if absent. */
   fireSupport?: { heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number };
+  /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
+   *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
+  dismountM?: number;
 }
 
 export interface FormationDef {

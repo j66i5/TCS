@@ -267,13 +267,24 @@
           "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. The gun and coaxial machine gun come with gunnery (M7.3)."
         }
       ],
-      "stowed": [],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 24,
+          "charge": 30
+        },
+        {
+          "item": "ru-pkp-belt",
+          "count": 6,
+          "charge": 100
+        }
+      ],
       "sources": [
         "https://en.wikipedia.org/wiki/BMP-2",
         "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
       ],
       "confidence": "medium",
-      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4."
+      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle."
     }
   ]
 }

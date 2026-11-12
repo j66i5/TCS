@@ -12,6 +12,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     if (!pack) throw new Error(`faction '${fid}' is not loaded (loaded: ${Object.keys(data.factions).join(", ")})`);
     factions[fid] = { id: fid, nameKey: pack.manifest.nameKey, doctrine: { ...pack.doctrine.values }, defaultFormation: pack.doctrine.defaultFormation };
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
+    if (pack.doctrine.dismount) factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
     for (const it of Object.values(pack.items)) {
       const d: ItemTypeDef = { id: it.id, massKg: it.massKg, category: it.category };
       if (it.chargeCapacity !== undefined) d.chargeCapacity = it.chargeCapacity;

@@ -19,6 +19,7 @@
  * This file owns `captive`; target choice elsewhere reads only the chooser's own contact flag.
  * No random draws. Squared distances only.
  */
+import { isMounted } from "../mount";
 import type { SoldierState, SurrenderReason } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -80,6 +81,7 @@ function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState
   if (downed && downedM > 0 && d2 <= downedM * downedM) {
     const me = state.transform.req(id), side = state.identity.req(id).side, r2 = R.comradeNearM * R.comradeNearM;
     let comrade = false;
+    // mounted: ok a comrade aboard a vehicle close by still counts as help at hand
     for (const [m, ms] of state.soldier.entries()) {
       if (m === id || state.identity.get(m)?.side !== side || !isFit(ms)) continue;
       const t = state.transform.req(m);
@@ -110,7 +112,8 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
   const R = ctx.catalog.behaviour.surrender;
   const p = state.transform.req(id), ps = state.soldier.req(id), side = state.identity.req(id).side, r2 = R.captureM * R.captureM;
   for (const [m, ms] of state.soldier.entries()) {
-    if (state.identity.get(m)?.side === side || !isFit(ms)) continue;
+    // A man aboard a vehicle takes nobody prisoner (M7.2).
+    if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms)) continue;
     const t = state.transform.req(m);
     if ((t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y) > r2) continue;
     const ez = heightAt(ctx.map, t.x, t.y) + eyeHeightM(ctx, ms.posture);
@@ -154,6 +157,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
 
   // ---- the walk-over errands (one walker per prisoner)
   const walkers = new Map<EntityId, EntityId>(); // prisoner -> walker (lookups only)
+  // mounted: ok a man aboard has no errand (decisions clear his intent)
   for (const [id, s] of state.soldier.entries()) {
     const it = s.intent;
     if (it?.kind !== "takePrisoner" || it.target === undefined) continue;
@@ -168,6 +172,8 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
   }
 
   for (const [id, s] of state.soldier.entries()) {
+    // A man aboard a vehicle does not give up (M7.2, plan §6); a prisoner is never aboard.
+    if (isMounted(s)) continue;
     if (s.captive !== null) {
       // A surrendered man is taken prisoner by a fit enemy who reaches him (every tick).
       if (s.captive.state === "surrendered" && s.physiology.alive && R.captureM > 0) {
@@ -183,7 +189,7 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
           const seen = secondsToTicks(D.seenWithinSeconds);
           let best: EntityId | null = null, bestD = Infinity;
           for (const [m, ms] of state.soldier.entries()) {
-            if (state.identity.get(m)?.side === side || !isFit(ms) || ms.intent !== null || ms.evade !== null) continue;
+            if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms) || ms.intent !== null || ms.evade !== null) continue;
             if (ms.mental.suppression >= D.underFireSuppression || state.fire.has(m) || state.action.has(m)) continue;
             if ((state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
             const c = ms.contacts.find((k) => k.target === id);

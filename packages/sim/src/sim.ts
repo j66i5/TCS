@@ -22,6 +22,7 @@ import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
 import { drillSystem } from "./systems/drills";
+import { boardingSystem } from "./systems/boarding";
 import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { initSupport, supportSystem } from "./systems/support";
 import { spottingSystem } from "./systems/spotting";
@@ -115,6 +116,8 @@ export function step(sim: Sim): SimEvent[] {
   surrenderSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
+  // Getting in and out of vehicles, seat swaps (M7.2; returns at once without vehicles).
+  boardingSystem(ctx, state, events);
   objectiveSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 

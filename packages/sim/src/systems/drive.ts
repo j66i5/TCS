@@ -409,7 +409,8 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     // Getting clear after the hull struck something: the escape move chosen then, for its half second.
     if (d.escape && state.tick < d.escape.untilTick && d.routeIdx < d.route.length) { CMD.speed = d.escape.speed; CMD.yawRate = d.escape.yawRate; CMD.curvature = d.escape.yawRate / Math.max(0.5, Math.abs(d.escape.speed)); }
     else if (d.escape) delete d.escape;
-    if (!can) { CMD.speed = 0; CMD.yawRate = 0; CMD.curvature = 0; }
+    // Men getting in or out (M7.2): it holds where it is; its route is kept for afterwards.
+    if (!can || d.holdForDismount) { CMD.speed = 0; CMD.yawRate = 0; CMD.curvature = 0; }
     // Look ahead: other hulls and own men who cannot get out of the way stop it; men who can step aside.
     const hold = can && Math.abs(CMD.speed) > 0.05 ? corridor(ctx, state, vid, v, def, t.x, t.y, t.heading, CMD.speed) : null;
     if (hold !== null) {
@@ -465,7 +466,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     }
     // Stuck: no 0.5 m of progress in 3 s while it should be driving: plan again; after three, give up.
     // (Progress is the way still to go getting shorter: progressX holds the shortest so far, progressY unused.)
-    const driving = can && !d.arrived && d.routeIdx < d.route.length && d.yieldTo === null;
+    const driving = can && !d.holdForDismount && !d.arrived && d.routeIdx < d.route.length && d.yieldTo === null;
     const togo = driving ? routeLeft(d, t.x, t.y) : 0;
     if (!driving || togo < d.progressX - 0.5) { d.progressX = togo; d.progressY = 0; d.progressTick = state.tick; }
     else if (!replanned && state.tick - d.progressTick >= secondsToTicks(STUCK_S)) {

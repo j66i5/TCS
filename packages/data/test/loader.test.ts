@@ -134,8 +134,11 @@ describe("data loader", () => {
       };
       expect(broken((f) => add(f, [{ crew: 9, carries: [0] }]))).toContain("carriage[0].crew: no sub-unit 9");
       expect(broken((f) => add(f, [{ crew: 0, carries: [1] }]))).toContain("is not a vehicle crew");
-      expect(broken((f) => add(f, [{ crew: 3, carries: [7] }]))).toContain("carriage[0].carries: no sub-unit 7 to carry");
+      expect(broken((f) => add(f, [{ crew: 3, carries: [9] }]))).toContain("carriage[0].carries: no sub-unit 9 to carry");
       expect(broken((f) => add(f, [{ crew: 3, carries: [0, 1] }]))).toContain("12 men to carry but 'de-puma' has 6 passenger seats");
+      // The headquarters (the platoon's own two men) counted in the seats; only one vehicle carries it (M7.2).
+      expect(broken((f) => add(f, [{ crew: 3, carries: [0], hq: true }]))).toContain("8 men to carry but 'de-puma' has 6 passenger seats");
+      expect(broken((f) => add(f, [{ crew: 3, carries: [], hq: true }, { crew: 4, carries: [], hq: true }]))).toContain("only one vehicle carries the headquarters");
     });
     it("checks that a foot pace names vehicle paces of the right class", () => {
       expect(broken((f) => { (f["core/movement-modes.json"] as { movementModes: V[] }).movementModes[0]!["vehiclePace"].tracked = "wdrive"; })).toContain("movementModes[0].vehiclePace.tracked: 'wdrive' is not a tracked pace");

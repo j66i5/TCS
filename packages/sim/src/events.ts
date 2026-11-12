@@ -69,6 +69,13 @@ export type SimEvent =
   | { kind: "vehicle.crossed"; tick: number; vehicle: EntityId; obstacle: number }
   /** A vehicle ran over a man. */
   | { kind: "vehicle.ranOver"; tick: number; vehicle: EntityId; soldier: EntityId }
+  /** A man got into (or out of) a vehicle seat (M7.2); a unit's boarding is complete. */
+  | { kind: "soldier.mounted"; tick: number; soldier: EntityId; vehicle: EntityId; seat: number }
+  | { kind: "soldier.dismounted"; tick: number; soldier: EntityId; vehicle: EntityId; seat: number }
+  | { kind: "unit.mounted"; tick: number; unit: EntityId; vehicle: EntityId }
+  | { kind: "unit.dismounted"; tick: number; unit: EntityId; vehicle: EntityId }
+  /** A crewman took over the seat of a fallen one (M7.2); the casualty stays aboard in the seat he left. */
+  | { kind: "vehicle.seatSwap"; tick: number; vehicle: EntityId; seat: number; soldier: EntityId; casualty: EntityId }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

@@ -472,7 +472,8 @@ function checkVehicles(
       if (!crewT) { err(`carriage[${k}].crew`, `no sub-unit ${c.crew}`); return; }
       const v = crewT.vehicle === undefined ? undefined : byId.get(crewT.vehicle);
       if (!v) { err(`carriage[${k}].crew`, `sub-unit ${c.crew} ('${crewT.id}') is not a vehicle crew`); return; }
-      let men = 0;
+      let men = c.hq === true ? u.members.length : 0;
+      if (c.hq === true && u.carriage!.filter((x) => x.hq === true).length > 1) err(`carriage[${k}].hq`, "only one vehicle carries the headquarters");
       for (const ci of c.carries) {
         const t = u.subunits[ci] === undefined ? undefined : pack.units[u.subunits[ci]!];
         if (!t || ci === c.crew) { err(`carriage[${k}].carries`, `no sub-unit ${ci} to carry`); continue; }

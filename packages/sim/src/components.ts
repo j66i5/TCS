@@ -122,7 +122,7 @@ export interface CommState {
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo";
   tick: number;
   target?: EntityId;
   x?: number;
@@ -357,6 +357,14 @@ export interface Boarding {
   then: OrderBody | null;
   /** -1 = not open yet. */
   rampOpenTick: number;
+  /** Who `then` is for when not the unit itself (an order to one man aboard, Q12). */
+  thenTarget?: EntityId;
+  /** Mount: when the first man got in (-1 = none yet); boarding ends `completeAfterSeconds` later. */
+  firstTick?: number;
+  /** Mount: where the hull stood when the walk to it was planned (re-planned when it has moved). */
+  hullX?: number; hullY?: number;
+  /** Mount: wounded men to load (two comrades carry each in, owner Q25). */
+  casualties?: EntityId[];
 }
 
 /** A vehicle (entity with a Transform, a Container and this; no Identity, Mover or SoldierState). */

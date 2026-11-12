@@ -65,8 +65,11 @@ export const simpleComms: CommsModel = {
   contactShareDelayTicks(state, params, from, to) {
     // Within voice range: shouted (no delay from the model; the caller adds the time to say it). Otherwise by
     // radio, if both men's units are on the net.
+    // Aboard the same vehicle: the intercom (M7.2). Between a man aboard and one outside: only the radio.
+    const ma = state.soldier.get(from)?.mount, mb = state.soldier.get(to)?.mount;
+    if (ma && mb && ma.vehicle === mb.vehicle) return 0;
     const a = state.transform.get(from), b = state.transform.get(to);
-    if (a && b && (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) <= params.voiceRangeM * params.voiceRangeM) return 0;
+    if (ma === undefined && mb === undefined && a && b && (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) <= params.voiceRangeM * params.voiceRangeM) return 0;
     const ua = state.unit.get(state.identity.get(from)?.unit ?? -1), ub = state.unit.get(state.identity.get(to)?.unit ?? -1);
     if (!ua || !ub || ua.comms.link === "none" || ub.comms.link === "none") return null;
     return secondsToTicks(params.contactShareDelaySeconds + ua.comms.extraDelaySeconds + ub.comms.extraDelaySeconds);

@@ -1426,3 +1426,53 @@ Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, con
   the debug overlay's look-ahead, corridor and per-track speeds, `perf-render.test.ts`, the plan outline of a
   vehicle move (M7.3/M7.5); surrender gate for men aboard (M7.2; surrender.ts untouched here); `bench-combined`
   (M7.3); vehicle contacts drawn under fog (M7.3).
+
+## 2026-11-12 — M7.2 part 1: getting in and out of vehicles in the simulation (one golden update)
+Plan §6/§15 M7.2 steps 2–4 and 10, owner answers Q10, Q12, Q24, Q25 applied; game values (confidence low) in
+`core/behaviour.json` `mounting` and the vehicles' `ramp` blocks:
+- **Infantry baseline (plan step 2), recorded before any M7.2 change** (base commit 528b81c, 10 × 900 s each,
+  AI v AI, infantry only): `platoon` (Germany attacks, village) red (defender) wins 10 of 10, mean score blue
+  −36.5 / red 127.5, casualties blue 16.1 / red 8.2, prisoners 0.1 / 0.1; `platoon-ru` (Russia attacks,
+  farmland) blue (defender) wins 10 of 10, score 128.5 / −49.0, casualties blue 7.8 / red 15.4, prisoners 0 / 0.
+- **Orders** `mount {vehicle?}` and `dismount` (`radio.ack.mount/dismount`). Mount: to a unit, each foot unit of
+  it boards its own carrier (`Unit.carrier`, from `UnitInput.carrierId`; a unit without one rides with the
+  carrier of the unit above it); `vehicle` names another own vehicle. Fewer free passenger seats than men (men
+  already walking to that vehicle counted) → `radio.noSeats` (no partial mount); no vehicle → `radio.noVehicle`;
+  to a crew → unable. Dismount: to a unit, its men aboard; to a vehicle's crew, every passenger; to one man, him.
+- **Boarding** (`Unit.boarding`, `systems/boarding.ts`, after the drills each tick; nothing runs without
+  vehicles): men run to the nearest exit; within 2.5 m and with the hull halted they get in one at a time per
+  exit (`mount` action, `mountSecondsPerMan`), lowest ID first, after the ramp has opened once (`openSeconds`);
+  the walk is re-planned when the hull has moved 3 m. The hull holds (`holdForDismount`, its route kept) while
+  men pass. Complete when every able man and every loadable casualty is in, 60 s after the first man got in, or
+  after 300 s. Dismount: the hull holds; once below 0.3 m/s and the ramp open, one man per exit
+  (`dismountSecondsPerMan`, the free exit nearest his seat); he lands 3–8 m out of the exit in a fan by seat (on
+  passable ground), crouching, facing away. Wounded men aboard stay aboard. `unit.mounted/dismounted`,
+  `soldier.mounted/dismounted`, `radio.mounted/dismounted`. A new order clears a boarding (`clearDrills`); an order
+  to one man takes him out of his unit's queue.
+- **Q12:** an order other than rules, cease fire, call for fire or halt to a squad (or one man) with men aboard:
+  `radio.dismountFirst`, it gets out, then the order is carried out (`Boarding.then`, applied without a second
+  comms delay; a refusal is radioed then). An order to a platoon with vehicles goes to the vehicles (the squads
+  ride along) — decided without the owner, for review. `unitArrived` is false while a `then` is pending.
+- **Q25:** a wounded man of the unit who cannot walk, lying within 5 m of an exit when the order comes, is
+  carried in by the two lowest-ID able men of the unit within 30 m of him (both walk to him; a two-man
+  `loadCasualty` action, `loadCasualtySeconds`); two able men stay outside until he is in. Others stay where they
+  are and do not hold up completion.
+- **Seat swap (plan Q13, recommended option, decided without the owner, for review):** checked once a second: a
+  fallen (or missing) driver is replaced by the commander, else a loader, else the gunner; a fallen gunner by the
+  commander or a loader; `seatSwapSeconds` (20 s); the casualty moves into the seat the crewman left
+  (`vehicle.seatSwap`, `radio.seatSwap`). Passengers never take a crew seat.
+- **Resupply from the vehicle (rule 9):** a man down to the magazine in his weapon walks to a halted own vehicle
+  within 30 m (his unit's carrier first) that stows his magazines or belts, and standing within 5 m of an exit
+  takes 3 (the fullest) through `transferItems` (`takeFromVehicle` action, `passSeconds`); before asking a
+  comrade. Puma stows 20 G36 magazines, 6 MG5 belts, 4 G28 magazines; BMP-2 24 AK-74 magazines and 6 PKP belts
+  (game values, low). Rockets stay out of the stowage until the launcher items are settled in M7.4a.
+- **Gates:** a man aboard does not surrender, takes nobody prisoner and is not fetched as a captor (A7 now has
+  no file exempted); the intercom: men in the same vehicle share contacts at once, a man aboard and a man outside
+  only by radio. **Q10 (owner (b))**: men aboard hold and contest objectives (already so since M7.1c); a side
+  whose men are all aboard is neither wiped out nor broken (tested).
+- **Doctrine (owner Q22):** `doctrine.json` gains a sourced `dismount.distanceM`: Russia 400 m (2005 combat
+  manual, study notes "up to 400 m", medium), Germany 300 m (Bundeswehr principles, no published figure, low);
+  the AI uses it in part 2.
+- **Golden update (catalog fingerprint: `mounting`, `dismount`, vehicle stowage; vehicles-s1/fixture-cart-s3 also
+  by the stowed items).** Checked first: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s) print
+  the identical event stream and casualties as on the base commit; every golden's order stream is unchanged.

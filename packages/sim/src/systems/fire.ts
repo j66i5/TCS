@@ -122,7 +122,7 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
 }
 
 /** Is a man of the same unit in front of the muzzle, inside the safety cone and nearer than the target? */
-function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number): boolean {
   const top = topUnit(state, id);
   if (top === null) return false;
   const me = state.transform.req(id);

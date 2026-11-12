@@ -54,6 +54,9 @@ export interface UnitInput {
   subunits: UnitInput[];
   /** A vehicle crew unit (M7): the `vehicleId` of the force's vehicle it crews. */
   vehicleId?: string;
+  /** A unit on foot (M7.2): the `vehicleId` of the vehicle that carries it (its own men; sub-units without a
+   *  carrier of their own ride in it too). */
+  carrierId?: string;
 }
 
 /**

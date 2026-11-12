@@ -257,13 +257,29 @@
           "note": "Unmanned turret; rates, limits and errors are game values. The gun and coaxial machine gun are added with gunnery (M7.3)."
         }
       ],
-      "stowed": [],
+      "stowed": [
+        {
+          "item": "de-g36-mag",
+          "count": 20,
+          "charge": 30
+        },
+        {
+          "item": "de-mg5-belt",
+          "count": 6,
+          "charge": 120
+        },
+        {
+          "item": "de-g28-mag",
+          "count": 4,
+          "charge": 20
+        }
+      ],
       "sources": [
         "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
         "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
       ],
       "confidence": "medium",
-      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4."
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle."
     }
   ]
 }

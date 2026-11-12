@@ -102,8 +102,8 @@ describe("men aboard vehicles are gated (A7, plan §15 M7.1c)", () => {
   /** Loops over the soldier stores and calls that list a unit's men: each must skip men aboard, or say why not. */
   const LOOP = /state\.(soldier|identity|mover|weapon|fire)\.(entries|values|keys)\(\)|\bunitSoldiers\(|\ballMembers\(|\bsideKnowledge\(/;
   const GATE = /isMounted\(|isExposed\(|footSoldiers\(|\.mount\b|mounted: ok/;
-  /** Not gated yet, with the reason (logged in DECISIONS.md): surrender is gated in M7.2 (left untouched in M7.1c). */
-  const NOT_YET = [join("sim", "src", "systems", "surrender.ts")];
+  /** Not gated yet, with the reason (logged in DECISIONS.md). Empty since M7.2 (surrender gated). */
+  const NOT_YET: string[] = [];
   it("every soldier loop and unit-men call in sim, ai, render and app has a mount gate or a `mounted: ok` marker", () => {
     const bad: string[] = [];
     for (const pkg of ["sim", "ai", "render", "app"]) {

@@ -105,6 +105,10 @@ export const testCatalog: Catalog = {
       breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100,
     },
     surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
+    mounting: {
+      boardReachM: 2.5, approachReplanM: 3, casualtyLoadM: 5, carriersWithinM: 30, completeAfterSeconds: 60, giveUpSeconds: 300,
+      exitFanMinM: 3, exitFanMaxM: 8, remountM: 100, holdDismountM: 100, resupplyRangeM: 30, resupplyReachM: 5, resupplyCount: 3, seatSwapCheckSeconds: 1,
+    },
   },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,

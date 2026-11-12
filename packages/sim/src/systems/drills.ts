@@ -110,6 +110,8 @@ export function clearDrills(state: SimState, uid: EntityId): void {
   const u = state.unit.get(uid);
   if (!u) return;
   if (u.drill?.kind !== "rout") u.drill = null;
+  // Getting in or out (M7.2) is replaced by the new order too (bailing out is not).
+  if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
   u.children.forEach((c) => clearDrills(state, c));
 }
 

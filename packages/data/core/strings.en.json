@@ -230,5 +230,19 @@
   "vehicle.de.puma": "Puma",
   "vehicle.ru.bmp2": "BMP-2",
   "material.armour-steel": "armour steel",
-  "material.composite": "composite armour"
+  "material.composite": "composite armour",
+  "radio.ack.mount": "{callsign}: mounting up.",
+  "radio.ack.dismount": "{callsign}: dismounting.",
+  "radio.mounted": "{callsign}: all aboard.",
+  "radio.dismounted": "{callsign}: dismounted.",
+  "radio.noSeats": "{callsign}: not enough seats in that vehicle.",
+  "radio.noVehicle": "{callsign}: no vehicle to mount.",
+  "radio.dismountFirst": "{callsign}: dismounting first.",
+  "radio.seatSwap": "{callsign}: crewman down, taking over his seat.",
+  "radio.resupplied": "{callsign}: ammunition from the vehicle.",
+  "order.mount": "Mount",
+  "order.dismount": "Dismount",
+  "vehicle.aboard": "+{n}",
+  "status.passengers": "aboard {n} of {seats}",
+  "status.mounted": "{callsign}: aboard {vehicle}"
 }

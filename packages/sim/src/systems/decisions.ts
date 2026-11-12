@@ -33,6 +33,7 @@ import { heightAt } from "../terrain";
 import { assignFireTask } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
+import { stepFetchAmmo, vehicleSource } from "./boarding";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -155,6 +156,14 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   if (!w || !wd) return;
   const type = wd.feed.magazine;
   if (spareCount(state.container.get(id), type) > 0) return;
+  // A halted own vehicle close by that carries them (M7.2): he goes and takes some himself.
+  if (state.soldier.get(id)?.intent?.kind === "fetchAmmo" || state.action.get(id)?.kind === "takeFromVehicle") return;
+  const src = vehicleSource(ctx, state, id, type);
+  if (src !== null) {
+    state.soldier.req(id).intent = { kind: "fetchAmmo", tick: state.tick, target: src };
+    if (!stepFetchAmmo(ctx, state, events, id, src, type, state.tick)) state.soldier.req(id).intent = null;
+    return;
+  }
   // Already someone on his way?
   const men = footSoldiers(state, top);
   for (const g of men) {
@@ -235,6 +244,11 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.behaviour === "routed") { s.intent = null; continue; } // running back: no decisions of his own
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
+    if (s.intent?.kind === "fetchAmmo") {
+      const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+      if (!wd || s.intent.target === undefined || !stepFetchAmmo(ctx, state, events, id, s.intent.target, wd.feed.magazine, s.intent.tick)) s.intent = null;
+      continue;
+    }
     // On his way to take a prisoner (systems/surrender.ts runs that errand): nothing else of his own meanwhile.
     if (s.intent?.kind === "takePrisoner") continue;
     const m = state.mover.get(id);

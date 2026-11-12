@@ -24,5 +24,14 @@
     "smokeRadiusM": 35,
     "smokeSeconds": 150,
     "roundsFactor": 1
+  },
+  "dismount": {
+    "distanceM": 300,
+    "sources": [
+      "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe",
+      "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-grabenkampf"
+    ],
+    "confidence": "low",
+    "note": "Owner Q22 (M7.2): sourced per side. Bundeswehr principle 'mounted as long as possible, dismounted as briefly as possible', dismount where the enemy cannot observe; no published distance, so 300 m is a game choice inside the 500 m grenadier-tank spacing (docs/research/dismount.md)."
   }
 }

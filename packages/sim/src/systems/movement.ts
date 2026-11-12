@@ -153,6 +153,8 @@ export function unitArrived(state: SimState, uid: EntityId): boolean | null {
   const walk = (u: EntityId) => {
     const x = state.unit.get(u);
     if (!x) return;
+    // Still getting out before carrying an order out (Q12): not there yet.
+    if (x.boarding?.then) done = false;
     if (x.vehicle !== undefined && u !== uid) {
       const v = state.vehicle.get(x.vehicle);
       if (v) { men++; if (!v.drive.arrived && v.drive.routeIdx < v.drive.route.length) done = false; }

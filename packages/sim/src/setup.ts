@@ -196,6 +196,11 @@ function addUnit(
     if (i === u.leaderIndex) unit.leader = sid;
   });
   if (vid !== undefined) seatCrew(state, id, vid, unit.members, placements, catalog);
+  if (u.carrierId !== undefined) {
+    const cv = vehicles.get(u.carrierId);
+    if (cv === undefined) throw new Error(`unit ${u.key}: no vehicle '${u.carrierId}' to ride in`);
+    unit.carrier = cv;
+  }
   for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles));
   return id;
 }

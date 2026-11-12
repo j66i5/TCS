@@ -290,6 +290,13 @@ export const BehaviourFile = withProv({
     stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
   }).strict(),
+  /** Getting in and out of vehicles (M7.2): the same for every side. */
+  mounting: z.object({
+    boardReachM: Num(0.5, 20), approachReplanM: Num(0.5, 50), casualtyLoadM: Num(0, 50), carriersWithinM: Num(0, 500),
+    completeAfterSeconds: Num(1, 3600), giveUpSeconds: Num(1, 7200), exitFanMinM: Num(0, 50), exitFanMaxM: Num(0, 50),
+    remountM: Num(0, 2000), holdDismountM: Num(0, 2000), resupplyRangeM: Num(0, 500), resupplyReachM: Num(0, 50),
+    resupplyCount: z.number().int().min(0).max(50), seatSwapCheckSeconds: Num(0.1, 60),
+  }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
 
@@ -499,7 +506,11 @@ export const UnitTemplateSchema = withProv({
   vehicle: Id.optional(),
   /** Parent templates (M7): which sub-unit (index into `subunits`) is the crew of a vehicle that carries which
    *  other sub-units. A crew template never names its siblings itself. */
-  carriage: z.array(z.object({ crew: z.number().int().min(0), carries: z.array(z.number().int().min(0)) }).strict()).optional(),
+  carriage: z.array(z.object({
+    crew: z.number().int().min(0), carries: z.array(z.number().int().min(0)),
+    /** The parent's own men (its headquarters) ride in this vehicle too (M7.2). */
+    hq: z.boolean().optional(),
+  }).strict()).optional(),
 });
 export const UnitsFile = z.object({ units: z.array(UnitTemplateSchema).min(1) }).strict();
 
@@ -597,6 +608,9 @@ export const DoctrineFile = withProv({
      *  Russian mortar rather than a heavier one). */
     roundsFactor: Num(0.1, 10).default(1),
   }).strict().optional(),
+  /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
+   *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
+  dismount: withProv({ distanceM: Num(0, 5000) }).optional(),
 });
 
 export type FactionManifestT = z.infer<typeof FactionManifest>;

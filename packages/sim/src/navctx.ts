@@ -1,7 +1,7 @@
 /** Access to navigation grids, built lazily from the map (derived, never saved). */
 import type { MovementClass } from "./catalog";
 import type { SimContext } from "./context";
-import { buildNavGrid, createNavSearch, patchNavGrid, type NavGrid, type NavSearch } from "./nav";
+import { buildNavGrid, createNavSearch, ensureNavGrid, patchNavGrid, type NavGrid, type NavSearch } from "./nav";
 
 /** Clearance (cells of 2 m) of the vehicle grids: hard blocks grow by one cell (M7). */
 export const VEHICLE_CLEARANCE_CELLS = 1;
@@ -21,6 +21,7 @@ export function navFor(ctx: SimContext, cls: MovementClass, coverWeight = 0): { 
     n = { grid, search: createNavSearch(grid) };
     ctx.nav[key] = n;
   }
+  ensureNavGrid(n.grid);
   return n;
 }
 

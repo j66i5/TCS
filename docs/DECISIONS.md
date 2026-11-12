@@ -1365,3 +1365,39 @@ Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, con
   event stream and casualties as before.
 - Perf (alone): bench 13×, spotting 9.7×, projectile bench 4.37 ms/tick (3.8×), fragment volley 15.9× —
   unchanged within noise.
+
+## 2026-11-12 — M7.1c part 2: vehicle scenarios, goldens, A7, perf (golden update: two new goldens only)
+- **Scenarios (tools only; no existing scenario or the default app changes):** `vehicles` (a platoon of two Pumas
+  with their squads on foot vs two BMP-2s with theirs, generated 1200 × 900 m farmland), `vehicles-fixture` (xf
+  wheeled carts vs Pumas, flat 800 × 600 m; crew seats from `MemberSlot.seat`), `bench-vehicles` (15 IFVs a side,
+  each with its squad: 30 vehicles, 270 men, 2 × 2 km farmland). Built by `vehicleBattle` (packages/scenario):
+  crew template = the faction's first template with `vehicle`, a fresh `VehicleRecord` per crew (tank full,
+  stowage from data, `vehicleId` = the crew unit's key), hulls placed on the class grid with 3 cells' clearance
+  in the map's main area. `vehicleWanderController` (ai) sends each crew unit to a random point at "run" (its
+  drive pace) and each squad at "walk". Mounted starts (passengers) wait for M7.2.
+- **Goldens added:** `vehicles-s1` (150 s) and `fixture-cart-s3` (90 s); the three existing goldens unchanged.
+- **Drive fixes found by the map runs:** a hull that strikes something takes the best free small move (back,
+  forward, pivot, four arcs; tested kinematically over its 0.5 s; new optional `DriveState.escape`) toward its
+  way on; with no room to turn and the way on behind it, the leg is driven in reverse. Outline points block only
+  on deep water (a house's 4 m floor cells reach past its walls; walls and footprints decide there); the hull's
+  centre must be on ground the class can drive (woods). Village: 100 random routed Puma moves, 98 arrived,
+  2 stalled (2 %), no tick with the hull in a house, an uncrossable wall or water (`vehicle-maps.test.ts`).
+  Known limit: narrow gates in industrial walls (8 m, one 2 m cell open after the clearance) can wedge a hull
+  that comes at them askew (one wedge in 2 × 50 moves); it gives up with "no way through" after three re-plans.
+- **Grid budget (Float32 kept):** `tracked:c1` at 2 × 2 km is 13.0 MB and builds in ~90 ms (test < 14 MB).
+- **A7 widened** (architecture test): every loop over `state.soldier/identity/mover/weapon/fire` and every
+  `unitSoldiers(`/`allMembers(`/`sideKnowledge(` call in sim, ai, render and app has a mount gate
+  (`isMounted`/`isExposed`/`footSoldiers`/`.mount`) or a `// mounted: ok <reason>` marker within a few lines;
+  `systems/surrender.ts` is listed as not yet gated (M7.2). The faction-literal scan now covers `scenario` and
+  `de-`/`ru-`/`xf-` prefixed ids (fixture faction included).
+- **Determinism:** the `vehicles` battle saved at 130 s (fences already flattened) continues identically.
+- **Speed of terrain damage and re-plans (found by `bench-vehicles`, first 5.7×):** a patched grid's minimum cost
+  and areas are derived lazily (`ensureNavGrid`, at the next search; they depend only on the cells); a patch that
+  only opens cells (no cell closed, no wall added: every flattening and wall breach) merges the joined areas
+  (union-find, smaller label kept) instead of a full flood — the same areas, numbered differently (the equality
+  test compares partitions). A re-plan round a hull or a man closes its cells for that one search
+  (`PathOptions.blocked`, smoothing respects them) instead of patching the grid twice. Corridor and run-over
+  scans use one per-tick list of men on foot.
+- **Perf (alone):** bench 13×, spotting 9.0×, `bench-vehicles` 8.8× (floor 8×), projectile bench 4.43 ms/tick
+  (3.8×), with 30 parked hulls 4.38 vs 4.23 ms/tick (+3.5 %, best of three alternated runs; asserted < 20 %
+  because run-to-run noise here is ~10 %), fragment volley 12.5×.

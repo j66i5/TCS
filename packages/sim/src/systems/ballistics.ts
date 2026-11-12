@@ -129,6 +129,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     let n = 0;
     SG.sideOf.clear();
+    // mounted: ok men aboard are skipped below (no body row), but keep their side for SG.sideOf
     for (const [id, s] of state.soldier.entries()) {
       const t = state.transform.get(id);
       if (!t) continue;
@@ -336,12 +337,15 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- vehicles (M7.1c): the path against each nearby hull and turret box; every round stops there for now
     let tVeh = 2, vehRow = -1, vehPart = 0, vehFace = 0;
     if (nearVehicle) {
-      const own = state.soldier.get(P.owner[i]!)?.mount?.vehicle ?? -1;
+      let own = -2;
       for (let j = 0; j < VG.n; j++) {
-        if (VG.id[j] === own) continue; // its own hull does not stop a round its gunner fires
         if (VG.maxX[j]! < minX || VG.minX[j]! > maxX || VG.maxY[j]! < minY || VG.minY[j]! > maxY) continue;
         const t = hullAt(VG, j, x0, y0, z0, dx, dy, dz);
-        if (t < tVeh) { tVeh = t; vehRow = j; vehPart = HULL_HIT.part; vehFace = HULL_HIT.face; }
+        if (t >= tVeh) continue;
+        // (Its own hull does not stop a round its gunner fires.)
+        if (own === -2) own = state.soldier.get(P.owner[i]!)?.mount?.vehicle ?? -1;
+        if (VG.id[j] === own) continue;
+        tVeh = t; vehRow = j; vehPart = HULL_HIT.part; vehFace = HULL_HIT.face;
       }
     }
 

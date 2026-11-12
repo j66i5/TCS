@@ -145,4 +145,22 @@ describe("determinism", () => {
     expect(b).toEqual(a);
     expect(c).toEqual(a);
   });
+
+  it("a vehicle battle (vehicles scenario: hulls driving, yielding, flattening fences) saved halfway continues identically", () => {
+    const vs = getScenario("vehicles");
+    const input = vs.build(data, 2, 240);
+    const full = runBattle(input, { controllers: vs.controllers!(input) });
+    input.orders = full.orders;
+    const sim = createSim({ ...input, orders: [] });
+    const stream = [...input.orders].sort((x, y) => x.tick - y.tick);
+    let next = 0;
+    while (sim.state.tick < secondsToTicks(130)) {
+      while (next < stream.length && stream[next]!.tick <= sim.state.tick) submitOrder(sim, stream[next++]!);
+      step(sim);
+    }
+    expect(sim.state.terrain.breaches.length).toBeGreaterThan(0); // fences flattened before the save
+    const loaded = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+    expect(simHash(loaded)).toBe(simHash(sim));
+    expect(continueBattle(loaded, input).finalStateHash).toBe(full.finalStateHash);
+  });
 });

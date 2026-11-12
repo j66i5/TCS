@@ -23,7 +23,7 @@ import { atan, atan2, clamp, cos, hypot2, PI, sin, sqrt, tan, wrapAngle } from "
 import { hasDriver } from "../mount";
 import type { SimState } from "../state";
 import type { Order, Waypoint } from "../orders";
-import { findPath, patchNavGrid, type NavStamp } from "../nav";
+import { findPath, type NavStamp } from "../nav";
 import { navFor } from "../navctx";
 import { hullObb, hullTerrain, obbOverlap, pointInObb, rebuildVehicleGrid, type HullTerrain, type Obb } from "../hulls";
 import { isAble } from "../impair";
@@ -307,14 +307,6 @@ export function followRoute(ctx: SimContext, def: VehicleDef, d: DriveState, x: 
     const vc = turn > PI / 3 ? 1.5 : turn > PI / 6 ? 3 : 8;
     v = Math.min(v, sqrt(vc * vc + 2 * 0.6 * brake * dist));
   }
-  // Getting clear after the hull struck something (a corner, a wall end): back off a little, turning toward
-  // the way on, then try again.
-  if (d.stuckTicks > 0) {
-    CMD.speed = reverse ? 1.2 : -1.2;
-    CMD.yawRate = steering.kind === "tracked" ? clamp(PIVOT_GAIN * e, -maxW, maxW) : 0;
-    CMD.curvature = 0;
-    return CMD;
-  }
   if (steering.kind === "tracked") {
     const pivoting = Math.abs(e) > PI / 3 || (Math.abs(e) > PI / 18 && Math.abs(d.speed) < 0.3 && Math.abs(d.yawRate) > 0.05);
     if (pivoting && steering.pivot) { CMD.speed = 0; CMD.yawRate = clamp(PIVOT_GAIN * e, -maxW, maxW); return CMD; }
@@ -345,15 +337,64 @@ const O_OTHER: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 const O_CORR: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 /** Seconds a vehicle waits for another hull or a man who cannot move before planning round them. */
 const YIELD_REPLAN_S = 3;
-/** Ticks a hull backs off after striking something. */
-const BACK_OFF_TICKS = 60;
+/** Small moves tried to get a hull clear of what it struck: speed (m/s) and yaw rate (rad/s), for ESCAPE_TICKS. */
+const ESCAPES: readonly [number, number][] = [[-1.2, 0], [1.2, 0], [0, 0.5], [0, -0.5], [-1.2, 0.4], [-1.2, -0.4], [1.2, 0.4], [1.2, -0.4]];
+const ESCAPE_TICKS = 30;
+
+/**
+ * The free small move (tested kinematically against houses, walls, water and other hulls over its half second)
+ * that leaves the hull best placed for its way on: nearest the point it heads for, facing it. Undefined if none.
+ */
+function escapeMove(ctx: SimContext, state: SimState, vid: EntityId, def: VehicleDef, d: DriveState, x: number, y: number, h: number): DriveState["escape"] {
+  const wp = d.route[Math.min(d.routeIdx, d.route.length - 1)];
+  if (!wp) return undefined;
+  const tracked = def.drive.steering.kind === "tracked";
+  let best: DriveState["escape"], bestScore = Infinity;
+  for (const [sp, w] of ESCAPES) {
+    if (!tracked && sp === 0) continue;
+    let px = x, py = y, ph = h, ok = true;
+    for (let k = 1; k <= 5 && ok; k++) {
+      const dt = ESCAPE_TICKS * DT / 5;
+      ph = wrapAngle(ph + w * dt); px += cos(ph) * sp * dt; py += sin(ph) * sp * dt;
+      if (hullTerrain(ctx, def, px, py, ph, HT).blocked) { ok = false; break; }
+      hullObb(def, px, py, ph, 0, O_CORR);
+      for (const [oid, o] of state.vehicle.entries()) {
+        if (oid === vid) continue;
+        const odef = ctx.catalog.vehicles[o.def], ot = state.transform.get(oid);
+        if (!odef || !ot || Math.abs(ot.x - px) > 20 || Math.abs(ot.y - py) > 20) continue;
+        if (obbOverlap(O_CORR, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) { ok = false; break; }
+      }
+    }
+    if (!ok) continue;
+    const travel = wp.reverse === true ? ph + PI : ph;
+    const score = hypot2(wp.x - px, wp.y - py) + 3 * Math.abs(wrapAngle(atan2(wp.y - py, wp.x - px) - travel));
+    if (score < bestScore) { bestScore = score; best = { speed: sp, yawRate: w, untilTick: state.tick + ESCAPE_TICKS }; }
+  }
+  return best;
+}
 /** Seconds without 0.5 m of progress along the route before a re-plan (a pivot onto a detour takes a while); re-plans before giving up. */
 const STUCK_S = 6, MAX_REPLANS = 3;
 /** Width added on each side of the hull for the corridor ahead, m. */
 const CORRIDOR_SIDE_M = 0.6;
 
+/** Men on foot this tick (alive, not aboard), for the corridor and run-over scans: ID order. */
+const MEN = { n: 0, id: new Int32Array(64), x: new Float64Array(64), y: new Float64Array(64) };
+function fillMen(state: SimState): void {
+  if (MEN.id.length < state.soldier.size) { const c = state.soldier.size * 2; MEN.id = new Int32Array(c); MEN.x = new Float64Array(c); MEN.y = new Float64Array(c); }
+  let n = 0;
+  // mounted: ok men aboard are skipped here
+  for (const [sid, s] of state.soldier.entries()) {
+    if (s.mount !== undefined || !s.physiology.alive) continue;
+    const t = state.transform.get(sid);
+    if (!t) continue;
+    MEN.id[n] = sid; MEN.x[n] = t.x; MEN.y[n] = t.y; n++;
+  }
+  MEN.n = n;
+}
+
 export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size === 0) return;
+  fillMen(state);
   const wet = clamp(state.environment.rain, 0, 1);
   let replanned = false; // one re-plan per tick (ID order)
   for (const [vid, v] of state.vehicle.entries()) {
@@ -365,6 +406,9 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     const can = hasDriver(state, v, def) && fuel > 0 && (v.status === "ok" || v.status === "disarmed");
     if (d.crossing && state.tick >= d.crossing.untilTick) d.crossing = null;
     followRoute(ctx, def, d, t.x, t.y, t.heading);
+    // Getting clear after the hull struck something: the escape move chosen then, for its half second.
+    if (d.escape && state.tick < d.escape.untilTick && d.routeIdx < d.route.length) { CMD.speed = d.escape.speed; CMD.yawRate = d.escape.yawRate; CMD.curvature = d.escape.yawRate / Math.max(0.5, Math.abs(d.escape.speed)); }
+    else if (d.escape) delete d.escape;
     if (!can) { CMD.speed = 0; CMD.yawRate = 0; CMD.curvature = 0; }
     // Look ahead: other hulls and own men who cannot get out of the way stop it; men who can step aside.
     const hold = can && Math.abs(CMD.speed) > 0.05 ? corridor(ctx, state, vid, v, def, t.x, t.y, t.heading, CMD.speed) : null;
@@ -396,12 +440,20 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
       }
       if (blocked) {
         // Corner guard: a hull that strikes something (a pivot swinging a corner into a house, a wall end) stops
-        // and backs off for a second (the follower), then goes on; blocked while backing off, it tries again.
+        // and takes the best free small move (back off, creep, turn) for half a second, then goes on.
         d.trackL = 0; d.trackR = 0; d.speed = 0; d.yawRate = 0;
-        d.stuckTicks = d.stuckTicks > 0 ? 0 : 1;
+        d.stuckTicks++;
+        const esc = escapeMove(ctx, state, vid, def, d, t.x, t.y, t.heading);
+        const wp = d.route[d.routeIdx];
+        if (esc && esc.speed < 0 && wp && wp.reverse !== true && Math.abs(wrapAngle(atan2(wp.y - t.y, wp.x - t.x) - t.heading)) > (2 * PI) / 3) {
+          // No room to turn, and the way on lies behind: drive this leg in reverse (out of the tight spot).
+          wp.reverse = true;
+          delete d.escape;
+        } else if (esc) d.escape = esc;
+        else delete d.escape;
       } else {
         t.heading = nh; t.x = nx; t.y = ny;
-        if (d.stuckTicks > 0) d.stuckTicks = d.stuckTicks >= BACK_OFF_TICKS ? 0 : d.stuckTicks + 1;
+        d.stuckTicks = 0;
         if (HT.crossObstacle >= 0) crossWall(ctx, state, vid, def, d, HT.crossObstacle, HT.crossPart, events);
         runOver(ctx, state, vid, v, def, t.x, t.y, t.heading, events);
       }
@@ -458,10 +510,9 @@ function corridor(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleSta
   }
   // Men on foot.
   let holdFor: EntityId | null = null;
-  for (const [sid, s] of state.soldier.entries()) {
-    if (s.mount !== undefined || !s.physiology.alive) continue;
-    const st = state.transform.get(sid);
-    if (!st || Math.abs(st.x - x) > R || Math.abs(st.y - y) > R) continue;
+  for (let q = 0; q < MEN.n; q++) {
+    if (Math.abs(MEN.x[q]! - x) > R || Math.abs(MEN.y[q]! - y) > R) continue;
+    const sid = MEN.id[q]!, s = state.soldier.req(sid), st = state.transform.req(sid);
     if (!pointInObb(O_CORR, st.x, st.y, 0.5) && !pointInObb(o, st.x, st.y, 0.5)) continue;
     const own = state.identity.get(sid)?.side === v.side;
     const canMove = isAble(s) && s.impair.canWalk && s.posture !== "prone" && !isCowering(s) && state.tick >= s.stunnedUntilTick && s.captive === null;
@@ -521,23 +572,33 @@ function giveUp(state: SimState, v: VehicleState, events: EventSink): void {
  */
 export function planVehicleRoute(ctx: SimContext, cls: "tracked" | "wheeled", x: number, y: number, wps: readonly Waypoint[], extra: readonly NavStamp[] = []): Waypoint[] | null {
   const { grid, search } = navFor(ctx, cls);
-  const patched = extra.length > 0;
-  const box = (st: NavStamp) => { const R = st.halfL + st.halfW; return [st.x - R, st.y - R, st.x + R, st.y + R] as const; };
-  if (patched) {
-    const all = [...ctx.navStamps, ...extra];
-    for (const st of extra) { const b = box(st); patchNavGrid(grid, ctx.map, ctx.catalog.terrain, ctx.breaches, all, b[0], b[1], b[2], b[3]); }
+  // Hulls or men in the way: their cells, grown by the grid's clearance, are closed for this search only.
+  let blocked: Set<number> | undefined;
+  if (extra.length > 0) {
+    blocked = new Set<number>();
+    const m = grid.cellM, grow = (grid.clearanceCells + 0.5) * m;
+    for (const st of extra) {
+      const c = cos(st.heading), sn = sin(st.heading), R = st.halfL + st.halfW + grow;
+      for (let r = Math.max(0, Math.floor((st.y - R) / m)); r <= Math.min(grid.rows - 1, Math.floor((st.y + R) / m)); r++) {
+        for (let cc = Math.max(0, Math.floor((st.x - R) / m)); cc <= Math.min(grid.cols - 1, Math.floor((st.x + R) / m)); cc++) {
+          const px = (cc + 0.5) * m - st.x, py = (r + 0.5) * m - st.y;
+          if (Math.abs(px * c + py * sn) <= st.halfL + grow && Math.abs(-px * sn + py * c) <= st.halfW + grow) blocked.add(r * grid.cols + cc);
+        }
+      }
+    }
+    // (Not the cell the hull itself stands in: it must be able to start.)
+    blocked.delete(Math.floor(y / m) * grid.cols + Math.floor(x / m));
   }
   // (It starts with where the hull is: the first leg has a line to follow too.)
   const out: Waypoint[] = wps.length > 0 ? [{ ...wps[0]!, x, y }] : [];
-  let px = x, py = y, ok = true;
+  let px = x, py = y;
   for (const w of wps) {
-    const p = findPath(search, px, py, w.x, w.y, { snapCells: 6 });
-    if (!p) { ok = false; break; }
+    const p = findPath(search, px, py, w.x, w.y, blocked ? { snapCells: 6, blocked, maxExpansions: 200000 } : { snapCells: 6 });
+    if (!p) return null;
     for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });
     px = p.goalX; py = p.goalY;
   }
-  if (patched) for (const st of extra) { const b = box(st); patchNavGrid(grid, ctx.map, ctx.catalog.terrain, ctx.breaches, ctx.navStamps, b[0], b[1], b[2], b[3]); }
-  return ok && out.length > 1 ? out : null;
+  return out.length > 1 ? out : null;
 }
 
 /**
@@ -584,11 +645,10 @@ function runOver(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleStat
   if (Math.abs(v.drive.speed) < 0.2) return;
   const o = hullObb(def, x, y, h, 0, O_SELF);
   const R = o.hl + o.hw;
-  for (const [sid, s] of state.soldier.entries()) {
-    if (s.mount !== undefined || !s.physiology.alive) continue;
-    if (state.identity.get(sid)?.side === v.side) continue;
-    const st = state.transform.get(sid);
-    if (!st || Math.abs(st.x - o.x) > R || Math.abs(st.y - o.y) > R) continue;
+  for (let q = 0; q < MEN.n; q++) {
+    if (Math.abs(MEN.x[q]! - o.x) > R || Math.abs(MEN.y[q]! - o.y) > R) continue;
+    const sid = MEN.id[q]!, s = state.soldier.req(sid), st = state.transform.req(sid);
+    if (!s.physiology.alive || state.identity.get(sid)?.side === v.side) continue;
     // Under the hull, or just ahead of (or behind) it within its tracks' width: he goes under it.
     if (!pointInObb(o, st.x, st.y, 0.5)) continue;
     const lat = -(st.x - o.x) * o.s + (st.y - o.y) * o.c;

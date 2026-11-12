@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  buildBallistics, buildMapIndex, buildNavGrid, createSim, followRoute, hullObb, idleDrive, launchProjectile, navFor, obbOverlap, patchNavGrid, pointInObb,
+  buildBallistics, buildMapIndex, buildNavGrid, createSim, ensureNavGrid, followRoute, hullObb, idleDrive, launchProjectile, navFor, obbOverlap, patchNavGrid, pointInObb,
   sight, step, stepDriveDynamics, submitOrder, syncTerrainDamage, type BattleInput, type Catalog, type DriveSurface, type MapDef, type NavGrid, type Sim, type SimEvent, type UnitInput,
 } from "../src/index";
 import { rec, team, testCatalog, vehicleInput } from "./helpers";
@@ -33,6 +33,12 @@ function run(sim: Sim, seconds: number, until?: (e: SimEvent[]) => boolean, each
     if (until?.(ev)) break;
   }
   return all;
+}
+
+/** Area labels renumbered by first appearance (compares partitions, not label numbers). */
+function canonical(region: Int32Array): number[] {
+  const m = new Map<number, number>();
+  return Array.from(region, (l) => { if (l === 0) return 0; let k = m.get(l); if (k === undefined) { k = m.size + 1; m.set(l, k); } return k; });
 }
 
 const crewOf = (sim: Sim) => [...sim.state.vehicle.values()][0]!.unit!;
@@ -78,7 +84,9 @@ describe("vehicle navigation grid (tracked:c1)", () => {
       expect(Array.from(g.cost)).toEqual(Array.from(full.cost));
       expect(Array.from(g.wall)).toEqual(Array.from(full.wall));
       expect(Array.from(g.exposure)).toEqual(Array.from(full.exposure));
-      expect(Array.from(g.region)).toEqual(Array.from(full.region));
+      // (The same areas; a patch that only opens cells merges labels, so their numbers may differ.)
+      ensureNavGrid(g);
+      expect(canonical(g.region)).toEqual(canonical(full.region));
       expect(g.minCost).toBe(full.minCost);
     }
   });

@@ -31,6 +31,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   for (const [, m] of state.mover.entries()) {
     if (m.formation && m.waypoints.length > 0) worstLag.set(m.formation.leader, Math.max(worstLag.get(m.formation.leader) ?? 0, m.slotLagM));
   }
+  // mounted: ok men aboard are skipped below (they ride in their seats)
   for (const [id, m] of state.mover.entries()) {
     // Getting away from a grenade comes first (grenades.ts moves him and records his speed); he resumes his
     // way afterwards.

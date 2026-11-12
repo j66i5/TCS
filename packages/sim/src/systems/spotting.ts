@@ -44,6 +44,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
   let targets: { id: EntityId; side: string; x: number; y: number; z: number; size: number; motion: number; firing: boolean; moving: boolean; vegTopZ: number }[] | null = null;
   const B = ctx.ballistics;
 
+  // mounted: ok observers aboard are skipped below (seat sensors come in M7.3)
   for (const [oid, os] of state.soldier.entries()) {
     if ((oid + tick) % every !== 0) continue;
     // Forget what has not been seen for a while, and the dead.

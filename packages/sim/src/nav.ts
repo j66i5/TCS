@@ -49,6 +49,11 @@ export interface NavGrid {
   /** Vehicle grids (M7): cells hard-blocked cells were grown by, and the narrowest passable hole, m. */
   clearanceCells: number;
   minBreachM: number;
+  /** Patched: `region` (and `minCost`) / only `minCost` must be derived again (`ensureNavGrid`). */
+  dirty?: boolean;
+  minDirty?: boolean;
+  /** Next free area label (after merges). */
+  nextRegion?: number;
 }
 
 /** A hull lying on the map (a wreck, M7): an oriented rectangle that blocks every grid. */
@@ -102,21 +107,86 @@ export function patchNavGrid(
   const w = computeWindow(map, terrain, grid.cls, cellM, cols, rows, grid.coverWeight, breaches,
     { clearanceCells: grid.clearanceCells, minBreachM: grid.minBreachM, stamps }, wc0, wr0, wc1, wr1);
   const wcols = wc1 - wc0 + 1;
+  // What changed: a cell closed or a wall added can split an area (relabel all); openings only join areas.
+  let split = false, any = false, cr0 = rows, cr1 = -1, cc0 = cols, cc1 = -1;
   for (let r = ir0; r <= ir1; r++) {
     for (let c = ic0; c <= ic1; c++) {
       const i = r * cols + c, j = (r - wr0) * wcols + (c - wc0);
+      const was = grid.cost[i]! > 0, now = w.cost[j]! > 0;
+      if (was !== now || grid.wall[i] !== w.wall[j]) {
+        any = true;
+        if ((was && !now) || (now && w.wall[j] === 1 && grid.wall[i] === 0)) split = true;
+        if (r < cr0) cr0 = r; if (r > cr1) cr1 = r; if (c < cc0) cc0 = c; if (c > cc1) cc1 = c;
+      }
       grid.cost[i] = w.cost[j]!; grid.wall[i] = w.wall[j]!; grid.exposure[i] = w.exposure[j]!;
     }
   }
-  finishGrid(grid);
+  // (Cheapest cost and connected areas are re-derived when the grid is next searched: several patches in a row
+  // cost one relabelling. Areas only joined are merged at once, without a relabelling.)
+  grid.minDirty = true;
+  if (split) grid.dirty = true;
+  else if (any && !grid.dirty) joinRegions(grid, Math.max(0, cr0 - 1), Math.min(rows - 1, cr1 + 1), Math.max(0, cc0 - 1), Math.min(cols - 1, cc1 + 1));
 }
 
-function finishGrid(grid: NavGrid): void {
+/**
+ * Cells were only opened (no cell closed, no wall added) in rows r0..r1, columns c0..c1: newly open cells get
+ * labels of their own, then every label pair now joined by a move A* may make is merged (union-find), and the
+ * labels are rewritten. The areas are the same as a full relabelling gives (numbered differently).
+ */
+function joinRegions(grid: NavGrid, r0: number, r1: number, c0: number, c1: number): void {
+  const { cols, rows, cost, wall, region } = grid;
+  let next = grid.nextRegion ?? 1;
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const i = r * cols + c; if (cost[i]! > 0 && region[i] === 0) region[i] = next++; }
+  grid.nextRegion = next;
+  const parent = new Map<number, number>();
+  const find = (a: number): number => { let x = a; while (parent.has(x) && parent.get(x) !== x) x = parent.get(x)!; return x; };
+  let joined = false;
+  for (let r = Math.max(0, r0 - 1); r <= Math.min(rows - 1, r1 + 1); r++) {
+    for (let c = Math.max(0, c0 - 1); c <= Math.min(cols - 1, c1 + 1); c++) {
+      const p = r * cols + c;
+      if (cost[p]! <= 0) continue;
+      for (let k = 0; k < 8; k++) {
+        const nc = c + DC[k]!, nr = r + DR[k]!;
+        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+        const q = nr * cols + nc;
+        if (cost[q]! <= 0) continue;
+        if (k >= 4) { const a = r * cols + nc, b = nr * cols + c; if (cost[a]! <= 0 || cost[b]! <= 0 || wall[a] === 1 || wall[b] === 1) continue; }
+        const ra = find(region[p]!), rb = find(region[q]!);
+        if (ra === rb) continue;
+        // (The smaller label survives: deterministic.)
+        if (ra < rb) parent.set(rb, ra); else parent.set(ra, rb);
+        if (!parent.has(ra)) parent.set(ra, ra);
+        if (!parent.has(rb)) parent.set(rb, rb);
+        joined = true;
+      }
+    }
+  }
+  if (!joined) return;
+  const n = region.length;
+  for (let i = 0; i < n; i++) { const l = region[i]!; if (l !== 0 && parent.has(l)) region[i] = find(l); }
+}
+
+/** Re-derive the cheapest cost and the connected areas of a patched grid (no-op if it is up to date). */
+export function ensureNavGrid(grid: NavGrid): void {
+  if (grid.dirty) finishGrid(grid);
+  else if (grid.minDirty) finishMin(grid);
+}
+
+function finishMin(grid: NavGrid): void {
+  grid.minDirty = false;
   let minCost = Infinity;
   const cost = grid.cost, n = cost.length;
   for (let i = 0; i < n; i++) if (cost[i]! > 0 && cost[i]! < minCost) minCost = cost[i]!;
   grid.minCost = Number.isFinite(minCost) ? minCost : 1;
+}
+
+function finishGrid(grid: NavGrid): void {
+  grid.dirty = false;
+  finishMin(grid);
   grid.region = labelRegions(grid.cols, grid.rows, grid.cost, grid.wall);
+  let mx = 0;
+  for (let i = 0; i < grid.region.length; i++) if (grid.region[i]! > mx) mx = grid.region[i]!;
+  grid.nextRegion = mx + 1;
 }
 
 /**
@@ -486,6 +556,8 @@ export interface PathResult {
 export interface PathOptions {
   /** Give up after this many expansions (null result). Default: the whole grid. */
   maxExpansions?: number;
+  /** Cells closed for this search only (e.g. round a hull or a man in the way, M7.1c). */
+  blocked?: ReadonlySet<number>;
   /** Search radius in cells for a passable cell near a blocked goal. Default 12. */
   snapCells?: number;
 }
@@ -557,6 +629,8 @@ const DR = [0, 0, 1, -1, 1, -1, 1, -1];
 /** A* from (sx, sy) to (gx, gy). Returns null if no route exists (or the expansion budget ran out). */
 export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: number, o: PathOptions = {}): PathResult | null {
   const nav = s.nav;
+  ensureNavGrid(nav);
+  const blocked = o.blocked;
   const C = nav.cols;
   const W = nav.cols * nav.cellM, H = nav.rows * nav.cellM;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
@@ -609,7 +683,7 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
       if (nc < 0 || nr < 0 || nc >= C || nr >= nav.rows) continue;
       const ni = nr * C + nc;
       const ncost = nav.cost[ni]!;
-      if (ncost <= 0 || s.closed[ni] === gen) continue;
+      if (ncost <= 0 || s.closed[ni] === gen || (blocked !== undefined && blocked.has(ni))) continue;
       let step = 1;
       if (k >= 4) {
         // No corner cutting past blocked or wall cells.
@@ -628,7 +702,7 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
   const cells: number[] = [];
   for (let i = goal; i !== -1; i = s.parent[i]!) cells.push(i);
   cells.reverse();
-  const points = smooth(nav, cells, sx, sy, goalX, goalY);
+  const points = smooth(nav, cells, sx, sy, goalX, goalY, o.blocked);
   return { points, cost: s.g[goal]! * nav.cellM, expanded, goalX, goalY };
 }
 
@@ -636,7 +710,17 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
  * Turn a cell path into few waypoints: from each anchor, jump to the farthest later cell whose straight line
  * from the anchor crosses no blocked or wall cell and costs no more than the part of the route it replaces.
  */
-function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: number, gy: number): number[] {
+/** Does the straight line pass through any of these cells (sampled every quarter cell)? */
+function lineMeets(nav: NavGrid, ax: number, ay: number, bx: number, by: number, cells: ReadonlySet<number>): boolean {
+  const n = Math.max(1, Math.ceil((Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 4) / nav.cellM));
+  for (let k = 0; k <= n; k++) {
+    const c = Math.floor((ax + ((bx - ax) * k) / n) / nav.cellM), r = Math.floor((ay + ((by - ay) * k) / n) / nav.cellM);
+    if (cells.has(r * nav.cols + c)) return true;
+  }
+  return false;
+}
+
+function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: number, gy: number, blocked?: ReadonlySet<number>): number[] {
   const C = nav.cols, m = nav.cellM;
   const cx = (i: number) => ((i % C) + 0.5) * m, cy = (i: number) => (Math.floor(i / C) + 0.5) * m;
   // Cumulative route cost (metres at nominal speed) up to each cell, as A* counted it.
@@ -654,6 +738,7 @@ function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: numbe
     for (let j = a + 1; j < cells.length; j++) {
       const tx = j === cells.length - 1 ? gx : cx(cells[j]!), ty = j === cells.length - 1 ? gy : cy(cells[j]!);
       const c = lineCost(nav, ax, ay, tx, ty);
+      if (blocked !== undefined && c >= 0 && lineMeets(nav, ax, ay, tx, ty, blocked)) { if (++fails > 8) break; continue; }
       if (c >= 0 && c <= (cum[j]! - cum[a]!) * 1.02 + m) { best = j; fails = 0; }
       else if (++fails > 8) break; // far past the last good shortcut: stop looking
     }

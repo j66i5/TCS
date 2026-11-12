@@ -171,6 +171,7 @@ async function main(): Promise<void> {
   const barH = (hudRoot.querySelector(".hud-bar") as HTMLElement | null)?.offsetHeight ?? 50;
   const insets = { top: barH, right: 0, bottom: 64, left: 0 };
   // Start in the tactical view: about 500 m across, centred between your team and the map centre.
+  // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
   if (own.length > 0 && input.map.widthM > 600) {
     const ox = own.reduce((a, t) => a + t.x, 0) / own.length, oy = own.reduce((a, t) => a + t.y, 0) / own.length;
@@ -212,6 +213,7 @@ async function main(): Promise<void> {
       if (orderMode === "fire") {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
         // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
+        // mounted: ok sideKnowledge never lists men aboard
         const known = sideKnowledge(sim.ctx, sim.state, playerSide);
         const hits = known
           .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
@@ -382,6 +384,7 @@ async function main(): Promise<void> {
         ...sc.scores.map((x) => strings.t("aar.score", { side: sideName(x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
       ],
       casualties: sim.state.sides.map((sd) => {
+        // mounted: ok the after-action roster counts every man
         const men = [...sim.state.identity.entries()].filter(([, i]) => i.side === sd.id);
         const rows = men.map(([id, i]) => {
           const s = sim.state.soldier.req(id);
@@ -428,6 +431,7 @@ async function main(): Promise<void> {
     // Fog of war: the enemy is drawn only as the player's side knows him (Debug shows him as he is).
     // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
+    // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);

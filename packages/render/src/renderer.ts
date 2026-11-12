@@ -233,6 +233,7 @@ export class BattleRenderer {
         if (u.leader !== null && u.side === overlay.playerSide && unitIsOrContains(state, overlay.selectedUnit, uid)) leaders.add(u.leader);
       }
     }
+    // mounted: ok men aboard have no waypoints
     for (const [id, m] of state.mover.entries()) {
       if (m.waypoints.length === 0) continue;
       if (!overlay.debug && !leaders.has(id)) continue;
@@ -258,7 +259,7 @@ export class BattleRenderer {
     // Debug: who sees whom (a thin line from each man to every enemy he has in sight).
     if (overlay.debug) {
       for (const [id, s] of state.soldier.entries()) {
-        if (s.seen.length === 0) continue;
+        if (s.seen.length === 0 || s.mount !== undefined) continue;
         const a = worldToScreen(c, this.pos(state, id, alpha).x, this.pos(state, id, alpha).y);
         for (const e of s.seen) {
           if (!state.transform.has(e.target)) continue;
@@ -304,6 +305,7 @@ export class BattleRenderer {
     // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {
       if (fog && ident.side !== overlay.playerSide) continue;
+      if (state.soldier.get(id)?.mount !== undefined) continue; // men aboard are inside their vehicle (drawn with it)
       const p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
       const s = worldToScreen(c, p.x, p.y);

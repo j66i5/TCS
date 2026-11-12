@@ -307,7 +307,10 @@ export interface DriveState {
   endHeading: number | null;
   arrived: boolean;
   holdForDismount: boolean;
+  /** Consecutive ticks the hull was blocked; re-plans since the order. */
   stuckTicks: number; replans: number;
+  /** Getting clear after striking something (M7.1c): a small move held until `untilTick`. Absent normally. */
+  escape?: { speed: number; yawRate: number; untilTick: number };
   progressX: number; progressY: number; progressTick: number;
   yieldTo: EntityId | null; yieldSinceTick: number;
   crossing: { obstacle: number; part: number; untilTick: number; capMps: number } | null;

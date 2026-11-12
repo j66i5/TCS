@@ -96,7 +96,8 @@ const OBB_A: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 
 /**
  * The hull rectangle against the true building outlines and walls under it (not the grown navigation cells,
- * which would stall turns beside houses) and the ground under its outline points (deep water, woods).
+ * which would stall turns beside houses), the ground under its outline points (deep water) and under its centre
+ * (woods and anything else the class cannot drive through).
  */
 export function hullTerrain(ctx: SimContext, def: VehicleDef, x: number, y: number, heading: number, out: HullTerrain): HullTerrain {
   out.blocked = false; out.crossObstacle = -1; out.crossPart = -1;
@@ -107,10 +108,13 @@ export function hullTerrain(ctx: SimContext, def: VehicleDef, x: number, y: numb
   for (let k = 0; k < 8; k++) {
     const px = OUT8[k * 2]!, py = OUT8[k * 2 + 1]!;
     if (px < 0 || py < 0 || px >= map.widthM || py >= map.heightM) { out.blocked = true; return out; }
+    // (Deep water and ground no vehicle can drive under any part of the hull; woods only under its centre, below.)
     const cell = cellIndex(map, px, py);
-    if (cell < 0 || cellMoveCost(map, ctx.catalog.terrain, cell, def.class) === null) { out.blocked = true; return out; }
+    // (Deep water: nobody can cross it. A house's floor cells reach past its walls: the walls decide there.)
+    if (cell < 0 || ctx.catalog.terrain.surfaces[map.surfacePalette[map.surface[cell]!]!]?.moveCost.foot === null) { out.blocked = true; return out; }
     x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py);
   }
+  { const c = cellIndex(map, o.x, o.y); if (c < 0 || cellMoveCost(map, ctx.catalog.terrain, c, def.class) === null) { out.blocked = true; return out; } }
   const n = segmentsInRectInto(ctx.mapIndex, x0, y0, x1, y1, SEGS);
   const B = ctx.ballistics;
   for (let q = 0; q < n; q++) {

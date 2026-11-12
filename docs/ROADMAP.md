@@ -117,8 +117,17 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 
-### M5 Orders and interface — ⏳ next
+### M5 Orders and interface — ⏳ in progress
 Full order set, waypoints, standing rules, unit panels, radio log, time controls, touch controls.
+Slices (owner answers 2026-11-12):
+- **M5.1 Orders in the simulation** ✅ — `rules` order with engagement range limit, stance on contact (go to
+  ground / push on / fall back) and ammunition discipline; move orders carry facing and frontage (the
+  formation is laid out at the destination).
+- **M5.2 Interface** ✅ — draggable formation marker (shape of the formation, arrow to turn it, handle to
+  widen it), multi-point routes with pace per leg, order bar (move, assault, withdraw, fire, grenade, all
+  grenades, halt, cease fire, posture, rules), rules panel with the unit's state, pause / 1x / 2x / 4x with
+  orders while paused, phone layout.
+- **M5.3 Review and polish** — independent review, fixes, the owner tries it on his phone.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 
 ### M6 Opposing commander and scenarios — ⬜

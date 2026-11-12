@@ -2,7 +2,8 @@
  * Touch + mouse input on the map canvas. Emits high-level intents (tap at a world point, camera
  * changes). It never touches the simulation: the app turns taps into ORDERS.
  *
- *   one finger / left mouse: tap = tap; drag = pan
+ *   one finger / left mouse: tap = tap; drag = pan, unless the press lands on something the app lets the
+ *   player drag (an order marker's handle, M5): then the drag moves that instead
  *   two fingers: pinch = zoom, move = pan
  *   mouse wheel: zoom at cursor
  */
@@ -12,6 +13,10 @@ export interface InputCallbacks {
   getCamera(): Camera;
   setCamera(c: Camera): void;
   onTap(world: { x: number; y: number }, screen: { x: number; y: number }): void;
+  /** A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. */
+  onDragStart?(world: { x: number; y: number }): boolean;
+  onDrag?(world: { x: number; y: number }): void;
+  onDragEnd?(): void;
 }
 
 const TAP_SLOP_PX = 10;
@@ -21,6 +26,7 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   let downAt: { x: number; y: number } | null = null;
   let moved = false;
   let pinchDist = 0;
+  let dragging = false;
 
   const local = (e: PointerEvent | WheelEvent) => {
     const r = el.getBoundingClientRect();
@@ -39,8 +45,11 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   const down = (e: PointerEvent) => {
     el.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, local(e));
-    if (pointers.size === 1) { downAt = local(e); moved = false; }
-    if (pointers.size === 2) { pinchDist = spread(); moved = true; }
+    if (pointers.size === 1) {
+      downAt = local(e); moved = false;
+      dragging = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y)) === true;
+    }
+    if (pointers.size === 2) { pinchDist = spread(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.(); } }
   };
   const move = (e: PointerEvent) => {
     const prev = pointers.get(e.pointerId);
@@ -51,6 +60,7 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     const after = centroid();
     if (downAt && Math.hypot(p.x - downAt.x, p.y - downAt.y) > TAP_SLOP_PX) moved = true;
     if (!moved) return;
+    if (dragging && pointers.size === 1) { cb.onDrag?.(screenToWorld(cb.getCamera(), p.x, p.y)); return; }
     let cam = pan(cb.getCamera(), after.x - before.x, after.y - before.y);
     if (pointers.size === 2) {
       const d = spread();
@@ -60,8 +70,9 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     cb.setCamera(cam);
   };
   const up = (e: PointerEvent) => {
-    const wasTap = pointers.size === 1 && !moved && downAt !== null;
+    const wasTap = pointers.size === 1 && !moved && downAt !== null && !dragging;
     pointers.delete(e.pointerId);
+    if (dragging && pointers.size === 0) { dragging = false; cb.onDragEnd?.(); }
     if (wasTap) {
       const s = local(e);
       cb.onTap(screenToWorld(cb.getCamera(), s.x, s.y), s);

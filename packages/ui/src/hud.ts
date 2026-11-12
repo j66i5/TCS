@@ -1,8 +1,17 @@
 /**
- * HTML heads-up display over the map: top bar (time, pause/speed, walk/run, debug), radio log,
- * debug counters. All text comes from the string table.
+ * HTML heads-up display over the map (M5):
+ *   top bar     time, pause and speeds (orders work while paused), map, Debug
+ *   order bar   at the bottom, for the selected unit: move, assault, withdraw, fire, grenade, halt, cease fire,
+ *               posture, rules
+ *   plan bar    while planning a move / assault / withdraw: pace for the next leg, formation, undo, Go, cancel
+ *   rules panel the unit's standing rules (fire, range, on contact, ammunition) and its state
+ *   radio log   the last radio messages
+ * All text comes from the string table.
  */
 import type { Strings } from "@tcs/data";
+
+export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades";
+export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max" }
 
 export interface HudCallbacks {
   /** Formation IDs available (from data) and the faction default shown first. */
@@ -12,14 +21,18 @@ export interface HudCallbacks {
   mapLabel: string;
   onNextMap(): void;
   onSpeed(speed: number): void; // 0 = paused
-  onMoveMode(mode: string): void;
-  /** What a tap on the map means: move there, or fire at that point. */
-  onTapMode(mode: "move" | "fire" | "grenade" | "grenades"): void;
+  /** What the next taps on the map plan or order. */
+  onOrderMode(mode: OrderMode): void;
+  onHalt(): void;
   onCeaseFire(): void;
-  /** Formation for the next move orders. */
-  onFormation(formation: string): void;
-  /** Order the selected unit into a posture. */
   onPosture(posture: "standing" | "crouching" | "prone"): void;
+  /** Pace of the next leg of the route being planned. */
+  onPace(mode: string): void;
+  onFormation(formation: string): void;
+  onUndo(): void;
+  onGo(): void;
+  onCancel(): void;
+  onRules(r: Partial<UnitRules>): void;
   onDebug(on: boolean): void;
 }
 
@@ -36,6 +49,12 @@ export interface Hud {
   update(s: HudStats): void;
   radio(text: string, simSeconds: number, colour: string): void;
   showError(text: string): void;
+  /** Show the plan bar (move / assault / withdraw being planned) or hide it (null). */
+  setPlanning(kind: "move" | "assault" | "withdraw" | null): void;
+  /** The order mode shown as active (after Go or Cancel the app returns to move). */
+  setOrderMode(mode: OrderMode): void;
+  /** The selected unit's rules and a status line, shown in the rules panel. */
+  setUnit(rules: UnitRules | null, status: string): void;
 }
 
 const fmtTime = (s: number) => {
@@ -51,10 +70,11 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = "
 }
 
 export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud {
+  // ---- top bar
   const bar = el("div", "hud-bar");
   const title = el("div", "hud-title", s.t("app.title"));
   const clock = el("div", "hud-clock", "00:00");
-  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["4×", 4]];
+  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4]];
   const speedBtns = speeds.map(([label, v]) => {
     const b = el("button", "hud-btn", label);
     b.setAttribute("aria-label", v === 0 ? s.t("app.pause") : `${s.t("app.speed")} ${v}`);
@@ -62,34 +82,27 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     return b;
   });
   speedBtns[1]!.classList.add("on");
-  const modes = ["walk", "run", "sneak", "crawl"];
-  let mode = "walk";
-  const modeBtn = el("button", "hud-btn", s.t("move.walk"));
-  modeBtn.onclick = () => {
-    mode = modes[(modes.indexOf(mode) + 1) % modes.length]!;
-    modeBtn.textContent = s.t(`move.${mode}`);
-    modeBtn.classList.toggle("on", mode !== "walk");
-    cb.onMoveMode(mode);
+  let debug = false;
+  const dbgBtn = el("button", "hud-btn", s.t("app.debug"));
+  const mapBtn = el("button", "hud-btn", cb.mapLabel);
+  mapBtn.setAttribute("aria-label", s.t("app.map"));
+  mapBtn.onclick = () => cb.onNextMap();
+  bar.append(title, clock, ...speedBtns, mapBtn, dbgBtn);
+
+  // ---- order bar
+  const orders = el("div", "hud-orders");
+  const modeBtns = new Map<OrderMode, HTMLButtonElement>();
+  const mode = (m: OrderMode, key: string) => {
+    const b = el("button", "hud-btn", s.t(key));
+    b.onclick = () => { setMode(m); cb.onOrderMode(m); };
+    modeBtns.set(m, b);
+    return b;
   };
-  let tapMode: "move" | "fire" | "grenade" | "grenades" = "move";
-  const tapBtn = el("button", "hud-btn", s.t("app.tapMove"));
-  tapBtn.onclick = () => {
-    tapMode = tapMode === "move" ? "fire" : tapMode === "fire" ? "grenade" : tapMode === "grenade" ? "grenades" : "move";
-    tapBtn.textContent = s.t(tapMode === "move" ? "app.tapMove" : tapMode === "fire" ? "app.tapFire" : tapMode === "grenade" ? "app.tapGrenade" : "app.tapGrenades");
-    tapBtn.classList.toggle("on", tapMode !== "move");
-    cb.onTapMode(tapMode);
-  };
+  const setMode = (m: OrderMode) => { for (const [k, b] of modeBtns) b.classList.toggle("on", k === m); hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : "plan.tapTarget"); };
+  const haltBtn = el("button", "hud-btn", s.t("order.halt"));
+  haltBtn.onclick = () => cb.onHalt();
   const ceaseBtn = el("button", "hud-btn", s.t("app.ceaseFire"));
   ceaseBtn.onclick = () => cb.onCeaseFire();
-  const formations = [cb.defaultFormation, ...cb.formations.filter((f) => f !== cb.defaultFormation)];
-  let formation = 0;
-  const formBtn = el("button", "hud-btn", s.t(`formation.${formations[0]}`));
-  formBtn.setAttribute("aria-label", s.t("app.formation"));
-  formBtn.onclick = () => {
-    formation = (formation + 1) % formations.length;
-    formBtn.textContent = s.t(`formation.${formations[formation]!}`);
-    cb.onFormation(formations[formation]!);
-  };
   const postures = ["standing", "crouching", "prone"] as const;
   let posture = 0;
   const postureBtn = el("button", "hud-btn", s.t("posture.standing"));
@@ -99,12 +112,54 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     postureBtn.textContent = s.t(`posture.${postures[posture]!}`);
     cb.onPosture(postures[posture]!);
   };
-  let debug = false;
-  const dbgBtn = el("button", "hud-btn", s.t("app.debug"));
-  const mapBtn = el("button", "hud-btn", cb.mapLabel);
-  mapBtn.setAttribute("aria-label", s.t("app.map"));
-  mapBtn.onclick = () => cb.onNextMap();
-  bar.append(title, clock, ...speedBtns, tapBtn, ceaseBtn, modeBtn, formBtn, postureBtn, mapBtn, dbgBtn);
+  const rulesBtn = el("button", "hud-btn", s.t("order.rules"));
+  orders.append(mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
+    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), haltBtn, ceaseBtn, postureBtn, rulesBtn);
+
+  // ---- plan bar
+  const plan = el("div", "hud-plan");
+  plan.hidden = true;
+  const paces = ["walk", "run", "sneak", "crawl"];
+  let pace = 0;
+  const paceBtn = el("button", "hud-btn", `${s.t("order.pace")}: ${s.t("move.walk")}`);
+  paceBtn.onclick = () => { pace = (pace + 1) % paces.length; paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[pace]!}`)}`; cb.onPace(paces[pace]!); };
+  const formations = [cb.defaultFormation, ...cb.formations.filter((f) => f !== cb.defaultFormation)];
+  let formation = 0;
+  const formBtn = el("button", "hud-btn", s.t(`formation.${formations[0]}`));
+  formBtn.setAttribute("aria-label", s.t("app.formation"));
+  formBtn.onclick = () => { formation = (formation + 1) % formations.length; formBtn.textContent = s.t(`formation.${formations[formation]!}`); cb.onFormation(formations[formation]!); };
+  const undoBtn = el("button", "hud-btn", s.t("order.undo"));
+  undoBtn.onclick = () => cb.onUndo();
+  const goBtn = el("button", "hud-btn hud-go", s.t("order.go"));
+  goBtn.onclick = () => cb.onGo();
+  const cancelBtn = el("button", "hud-btn", s.t("order.cancel"));
+  cancelBtn.onclick = () => cb.onCancel();
+  plan.append(paceBtn, formBtn, undoBtn, cancelBtn, goBtn);
+
+  // ---- rules panel
+  const panel = el("div", "hud-panel");
+  panel.hidden = true;
+  const status = el("div", "hud-status");
+  const rows: { key: keyof UnitRules; label: string; options: [UnitRules[keyof UnitRules], string][] }[] = [
+    { key: "fire", label: "rules.fire", options: [["free", "rules.fire.free"], ["return", "rules.fire.return"], ["hold", "rules.fire.hold"]] },
+    { key: "maxEngageM", label: "rules.range", options: [[0, "rules.range.none"], [400, "400"], [200, "200"], [100, "100"]] },
+    { key: "onContact", label: "rules.contact", options: [["ground", "rules.contact.ground"], ["push", "rules.contact.push"], ["back", "rules.contact.back"]] },
+    { key: "ammo", label: "rules.ammo", options: [["conserve", "rules.ammo.conserve"], ["normal", "rules.ammo.normal"], ["max", "rules.ammo.max"]] },
+  ];
+  const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
+  panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);
+  for (const r of rows) {
+    const row = el("div", "hud-row");
+    row.append(el("span", "hud-row-label", s.t(r.label)));
+    for (const [value, key] of r.options) {
+      const b = el("button", "hud-btn hud-small", typeof value === "number" && value > 0 ? s.t("rules.range.m", { m: value }) : s.t(key));
+      b.onclick = () => { cb.onRules({ [r.key]: value } as Partial<UnitRules>); for (const x of ruleBtns) if (x.key === r.key) x.b.classList.toggle("on", x.value === value); };
+      ruleBtns.push({ key: r.key, value, b });
+      row.append(b);
+    }
+    panel.append(row);
+  }
+  rulesBtn.onclick = () => { panel.hidden = !panel.hidden; rulesBtn.classList.toggle("on", !panel.hidden); hint.hidden = true; };
 
   const hint = el("div", "hud-hint", s.t("app.hint"));
   const log = el("div", "hud-radio");
@@ -118,9 +173,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   };
   const err = el("pre", "hud-error");
   err.hidden = true;
-  root.append(bar, hint, log, dbg, err);
-  // Place the hint and debug panel just below the bar, whose height depends on wrapping (phones).
-  const place = () => { const h = bar.offsetHeight; hint.style.top = `${h + 8}px`; dbg.style.top = `${h + 8}px`; };
+  const bottom = el("div", "hud-bottom");
+  bottom.append(log, plan, orders);
+  root.append(bar, hint, panel, bottom, dbg, err);
+  setMode("move");
+  hint.textContent = s.t("app.hint");
+  // Place the hint, the panel and the debug panel just below the bar, whose height depends on wrapping (phones).
+  const place = () => { const h = bar.offsetHeight; hint.style.top = `${h + 8}px`; dbg.style.top = `${h + 8}px`; panel.style.top = `${h + 8}px`; };
   place();
   globalThis.addEventListener("resize", place);
 
@@ -145,12 +204,25 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       msg.style.color = colour;
       line.append(time, msg);
       log.prepend(line);
-      while (log.childElementCount > 5) log.lastElementChild?.remove();
+      while (log.childElementCount > 4) log.lastElementChild?.remove();
       hint.hidden = true;
     },
     showError(text) {
       err.hidden = false;
       err.textContent = text;
+    },
+    setPlanning(kind) {
+      plan.hidden = kind === null;
+      if (kind !== null) hint.hidden = true;
+      paceBtn.hidden = kind !== "move";
+      formBtn.hidden = kind !== "move";
+      undoBtn.hidden = kind !== "move";
+    },
+    setOrderMode(m) { setMode(m); },
+    setUnit(rules, text) {
+      status.textContent = text;
+      if (!rules) return;
+      for (const x of ruleBtns) x.b.classList.toggle("on", rules[x.key] === x.value);
     },
   };
 }

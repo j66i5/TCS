@@ -1023,3 +1023,11 @@ owner's review, not tuned away.
 3. **Time:** pause any time and give orders while paused (they take the radio delay once time runs).
 4. **Standing rules on the unit panel:** fire rule (free / return / hold), engagement range limit, stance on
    contact (go to ground / push on / fall back), ammunition discipline (conserve / normal / maximum).
+
+## 2026-11-12 — M5.1 / M5.2 orders and interface
+Implemented the owner's answers. Details decided here (game values / interface choices): the formation marker's
+width is the distance between the outermost men (a file keeps the doctrine spacing); with a laid-out formation
+each man looks for cover only within 4 m of his place (15 m otherwise), so the shape holds; engagement range
+choices any / 400 / 200 / 100 m; ammunition discipline stretches the pause between shots or bursts x1.8
+(conserve) or x0.6 (maximum); "fall back" on contact withdraws 100 m from the known enemy by bounds; "push on"
+does not stop. Grenade and all-grenades stay separate buttons. The old one-tap move remains only as a debug hook.

@@ -4,7 +4,8 @@
  * integrator shared by aiming and the projectile loop, and a rocket in flight surviving a save.
  */
 import { describe, expect, it } from "vitest";
-import { aimSolution, backblastBlocked, createSim, flightStep, launcherRound, loadSim, saveSim, simHash, step, submitOrder, TICK_HZ, type EntityId, type FlightState, type Sim, type SimEvent } from "@tcs/sim";
+import { viewGround } from "@tcs/ai";
+import { aimSolution, backblastBlocked, createContext, createSim, flightStep, launcherRound, loadSim, saveSim, simHash, step, submitOrder, TICK_HZ, type EntityId, type FlightState, type Sim, type SimEvent } from "@tcs/sim";
 import { antitankSetup, antitankTrial } from "../src/labs/antitank";
 import { duel } from "../src/labs/gunnery";
 import { getScenario, loadData } from "../src/scenarios";
@@ -103,6 +104,21 @@ describe("standing anti-tank rule (owner Q19, plan C1)", () => {
 });
 
 describe("back-blast and rooms (owner Q20)", () => {
+  it("the commander's own view of the ground has the hulls in it, as the sim's has (M7 review finding 4)", () => {
+    // A red hull side-on 2.5 m east of a red man who would fire west: a wall right behind the tube.
+    const input = duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1002.5, y: 600, heading: Math.PI / 2 }, redSquadAt: { x: 1000, y: 600, spacing: 3 } });
+    const sim = createSim(input);
+    step(sim);
+    const man = [...sim.state.identity.entries()].filter(([id, i]) => i.side === "red" && sim.state.soldier.req(id).mount === undefined)
+      .sort((a, b) => Math.abs(sim.state.transform.req(a[0]).y - 600) - Math.abs(sim.state.transform.req(b[0]).y - 600))[0]![0];
+    expect(backblastBlocked(sim.ctx, sim.state, man, "ru-pg7vl", Math.PI)).toBe("at.wallBehind");
+    const ground = viewGround(input);
+    expect(backblastBlocked(ground(sim.state, sim.state.tick), sim.state, man, "ru-pg7vl", Math.PI)).toBe("at.wallBehind");
+    // (A bare context built from the input knows the walls but not the hulls: what the commander used before.)
+    expect(backblastBlocked(createContext({ ...input, orders: [] }), sim.state, man, "ru-pg7vl", Math.PI)).toBeNull();
+  });
+
+
   it("no shot with a comrade in the danger zone behind or a wall right behind; no order shot either", () => {
     const { input, gunner, target } = antitankSetup(data, ["ru", "de"], 150, "side", 3);
     const sim = createSim(input);

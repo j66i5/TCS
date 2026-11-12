@@ -17,7 +17,7 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, cos, createContext, heightAt, sin, hypot2, isCaptive, isOut, sight, supportLeft,
+  atan2, backblastBlocked, cos, createContext, heightAt, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 
@@ -42,6 +42,23 @@ interface Memory {
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+}
+
+/**
+ * A controller's own view of the ground (built once, when first needed; derived, never saved): before each use it
+ * is brought up to the view it is given, holes blown in walls (when there are new ones) and the hulls and wrecks
+ * as they stand (once per tick), so sight lines and back-blast checks agree with the sim's (M7 review).
+ */
+export function viewGround(input: BattleInput): (view: SimView, tick: number) => SimContext {
+  let ctx: SimContext | null = null;
+  let seenBreaches = -1, groundTick = -1;
+  return (view, tick) => {
+    const c = ctx ??= createContext({ ...input, orders: [] });
+    const st = view as unknown as SimState;
+    if (st.terrain.breaches.length !== seenBreaches) { syncTerrainDamage(c, st); seenBreaches = st.terrain.breaches.length; }
+    if (groundTick !== tick) { rebuildVehicleGrid(c, st); groundTick = tick; }
+    return c;
+  };
 }
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
@@ -96,11 +113,13 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   // without one, the plan's formula from the willingness to dismount.
   const dismountM = input.catalog.factions[force.faction]?.dismountM ?? 300 + (1 - (doctrine["willingnessToDismount"] ?? 0.5)) * 500;
   const M = input.catalog.behaviour.mounting;
-  // Its own view of the ground for sight lines (built once, when first needed; never saved) [C58].
-  let ctx: SimContext | null = null;
+  // Its own view of the ground for sight lines and back-blast checks [C58], kept up with the view (M7 review).
+  const groundOf = viewGround(input);
+  let curView: SimView | null = null, curTick = -1;
+  const ground = (): SimContext => groundOf(curView!, curTick);
   /** Out of sight of (ox, oy) from a man standing there to a hull's top at (x, y)? */
   const hidden = (ox: number, oy: number, x: number, y: number): boolean => {
-    ctx ??= createContext({ ...input, orders: [] });
+    const ctx = ground();
     const z0 = heightAt(input.map, ox, oy) + 1.7, z1 = heightAt(input.map, x, y) + 2.2;
     return sight(ctx, ox, oy, z0, x, y, z1).blockedBy !== null;
   };
@@ -109,6 +128,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     side,
     think(view, tick): Order[] {
       if (view.ended || tick % every !== 0) return [];
+      curView = view; curTick = tick;
       const out: Order[] = [];
       const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
       // Every platoon of the side (the attacker may have two): their squads and their own men.
@@ -185,9 +205,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               if (tick - (mem.atShot[String(m)] ?? -1e9) < COMMANDER.atRefireSeconds * 60) continue;
               // A comrade (or a wall) in the danger zone behind him (owner Q20): he first steps a few metres aside,
               // and fires at the next look.
-              ctx ??= createContext({ ...input, orders: [] });
               const az = atan2(best.y - t.y, best.x - t.x);
-              if (backblastBlocked(ctx, view as unknown as SimState, m, rd.ammo, az) !== null) {
+              if (backblastBlocked(ground(), view as unknown as SimState, m, rd.ammo, az) !== null) {
                 const side = m % 2 === 0 ? 1 : -1;
                 order(m, { kind: "move", waypoints: [{ x: clamp(t.x - sin(az) * side * COMMANDER.atSidestepM, W), y: clamp(t.y + cos(az) * side * COMMANDER.atSidestepM, H), mode: "run" }] });
                 mem.atShot[String(m)] = tick - (COMMANDER.atRefireSeconds - COMMANDER.atEverySeconds) * 60;

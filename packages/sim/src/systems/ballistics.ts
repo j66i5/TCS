@@ -20,6 +20,7 @@ import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
 import { resolveVehicleHit } from "./armour";
+import { addStoppedHit } from "../hulls";
 import { HULL_HIT, hullEntry, NEAR_SOLDIER, NEAR_VEHICLE, NEAR_WALL, type AmmoRT } from "../ballistics";
 
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
@@ -117,7 +118,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const gdt = bal.gravityMps2 * dt;
   const W = map.widthM, H = map.heightM;
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows, maxGround = B.maxGround, maxVegTop = B.maxVegTop;
-  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry;
+  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry, stoppedHit = addStoppedHit;
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
@@ -179,6 +180,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   detCount = 0;
   const BN = bal.bounce, clutterH = bal.fragments.clutterHeightM, clutterK = bal.fragments.clutterStopPerM, ex = exp;
   const roofs = B.roofs, roofLow = B.roofLow, roofBuckets = B.roofBuckets, inPoly = pointInPolygon;
+  P.watch = B; B.inLoop = true;
   for (let i = 0; i < P.count; ) {
     const am = ammoRT[AMMO[i]!]!;
     let vx = VX[i]!, vy = VY[i]!, vz = VZ[i]!;
@@ -512,10 +514,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (!am.fragment) {
         const face = vehFace === 0 ? "front" : vehFace === 1 ? "side" : vehFace === 2 ? "rear" : "top";
         if (am.heavy) events.emit({ kind: "vehicle.hit", tick, vehicle: VG.id[vehRow]!, x: hx, y: hy, z: hz, face, zone: vehPart === 0 ? "hull" : "turret", result: "stopped", ammo: am.id, owner: P.owner[i]!, rounds: 1, components: [] });
-        else {
-          if (VG.hits[vehRow] === 0) { VG.hitOwner[vehRow] = P.owner[i]!; VG.hitAmmo[vehRow] = AMMO[i]!; VG.hitX[vehRow] = hx; VG.hitY[vehRow] = hy; VG.hitZ[vehRow] = hz; VG.hitFace[vehRow] = vehFace * 2 + vehPart; }
-          VG.hits[vehRow] = VG.hits[vehRow]! + 1;
-        }
+        else stoppedHit(state, VG, vehRow, P.owner[i]!, AMMO[i]!, hx, hy, hz, vehFace * 2 + vehPart);
       }
       remove(P, i);
       continue;
@@ -698,6 +697,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
     remove(P, i);
   }
+  B.inLoop = false;
   // Hull hits that the armour decides (M7.4a), in the order they were found; new rounds (an exiting
   // penetrator, a ricochet) and warhead bursts are added only now, after the loop.
   if (hullCount > 0) {
@@ -707,15 +707,15 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     hullCount = 0;
   }
-  // Rifle-calibre hits on vehicles: one aggregated event per vehicle (M7.1c).
-  for (let j = 0; j < VG.n; j++) {
-    const k = VG.hits[j]!;
+  // Rifle-calibre hits on vehicles: one aggregated event per vehicle and side of the shooters (M7.1c; slot 0
+  // the other side's rounds, 1 its own side's). Only the other side's rounds count as the vehicle being hit.
+  for (let q = 0; q < 2 * VG.n; q++) {
+    const k = VG.hits[q]!;
     if (k === 0) continue;
-    const fp = VG.hitFace[j]!, fc = fp >> 1;
-    events.emit({ kind: "vehicle.hit", tick, vehicle: VG.id[j]!, x: VG.hitX[j]!, y: VG.hitY[j]!, z: VG.hitZ[j]!, face: fc === 0 ? "front" : fc === 1 ? "side" : fc === 2 ? "rear" : "top", zone: (fp & 1) === 0 ? "hull" : "turret", result: "stopped", ammo: ammoRT[VG.hitAmmo[j]!]!.id, owner: VG.hitOwner[j]!, rounds: k, components: [] });
-    const v = state.vehicle.get(VG.id[j]!);
-    if (v) { v.lastHitTick = tick; v.hitsThisTick = k; }
-    VG.hits[j] = 0;
+    const fp = VG.hitFace[q]!, fc = fp >> 1, vid = VG.id[q >> 1]!;
+    events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x: VG.hitX[q]!, y: VG.hitY[q]!, z: VG.hitZ[q]!, face: fc === 0 ? "front" : fc === 1 ? "side" : fc === 2 ? "rear" : "top", zone: (fp & 1) === 0 ? "hull" : "turret", result: "stopped", ammo: ammoRT[VG.hitAmmo[q]!]!.id, owner: VG.hitOwner[q]!, rounds: k, components: [] });
+    if ((q & 1) === 0) { const v = state.vehicle.get(vid); if (v) { v.lastHitTick = tick; v.hitsThisTick = k; } }
+    VG.hits[q] = 0;
   }
   // Suppression gathered from rounds passing close (M4.1).
   for (let j = 0; j < SG.n; j++) {

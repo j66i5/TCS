@@ -164,13 +164,11 @@ function openOver(openings: readonly { offsetM: number; widthM: number; sillM: n
 // ---------------------------------------------------------------- the vehicle grid
 
 function growGrid(G: VehicleGrid, cap: number): void {
-  const keys: (keyof VehicleGrid)[] = ["id", "x", "y", "gz", "ch", "sh", "f0", "f1", "r0", "r1", "u0", "u1", "tx", "ty", "tch", "tsh", "tf0", "tf1", "tr0", "tr1", "tu0", "tu1", "minX", "maxX", "minY", "maxY", "pitch", "roll", "minNeed", "hits", "hitOwner", "hitAmmo", "hitX", "hitY", "hitZ", "hitFace"];
+  const keys: (keyof VehicleGrid)[] = ["id", "x", "y", "gz", "ch", "sh", "f0", "f1", "r0", "r1", "u0", "u1", "tx", "ty", "tch", "tsh", "tf0", "tf1", "tr0", "tr1", "tu0", "tu1", "minX", "maxX", "minY", "maxY", "pitch", "roll", "minNeed"];
+  const slotKeys: (keyof VehicleGrid)[] = ["hits", "hitOwner", "hitAmmo", "hitX", "hitY", "hitZ", "hitFace"];
   const g = G as unknown as Record<string, Float64Array | Int32Array>;
-  for (const k of keys) {
-    const old = g[k]!;
-    const nu = old instanceof Int32Array ? new Int32Array(cap) : new Float64Array(cap);
-    g[k] = nu;
-  }
+  for (const k of keys) g[k] = g[k] instanceof Int32Array ? new Int32Array(cap) : new Float64Array(cap);
+  for (const k of slotKeys) g[k] = g[k] instanceof Int32Array ? new Int32Array(cap * 2) : new Float64Array(cap * 2);
   G.touched = new Int32Array(cap * 16);
 }
 
@@ -212,7 +210,7 @@ export function rebuildVehicleGrid(ctx: SimContext, state: SimState): void {
     for (const f of [h.f[0], h.f[1]]) for (const r of [h.r[0], h.r[1]]) R = Math.max(R, sqrt(f * f + r * r));
     if (tr) for (const f of [tr.f[0], tr.f[1]]) for (const r of [tr.r[0], tr.r[1]]) R = Math.max(R, Math.abs(tr.pivotF) + sqrt(f * f + r * r));
     G.minX[n] = t.x - R; G.maxX[n] = t.x + R; G.minY[n] = t.y - R; G.maxY[n] = t.y + R;
-    G.hits[n] = 0;
+    G.hits[2 * n] = 0; G.hits[2 * n + 1] = 0;
     G.minNeed[n] = B.vehicleRT[v.def]?.minNeedMm ?? Infinity;
     const c0 = Math.max(0, Math.floor((t.x - R) / bm) - 1), c1 = Math.min(bcols - 1, Math.floor((t.x + R) / bm) + 1);
     const r0 = Math.max(0, Math.floor((t.y - R) / bm) - 1), r1 = Math.min(brows - 1, Math.floor((t.y + R) / bm) + 1);
@@ -230,6 +228,18 @@ export function rebuildVehicleGrid(ctx: SimContext, state: SimState): void {
   const dirty = deriveWrecks(ctx, state);
   // (Patched round every old and new stamp.)
   if (dirty) for (const r of dirty) patchNavGrids(ctx, r[0], r[1], r[2], r[3]);
+}
+
+/**
+ * A rifle-calibre round stopped by vehicle row `row` this tick: counted in the slot of its owner's side (0: the
+ * other side, 1: the vehicle's own), the first round of a slot giving the aggregated event's owner, ammo, point
+ * and face (face * 2 + part).
+ */
+export function addStoppedHit(state: SimState, G: VehicleGrid, row: number, owner: EntityId, ammo: number, x: number, y: number, z: number, faceCode: number): void {
+  const os = state.identity.get(owner)?.side;
+  const k = row * 2 + (os !== undefined && os === state.vehicle.get(G.id[row]!)?.side ? 1 : 0);
+  if (G.hits[k] === 0) { G.hitOwner[k] = owner; G.hitAmmo[k] = ammo; G.hitX[k] = x; G.hitY[k] = y; G.hitZ[k] = z; G.hitFace[k] = faceCode; }
+  G.hits[k] = G.hits[k]! + 1;
 }
 
 /** Is this vehicle a wreck for navigation (lies where it is for good)? */

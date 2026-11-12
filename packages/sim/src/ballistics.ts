@@ -118,9 +118,13 @@ export interface VehicleGrid {
   pitch: Float64Array; roll: Float64Array;
   /** Thinnest plate of each row's type (VehicleRT.minNeedMm; Infinity = no armour data: every round stops). */
   minNeed: Float64Array;
-  /** Rifle-calibre rounds stopped by each row this tick (one aggregated vehicle.hit per row). */
+  /**
+   * Rifle-calibre rounds stopped by each row this tick, in two slots per row (index row * 2 + slot; slot 0:
+   * rounds of the other side, 1: of the vehicle's own side), one aggregated vehicle.hit per row and slot, so an
+   * enemy round is never folded into a friendly one (M7 review).
+   */
   hits: Int32Array; hitOwner: Int32Array; hitAmmo: Int32Array; hitX: Float64Array; hitY: Float64Array; hitZ: Float64Array;
-  /** Face and part of the first aggregated hit (face * 2 + part). */
+  /** Face and part of the first aggregated hit of the slot (face * 2 + part). */
   hitFace: Int32Array;
   /** Buckets whose NEAR_VEHICLE bit is set (cleared through this list at the next rebuild). */
   touched: Int32Array; touchedCount: number;
@@ -128,11 +132,12 @@ export interface VehicleGrid {
 
 export function createVehicleGrid(capacity = 8): VehicleGrid {
   const F = () => new Float64Array(capacity), I = () => new Int32Array(capacity);
+  const F2 = () => new Float64Array(capacity * 2), I2 = () => new Int32Array(capacity * 2);
   return {
     n: 0, id: I(), x: F(), y: F(), gz: F(), ch: F(), sh: F(), f0: F(), f1: F(), r0: F(), r1: F(), u0: F(), u1: F(),
     tx: F(), ty: F(), tch: F(), tsh: F(), tf0: F(), tf1: F(), tr0: F(), tr1: F(), tu0: F(), tu1: F(),
     minX: F(), maxX: F(), minY: F(), maxY: F(), pitch: F(), roll: F(), minNeed: F(),
-    hits: I(), hitOwner: I(), hitAmmo: I(), hitX: F(), hitY: F(), hitZ: F(), hitFace: I(),
+    hits: I2(), hitOwner: I2(), hitAmmo: I2(), hitX: F2(), hitY: F2(), hitZ: F2(), hitFace: I2(),
     touched: new Int32Array(capacity * 16), touchedCount: 0,
   };
 }
@@ -273,6 +278,9 @@ export interface BallisticsCtx {
   soldiers: SoldierGrid;
   /** Vehicles this tick (M7.1c). */
   vehicles: VehicleGrid;
+  /** Debug guard (plan C45): set while the projectile loop runs; projectiles added meanwhile (must stay 0). */
+  inLoop: boolean;
+  loopAdds: number;
   /** Armour per vehicle type (M7.4a). */
   vehicleRT: Record<string, VehicleRT>;
   deflectionRad: number;
@@ -411,7 +419,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const vehicleRT = buildVehicleRT(catalog);
   return {
     vehicleRT,
-    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows), vehicles: createVehicleGrid(),
+    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows), vehicles: createVehicleGrid(), inLoop: false, loopAdds: 0,
     roofs, roofBuckets, roofLow, roofStamp: new Uint32Array(roofs.length), roofGen: 0,
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, near, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,

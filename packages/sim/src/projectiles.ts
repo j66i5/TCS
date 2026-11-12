@@ -20,6 +20,11 @@ export interface ProjectilePool {
   /** Entity that fired it (0 = none). */
   owner: Int32Array;
   bornTick: Int32Array;
+  /**
+   * Debug guard (derived, never saved; plan C45): while `inLoop` is set (the projectile loop runs), every add is
+   * counted in `loopAdds`, which must stay 0 (adding inside the loop may reallocate the arrays it holds).
+   */
+  watch?: { inLoop: boolean; loopAdds: number };
 }
 
 export function createProjectilePool(capacity = 1024): ProjectilePool {
@@ -50,6 +55,7 @@ export function addProjectile(
   p: ProjectilePool, ammoIndex: number, x: number, y: number, z: number, vx: number, vy: number, vz: number,
   owner: EntityId, tick: number,
 ): number {
+  if (p.watch !== undefined && p.watch.inLoop) p.watch.loopAdds++;
   if (p.count >= p.x.length) grow(p);
   const i = p.count++;
   p.x[i] = x; p.y[i] = y; p.z[i] = z; p.vx[i] = vx; p.vy[i] = vy; p.vz[i] = vz;

@@ -38,6 +38,7 @@ import { addProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
 import type { PlateRT, VehicleGrid } from "../ballistics";
+import { addStoppedHit } from "../hulls";
 import { applyBurn, resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { getOut } from "./boarding";
 import { removeItems } from "../items";
@@ -265,15 +266,18 @@ export function resolveVehicleHit(
   else if (face === 1) { const sg = rr >= 0 ? 1 : -1; nx = -fr.s * sg; ny = fr.c * sg; }
   else { const sg = face === 0 ? 1 : -1; nx = fr.c * sg; ny = fr.s * sg; }
   const tick = state.tick;
-  v.lastHitTick = tick;
+  // Only the other side's rounds count as the vehicle being under fire (lastHitTick, threat bearing, the crew's
+  // under-fire stamp; M7 review): friendly fire still does its damage, but the AI and drills do not react to it.
+  const os = state.identity.get(owner)?.side;
+  const enemy = os === undefined || os !== v.side;
+  if (enemy) v.lastHitTick = tick;
   const dmg: Damage = { components: [], fire: false, cookOff: false, pen: false, fireAmmo: false };
   const wasImmobilised = v.status === "immobilised";
   const zone = part === 1 ? "turret" : "hull";
   let result: "ricochet" | "stopped" | "penetrated" = "stopped";
 
   if (am.shaped) {
-    v.lastShapedHitTick = tick;
-    v.threatAz = atan2(-dy, -dx);
+    if (enemy) { v.lastShapedHitTick = tick; v.threatAz = atan2(-dy, -dx); }
     // Active protection (M7.4b, plan C16; the fixture only): the rocket is engaged before it reaches the plate. An
     // intercepted round bursts `standoffM` short along its path (blast and fragments, no jet on the hull); a failed
     // engagement lets it strike as usual. One charge (a counted item) per intercept.
@@ -284,7 +288,7 @@ export function resolveVehicleHit(
         removeItems(state.container.get(vid)!, aps.item, 1);
         burst(x - dx * aps.standoffM, y - dy * aps.standoffM, Math.max(z - dz * aps.standoffM, 0.3), ammoIdx, owner);
         events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone: part === 1 ? "turret" : "hull", result: "intercepted", ammo: am.id, owner, rounds: 1, components: [] });
-        stampUnderFire(state, v);
+        if (enemy) stampUnderFire(state, v);
         return;
       }
     }
@@ -362,16 +366,15 @@ export function resolveVehicleHit(
     }
     if (result !== "penetrated" && !am.heavy) {
       // A small-arms round that did not get in: the aggregated per-vehicle event, as for rounds stopped in the loop.
-      if (G.hits[row] === 0) { G.hitOwner[row] = owner; G.hitAmmo[row] = ammoIdx; G.hitX[row] = x; G.hitY[row] = y; G.hitZ[row] = z; G.hitFace[row] = face * 2 + part; }
-      G.hits[row] = G.hits[row]! + 1;
+      addStoppedHit(state, G, row, owner, ammoIdx, x, y, z, face * 2 + part);
       return;
     }
   }
   events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone, result, ammo: am.id, owner, rounds: 1, components: dmg.components });
-  if (dmg.pen) { v.lastPenTick = tick; v.threatAz = atan2(-dy, -dx); }
-  else if (am.heavy) v.threatAz = atan2(-dy, -dx);
-  // The crew and its platoon are under fire.
-  stampUnderFire(state, v);
+  if (dmg.pen) v.lastPenTick = tick;
+  if (enemy && (dmg.pen || am.heavy)) v.threatAz = atan2(-dy, -dx);
+  // The crew and its platoon are under fire (from the other side).
+  if (enemy) stampUnderFire(state, v);
   afterDamage(ctx, state, events, vid, v, def, dmg, wasImmobilised);
 }
 
@@ -633,10 +636,11 @@ function reverseOut(ctx: SimContext, state: SimState, events: EventSink, vid: En
   const t = state.transform.req(vid);
   v.crewReaction = "reverseOut"; v.reactionTick = state.tick; v.reactionWhy = why;
   events.emit({ kind: "vehicle.reaction", tick: state.tick, vehicle: vid, reaction: "reverseOut", keys: [...why] });
-  // Smoke between it and the threat: the turret swings toward it (the dischargers fire ahead of the turret).
+  // Smoke between it and the threat: the turret is laid toward it at its own rate (a damaged drive is slow) and
+  // the salvo goes off along the turret wherever it points when it is due (the dischargers fire ahead of it).
   if (def.dischargers && v.stations.length > 0 && state.tick >= v.smokeReadyTick) {
     const st = v.stations[0]!;
-    if (st.task === null) { st.azimuth = wrapAngle(from - t.heading); st.azCmd = st.azimuth; }
+    if (st.task === null) st.azCmd = wrapAngle(from - t.heading);
     dischargeSmoke(ctx, state, vid);
   }
   const ahead = Math.abs(wrapAngle(from - t.heading)) < PI / 2;

@@ -382,9 +382,10 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
         st.azCmd = az;
         st.elCmd = Math.min(Math.max(atan2(tz - mz, range) + elDrop, sn.elevationRad[0]), sn.elevationRad[1]);
       } else {
-        // Back to the front a while after its last shot.
+        // Back to the front a while after its last shot (not while a smoke salvo it is laid for is on its way:
+        // the dischargers fire along the turret, M7 review).
         const last = st.weapons.reduce((m, w) => Math.max(m, w.lastShotTick), -1e9);
-        if (tick - last >= secondsToTicks(G.scanReturnSeconds)) { st.azCmd = st.scanAz; st.elCmd = 0; }
+        if (v.pendingSmokeTick < 0 && tick - last >= secondsToTicks(G.scanReturnSeconds)) { st.azCmd = st.scanAz; st.elCmd = 0; }
       }
       const da = wrapAngle(st.azCmd - st.azimuth), de = st.elCmd - st.elevation;
       const stepA = sn.traverseRadS * driveK * dt, stepE = sn.elevateRadS * driveK * dt;

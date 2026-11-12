@@ -1782,3 +1782,42 @@ owner, **for review** (game values, confidence low unless the data says otherwis
 
 ## 2026-11-12 — Parked-hulls perf test bound widened to 35 %
 The '30 parked hulls' projectile benchmark measured +9 % to +29 % on the same build across runs (true cost about +13 %), so its 20 % bound failed at random (21.2 % in one full check). The bound is now 35 %: it still catches a real regression (a doubling of the hull cost) without failing CI on noise. The plan's 5 % target is not met and stays open (vehicle grid compaction, deferred).
+
+## 2026-11-12 — M7 review fixes
+An independent review of M7 found seven issues; all are fixed on `m7-review-fixes`.
+- **Rule 3 in the gunnery lab:** the lab no longer writes `vehicle.status` into a running sim; the target hull enters
+  the battle immobilised through its `VehicleRecord.status` (battle input). Lab table identical to the base commit.
+- **Friendly fire on hulls:** only rounds of the other side set `lastHitTick`, `lastShapedHitTick`, `threatAz` and the
+  crew's under-fire stamp (`resolveVehicleHit`, the aggregated rifle-calibre hits), so the AI no longer dismounts and a
+  crew no longer smokes or reverses because its own side hit it; the damage itself is unchanged. Stopped rifle-calibre
+  rounds are aggregated per vehicle **and** side of the shooters (two slots per grid row, `addStoppedHit`): one
+  `vehicle.hit` per (vehicle, side) per tick, so an enemy round is never folded into a friendly one.
+- **Save/load and the vehicle grid:** `step` now rebuilds the vehicle grid (hull boxes, turret pose, wreck stamps) from
+  the tick's state before anything queries it (orders, routes, grenades, back-blast), so a loaded save and an
+  unbroken run see the same grid; the drive system still rebuilds it after moving. New determinism test: a save on the
+  tick a hull becomes a wreck (30 s after its last penetration), while a turret slews, with a move through and a
+  grenade over the hull delivered on that tick; it failed before the fix. Cost: one more grid rebuild per tick with
+  vehicles (perf floors hold).
+- **The AI's own context:** `viewGround(input)` (ai) keeps the commander's lazily built context up with the view:
+  `syncTerrainDamage` when the view has new breaches, `rebuildVehicleGrid` once per look; sight lines (`hidden`) and
+  `backblastBlocked` now see breaches and hulls as the sim does. Test: a hull right behind a launcher man blocks him in
+  the AI's view as in the sim's (a bare context did not).
+- **Smoke salvo and the turret:** a crew reversing out no longer snaps its turret to the threat: it lays it there at
+  the turret's rate (a damaged drive at a quarter), the turret does not return to the front while the salvo is on its
+  way, and the salvo goes off along the turret wherever it points when due. Test: a damaged drive lays the screen
+  well off the threat's bearing, an intact one close to it.
+- **`VehicleRecord` contract:** `load` is the container only and `ready` the rounds on the belts, on input and on
+  output alike (the doc and plan §2.5 said the belts were added back into `load` on output; the code did not, and
+  adding them would count them twice when the record goes back in). Doc and plan fixed; the round-trip test now also
+  checks `ready` and the total rounds. `BattleResult.wrecks` lists `isWreck` hulls only (destroyed, abandoned,
+  immobilised and not penetrated for more than 30 s), as the plan said; a freshly immobilised hull is not a wreck.
+- **Guard tests (plan C45, C54 and others), `tools/test/guards-m7.test.ts`:** a debug counter `ctx.ballistics.loopAdds`
+  (projectiles added while the loop runs; the pool's derived, never-saved `watch`) stays 0 with hull penetrations,
+  over-penetrations, stopped rifle rounds and an active-protection intercept; a man sent alone past a wreck goes round
+  its end without turning back or entering it; a hull behind a wall up to its hull top is hit only on the turret;
+  rockets are never thrown or lobbed (`grenadeOption`, a grenade order); every man on foot in `platoon` and
+  `platoon-ru` carries 22–45 kg with the anti-tank weapons split.
+- **Golden update:** `fixture-cart-s3` only (from tick 2400; the fixture's carts are hit by their own side's rounds,
+  which no longer count as enemy hits). Checked first: headless demo-s1, shootout-s1, demo-fixture-s7 (120 s) and
+  platoon-s1 (900 s) print the identical event stream and casualties as on the base commit (only wall time differs);
+  every other golden unchanged. `npm run check` green, timing tests included.

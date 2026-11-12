@@ -229,8 +229,8 @@ All are optional (`toPlain` drops `undefined`), so infantry hashes change only t
 ```ts
 export interface VehicleRecord {
   vehicleId: string; type: DefId;
-  load: ItemStack[];            // container contents (stowed, fuel, smoke, extinguisher, reserved add-ons); ready belts added back on output
-  ready?: { item: DefId; rounds: number }[][];
+  load: ItemStack[];            // container contents only (stowed, fuel, smoke, extinguisher, reserved add-ons), in and out
+  ready?: { item: DefId; rounds: number }[][];  // rounds on the ready belts per station weapon and feed, in and out (M7 review: not added into load)
   components?: number[];
   status?: VehicleStatus;
   capturedBy?: SideId | null;   // reserved [C8]
@@ -249,10 +249,10 @@ BattleResult.wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number;
   - `addUnit` links a crew unit through `vehicleId` and seats its crew in station order. `Placement.seat` overrides the order; it is filled by the scenario builder from `MemberSlot.seat` [C39].
   - Men with `mountedIn` are seated after all units exist. If seats are exceeded, setup throws a placement-style error.
   - A vehicle with no crew unit is legal: a parked or abandoned hull.
-- **Output.** `vehicleRecordFromState` (setup.ts) returns ready belts as charged stacks in `load`. `forcesOut` returns `ForceResult.vehicles`, one per V of that side.
+- **Output.** `vehicleRecordFromState` (setup.ts) returns the container as `load` and the ready belts as `ready` (M7 review: one contract in and out, so a record round-trips unchanged and no round is counted twice). `forcesOut` returns `ForceResult.vehicles`, one per V of that side.
   - Abandoned vehicles stay in their own side's list with `status: "abandoned"`.
   - `capturedBy` is reserved: the campaign decides capture from `BattleResult` and who held the ground. M7 never sets it.
-  - Destroyed, abandoned and long-immobilised vehicles are also listed in `BattleResult.wrecks`, so the campaign can carry map damage forward (SPEC 9.3) [C8].
+  - Destroyed, abandoned and long-immobilised vehicles (`isWreck`: immobilised and not penetrated for more than 30 s) are also listed in `BattleResult.wrecks`, so the campaign can carry map damage forward (SPEC 9.3) [C8].
   - `summarize` (run.ts) fills `SideResult.vehicles`.
 
 ### 2.6 Events (`packages/sim/src/events.ts`; keys only)

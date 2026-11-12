@@ -94,6 +94,9 @@ export function step(sim: Sim): SimEvent[] {
   const events = new EventSink();
   if (state.ended) return events.events;
 
+  // The vehicle grid (hull boxes, turret pose, wreck stamps) from this tick's state, before anything queries it
+  // (orders, grenades, launchers, routes): a loaded save and an unbroken run see the same grid (M7 review).
+  if (state.vehicle.size > 0 || ctx.ballistics.vehicles.n > 0) rebuildVehicleGrid(ctx, state);
   if (state.tick % TICK_HZ === 0) ctx.comms.update(state, ctx.rules.comms, ctx.catalog);
   receiveOrders(ctx, state, events);
   deliverOrders(ctx, state, events);

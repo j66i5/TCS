@@ -149,6 +149,29 @@ describe("crew reactions (M7.4b, plan §8, C21)", () => {
     void blue;
   });
 
+  it("the smoke salvo goes off along the turret as it is laid toward the threat: a damaged turret drive lays it short (M7 review finding 5)", () => {
+    const offBearing = (drive: number): number => {
+      const { sim, red } = field(["ru", "de"], { x: 1000, y: 600, heading: Math.PI });
+      const shooter = [...sim.state.identity.entries()].find(([, i]) => i.side === "blue")![0];
+      setComp(sim, red, "turret-drive", drive);
+      const st = sim.state.vehicle.req(red).stations[0]!;
+      st.azimuth = Math.PI / 2; st.azCmd = Math.PI / 2; // (test set-up: the turret pointing to the side)
+      const ev: SimEvent[] = [];
+      strikeFront(sim, red, shooter, "ru-pg7vl", ev);
+      let smoke: { x: number; y: number; vx: number; vy: number } | null = null;
+      for (let i = 0; i < 6 * TICK_HZ && !smoke; i++) for (const e of step(sim)) {
+        if (e.kind === "vehicle.smoke" && e.vehicle === red) { const t = sim.state.transform.req(red); smoke = { x: e.x, y: e.y, vx: t.x, vy: t.y }; }
+      }
+      expect(smoke).not.toBeNull();
+      // Off the threat's bearing (it came from the west, bearing pi), rad.
+      const a = Math.atan2(smoke!.y - smoke!.vy, smoke!.x - smoke!.vx);
+      return Math.abs(Math.atan2(Math.sin(a - Math.PI), Math.cos(a - Math.PI)));
+    };
+    const intact = offBearing(1), damaged = offBearing(0.3);
+    expect(intact).toBeLessThan(0.35);
+    expect(damaged).toBeGreaterThan(intact + 0.5);
+  });
+
   it("an immobilised vehicle hit without penetration fights on (continue)", () => {
     const { sim, red } = field(["de", "ru"], { x: 1000, y: 600, heading: Math.PI });
     const v = sim.state.vehicle.req(red);
@@ -284,6 +307,12 @@ describe("wrecks and vehicle records out of the battle and into the next (M7.4b,
     expect(v2.status).toBe("destroyed");
     expect(v2.comp).toEqual(red[0]!.components);
     expect(sim.state.container.req([...sim.state.vehicle.entries()].find(([, x]) => x.side === "red")![0]).stacks).toEqual(red[0]!.load);
+    // One contract in and out (M7 review): `load` is the container only, `ready` the belts; nothing counted twice.
+    expect(v2.stations.flatMap((st) => st.weapons.map((w) => w.feeds.map((f) => ({ item: f.item, rounds: f.rounds }))))).toEqual(red[0]!.ready);
+    const rounds = (rec: (typeof red)[number] | undefined) => rec!.ready!.flat().reduce((n, f) => n + f.rounds, 0) + rec!.load.filter((st) => rec!.ready!.flat().some((f) => f.item === st.type)).reduce((n, st) => n + st.count * (st.charge ?? 1), 0);
+    const blueOut = back.forcesOut.find((f) => f.side === "blue")!.vehicles!;
+    const blueAgain = runBattle({ ...again, rules: { ...again.rules, timeLimitSeconds: 1 } }).forcesOut.find((f) => f.side === "blue")!.vehicles!;
+    expect(rounds(blueAgain[0])).toBe(rounds(blueOut[0]));
   });
 });
 

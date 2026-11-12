@@ -1,4 +1,5 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
+import { isWreck } from "./hulls";
 import { rosterStatus } from "./impair";
 import { battleScore } from "./systems/objectives";
 import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
@@ -84,7 +85,7 @@ function summarize(
   });
   const wrecks: NonNullable<BattleResult["wrecks"]> = [];
   for (const [id, v] of state.vehicle.entries()) {
-    if (v.status !== "destroyed" && v.status !== "abandoned" && v.status !== "immobilised") continue;
+    if (!isWreck(v, state.tick)) continue;
     const t = state.transform.req(id);
     wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
   }

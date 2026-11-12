@@ -50,9 +50,13 @@ function holdAll(sim: Sim): void {
   step(sim);
 }
 
-/** The target hull stays where it is (M7.4b: a crew that is penetrated would otherwise reverse out of the lab). */
-function holdStill(sim: Sim, vid: EntityId): void {
-  sim.state.vehicle.req(vid).status = "immobilised";
+/**
+ * The red target hull stays where it is (M7.4b: a crew that is penetrated would otherwise reverse out of the
+ * lab): it enters the battle immobilised, as roster input (rule 3: the sim state is never written from outside).
+ */
+function stillTarget(input: BattleInput): BattleInput {
+  for (const rec of input.forces[1]!.vehicles ?? []) rec.status = "immobilised";
+  return input;
 }
 
 const PAIRS: { factions: [string, string] }[] = [{ factions: ["de", "ru"] }, { factions: ["ru", "de"] }];
@@ -62,10 +66,9 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
   for (const { factions } of PAIRS) {
     // ---- armour-piercing at a halted hull side-on: hits among the first 20 rounds
     for (const R of [1000, 1500]) {
-      const sim = createSim(duel(data, factions, { blue: { x: 400, y: 600, heading: 0 }, red: { x: 400 + R, y: 600, heading: Math.PI / 2 } }));
+      const sim = createSim(stillTarget(duel(data, factions, { blue: { x: 400, y: 600, heading: 0 }, red: { x: 400 + R, y: 600, heading: Math.PI / 2 } })));
       holdAll(sim);
       const b = crewOf(sim, "blue"), r = crewOf(sim, "red");
-      holdStill(sim, r.vid);
       const gunner = new Set(sim.state.unit.req(b.crew).members);
       submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: b.crew, kind: "fire", x: 400 + R, y: 600, heightM: 1.2, nature: "ap" });
       let shots = 0, hits = 0;
@@ -77,10 +80,9 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
     }
     // ---- on the move: driving across at the slow pace, target 800 m off
     {
-      const sim = createSim(duel(data, factions, { blue: { x: 400, y: 300, heading: Math.PI / 2 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }));
+      const sim = createSim(stillTarget(duel(data, factions, { blue: { x: 400, y: 300, heading: Math.PI / 2 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } })));
       holdAll(sim);
       const b = crewOf(sim, "blue"), r = crewOf(sim, "red");
-      holdStill(sim, r.vid);
       const gunner = new Set(sim.state.unit.req(b.crew).members);
       const pace = Object.entries(sim.ctx.catalog.movementModes).filter(([, m]) => m.class === sim.ctx.catalog.vehicles[b.type]!.class).sort((p, q) => ((p[1] as { speedFraction: number }).speedFraction - (q[1] as { speedFraction: number }).speedFraction))[0]![0];
       submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: b.crew, kind: "move", waypoints: [{ x: 400, y: 1100, mode: pace }] });

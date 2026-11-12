@@ -68,10 +68,12 @@ export interface VehicleRecord {
   vehicleId: string;
   /** Vehicle type (catalog `vehicles`). */
   type: DefId;
-  /** Contents of its container: fuel tank (charge = litres), stowed belts, smoke and extinguisher charges.
-   *  On output the ready belts of its weapons are added back in. */
+  /** Contents of its container only: fuel tank (charge = litres), stowed belts, smoke and extinguisher charges.
+   *  The rounds on the ready belts are NOT in it (they are in `ready`), on input and on output alike, so a record
+   *  that comes out goes back in unchanged and nothing is counted twice: its rounds = `load` + `ready`. */
   load: ItemStack[];
-  /** Rounds on the ready belts/racks per station weapon (omitted = full from the data). */
+  /** Rounds on the ready belts/racks per station weapon (station weapons in order, station by station; per feed),
+   *  on input (omitted = full from the data) and on output (as they stand). */
   ready?: { item: DefId; rounds: number }[][];
   /** Condition of each component (omitted = all 1). */
   components?: number[];
@@ -140,7 +142,8 @@ export interface BattleResult {
   sides: SideResult[];
   /** The forces as they come out: same units and persons, updated condition and load. */
   forcesOut: { side: SideId; faction: DefId; units: UnitInput[]; /** M7: every vehicle of the force. */ vehicles?: VehicleRecord[] }[];
-  /** Destroyed, abandoned and immobilised hulls left on the map (M7; persistent map damage as data). */
+  /** Wrecks left on the map (M7; persistent map damage as data): destroyed, abandoned, and immobilised hulls not
+   *  penetrated for more than 30 s (`isWreck`, the same hulls stamped into the navigation grids). */
   wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];

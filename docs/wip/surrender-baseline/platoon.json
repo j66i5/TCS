@@ -1,0 +1,177 @@
+{
+  "name": "platoon",
+  "runs": 10,
+  "seconds": 900,
+  "rows": [
+    {
+      "seed": 1,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 104,
+      "hash": "d49c63d278477ca4",
+      "casualties": {
+        "blue": 17,
+        "red": 6
+      },
+      "wallMs": 10518.514656,
+      "winner": "red",
+      "scores": {
+        "blue": -40,
+        "red": 135
+      }
+    },
+    {
+      "seed": 2,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 87,
+      "hash": "f71a47972337e1e6",
+      "casualties": {
+        "blue": 23,
+        "red": 8
+      },
+      "wallMs": 8094.209000000001,
+      "winner": "red",
+      "scores": {
+        "blue": -50,
+        "red": 135
+      }
+    },
+    {
+      "seed": 3,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 69,
+      "hash": "7024ed8329aa40cb",
+      "casualties": {
+        "blue": 16,
+        "red": 9
+      },
+      "wallMs": 6628.658815999999,
+      "winner": "red",
+      "scores": {
+        "blue": -40,
+        "red": 125
+      }
+    },
+    {
+      "seed": 4,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 64,
+      "hash": "f968ab151517cbab",
+      "casualties": {
+        "blue": 15,
+        "red": 4
+      },
+      "wallMs": 7472.395205000001,
+      "winner": "red",
+      "scores": {
+        "blue": -20,
+        "red": 145
+      }
+    },
+    {
+      "seed": 5,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 53,
+      "hash": "1dcc6649f45f696a",
+      "casualties": {
+        "blue": 1,
+        "red": 9
+      },
+      "wallMs": 6758.8812920000055,
+      "winner": "red",
+      "scores": {
+        "blue": 0,
+        "red": 130
+      }
+    },
+    {
+      "seed": 6,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 52,
+      "hash": "baee20ca89e040ca",
+      "casualties": {
+        "blue": 13,
+        "red": 9
+      },
+      "wallMs": 7548.739554,
+      "winner": "red",
+      "scores": {
+        "blue": -25,
+        "red": 140
+      }
+    },
+    {
+      "seed": 7,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 111,
+      "hash": "c306d8cff916ba01",
+      "casualties": {
+        "blue": 16,
+        "red": 13
+      },
+      "wallMs": 8099.008045999995,
+      "winner": "red",
+      "scores": {
+        "blue": -45,
+        "red": 105
+      }
+    },
+    {
+      "seed": 8,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 110,
+      "hash": "9628e0964a997f4d",
+      "casualties": {
+        "blue": 26,
+        "red": 11
+      },
+      "wallMs": 7863.952446000003,
+      "winner": "red",
+      "scores": {
+        "blue": -70,
+        "red": 110
+      }
+    },
+    {
+      "seed": 9,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 83,
+      "hash": "e6e5444428e0a221",
+      "casualties": {
+        "blue": 11,
+        "red": 8
+      },
+      "wallMs": 8037.348094000008,
+      "winner": "red",
+      "scores": {
+        "blue": -25,
+        "red": 120
+      }
+    },
+    {
+      "seed": 10,
+      "durationS": 900,
+      "endReason": "time-limit",
+      "orders": 60,
+      "hash": "1fc0b6b2f3711f44",
+      "casualties": {
+        "blue": 23,
+        "red": 5
+      },
+      "wallMs": 9149.713361999995,
+      "winner": "red",
+      "scores": {
+        "blue": -45,
+        "red": 135
+      }
+    }
+  ]
+}

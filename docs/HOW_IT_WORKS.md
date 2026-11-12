@@ -305,6 +305,15 @@ unit breaks ("falling back!"): every man runs about 150 m away from the enemy th
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
 ("rallied"), still uneasy (stress reduced to 60 %).
 
+## Does an attack work?
+
+`npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low
+stone wall it fails every time (the attackers break or lose half their men after two or three are hit). Against
+the same squad lying in the open it fails faster still (prone men at 300 m are hard to hit, men running upright
+are not). With a second squad firing on the position from the start line the whole time, about 4 attacks in 10
+succeed, usually because the defenders break. Bound lengths come from the faction's doctrine (`boundM`,
+`finalAssaultM`), the same for both sides for now.
+
 ## One order, traced step by step
 
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.

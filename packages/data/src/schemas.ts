@@ -470,6 +470,9 @@ export const DOCTRINE_KEYS = [
   "evacuationPriority",
   /** How much longer a route may be to stay in cover: 0.3 = accept ~30 % longer (owner decision). */
   "coverPreference",
+  /** Fire and movement (M4.4): length of one bound, m, and the last stretch rushed together, m. */
+  "boundM",
+  "finalAssaultM",
 ] as const;
 export const DoctrineFile = withProv({
   /** Formation used when an order does not name one (core/formations.json). */

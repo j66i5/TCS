@@ -7,10 +7,12 @@
     "relianceOnSupportingFire": 0.5,
     "droneUse": 0.5,
     "evacuationPriority": 0.5,
-    "coverPreference": 0.3
+    "coverPreference": 0.3,
+    "boundM": 30,
+    "finalAssaultM": 25
   },
   "sources": [],
   "confidence": "low",
-  "note": "Placeholder values identical for both factions until M4, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover).",
+  "note": "Placeholder values identical for both factions, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover). M4.4: boundM (length of one bound in fire and movement) and finalAssaultM (the last stretch rushed together) are game values, the same for both sides until a public source gives a difference (owner to review).",
   "defaultFormation": "wedge"
 }

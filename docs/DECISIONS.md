@@ -983,3 +983,15 @@ per bound at most, 4 m spread at the end; a top unit breaks when half its able m
 mean of its known contacts, ignores orders ("unable"), rallies after 30 s without fire at the rally point with
 stress x0.6. **Recorded:** the morale test of one pinned man turns reaction to contact off (it would halt his
 whole unit); assault and withdraw are not yet on the app's buttons (M5 order interface).
+
+## 2026-11-12 — M4.4 doctrine profiles and the attack lab
+Doctrine gets `boundM` (30) and `finalAssaultM` (25) for both factions — **the same values for Germany and
+Russia**: no public source was at hand for a difference (confidence low; owner to review; the fixture faction
+uses 20/15 to prove the values are read from data). Attack lab: one squad over 300 m of open ground against a
+squad behind a 0.7 m field-stone wall (fire rule free, prone) fails 10/10; against the defenders lying in the
+open, 10/10 too (they are harder to hit than men kneeling behind the wall to fire over it); two squads, one
+supporting by fire from the start line, succeed 4/10. M4 acceptance ("attackers in the open against a prepared
+defence lose most of the time"; "varied outcomes") holds. **Bug fixed on the way:** a man ordered down who
+opened fire while still going down took "standing" as the lowest posture to fire from, and stood up to fire;
+he now takes the posture he is going to. Covering fire in a bounding drill now goes at the enemies each man
+knows near the objective (else the point), so it spreads over the position.

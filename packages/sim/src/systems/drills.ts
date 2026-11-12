@@ -100,8 +100,15 @@ export function clearDrills(state: SimState, uid: EntityId): void {
   u.children.forEach((c) => clearDrills(state, c));
 }
 
+/** A drill value from the unit's doctrine (faction data), else the general default. */
+function doctrine(ctx: SimContext, state: SimState, uid: EntityId, key: string, fallback: number): number {
+  const v = ctx.catalog.factions[state.unit.req(uid).faction]?.doctrine[key];
+  return v !== undefined && Number.isFinite(v) ? v : fallback;
+}
+
 function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills;
+  const boundM = doctrine(ctx, state, uid, "boundM", D.boundM), finalM = doctrine(ctx, state, uid, "finalAssaultM", D.finalM);
   d.phaseTick = state.tick;
   const groups = d.groups.map((g) => g.filter((m) => able(state.soldier.get(m))));
   const movers = groups[d.mover] ?? [];
@@ -111,7 +118,7 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const enemy = knownEnemy(state, all);
   const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
   const dist = hypot2(d.x - c.x, d.y - c.y);
-  const last = dist <= (d.kind === "assault" ? D.finalM : D.boundM) || movers.length === 0;
+  const last = dist <= (d.kind === "assault" ? finalM : boundM) || movers.length === 0;
   if (last) {
     // The last rush onto the objective (or the last leg back): everyone together, spread around the point.
     d.final = true;
@@ -129,12 +136,23 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   for (const m of movers) {
     state.fire.delete(m);
     const t = state.transform.req(m);
-    sendTo(ctx, state, m, t.x + ux * D.boundM, t.y + uy * D.boundM, face);
+    sendTo(ctx, state, m, t.x + ux * boundM, t.y + uy * boundM, face);
   }
   const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of cover) {
     halt(state, m);
-    if (at) assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
+    if (!at) continue;
+    // Each man fires at an enemy he knows near the objective (the nearest to it), else at the point itself:
+    // the fire spreads over the position instead of all striking its middle.
+    const s = state.soldier.req(m);
+    let best: { target: EntityId; x: number; y: number } | null = null, bestD = 40;
+    for (const c of s.contacts) {
+      const dd = hypot2(c.x - at.x, c.y - at.y);
+      if (dd < bestD) { bestD = dd; best = c; }
+    }
+    if (best) {
+      if (assignFireTask(ctx, state, m, best.x, best.y, ctx.catalog.shooting.fire.aimPointHeightM)) state.fire.req(m).contact = best.target;
+    } else assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
   }
   void events;
 }

@@ -7,7 +7,9 @@
     "relianceOnSupportingFire": 0.0,
     "droneUse": 1.0,
     "evacuationPriority": 0.0,
-    "coverPreference": 0.0
+    "coverPreference": 0.0,
+    "boundM": 20,
+    "finalAssaultM": 15
   },
   "sources": [],
   "confidence": "low",

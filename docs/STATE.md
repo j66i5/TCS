@@ -3,9 +3,9 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M4 Soldier and squad behaviour — in progress.** M4.1 suppression and morale, M4.2 soldier decisions and M4.3 squad
-drills done (see ROADMAP for the slices, DECISIONS for the values). Next: **M4.4 doctrine profiles and the
-attack-versus-defence batch**, then the milestone review.
+**M4 Soldier and squad behaviour — in progress.** All four slices done (M4.1 suppression and morale, M4.2 soldier
+decisions, M4.3 squad drills, M4.4 doctrine and the attack lab); the independent milestone review and its fixes
+come next, then **M5 Orders and interface**.
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -98,7 +98,9 @@ attack-versus-defence batch**, then the milestone review.
   Debug shows each man's decision as a line.
 - **M4.3 squad drills**: units halt and go down on contact; `assault` and `withdraw` orders bound by halves
   with covering fire; a unit breaks when half its men panic, runs back and rallies.
-- Tests: 341 (337 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- **M4.4 doctrine and attack lab**: drill values from faction doctrine; `npm run lab -- attack` shows an
+  unsupported squad attack across the open failing every time, a supported one succeeding about 40 %.
+- Tests: 344 (340 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 
@@ -168,3 +170,6 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   (sources conflict on ranks, the German dismount weapon mix and whether the Russian squad has 8 or 9 men); the
   owner decides.
 - Data to review when convenient: rank lists with NATO codes, name lists, female share in generated units.
+- **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
+  tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
+  Germany and Russia for lack of a public source on a difference.

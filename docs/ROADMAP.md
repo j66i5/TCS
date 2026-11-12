@@ -97,7 +97,7 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
 4. ✅ **M3.4 Fog of war** (2026-11-11) — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
-### M4 Soldier and squad behaviour — ⏳ in progress
+### M4 Soldier and squad behaviour — ✅ (review pending)
 Suppression, morale, cover use, fire discipline, ammunition sharing, casualty reaction, drills, doctrine
 profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for his review):
 - **M4.1 Suppression and morale** ✅ — rounds cracking past or striking near a man raise his suppression; it
@@ -110,8 +110,10 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
 - **M4.3 Squad drills** ✅ — reaction to contact, `assault` order (two halves bounding, one firing), `withdraw`
   order (bounding back under covering fire), all together onto the objective / rally point at the end; a unit
   breaks when half its men panic, runs back and rallies when quiet.
-- **M4.4 Doctrine profiles and batch** — German / Russian doctrine values; batch: attack in the open against a
-  prepared defence loses most of the time.
+- **M4.4 Doctrine profiles and batch** ✅ — drill values from faction doctrine (`boundM`, `finalAssaultM`; the
+  same for both sides until a public source gives a difference); attack lab (`npm run lab -- attack`): one squad
+  across 300 m of open ground against a squad behind a wall fails every time; with a second squad firing in
+  support it succeeds in about 40 %.
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 

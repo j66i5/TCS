@@ -97,7 +97,7 @@ Slices (planned 2026-11-11; owner answers in DECISIONS.md):
 4. ✅ **M3.4 Fog of war** (2026-11-11) — the player sees only what his men have reported, fading with age; debug shows all;
    screenshots.
 
-### M4 Soldier and squad behaviour — ✅ (review pending)
+### M4 Soldier and squad behaviour — ✅
 Suppression, morale, cover use, fire discipline, ammunition sharing, casualty reaction, drills, doctrine
 profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for his review):
 - **M4.1 Suppression and morale** ✅ — rounds cracking past or striking near a man raise his suppression; it
@@ -117,7 +117,7 @@ profiles. Slices (planned 2026-11-11, owner asleep — taken as recommended, for
 Acceptance: batch runs of squad against squad produce varied, believable outcomes; debug overlay explains
 decisions; attackers in the open against a prepared defence lose most of the time.
 
-### M5 Orders and interface — ⬜
+### M5 Orders and interface — ⏳ next
 Full order set, waypoints, standing rules, unit panels, radio log, time controls, touch controls.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 

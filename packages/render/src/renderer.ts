@@ -321,7 +321,11 @@ export class BattleRenderer {
       g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       const unit = state.unit.get(ident.unit);
       if (unit && unit.leader === id && c.scale > 0.5) {
-        this.label(label++, unit.callsign, s.x + r + 4, s.y - r - 14, colour);
+        // Debug: the unit's drill (assault / withdraw: which half is running; broken and running back).
+        const top = unit.parent === null ? unit : undefined;
+        const d = unit.drill ?? top?.drill ?? null;
+        const drill = !overlay.debug ? "" : unit.broken ? " BROKEN" : d ? ` ${d.kind}${d.kind === "rout" ? "" : d.final ? " final rush" : ` half ${d.mover + 1} runs`}` : "";
+        this.label(label++, unit.callsign + drill, s.x + r + 4, s.y - r - 14, colour);
       }
       // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
       // he brings ammunition to.

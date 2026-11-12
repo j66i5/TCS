@@ -107,7 +107,7 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   const lie = body.prone.heightM * 0.6, kneel = body.crouching.muzzleHeightM;
   if (coveredFrom(ctx, me.x, me.y, threat.x, threat.y, lie)) return false;
   const { grid, search } = navFor(ctx, "foot");
-  let best: { x: number; y: number; score: number } | null = null;
+  const cands: { x: number; y: number; score: number }[] = [];
   for (let ring = 1; ring <= 5; ring++) {
     const r = (D.coverSearchM * ring) / 5;
     for (let k = 0; k < 12; k++) {
@@ -119,13 +119,17 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
       if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie)) continue;
       // Better: a spot he can fire from on his knees over the cover (a bank, a low wall).
       const firing = !coveredFrom(ctx, x, y, threat.x, threat.y, kneel);
-      const score = r + (firing ? 0 : 8);
-      if (!best || score < best.score) best = { x, y, score };
+      cands.push({ x, y, score: r + (firing ? 0 : 8) });
     }
   }
-  if (!best) return false;
-  const leg = findPath(search, me.x, me.y, best.x, best.y, { maxExpansions: 3000, snapCells: 1 });
-  if (!leg || leg.cost > D.coverSearchM * 2.5) return false;
+  // The best first; one he cannot reach without a long detour is passed over for the next (at most 6 tried).
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  let best: { x: number; y: number } | null = null, leg = null as ReturnType<typeof findPath>;
+  for (const cnd of cands.slice(0, 6)) {
+    const l = findPath(search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 3000, snapCells: 1 });
+    if (l && l.cost <= D.coverSearchM * 2.5) { best = cnd; leg = l; break; }
+  }
+  if (!best || !leg) return false;
   const m = state.mover.get(id);
   if (!m) return false;
   m.waypoints = [];
@@ -148,7 +152,11 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   if (spareCount(state.container.get(id), type) > 0) return;
   // Already someone on his way?
   const men = unitSoldiers(state, top);
-  for (const g of men) { const it = state.soldier.get(g)?.intent; if (it?.kind === "bringAmmo" && it.target === id) return; }
+  for (const g of men) {
+    const it = state.soldier.get(g)?.intent, act = state.action.get(g);
+    if (it?.kind === "bringAmmo" && it.target === id) return;
+    if (act?.kind === "transferItems" && Number(act.params["to"]) === id) return; // being handed over now
+  }
   const me = state.transform.req(id);
   let giver: EntityId | null = null, bestD = D.shareRangeM;
   for (const g of men) {
@@ -172,7 +180,7 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   const gs = state.soldier.req(g), it = gs.intent!;
   const to = it.target!;
   const rs = state.soldier.get(to), rw = state.weapon.get(to), wd = rw ? ctx.catalog.weapons[rw.weapon] : undefined;
-  if (!rs || !isAble(rs) || !wd || state.tick - it.tick > 60 * TICK_HZ) { gs.intent = null; return; }
+  if (!rs || !isAble(rs) || !wd || state.tick - it.tick > 60 * TICK_HZ || spareCount(state.container.get(to), wd.feed.magazine) > 0) { gs.intent = null; return; }
   if (state.action.has(g)) return;
   const a = state.transform.req(g), b = state.transform.req(to);
   const d = hypot2(a.x - b.x, a.y - b.y);
@@ -235,6 +243,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         task.reasonTick = state.tick;
       }
     }
+    // Stale intents (debug overlay): cover reached, or his own fire replaced by an order.
+    if (s.intent?.kind === "cover" && halted) s.intent = null;
+    if (s.intent?.kind === "engage" && state.fire.get(id)?.self !== true) s.intent = null;
     if (isCowering(s)) continue;
 
     // ---- cover from the enemy he knows, when under fire

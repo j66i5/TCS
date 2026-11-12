@@ -100,6 +100,9 @@ describe("cover and ammunition (M4.2)", () => {
     const tr = ev.find((e) => e.kind === "items.transferred")!;
     expect(tr).toBeDefined();
     expect(tr).toMatchObject({ from: b, to: a, count: 1 });
+    // Exactly one comrade hands one over (review: a second giver used to be sent while the first was handing over).
+    ev.push(...run(sim, 5));
+    expect(ev.filter((e) => e.kind === "items.transferred" && e.to === a).length).toBe(1);
     // (He had stopped firing to keep his last magazine; with a spare one again, the next order is carried out.)
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: a, kind: "fire", x: 120, y: 100, heightM: 1 });
     const after = run(sim, 15);

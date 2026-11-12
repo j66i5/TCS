@@ -136,6 +136,18 @@ try {
     await page.waitForTimeout(300);
     const p6 = `${outDir}/${mapKind}-${seed}-${name}-6-grenade-after.png`;
     await page.screenshot({ path: p6 }); shots.push(p6);
+    // M4: an assault by bounds, Debug on: rings, decision lines, the drill on the leader's label.
+    const as = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
+      let ex = 0, ey = 0, n = 0, ox = 0, oy = 0, k = 0; const me = [...s.identity.entries()].find(([id]) => s.fire.has(id) || true)[1].side;
+      for (const [id, i] of s.identity.entries()) { const p = s.transform.get(id); if (!p || s.soldier.get(id).casualty !== "none") continue; if (i.side === "blue") { ox += p.x; oy += p.y; k++; } else { ex += p.x; ey += p.y; n++; } }
+      if (n === 0 || k === 0) return { ok: false };
+      t.assault(ex / n, ey / n); t.stepTicks(60 * 15); t.setDebug(true); t.focus(ox / k + 0.3 * (ex / n - ox / k), oy / k + 0.3 * (ey / n - oy / k), 160); t.stepTicks(1);
+      const u = [...s.unit.entries()].find(([, x]) => x.side === "blue" && x.parent === null)[1];
+      return { ok: true, drill: u.drill ? u.drill.kind + (u.drill.final ? " final" : " half " + (u.drill.mover + 1)) : (u.broken ? "broken" : "none") };`) as () => { ok: boolean; drill?: string });
+    await page.waitForTimeout(300);
+    const p7 = `${outDir}/${mapKind}-${seed}-${name}-7-assault-debug.png`;
+    await page.screenshot({ path: p7 }); shots.push(p7);
+    console.log(`${name}: assault scene ${JSON.stringify(as)}`);
     console.log(`${name}: grenade thrown after ${gr.thrownAfterTicks} ticks (${gr.inFlight} in flight); at the burst ${burst.fragments} fragments in the air, ${burst.craters} crater(s), page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }

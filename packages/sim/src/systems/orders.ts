@@ -1,7 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
-import { clearDrills, drillGroups } from "./drills";
+import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
@@ -53,6 +53,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return o.fire === "free" || o.fire === "return" || o.fire === "hold" ? null : "invalid-params";
     case "assault":
     case "withdraw":
+      if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       return null;
     case "grenade":
@@ -146,7 +147,13 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Men of a broken unit, running back, do not listen (M4.3).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed");
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
-  if (order.kind !== "rules") clearDrills(state, isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1);
+  if (order.kind !== "rules") {
+    const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
+    if (isUnit) clearDrills(state, ou);
+    releaseFromParentDrills(state, ou, soldiers);
+    // (An order to one man takes him out of his own unit's drill too.)
+    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") d.groups = d.groups.map((g) => g.filter((m) => m !== order.target)); }
+  }
   if (soldiers.length === 0) {
     // Nobody left to obey: the unit is neither moving nor firing any more.
     const u = isUnit ? order.target : state.identity.get(order.target)?.unit;

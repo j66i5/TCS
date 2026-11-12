@@ -48,13 +48,16 @@ export function addSuppression(ctx: SimContext, s: SoldierState, amount: number)
 }
 
 /** A burst suppresses everyone within `blastRadiusScale` x its stun radius (more the closer). */
-export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: number, stunR: number): void {
+export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: number, stunR: number, ownerSide?: string): void {
   const SUP = ctx.catalog.behaviour.suppression;
   const R = stunR * SUP.blastRadiusScale;
   if (!(R > 0)) return;
   for (const [id, s] of state.soldier.entries()) {
     const t = state.transform.get(id);
     if (!t) continue;
+    // Like their rounds, men's own side's bursts do not suppress them (they know they are coming; the blast
+    // itself still stuns and wounds).
+    if (ownerSide !== undefined && state.identity.get(id)?.side === ownerSide) continue;
     const dx = t.x - x, dy = t.y - y, d2 = dx * dx + dy * dy;
     if (d2 > R * R) continue;
     addSuppression(ctx, s, SUP.blastFactor * (1 - sqrt(d2) / R));

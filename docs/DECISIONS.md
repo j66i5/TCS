@@ -995,3 +995,22 @@ defence lose most of the time"; "varied outcomes") holds. **Bug fixed on the way
 opened fire while still going down took "standing" as the lowest posture to fire from, and stood up to fire;
 he now takes the posture he is going to. Covering fire in a bounding drill now goes at the enemies each man
 knows near the objective (else the point), so it spreads over the position.
+
+## 2026-11-12 — M4 independent review: findings and fixes
+All hard rules held. Ten findings fixed: (1) a bounding drill that lost one half turned into a single charge
+over the whole distance — survivors now split again and keep bounding (a lone man bounds alone); (2) a second
+comrade was sent with ammunition while the first was still handing it over — a running hand-over counts as
+"on his way", and a giver turns back if the man has spare again; (3) an order to a squad was overridden by its
+platoon's drill — ordered men leave any drill above them (an order to one man takes him out of his unit's
+drill); (4) assault / withdraw to a single man set off his whole unit — now rejected (invalid-params); (5) cover
+search gave up when the best spot needed a long detour — up to six candidates are tried in order; (6) rallying
+emitted one event (possibly for soldier -1) — now one per man; (7) bounds could overshoot the start of the
+final rush when boundM > finalAssaultM — limited; (8) the final rush had no time limit (pinned men kept their
+paths) — ends after twice the bound time; (9) own-side bursts suppressed men and so lifted cease-fires and set
+off reactions to contact — own bursts no longer suppress (the blast still stuns and wounds); (10) stale intents
+on the debug overlay — cleared when cover is reached or own fire is replaced by an order. Debug now shows the
+unit's drill on the leader's label; screenshot `7-assault-debug` is the overlay evidence.
+**Recorded (weak points):** defenders lying in the open are almost never hit by an unsupported attack (prone men
+at 300 m are small targets and the attackers break within ~45 s); the supported attack succeeds 4/5 with
+Germany attacking and 1/5 with Russia (weapons and optics differ: G36 3x optic, MG5) — a finding for the
+owner's review, not tuned away.

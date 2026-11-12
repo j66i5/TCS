@@ -102,3 +102,51 @@ describe("squad drills (M4.3)", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 });
+
+describe("drills after the review (M4)", () => {
+  it("when one half of an assault is down, the survivors split again and keep bounding (no single charge)", () => {
+    const sim = createSim(setup((i) => { i.forces[0]!.units[0]!.members.push(...[3, 4].map((k) => ({ ...i.forces[0]!.units[0]!.members[0]!, personId: `a.${k}`, family: `a${k}` }))); i.forces[0]!.placements.push({ personId: "a.3", x: 10, y: 25, heading: 0 }, { personId: "a.4", x: 10, y: 30, heading: 0 }); }));
+    const [bid] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 110, y: 15 });
+    run(sim, 3);
+    const d = sim.state.unit.req(bid).drill!;
+    // Knock out the whole second half.
+    for (const m of d.groups[1]!) { sim.state.soldier.req(m).physiology.alive = false; sim.state.soldier.req(m).casualty = "killed"; sim.state.soldier.req(m).mental.behaviour = "incapacitated"; }
+    run(sim, 45);
+    const dd = sim.state.unit.req(bid).drill;
+    expect(dd).not.toBeNull();
+    expect(dd!.final).toBe(false);
+    expect(dd!.groups.filter((g) => g.some((m) => sim.state.soldier.req(m).casualty === "none")).length).toBe(2);
+  });
+
+  it("an assault order to a single man is rejected; an order to one man takes him out of his unit's drill", () => {
+    const sim = createSim(setup());
+    const [bid, blue] = unitOf(sim, "blue");
+    const ev = run(sim, 0);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: blue.members[0]!, kind: "assault", x: 100, y: 15 });
+    ev.push(...run(sim, 1));
+    expect(ev.some((e) => e.kind === "order.rejected" && e.reason === "invalid-params")).toBe(true);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
+    run(sim, 3);
+    const man = blue.members[1]!;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: man, kind: "halt" });
+    run(sim, 3);
+    expect(sim.state.unit.req(bid).drill!.groups.flat()).not.toContain(man);
+    const at = { ...sim.state.transform.req(man) };
+    run(sim, 30);
+    expect(Math.hypot(sim.state.transform.req(man).x - at.x, sim.state.transform.req(man).y - at.y)).toBeLessThan(0.5);
+  });
+
+  it("a bound never carries the runners past the start of the last rush", () => {
+    const input = setup();
+    const b = input.catalog.behaviour;
+    input.catalog = { ...input.catalog, behaviour: { ...b, drills: { ...b.drills, boundM: 60, finalM: 10 } } };
+    // (The test factions have no doctrine values for bounds: the general ones apply.)
+    const sim = createSim(input);
+    const [bid, blue] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 60, y: 15 });
+    let maxX = 0;
+    for (let k = 0; k < secondsToTicks(60) && sim.state.unit.req(bid).drill?.final !== true; k++) { step(sim); for (const m of blue.members) maxX = Math.max(maxX, sim.state.transform.req(m).x); }
+    expect(maxX).toBeLessThan(60 - 10 + 3);
+  });
+});

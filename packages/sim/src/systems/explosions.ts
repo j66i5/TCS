@@ -35,7 +35,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const cube = pow(ex.fillingKg, 1 / 3);
   const severeR = BL.severeScaledM * cube, injuryR = BL.injuryScaledM * cube, stunR = BL.stunScaledM * cube;
   events.emit({ kind: "explosion", tick: state.tick, x, y, z, ammo: ammoId, owner, stunRadiusM: stunR });
-  suppressByBurst(ctx, state, x, y, stunR);
+  suppressByBurst(ctx, state, x, y, stunR, state.identity.get(owner)?.side);
 
   // ---- blast
   for (const [id, s] of state.soldier.entries()) {

@@ -92,6 +92,17 @@ export function drillGroups(state: SimState, uid: EntityId): EntityId[][] {
   return [all.filter((_, i) => i % 2 === 0), all.filter((_, i) => i % 2 === 1)].filter((g) => g.length > 0);
 }
 
+/** Take these men out of any drill held by a unit above `uid` (an order to a sub-unit or a man comes first). */
+export function releaseFromParentDrills(state: SimState, uid: EntityId, men: EntityId[]): void {
+  const set = new Set(men);
+  for (let p = state.unit.get(uid)?.parent ?? null; p !== null; p = state.unit.get(p)?.parent ?? null) {
+    const d = state.unit.get(p)?.drill;
+    if (!d || d.kind === "rout") continue;
+    d.groups = d.groups.map((g) => g.filter((m) => !set.has(m)));
+    if (d.groups.every((g) => g.length === 0)) state.unit.req(p).drill = null;
+  }
+}
+
 /** Clear the drill of a unit and its sub-units (an order replaces it). */
 export function clearDrills(state: SimState, uid: EntityId): void {
   const u = state.unit.get(uid);
@@ -110,18 +121,27 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const D = ctx.catalog.behaviour.drills;
   const boundM = doctrine(ctx, state, uid, "boundM", D.boundM), finalM = doctrine(ctx, state, uid, "finalAssaultM", D.finalM);
   d.phaseTick = state.tick;
-  const groups = d.groups.map((g) => g.filter((m) => able(state.soldier.get(m))));
-  const movers = groups[d.mover] ?? [];
+  let groups = d.groups.map((g) => g.filter((m) => able(state.soldier.get(m))));
+  // One half gone (casualties, routed men): the survivors split again and go on bounding.
+  if (groups.filter((g) => g.length > 0).length < 2 && groups.flat().length >= 2) {
+    const all0 = groups.flat().sort((a, b) => a - b);
+    groups = [all0.filter((_, i) => i % 2 === 0), all0.filter((_, i) => i % 2 === 1)];
+    d.groups = groups.map((g) => [...g]);
+    d.mover = d.mover % 2;
+  }
+  // A lone man bounds on his own (nobody to cover him).
+  const movers = groups.filter((g) => g.length > 0).length === 1 ? groups.flat() : groups[d.mover] ?? [];
   const cover = groups.filter((_, i) => i !== d.mover).flat();
   const all = groups.flat();
   if (all.length === 0) { state.unit.req(uid).drill = null; return; }
   const enemy = knownEnemy(state, all);
   const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
   const dist = hypot2(d.x - c.x, d.y - c.y);
-  const last = dist <= (d.kind === "assault" ? finalM : boundM) || movers.length === 0;
+  const last = dist <= (d.kind === "assault" ? finalM : boundM);
   if (last) {
     // The last rush onto the objective (or the last leg back): everyone together, spread around the point.
     d.final = true;
+    d.phaseTick = state.tick;
     const face = d.kind === "assault" ? enemy ?? { x: d.x + (d.x - c.x), y: d.y + (d.y - c.y) } : enemy;
     all.forEach((m, i) => {
       state.fire.delete(m);
@@ -132,11 +152,13 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   }
   // A bound: the movers run on (each from where he is), the others stop and fire.
   const ux = (d.x - c.x) / dist, uy = (d.y - c.y) / dist;
+  // Never past the start of the last rush (assault) or the rally point (withdraw).
+  const step = Math.max(1, Math.min(boundM, dist - (d.kind === "assault" ? finalM : 0)));
   const face = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of movers) {
     state.fire.delete(m);
     const t = state.transform.req(m);
-    sendTo(ctx, state, m, t.x + ux * boundM, t.y + uy * boundM, face);
+    sendTo(ctx, state, m, t.x + ux * step, t.y + uy * step, face);
   }
   const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of cover) {
@@ -165,13 +187,13 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
     if (men.length === 0 || (!men.some(moving) && state.tick - u.underFireTick >= secondsToTicks(D.rallyQuietSeconds))) {
       for (const m of men) {
         const s = state.soldier.req(m);
+        events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: m, from: "routed", to: "cautious" });
         s.mental.behaviour = "cautious";
         s.mental.stress *= D.rallyStressFactor;
         s.mental.suppression = 0;
         requestPosture(ctx, state, m, "prone");
       }
       u.broken = false; u.drill = null;
-      events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: men[0] ?? -1, from: "routed", to: "cautious" });
       radio(state, uid, "radio.rallied", events);
     }
     return;
@@ -180,7 +202,8 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   const all = d.groups.flat().filter((m) => able(state.soldier.get(m)));
   if (all.length === 0) { u.drill = null; return; }
   if (d.final) {
-    if (!all.some(moving)) {
+    // (Men pinned on the way keep their paths: the drill ends anyway after twice the bound time.)
+    if (!all.some(moving) || state.tick - d.phaseTick >= 2 * secondsToTicks(D.phaseTimeoutSeconds)) {
       u.drill = null;
       radio(state, uid, d.kind === "assault" ? "radio.objectiveTaken" : "radio.withdrawn", events);
     }

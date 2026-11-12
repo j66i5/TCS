@@ -3,7 +3,7 @@
 _Last updated: 2026-11-11 (M0, M1 and M2 done)._
 
 ## Current milestone
-**M4 Soldier and squad behaviour — in progress.** **M4 is complete** (M4.1 suppression and morale, M4.2 soldier
+**M4 Soldier and squad behaviour is complete** (M4.1 suppression and morale, M4.2 soldier
 decisions, M4.3 squad drills, M4.4 doctrine and the attack lab); the independent milestone review and its fixes
 are done (all ten findings fixed); next **M5 Orders and interface**.
 

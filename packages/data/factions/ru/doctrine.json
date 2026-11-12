@@ -17,6 +17,7 @@
   "defaultFormation": "wedge",
   "fireSupport": {
     "heAmmo": "ru-82-he",
+    "smokeAmmo": "ru-82-smoke",
     "delaySeconds": 75,
     "dispersionM": 25,
     "intervalSeconds": 4,

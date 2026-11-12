@@ -113,7 +113,7 @@ German attack now wins 2 of 10 AI-versus-AI battles, the Russian 0 of 10 (for th
   each way.
 - **M6.5 attack balance**: two platoons attack one; AI sneaks up, splits fire and assault, throws grenades,
   calls mortars; Mortar and Smoke orders for the player (rounds land after 75-90 s; smoke blocks sight).
-- Tests: 381 (377 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
+- Tests: 382 (378 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
   file round trip, terrain damage save/load). 160 of 160 maps (40 seeds × 4 kinds) pass the strict validity
   check after the independent review's fixes. Benchmark (304 men moving, out of view) about 18× real time; 304 men in view of each other, all firing, about 14×.
 

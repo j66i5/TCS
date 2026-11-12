@@ -315,7 +315,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // The leader calls it (or whoever of the unit can still use the radio); the unit keeps doing what it did.
       const cu = isUnit ? order.target : state.identity.get(order.target)?.unit;
       const u = cu !== undefined ? state.unit.get(cu) : undefined;
-      const callers = u && u.leader !== null ? [u.leader, ...soldiers] : soldiers;
+      // (A unit: its leader first if he is one of the men who can act; one man: only he.)
+      const callers = isUnit && u && u.leader !== null && soldiers.includes(u.leader) ? [u.leader, ...soldiers] : soldiers;
       if (!callFire(ctx, state, order.issuer, callers, order.x, order.y, order.ammo, order.rounds)) return "unable";
       break;
     }

@@ -17,6 +17,7 @@
   "defaultFormation": "wedge",
   "fireSupport": {
     "heAmmo": "de-120-he",
+    "smokeAmmo": "de-120-smoke",
     "delaySeconds": 90,
     "dispersionM": 30,
     "intervalSeconds": 6,

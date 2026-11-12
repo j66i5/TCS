@@ -26,6 +26,15 @@ describe("AI commander (M6.3)", () => {
     expect(r.winner === "blue" || r.winner === "red").toBe(true);
   });
 
+  it("the attacker calls mortar fire before its first assault, and smoke while it goes in (M6.5)", () => {
+    const blue = r.orders.filter((o) => o.issuer === "blue");
+    const firstFire = blue.findIndex((o) => o.kind === "callFire" && o.ammo === "he");
+    const firstAssault = blue.findIndex((o) => o.kind === "assault");
+    expect(firstFire).toBeGreaterThanOrEqual(0);
+    expect(firstAssault).toBeGreaterThan(firstFire);
+    expect(blue.some((o) => o.kind === "callFire" && o.ammo === "smoke")).toBe(true);
+  });
+
   it("the same battle twice is the same battle", () => {
     const again = runBattle(input, { controllers: ctrls(input) });
     expect(again.finalStateHash).toBe(r.finalStateHash);

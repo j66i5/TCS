@@ -9,7 +9,7 @@ import { formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, type MapKind } from "@tcs/scenario";
 import { commanderController, wanderController } from "@tcs/ai";
 import {
-  battleScore, loadGame, saveGame, type SaveGame,
+  battleScore, loadGame, saveGame, supportLeft, type SaveGame,
   eyeHeightM, heightAt, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   type EntityId, type Order, type Sim, type SimEvent,
@@ -395,8 +395,8 @@ async function main(): Promise<void> {
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
     if (defs.length === 0) { hud.setScore(""); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
-    const sup = sim.state.support.find((x) => x.side === playerSide);
-    const supText = sup ? [strings.t("score.support", { he: sup.he, smoke: sup.smoke })] : [];
+    const sup = sim.state.support.some((x) => x.side === playerSide);
+    const supText = sup ? [strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") })] : [];
     hud.setScore([...supText, ...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
   };
 

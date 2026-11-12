@@ -27,6 +27,7 @@
   "lightFloor": 0.05,
   "minVisibility": 0.002,
   "smokeExtinctionPerM": 0.15,
+  "smokeBuildSeconds": 10,
   "keepRateFactor": 200,
   "forgetSeconds": 6,
   "maxTracked": 6,

@@ -294,6 +294,32 @@
       "sources": [],
       "confidence": "low",
       "note": "One fragment of the 82 mm bomb (game abstraction: all fragments equal; mass = about the casing over the fragment count)."
+    },
+    {
+      "id": "ru-82-smoke",
+      "nameKey": "ammo.ru-82-smoke",
+      "calibre": "82mm-mortar",
+      "kind": "smoke",
+      "projectileMassKg": 3.4,
+      "cartridgeMassKg": 3.4,
+      "diameterM": 0.082,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B14_Podnos"
+      ],
+      "confidence": "low",
+      "note": "Smoke mortar bomb: a counted round of the mortar section's stock (rule 9); its cloud is in the faction's fireSupport (game values)."
     }
   ]
 }

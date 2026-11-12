@@ -118,7 +118,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
         if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
       }
       // Smoke (M6.5c) between them hides him.
-      if (state.smoke.length > 0) vis *= smokeTransmission(state, D.smokeExtinctionPerM, ot.x, ot.y, tg.x, tg.y);
+      if (state.smoke.length > 0) vis *= smokeTransmission(state, D.smokeExtinctionPerM, ot.x, ot.y, tg.x, tg.y, secondsToTicks(D.smokeBuildSeconds));
       if (vis < D.minVisibility) vis = 0;
       if (u >= 1 - exp(-rate * vis * scanS)) continue;
       if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }

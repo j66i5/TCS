@@ -73,5 +73,6 @@
   "role.de.funker": "Funker",
   "unit.de.zug": "Zug {n}",
   "ammo.de-120-he": "120 mm HE mortar bomb",
-  "ammo.de-120-fragment": "fragment"
+  "ammo.de-120-fragment": "fragment",
+  "ammo.de-120-smoke": "120 mm smoke mortar bomb"
 }

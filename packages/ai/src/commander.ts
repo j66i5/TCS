@@ -58,6 +58,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const squads = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
       const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
+      // Fire is called through the first platoon that still has a man who can use the radio.
+      const caller = topIds.find((id) => members(view, id).some((m) => { const s = view.soldier.get(m); return s !== undefined && s.casualty === "none" && s.mental.behaviour !== "routed" && s.impair.canSpeak; })) ?? topIds[0]!;
       const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => view.soldier.get(m)?.casualty === "none").length / ms.length : 0; };
@@ -92,7 +94,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (n >= 3) {
             const px = sx2 / n, py = sy2 / n;
             const nearOwn = all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && hypot2(ft.x - px, ft.y - py) < 100; });
-            if (!nearOwn) { order(topIds[0]!, { kind: "callFire", x: px, y: py, ammo: "he", rounds: COMMANDER.defenceHeRounds }); mem.lastHe = tick; }
+            if (!nearOwn) { order(caller, { kind: "callFire", x: px, y: py, ammo: "he", rounds: COMMANDER.defenceHeRounds }); mem.lastHe = tick; }
           }
         }
         if (!holds(0) && tick - mem.counterTick > 60 * 60) {
@@ -145,7 +147,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            order(topIds[0]!, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds });
+            order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds });
             mem.lastHe = tick;
           }
           const fireLanding = mem.lastHe === undefined || tick - mem.lastHe >= (fireDelayS + 10) * 60;
@@ -171,15 +173,17 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const ranked = mem.phase === "second" ? [...live].sort((a, b) => strength(a) - strength(b) || a - b) : live;
           // Mortars (M6.5c): high explosive on the enemies its men know near the objective (else on it), smoke on
           // its near edge to blind them while the assault goes in; repeated while rounds last.
-          const ownNear = (px: number, py: number, r: number) => all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.casualty === "none" && hypot2(ft.x - px, ft.y - py) < r; });
+          // (Its own men near the point now, or squads assaulting toward it — they will be there when the rounds land.)
+          const ownNear = (px: number, py: number, r: number) => all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - px, ft.y - py) < r; })
+            || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && d.kind === "assault" && hypot2(d.x - px, d.y - py) < 150; });
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            if (!ownNear(hx, hy, 90)) { order(topIds[0]!, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds }); mem.lastHe = tick; }
+            if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds }); mem.lastHe = tick; }
           }
           if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
             const sx3 = clamp(tgt.x - ux * COMMANDER.smokeAheadM, W), sy3 = clamp(tgt.y - uy * COMMANDER.smokeAheadM, H);
-            order(topIds[0]!, { kind: "callFire", x: sx3, y: sy3, ammo: "smoke", rounds: COMMANDER.smokeRounds });
+            order(caller, { kind: "callFire", x: sx3, y: sy3, ammo: "smoke", rounds: COMMANDER.smokeRounds });
             mem.lastSmoke = tick;
           }
           // Half the squads fire (at least one), the others assault (M6.5b).
@@ -212,7 +216,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               for (const c of (view.soldier.get(m)?.contacts ?? [])) {
                 if (hypot2(c.x - t.x, c.y - t.y) > COMMANDER.grenadeRangeM) continue;
                 // Never where a friend is close to the burst.
-                if (all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.casualty === "none" && hypot2(ft.x - c.x, ft.y - c.y) < 15; })) continue;
+                if (all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - c.x, ft.y - c.y) < 15; })) continue;
                 hit = { x: c.x, y: c.y }; break;
               }
               if (hit) break;

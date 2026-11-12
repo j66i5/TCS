@@ -59,8 +59,9 @@ export interface SimState {
   objectives: { id: string; holder: SideId | null; contested: boolean }[];
   /** The side that lost early (broken or wiped out), if one did. */
   endLoser: SideId | null;
-  /** Fire support (M6.5c): rounds left per side, missions on their way, smoke clouds on the ground. */
-  support: { side: SideId; he: number; smoke: number }[];
+  /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
+   *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
+  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
   smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
   ended: { tick: number; reason: BattleEndReason } | null;
@@ -139,8 +140,9 @@ export interface SerializedState {
   objectives: { id: string; holder: SideId | null; contested: boolean }[];
   /** The side that lost early (broken or wiped out), if one did. */
   endLoser: SideId | null;
-  /** Fire support (M6.5c): rounds left per side, missions on their way, smoke clouds on the ground. */
-  support: { side: SideId; he: number; smoke: number }[];
+  /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
+   *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
+  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
   fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
   smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number }[];
   ended: SimState["ended"];

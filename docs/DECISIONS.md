@@ -1110,3 +1110,17 @@ smoke 35 m for 150 s / 25 m for 120 s (game values); allotment attacker 24 HE + 
 cuts the view by exp(-0.15/m). **Result (10 battles each way):** German attack wins 2 of 10 (defenders lose
 ~13 of 20, attackers ~20 of 40); Russian attack 0 of 10 (attackers ~20 of 40, defenders ~12 of 20). The
 Russian attack's weaker mortar is the main difference; left for the owner rather than tuned without sources.
+
+## 2026-11-12 — M6.5 independent review: findings and fixes
+Fixed: (1) **rule 9** — mortar rounds were a per-side number; now each side's mortar section is an off-map
+entity whose container holds its HE and smoke rounds as counted items (new smoke-round ammunition per faction,
+`fireSupport.smokeAmmo`), and a call takes rounds out of it (logistics can later own them); (3) the loader
+checks that `fireSupport.heAmmo` is an explosive and `smokeAmmo` a smoke round of the faction; (4) the AI calls
+no high explosive within 150 m of an objective its own squads are assaulting (they will be there when the rounds
+land); (5) its friend checks count wounded men lying near the target; (6) it calls through the first platoon
+that can still use the radio; (7) a routed leader cannot call fire, and an order to one man uses only him;
+(9) the smoke build-up time is data (`spotting.smokeBuildSeconds`). A test now checks the attacker calls mortar
+fire before it first assaults, and smoke. Golden replays regenerated (new data: catalog fingerprint; schema 14).
+**Recorded:** (2) acceptance is met one way only (German attack 2 of 10, Russian 0 of 10) — for the owner;
+(8) calling fire needs no observer with sight of the target: a simplification until the indirect-fire process
+of M8; the renderer draws smoke growth with a fixed 10 s (display only).

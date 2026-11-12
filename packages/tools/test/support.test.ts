@@ -31,6 +31,11 @@ describe("fire support (M6.5c)", () => {
     expect(bursts[0]!.tick / 60).toBeGreaterThanOrEqual(fs.delaySeconds);
     for (const b of bursts) expect(Math.hypot(b.x - tx, b.y - ty)).toBeLessThan(4 * fs.dispersionM);
     expect(supportLeft(sim.state, "blue", "he")).toBe(2);
+    // The rounds are counted items in the mortar section's container (rule 9).
+    const sec = sim.state.support.find((s) => s.side === "blue")!;
+    const c = sim.state.container.req(sec.battery);
+    expect(c.stacks.find((s) => s.type === fs.heAmmo)?.count).toBe(2);
+    expect(c.stacks.find((s) => s.type === fs.smokeAmmo)?.count).toBe(4);
     // Asking for more than is left gets what is left; nothing left: unable.
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: top(sim, "blue"), kind: "callFire", x: tx, y: ty, ammo: "he", rounds: 10 });
     run(sim, 3);

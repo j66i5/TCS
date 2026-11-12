@@ -149,7 +149,7 @@ side playable, AI-versus-AI batch report available.
 also: pull the medical system forward or not; **owner asked to be reminded (2026-11-11): fog of war "only what
 reached the squad leader"** instead of "what your men have reported" — see DECISIONS.md, M3.4).
 
-### M6.5 Attack balance — ✅ (owner, M6 review)
+### M6.5 Attack balance — ✅ partly (owner, M6 review; Russian attack still 0 of 10, owner to decide)
 The AI attack never succeeded against the AI defence (40 of 40). All three remedies:
 - **M6.5a More attackers** — two platoons attack one (scenario generator; the AI commander leads both).
 - **M6.5b Better attack tactics** — covered approach routes, crawling the last stretch, fire support closer and

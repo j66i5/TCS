@@ -1050,3 +1050,12 @@ The test typecheck now includes the DOM library (the ui tests use DOM types; the
 keep DOM out of sim, data, ai, scenario, campaign). Golden replays were regenerated in M5.1 for the new
 behaviour data (ammunition discipline, fall-back distance: catalog fingerprint); the review fixes left them
 unchanged.
+
+## 2026-11-12 — M6 owner answers (first playable)
+1. **Size:** platoon against platoon (about 3 squads a side), one side attacks, the other defends.
+2. **Victory:** objectives held at the end plus losses: points for objectives held when time runs out, minus a
+   share for casualties; a side that breaks or is wiped out loses early.
+3. **Enemy commander:** doctrinal and cautious — reconnoitres, uses fire support and bounding, pulls back badly
+   hurt units; plays by its faction's doctrine values.
+4. **After-action review:** result and casualty list, timeline of events, heat map (where fire came from and
+   where men fell). (No replay viewer for now.)

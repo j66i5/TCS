@@ -1186,3 +1186,14 @@ the milestone starts.
 "Stop showing traces for every individual soldier's path." In play the map now draws one route line only: the
 way of the selected unit's leader (and of its sub-units' leaders); the order marker at the destination stays.
 Debug still shows every man's own path. Screenshot `1a-moving` shows it.
+
+## 2026-11-12 — Owner: three more surrender answers
+1. **Who counts as downed:** any conscious wounded man who can no longer FIGHT (whether or not he can still
+   walk) gives up when an enemy he knows of is within ~50 m and no fit comrade is within ~30 m. (Measured over
+   three AI platoon battles: 11 of 177 men could neither walk nor fight, 32 could not do at least one.)
+2. **Taking prisoners:** when things are quiet (his unit not under fire), ONE fit enemy within ~50 m who has
+   seen the surrender walks over, takes the man prisoner and returns to where he was.
+3. **Morale:** a comrade giving up adds no stress to the men near him (no chains of surrenders); a leader
+   giving up still shakes his unit, as losing a leader always does.
+Defaults kept without asking (to confirm if he wishes): the surrender is recognised at any distance at which
+the man is seen; a man who surrendered but was never reached stays "surrendered" in the roster.

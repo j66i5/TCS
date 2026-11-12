@@ -66,4 +66,38 @@ describe("objectives and victory (M6.1)", () => {
     run(sim, 10); run(copy, 10);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
+
+  it("a side whose units have all broken loses at once ('side-broken')", () => {
+    const sim = createSim(setup());
+    run(sim, 1);
+    sim.state.unit.req(unitOf(sim, "red")[0]).broken = true;
+    const ev = run(sim, 2);
+    expect(ev.find((e) => e.kind === "battle.ended")).toMatchObject({ reason: "side-broken", loser: "red" });
+    expect(battleScore(sim.ctx, sim.state).winner).toBe("blue");
+  });
+
+  it("men running away (routed) neither take nor hold an objective", () => {
+    const sim = createSim(setup((i) => { i.forces[0]!.placements = i.forces[0]!.placements.map((p, k) => ({ ...p, x: 60, y: 10 + k * 3 })); }));
+    for (const m of unitOf(sim, "blue")[1].members.slice(1)) sim.state.soldier.req(m).mental.behaviour = "routed";
+    // One blue man standing: he takes it; once he too is routed nobody standing holds it, but it stays blue.
+    run(sim, 3);
+    expect(sim.state.objectives[0]!.holder).toBe("blue");
+    const sim2 = createSim(setup((i) => { i.forces[0]!.placements = i.forces[0]!.placements.map((p, k) => ({ ...p, x: 60, y: 10 + k * 3 })); }));
+    for (const m of unitOf(sim2, "blue")[1].members) sim2.state.soldier.req(m).mental.behaviour = "routed";
+    sim2.ctx.rules.victory = { casualtyPoints: 10, endOnDefeat: false };
+    run(sim2, 3);
+    expect(sim2.state.objectives[0]!.holder).toBe("red");
+  });
+
+  it("both sides finished in the same second: no side loses by default (the score decides)", () => {
+    const sim = createSim(setup());
+    for (const [id, s] of sim.state.soldier.entries()) { void id; s.physiology.alive = false; s.casualty = "killed"; s.mental.behaviour = "incapacitated"; }
+    const ev = run(sim, 2);
+    const end = ev.find((e) => e.kind === "battle.ended");
+    expect(end).toBeDefined();
+    expect(end && "loser" in end ? end.loser : undefined).toBeUndefined();
+    expect(sim.state.endLoser).toBeNull();
+    // Red still holds the farm (100 points), blue nothing; both lost all their men.
+    expect(battleScore(sim.ctx, sim.state).winner).toBe("red");
+  });
 });

@@ -130,7 +130,7 @@ Slices (owner answers 2026-11-12):
 - **M5.3 Review and polish** ✅ — independent review, eight findings fixed; the owner tries it on his phone.
 Acceptance: the owner can fight a squad action on his phone without a manual.
 
-### M6 Opposing commander and scenarios — ⏳ in progress (review)
+### M6 Opposing commander and scenarios — ✅ (owner review due)
 Objectives, scenario format and generator, commander AI for both postures, after-action review, save and load.
 Slices (owner answers 2026-11-12):
 - **M6.1 Objectives and victory** ✅ — objective areas held / contested; score = objectives held at the end

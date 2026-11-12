@@ -48,18 +48,21 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   // ---- defeat: a side broken (all its top units) or with nobody able left
   const V = ctx.rules.victory;
   if (!V?.endOnDefeat || state.ended) return;
+  const defeated: { side: SideId; reason: "side-eliminated" | "side-broken" }[] = [];
   for (const sd of state.sides) {
     const tops = [...state.unit.entries()].filter(([, u]) => u.side === sd.id && u.parent === null);
+    // Nobody standing: all down, or the last of them running (they have left the field).
     const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && standing(state, id));
     const allBroken = tops.length > 0 && tops.every(([, u]) => u.broken);
-    if (!anyStanding || allBroken) {
-      const reason = !anyStanding ? "side-eliminated" : "side-broken";
-      state.ended = { tick: state.tick, reason };
-      events.emit({ kind: "battle.ended", tick: state.tick, reason, loser: sd.id });
-      state.endLoser = sd.id;
-      return;
-    }
+    if (!anyStanding || allBroken) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
   }
+  if (defeated.length === 0) return;
+  // Both at once: nobody wins by default (the scores decide; a tie is a draw).
+  const one = defeated.length === 1 ? defeated[0]! : null;
+  const reason = one ? one.reason : defeated.every((d) => d.reason === "side-broken") ? "side-broken" : "side-eliminated";
+  state.ended = { tick: state.tick, reason };
+  events.emit(one ? { kind: "battle.ended", tick: state.tick, reason, loser: one.side } : { kind: "battle.ended", tick: state.tick, reason });
+  state.endLoser = one ? one.side : null;
 }
 
 /** The score as it stands (or at the end), and the winner: the side that did not lose early, else the higher score (null = a draw). */

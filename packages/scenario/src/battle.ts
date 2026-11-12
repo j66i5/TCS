@@ -59,7 +59,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   // another building (or the ground) on a flank.
   const dx = defender === "red" ? 1 : -1;
   const mainP = nearBuilding(map, W / 2 + dx * W * 0.2, H / 2, 250);
-  const secondP = nearBuilding(map, W / 2 + dx * W * 0.1, H / 2 + (def.seed % 2 === 0 ? 1 : -1) * H * 0.2, 200, [mainP]);
+  let secondP = nearBuilding(map, W / 2 + dx * W * 0.1, H / 2 + (def.seed % 2 === 0 ? 1 : -1) * H * 0.2, 200, [mainP]);
+  // The two areas never overlap (their radii are 40 and 30 m): at least 90 m apart.
+  if (hypot2(secondP.x - mainP.x, secondP.y - mainP.y) < 90) secondP = { x: mainP.x, y: Math.min(Math.max(mainP.y + (mainP.y < H / 2 ? 1 : -1) * 120, 20), H - 20) };
   const objectives: ObjectiveDef[] = [
     { id: "main", nameKey: "objective.main", x: mainP.x, y: mainP.y, radiusM: 40, points: SCENARIO_POINTS.main, holder: defender },
     { id: "second", nameKey: "objective.second", x: secondP.x, y: secondP.y, radiusM: 30, points: SCENARIO_POINTS.second, holder: defender },
@@ -76,8 +78,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     groups.forEach((men, gi) => {
       let cx: number, cy: number;
       if (side === defender) {
-        // Defence: the platoon's men and two squads at the main objective (in front and on its flanks), one at the second.
-        const spots = [{ x: mainP.x + dx * 15, y: mainP.y }, { x: mainP.x - dx * 25, y: mainP.y - 45 }, { x: mainP.x - dx * 25, y: mainP.y + 45 }, { x: secondP.x - dx * 15, y: secondP.y }];
+        // Defence: the platoon's men behind the main objective's centre and two squads at its front corners (all
+        // inside its 40 m ring), one squad at the second objective, in front of its centre.
+        const spots = [{ x: mainP.x + dx * 10, y: mainP.y }, { x: mainP.x - dx * 14, y: mainP.y - 20 }, { x: mainP.x - dx * 14, y: mainP.y + 20 }, { x: secondP.x - dx * 8, y: secondP.y }];
         const sp = spots[Math.min(gi, spots.length - 1)]!;
         cx = sp.x; cy = sp.y;
       } else {

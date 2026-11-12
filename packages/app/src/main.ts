@@ -48,11 +48,18 @@ async function main(): Promise<void> {
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const SAVE_KEY = "tcs.save";
   let sim: Sim = createSim(input);
+  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[] };
+  let loadedRecord = null as AarRecord | null;
+  let loadFailed = false;
   if (params.get("load") === "1") {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
-      if (raw) sim = loadGame(input, (JSON.parse(raw) as { save: SaveGame }).save, ai);
-    } catch { /* no usable save: a fresh battle */ }
+      if (raw) {
+        const blob = JSON.parse(raw) as { save: SaveGame; record?: AarRecord };
+        sim = loadGame(input, blob.save, ai);
+        loadedRecord = blob.record ?? null;
+      }
+    } catch { loadFailed = true; sim = createSim(input); } // e.g. made with other data: a fresh battle, and we say so
   }
   const orderLog: Order[] = [];
 
@@ -137,9 +144,10 @@ async function main(): Promise<void> {
     },
     onSave: () => {
       try {
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai) }));
+        // The after-action record so far goes with the save (the timeline and heat map cover the whole battle).
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls } }));
         hud.radio(strings.t("app.saved"), ticksToSeconds(sim.state.tick), "#d8e0c8");
-      } catch { hud.showError("save failed"); }
+      } catch { hud.radio(strings.t("app.saveFailed"), ticksToSeconds(sim.state.tick), "#ffb4b4"); }
     },
     onLoad: () => {
       let raw: string | null;
@@ -230,8 +238,9 @@ async function main(): Promise<void> {
   // ---- After-action record (M6): built from the events as they come (UI consumes events, rule 5).
   const sideIdx = (side: string) => Math.max(0, sim.state.sides.findIndex((x) => x.id === side));
   const sideName = (side: string) => { const f = sim.state.sides.find((x) => x.id === side)?.faction ?? ""; return strings.t(`faction.${f}`, {}, f); };
-  const heatShots: number[] = [], heatFalls: number[] = [];
-  const timeline: { tick: number; text: string; colour: string }[] = [];
+  const heatShots: number[] = [...(loadedRecord?.heatShots ?? [])], heatFalls: number[] = [...(loadedRecord?.heatFalls ?? [])];
+  const timeline: { tick: number; text: string; colour: string }[] = [...(loadedRecord?.timeline ?? [])];
+  if (loadFailed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
   const callsignOf = (id: EntityId) => sim.state.unit.get(sim.state.identity.get(id)?.unit ?? -1)?.callsign ?? "";
   let aarShown = false;
   const objName = (id: string) => { const o = input.rules.objectives.find((x) => x.id === id); return o ? strings.t(o.nameKey) : id; };
@@ -358,7 +367,7 @@ async function main(): Promise<void> {
     const model: AarModel = {
       title: strings.t("aar.title"),
       summary: [
-        `${sc.winner ? strings.t("aar.winner", { side: sideName(sc.winner) }) : strings.t("aar.draw")} ${strings.t(`aar.reason.${reason}`, { loser: sim.state.endLoser ? sideName(sim.state.endLoser) : "" })}`,
+        `${sc.winner ? strings.t("aar.winner", { side: sideName(sc.winner) }) : strings.t("aar.draw")} ${reason !== "time-limit" && sim.state.endLoser === null ? strings.t("aar.reason.both") : strings.t(`aar.reason.${reason}`, { loser: sim.state.endLoser ? sideName(sim.state.endLoser) : "" })}`,
         ...sc.scores.map((x) => strings.t("aar.score", { side: sideName(x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
       ],
       casualties: sim.state.sides.map((sd) => {

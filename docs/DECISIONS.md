@@ -1075,3 +1075,18 @@ defenders ~4). Moving the support line to 250, 200 or 400 m changed nothing. An 
 platoon across open ground fails — believable, but it makes defending against the AI dull. **Question for the
 owner at the M6 review** (with options: give the attacker more men, e.g. two platoons against one; add support
 fire — mortars and smoke are M8; or teach the AI better approach routes).
+
+## 2026-11-12 — M6 independent review: findings and fixes
+All hard rules held. Fixed: (1) the base of fire fired at the objective's centre (a building) instead of the
+enemy — now at the enemy its men know near the objective (fixed before the review saw it); (2) the commander
+counted routed men as losses, so a panicking squad broke off the whole attack — losses now count only men
+killed or out; (3) the attacker ignored an objective retaken by a counterattack — it goes back for it, and
+holding what it took it no longer withdraws; a test now runs the attacker through all its phases against an
+absent defence; (4) both sides defeated in the same second: blue always lost — now neither loses by default
+(the score decides); (5) tests for "side broken" and for routed men not taking objectives; (6) a loaded game's
+after-action timeline and heat map started at the load — they are saved with the game; (7) the defending squads
+started outside the main objective's ring and the two objectives could overlap — squads now inside the ring,
+objectives at least 90 m apart; (9) an English text outside the string table; a failed load now says so.
+**Recorded (8):** the commanders know who holds each objective without seeing it — holders are public (shown
+to the player too), intended. **Balance (for the owner):** the AI attack still fails against the AI defence;
+even against a single defending squad left, the attacking platoon is pinned at ~350 m and breaks off.

@@ -56,8 +56,10 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const squads = [...topUnit.children].sort((a, b) => a - b);
       const hq = topUnit.members.filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
       const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
+      /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
+      const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => view.soldier.get(m)?.casualty === "none").length / ms.length : 0; };
       const all = members(view, topId);
-      const down = all.filter((m) => !able(view.soldier.get(m) as SoldierState | undefined)).length / Math.max(1, all.length);
+      const down = all.filter((m) => view.soldier.get(m)?.casualty !== "none").length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
       if (!main) return out;
@@ -72,7 +74,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         // Away from the attack: from the map's middle through the objective.
         const ax = main.x - W / 2, ay = main.y - H / 2, al = hypot2(ax, ay) || 1;
         for (const sq of squads) {
-          if (strength(sq) < 0.5 && strength(sq) > 0 && !mem.pulledBack.includes(sq)) {
+          if (fitShare(sq) < 0.5 && fitShare(sq) > 0 && !mem.pulledBack.includes(sq)) {
             order(sq, { kind: "withdraw", x: clamp(main.x + (ax / al) * COMMANDER.fallBackM, W), y: clamp(main.y + (ay / al) * COMMANDER.fallBackM, H) });
             mem.pulledBack.push(sq);
           }
@@ -89,7 +91,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       }
 
       // ---- attack
-      if (mem.phase !== "withdraw" && down > tolerance) {
+      // (Holding what it took, it stays: breaking off would give the objectives back.)
+      if (mem.phase !== "withdraw" && mem.phase !== "hold" && down > tolerance) {
         for (const sq of squads) order(sq, { kind: "withdraw", x: sx, y: sy });
         for (const m of hq) order(m, { kind: "move", waypoints: [{ x: sx, y: sy, mode: "run" }] });
         mem.phase = "withdraw"; mem.phaseTick = tick;
@@ -118,8 +121,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (known > 0 || tick - mem.phaseTick >= COMMANDER.reconSeconds * 60) { mem.phase = "assault"; mem.phaseTick = tick; mem.lastAssault = {}; }
           break;
         }
+        case "hold":
+          // The enemy has taken an objective back: go for it again.
+          if (objectives.some((_, i) => !holds(i))) { mem.target = objectives.findIndex((_, i) => !holds(i)); mem.phase = mem.target === 0 ? "assault" : "second"; mem.phaseTick = tick; mem.lastAssault = {}; }
+          break;
         case "assault":
         case "second": {
+          // In the second phase, the main objective lost again comes first.
+          if (mem.phase === "second" && !holds(0)) { mem.target = 0; mem.phase = "assault"; mem.lastAssault = {}; }
           if (holds(mem.target)) {
             if (mem.target + 1 < objectives.length) { mem.target++; mem.phase = "second"; mem.phaseTick = tick; mem.lastAssault = {}; }
             else { mem.phase = "hold"; order(topId, { kind: "posture", posture: "prone" }); }

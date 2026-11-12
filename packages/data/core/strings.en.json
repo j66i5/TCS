@@ -177,7 +177,7 @@
   "aar.draw": "A draw.",
   "aar.reason.time-limit": "Time ran out.",
   "aar.reason.side-broken": "{loser} broke.",
-  "aar.reason.side-eliminated": "{loser} has nobody left standing.",
+  "aar.reason.side-eliminated": "{loser} has nobody left standing (all down or fled).",
   "aar.reason.scenario": "",
   "aar.score": "{side}: {objectives} for objectives held, {down} men down - score {score}.",
   "aar.sideHead": "{side}: {down} of {total} down",
@@ -197,5 +197,8 @@
   "score.nobody": "nobody",
   "score.time": "{left} left",
   "zone.arm": "arm",
-  "zone.leg": "leg"
+  "zone.leg": "leg",
+  "app.saveFailed": "The battle could not be saved.",
+  "app.loadFailed": "The saved battle could not be loaded (made with other data?): a new battle has started.",
+  "aar.reason.both": "Both sides were finished at once."
 }

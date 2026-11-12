@@ -41,4 +41,30 @@ describe("AI commander (M6.3)", () => {
     const end = continueBattle(loaded, input, { controllers: cs2 });
     expect(end.finalStateHash).toBe(r.finalStateHash);
   });
+
+  it("with the defence gone (one man left, far off, holding fire) the attacker takes the main objective, and the second, and holds them", () => {
+    // (Its whole sequence of phases, not the balance: against a real defence the AI attack fails, see DECISIONS.md.)
+    const weak = scenario(2, 1500);
+    const sim = createSim(weak);
+    const reds = [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
+    reds.slice(1).forEach((m) => { const s = sim.state.soldier.req(m); s.physiology.alive = false; s.casualty = "killed"; s.mental.behaviour = "incapacitated"; });
+    const last = sim.state.transform.req(reds[0]!); last.x = weak.map.widthM - 10; last.y = 10;
+    for (const [uid, u] of sim.state.unit.entries()) if (u.side === "red") sim.state.unit.req(uid).fireRule = "hold";
+    const cs = ctrls(weak);
+    const taken: string[] = [];
+    let assaultsOnSecond = 0;
+    const second = weak.rules.objectives[1]!;
+    for (let k = 0; k < 1500 * 60 && !sim.state.ended; k++) {
+      for (const c of cs) for (const o of c.think(sim.state, sim.state.tick)) {
+        if (o.issuer === "blue" && o.kind === "assault" && Math.hypot(o.x - second.x, o.y - second.y) < 40) assaultsOnSecond++;
+        submitOrder(sim, o);
+      }
+      for (const e of step(sim)) if (e.kind === "objective.changed" && e.holder === "blue") taken.push(e.objective);
+    }
+    // Both end up taken (the second on the way or by its own assault), and the attacker holds them at the end.
+    expect(taken).toContain("main");
+    expect(taken).toContain("second");
+    expect(taken.includes("second") || assaultsOnSecond > 0).toBe(true);
+    expect(sim.state.objectives.every((o) => o.holder === "blue")).toBe(true);
+  });
 });

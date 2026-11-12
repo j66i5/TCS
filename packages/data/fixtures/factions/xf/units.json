@@ -98,6 +98,36 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture. Two crew, no commander station."
+    },
+    {
+      "id": "cart-band",
+      "echelon": "platoon",
+      "callsign": "Band {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "porter-gang",
+        "porter-gang",
+        "cart-crew",
+        "cart-crew"
+      ],
+      "carriage": [
+        {
+          "crew": 2,
+          "carries": [
+            0
+          ]
+        },
+        {
+          "crew": 3,
+          "carries": [
+            1
+          ]
+        }
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.2): two porter gangs, each riding its own cart."
     }
   ]
 }

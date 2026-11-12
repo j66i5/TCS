@@ -71,4 +71,5 @@ export const GOLDEN_SPECS: { name: string; description: string; scenario: string
   { name: "fixture-s7", description: "Fixture faction vs DE, seed 7, 90 s", scenario: "demo-fixture", seed: 7, seconds: 90 },
   { name: "vehicles-s1", description: "Two Pumas and two BMP-2s with their squads wandering on farmland, seed 1, 150 s (M7.1c)", scenario: "vehicles", seed: 1, seconds: 150 },
   { name: "fixture-cart-s3", description: "Fixture wheeled carts vs Pumas on a flat field, seed 3, 90 s (M7.1c)", scenario: "vehicles-fixture", seed: 3, seconds: 90 },
+  { name: "platoon-vehicles-s1", description: "Platoon battle with vehicles: the Germans ride in and get out, AI v AI, seed 1, 150 s (M7.2)", scenario: "platoon-vehicles", seed: 1, seconds: 150 },
 ];

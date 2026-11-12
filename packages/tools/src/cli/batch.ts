@@ -17,20 +17,40 @@ const firstSeed = Number(args["seed"] ?? 1);
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
-interface Row { seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; prisoners: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number> }
+interface Row {
+  seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; prisoners: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number>;
+  /** Vehicles (M7.2): lost (destroyed or abandoned) and immobilised per side; game time of each side's first dismount, s (null = none). */
+  vehiclesLost: Record<string, number>; vehiclesImmobilised: Record<string, number>; firstDismountS: Record<string, number | null>;
+}
 const rows: Row[] = [];
 const t0 = performance.now();
 for (let i = 0; i < runs; i++) {
   const seed = firstSeed + i;
   const input = sc.build(data, seed, seconds);
   const s0 = performance.now();
-  const r = runBattle(input, { controllers: sc.controllers?.(input) ?? [] });
+  // Each side's first dismount (M7.2), from the event stream.
+  const firstDismount: Record<string, number | null> = { blue: null, red: null };
+  const sideOfUnit = new Map<number, string>();
+  const r = runBattle(input, {
+    controllers: sc.controllers?.(input) ?? [],
+    onTick: (sim) => { if (sideOfUnit.size === 0) for (const [id, u] of sim.state.unit.entries()) sideOfUnit.set(id, u.side); },
+    onEvents: (ev) => {
+      for (const e of ev) {
+        if (e.kind !== "unit.dismounted") continue;
+        const side = sideOfUnit.get(e.unit);
+        if (side !== undefined && firstDismount[side] === null) firstDismount[side] = e.tick / 60;
+      }
+    },
+  });
   rows.push({
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
     prisoners: Object.fromEntries(r.sides.map((s) => [s.side, s.surrendered + s.captured])),
     wallMs: performance.now() - s0,
     winner: r.winner, scores: Object.fromEntries(r.scores.map((s) => [s.side, s.score])),
+    vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
+    vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
+    firstDismountS: firstDismount,
   });
 }
 const totalMs = performance.now() - t0;
@@ -58,6 +78,7 @@ const md = [
   "",
   `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",
+  `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",
   "|---:|---:|---|---|---|---:|---|---|",

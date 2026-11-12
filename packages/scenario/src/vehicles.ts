@@ -70,6 +70,8 @@ export function vehicleBattle(data: DataSet, opts: VehicleBattleOptions): Battle
         const seed = opts.seed * 131 + s * 17 + p * 7 + k;
         const crew = buildForce(data, { faction, template: crewT, seed, keyPrefix: `${key}-v${k + 1}`, number: p * per + k + 1 });
         const squad = buildForce(data, { faction, template: squadT, seed: seed + 1000, keyPrefix: `${key}-s${k + 1}`, number: p * per + k + 1 });
+        // The squad rides in this vehicle when it mounts (M7.2).
+        squad.carrierId = crew.key;
         subunits.push(crew, squad);
         // The vehicle: a fresh roster record (fuel full, stowage from data).
         vehicles.push({

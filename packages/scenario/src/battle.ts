@@ -8,9 +8,12 @@
  * definition always gives the same battle). Blue always starts in the west, red in the east; either may attack.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
-import { hypot2, type BattleInput, type ForceInput, type MapDef, type ObjectiveDef, type Placement, PI } from "@tcs/sim";
+import {
+  buildNavGrid, hypot2, nearestPassable, newVehicleRecord, PI,
+  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type UnitInput, type VehicleRecord,
+} from "@tcs/sim";
 import { defaultRules, freeSpot, SIDES } from "./demo";
-import { allMembers, buildForce } from "./forces";
+import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
 
 export interface ScenarioDef {
@@ -28,6 +31,10 @@ export interface ScenarioDef {
   timeLimitSeconds?: number;
   mapWidthM?: number;
   mapHeightM?: number;
+  /** With vehicles (M7.2; owner Q26: opt-in until M7.4a): the platoons' crews and vehicles take part; the attacker
+   *  starts mounted at its map edge, the defender's vehicles stand behind its main objective with only their
+   *  crews aboard. Off: the same platoons on foot, without their crews (as before M7.2). */
+  vehicles?: boolean;
 }
 
 /** Mortar rounds each side may call (game values). */
@@ -76,12 +83,28 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const pack = data.factions[faction];
     const template = def.templates?.[s] ?? pack?.manifest.platoonTemplate ?? pack?.manifest.demoTemplate ?? "demo-team";
     const count = side === def.attacker ? Math.max(1, def.attackerPlatoons ?? 2) : 1;
-    const units = Array.from({ length: count }, (_, k) => buildForce(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
+    const built = Array.from({ length: count }, (_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
+    const withVehicles = def.vehicles === true && built.some((b) => b.vehicles.length > 0);
+    const units = built.map((b) => (withVehicles ? b.unit : withoutVehicles(b.unit)));
     const placements: Placement[] = [];
     const heading = side === "blue" ? 0 : PI; // facing the other side
+    const attacking = side === def.attacker;
+    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H) : null;
+    if (fv) placements.push(...fv.placements);
     // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
-    const groups = units.flatMap((unit) => unit.subunits.length > 0 ? [unit.members, ...unit.subunits.map((u) => allMembers(u))].filter((g) => g.length > 0) : [allMembers(unit)]);
-    groups.forEach((men, gi) => {
+    // (With vehicles: crews are in their seats, and the attacker's carried men start aboard.)
+    const footGroups = (unit: UnitInput): SoldierGroup[] => {
+      const kids = unit.subunits.filter((u) => u.vehicleId === undefined);
+      return unit.subunits.length > 0 ? [{ men: unit.members.map((m) => m.personId), carrier: unit.carrierId }, ...kids.map((u) => ({ men: allMembers(u).map((m) => m.personId), carrier: u.carrierId }))].filter((g) => g.men.length > 0) : [{ men: allMembers(unit).map((m) => m.personId), carrier: unit.carrierId }];
+    };
+    const groups = units.flatMap(footGroups);
+    if (fv && attacking) {
+      for (const g of groups) {
+        const vp = g.carrier === undefined ? undefined : fv.vehiclePlacements.find((p) => p.vehicleId === g.carrier);
+        if (!vp) throw new Error(`scenario: no vehicle for carried men ${g.men[0] ?? ""}`);
+        for (const pid of g.men) placements.push({ personId: pid, x: vp.x, y: vp.y, heading: vp.heading, mountedIn: vp.vehicleId });
+      }
+    } else groups.map((g) => g.men).forEach((men, gi) => {
       let cx: number, cy: number;
       if (side === defender) {
         // Defence: the platoon's men behind the main objective's centre and two squads at its front corners (all
@@ -96,10 +119,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       }
       men.forEach((m, mi) => {
         const p = freeSpot(map, catalog, cx, cy + (mi - (men.length - 1) / 2) * 6);
-        placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
+        placements.push({ personId: m, x: p.x, y: p.y, heading });
       });
     });
-    return { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
+    const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
+    if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
+    return force;
   });
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
@@ -111,4 +136,48 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)) };
   });
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
+}
+
+interface SoldierGroup { men: string[]; carrier: string | undefined }
+
+/** Spacing of the vehicles at the start, m. */
+const VEHICLE_SPACING_M = 20;
+
+/**
+ * Where a side's vehicles start (M7.2, plan §11): the attacker's in a line across its map edge, 8 % in, facing
+ * the enemy; the defender's 60-120 m behind the main objective. Each on ground its class can drive (the class
+ * grid with extra clearance, in the map's main connected area). Crewmen whose template names a seat take it.
+ */
+function placeVehicles(
+  catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
+): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
+  const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
+  const grids = new Map<string, NavGrid>();
+  const heading = side === "blue" ? 0 : PI;
+  vehicles.forEach((fv, i) => {
+    const def = catalog.vehicles[fv.type];
+    if (!def) throw new Error(`scenario: vehicle type '${fv.type}' not in the catalog`);
+    let grid = grids.get(def.class);
+    if (!grid) { grid = buildNavGrid(map, catalog.terrain, def.class, 2, 0, [], { clearanceCells: 3 }); grids.set(def.class, grid); }
+    const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
+    const lat = (i - (vehicles.length - 1) / 2) * VEHICLE_SPACING_M;
+    // Attack: a line across the own edge. Defence: behind the main objective (away from the attack), staggered.
+    const x0 = attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (60 + (i % 2) * 60);
+    const y0 = attacking ? H / 2 + lat : mainP.y + lat * 1.5;
+    const cell = nearestPassable(grid, Math.min(Math.max(x0, 1), W - 1), Math.min(Math.max(y0, 1), H - 1), 80, mainRegion);
+    const taken = (x: number, y: number) => vehiclePlacements.some((p) => hypot2(p.x - x, p.y - y) < 12);
+    let vx = cell < 0 ? x0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? y0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;
+    // Never two hulls on the same spot: step along the line until free.
+    for (let k = 1; taken(vx, vy) && k < 40; k++) {
+      const c2 = nearestPassable(grid, vx, Math.min(Math.max(vy + (k % 2 === 0 ? 1 : -1) * k * 6, 1), H - 1), 40, mainRegion);
+      if (c2 >= 0) { vx = ((c2 % grid.cols) + 0.5) * grid.cellM; vy = (Math.floor(c2 / grid.cols) + 0.5) * grid.cellM; }
+    }
+    records.push(newVehicleRecord(catalog, fv.type, fv.vehicleId));
+    vehiclePlacements.push({ vehicleId: fv.vehicleId, x: vx, y: vy, heading });
+    for (const cs of fv.crewSeats) {
+      const seat = def.seats.findIndex((q) => q.id === cs.seat);
+      if (seat >= 0) placements.push({ personId: cs.personId, x: vx, y: vy, heading, seat });
+    }
+  });
+  return { records, vehiclePlacements, placements };
 }

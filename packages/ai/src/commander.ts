@@ -16,19 +16,35 @@
  *
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
-import { atan2, hypot2, isCaptive, isOut, supportLeft, type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimView, type SoldierState } from "@tcs/sim";
+import {
+  atan2, createContext, heightAt, hypot2, isCaptive, isOut, sight, supportLeft,
+  type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimView, type SoldierState,
+} from "@tcs/sim";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4 } as const;
+export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3 } as const;
 
-type Phase = "start" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
-interface Memory { phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number }
+type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
+interface Memory {
+  phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number;
+  /** M7.2 ride and dismount: the last vehicle hit it has seen (polled `lastHitTick`), squads and men ordered out,
+   *  vehicles waiting for their squad to get back in during a withdrawal. */
+  lastHitSeen?: number; out?: number[]; remount?: number[];
+}
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
 
+/** The men of a unit and its sub-units, vehicle crews left out (they fight from their vehicles). */
 function members(view: SimView, uid: EntityId): EntityId[] {
   const u = view.unit.get(uid);
   if (!u) return [];
-  return [...u.members, ...u.children.flatMap((c) => members(view, c))];
+  return [...u.members, ...u.children.filter((c) => view.unit.get(c)?.vehicle === undefined).flatMap((c) => members(view, c))];
+}
+
+/** Able men of a unit who are aboard a vehicle (not crew): they ride, and are never ordered to walk. */
+function riders(view: SimView, uid: EntityId): EntityId[] {
+  const u = view.unit.get(uid);
+  if (!u || u.vehicle !== undefined) return [];
+  return u.members.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return s?.mount !== undefined && able(s) && s.impair.canWalk; });
 }
 
 export function commanderController(side: SideId, input: BattleInput): Controller {
@@ -44,6 +60,18 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   const defending = objectives.length > 0 && objectives[0]!.holder === side;
   let mem: Memory = { phase: "start", phaseTick: 0, target: 0, lastFire: -1e9, lastAssault: {}, pulledBack: [], counterTick: -1e9 };
   const every = COMMANDER.stepSeconds * 60;
+  // Where the attacker gets out (M7.2, owner Q22): this far short of the objective, from its faction's doctrine;
+  // without one, the plan's formula from the willingness to dismount.
+  const dismountM = input.catalog.factions[force.faction]?.dismountM ?? 300 + (1 - (doctrine["willingnessToDismount"] ?? 0.5)) * 500;
+  const M = input.catalog.behaviour.mounting;
+  // Its own view of the ground for sight lines (built once, when first needed; never saved) [C58].
+  let ctx: SimContext | null = null;
+  /** Out of sight of (ox, oy) from a man standing there to a hull's top at (x, y)? */
+  const hidden = (ox: number, oy: number, x: number, y: number): boolean => {
+    ctx ??= createContext({ ...input, orders: [] });
+    const z0 = heightAt(input.map, ox, oy) + 1.7, z1 = heightAt(input.map, x, y) + 2.2;
+    return sight(ctx, ox, oy, z0, x, y, z1).blockedBy !== null;
+  };
 
   return {
     side,
@@ -55,7 +83,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const tops = [...view.unit.entries()].filter(([, u]) => u.side === side && u.parent === null);
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
-      const squads = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
+      // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
+      const children = tops.flatMap(([, u]) => u.children).sort((a, b) => a - b);
+      const squads = children.filter((c) => view.unit.get(c)?.vehicle === undefined);
+      const crews = children.filter((c) => view.unit.get(c)?.vehicle !== undefined);
+      const crewOfVehicle = (vid: EntityId | undefined) => crews.find((c) => view.unit.get(c)?.vehicle === vid);
       const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
@@ -67,6 +99,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length / ms.length : 0; };
       const all = topIds.flatMap((id) => members(view, id));
+      // Vehicles (M7.2): the polled state the plan lists (§12): status, arrival, hits since the last look.
+      const vehicleOf = (c: EntityId) => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.vehicle.get(vid); };
+      const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
+      for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
+      const lostVehicles = crews.filter((c) => { const st = vehicleOf(c)?.status; return st === "destroyed" || st === "abandoned" || st === "immobilised"; }).length;
       const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
@@ -113,32 +150,143 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
 
       // ---- attack
       // (Holding what it took, it stays: breaking off would give the objectives back.)
-      if (mem.phase !== "withdraw" && mem.phase !== "hold" && down > tolerance) {
-        for (const sq of squads) order(sq, { kind: "withdraw", x: sx, y: sy });
-        for (const m of hq) order(m, { kind: "move", waypoints: [{ x: sx, y: sy, mode: "run" }] });
+      const tgt = objectives[mem.target] ?? main;
+      const dx = tgt.x - sx, dy = tgt.y - sy, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      /** Back to the start, each vehicle to its own spot in a line across the way in. */
+      const back = (c: EntityId): Record<string, unknown> => {
+        const off = (crews.indexOf(c) - (crews.length - 1) / 2) * 20;
+        return { kind: "move", waypoints: [{ x: clamp(sx - uy * off, W), y: clamp(sy + ux * off, H), mode: "run" }] };
+      };
+      const vehiclesLost = crews.length > 0 && lostVehicles >= COMMANDER.vehicleLossShare * crews.length;
+      if (mem.phase !== "withdraw" && mem.phase !== "hold" && (down > tolerance || vehiclesLost)) {
+        // Squads within reach of their vehicle get back in (owner Q24); the others break contact on foot.
+        mem.remount = [];
+        const near = (uid: EntityId, men: EntityId[]): EntityId | undefined => {
+          const vid = view.unit.get(uid)?.carrier;
+          const v = vid === undefined ? undefined : view.vehicle.get(vid);
+          const vt = vid === undefined ? undefined : view.transform.get(vid);
+          const crew = crewOfVehicle(vid);
+          if (!v || !vt || crew === undefined || v.status !== "ok") return undefined;
+          const fit = men.filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+          if (fit.length === 0) return undefined;
+          const cx = fit.reduce((a, m) => a + view.transform.get(m)!.x, 0) / fit.length, cy = fit.reduce((a, m) => a + view.transform.get(m)!.y, 0) / fit.length;
+          return hypot2(cx - vt.x, cy - vt.y) <= M.remountM ? crew : undefined;
+        };
+        for (const sq of squads) {
+          const crew = near(sq, members(view, sq));
+          if (riders(view, sq).length > 0 && crew !== undefined) { mem.remount.push(crew); continue; } // still aboard: ride back
+          if (crew !== undefined) { order(sq, { kind: "mount" }); mem.remount.push(crew); } else order(sq, { kind: "withdraw", x: sx, y: sy });
+        }
+        const hqFoot = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount === undefined);
+        const hqCrew = tops.length > 0 ? near(tops[0]![0], hqFoot) : undefined;
+        for (const m of hqFoot) order(m, hqCrew !== undefined ? { kind: "mount" } : { kind: "move", waypoints: [{ x: sx, y: sy, mode: "run" }] });
+        if (hqCrew !== undefined && !mem.remount.includes(hqCrew)) mem.remount.push(hqCrew);
+        // Vehicles with nobody to pick up go back at once.
+        for (const c of crews) if (!mem.remount.includes(c) && vehicleOf(c)?.status === "ok") order(c, back(c));
         mem.phase = "withdraw"; mem.phaseTick = tick;
         return out;
       }
-      const tgt = objectives[mem.target] ?? main;
-      const dx = tgt.x - sx, dy = tgt.y - sy, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      // A vehicle drives back once its men are in (or after a minute).
+      if (mem.phase === "withdraw" && (mem.remount?.length ?? 0) > 0) {
+        mem.remount = mem.remount!.filter((c) => {
+          const vid = view.unit.get(c)?.vehicle;
+          const boarding = [...view.unit.values()].some((u) => u.boarding?.kind === "mount" && u.boarding.vehicle === vid);
+          if (boarding && tick - mem.phaseTick < 60 * 60) return true;
+          order(c, back(c));
+          return false;
+        });
+      }
+      // A squad still aboard close to an objective gets out to hold it [C29].
+      if (mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
+        for (const sq of squads) {
+          const vid = view.unit.get(sq)?.carrier;
+          const vt = vid === undefined ? undefined : view.transform.get(vid);
+          if (!vt || riders(view, sq).length === 0 || view.unit.get(sq)?.boarding) continue;
+          if (objectives.some((o) => hypot2(o.x - vt.x, o.y - vt.y) <= M.holdDismountM + o.radiusM)) order(sq, { kind: "dismount" });
+        }
+      }
       const support = { x: clamp(tgt.x - ux * COMMANDER.supportM, W), y: clamp(tgt.y - uy * COMMANDER.supportM, H) };
       const lateral = (k: number) => ({ x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) });
+      /** The advance on foot to the support line: walk most of the way, sneak the last stretch (from where the
+       *  squad is: men who got out near the line only sneak). */
+      const advance = (sq: EntityId, i: number) => {
+        const lat = (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
+        const p = lateral(lat);
+        const q = { x: clamp(p.x - ux * COMMANDER.sneakM, W), y: clamp(p.y - uy * COMMANDER.sneakM, H) };
+        const ms = members(view, sq).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+        const here = ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : { x: sx, y: sy };
+        const ahead = hypot2(q.x - tgt.x, q.y - tgt.y) < hypot2(here.x - tgt.x, here.y - tgt.y);
+        order(sq, { kind: "move", waypoints: ahead ? [{ x: q.x, y: q.y, mode: "walk" }, { x: p.x, y: p.y, mode: "sneak" }] : [{ x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
+      };
       switch (mem.phase) {
         case "start":
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
+          // Mounted (M7.2): the vehicles drive the squads to their dismount points; the squads ride.
+          if (squads.some((sq) => riders(view, sq).length > 0)) {
+            // The dismount point: this far short of the objective along the way in, the nearest point at or beyond
+            // it out of sight of the objective (and of enemies its men know); none hidden: at the distance itself.
+            // Each vehicle its own slot across the way in; "short of the objective" counts from every objective
+            // (the nearer one may lie on a flank), and "out of sight" from the objectives' near edges.
+            const known0 = all.flatMap((m) => known(m)).slice(0, 4);
+            const eyes = [...objectives.flatMap((o) => [{ x: o.x - ux * o.radiusM, y: o.y - uy * o.radiusM }, { x: o.x - uy * o.radiusM, y: o.y + ux * o.radiusM }, { x: o.x + uy * o.radiusM, y: o.y - ux * o.radiusM }]), ...known0];
+            const carried = crews.filter((c) => squads.some((sq) => view.unit.get(sq)?.carrier === view.unit.get(c)?.vehicle) || topIds.some((tp) => view.unit.get(tp)?.carrier === view.unit.get(c)?.vehicle));
+            carried.forEach((c, i) => {
+              const off = (i - (carried.length - 1) / 2) * COMMANDER.vehicleSlotM;
+              // The headquarters' vehicle a little behind the others.
+              const hqV = topIds.some((tp) => view.unit.get(tp)?.carrier === view.unit.get(c)?.vehicle) && !squads.some((sq) => view.unit.get(sq)?.carrier === view.unit.get(c)?.vehicle);
+              const behind = hqV ? 40 : 0;
+              const at = (d: number) => ({ x: clamp(tgt.x - ux * d - uy * off, W), y: clamp(tgt.y - uy * d + ux * off, H) });
+              const far = (p: { x: number; y: number }) => objectives.every((o) => hypot2(o.x - p.x, o.y - p.y) >= dismountM);
+              // The first point far enough from every objective, then up to 100 m farther back for one out of sight.
+              let k0 = 0;
+              while (k0 < 20 && !far(at(dismountM + behind + k0 * COMMANDER.dismountStepM))) k0++;
+              const first = at(dismountM + behind + k0 * COMMANDER.dismountStepM);
+              let spot: { x: number; y: number } | null = null;
+              for (let k = k0; k < k0 + COMMANDER.dismountCandidates && spot === null; k++) {
+                const p = at(dismountM + behind + k * COMMANDER.dismountStepM);
+                if (eyes.every((e) => hidden(e.x, e.y, p.x, p.y))) spot = p;
+              }
+              const p = spot ?? first;
+              order(c, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: atan2(uy, ux) });
+            });
+            toAll({ kind: "rules", fire: "return" });
+            mem.out = [];
+            mem.phase = "ride"; mem.phaseTick = tick;
+            break;
+          }
           // Walk most of the way, sneak the last stretch to the support line (M6.5b); routes keep to cover as
           // the faction's doctrine prefers (systems/orders.ts).
-          squads.forEach((sq, i) => {
-            const lat = (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
-            const p = lateral(lat);
-            const q = { x: clamp(p.x - ux * COMMANDER.sneakM, W), y: clamp(p.y - uy * COMMANDER.sneakM, H) };
-            order(sq, { kind: "move", waypoints: [{ x: q.x, y: q.y, mode: "walk" }, { x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
-          });
+          squads.forEach((sq, i) => advance(sq, i));
           for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
           mem.phase = "advance"; mem.phaseTick = tick;
           break;
+        case "ride": {
+          // Out when its vehicle has arrived, at once when a vehicle was hit, or after the ride has taken too long:
+          // the squad is ordered to its support-line position and gets out first (Q12).
+          const late = tick - mem.phaseTick >= COMMANDER.rideTimeoutSeconds * 60;
+          mem.out ??= [];
+          squads.forEach((sq, i) => {
+            if (mem.out!.includes(sq)) return;
+            const vid = view.unit.get(sq)?.carrier;
+            const v = vid === undefined ? undefined : view.vehicle.get(vid);
+            const there = v === undefined || v.drive.arrived || v.drive.routeIdx >= v.drive.route.length || v.status !== "ok";
+            if (riders(view, sq).length > 0 && !(there || hitNow || late)) return;
+            advance(sq, i);
+            mem.out!.push(sq);
+          });
+          const hqIn = hq.filter((m) => (view.soldier.get(m) as SoldierState | undefined)?.mount !== undefined);
+          const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
+          const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
+          if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNow || late)) {
+            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
+            mem.out.push(-1);
+          }
+          if (squads.every((sq) => mem.out!.includes(sq))) { mem.phase = "advance"; mem.phaseTick = tick; }
+          break;
+        }
         case "advance": {
-          const arrived = squads.every((sq) => !view.unit.get(sq)?.moving);
+          // (A squad still getting out before its move has not arrived.)
+          const arrived = squads.every((sq) => !view.unit.get(sq)?.moving && !view.unit.get(sq)?.boarding);
           if (arrived || tick - mem.phaseTick > 600 * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
           break;
         }

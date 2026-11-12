@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildCatalog, formatErrors, loadDataSet, Strings } from "@tcs/data";
-import { allMembers, buildForce, demoBattle } from "@tcs/scenario";
-import { countItems, idleDrive, runBattle, step, stepDriveDynamics, submitOrder } from "@tcs/sim";
+import { allMembers, buildForce, buildForceWithVehicles, demoBattle } from "@tcs/scenario";
+import { countItems, createSim, DEFAULT_COMMS, flatMap, idleDrive, newVehicleRecord, runBattle, step, stepDriveDynamics, submitOrder, type Placement, type SimEvent } from "@tcs/sim";
 import { driveBattle } from "../src/labs/drive";
 import { wanderController } from "@tcs/ai";
 import { readDataFiles } from "../src/data-files";
@@ -90,5 +90,41 @@ describe("fixture faction 'xf'", () => {
     for (let i = 0; i < 60 * 60; i++) step(sim);
     const t = sim.state.transform.req(vid);
     expect(Math.hypot(t.x - 400, t.y - 260)).toBeLessThan(6);
+  });
+  it("cart-band: each porter gang rides its own cart (carriage from data), gets on and off on orders (M7.2)", () => {
+    const built = buildForceWithVehicles(data!, { faction: "xf", template: "cart-band", seed: 5, keyPrefix: "x" });
+    expect(built.vehicles.map((v) => v.type)).toEqual(["xf-cart", "xf-cart"]);
+    const catalog = buildCatalog(data!, ["xf", "de"]);
+    const gangs = built.unit.subunits.filter((u) => u.vehicleId === undefined);
+    expect(gangs.map((g) => g.carrierId)).toEqual(built.vehicles.map((v) => v.vehicleId));
+    const placements: Placement[] = [];
+    const vehiclePlacements = built.vehicles.map((v, i) => ({ vehicleId: v.vehicleId, x: 200, y: 100 + i * 80, heading: 0 }));
+    built.vehicles.forEach((v, i) => v.crewSeats.forEach((cs) => placements.push({ personId: cs.personId, x: 200, y: 100 + i * 80, heading: 0, seat: catalog.vehicles["xf-cart"]!.seats.findIndex((q) => q.id === cs.seat) })));
+    gangs.forEach((g, gi) => g.members.forEach((m, k) => placements.push({ personId: m.personId, x: 175, y: 95 + gi * 80 + k * 4, heading: 0 })));
+    const foe = buildForce(data!, { faction: "de", template: "demo-team", seed: 6, keyPrefix: "d" });
+    const sim = createSim({
+      map: flatMap("f", 400, 300), catalog, seed: 5, orders: [],
+      forces: [
+        { side: "blue", faction: "xf", units: [built.unit], placements, vehicles: built.vehicles.map((v) => newVehicleRecord(catalog, v.type, v.vehicleId)), vehiclePlacements },
+        { side: "red", faction: "de", units: [foe], placements: allMembers(foe).map((m, k) => ({ personId: m.personId, x: 390, y: 280 - k * 3, heading: 0 })) },
+      ],
+      rules: { timeLimitSeconds: 300, commsModel: "simple", comms: { ...DEFAULT_COMMS }, physiologyModel: "simple", physiologyParams: {}, objectives: [] },
+    });
+    const band = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === null)![0];
+    submitOrder(sim, { tick: 0, issuer: "blue", target: band, kind: "mount" });
+    const ev: SimEvent[] = [];
+    for (let i = 0; i < 60 * 60; i++) ev.push(...step(sim));
+    const s = new Strings(data!);
+    const radio = ev.find((e): e is Extract<SimEvent, { kind: "radio" }> => e.kind === "radio" && e.key === "radio.ack.mount");
+    expect(s.t(radio!.key, radio!.params, "xf")).toMatch(/climbs on/);
+    expect(ev.filter((e) => e.kind === "unit.mounted")).toHaveLength(2);
+    for (const [uid, u] of sim.state.unit.entries()) {
+      if (u.carrier === undefined || u.side !== "blue") continue;
+      for (const m of u.members) expect(sim.state.soldier.req(m).mount?.vehicle, `${u.callsign}`).toBe(u.carrier);
+      void uid;
+    }
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: band, kind: "dismount" });
+    for (let i = 0; i < 30 * 60; i++) ev.push(...step(sim));
+    expect(ev.filter((e) => e.kind === "unit.dismounted")).toHaveLength(2);
   });
 });

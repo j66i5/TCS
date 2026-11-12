@@ -62,6 +62,16 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
+  "platoon-vehicles": {
+    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (vehicles cannot fire or be hit yet).",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "platoon-ru-vehicles": {
+    description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
   vehicles: {
     description: "M7.1c: a platoon of two Pumas with their squads on foot against two BMP-2s with theirs, on a generated 1200 x 900 m farmland map; vehicles and squads wander (no vehicle weapons yet).",
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], mapKind: "farmland", timeLimitSeconds: seconds }),

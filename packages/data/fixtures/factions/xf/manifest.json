@@ -7,5 +7,6 @@
   "fixture": true,
   "sources": [],
   "confidence": "low",
-  "note": "Made-up test fixture."
+  "note": "Made-up test fixture.",
+  "platoonTemplate": "cart-band"
 }

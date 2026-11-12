@@ -1476,3 +1476,53 @@ Plan §6/§15 M7.2 steps 2–4 and 10, owner answers Q10, Q12, Q24, Q25 applied;
 - **Golden update (catalog fingerprint: `mounting`, `dismount`, vehicle stowage; vehicles-s1/fixture-cart-s3 also
   by the stowed items).** Checked first: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s) print
   the identical event stream and casualties as on the base commit; every golden's order stream is unchanged.
+
+## 2026-11-12 — M7.2 part 2: platoons with vehicles, mounted start, AI ride and dismount (golden update)
+- **Templates (owner Q1, Q2):** `pzgren-zug` = 3 squads + 4 × `puma-besatzung`, `carriage` Puma 1–3 carry squads
+  1–3, Puma 4 the platoon's own men (new `carriage[].hq`, loader: counted in the seats, only one per parent);
+  `motor-rifle-platoon` = 3 squads + 3 × `bmp2-ekipazh`, the first carrying squad 1 and the commander (7 seats).
+  Crews come after the squads in the templates, so names and skills of the squads are drawn as before. Sub-units
+  are numbered among siblings of the same template ("Puma 1..4"). Crewmen carry a rifle with 3 magazines, helmet
+  and vest (low). xf fixture: `cart-band` (two porter gangs, each on its cart), `manifest.platoonTemplate`.
+- **Scenario:** `buildForceWithVehicles` gives crews a `vehicleId` and carried units a `carrierId`;
+  `withoutVehicles` strips crews for infantry battles. `ScenarioDef.vehicles` (default off, Q26): the attacker
+  starts aboard in a line 20 m apart, 8 % in from its edge, on the class grid with 3 cells' clearance (roads not
+  preferred yet — deferred); the defender's vehicles stand 60–120 m behind the main objective, staggered, crews
+  only. Map stays 1200 × 900 (plan Q23, recommended option). App `&vehicles=1`; tools `platoon-vehicles`,
+  `platoon-ru-vehicles`. The `vehicles` scenarios' squads now have their vehicle as carrier.
+- **AI (plan §12):** squads and crews split (crews are left out of strength and loss counts). Mounted start →
+  phase `ride`: each carrying vehicle gets its own slot 60 m apart across the way in, at the faction's doctrine
+  distance (Q22: 300 m DE, 400 m RU) from **every** objective (the nearer one may be on a flank), the first point
+  there or up to 100 m farther back that is out of sight of the objectives' near edges and of enemies its men know
+  (sight on the AI's own context, built once when first needed, never saved); none hidden → at the distance; the
+  HQ vehicle 40 m behind. A squad is given its advance (Q12: out first) when its vehicle has arrived, at once when
+  any own hull was hit since the last look (polled `lastHitTick`), or after 300 s. The advance skips the walk
+  leg when the squad is already past it. Vehicles stay where they dropped the squads (German overwatch / Russian
+  following, with base of fire, come with the guns in M7.3 — decided). Withdrawal (losses beyond the doctrine
+  tolerance, or two thirds of the vehicles lost): squads within 100 m of their vehicle get back in (Q24), the
+  rest withdraw on foot; each vehicle drives back (forward, to its own slot) once its men are in or after 60 s
+  (reversing out comes with M7.4b — decided without the owner). A squad still aboard within 100 m of an
+  objective's edge is ordered out [C29].
+- **Batch** (`npm run batch`) gains vehicles lost/immobilised and the first dismount time per side. 10 × 900 s:
+  infantry `platoon` / `platoon-ru` after M7.2 **identical** to the baseline (same casualties, orders, winners);
+  `platoon-vehicles` (Germany attacks mounted) red wins 9 of 10 (infantry: 10), casualties blue 13.6 / red 9.1,
+  first dismount 52 s, 75× real time; `platoon-ru-vehicles` blue (defender) wins 8 of 10 (infantry: 10),
+  casualties blue 11.0 / red 18.5, first dismount 37 s, 89× real time. No vehicle lost (they cannot be yet).
+- **Mount lab** (`npm run lab -- mount`): Puma 6 men in 17.7 s from 10 m, out in 11.9 s; BMP-2 12.3 / 8.2 s;
+  xf cart 3 men 5.9 / 4.7 s.
+- **Golden update:** vehicles-s1 and fixture-cart-s3 change (their squads now have a carrier; order streams
+  unchanged); new golden `platoon-vehicles-s1` (150 s, the Germans ride in and get out). demo-s1, shootout-s1,
+  fixture-s7 unchanged; headless platoon-s1 (900 s) event stream identical to the base commit.
+- **Perf (alone):** bench 13×, spotting 9.6×, bench-vehicles 9.2×, projectile bench 3.97 ms/tick (4.2×), with
+  30 parked hulls +9 % (noise ~10 %), fragment volley 14.9× — unchanged within noise.
+- **Deferred:** vehicle points (Q9) to M7.4a (nothing can be lost before); road preference for the attacker's
+  start; choosing another vehicle to mount by tapping it (the Mount button boards the own carrier; the order
+  takes `vehicle`); CLAUDE.md's scenario list (`platoon-vehicles`, `platoon-ru-vehicles`, `lab -- mount`,
+  `&vehicles=1`) is left for the session lead (not edited here).
+
+## 2026-11-12 — M7.2 part 3: interface
+"+n" by each hull for the men aboard; Mount / Dismount buttons in the order bar when the selected unit can (a
+crew can only let its passengers out); a second tap on an own hull selects the units riding in it, in turn; men
+aboard cannot be tapped; the vehicle's status line adds "aboard n of m"; the hull of a selected squad's vehicle is
+ringed. `__tcs.mount/dismount/riders`. Screenshots `--scene vehicles` now also take the mounted start
+(`mounted-*`). No sim change, no golden update.

@@ -1124,3 +1124,11 @@ fire before it first assaults, and smoke. Golden replays regenerated (new data: 
 **Recorded:** (2) acceptance is met one way only (German attack 2 of 10, Russian 0 of 10) — for the owner;
 (8) calling fire needs no observer with sight of the target: a simplification until the indirect-fire process
 of M8; the renderer draws smoke growth with a fixed 10 s (display only).
+
+## 2026-11-12 — Owner: "more Russian rounds"
+The owner chose more rounds for the Russian side (rather than a heavier mortar or more AI work). Faction
+`fireSupport.roundsFactor` scales the rounds a generated battle gives the faction: Russia x2 (48 HE + 24 smoke
+attacking, 24 + 8 defending), Germany x1 (game values). Alone this changed nothing (the AI never ran out), so
+the AI now fires a quarter of its remaining HE per mission (at least 6). **Result (10 battles each way):**
+Russian attack still 0 of 10 (defenders now lose ~12 of 20, attackers ~12 of 40); German attack 1 of 10 (2 of
+10 before: within the spread of 10 battles). Golden replays regenerated (catalog fingerprint).

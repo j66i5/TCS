@@ -487,6 +487,9 @@ export const DoctrineFile = withProv({
   fireSupport: z.object({
     heAmmo: Id, smokeAmmo: Id, delaySeconds: Num(0, 1200), dispersionM: Num(0, 500), intervalSeconds: Num(0.5, 120),
     smokeRadiusM: Num(1, 200), smokeSeconds: Num(1, 1800),
+    /** Scales the rounds a generated battle gives this faction (owner, 2026-11-12: more rounds for the lighter
+     *  Russian mortar rather than a heavier one). */
+    roundsFactor: Num(0.1, 10).default(1),
   }).strict().optional(),
 });
 

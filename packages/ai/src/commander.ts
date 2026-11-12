@@ -147,7 +147,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds });
+            order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
             mem.lastHe = tick;
           }
           const fireLanding = mem.lastHe === undefined || tick - mem.lastHe >= (fireDelayS + 10) * 60;
@@ -179,7 +179,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of (view.soldier.get(m)?.contacts ?? [])) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: COMMANDER.heRounds }); mem.lastHe = tick; }
+            if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) }); mem.lastHe = tick; }
           }
           if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
             const sx3 = clamp(tgt.x - ux * COMMANDER.smokeAheadM, W), sy3 = clamp(tgt.y - uy * COMMANDER.smokeAheadM, H);

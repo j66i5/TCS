@@ -2,6 +2,9 @@
 
 This plan is for the implementing engineer to follow as written. It keeps the base of design 3 ("hot paths and invariants first") and deals with all 68 critic points. Every WRONG and MISSING point is fixed in the section it concerns, and every RISK point has a mitigation in §17. Each fix carries its critic number as **[Cn]**. File and symbol names were checked against the code on 2026-11-12. Line numbers have moved since M6.6, so the plan names symbols, not lines.
 
+**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, **M7.2 ✅** (2026-11-12; what was decided where the
+plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3"). Next: M7.3.
+
 **Current facts the plan depends on (checked):**
 - `STATE_SCHEMA_VERSION = 15` (`packages/sim/src/state.ts`). `STORE_KEYS = identity, transform, mover, soldier, unit, container, action, weapon, fire`.
 - `step()` system order is in `packages/sim/src/sim.ts`. `surrenderSystem` runs before `decisionSystem`.
@@ -1025,7 +1028,7 @@ Its memory keeps last-seen ticks to detect changes ("a hit since my last think" 
 - Lab: `npm run lab -- drive`.
 - Acceptance: as revision 1. Vehicles appear only in `?scenario=vehicles` and the tools scenarios.
 
-### M7.2 Passengers, mount and dismount, mounted start (opt-in), AI ride and dismount
+### M7.2 Passengers, mount and dismount, mounted start (opt-in), AI ride and dismount — ✅ done
 - **Files:** as revision 1, plus `systems/boarding.ts` (new: mount, dismount, loadCasualty, seatSwap handlers, `boardingSystem`), `systems/decisions.ts` (container resupply), `comms.ts`, `packages/sim/src/knowledge.ts` (gate).
 - **Steps:**
   1. Owner answers to Q1, Q2, Q9, Q10, Q12, Q25 first.

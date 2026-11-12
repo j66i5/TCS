@@ -506,6 +506,17 @@ in their seats (`vehicleSyncSystem`). `move`/`halt` orders to the crew unit set 
 track speeds, gears, rain) and burns fuel from the tank item. Plan and later slices: `docs/plans/m7-vehicles.md`.
 Schema 16.
 
+## 16i. Passengers, getting in and out (M7.2) — `systems/boarding.ts`, `systems/orders.ts`
+
+Orders `mount {vehicle?}` / `dismount` set `Unit.boarding` (a state record, not a drill). `boardingSystem` (after
+the drills, every tick; nothing without vehicles) walks the men to the nearest exit, starts the timed actions
+`mount` / `dismount` / `loadCasualty` (two men) one man per exit, holds the hull (`DriveState.holdForDismount`,
+route kept) while men pass, and lets a fallen driver or gunner be replaced (`seatSwap` action). Only these
+handlers and the battle setup write `VehicleState.seats` and `SoldierState.mount`. An order to a squad aboard is
+kept as `Boarding.then` and applied without a second comms delay once it is out (`applyOrderNow`). The scenario
+builder pairs squads and carriers from the templates' `carriage` (`UnitInput.carrierId` → `Unit.carrier`); the AI
+reads `Unit.carrier`, `Unit.boarding`, `drive.arrived` and `lastHitTick` from its read-only view.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -537,7 +548,10 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts, hulls.ts, nav.ts (`tracked:c1`) | ✅ dynamics, gears, rain, fuel M7.1b; navigation, follower, collisions, flattening M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `sim/test/vehicles.test.ts`, `tools/test/vehicle-maps.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
 | 4.3.5 | "vehicle hit" event | systems/ballistics.ts | 🟡 every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; penetration M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick" |
 | 4.4 | Scale with vehicles | perf.test.ts | 🟡 `bench-vehicles` ≥ 8× (M7.1c); `bench-combined`, render proxy M7.3 | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls" |
-| — | Mounted-man invariants | architecture.test.ts A7 | 🟡 source guard M7.1c (surrender.ts M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated" |
+| — | Mounted-man invariants | architecture.test.ts A7, mounted-invariants.test.ts | ✅ source guard M7.1c (no file exempt since M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated"; `tools/test/mounted-invariants.test.ts` |
+| 6.7 | Crew seats, no driver no movement, passengers are soldiers | systems/boarding.ts, systems/drive.ts, mount.ts | ✅ M7.2 | `sim/test/mount.test.ts`; `sim/test/vehicles.test.ts` "no driver answers radio.noDriver" |
+| 9.1 | Casualties loaded into a vehicle | systems/boarding.ts (`loadCasualty`) | 🟡 within 5 m of an exit, by two men (M7.2); carrying over distance M10 | `sim/test/mount.test.ts` "a casualty within 5 m of the exit is loaded by two men" |
+| 9.2 | Vehicle-carried reserves, cross-loading | systems/boarding.ts (`takeFromVehicle`), systems/decisions.ts | 🟡 refill from an own halted vehicle (M7.2); abandoned hulls M7.4b | `sim/test/mount.test.ts` "refills from the halted carrier; items are conserved" |
 | 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | 🟡 records in/out M7.1b; wrecks M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out" |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |

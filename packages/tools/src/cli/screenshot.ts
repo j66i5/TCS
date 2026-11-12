@@ -41,7 +41,7 @@ const outDir = `${ROOT}/screenshots`;
 mkdirSync(outDir, { recursive: true });
 
 /**
- * M7.1c vehicles (`--scene vehicles`): the vehicles scenario at the start (hulls at true size, facing east), a
+ * M7.1c vehicles (`--scene vehicles`; with the M7.2 mounted start after it): the vehicles scenario at the start (hulls at true size, facing east), a
  * Puma selected and ordered forward then back in reverse, 30 s on; the same in Debug (both sides, the tracked
  * grid with its clearance).
  */
@@ -68,6 +68,39 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
   await page.screenshot({ path: p2 }); shots.push(p2);
   const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; return { tick: s.tick, vehicles: s.vehicle.size, hash: t.hash(), orders: t.orderLog.length };") as () => object);
   console.log(`${name}: vehicles scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  await mountedScenes(page, name, errors, shots);
+}
+
+/**
+ * M7.2 mounted start (`--scene vehicles`, second part): the platoon battle with `&vehicles=1` — the attacking
+ * platoons aboard their Pumas at the map edge ("+n" by each hull, the first Puma selected); that Puma driven
+ * 150 m forward; its squad selected by tapping the hull again (the order bar offers Dismount) and ordered out.
+ */
+async function mountedScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  await page.goto(`http://localhost:${port}/?scenario=platoon&vehicles=1&seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+    const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focus(p.x + 30, p.y, 160); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const m0 = `${outDir}/mounted-${seed}-${name}-0-start.png`;
+  await page.screenshot({ path: m0 }); shots.push(m0);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const [vid] = t.vehicles()[0]; const p = s.transform.get(vid);
+    t.planMove([{ x: p.x + 150, y: p.y, mode: "drive" }], 0); t.go(); t.stepTicks(60 * 25);
+    const q = s.transform.get(vid); t.focus(q.x, q.y, 90); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const m1 = `${outDir}/mounted-${seed}-${name}-1-driven.png`;
+  await page.screenshot({ path: m1 }); shots.push(m1);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; const [vid, unit] = t.vehicles()[0];
+    const r = t.riders(unit); if (r.length > 0) t.select(r[0]); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(300);
+  const m2 = `${outDir}/mounted-${seed}-${name}-2-squad-selected.png`;
+  await page.screenshot({ path: m2 }); shots.push(m2);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.dismount(); t.stepTicks(60 * 16); t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const m3 = `${outDir}/mounted-${seed}-${name}-3-dismounted.png`;
+  await page.screenshot({ path: m3 }); shots.push(m3);
+  const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; let aboard = 0; for (const [, x] of s.soldier.entries()) if (x.mount) aboard++; return { tick: s.tick, vehicles: s.vehicle.size, aboard, hash: t.hash(), orders: t.orderLog.length };") as () => object);
+  console.log(`${name}: mounted scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 async function waitForServer(): Promise<void> {

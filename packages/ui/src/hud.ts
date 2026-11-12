@@ -26,6 +26,9 @@ export interface HudCallbacks {
   onOrderMode(mode: OrderMode): void;
   onHalt(): void;
   onCeaseFire(): void;
+  /** Get in / get out (M7.2). */
+  onMount(): void;
+  onDismount(): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
   onPace(mode: string): void;
@@ -127,8 +130,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     cb.onPosture(postures[posture]!);
   };
   const rulesBtn = el("button", "hud-btn", s.t("order.rules"));
+  const mountBtn = el("button", "hud-btn", s.t("order.mount"));
+  mountBtn.onclick = () => cb.onMount();
+  const dismountBtn = el("button", "hud-btn", s.t("order.dismount"));
+  dismountBtn.onclick = () => cb.onDismount();
+  mountBtn.hidden = true; dismountBtn.hidden = true;
   orders.append(mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
-    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), haltBtn, ceaseBtn, postureBtn, rulesBtn);
+    mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), mountBtn, dismountBtn, haltBtn, ceaseBtn, postureBtn, rulesBtn);
 
   // ---- plan bar
   const plan = el("div", "hud-plan");
@@ -236,6 +244,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     setOrders(set) {
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire; postureBtn.hidden = !set.posture; rulesBtn.hidden = !set.rules;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount;
       if (set.paces.join() !== paces.join()) {
         paces = [...set.paces]; pace = 0;
         paceBtn.textContent = `${s.t("order.pace")}: ${s.t(`move.${paces[0]!}`)}`;

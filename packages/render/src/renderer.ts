@@ -418,7 +418,15 @@ export class BattleRenderer {
       };
       const h = def.body.hull;
       const wreck = v.status === "destroyed" || v.status === "abandoned";
-      const selected = v.unit !== null && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, v.unit);
+      // Men aboard (M7.2): how many passengers, and whether the selected unit rides in it.
+      let aboard = 0, carriesSelected = false;
+      v.seats.forEach((o, i) => {
+        if (o === null || def.seats[i]?.station !== "passenger") return;
+        aboard++;
+        const u = state.identity.get(o)?.unit;
+        if (!carriesSelected && u !== undefined && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, u)) carriesSelected = true;
+      });
+      const selected = (v.unit !== null && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, v.unit)) || carriesSelected;
       // Route of the selected vehicle (from where it is), reverse legs orange.
       if (selected && v.drive.route.length > v.drive.routeIdx) {
         let a = worldToScreen(c, p.x, p.y);
@@ -450,7 +458,7 @@ export class BattleRenderer {
       const s = worldToScreen(c, p.x, p.y);
       if (selected) g.circle(s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 5).stroke({ width: 2, color: 0xffffff });
       const unit = v.unit !== null ? state.unit.get(v.unit) : undefined;
-      if (unit && c.scale > 0.5) this.label(label++, unit.callsign, s.x + (def.body.lengthM / 2) * c.scale * k + 8, s.y - 8, colour);
+      if (unit && c.scale > 0.5) this.label(label++, aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x + (def.body.lengthM / 2) * c.scale * k + 8, s.y - 8, colour);
     }
     return label;
   }

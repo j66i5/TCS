@@ -1,15 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-11 (M0, M1 and M2 done)._
+_Last updated: 2026-11-12 (M7.2 done)._
 
 ## Current milestone
-**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b and **M7.1c are done** — vehicles
-drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each other,
-make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn at
-true size and can be ordered (move, halt, reverse legs) in `?scenario=vehicles` and the tools scenarios
-`vehicles`, `vehicles-fixture`, `bench-vehicles`. They are in no other battle yet. Next: **M7.2** (passengers,
-mount and dismount, mounted-man runtime test, surrender gate), then M7.3/M7.4a/M7.4b, then **M7.5 Look and
-interface**. Deferred items from M7.1c are listed in DECISIONS.md (M7.1c part 3).
+**M7 Vehicles in progress** (plan `docs/plans/m7-vehicles.md`): M7.1a, M7.1b, M7.1c and **M7.2 are done** —
+vehicles drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each
+other, make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn
+at true size and can be ordered (move, halt, reverse legs). **M7.2:** squads get in and out (Mount / Dismount
+orders and buttons, one man per door at a time, the vehicle waiting; two men carry a wounded comrade in from near
+the ramp; an order to a squad aboard is carried out after it gets out; men refill magazines from a stopped
+vehicle; a crewman takes over a fallen driver's seat); the platoon battle can start mounted with **`&vehicles=1`**
+(tools: `platoon-vehicles`, `platoon-ru-vehicles`): the attacker rides in from its edge and the AI gets its
+squads out 300 m (German) / 400 m (Russian) short of the objectives, out of sight where it can, at once when a
+vehicle is hit, and gets them back in when it withdraws. The default battle stays on foot until M7.4a (owner
+Q26). Vehicles still cannot fire or be damaged. Next: **M7.3** (turret, 30 mm and coax, vehicle spotting,
+smoke), then M7.4a/M7.4b, then **M7.5 Look and interface**. Deferred items: DECISIONS.md (M7.1c part 3, M7.2
+parts 1–3).
 
 ## What works
 - **M0 foundations** (see ARCHITECTURE.md): deterministic 60 Hz simulation, seeded RNG streams, serialisable
@@ -112,6 +118,13 @@ interface**. Deferred items from M7.1c are listed in DECISIONS.md (M7.1c part 3)
   and attack, app battle with side/attacker choice, save/load, after-action review (casualties, timeline, heat
   map), AI-versus-AI batches (`npm run batch -- --scenario platoon` / `platoon-ru`): the defender wins 20 of 20
   each way.
+- **M7.2 passengers**: mount/dismount orders with exit queues and the hull holding; orders to a squad aboard
+  (out first, owner Q12); casualty loading within 5 m of the ramp (Q25); `radio.noSeats`; seat swap after 20 s;
+  refill from the vehicle's stowage (`transferItems`); intercom; surrender gated aboard; platoon templates with
+  crews and `carriage` (four Pumas with the HQ in the fourth, Q1; three BMP-2s with the commander in the first,
+  Q2); mounted start behind `&vehicles=1`; AI ride, dismount (doctrine distances, Q22), re-mount on withdrawal
+  within 100 m (Q24), dismount near an objective it holds; mount lab (`npm run lab -- mount`); "+n" aboard by
+  each hull, a second tap on a hull selects the squad riding in it.
 - **M6.5 attack balance**: two platoons attack one; AI sneaks up, splits fire and assault, throws grenades,
   calls mortars; Mortar and Smoke orders for the player (rounds land after 75-90 s; smoke blocks sight).
 - Tests: 382 (378 + 4 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map
@@ -184,6 +197,12 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
   tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
   Germany and Russia for lack of a public source on a difference.
+- **New data (M7.2), for review:** `core/behaviour.json` `mounting` (reach, timings, 100 m re-mount and hold
+  distances, refill of 3 magazines; game values, low); vehicle stowage (Puma 20 G36 magazines, 6 MG5 belts,
+  4 G28 magazines; BMP-2 24 AK-74 magazines, 6 PKP belts; low); crews carry a rifle with 3 magazines, helmet and
+  vest (low); `doctrine.json` `dismount.distanceM` Russia 400 m (medium), Germany 300 m (low, no published figure).
+  Decided without the owner (plan's recommended options): Q13 a crewman (not a passenger) takes over a fallen
+  driver or gunner after about 20 s; an order to a platoon with vehicles moves the vehicles (squads ride along).
 - **New low-confidence data (M7.1b vehicles):** `factions/de/vehicles.json` (Puma) and `factions/ru/vehicles.json`
   (BMP-2): power, mass, top speed, crew/passenger counts and the BMP-2 turret rates are sourced (medium); hull
   boxes, gear bands, reverse speeds, braking, steering, fuel capacity and use, ramp times and station errors are

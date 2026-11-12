@@ -359,6 +359,31 @@ comes within a few metres takes him prisoner (a white square); when it is quiet,
 walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
+## Vehicles and riding in them (M7)
+A **vehicle** (so far the German Puma and the Russian BMP-2) is a thing on the map with a fuel tank and stowed
+ammunition, crewed by a small unit of its own: commander, gunner, driver. It drives by a physical model (engine
+power, the two tracks, gears, ground and rain), finds its way on a map of where a hull fits, flattens fences and
+hedges, drives round walls and houses, waits for its own men and runs over the enemy's. Without an able driver
+it does not move; if the driver falls, the commander moves into his seat after about 20 seconds (the dead or
+wounded man stays aboard). The vehicles cannot fire or be damaged yet (that is M7.3 and M7.4).
+
+**Riding.** Men in a vehicle stay soldiers sitting in seats: they move with it, see nothing outside, cannot fire
+or be shot at, and never give up while aboard; they still count for holding an objective. A squad told to
+**Mount** runs to the back of its own vehicle and climbs in one man at a time through each door, after the ramp
+opens; the vehicle waits meanwhile. A wounded man lying within a few metres of the ramp is carried in by two
+comrades; men lying farther off stay where they are (the medics come in a later milestone). **Dismount**: the
+vehicle stops, the ramp opens and the men get out one at a time, landing a few metres behind it, crouching. Give
+a squad aboard any other order (move, assault, fire ...) and it gets out first, then does it. A man who runs out
+of magazines walks over to a stopped vehicle of his side nearby and takes three from its stowage.
+
+**In a battle** (for now only with `&vehicles=1`, until the vehicles can be knocked out): the attacking platoons
+start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
+operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up
+to a point out of sight of the objectives, 300 m short of them for the Germans and 400 m for the Russians (from
+their published doctrine), and the squads get out and go on as before; they get out at once if a vehicle is hit.
+If the attack fails, squads within 100 m of their vehicle get back in and ride back. The defender's vehicles
+stand behind its position with only their crews.
+
 ## Does an attack work?
 
 `npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low

@@ -14,7 +14,13 @@ export interface OrderSet {
   paces: string[];
   /** The pace "reverse" stands for (the slowest vehicle pace), if offered. */
   reversePace?: string;
+  /** Get in (men on foot with a vehicle to ride in) / get out (men aboard, or a vehicle with passengers) (M7.2). */
+  mount: boolean;
+  dismount: boolean;
 }
+
+/** What the selected unit can do about vehicles now (M7.2). */
+export interface BoardingChoice { mount: boolean; dismount: boolean }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
 const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "fire", "grenade", "grenades", "mortar", "smoke"];
@@ -23,13 +29,14 @@ const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "fire", "grenade
  * `vehicleClass`: the class of the unit's vehicle, or null for men on foot. `modes`: the catalog's movement
  * modes (vehicle paces ordered slow to fast by their share of top speed).
  */
-export function ordersFor(vehicleClass: "tracked" | "wheeled" | null, modes: Readonly<Record<string, { class: string; speedFraction?: number }>>): OrderSet {
-  if (vehicleClass === null) return { modes: FOOT_MODES, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES };
+export function ordersFor(vehicleClass: "tracked" | "wheeled" | null, modes: Readonly<Record<string, { class: string; speedFraction?: number }>>, boarding: BoardingChoice = { mount: false, dismount: false }): OrderSet {
+  if (vehicleClass === null) return { modes: FOOT_MODES, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: boarding.mount, dismount: boarding.dismount };
   const paces = Object.entries(modes).filter(([, m]) => m.class === vehicleClass).sort((a, b) => (a[1].speedFraction ?? 0) - (b[1].speedFraction ?? 0) || (a[0] < b[0] ? -1 : 1)).map(([id]) => id);
   // Default: the middle pace ("drive"), then the others, then reverse.
   const mid = paces[Math.floor((paces.length - 1) / 2)];
   const ordered = mid === undefined ? [] : [mid, ...paces.filter((p) => p !== mid)];
-  const out: OrderSet = { modes: ["move"], halt: true, ceaseFire: true, posture: false, rules: true, paces: ordered };
+  // A vehicle's crew can only let its passengers out (they get in by an order to their own unit).
+  const out: OrderSet = { modes: ["move"], halt: true, ceaseFire: true, posture: false, rules: true, paces: ordered, mount: false, dismount: boarding.dismount };
   if (paces[0] !== undefined) { out.paces = [...ordered, "reverse"]; out.reversePace = paces[0]; }
   return out;
 }

@@ -29,4 +29,11 @@ describe("ordersFor (M7.1c)", () => {
     expect(ordersFor("wheeled", modes).paces).toEqual(["wdrive-slow", "wdrive", "reverse"]);
     expect(ordersFor("wheeled", modes).reversePace).toBe("wdrive-slow");
   });
+
+  it("mount and dismount (M7.2): offered as the unit's state allows; a crew can only let its passengers out", () => {
+    expect(ordersFor(null, modes)).toMatchObject({ mount: false, dismount: false });
+    expect(ordersFor(null, modes, { mount: true, dismount: false })).toMatchObject({ mount: true, dismount: false });
+    expect(ordersFor(null, modes, { mount: false, dismount: true })).toMatchObject({ mount: false, dismount: true });
+    expect(ordersFor("tracked", modes, { mount: true, dismount: true })).toMatchObject({ mount: false, dismount: true });
+  });
 });

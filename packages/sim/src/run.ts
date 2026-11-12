@@ -5,7 +5,7 @@ import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideR
 import type { SimEventKind } from "./events";
 import { secondsToTicks, ticksToSeconds } from "./ids";
 import type { Order } from "./orders";
-import { unitsFromState } from "./setup";
+import { unitsFromState, vehiclesFromState } from "./setup";
 import { createSim, loadSim, saveSim, simHash, step, submitOrder, type Sim } from "./sim";
 
 export function runBattle(input: BattleInput, opts: RunOptions = {}): BattleResult {
@@ -68,8 +68,25 @@ function summarize(
       else if (st === "fit") fit++;
       else wounded++;
     }
-    return { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured };
+    const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured };
+    // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
+    let vs: NonNullable<SideResult["vehicles"]> | null = null;
+    for (const [, v] of state.vehicle.entries()) {
+      if (v.side !== sd.id) continue;
+      vs ??= { start: 0, ok: 0, immobilised: 0, disarmed: 0, abandoned: 0, destroyed: 0, captured: 0 };
+      vs.start++;
+      vs[v.status]++;
+      if (v.capturedBy !== null) vs.captured++;
+    }
+    if (vs) out.vehicles = vs;
+    return out;
   });
+  const wrecks: NonNullable<BattleResult["wrecks"]> = [];
+  for (const [id, v] of state.vehicle.entries()) {
+    if (v.status !== "destroyed" && v.status !== "abandoned" && v.status !== "immobilised") continue;
+    const t = state.transform.req(id);
+    wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
+  }
   return {
     seed: input.seed,
     catalogFingerprint: input.catalog.fingerprint,
@@ -78,7 +95,11 @@ function summarize(
     endReason: state.ended?.reason ?? "scenario",
     finalStateHash: simHash(sim),
     sides,
-    forcesOut: input.forces.map((f) => ({ side: f.side, faction: f.faction, units: unitsFromState(state, f.side, f.units) })),
+    forcesOut: input.forces.map((f) => ({
+      side: f.side, faction: f.faction, units: unitsFromState(state, f.side, f.units),
+      ...(f.vehicles && f.vehicles.length > 0 ? { vehicles: vehiclesFromState(state, f.side) } : {}),
+    })),
+    ...(state.vehicle.size > 0 ? { wrecks } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),

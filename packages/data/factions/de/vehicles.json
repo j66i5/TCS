@@ -1,0 +1,269 @@
+{
+  "vehicles": [
+    {
+      "id": "de-puma",
+      "nameKey": "vehicle.de.puma",
+      "class": "tracked",
+      "body": {
+        "lengthM": 7.6,
+        "widthM": 4.0,
+        "heightM": 3.6,
+        "groundClearanceM": 0.45,
+        "hull": {
+          "f": [
+            -3.8,
+            3.8
+          ],
+          "r": [
+            -2.0,
+            2.0
+          ],
+          "u": [
+            0.45,
+            2.45
+          ]
+        },
+        "turret": {
+          "pivotF": 0.4,
+          "f": [
+            -1.2,
+            1.4
+          ],
+          "r": [
+            -1.15,
+            1.15
+          ],
+          "u": [
+            2.45,
+            3.3
+          ],
+          "barrelM": 3.0,
+          "trunnionU": 2.85
+        },
+        "trackContactM": 4.9,
+        "trackGaugeM": 3.0,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Length, width and height are the published figures for protection level C (7.6 x 4.0 x 3.6 m); the hull and turret boxes, track contact length and gauge are game values."
+      },
+      "mass": {
+        "kg": 43000,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)",
+          "https://www.army-technology.com/projects/puma_tracked/"
+        ],
+        "confidence": "medium",
+        "note": "43 t at protection level C, the combat configuration (31.45 t at level A)."
+      },
+      "drive": {
+        "powerKw": 800,
+        "efficiency": 0.75,
+        "topSpeedKmh": 70,
+        "reverseTopSpeedKmh": 30,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 8
+          },
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 25
+          },
+          {
+            "toKmh": 38
+          },
+          {
+            "toKmh": 52
+          },
+          {
+            "toKmh": 70
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 30
+          }
+        ],
+        "shiftSeconds": 0.4,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 40,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 40,
+        "litresPerKwh": 0.28,
+        "sources": [
+          "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+          "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "Engine power 800 kW (MTU V10 892) and road speed 70 km/h are published; reverse speed, gear bands, efficiency, braking, steering, idle power and fuel use are game values."
+      },
+      "fuel": {
+        "item": "de-puma-diesel",
+        "capacityL": 900
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.8,
+            0.6,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.8,
+            -0.6,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            -0.9,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -1.0,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.9,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -1.9,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            -1.0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -4.0,
+            0
+          ]
+        ],
+        "openSeconds": 3,
+        "mountSecondsPerMan": 2.0,
+        "dismountSecondsPerMan": 1.2,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 15,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game value (M7), not in the public sources; tuned in the drive lab."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 60,
+          "elevateDegS": 40,
+          "elevationDeg": [
+            -10,
+            45
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.3,
+          "movingMradPerMps": 0.3,
+          "layToleranceMrad": 2,
+          "rangefinder": true,
+          "readyRefillInBattle": false,
+          "weapons": [],
+          "sources": [],
+          "confidence": "low",
+          "note": "Unmanned turret; rates, limits and errors are game values. The gun and coaxial machine gun are added with gunnery (M7.3)."
+        }
+      ],
+      "stowed": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "medium",
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4."
+    }
+  ]
+}

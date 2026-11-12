@@ -24,6 +24,8 @@ export { battleScore, type BattleScore, type SideScore } from "./systems/objecti
 export { smokeTransmission, supportLeft } from "./systems/support";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";
 export { takeOutOfFight } from "./systems/wounds";
+export { driveSurface, fuelLitres, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";
+export * from "./mount";
 export * from "./impair";
 export * from "./hash";
 export * from "./store";

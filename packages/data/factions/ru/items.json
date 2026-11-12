@@ -184,6 +184,17 @@
       "sources": [],
       "confidence": "low",
       "note": "Section radio with battery, typical mass; the comms model does not read it yet (M14)."
+    },
+    {
+      "id": "ru-bmp2-diesel",
+      "nameKey": "item.ru-bmp2-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 460,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The BMP-2's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
     }
   ]
 }

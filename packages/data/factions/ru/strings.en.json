@@ -66,5 +66,9 @@
   "role.ru.platoon-commander": "Platoon commander",
   "ammo.ru-82-he": "82 mm HE mortar bomb",
   "ammo.ru-82-fragment": "fragment",
-  "ammo.ru-82-smoke": "82 mm smoke mortar bomb"
+  "ammo.ru-82-smoke": "82 mm smoke mortar bomb",
+  "role.ru.komandir-mashiny": "Vehicle commander",
+  "role.ru.operator-navodchik": "Gunner-operator",
+  "role.ru.mekhanik-voditel": "Driver-mechanic",
+  "item.ru-bmp2-diesel": "BMP-2 fuel"
 }

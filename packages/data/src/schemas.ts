@@ -23,13 +23,22 @@ const withProv = <T extends z.ZodRawShape>(shape: T) => z.object({ ...shape, ...
 // ---------- core ----------
 export const MovementClass = z.enum(["foot", "wheeled", "tracked"]);
 export const PostureId = z.enum(["standing", "crouching", "prone"]);
-export const MovementModeSchema = withProv({
-  id: Id, nameKey: z.string(), class: MovementClass, speedMps: z.number().positive().max(40),
-  /** Posture a soldier takes for this mode (vehicles: ignored). */
+/** A pace on foot (M1). */
+export const FootModeSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.literal("foot"), speedMps: z.number().positive().max(40),
+  /** Posture a soldier takes for this mode. */
   posture: PostureId,
   /** Work rate of moving in this mode (0 = resting, ~0.85 = running); drives heart rate and fatigue. */
   exertion: z.number().min(0).max(2),
+  /** The vehicle pace a vehicle given this foot pace drives at (M7: a platoon order in "walk" moves its IFVs
+   *  at a slow drive), per vehicle class. */
+  vehiclePace: z.object({ tracked: Id, wheeled: Id }).strict(),
 });
+/** A vehicle pace (M7): a share of the vehicle's own top speed. */
+export const VehiclePaceSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]), speedFraction: z.number().positive().max(1),
+});
+export const MovementModeSchema = z.discriminatedUnion("class", [FootModeSchema, VehiclePaceSchema]);
 export const MovementModesFile = z.object({ movementModes: z.array(MovementModeSchema).min(1) }).strict();
 
 export const SKILL_KEYS = ["marksmanship", "fieldcraft", "medical", "leadership", "experience"] as const;
@@ -90,6 +99,10 @@ export const BallisticsFile = withProv({
     /** A wall thinner than this (steel-equivalent mm) does not shield a man from blast. */
     shieldSteelMm: Num(0, 1000),
   }).strict(),
+  /** Armour (M7): published penetration and plate figures in mm of rolled homogeneous armour (RHA) are multiplied
+   *  by this to give mild-steel-equivalent mm, the one scale the simulation uses. Equal to the `armour-steel`
+   *  material's resistance (a test checks it). */
+  rhaToMildSteel: Num(0.5, 3),
   /** Fragments are simulated only inside this band of elevation (degrees): the rest go into the ground or sky. */
   fragments: z.object({ bandDeg: z.tuple([Num(-90, 0), Num(0, 90)]), maxPerBurst: z.number().int().min(1).max(20000),
     /** A burst higher than this above the ground also throws fragments downward. */
@@ -152,7 +165,7 @@ export const AmmoSchema = withProv({
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
 export const WeaponSchema = withProv({
   id: Id, nameKey: z.string(),
-  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher"]),
+  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon"]),
   calibre: z.string(), massKg: Num(0.1, 500),
   feed: z.object({ magazine: Id }).strict(),
   fireModes: z.array(z.enum(["semi", "burst", "auto"])).min(1),
@@ -343,6 +356,8 @@ export const MaterialSchema = withProv({
   densityKgM3: z.number().positive().max(20000),
   /** Penetration resistance in mm of mild steel equivalent per mm of material. */
   resistance: z.number().min(0).max(3),
+  /** Resistance against shaped-charge jets, if it differs from `resistance` (composites, M7). */
+  resistanceShaped: z.number().min(0).max(5).optional(),
   /** Largest angle from the surface at which a bullet can still ricochet, degrees (0 = never). */
   ricochetAngleDeg: z.number().min(0).max(45),
   /** Masonry, concrete, soil, wood: soft-core bullets break up in it at high impact speed. */
@@ -353,6 +368,13 @@ export const SurfaceSchema = withProv({
   /** What the ground is made of, for bullet impacts and ricochets (materials.json). */
   material: Id,
   noise: z.number().min(0).max(1), dust: z.number().min(0).max(1), colour: Colour,
+  /** How vehicles drive on it (M7): rolling resistance coefficient, traction and lateral friction coefficients,
+   *  an optional speed cap, and what rain does to traction and rolling resistance (factors at full wetness).
+   *  Absent: vehicles cannot drive on it. */
+  vehicle: z.object({
+    rolling: Num(0.001, 1), traction: Num(0.05, 1.5), lateral: Num(0.05, 1.5), capKmh: Num(1, 200).optional(),
+    wetTractionFactor: Num(0.1, 1), wetRollingFactor: Num(1, 3),
+  }).strict().optional(),
 });
 export const VegetationSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(60),
@@ -362,11 +384,15 @@ export const VegetationSchema = withProv({
   stoppingPerM: z.number().min(0).max(0.1),
   moveCost: MoveCost, colour: Colour,
 });
+const VehicleCrossing = z.object({ crossCostCells: Num(0, 50), capKmh: Num(1, 100), flattens: z.boolean() }).strict();
 export const ObstacleKindSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(20), thicknessM: z.number().positive().max(30),
   material: Id, seeThrough: z.number().min(0).max(1),
   footCrossTimeS: z.number().positive().max(600).nullable(),
-  wheeledCrossable: z.boolean(), trackedCrossable: z.boolean(), colour: Colour,
+  /** Vehicles (M7), per class: null = it cannot cross (goes round); otherwise the extra route cost in cells, the
+   *  speed while crossing, and whether the hull flattens it (leaving a gap as wide as the hull's path). */
+  vehicle: z.object({ tracked: VehicleCrossing.nullable(), wheeled: VehicleCrossing.nullable() }).strict(),
+  colour: Colour,
 });
 export const BuildingKindSchema = withProv({
   id: Id, nameKey: z.string(), widthM: Range, depthM: Range, storeys: IntRange, storeyHeightM: z.number().positive().max(20),
@@ -452,6 +478,8 @@ export const ItemsFile = z.object({ items: z.array(ItemSchema) }).strict();
 const LoadEntry = z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict();
 const MemberSlot = z.object({
   role: Id, rank: Id,
+  /** Crew templates (M7): the seat (vehicle seat id) this man takes; default: crew seats in station order. */
+  seat: Id.optional(),
   /** Personal weapon (weapons.json); its magazines are in `load`. */
   weapon: Id.optional(),
   load: z.array(LoadEntry).default([]),
@@ -465,8 +493,79 @@ export const UnitTemplateSchema = withProv({
   leaderIndex: z.number().int().min(-1),
   members: z.array(MemberSlot),
   subunits: z.array(Id).default([]),
+  /** Crew templates (M7): the vehicle type (vehicles.json) this unit crews. */
+  vehicle: Id.optional(),
+  /** Parent templates (M7): which sub-unit (index into `subunits`) is the crew of a vehicle that carries which
+   *  other sub-units. A crew template never names its siblings itself. */
+  carriage: z.array(z.object({ crew: z.number().int().min(0), carries: z.array(z.number().int().min(0)) }).strict()).optional(),
 });
 export const UnitsFile = z.object({ units: z.array(UnitTemplateSchema).min(1) }).strict();
+
+// ---------- vehicles (factions/<id>/vehicles.json, optional; M7) ----------
+/** Generic crew station kinds (code keys, not faction words). */
+export const StationKind = z.enum(["commander", "gunner", "driver", "loader", "passenger"]);
+const Span = (lo: number, hi: number) => z.tuple([Num(lo, hi), Num(lo, hi)]).refine((r) => r[0] <= r[1], "range must be [min, max]");
+/** A box in hull coordinates: f forward (+) / back, r right (+) / left, u up from the ground, metres. */
+const Box = z.object({ f: Span(-20, 20), r: Span(-10, 10), u: Span(0, 10) }).strict();
+const Pos3 = z.tuple([Num(-20, 20), Num(-10, 10), Num(0, 10)]);
+export const VehicleWeaponSchema = z.object({
+  weapon: Id, coax: z.boolean(), muzzle: Pos3,
+  feeds: z.array(z.object({ item: Id, ready: z.object({ count: z.number().int().min(0), charge: z.number().int().min(0) }).strict() }).strict()).min(1),
+  switchSeconds: Num(0, 60), engageRangeM: Num(0, 10000),
+  /** "belt": rounds come off the ready belt; "single": one round loaded at a time (needs `roundLoadSeconds`);
+   *  "autoloader": single rounds without a loader. */
+  feedKind: z.enum(["belt", "single", "autoloader"]),
+  loaderStation: StationKind.optional(), roundLoadSeconds: Num(0.1, 120).optional(), noLoaderFactor: Num(1, 20).optional(),
+}).strict();
+export const VehicleSchema = withProv({
+  id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
+  body: withProv({
+    lengthM: Num(1, 20), widthM: Num(0.5, 6), heightM: Num(0.5, 6), groundClearanceM: Num(0, 2),
+    hull: Box,
+    turret: z.object({ pivotF: Num(-10, 10), f: Span(-10, 10), r: Span(-5, 5), u: Span(0, 10), barrelM: Num(0, 15), trunnionU: Num(0, 10) }).strict().optional(),
+    trackContactM: Num(0.5, 15).optional(), trackGaugeM: Num(0.5, 6).optional(), wheelbaseM: Num(0.5, 15).optional(),
+  }),
+  mass: withProv({ kg: Num(500, 200000) }),
+  drive: withProv({
+    powerKw: Num(10, 5000), efficiency: Num(0.1, 1), topSpeedKmh: Num(1, 200), reverseTopSpeedKmh: Num(1, 100), brakeMps2: Num(0.5, 15),
+    gears: z.array(z.object({ toKmh: Num(1, 200) }).strict()).min(1).max(12),
+    reverseGears: z.array(z.object({ toKmh: Num(1, 100) }).strict()).min(1).max(6),
+    shiftSeconds: Num(0, 5),
+    steering: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("tracked"), pivot: z.boolean(), pivotRateDegS: Num(1, 180), maxLatAccelMps2: Num(0.5, 15), slipCoeff: Num(0, 2), turnResistance: Num(0, 3) }).strict(),
+      z.object({ kind: z.literal("wheeled"), maxSteerDeg: Num(5, 60), steerRateDegS: Num(1, 180), maxLatAccelMps2: Num(0.5, 15) }).strict(),
+    ]),
+    idleKw: Num(0, 500), litresPerKwh: Num(0.05, 2),
+  }),
+  /** The tank: an item whose charge is litres (counted in the vehicle's container, SPEC 4.3 rule 9). */
+  fuel: z.object({ item: Id, capacityL: Num(1, 5000) }).strict(),
+  seats: z.array(z.object({
+    id: Id, station: StationKind, pos: Pos3, part: z.enum(["hull", "turret"]), hatch: z.boolean(),
+    /** Sensor kinds (core/spotting.json) this seat looks through (M7.3). */
+    sensors: z.array(z.object({ kind: z.string(), pos: Pos3.optional(), arcDeg: Num(1, 360), sideFactor: Num(0, 1), rearFactor: Num(0, 1), follows: z.enum(["own", "station"]), lrf: z.boolean().optional() }).strict()).optional(),
+  }).strict()).min(1),
+  ramp: withProv({
+    /** Exit points in hull coordinates [f, r]. */
+    exits: z.array(z.tuple([Num(-20, 20), Num(-10, 10)])).min(1),
+    openSeconds: Num(0, 60), mountSecondsPerMan: Num(0, 60), dismountSecondsPerMan: Num(0, 60), bailOutSeconds: Num(0, 120),
+    seatSwapSeconds: Num(0, 300), loadCasualtySeconds: Num(0, 300),
+  }),
+  stations: z.array(withProv({
+    id: Id, kind: z.enum(["turret", "mount"]), operator: StationKind, commanderOverride: z.boolean(),
+    traverseDegS: Num(0, 360), elevateDegS: Num(0, 180), elevationDeg: Span(-30, 90), traverseArcDeg: Span(-180, 180).optional(),
+    stabiliser: z.enum(["none", "one-plane", "two-plane"]), baseErrorMrad: Num(0, 50), movingMradPerMps: Num(0, 20),
+    layToleranceMrad: Num(0, 100), rangefinder: z.boolean(), readyRefillInBattle: z.boolean(),
+    /** The station's weapons (filled in M7.3 for the real vehicles). */
+    weapons: z.array(VehicleWeaponSchema).default([]),
+  })).default([]),
+  /** Stowed items in the hull (belts, smoke charges, extinguisher charges ...). */
+  stowed: z.array(z.object({ item: Id, count: z.number().int().positive(), charge: z.number().int().min(0).optional() }).strict()).default([]),
+  /** Reserved blocks (declared now so the schema shape is known; filled by the slices that use them). */
+  dischargers: z.unknown().optional(), armour: z.unknown().optional(), components: z.unknown().optional(),
+  cookOffAmmo: Id.optional(), signature: z.unknown().optional(), activeProtection: z.null().optional(), recovery: z.null().optional(),
+});
+export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
+export type VehicleT = z.infer<typeof VehicleSchema>;
 
 export const DOCTRINE_KEYS = [
   "preferredSpacingM",
@@ -506,4 +605,5 @@ export type ItemT = z.infer<typeof ItemSchema>;
 export type UnitTemplateT = z.infer<typeof UnitTemplateSchema>;
 export type DoctrineT = z.infer<typeof DoctrineFile>;
 export type MovementModeT = z.infer<typeof MovementModeSchema>;
+export type FootModeT = z.infer<typeof FootModeSchema>;
 export type QualityT = z.infer<typeof QualitySchema>;

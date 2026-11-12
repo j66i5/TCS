@@ -1255,3 +1255,43 @@ are bit-identical). The bullet mix and the volley grenade of `perf-projectiles` 
 demo-s1, shootout-s1, fixture-s7 identical (hashes included). Perf, three runs each, alone, before → after:
 projectile bench 4.73–5.32 → 3.60–4.56 ms/tick (3.1–3.5× → 3.7–4.6×), bench 12–13× → 12–14×, spotting
 8.0–9.8× → 9.5–10.1×, fragment volley 13–17.5× → 14.7–18×.
+
+## 2026-11-12 — M7.1b data, state and drive (one golden update)
+Plan §15 M7.1b, with these decisions where the plan was open or the code differed (all game values low):
+- **Golden update** (catalog fingerprint: vehicle data, movement-mode union, surface/obstacle vehicle blocks,
+  materials, `rhaToMildSteel`; state schema 15 → 16 with the empty `vehicle` store). Checked first: headless
+  demo-s1, shootout-s1 and fixture-s7 print the identical event stream and casualties as before (only the state
+  hash differs). No new RNG stream is drawn (the drive model uses none).
+- **Scope cut to the core.** Real-vehicle station weapons (MK30-2, 2A42, coax), their ammunition and belts,
+  armour plates, components, signature, smoke dischargers, cook-off ammunition and seat sensors are not in the
+  data yet; their schema blocks are reserved (`armour`, `components`, `signature`, `dischargers` accept anything
+  for now and become strict in M7.3/M7.4a). Stations exist with traverse/elevation/stabiliser data and empty
+  weapon lists; the fixture `xf-cart` has its single-feed `xf-sling` (rack `xf-bolt-rack`, round `xf-bolt`) so
+  the station-weapon checks run. Also deferred: `core/spotting.json` smoke factors, `core/behaviour.json` crew
+  block, xf `cart-band` / `platoonTemplate` and APS/add-on fixture items (no vehicles in existing scenarios yet).
+- **Mass as a block:** `mass: {kg, sources, confidence, note}` (a bare number cannot carry provenance).
+- **Ready belts on output** stay in `VehicleRecord.ready` (station weapons in order, each a list of feeds) rather
+  than being added into `load`, so a record fed back in is not counted twice.
+- **Orders to a crew unit (M7.1b):** `move` (route = the order's waypoints as straight legs; a leg through a
+  building or deep water, judged on the foot grid, answers "no route") and `halt` drive the vehicle; `rules` and
+  `ceaseFire` apply as to any unit; every other order answers "unable". No driver able to act: "unable"
+  (`radio.noDriver` comes in M7.1c). An order to a mounted man answers "unable" until M7.2. A foot pace given to
+  a crew maps to its `vehiclePace`; a vehicle pace given to men on foot, or a `reverse` leg, is rejected.
+  Arrival: on reaching (or passing) the last point within 1.5 m and below 0.3 m/s.
+- **Drive model as plan §4** with: speed controller time constant 0.3 s per track; gear hysteresis up at 95 % of
+  the band, down below 50 % of the band below (narrower bands made the pause of each up-shift bring a down-shift
+  at once, hunting on soft ground); pivot steering gain 4/s; the follower is pure pursuit on the waypoints
+  (stuck re-plans, collisions with buildings/walls/hulls/men and the one-weak-track compensation by the follower
+  come with navigation in M7.1c; the drift itself is in `drive.test.ts`). Pitch from the ground under the front
+  and rear of the hull (roll and the four-corner pose come with M7.1c). Vegetation caps the speed at top speed /
+  its tracked or wheeled move cost; a surface without a `vehicle` block cannot be driven on.
+- **Surfaces:** asphalt and concrete wet rolling factor 1.05 (a little more resistance in rain, so rain is slower
+  on every surface); mud rolling 0.12 and wet factor 1.3 (with 1.5 a Puma could not move in mud in rain).
+- **Mounted men** are skipped by foot movement; other soldier loops are gated in M7.1c (vehicles appear only in
+  the drive lab and tests until then). Crew templates carry no personal weapons yet (M7.2).
+- Drive lab (`npm run lab -- drive`), Puma / BMP-2: 0-50 km/h 10.4 / 11.9 s, top 70 / 65 km/h, reverse 30 /
+  12 km/h, braking from 50 km/h 15.7 / 14.6 m, Puma from 70 km/h 30.6 m, pivot 90° 2.5 / 2.3 s, 300 m on asphalt
+  22.2 / 23.4 s, mud 55.9 / 56.0 s, rain slower everywhere, 20 % slope 20 / 7 km/h, 1.9 / 0.6 L per km at full
+  pace, no movement without a driver.
+- Perf after M7.1b (three runs, alone): projectile bench 3.77–4.29 ms/tick (3.9–4.4×), bench 13×, spotting
+  9.9–10.1×, fragment volley 14.1–17.9× — unchanged from M7.1a (vehicle systems return at once without vehicles).

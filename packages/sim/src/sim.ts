@@ -31,6 +31,7 @@ import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
 } from "./state";
 import { movementSystem } from "./systems/movement";
+import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
 
@@ -94,6 +95,9 @@ export function step(sim: Sim): SimEvent[] {
   actionSystem(ctx, state, events);
   postureSystem(ctx, state, events);
   evadeSystem(ctx, state, events);
+  // Vehicles (M7): drive, then the men aboard move with their seats.
+  vehicleDriveSystem(ctx, state, events);
+  vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
   physiologySystem(ctx, state);
   fireSystem(ctx, state, events);

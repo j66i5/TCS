@@ -11,6 +11,7 @@ import type { BattleRules } from "./context";
 import type { Environment } from "./environment";
 import type { BattleEndReason, SimEvent, SimEventKind } from "./events";
 import type { DefId, SideId } from "./ids";
+import type { VehicleStatus } from "./components";
 import type { ItemStack } from "./items";
 import type { MapDef } from "./map";
 import type { Order } from "./orders";
@@ -51,6 +52,30 @@ export interface UnitInput {
   leaderIndex: number;
   members: SoldierRecord[];
   subunits: UnitInput[];
+  /** A vehicle crew unit (M7): the `vehicleId` of the force's vehicle it crews. */
+  vehicleId?: string;
+}
+
+/**
+ * A vehicle as the ROSTER knows it (M7): a force-level asset, linked to its crew unit by `vehicleId`, so it
+ * comes out of the battle whatever happened to the crew.
+ */
+export interface VehicleRecord {
+  /** Stable key within the roster. */
+  vehicleId: string;
+  /** Vehicle type (catalog `vehicles`). */
+  type: DefId;
+  /** Contents of its container: fuel tank (charge = litres), stowed belts, smoke and extinguisher charges.
+   *  On output the ready belts of its weapons are added back in. */
+  load: ItemStack[];
+  /** Rounds on the ready belts/racks per station weapon (omitted = full from the data). */
+  ready?: { item: DefId; rounds: number }[][];
+  /** Condition of each component (omitted = all 1). */
+  components?: number[];
+  status?: VehicleStatus;
+  /** Reserved: the side holding it (campaign). */
+  capturedBy?: SideId | null;
+  recovery?: null;
 }
 
 export interface Placement {
@@ -58,6 +83,10 @@ export interface Placement {
   x: number;
   y: number;
   heading: number;
+  /** M7: he starts aboard this vehicle (`vehicleId`) ... */
+  mountedIn?: string;
+  /** ... in this seat (index into the vehicle's seats); also overrides a crewman's seat. */
+  seat?: number;
 }
 
 export interface ForceInput {
@@ -66,6 +95,9 @@ export interface ForceInput {
   units: UnitInput[];
   /** Where each soldier starts. Chosen by the scenario (deployment zones), not the roster. */
   placements: Placement[];
+  /** The force's vehicles (M7), and where each starts. */
+  vehicles?: VehicleRecord[];
+  vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
 }
 
 export interface BattleInput {
@@ -89,6 +121,8 @@ export interface SideResult {
   /** Living prisoners (M6.6): start = fit + wounded + killed + surrendered + captured. */
   surrendered: number;
   captured: number;
+  /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
+  vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number };
 }
 
 export interface BattleResult {
@@ -100,7 +134,9 @@ export interface BattleResult {
   finalStateHash: string;
   sides: SideResult[];
   /** The forces as they come out: same units and persons, updated condition and load. */
-  forcesOut: { side: SideId; faction: DefId; units: UnitInput[] }[];
+  forcesOut: { side: SideId; faction: DefId; units: UnitInput[]; /** M7: every vehicle of the force. */ vehicles?: VehicleRecord[] }[];
+  /** Destroyed, abandoned and immobilised hulls left on the map (M7; persistent map damage as data). */
+  wrecks?: { vehicleId: string; type: DefId; side: SideId; x: number; y: number; heading: number; status: VehicleStatus }[];
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;

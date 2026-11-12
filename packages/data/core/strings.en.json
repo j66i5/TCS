@@ -23,8 +23,6 @@
   "radio.ack.halt": "{callsign}: halting.",
   "radio.arrived": "{callsign}: in position.",
   "order.rejected": "Order not accepted ({reason}).",
-  "move.wheeled": "wheeled",
-  "move.tracked": "tracked",
   "material.steel": "Steel",
   "material.sheet-metal": "Sheet metal",
   "material.wire-mesh": "Wire mesh",
@@ -213,5 +211,15 @@
   "order.smoke": "Smoke",
   "score.support": "mortar {he} HE, {smoke} smoke",
   "radio.ack.callFire": "{callsign}: fire mission called.",
-  "order.surrenderedTarget": "He has surrendered - your men will not fire at him."
+  "order.surrenderedTarget": "He has surrendered - your men will not fire at him.",
+  "move.drive-slow": "slow drive",
+  "move.drive": "drive",
+  "move.drive-fast": "fast drive",
+  "move.wdrive-slow": "slow drive",
+  "move.wdrive": "drive",
+  "move.wdrive-fast": "fast drive",
+  "vehicle.de.puma": "Puma",
+  "vehicle.ru.bmp2": "BMP-2",
+  "material.armour-steel": "armour steel",
+  "material.composite": "composite armour"
 }

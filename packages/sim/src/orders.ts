@@ -20,6 +20,8 @@ export interface Waypoint {
   mode: DefId;
   /** Posture for the leg; reserved (M1). */
   posture?: Posture;
+  /** Vehicles (M7): drive this leg in reverse. */
+  reverse?: true;
 }
 
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */

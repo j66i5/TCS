@@ -552,6 +552,76 @@
       ],
       "confidence": "low",
       "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct."
+    },
+    {
+      "id": "puma-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Puma {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-puma",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "hauptgefreiter",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "fahrer",
+          "rank": "obergefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-basic-load",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Puma crew (M7): commander, gunner, driver. Ranks are typical, not sourced; personal weapons come with mounting and dismounting (M7.2)."
     }
   ]
 }

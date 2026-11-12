@@ -7,6 +7,7 @@
  * heat speeds the build-up. Heart rate approaches a target set by exertion and fatigue with separate rise and
  * fall time constants. Fatigue slows movement (movement.ts) and later aiming and morale.
  */
+import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
@@ -73,7 +74,7 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive) continue;
     const m = state.mover.get(id);
-    const mode = m && m.mode !== null && m.speedMps > 0 ? ctx.catalog.movementModes[m.mode] : undefined;
+    const mode = m && m.mode !== null && m.speedMps > 0 ? footModeOrUndefined(ctx.catalog, m.mode) : undefined;
     let w = mode ? mode.exertion : s.postureTo !== null ? p.postureChangeExertion : 0;
     if (w > 0) {
       w *= 1 + (p.loadExertionK * loadKg(ctx, state, id)) / p.bodyMassKg;

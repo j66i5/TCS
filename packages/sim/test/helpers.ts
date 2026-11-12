@@ -16,12 +16,15 @@ export const testCatalog: Catalog = {
     shard: { id: "shard", massKg: 0.0001, category: "ammunition" },
     shell: { id: "shell", massKg: 0.23, category: "ammunition" },
     tube: { id: "tube", massKg: 1.5, category: "launcher" },
+    "tank-fuel": { id: "tank-fuel", massKg: 0, category: "fuel", chargeCapacity: 500, chargeMassKg: 0.84 },
     vest: { id: "vest", massKg: 8, category: "armour", armour: [{ zone: "chest", coverageFront: 1, coverageSide: 1, protectionSteelMm: 26 }, { zone: "abdomen", coverageFront: 1, coverageSide: 1, protectionSteelMm: 26 }] },
   },
   movementModes: {
-    walk: { id: "walk", class: "foot", speedMps: 1.5, posture: "standing", exertion: 0.25 },
-    run: { id: "run", class: "foot", speedMps: 3, posture: "standing", exertion: 0.85 },
-    crawl: { id: "crawl", class: "foot", speedMps: 0.3, posture: "prone", exertion: 0.5 },
+    walk: { id: "walk", class: "foot", speedMps: 1.5, posture: "standing", exertion: 0.25, vehiclePace: { tracked: "drive-slow", wheeled: "drive-slow" } },
+    run: { id: "run", class: "foot", speedMps: 3, posture: "standing", exertion: 0.85, vehiclePace: { tracked: "drive", wheeled: "drive" } },
+    crawl: { id: "crawl", class: "foot", speedMps: 0.3, posture: "prone", exertion: 0.5, vehiclePace: { tracked: "drive-slow", wheeled: "drive-slow" } },
+    "drive-slow": { id: "drive-slow", class: "tracked", speedFraction: 0.3 },
+    drive: { id: "drive", class: "tracked", speedFraction: 0.7 },
   },
   qualities: {},
   factions: {
@@ -30,7 +33,7 @@ export const testCatalog: Catalog = {
   },
   ballistics: {
     gravityMps2: 9.80665, airDensityKgM3: 1.225, referenceTempC: 15, penetrationVelocityExponent: 1.5, penetrationDeflectionDeg: 6,
-    ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 18,
+    ricochetSpeedRetention: [0.55, 0.9], ricochetScatterDeg: 6, minSpeedMps: 40, maxFlightSeconds: 18, rhaToMildSteel: 1.25,
     blast: { severeScaledM: 3, injuryScaledM: 6, stunScaledM: 25, stunSeconds: 4, craterScaledM: 0.6, breachSteelMmScaled: 15, breachReachScaledM: 2.5, breachWidthScaledM: 2.5, shieldSteelMm: 5 },
     fragments: { bandDeg: [-3, 40], maxPerBurst: 6500, airburstAboveM: 0.3, clutterHeightM: 0.25, clutterStopPerM: 0.15 },
     bounce: { restitution: 0.35, tangentKeep: 0.6, softFactor: 0.6, vegetationFactor: 0.6, softBelowDensityKgM3: 1800, stopSpeedMps: 1.2 },
@@ -78,11 +81,11 @@ export const testCatalog: Catalog = {
       steel: { id: "steel", densityKgM3: 7850, resistance: 1, ricochetAngleDeg: 15, breaksBullets: false },
     },
     surfaces: {
-      grass: { id: "grass", moveCost: { foot: 1, wheeled: 1.4, tracked: 1.1 }, noise: 0.2, dust: 0.1, colour: "#6f8f4a", material: "soil" },
+      grass: { id: "grass", moveCost: { foot: 1, wheeled: 1.4, tracked: 1.1 }, noise: 0.2, dust: 0.1, colour: "#6f8f4a", material: "soil", vehicle: { rolling: 0.06, traction: 0.6, lateral: 0.55, wetTractionFactor: 0.8, wetRollingFactor: 1.2 } },
       water: { id: "water", moveCost: { foot: null, wheeled: null, tracked: null }, noise: 0, dust: 0, colour: "#36576b", material: "soil" },
     },
     vegetation: { wood: { id: "wood", heightM: 15, concealmentPerM: 0.06, stoppingPerM: 0.004, moveCost: { foot: 1.25, wheeled: null, tracked: 3 }, colour: "#2f4a26" } },
-    obstacles: { wall: { id: "wall", heightM: 2, thicknessM: 0.25, material: "brick", seeThrough: 0, footCrossTimeS: 6, wheeledCrossable: false, trackedCrossable: true, colour: "#8a5a44" } },
+    obstacles: { wall: { id: "wall", heightM: 2, thicknessM: 0.25, material: "brick", seeThrough: 0, footCrossTimeS: 6, vehicle: { tracked: { crossCostCells: 4, capKmh: 10, flattens: false }, wheeled: null }, colour: "#8a5a44" } },
     buildings: { house: { id: "house", widthM: [8, 12], depthM: [8, 11], storeys: [1, 2], storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColours: ["#8c4a3b"], roofMaterial: "wood", roofThicknessM: 0.06 } },
   },
   behaviour: {
@@ -128,6 +131,30 @@ export const testCatalog: Catalog = {
       postureChangeExertion: 0.3, hrExertionWeight: 0.85, hrFatigueWeight: 0.25, exhaustedExertionFactor: 0.5,
     },
   },
+  vehicles: {
+    tank: {
+      id: "tank", class: "tracked",
+      body: { lengthM: 7, widthM: 3.5, heightM: 3, groundClearanceM: 0.45, hull: { f: [-3.5, 3.5], r: [-1.75, 1.75], u: [0.45, 2.2] }, trackContactM: 4.5, trackGaugeM: 2.8 },
+      massKg: 30000,
+      drive: {
+        powerW: 500000, efficiency: 0.75, topSpeedMps: 60 / 3.6, reverseTopSpeedMps: 20 / 3.6, brakeMps2: 6,
+        gearsMps: [10 / 3.6, 25 / 3.6, 40 / 3.6, 60 / 3.6], reverseGearsMps: [20 / 3.6], shiftSeconds: 0.4,
+        steering: { kind: "tracked", pivot: true, pivotRateRadS: 0.7, maxLatAccelMps2: 3.5, slipCoeff: 0.1, turnResistance: 0.5 },
+        idleW: 30000, litresPerKwh: 0.28,
+      },
+      fuel: { item: "tank-fuel", capacityL: 500 },
+      seats: [
+        { id: "cmd", station: "commander", pos: [0.5, 0.5, 1.6], part: "hull", hatch: true },
+        { id: "gnr", station: "gunner", pos: [0.5, -0.5, 1.6], part: "hull", hatch: true },
+        { id: "drv", station: "driver", pos: [2.4, -0.8, 1.2], part: "hull", hatch: true },
+        { id: "p1", station: "passenger", pos: [-1.5, 0.8, 1.2], part: "hull", hatch: false },
+        { id: "p2", station: "passenger", pos: [-1.5, -0.8, 1.2], part: "hull", hatch: false },
+      ],
+      ramp: { exits: [[-3.8, 0]], openSeconds: 2, mountSecondsPerMan: 2, dismountSecondsPerMan: 1, bailOutSeconds: 5, seatSwapSeconds: 20, loadCasualtySeconds: 15 },
+      stations: [],
+      stowed: [],
+    },
+  },
 };
 
 export function rec(personId: string, load: SoldierRecord["load"] = []): SoldierRecord {
@@ -167,4 +194,25 @@ export function armedInput(seed = 1, seconds = 600): BattleInput {
   const arm = (u: UnitInput) => { for (const m of u.members) m.weapon = "rifle"; u.subunits.forEach(arm); };
   for (const f of input.forces) f.units.forEach(arm);
   return input;
+}
+
+/** A crewed test vehicle ("tank", crew unit "crew" of three) at (50, 100) facing east, on a 600 x 200 m flat map;
+ *  orders are delivered at once. With `foes`, the red test team stands far away. */
+export function vehicleInput(seed = 1, seconds = 120): BattleInput {
+  const crew: UnitInput = { key: "crew", callsign: "Crew", echelon: "vehicle", leaderIndex: 0, vehicleId: "v1", subunits: [],
+    members: [rec("crew.0"), rec("crew.1"), rec("crew.2")] };
+  const b = team("b", 1);
+  return {
+    map: flatMap("t", 600, 200),
+    catalog: testCatalog,
+    forces: [
+      { side: "blue", faction: "fa", units: [crew], placements: [],
+        vehicles: [{ vehicleId: "v1", type: "tank", load: [{ type: "tank-fuel", count: 1, charge: 400 }] }],
+        vehiclePlacements: [{ vehicleId: "v1", x: 50, y: 100, heading: 0 }] },
+      { side: "red", faction: "fb", units: [b], placements: [{ personId: "b.0", x: 590, y: 190, heading: 0 }] },
+    ],
+    rules: { timeLimitSeconds: seconds, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "none", physiologyParams: {}, objectives: [] },
+    seed,
+    orders: [],
+  };
 }

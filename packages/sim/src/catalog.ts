@@ -32,16 +32,41 @@ export interface ItemTypeDef {
 
 export type MovementClass = "foot" | "wheeled" | "tracked";
 
-export interface MovementModeDef {
-  id: DefId; // "walk" | "run" | "sneak" | "crawl" | "wheeled" | "tracked" ... (data, not code)
+/** A pace on foot ("walk", "run", "sneak", "crawl" ... data, not code). */
+export interface FootModeDef {
+  id: DefId;
   /** Which terrain cost column applies. */
-  class: MovementClass;
+  class: "foot";
   /** Posture taken for this mode. */
   posture: "standing" | "crouching" | "prone";
   /** Work rate (0 rest .. ~0.85 running): drives heart rate and fatigue. */
   exertion: number;
   /** Nominal speed on open, level ground, m/s. */
   speedMps: number;
+  /** The vehicle pace a vehicle given this foot pace drives at, per vehicle class (M7). */
+  vehiclePace: { tracked: DefId; wheeled: DefId };
+}
+
+/** A vehicle pace (M7): a share of the vehicle's own top speed. */
+export interface VehiclePaceDef {
+  id: DefId;
+  class: "tracked" | "wheeled";
+  speedFraction: number;
+}
+
+export type MovementModeDef = FootModeDef | VehiclePaceDef;
+
+/** A foot pace by id; throws on a vehicle pace or an unknown id (foot code reads modes only through this). */
+export function footMode(catalog: Catalog, id: DefId): FootModeDef {
+  const m = catalog.movementModes[id];
+  if (!m || m.class !== "foot") throw new Error(`'${id}' is not a foot pace`);
+  return m;
+}
+
+/** A foot pace by id, or undefined (unknown id or a vehicle pace). */
+export function footModeOrUndefined(catalog: Catalog, id: DefId): FootModeDef | undefined {
+  const m = catalog.movementModes[id];
+  return m && m.class === "foot" ? m : undefined;
 }
 
 /** Time multiplier per movement class; null = impassable. */
@@ -52,6 +77,8 @@ export interface MaterialDef {
   densityKgM3: number;
   /** Penetration resistance, mm of mild steel equivalent per mm of material. */
   resistance: number;
+  /** Resistance against shaped-charge jets, if it differs (M7). */
+  resistanceShaped?: number;
   /** Largest angle from the surface at which a bullet can still ricochet, degrees. */
   ricochetAngleDeg: number;
   /** Soft-core bullets break up in this material at high impact speed. */
@@ -67,7 +94,18 @@ export interface SurfaceDef {
   colour: string;
   /** Material of the ground for bullet impacts and ricochets. */
   material: DefId;
+  /** How vehicles drive on it (M7); absent: no vehicle can. */
+  vehicle?: SurfaceVehicleDef;
 }
+
+/** Vehicle driving on a surface (M7): rolling resistance and friction coefficients, cap, rain factors. */
+export interface SurfaceVehicleDef {
+  rolling: number; traction: number; lateral: number; capKmh?: number;
+  wetTractionFactor: number; wetRollingFactor: number;
+}
+
+/** A vehicle crossing a linear obstacle (M7). */
+export interface VehicleCrossingDef { crossCostCells: number; capKmh: number; flattens: boolean }
 
 export interface VegetationDef {
   id: DefId;
@@ -85,8 +123,8 @@ export interface ObstacleKindDef {
   material: DefId;
   seeThrough: number;
   footCrossTimeS: number | null;
-  wheeledCrossable: boolean;
-  trackedCrossable: boolean;
+  /** Per vehicle class: null = cannot cross (goes round). */
+  vehicle: { tracked: VehicleCrossingDef | null; wheeled: VehicleCrossingDef | null };
   colour: string;
 }
 
@@ -131,6 +169,8 @@ export interface BallisticsDef {
   ricochetScatterDeg: number;
   minSpeedMps: number;
   maxFlightSeconds: number;
+  /** mm RHA x this = mild-steel-equivalent mm (M7). */
+  rhaToMildSteel: number;
   blast: {
     severeScaledM: number; injuryScaledM: number; stunScaledM: number; stunSeconds: number; craterScaledM: number;
     breachSteelMmScaled: number; breachReachScaledM: number; breachWidthScaledM: number;
@@ -346,6 +386,54 @@ export interface Catalog {
   /** Ammunition IDs in ascending order; projectiles store the index into this list. */
   ammoIds: DefId[];
   weapons: Record<DefId, WeaponDef>;
+  /** Vehicle types of the factions taking part (M7). */
+  vehicles: Record<DefId, VehicleDef>;
+}
+
+/** Generic crew and passenger station kinds (code keys). */
+export type StationKind = "commander" | "gunner" | "driver" | "loader" | "passenger";
+
+/** A box in hull coordinates (f forward, r right, u up from the ground), [min, max] metres. */
+export interface HullBox { f: [number, number]; r: [number, number]; u: [number, number] }
+
+/** A vehicle type (M7, factions/<id>/vehicles.json). SI units: speeds m/s, angles rad, power W. */
+export interface VehicleDef {
+  id: DefId;
+  class: "tracked" | "wheeled";
+  body: {
+    lengthM: number; widthM: number; heightM: number; groundClearanceM: number;
+    hull: HullBox;
+    turret?: { pivotF: number; f: [number, number]; r: [number, number]; u: [number, number]; barrelM: number; trunnionU: number };
+    trackContactM?: number; trackGaugeM?: number; wheelbaseM?: number;
+  };
+  massKg: number;
+  drive: {
+    powerW: number; efficiency: number; topSpeedMps: number; reverseTopSpeedMps: number; brakeMps2: number;
+    /** Upper end of each gear band, m/s (ascending; the last is the top speed). */
+    gearsMps: number[]; reverseGearsMps: number[];
+    shiftSeconds: number;
+    steering:
+      | { kind: "tracked"; pivot: boolean; pivotRateRadS: number; maxLatAccelMps2: number; slipCoeff: number; turnResistance: number }
+      | { kind: "wheeled"; maxSteerRad: number; steerRateRadS: number; maxLatAccelMps2: number };
+    idleW: number; litresPerKwh: number;
+  };
+  fuel: { item: DefId; capacityL: number };
+  seats: { id: string; station: StationKind; pos: [number, number, number]; part: "hull" | "turret"; hatch: boolean;
+    sensors?: { kind: string; pos?: [number, number, number]; arcRad: number; sideFactor: number; rearFactor: number; follows: "own" | "station"; lrf?: boolean }[] }[];
+  ramp: { exits: [number, number][]; openSeconds: number; mountSecondsPerMan: number; dismountSecondsPerMan: number; bailOutSeconds: number; seatSwapSeconds: number; loadCasualtySeconds: number };
+  stations: {
+    id: string; kind: "turret" | "mount"; operator: StationKind; commanderOverride: boolean;
+    traverseRadS: number; elevateRadS: number; elevationRad: [number, number]; traverseArcRad?: [number, number];
+    stabiliser: "none" | "one-plane" | "two-plane"; baseErrorMrad: number; movingMradPerMps: number; layToleranceMrad: number;
+    rangefinder: boolean; readyRefillInBattle: boolean;
+    weapons: {
+      weapon: DefId; coax: boolean; muzzle: [number, number, number]; feeds: { item: DefId; ready: { count: number; charge: number } }[];
+      switchSeconds: number; engageRangeM: number; feedKind: "belt" | "single" | "autoloader";
+      loaderStation?: StationKind; roundLoadSeconds?: number; noLoaderFactor?: number;
+    }[];
+  }[];
+  stowed: { item: DefId; count: number; charge?: number }[];
+  cookOffAmmo?: DefId;
 }
 
 export function getItemDef(catalog: Catalog, id: DefId): ItemTypeDef {

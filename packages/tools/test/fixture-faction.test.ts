@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog, formatErrors, loadDataSet, Strings } from "@tcs/data";
 import { allMembers, buildForce, demoBattle } from "@tcs/scenario";
-import { countItems, runBattle } from "@tcs/sim";
+import { countItems, idleDrive, runBattle, step, stepDriveDynamics, submitOrder } from "@tcs/sim";
+import { driveBattle } from "../src/labs/drive";
 import { wanderController } from "@tcs/ai";
 import { readDataFiles } from "../src/data-files";
 
@@ -58,6 +59,36 @@ describe("fixture faction 'xf'", () => {
 
   it("catalog contains only the factions taking part", () => {
     const c = buildCatalog(data!, ["xf"]);
-    expect(Object.keys(c.items).sort()).toEqual(["xf-bomb", "xf-crate", "xf-mag", "xf-round", "xf-shard", "xf-vest"]);
+    expect(Object.keys(c.items).sort()).toEqual(["xf-bolt", "xf-bolt-rack", "xf-bomb", "xf-crate", "xf-hay", "xf-mag", "xf-round", "xf-shard", "xf-vest"]);
+    expect(Object.keys(c.vehicles)).toEqual(["xf-cart"]);
+  });
+
+  it("xf-cart loads and keeps its turn radius (wheeled, no pivot), and drives from orders to its crew", () => {
+    const c = buildCatalog(data!, ["xf"]);
+    const cart = c.vehicles["xf-cart"]!;
+    expect(cart.class).toBe("wheeled");
+    expect(cart.seats.some((s) => s.station === "commander")).toBe(false);
+    expect(cart.stations[0]!.weapons[0]!.feedKind).toBe("single");
+    const st = cart.drive.steering;
+    if (st.kind !== "wheeled") throw new Error("wheeled steering expected");
+    const minR = cart.body.wheelbaseM! / Math.tan(st.maxSteerRad);
+    // Full lock at a walking pace for 40 s: the circle it drives is never tighter than the geometry allows.
+    const surf = { rolling: 0.03, traction: 0.8, lateral: 0.7, capMps: Infinity, sinPitch: 0, cosPitch: 1 };
+    let d = idleDrive(0, 0), x = 0, y = 0, h = 0, minX = 0, maxX = 0, minY = 0, maxY = 0;
+    for (let i = 0; i < 60 * 40; i++) {
+      d = stepDriveDynamics(cart, d, { speed: 3, yawRate: 0, curvature: 10 }, surf, 1 / 60, i).drive;
+      h += d.yawRate / 60; x += Math.cos(h) * d.speed / 60; y += Math.sin(h) * d.speed / 60;
+      if (i > 60 * 10) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    }
+    expect(Math.abs(d.speed)).toBeGreaterThan(2);
+    expect((maxX - minX) / 2).toBeGreaterThanOrEqual(minR * 0.98);
+    expect((maxY - minY) / 2).toBeGreaterThanOrEqual(minR * 0.98);
+    expect((maxX - minX) / 2).toBeLessThan(minR * 1.6);
+    // And it drives from a move order to its crew unit (the lab's set-up).
+    const { sim, vid, unit } = driveBattle(data!, "xf-cart", { surface: "grass" });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 400, y: 260, mode: "wdrive" }] });
+    for (let i = 0; i < 60 * 60; i++) step(sim);
+    const t = sim.state.transform.req(vid);
+    expect(Math.hypot(t.x - 400, t.y - 260)).toBeLessThan(6);
   });
 });

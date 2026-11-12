@@ -2,11 +2,13 @@
  * Builds the initial SimState from a BattleInput. Also the inverse: extracting roster records
  * from a state at the end of a battle.
  */
-import type { BattleInput, SoldierRecord, UnitInput } from "./battle";
-import type { SoldierState } from "./components";
+import type { BattleInput, ForceInput, Placement, SoldierRecord, UnitInput, VehicleRecord } from "./battle";
+import type { DriveState, SoldierState, VehicleState } from "./components";
+import { CREW_STATION_ORDER } from "./mount";
+import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
-import type { Catalog } from "./catalog";
+import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
 import { healthyPhysiology } from "./wounds";
@@ -20,9 +22,129 @@ export function buildInitialState(input: BattleInput): SimState {
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);
     state.sides.push({ id: force.side, faction: force.faction });
     const placements = new Map(force.placements.map((p) => [p.personId, p]));
-    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, input.catalog);
+    // Vehicles first (M7): crews are seated in them as their units are added.
+    const vehicles = addVehicles(state, force, input.catalog);
+    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    seatPassengers(state, force, vehicles, input.catalog);
   }
   return state;
+}
+
+/** A fresh drive state: standing still, no route. */
+export function idleDrive(x: number, y: number): DriveState {
+  return {
+    trackL: 0, trackR: 0, speed: 0, yawRate: 0, gear: 1, shiftUntilTick: 0, steer: 0, throttle: 0, brake: 0,
+    route: [], routeIdx: 0, endHeading: null, arrived: true, holdForDismount: false, stuckTicks: 0, replans: 0,
+    progressX: x, progressY: y, progressTick: 0, yieldTo: null, yieldSinceTick: 0, crossing: null, fuelAccL: 0, backX: x, backY: y,
+  };
+}
+
+/** A new vehicle's roster record: a full tank and the stowed load from the data (scenarios, labs, campaign). */
+export function newVehicleRecord(catalog: Catalog, type: string, vehicleId: string): VehicleRecord {
+  const def = catalog.vehicles[type];
+  if (!def) throw new Error(`unknown vehicle type '${type}'`);
+  const load: ItemStack[] = [{ type: def.fuel.item, count: 1, charge: def.fuel.capacityL }];
+  for (const s of def.stowed) load.push(s.charge === undefined ? { type: s.item, count: s.count } : { type: s.item, count: s.count, charge: s.charge });
+  return { vehicleId, type, load };
+}
+
+/** Where a seat is in the world for a hull at (x, y) facing `heading`: [x, y, height above ground]. */
+export function seatWorld(def: VehicleDef, seat: number, x: number, y: number, heading: number): [number, number, number] {
+  const p = def.seats[seat]!.pos;
+  const c = cos(heading), s = sin(heading);
+  // forward = (c, s); right = (-s, c) (y grows south)
+  return [x + c * p[0] - s * p[1], y + s * p[0] + c * p[1], p[2]];
+}
+
+function addVehicles(state: SimState, force: ForceInput, catalog: Catalog): Map<string, EntityId> {
+  const out = new Map<string, EntityId>();
+  const places = new Map((force.vehiclePlacements ?? []).map((p) => [p.vehicleId, p]));
+  for (const rec of force.vehicles ?? []) {
+    const def = catalog.vehicles[rec.type];
+    if (!def) throw new Error(`vehicle ${rec.vehicleId}: unknown vehicle type '${rec.type}'`);
+    if (out.has(rec.vehicleId)) throw new Error(`duplicate vehicleId '${rec.vehicleId}'`);
+    const p = places.get(rec.vehicleId);
+    if (!p) throw new Error(`no placement for vehicle ${rec.vehicleId}`);
+    const id = newEntity(state);
+    out.set(rec.vehicleId, id);
+    state.transform.set(id, { x: p.x, y: p.y, z: 0, heading: p.heading });
+    const c = emptyContainer();
+    for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+    state.container.set(id, c);
+    // Station weapons are numbered in order, station by station (the record's `ready` index).
+    const firstWeapon: number[] = [];
+    def.stations.reduce((n, sn) => { firstWeapon.push(n); return n + sn.weapons.length; }, 0);
+    const v: VehicleState = {
+      def: rec.type, vehicleId: rec.vehicleId, side: force.side, faction: force.faction, unit: null,
+      seats: def.seats.map(() => null),
+      drive: idleDrive(p.x, p.y),
+      stations: def.stations.map((sn, si) => ({
+        azimuth: 0, elevation: 0, azCmd: 0, elCmd: 0, laidTick: -1, task: null, taskWeapon: 0, taskFeed: 0, scanAz: 0, why: { tick: -1, keys: [] },
+        weapons: sn.weapons.map((w, wi) => ({
+          weapon: w.weapon,
+          // Ready rounds per feed: from the record (station weapons in order, station by station), else full.
+          feeds: w.feeds.map((f, fi) => ({ item: f.item, rounds: rec.ready?.[firstWeapon[si]! + wi]?.[fi]?.rounds ?? f.ready.count * f.ready.charge })),
+          feed: 0, switchUntilTick: 0, nextShotTick: 0, burstLeft: 0, burstIndex: 0, loadedRound: false, jammed: false, lastShotTick: -100000,
+          lowAmmoReported: w.feeds.map(() => false),
+        })),
+      })),
+      comp: rec.components ? [...rec.components] : [],
+      status: rec.status ?? "ok",
+      fire: null, smokeReadyTick: 0, pendingSmokeTick: -1, crewReaction: null, reactionTick: -1, reactionWhy: [],
+      lastHitTick: -1e9, lastPenTick: -1e9, hitsThisTick: 0, seatSwap: null, hatches: "closed", aps: null, recovery: null,
+      capturedBy: rec.capturedBy ?? null,
+    };
+    state.vehicle.set(id, v);
+  }
+  return out;
+}
+
+function seatMan(state: SimState, def: VehicleDef, vid: EntityId, seat: number, sid: EntityId): void {
+  const v = state.vehicle.req(vid);
+  if (seat < 0 || seat >= def.seats.length) throw new Error(`vehicle ${v.vehicleId}: no seat ${seat}`);
+  if (v.seats[seat] !== null) throw new Error(`vehicle ${v.vehicleId}: seat ${def.seats[seat]!.id} is taken twice`);
+  v.seats[seat] = sid;
+  state.soldier.req(sid).mount = { vehicle: vid, seat };
+  const t = state.transform.req(vid), mt = state.transform.req(sid);
+  const [x, y, z] = seatWorld(def, seat, t.x, t.y, t.heading);
+  mt.x = x; mt.y = y; mt.z = z; mt.heading = t.heading;
+}
+
+/** Seat a crew unit in its vehicle: crew seats in station order, unless a placement names the seat. */
+function seatCrew(state: SimState, uid: EntityId, vid: EntityId, members: EntityId[], placements: Map<string, Placement>, catalog: Catalog): void {
+  const v = state.vehicle.req(vid);
+  const def = catalog.vehicles[v.def]!;
+  if (v.unit !== null) throw new Error(`vehicle ${v.vehicleId} is crewed by two units`);
+  v.unit = uid;
+  state.unit.req(uid).vehicle = vid;
+  const order: number[] = [];
+  for (const k of CREW_STATION_ORDER) def.seats.forEach((s, i) => { if (s.station === k) order.push(i); });
+  const named = new Set<number>();
+  for (const m of members) { const s = placements.get(state.identity.req(m).personId)?.seat; if (s !== undefined) named.add(s); }
+  const free = order.filter((i) => !named.has(i));
+  for (const m of members) {
+    const s = placements.get(state.identity.req(m).personId)?.seat;
+    const seat = s ?? free.shift();
+    if (seat === undefined) throw new Error(`vehicle ${v.vehicleId}: more crew than crew seats`);
+    seatMan(state, def, vid, seat, m);
+  }
+}
+
+/** Men placed `mountedIn` a vehicle (passengers), after all units exist. */
+function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog): void {
+  const byPerson = new Map<string, EntityId>();
+  for (const [id, ident] of state.identity.entries()) if (ident.side === force.side) byPerson.set(ident.personId, id);
+  for (const p of force.placements) {
+    if (p.mountedIn === undefined) continue;
+    const vid = vehicles.get(p.mountedIn);
+    if (vid === undefined) throw new Error(`soldier ${p.personId}: no vehicle '${p.mountedIn}'`);
+    const sid = byPerson.get(p.personId);
+    if (sid === undefined || state.soldier.req(sid).mount !== undefined) continue;
+    const v = state.vehicle.req(vid), def = catalog.vehicles[v.def]!;
+    const seat = p.seat ?? def.seats.findIndex((s, i) => s.station === "passenger" && v.seats[i] === null);
+    if (seat < 0) throw new Error(`soldier ${p.personId}: no free seat in vehicle ${p.mountedIn}`);
+    seatMan(state, def, vid, seat, sid);
+  }
 }
 
 function addUnit(
@@ -31,10 +153,15 @@ function addUnit(
   parent: EntityId | null,
   side: SideId,
   faction: DefId,
-  placements: Map<string, { x: number; y: number; heading: number }>,
+  placements: Map<string, Placement>,
   catalog: Catalog,
+  vehicles: Map<string, EntityId>,
 ): EntityId {
   const id = newEntity(state);
+  const vid = u.vehicleId === undefined ? undefined : vehicles.get(u.vehicleId);
+  if (u.vehicleId !== undefined && vid === undefined) throw new Error(`unit ${u.key}: no vehicle '${u.vehicleId}' in its force`);
+  // A crewman needs no placement of his own: he starts in his seat.
+  const vt = vid === undefined ? undefined : state.transform.req(vid);
   state.unit.set(id, {
     callsign: u.callsign,
     side,
@@ -63,11 +190,12 @@ function addUnit(
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {
-    const sid = addSoldier(state, rec, id, side, faction, placements, catalog);
+    const sid = addSoldier(state, rec, id, side, faction, placements, catalog, vt);
     unit.members.push(sid);
     if (i === u.leaderIndex) unit.leader = sid;
   });
-  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog));
+  if (vid !== undefined) seatCrew(state, id, vid, unit.members, placements, catalog);
+  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles));
   return id;
 }
 
@@ -77,11 +205,12 @@ function addSoldier(
   unit: EntityId,
   side: SideId,
   faction: DefId,
-  placements: Map<string, { x: number; y: number; heading: number }>,
+  placements: Map<string, Placement>,
   catalog: Catalog,
+  fallback?: { x: number; y: number; heading: number },
 ): EntityId {
   const id = newEntity(state);
-  const p = placements.get(rec.personId);
+  const p = placements.get(rec.personId) ?? fallback;
   if (!p) throw new Error(`no placement for soldier ${rec.personId}`);
   state.identity.set(id, {
     personId: rec.personId,
@@ -166,6 +295,27 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
   };
+}
+
+/** Read a vehicle back out as a roster record: its container (fuel left, stowed load) and ready belts. */
+export function vehicleRecordFromState(state: SimState, id: EntityId): VehicleRecord {
+  const v = state.vehicle.req(id);
+  const c = state.container.get(id);
+  return {
+    vehicleId: v.vehicleId, type: v.def,
+    load: c ? c.stacks.map((x) => ({ ...x })) : [],
+    ready: v.stations.flatMap((sn) => sn.weapons.map((w) => w.feeds.map((f) => ({ item: f.item, rounds: f.rounds })))),
+    ...(v.comp.length > 0 ? { components: [...v.comp] } : {}),
+    status: v.status,
+    capturedBy: v.capturedBy,
+  };
+}
+
+/** Every vehicle of a side as roster records, in entity order. */
+export function vehiclesFromState(state: SimState, side: SideId): VehicleRecord[] {
+  const out: VehicleRecord[] = [];
+  for (const [id, v] of state.vehicle.entries()) if (v.side === side) out.push(vehicleRecordFromState(state, id));
+  return out;
 }
 
 /** Rebuild the unit tree of one side as roster input, with updated soldier records. */

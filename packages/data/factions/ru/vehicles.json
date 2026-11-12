@@ -1,0 +1,279 @@
+{
+  "vehicles": [
+    {
+      "id": "ru-bmp2",
+      "nameKey": "vehicle.ru.bmp2",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.72,
+        "widthM": 3.15,
+        "heightM": 2.45,
+        "groundClearanceM": 0.42,
+        "hull": {
+          "f": [
+            -3.36,
+            3.36
+          ],
+          "r": [
+            -1.575,
+            1.575
+          ],
+          "u": [
+            0.42,
+            1.9
+          ]
+        },
+        "turret": {
+          "pivotF": 0.3,
+          "f": [
+            -1.0,
+            1.0
+          ],
+          "r": [
+            -1.0,
+            1.0
+          ],
+          "u": [
+            1.9,
+            2.45
+          ],
+          "barrelM": 2.9,
+          "trunnionU": 2.2
+        },
+        "trackContactM": 4.0,
+        "trackGaugeM": 2.65,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the size is the commonly quoted one but was not in the research extracts."
+      },
+      "mass": {
+        "kg": 14000,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2",
+          "https://www.tanks-encyclopedia.com/coldwar/ussr/BMP-2.php"
+        ],
+        "confidence": "medium",
+        "note": "14.0-14.3 t (Janes via issuu, redstar.gr)."
+      },
+      "drive": {
+        "powerKw": 225,
+        "efficiency": 0.75,
+        "topSpeedKmh": 65,
+        "reverseTopSpeedKmh": 12,
+        "brakeMps2": 6.5,
+        "gears": [
+          {
+            "toKmh": 7
+          },
+          {
+            "toKmh": 14
+          },
+          {
+            "toKmh": 24
+          },
+          {
+            "toKmh": 36
+          },
+          {
+            "toKmh": 50
+          },
+          {
+            "toKmh": 65
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          }
+        ],
+        "shiftSeconds": 0.4,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 45,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 15,
+        "litresPerKwh": 0.28,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BMP-2",
+          "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+        ],
+        "confidence": "low",
+        "note": "Engine 225 kW (UTD-20, 300 hp) and road speed 65 km/h are published; reverse speed, gear bands, efficiency, braking, steering, idle power and fuel use are game values."
+      },
+      "fuel": {
+        "item": "ru-bmp2-diesel",
+        "capacityL": 460
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.3,
+            0.45,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.3,
+            -0.45,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.3,
+            -0.8,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            1.4,
+            -0.8,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -2.0,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -2.0,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            -2.8,
+            -0.6,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -3.5,
+            0.6
+          ],
+          [
+            -3.5,
+            -0.6
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 2.5,
+        "dismountSecondsPerMan": 1.5,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 15,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game value (M7), not in the public sources; tuned in the drive lab. Two rear doors."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 35,
+          "elevateDegS": 6.0,
+          "elevationDeg": [
+            -5,
+            74
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.6,
+          "movingMradPerMps": 0.8,
+          "layToleranceMrad": 3,
+          "rangefinder": false,
+          "readyRefillInBattle": true,
+          "weapons": [],
+          "sources": [
+            "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+          ],
+          "confidence": "low",
+          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. The gun and coaxial machine gun come with gunnery (M7.3)."
+        }
+      ],
+      "stowed": [],
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2",
+        "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
+      ],
+      "confidence": "medium",
+      "note": "BMP-2: 3 crew (commander and gunner in the turret, driver in the hull) and 7 passengers (FAS). Swimming is not modelled. Armour, components and signature come with M7.3/M7.4."
+    }
+  ]
+}

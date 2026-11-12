@@ -101,7 +101,7 @@ export function buildNavGrid(
       blocked = kind.footCrossTimeS === null;
       extra = blocked ? 0 : (kind.footCrossTimeS! * REF_SPEED_MPS) / cellM;
     } else {
-      blocked = cls === "wheeled" ? !kind.wheeledCrossable : !kind.trackedCrossable;
+      blocked = kind.vehicle[cls] === null;
       extra = 1;
     }
     const step = cellM / 4;

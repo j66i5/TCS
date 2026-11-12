@@ -199,6 +199,17 @@
       "sources": [],
       "confidence": "low",
       "note": "30-round STANAG-type magazine for the G95A1; mass typical, not sourced."
+    },
+    {
+      "id": "de-puma-diesel",
+      "nameKey": "item.de-puma-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 900,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The Puma's fuel tank (M7): the charge is litres of diesel (0.84 kg per litre). The tank itself is part of the hull (mass 0). Capacity is a game value."
     }
   ]
 }

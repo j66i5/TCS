@@ -519,6 +519,76 @@
       ],
       "confidence": "low",
       "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct."
+    },
+    {
+      "id": "bmp2-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "BMP {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-bmp2",
+      "members": [
+        {
+          "role": "komandir-mashiny",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "operator-navodchik",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-basic-load",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "BMP-2 crew (M7; owner 2026-11-12: a fixed three-man crew; squad leaders ride in the back). Ranks are typical, not sourced; personal weapons come with M7.2."
     }
   ]
 }

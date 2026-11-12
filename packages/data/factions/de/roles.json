@@ -87,6 +87,28 @@
       "sources": [],
       "confidence": "low",
       "note": "Radio operator with the platoon leader: game assumption (M6)."
+    },
+    {
+      "id": "kommandant",
+      "nameKey": "role.de.kommandant",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "richtschuetze",
+      "nameKey": "role.de.richtschuetze",
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "fahrer",
+      "nameKey": "role.de.fahrer",
+      "sources": [],
+      "confidence": "low",
+      "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   submitOrder, type Order,
 } from "@tcs/sim";
 import { getScenario, loadData } from "../src/scenarios";
+import { driveBattle } from "../src/labs/drive";
 
 const data = loadData();
 const sc = getScenario("demo");
@@ -111,5 +112,37 @@ describe("determinism", () => {
       }
       step(sim);
     }
+  });
+
+  it("a vehicle-only run driven by move orders is identical twice and through a JSON save mid-pivot", () => {
+    const vdata = loadData(true);
+    const orders = (unit: number): Order[] => [
+      { tick: 0, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 600, y: 200, mode: "drive" }, { x: 600, y: 380, mode: "run" }, { x: 300, y: 380, mode: "drive-fast" }] },
+      { tick: 1800, issuer: "blue", target: unit, kind: "move", waypoints: [{ x: 700, y: 50, mode: "walk", reverse: true }] },
+    ];
+    const run = (saveAt: number | null) => {
+      const b = driveBattle(vdata, "de-puma", { surface: "grass", rain: 0.5 });
+      const { unit, input } = b;
+      let sim = b.sim;
+      const os = orders(unit);
+      const hashes: string[] = [];
+      let pivotSaved = false;
+      for (let t = 0; t < 3600; t++) {
+        for (const o of os) if (o.tick === sim.state.tick) submitOrder(sim, o);
+        step(sim);
+        if (sim.state.tick % 300 === 0) hashes.push(simHash(sim));
+        const d = [...sim.state.vehicle.values()][0]!.drive;
+        // Save while turning on the spot (or at the given tick), reload through JSON, carry on.
+        if (saveAt !== null && !pivotSaved && sim.state.tick >= saveAt && Math.abs(d.yawRate) > 0.2 && Math.abs(d.speed) < 0.5) {
+          pivotSaved = true;
+          sim = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+        }
+      }
+      if (saveAt !== null) expect(pivotSaved).toBe(true);
+      return hashes;
+    };
+    const a = run(null), b = run(null), c = run(600);
+    expect(b).toEqual(a);
+    expect(c).toEqual(a);
   });
 });

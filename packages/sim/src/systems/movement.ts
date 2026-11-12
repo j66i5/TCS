@@ -2,6 +2,7 @@
  * Movement, M0 version: straight lines between waypoints at the movement mode's nominal speed.
  * M1 adds the heightfield, terrain costs, pathfinding, postures, formations and fatigue.
  */
+import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT } from "../ids";
@@ -33,6 +34,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     // way afterwards.
     const ev = state.soldier.get(id)?.evade;
     if (ev && state.tick >= ev.startTick) continue;
+    // A man aboard a vehicle rides in his seat (M7; drive.ts moves him).
+    if (state.soldier.get(id)?.mount !== undefined) { m.speedMps = 0; m.mode = null; continue; }
     const wp = m.waypoints[0];
     if (!wp) {
       m.speedMps = 0;
@@ -40,7 +43,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       continue;
     }
     const t = state.transform.req(id);
-    const mode = ctx.catalog.movementModes[wp.mode];
+    const mode = footModeOrUndefined(ctx.catalog, wp.mode);
     const s = state.soldier.get(id);
     m.mode = wp.mode;
     if (!mode) { m.speedMps = 0; continue; }
@@ -124,6 +127,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   // Unit arrival: a moving unit whose men have all finished their waypoints.
   for (const [uid, u] of state.unit.entries()) {
     if (!u.moving) continue;
+    if (u.vehicle !== undefined) continue; // a vehicle crew arrives with its vehicle (drive.ts)
     const men = unitSoldiers(state, uid).filter((s) => isAble(state.soldier.get(s)));
     if (men.length === 0) { u.moving = false; continue; } // nobody left to arrive
     if (men.every((s) => (state.mover.get(s)?.waypoints.length ?? 0) === 0)) {

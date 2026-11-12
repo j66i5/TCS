@@ -15,6 +15,7 @@ import { requestPosture } from "./body";
 import { assignFireTask } from "./fire";
 import { grenadeOption, type GrenadeOption } from "./grenades";
 import { startAction } from "../actions";
+import { vehicleOrder } from "./drive";
 import { secondsToTicks } from "../ids";
 import type { Unit } from "../components";
 import type { SimState } from "../state";
@@ -35,7 +36,12 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       for (const w of o.waypoints) {
         if (!Number.isFinite(w.x) || !Number.isFinite(w.y)) return "invalid-params";
         if (w.x < 0 || w.y < 0 || w.x > ctx.map.widthM || w.y > ctx.map.heightM) return "invalid-params";
-        if (!ctx.catalog.movementModes[w.mode]) return "invalid-params";
+        const mode = ctx.catalog.movementModes[w.mode];
+        if (!mode) return "invalid-params";
+        // A vehicle crew drives at a foot pace (mapped) or a pace of its own class; men on foot at foot paces.
+        const vcls = vehicleClassOf(ctx, state, o.target);
+        if (mode.class !== "foot" && mode.class !== vcls) return "invalid-params";
+        if (w.reverse !== undefined && (w.reverse !== true || vcls === null)) return "invalid-params";
         if (w.posture !== undefined && w.posture !== "standing" && w.posture !== "crouching" && w.posture !== "prone") return "invalid-params";
       }
       if (o.formation !== undefined && !ctx.catalog.formations[o.formation]) return "invalid-params";
@@ -72,6 +78,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.count !== undefined && !(Number.isInteger(o.count) && o.count >= 1 && o.count <= 50)) return "invalid-params";
       return null;
   }
+}
+
+/** The movement class of a vehicle crew unit's vehicle, or null for anything else. */
+function vehicleClassOf(ctx: SimContext, state: SimState, target: EntityId): "tracked" | "wheeled" | null {
+  const vid = state.unit.get(target)?.vehicle;
+  const v = vid === undefined ? undefined : state.vehicle.get(vid);
+  return v ? ctx.catalog.vehicles[v.def]?.class ?? null : null;
 }
 
 /** Queue an order. Called by the outside world (via Sim.submit). */
@@ -156,6 +169,11 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
 /** Apply a delivered order. Returns false if a move order found no route, "unable" if nobody can carry it out. */
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): boolean | "unable" {
   const isUnit = state.unit.has(order.target);
+  // A vehicle crew (M7.1b): move and halt drive the vehicle; rules and cease-fire as for any unit.
+  const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
+  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ceaseFire") return vehicleOrder(ctx, state, order, crewOf);
+  // A man aboard a vehicle does not take orders of his own yet (mount and dismount come in M7.2).
+  if (!isUnit && state.soldier.get(order.target)?.mount !== undefined) return "unable";
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
   // Men of a broken unit, running back, do not listen (M4.3).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed");

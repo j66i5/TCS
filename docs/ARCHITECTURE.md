@@ -495,6 +495,17 @@ commander, panels), `rosterStatus`. Knowledge: `Contact.surrendered` is set only
 the walk-over errand is an `Intent` of kind `takePrisoner` run by this system (orders clear it; `Unit.orderTick`
 blocks new errands right after an order). Events `surrendered`, `captured`; schema 15.
 
+## 16h. Vehicles (M7.1b) — `components.ts` (`VehicleState`), `mount.ts`, `systems/drive.ts`
+
+A vehicle is an entity with a Transform, a Container (fuel tank item, stowed load) and an entry in the
+`vehicle` store; it has no Identity, Mover, SoldierState or WeaponState, so soldier loops ignore it. It is a
+roster asset at force level (`ForceInput.vehicles`, `forcesOut[].vehicles`), commanded through its crew unit
+(`Unit.vehicle`, echelon "vehicle"); crewmen stay soldiers with `SoldierState.mount = {vehicle, seat}` and ride
+in their seats (`vehicleSyncSystem`). `move`/`halt` orders to the crew unit set the drive route;
+`vehicleDriveSystem` (after evading, before foot movement) runs the pure dynamics core `stepDriveDynamics` (per-
+track speeds, gears, rain) and burns fuel from the tank item. Plan and later slices: `docs/plans/m7-vehicles.md`.
+Schema 16.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -522,7 +533,9 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
 | 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
-| 9.2 | Vehicles have fuel and component states | — | ⬜ M7 | — |
+| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts | 🟡 fuel (tank item's charge, burnt by the drive) M7.1b; components M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt" |
+| 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts | 🟡 dynamics, gears, rain, fuel M7.1b; navigation and collisions M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
+| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | 🟡 records in/out M7.1b; wrecks M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out" |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |
@@ -530,7 +543,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.4 | Data packs validated with readable errors | data/loader.ts | ✅ | `data/test/loader.test.ts` |
 | 9.5 | All order delivery and contact sharing via comms interface | comms.ts | ✅ orders / 🟡 contacts M3 | `sim/test/orders.test.ts` "delayed by the comms model" |
 | 9.6 | No dependence on frame rate, device or wall clock | sim purity | ✅ | `architecture.test.ts`, tsconfig of sim |
-| 9.7 | Environment state exists and is read by spotting, ballistics, movement, fatigue | environment.ts, systems/body.ts | 🟡 fatigue reads temperature ✅; spotting (M3) and ballistics (M2) not yet | `sim/test/body.test.ts` "heat makes running more tiring" |
+| 9.7 | Environment state exists and is read by spotting, ballistics, movement (vehicles: rain → traction/rolling), fatigue | environment.ts, systems/body.ts, systems/drive.ts | 🟡 fatigue reads temperature ✅; vehicle movement reads rain ✅ (M7.1b); spotting (M3) and ballistics (M2) not yet | `sim/test/body.test.ts` "heat makes running more tiring"; `tools/test/lab-drive.test.ts` "rain slower than dry" |
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |

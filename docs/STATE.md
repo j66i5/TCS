@@ -180,3 +180,11 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - **New low-confidence data (M4):** `core/behaviour.json` (suppression, stress, decisions, drills — game values
   tuned with the suppression and attack labs) and the doctrine keys `boundM` / `finalAssaultM`, identical for
   Germany and Russia for lack of a public source on a difference.
+- **New low-confidence data (M7.1b vehicles):** `factions/de/vehicles.json` (Puma) and `factions/ru/vehicles.json`
+  (BMP-2): power, mass, top speed, crew/passenger counts and the BMP-2 turret rates are sourced (medium); hull
+  boxes, gear bands, reverse speeds, braking, steering, fuel capacity and use, ramp times and station errors are
+  game values (low), held in bands by `npm run lab -- drive`. Vehicle blocks of `core/terrain/surfaces.json`
+  (rolling resistance, traction, rain factors) and `obstacles.json` (crossing per class, following the owner's
+  answer: fences, hedges and wire flattened, brick and stone walls driven round). Crew templates
+  `puma-besatzung` / `bmp2-ekipazh` and their roles and ranks. `rhaToMildSteel` 1.25 and materials
+  `armour-steel`, `composite`.

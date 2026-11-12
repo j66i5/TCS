@@ -8,7 +8,7 @@ import type { MapDef } from "./map";
 import type { MapIndex } from "./terrain";
 import type { NavGrid, NavSearch } from "./nav";
 import type { PhysiologyModel } from "./wounds";
-import type { BallisticsCtx } from "./ballistics";
+import type { BallisticsCtx, DropTable } from "./ballistics";
 import type { SideId } from "./ids";
 
 export interface BattleRules {
@@ -61,7 +61,7 @@ export interface SimContext {
   /** Derived ballistics tables (coarse grids, wall and material properties). Never saved. */
   ballistics: BallisticsCtx;
   /** Drop tables per ammunition and muzzle velocity (built on first use). Never saved. */
-  dropTables: Record<string, Float32Array>;
+  dropTables: Record<string, DropTable>;
   /** Derived navigation grids and search scratch per movement class (built on first use). Never saved. */
   nav: Record<string, { grid: NavGrid; search: NavSearch }>;
   rules: BattleRules;

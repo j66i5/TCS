@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  createSim, flatMap, hashState, launchProjectile, loadSim, saveSim, step, type MapDef, type Sim, type SimEvent,
+  buildDropTable, createSim, dropAt, flatMap, flightTimeAt, hashState, launchProjectile, loadSim, saveSim, step, type MapDef, type Sim, type SimEvent,
 } from "../src/index";
 import { testCatalog, testInput } from "./helpers";
 
@@ -234,5 +234,20 @@ describe("projectiles are battle state", () => {
     for (let i = 0; i < 90; i++) { step(a); step(b); }
     expect(hashState(b.state)).toBe(hashState(a.state));
     void testCatalog;
+  });
+});
+
+describe("drop tables (M7.1a)", () => {
+  it("a longer table gives the same drops within 1500 m, a time of flight that grows with range, and is cached per length", () => {
+    const short = buildDropTable(testCatalog, "ball", 900), long = buildDropTable(testCatalog, "ball", 900, 2500);
+    expect(Array.from(long.drop.slice(0, short.drop.length))).toEqual(Array.from(short.drop));
+    expect(long.drop.length).toBe(251);
+    for (let i = 2; i < 100; i++) expect(short.tof[i]!).toBeGreaterThan(short.tof[i - 1]!);
+    expect(short.tof[30]!).toBeGreaterThan(300 / 900); // slowed by drag
+    expect(short.tof[30]!).toBeLessThan(0.5);
+    const ctx = { catalog: testCatalog, dropTables: {} };
+    expect(dropAt(ctx, "ball", 900, 400)).toBeCloseTo(dropAt(ctx, "ball", 900, 400, 2500), 6);
+    expect(Object.keys(ctx.dropTables).sort()).toEqual(["ball@900@1500", "ball@900@2500"]);
+    expect(flightTimeAt(ctx, "ball", 900, 300)).toBeCloseTo(short.tof[30]!, 6);
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildMapIndex, cellIndex, cellMoveCost, createSim, flatMap, fromBase64, hashState, heightAt, loadSim, mapFingerprint,
-  mapFromFile, mapToFile, saveSim, segmentsInRect, surfaceAt, toBase64, validateMap, type MapDef,
+  mapFromFile, mapToFile, saveSim, segmentsInRect, segmentsInRectInto, surfaceAt, toBase64, validateMap, type MapDef,
 } from "../src/index";
 import { testCatalog, testInput } from "./helpers";
 
@@ -44,6 +44,25 @@ describe("terrain queries", () => {
     const ix = buildMapIndex(m, 8);
     expect(segmentsInRect(ix, 30, 0, 32, 8)).toEqual([0]);
     expect(segmentsInRect(ix, 0, 15, 40, 20)).toEqual([]);
+  });
+
+  it("segmentsInRectInto returns the same ids in the same order as segmentsInRect", () => {
+    // Many short walls in all directions, so rectangles collect from many buckets (both sort paths).
+    const m = flatMap("t", 400, 300, 4);
+    let k = 7;
+    const rnd = () => { k = (k * 1103515245 + 12345) % 2147483648; return k / 2147483648; };
+    for (let i = 0; i < 300; i++) {
+      const x = rnd() * 400, y = rnd() * 300, n = 2 + Math.floor(rnd() * 4), pts = [x, y];
+      for (let j = 1; j < n; j++) pts.push(Math.min(399, Math.max(0, pts[pts.length - 2]! + (rnd() - 0.5) * 60)), Math.min(299, Math.max(0, pts[pts.length - 2]! + (rnd() - 0.5) * 60)));
+      m.obstacles.push({ id: i + 1, kind: "wall", points: pts, heightM: 2, thicknessM: 0.25, material: "brick" });
+    }
+    const ix = buildMapIndex(m, 32);
+    const out: number[] = [];
+    for (let q = 0; q < 400; q++) {
+      const x0 = rnd() * 420 - 10, y0 = rnd() * 320 - 10, x1 = rnd() * 420 - 10, y1 = rnd() * 320 - 10;
+      const n = segmentsInRectInto(ix, x0, y0, x1, y1, out);
+      expect(out.slice(0, n)).toEqual(segmentsInRect(ix, x0, y0, x1, y1));
+    }
   });
 
   it("validates a map against the data", () => {

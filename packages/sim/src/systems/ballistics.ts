@@ -19,7 +19,7 @@ import { DT, type EntityId } from "../ids";
 import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
-import type { AmmoRT } from "../ballistics";
+import { NEAR_SOLDIER, NEAR_WALL, type AmmoRT } from "../ballistics";
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -105,7 +105,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const gdt = bal.gravityMps2 * dt;
   const W = map.widthM, H = map.heightM;
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows, maxGround = B.maxGround, maxVegTop = B.maxVegTop;
-  const invBm = 1 / bm, wallNear = B.nearWall;
+  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER;
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
@@ -114,7 +114,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   // ---- soldiers this tick, bucketed, so only bullets passing close to someone test against bodies
   const SG = B.soldiers, hitboxes = B.hitboxes;
   {
-    for (let q = 0; q < SG.touchedCount; q++) { const kk = SG.touched[q]!; SG.near[kk] = 0; SG.head[kk] = -1; }
+    for (let q = 0; q < SG.touchedCount; q++) { const kk = SG.touched[q]!; near[kk] = near[kk]! & ~NS; SG.head[kk] = -1; }
     SG.touchedCount = 0;
     const count = state.soldier.size;
     if (count > SG.id.length) {
@@ -144,7 +144,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const rr = r + dr, cc = c + dc;
         if (rr < 0 || cc < 0 || rr >= brows || cc >= bcols) continue;
         const kk = rr * bcols + cc;
-        if (SG.near[kk] === 0) { SG.touched[SG.touchedCount++] = kk; SG.near[kk] = 1; }
+        if ((near[kk]! & NS) === 0) { SG.touched[SG.touchedCount++] = kk; near[kk] = near[kk]! | NS; }
       }
       n++;
     }
@@ -154,7 +154,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const SUP = ctx.catalog.behaviour.suppression;
   const supR = SUP.nearMissRadiusM, supR2 = supR * supR, supPer = SUP.perRound, supERef = SUP.energyRefJ;
   const supCentreZ = [0, 1, 2].map((p) => hitboxes[p]!.height * (hitboxes[p]!.alongLength ? 0.5 : 0.6));
-  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf, solNear = SG.near;
+  const SX = SG.x, SY = SG.y, SGZ = SG.gz, SCF = SG.cf, SSF = SG.sf;
 
   // NOTE (M2.4): never add projectiles inside this loop: the pool may reallocate its arrays, and the local
   // aliases above would then write to the old ones. Queue new projectiles (fragments) and add them afterwards.
@@ -221,8 +221,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const kk = r * bcols + c, pz = z0 + t * dz;
         if (pz <= maxGround[kk]! + GROUND_MARGIN_M) nearGround = true;
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
-        if (wallNear[kk] === 1) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
-        if (solNear[kk] === 1) nearSoldier = true;
+        const nb = near[kk]!;
+        if ((nb & NW) !== 0) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
+        if ((nb & NS) !== 0) nearSoldier = true;
       }
     }
 

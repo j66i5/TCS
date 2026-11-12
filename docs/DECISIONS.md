@@ -1240,3 +1240,18 @@ The architecture and slice plan is `docs/plans/m7-vehicles.md` (M7.1a–c, M7.2,
 - Q22 **where the AI gets out:** research doctrine per side now and set sourced values (not one shared 550 m).
 - Q24 **withdrawal:** squads within about 100 m of their IFV get back in.
 The remaining plan questions (5–8, 11, 13–21, 23) are asked at the start of the slice that needs them.
+
+## 2026-11-12 — M7.1a refactor (behaviour unchanged; goldens unchanged)
+Plan §15 M7.1a. The projectile loop reads one byte per path sample (`BallisticsCtx.near`: bit 0 static wall,
+bit 1 soldier this tick, cleared through the soldier grid's touched list; bit 2 is kept for vehicles in M7.1c);
+`nearWall` and `SoldierGrid.near` are gone. `segmentsInRectInto` (scratch stamp, strictly ascending ids: insertion
+sort for small sets, a pass over the stamps in id order when a large rectangle collects many — same result,
+tested against `segmentsInRect` on random walls and all four map kinds) serves `sight`, `lineBlocked` and
+`detonate`; `sight()` handles roofs with a stamp array and scratch lists (allocation-free). Fire helpers
+`pickRound`, `launchShot`, `burstCadence` moved to `systems/shot.ts`. Drop tables: cache key
+`ammo@v0@maxRange`, `{drop, tof}` and `flightTimeAt`; the table builder stops after 120 s of flight (a long table
+for a slow round looped forever once the round fell straight down short of the range; 1500 m small-arms tables
+are bit-identical). The bullet mix and the volley grenade of `perf-projectiles` are pinned by id. Headless
+demo-s1, shootout-s1, fixture-s7 identical (hashes included). Perf, three runs each, alone, before → after:
+projectile bench 4.73–5.32 → 3.60–4.56 ms/tick (3.1–3.5× → 3.7–4.6×), bench 12–13× → 12–14×, spotting
+8.0–9.8× → 9.5–10.1×, fragment volley 13–17.5× → 14.7–18×.

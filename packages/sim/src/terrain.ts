@@ -84,6 +84,9 @@ export interface MapIndex {
   segments: Segment[];
   /** For each bucket, indices into `segments` (ascending). */
   buckets: number[][];
+  /** Scratch for `segmentsInRectInto`: the query generation each segment was last collected in. */
+  stamp: Uint32Array;
+  stampGen: number;
 }
 
 /** Build a bucket grid of all wall segments. Derived data: rebuilt from the map, never saved. */
@@ -109,7 +112,7 @@ export function buildMapIndex(m: MapDef, bucketM = 32): MapIndex {
     const r0 = clampI(Math.floor(Math.min(s.ay, s.by) / bucketM), brows), r1 = clampI(Math.floor(Math.max(s.ay, s.by) / bucketM), brows);
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) buckets[r * bcols + c]!.push(si);
   });
-  return { bucketM, bcols, brows, segments, buckets };
+  return { bucketM, bcols, brows, segments, buckets, stamp: new Uint32Array(segments.length), stampGen: 0 };
 }
 
 const clampI = (v: number, n: number) => (v < 0 ? 0 : v >= n ? n - 1 : v);
@@ -121,6 +124,44 @@ export function segmentsInRect(ix: MapIndex, x0: number, y0: number, x1: number,
   const seen = new Set<number>();
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) for (const si of ix.buckets[r * ix.bcols + c]!) seen.add(si);
   return [...seen].sort((a, b) => a - b);
+}
+
+/**
+ * Allocation-free `segmentsInRect`: writes the same indices, in the same (strictly ascending) order, into `out`
+ * and returns how many. `out` grows if it is too short (a plain array the caller keeps as scratch).
+ * The caller must finish with the list before the next call that writes the same `out`.
+ */
+export function segmentsInRectInto(ix: MapIndex, x0: number, y0: number, x1: number, y1: number, out: number[]): number {
+  const c0 = clampI(Math.floor(Math.min(x0, x1) / ix.bucketM), ix.bcols), c1 = clampI(Math.floor(Math.max(x0, x1) / ix.bucketM), ix.bcols);
+  const r0 = clampI(Math.floor(Math.min(y0, y1) / ix.bucketM), ix.brows), r1 = clampI(Math.floor(Math.max(y0, y1) / ix.bucketM), ix.brows);
+  let gen = ix.stampGen + 1;
+  if (gen > 0xfffffff0) { ix.stamp.fill(0); gen = 1; }
+  ix.stampGen = gen;
+  const stamp = ix.stamp;
+  let n = 0;
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const list = ix.buckets[r * ix.bcols + c]!;
+    for (let q = 0; q < list.length; q++) {
+      const si = list[q]!;
+      if (stamp[si] === gen) continue;
+      stamp[si] = gen;
+      out[n++] = si;
+    }
+  }
+  // Each bucket's list is ascending, so a few buckets' worth is nearly sorted: an insertion sort is cheap.
+  // A large rectangle collects many: then a pass over the stamps in id order is cheaper (same result).
+  if (n > 64 && n * n > 16 * stamp.length) {
+    let k = 0;
+    for (let si = 0; si < stamp.length; si++) if (stamp[si] === gen) out[k++] = si;
+    return k;
+  }
+  for (let i = 1; i < n; i++) {
+    const v = out[i]!;
+    let j = i - 1;
+    while (j >= 0 && out[j]! > v) { out[j + 1] = out[j]!; j--; }
+    out[j + 1] = v;
+  }
+  return n;
 }
 
 /** Point-in-polygon (even-odd rule) for a flat coordinate list. */

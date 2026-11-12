@@ -11,6 +11,10 @@ import { getScenario, loadData } from "../src/scenarios";
 /** Minimum headless speed with 20,000 live projectiles, multiples of real time. */
 export const PROJECTILE_FLOOR_X_REALTIME = 3;
 const LIVE = 20000;
+/** The round mix of the bullet benchmark, pinned (the non-tracer, non-explosive rounds of the data before M7). */
+const BULLET_MIX = ["de-120-smoke", "de-556-dm11", "de-762-dm111", "ru-545-7n10", "ru-762r-lps", "ru-82-smoke"];
+/** The grenade of the fragment volley, pinned (the one with the most fragments before M7). */
+const VOLLEY_GRENADE = "de-dm51";
 
 describe("performance with 20,000 live projectiles", () => {
   it(`benchmark battle plus ${LIVE} live projectiles runs at >= ${PROJECTILE_FLOOR_X_REALTIME}x real time`, () => {
@@ -21,7 +25,9 @@ describe("performance with 20,000 live projectiles", () => {
     const ctrls = sc.controllers!(input);
     const rng = createRng(99);
     // Bullets only: grenades and their fragments have their own benchmark below.
-    const ammo = input.catalog.ammoIds.filter((id) => { const a = input.catalog.ammo[id]!; return !a.tracer && !a.explosive && a.kind !== "fragment"; });
+    // Pinned (M7.1a): new ammunition in the data must not change the benchmark's mix.
+    const ammo = BULLET_MIX;
+    for (const id of ammo) expect(input.catalog.ammo[id], id).toBeDefined();
     const topUp = () => {
       const P = sim.state.projectiles;
       while (P.count < LIVE) {
@@ -82,7 +88,8 @@ describe("performance with fragments", () => {
   it(`a volley of nine grenades at once (about ${LIVE_FRAGMENTS} fragments), every second, runs at >= ${PROJECTILE_FLOOR_X_REALTIME}x real time`, () => {
     const { input, sim, think, burstAt } = setup();
     const rng = createRng(77);
-    const sleeve = input.catalog.ammoIds.map((id, i) => ({ id, i })).filter((a) => input.catalog.ammo[a.id]!.explosive).sort((a, b) => input.catalog.ammo[b.id]!.explosive!.fragmentCount - input.catalog.ammo[a.id]!.explosive!.fragmentCount)[0]!.i;
+    const sleeve = input.catalog.ammoIds.indexOf(VOLLEY_GRENADE);
+    expect(sleeve).toBeGreaterThanOrEqual(0);
     let peak = 0, worst = 0, heavyMs = 0, heavyTicks = 0;
     const second = (measure: boolean) => {
       for (let i = 0; i < 60; i++) {

@@ -17,7 +17,7 @@ import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, segmentsInRect } from "../terrain";
+import { heightAt, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 
 /** Re-derive everything that depends on terrain damage (after a new breach, and after loading a save). */
@@ -26,6 +26,9 @@ export function syncTerrainDamage(ctx: SimContext, state: SimState): void {
   ctx.breaches = state.terrain.breaches;
   ctx.nav = {}; // routes are planned on grids rebuilt with the holes in them
 }
+
+/** Scratch list of wall segments near a burst (reused: no allocation per burst). */
+const BREACH_SEGS: number[] = [];
 
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
@@ -83,7 +86,9 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   }
   const reach = BL.breachReachScaledM * cube, strength = BL.breachSteelMmScaled * cube, width = BL.breachWidthScaledM * cube;
   let breached = false;
-  for (const si of segmentsInRect(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach)) {
+  const nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
+  for (let q = 0; q < nSeg; q++) {
+    const si = BREACH_SEGS[q]!;
     const s = ctx.mapIndex.segments[si]!, info = ctx.ballistics.seg[si]!;
     const exx = s.bx - s.ax, eyy = s.by - s.ay;
     let u = ((x - s.ax) * exx + (y - s.ay) * eyy) / (info.len * info.len);

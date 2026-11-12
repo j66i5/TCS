@@ -13,7 +13,6 @@
  */
 import { startAction } from "../actions";
 import { fireRateFactor, isCowering } from "./morale";
-import { dropAt } from "../ballistics";
 import type { FireTask, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
@@ -29,7 +28,7 @@ import { navFor } from "../navctx";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
-import { launchProjectile } from "./ballistics";
+import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
@@ -145,11 +144,7 @@ function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number
 function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, w: WeaponState, task: FireTask, aimed: boolean): void {
   const wd = ctx.catalog.weapons[w.weapon]!;
   const s = state.soldier.req(id), t = state.transform.req(id);
-  // A belt mixes in a tracer every few rounds.
-  const magDef = ctx.catalog.items[w.magazine!.item];
-  const tracerDue = magDef?.tracerItem !== undefined && magDef.tracerEvery !== undefined && w.magazine!.rounds % magDef.tracerEvery === 0 && wd.ammo[magDef.tracerItem] !== undefined;
-  const ammoId = (tracerDue ? magDef!.tracerItem : magDef?.chargeItem) ?? "";
-  const v0 = wd.ammo[ammoId];
+  const { ammoId, v0 } = pickRound(ctx.catalog, wd, w.magazine!.item, w.magazine!.rounds);
   if (v0 === undefined) return;
   const a0 = atan2(task.y - t.y, task.x - t.x);
   t.heading = a0;
@@ -160,16 +155,11 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
   // He sets his point of aim for the range he believes it is.
   const believed = range * (1 + task.rangeError);
-  const e0 = atan2(tz - mz, range) + atan2(dropAt(ctx, ammoId, v0, believed), believed);
   const sd = aimErrorMrad(ctx, state, id, w, aimed);
   const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
-  const az = a0 + total * nextNormal(state.rng, Streams.fire);
-  const el = e0 + total * nextNormal(state.rng, Streams.fire);
-  const ce = cos(el);
-  launchProjectile(ctx, state, ammoId, mx, my, mz, v0 * cos(az) * ce, v0 * sin(az) * ce, v0 * sin(el), id);
+  launchShot(ctx, state, events, id, w.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total);
   w.magazine!.rounds--;
   w.lastShotTick = state.tick;
-  events.emit({ kind: "shot.fired", tick: state.tick, shooter: id, x: mx, y: my, z: mz, dirX: cos(az), dirY: sin(az), weapon: w.weapon, ammo: ammoId });
   if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) {
     w.jammed = true;
     w.burstLeft = 0;
@@ -288,7 +278,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     w.burstLeft--;
     w.burstIndex++;
     if (w.burstLeft > 0 && w.magazine.rounds > 0 && !w.jammed) {
-      w.nextShotTick = tick + Math.max(1, Math.round((TICK_HZ * 60) / wd.cyclicRpm));
+      w.nextShotTick = tick + burstCadence(wd.cyclicRpm);
     } else {
       w.burstLeft = 0;
       const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;

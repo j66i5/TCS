@@ -1221,3 +1221,22 @@ his unit. A broken unit whose runners all gave up stays broken.
 owner's values: 0.4 / 0.1 men per side surrendered or taken in a German attack, 0.0 / 0.2 in a Russian attack;
 winners unchanged (defender 10 of 10 both ways), casualties within 0.3. Golden replays regenerated (catalog
 fingerprint; schema 15). Data values (core/behaviour.json `surrender`) are game values, confidence low.
+
+## 2026-11-12 — M7 architecture plan and owner answers (vehicles, second round)
+The architecture and slice plan is `docs/plans/m7-vehicles.md` (M7.1a–c, M7.2, M7.3, M7.4a/b). Owner answers
+(plan §16 numbers):
+- Q3 **walls:** vehicles flatten fences, hedges and wire (leaving a gap) and go round brick and stone walls.
+- Q4 **men in the path:** vehicles avoid their own men (men step aside) but **may run over enemy soldiers**
+  (the owner chose this over the recommended "stop or steer for everyone").
+- Q1 **German seats:** a fourth Puma carries the platoon leader and radio operator.
+- Q2 **Russian seats:** fixed three-man BMP-2 crews; squad leaders ride in the back with their squads; the
+  platoon commander rides in the back of the first BMP-2.
+- Q12 **orders to a squad aboard:** it gets out first, then carries the order out.
+- Q9 **points:** destroyed or abandoned IFV 20, immobilised 10.
+- Q10 **objectives:** men inside vehicles count too when holding or contesting (owner chose this over
+  "only men on foot").
+- Q26 **publishing:** vehicle battles stay behind `&vehicles=1` until Panzerfaust/RPG work (M7.4a).
+- Q25 **wounded when mounting:** two comrades load a wounded man within a few metres of the vehicle; others stay.
+- Q22 **where the AI gets out:** research doctrine per side now and set sourced values (not one shared 550 m).
+- Q24 **withdrawal:** squads within about 100 m of their IFV get back in.
+The remaining plan questions (5–8, 11, 13–21, 23) are asked at the start of the slice that needs them.

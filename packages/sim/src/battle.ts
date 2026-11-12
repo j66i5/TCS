@@ -17,6 +17,7 @@ import type { Order } from "./orders";
 import type { Physiology, Wound } from "./wounds";
 import type { SerializedState, SimView } from "./state";
 import type { Sim } from "./sim";
+import type { SideScore } from "./systems/objectives";
 
 /** A soldier as the ROSTER knows him: persists between battles (campaign, SPEC 9.3). */
 export interface SoldierRecord {
@@ -99,6 +100,9 @@ export interface BattleResult {
   /** Full order stream, including orders produced by controllers during the battle. */
   orders: Order[];
   eventCounts: Partial<Record<SimEventKind, number>>;
+  /** Score per side and the winner (M6; null = a draw, or no victory rules). */
+  scores: SideScore[];
+  winner: SideId | null;
 }
 
 /**

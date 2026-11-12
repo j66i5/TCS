@@ -9,6 +9,7 @@ import type { MapIndex } from "./terrain";
 import type { NavGrid, NavSearch } from "./nav";
 import type { PhysiologyModel } from "./wounds";
 import type { BallisticsCtx } from "./ballistics";
+import type { SideId } from "./ids";
 
 export interface BattleRules {
   /** The battle ends when this much game time has passed. */
@@ -19,8 +20,34 @@ export interface BattleRules {
   /** Which PhysiologyModel to use and its data-driven rates (M2+). */
   physiologyModel: string;
   physiologyParams: Record<string, number>;
-  /** Objectives, victory points, reinforcements, support allotments: reserved for M6. */
-  objectives: unknown[];
+  /** Objective areas (M6): who holds them at the end scores their points. */
+  objectives: ObjectiveDef[];
+  /** How the battle is won (M6). Without it the battle simply runs to its time limit. */
+  victory?: VictoryRules;
+}
+
+/** An area worth holding (M6). */
+export interface ObjectiveDef {
+  id: string;
+  /** String-table key of its name. */
+  nameKey: string;
+  x: number;
+  y: number;
+  radiusM: number;
+  points: number;
+  /** Who holds it at the start (the defender), or nobody. */
+  holder: SideId | null;
+}
+
+/**
+ * Victory (owner decision 2026-11-12): points for the objectives held at the end, minus `casualtyPoints` for
+ * each own man down (killed or incapacitated); a side that breaks (all its units broken) or has nobody left
+ * standing loses at once.
+ */
+export interface VictoryRules {
+  casualtyPoints: number;
+  /** End the battle as soon as one side has broken or has nobody left. */
+  endOnDefeat: boolean;
 }
 
 export interface SimContext {

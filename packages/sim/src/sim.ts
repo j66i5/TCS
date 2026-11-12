@@ -20,6 +20,7 @@ import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { drillSystem } from "./systems/drills";
+import { initObjectives, objectiveSystem } from "./systems/objectives";
 import { spottingSystem } from "./systems/spotting";
 import { contactSystem } from "./systems/contacts";
 import { PHYSIOLOGY_MODELS } from "./wounds";
@@ -60,6 +61,7 @@ export function createSim(input: BattleInput): Sim {
   const ctx = createContext(input);
   const state = buildInitialState(input);
   state.mapFingerprint = ctx.mapFingerprint;
+  initObjectives(ctx, state);
   syncTerrainDamage(ctx, state);
   return { ctx, state };
 }
@@ -101,11 +103,13 @@ export function step(sim: Sim): SimEvent[] {
   contactSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
+  objectiveSystem(ctx, state, events);
   // M1+: fatigue, spotting, AI, ballistics, physiology ... in a fixed, documented order.
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;
   state.tick++;
 
+  if (state.ended) return events.events;
   if (state.tick >= secondsToTicks(ctx.rules.timeLimitSeconds)) {
     state.ended = { tick: state.tick, reason: "time-limit" };
     events.emit({ kind: "battle.ended", tick: state.tick, reason: "time-limit" });

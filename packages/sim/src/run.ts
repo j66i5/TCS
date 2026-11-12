@@ -1,4 +1,5 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
+import { battleScore } from "./systems/objectives";
 import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
 import type { SimEventKind } from "./events";
 import { secondsToTicks, ticksToSeconds } from "./ids";
@@ -77,6 +78,7 @@ function summarize(
     forcesOut: input.forces.map((f) => ({ side: f.side, faction: f.faction, units: unitsFromState(state, f.side, f.units) })),
     orders,
     eventCounts,
+    ...battleScore(sim.ctx, state),
   };
 }
 

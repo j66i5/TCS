@@ -70,6 +70,7 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
   console.log(`${name}: vehicles scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
   await mountedScenes(page, name, errors, shots);
   await gunneryScenes(page, name, errors, shots);
+  await armourScenes(page, name, errors, shots);
 }
 
 /**
@@ -78,7 +79,7 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
  * 150 m forward; its squad selected by tapping the hull again (the order bar offers Dismount) and ordered out.
  */
 async function mountedScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
-  await page.goto(`http://localhost:${port}/?scenario=platoon&vehicles=1&seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.goto(`http://localhost:${port}/?scenario=platoon&seed=${seed}&map=${args["map"] ?? "village"}`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
   await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
     const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focus(p.x + 30, p.y, 160); t.stepTicks(1);`) as () => void);
@@ -110,6 +111,39 @@ async function mountedScenes(page: Page, name: string, errors: string[], shots: 
  * vehicles under fog of war as hull outlines; the same with Debug (the station's target line and reasons); then a
  * smoke screen.
  */
+/**
+ * M7.4a armour (`--scene vehicles`, fourth part): the vehicles scenario with Debug (everything shown); every own
+ * vehicle ordered to fire armour-piercing at the nearest enemy vehicle until one is knocked out: the hit vehicle
+ * (penetration flash, burning); then two and a half minutes later the burnt-out wreck.
+ */
+async function armourScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${args["map"] ?? "farmland"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  const found = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.setDebug(true); const s = t.sim.state;
+    t.stepTicks(60 * 20);
+    const fire = () => { for (const [vid, unit] of t.vehicles()) { const me = s.transform.get(vid); let best = null, bd = 1e9;
+      for (const [id, v] of s.vehicle.entries()) { if (v.side === s.vehicle.get(vid).side || v.status !== "ok") continue; const q = s.transform.get(id); const d = Math.hypot(q.x - me.x, q.y - me.y); if (d < bd) { bd = d; best = q; } }
+      if (best) { t.select(unit); t.fireNature(best.x, best.y, "ap"); } } };
+    let hit = null;
+    for (let k = 0; k < 120 && hit === null; k++) { if (k % 10 === 0) fire(); for (let i = 0; i < 30 && hit === null; i++) { t.stepTicks(1); for (const [id, v] of s.vehicle.entries()) if (v.status !== "ok" || v.fire !== null) { hit = id; break; } } }
+    if (hit === null) return null;
+    t.stepTicks(20); const p = s.transform.get(hit); t.focus(p.x, p.y, 70); t.stepTicks(1);
+    return { vehicle: hit, status: s.vehicle.get(hit).status, fire: s.vehicle.get(hit).fire !== null, tick: s.tick };`) as () => object | null);
+  await page.waitForTimeout(400);
+  const a0 = `${outDir}/armour-${seed}-${name}-0-hit.png`;
+  await page.screenshot({ path: a0 }); shots.push(a0);
+  await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; t.stepTicks(60 * 6); const id = [...s.vehicle.entries()].find(([, v]) => v.status !== "ok")?.[0]; if (id !== undefined) { const p = s.transform.get(id); t.focus(p.x, p.y, 90); } t.stepTicks(1);`) as () => void);
+  await page.waitForTimeout(400);
+  const a1 = `${outDir}/armour-${seed}-${name}-1-bailed-out.png`;
+  await page.screenshot({ path: a1 }); shots.push(a1);
+  const end = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; t.setDebug(false); t.stepTicks(60 * 150); const id = [...s.vehicle.entries()].find(([, v]) => v.status === "destroyed" || v.status === "abandoned")?.[0]; if (id !== undefined) { const p = s.transform.get(id); t.focus(p.x, p.y, 120); } t.stepTicks(1);
+    return [...s.vehicle.values()].map((v) => v.status);`) as () => string[]);
+  await page.waitForTimeout(400);
+  const a2 = `${outDir}/armour-${seed}-${name}-2-wreck.png`;
+  await page.screenshot({ path: a2 }); shots.push(a2);
+  console.log(`${name}: armour scene ${JSON.stringify(found)} -> ${JSON.stringify(end)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function gunneryScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${args["map"] ?? "farmland"}`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -279,7 +313,7 @@ try {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&side=red&attacker=blue&limit=600`);
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&side=red&attacker=blue&limit=600&vehicles=0`);
     await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
     await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(60);") as () => void);
     await page.waitForTimeout(700);

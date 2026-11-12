@@ -11,8 +11,8 @@
 import type { Strings } from "@tcs/data";
 import type { OrderSet } from "./orders-for";
 
-export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "grenade" | "grenades" | "mortar" | "smoke";
-export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max" }
+export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
+export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
 
 export interface HudCallbacks {
   /** Formation IDs available (from data) and the faction default shown first. */
@@ -149,7 +149,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     cb.onNature(natures[nature]!);
   };
   dischargeBtn.hidden = true; natureBtn.hidden = true;
-  orders.append(natureBtn, dischargeBtn, mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"),
+  orders.append(natureBtn, dischargeBtn, mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"), mode("antitank", "order.antitank"),
     mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), mountBtn, dismountBtn, haltBtn, ceaseBtn, postureBtn, rulesBtn);
 
   // ---- plan bar
@@ -181,6 +181,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     { key: "maxEngageM", label: "rules.range", options: [[0, "rules.range.none"], [400, "400"], [200, "200"], [100, "100"]] },
     { key: "onContact", label: "rules.contact", options: [["ground", "rules.contact.ground"], ["push", "rules.contact.push"], ["back", "rules.contact.back"]] },
     { key: "ammo", label: "rules.ammo", options: [["conserve", "rules.ammo.conserve"], ["normal", "rules.ammo.normal"], ["max", "rules.ammo.max"]] },
+    { key: "at", label: "rules.at", options: [["vehicles", "rules.at.vehicles"], ["vehiclesAndPositions", "rules.at.vehiclesAndPositions"], ["hold", "rules.at.hold"]] },
   ];
   const ruleBtns: { key: keyof UnitRules; value: UnitRules[keyof UnitRules]; b: HTMLButtonElement }[] = [];
   panel.append(el("div", "hud-panel-title", s.t("rules.title")), status);

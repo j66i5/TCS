@@ -230,7 +230,8 @@ export class BattleRenderer {
       } else if (e.kind === "explosion") {
         this.bursts.push({ x: e.x, y: e.y, untilTick: e.tick + BURST_TICKS, radiusM: Math.max(1.5, e.stunRadiusM * 0.25) });
       } else if (e.kind === "vehicle.hit") {
-        // One spark cluster per vehicle and tick (rifle hits come aggregated).
+        // One spark cluster per vehicle and tick (rifle hits come aggregated); a penetration flashes (M7.4a).
+        if (e.result === "penetrated") this.bursts.push({ x: e.x, y: e.y, untilTick: e.tick + BURST_TICKS, radiusM: 2 });
         for (let k = 0; k < Math.min(4, e.rounds); k++) {
           if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
           this.puffs.push({ x: e.x + (k % 2) * 0.4 - 0.2, y: e.y + (k >> 1) * 0.4 - 0.2, untilTick: e.tick + PUFF_TICKS, result: "ricochet" });
@@ -422,7 +423,8 @@ export class BattleRenderer {
   private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean, label: number): number {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {
-      if (fog && v.side !== overlay.playerSide) continue;
+      // (Owner Q8, M7.4a: both sides know of a wreck at once, so enemy wrecks are drawn under fog too.)
+      if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
       const def = this.vehicleDefs[v.def];
       const t = state.transform.get(vid);
       if (!def || !t) continue;
@@ -470,6 +472,16 @@ export class BattleRenderer {
         g.poly(box(tr.f[0], tr.f[1], tr.r[0], tr.r[1], px, py, tc, ts)).fill({ color: 0x3a4530 }).stroke({ width: 1.5, color: colour });
         const b0 = at(tr.f[1], 0, px, py, tc, ts), b1 = at(tr.f[1] + tr.barrelM, 0, px, py, tc, ts);
         g.moveTo(b0.x, b0.y).lineTo(b1.x, b1.y).stroke({ width: Math.max(2, 0.15 * c.scale * k), color: 0x10140f });
+      }
+      // Burning (M7.4a): flames on the hull while the fire lasts (a destroyed hull that burnt out stays dark).
+      if (v.fire !== null && (v.status !== "destroyed" || state.tick - v.fire.startTick < 7200)) {
+        const ph = (state.tick % 20) / 20;
+        for (let q = 0; q < 3; q++) {
+          const fp = at(h.f[0] + (h.f[1] - h.f[0]) * (0.3 + 0.2 * q), ((q % 2) - 0.5) * (h.r[1] - h.r[0]) * 0.3);
+          const rr = (0.9 + 0.5 * Math.sin((ph + q / 3) * 2 * Math.PI)) * c.scale * k;
+          g.circle(fp.x, fp.y, Math.max(3, rr * 1.3)).fill({ color: 0xff7a1a, alpha: 0.75 });
+          g.circle(fp.x, fp.y, Math.max(1.5, rr * 0.6)).fill({ color: 0xffe066, alpha: 0.9 });
+        }
       }
       if (wreck) {
         const a = at(h.f[1], h.r[1]), b = at(h.f[0], h.r[0]), d = at(h.f[1], h.r[0]), e = at(h.f[0], h.r[1]);

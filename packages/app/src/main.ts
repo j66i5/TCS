@@ -12,7 +12,7 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems,
+  tallyExpenditure, vehicleItems, atRuleOf,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, SIDE_COLOURS, VehicleDebug, type Overlay } from "@tcs/render";
@@ -42,9 +42,9 @@ async function main(): Promise<void> {
   const playerSide = params.get("side") === "red" ? "red" : "blue";
   const enemySide = playerSide === "blue" ? "red" : "blue";
   const attacker = params.get("attacker") === "red" ? "red" : "blue";
-  // &vehicles=1 (M7.2, owner Q26): the platoon battle with its vehicles (attacker mounted); off by default until
-  // the vehicles can be hit (M7.4a).
-  const withVehicles = params.get("vehicles") === "1";
+  // The platoon battle starts with its vehicles (attacker mounted) by default since M7.4a (owner Q26: vehicles
+  // can now be knocked out and the Panzerfaust and RPG work); &vehicles=0 gives the battle on foot.
+  const withVehicles = params.get("vehicles") !== "0";
   // ?scenario=vehicles (M7.1c): IFV platoons with their squads on foot; vehicles appear nowhere else yet.
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
       if (overlay.selectedUnit === null) return;
       // Shown as ordered until the unit has it (radio delay; while paused it waits).
       pendingRules.set(overlay.selectedUnit, { ...(pendingRules.get(overlay.selectedUnit) ?? {}), ...r });
-      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}) });
+      issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}) });
     },
     onPosture: (p) => {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "posture", posture: p });
@@ -273,7 +273,7 @@ async function main(): Promise<void> {
         issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "callFire", x: w.x, y: w.y, ammo: orderMode === "mortar" ? "he" : "smoke", rounds: orderMode === "mortar" ? 4 : 2 });
         return;
       }
-      if (orderMode === "fire") {
+      if (orderMode === "fire" || orderMode === "antitank") {
         // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
         // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
         // mounted: ok sideKnowledge never lists men aboard
@@ -286,7 +286,8 @@ async function main(): Promise<void> {
         // A tap on an enemy your men know has surrendered: no order (fire at that point would hit him).
         if (!near && hits.length > 0) { hud.radio(strings.t("order.surrenderedTarget"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
         // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
-        const nat = vehicleClassOf(overlay.selectedUnit) !== null && nature !== null ? { nature } : {};
+        // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
+        const nat = orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(overlay.selectedUnit) !== null && nature !== null ? { nature } : {};
         if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
         else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y, ...nat });
         return;
@@ -341,6 +342,16 @@ async function main(): Promise<void> {
       } else if (e.kind === "radio" && (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken")) {
         const k = e.key === "radio.broken" ? "timeline.broken" : e.key === "radio.rallied" ? "timeline.rallied" : "timeline.taken";
         timeline.push({ tick: e.tick, colour: sideColour(e.side), text: strings.t(k, { side: sideName(e.side), callsign: String(e.params["callsign"] ?? "") }) });
+      } else if ((e.kind === "vehicle.hit" && e.result === "penetrated") || e.kind === "vehicle.status" || e.kind === "vehicle.fire" || e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
+        // Vehicles hit, immobilised, burning, destroyed, abandoned (M7.4a); wrecks go on the heat map.
+        const v = sim.state.vehicle.get(e.vehicle);
+        if (v) {
+          const name = v.unit !== null ? sim.state.unit.get(v.unit)?.callsign ?? v.vehicleId : v.vehicleId;
+          const key = e.kind === "vehicle.hit" ? "aar.vehicle.hit" : e.kind === "vehicle.status" ? `aar.vehicle.${e.status}` : e.kind === "vehicle.fire" ? "aar.vehicle.fire" : e.kind === "vehicle.destroyed" ? "aar.vehicle.destroyed" : "aar.vehicle.abandoned";
+          timeline.push({ tick: e.tick, colour: sideColour(v.side), text: strings.t(key, { vehicle: `${sideName(v.side)} ${name}` }) });
+          const t = sim.state.transform.get(e.vehicle);
+          if (t && (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned")) heatFalls.push(t.x, t.y, sideIdx(v.side));
+        }
       } else if (e.kind === "battle.ended") {
         timeline.push({ tick: e.tick, colour: "#ffd23d", text: strings.t("timeline.ended", { reason: strings.t(`aar.reason.${e.reason}`, { loser: e.loser ? sideName(e.loser) : "" }) }) });
       }
@@ -443,7 +454,7 @@ async function main(): Promise<void> {
           stowed: [...new Set(veh.stations.flatMap((st) => st.weapons.flatMap((w) => w.feeds.map((f) => f.item))))].map((it) => (sim.state.container.get(u.vehicle!)?.stacks ?? []).filter((x) => x.type === it).reduce((n, x) => n + (x.charge ?? 0) * x.count, 0)).join("/"),
           smoke: def.dischargers ? vehicleItems(sim.state, u.vehicle, def.dischargers.item) : 0,
         })}` : "");
-      hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, ...(pendingRules.get(uid) ?? {}) }, status);
+      hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(sim.ctx, sim.state, uid), ...(pendingRules.get(uid) ?? {}) }, status);
       return;
     }
     const men = unitSoldierIds(sim, uid);
@@ -456,7 +467,7 @@ async function main(): Promise<void> {
       states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
     }
     const state = u.broken ? strings.t("behaviour.broken") : [...states.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${strings.t(`behaviour.${k}`)}`).join(", ");
-    const now: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule };
+    const now: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(sim.ctx, sim.state, uid) };
     const pend = pendingRules.get(uid);
     if (pend) {
       for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === now[k]) delete pend[k];
@@ -498,6 +509,7 @@ async function main(): Promise<void> {
         const spent: string[] = [];
         if (e) {
           spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }));
+          for (const [ammo, n] of Object.entries(e.rockets).sort(([a], [b]) => (a < b ? -1 : 1))) spent.push(strings.t("aar.exp.rockets", { ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
           for (const [vid, v] of Object.entries(e.vehicles).sort(([a], [b]) => (a < b ? -1 : 1))) {
             const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
             const name = call && call.unit !== null ? sim.state.unit.get(call.unit)?.callsign ?? vid : vid;
@@ -506,7 +518,10 @@ async function main(): Promise<void> {
             if (v.smoke > 0) spent.push(strings.t("aar.exp.smoke", { vehicle: name, n: v.smoke }));
           }
         }
-        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: [...rows.map((r) => r.text), ...spent] };
+        // Vehicles (M7.4a): lost and immobilised.
+        const vs = [...sim.state.vehicle.values()].filter((v) => v.side === sd.id);
+        const vline = vs.length > 0 ? [strings.t("aar.vehicles", { side: sideName(sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
+        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: [...vline, ...rows.map((r) => r.text), ...spent] };
       }),
       timeline: timeline.map((t) => ({ time: fmtClock(ticksToSeconds(t.tick)), text: t.text, colour: t.colour })),
     };

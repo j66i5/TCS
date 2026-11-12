@@ -27,7 +27,7 @@ export interface OrderSet {
 export interface BoardingChoice { mount: boolean; dismount: boolean }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "fire", "grenade", "grenades", "mortar", "smoke"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "fire", "antitank", "grenade", "grenades", "mortar", "smoke"];
 
 /**
  * `vehicleClass`: the class of the unit's vehicle, or null for men on foot. `modes`: the catalog's movement

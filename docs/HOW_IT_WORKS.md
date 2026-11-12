@@ -365,8 +365,7 @@ ammunition, crewed by a small unit of its own: commander, gunner, driver. It dri
 power, the two tracks, gears, ground and rain), finds its way on a map of where a hull fits, flattens fences and
 hedges, drives round walls and houses, waits for its own men and runs over the enemy's. Without an able driver
 it does not move; if the driver falls, the commander moves into his seat after about 20 seconds (the dead or
-wounded man stays aboard). The vehicles shoot (below) but cannot be damaged yet: rounds stop at the hull until
-M7.4.
+wounded man stays aboard). The vehicles shoot (below) and can be knocked out (armour, below).
 
 **Riding.** Men in a vehicle stay soldiers sitting in seats: they move with it, see nothing outside, cannot fire
 or be shot at, and never give up while aboard; they still count for holding an objective. A squad told to
@@ -401,7 +400,48 @@ eyes and day sights not at all. Engines are heard: idling about 400 m, driving a
 downwind. An enemy vehicle shows on your map as a hull outline once your men have seen it, with its type once
 seen within about 1.5 km.
 
-**In a battle** (for now only with `&vehicles=1`, until the vehicles can be knocked out): the attacking platoons
+**Armour (M7.4a).** Each vehicle has an armour plate on every face of its hull and turret (front, sides, rear,
+roof), with its thickness, its material and how far it leans back. A round that strikes a plate has to get
+through the plate's thickness *along its path*: a plate leaning back, or struck at an angle, is thicker that way.
+A bullet or cannon round gets through if its penetration at the speed it strikes is at least that much; at a very
+glancing angle it may bounce off. A rocket (shaped charge) bursts on the plate and its jet gets through if its
+penetration (which does not depend on speed) is enough; composite armour is especially good against jets; a
+rocket that strikes at a very flat angle may fail to go off. What gets through goes on inside along its path:
+men in their seats are wounded (by the same rules as any wound) and parts of the vehicle are damaged — engine,
+tracks, gun, ammunition, fuel — and a cone of fragments of the plate and the round strikes whatever is behind the
+hole (the owner's choice). A rocket's jet weakens as it goes; a cannon round that still has enough left flies out
+through the far side. A hit on fuel or ammunition may start a fire, and a hit on the ammunition may blow it up at
+once. High explosive bursts on the plate: it holes only a very thin plate (a mortar bomb on a BMP-2's roof), but
+can break a track. Rifle bullets never get through either vehicle.
+- *Puma*: its heavy front (add-on composite modules) stops 30 mm rounds and — the owner's choice — a single RPG-7
+  rocket; its sides, rear and roof stop machine-gun rounds up to 14.5 mm, but not a 30 mm round or a rocket.
+- *BMP-2*: its front stops 23 mm and 12.7 mm, its sides stop rifle-calibre armour-piercing rounds but not 12.7 mm;
+  every cannon round and rocket goes through it.
+
+**Knocked out.** A wrecked engine or track: the vehicle is *immobilised*; a wrecked gun: *disarmed*. The crew of
+an immobilised vehicle whose gun still works stays and fights while hits bounce off; it **bails out** — with any
+passengers — when the vehicle is penetrated again, when it burns, when it can neither move nor fire, or when no
+crewman can act any more (owner's choice). Men who cannot move stay inside. A burning vehicle is left at once;
+it burns out after about two minutes, and its ammunition may blow up before that: *destroyed*; men still inside
+are burnt. A destroyed or abandoned vehicle is a **wreck**: both sides know of it at once (it is drawn for both),
+men take cover beside it and nobody drives through it; it is listed in the battle's result for the campaign.
+Points (owner's choice): a vehicle destroyed or abandoned costs its side 20 points, immobilised 10.
+
+**Panzerfaust and RPG (M7.4a).** The German anti-tank man carries a Panzerfaust 3 (the firing unit and one round
+— the round is a tube he throws away after the shot), the Russian one an RPG-7 with two PG-7VL rockets (his
+assistant carries three more and brings one over when he has none). A shot takes a few seconds to aim; he lays on
+where he believes the target is, leads a moving vehicle by the rocket's flight time and sets the elevation from
+the rocket's real flight (it speeds up when its motor fires and slows in the air); his aim and his judgement of
+the range are not perfect, and wind pushes the rocket. The anti-tank lab: against a halted BMP-2 side-on, a
+Panzerfaust hits nearly always at 100 m and about half the time at 300–400 m; an RPG-7 against a Puma likewise —
+but never gets through its front. **When they fire on their own** is a standing rule of each unit (Rules panel,
+"Anti-tank weapons"): *vehicles only* (the default for new units, owner's choice), *vehicles and positions* (also
+at enemies in houses and at machine guns) or *only on order*; always within the unit's fire rule. You can order a
+shot at anything with the **Anti-tank** button and a tap (the best-placed man with a loaded launcher fires once).
+Nobody fires with a comrade in the danger zone behind the tube or a wall right behind him, nor from inside a house
+unless it is large or has a hole blown in it (owner's choice).
+
+**In a battle** (the default since M7.4a; `&vehicles=0` gives the battle on foot): the attacking platoons
 start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
 operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up
 to a point out of sight of the objectives, 300 m short of them for the Germans and 400 m for the Russians (from
@@ -466,6 +506,6 @@ You tap the map at a point 200 m east and 90 m south of the map corner, with the
 
 ## What is not there yet
 
-No first aid, anti-tank weapons are only carried,
+No first aid,
 men and squads fight on their own (fire back, take cover, share ammunition, react to contact, bound, break and rally) but doctrine does not differ between the sides yet, and no AI beyond "wander to a random point every 30 s" — the enemy never
 shoots by itself. Those are milestones M4–M7.

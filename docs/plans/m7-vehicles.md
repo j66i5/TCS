@@ -2,8 +2,10 @@
 
 This plan is for the implementing engineer to follow as written. It keeps the base of design 3 ("hot paths and invariants first") and deals with all 68 critic points. Every WRONG and MISSING point is fixed in the section it concerns, and every RISK point has a mitigation in §17. Each fix carries its critic number as **[Cn]**. File and symbol names were checked against the code on 2026-11-12. Line numbers have moved since M6.6, so the plan names symbols, not lines.
 
-**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, M7.2 ✅, **M7.3 ✅** (2026-11-12; what was decided where
-the plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3" and "M7.3"). Next: M7.4a.
+**Progress (kept current):** M7.1a ✅, M7.1b ✅, M7.1c ✅, M7.2 ✅, M7.3 ✅, **M7.4a ✅** (2026-11-12; what was decided
+where the plan was open, and what moved to later slices, is in DECISIONS.md "M7.2 part 1/2/3", "M7.3" and "M7.4a";
+moved to M7.4b from M7.4a: APS/tile fixture tests, the hull-hit perf-projectiles variant; brought forward into
+M7.4a by the owner: bail-out Q14/Q15, wrecks as data and in the nav grids, simple components). Next: M7.4b.
 
 **Current facts the plan depends on (checked):**
 - `STATE_SCHEMA_VERSION = 15` (`packages/sim/src/state.ts`). `STORE_KEYS = identity, transform, mover, soldier, unit, container, action, weapon, fire`.
@@ -1073,7 +1075,7 @@ Its memory keeps last-seen ticks to detect changes ("a hit since my last think" 
   - `ballistics.test.ts` "VOG-25 behaviour unchanged (no burst on body)" [C53].
 - **Acceptance:** as revision 1; still opt-in on main.
 
-### M7.4a Armour and penetration, Panzerfaust 3 and RPG-7, simple damage outcome (the shoulder-fired AT the owner named lands here) [C27]
+### M7.4a Armour and penetration, Panzerfaust 3 and RPG-7, simple damage outcome (the shoulder-fired AT the owner named lands here) [C27] — ✅ done
 - **Files:** `core/terrain/materials.json`, `core/{ballistics,wounds}.json`, `factions/*/vehicles.json` (plates), `factions/ru/{items,ammunition}.json` (`ru-pg7vl` move), `factions/de/{items,ammunition,units}.json`, `packages/data/src/schemas.ts`, `packages/sim/src/flight.ts` (new), `ballistics.ts` (`VehicleRT` plates, AmmoRT shaped/thrust/lookup), `systems/ballistics.ts` (`VHQ`, APS pre-check, thrust, self-destruct, re-adds), `systems/armour.ts` (new: `resolveVehicleHit` with plate test and a **simple outcome table** on penetration: crew wound draws via seat boxes along the path, a component hit by path, a fire chance), `systems/launcher.ts` (new), `context.ts`, `packages/scenario/src/battle.ts` (points, `vehicles` default on), UI strings and rules panel for `atRule`.
 - **Steps:**
   1. Materials, plates, `VehicleRT`.

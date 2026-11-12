@@ -1629,3 +1629,104 @@ data says otherwise; the data notes give each):
 - **Deferred:** AI smoke and reverse-out (M7.4b); per-vehicle weapon choice by the player beyond the nature
   (coax vs cannon at the same nature); the radio-component comms rule (M7.4b); Uint8 vehicle grids (as M7.1c);
   vehicle contacts from mortar/air observation; air-burst (ABM) later (Q16).
+
+## 2026-11-12 — M7 owner answers (fourth round, at the start of M7.4a)
+Plan §16 numbers (answers given 2026-11-12, recorded and applied in M7.4a):
+- Q8 **wrecks:** both sides know of a wreck at once.
+- Q9 **points** (already answered in M7.2, deferred until vehicles could be lost; applied now): a vehicle destroyed
+  or abandoned costs its side 20 points, immobilised 10.
+- Q11 **what a penetrating hit does inside:** the penetrator's (or jet's) path plus a fragment cone behind the hole
+  (the plan's recommended option).
+- Q14 **bailing out:** the crew get out when the vehicle burns, or when it is immobilised and then penetrated again;
+  passengers get out with them.
+- Q15 **a crew that cannot drive but can shoot** stays and fights while hits bounce off; it bails out if penetrated
+  again or burning (same rule as Q14).
+- Q19 **default anti-tank rule for new units:** Panzerfaust and RPG fired on their own only at vehicles; the player
+  may order a shot at a building (or anything). Each unit can change it in its Rules panel.
+- Q20 (recorded in M7.3) **firing shoulder-fired AT from a room:** not allowed unless the room is breached or large.
+- Q21 **Puma front against an RPG-7:** owner chose (b), NOT the plan's recommended (a): the Puma's FRONT stops a
+  single PG-7VL; its sides, rear and roof do not.
+- Q26 **publishing:** the platoon battle now starts mounted by default after a fresh baseline (below); `&vehicles=0`
+  gives the infantry battle; the tools scenarios `platoon` / `platoon-ru` stay infantry (goldens and baselines
+  comparable), `platoon-vehicles` / `platoon-ru-vehicles` are the mounted ones. (The plan says "the platoon
+  scenarios' `vehicles` default turns on"; the owner's instruction to keep the tools scenarios unchanged wins: the
+  default changes in the app.)
+- Q13 (decided without the owner in M7.2: a crewman takes over after ~20 s) unchanged.
+
+## 2026-11-12 — M7.4a armour, penetration, Panzerfaust 3 and RPG-7, damage outcome (golden update)
+Plan §8/§9/§15 M7.4a, owner answers above. Decisions where the plan was open (game values, confidence low unless
+the data says otherwise; the data notes give each):
+- **Fresh baseline** before any M7.4a change (base commit 9eb2b12, 10 × 900 s): `platoon` red 10/10, casualties blue
+  16.1 / red 8.2; `platoon-ru` blue 10/10, 7.8 / 15.4; `platoon-vehicles` red 9/10, 14.7 / 10.8; `platoon-ru-vehicles`
+  blue 10/10, 10.6 / 18.2 — identical to M7.3.
+- **Plates:** one per part (hull, turret) and face (front, side, rear, top) — no upper/lower glacis zones, no spaced
+  skirts (simplification). Normal leans back by `slopeDeg`; path = t / max(cos, 0.05); `can ≥ need` (C43). Puma
+  (Q21 b): hull front 150 mm composite at 60° (750 mm against a jet head-on, 480 kinetic), turret front 140 at 60°
+  (700 / 448), sides 30 composite, rear 30 (turret 26), roof 20 / 15 armour steel: the front stops 30 mm and a
+  PG-7VL (still at 5° plunge), everything else stops 14.5 mm and is penetrated by 30 mm and rockets. BMP-2: hull
+  front 18 mm at 60°, sides 18, rear 16, roof 7; turret front 23 at 35°, sides 16 at 20°, rear 15, roof 7 (armour
+  steel): front stops 23 mm and 12.7 mm, sides stop 7.62 mm AP but not 12.7 mm. Armour lab (`npm run lab --
+  armour`) checks these and the C43 boundaries (PMC287 vs 53 mm at 60°, 3UBR8 vs 25 mm at 60°, ±3 %).
+- **Hot loop:** an inline early-out keeps rounds that cannot beat the thinnest plate (upper bound penSteelMm ×
+  max(1, (v/penV)²), no `pow`) stopping as before; everything else at a hull goes to a queue resolved after the loop
+  (C44: no pool rows added in the loop; exiting penetrators and heavy ricochets are re-added after it). Impact HE
+  keeps bursting on the plate as before; its blast holes a plate thinner than the breach rule (mortar bombs on a
+  BMP-2 roof) and damages a track it strikes. Shaped charges: graze fuse failure below cos 0.1, unarmed dud.
+- **Inside (Q11):** path through seat boxes (0.6 × 0.6 × 0.95 m) and component boxes; jet loses 400 mm per metre;
+  behind the hole `behindArmour.spallCount` fragments (30 mm: 8 in 20°, rockets 20–25 in 25°, HE breach 12 in
+  45°) strike the first man or part on their line (each −0.15 on a part). Components M7.4a: engine, left/right
+  track, gun, ready ammunition, fuel (Puma one tank, BMP-2 rear doors and centre) with toughness/absorb and fire
+  and cook-off chances (BMP-2 ammunition cook-off 25 %, Puma's isolated turret ammunition 10 %). Turret seats are
+  taken in the hull frame (the BMP-2's turret crew sit near the pivot).
+- **Outcome:** engine or a track at 0 → immobilised (route dropped); gun at 0 → disarmed; fire: men out after 2 s,
+  burnt out after 120 s, cook-off checks 8 % every 5 s → destroyed; men still inside burnt (severity 0.7–1.0,
+  `applyBurn`). Crew reaction: Q14/Q15, plus — decided without the owner, for review — bail out when it can neither
+  move nor fire, and when no crewman can act any more (crew all killed or wounded); an abandoned vehicle counts as
+  lost for points. Bail-out after the ramp's `bailOutSeconds` (Puma/BMP-2 6 s) through the exits in turn; men who
+  cannot walk stay aboard (rule 10). A crew that bailed out stays a unit on foot (orders to it still address the
+  vehicle; commanding a dismounted crew is M7.4b). No extinguisher yet (M7.4b).
+- **Wrecks (Q8):** destroyed and abandoned hulls (and immobilised after 30 s) are stamped in the nav grids (as built
+  in M7.1c), listed in `BattleResult.wrecks`; every contact on them is marked `wreck`, spotting, station targeting and
+  the launcher skip them, and the renderer draws enemy wrecks under fog. A station's task on a target that is down
+  or wrecked ends at the next decision (`why.hold.targetDown`).
+- **Points (Q9):** `VictoryRules.vehiclePoints` {lost 20, immobilised 10}, set by the scenario builder for battles
+  with vehicles; `SideScore.vehiclesLost/vehiclesImmobilised`.
+- **Panzerfaust 3 / RPG-7:** `ru-pg7vl` moved to ru/ammunition.json (same id; now category "ammunition", mass 2.6 kg
+  = cartridge; string `ammo.ru-pg7vl`); `de-pzf3` replaced by `de-pzf3-firing-unit` (2.3 kg, kept) + `de-pzf3-dm12`
+  (12.9 kg tube, the round): the load stays 15.2 kg. Values (search extracts, medium; motor timing, drag, dispersion
+  low): PG-7VL 625 mm (500 RHA × 1.25), 115 m/s → ~300 m/s, self-destruct 4.5 s, effective 300 m, danger zone
+  30 m; DM12 875 mm (700 × 1.25), 152 m/s → ~210 m/s, 400 m, danger zone 10 m. `delivery.method "direct"`; aim from
+  the shared flight step (`flight.ts`, tested against the projectile loop within 0.5 m at 300 m). Error: round
+  dispersion 1.5 mrad + 2.5 mrad × skill factor, range error 5 % (low). Anti-tank lab (`npm run lab -- antitank`,
+  20 trials): Panzerfaust vs BMP-2 side-on hits ~100 % at 100 m, ~50 % at 300–400 m, nearly every hit knocks it out;
+  RPG-7 vs Puma side similar, front never penetrated.
+- **Who fires (Q19, C1):** `Unit.atRule` (rules order `at`, cascading; default `behaviour.antitank.atRuleDefault`
+  "vehicles"); own decision when halted and the fire rule allows, at a vehicle seen in the last 6 s (men on foot
+  look for vehicles every fourth scan, so 3 s missed most) within the round's range, line clear; `vehiclesAndPositions`
+  adds men in houses and machine-gunners. Order: `fire {nature: "at"}` (the "Anti-tank" button): the best-placed
+  loaded man fires once, the unit's drill goes on. A comrade within 30 m (not an anti-tank gunner himself) brings a
+  round to a gunner who has none (`Intent.item`).
+- **Q20:** no shot from inside a building footprint under 60 m² that has no breach (houses are solid for now, so
+  this binds only once men can enter them), with a wall within 2 m behind, or an own man within the danger zone in
+  a 60° cone behind; an order then answers "unable".
+- **Not done (M7.4b, with the plan):** APS and add-on tiles on the fixture (C12/C16), the hull-hit perf-projectiles
+  variant (bench-combined now includes penetrating hull hits), extinguishers, finer component effects (sights,
+  radio, turret drive, half power), crew reactions beyond bail-out (reverse out, smoke), AI dismount on an AT
+  threat and AI anti-tank tasks, cross-loading from abandoned hulls, `ForceResult`/`wrecks` round-trip test.
+- **AAR / batch:** timeline lines for vehicles penetrated, immobilised, disarmed, burning, destroyed, abandoned;
+  a vehicles line per side; wrecks on the heat map; anti-tank rounds by type in the expenditure (`rockets`) and a
+  batch column.
+- **Golden update** (catalog fingerprint; the vehicle goldens also by behaviour). Checked first: headless demo-s1,
+  shootout-s1, fixture-s7 and platoon-s1 (900 s) print the identical event stream and casualties as on the base
+  commit (only the state hash and wall time differ): the Panzerfaust split keeps the load mass, and no anti-tank
+  round is fired in an infantry battle (no vehicles; default rule "vehicles").
+- **Batch, 10 × 900 s each, vs M7.3:** infantry `platoon` red 10/10, 16.1 / 8.2; `platoon-ru` blue 10/10, 7.8 / 15.4
+  — identical. `platoon-vehicles` (Germany attacks mounted): red 7/10 (M7.3: 9/10), casualties blue 11.4 / red 18.3
+  (14.7 / 10.8), vehicles lost blue 0.2 / red 2.4 of 3, anti-tank rounds blue 0.2 / red 0.0, cannon blue 100 / red 16
+  (660 / 380: the BMP-2s die early), coax 509 / 6, 76× real time. `platoon-ru-vehicles` (Russia attacks): blue 10/10
+  (10/10), casualties blue 8.8 / red 18.2 (10.6 / 18.2), vehicles lost blue 0 / red 1.3 of 3 (immobilised 0.2 / 0.1),
+  anti-tank rounds blue 0.0 / red 0.9, cannon 71 / 226, 99×. The Pumas' fronts make them nearly untouchable for
+  the BMP-2's 30 mm and the RPG; the BMP-2s burn readily (owner Q21 b).
+- **Perf (alone):** bench 14×, spotting 9.4×, bench-vehicles 8.5× (floor 8×), projectile bench 3.76 ms/tick (4.4×),
+  with 30 parked hulls +13.5–15 % (base measured the same day +12.6 %; noise ~10 %), bench-combined 4.0× (−5 %
+  against parked), fragment volley 18×, render 0.97 ms per frame.

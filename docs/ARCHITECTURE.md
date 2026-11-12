@@ -544,6 +544,49 @@ through a multispectral cloud (`throughSmoke`). Contacts on vehicles carry `cls`
 (`engineRangeM`: idle/moving range × surface × rain × wind). Ammunition expenditure for the AAR and the batch
 report is tallied from events (`tallyExpenditure`: vehicle rounds credited to the vehicle).
 
+## 16k. Armour, damage and shoulder-fired anti-tank weapons (M7.4a) — `systems/armour.ts`, `systems/launcher.ts`, `flight.ts`
+
+**Plates.** `VehicleDef.armour.plates` (one per part × face) become `VehicleRT` (`buildVehicleRT`, derived per
+battle, never saved): mild-steel-equivalent mm per mm (`resistance`, `resistanceShaped`), slope, ricochet angle,
+and `minNeedMm` (thinnest plate square on), copied per row into `VehicleGrid.minNeed`. **Hot loop**
+(`projectileSystem`): at a hull or turret hit, a non-explosive round with `penSteelMm × 2.5 < minNeed` stops inline
+as before (aggregated `vehicle.hit` per row and tick, no call); every other kinetic round, every shaped charge and
+every armed impact-HE round is queued (`HQ`, stride 13: row, point, velocity, speed, ammo, owner, part, face, age)
+— kinetic and shaped rounds are removed from the pool, HE still settles and bursts as before. Rockets: the
+explosive branch applies the motor's push (`thrust` from tick `ignTicks` to `burnEndTicks`) and the self-destruct
+(`selfDestructTicks`); `flight.ts` `flightStep` is the same arithmetic for aiming (tested equal). **After the loop**,
+before the aggregated events and the bursts: `resolveVehicleHit` per queued hit — `plateNeed` (path thickness =
+t / max(cos incidence, 0.05) × resistance), kinetic ricochet (heavy rounds re-added slowed) / penetrate if `can ≥
+need` / stop; shaped: graze fuse failure, unarmed dud, else a burst queued just off the plate and the jet if
+`penSteelMm ≥ needS`; HE: the blast breach rule on thin plates, external components (tracks) by filling. Inside
+(owner Q11): `interior` walks the path through seat boxes (`resolveBodyHit`) and component boxes (condition −=
+residual / toughness; −absorb), the jet losing `jetDecayMmPerM`; a kinetic round with enough left for the far
+plate is re-added beyond it (`addProjectile`, only after the loop); then `behindArmour.spallCount` fragments in a
+cone strike the first seat or component on their line. Stream `armour` (lazy). Events `vehicle.hit` (now with
+`components`), `vehicle.component`, `vehicle.fire`, `vehicle.status`, `vehicle.destroyed`, `vehicle.abandoned`.
+
+**Outcome** (`afterDamage`, `vehicleDamageSystem` after `projectileSystem`, every tick, returns at once without
+vehicles): engine/track at 0 → `immobilised` (route cleared); gun at 0 → `disarmed`; ammunition `cookOffChance` →
+`destroyed` at once; `fireChance` → `fire` (+ a smoke cloud), bail-out after `bailOnFireSeconds`, cook-off checks,
+burnt out after `burnSeconds` → `destroyed`. Crew reaction (Q14/Q15): `bailOut` when burning, immobilised and
+penetrated again (`wasImmobilised && pen`), immobilised and disarmed, or no crewman able; else `continue`. The
+bail-out (`ramp.bailOutSeconds` later) moves every man aboard who can walk out (`getOut`, shared with dismount),
+ends their units' boardings, sets `abandoned`. `destroyVehicle` burns everyone still aboard (`applyBurn`). Wrecks:
+every contact on it gets `wreck: true` (Q8: both sides know at once), spotting/targeting skip it, the renderer
+draws enemy wrecks under fog, `deriveWrecks` stamps it into the nav grids, `BattleResult.wrecks` lists it.
+Points: `VictoryRules.vehiclePoints` (Q9) in `battleScore` (`SideScore.vehiclesLost/vehiclesImmobilised`).
+
+**Launchers.** Ammunition with `delivery.method "direct"` (+ `launcher`, `dispersionMrad`, `aimSeconds`,
+`backblastM`, `disposable`) is skipped by the grenade code. `Unit.atRule` (rules order `at`, cascading;
+`atRuleOf` falls back to `behaviour.antitank.atRuleDefault`). `launcherDecision` (from `decisionSystem`, halted, fire
+rule allows): a seen vehicle contact (or, with `vehiclesAndPositions`, a man in a house or with a machine gun)
+within the round's range, clear line (target hull ignored), `backblastBlocked` (Q20 room rule, wall within
+`wallBehindM` behind, own man in the 60° cone within `backblastM`) → action `fireLauncher` (`aimSeconds`); at its end
+`fireRound`: contact position + velocity × time of flight, elevation from `aimSolution` (bisection over
+`flightStep`), range error and angular error (stream `antitank`), the round removed (rule 9), `grenade.launched
+{method: "direct"}`. Order `fire {nature: "at"}` → `orderLauncherShot` (best-placed man, once; keeps drills). Out of
+rounds: a comrade within `handOverM` gets `bringAmmo` with `Intent.item`. Expenditure: `SideExpenditure.rockets`.
+
 ## 17. Foundation requirements of the extensions, and their guards
 
 This table is kept current. "Guard" names the test that fails if the requirement is broken.
@@ -571,18 +614,20 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Event entries for every medical event | events.ts | ⬜ M2/M10 | — |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
 | 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
-| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts | 🟡 fuel (tank item's charge, burnt by the drive) M7.1b; components M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt" |
+| 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts, systems/armour.ts | 🟡 fuel (tank item's charge, burnt by the drive) M7.1b; components (engine, tracks, gun, ammunition, fuel) with immobilised/disarmed/fire M7.4a; finer effects M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt"; `tools/test/armour.test.ts` |
 | 6.7 | Physical drive model (tracked differential, wheeled radius) | systems/drive.ts, hulls.ts, nav.ts (`tracked:c1`) | ✅ dynamics, gears, rain, fuel M7.1b; navigation, follower, collisions, flattening M7.1c | `tools/test/lab-drive.test.ts`, `sim/test/drive.test.ts`, `sim/test/vehicles.test.ts`, `tools/test/vehicle-maps.test.ts`, `fixture-faction.test.ts` "xf-cart ... turn radius" |
-| 4.3.5 | "vehicle hit" event | systems/ballistics.ts | 🟡 every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; penetration M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick" |
+| 4.3.5 | "vehicle hit" event | systems/ballistics.ts, systems/armour.ts | ✅ every hull hit yields `vehicle.hit` (aggregated below 12.7 mm) M7.1c; result ricochet/stopped/penetrated with components M7.4a | `sim/test/vehicles.test.ts` "rifle rounds stop at the hull and come out as one aggregated vehicle.hit per tick"; `tools/test/armour.test.ts` |
+| 6.7 | Plates per facing, penetration, components | systems/armour.ts, ballistics.ts (`VehicleRT`) | ✅ M7.4a (finer component effects M7.4b) | `tools/test/lab-armour.test.ts`, `tools/test/armour.test.ts`, `tools/test/lab-antitank.test.ts` |
+| 6.6 | Standing anti-tank rule | systems/launcher.ts (`atRuleOf`), rules order `at`, Rules panel | ✅ M7.4a | `tools/test/lab-antitank.test.ts` "standing anti-tank rule" |
 | 4.4 | Scale with vehicles | perf.test.ts, perf-projectiles.test.ts, perf-render.test.ts | ✅ `bench-vehicles` ≥ 8× (M7.1c); `bench-combined` (300 men + 30 IFVs firing + 20,000 projectiles) ≥ 3× floor and close to the same load holding fire; render proxy < 4 ms (M7.3) | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts` "30 parked hulls", "bench-combined"; `render/test/perf-render.test.ts` |
 | 6.7 | Turret, sights, ammo racks | systems/gunnery.ts | ✅ M7.3 (penetration M7.4a) | `tools/test/lab-gunnery.test.ts`, `tools/test/gunnery.test.ts` (conservation, cease-fire routing C19, incoming fire C34, sling loader C10) |
-| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | 🟡 smoke M7.3; APS M7.4a | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke" |
+| 6.7 | Smoke dischargers (APS slot reserved) | systems/gunnery.ts (`dischargeSmoke`), spotting.ts | 🟡 smoke M7.3; APS M7.4b (moved from M7.4a) | `tools/test/gunnery.test.ts` "smoke dischargers"; `tools/test/vehicle-senses.test.ts` "thermal through smoke" |
 | 6.6/5.7 | Decision debug overlay | render/src/vehicle-debug.ts, `vehicle.decision` | 🟡 station why M7.3; reaction why M7.4b | `render/test/debug-overlay.test.ts` "draws the station's why" |
 | — | Mounted-man invariants | architecture.test.ts A7, mounted-invariants.test.ts | ✅ source guard M7.1c (no file exempt since M7.2); runtime test M7.2 | `tools/test/architecture.test.ts` "men aboard vehicles are gated"; `tools/test/mounted-invariants.test.ts` |
 | 6.7 | Crew seats, no driver no movement, passengers are soldiers | systems/boarding.ts, systems/drive.ts, mount.ts | ✅ M7.2 | `sim/test/mount.test.ts`; `sim/test/vehicles.test.ts` "no driver answers radio.noDriver" |
 | 9.1 | Casualties loaded into a vehicle | systems/boarding.ts (`loadCasualty`) | 🟡 within 5 m of an exit, by two men (M7.2); carrying over distance M10 | `sim/test/mount.test.ts` "a casualty within 5 m of the exit is loaded by two men" |
 | 9.2 | Vehicle-carried reserves, cross-loading | systems/boarding.ts (`takeFromVehicle`), systems/decisions.ts | 🟡 refill from an own halted vehicle (M7.2); abandoned hulls M7.4b | `sim/test/mount.test.ts` "refills from the halted carrier; items are conserved" |
-| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | 🟡 records in/out M7.1b; wrecks M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out" |
+| 9.3 | Vehicles as roster data (force level, linked to crews by `vehicleId`) | battle.ts, setup.ts, run.ts | 🟡 records in/out M7.1b; wrecks produced and listed M7.4a; round-trip test M7.4b | `sim/test/roster.test.ts` "a vehicle whose crew unit is gone still comes out" |
 | 9.3 | Roster format separate from battle state | battle.ts | ✅ | `fixture-faction.test.ts` |
 | 9.3 | AI able to play both sides unattended, and resume from a save; headless batch runner | ai, run.ts saveGame/loadGame, tools/cli/batch.ts | ✅ (trivial AI) | `determinism.test.ts` "AI-vs-AI battle saved halfway", `npm run batch` |
 | 9.3 | Procedural scenario generator | scenario/demo.ts | 🟡 M6 | — |

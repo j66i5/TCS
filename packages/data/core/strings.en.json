@@ -77,6 +77,8 @@
   "map.industrial": "Industrial",
   "map.flat": "Flat",
   "radio.noRoute": "{callsign}: no way through to that point.",
+  "radio.noDriver": "{callsign}: no driver, cannot move.",
+  "radio.immobilised": "{callsign}: immobilised, cannot move.",
   "posture.standing": "standing",
   "posture.crouching": "crouching",
   "posture.prone": "prone",

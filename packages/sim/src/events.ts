@@ -23,7 +23,7 @@ export type SimEvent =
   | { kind: "move.noRoute"; tick: number; target: EntityId }
   | {
       kind: "impact"; tick: number; x: number; y: number; z: number;
-      surface: "ground" | "obstacle" | "building" | "vegetation";
+      surface: "ground" | "obstacle" | "building" | "vegetation" | "vehicle";
       result: "stopped" | "penetrated" | "ricochet";
       /** Material ID struck; for surface "vegetation" the vegetation kind's ID. */
       material: DefId; ammo: DefId; owner: EntityId;
@@ -56,6 +56,19 @@ export type SimEvent =
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
   | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
+  /**
+   * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
+   * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).
+   */
+  | {
+      kind: "vehicle.hit"; tick: number; vehicle: EntityId; x: number; y: number; z: number;
+      face: "front" | "side" | "rear" | "top"; zone: "hull" | "turret";
+      result: "ricochet" | "stopped" | "penetrated" | "intercepted"; ammo: DefId; owner: EntityId; rounds: number; components: number[];
+    }
+  /** A vehicle drove over (and, if it flattens it, through) a wall, fence or hedge. */
+  | { kind: "vehicle.crossed"; tick: number; vehicle: EntityId; obstacle: number }
+  /** A vehicle ran over a man. */
+  | { kind: "vehicle.ranOver"; tick: number; vehicle: EntityId; soldier: EntityId }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

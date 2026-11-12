@@ -133,6 +133,7 @@ function seatCrew(state: SimState, uid: EntityId, vid: EntityId, members: Entity
 /** Men placed `mountedIn` a vehicle (passengers), after all units exist. */
 function seatPassengers(state: SimState, force: ForceInput, vehicles: Map<string, EntityId>, catalog: Catalog): void {
   const byPerson = new Map<string, EntityId>();
+  // mounted: ok roster mapping (every man, aboard or not)
   for (const [id, ident] of state.identity.entries()) if (ident.side === force.side) byPerson.set(ident.personId, id);
   for (const p of force.placements) {
     if (p.mountedIn === undefined) continue;
@@ -322,6 +323,7 @@ export function vehiclesFromState(state: SimState, side: SideId): VehicleRecord[
 export function unitsFromState(state: SimState, side: SideId, template: UnitInput[]): UnitInput[] {
   // Map personId -> entity id
   const byPerson = new Map<string, EntityId>();
+  // mounted: ok roster mapping (every man, aboard or not)
   for (const [id, ident] of state.identity.entries()) if (ident.side === side) byPerson.set(ident.personId, id);
   const rebuild = (u: UnitInput): UnitInput => ({
     ...u,

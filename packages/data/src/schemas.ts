@@ -320,6 +320,8 @@ export const WoundsFile = z.object({
     bleedFloor: Num(0, 1), bleedPower: Num(0.5, 10), bluntSeverity: Num(0, 1), knockdownSeconds: Num(0, 120), flagSeverity: Num(0, 1), energyExponent: Num(0, 2), throughArmChance: Num(0, 1), throughArmEnergy: Num(0, 1),
     fragment: z.object({ minEnergyJ: Num(0, 1000), referenceEnergyJ: Num(1, 100000), exponent: Num(0, 2), factorMin: Num(0, 2), factorMax: Num(0, 5) }).strict(),
     blast: z.object({ severityInjury: Num(0, 1), severitySevere: Num(0, 1), bleedLps: Num(0, 0.2) }).strict(),
+    /** Run over by a vehicle (M7.1c). */
+    crush: z.object({ severityMin: Num(0, 1), severityMax: Num(0, 1), bleedLps: Num(0, 0.2) }).strict().optional(),
     /** A bullet that is not stopped by armour leaves the body with this share of its speed (limb / trunk or head). */
     exit: z.object({ limb: Num(0, 1), trunk: Num(0, 1) }).strict(),
   }),

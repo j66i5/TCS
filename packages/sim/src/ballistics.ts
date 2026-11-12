@@ -58,6 +58,8 @@ export interface AmmoRT {
   armTicks: number;
   /** Below this speed (squared) it is spent and removed. For a fragment: the speed at which it can no longer wound. */
   minSpeed2: number;
+  /** 12.7 mm and up (M7): each hit on a vehicle is its own event; smaller rounds are aggregated per tick. */
+  heavy: boolean;
 }
 
 /** A roof: a flat lid on a building's walls (M2.4). */
@@ -74,6 +76,109 @@ export interface HitboxRT {
 /** Bits of `BallisticsCtx.near`. */
 export const NEAR_WALL = 1;
 export const NEAR_SOLDIER = 2;
+/** A vehicle hull (or a wreck) in this bucket or a neighbouring one, this tick (M7). */
+export const NEAR_VEHICLE = 4;
+
+/**
+ * Vehicles this tick (M7.1c), rebuilt after the drive (and at creation/load) from the vehicle store, ID order.
+ * Per row: hull box in the hull's frame (f forward, r right, u up from the ground under its centre), the
+ * turret box in the turret's frame about its pivot, the world pose. Never saved.
+ */
+export interface VehicleGrid {
+  n: number;
+  id: Int32Array;
+  x: Float64Array; y: Float64Array; gz: Float64Array; ch: Float64Array; sh: Float64Array;
+  f0: Float64Array; f1: Float64Array; r0: Float64Array; r1: Float64Array; u0: Float64Array; u1: Float64Array;
+  /** Turret: pivot (world), world cos/sin of its facing, box; tu1 <= tu0 means no turret. */
+  tx: Float64Array; ty: Float64Array; tch: Float64Array; tsh: Float64Array;
+  tf0: Float64Array; tf1: Float64Array; tr0: Float64Array; tr1: Float64Array; tu0: Float64Array; tu1: Float64Array;
+  /** Bounding box of the whole vehicle (m). */
+  minX: Float64Array; maxX: Float64Array; minY: Float64Array; maxY: Float64Array;
+  /** Pitch and roll from the ground under the four corners, rad (+ nose up, + right side down). */
+  pitch: Float64Array; roll: Float64Array;
+  /** Rifle-calibre rounds stopped by each row this tick (one aggregated vehicle.hit per row). */
+  hits: Int32Array; hitOwner: Int32Array; hitAmmo: Int32Array; hitX: Float64Array; hitY: Float64Array; hitZ: Float64Array;
+  /** Buckets whose NEAR_VEHICLE bit is set (cleared through this list at the next rebuild). */
+  touched: Int32Array; touchedCount: number;
+}
+
+export function createVehicleGrid(capacity = 8): VehicleGrid {
+  const F = () => new Float64Array(capacity), I = () => new Int32Array(capacity);
+  return {
+    n: 0, id: I(), x: F(), y: F(), gz: F(), ch: F(), sh: F(), f0: F(), f1: F(), r0: F(), r1: F(), u0: F(), u1: F(),
+    tx: F(), ty: F(), tch: F(), tsh: F(), tf0: F(), tf1: F(), tr0: F(), tr1: F(), tu0: F(), tu1: F(),
+    minX: F(), maxX: F(), minY: F(), maxY: F(), pitch: F(), roll: F(),
+    hits: I(), hitOwner: I(), hitAmmo: I(), hitX: F(), hitY: F(), hitZ: F(),
+    touched: new Int32Array(capacity * 16), touchedCount: 0,
+  };
+}
+
+let vt0 = 0, vt1 = 1;
+function vclip(p: number, d: number, lo: number, hi: number): boolean {
+  if (d > -1e-12 && d < 1e-12) return p >= lo && p <= hi;
+  let a = (lo - p) / d, b = (hi - p) / d;
+  if (a > b) { const s = a; a = b; b = s; }
+  if (a > vt0) vt0 = a;
+  if (b < vt1) vt1 = b;
+  return vt0 <= vt1;
+}
+
+/** Which part `hullEntry` struck: 0 hull, 1 turret; and the face: 0 front, 1 side, 2 rear, 3 top. */
+export const HULL_HIT = { part: 0, face: 0 };
+
+/**
+ * Where (0..1 along the path) the path (x0,y0,z0)+t(dx,dy,dz) enters row j's hull or turret box; 2 if it
+ * misses. Fills HULL_HIT. A path starting inside a box enters it at t = 0.
+ */
+export function hullEntry(G: VehicleGrid, j: number, x0: number, y0: number, z0: number, dx: number, dy: number, dz: number): number {
+  let best = 2;
+  {
+    const rx = x0 - G.x[j]!, ry = y0 - G.y[j]!, c = G.ch[j]!, s = G.sh[j]!;
+    const pf = rx * c + ry * s, pr = -rx * s + ry * c, pz = z0 - G.gz[j]!;
+    const df = dx * c + dy * s, dr = -dx * s + dy * c;
+    vt0 = 0; vt1 = 1;
+    if (vclip(pf, df, G.f0[j]!, G.f1[j]!) && vclip(pr, dr, G.r0[j]!, G.r1[j]!) && vclip(pz, dz, G.u0[j]!, G.u1[j]!)) {
+      best = vt0; HULL_HIT.part = 0; faceOf(pf + vt0 * df, pr + vt0 * dr, pz + vt0 * dz, G.f0[j]!, G.f1[j]!, G.r0[j]!, G.r1[j]!, G.u1[j]!);
+    }
+  }
+  if (G.tu1[j]! > G.tu0[j]!) {
+    const rx = x0 - G.tx[j]!, ry = y0 - G.ty[j]!, c = G.tch[j]!, s = G.tsh[j]!;
+    const pf = rx * c + ry * s, pr = -rx * s + ry * c, pz = z0 - G.gz[j]!;
+    const df = dx * c + dy * s, dr = -dx * s + dy * c;
+    vt0 = 0; vt1 = 1;
+    if (vclip(pf, df, G.tf0[j]!, G.tf1[j]!) && vclip(pr, dr, G.tr0[j]!, G.tr1[j]!) && vclip(pz, dz, G.tu0[j]!, G.tu1[j]!) && vt0 < best) {
+      best = vt0; HULL_HIT.part = 1; faceOf(pf + vt0 * df, pr + vt0 * dr, pz + vt0 * dz, G.tf0[j]!, G.tf1[j]!, G.tr0[j]!, G.tr1[j]!, G.tu1[j]!);
+    }
+  }
+  return best;
+}
+
+function faceOf(f: number, r: number, z: number, f0: number, f1: number, r0: number, r1: number, u1: number): void {
+  const e = 1e-6;
+  const df = Math.min(f1 - f, f - f0), dr = Math.min(r1 - r, r - r0), du = u1 - z;
+  if (du <= e || (du < df && du < dr)) HULL_HIT.face = 3;
+  else if (dr < df) HULL_HIT.face = 1;
+  else HULL_HIT.face = f1 - f < f - f0 ? 0 : 2;
+}
+
+/**
+ * Nearest point (0..1) where a straight line meets a vehicle (hull or turret), skipping the vehicles `ignoreA`
+ * and `ignoreB` (an observer's or a target's own hull); 2 if none. Allocation-free.
+ */
+export function vehicleOnLine(G: VehicleGrid, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ignoreA = -1, ignoreB = -1, tMax = 2): number {
+  if (G.n === 0) return 2;
+  const minX = x0 < x1 ? x0 : x1, maxX = x0 < x1 ? x1 : x0, minY = y0 < y1 ? y0 : y1, maxY = y0 < y1 ? y1 : y0;
+  const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+  let best = tMax;
+  for (let j = 0; j < G.n; j++) {
+    const id = G.id[j]!;
+    if (id === ignoreA || id === ignoreB) continue;
+    if (G.maxX[j]! < minX || G.minX[j]! > maxX || G.maxY[j]! < minY || G.minY[j]! > maxY) continue;
+    const t = hullEntry(G, j, x0, y0, z0, dx, dy, dz);
+    if (t < best && t > 1e-9 && t < 1 - 1e-9) best = t;
+  }
+  return best;
+}
 
 export interface SoldierGrid {
   n: number;
@@ -142,6 +247,8 @@ export interface BallisticsCtx {
   bodyReachM: number;
   /** Soldiers this tick, in arrays, bucketed on the coarse grid (rebuilt every tick; never saved). */
   soldiers: SoldierGrid;
+  /** Vehicles this tick (M7.1c). */
+  vehicles: VehicleGrid;
   deflectionRad: number;
   scatterRad: number;
   minSpeed2: number;
@@ -257,7 +364,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
     return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
-      explosive: a.explosive !== undefined, fragment: a.kind === "fragment",
+      explosive: a.explosive !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125,
       fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
       armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
       minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };
@@ -271,7 +378,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     };
   });
   return {
-    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows),
+    hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows), vehicles: createVehicleGrid(),
     roofs, roofBuckets, roofLow, roofStamp: new Uint32Array(roofs.length), roofGen: 0,
     bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, near, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
@@ -390,7 +497,8 @@ export function lineBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: 
     }
     if (!open) return true;
   }
-  return false;
+  // A vehicle hull or a wreck between them (M7.1c).
+  return b.vehicles.n > 0 && vehicleOnLine(b.vehicles, x0, y0, z0, x1, y1, z1) < 2;
 }
 
 /** Bring the wall table in line with the breaches blown so far (terrain damage lives in the state). */

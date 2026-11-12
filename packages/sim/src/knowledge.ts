@@ -27,6 +27,7 @@ export interface KnownEnemy {
 export function sideKnowledge(ctx: SimContext, state: SimView, side: string): KnownEnemy[] {
   const best = new Map<EntityId, { c: Contact; err: number }>();
   const flagged = new Set<EntityId>();
+  // mounted: ok what men aboard know is passed on too; a man aboard is never listed (below)
   for (const [id, s] of state.soldier.entries()) {
     // Only men who are alive, conscious and still in the fight (what they know can still be passed on).
     if (!isAble(s) || state.identity.get(id)?.side !== side) continue;
@@ -37,7 +38,7 @@ export function sideKnowledge(ctx: SimContext, state: SimView, side: string): Kn
       if (!b || err < b.err) best.set(c.target, { c, err });
     }
   }
-  return [...best.entries()].sort((a, b) => a[0] - b[0]).map(([target, { c, err }]) => ({
+  return [...best.entries()].filter(([target]) => state.soldier.get(target)?.mount === undefined).sort((a, b) => a[0] - b[0]).map(([target, { c, err }]) => ({
     target, x: c.x, y: c.y, errM: err, kind: c.kind, ageS: (state.tick - c.tick) / 60, surrendered: flagged.has(target),
   }));
 }

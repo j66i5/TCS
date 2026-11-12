@@ -30,6 +30,7 @@ import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
+import { isMounted } from "../mount";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -90,7 +91,7 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
 /** Give a soldier a fire task (from a fire order). */
 export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
-  if (!w || !s || !t || !isAble(s) || !s.impair.canFight) return false;
+  if (!w || !s || !t || !isAble(s) || !s.impair.canFight || s.mount !== undefined) return false; // aboard: the station fires (M7.3)
   const a = ctx.catalog.shooting.aim;
   const prev = state.fire.get(id);
   state.fire.set(id, {
@@ -131,7 +132,8 @@ function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
   for (const other of unitSoldiers(state, top)) {
-    if (other === id) continue;
+    // (Men aboard a vehicle never block a comrade's fire: they are behind armour, M7.)
+    if (other === id || isMounted(state.soldier.get(other))) continue;
     const o = state.transform.req(other);
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
     if (along <= 0.5 || along >= range) continue;
@@ -174,6 +176,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   // Not while he has a fire task (even a slow one), and only if the magazine is well below full.
   for (const [id, w] of state.weapon.entries()) {
     if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
+    if (isMounted(state.soldier.get(id))) continue; // aboard: no reloading his own weapon (M7)
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
     const sol = state.soldier.get(id);
     if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
@@ -220,6 +223,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // fires his last belt: the rule was made for rifle magazines, and a gun with a belt in it is no reserve.)
       // One report per unit, not one per man.
       const top = topUnit(state, id);
+      // mounted: ok only men who fire report low ammunition, and men aboard do not fire
       const already = top !== null && unitSoldiers(state, top).some((m) => m !== id && state.weapon.get(m)?.lowAmmoReported === true);
       if (!w.lowAmmoReported) w.lowAmmoReported = true;
       if (!already && !w.lowAmmoRadioed) {
@@ -294,6 +298,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   for (const [uid, why] of [...ended.entries()].sort((a, b) => a[0] - b[0])) {
     const unit = state.unit.get(uid);
     if (!unit || !unit.firing) continue;
+    // mounted: ok fire tasks belong to men on foot only
     if (unitSoldiers(state, uid).some((m) => state.fire.has(m))) continue;
     unit.firing = false;
     events.emit({ kind: "fire.ceased", tick, unit: uid, reason: why });
@@ -321,6 +326,7 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
     if (side === undefined) continue;
     if (targets === null) {
       targets = [];
+      // mounted: ok fire tasks belong to men on foot only
       for (const [id] of state.fire.entries()) {
         const t = state.transform.req(id);
         targets.push({ id, x: t.x, y: t.y, side: state.identity.req(id).side });
@@ -341,6 +347,7 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
   }
   const fullTicks = secondsToTicks(F.fullRateSeconds);
   for (const top of [...refresh].sort((a, b) => a - b)) {
+    // mounted: ok fire tasks belong to men on foot only
     for (const m of unitSoldiers(state, top)) {
       const task = state.fire.get(m);
       if (!task) continue;

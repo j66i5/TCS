@@ -95,6 +95,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   }
 
   // ---- what each man sees this tick (only men who scanned: their `seen` was confirmed now)
+  // mounted: ok men aboard see nothing (spotting gives them no `seen`)
   for (const [id, s] of state.soldier.entries()) {
     if (s.seen.length === 0) continue;
     const me = state.transform.get(id);
@@ -124,7 +125,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     // Everyone who can hear, once per tick (ID order).
     const L: { id: EntityId; side: string; x: number; y: number; s: SoldierState }[] = [];
     for (const [id, s] of state.soldier.entries()) {
-      if (!isAble(s)) continue;
+      if (!isAble(s) || s.mount !== undefined) continue; // men aboard hear nothing outside (M7)
       const t = state.transform.get(id), side = state.identity.get(id)?.side;
       if (t && side !== undefined) L.push({ id, side, x: t.x, y: t.y, s });
     }
@@ -166,6 +167,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const top = topUnit(state, f.who);
     if (top === null) continue;
     const reported = { ...f.c, kind: "reported" as const, errM: f.c.errM + K.reportedErrorM };
+    // mounted: ok what a comrade reports reaches men aboard by radio/intercom
     for (const m of unitSoldiers(state, top)) {
       const ms = state.soldier.get(m);
       if (m === f.who || !isAble(ms)) continue;
@@ -193,6 +195,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   }
 
   // ---- forget old contacts (once a second per man, staggered), and those he saw die
+  // mounted: ok contacts age for every man
   for (const [id, s] of state.soldier.entries()) {
     if ((id + tick) % TICK_HZ !== 0 || s.contacts.length === 0) continue;
     s.contacts = s.contacts.filter((c) => tick - c.tick <= forget && !(c.kind === "seen" && state.soldier.get(c.target)?.physiology.alive === false));

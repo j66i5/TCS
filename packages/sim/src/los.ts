@@ -10,13 +10,14 @@
  */
 import type { SimContext } from "./context";
 import { exp, sqrt } from "./math";
+import { vehicleOnLine } from "./ballistics";
 import { heightAt, pointInPolygon, segmentsInRectInto } from "./terrain";
 
 export interface Sight {
   /** 0 (nothing gets through) .. 1 (a clear view). Product of see-through obstacles and vegetation. */
   visibility: number;
   /** What stopped the line completely, if anything. */
-  blockedBy: "ground" | "wall" | "roof" | null;
+  blockedBy: "ground" | "wall" | "roof" | "vehicle" | null;
   /** Metres of vegetation the line passed through below its top. */
   vegetationM: number;
   /** Where along the line (0 start .. 1 end) it was stopped; 1 if it was not. */
@@ -33,7 +34,10 @@ const LOS_TS: number[] = [];
 const LOS_SEGS: number[] = [];
 const ROOF_TS: number[] = [];
 
-export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): Sight {
+/**
+ * `ignoreA` / `ignoreB`: vehicles whose own hull does not block (the observer's or the target's, M7).
+ */
+export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, ignoreA = -1, ignoreB = -1): Sight {
   const map = ctx.map, B = ctx.ballistics, index = ctx.mapIndex;
   const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
   const len = sqrt(dx * dx + dy * dy);
@@ -115,6 +119,12 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
         }
       }
     }
+  }
+
+  // ---- vehicle hulls and wrecks (M7.1c): independent of the samples below (a hull between two samples counts)
+  if (B.vehicles.n > 0) {
+    const tv = vehicleOnLine(B.vehicles, x0, y0, z0, x1, y1, z1, ignoreA, ignoreB, tBlock);
+    if (tv < tBlock) { tBlock = tv; blockedBy = "vehicle"; }
   }
 
   // ---- ground and vegetation. The ground is bilinear between height points, so its highest points along the

@@ -58,6 +58,7 @@ function summarize(
   const { state } = sim;
   const sides: SideResult[] = state.sides.map((sd) => {
     let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0;
+    // mounted: ok results count every man, aboard or not
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== sd.id) continue;
       start++;

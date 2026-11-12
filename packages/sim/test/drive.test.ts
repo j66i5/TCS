@@ -71,7 +71,7 @@ describe("vehicle orders and the drive system", () => {
     expect(tankLeft.charge).toBeGreaterThan(395);
   });
 
-  it("halt brings it to a stop; with the driver dead a move order is unable", () => {
+  it("halt brings it to a stop; with the driver dead a move order answers radio.noDriver", () => {
     const sim = createSim(vehicleInput());
     const [vid, v] = [...sim.state.vehicle.entries()][0]!;
     submitOrder(sim, { tick: 0, issuer: "blue", target: v.unit!, kind: "move", waypoints: [{ x: 550, y: 100, mode: "run" }] });
@@ -88,7 +88,7 @@ describe("vehicle orders and the drive system", () => {
     submitOrder(s2, { tick: 0, issuer: "blue", target: v2.unit!, kind: "move", waypoints: [{ x: 550, y: 100, mode: "run" }] });
     const ev: SimEvent[] = [];
     for (let i = 0; i < 600; i++) ev.push(...step(s2));
-    expect(ev.find((e) => e.kind === "radio" && e.key === "radio.unable")).toBeDefined();
+    expect(ev.find((e) => e.kind === "radio" && e.key === "radio.noDriver")).toBeDefined(); // M7.1c: its own message
     expect(s2.state.transform.req(vid2).x).toBe(50);
   });
 

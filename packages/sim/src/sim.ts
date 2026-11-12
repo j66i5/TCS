@@ -12,6 +12,7 @@ import type { Order } from "./orders";
 import { mapFingerprint } from "./map";
 import { buildMapIndex, validateMap } from "./terrain";
 import { buildBallistics } from "./ballistics";
+import { rebuildVehicleGrid } from "./hulls";
 import { syncTerrainDamage } from "./systems/explosions";
 import { evadeSystem, grenadeReactionSystem } from "./systems/grenades";
 import { projectileSystem } from "./systems/ballistics";
@@ -52,7 +53,7 @@ export function createContext(input: BattleInput): SimContext {
     rules: input.rules, comms,
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
     physiologyParams: { ...input.catalog.wounds.physiology, ...input.rules.physiologyParams },
-    breaches: [],
+    breaches: [], navStamps: [], navStampKey: "",
   };
 }
 
@@ -67,6 +68,7 @@ export function createSim(input: BattleInput): Sim {
   initObjectives(ctx, state);
   initSupport(ctx, state);
   syncTerrainDamage(ctx, state);
+  rebuildVehicleGrid(ctx, state);
   return { ctx, state };
 }
 
@@ -146,6 +148,7 @@ export function loadSim(input: BattleInput, saved: SerializedState): Sim {
   }
   const state = deserializeState(saved);
   syncTerrainDamage(ctx, state);
+  rebuildVehicleGrid(ctx, state);
   return { ctx, state };
 }
 

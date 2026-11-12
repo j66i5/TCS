@@ -10,6 +10,8 @@
  */
 import { suppressByBurst } from "./morale";
 import { applyBreaches, lineBlocked } from "../ballistics";
+import { patchNavGrids } from "../navctx";
+import { deriveWrecks } from "../hulls";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
@@ -20,10 +22,16 @@ import type { SimState } from "../state";
 import { heightAt, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 
-/** Re-derive everything that depends on terrain damage (after a new breach, and after loading a save). */
-export function syncTerrainDamage(ctx: SimContext, state: SimState): void {
+/**
+ * Re-derive everything that depends on terrain damage (after a new breach, and after loading a save).
+ * With a rectangle (m), only the navigation cells there are re-derived (`patchNavGrids`, equal to a full
+ * rebuild); without one every grid is dropped and rebuilt on next use. Wrecks are stamped from the vehicles.
+ */
+export function syncTerrainDamage(ctx: SimContext, state: SimState, rect?: readonly [number, number, number, number]): void {
   applyBreaches(ctx.ballistics, ctx.mapIndex, state.terrain.breaches);
   ctx.breaches = state.terrain.breaches;
+  if (rect) { patchNavGrids(ctx, rect[0], rect[1], rect[2], rect[3]); return; }
+  deriveWrecks(ctx, state);
   ctx.nav = {}; // routes are planned on grids rebuilt with the holes in them
 }
 
@@ -42,7 +50,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
 
   // ---- blast
   for (const [id, s] of state.soldier.entries()) {
-    if (!s.physiology.alive) continue;
+    if (!s.physiology.alive || s.mount !== undefined) continue; // men aboard are behind armour (M7)
     const t = state.transform.get(id);
     if (!t) continue;
     const dx = t.x - x, dy = t.y - y;
@@ -86,6 +94,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   }
   const reach = BL.breachReachScaledM * cube, strength = BL.breachSteelMmScaled * cube, width = BL.breachWidthScaledM * cube;
   let breached = false;
+  let bx0 = x, by0 = y, bx1 = x, by1 = y;
   const nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
   for (let q = 0; q < nSeg; q++) {
     const si = BREACH_SEGS[q]!;
@@ -105,6 +114,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, tick: state.tick });
     events.emit({ kind: "terrain.breached", tick: state.tick, x: px, y: py, owner: s.owner, id: s.id });
     breached = true;
+    bx0 = Math.min(bx0, px - width); by0 = Math.min(by0, py - width); bx1 = Math.max(bx1, px + width); by1 = Math.max(by1, py + width);
   }
-  if (breached) syncTerrainDamage(ctx, state);
+  if (breached) syncTerrainDamage(ctx, state, [bx0, by0, bx1, by1]);
 }

@@ -32,7 +32,7 @@ import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 import { assignFireTask } from "./fire";
 import { isCowering } from "./morale";
-import { unitSoldiers } from "./orders";
+import { footSoldiers } from "../mount";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -156,7 +156,7 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   const type = wd.feed.magazine;
   if (spareCount(state.container.get(id), type) > 0) return;
   // Already someone on his way?
-  const men = unitSoldiers(state, top);
+  const men = footSoldiers(state, top);
   for (const g of men) {
     const it = state.soldier.get(g)?.intent, act = state.action.get(g);
     if (it?.kind === "bringAmmo" && it.target === id) return;
@@ -212,6 +212,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
   const D = ctx.catalog.behaviour.decisions;
   const every = Math.max(1, secondsToTicks(D.stepSeconds));
   // ---- who is under fire: the unit remembers it (for the "return fire" rule)
+  // mounted: ok a man aboard who is under fire still tells his unit it is under fire
   for (const [id, s] of state.soldier.entries()) {
     if (s.mental.suppression < D.underFireSuppression || !isAble(s)) continue;
     const u = state.identity.get(id)?.unit;
@@ -225,6 +226,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
   for (const [id, s] of state.soldier.entries()) {
     if ((id + state.tick) % every !== 0) continue;
     if (!isAble(s)) { s.intent = null; continue; }
+    if (s.mount !== undefined) { s.intent = null; continue; } // aboard: no decisions of his own (M7)
     if (state.tick < s.stunnedUntilTick || s.evade !== null) continue;
     const ident = state.identity.get(id);
     const unit = ident ? state.unit.get(ident.unit) : undefined;

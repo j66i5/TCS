@@ -54,7 +54,7 @@ export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: 
   if (!(R > 0)) return;
   for (const [id, s] of state.soldier.entries()) {
     const t = state.transform.get(id);
-    if (!t) continue;
+    if (!t || s.mount !== undefined) continue; // men aboard are behind armour (M7)
     // Like their rounds, men's own side's bursts do not suppress them (they know they are coming; the blast
     // itself still stuns and wounds).
     if (ownerSide !== undefined && state.identity.get(id)?.side === ownerSide) continue;
@@ -66,6 +66,7 @@ export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: 
 
 /** His unit has lost its leader: every man of it takes the blow. */
 export function leaderLost(ctx: SimContext, state: SimState, unitId: EntityId): void {
+  // mounted: ok losing the leader shakes every man, aboard or not
   for (const m of unitSoldiers(state, unitId)) addStress(ctx, state, m, ctx.catalog.behaviour.stress.fromLeaderLoss);
 }
 
@@ -104,6 +105,7 @@ export function moraleSystem(ctx: SimContext, state: SimState, events: EventSink
       const at = state.transform.get(e.soldier);
       if (side === undefined || !at) continue;
       const r2 = B.stress.casualtyNearbyM * B.stress.casualtyNearbyM;
+      // mounted: ok a comrade falling nearby shakes men aboard too
       for (const [id] of state.soldier.entries()) {
         if (id === e.soldier || state.identity.get(id)?.side !== side) continue;
         const t = state.transform.get(id);
@@ -115,6 +117,7 @@ export function moraleSystem(ctx: SimContext, state: SimState, events: EventSink
   }
   // ---- fading and state changes, each man every stepSeconds (staggered)
   const every = Math.max(1, secondsToTicks(B.stepSeconds)), dt = every / 60;
+  // mounted: ok stress and suppression fade for every man
   for (const [id, s] of state.soldier.entries()) {
     if ((id + state.tick) % every !== 0) continue;
     const m = s.mental;

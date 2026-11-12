@@ -30,6 +30,7 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
     const o = defs[i]!, st = state.objectives[i];
     if (!st) continue;
     const present = new Set<SideId>();
+    // mounted: ok men aboard hold and contest objectives too (owner, Q10)
     for (const [id, ident] of state.identity.entries()) {
       if (!standing(state, id)) continue;
       const t = state.transform.get(id);
@@ -52,6 +53,7 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   for (const sd of state.sides) {
     const tops = [...state.unit.entries()].filter(([, u]) => u.side === sd.id && u.parent === null);
     // Nobody standing: all down, or the last of them running (they have left the field).
+    // mounted: ok a side with men only aboard vehicles is not wiped out
     const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && standing(state, id));
     const allBroken = tops.length > 0 && tops.every(([, u]) => u.broken);
     if (!anyStanding || allBroken) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
@@ -73,6 +75,7 @@ export function battleScore(ctx: SimContext, state: SimView): BattleScore {
     ctx.rules.objectives.forEach((o, i) => { if (state.objectives[i]?.holder === sd.id) pts += o.points; });
     let down = 0;
     // Men lost: killed, incapacitated, surrendered or captured (M6.6), each counted once.
+    // mounted: ok losses count every man
     for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && isOut(state.soldier.req(id))) down++;
     return { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
   });

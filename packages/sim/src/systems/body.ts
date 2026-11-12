@@ -57,6 +57,7 @@ export function requestPosture(ctx: SimContext, state: SimState, id: EntityId, t
 
 /** Complete posture changes whose time is up. */
 export function postureSystem(_ctx: SimContext, state: SimState, events: EventSink): void {
+  // mounted: ok a man aboard requests no posture (movement and morale skip him); one in progress completes
   for (const [id, s] of state.soldier.entries()) {
     if (s.postureTo !== null && state.tick >= s.postureDoneTick) {
       s.posture = s.postureTo;
@@ -71,6 +72,7 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
   const p = ctx.catalog.body.physiology;
   const heat = 1 + p.heatPerC * Math.max(0, state.environment.temperatureC - p.heatThresholdC);
   const riseK = 1 - exp(-DT / p.hrRiseTauS), fallK = 1 - exp(-DT / p.hrFallTauS);
+  // mounted: ok fatigue and heart rate recover aboard too
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive) continue;
     const m = state.mover.get(id);

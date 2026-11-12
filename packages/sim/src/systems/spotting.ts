@@ -48,13 +48,13 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     if ((oid + tick) % every !== 0) continue;
     // Forget what has not been seen for a while, and the dead.
     if (os.seen.length > 0) os.seen = os.seen.filter((e) => tick - e.lastTick <= forget && state.soldier.get(e.target)?.physiology.alive === true);
-    if (!isAble(os)) continue;
+    if (!isAble(os) || os.mount !== undefined) continue; // men aboard do not observe yet (seat sensors: M7.3)
     const ot = state.transform.get(oid), oi = state.identity.get(oid);
     if (!ot || !oi) continue;
     if (targets === null) {
       targets = [];
       for (const [tid, ts] of state.soldier.entries()) {
-        if (!ts.physiology.alive) continue;
+        if (!ts.physiology.alive || ts.mount !== undefined) continue; // a man aboard is never a target (M7)
         const tt = state.transform.get(tid), ti = state.identity.get(tid);
         if (!tt || !ti) continue;
         const speed = state.mover.get(tid)?.speedMps ?? 0;

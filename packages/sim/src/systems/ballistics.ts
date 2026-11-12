@@ -19,7 +19,10 @@ import { DT, type EntityId } from "../ids";
 import { cos, exp, pow, sin, sqrt } from "../math";
 import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
-import { NEAR_SOLDIER, NEAR_WALL, type AmmoRT } from "../ballistics";
+import { HULL_HIT, hullEntry, NEAR_SOLDIER, NEAR_VEHICLE, NEAR_WALL, type AmmoRT } from "../ballistics";
+
+/** Face and part of the first aggregated hit per vehicle row this tick (face * 2 + part). */
+const HIT_FACE: number[] = [];
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
@@ -54,7 +57,7 @@ function queueBurst(x: number, y: number, z: number, ammo: number, owner: number
 function settle(
   P: SimState["projectiles"], i: number, am: AmmoRT, tick: number, hx: number, hy: number, hz: number, nx: number, ny: number, nz: number,
   vx: number, vy: number, vz: number, soft: number, BN: { restitution: number; tangentKeep: number; stopSpeedMps: number },
-  events: EventSink, material: string, surface: "ground" | "obstacle" | "building",
+  events: EventSink, material: string, surface: "ground" | "obstacle" | "building" | "vehicle",
 ): boolean {
   if (am.fuseTicks > 0) {
     let vn = vx * nx + vy * ny + vz * nz;
@@ -105,7 +108,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const gdt = bal.gravityMps2 * dt;
   const W = map.widthM, H = map.heightM;
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows, maxGround = B.maxGround, maxVegTop = B.maxVegTop;
-  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER;
+  const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry;
   const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
@@ -132,7 +135,9 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const sd = state.identity.get(id)?.side ?? "";
       let sc = SG.sides.indexOf(sd);
       if (sc < 0) { sc = SG.sides.length; SG.sides.push(sd); }
-      SG.side[n] = sc; SG.sup[n] = 0; SG.sideOf.set(id, sc);
+      SG.sideOf.set(id, sc);
+      if (s.mount !== undefined) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
+      SG.side[n] = sc; SG.sup[n] = 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
       SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
@@ -208,7 +213,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- coarse rejection: sample the path every bucket (8 m) and compare its height there with the highest
     // ground / vegetation top of that bucket. Margins cover slopes between samples; a bullet that slips past
     // is caught on the next tick (it would then start below ground).
-    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false;
+    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false, nearVehicle = false;
     const zTop = z0 > z1 ? z0 : z1;
     {
       const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
@@ -224,6 +229,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const nb = near[kk]!;
         if ((nb & NW) !== 0) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
         if ((nb & NS) !== 0) nearSoldier = true;
+        if ((nb & NV) !== 0) nearVehicle = true;
       }
     }
 
@@ -327,6 +333,18 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    // ---- vehicles (M7.1c): the path against each nearby hull and turret box; every round stops there for now
+    let tVeh = 2, vehRow = -1, vehPart = 0, vehFace = 0;
+    if (nearVehicle) {
+      const own = state.soldier.get(P.owner[i]!)?.mount?.vehicle ?? -1;
+      for (let j = 0; j < VG.n; j++) {
+        if (VG.id[j] === own) continue; // its own hull does not stop a round its gunner fires
+        if (VG.maxX[j]! < minX || VG.minX[j]! > maxX || VG.maxY[j]! < minY || VG.minY[j]! > maxY) continue;
+        const t = hullAt(VG, j, x0, y0, z0, dx, dy, dz);
+        if (t < tVeh) { tVeh = t; vehRow = j; vehPart = HULL_HIT.part; vehFace = HULL_HIT.face; }
+      }
+    }
+
     // ---- ground: sample every terrain cell (the surface is smooth within a cell), then bisect
     let tGround = 2;
     if (nearGround) {
@@ -351,6 +369,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     let tEnd = tGround < tHit ? tGround : tHit < 2 ? tHit : 1;
     if (tRoof < tEnd) tEnd = tRoof;
     if (tBody < tEnd) tEnd = tBody;
+    if (tVeh < tEnd) tEnd = tVeh;
 
     // ---- suppression (M4.1): an enemy round passing within a few metres of a man, or striking near him,
     // cracks past him. Each round counts once per man: at the point of its flight closest to him (on this
@@ -419,6 +438,40 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         remove(P, i);
         continue;
       }
+    }
+
+    if (tVeh <= 1 && tVeh < tGround && tVeh < tHit && tVeh < tRoof && tVeh <= tBody) {
+      // ---- a vehicle is hit (M7.1c: every round stops at the hull; armour and penetration come in M7.4a)
+      const hx = x0 + tVeh * dx, hy = y0 + tVeh * dy, hz = z0 + tVeh * dz;
+      if (am.explosive) {
+        if (vehFace === 3 && am.fuseTicks > 0) {
+          // A grenade that lands on top rolls off: it ends on the ground beside the hull, at the nearer side.
+          const c = VG.ch[vehRow]!, sn = VG.sh[vehRow]!, rx = hx - VG.x[vehRow]!, ry = hy - VG.y[vehRow]!;
+          const lat = -rx * sn + ry * c, out = (lat >= 0 ? VG.r1[vehRow]! : VG.r0[vehRow]!) + (lat >= 0 ? 0.4 : -0.4);
+          const f = rx * c + ry * sn;
+          const gx = VG.x[vehRow]! + c * f - sn * out, gy = VG.y[vehRow]! + sn * f + c * out;
+          if (settle(P, i, am, tick, gx, gy, hAt(map, gx, gy), 0, 0, 1, 0, 0, 0, 1, BN, events, "steel", "vehicle")) i++;
+          continue;
+        }
+        // Off the face it struck (front/rear along the facing, sides across it, top up).
+        const c = vehPart === 0 ? VG.ch[vehRow]! : VG.tch[vehRow]!, sn = vehPart === 0 ? VG.sh[vehRow]! : VG.tsh[vehRow]!;
+        let nx = 0, ny = 0, nz = 0;
+        if (vehFace === 3) nz = 1;
+        else if (vehFace === 1) { const lat = -(dx) * sn + dy * c; nx = lat > 0 ? sn : -sn; ny = lat > 0 ? -c : c; }
+        else { const sg = vehFace === 0 ? 1 : -1; nx = c * sg; ny = sn * sg; }
+        if (settle(P, i, am, tick, hx, hy, hz, nx, ny, nz, vx, vy, vz, 1, BN, events, "steel", "vehicle")) i++;
+        continue;
+      }
+      if (!am.fragment) {
+        const face = vehFace === 0 ? "front" : vehFace === 1 ? "side" : vehFace === 2 ? "rear" : "top";
+        if (am.heavy) events.emit({ kind: "vehicle.hit", tick, vehicle: VG.id[vehRow]!, x: hx, y: hy, z: hz, face, zone: vehPart === 0 ? "hull" : "turret", result: "stopped", ammo: am.id, owner: P.owner[i]!, rounds: 1, components: [] });
+        else {
+          if (VG.hits[vehRow] === 0) { VG.hitOwner[vehRow] = P.owner[i]!; VG.hitAmmo[vehRow] = AMMO[i]!; VG.hitX[vehRow] = hx; VG.hitY[vehRow] = hy; VG.hitZ[vehRow] = hz; HIT_FACE[vehRow] = vehFace * 2 + vehPart; }
+          VG.hits[vehRow] = VG.hits[vehRow]! + 1;
+        }
+      }
+      remove(P, i);
+      continue;
     }
 
     if (tBody <= 1 && tBody < tGround && tBody < tHit && tBody < tRoof) {
@@ -589,6 +642,16 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     }
     if (!am.fragment) events.emit({ kind: "impact", tick, x: hx, y: hy, z: hz, surface, result: "stopped", material: mat.id, ammo: am.id, owner: P.owner[i]! });
     remove(P, i);
+  }
+  // Rifle-calibre hits on vehicles: one aggregated event per vehicle (M7.1c).
+  for (let j = 0; j < VG.n; j++) {
+    const k = VG.hits[j]!;
+    if (k === 0) continue;
+    const fp = HIT_FACE[j]!, fc = fp >> 1;
+    events.emit({ kind: "vehicle.hit", tick, vehicle: VG.id[j]!, x: VG.hitX[j]!, y: VG.hitY[j]!, z: VG.hitZ[j]!, face: fc === 0 ? "front" : fc === 1 ? "side" : fc === 2 ? "rear" : "top", zone: (fp & 1) === 0 ? "hull" : "turret", result: "stopped", ammo: ammoRT[VG.hitAmmo[j]!]!.id, owner: VG.hitOwner[j]!, rounds: k, components: [] });
+    const v = state.vehicle.get(VG.id[j]!);
+    if (v) { v.lastHitTick = tick; v.hitsThisTick = k; }
+    VG.hits[j] = 0;
   }
   // Suppression gathered from rounds passing close (M4.1).
   for (let j = 0; j < SG.n; j++) {

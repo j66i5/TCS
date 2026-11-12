@@ -1304,3 +1304,64 @@ instead); a downed attacker gives up only with a known enemy within 25 m (`surre
 `attackerPanicGivesUp: false`; defenders unchanged at 50 m / 30 m). Batch (10 x 900 s): men surrendered or
 taken per side, German attack blue 0.40 → 0.10, red 0.10 → 0.10; Russian attack red (attacker) 0.20 → 0.00.
 Golden replays regenerated (catalog fingerprint only; demoBattle states no posture).
+
+## 2026-11-12 — M7.1c part 1: navigation, orders, collisions, hulls against rounds and sight (one golden update)
+Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, confidence low):
+- **Owner Q4 changed (logged):** vehicles avoid their OWN men — able men in the corridor ahead step aside (an
+  `evade` with `aside: true`: a short run out of the hull's way, no dive), and the hull waits for an own man who
+  cannot move (casualty, prone, pinned, captive), planning round him after 3 s — but a vehicle **does not stop or
+  steer for enemy soldiers**. Able enemies in the corridor still step aside by the same evade; an enemy the hull
+  drives over (under it, or within 0.5 m ahead of/behind it inside its track width, hull moving > 0.2 m/s) gets a
+  **crush wound record** (`applyCrush`: pelvis, chest if he lay flat; severity 0.75–1.0 from the "wounds" stream;
+  heavy internal bleeding; knocked flat; fatal at the zone's fatal severity — mostly fatal), once per pass, and the
+  event `vehicle.ranOver`. New optional data block `wounding.crush` in `core/wounds.json`. Men who are down are
+  left where they lie (not shoved along).
+- **Owner Q3:** fences, hedges and wire are flattened (a breach of `min(width/max(|sin θ|, 0.3), 3·width)` at
+  the hull centre-line crossing, `terrain.breached`, see- and shoot-through there); brick, stone and concrete walls
+  block (`vehicle[cls] = null`) and the planner goes round them; crossing caps the speed (`capKmh`).
+- **Grids:** `tracked:c1` / `wheeled:c1` (2 m cells): hard-blocked cells (houses, deep water, woods for vehicles,
+  uncrossable walls, wrecks) grown by one cell (disc); a breach is passable for a class only if at least as wide
+  as its widest hull + 0.5 m, and its cells and those beside them are kept open; linear obstacles cost
+  `crossCostCells`; vehicle grids carry no exposure. Cost stays Float32 (the Uint8/Uint16 compaction of plan §5
+  is deferred: 1200 × 900 m is ~1.3 MB per grid as is).
+- **`patchNavGrids`** replaces `ctx.nav = {}` after a breach: each built grid is re-derived over the rectangle
+  grown by everything a cell depends on (clearance + cover radius), computed in a window grown once more, then
+  minimum cost and regions (full O(N) flood). Tested equal to a full rebuild cell for cell (cost, wall,
+  exposure, region) for foot, cover-weighted and tracked grids after a breach, a flattening and a wreck stamp.
+  Wrecks (destroyed, abandoned, immobilised > 30 s) are stamped (blocked in every grid; the ring round them is
+  "wall" in foot grids, so men take cover there), re-derived when the set changes (no producer before M7.4).
+- **Routing and follower:** routes on the class grid through every ordered point (snap 6 cells), starting with
+  the hull's own position, so the first leg has a line to follow; pure pursuit on the leg (look-ahead
+  4 + 0.8|v| m, waypoint switch at max(2.5, 0.3L) m), corner speeds 1.5/3/8 m/s for turns > 60°/30°/less, and
+  a slowdown while the tracks do not give the wanted turn (one track at 0.3 is held within 1 m over 100 m).
+  Corner guard: a hull that strikes something stops and backs off for 1 s turning toward the way on.
+  Stuck = the way to go has not shrunk 0.5 m in 6 s → re-plan (one per tick, ID order); after 3 → `move.noRoute`,
+  `radio.noRoute`. Vehicle vs vehicle: a corridor ahead (stopping distance + 3 m, hull width + 0.6 m each side);
+  the one with the other's hull in its corridor waits; both: the higher ID; after 3 s waiting it plans round the
+  other hull (temporary stamp on its grid, restored by a second patch).
+- **Collisions:** the proposed pose against true building outlines and wall segments under the hull (house walls
+  always block, a breached stretch of an uncrossable wall only where open over the hull), outline points on
+  ground the class cannot drive (water, woods), and the other hulls (separating axes). Men are pushed out of hulls
+  and wrecks (grown 0.4 m); a waypoint of theirs under a hull is skipped.
+- **Orders:** `applyOrder` may answer `{unable: key}`: `radio.noDriver`, `radio.immobilised`. A parent's move is
+  split: each vehicle under it gets its own route to a slot 12 m apart across the last leg, at its foot pace's
+  vehicle pace (a foot pace addressed to the vehicle itself also maps, as in M7.1b, rather than "not-applicable");
+  halts stop them; a `rules` order sets the vehicle's `maxEngageM` only when addressed to it. `unitArrived`:
+  foot men done and every vehicle under the unit arrived. `fireTop` is in place but the fire systems still read
+  `topUnit` (vehicles do not fire before M7.3, which switches them).
+- **Rounds and sight against hulls:** `VehicleGrid` (rebuilt after the drive, at creation and load; four-corner
+  pitch/roll), near-byte bit 2 on the hull's buckets and their neighbours; every round stops at a hull or turret
+  box for now (no penetration before M7.4a): ≥ 12.7 mm one `vehicle.hit` each, smaller rounds one aggregated
+  `vehicle.hit` per vehicle per tick (`rounds` = n); explosives bounce off the face (a grenade landing on the roof
+  ends on the ground beside the hull); fragments stop silently. `sight()` (optional `ignoreA/ignoreB`) and
+  `lineBlocked` (blast shielding, grenade arcs) test the hull boxes independently of their samples.
+- **Mounted-man gates:** men aboard are not body rows, not spotting targets or observers (seat sensors M7.3), hear
+  nothing outside, take no fire task, no lull reload, no decisions, no grenade reaction, no blast or burst
+  suppression; they never block a comrade's line of fire; drills use `footSoldiers`; `sideKnowledge` never lists
+  them. Surrender is not gated yet (surrender.ts left untouched in this slice; men aboard are never seen, so
+  rarely affected) — M7.2.
+- **Golden update:** catalog fingerprint only (`wounding.crush`, `radio.noDriver`, `radio.immobilised`). Checked
+  first: headless demo-s1, shootout-s1, fixture-s7 and platoon-s1 (900 s, 7 breaches patched) print the identical
+  event stream and casualties as before.
+- Perf (alone): bench 13×, spotting 9.7×, projectile bench 4.37 ms/tick (3.8×), fragment volley 15.9× —
+  unchanged within noise.

@@ -325,6 +325,8 @@ export interface WoundsDef {
     fragment: { minEnergyJ: number; referenceEnergyJ: number; exponent: number; factorMin: number; factorMax: number };
     /** Blast wounds: severity at the edge of the injury radius and at the severe radius or nearer. */
     blast: { severityInjury: number; severitySevere: number; bleedLps: number };
+    /** Run over by a vehicle (M7.1c): severity drawn between min and max, bleeding per unit severity. */
+    crush?: { severityMin: number; severityMax: number; bleedLps: number };
     /** Share of its speed a bullet keeps on leaving a limb / the trunk or head. */
     exit: { limb: number; trunk: number };
   };

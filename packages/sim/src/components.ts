@@ -83,7 +83,7 @@ export interface SoldierState {
   /** What he knows of the enemy (M3.3), ascending target ID: from his own eyes, his ears, or reports. */
   contacts: Contact[];
   /** Getting away from a grenade at (x, y): from startTick he runs from it (`run`) or drops flat; over at untilTick. */
-  evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean } | null;
+  evade: { x: number; y: number; startTick: number; untilTick: number; run: boolean; /** He has left his planned way. */ ran: boolean; /** Stepping out of a vehicle's way (M7): no dive, back to his way at once. */ aside?: true } | null;
   /** What he decided on his own last (M4.2), for the debug overlay and to pace his decisions. */
   intent: Intent | null;
   /** Last tick he went looking for cover on his own. */

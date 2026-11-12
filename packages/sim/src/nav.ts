@@ -17,7 +17,7 @@
  */
 import type { MovementClass, TerrainCatalog } from "./catalog";
 import type { MapDef } from "./map";
-import { sqrt } from "./math";
+import { cos, sin, sqrt } from "./math";
 import { cellMoveCost } from "./terrain";
 
 /** Walking speed used to turn a wall's crossing time into a cell cost multiplier, m/s. */
@@ -46,43 +46,131 @@ export interface NavGrid {
   exposure: Float32Array;
   /** Cover preference this grid's costs include (0 = plain movement costs). */
   coverWeight: number;
+  /** Vehicle grids (M7): cells hard-blocked cells were grown by, and the narrowest passable hole, m. */
+  clearanceCells: number;
+  minBreachM: number;
 }
+
+/** A hull lying on the map (a wreck, M7): an oriented rectangle that blocks every grid. */
+export interface NavStamp { x: number; y: number; heading: number; halfL: number; halfW: number }
+
+/** Grid options for vehicle classes (M7). */
+export interface NavGridOptions {
+  /** Hard-blocked cells (buildings, deep water, uncrossable walls, wrecks) are grown by this many cells. */
+  clearanceCells?: number;
+  /** A hole blown in a wall is passable for this class only if at least this wide, m (foot: any hole). */
+  minBreachM?: number;
+  /** Hulls lying on the map (wrecks): blocked in every grid; in foot grids the ring round them gives cover. */
+  stamps?: readonly NavStamp[];
+}
+
+type Breach = { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number };
 
 export function buildNavGrid(
   map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM = 2, coverWeight = 0,
-  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[] = [],
+  breaches: readonly Breach[] = [], opts: NavGridOptions = {},
 ): NavGrid {
   const cols = Math.ceil(map.widthM / cellM), rows = Math.ceil(map.heightM / cellM);
-  const n = cols * rows;
+  const w = computeWindow(map, terrain, cls, cellM, cols, rows, coverWeight, breaches, opts, 0, 0, cols - 1, rows - 1);
+  const grid: NavGrid = {
+    cls, cellM, cols, rows, cost: w.cost, wall: w.wall, minCost: 1,
+    region: new Int32Array(0), exposure: w.exposure, coverWeight,
+    clearanceCells: opts.clearanceCells ?? 0, minBreachM: opts.minBreachM ?? 0,
+  };
+  finishGrid(grid);
+  return grid;
+}
+
+/**
+ * Re-derive the cells of `grid` inside the rectangle (m) after terrain damage (a breach, a flattened fence, a
+ * wreck): the same stages as a full build, over a window grown by everything a cell depends on (clearance,
+ * the cover radius), copied back inside the rectangle only; then the cheapest cost and the connected areas
+ * over the whole grid. The result equals a full rebuild cell for cell (tested).
+ */
+export function patchNavGrid(
+  grid: NavGrid, map: MapDef, terrain: TerrainCatalog, breaches: readonly Breach[], stamps: readonly NavStamp[],
+  x0: number, y0: number, x1: number, y1: number,
+): void {
+  const { cellM, cols, rows } = grid;
+  // A cell depends on the cells within the clearance and the cover radius of it: the cells to re-derive are
+  // the rectangle grown by that much, computed in a window grown by it once more.
+  const g = grid.clearanceCells + Math.max(1, Math.round(COVER_NEAR_M / cellM)) + 1;
+  const ic0 = Math.max(0, Math.floor(x0 / cellM) - g), ic1 = Math.min(cols - 1, Math.floor(x1 / cellM) + g);
+  const ir0 = Math.max(0, Math.floor(y0 / cellM) - g), ir1 = Math.min(rows - 1, Math.floor(y1 / cellM) + g);
+  if (ic0 > ic1 || ir0 > ir1) return;
+  const wc0 = Math.max(0, ic0 - g), wc1 = Math.min(cols - 1, ic1 + g), wr0 = Math.max(0, ir0 - g), wr1 = Math.min(rows - 1, ir1 + g);
+  const w = computeWindow(map, terrain, grid.cls, cellM, cols, rows, grid.coverWeight, breaches,
+    { clearanceCells: grid.clearanceCells, minBreachM: grid.minBreachM, stamps }, wc0, wr0, wc1, wr1);
+  const wcols = wc1 - wc0 + 1;
+  for (let r = ir0; r <= ir1; r++) {
+    for (let c = ic0; c <= ic1; c++) {
+      const i = r * cols + c, j = (r - wr0) * wcols + (c - wc0);
+      grid.cost[i] = w.cost[j]!; grid.wall[i] = w.wall[j]!; grid.exposure[i] = w.exposure[j]!;
+    }
+  }
+  finishGrid(grid);
+}
+
+function finishGrid(grid: NavGrid): void {
+  let minCost = Infinity;
+  const cost = grid.cost, n = cost.length;
+  for (let i = 0; i < n; i++) if (cost[i]! > 0 && cost[i]! < minCost) minCost = cost[i]!;
+  grid.minCost = Number.isFinite(minCost) ? minCost : 1;
+  grid.region = labelRegions(grid.cols, grid.rows, grid.cost, grid.wall);
+}
+
+/**
+ * Costs, walls and exposure of the cells in the window [wc0..wc1] x [wr0..wr1] of a cols x rows grid (local
+ * arrays, row-major over the window). Every stage only writes cells inside the window, in the same order as a
+ * full build, so a cell's value does not depend on the window it was computed in (as long as the window holds
+ * everything within the clearance and cover radius of it).
+ */
+function computeWindow(
+  map: MapDef, terrain: TerrainCatalog, cls: MovementClass, cellM: number, cols: number, rows: number, coverWeight: number,
+  breaches: readonly Breach[], opts: NavGridOptions, wc0: number, wr0: number, wc1: number, wr1: number,
+): { cost: Float32Array; wall: Uint8Array; exposure: Float32Array } {
+  const wcols = wc1 - wc0 + 1, wrows = wr1 - wr0 + 1;
+  const n = wcols * wrows;
   const cost = new Float32Array(n);
   const wall = new Uint8Array(n);
-  for (let r = 0; r < rows; r++) {
+  /** Local index of a global cell, or -1 outside the window. */
+  const loc = (c: number, r: number) => (c < wc0 || c > wc1 || r < wr0 || r > wr1 ? -1 : (r - wr0) * wcols + (c - wc0));
+  for (let r = wr0; r <= wr1; r++) {
     const y = (r + 0.5) * cellM;
     const mr = Math.min(map.rows - 1, Math.floor(y / map.cellSizeM));
-    for (let c = 0; c < cols; c++) {
+    for (let c = wc0; c <= wc1; c++) {
       const x = (c + 0.5) * cellM;
       const mc = Math.min(map.cols - 1, Math.floor(x / map.cellSizeM));
       const k = cellMoveCost(map, terrain, mr * map.cols + mc, cls);
-      cost[r * cols + c] = k === null ? 0 : k;
+      cost[(r - wr0) * wcols + (c - wc0)] = k === null ? 0 : k;
     }
   }
+  const wx0 = wc0 * cellM, wy0 = wr0 * cellM, wx1 = (wc1 + 1) * cellM, wy1 = (wr1 + 1) * cellM;
+  const meets = (x0: number, y0: number, x1: number, y1: number, m: number) => x1 >= wx0 - m && x0 <= wx1 + m && y1 >= wy0 - m && y0 <= wy1 + m;
   // Buildings are solid for now (interiors and doors come with close combat). Conservative: every cell the
   // footprint touches at all is blocked (centre test against the footprint grown by half a cell diagonal).
   const building = new Uint8Array(n);
   for (const b of map.buildings) {
-    forPolygonCells(grow(b.footprint, cellM * 0.71), cellM, cols, rows, (i) => { cost[i] = 0; building[i] = 1; });
+    const fp = b.footprint;
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    for (let k = 0; k < fp.length; k += 2) { bx0 = Math.min(bx0, fp[k]!); bx1 = Math.max(bx1, fp[k]!); by0 = Math.min(by0, fp[k + 1]!); by1 = Math.max(by1, fp[k + 1]!); }
+    if (!meets(bx0, by0, bx1, by1, cellM * 2)) continue;
+    forPolygonCells(grow(fp, cellM * 0.71), cellM, wc0, wr0, wc1, wr1, (c, r) => { const i = loc(c, r); cost[i] = 0; building[i] = 1; });
     let cx = 0, cy = 0;
-    const m = b.footprint.length / 2;
-    for (let k = 0; k < b.footprint.length; k += 2) { cx += b.footprint[k]!; cy += b.footprint[k + 1]!; }
+    const m = fp.length / 2;
+    for (let k = 0; k < fp.length; k += 2) { cx += fp[k]!; cy += fp[k + 1]!; }
     const c = Math.floor(cx / m / cellM), r = Math.floor(cy / m / cellM);
-    if (c >= 0 && r >= 0 && c < cols && r < rows) { cost[r * cols + c] = 0; building[r * cols + c] = 1; }
+    if (c >= 0 && r >= 0 && c < cols && r < rows) { const i = loc(c, r); if (i >= 0) { cost[i] = 0; building[i] = 1; } }
   }
   // Holes blown in walls: the cell at the middle of each hole is not marked by the breached stretch of wall
-  // (a man gets through a metre-wide gap even though the grid is coarser; vehicles need a hole 3 m wide).
-  // Another obstacle running through the same cell still blocks it.
+  // (a man gets through a metre-wide gap even though the grid is coarser; a vehicle needs a hole wider than
+  // its hull). Another obstacle running through the same cell still blocks it. Cells of a hole are never
+  // closed again by the clearance growth.
+  const minBreach = cls === "foot" ? 0 : opts.minBreachM ?? 3;
   const holeCells = new Set<string>();
+  const open = new Uint8Array(n);
   for (const b of breaches) {
-    if (b.owner !== "obstacle" || (cls !== "foot" && b.widthM < 3)) continue;
+    if (b.owner !== "obstacle" || b.widthM < minBreach) continue;
     const o = map.obstacles.find((q) => q.id === b.id);
     const i = b.part * 2;
     if (!o || i + 3 >= o.points.length) continue;
@@ -95,28 +183,36 @@ export function buildNavGrid(
   for (const o of map.obstacles) {
     const kind = terrain.obstacles[o.kind];
     if (!kind) continue;
+    let ox0 = Infinity, oy0 = Infinity, ox1 = -Infinity, oy1 = -Infinity;
+    for (let k = 0; k + 1 < o.points.length; k += 2) { ox0 = Math.min(ox0, o.points[k]!); ox1 = Math.max(ox1, o.points[k]!); oy0 = Math.min(oy0, o.points[k + 1]!); oy1 = Math.max(oy1, o.points[k + 1]!); }
+    if (!meets(ox0, oy0, ox1, oy1, cellM)) continue;
     let blocked: boolean;
     let extra: number;
     if (cls === "foot") {
       blocked = kind.footCrossTimeS === null;
       extra = blocked ? 0 : (kind.footCrossTimeS! * REF_SPEED_MPS) / cellM;
     } else {
-      blocked = kind.vehicle[cls] === null;
-      extra = 1;
+      const v = kind.vehicle[cls];
+      blocked = v === null;
+      extra = v === null ? 0 : v.crossCostCells;
     }
     const step = cellM / 4;
     for (let i = 0; i + 3 < o.points.length; i += 2) {
       const ax = o.points[i]!, ay = o.points[i + 1]!, bx = o.points[i + 2]!, by = o.points[i + 3]!;
       const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
       const steps = Math.max(1, Math.ceil(len / step));
-      const holes = breaches.filter((b) => b.owner === "obstacle" && b.id === o.id && b.part === i / 2);
+      const holes = breaches.filter((b) => b.owner === "obstacle" && b.id === o.id && b.part === i / 2 && b.widthM >= minBreach);
       for (let s = 0; s <= steps; s++) {
-        if (holes.length > 0) { const off = (len * s) / steps; if (holes.some((b) => off >= b.offsetM - b.widthM / 2 && off <= b.offsetM + b.widthM / 2)) continue; }
         const x = ax + ((bx - ax) * s) / steps, y = ay + ((by - ay) * s) / steps;
         const c = Math.floor(x / cellM), r = Math.floor(y / cellM);
         if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
-        const idx = r * cols + c;
-        if (holeCells.size > 0 && holeCells.has(`${idx}:${o.id}:${i / 2}`)) continue;
+        const idx = loc(c, r);
+        if (idx < 0) continue;
+        if (holes.length > 0) {
+          const off = (len * s) / steps;
+          if (holes.some((b) => off >= b.offsetM - b.widthM / 2 && off <= b.offsetM + b.widthM / 2)) { open[idx] = 1; continue; }
+        }
+        if (holeCells.size > 0 && holeCells.has(`${r * cols + c}:${o.id}:${i / 2}`)) { open[idx] = 1; continue; }
         if (wall[idx] === 1 && blocked) { cost[idx] = 0; continue; }
         if (wall[idx] === 1) continue; // already marked by this or another obstacle
         wall[idx] = 1;
@@ -125,17 +221,55 @@ export function buildNavGrid(
       }
     }
   }
-  const exposure = exposureMap(map, terrain, cellM, cols, rows, wall, building);
-
+  // Wrecks (M7): blocked for everyone; in foot grids the ring of cells round the hull is "beside a wall".
+  const stamps = opts.stamps ?? [];
+  for (const st of stamps) {
+    const R = st.halfL + st.halfW + cellM * 2;
+    if (!meets(st.x - R, st.y - R, st.x + R, st.y + R, 0)) continue;
+    const ch = cos(st.heading), sh = sin(st.heading);
+    const half = cellM * 0.5;
+    for (let r = Math.max(wr0, Math.floor((st.y - R) / cellM)); r <= Math.min(wr1, Math.floor((st.y + R) / cellM)); r++) {
+      for (let c = Math.max(wc0, Math.floor((st.x - R) / cellM)); c <= Math.min(wc1, Math.floor((st.x + R) / cellM)); c++) {
+        const px = (c + 0.5) * cellM - st.x, py = (r + 0.5) * cellM - st.y;
+        const f = Math.abs(px * ch + py * sh), l = Math.abs(-px * sh + py * ch);
+        const i = loc(c, r);
+        if (f <= st.halfL + half && l <= st.halfW + half) { cost[i] = 0; building[i] = 1; }
+        else if (cls === "foot" && f <= st.halfL + half + cellM && l <= st.halfW + half + cellM && cost[i]! > 0) wall[i] = 1;
+      }
+    }
+  }
+  // Clearance (vehicle grids): hard-blocked cells grow by the hull's half width, so a route keeps the hull
+  // clear of houses, water and walls it cannot cross; a hole in a wall stays open.
+  const cl = opts.clearanceCells ?? 0;
+  if (cl > 0) {
+    const hard = new Uint8Array(n);
+    for (let i = 0; i < n; i++) if (cost[i]! <= 0) hard[i] = 1;
+    // (The way through a hole: the hole's cells and those beside them, so the wall ends do not close it.)
+    const keep = new Uint8Array(n);
+    for (let r = 0; r < wrows; r++) for (let c = 0; c < wcols; c++) {
+      if (open[r * wcols + c] !== 1) continue;
+      for (let dr = -cl; dr <= cl; dr++) for (let dc = -cl; dc <= cl; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr >= 0 && cc >= 0 && rr < wrows && cc < wcols) keep[rr * wcols + cc] = 1;
+      }
+    }
+    for (let r = 0; r < wrows; r++) for (let c = 0; c < wcols; c++) {
+      if (hard[r * wcols + c] !== 1) continue;
+      for (let dr = -cl; dr <= cl; dr++) for (let dc = -cl; dc <= cl; dc++) {
+        if (dr * dr + dc * dc > cl * cl + cl) continue;
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= wrows || cc >= wcols) continue;
+        const j = rr * wcols + cc;
+        if (keep[j] !== 1) cost[j] = 0;
+      }
+    }
+  }
+  // Exposure: only men look for cover; vehicle grids are all "open".
+  const exposure = cls === "foot" ? exposureMap(map, terrain, cellM, wc0, wr0, wcols, wrows, wall, building) : new Float32Array(n).fill(1);
   // Cover-seeking routes: open ground costs up to (1 + coverWeight) times more, so a route may be up to that
   // much longer to stay in cover (owner decision: balanced, 0.3).
   if (coverWeight > 0) for (let i = 0; i < n; i++) if (cost[i]! > 0) cost[i] = cost[i]! * (1 + coverWeight * exposure[i]!);
-  let minCost = Infinity;
-  for (let i = 0; i < n; i++) if (cost[i]! > 0 && cost[i]! < minCost) minCost = cost[i]!;
-  return {
-    cls, cellM, cols, rows, cost, wall, minCost: Number.isFinite(minCost) ? minCost : 1,
-    region: labelRegions(cols, rows, cost, wall), exposure, coverWeight,
-  };
+  return { cost, wall, exposure };
 }
 
 /** Distance (m) within which a wall, hedge or building gives a man cover. */
@@ -145,7 +279,7 @@ const COVER_NEAR_M = 4;
  * Static exposure: tall vegetation conceals (cover = concealment per metre x height, capped at 1); the strip
  * next to walls, hedges, embankments and buildings gives cover (0.8). Exposure = 1 - best cover.
  */
-function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, cols: number, rows: number, wall: Uint8Array, building: Uint8Array): Float32Array {
+function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, wc0: number, wr0: number, cols: number, rows: number, wall: Uint8Array, building: Uint8Array): Float32Array {
   const n = cols * rows;
   const cover = new Float32Array(n);
   const vegCover = map.vegetationPalette.map((id) => {
@@ -154,9 +288,9 @@ function exposureMap(map: MapDef, terrain: TerrainCatalog, cellM: number, cols: 
     return Math.min(1, v.concealmentPerM * v.heightM * 1.5);
   });
   for (let r = 0; r < rows; r++) {
-    const mr = Math.min(map.rows - 1, Math.floor(((r + 0.5) * cellM) / map.cellSizeM));
+    const mr = Math.min(map.rows - 1, Math.floor(((r + wr0 + 0.5) * cellM) / map.cellSizeM));
     for (let c = 0; c < cols; c++) {
-      const mc = Math.min(map.cols - 1, Math.floor(((c + 0.5) * cellM) / map.cellSizeM));
+      const mc = Math.min(map.cols - 1, Math.floor(((c + wc0 + 0.5) * cellM) / map.cellSizeM));
       const v = map.vegetation[mr * map.cols + mc]!;
       if (v > 0) cover[r * cols + c] = vegCover[v - 1] ?? 0;
     }
@@ -283,13 +417,13 @@ function grow(poly: readonly number[], d: number): number[] {
   return out;
 }
 
-function forPolygonCells(poly: readonly number[], cellM: number, cols: number, rows: number, fn: (i: number) => void): void {
+function forPolygonCells(poly: readonly number[], cellM: number, wc0: number, wr0: number, wc1: number, wr1: number, fn: (c: number, r: number) => void): void {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (let k = 0; k < poly.length; k += 2) {
     x0 = Math.min(x0, poly[k]!); x1 = Math.max(x1, poly[k]!); y0 = Math.min(y0, poly[k + 1]!); y1 = Math.max(y1, poly[k + 1]!);
   }
-  const c0 = Math.max(0, Math.floor(x0 / cellM)), c1 = Math.min(cols - 1, Math.floor(x1 / cellM));
-  const r0 = Math.max(0, Math.floor(y0 / cellM)), r1 = Math.min(rows - 1, Math.floor(y1 / cellM));
+  const c0 = Math.max(wc0, Math.floor(x0 / cellM)), c1 = Math.min(wc1, Math.floor(x1 / cellM));
+  const r0 = Math.max(wr0, Math.floor(y0 / cellM)), r1 = Math.min(wr1, Math.floor(y1 / cellM));
   const n = poly.length / 2;
   for (let r = r0; r <= r1; r++) {
     const y = (r + 0.5) * cellM;
@@ -300,7 +434,7 @@ function forPolygonCells(poly: readonly number[], cellM: number, cols: number, r
         const xi = poly[i * 2]!, yi = poly[i * 2 + 1]!, xj = poly[j * 2]!, yj = poly[j * 2 + 1]!;
         if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
       }
-      if (inside) fn(r * cols + c);
+      if (inside) fn(c, r);
     }
   }
 }

@@ -127,6 +127,25 @@ export function applyBlast(ctx: SimContext, state: SimState, events: EventSink, 
   refreshStatus(ctx, state, events, target);
 }
 
+/**
+ * Run over by a vehicle (M7.1c, owner decision Q4): a crush wound record to the trunk, severe (data:
+ * `wounding.crush`; without it the severe blast value), knocked flat; fatal at the zone's fatal severity.
+ */
+export function applyCrush(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, vehicle: EntityId): void {
+  const s = state.soldier.req(target);
+  const W = ctx.catalog.wounds, cw = W.wounding.crush ?? { severityMin: W.wounding.blast.severitySevere, severityMax: W.wounding.blast.severitySevere, bleedLps: W.wounding.blast.bleedLps * 4 };
+  const zone = s.posture === "prone" ? "chest" : "pelvis";
+  const severity = cw.severityMin + (cw.severityMax - cw.severityMin) * nextFloat(state.rng, Streams.wounds);
+  addWound(ctx, state, events, target, {
+    zone, mechanism: "crush", severity, bleedingLps: cw.bleedLps * severity, compressible: false,
+    airway: false, breathing: zone === "chest", consciousness: severity >= (W.zones[zone]?.unconsciousAt ?? 2),
+  }, vehicle);
+  interruptAction(state, events, target, "crush");
+  knockDown(state, s);
+  if (severity >= (W.zones[zone]?.fatalAt ?? 2)) { s.physiology.alive = false; s.physiology.consciousness = 0; }
+  refreshStatus(ctx, state, events, target);
+}
+
 /** He goes down; falling takes a moment (fragments of the same burst still meet him as he stood). */
 const FALL_TICKS = 18;
 function knockDown(state: SimState, s: { posture: string; postureTo: string | null; postureDoneTick: number }): void {
@@ -167,11 +186,13 @@ export function takeOutOfFight(ctx: SimContext, state: SimState, events: EventSi
     // The next able man leads: one of the unit's own men first, else one from its sub-units.
     const able = (x: EntityId) => isAble(state.soldier.get(x));
     if (unit.leader === id) {
+      // mounted: ok succession: any able man of the unit takes over
       unit.leader = unit.members.find(able) ?? unitSoldiers(state, ident.unit).find(able) ?? null;
       leaderLost(ctx, state, ident.unit);
     }
     let top = ident.unit;
     for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;
+    // mounted: ok the report and the fire state concern every man
     const all = unitSoldiers(state, top);
     if (reportKey !== null) {
       const speaker = (x: EntityId) => x !== id && canReport(state.soldier.get(x));
@@ -216,6 +237,7 @@ export function woundSystem(ctx: SimContext, state: SimState, events: EventSink)
   const every = Math.max(1, secondsToTicks(params["stepSeconds"] ?? 0.5));
   if (state.tick % every !== 0) return;
   const dt = every / secondsToTicks(1);
+  // mounted: ok wounds run their course aboard too
   for (const [id, s] of state.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive) continue;
     // Without a physiology model ("none") nothing bleeds, but pain still fades.

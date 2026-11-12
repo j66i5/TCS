@@ -483,6 +483,36 @@ where they dropped them and support by fire from there; the Russian BMP-2s follo
 (both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
 knows near the objective, never close to its own men.
 
+## The screen: order bar, unit list, labels (M7.5a)
+The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
+are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.
+The bar then offers only what that unit can do right now: a squad gets Anti-tank only while someone still has a
+Panzerfaust (or RPG) with a round for it, the grenade buttons only while it has grenades, Mortar and Smoke only
+while your mortars have rounds left; a vehicle gets move, fire (the gun choice cycles through the rounds its
+guns really have), the smoke screen while its dischargers are loaded, and Dismount while men ride in it; a unit
+with just one man left can move, fire, throw, change posture, halt and cease fire.
+
+**Moving the bar.** Hold the grip (⠿) at its start and drag: a highlighted strip shows which edge it will go to;
+let go and it docks there — a full-width strip at the top or bottom, or a full-height column at the left or
+right. Your phone remembers the choice. Until you move it, it sits at the bottom with the phone upright and at
+the right with the phone on its side. On a narrow screen the bar is one row; buttons that do not fit (the rarer
+ones first: smoke, mortar, all grenades, withdraw, rules ...) wait behind **⋯**.
+
+**The unit list** is a slim strip of tiles down the side (the right side when the bar is docked left): each tile
+shows the unit's symbol, callsign and how many of its men are fit (5/6), and a coloured edge for its state —
+green ready, light blue moving, orange firing, grey riding, yellow pinned (or a damaged vehicle), red broken,
+dimmed out of action. The ☰ at its head opens the full list with the details; on a wide screen it is always open.
+
+**Labels never pile up.** Callsigns are placed beside their unit so that no two overlap, none covers another
+labelled unit, a bar or the screen edge; the selected unit's label always wins, and the ones that fit nowhere are
+left out until there is room (zoom in). A squad that got out next to its vehicle shares its label ("Puma 1 ·
+Trupp 1"). Zoomed far out every vehicle becomes a small symbol (vehicles close together are stacked: "Puma 1 ×4
++18" = four vehicles, 18 men riding); a platoon's infantry symbol appears only for the men on foot.
+
+**Looks are data too.** Each side's uniform tones and vehicle paint, and the colours of the flat map to come, are in
+`appearance.json` files. They are kept apart from everything the battle is computed from, so changing a colour can
+never change the outcome of a battle or a saved game.
+
 ## Does an attack work?
 
 `npm run lab -- attack` runs a squad attacking across 300 m of open ground. Against a squad lying behind a low

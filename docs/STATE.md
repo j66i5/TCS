@@ -1,8 +1,21 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.4b done: M7 Vehicles complete)._
+_Last updated: 2026-11-12 (M7.5a UI shell done; M7 Vehicles complete)._
 
 ## Current milestone
+**M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
+§7 design questions and the slice's own choices were decided with the recommended options **for the owner's
+morning review** (DECISIONS.md "M7.5 design questions decided without the owner" and "M7.5a UI shell").
+**M7.5a UI shell ✅:** the battle opens with nothing selected and the order bar greyed; the bar offers only what the
+selected unit can do now (`unitCapabilities` → `ordersFor`); it docks to any edge by dragging its grip (remembered
+per device), one row on a phone with rare buttons behind "⋯"; a unit sidebar of tiles (symbol, callsign, men fit,
+state colour) selects units and opens into a detailed list (always open ≥ 1000 px); labels are placed without
+overlaps (`render/src/labels.ts`), a squad beside its vehicle shares its label; zoomed out, vehicles are symbols
+(stacked when close) and infantry symbols show only men on foot; appearance data (`appearance.json`, outside the
+catalog) gives vehicle paint now and uniforms/palette for M7.5b. Presentation only: goldens untouched.
+Screenshots: `npm run screenshot -- --scene ui`. **Next: M7.5b Look** (zoom levels, pixel soldiers, flat map, roofs).
+
+Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —
 vehicles drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each
 other, make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn
@@ -37,7 +50,7 @@ penetrated or struck by a rocket, crews that bailed out become foot units you ca
 abandoned hulls of either side, the AI gives anti-tank tasks (shots at known vehicles in range, a step aside out of
 the danger zone, two hunters after halted vehicles), gets out at once on an anti-tank threat and reverses out on
 withdrawal; active protection and add-on tiles on the fixture; wrecks and vehicle records round-trip.
-Next: **M7.5 Look and interface** (owner answers already in DECISIONS.md). Deferred items: DECISIONS.md (M7.1c part 3,
+M7 deferred items: DECISIONS.md (M7.1c part 3,
 M7.2 parts 1–3, M7.3, M7.4a, M7.4b).
 
 ## What works

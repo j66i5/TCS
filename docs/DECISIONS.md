@@ -1821,3 +1821,72 @@ An independent review of M7 found seven issues; all are fixed on `m7-review-fixe
   which no longer count as enemy hits). Checked first: headless demo-s1, shootout-s1, demo-fixture-s7 (120 s) and
   platoon-s1 (900 s) print the identical event stream and casualties as on the base commit (only wall time differs);
   every other golden unchanged. `npm run check` green, timing tests included.
+
+## 2026-11-12 — M7.5 design questions decided without the owner, for the morning review
+The owner asked for the redesign to be built unattended ("decide yourself, poll me in the morning"). The 17
+questions of `docs/plans/m7.5-look.md` §7 were taken with the recommended option; each is to be confirmed:
+1. Zoom: true scale from 12 px/m; dots and symbols at 1.2–5 px/m; symbols below 1.2; the battle opens at 8 px/m
+   on the lead squad (M7.5b).
+2. Soldier sprites turn freely, snapped to 16 directions. 3. Sprite art 16 × 16 px per metre.
+4. "Man" actions: a unit with one able man left (no picking a single man out of a squad yet).
+5. Order bar default dock: bottom on a screen held upright, right on one held sideways; remembered per device.
+6. When the bar docks left, the unit sidebar moves to the right.
+7. Floor plans: the same partition on every floor. 8. Doorways always open (no door state).
+9. Floors between storeys reuse the roof's material and thickness (no data change in M7.5c).
+10. Stairwell holes ignored for sight and projectiles. 11. No extra concealment in dark rooms.
+12. Interiors for every building kind; big halls are one room. 13. Men enter by doors and breaches, not windows.
+14. AI use of buildings: a separate later slice (M7.5e; the owner already agreed).
+15. An enemy's floor badge only while he is seen. 16. Roofs fade when own men are within 8 m or at ≥ 12 px/m.
+17. The old look stays behind `?look=classic` for one milestone.
+
+## 2026-11-12 — M7.5a UI shell: implementation choices (decided without the owner, for the morning review)
+Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched.
+- **Relevant actions.** `unitCapabilities(view, catalog, unit)` (ui, pure) reads what a unit can do now; `ordersFor`
+  turns it into the bar. Anti-tank only while an able man has a launcher AND a round for it (the simulation's
+  `launcherRound` test); Grenade only with hand or rifle grenades, "All grenades" only with two or more; Mortar /
+  Smoke only while the side has such rounds left; the smoke-screen button only while the dischargers hold
+  grenades; the gun choice cycles only through the natures the vehicle's guns have (AP / HE / MG). A unit with one
+  able man gets move, fire, grenade, posture, halt, cease fire (no rules: plan §7.4). A unit with nobody able left
+  counts as nothing selected. The mode on show falls back to Move when the unit loses it (grenades gone).
+- **Nothing selected:** the battle opens with nothing selected; the bar shows Move, Assault, Fire, Grenade, Halt,
+  Cease fire, Posture, Rules greyed (disabled), the hint asks to pick a unit. Tapping the selected unit's tile again
+  deselects it. The browser debug hook (`__tcs`) still orders the first own unit when given an order with nothing
+  selected (screenshots).
+- **Docking.** The bar is its own strip with a grip (⠿); dragging the grip shows the edge it would dock to, letting
+  go docks it to the nearest edge (`nearestEdge`, ties bottom > right > left > top). Stored in localStorage
+  `tcs.ui.dock` only once the player has moved it; until then it follows the screen's orientation. Horizontal: one
+  row; vertical: one full-height column. Rare buttons move behind "⋯" (a pop-up) until the strip fits, in this
+  order: smoke, mortar, all grenades, withdraw, rules, posture, smoke screen, gun choice, anti-tank, grenade, cease
+  fire, assault, halt, mount, dismount, fire (Move never). On a 390 px phone a squad shows Move, Assault, Fire,
+  Mount/Dismount, Halt and "⋯". The plan bar (pace, formation, undo, cancel, Go) sits beside the order bar on the
+  same edge.
+- **Unit sidebar.** Tiles of 56 px: symbol (infantry, vehicle, HQ: original drawings), callsign, men fit / total;
+  the left border's colour gives the state (ready green, moving light blue, firing orange, aboard grey, pinned or
+  damaged yellow, broken red, out of action dimmed). A platoon is followed by its squads and vehicles. The head (☰)
+  opens the list with details (state, vehicle status, men riding); at 1000 px or wider it is always open (230 px).
+  A vehicle tile counts its crew; its passengers are their own units. Refreshed four times a second.
+- **Free map area.** The HUD reports the area its bars and sidebar leave free (`hud.insets()`); the app frames the
+  opening view in it and the renderer keeps labels out of the covered strips. `renderer.focus` now honours left and
+  right insets too.
+- **Labels (`render/src/labels.ts`).** Each frame the renderer collects label requests and `placeLabels` places them
+  greedily: selected unit first, then objectives, then the rest by id; four places tried (right, left, above,
+  below); a label may not cover another label, another labelled symbol (hull, leader, overview symbol), a HUD strip
+  or the screen edge; what fits nowhere is dropped for that frame. The plan's 16 px occupancy grid was too coarse
+  (labels of hulls 10 px apart never fitted): **8 px** cells. Labels get a thin dark outline for legibility on any
+  ground. A squad on foot whose leader is within 15 m of its own vehicle shares the vehicle's label
+  ("Puma 1 · Trupp 1"). Leader and hull labels are now shown at every zoom outside the overview (before: only above
+  0.5 px/m) since they can no longer pile up.
+- **Overview symbols.** Below 0.35 px/m each vehicle is a symbol (frame with a track oval; original drawing) in the
+  side's colour, a red cross on a wreck; vehicles closer than a symbol are stacked into one, labelled with the first
+  callsign, "×n" and "+n" men riding. Infantry symbols only for a top-level unit with men on foot, at those men; one
+  that would sit on a vehicle symbol is lifted clear with a line to where its men are.
+- **Appearance data.** `factions/<id>/appearance.json` (uniform base / dark / light / helmet / skin, vehicle hull /
+  dark) and `core/appearance.json` (flat palette per surface, vegetation, roof and floor, plus the outline colour),
+  original colours, no provenance (art, not facts; a note). Loaded by the loader (unknown terrain ids and bad colours
+  are errors), turned into numbers by `buildAppearance()` beside `buildCatalog`, never in the catalog (test:
+  removing or changing every appearance file leaves the fingerprint unchanged). A faction without the file gets the
+  neutral grey-green look; the fixture faction `xf` has its own (sand). In M7.5a only the vehicle paint is used
+  (hull and turret colours); uniforms and the palette are for M7.5b. Bundled by the app's existing
+  `core/**` / `factions/**` glob.
+- **Perf:** render 0.9 ms per frame (30 hulls, 270 men, 2000 tracers), new case: middle distance with labels
+  0.9 ms, overview 0.3 ms (target 4 ms).

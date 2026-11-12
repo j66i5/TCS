@@ -463,6 +463,18 @@ call back into the app, which turns everything into orders (`rules` carries only
 fields `maxEngageM`, `onContact`, `ammoRule` (schema 12, the M4 bump not yet released) feed decisions,
 drills and the fire system.
 
+**M7.5a UI shell** — `ui/src/orders-for.ts` (`unitCapabilities` → `ordersFor`, `boardingOf`), `ui/src/dock.ts`,
+`ui/src/sidebar.ts`, `render/src/labels.ts`, `data/src/appearance.ts`. Capabilities are a pure read of the
+`SimView` (launcher rounds, grenades, fire support left, boarding, dischargers, gun natures); the app rebuilds the
+bar only when they change. The HUD owns layout: the order bar is a fixed strip `.hud-dock.dock-<edge>` (pure
+`nearestEdge`, localStorage `tcs.ui.dock` behind try/catch), the sidebar sits on the other side, and
+`hud.insets()` gives the free map area to the app (opening view) and to the renderer (`setHudInsets`, no labels
+under the HUD). The renderer collects label requests during `draw` and places them at the end of the frame with
+`placeLabels` (8 px occupancy grid, stamp-cleared, no allocation per frame beyond the placed list), drawing them
+from its Text pool. The overview draws vehicle stacks and infantry symbols (men on foot only). Appearance
+(`buildAppearance(data, factionIds)`) is built beside the catalog and never enters it (fingerprint test);
+`renderer.setAppearance` takes it.
+
 ## 16o. Objectives, scenarios and the commander (M6)
 `sim/src/systems/objectives.ts`: `BattleRules.objectives` (`ObjectiveDef`: area, points, first holder) and
 `victory` (`casualtyPoints`, `endOnDefeat`); `state.objectives` holds holder / contested (in the order of the

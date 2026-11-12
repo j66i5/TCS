@@ -75,6 +75,47 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
 }
 
 /**
+ * M7.5a UI shell (`--scene ui`): the mounted platoon battle as it opens (nothing selected, the order bar greyed);
+ * a squad got out and selected (only its relevant orders); a vehicle selected; the order bar docked left, top and
+ * right; the unit list opened; the battle zoomed out to the middle distance and to the overview (labels never
+ * overlap, vehicle symbols).
+ */
+async function uiScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(350); const p = `${outDir}/ui-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+  await shot("0-nothing-selected");
+  // A squad: the first squad of the first platoon gets out, 20 s on; then selected, the view on it.
+  const sq = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+    const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1); t.select(sq.unit); t.dismount(); t.stepTicks(60 * 20);
+    t.select(null); t.select(sq.unit); const u = s.unit.get(sq.unit); let x = 0, y = 0, n = 0;
+    for (const m of u.members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } t.focus(x / n, y / n, 140); t.stepTicks(1);
+    return { unit: sq.unit, set: t.orderSet() };`) as () => object);
+  await shot("1-squad-selected");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focus(p.x, p.y, 140); t.stepTicks(1);`) as () => void);
+  await shot("2-vehicle-selected");
+  const veh = await page.evaluate(new Function("return globalThis.__tcs.orderSet();") as () => object);
+  for (const e of ["left", "top", "right"]) {
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.dock("${e}"); t.select(${JSON.stringify((sq as { unit: number }).unit)}); t.stepTicks(1);`) as () => void);
+    await shot(`3-dock-${e}`);
+  }
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.dock(innerWidth > innerHeight ? "right" : "bottom"); t.expandSidebar(true); t.stepTicks(1);`) as () => void);
+  await shot("4-sidebar-expanded");
+  // Zoomed out over the whole own force: the middle distance (hulls and leaders, labels placed without overlaps)
+  // and the overview (symbols).
+  const ins = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.expandSidebar(false);
+    // The first platoon gets out (its squads beside their Pumas), the second stays aboard.
+    t.select(t.units()[0].unit); t.dismount(); t.select(null); t.stepTicks(60 * 40);
+    let x = 0, y = 0, n = 0; for (const [id, v] of s.vehicle.entries()) if (v.side === "blue") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+    globalThis.__c = { x: x / n, y: y / n }; t.focus(x / n, y / n, 450); t.stepTicks(1); return t.insets();`) as () => object);
+  await shot("5-mid-distance");
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.focus(globalThis.__c.x, globalThis.__c.y, 2600); t.stepTicks(1);`) as () => void);
+  await shot("6-overview");
+  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.4b anti-tank and crew reactions (`--scene vehicles`, fifth part): the platoon battle, Russia attacking mounted
  * against the German Pumas, Debug on (both sides shown): the rocket of the first man firing a Panzerfaust or an
  * RPG at a vehicle, in flight; then, in the vehicles scenario with every vehicle firing at the nearest enemy hull,
@@ -237,6 +278,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -351,7 +393,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

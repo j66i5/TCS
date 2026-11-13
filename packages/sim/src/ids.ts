@@ -12,3 +12,13 @@ export const DT = 1 / TICK_HZ;
 
 export const secondsToTicks = (s: number): number => Math.round(s * TICK_HZ);
 export const ticksToSeconds = (t: number): number => t / TICK_HZ;
+
+/**
+ * The smallest ID >= 0 with (id + tick) % every === 0 (`every` a whole number of ticks >= 1). A staggered
+ * per-tick loop steps from it by `every` up to `state.nextEntityId` and looks each ID up: the same entities in
+ * the same (ascending ID) order as iterating a store and skipping the others, without visiting those
+ * (performance 2026-11-13).
+ */
+export function staggerFirst(tick: number, every: number): number {
+  return (every - (tick % every)) % every;
+}

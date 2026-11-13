@@ -31,6 +31,30 @@ export function loadKg(ctx: SimContext, state: SimState, id: EntityId): number {
   return kg;
 }
 
+/**
+ * The load of each man as summed once in a tick, from the start of the movement step to the end of the
+ * physiology step that follows it (performance 2026-11-13): nothing between them changes what a man carries.
+ */
+const TICK_LOAD = { state: null as SimState | null, tick: -1, gen: 1, stamp: new Uint32Array(1024), kg: new Float64Array(1024) };
+export function clearTickLoads(): void {
+  TICK_LOAD.state = null; TICK_LOAD.tick = -1;
+  if (++TICK_LOAD.gen >= 0xffffffff) { TICK_LOAD.stamp.fill(0); TICK_LOAD.gen = 1; }
+}
+/** `loadKg`, summed at most once per man between `clearTickLoads` calls in one tick. */
+export function tickLoadKg(ctx: SimContext, state: SimState, id: EntityId): number {
+  const L = TICK_LOAD;
+  if (L.state !== state || L.tick !== state.tick) { clearTickLoads(); L.state = state; L.tick = state.tick; }
+  if (id >= L.stamp.length) {
+    const n = Math.max(id + 1, L.stamp.length * 2);
+    const st = new Uint32Array(n); st.set(L.stamp); L.stamp = st;
+    const kg = new Float64Array(n); kg.set(L.kg); L.kg = kg;
+  }
+  if (L.stamp[id] === L.gen) return L.kg[id]!;
+  const kg = loadKg(ctx, state, id);
+  L.stamp[id] = L.gen; L.kg[id] = kg;
+  return kg;
+}
+
 /** Seconds to go from one posture to another with a given load (owner decision: slower when loaded). */
 export function postureChangeSeconds(ctx: SimContext, from: Posture, to: Posture, load: number): number {
   if (from === to) return 0;
@@ -79,7 +103,7 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
     const mode = m && m.mode !== null && m.speedMps > 0 ? footModeOrUndefined(ctx.catalog, m.mode) : undefined;
     let w = mode ? mode.exertion : s.postureTo !== null ? p.postureChangeExertion : 0;
     if (w > 0) {
-      w *= 1 + (p.loadExertionK * loadKg(ctx, state, id)) / p.bodyMassKg;
+      w *= 1 + (p.loadExertionK * tickLoadKg(ctx, state, id)) / p.bodyMassKg;
       w *= 1 + p.slopeExertionK * Math.max(0, m ? m.grade : 0);
     }
     // Exhausted on a hard pace: he slows to a shuffle (movement.ts) and works below the sustainable rate,
@@ -94,4 +118,5 @@ export function physiologySystem(ctx: SimContext, state: SimState): void {
     const target = p.hrRestBpm + (p.hrMaxBpm - p.hrRestBpm) * clamp(p.hrExertionWeight * Math.min(1, w) + p.hrFatigueWeight * ph.fatigue, 0, 1);
     ph.heartRateBpm += (target - ph.heartRateBpm) * (target > ph.heartRateBpm ? riseK : fallK);
   }
+  clearTickLoads();
 }

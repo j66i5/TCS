@@ -2603,3 +2603,24 @@ show a problem.
    decision 2026-11-13" under package B).
 6. **Facing** (C) only in a fight, so a player's laid-out facing stands otherwise.
 7. **Assault fire** with 3x aiming error (D): fire on the move hits rarely (4 hits from 517 rounds in five battles).
+
+## 2026-11-13 — performance: bench-vehicles back above its floor, no result change, goldens identical
+CI measured bench-vehicles at 7.8× (floor 8×) after the soldier-AI packages. Only how the sim computes changed,
+never what it computes: same floating-point operations in the same order, goldens untouched (no `golden:update`),
+final state hashes equal to the previous commit's for 12 scenario/seed runs (bench, bench-vehicles,
+bench-combined, platoon(-ru)(-vehicles), village-occupy, demo, vehicles, demo-fixture, shootout).
+- **A\*** (`nav.ts`): an indexed 4-ary heap with decrease-key in place of a binary heap with duplicate entries
+  ((f, cell) is a total order, so cells come out in the same order); one mark array for reached/closed; the
+  neighbours unrolled with the corner test from the side cells already read. A search that ran out of its budget
+  is resumed by the identical search asked next (formation legs: a bounded try, then the full search) instead of
+  repeated; a patch to the grid (`NavGrid.version`) or any other search in between cancels the resume.
+- **Grids:** connected areas labelled by a two-pass union-find over the rows (same labels as the flood fill);
+  the cover-seeking foot grid derived from the plain foot grid (`coverGridFrom`; patches keep the plain grid
+  equal to a fresh build, tested) instead of a second full build; `lineCost` without a closure per call.
+- **Systems:** a man's load summed once per tick for movement and physiology (`tickLoadKg`); the level-ground
+  slope normaliser hoisted; hull-against-hull scans in the drive over a per-tick table; the staggered per-man
+  loops (spotting, morale, decisions, contacts, magazine top-up) step through the IDs whose turn it is
+  (`staggerFirst`) instead of visiting every man every tick.
+- **Measured** (vitest perf tests, this container, base and new alternated, two rounds): bench-vehicles 7.5–7.6×
+  → 9.6–9.7×; bench 12× → 17–18×; spotting bench 9.4–9.8× → 9.9–12.3×; bench-combined 3.5–3.7× → 3.5–4.0×;
+  projectile bench 3.5–4.0× → 4.0–4.1×; fragment volley 15.6–16.2× → 15.3–19.8× (noisy). Floors unchanged.

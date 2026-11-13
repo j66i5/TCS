@@ -24,7 +24,7 @@ import { smokeTransmission } from "./support";
 import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { atan2, cos, exp, PI, pow, sin, sqrt } from "../math";
@@ -90,8 +90,10 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
   let vtargets: VehTarget[] | null = null;
 
   // mounted: ok observers aboard are skipped below (seat sensors come in M7.3)
-  for (const [oid, os] of state.soldier.entries()) {
-    if ((oid + tick) % every !== 0) continue;
+  // (Staggered: only the men whose scan falls on this tick, ascending ID.)
+  for (let oid = staggerFirst(tick, every); oid < state.nextEntityId; oid += every) {
+    const os = state.soldier.get(oid);
+    if (os === undefined) continue;
     // Forget what has not been seen for a while, and the dead.
     if (os.seen.length > 0) os.seen = os.seen.filter((e) => tick - e.lastTick <= forget && (state.soldier.get(e.target)?.physiology.alive === true || vehicleSeeable(state.vehicle.get(e.target))));
     if (!isAble(os)) continue;

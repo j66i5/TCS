@@ -14,7 +14,7 @@
  * water and each other; a corridor ahead makes men step aside and hulls yield; stuck hulls plan again.
  */
 import type { SurfaceVehicleDef, VehicleDef } from "../catalog";
-import type { DriveState, VehicleState } from "../components";
+import type { DriveState, Transform, VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
@@ -377,10 +377,11 @@ function escapeMove(ctx: SimContext, state: SimState, vid: EntityId, def: Vehicl
       ph = wrapAngle(ph + w * dt); px += cos(ph) * sp * dt; py += sin(ph) * sp * dt;
       if (hullTerrain(ctx, def, px, py, ph, HT).blocked) { ok = false; break; }
       hullObb(def, px, py, ph, 0, O_CORR);
-      for (const [oid, o] of state.vehicle.entries()) {
-        if (oid === vid) continue;
-        const odef = ctx.catalog.vehicles[o.def], ot = state.transform.get(oid);
-        if (!odef || !ot || Math.abs(ot.x - px) > 20 || Math.abs(ot.y - py) > 20) continue;
+      for (let q = 0; q < VEH.n; q++) {
+        const oid = VEH.id[q]!, ot = VEH.t[q];
+        if (oid === vid || !ot || Math.abs(ot.x - px) > 20 || Math.abs(ot.y - py) > 20) continue;
+        const odef = VEH.def[q];
+        if (!odef) continue;
         if (obbOverlap(O_CORR, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) { ok = false; break; }
       }
     }
@@ -411,9 +412,23 @@ function fillMen(state: SimState): void {
   MEN.n = n;
 }
 
+/**
+ * The hulls this tick, ID order (performance 2026-11-13: the hull-against-hull scans run over this, not the stores):
+ * live references, so a hull moved earlier in the tick is seen where it now is.
+ */
+const VEH = { n: 0, id: [] as EntityId[], v: [] as VehicleState[], t: [] as (Transform | undefined)[], def: [] as (VehicleDef | undefined)[] };
+function fillVehicles(ctx: SimContext, state: SimState): void {
+  let n = 0;
+  for (const [vid, v] of state.vehicle.entries()) {
+    VEH.id[n] = vid; VEH.v[n] = v; VEH.t[n] = state.transform.get(vid); VEH.def[n] = ctx.catalog.vehicles[v.def]; n++;
+  }
+  VEH.n = n;
+}
+
 export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size === 0) return;
   fillMen(state);
+  fillVehicles(ctx, state);
   const wet = clamp(state.environment.rain, 0, 1);
   let replanned = false; // one re-plan per tick (ID order)
   for (const [vid, v] of state.vehicle.entries()) {
@@ -450,11 +465,11 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
       let blocked = hullTerrain(ctx, def, nx, ny, nh, HT).blocked;
       if (!blocked) {
         hullObb(def, nx, ny, nh, 0, O_SELF);
-        for (const [oid, o] of state.vehicle.entries()) {
-          if (oid === vid) continue;
-          const odef = ctx.catalog.vehicles[o.def], ot = state.transform.get(oid);
-          if (!odef || !ot) continue;
-          if (Math.abs(ot.x - nx) > 20 || Math.abs(ot.y - ny) > 20) continue;
+        for (let q = 0; q < VEH.n; q++) {
+          const oid = VEH.id[q]!, ot = VEH.t[q];
+          if (oid === vid || !ot || Math.abs(ot.x - nx) > 20 || Math.abs(ot.y - ny) > 20) continue;
+          const odef = VEH.def[q];
+          if (!odef) continue;
           if (obbOverlap(O_SELF, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) { blocked = true; break; }
         }
       }
@@ -519,10 +534,11 @@ function corridor(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleSta
   O_CORR.x = o.x + o.c * dir * (o.hl + len / 2); O_CORR.y = o.y + o.s * dir * (o.hl + len / 2);
   const R = len + o.hl + o.hw + 2;
   // Other hulls: the one whose hull is in the other's corridor waits; if both are in each other's, the higher ID.
-  for (const [oid, ov] of state.vehicle.entries()) {
-    if (oid === vid) continue;
-    const odef = ctx.catalog.vehicles[ov.def], ot = state.transform.get(oid);
-    if (!odef || !ot || Math.abs(ot.x - x) > R + 10 || Math.abs(ot.y - y) > R + 10) continue;
+  for (let q = 0; q < VEH.n; q++) {
+    const oid = VEH.id[q]!, ot = VEH.t[q];
+    if (oid === vid || !ot || Math.abs(ot.x - x) > R + 10 || Math.abs(ot.y - y) > R + 10) continue;
+    const odef = VEH.def[q], ov = VEH.v[q]!;
+    if (!odef) continue;
     if (!obbOverlap(O_CORR, hullObb(odef, ot.x, ot.y, ot.heading, 0, O_OTHER))) continue;
     const otherWaits = ov.drive.yieldTo === vid && ov.drive.speed === 0;
     if (otherWaits && vid < oid) continue; // it waits for me

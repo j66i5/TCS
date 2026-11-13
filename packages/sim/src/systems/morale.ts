@@ -14,7 +14,7 @@
 import type { Behaviour, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
-import { secondsToTicks, type EntityId } from "../ids";
+import { secondsToTicks, staggerFirst, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { SimState } from "../state";
 import { sqrt } from "../math";
@@ -155,8 +155,9 @@ export function moraleSystem(ctx: SimContext, state: SimState, events: EventSink
   // ---- fading and state changes, each man every stepSeconds (staggered)
   const every = Math.max(1, secondsToTicks(B.stepSeconds)), dt = every / 60;
   // mounted: ok stress and suppression fade for every man
-  for (const [id, s] of state.soldier.entries()) {
-    if ((id + state.tick) % every !== 0) continue;
+  for (let id = staggerFirst(state.tick, every); id < state.nextEntityId; id += every) {
+    const s = state.soldier.get(id);
+    if (s === undefined) continue;
     const m = s.mental;
     const quiet = m.suppression < B.stress.quietBelowSuppression;
     if (isAble(s)) m.stress = Math.min(1, m.stress + B.stress.fromSuppressionPerS * m.suppression * dt * damping(ctx, state, id, s));

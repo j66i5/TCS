@@ -24,7 +24,7 @@ import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
 import { indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
-import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight } from "../los";
@@ -605,8 +605,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       top.underFireTick = state.tick;
     }
   }
-  for (const [id, s] of state.soldier.entries()) {
-    if ((id + state.tick) % every !== 0) continue;
+  for (let id = staggerFirst(state.tick, every); id < state.nextEntityId; id += every) {
+    const s = state.soldier.get(id);
+    if (s === undefined) continue;
     if (!isAble(s)) { s.intent = null; continue; }
     if (s.mount !== undefined) { s.intent = null; continue; } // aboard: no decisions of his own (M7)
     if (state.tick < s.stunnedUntilTick || s.evade !== null) continue;

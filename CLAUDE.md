@@ -13,13 +13,13 @@ recommended option first — never as a typed list in the chat.
 - Typecheck / lint / data lint: `npm run typecheck` · `npm run lint` · `npm run lint:data`
 - All tests except timing: `npm test` · timing tests alone: `npm run test:perf` · single file: `npx vitest run packages/sim/test/orders.test.ts`
 - Determinism only: `npm run test:determinism`
-- Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]` (scenarios: demo, demo-flat, shootout, platoon, platoon-ru, demo-fixture, bench, vehicles, vehicles-fixture, bench-vehicles, platoon-vehicles, platoon-ru-vehicles, bench-combined)
+- Headless battle: `npm run headless -- --scenario demo --seed 1 --seconds 120 [--events] [--no-ai]` (scenarios: demo, demo-flat, shootout, platoon, platoon-ru, demo-fixture, bench, vehicles, vehicles-fixture, bench-vehicles, platoon-vehicles, platoon-ru-vehicles, bench-combined, village-occupy)
 - App URL options: `?scenario=platoon|demo|vehicles&side=blue|red&attacker=blue|red&map=village|farmland|woodland|industrial|flat&seed=N&limit=<s>&vehicles=0` (the app's platoon battle starts mounted; vehicles=0 = on foot; tools scenarios platoon/platoon-ru stay infantry)
 - Generate a map and print stats/problems: `npm run map -- --kind village --seed 3` · all kinds: `npm run map -- --all --seeds 5`
 - Sim labs (tables to `reports/`): `npm run lab -- movement` · `npm run lab -- cover` · `npm run lab -- range` · `npm run lab -- casualty` · `npm run lab -- fragmentation` · `npm run lab -- sight` · `npm run lab -- spotting` · `npm run lab -- suppression` · `npm run lab -- attack` · `npm run lab -- drive` · `npm run lab -- mount` · `npm run lab -- gunnery` · `npm run lab -- armour` · `npm run lab -- antitank [trials]`
 - Batch report: `npm run batch -- --scenario demo --runs 200 --seconds 120` (writes `reports/`)
 - Golden replays (only for intended changes, log in DECISIONS.md): `npm run golden:update`
-- Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` (vehicles, gunnery, armour, antitank: `-- --scene vehicles`; order bar, docks, sidebar, labels: `-- --scene ui`; look pairs, roofs, sprite sheet: `-- --scene look`; rooms: `-- --scene interiors`; `?look=classic` = old look) → `screenshots/`
+- Screenshots (phone + desktop, then LOOK at them): `npm run screenshot [-- --map farmland --seed 2]` (vehicles, gunnery, armour, antitank: `-- --scene vehicles`; order bar, docks, sidebar, labels: `-- --scene ui`; look pairs, roofs, sprite sheet: `-- --scene look`; rooms: `-- --scene interiors`; upper floors: `-- --scene floors`; `?look=classic` = old look) → `screenshots/`
 - Production build: `npm run build` (set `TCS_BASE=/TCS/` for the Pages path)
 - Deploy: merge to `main`; GitHub Actions (`.github/workflows/ci.yml`) checks, builds and deploys to Pages.
 
@@ -57,5 +57,6 @@ recommended option first — never as a typed list in the chat.
 - Zoom levels live in `render/src/lod.ts` (symbols < 1.2, dots, figures from 5, close >= 16 px/m); soldier art is string grids in `render/src/sprites/soldier-art.ts` (preview via `composeFrame`/`rotateFrame` to PNG in Node).
 - Batch, headless and `npm run map` take `--no-interiors` (pre-interiors map, for comparisons). `packages/tools/golden/no-interiors/*.json` are pre-interiors goldens replayed with interiors off: never regenerate them.
 - Every route for men goes through `routeBetween`; a raw `findPath` needs an `// outdoor: ok` marker (architecture test). Inner walls live in `MapIndex.segments` from `nOuter` on, not in `buckets` (use `interiorSegmentsInRectInto`).
+- Every soldier height goes through `standZ`; a bare `heightAt` in `sim/src/systems` or `ai/src` needs `// ground: ok` (architecture test). Routes to upper floors need heights: `routeBetween(..., {sz, gz})` + `routeWaypoints`, never hand-built waypoints. Debug hooks `__tcs.occupyAt(x, y)`, `setFloor(f)`, `floorShown()`.
 - HUD z-order: sidebar 1, dock 2, panels above, review 5, errors 6.
 - The Stop hook (`.claude/hooks/stop-check.sh`) blocks ending the session on red checks; escape hatch documented in the script.

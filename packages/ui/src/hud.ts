@@ -9,6 +9,8 @@
  *   plan bar    while planning a move / assault / withdraw: formation, undo, Go, cancel (the pace: on the card)
  *   rules panel the unit's standing rules (fire, range, on contact, ammunition) and its state
  *   radio log   the last radio messages
+ *   help card   every key and mouse / touch gesture ("?" in the top bar or the ? key, S13); the contour toggle
+ *               (S14) and the "following" badge of the follow camera (S5)
  * All text comes from the string table.
  */
 import type { Strings } from "@tcs/data";
@@ -20,6 +22,7 @@ import { createSidebar, type UnitTile } from "./sidebar";
 import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
 import { createManBox, createUnitCard, fireChoice, fireChoiceRules, type ManDetail, type UnitCardModel } from "./card";
+import { HELP_SECTIONS } from "./mapfeel";
 
 export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
 /** The two order groups of the slim bar (S4): Move and its variants, Fire and the weapons. */
@@ -61,6 +64,11 @@ export interface HudCallbacks {
   onLoad(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
   onSelectUnit(unit: EntityId): void;
+  /** S5: a press held on a unit's tile (the camera follows it); the "following" badge tapped (stop). */
+  onFollowUnit?(unit: EntityId): void;
+  onStopFollow?(): void;
+  /** S14: the contour toggle (contour lines at every zoom). */
+  onContours?(on: boolean): void;
   /** S3: a pace chip pressed on the card (after onPace): the app may send the move under way again at it. */
   onPaceChosen?(pace: string): void;
   /** S6: a man's row on the card tapped (his detail box), or the box closed (null). */
@@ -128,6 +136,20 @@ export interface Hud {
   /** S4: a context action offered at a screen point (Occupy after a move dragged onto a house) for a few seconds;
    *  null takes it away. */
   offerContext(c: ContextAction | null): void;
+  /** S13: the speed buttons (0 = pause, 1, 2, 4) as if pressed; the speed shown. */
+  setSpeed(v: number): void;
+  speed(): number;
+  /** S13: press an order's button as a tap would (a mode, halt, mount / dismount): false if not offered now. */
+  press(order: string): boolean;
+  /** S13 (Esc): close what is open over the map — a tray, a menu, the help card, the rules panel. False: nothing was. */
+  dismiss(): boolean;
+  /** S13: show or hide the help card (`on` absent: toggle); is it shown. */
+  toggleHelp(on?: boolean): void;
+  helpShown(): boolean;
+  /** S5: the "following" badge with its text, or none. */
+  setFollowing(text: string | null): void;
+  /** S14: the contour toggle as on or off (and tell the app). */
+  setContours(on: boolean): void;
 }
 
 export interface ContextAction { icon: string; key: string; x: number; y: number; run(): void }
@@ -150,10 +172,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const title = el("div", "hud-title", s.t("app.title"));
   const clock = el("div", "hud-clock", "00:00");
   const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4]];
+  let speedNow = 1;
   const speedBtns = speeds.map(([label, v]) => {
     const b = el("button", "hud-btn", label);
     b.setAttribute("aria-label", v === 0 ? s.t("app.pause") : `${s.t("app.speed")} ${v}`);
-    b.onclick = () => { cb.onSpeed(v); speedBtns.forEach((x) => x.classList.toggle("on", x === b)); };
+    b.title = s.t(v === 0 ? "app.pauseKey" : "app.speedKey", { key: speeds.findIndex((x) => x[1] === v) + 1 });
+    b.onclick = () => { speedNow = v; cb.onSpeed(v); speedBtns.forEach((x) => x.classList.toggle("on", x === b)); };
     return b;
   });
   speedBtns[1]!.classList.add("on");
@@ -172,7 +196,18 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const barMenu = el("div", "hud-bar-menu");
   barMenu.hidden = true;
   barMoreBtn.onclick = () => { barMenu.hidden = !barMenu.hidden; barMoreBtn.classList.toggle("on", !barMenu.hidden); };
-  const rare = [saveBtn, loadBtn, mapBtn, dbgBtn];
+  // S14: contour lines at every zoom (remembered on the device by the app); S13: the help card.
+  let contoursOn = false;
+  const contourBtn = el("button", "hud-btn hud-contours", s.t("app.contours"));
+  contourBtn.title = s.t("app.contoursHint");
+  contourBtn.setAttribute("aria-pressed", "false");
+  const setContours = (on: boolean) => { contoursOn = on; contourBtn.classList.toggle("on", on); contourBtn.setAttribute("aria-pressed", String(on)); cb.onContours?.(on); };
+  contourBtn.onclick = () => setContours(!contoursOn);
+  const helpBtn = el("button", "hud-btn hud-help-btn", "?");
+  helpBtn.setAttribute("aria-label", s.t("help.title"));
+  helpBtn.title = s.t("help.title");
+  helpBtn.onclick = () => toggleHelp();
+  const rare = [contourBtn, helpBtn, saveBtn, loadBtn, mapBtn, dbgBtn];
   for (const b of rare) b.addEventListener("click", () => { if (b.parentElement === barMenu) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); } });
   bar.append(title, clock, ...speedBtns, ...rare, barMoreBtn, barMenu);
   const score = el("div", "hud-score");
@@ -413,12 +448,40 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const toggleRules = () => { if (current?.none || !current?.rules) return; panel.hidden = !panel.hidden; card.setRulesButton(true, !panel.hidden); hint.hidden = true; };
   dock.append(orders, plan, moreMenu);
   // ---- unit sidebar (M7.5a)
-  const sidebar = createSidebar(s, cb.sideColour, (u) => cb.onSelectUnit(u), () => layout());
+  const sidebar = createSidebar(s, cb.sideColour, (u) => cb.onSelectUnit(u), () => layout(), (u) => cb.onFollowUnit?.(u));
   // Where the dragged bar would dock (a strip along that edge while the grip is held).
   const preview = el("div", "hud-dock-preview");
   preview.hidden = true;
   dock.append(moveG.tray, fireG.tray);
-  root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, preview, dbg, err);
+  // ---- help card (S13): every key and gesture, from the string table.
+  const help = el("div", "hud-help");
+  help.hidden = true;
+  help.setAttribute("role", "dialog");
+  const helpHead = el("div", "hud-help-head");
+  const helpClose = el("button", "hud-btn hud-help-close", "✕");
+  helpClose.setAttribute("aria-label", s.t("help.close"));
+  helpClose.onclick = () => toggleHelp(false);
+  helpHead.append(el("span", "hud-panel-title", s.t("help.title")), helpClose);
+  help.append(helpHead);
+  // (A touch screen lists the touch gestures first.)
+  const coarse = globalThis.matchMedia?.("(pointer: coarse)").matches === true;
+  for (const sec of coarse ? [...HELP_SECTIONS].reverse() : HELP_SECTIONS) {
+    help.append(el("div", "hud-help-sec", s.t(sec.title)));
+    const tbl = el("div", "hud-help-rows");
+    const kbd = sec.title === "help.keys";
+    for (const [k, what] of sec.rows) tbl.append(el("span", kbd ? "hud-help-key kbd" : "hud-help-key", s.t(k)), el("span", "hud-help-what", s.t(what)));
+    help.append(tbl);
+  }
+  const toggleHelp = (on?: boolean) => {
+    help.hidden = !(on ?? help.hidden);
+    helpBtn.classList.toggle("on", !help.hidden);
+    if (!help.hidden) { help.style.top = `${free.top + 8}px`; hint.hidden = true; barMenu.hidden = true; barMoreBtn.classList.remove("on"); }
+  };
+  // ---- the follow camera's badge (S5): tap it to stop following.
+  const follow = el("button", "hud-btn hud-follow");
+  follow.hidden = true;
+  follow.onclick = () => cb.onStopFollow?.();
+  root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, follow, preview, help, dbg, err);
   setMode("move");
   // On a phone the start hint is one short line (M7.5b: the long one covered the opening view); tapping it shows
   // the whole text.
@@ -491,6 +554,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     };
     for (const [k, v] of Object.entries(free)) root.style.setProperty(`--free-${k}`, `${v}px`);
     hint.style.top = `${free.top + 8}px`; dbg.style.top = `${free.top + 8}px`; panel.style.top = `${free.top + 8}px`;
+    help.style.top = `${free.top + 8}px`;
+    follow.style.top = `${free.top + 8}px`;
+    follow.style.left = `${free.left + (Math.max(0, (root.clientWidth || globalThis.innerWidth) - free.left - free.right)) / 2}px`;
     closeTrays();
     placeBottom();
   };
@@ -631,5 +697,32 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     setCardDetailed(on) { card.setDetailed(on); },
     pace: () => paces[pace] ?? null,
     offerContext,
+    setSpeed(v) { const b = speedBtns[speeds.findIndex((x) => x[1] === v)]; if (b) b.click(); },
+    speed: () => speedNow,
+    press(order) {
+      if (current?.none) return false;
+      const b = modeBtns.get(order as OrderMode) ?? (order === "halt" ? haltBtn : order === "mount" ? (mountBtn.hidden ? dismountBtn : mountBtn) : order === "dismount" ? dismountBtn : undefined);
+      if (!b || b.hidden || b.disabled) return false;
+      b.click();
+      if (modeBtns.has(order as OrderMode)) closeTrays();
+      return true;
+    },
+    dismiss() {
+      let any = false;
+      if (!help.hidden) { toggleHelp(false); any = true; }
+      if (groups.some((g) => !g.tray.hidden)) { closeTrays(); any = true; }
+      if (!moreMenu.hidden) { moreMenu.hidden = true; moreBtn.classList.remove("on"); any = true; }
+      if (!barMenu.hidden) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); any = true; }
+      if (!panel.hidden) { toggleRules(); any = true; }
+      if (!ctx.hidden) { offerContext(null); any = true; }
+      return any;
+    },
+    toggleHelp,
+    helpShown: () => !help.hidden,
+    setFollowing(text) {
+      follow.hidden = text === null;
+      if (text !== null && follow.textContent !== text) { follow.textContent = text; follow.title = s.t("follow.stop"); }
+    },
+    setContours,
   };
 }

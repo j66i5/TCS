@@ -58,7 +58,27 @@ export interface Overlay {
   floor?: number;
   /** Order gestures on the map (the "controls" step): see GestureOverlay. */
   gesture?: GestureOverlay | null;
+  /**
+   * S7 (the "map-feel" step): one line per own unit on the move, faint, to its destination (the selected unit's
+   * bright, along its route ahead), and fire missions from the caller to the target in their own colour. Given (and
+   * Debug off), these replace the selected leaders' route lines.
+   */
+  intents?: readonly IntentLineView[] | null;
+  /**
+   * S8: "last seen" pins of lost contacts, with their age label (string table). Given, a contact seen or reported
+   * longer ago than `PIN_AFTER_S` is drawn only as its pin (or not at all once its spot was seen empty).
+   */
+  pins?: readonly { target: EntityId; x: number; y: number; label: string; cls?: "vehicle"; vtype?: string; heading?: number }[] | null;
 }
+
+/** A line of the S7 overlay (see Overlay.intents). */
+export interface IntentLineView {
+  x0: number; y0: number; x1: number; y1: number; kind: "move" | "fire"; selected: boolean;
+  route?: readonly { x: number; y: number }[];
+}
+
+/** S8: a known contact unseen this long (s) is a "last seen" pin (when the app gives pins). */
+export const PIN_AFTER_S = 6;
 
 /**
  * Order gestures (owner choices S1, S2, S9, S10): the selected unit's active move marker (drag it to re-target, onto
@@ -83,6 +103,11 @@ export interface PlanOverlay {
   /** A move being dragged out from the unit (S1) or a turn in place (S9): no handles, no route points. */
   ghost?: boolean;
 }
+
+/** S7: the lines to where own units go (pale), and fire missions (amber); S8: the pins' age labels. */
+const INTENT_COLOUR = 0xeef3e2;
+const FIRE_COLOUR = 0xffa23a;
+const PIN_LABEL_COLOUR = 0xd9cfc4;
 
 /** Colour of a route leg by its pace. */
 const PACE_COLOURS: Record<string, number> = { walk: 0xffffff, run: 0xffc23d, sneak: 0x7fd7ff, crawl: 0xb08cff };
@@ -135,6 +160,7 @@ export class BattleRenderer {
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
   private look: Look = "pixel";
   private lod: Lod | null = null;
+  private contoursAlways = false;
   private flat: FlatTerrain | null = null;
   private bld: BuildingLayers | null = null;
   /** Men sprites (screen space) between the floors and the roofs; roofs follow the camera like the map. */
@@ -188,6 +214,9 @@ export class BattleRenderer {
 
   /** The look (M7.5b): set before `setMap`. */
   setLook(look: Look): void { this.look = look; this.lod = null; }
+  /** S14: contour lines at every zoom (true) or only zoomed out (false, the automatic rule). */
+  setContoursAlways(on: boolean): void { this.contoursAlways = on; }
+  contoursShown(): boolean { return this.contoursAlways || (this.lod ?? 0) <= LOD_DOTS; }
   getLook(): Look { return this.look; }
   /** The zoom level shown last (0 symbols, 1 dots, 2 figures, 3 close; M7.5b). */
   zoomLevel(): Lod | null { return this.lod; }
@@ -408,13 +437,14 @@ export class BattleRenderer {
     // Route lines. In play only ONE per unit: the way of the leader of the selected unit (and of the leaders
     // of its sub-units) — not a trace for every man (owner, 2026-11-12). Debug shows every man's own path.
     const leaders = new Set<EntityId>();
-    if (!overlay.debug && overlay.selectedUnit !== null) {
+    if (!overlay.debug && overlay.intents) this.drawIntents(g, overlay.intents);
+    else if (!overlay.debug && overlay.selectedUnit !== null) {
       for (const [uid, u] of state.unit.entries()) {
         if (u.leader !== null && u.side === overlay.playerSide && unitIsOrContains(state, overlay.selectedUnit, uid)) leaders.add(u.leader);
       }
     }
     // mounted: ok men aboard have no waypoints
-    for (const [id, m] of state.mover.entries()) {
+    for (const [id, m] of overlay.debug || !overlay.intents ? state.mover.entries() : []) {
       if (m.waypoints.length === 0) continue;
       if (!overlay.debug && !leaders.has(id)) continue;
       const ident = state.identity.get(id);
@@ -575,6 +605,43 @@ export class BattleRenderer {
     if (overlay.gesture) this.drawGesture(g, overlay.gesture);
     this.flushSprites();
     this.flushLabels();
+  }
+
+  /**
+   * S7: where own units are going — a faint straight line from each unit on the move to its destination with a small
+   * dot there; the selected unit's bright, along its route ahead; fire missions as a broken amber line from the caller
+   * to a ring on the target. Colours are TCS's own.
+   */
+  private drawIntents(g: Graphics, lines: readonly IntentLineView[]): void {
+    const c = this.camera;
+    for (const l of lines) {
+      if (l.kind !== "move" || l.selected) continue;
+      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    g.stroke({ width: 1.5, color: INTENT_COLOUR, alpha: 0.35 });
+    for (const l of lines) {
+      if (l.kind !== "move" || l.selected) continue;
+      const b = worldToScreen(c, l.x1, l.y1);
+      g.circle(b.x, b.y, 2.5);
+    }
+    g.fill({ color: INTENT_COLOUR, alpha: 0.5 });
+    for (const l of lines) {
+      if (l.kind !== "move" || !l.selected) continue;
+      let a = worldToScreen(c, l.x0, l.y0);
+      for (const p of l.route ?? [{ x: l.x1, y: l.y1 }]) { const b = worldToScreen(c, p.x, p.y); g.moveTo(a.x, a.y).lineTo(b.x, b.y); a = b; }
+      g.stroke({ width: 2, color: INTENT_COLOUR, alpha: 0.9 });
+      g.circle(a.x, a.y, 3.5).fill({ color: INTENT_COLOUR, alpha: 0.95 });
+    }
+    for (const l of lines) {
+      if (l.kind !== "fire") continue;
+      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+      const al = l.selected ? 0.95 : 0.6;
+      dashed(g, a.x, a.y, b.x, b.y, 9, 6);
+      g.stroke({ width: l.selected ? 2.5 : 2, color: FIRE_COLOUR, alpha: al });
+      g.circle(b.x, b.y, 9).stroke({ width: 2, color: FIRE_COLOUR, alpha: al });
+      g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
+    }
   }
 
   /** Order gestures (the "controls" step): see GestureOverlay. Colours are TCS's own. */
@@ -921,7 +988,10 @@ export class BattleRenderer {
     for (const [id, i] of sideIndex) if (id !== overlay.playerSide) { enemy = i; break; }
     const colour = SIDE_COLOURS[enemy % SIDE_COLOURS.length]!;
     const d = Math.max(4, 0.7 * c.scale);
+    const pinned = overlay.pins !== undefined && overlay.pins !== null;
     for (const k of overlay.known ?? []) {
+      // S8: lost (unseen PIN_AFTER_S) contacts that were seen or reported are drawn as their pins below.
+      if (pinned && k.kind !== "heard" && k.ageS >= PIN_AFTER_S) continue;
       const s = worldToScreen(c, k.x, k.y);
       const fade = Math.max(0.15, 1 - k.ageS / 120);
       if (k.cls === "vehicle") { this.drawKnownVehicle(g, k, s, colour, fade); continue; }
@@ -942,6 +1012,17 @@ export class BattleRenderer {
       if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
       if (k.kind === "seen" && k.ageS < 2) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
       else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
+    }
+    // S8: "last seen" pins — a hollow pin standing on the spot (a hull: its hollow outline too), with the age.
+    for (const p of overlay.pins ?? []) {
+      const s = worldToScreen(c, p.x, p.y);
+      if (p.cls === "vehicle") this.drawKnownVehicle(g, { target: p.target, x: p.x, y: p.y, errM: 0, kind: "seen", ageS: 1e9, cls: "vehicle", ...(p.vtype !== undefined ? { vtype: p.vtype } : {}), ...(p.heading !== undefined ? { heading: p.heading } : {}) }, s, colour, 0.55);
+      const hy = s.y - 13;
+      g.moveTo(s.x - 3.5, hy + 4).lineTo(s.x, s.y).lineTo(s.x + 3.5, hy + 4);
+      g.stroke({ width: 1.5, color: colour, alpha: 0.85 });
+      g.circle(s.x, hy, 5.5).fill({ color: 0x10140f, alpha: 0.55 }).stroke({ width: 2, color: colour, alpha: 0.9 });
+      g.circle(s.x, s.y, 1.5).fill({ color: colour, alpha: 0.9 });
+      this.request(p.label, s.x, hy, 6, PIN_LABEL_COLOUR, 3, 1_000_000 + p.target);
     }
   }
 
@@ -1177,7 +1258,8 @@ export class BattleRenderer {
     this.roofLayer.scale.set(c.scale);
     this.roofLayer.position.set(-c.x * c.scale, -c.y * c.scale);
     // Flat map (M7.5b): detail tiles from the figure level in; contour lines only at the dot and symbol levels.
-    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS);
+    // S14 (the "map-feel" step): the top-bar toggle shows them at every zoom (close up: fine tiles in a pale ink).
+    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS || this.contoursAlways, this.contoursAlways);
     const g = this.world;
     g.clear();
     if (this.terrain) {

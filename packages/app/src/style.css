@@ -225,3 +225,20 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   .hud-chip .hud-ico { width: 14px; height: 14px; }
   .hud-seg-label { flex-basis: 28px; font-size: 10px; }
 }
+/* The "map-feel" step: the help card (S13), the follow badge (S5), the contour toggle (S14) */
+.hud-help { position: absolute; z-index: 5; left: calc(var(--free-left) + 8px); right: calc(var(--free-right) + 8px); margin: 0 auto;
+  width: min(560px, calc(100vw - var(--free-left) - var(--free-right) - 16px)); max-height: calc(100vh - var(--free-top) - var(--free-bottom) - 24px);
+  overflow-y: auto; background: rgba(15, 20, 14, 0.96); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px 10px;
+  pointer-events: auto; font-size: 13px; }
+.hud-help-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; position: sticky; top: -8px; background: rgba(15, 20, 14, 0.96); padding: 2px 0; }
+.hud-help-close { min-width: 36px; padding: 0; }
+.hud-help-sec { margin: 8px 0 3px; color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.hud-help-rows { display: grid; grid-template-columns: max-content 1fr; column-gap: 10px; row-gap: 3px; }
+.hud-help-key { font-weight: 600; white-space: nowrap; color: var(--text); justify-self: start; }
+.hud-help-key.kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #263223; border: 1px solid #4a5745;
+  border-radius: 4px; padding: 0 5px; align-self: start; }
+.hud-help-what { color: var(--muted); }
+@media (max-width: 480px) { .hud-help-rows { grid-template-columns: 1fr; row-gap: 1px; } .hud-help-what { margin-bottom: 4px; } }
+.hud-follow { position: absolute; z-index: 3; transform: translateX(-50%); min-height: 30px; padding: 0 10px; font-size: 13px; pointer-events: auto;
+  border-color: #8fe3c0; background: rgba(27, 52, 40, 0.92); color: #d9fbe9; white-space: nowrap; }
+.hud-help-btn { font-weight: 700; }

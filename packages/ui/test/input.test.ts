@@ -70,4 +70,36 @@ describe("map input", () => {
     expect(b.log).toContain("end tap");
     expect(b.log.some((l) => l.startsWith("tap"))).toBe(false);
   });
+  it("map-feel step: panning by hand tells the app (it stops following); a pinch does not", () => {
+    const f = fakeEl();
+    let cam: Camera = { x: 0, y: 0, scale: 1 } as Camera;
+    let pans = 0;
+    attachInput(f.el as unknown as HTMLElement, { getCamera: () => cam, setCamera: (c) => { cam = c; }, onTap: () => {}, onPan: () => { pans++; } });
+    f.fire("pointerdown", 1, 100, 100); f.fire("pointermove", 1, 160, 100); f.fire("pointerup", 1, 160, 100);
+    expect(pans).toBeGreaterThan(0);
+    const before = pans;
+    f.fire("pointerdown", 1, 100, 100); f.fire("pointerdown", 2, 200, 100); f.fire("pointermove", 2, 260, 100);
+    expect(pans).toBe(before);
+  });
+  it("map-feel step: the right mouse button drags for the app (never a pan, never a tap); a click ends as a tap", () => {
+    const ls = new Map<string, (e: unknown) => void>();
+    const el = { addEventListener: (k: string, fn: (e: unknown) => void) => ls.set(k, fn), removeEventListener: () => {}, setPointerCapture: () => {}, getBoundingClientRect: () => ({ left: 0, top: 0 }) };
+    const fire = (k: string, x: number, y: number, button = 2) => ls.get(k)!({ pointerId: 1, pointerType: "mouse", button, clientX: x, clientY: y, preventDefault: () => {} });
+    const log: string[] = [];
+    let take = true;
+    attachInput(el as unknown as HTMLElement, {
+      getCamera: () => ({ x: 0, y: 0, scale: 1 }), setCamera: () => log.push("camera"), onTap: () => log.push("tap"),
+      onRightStart: () => { log.push("right"); return take; }, onDrag: () => { log.push("drag"); }, onDragEnd: (how) => { log.push(`end ${how}`); return true; },
+    });
+    fire("pointerdown", 100, 100); fire("pointermove", 180, 120); fire("pointerup", 180, 120);
+    expect(log).toEqual(["right", "drag", "end drop"]);
+    log.length = 0;
+    fire("pointerdown", 100, 100); fire("pointerup", 101, 100);
+    expect(log).toEqual(["right", "end tap"]);
+    log.length = 0; take = false;
+    fire("pointerdown", 100, 100); fire("pointermove", 180, 120); fire("pointerup", 180, 120);
+    expect(log).toEqual(["right"]);
+    ls.get("contextmenu")!({ preventDefault: () => log.push("no menu") });
+    expect(log).toContain("no menu");
+  });
 });

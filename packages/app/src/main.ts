@@ -15,10 +15,11 @@ import {
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
 import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
-  manDetail, repaceMove, unitMenRows } from "@tcs/ui";
+  manDetail, repaceMove, unitMenRows,
+  ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, type KeyAction } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -125,6 +126,11 @@ async function main(): Promise<void> {
   let dragGapM = 3;
   /** S6: the man whose detail box is open (one of the selected unit's men), or null. */
   let inspected: EntityId | null = null;
+  /** S14: the contour toggle (remembered on this device). */
+  const CONTOURS_KEY = "tcs.ui.contours";
+  let contoursOn = false;
+  /** S5: the unit the camera follows (null: none). */
+  let following: EntityId | null = null;
   const hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -162,14 +168,7 @@ async function main(): Promise<void> {
       if (plan) { const n = Math.max(1, unitMen().length); plan = { ...plan, formation: f, frontageM: Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) }; }
     },
     onUndo: () => { if (plan) plan = undoPoint(plan); },
-    onGo: () => {
-      if (plan && overlay.selectedUnit !== null) {
-        const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
-        if (o) issue(forUnit(o));
-      }
-      endPlan();
-      orderMode = "move"; hud.setOrderMode("move");
-    },
+    onGo: () => goPlan(),
     onCancel: () => { endPlan(); orderMode = "move"; hud.setOrderMode("move"); },
     onRules: (r) => {
       if (overlay.selectedUnit === null) return;
@@ -196,7 +195,21 @@ async function main(): Promise<void> {
       location.search = q.toString();
     },
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
-    onSelectUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = overlay.selectedUnit === u ? null : u; syncOrders(); refreshTiles(); },
+    // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
+    // unselects (as before). A press held on a tile follows the unit; the badge (or any pan) stops following.
+    onSelectUnit: (u) => {
+      endPlan(); gesture = null;
+      if (overlay.selectedUnit === u && centredOn(u)) { overlay.selectedUnit = null; stopFollow(); }
+      else { overlay.selectedUnit = u; centreOn(u); if (following !== null && following !== u) stopFollow(); }
+      syncOrders(); refreshTiles();
+    },
+    onFollowUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = u; startFollow(u); syncOrders(); refreshTiles(); },
+    onStopFollow: () => stopFollow(),
+    onContours: (on) => {
+      contoursOn = on;
+      renderer.setContoursAlways(on);
+      try { localStorage.setItem(CONTOURS_KEY, on ? "1" : "0"); } catch { /* private window: not remembered */ }
+    },
     sideColour: `#${(SIDE_COLOURS[Math.max(0, sim.state.sides.findIndex((x) => x.id === playerSide))] ?? 0xffffff).toString(16).padStart(6, "0")}`,
     onDebug: (on) => {
       overlay.debug = on;
@@ -209,6 +222,7 @@ async function main(): Promise<void> {
     },
   });
 
+  try { if (localStorage.getItem(CONTOURS_KEY) === "1") hud.setContours(true); } catch { /* not remembered */ }
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
   const insets = hud.insets();
   renderer.setHudInsets(insets);
@@ -315,7 +329,7 @@ async function main(): Promise<void> {
   type Gesture =
     | { kind: "plan" }
     /** S1: dragging out from the selected unit; `plan` is the ghost (null while the pointer is still on the unit). */
-    | { kind: "fromUnit"; planKind: PlanKind; plan: Plan | null; from: Pt; left: boolean }
+    | { kind: "fromUnit"; planKind: PlanKind; plan: Plan | null; from: Pt; left: boolean; right?: Pt }
     /** S10: an active move's marker; `onUnit`: dropped now it would halt. */
     | { kind: "marker"; prev: MoveOrder; at: Pt; from: Pt; onUnit: boolean }
     /** S9: the facing handle; `angle` null until it was turned. */
@@ -403,6 +417,48 @@ async function main(): Promise<void> {
     if (next !== orderMode) { orderMode = next; hud.setOrderMode(next); }
   };
   const inMap = (w: Pt) => w.x >= 0 && w.y >= 0 && w.x <= input.map.widthM && w.y <= input.map.heightM;
+  /** Send the planned route (the plan bar's Go, Enter). */
+  const goPlan = () => {
+    if (plan && overlay.selectedUnit !== null) {
+      const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
+      if (o) issue(forUnit(o));
+    }
+    endPlan();
+    orderMode = "move"; hud.setOrderMode("move");
+  };
+
+  // ---- S5: centring on a unit and the follow camera
+  /** The world point at the middle of the free map area. */
+  const viewCentre = (): Pt => {
+    const ins = hud.insets();
+    return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
+  };
+  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, hud.insets()); renderer.primeDetail(); } };
+  /** Is the camera on the unit already (within 24 px of the middle of the free area)? */
+  const centredOn = (uid: EntityId): boolean => {
+    const p = centreOf(placesOf(uid));
+    if (!p) return true;
+    const v = viewCentre();
+    return Math.hypot(p.x - v.x, p.y - v.y) * renderer.camera.scale <= 24;
+  };
+  const followText = () => { const u = following === null ? undefined : sim.state.unit.get(following); hud.setFollowing(u ? strings.t("follow.badge", { callsign: u.callsign }) : null); };
+  const startFollow = (uid: EntityId) => { following = uid; followText(); };
+  const stopFollow = () => { if (following === null) return; following = null; followText(); };
+  /** Each frame: ease the camera toward the followed unit's middle (stops when the unit has no one left). */
+  const followStep = () => {
+    if (following === null) return;
+    const p = centreOf(placesOf(following));
+    if (!p) { stopFollow(); return; }
+    const e = easeToward(viewCentre(), p);
+    renderer.focusScale(e.x, e.y, renderer.camera.scale, hud.insets());
+  };
+  /** S13: select a unit and centre on it (Tab), following it instead while the camera follows. */
+  const selectAndCentre = (uid: EntityId) => {
+    endPlan(); gesture = null;
+    overlay.selectedUnit = uid;
+    if (following !== null) startFollow(uid); else centreOn(uid);
+    syncOrders(); refreshTiles();
+  };
   /** Fire (or anti-tank) at a point for the selected unit: at the contact marker under it, if any (M5). */
   const fireAtPoint = (w: Pt) => {
     if (overlay.selectedUnit === null) return;
@@ -512,6 +568,20 @@ async function main(): Promise<void> {
     getCamera: () => renderer.camera,
     // Never further out than the whole map in the free area (M7.5b).
     setCamera: (c) => { renderer.camera = renderer.clampCamera(c, hud.insets()); },
+    // S5: panning by hand stops the follow camera (a pinch or the wheel only zooms: it keeps following).
+    onPan: () => stopFollow(),
+    // S13: the right button moves the selected unit from wherever it is pressed: let go where it should go (a click
+    // without moving: there). The ghost marker follows the mouse; back on the unit: nothing is sent.
+    onRightStart: (w) => {
+      const uid = overlay.selectedUnit;
+      if (uid === null || !sim.state.unit.has(uid) || plan) return false;
+      hud.offerContext(null);
+      const from = centreOf(placesOf(uid));
+      if (!from) return false;
+      const kind: PlanKind = orderMode === "assault" || orderMode === "withdraw" ? orderMode : "move";
+      gesture = { kind: "fromUnit", planKind: kind, plan: inMap(w) && !onSelected(w) ? ghostPlan(kind, from, w, null) : null, from, left: true, right: { ...w } };
+      return true;
+    },
     onTap: (w) => {
       hud.offerContext(null);
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
@@ -616,8 +686,8 @@ async function main(): Promise<void> {
       const uid = overlay.selectedUnit;
       if (!gs || gs.kind === "plan" || how === "cancel" || uid === null) return false;
       // Released without moving: a tap as before (a press on the unit still selects it, in Fire mode it fires); only
-      // a tap on the facing handle does nothing.
-      if (how === "tap") return gs.kind !== "facing";
+      // a tap on the facing handle does nothing. (A right click: the move to that point, below.)
+      if (how === "tap" && !(gs.kind === "fromUnit" && gs.right)) return gs.kind !== "facing";
       if (gs.kind === "fire") { if (!gs.onUnit && inMap(gs.at)) fireAtPoint(gs.at); return false; }
       if (gs.kind === "facing") {
         if (gs.angle === null) return false;
@@ -636,7 +706,7 @@ async function main(): Promise<void> {
       if (!gs.plan) return false; // let go on the unit (or off the map): nothing is sent
       const o = planToOrder(gs.plan, playerSide, uid, sim.state.tick);
       if (o) issue(forUnit(o));
-      if (gs.planKind !== "move") oneTapDone();
+      if (gs.planKind !== "move" && !gs.right) oneTapDone();
       // S4: a move dragged onto a building offers Occupy there (a context button at the drop point, a few seconds).
       const end = gs.plan.points.at(-1);
       const bi = end && gs.planKind === "move" && vehicleClassOf(uid) === null && ordersFor(unitCapabilities(sim.state, input.catalog, uid), input.catalog.movementModes).modes.includes("occupy") ? indoorAt(sim.ctx, end.x, end.y) : -1;
@@ -647,6 +717,102 @@ async function main(): Promise<void> {
       return false;
     },
   });
+
+  // ---- S13: the keyboard (desktop; touch is unchanged). Keys send what the buttons send; Esc never leaves the battle.
+  const panKeys = new Set<string>();
+  let speedBefore = 1;
+  const SPEEDS = [0, 1, 2, 4];
+  /** Esc: the innermost thing first — a menu or card, a drag, the plan, the mode, the man's box, following, the unit. */
+  const escape = () => {
+    if (hud.dismiss()) return;
+    if (gesture) { gesture = null; return; }
+    if (plan) { endPlan(); orderMode = "move"; hud.setOrderMode("move"); return; }
+    if (orderMode !== "move") { orderMode = "move"; hud.setOrderMode("move"); return; }
+    if (inspected !== null) { inspected = null; showCard(); return; }
+    if (following !== null) { stopFollow(); return; }
+    if (overlay.selectedUnit !== null) { overlay.selectedUnit = null; syncOrders(); refreshTiles(); }
+  };
+  const doKey = (a: KeyAction) => {
+    switch (a.kind) {
+      case "pause": if (hud.speed() > 0) { speedBefore = hud.speed(); hud.setSpeed(0); } else hud.setSpeed(speedBefore || 1); return;
+      case "speed": hud.setSpeed(SPEEDS[a.index] ?? 1); return;
+      case "cancel": escape(); return;
+      case "cycle": {
+        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost").map((t) => t.unit);
+        const next = cycleUnit(order, overlay.selectedUnit, a.dir);
+        if (next !== null) selectAndCentre(next);
+        return;
+      }
+      case "follow": if (overlay.selectedUnit !== null) { if (following === overlay.selectedUnit) stopFollow(); else startFollow(overlay.selectedUnit); } return;
+      case "order": if (overlay.selectedUnit !== null) hud.press(a.order); return;
+      case "go": if (plan) goPlan(); return;
+      case "undo": if (plan) plan = undoPoint(plan); return;
+      case "contours": hud.setContours(!contoursOn); return;
+      case "help": hud.toggleHelp(); return;
+    }
+  };
+  const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  window.addEventListener("keydown", (e) => {
+    if (typing(e.target)) return;
+    const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey };
+    if (isPanKey(e.code) && !mods.ctrl && !mods.alt && !mods.meta) { panKeys.add(e.code); stopFollow(); e.preventDefault(); return; }
+    const a = keyAction(e.code, e.key, mods);
+    if (!a) return;
+    e.preventDefault();
+    // (A button keeps the focus after a click: Space or Enter would press it again.)
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) document.activeElement.blur();
+    if (e.repeat && a.kind !== "cycle" && a.kind !== "undo") return;
+    doKey(a);
+  });
+  window.addEventListener("keyup", (e) => { panKeys.delete(e.code); if (e.code === "Space" || e.code === "Enter") e.preventDefault(); });
+  window.addEventListener("blur", () => panKeys.clear());
+  /** Held pan keys move the map at a steady speed on screen (whatever the zoom). */
+  let panAt = performance.now();
+  const keyPan = (now: number) => {
+    const dt = Math.min(0.1, (now - panAt) / 1000);
+    panAt = now;
+    if (panKeys.size === 0) return;
+    const v = panVector(panKeys);
+    if (v.x === 0 && v.y === 0) return;
+    const c = renderer.camera, d = (PAN_PX_PER_S * dt) / c.scale;
+    renderer.camera = renderer.clampCamera({ ...c, x: c.x + v.x * d, y: c.y + v.y * d }, hud.insets());
+  };
+
+  // ---- S8: "last seen" pins (from the side's own contacts) and whether own men see a pin's spot empty.
+  const lastSeen = new LastSeenBook();
+  let pinsTick = -1;
+  /** Own men on foot (eyes) and crewed own hulls (sights) that can look now. */
+  const ownEyes = (): { x: number; y: number; z: number; ignore: number }[] => {
+    const eyes: { x: number; y: number; z: number; ignore: number }[] = [];
+    // mounted: ok men aboard are skipped (their hull's sights are added below)
+    for (const [id, s] of sim.state.soldier.entries()) {
+      if (s.mount !== undefined || isOut(s) || s.physiology.consciousness < 0.5 || sim.state.identity.get(id)?.side !== playerSide) continue;
+      const t = sim.state.transform.get(id);
+      if (t) eyes.push({ x: t.x, y: t.y, z: standZ(input.map, t) + eyeHeightM(sim.ctx, s.posture), ignore: -1 });
+    }
+    for (const [vid, v] of sim.state.vehicle.entries()) {
+      if (v.side !== playerSide || v.unit === null || v.status === "destroyed" || v.status === "abandoned") continue;
+      const t = sim.state.transform.get(vid);
+      if (t) eyes.push({ x: t.x, y: t.y, z: heightAt(input.map, t.x, t.y) + 2.3, ignore: vid });
+    }
+    return eyes;
+  };
+  /** A spot is seen empty when one of the 3 nearest own eyes within range (200 m; a hull's spot 600 m) has it in clear
+   *  view: for a man, low enough to see one lying there (0.4 m), for a hull 1.5 m up. */
+  const SEEN_EMPTY_M = 200, SEEN_EMPTY_HULL_M = 600;
+  const updatePins = (known: NonNullable<Overlay["known"]>) => {
+    if (pinsTick === sim.state.tick) return;
+    pinsTick = sim.state.tick;
+    lastSeen.update(known, sim.state.tick);
+    let eyes: { x: number; y: number; z: number; ignore: number }[] | null = null;
+    lastSeen.look(sim.state.tick, (p) => {
+      eyes ??= ownEyes();
+      const R = p.cls === "vehicle" ? SEEN_EMPTY_HULL_M : SEEN_EMPTY_M;
+      const near = eyes.map((e) => ({ e, d: (e.x - p.x) ** 2 + (e.y - p.y) ** 2 })).filter((x) => x.d <= R * R).sort((a, b) => a.d - b.d).slice(0, 3);
+      const tz = heightAt(input.map, p.x, p.y) + (p.cls === "vehicle" ? 1.5 : 0.4);
+      return near.some(({ e }) => { const v = sight(sim.ctx, e.x, e.y, e.z, p.x, p.y, tz, e.ignore); return v.blockedBy === null && v.visibility >= 0.6; });
+    });
+  };
 
   const sideColour = (side: string) => {
     const i = sim.state.sides.findIndex((s) => s.id === side);
@@ -784,7 +950,7 @@ async function main(): Promise<void> {
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
-    setSpeed: (v: number) => { speed = v; },
+    setSpeed: (v: number) => { hud.setSpeed(v); speed = v; },
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
     discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
     halt: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "halt" }),
@@ -811,6 +977,15 @@ async function main(): Promise<void> {
     /** The "bar-card" step (screenshots, checks): the man box for a man (null closes), the card's state. */
     inspect: (id: EntityId | null) => { inspected = id; showCard(); },
     card: () => ({ inspected, pace, detailed: document.querySelector(".hud-card.detailed") !== null, rules: overlay.selectedUnit === null ? null : { fire: sim.state.unit.get(overlay.selectedUnit)?.fireRule, maxEngageM: sim.state.unit.get(overlay.selectedUnit)?.maxEngageM } }),
+    /** The "map-feel" step (screenshots, checks): lines, pins, follow, contours, help, speed. */
+    mapfeel: () => ({
+      following, contours: contoursOn, help: hud.helpShown(), speed: hud.speed(), selected: overlay.selectedUnit, mode: orderMode, plan: plan !== null,
+      intents: (overlay.intents ?? []).map((l) => ({ kind: l.kind, selected: l.selected })), pins: (overlay.pins ?? []).map((p) => ({ target: p.target, x: p.x, y: p.y, label: p.label })),
+      centred: overlay.selectedUnit === null ? null : centredOn(overlay.selectedUnit), inspected,
+    }),
+    follow: (uid: EntityId | null) => { if (uid === null) stopFollow(); else { overlay.selectedUnit = uid; startFollow(uid); syncOrders(); refreshTiles(); } },
+    callFire: (x: number, y: number, ammo: "he" | "smoke" = "he") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "callFire", x, y, ammo, rounds: ammo === "he" ? 4 : 2 }),
+    moveUnit: (uid: EntityId, x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "move", waypoints: [{ x, y, mode: "walk" }] }),
     hash: () => simHash(sim),
     ready: true,
   };
@@ -986,6 +1161,12 @@ async function main(): Promise<void> {
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
     // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
+    // S8: "last seen" pins (Debug shows the enemy as he is: no pins); S7: one line per own unit on the move.
+    if (overlay.known) {
+      updatePins(overlay.known);
+      overlay.pins = lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
+    } else overlay.pins = null;
+    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit), renderer.zoomLevel() === LOD_SYMBOLS);
     // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
     {
       const vid = overlay.debug && overlay.selectedUnit !== null ? sim.state.unit.get(overlay.selectedUnit)?.vehicle : undefined;
@@ -1003,6 +1184,8 @@ async function main(): Promise<void> {
     syncOrders();
     if (now - tilesAt >= 250) { tilesAt = now; refreshTiles(); }
     updateFloors();
+    keyPan(now);
+    followStep();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();

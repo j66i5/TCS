@@ -297,29 +297,37 @@ export function paintRegion(map: MapDef, col: FlatColours, x0: number, y0: numbe
 }
 
 /**
- * Contour lines (2.5 m, every fourth one bold) as RGBA with alpha, premultiplied, at `ppm` over the whole map.
+ * Contour lines (2.5 m, every fourth one bold) as RGBA with alpha, premultiplied, at `ppm` over a map rectangle
+ * (the whole map by default); `diagonal` also compares the pixel diagonally below, so a slanting line joins up
+ * (the close-up tiles of S14).
  */
-export function paintContours(map: MapDef, ppm: number): Uint8Array {
-  const W = Math.max(1, Math.round(map.widthM * ppm)), H = Math.max(1, Math.round(map.heightM * ppm)), px = 1 / ppm;
+export function paintContours(map: MapDef, ppm: number, x0 = 0, y0 = 0, w = map.widthM, h = map.heightM, ink: readonly number[] = CONTOUR_INK, alphas: readonly [number, number] = [0.28, 0.55], diagonal = false): Uint8Array {
+  const W = Math.max(1, Math.round(w * ppm)), H = Math.max(1, Math.round(h * ppm)), px = 1 / ppm;
   const out = new Uint8Array(W * H * 4);
   let row = new Float32Array(W + 1), next = new Float32Array(W + 1);
-  const fill = (a: Float32Array, j: number) => { for (let i = 0; i <= W; i++) a[i] = heightAt(map, Math.min(map.widthM - 0.01, (i + 0.5) * px), Math.min(map.heightM - 0.01, (j + 0.5) * px)); };
+  const fill = (a: Float32Array, j: number) => { for (let i = 0; i <= W; i++) a[i] = heightAt(map, Math.min(map.widthM - 0.01, x0 + (i + 0.5) * px), Math.min(map.heightM - 0.01, y0 + (j + 0.5) * px)); };
   fill(row, 0);
-  const ink = [0x3a, 0x2e, 0x1f];
   for (let j = 0; j < H; j++) {
-    fill(next, Math.min(H - 1, j + 1));
+    fill(next, j + 1);
     for (let i = 0; i < W; i++) {
-      const h0 = row[i]!, hr = row[i + 1]!, hd = next[i]!;
-      const lo = Math.min(h0, hr, hd), hi = Math.max(h0, hr, hd);
+      const h0 = row[i]!, hr = row[i + 1]!, hd = next[i]!, hx = diagonal ? next[i + 1]! : h0;
+      const lo = Math.min(h0, hr, hd, hx), hi = Math.max(h0, hr, hd, hx);
       if (Math.floor(lo / 2.5) === Math.floor(hi / 2.5)) continue;
       const major = Math.floor(lo / 10) !== Math.floor(hi / 10);
-      const a = major ? 0.55 : 0.28, o = (j * W + i) * 4;
+      const a = major ? alphas[1] : alphas[0], o = (j * W + i) * 4;
       out[o] = Math.round(ink[0]! * a); out[o + 1] = Math.round(ink[1]! * a); out[o + 2] = Math.round(ink[2]! * a); out[o + 3] = Math.round(255 * a);
     }
     [row, next] = [next, row];
   }
   return out;
 }
+
+/** Contour ink of the whole-map layer (dark brown) and of the close-up layer the top-bar toggle adds (S14: a pale
+ *  rose that shows on the detailed ground and differs from the pale move lines; TCS's own colours). */
+export const CONTOUR_INK = [0x3a, 0x2e, 0x1f] as const;
+export const CONTOUR_CLOSE_INK = [0xf0, 0xb4, 0xdc] as const;
+/** S14: from this zoom (px/m) in, the toggle's contours are the fine tiles (fewer than TILE_CACHE cover a screen). */
+export const CLOSE_CONTOUR_SCALE = 4;
 
 const texOf = (data: Uint8Array, width: number, height: number, mode: "nearest" | "linear") =>
   new Texture({ source: new BufferImageSource({ resource: data, width, height, format: "rgba8unorm", alphaMode: "premultiplied-alpha", scaleMode: mode }) });
@@ -337,6 +345,9 @@ export class FlatTerrain {
   readonly contours: Sprite;
   private tiles = new Container();
   private cache = new Map<string, { sprite: Sprite; used: number }>();
+  /** S14: contour tiles at the detail resolution (the toggle "contours at any zoom", close up), built lazily. */
+  private ctiles = new Container();
+  private ccache = new Map<string, { sprite: Sprite; used: number }>();
   private frame = 0;
   private ppm: number;
 
@@ -347,33 +358,43 @@ export class FlatTerrain {
     this.base.width = map.widthM; this.base.height = map.heightM;
     this.contours = new Sprite(texOf(paintContours(map, this.ppm), W, H, "linear"));
     this.contours.width = map.widthM; this.contours.height = map.heightM;
-    this.root.addChild(this.base, this.tiles, this.contours);
+    this.root.addChild(this.base, this.tiles, this.contours, this.ctiles);
   }
 
   /**
    * Per frame: sampling by zoom (nearest when enlarged), contours only zoomed out, detail tiles over the visible
    * area when `detail` (one new tile at most, nearest the centre first).
    */
-  update(view: { x: number; y: number; w: number; h: number }, scale: number, detail: boolean, contours: boolean): void {
+  update(view: { x: number; y: number; w: number; h: number }, scale: number, detail: boolean, contours: boolean, closeContours = false): void {
     this.frame++;
     const mode = scale >= this.ppm ? "nearest" : "linear";
     if (this.base.texture.source.scaleMode !== mode) this.base.texture.source.scaleMode = mode;
-    this.contours.visible = contours;
+    // (From CLOSE_CONTOUR_SCALE in with the toggle on, the fine contour tiles replace the whole-map layer, which is
+    // blurred there.)
+    const close = closeContours && scale >= CLOSE_CONTOUR_SCALE;
+    this.contours.visible = contours && !close;
     this.tiles.visible = detail;
+    this.ctiles.visible = close;
+    if (close) this.updateTiles(view, this.ccache, (k, tx, ty) => this.buildTile(k, tx, ty, true));
     if (!detail) return;
+    this.updateTiles(view, this.cache, (k, tx, ty) => this.buildTile(k, tx, ty, false));
+  }
+
+  /** Show the cached tiles over the view; build the missing one nearest the centre (one per frame at most). */
+  private updateTiles(view: { x: number; y: number; w: number; h: number }, cache: Map<string, { sprite: Sprite; used: number }>, build: (k: string, tx: number, ty: number) => void): void {
     const tx0 = Math.max(0, Math.floor(view.x / TILE_M)), ty0 = Math.max(0, Math.floor(view.y / TILE_M));
     const tx1 = Math.min(Math.ceil(this.map.widthM / TILE_M) - 1, Math.floor((view.x + view.w) / TILE_M));
     const ty1 = Math.min(Math.ceil(this.map.heightM / TILE_M) - 1, Math.floor((view.y + view.h) / TILE_M));
-    for (const t of this.cache.values()) t.sprite.visible = false;
+    for (const t of cache.values()) t.sprite.visible = false;
     let want: { k: string; tx: number; ty: number; d: number } | null = null;
     const cx = view.x + view.w / 2, cy = view.y + view.h / 2;
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-      const k = `${tx},${ty}`, t = this.cache.get(k);
+      const k = `${tx},${ty}`, t = cache.get(k);
       if (t) { t.sprite.visible = true; t.used = this.frame; continue; }
       const d = ((tx + 0.5) * TILE_M - cx) ** 2 + ((ty + 0.5) * TILE_M - cy) ** 2;
       if (!want || d < want.d) want = { k, tx, ty, d };
     }
-    if (want) this.buildTile(want.k, want.tx, want.ty);
+    if (want) build(want.k, want.tx, want.ty);
   }
 
   /** Build every tile over an area now (the opening view, so the first picture is complete). */
@@ -382,22 +403,24 @@ export class FlatTerrain {
       for (let tx = Math.max(0, Math.floor(view.x / TILE_M)); tx <= Math.floor((view.x + view.w) / TILE_M); tx++) {
         if (tx * TILE_M >= this.map.widthM || ty * TILE_M >= this.map.heightM) continue;
         const k = `${tx},${ty}`;
-        if (!this.cache.has(k)) this.buildTile(k, tx, ty);
+        if (!this.cache.has(k)) this.buildTile(k, tx, ty, false);
       }
     }
   }
 
-  private buildTile(k: string, tx: number, ty: number): void {
+  private buildTile(k: string, tx: number, ty: number, contour: boolean): void {
     const x = tx * TILE_M, y = ty * TILE_M, w = Math.min(TILE_M, this.map.widthM - x), h = Math.min(TILE_M, this.map.heightM - y);
     const W = Math.round(w * TILE_PPM), H = Math.round(h * TILE_PPM);
-    const s = new Sprite(texOf(paintRegion(this.map, this.colours, x, y, w, h, TILE_PPM), W, H, "nearest"));
+    const data = contour ? paintContours(this.map, TILE_PPM, x, y, w, h, CONTOUR_CLOSE_INK, [0.45, 0.8], true) : paintRegion(this.map, this.colours, x, y, w, h, TILE_PPM);
+    const s = new Sprite(texOf(data, W, H, "nearest"));
     s.position.set(x, y); s.width = w; s.height = h;
-    this.tiles.addChild(s);
-    this.cache.set(k, { sprite: s, used: this.frame });
-    if (this.cache.size > TILE_CACHE) {
+    const layer = contour ? this.ctiles : this.tiles, cache = contour ? this.ccache : this.cache;
+    layer.addChild(s);
+    cache.set(k, { sprite: s, used: this.frame });
+    if (cache.size > TILE_CACHE) {
       let old: string | null = null, oldest = Infinity;
-      for (const [kk, t] of this.cache) if (t.used < oldest && kk !== k) { oldest = t.used; old = kk; }
-      if (old !== null) { const t = this.cache.get(old)!; this.tiles.removeChild(t.sprite); t.sprite.destroy({ texture: true, textureSource: true }); this.cache.delete(old); }
+      for (const [kk, t] of cache) if (t.used < oldest && kk !== k) { oldest = t.used; old = kk; }
+      if (old !== null) { const t = cache.get(old)!; layer.removeChild(t.sprite); t.sprite.destroy({ texture: true, textureSource: true }); cache.delete(old); }
     }
   }
 

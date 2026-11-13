@@ -2710,3 +2710,55 @@ Choices made here without the owner (low confidence, easy to change):
    fire"), stress and morale as bars, and his wounds by body part with light / serious / critical at severity
    0.25 / 0.6. A pale yellow ring marks him on the map.
 9. Icons are TCS's own line drawings (`icons.ts`); colours are TCS's own.
+
+## 2026-11-13 — Map-feel step: unit lines, "last seen" pins, tile centre and follow, keyboard, contour toggle (owner S5, S7, S8, S13, S14)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), built as chosen. UI only: no new order type,
+no sim change, goldens untouched (strings only in data, outside the catalog fingerprint). Pure parts in
+`packages/ui/src/mapfeel.ts` (`intentLines`, `linesShown`, `LastSeenBook`, `ageLabel`, `keyAction`, `panVector`,
+`cycleUnit`, `HELP_SECTIONS`; tests `packages/ui/test/mapfeel.test.ts`, `input.test.ts`); drawing in
+`render/src/renderer.ts` (`Overlay.intents`, `Overlay.pins`, `setContoursAlways`) and `terrain-flat.ts` (contour
+tiles). Screenshots `npm run screenshot -- --scene mapfeel`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Lines (S7).** One line per own unit whose `moving` flag is set: from the middle of its own able men on foot (a
+   crew: its hull) to the last point of its leader's route (a hull's drive route); a squad riding in a vehicle has no
+   line of its own (the vehicle's shows). Others: straight, pale (`#eef3e2`, 35 %), a dot at the end; the selected
+   unit and its sub-units: bright, along the route still ahead. They replace the old faint route of the selected
+   leaders (Debug still shows every man's path). Moves the units make on their own (on-contact push, drills) also
+   show — they are the player's units. **Fire missions**: amber (`#ffa23a`), broken line from the caller to a ring on
+   the target, from the call on its way (inbox) until the last round. **Clutter:** at the symbol zoom, more than 6
+   faint lines → only the selected and the missions.
+2. **Pins (S8).** A seen or reported contact unseen ≥ 6 s (the sim's own "keep in sight" time) becomes a hollow pin
+   with "seen N s ago" (5 s steps) / "seen N min ago"; it outlives the sim forgetting the contact (2 min, vehicles
+   5 min). It goes when the enemy is seen again, or when the spot is **seen empty**: one of the 3 nearest own able men
+   on foot within 200 m (crewed own hulls' sights 2.3 m up; 600 m for a vehicle's pin) has an unblocked line with ≥ 60 %
+   visibility to 0.4 m above the ground there (1.5 m for a vehicle) for 5 s of game time in a row (a man lying in
+   crops keeps his pin). Checked 4 pins per tick, round robin. A contact that leaves what the side knows while still
+   fresh (seen falling, boarding) leaves no pin; heard-only contacts never pin and keep their old marks. Stale
+   seen/reported contacts are now drawn only as pins (the fading diamond is gone for them). Known limit: the "seen
+   empty" check does not see through an enemy hull the side has not spotted (the pin then just stays).
+3. **Tiles (S5).** Tap = select and centre (zoom kept); tap on the selected unit **while the map is centred on it**
+   (within 24 px) = unselect, as before — so a second tap after panning away re-centres instead. Hold 450 ms = select
+   and follow (the click that ends the hold does nothing more; moving the finger 10 px cancels the hold, for scrolling
+   the list). The follow camera eases 20 % of the way per frame to the unit's middle; a one-finger or mouse pan, the
+   pan keys or the badge stop it; wheel and pinch zoom keep it. The badge is a small green pill at the top of the free
+   area ("◎ Following Trupp 2 ✕"). Following stops when the unit has nobody left.
+4. **Keys (S13).** 1–4 = the four speed buttons in order (pause, 1×, 2×, 4×) — the owner's "1-4 set speed" with four
+   buttons; Space toggles pause and back to the speed before. Number keys are therefore not used for units: Tab /
+   Shift+Tab cycle the unit list (lost units skipped), select and centre (or follow, while following). Verbs: M Move,
+   **T Fire** (F is Follow), H Halt, B Mount/Dismount, G Grenade (a key pressed twice quickly locks a mode, like a
+   double-tap); also Enter = Go, Backspace = undo a route point, C = contours, ? / F1 = help. Esc order: close a
+   menu/tray/rules/help/context button → drop a drag in progress → drop the plan → back to Move → close the man's box →
+   stop following → unselect. Keys are ignored with Ctrl/Alt/Meta (browser shortcuts) and in text fields; a focused
+   button is blurred so Space/Enter do not press it again. Tab no longer moves the keyboard focus.
+5. **Right button (S13, in the owner's option text).** Right-press anywhere with a unit selected and no route being
+   planned: a move (Assault / Withdraw in those modes) dragged from the unit's middle to the pointer, sent on release;
+   right-click without moving = the move to that point; released on the unit = nothing. Pace and formation as for
+   S1. Right-click never opens the browser menu over the map.
+6. **Help card (S13).** A card over the map (z 5) with three sections — keyboard (key caps), mouse, touch; a touch
+   screen lists touch first. Opened by ?, F1 or a "?" top-bar button (behind "⋯" on a phone, with Contours).
+7. **Contours (S14).** The toggle shows the whole-map contour layer at every zoom; from 4 px/m in it is replaced by
+   fine contour tiles (64 m, 4 px/m, built lazily like the detail tiles, diagonal pixels joined) in a **pale rose**
+   (`#f0b4dc`, 45 % / 80 % for every 10 m) — chosen to show on fields and woods and to differ from the pale move
+   lines, the amber fire lines and the blue water. Remembered on the device (`tcs.ui.contours`). The whole-map layer
+   now also samples one pixel past the bottom row (no visible change).
+8. The `__tcs.setSpeed` hook now goes through the speed buttons (so the bar shows the speed the screenshots use).

@@ -695,6 +695,41 @@ Ideas taken from Firefight (only the ideas: the drawings, words and colours are 
   while it is open.
 - Nothing about the battle changed: every button sends one of the orders that already existed.
 
+## Reading the map, following units, the keyboard (the "map-feel" step, owner choices 2026-11-13)
+Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own). Nothing about the battle
+changed: the lines and pins are drawn from what your side already knows, and the keys send the same orders as the
+buttons.
+- **Where everyone is going.** Every one of your units on the move has one thin, faint line from the middle of its
+  men (a vehicle: from the hull) to where it is going, with a small dot at the end — one line per unit, never one per
+  man. The selected unit's line is bright and follows its route. A mortar mission has a broken amber line from the
+  man who called it to a ring on the target, from the moment it is called until the last round has fallen. Zoomed
+  right out to the unit symbols, the faint lines are left out when more than six units are moving (the selected
+  unit's line and the mortar lines stay).
+- **"Last seen" pins.** An enemy your men lose sight of does not just fade away any more: about 6 seconds after the
+  last sighting his mark turns into a hollow pin standing on the spot where he was last seen, with how long ago
+  ("seen 45 s ago", "seen 3 min ago"). The pin stays — even after the men have forgotten him — until he is seen again
+  (the pin goes, he is a live mark again) or your men have had a clear look at the spot for 5 seconds and he is not
+  there: a man within 200 m (600 m for a vehicle's spot) sees the ground there clearly, low enough that he would see
+  a man lying in it. An enemy seen falling or getting into a vehicle leaves no pin; a sound alone never makes one.
+  A lost vehicle keeps its hollow outline under its pin.
+- **Following a unit.** Tap a unit's tile in the unit list: it is selected and the map centres on it (tap it again
+  while the map is on it to unselect it). Hold the tile for about half a second: the camera follows the unit,
+  gliding after it, and a small green "Following …" badge shows at the top; zooming keeps following, panning the map
+  (or tapping the badge) stops it.
+- **Contour lines.** Height lines still come by themselves when zoomed out. The **Contours** button in the top bar
+  (on a phone behind "⋯"; the C key) shows them at every zoom: close up they are fine pink lines, every 2.5 m of
+  height, stronger every 10 m — for finding a reverse slope or a hull-down spot. The choice is remembered on the
+  device.
+- **Keyboard and mouse (desktop).** Space pauses and goes on; 1, 2, 3, 4 are the speed buttons in order (pause, 1×,
+  2×, 4×); W A S D or the arrows move the map; Tab and Shift+Tab pick the next or previous unit and centre on it; F
+  follows the selected unit; M, T, H, B, G are Move, Fire, Halt, Get in/out and Grenade (T twice quickly locks Fire
+  on); Enter sends a planned route and Backspace takes back its last point; C toggles the contours. **Esc** closes
+  or cancels the innermost thing — a menu or this card, a drag, a planned route, a chosen order (back to Move), the
+  man's box, following, then the selection — and never leaves the battle. The **right mouse button** moves the
+  selected unit from anywhere: right-click a spot and it goes there, or right-drag and a ghost of the formation shows
+  where it will stand. **?** (or F1, or the ? button in the top bar) shows a card with every key and every mouse and
+  touch gesture. Touch is unchanged.
+
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
 zoom:

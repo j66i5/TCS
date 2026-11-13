@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (Firefight-inspired bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 **Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
 "Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
@@ -23,7 +23,17 @@ existing 100 m "no fire beyond" rule); Rules button for the rest. "Men" switches
 (state mark, role, weapon, ammunition cells); his row or a tap on him on the map opens his box (rank, name, weapon,
 rounds, activity, pulse, fatigue, suppression, stress, morale, wounds). UI only (`ui/src/card.ts`, `icons.ts`),
 goldens untouched. Screenshots `npm run screenshot -- --scene card`.
-Not done yet (other steps of the Firefight list): S5, S7, S8, S11, S13, S14.
+Not done in that step: S5, S7, S8, S11, S13, S14 (all but S11 done in the map-feel step).
+
+**Firefight-inspired map feel (owner choices 2026-11-13, step "map-feel": S5, S7, S8, S13, S14; DECISIONS.md
+"Map-feel step").** One faint line per own unit on the move to its destination (the selected unit's bright along
+its route; mortar missions amber from the caller to the target; thinned at the symbol zoom). Lost contacts become
+hollow "last seen" pins with their age, kept until seen again or the spot is seen empty (UI only, `LastSeenBook`).
+A tile tap selects and centres; a held tile follows the unit (badge; a pan stops it). Keyboard: Space, 1-4, WASD /
+arrows, Esc (never quits), Tab, F, M/T/H/B/G, Enter, Backspace, C, ? (help card with every key and gesture); the
+right mouse button moves the selected unit. A Contours top-bar button shows height lines at every zoom (fine pink
+tiles close up). UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene mapfeel`.
+Not done yet (other steps of the Firefight list): S11 (mortar ranging shots, a sim change).
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

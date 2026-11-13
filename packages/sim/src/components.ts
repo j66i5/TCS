@@ -116,6 +116,11 @@ export interface SoldierState {
    * again. Absent: none yet.
    */
   homePosture?: Posture;
+  /**
+   * Where the last rounds that cracked past him came from (soldier AI package B): a horizontal unit vector from him
+   * back along their flight, and the tick. Absent until a round has passed close to him.
+   */
+  fireFrom?: { dx: number; dy: number; tick: number };
   /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
   grenadeTick?: number;
 }

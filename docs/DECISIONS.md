@@ -2439,6 +2439,49 @@ show a problem.
   Within the seed noise of A (the Russian mounted attack was 0/10 before A too); no balance tuning.
 - **Goldens:** regenerated (`golden:update`); no-interiors goldens stay skipped.
 
+### Owner decision 2026-11-13: a man pinned in the open crawls (answers decision 5 below)
+
+- **Owner:** "a man pinned in the open should crawl." The package-B crawl started only when a pinned or panicked
+  man knew a threat that could see him and found a spot within 8 m hidden from it: 2–7 crawls a battle, most pinned
+  men lying in the open under fire from a shooter they did not know of (or a stale contact).
+- **Rule** (`crawlOutOfOpen`, decisions.ts, after `crawlToCover` in the same 10 s retry): a cowering man lying **in
+  the open** — the beaten-zone definition, static nav exposure >= `beatenOpenExposure` 0.9 (no wall, hedge, building
+  or wood within about 4 m), and not indoors — low-crawls to cover. He hides from where the fire comes from: the new
+  optional `SoldierState.fireFrom` (the suppression-weighted direction back along the rounds that cracked past him,
+  gathered in the ballistics suppression pass at no extra cost per round; kept `underFireMemorySeconds` 30 s), else
+  the enemy he knows (`threatOf`), else the enemy his unit's men know (`unitThreat`). A fire direction is tested
+  from a point at the known enemy's distance (30–400 m), else 150 m. Rings at 2, 4, 6, 8 m (`crawlSearchM`), then
+  11.5 and **15 m** (new `soldier.crawlSearchFarM`, confidence low; searched only when nothing within 8 m hides him):
+  a spot hidden lying down from that direction (wall, hedge, house, wood or a fold) scores its distance; a spot
+  next to a cover feature (nav exposure below 0.9) that does not hide him from it scores distance + 15, so any
+  hidden spot within 15 m comes first; spacing penalty as before; never within ~73 degrees of the fire or the known
+  enemy; route (`routeBetween`) at most 30 m of cost (round a wall's end, not a long detour). Already hidden from
+  that direction where he lies, or by cover, he stays (as today).
+- **Tried:** testing a fire direction from 50, 150 and 300 m (all three must be hidden) — fewer "hidden where he
+  lies" mistakes but almost no folds pass it, so fewer crawls; pinned man-seconds in sight 955 → 1153 on the same
+  six battles. Dropped.
+- **Measured** (audit `diag`, six 1500 s battles: platoon s1–3, platoon-ru s1–2, platoon-vehicles s1; before →
+  after): crawls started 78 → 108; pinned or panicked man-seconds in the enemy's sight 1023 → 955; exposure spells
+  over 10 s 50 → 44. A probe of the rule's outcomes (platoon-ru s1): of 53 calls in the open, 24 found no hidden
+  spot or cover feature within 15 m (open fields), 20 were already hidden from the fire direction (their estimate),
+  9 crawled. The gain is modest: in open fields there is nothing within 15 m to crawl to.
+- **Batches** (10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender):
+
+  | Batch | Before | After |
+  |---|---|---|
+  | platoon 900 s | 3/7; 15.6 / 12.9; 19 / 5 | 2/8; 16.6 / 12.0; 22 / 5 |
+  | platoon-ru 900 s | 2/8; 14.2 / 14.6; 21 / 6 | 3/7; 14.5 / 14.5; 23 / 5 |
+  | platoon-vehicles 900 s | 5/5; 15.5 / 20.6; 29 / 4 | 5/5; 17.4 / 19.7; 25 / 4 |
+  | platoon-ru-vehicles 900 s | 1/9; 26.4 / 11.9; 14 / 5 | 0/10; 28.6 / 11.7; 37 / 6 |
+  | platoon 2400 s | 6/4; 18.9 / 14.5; 20 / 5 | 5/5; 20.4 / 14.2; 25 / 6 |
+  | platoon-ru 2400 s | 4/6; 17.5 / 16.6; 21 / 6 | 6/4; 18.0 / 16.4; 25 / 6 |
+
+  Within seed noise (the Russian mounted attack was 0–1/10 before); no tuning.
+- **Perf:** bench-vehicles alternating with a clean main checkout, 6 rounds: main 8.69x, after 8.80x (mean).
+- **Goldens:** behaviour.json changed (catalog fingerprint) and behaviour changed on purpose: `golden:update`;
+  the no-interiors goldens stay skipped.
+
 ### Package C — Stay in the fight
 
 - **A posture to return to** (audit item 4: in village-occupy s2 both sides lay prone for 23 minutes and fired 35
@@ -2556,7 +2599,7 @@ show a problem.
    firing on their own (A).
 4. **Beaten zones** (B): only men out in the open move (40 m out or into a house) and they go back when the fire
    lifts; men by a wall, hedge or building stay down. The alternatives tried cost more men (DECISIONS B).
-5. **Crawl to cover** (B) rarely triggers: most pinned men are already out of sight of the enemy *they know of*
-   while the enemy still sees them. A wider trigger (e.g. any man pinned in the open) would be a further step.
+5. ~~**Crawl to cover** (B) rarely triggers~~ — **answered 2026-11-13: a man pinned in the open crawls** (see "Owner
+   decision 2026-11-13" under package B).
 6. **Facing** (C) only in a fight, so a player's laid-out facing stands otherwise.
 7. **Assault fire** with 3x aiming error (D): fire on the move hits rarely (4 hits from 517 rounds in five battles).

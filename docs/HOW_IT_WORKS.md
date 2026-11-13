@@ -381,7 +381,14 @@ matters clearly more (less than 0.7 times his score: nearer, firing, standing).
 
 **Use the ground (B).** A man pinned or panicked where the enemy he knows can see him no longer just lies there:
 he low-crawls (0.3 m/s) to the nearest spot within 8 m, never toward the enemy, where that enemy cannot see him
-lying down; once he is no longer pinned he fires back from there. Men going to cover, to the end of a move, to the objective of an assault or to a rally point keep
+lying down; once he is no longer pinned he fires back from there. A man pinned or panicked out **in the open** (no
+wall, hedge, building or wood within about 4 m, not in a house) crawls to cover too, even when he cannot tell who is
+shooting at him: he hears where the bullets cracking past him come from, and hides from that side (else from the
+enemy he knows, else from the enemy his comrades know). He takes the nearest spot within 8 m where he would be out
+of sight from there lying down — behind a wall, a hedge, a house, in a wood or a dip in the ground — else looks out
+to 15 m, and if nothing hides him from that side he crawls to the nearest wall, hedge, house or wood anyway. He
+never crawls toward the fire, keeps clear of his comrades' places, and tries again at most every 10 s. A man who is
+already lying by a wall or hedge, or in a dip that hides him from the fire, stays where he is. Men going to cover, to the end of a move, to the objective of an assault or to a rally point keep
 about 5 m from the places their comrades have taken or are going to, instead of piling onto the one best spot (two
 squads' last men rallying on the same point used to lie on top of each other). And men remember where enemy
 mortar rounds are falling: a man within 60 m of a burst remembers the mission for 90 s; halted out in the open (no

@@ -193,6 +193,87 @@ function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: Soldier
 }
 
 /**
+ * Pinned or panicked lying in the open (owner 2026-11-13, answering package B's open decision 5): no wall, hedge,
+ * building or wood within about 4 m (static exposure at least `soldier.beatenOpenExposure`) and not indoors. He
+ * low-crawls to the nearest cover, whether or not he knows who is firing at him. The direction he hides from: where
+ * the rounds cracking past him came from (`fireFrom`, within `decisions.underFireMemorySeconds`), else the enemy he
+ * knows, else the enemy his unit's men know. First a spot within `soldier.crawlSearchM` hidden (lying) from that
+ * direction; else, out to `soldier.crawlSearchFarM`, such a spot or any cover feature (a wall, hedge, building or
+ * wood close by). Never toward the enemy; spots by a comrade's place count as worse. Hidden from that direction
+ * where he lies already (a fold), he stays.
+ */
+function crawlOutOfOpen(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, threat: { x: number; y: number; z: number } | null): boolean {
+  const S = ctx.catalog.behaviour.soldier, D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
+  const me = state.transform.req(id);
+  if (!ctx.catalog.movementModes[S.crawlMode] || indoorAt(ctx, me.x, me.y) >= 0) return false;
+  const { grid, search } = navFor(ctx, "foot");
+  if (exposureAt(grid, me.x, me.y) < S.beatenOpenExposure) return false; // by cover already: he stays down there
+  // Where the fire comes from: a point in that direction (at the distance of the enemy he knows, else 150 m).
+  const known = threat ?? unitThreat(state, id, unitId);
+  const kd = known ? hypot2(known.x - me.x, known.y - me.y) : 0;
+  let dir: { x: number; y: number } | null = null, px = 0, py = 0, pz = 0;
+  const ff = s.fireFrom;
+  if (ff && state.tick - ff.tick <= secondsToTicks(D.underFireMemorySeconds)) {
+    const dist = kd > 30 ? Math.min(kd, 400) : 150;
+    dir = { x: ff.dx, y: ff.dy }; px = me.x + ff.dx * dist; py = me.y + ff.dy * dist;
+  } else if (known && kd > 1) {
+    dir = { x: (known.x - me.x) / kd, y: (known.y - me.y) / kd }; px = known.x; py = known.y; pz = known.z;
+  }
+  const lie = body.prone.heightM * 0.6;
+  if (dir && coveredFrom(ctx, me.x, me.y, px, py, lie, me.z, pz)) return false;
+  // (Never toward the fire, nor toward the enemy he knows. A spot hidden from the fire comes first, up to
+  // crawlSearchFarM; a cover feature not hidden from it only when there is none.)
+  const kx = known && kd > 1 ? (known.x - me.x) / kd : 0, ky = known && kd > 1 ? (known.y - me.y) / kd : 0;
+  const taken = placesTaken(state, id);
+  const cands: { x: number; y: number; r: number; score: number }[] = [];
+  const radii = [S.crawlSearchM / 4, S.crawlSearchM / 2, (S.crawlSearchM * 3) / 4, S.crawlSearchM, (S.crawlSearchM + S.crawlSearchFarM) / 2, S.crawlSearchFarM];
+  let hidden = false;
+  for (let ring = 0; ring < radii.length; ring++) {
+    const r = radii[ring]!;
+    if (ring >= 4 && hidden) break; // a spot hidden from the fire within crawlSearchM: no need to look further
+    for (let k = 0; k < 12; k++) {
+      const a = (k * PI) / 6 + (ring % 2) * (PI / 12);
+      const ux = cos(a), uy = sin(a);
+      if ((dir && ux * dir.x + uy * dir.y > 0.3) || ux * kx + uy * ky > 0.3) continue;
+      const x = me.x + ux * r, y = me.y + uy * r;
+      if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
+      const i = Math.floor(y / grid.cellM) * grid.cols + Math.floor(x / grid.cellM);
+      if (grid.cost[i]! <= 0 || grid.wall[i] === 1) continue;
+      const cov = dir !== null && coveredFrom(ctx, x, y, px, py, lie, 0, pz);
+      if (!cov && grid.exposure[i]! >= S.beatenOpenExposure) continue;
+      if (cov && r <= S.crawlSearchM) hidden = true;
+      cands.push({ x, y, r, score: r + (cov ? 0 : S.crawlSearchFarM) + (placeFree(taken, x, y, S.minSpacingM) ? 0 : 6) });
+    }
+  }
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  for (const cnd of cands.slice(0, 4)) {
+    const leg = routeBetween(ctx, search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 2500, snapCells: 1 }); // (outdoors only: he is not indoors)
+    if (!leg || leg.cost > S.crawlSearchFarM * 2) continue; // (round a wall's end, not a long detour)
+    const m = state.mover.get(id);
+    if (!m) return false;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: S.crawlMode });
+    m.formation = null; m.endPosture = "prone"; m.endHeading = dir ? atan2(py - cnd.y, px - cnd.x) : null;
+    s.intent = { kind: "cover", tick: state.tick, x: cnd.x, y: cnd.y };
+    return true;
+  }
+  return false;
+}
+
+/** The enemy his unit's other men know (the first of them, by ID, who knows one): for a man who knows none himself. */
+function unitThreat(state: SimState, id: EntityId, unitId: EntityId): { x: number; y: number; z: number } | null {
+  const u = state.unit.get(unitId);
+  if (!u) return null;
+  for (const o of u.members) {
+    if (o === id) continue;
+    const os = state.soldier.get(o);
+    if (!os || !isAble(os) || os.contacts.length === 0) continue;
+    const t = threatOf(state, o, os);
+    if (t) return t;
+  }
+  return null;
+}
+
+/**
  * Out of a beaten zone (package B): halted in the open within `soldier.beatenRadiusM` of where an enemy mortar
  * mission he remembers is falling, he goes into a house close by, else `beatenMoveM` out of it, not toward the
  * enemy he knows; then he takes cover there.
@@ -571,6 +652,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         const threat = threatOf(state, id, s);
         s.coverTick = state.tick;
         if (threat && crawlToCover(ctx, state, id, s, threat)) continue;
+        // ---- pinned or panicked lying in the open: a low crawl to the nearest cover, out of the fire (owner 2026-11-13)
+        if (crawlOutOfOpen(ctx, state, id, s, ident.unit, threat)) continue;
       }
       // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
       // crawled to; a fire task he already had goes on at his pinned rate).

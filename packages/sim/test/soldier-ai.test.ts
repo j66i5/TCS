@@ -101,6 +101,58 @@ describe("package B: use the ground", () => {
     expect(ev.some((e) => e.kind === "posture.changed" && e.soldier === me && e.posture !== "prone")).toBe(false); // he crawled
   });
 
+  /** One blue man at (x, y), a wall west of him (x = 30, y 30..49); the enemy out of his sight far south behind a long wall. */
+  function pinnedAt(x: number, y: number): { sim: Sim; me: number } {
+    const input = armedInput(1, 600);
+    input.forces[0]!.units[0]!.members = input.forces[0]!.units[0]!.members.slice(0, 1);
+    input.forces[0]!.placements = [{ personId: input.forces[0]!.units[0]!.members[0]!.personId, x, y, heading: 0 }];
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p, i) => ({ ...p, x: 150, y: 185 + i }));
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [30, 30, 30, 49], heightM: 2, thicknessM: 0.25, material: "brick" } as never);
+    input.map.obstacles.push({ id: 2, kind: "wall", points: [1, 170, 199, 170], heightM: 3, thicknessM: 0.25, material: "brick" } as never);
+    const sim = createSim(input);
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    run(sim, 1);
+    const s = sim.state.soldier.req(me);
+    s.mental.suppression = 1; s.mental.behaviour = "pinned"; s.posture = "prone";
+    return { sim, me };
+  }
+
+  it("a man pinned in the open, knowing of no enemy, low-crawls to the wall close by", () => {
+    const { sim, me } = pinnedAt(37, 42);
+    expect(sim.state.soldier.req(me).contacts.length).toBe(0);
+    const ev = run(sim, 40);
+    const t = sim.state.transform.req(me);
+    // By the wall now (within about 4 m of it, the cells next to it: out of the open), having crawled there.
+    expect(Math.hypot(t.x - 30, t.y - Math.min(49, Math.max(30, t.y)))).toBeLessThanOrEqual(5.01);
+    expect(Math.hypot(t.x - 37, t.y - 42)).toBeGreaterThan(1);
+    expect(Math.hypot(t.x - 37, t.y - 42)).toBeLessThan(sim.ctx.catalog.behaviour.soldier.crawlSearchFarM + 1);
+    expect(ev.some((e) => e.kind === "posture.changed" && e.soldier === me && e.posture !== "prone")).toBe(false); // he crawled
+    // Rounds cracking past him from the east: he crawls round the wall's end to its far side, not toward the fire.
+    const b = pinnedAt(37, 42);
+    b.sim.state.soldier.req(b.me).fireFrom = { dx: 1, dy: 0, tick: b.sim.state.tick };
+    run(b.sim, 90);
+    expect(b.sim.state.transform.req(b.me).x).toBeLessThan(30);
+  });
+
+  it("a man pinned behind a wall stays there", () => {
+    const { sim, me } = pinnedAt(28.5, 40);
+    sim.state.soldier.req(me).fireFrom = { dx: 1, dy: 0, tick: sim.state.tick };
+    run(sim, 30);
+    const t = sim.state.transform.req(me);
+    expect(Math.hypot(t.x - 28.5, t.y - 40)).toBeLessThan(1);
+  });
+
+  it("rounds cracking past a man tell him where the fire comes from", () => {
+    const sim = exposed();
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    const blue = sim.state.transform.req(me);
+    submitOrder(sim, { tick: 0, issuer: "red", target: unitOf(sim, "red")[0], kind: "fire", x: blue.x, y: blue.y + 3, heightM: 1 });
+    run(sim, 15);
+    const ff = sim.state.soldier.req(me).fireFrom;
+    expect(ff).toBeDefined();
+    expect(ff!.dx).toBeGreaterThan(0.9); // from the east
+  });
+
   it("a man in the open within an enemy mortar mission's beaten zone moves out of it", () => {
     const sim = exposed();
     const me = unitOf(sim, "blue")[1].members[0]!;

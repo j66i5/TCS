@@ -54,6 +54,8 @@ export interface NavGrid {
   minDirty?: boolean;
   /** Next free area label (after merges). */
   nextRegion?: number;
+  /** Bumped by every patch (a paused search is not resumed on changed cells). */
+  version?: number;
 }
 
 /** A hull lying on the map (a wreck, M7): an oriented rectangle that blocks every grid. */
@@ -83,6 +85,24 @@ export function buildNavGrid(
     clearanceCells: opts.clearanceCells ?? 0, minBreachM: opts.minBreachM ?? 0,
   };
   finishGrid(grid);
+  return grid;
+}
+
+/**
+ * The cover-seeking variant of a plain foot grid (performance 2026-11-13): the same cells as `buildNavGrid` with
+ * `coverWeight` gives for the same map, holes and wrecks (costs scaled by exposure exactly as `computeWindow`
+ * does; scaling a passable cost keeps it passable, so the connected areas are the plain grid's).
+ */
+export function coverGridFrom(plain: NavGrid, coverWeight: number): NavGrid {
+  ensureNavGrid(plain);
+  const exposure = plain.exposure.slice(), cost = plain.cost.slice(), n = cost.length;
+  for (let i = 0; i < n; i++) if (cost[i]! > 0) cost[i] = cost[i]! * (1 + coverWeight * exposure[i]!);
+  const grid: NavGrid = {
+    cls: plain.cls, cellM: plain.cellM, cols: plain.cols, rows: plain.rows, cost, wall: plain.wall.slice(), minCost: 1,
+    region: plain.region.slice(), exposure, coverWeight,
+    clearanceCells: plain.clearanceCells, minBreachM: plain.minBreachM, nextRegion: plain.nextRegion,
+  };
+  finishMin(grid);
   return grid;
 }
 
@@ -124,6 +144,7 @@ export function patchNavGrid(
   // (Cheapest cost and connected areas are re-derived when the grid is next searched: several patches in a row
   // cost one relabelling. Areas only joined are merged at once, without a relabelling.)
   grid.minDirty = true;
+  grid.version = (grid.version ?? 0) + 1;
   if (split) grid.dirty = true;
   else if (any && !grid.dirty) joinRegions(grid, Math.max(0, cr0 - 1), Math.min(rows - 1, cr1 + 1), Math.max(0, cc0 - 1), Math.min(cols - 1, cc1 + 1));
 }
@@ -436,33 +457,63 @@ export function bestCoverNear(nav: NavGrid, x: number, y: number, radiusM: numbe
   return { x: ((best % nav.cols) + 0.5) * nav.cellM, y: (Math.floor(best / nav.cols) + 0.5) * nav.cellM };
 }
 
-/** Flood-fill connected areas using exactly the moves A* may make (8 neighbours, no corner cutting). */
+/**
+ * Connected areas (moves as A* makes them: 8 neighbours, diagonals only between two open side cells). Two
+ * passes over the rows with union-find (performance 2026-11-13; a flood fill jumped about memory), then labels
+ * numbered by first cell in row order: the same labels as a flood fill started from each new cell in turn.
+ */
 function labelRegions(cols: number, rows: number, cost: Float32Array, wall: Uint8Array): Int32Array {
-  const region = new Int32Array(cols * rows);
-  const stack = new Int32Array(cols * rows);
-  let label = 0;
-  for (let i0 = 0; i0 < region.length; i0++) {
-    if (cost[i0]! <= 0 || region[i0] !== 0) continue;
-    label++;
-    let sp = 0;
-    stack[sp++] = i0;
-    region[i0] = label;
-    while (sp > 0) {
-      const cur = stack[--sp]!;
-      const cc = cur % cols, cr = (cur - cc) / cols;
-      for (let k = 0; k < 8; k++) {
-        const nc = cc + DC[k]!, nr = cr + DR[k]!;
-        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
-        const ni = nr * cols + nc;
-        if (cost[ni]! <= 0 || region[ni] !== 0) continue;
-        if (k >= 4) {
-          const a = cr * cols + nc, b = nr * cols + cc;
-          if (cost[a]! <= 0 || cost[b]! <= 0 || wall[a] === 1 || wall[b] === 1) continue;
-        }
-        region[ni] = label;
-        stack[sp++] = ni;
+  const n = cols * rows;
+  const region = new Int32Array(n);
+  // Provisional labels (1..) in region, their union-find parents in `up` (up[l] = l for a root).
+  let up = new Int32Array(1024);
+  let next = 1;
+  const find = (l: number): number => {
+    let r = l;
+    while (up[r] !== r) r = up[r]!;
+    while (up[l] !== r) { const p = up[l]!; up[l] = r; l = p; }
+    return r;
+  };
+  const join = (a: number, b: number): number => {
+    const ra = find(a), rb = find(b);
+    if (ra === rb) return ra;
+    if (ra < rb) { up[rb] = ra; return ra; }
+    up[ra] = rb; return rb;
+  };
+  for (let r = 0; r < rows; r++) {
+    const row = r * cols;
+    for (let c = 0; c < cols; c++) {
+      const i = row + c;
+      if (cost[i]! <= 0) continue;
+      let l = 0;
+      if (c > 0 && cost[i - 1]! > 0) l = region[i - 1]!;
+      if (r > 0) {
+        const nI = i - cols;
+        const nOpen = cost[nI]! > 0;
+        if (nOpen) l = l === 0 ? region[nI]! : join(l, region[nI]!);
+        // Diagonals up-left and up-right: both side cells passable and without a wall.
+        const nClear = nOpen && wall[nI] !== 1;
+        if (nClear && c > 0 && cost[i - cols - 1]! > 0 && cost[i - 1]! > 0 && wall[i - 1] !== 1) l = l === 0 ? region[i - cols - 1]! : join(l, region[i - cols - 1]!);
+        if (nClear && c + 1 < cols && cost[i - cols + 1]! > 0 && cost[i + 1]! > 0 && wall[i + 1] !== 1) l = l === 0 ? region[i - cols + 1]! : join(l, region[i - cols + 1]!);
       }
+      if (l === 0) {
+        if (next >= up.length) { const u2 = new Int32Array(up.length * 2); u2.set(up); up = u2; }
+        l = next++;
+        up[l] = l;
+      }
+      region[i] = l;
     }
+  }
+  // Final labels: roots numbered in order of their first cell.
+  const final = new Int32Array(next);
+  let label = 0;
+  for (let i = 0; i < n; i++) {
+    const l = region[i]!;
+    if (l === 0) continue;
+    const root = find(l);
+    let f = final[root]!;
+    if (f === 0) { f = ++label; final[root] = f; }
+    region[i] = f;
   }
   return region;
 }
@@ -529,22 +580,31 @@ export function navCostAt(nav: NavGrid, x: number, y: number): number {
 export interface NavSearch {
   nav: NavGrid;
   gen: number;
-  stamp: Uint32Array;
-  closed: Uint32Array;
+  /** Per cell: 2 x gen = reached by the current search, 2 x gen + 1 = closed by it. */
+  mark: Uint32Array;
   g: Float64Array;
   parent: Int32Array;
   heap: Int32Array;
   heapF: Float64Array;
   heapSize: number;
+  /** Heap slot of each cell reached and not yet closed by the current search. */
+  pos: Int32Array;
+  /** The last search, if it ran out of its expansion budget: where it stopped (`cur` closed, not expanded). */
+  paused: PausedSearch | null;
+}
+
+interface PausedSearch {
+  gen: number; version: number; start: number; goal: number; goalX: number; goalY: number;
+  blocked: ReadonlySet<number> | undefined; cur: number; expanded: number;
 }
 
 export function createNavSearch(nav: NavGrid): NavSearch {
   const n = nav.cols * nav.rows;
   return {
     nav, gen: 0,
-    stamp: new Uint32Array(n), closed: new Uint32Array(n),
+    mark: new Uint32Array(n),
     g: new Float64Array(n), parent: new Int32Array(n),
-    heap: new Int32Array(1024), heapF: new Float64Array(1024), heapSize: 0,
+    heap: new Int32Array(1024), heapF: new Float64Array(1024), heapSize: 0, pos: new Int32Array(n), paused: null,
   };
 }
 
@@ -591,42 +651,52 @@ export function nearestPassable(nav: NavGrid, x: number, y: number, radius: numb
   return -1;
 }
 
+// Open list: an indexed 4-ary min-heap on (f, cell index), with decrease-key (performance 2026-11-13). (f, cell) is a
+// total order and a cell is in the heap at most once, so cells come out in the same order as from the binary
+// heap with duplicate entries it replaces (whose stale entries were skipped).
+
+/** Move `node` (priority f) up from heap slot i to its place. */
+function heapUp(s: NavSearch, i: number, node: number, f: number): void {
+  const H = s.heap, HF = s.heapF, pos = s.pos;
+  while (i > 0) {
+    const p = (i - 1) >> 2;
+    const pf = HF[p]!, pn = H[p]!;
+    if (pf < f || (pf === f && pn < node)) break;
+    H[i] = pn; HF[i] = pf; pos[pn] = i;
+    i = p;
+  }
+  H[i] = node; HF[i] = f; pos[node] = i;
+}
+
 function heapPush(s: NavSearch, node: number, f: number): void {
   if (s.heapSize >= s.heap.length) {
     const h = new Int32Array(s.heap.length * 2); h.set(s.heap); s.heap = h;
     const hf = new Float64Array(s.heapF.length * 2); hf.set(s.heapF); s.heapF = hf;
   }
-  const H = s.heap, HF = s.heapF;
-  let i = s.heapSize++;
-  while (i > 0) {
-    const p = (i - 1) >> 1;
-    const pf = HF[p]!, pn = H[p]!;
-    if (pf < f || (pf === f && pn < node)) break;
-    H[i] = pn; HF[i] = pf;
-    i = p;
-  }
-  H[i] = node; HF[i] = f;
+  heapUp(s, s.heapSize++, node, f);
 }
 
 function heapPop(s: NavSearch): number {
-  const H = s.heap, HF = s.heapF;
+  const H = s.heap, HF = s.heapF, pos = s.pos;
   const top = H[0]!;
   const n = --s.heapSize;
   if (n > 0) {
     const node = H[n]!, f = HF[n]!;
     let i = 0;
     for (;;) {
-      const l = 2 * i + 1, r = l + 1;
-      if (l >= n) break;
-      let m = l;
-      const fl = HF[l]!;
-      if (r < n) { const fr = HF[r]!; if (fr < fl || (fr === fl && H[r]! < H[l]!)) m = r; }
-      const fm = HF[m]!;
-      if (fm > f || (fm === f && H[m]! > node)) break;
-      H[i] = H[m]!; HF[i] = fm;
+      const c0 = 4 * i + 1;
+      if (c0 >= n) break;
+      let m = c0, fm = HF[c0]!, nm = H[c0]!;
+      const ce = c0 + 4 < n ? c0 + 4 : n;
+      for (let c = c0 + 1; c < ce; c++) {
+        const fc = HF[c]!;
+        if (fc < fm || (fc === fm && H[c]! < nm)) { m = c; fm = fc; nm = H[c]!; }
+      }
+      if (fm > f || (fm === f && nm > node)) break;
+      H[i] = nm; HF[i] = fm; pos[nm] = i;
       i = m;
     }
-    H[i] = node; HF[i] = f;
+    H[i] = node; HF[i] = f; pos[node] = i;
   }
   return top;
 }
@@ -636,12 +706,16 @@ const SQRT2 = 1.4142135623730951;
 export const HEURISTIC_WEIGHT = 1.1;
 const DC = [1, -1, 0, 0, 1, 1, -1, -1];
 const DR = [0, 0, 1, -1, 1, -1, 1, -1];
+/** Side cells (bits of E, W, S, N) a diagonal step k passes between. */
+const DIAG_SIDES = [0, 0, 0, 0, 1 | 4, 1 | 8, 2 | 4, 2 | 8];
 
 /** A* from (sx, sy) to (gx, gy). Returns null if no route exists (or the expansion budget ran out). */
 export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: number, o: PathOptions = {}): PathResult | null {
   const nav = s.nav;
   ensureNavGrid(nav);
   const blocked = o.blocked;
+  const paused = s.paused;
+  s.paused = null; // (any search ends a paused one)
   const C = nav.cols;
   const W = nav.cols * nav.cellM, H = nav.rows * nav.cellM;
   const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
@@ -671,45 +745,75 @@ export function findPath(s: NavSearch, sx: number, sy: number, gx: number, gy: n
     const dx = Math.abs(c - gc), dy = Math.abs(r - gr);
     return hk * (Math.max(dx, dy) + (SQRT2 - 1) * Math.min(dx, dy));
   };
-  s.gen = (s.gen + 1) >>> 0;
-  if (s.gen === 0) { s.stamp.fill(0); s.closed.fill(0); s.gen = 1; }
-  const gen = s.gen;
-  s.heapSize = 0;
-  s.stamp[start] = gen; s.g[start] = 0; s.parent[start] = -1;
-  heapPush(s, start, h(start));
   const max = o.maxExpansions ?? nav.cols * nav.rows;
   let expanded = 0;
   let found = false;
-  // Local aliases (M7.3): the loop below is the hottest code of large battles. Same arithmetic, same order.
-  const cost = nav.cost, wall = nav.wall, closed = s.closed, stamp = s.stamp, gs = s.g, par = s.parent, R = nav.rows;
-  const diagK = SQRT2 - 1, push = heapPush, pop = heapPop;
-  while (s.heapSize > 0) {
-    const cur = pop(s);
-    if (closed[cur] === gen) continue;
-    closed[cur] = gen;
-    if (cur === goal) { found = true; break; }
-    if (++expanded > max) return null;
+  // The same search as one that just ran out of its budget (a bounded try, then the full search;
+  // performance 2026-11-13): it goes on from where that one stopped instead of repeating it. The searches are the same
+  // expansion for expansion, so this gives what a fresh search would.
+  let pending = -1;
+  if (paused !== null && paused.gen === s.gen && paused.version === (nav.version ?? 0) && paused.start === start && paused.goal === goal
+    && paused.goalX === goalX && paused.goalY === goalY && paused.blocked === blocked) {
+    pending = paused.cur; expanded = paused.expanded;
+  } else {
+    // One mark per cell (performance 2026-11-13): 2 x gen = reached this search (g valid), 2 x gen + 1 = closed.
+    if (s.gen >= 0x7ffffffe) { s.mark.fill(0); s.gen = 0; }
+    s.gen++;
+    s.mark[start] = s.gen * 2; s.g[start] = 0; s.parent[start] = -1;
+    s.heapSize = 0;
+    heapPush(s, start, h(start));
+  }
+  const seenV = s.gen * 2, closedV = seenV + 1;
+  // Local aliases (M7.3): the loop below is the hottest code of large battles. Same arithmetic, same order:
+  // the heap pops by (f, cell index), a total order, so the order in which one expansion visits its
+  // neighbours does not change the search (2026-11-13).
+  const cost = nav.cost, wall = nav.wall, mark = s.mark, gs = s.g, par = s.parent, R = nav.rows;
+  const diagK = SQRT2 - 1, diagStep = SQRT2 * 0.5;
+  const push = heapPush, pop = heapPop, up = heapUp;
+  while (pending >= 0 || s.heapSize > 0) {
+    let cur: number;
+    if (pending >= 0) {
+      // (Resumed: the cell popped and closed when the budget ran out, not yet expanded.)
+      cur = pending; pending = -1;
+    } else {
+      cur = pop(s);
+      mark[cur] = closedV;
+      if (cur === goal) { found = true; break; }
+      ++expanded;
+    }
+    if (expanded > max) {
+      s.paused = { gen: s.gen, version: nav.version ?? 0, start, goal, goalX, goalY, blocked, cur, expanded };
+      return null;
+    }
     const cc = cur % C, cr = (cur - cc) / C;
     const ccost = cost[cur]!;
     const gcur = gs[cur]!;
+    // Side cells open for a diagonal's corner (passable, no wall); bit 0 E, 1 W, 2 S, 3 N.
+    let open = 0;
     for (let k = 0; k < 8; k++) {
-      const nc = cc + DC[k]!, nr = cr + DR[k]!;
-      if (nc < 0 || nr < 0 || nc >= C || nr >= R) continue;
-      const ni = nr * C + nc;
-      const ncost = cost[ni]!;
-      if (ncost <= 0 || closed[ni] === gen || (blocked !== undefined && blocked.has(ni))) continue;
-      let step = 1;
-      if (k >= 4) {
-        // No corner cutting past blocked or wall cells.
-        const a = cr * C + nc, b = nr * C + cc;
-        if (cost[a]! <= 0 || cost[b]! <= 0 || wall[a] === 1 || wall[b] === 1) continue;
-        step = SQRT2;
+      let ni: number, nc: number, nr: number;
+      if (k < 4) {
+        nc = cc + DC[k]!; nr = cr + DR[k]!;
+        if (nc < 0 || nr < 0 || nc >= C || nr >= R) continue;
+        ni = nr * C + nc;
+        if (cost[ni]! > 0 && wall[ni] !== 1) open |= 1 << k;
+      } else {
+        // No corner cutting past blocked or wall cells (both side cells open; so the cell is on the grid).
+        if ((open & DIAG_SIDES[k]!) !== DIAG_SIDES[k]) continue;
+        nc = cc + DC[k]!; nr = cr + DR[k]!;
+        ni = nr * C + nc;
       }
-      const ng = gcur + step * 0.5 * (ccost + ncost);
-      if (stamp[ni] !== gen || ng < gs[ni]!) {
-        stamp[ni] = gen; gs[ni] = ng; par[ni] = cur;
+      const ncost = cost[ni]!;
+      if (ncost <= 0 || mark[ni] === closedV || (blocked !== undefined && blocked.has(ni))) continue;
+      const ng = gcur + (k < 4 ? 0.5 : diagStep) * (ccost + ncost);
+      if (mark[ni] !== seenV) {
+        mark[ni] = seenV; gs[ni] = ng; par[ni] = cur;
         const hdx = Math.abs(nc - gc), hdy = Math.abs(nr - gr);
         push(s, ni, ng + hk * (Math.max(hdx, hdy) + diagK * Math.min(hdx, hdy)));
+      } else if (ng < gs[ni]!) {
+        gs[ni] = ng; par[ni] = cur;
+        const hdx = Math.abs(nc - gc), hdy = Math.abs(nr - gr);
+        up(s, s.pos[ni]!, ni, ng + hk * (Math.max(hdx, hdy) + diagK * Math.min(hdx, hdy)));
       }
     }
   }
@@ -771,11 +875,11 @@ function smooth(nav: NavGrid, cells: number[], sx: number, sy: number, gx: numbe
  * the grid. Corner crossings are refused if either side cell is blocked or a wall, as in A*.
  */
 export function lineCost(nav: NavGrid, ax: number, ay: number, bx: number, by: number): number {
-  const m = nav.cellM, C = nav.cols;
+  // (performance 2026-11-13: no closure per call, grid fields in locals; the same arithmetic in the same order.)
+  const m = nav.cellM, C = nav.cols, R = nav.rows, cg = nav.cost, wg = nav.wall;
   let c = Math.floor(ax / m), r = Math.floor(ay / m);
   const ec = Math.floor(bx / m), er = Math.floor(by / m);
-  const ok = (cc: number, rr: number) => cc >= 0 && rr >= 0 && cc < C && rr < nav.rows && nav.cost[rr * C + cc]! > 0 && nav.wall[rr * C + cc] !== 1;
-  if (!ok(c, r)) return -1;
+  if (c < 0 || r < 0 || c >= C || r >= R || cg[r * C + c]! <= 0 || wg[r * C + c] === 1) return -1;
   const dx = bx - ax, dy = by - ay;
   const len = sqrt(dx * dx + dy * dy);
   if (len === 0) return 0;
@@ -786,19 +890,21 @@ export function lineCost(nav: NavGrid, ax: number, ay: number, bx: number, by: n
   let t = 0, cost = 0;
   for (let guard = 0; guard < 100000; guard++) {
     const tNext = Math.min(tMaxX, tMaxY, 1);
-    cost += (tNext - t) * len * nav.cost[r * C + c]!;
+    cost += (tNext - t) * len * cg[r * C + c]!;
     t = tNext;
     if (t >= 1 || (c === ec && r === er)) {
-      if (t < 1) cost += (1 - t) * len * nav.cost[r * C + c]!;
+      if (t < 1) cost += (1 - t) * len * cg[r * C + c]!;
       return cost;
     }
     if (Math.abs(tMaxX - tMaxY) < 1e-12) {
       // Exactly through a corner: both side cells must be open (no squeezing between two wall cells).
-      if (!ok(c + stepC, r) || !ok(c, r + stepR)) return -1;
-      c += stepC; r += stepR; tMaxX += tDeltaX; tMaxY += tDeltaY;
+      const c1 = c + stepC, r1 = r + stepR;
+      if (c1 < 0 || c1 >= C || cg[r * C + c1]! <= 0 || wg[r * C + c1] === 1) return -1;
+      if (r1 < 0 || r1 >= R || cg[r1 * C + c]! <= 0 || wg[r1 * C + c] === 1) return -1;
+      c = c1; r = r1; tMaxX += tDeltaX; tMaxY += tDeltaY;
     } else if (tMaxX < tMaxY) { c += stepC; tMaxX += tDeltaX; }
     else { r += stepR; tMaxY += tDeltaY; }
-    if (!ok(c, r)) return -1;
+    if (c < 0 || r < 0 || c >= C || r >= R || cg[r * C + c]! <= 0 || wg[r * C + c] === 1) return -1;
   }
   return -1;
 }

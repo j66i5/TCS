@@ -2762,3 +2762,47 @@ Choices made here without the owner (low confidence, easy to change):
    lines, the amber fire lines and the blue water. Remembered on the device (`tcs.ui.contours`). The whole-map layer
    now also samples one pixel past the bottom row (no visible change).
 8. The `__tcs.setSpeed` hook now goes through the speed buttons (so the bar shows the speed the screenshots use).
+
+## 2026-11-13 — Fire-support step: one Fire support button with an HE / smoke pop-up; ranging rounds before the battery's salvo (owner S11, the sim change)
+Owner choice S11 from the Firefight comparison: "same UI plus ranging shots before the salvo" (a sim change).
+**UI:** the Fire tray's Mortar and Smoke are one **Fire support** mode (`OrderMode` "support", icon `support`); in it a
+held press (slid to adjust; a tap or click also works) opens a pop-up beside the point (`ui/src/support.ts`) with HE
+and Smoke and the rounds left; a pick sends the existing `callFire` (HE 4, smoke 2 rounds, as before); × / Esc / 8 s
+close it. The S7 mission line now carries its phase (called / ranging / effect) and the side's ranging falls (from
+`support.ranging` events, `RangingBook`, kept 4 min): crosses joined by a dotted trail, a second ring for effect.
+**Sim (`sim/systems/support.ts`):** a mission fires `rangingRounds` single rounds first, each off the point by the
+battery's aiming error (normal, `rangingErrorM` per axis, drawn at the call on the `support` stream), `rangingSeconds`
+apart; a ranging round seen by the caller **or any able man of his platoon** shrinks the error to `rangingCorrection`
+of itself; unseen, it stays. Then volleys of `tubes` rounds, `volleySpreadSeconds` apart, every `intervalSeconds`, each
+scattered by `dispersionM` about the corrected point. New event `support.ranging` (point, fall, miss, seen, rounds
+left); radio keys `radio.fireAdjust`, `radio.fireUnobserved`, `radio.fireForEffect`. Ranging rounds are counted items
+from the battery container (rule 9) on top of the rounds asked for; short of stock, ranging rounds go first, one round
+always kept for effect. A side remembers up to 6 points it has ranged on (`SupportSection.registered`, with the error
+left there): a mission within `registeredM` fires for effect at once with that error. The AI commander waits for the
+time to effect (`secondsToEffect` = delay + ranging) instead of the delay alone. Data with defaults (old data and the
+fixture faction keep the old behaviour: no ranging, one tube).
+Choices made here without the owner (low confidence, game values, no public source):
+1. Values: DE 120 mm `delaySeconds` 90 → **75** (now the time to the first ranging round), `intervalSeconds` 6 → **12**
+   (now between volleys), **4 tubes**, aiming error **40 m**; RU 82 mm 75 → **60**, 4 → **10**, **6 tubes**, **50 m**;
+   both 2 ranging rounds 20 s apart, correction to 30 %, rounds of a volley 0.6 s apart, registered within 100 m. The
+   errors were first 60 / 80 m: the attackers' mortar then hurt about a third as many men (calls are mostly blind:
+   callers 450–650 m back behind crests and walls), so they were lowered.
+2. **Who observes:** the caller, then any man of his top-level unit who can use the radio, in ID order; his eyes at
+   least at kneeling height (he lifts his head to watch), to 5 m above the burst (the dust), visibility ≥ 0.1 through
+   terrain, walls, roofs, woods (`sight`) and smoke. Only the caller's platoon: the owner's text said "while the caller
+   can see the impact area"; the caller alone saw 2 of 43 ranging rounds in four platoon battles.
+3. Smoke missions range with smoke rounds (each lays its cloud where it falls); a seen ranging round is judged before
+   its own cloud is laid.
+4. "Fire for effect!" is said even when nobody saw the ranging rounds (the error then stays as drawn).
+5. The player's pop-up keeps the old mission sizes (HE 4, smoke 2) — with the 2 ranging rounds a call now costs 6 / 4.
+**Batches, 10 × 900 s, seeds 1–10, before → after** (attacker wins; casualties blue/red; enemy men wounded in a tick
+with one of the side's mortar bursts, attacker side):
+- platoon (DE attacks on foot): 2/10 → 2/10; 16.6/12.0 → 17.0/12.0; 8.0 → 5.3.
+- platoon-ru (RU attacks on foot): 3/10 → 4/10; 14.5/14.5 → 14.2/13.2; 7.1 → 5.6.
+- platoon-vehicles (DE mounted): 5/10 → 5/10; 17.4/19.7 → 19.1/19.2; 4.9 → 4.2.
+- platoon-ru-vehicles (RU mounted): 0/10 → 0/10; 11.7/28.6 → 10.8/26.8; 3.9 → 3.0.
+Mortar bursts per battle about the same (the ranging rounds are part of them, 3–7 per battle); fewer men hurt per
+burst (rounds bunched into volleys, the first rounds off target). Batch tool: a "Mortar per battle" line.
+**Goldens regenerated** (`npm run golden:update`): every golden's catalog fingerprint changed (data). demo-s1,
+shootout-s1 and fixture-s7 (no mortar) were replayed on the old and the new code: the serialised state at every
+checkpoint is identical apart from the catalog fingerprint. Screenshots `npm run screenshot -- --scene firesupport`.

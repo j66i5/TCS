@@ -35,12 +35,12 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(cap.canDismount).toBe(true);
     expect(cap.canMount).toBe(false);
     const o = ordersFor(cap, modes);
-    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "mortar", "smoke"]);
+    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "support"]);
     expect(o.dismount && !o.mount && o.posture && o.rules).toBe(true);
     expect(boardingOf(sim.state, cat, uid)).toEqual({ mount: false, dismount: true });
   });
 
-  it("no launcher rounds: no Anti-tank; no grenades: no Grenade buttons; no mortar rounds: no Mortar / Smoke", () => {
+  it("no launcher rounds: no Anti-tank; no grenades: no Grenade buttons; no mortar rounds: no Fire support", () => {
     const s2 = fresh();
     const uid = blueSquad(s2);
     const men = unitSoldierIds(s2.state, uid);

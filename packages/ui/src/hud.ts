@@ -23,13 +23,15 @@ import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
 import { createManBox, createUnitCard, fireChoice, fireChoiceRules, type ManDetail, type UnitCardModel } from "./card";
 import { HELP_SECTIONS } from "./mapfeel";
+import { createSupportPopup, type SupportOffer } from "./support";
 
-export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
+/** (Step fire-support, S11: one "support" mode for mortar fire; HE or smoke is picked in a pop-up at the point.) */
+export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "support";
 /** The two order groups of the slim bar (S4): Move and its variants, Fire and the weapons. */
 export type OrderGroup = "move" | "fire";
-export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", mortar: "fire", smoke: "fire" };
-const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", mortar: "mortar", smoke: "smoke" };
-const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", mortar: "order.mortar", smoke: "order.smoke" };
+export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", support: "fire" };
+const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", support: "support" };
+const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", support: "order.support" };
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
 
 export interface HudCallbacks {
@@ -136,6 +138,9 @@ export interface Hud {
   /** S4: a context action offered at a screen point (Occupy after a move dragged onto a house) for a few seconds;
    *  null takes it away. */
   offerContext(c: ContextAction | null): void;
+  /** S11: the fire support pop-up (HE or smoke at a point) or none; is it shown. */
+  offerSupport(o: SupportOffer | null): void;
+  supportShown(): boolean;
   /** S13: the speed buttons (0 = pause, 1, 2, 4) as if pressed; the speed shown. */
   setSpeed(v: number): void;
   speed(): number;
@@ -324,12 +329,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       g.main.classList.toggle("locked", mine && locked === m);
       g.main.title = mine && locked === m ? s.t("order.lockedHint") : shown !== "move" ? s.t("order.lockHint") : "";
     }
-    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : "plan.tapTarget");
+    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "support" ? "plan.support" : "plan.tapTarget");
   };
   const moveG = group("move", "move"), fireG = group("fire", "fire");
   for (const m of ["move", "assault", "withdraw", "occupy"] as const) trayMode(moveG, m);
   const postureBtns = (["standing", "crouching", "prone"] as const).map((p) => trayAction(moveG, p, `order.posture.${p}`, "posture", () => cb.onPosture(p)));
-  for (const m of ["fire", "antitank", "grenade", "grenades", "mortar", "smoke"] as const) trayMode(fireG, m);
+  for (const m of ["fire", "antitank", "grenade", "grenades", "support"] as const) trayMode(fireG, m);
   let natures: (Nature | null)[] = [null, "ap", "he", "mg"];
   let nature = 0;
   const natureBtn = trayAction(fireG, "nature", "order.nature.auto", "nature", () => undefined);
@@ -481,7 +486,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const follow = el("button", "hud-btn hud-follow");
   follow.hidden = true;
   follow.onclick = () => cb.onStopFollow?.();
-  root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, follow, preview, help, dbg, err);
+  const support = createSupportPopup(s);
+  root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, support.el, follow, preview, help, dbg, err);
   setMode("move");
   // On a phone the start hint is one short line (M7.5b: the long one covered the opening view); tapping it shows
   // the whole text.
@@ -697,6 +703,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     setCardDetailed(on) { card.setDetailed(on); },
     pace: () => paces[pace] ?? null,
     offerContext,
+    offerSupport: (o) => support.show(o ? { ...o, insets: o.insets ?? free } : null),
+    supportShown: () => support.shown(),
     setSpeed(v) { const b = speedBtns[speeds.findIndex((x) => x[1] === v)]; if (b) b.click(); },
     speed: () => speedNow,
     press(order) {
@@ -715,6 +723,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (!barMenu.hidden) { barMenu.hidden = true; barMoreBtn.classList.remove("on"); any = true; }
       if (!panel.hidden) { toggleRules(); any = true; }
       if (!ctx.hidden) { offerContext(null); any = true; }
+      if (support.shown()) { support.show(null); any = true; }
       return any;
     },
     toggleHelp,

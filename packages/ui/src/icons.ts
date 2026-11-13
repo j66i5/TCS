@@ -16,6 +16,7 @@ const P: Record<string, string> = {
   grenades: `<circle cx="6.5" cy="12.5" r="3.5"/><circle cx="13.5" cy="12.5" r="3.5"/><path d="M6.5 9V6.5M13.5 9V6.5M10 5.5V3"/>`,
   mortar: `<path d="M3 17C5 6 12 3 16 13" stroke-dasharray="2.2 1.8"/><path d="M13.5 16l2.5-3 2 3.5"/><path d="M3 17h4"/>`,
   smoke: `<circle cx="7" cy="12" r="3.5"/><circle cx="12" cy="9" r="4"/><circle cx="14.5" cy="13.5" r="3"/><path d="M3 17h14"/>`,
+  support: `<path d="M2.5 15C4 6 9 3 12.5 9" stroke-dasharray="2 1.8"/><circle cx="14.5" cy="13.5" r="3.6"/><path d="M14.5 8.2v2.2M14.5 16.6v2.2M9.2 13.5h2.2M17.6 13.5h2.2"/>`,
   halt: `<path d="M7 2.8h6l4.2 4.2v6L13 17.2H7L2.8 13V7z"/><path d="M6.5 10h7"/>`,
   mount: `<path d="M3.5 11.5v5h13v-5"/><path d="M10 2.5v9"/><path d="M6.5 8.5l3.5 3.5 3.5-3.5"/>`,
   dismount: `<path d="M3.5 11.5v5h13v-5"/><path d="M10 12V3"/><path d="M6.5 6.5L10 3l3.5 3.5"/>`,

@@ -779,6 +779,93 @@ async function mapfeelScenes(page: Page, name: string, errors: string[], shots: 
   console.log(`${name}: mapfeel scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * The "fire-support" step (`--scene firesupport`; owner choice S11 with ranging shots): the platoon battle on foot
+ * (village). The lead squad selected; the Fire tray open with its one Fire support item; a point 250 m toward the
+ * enemy held (the amber crosshair joined to the leader), let go: the pop-up offers HE and smoke with the rounds
+ * left; HE picked (the order sent, the bar back on Move); the mission line while called, the first ranging round
+ * down (its cross, the radio), the second, the battery's volley for effect (the second ring); a second pop-up
+ * dismissed with Esc sends nothing. Every step checks the app.
+ */
+async function fireSupportScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/firesupport-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const sup = () => ev<{ popup: boolean; at: P | null; mode: string; he: number; smoke: number; missions: { phase: string | null; falls: number }[] }>("return t.support();");
+  const phone = name === "phone";
+  const log: Record<string, unknown> = {};
+  // The lead squad selected; the view on it and on a point 250 m toward the enemy.
+  log["start"] = await ev(`t.setSpeed(0);
+    let ex = 0, ey = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); ex += p.x; ey += p.y; n++; }
+    ex /= n; ey /= n;
+    const sq = t.units().filter((u) => u.kind === "infantry" && u.depth >= 1)[0]; t.select(sq.unit); globalThis.__sq = sq.unit;
+    const c = t.controls().centre; const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy);
+    const p = { x: c.x + dx / d * 250, y: c.y + dy / d * 250 }; globalThis.__pt = p;
+    const ins = t.insets(); const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.75;
+    globalThis.__fit = () => t.focusScale((p.x + c.x) / 2, (p.y + c.y) / 2, Math.min(4, span / 280));
+    globalThis.__fit(); t.stepTicks(1);
+    return { squad: sq.callsign, point: p, ...t.support() };`);
+  // The Fire tray with its one Fire support item.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  log["trayItems"] = await ev<string[]>(`return [...document.querySelectorAll('.hud-tray[data-tray="fire"] [data-order]')].filter((b) => !b.hidden).map((b) => b.dataset.order);`);
+  await shot("0-fire-tray");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  log["mode"] = (await sup()).mode;
+  // Hold the point (slid a little to adjust it), let go: the pop-up.
+  const pt = await ev<P>("return t.toScreen(globalThis.__pt.x, globalThis.__pt.y);");
+  await page.mouse.move(pt.x - 20, pt.y + 14); await page.mouse.down();
+  await page.mouse.move(pt.x, pt.y, { steps: 6 });
+  await page.waitForTimeout(600);
+  log["held"] = await sup();
+  await shot("1-point-held");
+  await page.mouse.up();
+  log["popup"] = await sup();
+  await shot("2-popup-he-smoke");
+  const n0 = await ev<number>("return t.orderLog.length;");
+  await page.click('.hud-support [data-ammo="he"]');
+  log["order"] = await lastOrder();
+  log["sent"] = (await ev<number>("return t.orderLog.length;")) - n0;
+  log["after"] = await sup();
+  await ev("t.stepTicks(60 * 5);");
+  await shot("3-mission-called");
+  // The ranging rounds: step until the first falls, then the second; then the volley for effect.
+  const until = async (phase: string, falls: number, maxS: number) => {
+    for (let k = 0; k < maxS; k++) {
+      const m = (await sup()).missions[0];
+      if (m && m.phase === phase && m.falls >= falls) return true;
+      await ev("t.stepTicks(60);");
+    }
+    return false;
+  };
+  log["ranging1"] = await until("ranging", 1, 150);
+  await ev("t.stepTicks(20); globalThis.__fit(); t.stepTicks(1);");
+  await shot("4-first-ranging-round");
+  log["ranging2"] = await until("ranging", 2, 60);
+  await ev("t.stepTicks(20);");
+  await shot("5-second-ranging-round");
+  log["effect"] = await until("effect", 0, 60);
+  await ev("t.stepTicks(40);");
+  log["effectState"] = await sup();
+  await shot("6-fire-for-effect");
+  await ev("t.stepTicks(60 * 3);");
+  await shot("7-after-volley");
+  // A second pop-up (tapped this time) closed with Esc: nothing sent; Smoke offered with what is left.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  const p2 = await ev<P>("const c = t.controls().centre, p = globalThis.__pt; return t.toScreen((c.x + p.x) / 2 + 30, (c.y + p.y) / 2 - 20);");
+  await page.mouse.move(p2.x, p2.y); await page.mouse.down(); await page.mouse.up();
+  log["tapPopup"] = await sup();
+  await shot("8-tap-popup");
+  const n1 = await ev<number>("return t.orderLog.length;");
+  await page.keyboard.press("Escape");
+  log["escClosed"] = { popup: (await sup()).popup, sentNothing: (await ev<number>("return t.orderLog.length;")) === n1 };
+  if (phone) log["phone"] = true;
+  console.log(`${name}: firesupport scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -805,6 +892,7 @@ try {
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -919,7 +1007,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

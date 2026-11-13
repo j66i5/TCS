@@ -24,10 +24,20 @@ brings it back exactly. At the end the **after-action review** shows the result 
 battlefield, a **heat map** (dots where shots came from, crosses where men fell).
 `?scenario=demo` opens the old one-squad sandbox.
 
-**Mortars and smoke (M6.5).** The attacker has two platoons. Each side can call mortar fire (the line under the
-top bar shows the rounds left; the attacker has more, and more smoke): pick **Mortar** or **Smoke** and tap the
-target. The selected unit's leader calls it by radio; the first round lands after a minute or more (German
-120 mm: 90 s, Russian 82 mm: 75 s), then one every few seconds, scattered about the point. High explosive bursts
+**Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
+call mortar fire (the line under the top bar shows the rounds left; the attacker has more, and more smoke): pick
+**Fire support** (under Fire), hold or tap the target and choose **HE** or **Smoke** in the little box that opens
+there. The selected unit's leader calls it by radio. About a minute later (German 120 mm: 75 s, Russian 82 mm:
+60 s) a single **ranging round** lands — not on the point, but off it by the mortars' aiming error (tens of metres).
+If the caller or any man of his platoon can see where it fell (a hill, a house, thick woods or smoke in the way
+and nobody can), the next rounds come much closer (the error drops to a third); 20 s later a second ranging round,
+then the whole battery fires together (**fire for effect**: German 4 tubes, Russian 6 tubes; one volley lands
+within about three seconds, the next a few seconds later), scattered about the corrected point. Ranging rounds no
+one saw do not bring the aim closer, so fire called blind may land well off. The radio says each step ("ranging
+round 70 m off, adjusting", "ranging round not observed", "fire for effect!"). The ranging rounds come from the
+same stock, on top of the rounds asked for (if the stock runs short, ranging rounds are given up first). A point
+the mortars have already ranged on is remembered: a new mission within 100 m of it fires for effect at once.
+High explosive bursts
 like a big grenade; smoke lays grey clouds for two minutes or more that nobody can see through (bullets still
 go through). The AI attacker calls high explosive and a smoke screen as its first squad nears its support line,
 goes in as they land and keeps both coming (high explosive every 45 s until its own men are close, smoke on the
@@ -608,7 +618,7 @@ knows near the objective, never close to its own men.
 The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
 are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.
 The bar then offers only what that unit can do right now: a squad gets Anti-tank only while someone still has a
-Panzerfaust (or RPG) with a round for it, the grenade orders only while it has grenades, Mortar and Smoke only
+Panzerfaust (or RPG) with a round for it, the grenade orders only while it has grenades, Fire support only
 while your mortars have rounds left; a vehicle gets move, fire (the gun choice cycles through the rounds its
 guns really have), the smoke screen while its dischargers are loaded, and Dismount while men ride in it; a unit
 with just one man left can move, fire, throw, change posture, halt and cease fire. (Since the "bar-card" step the
@@ -663,7 +673,7 @@ the battle itself changed.
   point about while holding; let go to fire there. Slide back onto the unit (red cross) and let go to call it off.
   A quick tap fires at once, as before. While Fire is chosen, a one-finger drag on the map does not pan it (use
   two fingers, or the mouse wheel and another mode).
-- **Back to Move after one order.** After a one-tap order — fire, anti-tank, grenade, all grenades, mortar, smoke,
+- **Back to Move after one order.** After a one-tap order — fire, anti-tank, grenade, all grenades, fire support,
   occupy, or an assault or withdrawal sent by dragging — the bar goes back to Move, so the next tap does not fire
   again by mistake. To give several such orders in a row, double-tap the button: it locks on (a bold yellow frame
   and a small LOCK mark) and stays on after each order; double-tap it again, or pick another order, to unlock.
@@ -673,7 +683,7 @@ Ideas taken from Firefight (only the ideas: the drawings, words and colours are 
 - **A short bar.** The order bar has only the main orders, each a small drawing with a short name: **Move**,
   **Fire**, **Halt**, and **Mount** or **Dismount** when they apply. The little arrow beside Move opens the other
   ways to move: Assault, Withdraw, Occupy, and Stand up / Kneel / Lie down. The arrow beside Fire opens the
-  weapons: Anti-tank, Grenade, All grenades, Mortar, Smoke (a vehicle: its gun choice and its smoke screen) and
+  weapons: Anti-tank, Grenade, All grenades, Fire support (a vehicle: its gun choice and its smoke screen) and
   Cease fire. Pick one and the Fire (or Move) button shows it, lit, until the order is given; the next tap on the
   button gives that order again. The same rules as before decide what is offered (no grenades left, no Grenade).
 - **Occupy where you drag.** Drag a squad onto a house and let go: it goes into the house as before, and an
@@ -730,6 +740,23 @@ buttons.
   where it will stand. **?** (or F1, or the ? button in the top bar) shows a card with every key and every mouse and
   touch gesture. Touch is unchanged.
 
+
+## Calling mortar fire: hold a point, pick HE or smoke (the "fire-support" step, owner choice 2026-11-13)
+An idea taken from Firefight (only the idea: the drawings, words and colours are our own).
+- **One button.** Under Fire's little arrow there is one **Fire support** button (it is offered while your mortars
+  have rounds left). Pick it, then press and hold on the map where the rounds should fall: an amber ring with a
+  broken line from the unit's leader marks the point; slide your finger (or the mouse) to adjust it, and let go. A
+  quick tap or click works too. A small box opens beside the point with **HE** and **Smoke** and how many rounds of
+  each are left. Pick one and the call goes out (4 high explosive or 2 smoke, plus the ranging rounds); the × , Esc
+  or waiting eight seconds closes the box without calling anything. Like the other one-tap orders, the bar then
+  goes back to Move (double-tap Fire support to keep it on).
+- **Watching it walk in.** The mission's broken amber line runs from the caller to a ring on the point. Each ranging
+  round leaves a cross where it fell (amber if someone saw it fall, pale if no one did), joined by a short dotted
+  trail to the point, so you can see the rounds walking in. When the battery fires for effect a second, wider ring
+  appears round the point. The line and the crosses go when the last round has fallen.
+- This is the one part of the Firefight list that changed the battle itself (see "Mortars and smoke" at the top):
+  the order is the same `callFire` order as before; ranging, volleys and the remembered points are in the
+  simulation, with new values in the factions' data (game values, low confidence).
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
 zoom:

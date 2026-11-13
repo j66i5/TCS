@@ -20,6 +20,31 @@ export interface IntentLine {
   selected: boolean;
   /** For a selected unit's move: the route points still ahead (the last one is the destination). */
   route?: Pt[];
+  /** A fire mission (S11, step fire-support): called (no round down yet), ranging, or firing for effect; where its
+   *  ranging rounds fell so far (seen by the caller or not), oldest first. */
+  phase?: "called" | "ranging" | "effect";
+  falls?: { x: number; y: number; seen: boolean }[];
+}
+
+/** Where a ranging round fell (from a `support.ranging` event of the side): the point called, the fall, seen. */
+export interface RangingFall { tx: number; ty: number; x: number; y: number; seen: boolean; tick: number }
+
+/** Ranging falls are kept this long after they land (s), then dropped. */
+export const RANGING_KEEP_S = 240;
+
+/** The side's ranging falls from its events (a few minutes' worth). */
+export class RangingBook {
+  readonly falls: RangingFall[] = [];
+  add(e: { tx: number; ty: number; x: number; y: number; seen: boolean; tick: number }): void {
+    this.falls.push({ tx: e.tx, ty: e.ty, x: e.x, y: e.y, seen: e.seen, tick: e.tick });
+  }
+  prune(tick: number): void {
+    const keep = RANGING_KEEP_S * 60;
+    let k = 0;
+    while (k < this.falls.length && tick - this.falls[k]!.tick > keep) k++;
+    if (k > 0) this.falls.splice(0, k);
+  }
+  clear(): void { this.falls.length = 0; }
 }
 
 /** Is `unit` the unit `ancestor` or one of its sub-units? */
@@ -37,7 +62,7 @@ export function unitWithin(view: SimView, ancestor: EntityId, unit: EntityId): b
  * to the end of its leader's route (a hull's route) — and every fire mission of the side, called or on its way to
  * the caller, from the caller to the target. One line per unit, never per man (owner rule).
  */
-export function intentLines(view: SimView, side: string, selected: EntityId | null): IntentLine[] {
+export function intentLines(view: SimView, side: string, selected: EntityId | null, falls: readonly RangingFall[] = []): IntentLine[] {
   const out: IntentLine[] = [];
   const sel = (uid: EntityId) => selected !== null && unitWithin(view, selected, uid);
   for (const [uid, u] of view.unit.entries()) {
@@ -77,7 +102,9 @@ export function intentLines(view: SimView, side: string, selected: EntityId | nu
     const from = callerAt(f.caller);
     if (!from) continue;
     const u = view.identity.get(f.caller)?.unit;
-    out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u) });
+    const mine = falls.filter((r) => r.tx === f.x && r.ty === f.y).map((r) => ({ x: r.x, y: r.y, seen: r.seen }));
+    const phase = f.volley !== undefined ? "effect" : mine.length > 0 ? "ranging" : "called";
+    out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u), phase, ...(mine.length > 0 ? { falls: mine } : {}) });
   }
   for (const p of [...view.inbox, ...view.pendingOrders]) {
     const o = p.order;
@@ -85,7 +112,7 @@ export function intentLines(view: SimView, side: string, selected: EntityId | nu
     const u = view.unit.get(o.target);
     const from = u?.leader !== null && u?.leader !== undefined ? callerAt(u.leader) : null;
     if (!from) continue;
-    out.push({ x0: from.x, y0: from.y, x1: o.x, y1: o.y, kind: "fire", selected: sel(o.target) });
+    out.push({ x0: from.x, y0: from.y, x1: o.x, y1: o.y, kind: "fire", selected: sel(o.target), phase: "called" });
   }
   return out;
 }
@@ -282,7 +309,7 @@ export const HELP_SECTIONS: readonly { title: string; rows: readonly [string, st
     title: "help.mouse",
     rows: [
       ["help.g.click", "help.click"], ["help.g.dragUnit", "help.dragUnit"], ["help.g.right", "help.right"],
-      ["help.g.dragMap", "help.dragMap"], ["help.g.wheel", "help.wheel"], ["help.g.holdFire", "help.holdFire"],
+      ["help.g.dragMap", "help.dragMap"], ["help.g.wheel", "help.wheel"], ["help.g.holdFire", "help.holdFire"], ["help.g.support", "help.support"],
       ["help.g.marker", "help.marker"], ["help.g.handle", "help.handle"],
       ["help.g.tile", "help.tile"], ["help.g.tileHold", "help.tileHold"], ["help.g.double", "help.double"],
     ],
@@ -291,7 +318,7 @@ export const HELP_SECTIONS: readonly { title: string; rows: readonly [string, st
     title: "help.touch",
     rows: [
       ["help.t.tap", "help.click"], ["help.t.dragUnit", "help.dragUnit"], ["help.t.dragMap", "help.dragMap"],
-      ["help.t.pinch", "help.wheel"], ["help.t.holdFire", "help.holdFire"], ["help.t.tile", "help.tile"],
+      ["help.t.pinch", "help.wheel"], ["help.t.holdFire", "help.holdFire"], ["help.t.support", "help.support"], ["help.t.tile", "help.tile"],
       ["help.t.tileHold", "help.tileHold"],
     ],
   },

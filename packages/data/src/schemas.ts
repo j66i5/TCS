@@ -749,6 +749,13 @@ export const DoctrineFile = withProv({
     /** Scales the rounds a generated battle gives this faction (owner, 2026-11-12: more rounds for the lighter
      *  Russian mortar rather than a heavier one). */
     roundsFactor: Num(0.1, 10).default(1),
+    /** Ranging before the salvo (step fire-support): ranging rounds (0 = none), the first round's aiming error
+     *  (one standard deviation per axis, m), the share of the error left after an observed round, seconds between
+     *  ranging rounds (and to the first volley), tubes (rounds per volley), seconds between a volley's rounds, and
+     *  how close a new mission must be to a point already ranged on to skip ranging (m). */
+    rangingRounds: z.number().int().min(0).max(5).default(0), rangingErrorM: Num(0, 500).default(0), rangingCorrection: Num(0, 1).default(0.3),
+    rangingSeconds: Num(1, 300).default(20), tubes: z.number().int().min(1).max(12).default(1), volleySpreadSeconds: Num(0, 10).default(0.5),
+    registeredM: Num(0, 1000).default(0),
   }).strict().optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */

@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (Firefight-inspired map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 **Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
 "Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
@@ -33,7 +33,18 @@ A tile tap selects and centres; a held tile follows the unit (badge; a pan stops
 arrows, Esc (never quits), Tab, F, M/T/H/B/G, Enter, Backspace, C, ? (help card with every key and gesture); the
 right mouse button moves the selected unit. A Contours top-bar button shows height lines at every zoom (fine pink
 tiles close up). UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene mapfeel`.
-Not done yet (other steps of the Firefight list): S11 (mortar ranging shots, a sim change).
+S11 (mortar ranging shots) followed in the fire-support step.
+
+**Firefight-inspired fire support (owner choice S11 with ranging shots, 2026-11-13; DECISIONS.md "Fire-support
+step").** Fire's tray has one **Fire support** button; hold (or tap) a point, a pop-up offers HE or Smoke with the
+rounds left and sends the existing `callFire`. SIM CHANGE: a mission fires 2 ranging rounds first, off the point by
+the battery's aiming error (DE 40 m, RU 50 m per axis), corrected to 30 % each time the caller or a man of his
+platoon sees the fall; then the battery's volleys (DE 4, RU 6 tubes); ranging rounds come from the battery's
+container on top of the rounds asked; a point already ranged on (100 m) skips ranging. New event
+`support.ranging`, radio keys, data fields in `fireSupport` (low). The mission line shows the falls walking in and
+a second ring for effect. Batches (10 × 900 s): attacker wins unchanged except RU on foot 3 → 4/10; the attackers'
+mortars hurt about 25–35 % fewer men. Goldens regenerated (fingerprint; non-mortar goldens' states identical).
+Screenshots `npm run screenshot -- --scene firesupport`. With this step all 14 Firefight choices are built.
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

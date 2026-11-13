@@ -57,6 +57,10 @@ export type SimEvent =
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
   | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
+  /** A ranging round of a fire mission has landed (step fire-support): where (x, y), the point called (tx, ty), how
+   *  far off it fell (m), whether the man who called it saw it fall (then the next rounds come closer), ranging
+   *  rounds still to come. */
+  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke"; seen: boolean; missM: number; left: number }
   /**
    * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
    * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).

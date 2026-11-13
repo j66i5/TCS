@@ -165,6 +165,19 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-tray .hud-btn { white-space: nowrap; text-align: left; }
 .hud-context { position: absolute; z-index: 4; pointer-events: auto; border-color: var(--accent); background: #3b4a22; font-weight: 600;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+/* S11 (step fire-support): the fire support pop-up beside the point held: HE or smoke with the rounds left */
+.hud-support { position: absolute; z-index: 4; pointer-events: auto; background: rgba(15, 20, 14, 0.95); border: 1px solid #e0913a;
+  border-radius: 8px; padding: 5px 6px 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55); }
+.hud-support[hidden] { display: none; }
+.hud-support-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f0b56a; }
+.hud-support-head span { margin-right: auto; white-space: nowrap; }
+.hud-support-close { min-width: 30px; min-height: 28px; padding: 0 6px; font-size: 18px; line-height: 1; }
+.hud-support-row { display: flex; gap: 6px; }
+.hud-support-pick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 76px; min-height: 58px;
+  padding: 3px 8px; font-weight: 600; }
+.hud-support-pick svg { width: 22px; height: 22px; }
+.hud-support-pick:disabled { opacity: 0.4; }
+.hud-support-n { font-size: 11px; font-weight: 400; color: var(--muted); }
 .hud-card { pointer-events: auto; align-self: flex-start; width: min(400px, 100%); container-type: inline-size; background: rgba(15, 20, 14, 0.9); border-radius: 8px;
   padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #3d4a39; }
 .hud-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }

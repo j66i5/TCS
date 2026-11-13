@@ -75,6 +75,9 @@ export interface Overlay {
 export interface IntentLineView {
   x0: number; y0: number; x1: number; y1: number; kind: "move" | "fire"; selected: boolean;
   route?: readonly { x: number; y: number }[];
+  /** A fire mission (S11): its phase and where its ranging rounds fell (oldest first). */
+  phase?: "called" | "ranging" | "effect";
+  falls?: readonly { x: number; y: number; seen: boolean }[];
 }
 
 /** S8: a known contact unseen this long (s) is a "last seen" pin (when the app gives pins). */
@@ -93,6 +96,8 @@ export interface GestureOverlay {
   cancelAt?: { x: number; y: number } | null;
   /** The man whose detail box is open (S6, the "bar-card" step): a ring round him. */
   man?: { x: number; y: number } | null;
+  /** S11: the point held for fire support (while it is held and its pop-up is open), joined to the caller. */
+  support?: { x: number; y: number; from: { x: number; y: number } | null } | null;
 }
 
 export interface PlanOverlay {
@@ -639,8 +644,27 @@ export class BattleRenderer {
       const al = l.selected ? 0.95 : 0.6;
       dashed(g, a.x, a.y, b.x, b.y, 9, 6);
       g.stroke({ width: l.selected ? 2.5 : 2, color: FIRE_COLOUR, alpha: al });
+      // S11: the ranging rounds walking in (a small cross where each fell, a thin trail on to the point; unseen
+      // falls hollow), and a second, wider ring once the battery fires for effect.
+      if (l.falls && l.falls.length > 0) {
+        let p = worldToScreen(c, l.falls[0]!.x, l.falls[0]!.y);
+        for (let k = 1; k <= l.falls.length; k++) {
+          const q = k < l.falls.length ? worldToScreen(c, l.falls[k]!.x, l.falls[k]!.y) : b;
+          dashed(g, p.x, p.y, q.x, q.y, 4, 4);
+          p = q;
+        }
+        g.stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.85 });
+        for (const f of l.falls) {
+          const s = worldToScreen(c, f.x, f.y);
+          g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7);
+          g.stroke({ width: 4.5, color: 0x1b241a, alpha: 0.75 });
+          g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7);
+          g.stroke({ width: 2.5, color: f.seen ? FIRE_COLOUR : 0xd8cbb0, alpha: al });
+        }
+      }
       g.circle(b.x, b.y, 9).stroke({ width: 2, color: FIRE_COLOUR, alpha: al });
       g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
+      if (l.phase === "effect") g.circle(b.x, b.y, 15).stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.8 });
     }
   }
 
@@ -665,6 +689,19 @@ export class BattleRenderer {
       g.circle(s.x, s.y, 13).stroke({ width: 2.5, color: 0xff7a59, alpha: 0.95 });
       g.moveTo(s.x - 19, s.y).lineTo(s.x - 7, s.y).moveTo(s.x + 7, s.y).lineTo(s.x + 19, s.y)
         .moveTo(s.x, s.y - 19).lineTo(s.x, s.y - 7).moveTo(s.x, s.y + 7).lineTo(s.x, s.y + 19).stroke({ width: 2, color: 0xff7a59, alpha: 0.95 });
+    }
+    // The point held for fire support (S11): the mission line's colour, a ring with four ticks, joined to the caller.
+    if (gs.support) {
+      const s = worldToScreen(c, gs.support.x, gs.support.y);
+      if (gs.support.from) {
+        const f = worldToScreen(c, gs.support.from.x, gs.support.from.y);
+        dashed(g, f.x, f.y, s.x, s.y, 9, 6);
+        g.stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.75 });
+      }
+      g.circle(s.x, s.y, 16).fill({ color: 0x1b241a, alpha: 0.35 }).stroke({ width: 2.5, color: FIRE_COLOUR, alpha: 0.95 });
+      g.moveTo(s.x - 24, s.y).lineTo(s.x - 10, s.y).moveTo(s.x + 10, s.y).lineTo(s.x + 24, s.y)
+        .moveTo(s.x, s.y - 24).lineTo(s.x, s.y - 10).moveTo(s.x, s.y + 10).lineTo(s.x, s.y + 24).stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.95 });
+      g.circle(s.x, s.y, 3).fill({ color: FIRE_COLOUR, alpha: 0.95 });
     }
     // An active move's marker (S10): a ring with a centre, joined to the unit while it is dragged.
     if (gs.marker) {

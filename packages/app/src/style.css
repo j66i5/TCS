@@ -144,3 +144,84 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-floors { position: absolute; right: calc(var(--free-right) + 8px); top: calc(var(--free-top) + 64px); display: flex; flex-direction: column; gap: 4px; z-index: 6; pointer-events: auto; }
 .hud-floors[hidden] { display: none; }
 .hud-floors .hud-floor { min-width: 40px; min-height: 36px; padding: 0; font-weight: 600; }
+/* The "bar-card" step (owner choices S3, S4, S6): icon verbs with trays, the unit card, the man's box. */
+.hud-ico { display: block; flex: 0 0 auto; }
+.hud-verb, .hud-tray-item, .hud-context { display: inline-flex; align-items: center; gap: 5px; }
+.hud-group { display: inline-flex; flex: 0 0 auto; }
+.hud-group .hud-verb { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.hud-caret { min-width: 28px; padding: 0 3px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-color: #33402f;
+  display: inline-flex; align-items: center; justify-content: center; }
+.hud-caret.on { background: #4a5c2f; }
+.hud-orders.vertical .hud-group { flex-direction: column; }
+.hud-orders.vertical .hud-group .hud-verb { border-radius: 6px 6px 0 0; }
+.hud-orders.vertical .hud-caret { min-height: 22px; border-radius: 0 0 6px 6px; border-left-color: #4a5745; border-top-color: #33402f; }
+.hud-orders.vertical .hud-verb { flex-direction: column; gap: 1px; padding: 3px 4px; font-size: 12px; min-width: 52px; }
+.hud-tray { position: absolute; display: flex; flex-direction: column; gap: 4px; background: rgba(15, 20, 14, 0.95); padding: 6px;
+  border: 1px solid var(--accent); border-radius: 8px; max-height: 70vh; overflow-y: auto; z-index: 3; }
+.dock-bottom .hud-tray { bottom: calc(100% + 2px); }
+.dock-top .hud-tray { top: calc(100% + 2px); }
+.dock-left .hud-tray { left: calc(100% + 2px); }
+.dock-right .hud-tray { right: calc(100% + 2px); }
+.hud-tray .hud-btn { white-space: nowrap; text-align: left; }
+.hud-context { position: absolute; z-index: 4; pointer-events: auto; border-color: var(--accent); background: #3b4a22; font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.hud-card { pointer-events: auto; align-self: flex-start; width: min(400px, 100%); container-type: inline-size; background: rgba(15, 20, 14, 0.9); border-radius: 8px;
+  padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #3d4a39; }
+.hud-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hud-card-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hud-card-men { color: var(--muted); font-size: 13px; white-space: nowrap; margin-right: auto; }
+.hud-card-btn { min-height: 30px; min-width: 0; padding: 0 7px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.hud-seg { display: flex; align-items: stretch; gap: 3px; }
+.hud-seg-label { flex: 0 0 34px; font-size: 11px; color: var(--muted); align-self: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.hud-chip { flex: 1 1 0; min-width: 0; min-height: 34px; padding: 2px 4px; border-radius: 6px; border: 1px solid #3d4a39; background: #1f2a1c;
+  color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; }
+.hud-chip span { overflow: hidden; text-overflow: ellipsis; }
+.hud-chip.on { background: #4a5c2f; border-color: var(--accent); color: var(--text); font-weight: 600; }
+.hud-card-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-width: thin; }
+.hud-man { display: grid; grid-template-columns: 16px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 6px; min-height: 28px;
+  padding: 1px 6px; border-radius: 5px; border: 1px solid transparent; background: #1f2a1c; color: var(--text); font-size: 12px; text-align: left; }
+.hud-man.leader .hud-man-role { font-weight: 700; }
+.hud-man.inspected { border-color: #fff3a0; background: #33402a; }
+.hud-man-role, .hud-man-weapon { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-man-weapon { color: var(--muted); }
+.hud-man-mark { display: flex; }
+.hud-man.st-steady .hud-man-mark { color: #8fd36a; }
+.hud-man.st-shaken .hud-man-mark { color: #ffd23d; }
+.hud-man.st-pinned .hud-man-mark { color: #ffb347; }
+.hud-man.st-wounded .hud-man-mark { color: #ff6b57; }
+.hud-man.st-down .hud-man-mark, .hud-man.st-captive .hud-man-mark { color: #8a8a8a; }
+.hud-man.st-down, .hud-man.st-captive { opacity: 0.6; }
+.hud-ammo { display: inline-flex; gap: 1px; align-items: center; }
+.hud-ammo i { width: 5px; height: 11px; border: 1px solid #7d8a71; border-radius: 1px; background: linear-gradient(to top, #e8d48a var(--f), transparent var(--f)); }
+.hud-ammo b { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+.hud-manbox { position: absolute; left: calc(var(--free-left) + 8px); width: min(300px, calc(100vw - var(--free-left) - var(--free-right) - 16px));
+  background: rgba(15, 20, 14, 0.95); border: 1px solid #fff3a0; border-radius: 8px; padding: 7px 8px; pointer-events: auto; z-index: 3; font-size: 13px; }
+.hud-manbox-close { position: absolute; top: 4px; right: 4px; min-width: 32px; min-height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.hud-manbox-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 5px; padding-right: 36px; }
+.hud-manbox-name .hud-mark { color: #fff3a0; }
+.hud-manbox-line { color: var(--text); margin-top: 3px; }
+.hud-manbox-line b { color: var(--muted); font-weight: 600; }
+.hud-manbox-bar { display: grid; grid-template-columns: 6.5em 1fr 3.2em; gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.hud-manbox-bar i { height: 7px; background: #2b3627; border-radius: 3px; overflow: hidden; }
+.hud-manbox-bar b { display: block; height: 100%; }
+.hud-manbox-bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
+/* A narrow card (a phone with the bar at its side): the chips show their icons only (the label stays as a tooltip). */
+@container (max-width: 345px) {
+  .hud-seg-label { display: none; }
+}
+@container (max-width: 290px) {
+  .hud-chip span { display: none; }
+  .hud-chip .hud-ico { width: 18px; height: 18px; }
+  .hud-card-btn span { display: none; }
+}
+/* A phone: with the card open the radio log keeps its two newest lines, the men's list a quarter of the height. */
+@media (max-width: 700px) {
+  .hud-bottom.with-card .hud-radio-line:nth-child(n+3) { display: none; }
+  .hud-card-list { max-height: 24vh; }
+}
+@media (max-width: 420px) {
+  .hud-verb { padding: 0 7px; gap: 3px; }
+  .hud-chip { font-size: 11px; gap: 2px; padding: 2px 2px; }
+  .hud-chip .hud-ico { width: 14px; height: 14px; }
+  .hud-seg-label { flex-basis: 28px; font-size: 10px; }
+}

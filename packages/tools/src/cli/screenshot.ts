@@ -561,6 +561,110 @@ async function controlScenes(page: Page, name: string, errors: string[], shots: 
   console.log(`${name}: controls scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * The "bar-card" step (`--scene card`; owner choices S3, S4, S6): the platoon battle on foot (village), the lead
+ * squad selected — the slim order bar (Move, Fire, Halt) and the compact card (pace and fire rows); the Fire tray
+ * and the Move tray opened; Run and Ambush chosen on the card (the rules order arrives); a pace chip while moving
+ * (the move goes on at the new pace); the detailed card (one row per man); a man's box from his row and from a tap
+ * on the map; a move dragged onto a house (Occupy offered, then sent); the squad after a spell under fire; the
+ * mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire tray); the bar docked left.
+ * Every step checks what the app sent.
+ */
+async function cardScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/card-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const zoom = name === "phone" ? 6 : 8;
+  const log: Record<string, unknown> = {};
+  log["start"] = await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2); globalThis.__sq = sq.unit;
+    return { unit: sq.unit, callsign: sq.callsign, card: t.card() };`);
+  // Compact card first (the choice is remembered on the device).
+  if (await ev<boolean>("return t.card().detailed;")) await page.click('[data-card="detail"]');
+  await shot("0-compact-card-slim-bar");
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("1-fire-tray");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="grenade"]');
+  await page.waitForTimeout(500);
+  log["grenadeMode"] = await ev("return { mode: t.controls().mode, shown: document.querySelector('.hud-group[data-group=fire] .hud-verb').dataset.order };");
+  await page.click('.hud-group[data-group="move"] .hud-caret');
+  await shot("2-move-tray-grenade-on");
+  await page.click('.hud-tray[data-tray="move"] [data-order="move"]');
+  await page.waitForTimeout(500);
+  // S3: Run and Ambush on the card.
+  await page.click('.hud-seg [data-pace="run"]');
+  await page.click('.hud-seg [data-fire="ambush"]');
+  log["ambushOrder"] = await lastOrder();
+  await ev("t.stepTicks(60 * 5);");
+  log["afterAmbush"] = await ev("return t.card();");
+  await shot("3-run-ambush");
+  // A pace chip while the squad moves: the rest of the move at the new pace.
+  await ev(`const c = t.controls().centre; t.tap(c.x + 60, c.y - 30); t.stepTicks(60 * 3);`);
+  await page.click('.hud-seg [data-pace="sneak"]');
+  log["repaced"] = await lastOrder();
+  await ev("t.halt(); t.stepTicks(60 * 3);");
+  // S6: the detailed card; a man's box from his row, then from a tap on another man on the map.
+  await page.click('[data-card="detail"]');
+  await shot("4-detailed-card");
+  await page.click('.hud-card-list .hud-man:nth-child(2)');
+  log["rowBox"] = await ev("return t.card().inspected;");
+  await shot("5-man-box-from-row");
+  // (The squad in the upper part of the free area, clear of the card.)
+  await ev(`const c = t.controls().centre, ins = t.insets(); const box = document.querySelector('.hud-manbox').getBoundingClientRect(), card = document.querySelector('.hud-card').getBoundingClientRect();
+    const want = (box.bottom + Math.min(card.top, document.querySelector('.hud-radio').getBoundingClientRect().top || card.top)) / 2, mid = ins.top + (innerHeight - ins.top - ins.bottom) / 2;
+    t.focusScale(c.x, c.y - (want - mid) / ${zoom}, ${zoom}); t.stepTicks(1);`);
+  const other = await ev<P & { id: number }>(`const u = s.unit.get(globalThis.__sq); const men = [...u.members]; const id = men.find((m) => m !== t.card().inspected && m !== u.leader) ?? men[0];
+    const p = s.transform.get(id); return { ...t.toScreen(p.x, p.y), id };`);
+  await page.mouse.move(other.x, other.y); await page.mouse.down(); await page.mouse.up();
+  log["mapBox"] = { wanted: other.id, got: await ev("return t.card().inspected;") };
+  await shot("6-man-box-from-map");
+  await page.click(".hud-manbox-close");
+  log["closed"] = await ev("return t.card().inspected;");
+  // S4: a move dragged onto the nearest house: Occupy is offered at the drop point.
+  const house = await ev<P | null>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 15 && d < bd) { bd = d; best = { x, y }; } }
+    if (!best) return null; const ins = t.insets(); const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.7;
+    t.focusScale((best.x + c.x) / 2, (best.y + c.y) / 2, Math.min(${zoom}, span / Math.max(1, bd))); t.stepTicks(1); globalThis.__house = best; return t.toScreen(best.x, best.y);`);
+  if (house) {
+    const lead = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+    await page.mouse.move(lead.x, lead.y); await page.mouse.down();
+    await page.mouse.move(house.x, house.y, { steps: 12 }); await page.mouse.up();
+    log["dragOntoHouse"] = (await lastOrder())?.kind;
+    await shot("7-occupy-offered");
+    const offered = await ev<boolean>("const b = document.querySelector('.hud-context'); return !!b && !b.hidden;");
+    if (offered) { await page.click(".hud-context"); log["occupy"] = (await lastOrder())?.kind; } else log["occupy"] = "not offered";
+  }
+  // Under fire: the squad runs at the enemy's side of the map for a while; the card and a man's box then.
+  await page.click('.hud-seg [data-pace="run"]');
+  await ev(`const map = t.sim.ctx.map; const c = t.controls().centre; let x = 0, y = 0, n = 0;
+    for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+    const dx = x / n - c.x, dy = y / n - c.y, d = Math.hypot(dx, dy); const go = Math.max(50, Math.min(d - 60, 500)); t.tap(c.x + dx / d * go, c.y + dy / d * go);
+    for (let k = 0; k < 60; k++) { t.stepTicks(60 * 5); if ([...s.unit.get(globalThis.__sq).members].some((m) => s.soldier.get(m).mental.suppression > 0.3 || s.soldier.get(m).wounds.length > 0)) break; }
+    t.stepTicks(60 * 4); const q = t.controls().centre; t.focusScale(q.x, q.y, ${zoom}); const u = s.unit.get(globalThis.__sq);
+    const worst = [...u.members].sort((a, b) => s.soldier.get(b).mental.suppression + s.soldier.get(b).wounds.length - s.soldier.get(a).mental.suppression - s.soldier.get(a).wounds.length)[0];
+    t.inspect(worst); t.stepTicks(1);`);
+  log["underFire"] = await ev(`const u = s.unit.get(globalThis.__sq); return { tick: s.tick, states: [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => b.className.split(' ')[1]) };`);
+  await shot("8-under-fire-detailed");
+  // A vehicle (the mounted battle): its paces on the card, the gun and smoke screen in the Fire tray.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  log["vehicle"] = await ev(`t.setSpeed(0); const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focusScale(p.x, p.y, ${zoom}); t.stepTicks(2);
+    return { paces: [...document.querySelectorAll('.hud-seg [data-pace]')].map((b) => b.dataset.pace), set: t.orderSet().modes };`);
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("9-vehicle-card-fire-tray");
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  // The bar docked left, a squad aboard selected (Dismount on the bar), the Move tray open.
+  await ev(`t.dock("left"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1); t.select(sq.unit); t.stepTicks(1);`);
+  await page.click('.hud-group[data-group="move"] .hud-caret');
+  await shot("10-dock-left-move-tray");
+  await ev(`t.dock(innerWidth > innerHeight ? "right" : "bottom");`);
+  console.log(`${name}: card scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -585,6 +689,7 @@ try {
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -699,7 +804,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

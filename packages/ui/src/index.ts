@@ -7,3 +7,5 @@ export * from "./dock";
 export * from "./sidebar";
 export * from "./floors";
 export * from "./gestures";
+export * from "./icons";
+export * from "./card";

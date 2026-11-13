@@ -17,7 +17,8 @@ import {
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
 import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
-  centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine } from "@tcs/ui";
+  centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
+  manDetail, repaceMove, unitMenRows } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -122,6 +123,8 @@ async function main(): Promise<void> {
   const markerFor = (p: Plan | null) => p && p.kind === "move" ? markerGeometry(p, slotsOf(p.formation), Math.max(1, unitMen().length), doctrineSpacing, HANDLE_PX / renderer.camera.scale) : null;
   const planMarker = () => markerFor(plan);
   let dragGapM = 3;
+  /** S6: the man whose detail box is open (one of the selected unit's men), or null. */
+  let inspected: EntityId | null = null;
   const hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -144,6 +147,16 @@ async function main(): Promise<void> {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "ceaseFire" });
     },
     onPace: (m) => { pace = m; },
+    // S3: a pace chip while the unit carries out a move the player gave it: the rest of the move at that pace.
+    onPaceChosen: (p) => {
+      const uid = overlay.selectedUnit, mv = activeMoveOf(uid);
+      if (uid === null || !mv || plan) return;
+      const at = centreOf(placesOf(uid));
+      if (at) issue(forUnit(repaceMove(mv, at, p, sim.state.tick)));
+    },
+    // S6: a man's row on the card: his box (again: closed).
+    onInspect: (m) => { inspected = m === null || m === inspected ? null : m; showCard(); },
+    onCardResize: () => { showCard(); },
     onFormation: (f) => {
       formation = f;
       if (plan) { const n = Math.max(1, unitMen().length); plan = { ...plan, formation: f, frontageM: Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) }; }
@@ -255,7 +268,23 @@ async function main(): Promise<void> {
   };
   /** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
   let tilesAt = -1e9;
-  const refreshTiles = () => { hud.setTiles(unitTiles(sim.state, playerSide, input.catalog), overlay.selectedUnit); };
+  const refreshTiles = () => {
+    const tiles = unitTiles(sim.state, playerSide, input.catalog);
+    hud.setTiles(tiles, overlay.selectedUnit);
+    showCard(tiles);
+  };
+  /** The selected unit's card (S3, S6) and the open man's box: refreshed with the tiles and on every selection. */
+  const showCard = (tiles = unitTiles(sim.state, playerSide, input.catalog)) => {
+    const uid = overlay.selectedUnit;
+    const tile = uid === null ? undefined : tiles.find((x) => x.unit === uid);
+    if (uid === null || !tile) { inspected = null; hud.setCard(null); hud.showMan(null); hud.setInspected(null); return; }
+    const men = unitMenRows(sim.state, input.catalog, uid);
+    if (inspected !== null && !men.some((r) => r.id === inspected)) inspected = null;
+    const state = tile.kind === "vehicle" ? strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : strings.t(`side.state.${tile.state}`);
+    hud.setCard({ callsign: tile.callsign, fit: tile.fit, total: tile.total, state, men });
+    hud.setInspected(inspected);
+    hud.showMan(inspected === null ? null : manDetail(sim.state, input.catalog, inspected));
+  };
   /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
   const forUnit = (o: Order): Order => {
     const cls = vehicleClassOf(o.target);
@@ -484,6 +513,7 @@ async function main(): Promise<void> {
     // Never further out than the whole map in the free area (M7.5b).
     setCamera: (c) => { renderer.camera = renderer.clampCamera(c, hud.insets()); },
     onTap: (w) => {
+      hud.offerContext(null);
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
       // A tap on one of your vehicles selects its crew unit (M7.1c).
@@ -493,13 +523,17 @@ async function main(): Promise<void> {
         const cycle = [hull, ...ridersIn(sim, hull)];
         const k = overlay.selectedUnit === null ? -1 : cycle.indexOf(overlay.selectedUnit);
         overlay.selectedUnit = cycle[(k + 1) % cycle.length]!;
+        inspected = null;
         refreshTiles();
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
-        // His own unit (his squad; the platoon's own men select the platoon).
-        overlay.selectedUnit = sim.state.identity.req(hit).unit;
+        // His own unit (his squad; the platoon's own men select the platoon). A man of the unit already selected:
+        // his detail box (S6; again: closed).
+        const his = sim.state.identity.req(hit).unit;
+        if (his === overlay.selectedUnit) inspected = inspected === hit ? null : hit;
+        else { overlay.selectedUnit = his; inspected = null; }
         refreshTiles();
         return;
       }
@@ -535,6 +569,7 @@ async function main(): Promise<void> {
     // the unit itself (S1). Anything else pans the map as before.
     onDragStart: (w) => {
       gesture = null;
+      hud.offerContext(null);
       if (plan) {
         const g = planMarker();
         dragHandle = hitHandle(plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
@@ -602,6 +637,13 @@ async function main(): Promise<void> {
       const o = planToOrder(gs.plan, playerSide, uid, sim.state.tick);
       if (o) issue(forUnit(o));
       if (gs.planKind !== "move") oneTapDone();
+      // S4: a move dragged onto a building offers Occupy there (a context button at the drop point, a few seconds).
+      const end = gs.plan.points.at(-1);
+      const bi = end && gs.planKind === "move" && vehicleClassOf(uid) === null && ordersFor(unitCapabilities(sim.state, input.catalog, uid), input.catalog.movementModes).modes.includes("occupy") ? indoorAt(sim.ctx, end.x, end.y) : -1;
+      if (end && bi >= 0) {
+        const at = worldToScreen(renderer.camera, end.x, end.y);
+        hud.offerContext({ icon: "occupy", key: "order.occupyHere", x: at.x, y: at.y, run: () => { if (overlay.selectedUnit === uid) issue(occupyOrder(uid, bi)); } });
+      }
       return false;
     },
   });
@@ -766,6 +808,9 @@ async function main(): Promise<void> {
         facing: facingHandle(), centre: centreOf(placesOf(overlay.selectedUnit)),
       };
     },
+    /** The "bar-card" step (screenshots, checks): the man box for a man (null closes), the card's state. */
+    inspect: (id: EntityId | null) => { inspected = id; showCard(); },
+    card: () => ({ inspected, pace, detailed: document.querySelector(".hud-card.detailed") !== null, rules: overlay.selectedUnit === null ? null : { fire: sim.state.unit.get(overlay.selectedUnit)?.fireRule, maxEngageM: sim.state.unit.get(overlay.selectedUnit)?.maxEngageM } }),
     hash: () => simHash(sim),
     ready: true,
   };
@@ -913,6 +958,10 @@ async function main(): Promise<void> {
       if (end) out.marker = { x: end.x, y: end.y, from: null, dragging: false };
     }
     if (!gs) { const fh = facingHandle(); if (fh) out.facing = { centre: fh.centre, handle: fh.handle, dragging: false }; }
+    // S6: the man whose box is open (on foot: his ring; aboard: none).
+    const im = inspected === null ? undefined : sim.state.soldier.get(inspected);
+    const it = inspected === null || im?.mount !== undefined ? undefined : sim.state.transform.get(inspected);
+    if (it) out.man = { x: it.x, y: it.y };
     return out;
   };
 

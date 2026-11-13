@@ -2662,3 +2662,51 @@ Choices made here without the owner (low confidence, easy to change):
 8. The start hint was shortened and rewritten for the new gestures.
 Seen in passing, not changed: the app's `issue()` marks every order `player: true`, the AI's too (the AI's orders
 go through the same function).
+
+## 2026-11-13 — Bar-card step: slim order bar, unit card with pace and fire rows, men and the man's box (owner S3, S4, S6)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), built as chosen. UI only: every chip and
+button sends an existing order (`move`, `rules`, `occupy`, `posture`, `ceaseFire`, ...); no new order type, no sim
+change, goldens untouched (strings only in data, outside the catalog fingerprint). Pure parts in
+`packages/ui/src/card.ts` and `icons.ts` (tests `packages/ui/test/card.test.ts`); the card and the man's box read
+read-only snapshots of the state (`unitMenRows`, `manDetail`, like the sidebar's `unitTiles`). Screenshots
+`npm run screenshot -- --scene card`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Bar (S4).** Move and Fire are split buttons: the button gives the order shown on it, the small arrow beside it
+   opens a tray of the rest. The owner's choice named a "Weapons" group; the step's brief said "grouped under Fire":
+   the Fire tray is that group (Fire, Anti-tank, Grenade, All grenades, Mortar, Smoke; for a vehicle also the gun
+   choice and the smoke screen) plus Cease fire. The Move tray: Move, Assault, Withdraw, Occupy and the posture
+   (Stand up, Kneel, Lie down). While a variant is on, its group's button shows it (icon and name) lit; once the
+   bar goes back to Move (S12) the button shows Move / Fire again. A tray stays open 0.45 s after a pick so a
+   double-tap can lock the mode (S12). Halt and Mount/Dismount stay on the bar. The capability rules decide which
+   tray items show; a tray with only its own button shows no arrow (a vehicle's Move).
+2. **Occupy** is kept in the Move tray as well as the context action: after a move dragged from the unit (S1) ends
+   in a building, an "Occupy" button appears beside the drop point for 6 s; the move has already gone (into the
+   house by its doors, as before); pressing Occupy sends the occupy order for that building instead.
+3. **Rules** moved from the bar to the card's head (the panel itself is unchanged); Cease fire went into the Fire
+   tray; the posture cycle became three tray buttons.
+4. **Pace row (S3).** Fastest first (Run, Walk, Sneak, Crawl; a vehicle's Fast, Drive, Slow, Reverse); it sets the
+   pace of the next move (drag or planned route; the plan bar lost its pace button). Pressed while the unit carries
+   out a move the player gave it, the move is sent again at that pace from where the unit is, keeping the route
+   points still ahead (the unit's leg = the route leg within 15 m of its middle, else the first).
+5. **Fire row (S3).** At will / Return / Hold = the `rules` fire rule. **Ambush = fire at will with "no fire on their
+   own beyond" set to 100 m** (`AMBUSH_M`, the existing range rule the simulation already describes as "e.g. for an
+   ambush"; 100 m is the shortest range the Rules panel offers). Leaving Ambush for another chip sets that range back
+   to none; a range chosen in the Rules panel is kept otherwise. An ambush does not change "on contact" or the
+   anti-tank rule. Ordered fire (Fire, Anti-tank, Grenade) is not limited by it, as before.
+6. **The card** sits at the bottom left of the free map area, above the radio log's place (the radio log now above
+   it); compact by default, the "Men" button switches to detailed (remembered on the device, `tcs.ui.card`). On a
+   phone with the card open the radio log shows its two newest lines and the men's list takes at most a quarter of
+   the height; a very narrow card (bar docked at the side) shows icons only.
+7. **Men rows (S6):** a vehicle lists its crew (passengers are their own units' cards). State marks: steady (green
+   dot), shaken (yellow ring), pinned (orange; also panicked and routed), wounded (red cross: a wound that broke the
+   skin), down (grey X), prisoner (grey flag), worst first: prisoner, down, wounded, pinned, shaken. The ammunition
+   bar has one cell per magazine or belt (the one in the weapon first, filled by its rounds; spares shown at their
+   average fill; at most 8 cells then "+n").
+8. **The man's box (S6)** opens from his row or from a tap on him on the map while his own unit is selected (a tap
+   on a man of another unit still selects that unit; a second tap closes the box). It shows rank and name, role and
+   unit, weapon with rounds loaded and spare, what he is doing now (from his state: aboard, getting away from a
+   grenade, panicking, going to cover, bringing or fetching ammunition, taking a prisoner, firing on his own or as
+   ordered, pinned, moving at a pace, in position and his posture), behaviour, pulse, fatigue, suppression ("Under
+   fire"), stress and morale as bars, and his wounds by body part with light / serious / critical at severity
+   0.25 / 0.6. A pale yellow ring marks him on the map.
+9. Icons are TCS's own line drawings (`icons.ts`); colours are TCS's own.

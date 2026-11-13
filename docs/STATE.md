@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (Firefight-inspired controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 **Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
 "Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
@@ -11,7 +11,19 @@ Fire / Anti-tank, a held press shows sight lines from each man (solid clear, bro
 walls, roofs, woods and known hulls only), letting go fires, back onto the unit cancels; a quick tap still fires.
 After a one-tap order the bar returns to Move; a double-tap on a mode button locks it on (bold frame, LOCK mark).
 UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene controls`.
-Not done here (other steps of the Firefight list): S3–S8, S11, S13, S14.
+Not done in that step: S3–S8, S11, S13, S14.
+
+**Firefight-inspired bar and card (owner choices 2026-11-13, step "bar-card": S3, S4, S6; DECISIONS.md "Bar-card
+step").** The order bar is Move, Fire, Halt, Mount/Dismount as icon + short label; the arrows beside Move and Fire
+open trays (Assault, Withdraw, Occupy, posture; Anti-tank, Grenade, All grenades, Mortar, Smoke, vehicle gun and
+smoke screen, Cease fire); the group's button shows the variant that is on. A move dragged onto a house offers an
+Occupy button there. The selected unit's card (bottom left): pace row (Run/Walk/Sneak/Crawl; a vehicle's paces;
+pressed while moving re-sends the move at that pace) and fire row (At will/Return/Hold/Ambush = fire at will with the
+existing 100 m "no fire beyond" rule); Rules button for the rest. "Men" switches to the detailed card, one row per man
+(state mark, role, weapon, ammunition cells); his row or a tap on him on the map opens his box (rank, name, weapon,
+rounds, activity, pulse, fatigue, suppression, stress, morale, wounds). UI only (`ui/src/card.ts`, `icons.ts`),
+goldens untouched. Screenshots `npm run screenshot -- --scene card`.
+Not done yet (other steps of the Firefight list): S5, S7, S8, S11, S13, S14.
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

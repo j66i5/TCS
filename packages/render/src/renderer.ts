@@ -71,6 +71,8 @@ export interface GestureOverlay {
   los?: readonly { x0: number; y0: number; x1: number; y1: number; stopAt: number; clear: boolean }[] | null;
   target?: { x: number; y: number } | null;
   cancelAt?: { x: number; y: number } | null;
+  /** The man whose detail box is open (S6, the "bar-card" step): a ring round him. */
+  man?: { x: number; y: number } | null;
 }
 
 export interface PlanOverlay {
@@ -618,6 +620,13 @@ export class BattleRenderer {
       g.circle(h.x, h.y, 11).fill({ color: 0x1b241a, alpha: 0.7 }).stroke({ width: 2.5, color: col });
       const tx = h.x + Math.cos(ang) * 5, ty = h.y + Math.sin(ang) * 5;
       g.poly([tx, ty, h.x + Math.cos(ang + 2.5) * 6, h.y + Math.sin(ang + 2.5) * 6, h.x + Math.cos(ang - 2.5) * 6, h.y + Math.sin(ang - 2.5) * 6]).fill({ color: col });
+    }
+    // The man whose box is open (S6): a bright ring with four ticks, sized to stay visible at any zoom.
+    if (gs.man) {
+      const s = worldToScreen(c, gs.man.x, gs.man.y), r = Math.max(9, 0.9 * c.scale);
+      g.circle(s.x, s.y, r).stroke({ width: 2, color: 0xfff3a0, alpha: 0.95 });
+      g.moveTo(s.x - r - 5, s.y).lineTo(s.x - r + 1, s.y).moveTo(s.x + r - 1, s.y).lineTo(s.x + r + 5, s.y)
+        .moveTo(s.x, s.y - r - 5).lineTo(s.x, s.y - r + 1).moveTo(s.x, s.y + r - 1).lineTo(s.x, s.y + r + 5).stroke({ width: 2, color: 0xfff3a0, alpha: 0.95 });
     }
     // Back on the unit: letting go here cancels (a marker: halts).
     if (gs.cancelAt) {

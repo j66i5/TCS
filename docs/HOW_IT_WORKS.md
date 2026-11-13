@@ -608,16 +608,16 @@ knows near the objective, never close to its own men.
 The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
 are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.
 The bar then offers only what that unit can do right now: a squad gets Anti-tank only while someone still has a
-Panzerfaust (or RPG) with a round for it, the grenade buttons only while it has grenades, Mortar and Smoke only
+Panzerfaust (or RPG) with a round for it, the grenade orders only while it has grenades, Mortar and Smoke only
 while your mortars have rounds left; a vehicle gets move, fire (the gun choice cycles through the rounds its
 guns really have), the smoke screen while its dischargers are loaded, and Dismount while men ride in it; a unit
-with just one man left can move, fire, throw, change posture, halt and cease fire.
+with just one man left can move, fire, throw, change posture, halt and cease fire. (Since the "bar-card" step the
+bar itself is short: see "The order bar, the unit card and the men" below.)
 
 **Moving the bar.** Hold the grip (⠿) at its start and drag: a highlighted strip shows which edge it will go to;
 let go and it docks there — a full-width strip at the top or bottom, or a full-height column at the left or
 right. Your phone remembers the choice. Until you move it, it sits at the bottom with the phone upright and at
-the right with the phone on its side. On a narrow screen the bar is one row; buttons that do not fit (the rarer
-ones first: smoke, mortar, all grenades, withdraw, rules ...) wait behind **⋯**.
+the right with the phone on its side. If the bar ever does not fit, Mount, Dismount and Halt wait behind **⋯**.
 
 **The unit list** is a slim strip of tiles down the side (the right side when the bar is docked left): each tile
 shows the unit's symbol, callsign and how many of its men are fit (5/6), and a coloured edge for its state —
@@ -667,6 +667,33 @@ the battle itself changed.
   occupy, or an assault or withdrawal sent by dragging — the bar goes back to Move, so the next tap does not fire
   again by mistake. To give several such orders in a row, double-tap the button: it locks on (a bold yellow frame
   and a small LOCK mark) and stays on after each order; double-tap it again, or pick another order, to unlock.
+
+## The order bar, the unit card and the men (the "bar-card" step, owner choices 2026-11-13)
+Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own).
+- **A short bar.** The order bar has only the main orders, each a small drawing with a short name: **Move**,
+  **Fire**, **Halt**, and **Mount** or **Dismount** when they apply. The little arrow beside Move opens the other
+  ways to move: Assault, Withdraw, Occupy, and Stand up / Kneel / Lie down. The arrow beside Fire opens the
+  weapons: Anti-tank, Grenade, All grenades, Mortar, Smoke (a vehicle: its gun choice and its smoke screen) and
+  Cease fire. Pick one and the Fire (or Move) button shows it, lit, until the order is given; the next tap on the
+  button gives that order again. The same rules as before decide what is offered (no grenades left, no Grenade).
+- **Occupy where you drag.** Drag a squad onto a house and let go: it goes into the house as before, and an
+  **Occupy** button pops up beside the spot for a few seconds. Press it and the squad occupies the house instead
+  (men at the windows facing the enemy).
+- **The unit card.** With a unit selected, a card at the bottom left shows its name, how many men are fit and its
+  state, and two rows of buttons always in view. **Pace:** Run, Walk, Sneak, Crawl (a vehicle: Fast, Drive, Slow,
+  Reverse) — the pace of the next move; pressed while the unit is on a move you gave it, it goes on at that pace
+  along the rest of its route. **Fire:** At will (fire at any enemy they see), Return (only once fired upon), Hold
+  (only when ordered), **Ambush** (hold fire until an enemy is within 100 m, then fire at will). The lit button is the
+  one in force; the Rules button on the card opens the full rules (range, on contact, ammunition, anti-tank).
+- **The men.** The card's **Men** button lists every man: a coloured mark for how he is (green steady, yellow
+  shaken, orange pinned, red wounded, grey down or a prisoner), his job, his weapon and a small ammunition bar with
+  one cell per magazine or belt. Tap a man's row, or tap him on the map, and a box opens: his rank and name, his
+  weapon and rounds, what he is doing right now (moving at a walk, firing at an enemy he sees, pinned down, bringing
+  ammunition ...), his pulse, bars for fatigue, how hard he is under fire, stress and morale, and his wounds. A
+  yellow ring marks him on the map. Tap him again or the × to close it. The card remembers whether you like it short
+  or with the men. On a phone the card keeps to a small part of the screen: the radio shows its two newest lines
+  while it is open.
+- Nothing about the battle changed: every button sends one of the orders that already existed.
 
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the

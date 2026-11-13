@@ -379,6 +379,17 @@ at half the rate (ordered fire, a base of fire keeping the enemy down, keeps its
 he changes to another man only when his own is down or has been out of his sight for 5 s, or when the other
 matters clearly more (less than 0.7 times his score: nearer, firing, standing).
 
+**Use the ground (B).** A man pinned or panicked where the enemy he knows can see him no longer just lies there:
+he low-crawls (0.3 m/s) to the nearest spot within 8 m, never toward the enemy, where that enemy cannot see him
+lying down; once he is no longer pinned he fires back from there. Men going to cover, to the end of a move, to the objective of an assault or to a rally point keep
+about 5 m from the places their comrades have taken or are going to, instead of piling onto the one best spot (two
+squads' last men rallying on the same point used to lie on top of each other). And men remember where enemy
+mortar rounds are falling: a man within 60 m of a burst remembers the mission for 90 s; halted out in the open (no
+wall, hedge, building or wood within about 4 m) within 35 m of where it is falling, he goes into a house within
+30 m if there is one, else 40 m out of the area, not back across it and not toward the enemy, and takes cover
+there; when the fire has lifted (no burst for 90 s) he goes back to the place he left. A man next to a wall or a
+hedge stays down where he is, and so does a squad still on its way somewhere or just given an order.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover

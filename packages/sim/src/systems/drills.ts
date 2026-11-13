@@ -24,10 +24,12 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 
 import { navFor } from "../navctx";
+import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { isCowering } from "./morale";
 import { aimHeightAt, assignFireTask } from "./fire";
+import { placeFree, placesTaken } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 
@@ -61,6 +63,25 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   m.endPosture = "prone";
   m.endHeading = face ? atan2(face.y - leg.goalY, face.x - leg.goalX) : null;
   return true;
+}
+
+/**
+ * (x, y), or the nearest point to it on rings of `soldier.minSpacingM` that is that far from every place another
+ * man of his side has taken (package B: two squads' last men rallying on the same point no longer lie on top of
+ * each other). Indoors (a floor above) it is left as it is.
+ */
+function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { x: number; y: number } {
+  const sep = ctx.catalog.behaviour.soldier.minSpacingM;
+  const taken = placesTaken(state, id);
+  if (sep <= 0 || placeFree(taken, x, y, sep)) return { x, y };
+  for (let ring = 1; ring <= 3; ring++) {
+    for (let k = 0; k < 8; k++) {
+      const a = (k * PI) / 4 + (ring % 2) * (PI / 8);
+      const px = Math.min(Math.max(x + cos(a) * ring * sep, 2), ctx.map.widthM - 2), py = Math.min(Math.max(y + sin(a) * ring * sep, 2), ctx.map.heightM - 2);
+      if (navCostAt(navFor(ctx, "foot").grid, px, py) > 0 && placeFree(taken, px, py, sep)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
 }
 
 function halt(state: SimState, id: EntityId): void {
@@ -151,10 +172,13 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     d.final = true;
     d.phaseTick = state.tick;
     const face = d.kind === "assault" ? enemy ?? { x: d.x + (d.x - c.x), y: d.y + (d.y - c.y) } : enemy;
+    // (Spread so that neighbours keep soldier.minSpacingM apart, package B.)
+    const spread = Math.max(D.spreadM, (ctx.catalog.behaviour.soldier.minSpacingM * all.length) / (2 * PI));
     all.forEach((m, i) => {
       state.fire.delete(m);
-      const a = (i * 2 * PI) / all.length, r = all.length > 1 ? D.spreadM : 0;
-      sendTo(ctx, state, m, d.x + r * cos(a), d.y + r * sin(a), face);
+      const a = (i * 2 * PI) / all.length, r = all.length > 1 ? spread : 0;
+      const p = freeSpotNear(ctx, state, m, d.x + r * cos(a), d.y + r * sin(a));
+      sendTo(ctx, state, m, p.x, p.y, face);
     });
     return;
   }
@@ -255,8 +279,8 @@ function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: E
   state.fire.delete(m);
   s.intent = null;
   const t = state.transform.req(m);
-  // Each runs to his own spot near the rally point (kept apart as they were).
-  const c = { x: d.x + (t.x - d.x) * 0.05, y: d.y + (t.y - d.y) * 0.05 };
+  // Each runs to his own spot near the rally point (kept apart as they were), not on another man's place (package B).
+  const c = freeSpotNear(ctx, state, m, d.x + (t.x - d.x) * 0.05, d.y + (t.y - d.y) * 0.05);
   sendTo(ctx, state, m, c.x, c.y, enemy);
 }
 

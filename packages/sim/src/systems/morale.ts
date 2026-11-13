@@ -64,6 +64,27 @@ export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: 
   }
 }
 
+/**
+ * A mortar round of `side` has burst (soldier AI package B, called by the fire support system): every man on foot
+ * of the other side within `soldier.beatenNoticeM` remembers where that mission is falling (one zone per man: a
+ * burst far from the one he remembers, or after his memory has lapsed, starts a new one).
+ */
+export function noteBeatenZone(ctx: SimContext, state: SimState, x: number, y: number, side: string): void {
+  const S = ctx.catalog.behaviour.soldier, r2 = S.beatenNoticeM * S.beatenNoticeM;
+  const memory = secondsToTicks(S.beatenMemorySeconds);
+  for (const [id, s] of state.soldier.entries()) {
+    if (!isAble(s) || s.mount !== undefined || state.identity.get(id)?.side === side) continue;
+    const t = state.transform.get(id);
+    if (!t) continue;
+    const dx = t.x - x, dy = t.y - y;
+    if (dx * dx + dy * dy > r2) continue;
+    const b = s.beaten;
+    if (b && state.tick - b.tick <= memory && sqrt((b.x - x) * (b.x - x) + (b.y - y) * (b.y - y)) <= S.beatenNoticeM) {
+      b.x = (b.x * b.n + x) / (b.n + 1); b.y = (b.y * b.n + y) / (b.n + 1); b.n++; b.tick = state.tick;
+    } else s.beaten = { x, y, tick: state.tick, n: 1, left: false };
+  }
+}
+
 /** His unit has lost its leader: every man of it takes the blow. */
 export function leaderLost(ctx: SimContext, state: SimState, unitId: EntityId, leader?: EntityId): void {
   // mounted: ok losing the leader shakes every man; a man aboard a closed hull only when the leader fell inside it

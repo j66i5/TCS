@@ -3,6 +3,7 @@
  */
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
+import { placesTaken } from "./decisions";
 import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
@@ -388,7 +389,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const last = m.waypoints[m.waypoints.length - 1]!;
         const { grid, search } = navFor(ctx, ctx.catalog.movementModes[last.mode]?.class ?? "foot");
         // (With a laid-out formation, cover only close by, so the shape the player chose holds.)
-        const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M);
+        // (Package B: not on a place another man has taken, men keep minSpacingM apart.)
+        const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M, placesTaken(state, s), ctx.catalog.behaviour.soldier.minSpacingM);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
           const leg = routeBetween(ctx, search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).

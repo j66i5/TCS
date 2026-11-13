@@ -2380,3 +2380,61 @@ show a problem.
   bounds. The lab test (support must help) ran 8 runs per case and saw 0 % vs 0 %: it now runs 16.
 - **Goldens:** behaviour.json and shooting.json changed (catalog fingerprint) and behaviour changed on purpose:
   `golden:update` for all regular goldens; the no-interiors goldens stay skipped.
+
+
+### Package B — Use the ground
+
+- **Pinned or panicked men crawl to cover** (audit item 3: 65–83 % of the man-seconds a man was under fire and
+  seen by the enemy he lay pinned or panicked where he dropped, spells up to 217 s; `isCowering` skipped every
+  decision). A cowering man in sight of the enemy he knows (`threatOf`; sight at lying height as in `seekCover`)
+  low-crawls — the data's `crawl` movement mode (`soldier.crawlMode`), which movement now lets a cowering man use —
+  to the nearest spot within **8 m** (`crawlSearchM`, 4 rings x 12 directions, none within ~73 degrees of the
+  enemy) where that enemy cannot see him lying down, at most every **10 s** (`crawlRetrySeconds`). A man pinned on
+  his way (his route is held, not walked) crawls too: the crawl replaces the route; his unit's next order or bound
+  sends him on. He fires back once he is no longer pinned. (A first version also let a pinned man open fire on his
+  own: firing showed him to the enemy and the man-seconds pinned in the enemy's sight went up, so it was dropped.)
+- **Men keep about 5 m apart** (item 5: 282 pair-samples of halted men < 0.3 m apart in platoon s2; cover cells were
+  never reserved, the rally squeezed a unit to 5 % of its spread). `placesTaken` lists the places men of a side hold
+  or are going to; cover seeking and crawling penalise a spot within **5 m** (`minSpacingM`) of one; the halt drill's
+  `bestCoverNear` passes over cells within 5 m less 0.75 of a cell (cells are 2 m; places are cell centres) of a
+  taken place; the assault's last rush spreads on a circle wide enough for 5 m between neighbours; the last rush,
+  the last leg back and the rally go to the nearest free point on 5 m rings (two squads' last men rallying on the
+  same point lay on top of each other).
+- **Beaten zones** (item 6: 80–93 % of the men near a mortar burst were within 3 m of where they had been at the
+  mission's next burst). `SoldierState.beaten` (optional: running mean of a mission's bursts, last tick, count,
+  `left`) is noted by the fire support system for every man on foot of the other side within **60 m** of a burst
+  (`beatenNoticeM`), kept **90 s** (`beatenMemorySeconds`). A man halted **in the open** — static nav exposure at
+  least **0.9** (`beatenOpenExposure`: no wall, hedge, building or wood within about 4 m) — within **35 m** of it
+  (`beatenRadiusM`), his unit neither moving nor in an assault or withdrawal nor given an order in the last 60 s,
+  goes into a house within **30 m** (`beatenHouseM`; the last of up to 8 places inside, away from the windows), else
+  **40 m** out (`beatenMoveM`): 12 directions, never back across the zone's middle, preferring away from it (x2) and
+  from the enemy he knows (x1), then the best cover near that point. When the fire has lifted (no burst for 90 s) he
+  goes back to the place he left if he is still where he went (the drill "reoccupy when the barrage lifts").
+  Tried and dropped: weighting away-from-the-enemy x1.5 with directions across the zone (platoon-ru s1: men ran
+  through the bursts, mortar fragment hits 14 → 73); sideways to the enemy (platoon s2: 97 hits); going back after
+  60 s (platoon-ru s1: 185 hits — the next mission fell on the same place: with 90 s of memory a repeated mission
+  keeps them away); moving men by a wall or on a support line; and never going back (in platoon s1 900 s the
+  defenders sheltered in houses for good, the attackers never saw them and their base of fire never fired — the AI
+  commander test caught it).
+- **Measured** (audit scripts, same 1500 s battles; base → A → B): men out in the open near a mortar burst still
+  within 3 m of where they were at the mission's next burst (platoon s1–3, platoon-ru s1–2) 183 of 210 (87 %) → 121
+  of 228 (53 %; without going back afterwards it was 1 %: most of the rest are men back in their place for a later
+  mission); men by cover or indoors stay, by design (357/399 → 353/390); mortar fragment hits in those five battles
+  209 → 251, casualties 171 → 219 (A's aim mostly). Halted pairs within 2 m (5 s samples; < 0.3 m): platoon s2
+  715 (282) → 273 (170) → 0 (0); platoon-ru s1 532 (40) → 1075 (592) → 482 (0). Pinned or panicked man-seconds in
+  the enemy's sight 4445 → 888 → 1420, spells over 10 s 121 → 42 → 73: **no gain from B here** — the crawl starts
+  only 2–7 times per battle: most pinned men are already out of the sight, at lying height, of the enemy they know
+  (their own estimate), though the enemy still sees them; the rest is battle-to-battle noise (B moves men, the
+  battles take other courses).
+- **Batches** (900 s, 10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender):
+
+  | Batch | After A | After B |
+  |---|---|---|
+  | platoon | 1/9; 15.1 / 11.9; 22 / 5; 933 / 226 | 3/7; 14.7 / 11.8; 14 / 6; 877 / 213 |
+  | platoon-ru | 2/8; 15.8 / 13.0; 22 / 4; 1476 / 200 | 5/5; 11.2 / 13.7; 19 / 5; 1552 / 132 |
+  | platoon-vehicles | 3/7; 19.2 / 21.5; 27 / 3; 905 / 201 | 3/7; 17.2 / 21.2; 31 / 4; 1085 / 278 |
+  | platoon-ru-vehicles | 1/9; 26.0 / 11.4; 30 / 5; 555 / 185 | 0/10; 26.2 / 10.5; 43 / 5; 494 / 195 |
+
+  Within the seed noise of A (the Russian mounted attack was 0/10 before A too); no balance tuning.
+- **Goldens:** regenerated (`golden:update`); no-interiors goldens stay skipped.

@@ -352,8 +352,17 @@ export interface BehaviourDef {
    * this close and assaulting. longRangeM / longRangeIntervalFactor: beyond this range a rifleman's pause between
    * shots is this many times longer. keepTargetFactor: a man changes his own target only for one that scores
    * below this fraction of the current one (or when the current one is down or out of sight).
+   * B: crawlMode (movement mode id) / crawlSearchM / crawlRetrySeconds: a pinned or panicked man in sight of the
+   * enemy crawls to cover this near, at most this often. minSpacingM: men going to cover keep this far from each
+   * other's places. beaten*: enemy mortar bursts within beatenNoticeM are remembered for beatenMemorySeconds; a man
+   * halted in the open within beatenRadiusM of the mission goes into a house within beatenHouseM, else beatenMoveM
+   * out of it.
    */
-  soldier: { reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number };
+  soldier: {
+    reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
+    crawlMode: string; crawlSearchM: number; crawlRetrySeconds: number; minSpacingM: number;
+    beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
+  };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }
 

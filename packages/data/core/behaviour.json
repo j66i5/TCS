@@ -158,7 +158,17 @@
     "longRangeIntervalFactor": 2,
     "keepTargetFactor": 0.7,
     "keepTargetSeenSeconds": 5,
-    "note": "Individual soldier AI (owner 2026-11-13, packages A-D; game values, low, the same for every side). A: a rifleman down to the magazine in his weapon keeps it as a close-defence reserve: he fires it (aimed) only at an enemy within 100 m, or within 200 m whose unit is assaulting; beyond 200 m riflemen firing on their own fire at half the rate; a man keeps his own target until it is down or he has not seen it for 5 s, unless another scores better than 0.7 x the current one.",
+    "crawlMode": "crawl",
+    "crawlSearchM": 8,
+    "crawlRetrySeconds": 10,
+    "minSpacingM": 5,
+    "beatenNoticeM": 60,
+    "beatenRadiusM": 35,
+    "beatenMemorySeconds": 90,
+    "beatenMoveM": 40,
+    "beatenHouseM": 30,
+    "beatenOpenExposure": 0.9,
+    "note": "Individual soldier AI (owner 2026-11-13, packages A-D; game values, low, the same for every side). A: a rifleman down to the magazine in his weapon keeps it as a close-defence reserve: he fires it (aimed) only at an enemy within 100 m, or within 200 m whose unit is assaulting; beyond 200 m riflemen firing on their own fire at half the rate; a man keeps his own target until it is down or he has not seen it for 5 s, unless another scores better than 0.7 x the current one. B: a pinned or panicked man lying where the enemy he knows can see him low-crawls (the crawl movement mode) to the nearest spot within 8 m, not toward the enemy, where it cannot (at most every 10 s), and a pinned man fires back from where he lies; men going to cover or to the end of a move keep 5 m from each other's places; a man on foot within 60 m of an enemy mortar burst remembers the mission (for 90 s after its last burst): halted in the open (no wall, hedge, building or wood within about 4 m) within 35 m of it, he goes into a house within 30 m, else 40 m out of it, not toward the enemy.",
     "sources": [],
     "confidence": "low"
   }

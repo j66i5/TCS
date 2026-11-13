@@ -100,6 +100,16 @@ export interface SoldierState {
   captive: Captive | null;
   /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
   mount?: { vehicle: EntityId; seat: number };
+  /**
+   * Beaten zone (soldier AI package B): where enemy mortar rounds have been bursting near him (running mean of the
+   * bursts of one mission), the last burst's tick, how many, and whether he has already moved out of it. Absent
+   * until a mission falls near him.
+   */
+  beaten?: {
+    x: number; y: number; tick: number; n: number; left: boolean;
+    /** Where he was when he left it (ox, oy: outdoors) and where he went (gx, gy): he goes back once it lifts. */
+    ox?: number; oy?: number; gx?: number; gy?: number;
+  };
 }
 
 export type CommLink = "voice" | "radio" | "none";

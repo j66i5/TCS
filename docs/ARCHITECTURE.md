@@ -502,6 +502,13 @@ plain fields (schema stays 17). `aimHeightAt(ctx, {z?, posture?})` aims by postu
 pick only such targets). Long-range discipline multiplies the shot interval of self fire. `targetScore` +
 `keepTargetFactor`/`keepTargetSeenSeconds` give target hysteresis in `decisionSystem`. Contacts marked `down` are
 skipped by target choice, threats, drills, gunnery, launchers, surrender, armour reactions and the AI commander.
+**B:** a cowering man (`isCowering`) in the decision loop may `crawlToCover` (waypoints in the `soldier.crawlMode`
+movement mode, which movement lets a cowering man use). `placesTaken`/`placeFree`
+(decisions.ts) list the places men of a side hold or are going to; `seekCover`, `crawlToCover`, the halt drill
+(`bestCoverNear(..., taken, sepM)`, nav.ts) and the drills' final rush and rally (`freeSpotNear`) keep
+`soldier.minSpacingM`. `SoldierState.beaten` (optional) is set by `noteBeatenZone` (morale.ts) from the fire
+support system for each enemy mortar burst; `leaveBeatenZone` runs for halted men in the open (`exposureAt` of the
+static nav grid >= `beatenOpenExposure`) whose unit is not moving nor in an assault/withdraw drill.
 
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:

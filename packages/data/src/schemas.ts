@@ -378,6 +378,8 @@ export const BehaviourFile = withProv({
   /** Individual soldier AI (owner 2026-11-13, packages A-D). See BehaviourDef.soldier. */
   soldier: withProv({
     reserveCloseM: Num(0, 1000), reserveAssaultM: Num(0, 2000), longRangeM: Num(0, 5000), longRangeIntervalFactor: Num(0.1, 20), keepTargetFactor: Num(0, 1), keepTargetSeenSeconds: Num(0, 60),
+    crawlMode: z.string(), crawlSearchM: Num(0, 50), crawlRetrySeconds: Num(0, 600), minSpacingM: Num(0, 50),
+    beatenNoticeM: Num(0, 500), beatenRadiusM: Num(0, 500), beatenMemorySeconds: Num(0, 3600), beatenMoveM: Num(0, 500), beatenHouseM: Num(0, 500), beatenOpenExposure: Num(0, 1),
   }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({

@@ -75,3 +75,60 @@ describe("package A: shoot straight", () => {
     expect(reserveTargetOk(sim.ctx, sim.state, { ...c, x: me.x + 250 }, me)).toBe(false);
   });
 });
+
+describe("package B: use the ground", () => {
+  /** One blue man at (50, 52), a wall west of him (x = 48, y 30..49); red holds fire 100 m east. */
+  function exposed(): Sim {
+    const input = armedInput(1, 600);
+    input.forces[0]!.units[0]!.members = input.forces[0]!.units[0]!.members.slice(0, 1);
+    input.forces[0]!.placements = [{ personId: input.forces[0]!.units[0]!.members[0]!.personId, x: 50, y: 52, heading: 0 }];
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p, i) => ({ ...p, x: 150, y: 47 + i }));
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [48, 30, 48, 49], heightM: 2, thicknessM: 0.25, material: "brick" } as never);
+    return createSim(input);
+  }
+
+  it("a pinned man in the enemy's sight low-crawls to cover close by, away from the enemy", () => {
+    const sim = exposed();
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    run(sim, 3); // he sees them
+    expect(sim.state.soldier.req(me).contacts.length).toBeGreaterThan(0);
+    const s = sim.state.soldier.req(me);
+    s.mental.suppression = 1; s.mental.behaviour = "pinned"; s.posture = "prone";
+    const ev = run(sim, 45);
+    const t = sim.state.transform.req(me);
+    expect(t.x).toBeLessThan(48); // behind the wall
+    expect(Math.hypot(t.x - 50, t.y - 52)).toBeLessThan(10);
+    expect(ev.some((e) => e.kind === "posture.changed" && e.soldier === me && e.posture !== "prone")).toBe(false); // he crawled
+  });
+
+  it("a man in the open within an enemy mortar mission's beaten zone moves out of it", () => {
+    const sim = exposed();
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    run(sim, 2);
+    // (Out in the open, away from the wall: next to it he would stay down.)
+    const t = sim.state.transform.req(me);
+    t.x = 60; t.y = 80;
+    sim.state.soldier.req(me).beaten = { x: 62, y: 82, tick: sim.state.tick, n: 2, left: false };
+    run(sim, 40);
+    expect(Math.hypot(t.x - 62, t.y - 82)).toBeGreaterThan(sim.ctx.catalog.behaviour.soldier.beatenRadiusM);
+    expect(t.x).toBeLessThan(65); // not toward the enemy
+    // Next to the wall he stays where he is.
+    const sim2 = exposed();
+    const me2 = unitOf(sim2, "blue")[1].members[0]!;
+    run(sim2, 2);
+    sim2.state.soldier.req(me2).beaten = { x: 52, y: 55, tick: sim2.state.tick, n: 2, left: false };
+    run(sim2, 20);
+    expect(Math.hypot(sim2.state.transform.req(me2).x - 50, sim2.state.transform.req(me2).y - 52)).toBeLessThan(3);
+  });
+
+  it("enemy mortar bursts are remembered as one mission by the men near them", async () => {
+    const sim = exposed();
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    const { noteBeatenZone } = await import("../src/systems/morale");
+    noteBeatenZone(sim.ctx, sim.state, 60, 50, "red");
+    noteBeatenZone(sim.ctx, sim.state, 70, 50, "red");
+    expect(sim.state.soldier.req(me).beaten).toMatchObject({ x: 65, y: 50, n: 2, left: false });
+    noteBeatenZone(sim.ctx, sim.state, 60, 50, "blue"); // his own side's mortars
+    expect(sim.state.soldier.req(me).beaten?.n).toBe(2);
+  });
+});

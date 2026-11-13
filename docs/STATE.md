@@ -6,6 +6,9 @@ _Last updated: 2026-11-13 (individual soldier AI, owner packages A–D; before: 
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who
 is down, keep the last magazine for close defence, slow their own long-range rifle fire, keep their target.
 Open for the owner: the Russian attack on foot at 2400 s wins 3/10 instead of 6/10 (casualties unchanged).
+**B "Use the ground" ✅:** pinned/panicked men in the enemy's sight crawl to cover within 8 m, men keep about 5 m
+apart (cover, halt drill, last rush, rally), men out in the open move out of a mortar mission's beaten zone (or
+into a house). The crawl rarely triggers (3–7 times a battle): see DECISIONS.
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's

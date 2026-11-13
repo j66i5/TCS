@@ -5,9 +5,9 @@
  * himself; a pick holds until that unit changes floor or another unit is selected. Pure helpers plus the element.
  */
 
-/** Button label of a floor: "G" for the ground floor, else its number. */
-export function floorLabel(floor: number): string {
-  return floor <= 0 ? "G" : String(floor);
+/** Button label of a floor: `ground` (the string table's "ui.floor.ground") for the ground floor, else its number. */
+export function floorLabel(floor: number, ground: string): string {
+  return floor <= 0 ? ground : String(floor);
 }
 
 /**
@@ -45,8 +45,8 @@ export interface FloorSwitch {
   set(count: number, shown: number): void;
 }
 
-/** The switch element: a small column of buttons; `onPick` gets the floor picked. */
-export function createFloorSwitch(root: HTMLElement, title: string, onPick: (floor: number) => void): FloorSwitch {
+/** The switch element: a small column of buttons (`ground`: the ground floor's label); `onPick` gets the floor picked. */
+export function createFloorSwitch(root: HTMLElement, title: string, ground: string, onPick: (floor: number) => void): FloorSwitch {
   const el = document.createElement("div");
   el.className = "hud-floors";
   el.setAttribute("role", "group");
@@ -68,8 +68,8 @@ export function createFloorSwitch(root: HTMLElement, title: string, onPick: (flo
         for (let f = n - 1; f >= 0; f--) {
           const b = document.createElement("button");
           b.className = "hud-btn hud-floor";
-          b.textContent = floorLabel(f);
-          b.setAttribute("aria-label", `${title} ${floorLabel(f)}`);
+          b.textContent = floorLabel(f, ground);
+          b.setAttribute("aria-label", `${title} ${floorLabel(f, ground)}`);
           b.onclick = () => onPick(f);
           btns[f] = b;
           el.append(b);

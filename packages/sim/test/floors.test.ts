@@ -1,10 +1,11 @@
 /** Upper floors (M7.5d): stairs, heights, moving upstairs, firing and seeing from upper windows, Occupy, saves. */
 import { describe, expect, it } from "vitest";
 import {
-  createSim, deserializeState, floorOf, hashState, indoorAt, indoorSpots, lineBlocked, navFor, occupyPlaces, routeBetween, serializeState, sight, standZ, step, submitOrder,
-  stripInteriors, type Building, type MapDef, type Sim, type SimEvent,
+  aimHeightAt, buildInteriorGraph, createSim, detonate, syncTerrainDamage, deserializeState, floorOf, hashState, indoorAt, indoorSpots, lineBlocked, navFor, occupyPlaces, routeBetween, serializeState, sight, standZ, step, submitOrder,
+  stripInteriors, surrender, type Building, type MapDef, type Sim, type SimEvent,
 } from "../src/index";
-import { armedInput, testInput } from "./helpers";
+import { EventSink } from "../src/events";
+import { armedInput, testCatalog, testInput } from "./helpers";
 
 /** The M7.5c test house (12 x 10 m, two storeys of 2.8 m, two rooms each floor, stairs in the west room). */
 function house(): Building {
@@ -101,6 +102,32 @@ describe("floors: routes and stairs", () => {
     expect(t.z).toBe(2.8);
   });
 
+  it("men stopped part way up the stairs come back onto a floor along the stairs (review fix M7.5)", () => {
+    for (const zs of [[0.8, 0.9, 1.0], [1.6, 2.0, 2.4]]) {
+      const sim = simWith();
+      const men = blueMen(sim);
+      men.forEach((id, k) => {
+        const t = sim.state.transform.req(id), m = sim.state.mover.req(id);
+        const z = zs[k % zs.length]!;
+        t.x = 101 + (3.5 * z) / 2.8; t.y = 81; t.z = z;
+        m.waypoints = [];
+      });
+      // A route from part way up carries heights, and its first leg stays on the stairs' line (y = 81).
+      const t0 = sim.state.transform.req(men[0]!);
+      const r = routeBetween(sim.ctx, navFor(sim.ctx, "foot").search, t0.x, t0.y, 109, 85, {}, { sz: t0.z })!;
+      expect(r.zs).toBeDefined();
+      expect(r.points[1]).toBe(81);
+      expect(r.zs![0] === 0 || r.zs![0] === 2.8).toBe(true);
+      submitOrder(sim, { tick: 0, issuer: "blue", target: blueUnit(sim), kind: "move", waypoints: [{ x: 109, y: 85, mode: "walk" }] });
+      run(sim, 60 * 90);
+      for (const id of men) {
+        const t = sim.state.transform.req(id);
+        expect(t.z).toBe(0);
+        expect(floorOf(sim.ctx, t.x, t.y, t.z)).toBe(0);
+      }
+    }
+  });
+
   it("a save made half way up the stairs loads and carries on identically", () => {
     const sim = simWith();
     submitOrder(sim, { tick: 0, issuer: "blue", target: blueUnit(sim), kind: "move", waypoints: [{ x: 109, y: 85, mode: "walk" }], floor: 1 });
@@ -146,6 +173,96 @@ describe("floors: sight, fire, blast", () => {
     const ev = run(sim, 60 * 30);
     const shots = ev.filter((e) => e.kind === "shot.fired" && blueMen(sim).includes((e as { shooter: number }).shooter));
     expect(shots.length).toBeGreaterThan(0);
+  });
+});
+
+describe("floors: what the enemy knows of a man's height (review fix M7.5)", () => {
+  it("a contact records the height a man upstairs was seen at; aiming uses that, never his true height", () => {
+    const sim = simWith(true);
+    const reds = [...sim.state.soldier.keys()].filter((id) => sim.state.identity.get(id)?.side === "red");
+    reds.forEach((id, i) => { const t = sim.state.transform.req(id); t.x = 160; t.y = 82 + i * 4; });
+    for (const side of ["blue", "red"] as const) {
+      const u = [...sim.state.unit.entries()].find(([, x]) => x.side === side)![0];
+      submitOrder(sim, { tick: 0, issuer: side, target: u, kind: "rules", fire: "hold" });
+    }
+    submitOrder(sim, { tick: 0, issuer: "blue", target: blueUnit(sim), kind: "occupy", building: 1, facing: 0 });
+    run(sim, 60 * 90);
+    const up = blueMen(sim).filter((id) => { const t = sim.state.transform.req(id); return t.z === 2.8 && t.x > 111; });
+    expect(up.length).toBeGreaterThan(0);
+    const known = reds.flatMap((r) => sim.state.soldier.req(r).contacts.filter((c) => up.includes(c.target) && c.kind === "seen"));
+    expect(known.length).toBeGreaterThan(0);
+    for (const c of known) expect(c.z).toBe(2.8);
+    const base = sim.ctx.catalog.shooting.fire.aimPointHeightM;
+    expect(aimHeightAt(sim.ctx, known[0])).toBeCloseTo(base + 2.8, 9);
+    // He goes down unseen: the enemy still aims where he last saw him; a contact without a height aims low.
+    const t = sim.state.transform.req(known[0]!.target);
+    t.z = 0;
+    expect(aimHeightAt(sim.ctx, known[0])).toBeCloseTo(base + 2.8, 9);
+    expect(aimHeightAt(sim.ctx, { ...known[0]!, z: undefined })).toBe(base);
+    // Men on the ground carry no height in anybody's contacts (outdoor state unchanged).
+    const sim2 = simWith(true);
+    run(sim2, 60 * 20);
+    for (const [, s] of sim2.state.soldier.entries()) for (const c of s.contacts) expect(c.z).toBeUndefined();
+  });
+});
+
+describe("floors: errands to a floor above (review fix M7.5)", () => {
+  it("an enemy fetching a prisoner upstairs climbs to him, takes him and comes back down to where he stood", () => {
+    const sim = simWith(true);
+    const [a] = blueMen(sim);
+    const reds = [...sim.state.soldier.keys()].filter((id) => sim.state.identity.get(id)?.side === "red");
+    const r = reds[0]!;
+    const ta = sim.state.transform.req(a!);
+    ta.x = 109; ta.y = 85; ta.z = 2.8;
+    const tr = sim.state.transform.req(r);
+    tr.x = 120; tr.y = 86;
+    for (const side of ["blue", "red"] as const) {
+      const u = [...sim.state.unit.entries()].find(([, x]) => x.side === side)![0];
+      submitOrder(sim, { tick: 0, issuer: side, target: u, kind: "rules", fire: "hold" });
+    }
+    surrender(sim.ctx, sim.state, new EventSink(), a!, "wounded");
+    // He has seen him give up (kept fresh: the test is about the walk, not about spotting him at the window).
+    const know = () => {
+      const cs = sim.state.soldier.req(r).contacts;
+      let c = cs.find((k) => k.target === a);
+      if (!c) { c = { target: a!, x: ta.x, y: ta.y, errM: 1, kind: "seen", tick: 0, reportedTick: 0 }; cs.push(c); cs.sort((p, q) => p.target - q.target); }
+      c.kind = "seen"; c.tick = sim.state.tick; c.surrendered = true; c.x = ta.x; c.y = ta.y;
+    };
+    let maxZ = 0, captured = false;
+    for (let k = 0; k < 60 * 150; k++) {
+      know();
+      for (const e of step(sim)) if (e.kind === "captured" && e.soldier === a && e.by === r) captured = true;
+      maxZ = Math.max(maxZ, tr.z);
+    }
+    expect(captured).toBe(true);
+    expect(maxZ).toBeCloseTo(2.8, 9);
+    expect(Math.hypot(tr.x - 120, tr.y - 86)).toBeLessThan(1);
+    expect(tr.z).toBe(0);
+  });
+});
+
+describe("floors: breaches by storey (review fix M7.5)", () => {
+  it("a burst at an upper window holes only that storey: no ground-floor exit, sight through it only up there", () => {
+    const input = testInput(1, 900);
+    const m: MapDef = { ...input.map };
+    m.buildings = [{ ...house(), wallMaterial: "wood", wallThicknessM: 0.02 }];
+    input.map = m;
+    const sim = createSim(input);
+    const exitsOf = () => buildInteriorGraph(sim.ctx.map.buildings[0]!, 0, sim.state.terrain.breaches).nodes.filter((n) => n.exit).length;
+    const exits0 = exitsOf();
+    detonate(sim.ctx, sim.state, new EventSink(), 111.6, 88, 2.8 + 1.0, testCatalog.ammoIds.indexOf("bomb"), 0);
+    const outer = sim.state.terrain.breaches.filter((b) => b.owner === "building" && b.part === 1);
+    expect(outer.length).toBe(1);
+    expect(outer[0]).toMatchObject({ sillM: 2.8, headM: 5.6 });
+    expect(exitsOf()).toBe(exits0);
+    expect(sight(sim.ctx, 109, 88, 2.8 + 1.5, 130, 88, 2.8 + 1.5).blockedBy).toBe(null);
+    expect(sight(sim.ctx, 109, 88, 1.5, 130, 88, 1.5).blockedBy).toBe("wall");
+    // A burst downstairs at the same wall: a ground-floor hole, a way in and out.
+    detonate(sim.ctx, sim.state, new EventSink(), 111.6, 83, 0.05, testCatalog.ammoIds.indexOf("bomb"), 0);
+    syncTerrainDamage(sim.ctx, sim.state);
+    const low = sim.state.terrain.breaches.filter((b) => b.owner === "building" && b.part === 1 && b.sillM === 0);
+    expect(low.length).toBe(1);
+    expect(exitsOf()).toBe(exits0 + 1);
   });
 });
 

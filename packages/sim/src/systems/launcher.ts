@@ -146,13 +146,14 @@ export function aimSolution(ctx: SimContext, am: AmmoRT, v0: number, d: number, 
   return r ? { el: hi, tof: r.tof } : null;
 }
 
-/** The aim point height above the ground: a vehicle's hull middle, a man's chest. */
-function aimHeight(ctx: SimContext, state: SimState, target: EntityId | undefined): number {
+/**
+ * The aim point height above the ground: a vehicle's hull middle, a man's chest — on his floor when the shooter
+ * knows him to be upstairs (M7.5d; M7.5 review fix: the height in the shooter's contact, never the true one).
+ */
+function aimHeight(ctx: SimContext, state: SimState, target: EntityId | undefined, known: { z?: number } | undefined): number {
   const v = target !== undefined ? state.vehicle.get(target) : undefined;
   if (v) { const h = ctx.catalog.vehicles[v.def]?.body.hull; if (h) return (h.u[0] + h.u[1]) / 2; }
-  // A man upstairs (M7.5d): his floor's height.
-  const ms = target !== undefined ? state.soldier.get(target) : undefined;
-  const z = ms && ms.mount === undefined ? state.transform.get(target!)?.z ?? 0 : 0;
+  const z = known?.z ?? 0;
   return z > 0 ? 1.0 + z : 1.0;
 }
 
@@ -183,7 +184,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const range = am.delivery?.maxRangeM ?? 300;
   const me = state.transform.req(id);
   const seen = secondsToTicks(AT.seenWithinSeconds);
-  let best: { target: EntityId; x: number; y: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.wreck) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -193,14 +194,14 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
     else { const es = state.soldier.get(c.target); if (!es || es.casualty !== "none") continue; }
     if (!atTarget(ctx, state, rule, c.target, isV)) continue;
     const score = d * (isV ? 0.5 : 1);
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y }; }
+    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
   if (!best) return false;
   const az = atan2(best.y - me.y, best.x - me.x);
   if (backblastBlocked(ctx, state, id, rd.ammo, az) !== null) return false;
   // A clear line from his shoulder to the aim point (the target's own hull ignored).
   const z0 = standZ(ctx.map, me) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
-  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target); // ground: ok (aimHeight carries a man's floor)
+  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target, best); // ground: ok (aimHeight carries a man's floor)
   const r = sight(ctx, me.x, me.y, z0, best.x, best.y, z1, -1, best.target);
   if (r.blockedBy !== null) return false;
   startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: rd.ammo, x: best.x, y: best.y, target: best.target });
@@ -293,10 +294,10 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const AT = ctx.catalog.behaviour.antitank;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammo)]!;
   // Where he believes the target is now, and how it moves.
-  let tx = x0, ty = y0, vx = 0, vy = 0;
+  let tx = x0, ty = y0, vx = 0, vy = 0, known: { z?: number } | undefined;
   if (target !== undefined) {
     const k = s.contacts.find((q) => q.target === target);
-    if (k) { tx = k.x; ty = k.y; vx = k.vx ?? 0; vy = k.vy ?? 0; }
+    if (k) { tx = k.x; ty = k.y; vx = k.vx ?? 0; vy = k.vy ?? 0; known = k; }
   }
   const az0 = atan2(ty - t.y, tx - t.x);
   if (backblastBlocked(ctx, state, id, ammo, az0) !== null) return; // someone stepped behind him: no shot
@@ -306,7 +307,7 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const rng = state.rng;
   // His estimate of the range is off by a few per cent; the lead follows from the flight time.
   const rangeErr = 1 + AT.rangeErrorFraction * nextNormal(rng, Streams.antitank);
-  const aimH = aimHeight(ctx, state, target);
+  const aimH = aimHeight(ctx, state, target, known);
   let ax = tx, ay = ty, sol: { el: number; tof: number } | null = null;
   for (let it = 0; it < 2; it++) {
     const dist = Math.max(1, hypot2(ax - ox, ay - oy));

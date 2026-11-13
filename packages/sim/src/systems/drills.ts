@@ -17,7 +17,7 @@
  */
 import type { Drill, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
-import { routeBetween, routeWaypoints } from "../interior-nav";
+import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, isCaptive } from "../impair";
@@ -45,12 +45,15 @@ function topOf(state: SimState, uid: EntityId): EntityId {
   return u;
 }
 
-/** Send a man along a path to (x, y) at a run; he lies down facing `face` at the end. */
-function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, face: { x: number; y: number } | null): boolean {
+/**
+ * Send a man along a path to (x, y) at a run; he lies down facing `face` at the end. `gz`: the goal's height above
+ * the ground (M7.5 review fix: a bound inside the house he is in keeps his floor; elsewhere the ground).
+ */
+function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, face: { x: number; y: number } | null, gz = 0): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz });
   if (!leg) return false;
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null;
@@ -162,7 +165,8 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   for (const m of movers) {
     state.fire.delete(m);
     const t = state.transform.req(m);
-    sendTo(ctx, state, m, t.x + ux * step, t.y + uy * step, face);
+    const bx = t.x + ux * step, by = t.y + uy * step, bi = t.z > 0 ? indoorAt(ctx, t.x, t.y) : -1;
+    sendTo(ctx, state, m, bx, by, face, bi >= 0 && indoorAt(ctx, bx, by) === bi ? t.z : 0);
   }
   const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of cover) {
@@ -171,14 +175,14 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     // Each man fires at an enemy he knows near the objective (the nearest to it), else at the point itself:
     // the fire spreads over the position instead of all striking its middle.
     const s = state.soldier.req(m);
-    let best: { target: EntityId; x: number; y: number } | null = null, bestD = 40;
+    let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
     for (const c of s.contacts) {
       if (c.surrendered) continue; // a man he knows has given up is not fired at (M6.6)
       const dd = hypot2(c.x - at.x, c.y - at.y);
       if (dd < bestD) { bestD = dd; best = c; }
     }
     if (best) {
-      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, state, best.target))) state.fire.req(m).contact = best.target;
+      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) state.fire.req(m).contact = best.target;
     } else assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
   }
   void events;

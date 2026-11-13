@@ -40,6 +40,18 @@ const BREACH_IN: number[] = [];
 /** Scratch list of wall segments near a burst (reused: no allocation per burst). */
 const BREACH_SEGS: number[] = [];
 
+/**
+ * The storey of building `id` a burst at height `rel` above the ground is on, as [bottom, top] above the ground
+ * (M7.5 review fix), for a building with an interior and floors above; null otherwise (the whole wall).
+ */
+function storeyBand(map: SimContext["map"], id: number, rel: number): [number, number] | null {
+  const b = map.buildings.find((q) => q.id === id);
+  if (!b?.interior || b.storeys < 2) return null;
+  const H = b.storeyHeightM;
+  const f = Math.min(Math.max(Math.floor(Math.max(rel, 0) / H), 0), b.storeys - 1);
+  return [f * H, (f + 1) * H];
+}
+
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
   const ex = ctx.catalog.ammo[ammoId]?.explosive;
@@ -117,9 +129,12 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     const mat = ctx.ballistics.materials[info.material]!;
     if (mat.resistance * info.thicknessM * 1000 >= strength) continue;
     const off = u * info.len;
-    // Not where the wall is already open.
-    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= info.baseM + 0.01)) continue;
-    state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, tick: state.tick });
+    // The outer wall of a building with floors (M7.5 review fix): the hole is in the storey the burst is on.
+    const band = s.owner === "building" && info.baseM === 0 ? storeyBand(map, s.id, rel) : null;
+    const lo = band ? band[0] : info.baseM;
+    // Not where the wall is already open (from the bottom of that storey).
+    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= lo + 0.01 && (!band || o.headM > lo + 1))) continue;
+    state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, ...(band ? { sillM: band[0], headM: band[1] } : {}), tick: state.tick });
     events.emit({ kind: "terrain.breached", tick: state.tick, x: px, y: py, owner: s.owner, id: s.id });
     breached = true;
     bx0 = Math.min(bx0, px - width); by0 = Math.min(by0, py - width); bx1 = Math.max(bx1, px + width); by1 = Math.max(by1, py + width);

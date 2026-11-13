@@ -2073,3 +2073,25 @@ every one "unchanged"); one new golden `village-occupy-s1`. No data file in the 
 
 ## 2026-11-13 — Map generation timing test made relative
 CI measured 425 ms per map against an absolute 300 ms bound (the container measures ~170 ms). The test now compares generation with interiors against generation without them on the same machine (best of three, alternating) and asserts at most 1.5x; absolute times vary several-fold between machines.
+
+## 2026-11-13 — M7.5 review fixes
+- **Stopped part way up the stairs** (`routeBetween`): a man whose height is not a floor's height and who stands on a
+  flight is first routed along it to the floor he is nearer (the foot below half a storey, the head from half a storey
+  up), then on; such a route always carries heights, so the first leg brings him onto a floor (before: he kept
+  floating at 0.8–1 m while `floorOf` said 0, or crossed diagonally to the floor above).
+- **Fog: heights men aim and take cover by** come from what they know. `Contact.z` (new, optional) is the height a man
+  on foot was seen at (set only above the ground: outdoor state and goldens unchanged); a report carries it, a sound
+  keeps the last known one. `aimHeightAt(ctx, known)` (fire orders, own fire, drills, gunnery), the launcher's aim
+  height and `threatOf` read it, never the target's true `transform.z`.
+- **Errands to a floor above**: the walk-over to a prisoner goes to his height and back to where the captor stood
+  (its height kept in the intent, `Intent.z`); a bound inside the house a man is in keeps his floor (drills); carriers
+  run to a casualty's height and only count as beside him on his floor (boarding). Vehicle exits stay on the ground.
+- **Breaches by storey**: a burst at the outer wall of a building with an interior and floors above holes only the
+  storey it is on (`sillM`/`headM` on the breach record, heights above the ground; absent = whole wall as before, so
+  obstacles and pre-interior maps are unchanged). Sight and fire pass the hole only in that band; an upper-floor hole
+  is no way in or out (no graph exit). The "already open there" test uses the bottom of that storey.
+- **Rule 12**: the ground-floor label comes from `ui.floor.ground` for the floor switch and the render badge
+  (`renderer.groundFloorLabel`, set by the app); the badge's pixel glyphs stay (unknown characters draw as G).
+- **Perf**: no indoor work per tick showed up in a profile of bench-vehicles (`routeBetween` 0.1 %, `indoorAt`
+  inlined, nothing measurable); with and without interiors measured 8.7/9.7 vs 9.8/9.4x in alternating runs (noise).
+  Nothing removed. Goldens unchanged (all 74 test files pass without `golden:update`).

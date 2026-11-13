@@ -69,10 +69,10 @@ function engageRange(ctx: SimContext, state: SimState, id: EntityId): number {
 }
 
 /** The enemy that matters most to him among those he sees now: near, firing, standing up. */
-function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number): { target: EntityId; x: number; y: number } | null {
+function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number): { target: EntityId; x: number; y: number; z?: number } | null {
   const D = ctx.catalog.behaviour.decisions;
   const me = state.transform.req(id);
-  let best: { target: EntityId; x: number; y: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
     if (c.surrendered) continue; // he knows this man has given up (M6.6)
@@ -83,7 +83,7 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     let score = d;
     if (ew && state.tick - ew.lastShotTick <= 3 * TICK_HZ) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
     if (es.posture === "prone") score *= 1.3;
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y }; }
+    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
   return best;
 }
@@ -107,9 +107,8 @@ function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; 
     const ew = state.weapon.get(c.target);
     const firing = ew !== undefined && state.tick - ew.lastShotTick <= 5 * TICK_HZ && c.kind !== "reported";
     const d = hypot2(c.x - me.x, c.y - me.y) * (firing ? 0.5 : 1);
-    // (His floor, M7.5d, when he is a man on foot upstairs: a contact is seen at his height.)
-    const es = state.soldier.get(c.target);
-    if (d < bestD) { bestD = d; best = { x: c.x, y: c.y, z: es && es.mount === undefined ? state.transform.get(c.target)?.z ?? 0 : 0 }; }
+    // (His floor, M7.5d: the height he was last seen at, M7.5 review fix.)
+    if (d < bestD) { bestD = d; best = { x: c.x, y: c.y, z: c.z ?? 0 }; }
   }
   return best;
 }
@@ -301,7 +300,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const range = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
       const pick = pickTarget(ctx, state, id, s, range);
       if (pick && (!current || current.contact !== pick.target)) {
-        if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, state, pick.target))) {
+        if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
           const ft = state.fire.get(id)!;
           ft.contact = pick.target; ft.self = true;
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { floorLabel, followFloor, unitFloor, type FloorFollow } from "../src/floors";
 
 describe("floor switch", () => {
-  it("labels the ground floor G", () => {
-    expect([0, 1, 2].map(floorLabel)).toEqual(["G", "1", "2"]);
+  it("labels the ground floor from the string table (Rule 12), upper floors by number", () => {
+    expect([0, 1, 2].map((f) => floorLabel(f, "EG"))).toEqual(["EG", "1", "2"]);
   });
 
   it("a unit's floor is where most of its men indoors stand (ties: the lower); null when all are outdoors", () => {

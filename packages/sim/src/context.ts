@@ -73,7 +73,7 @@ export interface SimContext {
   /** Rates for the physiology model: data (core/wounds.json) overridden by the scenario rules. */
   physiologyParams: Record<string, number>;
   /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
-  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[];
+  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number }[];
   /** Wrecks stamped into the navigation grids (derived from the vehicle store; M7), and their key. */
   navStamps: NavStamp[];
   navStampKey: string;

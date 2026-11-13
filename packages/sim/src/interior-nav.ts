@@ -87,7 +87,7 @@ export function interiorGraph(ctx: SimContext, bi: number): InteriorGraph | null
   return built;
 }
 
-type BreachRec = { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number };
+type BreachRec = { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number };
 
 /** Is (x, y) on the flight of stairs `st` as seen from `floor` (its foot floor or the floor above)? */
 export function onStair(st: { floor: number; x0: number; y0: number; x1: number; y1: number; widthM: number }, floor: number, x: number, y: number): boolean {
@@ -131,6 +131,8 @@ export function buildInteriorGraph(b: Building, bi: number, breaches: readonly B
   for (const br of breaches) {
     if (br.owner !== "building" || br.id !== b.id || br.widthM < MIN_BREACH_M) continue;
     if (br.part < nf) {
+      // A hole in the outer wall of a floor above (M7.5 review fix) is no way in or out.
+      if ((br.sillM ?? 0) > 0) continue;
       const d = wallPoint(b.footprint, br.part, br.offsetM, br.widthM, 0.45, 0.6);
       add(d.ix, d.iy, true, d.ox, d.oy);
     } else {
@@ -249,7 +251,22 @@ export function routeBetween(ctx: SimContext, search: NavSearch, sx: number, sy:
   if (bs < 0 && bg < 0) return findPath(search, sx, sy, gx, gy, o);
   const map = ctx.map;
   const sf = bs >= 0 ? floorAtZ(map.buildings[bs]!, h?.sz ?? 0) : 0, gf = bg >= 0 ? floorAtZ(map.buildings[bg]!, h?.gz ?? 0) : 0;
-  const withZ = sf > 0 || gf > 0;
+  // Part way up a flight of stairs (review fix M7.5): first along the stairs to the floor he is nearer (the foot
+  // or the head), then on from there; the route carries heights so the first leg brings him onto that floor.
+  const sz = h?.sz ?? 0;
+  if (bs >= 0 && sz > 0 && sz !== sf * map.buildings[bs]!.storeyHeightM) {
+    const b = map.buildings[bs]!, H = b.storeyHeightM;
+    const st = b.interior!.stairs.find((s) => sz > s.floor * H && sz < (s.floor + 1) * H && onStair(s, s.floor, sx, sy));
+    if (st) {
+      const head = sf > st.floor;
+      const px = head ? st.x1 : st.x0, py = head ? st.y1 : st.y0, pz = sf * H;
+      const rest = routeBetween(ctx, search, px, py, gx, gy, o, { sz: pz, gz: h?.gz });
+      if (!rest) return null;
+      const zs = rest.zs ?? rest.points.map(() => 0).slice(0, rest.points.length / 2);
+      return { ...rest, points: [px, py, ...rest.points], zs: [pz, ...zs], cost: rest.cost + hypot2(px - sx, py - sy) * STAIR_COST };
+    }
+  }
+  const withZ = sf > 0 || gf > 0 || (bs >= 0 && sz > 0);
   const fin = (r: { points: number[]; zs: number[]; cost: number; expanded: number; goalX: number; goalY: number }): RouteResult =>
     (withZ ? r : { points: r.points, cost: r.cost, expanded: r.expanded, goalX: r.goalX, goalY: r.goalY });
   if (bs >= 0 && bs === bg) {

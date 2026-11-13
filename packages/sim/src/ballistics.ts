@@ -632,7 +632,7 @@ function interiorBlocked(b: BallisticsCtx, map: MapDef, index: MapIndex, x0: num
 }
 
 /** Bring the wall table in line with the breaches blown so far (terrain damage lives in the state). */
-export function applyBreaches(b: BallisticsCtx, index: MapIndex, breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[]): void {
+export function applyBreaches(b: BallisticsCtx, index: MapIndex, breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number }[]): void {
   for (const info of b.seg) info.openings = info.built;
   if (breaches.length === 0) return;
   index.segments.forEach((s, si) => {
@@ -640,7 +640,7 @@ export function applyBreaches(b: BallisticsCtx, index: MapIndex, breaches: reado
       if (br.owner !== s.owner || br.id !== s.id || br.part !== s.part) continue;
       const info = b.seg[si]!;
       if (info.openings === info.built) info.openings = info.built ? [...info.built] : [];
-      info.openings!.push({ wall: s.part, offsetM: br.offsetM, widthM: br.widthM, kind: "door", sillM: info.baseM, headM: info.heightM });
+      info.openings!.push({ wall: s.part, offsetM: br.offsetM, widthM: br.widthM, kind: "door", sillM: br.sillM ?? info.baseM, headM: br.headM ?? info.heightM });
     }
   });
 }

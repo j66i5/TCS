@@ -22,7 +22,7 @@ import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./driv
 import { dischargeSmoke, stationCeaseFire, stationFireOrder } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
 import { secondsToTicks } from "../ids";
-import type { Unit } from "../components";
+import type { Contact, Unit } from "../components";
 import type { SimState } from "../state";
 
 function sideOf(state: SimState, target: EntityId): string | null {
@@ -432,7 +432,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
         // At a contact: where this man believes the enemy to be, else the point given with the order (what
         // comrades know reaches him only through contact sharing).
-        let x = order.x, y = order.y;
+        let x = order.x, y = order.y, known: Contact | undefined;
         // (A contact naming a man who is dead or of the issuer's own side is simply ignored: rejecting the order
         // would tell the player something his men do not know.)
         const named = order.contact !== undefined && state.soldier.get(order.contact)?.physiology.alive === true && state.identity.get(order.contact)?.side !== order.issuer ? order.contact : undefined;
@@ -440,9 +440,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
           // A man who knows the named enemy has given up (M6.6) halts with the others but does not fire at him.
           if (c?.surrendered === true) continue;
-          if (c) { x = c.x; y = c.y; }
+          if (c) { x = c.x; y = c.y; known = c; }
         }
-        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, state, named))) {
+        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known))) {
           any = true;
           const ft = state.fire.get(s);
           if (ft && named !== undefined) ft.contact = named;

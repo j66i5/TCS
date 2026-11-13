@@ -90,13 +90,13 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
 
 /** Give a soldier a fire task (from a fire order). */
 /**
- * Aim height above the ground for firing at enemy man `target` (M7.5d): the usual aim point, on his floor when he
- * is upstairs in a building (a man aboard a vehicle is not aimed at this way: 0 extra).
+ * Aim height above the ground for firing at an enemy man (M7.5d): the usual aim point, on his floor when the
+ * shooter knows him to be upstairs (M7.5 review fix: `known` is the shooter's contact, whose height is where he was
+ * last seen; never the target's true position).
  */
-export function aimHeightAt(ctx: SimContext, state: SimState, target: EntityId | undefined): number {
+export function aimHeightAt(ctx: SimContext, known: { z?: number } | undefined): number {
   const base = ctx.catalog.shooting.fire.aimPointHeightM;
-  if (target === undefined || state.soldier.get(target)?.mount !== undefined) return base;
-  const z = state.transform.get(target)?.z ?? 0;
+  const z = known?.z ?? 0;
   return z > 0 ? base + z : base;
 }
 

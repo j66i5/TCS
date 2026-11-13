@@ -73,6 +73,7 @@ async function main(): Promise<void> {
   const orderLog: Order[] = [];
 
   const renderer = await BattleRenderer.create(mapRoot);
+  renderer.groundFloorLabel = strings.t("ui.floor.ground");
   // The look (M7.5b): the flat pixel map and pixel soldiers; `?look=classic` keeps the look before it.
   const look = params.get("look") === "classic" ? "classic" : "pixel";
   renderer.setLook(look);
@@ -292,7 +293,7 @@ async function main(): Promise<void> {
   // ---- floor switch (M7.5d): follows the selected unit's floor; shown when it is indoors or a house is opened up.
   let floorState: FloorFollow = { shown: 0, unit: null, unitFloor: null, manual: false };
   let floorPick: number | null = null;
-  const floorSwitch = createFloorSwitch(hudRoot, strings.t("ui.floor"), (f) => { floorPick = f; });
+  const floorSwitch = createFloorSwitch(hudRoot, strings.t("ui.floor"), strings.t("ui.floor.ground"), (f) => { floorPick = f; });
   const updateFloors = () => {
     const uid = overlay.selectedUnit;
     let fl: number | null = null, count = 1;

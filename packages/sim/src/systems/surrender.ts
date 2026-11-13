@@ -124,10 +124,11 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
   return null;
 }
 
-function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, endProne: boolean): boolean {
+/** Walk a man to (x, y) at height `gz` above the ground (his floor: a prisoner upstairs, M7.5 review fix). */
+function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, endProne: boolean, gz = 0): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz });
   if (!leg) return false;
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
   m.formation = null; m.endPosture = endProne ? "prone" : null; m.endHeading = null;
@@ -163,7 +164,10 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
     if (it?.kind !== "takePrisoner" || it.target === undefined) continue;
     const ps = state.soldier.get(it.target);
     const done = ps?.captive?.state === "captured";
-    if (done) { s.intent = null; walkTo(ctx, state, id, it.x ?? state.transform.req(id).x, it.y ?? state.transform.req(id).y, true); continue; }
+    if (done) {
+      const me = state.transform.req(id);
+      s.intent = null; walkTo(ctx, state, id, it.x ?? me.x, it.y ?? me.y, true, it.x !== undefined ? it.z ?? 0 : me.z); continue;
+    }
     if (!isFit(s) || s.mental.suppression >= D.seekCoverSuppression || !ps || !ps.physiology.alive || ps.captive?.state !== "surrendered"
       || state.tick - it.tick > secondsToTicks(R.fetchTimeoutSeconds)) {
       s.intent = null; halt(state, id); continue;
@@ -203,8 +207,8 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
             const t = state.transform.req(best);
             const dx = t.x - p.x, dy = t.y - p.y, L = Math.max(1e-6, Math.abs(dx) + Math.abs(dy));
             // To his side, a step short of him.
-            if (walkTo(ctx, state, best, p.x + (dx / L) * 1.5, p.y + (dy / L) * 1.5, false)) {
-              state.soldier.req(best).intent = { kind: "takePrisoner", tick: state.tick, target: id, x: t.x, y: t.y };
+            if (walkTo(ctx, state, best, p.x + (dx / L) * 1.5, p.y + (dy / L) * 1.5, false, p.z)) {
+              state.soldier.req(best).intent = { kind: "takePrisoner", tick: state.tick, target: id, x: t.x, y: t.y, ...(t.z > 0 ? { z: t.z } : {}) };
               walkers.set(id, best);
             }
           }

@@ -82,6 +82,8 @@ interface Marker { x: number; y: number; untilTick: number; seq: number; deliver
 export class BattleRenderer {
   readonly app: Application;
   camera: Camera = { x: 0, y: 0, scale: 1 };
+  /** The ground floor's label on floor badges (M7.5 review fix, Rule 12: set by the app from "ui.floor.ground"). */
+  groundFloorLabel = "";
   /** World-space layer (metres); the camera moves and scales it. */
   private worldLayer = new Container();
   private terrain: Container | null = null;
@@ -468,7 +470,7 @@ export class BattleRenderer {
         // Inside a building on a floor other than the one shown (M7.5d): faint, with his floor's badge.
         const other = this.otherFloor(t);
         this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour, other < 0 ? 1 : GHOST_ALPHA);
-        if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)));
+        if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
         if (selected) g.circle(s.x, s.y, size * 0.42 + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         const bh = sol?.mental.behaviour;
@@ -1129,13 +1131,17 @@ const BADGE_GLYPHS: Record<string, string> = {
   4: "101101111001001", 5: "111100111001111", 6: "111100111101111", 7: "111001001001001", 8: "111101111101111", 9: "111101111001111",
 };
 
-/** A small dark badge with the floor's label (G, 1, 2 …) at (x, y) (its bottom-left corner), pixel size `px`. */
-export function drawFloorBadge(g: Graphics, x: number, y: number, floor: number, px: number): void {
-  const label = floor <= 0 ? "G" : String(floor);
+/**
+ * A small dark badge with the floor's label at (x, y) (its bottom-left corner), pixel size `px`: the floor's number,
+ * or `ground` (the string table's ground-floor label, Rule 12) for the ground floor. Characters without a pixel
+ * glyph are drawn as the G glyph.
+ */
+export function drawFloorBadge(g: Graphics, x: number, y: number, floor: number, px: number, ground: string): void {
+  const label = floor <= 0 ? ground.toUpperCase() : String(floor);
   const w = (label.length * 4 + 1) * px, h = 7 * px;
   g.rect(x, y - h, w, h).fill({ color: 0x10140f, alpha: 0.85 }).stroke({ width: 1, color: 0xe8e4d8, alpha: 0.8 });
   for (let c = 0; c < label.length; c++) {
-    const gl = BADGE_GLYPHS[label[c]!] ?? BADGE_GLYPHS["0"]!;
+    const gl = BADGE_GLYPHS[label[c]!] ?? BADGE_GLYPHS.G!;
     for (let k = 0; k < 15; k++) if (gl[k] === "1") g.rect(x + (1 + c * 4 + (k % 3)) * px, y - h + (1 + Math.floor(k / 3)) * px, px, px);
   }
   g.fill({ color: 0xe8e4d8 });

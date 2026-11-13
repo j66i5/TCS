@@ -212,7 +212,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   for (const w of sn.weapons) reach = Math.max(reach, w.engageRangeM);
   if (crew.maxEngageM > 0) reach = Math.min(reach, crew.maxEngageM);
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
-  const cands = new Map<EntityId, { x: number; y: number; err: number }>();
+  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number }>();
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
@@ -223,10 +223,10 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
       if (!ok) continue;
       const err = contactErrorM(ctx, c, tick);
       const prev = cands.get(c.target);
-      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err });
+      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, ...(c.z !== undefined ? { z: c.z } : {}) });
     }
   }
-  const scored: { target: EntityId; x: number; y: number; score: number; vehicle: boolean; firing: boolean }[] = [];
+  const scored: { target: EntityId; x: number; y: number; z?: number; score: number; vehicle: boolean; firing: boolean }[] = [];
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -236,7 +236,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
       : ew !== undefined && tick - ew.lastShotTick <= 3 * TICK_HZ;
-    scored.push({ target, x: c.x, y: c.y, score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
+    scored.push({ target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).
@@ -244,7 +244,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const st = v.stations[si]!;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
-    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : aimHeightAt(ctx, state, cnd.target)); // ground: ok (a man's floor in his aim height)
+    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : aimHeightAt(ctx, cnd)); // ground: ok (a man's floor in his aim height)
     const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, cnd.vehicle ? cnd.target : -1);
     if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) { best = cnd; break; }
   }

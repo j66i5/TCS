@@ -549,7 +549,34 @@ says whose he is; your selected unit's men have a thin white ring.
 
 **Roofs.** A roof is drawn over each building until one of your own men (on foot, able) is inside it or within
 8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the
-windows. Enemy men never lift a roof. (Rooms and inner walls come with M7.5c.)
+windows. Enemy men never lift a roof.
+
+## Inside the houses (M7.5c)
+Every building now has an inside, on every floor: **rooms**, **inner walls** with open **doorways**, **stairs**
+between floors and **windows upstairs** (each ground-floor window again on every floor, and a window above every
+door). The map generator makes them after it has placed every building, with its own random numbers, so the rest
+of the map is exactly what it was. Houses and farmhouses get two to five rooms (the room with the front door is
+the hall), offices and blocks of flats a corridor with rooms on either side, barns, sheds, warehouses and churches
+one big room. Every room can be reached from a door (checked for every generated map).
+
+What it changes in the battle:
+- **Seeing and shooting:** an inner wall blocks sight and stops or slows a bullet like any wall (brick, 12 cm);
+  you see and shoot through a doorway. The floor between two storeys blocks sight and stops or is pierced like the
+  roof (same material). Upstairs windows let you see into (and later, M7.5d, out of) the upper floors.
+- **Blast:** an inner wall or a floor shields a man from a burst on its other side; a charge can blow a hole in an
+  inner wall, and men can then walk through it.
+- **Walking in:** tap a move inside a house and the squad goes in: each man by his own way through the nearest door
+  and the doorways, to his own place in that room (a window first; more rooms of the house if the room is full),
+  where he crouches facing out. Order them somewhere outside and they come out by the doors and form up again. Men
+  walk through doors only (not windows); holes blown in a wall count as doors. Indoors a man under fire stays in
+  the house (its walls are his cover) instead of running outside to find cover.
+- **Anti-tank rockets** are not fired from a small room (the room he stands in counts, not the whole house).
+- **On screen:** when the roof fades you see the rooms, the inner walls with their doorways (a light threshold),
+  the hall a shade lighter and the stairs with their steps and an arrow up. In Debug the paths inside each house
+  are drawn: doorway points (cyan), doors to the outside (orange) and the lines a man may walk.
+
+Upper floors (climbing the stairs, firing from upstairs windows, the "Occupy" order and a floor switch) are the
+next slice, M7.5d. The AI does not yet use buildings on purpose (M7.5e).
 
 ## Does an attack work?
 

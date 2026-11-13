@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.5b Look done; M7.5a UI shell done; M7 Vehicles complete)._
+_Last updated: 2026-11-13 (M7.5c Interiors done; M7.5b Look, M7.5a UI shell done; M7 Vehicles complete)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -22,8 +22,19 @@ the flat pixel map (flat palette, wobbled cell edges, seams, pixel tree crowns, 
 contours only zoomed out, close detail tiles); buildings as floors under the men and roofs above them that fade
 near own men or close up; one-row top bar with "⋯" and a compact status line (parent review). Old look behind
 `?look=classic`. Presentation only: goldens untouched. Screenshots `npm run screenshot -- --scene look`.
-Decisions for the morning review: DECISIONS.md "M7.5b Look". **Next: M7.5c Interiors** (map format v2, goldens
-regenerated once with an equivalence proof).
+Decisions for the morning review: DECISIONS.md "M7.5b Look".
+**M7.5c Interiors ✅:** map format 2 — every building has rooms, inner walls with open doorways, stairs and upper
+windows on every floor (`scenario/src/mapgen/interiors.ts`, generated last on stream `mapgen/interiors`; a map
+without interiors is format 1 exactly as before, `stripInteriors`); inner walls and the floors between storeys
+block sight, stop or slow bullets, shield blasts and can be breached; the outdoor nav grid is unchanged and a small
+graph per building joins it at the doors (`sim/src/interior-nav.ts`, `routeBetween` for every man's route): a move
+tapped inside a house takes the squad in by the doors to places by the windows of that room (and the next), out
+again to its formation; indoors men do not run out to seek cover; backblast by room. Floors drawn with inner
+walls, doorways and stairs when the roof fades; Debug draws the interior graphs. **Equivalence proof:** the pre-c
+goldens are kept in `packages/tools/golden/no-interiors/` and replay bit for bit with interiors off; goldens
+regenerated once (DECISIONS.md "M7.5c Interiors", with the on/off batch comparison). Screenshots
+`npm run screenshot -- --scene interiors`. **Next: M7.5d Upper floors** (stairs as routes, `t.z`, Occupy order,
+floor switch).
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —

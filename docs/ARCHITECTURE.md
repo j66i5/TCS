@@ -261,7 +261,8 @@ interface MapDef {
   surfacePalette: DefId[]; surface: Uint8Array;        // per cell
   vegetationPalette: DefId[]; vegetation: Uint8Array;  // per cell, 0 = none
   obstacles: { id; kind; points; heightM; thicknessM; material }[];   // walls, hedges, fences, embankments
-  buildings: { id; kind; footprint; storeys; storeyHeightM; wallMaterial; wallThicknessM; openings[]; roofColour }[];
+  buildings: { id; kind; footprint; storeys; storeyHeightM; wallMaterial; wallThicknessM; openings[]; roofColour;
+               interior?: { rooms[]; walls[]; stairs[] } }[];   // M7.5c, format 2; openings[].floor? (upper windows)
   roads: { id; points; widthM; surface }[];  water: { id; kind: "pond"|"stream"; points; widthM; depthM }[];
   meta: { generator; kind; seed; version };
 }
@@ -275,6 +276,20 @@ interface MapDef {
 - File format `MapFile` (`mapToFile`/`mapFromFile`): JSON, grids as base64 little-endian binary (proposed SPEC
   change, see DECISIONS.md). `mapFingerprint` hashes it; the state records it and `loadSim` checks it.
 - Terrain damage: `state.terrain = { breaches[], craters[], vegetationLoss[] }` (saved, hashed).
+- **Interiors (M7.5c)** — `sim/src/interior.ts`, `scenario/src/mapgen/interiors.ts`: `Room {id, floor, poly (convex),
+  kind room|hall|stair}`, `InnerWall {id, floor, ax..by, thicknessM, material, doors[{offsetM, widthM, headM}]}`,
+  `Stair {id, floor, room, x0..y1, widthM}`; the same partition on every floor; `Opening.floor?` for upper windows.
+  `MAP_FORMAT_VERSION` 2; a map with no interior is written as format 1 byte for byte (`hasInteriors`), and
+  `stripInteriors(map)` gives the map without them. Generated after every building on stream `mapgen/interiors`
+  (`generateMap(..., { interiors })`, default true; MAPGEN_VERSION 2, 1 without). `validateMap` adds
+  `interiorProblems` (floors with rooms, rooms convex inside the footprint, doorways on their walls, every room
+  reachable from an exterior door via doorways and stairs); `checkMap`/`mapStats` report them.
+- **Map index with interiors:** inner walls are appended to `MapIndex.segments` after every outer wall and obstacle
+  (owner "building", part = outer wall count + wall index), from `nOuter` on, NOT in `buckets` (so every query
+  that knew only outer walls sees exactly what it saw) but in `interiorBuckets` (`interiorSegmentsInRectInto`);
+  `interiorOf` gives each building's range. `SegInfo.baseM` = an inner wall's floor height; openings of upper floors
+  and inner doorways are stored with heights above the ground. `RoofRT.slabs` = floor heights between storeys
+  (roof material and thickness, plan §7.9), `RoofRT.innerFrom/innerTo` its inner walls; bucket bit `NEAR_INTERIOR`.
 - Generator: `generateMap(terrain, { kind: "village" | "woodland" | "farmland" | "industrial", seed, widthM,
   heightM, cellSizeM })`, deterministic; `checkMap` (geometry validity) and `mapStats` for tests and tuning.
   `TerrainImporter` is the reserved interface for real-terrain import.
@@ -293,6 +308,19 @@ buildSpatialHash(state, cellM = 16); queryRadius(hash, state, x, y, r): EntityId
 
 Routes are assigned when a move order is delivered (`systems/orders.ts`) and stored as mover waypoints
 (state). Movement speed = mode speed / ground cost under the soldier. Weighted A* (x1.1), see DECISIONS.md.
+
+**Interiors (M7.5c) — `sim/src/interior-nav.ts`.** Buildings stay blocked cells of the outdoor grid (outdoor routes
+byte-identical). Per building a small graph (derived, `ctx.interiorNav`, rebuilt when a breach is added): two nodes
+0.4 m either side of each inner doorway, one node inside each exterior door or hole in an outer wall (with the point
+0.6 m outside), all nodes of one convex room joined; Dijkstra with index tie-breaks. `indoorAt(ctx, x, y)` (via the
+roof buckets) says which building with an interior a point is in. `routeBetween(ctx, search, sx, sy, gx, gy, opts)`
+has `findPath`'s result shape: outdoor to outdoor (or any vehicle class) = `findPath` exactly; otherwise the
+cheapest combination of exit and entry (inside legs on the graph, the outside leg on the grid); an indoor goal is
+never snapped. Every men's `findPath` call (orders, decisions, drills, surrender, grenades, boarding) goes through
+it; an architecture test requires it (or an `// outdoor: ok` marker: vehicles in `drive.ts`). A move whose end is
+indoors gives each man his own place (`indoorSpots`: windows first, 0.9 m grid, about one man per 2.5 m2, the
+nearest rooms next) and route, no formation, crouching facing out; a unit leaving a building comes out on
+personal routes to its formation slots. Indoors a man does not run outside to seek cover (`seekCover`).
 
 ## 16b. Body model (SPEC 6.2, 6.4) — `sim/src/systems/body.ts`, `core/body.json`
 
@@ -392,7 +420,11 @@ the edge can be struck.
 `sight(ctx, x0, y0, z0, x1, y1, z1) -> { visibility, blockedBy, blockedAt, vegetationM }`: a pure query over
 the map and the derived ballistics tables (wall segments with `seeThrough` and openings incl. breaches, roofs,
 8 m buckets of highest ground and vegetation for quick rejection, vegetation concealment per palette entry).
-No state, no randomness, so any system (fire, detection, AI, debug views) may call it. The fire system uses it
+No state, no randomness, so any system (fire, detection, AI, debug views) may call it. M7.5c: inside the roof loop,
+for each building the line crosses, its floor slabs are tested like the roof plane and its inner walls (doorways
+open) like walls — buildings the line does not cross cost nothing extra (village micro-benchmark: +0 %, test
+`perf-sight.test.ts`). The projectile loop tests inner walls only in buckets with `NEAR_INTERIOR`, slabs with the
+roofs; `lineBlocked` (blast, grenade arcs, backblast) tests inner walls and slabs; breaches also open inner walls. The fire system uses it
 for the line of fire (`lineOfFireClear`, cached once a second on the `FireTask`).
 
 ## 16h. Detection (SPEC 6.5) — `sim/src/systems/spotting.ts`, `core/spotting.json`

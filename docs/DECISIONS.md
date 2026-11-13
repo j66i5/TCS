@@ -1939,3 +1939,79 @@ regenerated). The old look stays behind **`?look=classic`** for one milestone (p
   0.2 ms. The two older render cases were moved to the new levels (their old zooms are now symbols).
 - **Not done (deferred):** pixel vehicles (hulls stay vector shapes), interiors (M7.5c), smoke and bursts in pixel
   style, the start hint's size on a phone.
+
+## 2026-11-13 — M7.5c Interiors: implementation choices (decided without the owner, for the morning review)
+Plan `docs/plans/m7.5-look.md` §5. The map changes once; goldens regenerated once (below), with the equivalence proof.
+- **Map format 2.** `Building.interior? {rooms, walls, stairs}`, `Opening.floor?`. A map without any interior is
+  written as format 1, byte for byte as before (so its fingerprint is unchanged); `mapFromFile` reads both.
+  `stripInteriors(map)` removes interiors and upper-floor openings and resets the generator version to 1.
+- **Generation** (`scenario/src/mapgen/interiors.ts`), after every building, in id order, stream
+  `mapgen/interiors`; `generateMap(..., { interiors })` default true; MAPGEN_VERSION 2 (1 without interiors).
+  Local frame of the rectangle; axis-aligned cuts, so every room is a rectangle. A cut never ends in an outer door,
+  window or an earlier doorway (random places first, then the clear place nearest the middle in 0.1 m steps).
+  Each cut one 0.9 m doorway (head 2.0 m), 30 % a second (cuts of 4 m or more). Houses and farmhouses: 2–5 rooms
+  by floor area (about one per 22 m², plus 0–1), the room with the front door is the **hall**. Offices and blocks
+  of flats (≥ 16 × 10 m and 3+ storeys or > 200 m²): a **1.8 m corridor** along the building, rooms of 3–6 m either
+  side, a doorway from the corridor into every room, the front room with the door is the hall. One room: anything
+  with storeys ≥ 4 m high (barn, warehouse, church), plank or sheet walls (< 0.1 m: sheds) or under 25 m².
+  **Inner walls: brick, 0.12 m** (an existing material; no data change — the plan's invariant). Stairs 1 m wide,
+  3–3.5 m long, against the long side of the hall (else the largest room that takes them), one flight per floor
+  pair at the same place; that room is kind "stair". Upper windows: every ground window on every floor, and a
+  window (1.2 m, sill 0.9) above every door. Same partition on every floor (plan §7.7).
+- **Validity**: `validateMap` → `interiorProblems`: every floor has rooms, rooms convex inside the footprint
+  (corners within 5 cm: coordinates are rounded to cm — village seed 41 found it), doorways on their walls, every
+  room reachable from an exterior door through doorways and stairs. 480 maps of 2 km and 240 of 1.2 × 0.9 km swept
+  clean; the tests check 4 kinds × 6 seeds. Generation ~170 ms per 2 km map with interiors (182 ms measured
+  without in the same run: noise; the interiors themselves cost a few ms).
+- **Sight / bullets / blast.** Inner walls are segments of the map index after all others (not in the old
+  buckets: everything that only knew outer walls is untouched); slabs are part of each building's roof record
+  (roof material and thickness, plan §7.9), stairwell holes ignored (§7.10). `sight()` tests slabs and inner walls
+  only for buildings the line crosses (inside the existing roof loop). Projectiles: inner walls in buckets with the
+  new `NEAR_INTERIOR` bit; slabs with the roofs (the lowest slab now sets `roofLow`). `lineBlocked`: inner walls and
+  slabs (slabs judged by the line's height at its two ends — exact for a burst and a man in the same building, the
+  M7.5c case; M7.5d revisits it with men upstairs). Breaches also open inner walls (hole from that floor up).
+- **Routes.** No state change and **no schema bump**: `Waypoint.z`/`inside` were not needed (indoor-ness is
+  derived from the position; heights come with M7.5d). Outdoor grid untouched; per-building graph joined at the
+  doors (`routeBetween`, `interior-nav.ts`), every man's `findPath` routed through it (architecture test with an
+  `// outdoor: ok` marker; vehicles untouched). A move whose end is indoors: no formation, each man his own place
+  (`indoorSpots`, windows first, then a 0.9 m grid, about one man per 2.5 m², the nearest rooms after the tapped
+  one), crouching, facing out of the window or away from the room's centre — this is the plan's "indoor cover"
+  (instead of a separate `seekCoverIndoor`). Leaving: men inside come out on their own routes to their formation
+  slots at the destination. **Indoors a man under fire does not seek cover outside** (`seekCover` returns). Windows
+  are not ways in (plan §7.13). Backblast: the room he stands in (with an interior), else the whole house.
+- **UI.** Nothing to change: a tap is already passed on unchanged, so a move tapped inside a building goes inside
+  (the sim keeps an indoor goal; before, it snapped to the nearest open cell outside).
+- **Render.** When the roof fades: halls and stair rooms a shade lighter, inner walls (0.15 m) with a light
+  threshold in each doorway, stairs with steps and an arrow up; only the ground floor (floor switch: M7.5d). Debug
+  (with the nav overlay) draws every interior graph: room edges, doorway steps, exits.
+- **Equivalence proof.** The pre-c goldens are kept unchanged in `packages/tools/golden/no-interiors/` and replayed
+  with the interiors stripped: catalog fingerprint and every checkpoint hash identical (test). Per kind and seed,
+  `generateMap({interiors:false})` has the same fingerprint as `stripInteriors(generateMap())`, and the outdoor nav
+  grid is byte-identical with interiors on and off (tests). Batches with `--no-interiors` reproduce the pre-c
+  batch numbers exactly (platoon 10 × 900 s: casualties 16.10 / 8.20, same as the M7.5b-era report).
+- **Goldens regenerated once** (`npm run golden:update`): demo-s1, vehicles-s1, platoon-vehicles-s1 changed from
+  their first checkpoint (the map fingerprint is in the state hash); shootout-s1, fixture-s7, fixture-cart-s3
+  (flat maps) unchanged.
+- **Batch comparison, interiors on vs off** (same seeds; `npm run batch -- ... [--no-interiors]`):
+
+  | scenario | runs × s | winners on / off | casualties blue/red on | off | prisoners on | off |
+  |---|---|---|---|---|---|---|
+  | platoon | 10 × 900 | red 10 / red 10 | 14.5 / 9.3 | 16.1 / 8.2 | 0 / 0.1 | 0.1 / 0.1 |
+  | platoon-ru | 10 × 900 | blue 10 / blue 10 | 8.1 / 16.1 | 7.8 / 15.4 | 0 / 0 | 0 / 0 |
+  | platoon-vehicles | 10 × 900 | blue 4 red 6 / blue 4 red 6 | 10.5 / 19.5 | 10.9 / 20.2 | 0.2 / 1.0 | 0.3 / 1.2 |
+  | demo | 50 × 120 | 50 draws / 50 draws | 0 / 0 | 0 / 0 | – | – |
+
+  Winners unchanged; casualties within ±1.6 men per side (run-to-run spread of these batches is ±3–4). Why they
+  differ at all: very few men stand indoors (AI v AI, 3 seeds each: on average 0–1 man inside, at most 6, when an
+  ordered point lies in a house), so the change is mostly that **lines of sight and fire into houses** now meet
+  inner walls and slabs, and **upper-floor windows** let some lines through walls that were solid before; any such
+  difference then changes every later random draw (chaotic divergence). Speed unchanged (platoon 155x vs 161x,
+  platoon-vehicles 72x vs 73x, demo 186x vs 189x).
+- **Perf.** bench 14x (15x without interiors), bench-vehicles 8.4–9x (9x; noisy near the 8x floor),
+  bench-combined 3.8x, render 0.97 / 1.13 / 0.32 / 1.56 / 0.24 ms (target 4), village sight micro-benchmark
+  (new `perf-sight.test.ts`, 6000 lines among the houses): +0 to +3 % (target ≤ 10 %, asserted < 20 % for noise).
+  The M7.4b hull-hit perf case measured 34 % once in the full perf run (17 % alone; its limit 25 %): timing noise,
+  not touched by this slice (vehicle maps are farmland; hull code unchanged).
+- **Deferred to M7.5d:** upper floors for men (stairs as routes, `t.z`, floor switch, Occupy with window spots,
+  heights audit), slabs in `lineBlocked` for lines leaving a building, enemy floor badges. **Later:** doors with
+  state, windows as ways in, dark rooms, AI use of buildings (M7.5e), a room-level breach test for backblast.

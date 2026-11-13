@@ -172,7 +172,9 @@ white flags on the map; the after-action review lists surrendered and captured m
 - **M7.5 Look and interface** (owner request 2026-11-12, after M7) — 🔨 (plan `docs/plans/m7.5-look.md`; **M7.5a UI
   shell ✅** 2026-11-12: greyed order bar docking to any edge, unit sidebar, relevant actions only, labels that
   never overlap, overview vehicle symbols, appearance data; **M7.5b look ✅** 2026-11-12: zoom levels, opening
-  zoomed in, original pixel soldiers, flat pixel map, contours only far, roofs that fade; next M7.5c interiors)
+  zoomed in, original pixel soldiers, flat pixel map, contours only far, roofs that fade; **M7.5c interiors ✅**
+  2026-11-13: rooms, inner walls, doorways, stairs and upper windows in every building, sight/bullets/blast with
+  inner walls and floors, squads ordered into, out of and between rooms; next M7.5d upper floors)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.
   - A sidebar lists every unit of the player's side; tapping an entry selects the unit.

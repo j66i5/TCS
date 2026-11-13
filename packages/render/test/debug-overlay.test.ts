@@ -38,10 +38,16 @@ describe("vehicle debug overlay: crew reaction (M7.4b, plan C2)", () => {
     const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1100, y: 600, heading: Math.PI / 2 } }));
     const [rid] = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")!;
     const dbg = new VehicleDebug();
-    dbg.onEvents([{ kind: "vehicle.reaction", tick: 10, vehicle: rid, reaction: "reverseOut", keys: ["reaction.rocketHit", "reaction.penetrated"] }]);
+    dbg.onEvents([{ kind: "vehicle.reaction", tick: 10, vehicle: rid, reaction: "reverseOut", keys: ["reaction.atClose", "reaction.penetrated"] }]);
     const text = dbg.view(sim.state, rid, strings).lines.join("\n");
     expect(text).toContain(strings.t("reaction.reverseOut"));
-    expect(text).toContain(strings.t("reaction.rocketHit"));
+    expect(text).toContain(strings.t("reaction.atClose"));
     expect(text).toContain(strings.t("reaction.penetrated"));
+    // Where it goes back to after the hold, and a player's order it holds (owner 2026-11-13).
+    const v = sim.state.vehicle.req(rid);
+    v.returnTo = { x: 1100, y: 600, heading: 0 }; v.playerHold = true;
+    const more = dbg.view(sim.state, rid, strings).lines.join("\n");
+    expect(more).toContain(strings.t("debug.vehicle.returnTo", { x: "1100", y: "600" }));
+    expect(more).toContain(strings.t("debug.vehicle.playerHold"));
   });
 });

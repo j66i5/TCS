@@ -424,8 +424,15 @@ export interface VehicleState {
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;
-  /** Last hit by a rocket or other shaped charge, through or not (M7.4b: the crew reverses out of its reach). */
+  /** Last hit by a rocket or other shaped charge, through or not (M7.4b; since 2026-11-13 no reason by itself to
+   *  reverse out: a rocket that bounces off does not drive the crew back). */
   lastShapedHitTick: number;
+  /** Where it stood before reversing out for a reason other than damage (owner 2026-11-13): it drives back there
+   *  when the hold ends; kept while it drives back; dropped on arrival, on any move or halt order, or on damage. */
+  returnTo?: { x: number; y: number; heading: number };
+  /** Its last move or halt order came from the player (Order.player, owner 2026-11-13): enemy men close or a
+   *  panicked commander do not drive it back; only penetration and lost weapons do. */
+  playerHold?: true;
   /** Bearing (world, rad) the last heavy or penetrating hit came from, null before any (M7.4b: away from it). */
   threatAz: number | null;
   seatSwap: { seat: number; actor: EntityId; untilTick: number } | null;

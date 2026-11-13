@@ -50,6 +50,9 @@ export class VehicleDebug {
     const r = this.reaction.get(vid);
     const what = r?.reaction ?? v.crewReaction;
     if (what !== null) out.lines.push(s.t("debug.vehicle.reaction", { reaction: s.t(`reaction.${what}`), why: (r?.keys ?? v.reactionWhy).map((k) => s.t(k)).join("; ") }));
+    // Owner 2026-11-13: where it drives back to after a hold (not after damage); a player's order it holds.
+    if (v.returnTo) out.lines.push(s.t("debug.vehicle.returnTo", { x: v.returnTo.x.toFixed(0), y: v.returnTo.y.toFixed(0) }));
+    if (v.playerHold === true) out.lines.push(s.t("debug.vehicle.playerHold"));
     return out;
   }
 }

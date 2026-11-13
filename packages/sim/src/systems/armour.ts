@@ -44,7 +44,10 @@ import { getOut } from "./boarding";
 import { removeItems } from "../items";
 import { compCondition, hasDriver, occupant, vehicleItems } from "../mount";
 import { vehicleMove } from "./drive";
-import { dischargeSmoke } from "./gunnery";
+import { canEngageAt, dischargeSmoke } from "./gunnery";
+import { aimHeightAt } from "./fire";
+import { launcherRound } from "./launcher";
+import { heightAt } from "../terrain";
 import { radioFromTarget } from "./orders";
 
 const FACE_NAMES = ["front", "side", "rear", "top"] as const;
@@ -571,12 +574,18 @@ export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: Ev
 }
 
 /**
- * CREW REACTIONS (M7.4b, plan §8, C2/C21), once a second per vehicle (staggered): a crew in a vehicle that can
- * still move decides between fighting on and reversing out of reach:
- *   reverseOut   penetrated without losing its mobility; struck by a rocket (through or not); its weapons wrecked;
- *                its commander shaken or worse; enemy men on foot it knows within `atThreatM` while its fire rule
- *                is not "free". It fires its smoke dischargers (if it has salvos) and backs away from where the
- *                fire came from `reverseOutM` (forward if that is behind it), facing the threat, then holds there.
+ * CREW REACTIONS (M7.4b, plan §8, C2/C21; owner 2026-11-13 "make armour not back out of every fight"), once a
+ * second per vehicle (staggered): a crew in a vehicle that can still move decides between fighting on and reversing
+ * out of reach:
+ *   reverseOut   penetrated without losing its mobility; its weapons wrecked; its commander panicked (shaken is
+ *                not enough); an enemy man on foot it knows within `atThreatM` (point-blank) that none of its guns
+ *                can fire at from where it stands (too close to depress on, out of the arc, no line, no gun left).
+ *                A rocket that bounced off and ordinary infantry fire are no reasons. It fires its smoke
+ *                dischargers (if it has salvos) and backs away from where the danger is `reverseOutM` (forward if
+ *                that is behind it), facing it, then holds there `reverseHoldSeconds`. When the reason was not
+ *                damage (enemy close, commander panicked), it drives back to where it stood once the hold is over
+ *                and nothing new drives it off (`returnTo`). A vehicle under a player's move or halt order
+ *                (`playerHold`) reverses out only when penetrated or disarmed.
  *   continue     everything else (an immobilised vehicle with a working gun fights on under fire that bounces off).
  * Bailing out is decided where the damage happens (above). The reasons go to `reactionWhy` and a
  * `vehicle.reaction` event (debug overlay); the crew calls it on the radio.
@@ -596,26 +605,43 @@ export function crewReactionSystem(ctx: SimContext, state: SimState, events: Eve
     if (!hasDriver(state, v, def) || !crewCanAct(state, v, def)) continue;
     const why: string[] = [];
     if (tick - v.lastPenTick <= recent) why.push("reaction.penetrated");
-    if (tick - v.lastShapedHitTick <= recent) why.push("reaction.rocketHit");
     if (v.status === "disarmed" && v.crewReaction !== "reverseOut") why.push("reaction.disarmed");
-    const cmd = occupant(v, def, "commander");
-    const cb = cmd !== null ? state.soldier.get(cmd)?.mental.behaviour : undefined;
-    if (cb === "shaken" || cb === "panicked") why.push("reaction.shaken");
-    const crew = state.unit.get(v.unit);
+    const damage = why.length > 0;
     let near: { x: number; y: number } | null = null;
-    if (crew && crew.fireRule !== "free" && C.atThreatM > 0) near = closeEnemyFoot(state, v, def, vid, C.atThreatM);
-    if (near) why.push("reaction.atThreat");
-    if (why.length === 0) { if (v.crewReaction === "reverseOut") { v.crewReaction = "continue"; v.reactionTick = tick; v.reactionWhy = ["reaction.fightOn"]; } continue; }
+    if (v.playerHold !== true) {
+      const cmd = occupant(v, def, "commander");
+      if (cmd !== null && state.soldier.get(cmd)?.mental.behaviour === "panicked") why.push("reaction.panicked");
+      const close = C.atThreatM > 0 ? closeEnemyFoot(ctx, state, v, def, vid, C.atThreatM) : null;
+      if (close) { near = close; why.push(close.launcher ? "reaction.atClose" : "reaction.atThreat"); }
+    }
+    if (why.length === 0) {
+      if (v.crewReaction === "reverseOut") {
+        v.crewReaction = "continue"; v.reactionTick = tick; v.reactionWhy = ["reaction.fightOn"];
+        // Back to where it stood (not after damage): it rejoins the fight.
+        const back = v.returnTo;
+        if (back && vehicleMove(ctx, state, vid, [{ x: back.x, y: back.y, mode: "walk" }], back.heading) === true) {
+          events.emit({ kind: "vehicle.reaction", tick, vehicle: vid, reaction: "continue", keys: ["reaction.returning"] });
+          v.reactionWhy = ["reaction.returning"];
+        } else delete v.returnTo;
+      } else if (v.returnTo && v.drive.arrived) delete v.returnTo;
+      continue;
+    }
     const t = state.transform.req(vid);
+    if (damage) delete v.returnTo;
+    else v.returnTo ??= { x: t.x, y: t.y, heading: t.heading };
     const from = near ? atan2(near.y - t.y, near.x - t.x) : v.threatAz ?? t.heading;
     reverseOut(ctx, state, events, vid, v, def, from, why);
   }
 }
 
-/** Enemy men on foot this crew knows of within `r` of the hull (the nearest), or null. */
-function closeEnemyFoot(state: SimState, v: VehicleState, def: VehicleDef, vid: EntityId, r: number): { x: number; y: number } | null {
+/**
+ * The nearest enemy man on foot this crew saw within `r` of the hull in the last 10 s that none of its guns can
+ * fire at from where it stands (`canEngageAt`), or null; `launcher`: he carries a loaded anti-tank launcher.
+ */
+function closeEnemyFoot(ctx: SimContext, state: SimState, v: VehicleState, def: VehicleDef, vid: EntityId, r: number): { x: number; y: number; launcher: boolean } | null {
   const t = state.transform.req(vid);
-  let best: { x: number; y: number } | null = null, bestD = r;
+  let best: { x: number; y: number; launcher: boolean } | null = null, bestD = r;
+  const checked: EntityId[] = [];
   for (let k = 0; k < def.seats.length; k++) {
     if (def.seats[k]!.station === "passenger") continue;
     const m = v.seats[k];
@@ -624,7 +650,11 @@ function closeEnemyFoot(state: SimState, v: VehicleState, def: VehicleDef, vid: 
     for (const c of s.contacts) {
       if (c.cls === "vehicle" || c.surrendered || c.kind !== "seen" || state.tick - c.tick > secondsToTicks(10)) continue;
       const d = hypot2(c.x - t.x, c.y - t.y);
-      if (d < bestD) { bestD = d; best = { x: c.x, y: c.y }; }
+      if (d >= bestD || checked.includes(c.target)) continue;
+      checked.push(c.target);
+      // ground: ok (the point a gun would fire at: a man's floor in his aim height)
+      if (canEngageAt(ctx, state, vid, v, def, c.x, c.y, heightAt(ctx.map, c.x, c.y) + aimHeightAt(ctx, c))) continue;
+      bestD = d; best = { x: c.x, y: c.y, launcher: launcherRound(ctx, state, c.target) !== null };
     }
   }
   return best;

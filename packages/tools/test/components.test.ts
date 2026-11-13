@@ -1,7 +1,7 @@
 /**
  * Components, fire, crew reactions and cross-loading (M7.4b, plan §8, C6, C8, C12, C16, C21, C63): damage to a
- * part changes what the vehicle can do as the table says; the extinguisher's charges are counted; a crew struck by
- * a rocket fires smoke and reverses out; a crew that bailed out takes orders on foot; men take belts from their
+ * part changes what the vehicle can do as the table says; the extinguisher's charges are counted; a crew penetrated
+ * fires smoke and reverses out (a bouncing rocket or infantry it can fire at do not drive it back); a crew that bailed out takes orders on foot; men take belts from their
  * own side's abandoned hull (never the enemy's); a wrecked radio takes the crew off the net; the fixture's active
  * protection and add-on tiles; wrecks and vehicle records come out of the battle and go into the next.
  */
@@ -126,38 +126,114 @@ describe("component effects (M7.4b, plan §8 table)", () => {
   });
 });
 
-describe("crew reactions (M7.4b, plan §8, C21)", () => {
-  it("struck by a rocket that does not get through (Puma front, owner Q21 b): smoke, then it reverses out of reach facing the threat", () => {
+describe("crew reactions (M7.4b, plan §8, C21; owner 2026-11-13: armour does not back out of every fight)", () => {
+  /** Blue Puma at (400, 600) facing east; the red squad on foot in a line across x = `squadX`; everyone holds fire. */
+  function withSquad(squadX: number): { sim: Sim; blue: EntityId; men: EntityId[] } {
+    const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 2300, y: 1100, heading: 0 }, redSquadAt: { x: squadX, y: 600, spacing: 3 } }));
+    holdAll(sim);
+    const blue = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "blue")![0];
+    const men = [...sim.state.identity.entries()].filter(([id, i]) => i.side === "red" && sim.state.soldier.req(id).mount === undefined && Math.abs(sim.state.transform.req(id).x - squadX) < 1).map(([id]) => id);
+    expect(men.length).toBeGreaterThan(3);
+    return { sim, blue, men };
+  }
+  const crewSees = (sim: Sim, vid: EntityId, men: EntityId[]): boolean => {
+    const v = sim.state.vehicle.req(vid);
+    return v.seats.some((m) => m !== null && sim.state.soldier.get(m)!.contacts.some((c) => c.kind === "seen" && men.includes(c.target)));
+  };
+
+  it("a rocket that bounces off (Puma front, owner Q21 b) is no reason to reverse out any more: it holds its ground", () => {
     // Red is a Puma facing west toward the blue BMP-2's side.
-    const { sim, red, blue } = field(["ru", "de"], { x: 1000, y: 600, heading: Math.PI });
+    const { sim, red } = field(["ru", "de"], { x: 1000, y: 600, heading: Math.PI });
     const shooter = [...sim.state.identity.entries()].find(([, i]) => i.side === "blue")![0];
     const v = sim.state.vehicle.req(red);
     const x0 = sim.state.transform.req(red).x;
     const ev: SimEvent[] = [];
     strikeFront(sim, red, shooter, "ru-pg7vl", ev);
     expect(ev.find((e) => e.kind === "vehicle.hit")).toMatchObject({ result: "stopped" });
+    run(sim, 10, (e) => ev.push(e));
+    expect(v.crewReaction).not.toBe("reverseOut");
+    expect(ev.some((e) => e.kind === "vehicle.reaction" && e.vehicle === red && e.reaction === "reverseOut")).toBe(false);
+    expect(Math.abs(sim.state.transform.req(red).x - x0)).toBeLessThan(1);
+  });
+
+  it("penetrated: smoke, then it reverses out of reach facing the threat, and stays back after the hold", () => {
+    const { sim, red } = field(["ru", "de"], { x: 1000, y: 600, heading: Math.PI });
+    const v = sim.state.vehicle.req(red);
+    const x0 = sim.state.transform.req(red).x;
+    // (Test set-up: a penetration from the west that left the crew and the drive fit.)
+    v.lastPenTick = sim.state.tick; v.threatAz = Math.PI;
+    const ev: SimEvent[] = [];
     run(sim, 3, (e) => ev.push(e));
     expect(v.crewReaction).toBe("reverseOut");
-    expect(v.reactionWhy).toContain("reaction.rocketHit");
-    expect(ev.some((e) => e.kind === "vehicle.reaction" && e.vehicle === red)).toBe(true);
+    expect(v.reactionWhy).toContain("reaction.penetrated");
     expect(ev.some((e) => e.kind === "vehicle.smoke" && e.vehicle === red)).toBe(true);
     expect(v.drive.route.some((w) => w.reverse === true)).toBe(true);
+    expect(v.returnTo).toBeUndefined();
     run(sim, 25);
     // Backed away east (away from the threat in the west) and still faces west.
-    expect(sim.state.transform.req(red).x - x0).toBeGreaterThan(20);
+    const x1 = sim.state.transform.req(red).x;
+    expect(x1 - x0).toBeGreaterThan(20);
     expect(Math.abs(Math.cos(sim.state.transform.req(red).heading) + 1)).toBeLessThan(0.3);
-    void blue;
+    // Damage: once the hold is over it fights on where it is (no drive back).
+    run(sim, 20);
+    expect(v.crewReaction).toBe("continue");
+    expect(Math.abs(sim.state.transform.req(red).x - x1)).toBeLessThan(15);
+  });
+
+  it("enemy infantry it can fire at, even at 120 m and under a fire rule that is not free, is no reason to reverse out", () => {
+    const { sim, blue, men } = withSquad(520);
+    const v = sim.state.vehicle.req(blue);
+    run(sim, 12);
+    expect(crewSees(sim, blue, men)).toBe(true);
+    expect(sim.state.unit.req(v.unit!).fireRule).not.toBe("free");
+    expect(v.crewReaction).not.toBe("reverseOut");
+    expect(Math.abs(sim.state.transform.req(blue).x - 400)).toBeLessThan(1);
+  });
+
+  it("enemy men at point-blank range its guns cannot depress onto: it reverses out, then drives back to where it stood once they are gone", () => {
+    const { sim, blue, men } = withSquad(408.5);
+    const v = sim.state.vehicle.req(blue);
+    const ev: SimEvent[] = [];
+    run(sim, 6, (e) => ev.push(e));
+    expect(v.crewReaction).toBe("reverseOut");
+    expect(v.reactionWhy.some((k) => k === "reaction.atThreat" || k === "reaction.atClose")).toBe(true);
+    expect(v.returnTo).toMatchObject({ x: 400, y: 600 });
+    // The squad goes away (test set-up); after the hold (15 s) the crew drives back.
+    for (const m of men) { const t = sim.state.transform.req(m); t.x = 2350; t.y = 1150; }
+    run(sim, 8, (e) => ev.push(e));
+    expect(sim.state.transform.req(blue).x).toBeLessThan(370);
+    run(sim, 40, (e) => ev.push(e));
+    expect(ev.some((e) => e.kind === "vehicle.reaction" && e.vehicle === blue && e.keys.includes("reaction.returning"))).toBe(true);
+    expect(v.crewReaction).toBe("continue");
+    expect(Math.hypot(sim.state.transform.req(blue).x - 400, sim.state.transform.req(blue).y - 600)).toBeLessThan(8);
+    expect(v.returnTo).toBeUndefined();
+  });
+
+  it("a vehicle under the player's halt order holds against point-blank infantry; penetration still drives it back", () => {
+    const { sim, blue, men } = withSquad(1500);
+    const v = sim.state.vehicle.req(blue);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: v.unit!, kind: "halt", player: true });
+    run(sim, 4);
+    // (Test set-up: once the order is through, the squad stands right in front of the hull.)
+    men.forEach((m, k) => { const t = sim.state.transform.req(m); t.x = 408.5; t.y = 592.5 + 3 * k; });
+    run(sim, 8);
+    expect(crewSees(sim, blue, men)).toBe(true);
+    expect(v.playerHold).toBe(true);
+    expect(v.crewReaction).not.toBe("reverseOut");
+    v.lastPenTick = sim.state.tick; v.threatAz = 0;
+    run(sim, 3);
+    expect(v.crewReaction).toBe("reverseOut");
+    expect(v.reactionWhy).toEqual(["reaction.penetrated"]);
   });
 
   it("the smoke salvo goes off along the turret as it is laid toward the threat: a damaged turret drive lays it short (M7 review finding 5)", () => {
     const offBearing = (drive: number): number => {
       const { sim, red } = field(["ru", "de"], { x: 1000, y: 600, heading: Math.PI });
-      const shooter = [...sim.state.identity.entries()].find(([, i]) => i.side === "blue")![0];
       setComp(sim, red, "turret-drive", drive);
       const st = sim.state.vehicle.req(red).stations[0]!;
       st.azimuth = Math.PI / 2; st.azCmd = Math.PI / 2; // (test set-up: the turret pointing to the side)
-      const ev: SimEvent[] = [];
-      strikeFront(sim, red, shooter, "ru-pg7vl", ev);
+      // (Test set-up: penetrated from the west, bearing pi; the crew reverses out behind smoke.)
+      sim.state.vehicle.req(red).lastPenTick = sim.state.tick; sim.state.vehicle.req(red).threatAz = Math.PI;
       let smoke: { x: number; y: number; vx: number; vy: number } | null = null;
       for (let i = 0; i < 6 * TICK_HZ && !smoke; i++) for (const e of step(sim)) {
         if (e.kind === "vehicle.smoke" && e.vehicle === red) { const t = sim.state.transform.req(red); smoke = { x: e.x, y: e.y, vx: t.x, vy: t.y }; }

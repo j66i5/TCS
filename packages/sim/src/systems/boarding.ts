@@ -21,12 +21,13 @@ import { registerActionHandler, startAction } from "../actions";
 import type { VehicleDef } from "../catalog";
 import type { Boarding, SoldierState, Unit, VehicleState } from "../components";
 import type { SimContext } from "../context";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { transferItems } from "../items";
 import { isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import { findPath, nearestPassable } from "../nav";
+import { nearestPassable } from "../nav";
 import { navFor } from "../navctx";
 import type { Order, OrderBody } from "../orders";
 import { seatWorld } from "../setup";
@@ -97,15 +98,17 @@ function halt(state: SimState, id: EntityId): void {
   if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
 }
 
-/** Send a man along a foot path to (x, y) at a run, standing at the end. */
-function runTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): boolean {
+/**
+ * Send a man along a foot path to (x, y) at a run, standing at the end; `gz`: the goal's height above the ground
+ * (a casualty upstairs, M7.5 review fix; a vehicle's exit is on the ground).
+ */
+function runTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, gz = 0): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
-  const leg = findPath(navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz });
   if (!leg) return false;
-  m.waypoints = [];
-  for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null; m.endPosture = null; m.endHeading = null;
   return true;
 }
@@ -587,7 +590,7 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
       const ap = state.action.get(p), aq = state.action.get(q);
       if (ap?.kind !== "loadCasualty" || aq?.kind !== "loadCasualty") {
         const tp = state.transform.req(p), tq = state.transform.req(q);
-        const atP = hypot2(tp.x - ct.x, tp.y - ct.y) <= 2.5, atQ = hypot2(tq.x - ct.x, tq.y - ct.y) <= 2.5;
+        const atP = hypot2(tp.x - ct.x, tp.y - ct.y) <= 2.5 && Math.abs(tp.z - ct.z) < 1, atQ = hypot2(tq.x - ct.x, tq.y - ct.y) <= 2.5 && Math.abs(tq.z - ct.z) < 1;
         if (atP && atQ && stopped && ensureRamp(b, def, tick)) {
           const dur = secondsToTicks(def.ramp.loadCasualtySeconds);
           startAction(state, events, p, "loadCasualty", dur, { vehicle: b.vehicle, casualty: cas, other: q, role: "lead" });
@@ -597,7 +600,7 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
           for (const [m, at] of [[p, atP], [q, atQ]] as const) {
             const w = state.mover.get(m)?.waypoints;
             const goal = w && w.length > 0 ? w[w.length - 1]! : null;
-            if (!at && (!goal || hypot2(goal.x - ct.x, goal.y - ct.y) > 2)) runTo(ctx, state, m, ct.x, ct.y);
+            if (!at && (!goal || hypot2(goal.x - ct.x, goal.y - ct.y) > 2)) runTo(ctx, state, m, ct.x, ct.y, ct.z);
           }
         }
       }

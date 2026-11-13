@@ -1,8 +1,51 @@
 # State — handover note
 
-_Last updated: 2026-11-12 (M7.4b done: M7 Vehicles complete)._
+_Last updated: 2026-11-13 (M7.5d Upper floors done — M7.5 complete; M7 Vehicles complete)._
 
 ## Current milestone
+**M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
+§7 design questions and the slice's own choices were decided with the recommended options **for the owner's
+morning review** (DECISIONS.md "M7.5 design questions decided without the owner" and "M7.5a UI shell").
+**M7.5a UI shell ✅:** the battle opens with nothing selected and the order bar greyed; the bar offers only what the
+selected unit can do now (`unitCapabilities` → `ordersFor`); it docks to any edge by dragging its grip (remembered
+per device), one row on a phone with rare buttons behind "⋯"; a unit sidebar of tiles (symbol, callsign, men fit,
+state colour) selects units and opens into a detailed list (always open ≥ 1000 px); labels are placed without
+overlaps (`render/src/labels.ts`), a squad beside its vehicle shares its label; zoomed out, vehicles are symbols
+(stacked when close) and infantry symbols show only men on foot; appearance data (`appearance.json`, outside the
+catalog) gives vehicle paint now and uniforms/palette for M7.5b. Presentation only: goldens untouched.
+Screenshots: `npm run screenshot -- --scene ui`.
+**M7.5b Look ✅:** zoom levels (`render/src/lod.ts`: symbols < 1.2 px/m, dots, pixel figures from 5, close from
+16 with every roof lifted; 10 % hysteresis); the battle opens at 8 px/m on the lead squad; the camera never zooms
+out past the whole map; ORIGINAL 16 × 16 pixel soldiers (11 frames, weapon variants, firing flash, launcher on the
+back, wounded, down, dead, surrendered, captive; 16 pre-rotated facings; faction palette swap; blue/red outline);
+the flat pixel map (flat palette, wobbled cell edges, seams, pixel tree crowns, rasterised roads/water/hedges,
+contours only zoomed out, close detail tiles); buildings as floors under the men and roofs above them that fade
+near own men or close up; one-row top bar with "⋯" and a compact status line (parent review). Old look behind
+`?look=classic`. Presentation only: goldens untouched. Screenshots `npm run screenshot -- --scene look`.
+Decisions for the morning review: DECISIONS.md "M7.5b Look".
+**M7.5c Interiors ✅:** map format 2 — every building has rooms, inner walls with open doorways, stairs and upper
+windows on every floor (`scenario/src/mapgen/interiors.ts`, generated last on stream `mapgen/interiors`; a map
+without interiors is format 1 exactly as before, `stripInteriors`); inner walls and the floors between storeys
+block sight, stop or slow bullets, shield blasts and can be breached; the outdoor nav grid is unchanged and a small
+graph per building joins it at the doors (`sim/src/interior-nav.ts`, `routeBetween` for every man's route): a move
+tapped inside a house takes the squad in by the doors to places by the windows of that room (and the next), out
+again to its formation; indoors men do not run out to seek cover; backblast by room. Floors drawn with inner
+walls, doorways and stairs when the roof fades; Debug draws the interior graphs. **Equivalence proof:** the pre-c
+goldens are kept in `packages/tools/golden/no-interiors/` and replay bit for bit with interiors off; goldens
+regenerated once (DECISIONS.md "M7.5c Interiors", with the on/off batch comparison). Screenshots
+`npm run screenshot -- --scene interiors`.
+**M7.5d Upper floors ✅ (M7.5 complete):** men climb the stairs (`Waypoint.z`, `t.z` = height above the ground;
+stairs at half pace) to any floor; `standZ` for every soldier height (eyes, muzzles, targets, launcher, grenades,
+blast, surrender, cover; architecture test with `// ground: ok`); a squad ordered into a house spreads about one
+man per 4.5 m² over the rooms, then the floors (fix from the M7.5c screenshots); the move goes to the floor on
+screen; new order **Occupy** `{building, floor?, facing?}` with an Occupy button (tap a house): window places on
+every floor facing the nearest known enemy first; men fire from upper windows. Floor switch G, 1, 2 … (follows the
+selected unit), upper-floor plans drawn, men on other floors faint with a floor badge, men at true size close in.
+New scenario/golden `village-occupy-s1`; existing goldens unchanged. Decisions: DECISIONS.md "M7.5d Upper floors".
+Screenshots `npm run screenshot -- --scene floors`. **Next:** the owner's morning review of M7.5 (all decisions
+made without him); M7.5e "AI uses buildings" only if he wants it.
+
+Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —
 vehicles drive on routed paths (clearance grids, flattening fences and hedges, going round walls), yield to each
 other, make their own men step aside and run over enemies (owner Q4), stop rounds and block sight; they are drawn
@@ -37,7 +80,7 @@ penetrated or struck by a rocket, crews that bailed out become foot units you ca
 abandoned hulls of either side, the AI gives anti-tank tasks (shots at known vehicles in range, a step aside out of
 the danger zone, two hunters after halted vehicles), gets out at once on an anti-tank threat and reverses out on
 withdrawal; active protection and add-on tiles on the fixture; wrecks and vehicle records round-trip.
-Next: **M7.5 Look and interface** (owner answers already in DECISIONS.md). Deferred items: DECISIONS.md (M7.1c part 3,
+M7 deferred items: DECISIONS.md (M7.1c part 3,
 M7.2 parts 1–3, M7.3, M7.4a, M7.4b).
 
 ## What works

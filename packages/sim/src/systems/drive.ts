@@ -85,6 +85,7 @@ export function driveSurface(ctx: SimContext, def: VehicleDef, x: number, y: num
   const sv: SurfaceVehicleDef | undefined = sid === undefined ? undefined : ctx.catalog.terrain.surfaces[sid]?.vehicle;
   const half = def.body.lengthM / 2;
   const c = cos(heading), s = sin(heading);
+  // ground: ok (a hull on the ground)
   const hf = heightAt(map, x + c * half, y + s * half), hb = heightAt(map, x - c * half, y - s * half);
   const dh = hf - hb, len = sqrt(dh * dh + 4 * half * half);
   const sinPitch = dh / len, cosPitch = (2 * half) / len;
@@ -612,6 +613,7 @@ export function planVehicleRoute(ctx: SimContext, cls: "tracked" | "wheeled", x:
   const out: Waypoint[] = wps.length > 0 ? [{ ...wps[0]!, x, y }] : [];
   let px = x, py = y;
   for (const w of wps) {
+    // outdoor: ok (vehicles never enter buildings)
     const p = findPath(search, px, py, w.x, w.y, blocked ? { snapCells: 6, blocked, maxExpansions: 200000 } : { snapCells: 6 });
     if (!p) return null;
     for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });

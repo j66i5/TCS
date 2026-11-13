@@ -29,7 +29,58 @@ const wanderBoth = (input: BattleInput): Controller[] => [
   wanderController("red", input.seed * 2 + 2, input.map),
 ];
 
+/**
+ * M7.5d village-occupy: the blue squad occupies the two-storey house nearest to it (Occupy, facing the red squad)
+ * and fires at will; the red squad advances to 60 m short of that house on its own side and fires at will.
+ */
+function occupyControllers(input: BattleInput): Controller[] {
+  const centre = (side: string): { unit: number; x: number; y: number } => {
+    const f = input.forces.find((x) => x.side === side)!;
+    let x = 0, y = 0;
+    for (const p of f.placements) { x += p.x / f.placements.length; y += p.y / f.placements.length; }
+    return { unit: -1, x, y };
+  };
+  const b = centre("blue"), r = centre("red");
+  let best = -1, bd = Infinity;
+  input.map.buildings.forEach((bl, i) => {
+    if (!bl.interior || bl.storeys < 2) return;
+    let cx = 0, cy = 0;
+    const n = bl.footprint.length / 2;
+    for (let k = 0; k < n; k++) { cx += bl.footprint[k * 2]! / n; cy += bl.footprint[k * 2 + 1]! / n; }
+    const d = Math.hypot(cx - b.x, cy - b.y);
+    if (d < bd) { bd = d; best = i; }
+  });
+  const house = input.map.buildings[best]!;
+  let hx = 0, hy = 0;
+  const n = house.footprint.length / 2;
+  for (let k = 0; k < n; k++) { hx += house.footprint[k * 2]! / n; hy += house.footprint[k * 2 + 1]! / n; }
+  const dx = r.x - hx, dy = r.y - hy, dl = Math.hypot(dx, dy) || 1;
+  const top = (view: Parameters<Controller["think"]>[0], side: string) => [...view.unit.entries()].filter(([, u]) => u.side === side && u.parent === null).map(([id]) => id);
+  const clamp = (v: number, m: number) => Math.min(Math.max(v, 2), m - 2);
+  return [
+    { side: "blue", think(view, tick) {
+      if (tick !== 0) return [];
+      return top(view, "blue").flatMap((id) => [
+        { tick, issuer: "blue", target: id, kind: "rules" as const, fire: "free" as const },
+        { tick, issuer: "blue", target: id, kind: "occupy" as const, building: house.id, facing: Math.atan2(dy, dx) },
+      ]);
+    } },
+    { side: "red", think(view, tick) {
+      if (tick !== 0) return [];
+      return top(view, "red").flatMap((id) => [
+        { tick, issuer: "red", target: id, kind: "rules" as const, fire: "free" as const },
+        { tick, issuer: "red", target: id, kind: "move" as const, waypoints: [{ x: clamp(hx + (dx / dl) * 60, input.map.widthM), y: clamp(hy + (dy / dl) * 60, input.map.heightM), mode: "walk" }] },
+      ]);
+    } },
+  ];
+}
+
 export const SCENARIOS: Record<string, NamedScenario> = {
+  "village-occupy": {
+    description: "M7.5d: the demo squads on the village; the German squad occupies the nearest two-storey house (Occupy: window places across both floors, facing the enemy) and fires at will; the Russian squad advances to 60 m short of it.",
+    build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village", frontM: 300 }),
+    controllers: occupyControllers,
+  },
   demo: {
     description: "A German Panzergrenadier dismount squad vs a Russian motor-rifle squad on a generated 2 x 2 km village map; both wander.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village" }),

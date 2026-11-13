@@ -6,10 +6,15 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBattle, secondsToTicks, simHash, type Order, type Sim } from "@tcs/sim";
+import { runBattle, secondsToTicks, simHash, stripInteriors, type Order, type Sim } from "@tcs/sim";
 import { getScenario, loadData } from "./scenarios";
 
 export const GOLDEN_DIR = fileURLToPath(new URL("../golden", import.meta.url));
+/**
+ * The goldens recorded before building interiors (M7.5c), kept unchanged: replayed with interiors off they must
+ * still match bit for bit (the equivalence proof of plan §1.3).
+ */
+export const GOLDEN_NO_INTERIORS_DIR = join(GOLDEN_DIR, "no-interiors");
 
 export interface GoldenFile {
   name: string;
@@ -46,10 +51,12 @@ export function recordGolden(name: string, description: string, scenario: string
 const hashOf = (sim: Sim) => simHash(sim);
 
 /** Replay a golden's order stream WITHOUT controllers and return the checkpoint hashes. */
-export function replayGolden(g: GoldenFile): { checkpoints: Record<string, string>; catalogFingerprint: string } {
+export function replayGolden(g: GoldenFile, opts: { interiors?: boolean } = {}): { checkpoints: Record<string, string>; catalogFingerprint: string } {
   const sc = getScenario(g.scenario);
   const data = loadData(sc.fixtures ?? false);
   const input = sc.build(data, g.seed, g.seconds);
+  // Without interiors: exactly the map `generateMap(..., { interiors: false })` gives (tested in mapgen).
+  if (opts.interiors === false) input.map = stripInteriors(input.map);
   input.orders = g.orders;
   const checkpoints: Record<string, string> = {};
   const everyTicks = secondsToTicks(g.checkpointEverySeconds);
@@ -57,11 +64,11 @@ export function replayGolden(g: GoldenFile): { checkpoints: Record<string, strin
   return { checkpoints, catalogFingerprint: input.catalog.fingerprint };
 }
 
-export function readGoldens(): GoldenFile[] {
-  return readdirSync(GOLDEN_DIR)
+export function readGoldens(dir = GOLDEN_DIR): GoldenFile[] {
+  return readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
     .sort()
-    .map((f) => JSON.parse(readFileSync(join(GOLDEN_DIR, f), "utf8")) as GoldenFile);
+    .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as GoldenFile);
 }
 
 /** The set of goldens that should exist. Add new ones here. */
@@ -72,4 +79,5 @@ export const GOLDEN_SPECS: { name: string; description: string; scenario: string
   { name: "vehicles-s1", description: "Two Pumas and two BMP-2s with their squads wandering on farmland, seed 1, 150 s (M7.1c)", scenario: "vehicles", seed: 1, seconds: 150 },
   { name: "fixture-cart-s3", description: "Fixture wheeled carts vs Pumas on a flat field, seed 3, 90 s (M7.1c)", scenario: "vehicles-fixture", seed: 3, seconds: 90 },
   { name: "platoon-vehicles-s1", description: "Platoon battle with vehicles: the Germans ride in and get out, AI v AI, seed 1, 150 s (M7.2)", scenario: "platoon-vehicles", seed: 1, seconds: 150 },
+  { name: "village-occupy-s1", description: "A German squad occupies a two-storey house (window places on both floors, stairs) and fires on a Russian squad advancing on it, seed 1, 180 s (M7.5d)", scenario: "village-occupy", seed: 1, seconds: 180 },
 ];

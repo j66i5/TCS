@@ -19,7 +19,7 @@ import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, segmentsInRectInto } from "../terrain";
+import { heightAt, standZ, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 
 /**
@@ -35,8 +35,22 @@ export function syncTerrainDamage(ctx: SimContext, state: SimState, rect?: reado
   ctx.nav = {}; // routes are planned on grids rebuilt with the holes in them
 }
 
+/** Scratch list of inner walls near a burst (M7.5c). */
+const BREACH_IN: number[] = [];
 /** Scratch list of wall segments near a burst (reused: no allocation per burst). */
 const BREACH_SEGS: number[] = [];
+
+/**
+ * The storey of building `id` a burst at height `rel` above the ground is on, as [bottom, top] above the ground
+ * (M7.5 review fix), for a building with an interior and floors above; null otherwise (the whole wall).
+ */
+function storeyBand(map: SimContext["map"], id: number, rel: number): [number, number] | null {
+  const b = map.buildings.find((q) => q.id === id);
+  if (!b?.interior || b.storeys < 2) return null;
+  const H = b.storeyHeightM;
+  const f = Math.min(Math.max(Math.floor(Math.max(rel, 0) / H), 0), b.storeys - 1);
+  return [f * H, (f + 1) * H];
+}
 
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
@@ -55,7 +69,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     if (!t) continue;
     const dx = t.x - x, dy = t.y - y;
     if (dx > stunR || dx < -stunR || dy > stunR || dy < -stunR) continue;
-    const cz = heightAt(map, t.x, t.y) + t.z + ctx.catalog.body.postures[s.posture].heightM * 0.5;
+    const cz = standZ(map, t) + ctx.catalog.body.postures[s.posture].heightM * 0.5;
     const d = sqrt(dx * dx + dy * dy + (cz - z) * (cz - z));
     if (d > stunR) continue;
     if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
@@ -66,6 +80,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const fragIdx = ammoIndexOf(ctx.catalog, ex.fragmentAmmo);
   // On the ground the lower half goes into the earth; a burst in the air (fuse ran out in flight, a round
   // striking a wall or a ceiling) throws fragments downward too.
+  // ground: ok (a burst above the ground; one on an upper floor counts as in the air: fragments both ways)
   const airborne = z - heightAt(map, x, y) > bal.fragments.airburstAboveM;
   const lo = airborne ? -1 : sin((bal.fragments.bandDeg[0] * PI) / 180), hi = sin((bal.fragments.bandDeg[1] * PI) / 180);
   const n = Math.min(bal.fragments.maxPerBurst, Math.round((ex.fragmentCount * (hi - lo)) / 2));
@@ -87,7 +102,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   P.count = i;
 
   // ---- terrain damage
-  const ground = heightAt(map, x, y);
+  const ground = heightAt(map, x, y); // ground: ok (craters)
   if (z - ground < 0.5 && BL.craterScaledM > 0) {
     const r = BL.craterScaledM * cube;
     state.terrain.craters.push({ x, y, radiusM: r, depthM: r * 0.4, tick: state.tick });
@@ -95,7 +110,12 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const reach = BL.breachReachScaledM * cube, strength = BL.breachSteelMmScaled * cube, width = BL.breachWidthScaledM * cube;
   let breached = false;
   let bx0 = x, by0 = y, bx1 = x, by1 = y;
-  const nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
+  let nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
+  // Inner walls of building interiors too (M7.5c), after the outer walls.
+  if (ctx.mapIndex.segments.length > ctx.mapIndex.nOuter) {
+    const nIn = interiorSegmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_IN);
+    for (let q = 0; q < nIn; q++) BREACH_SEGS[nSeg++] = BREACH_IN[q]!;
+  }
   for (let q = 0; q < nSeg; q++) {
     const si = BREACH_SEGS[q]!;
     const s = ctx.mapIndex.segments[si]!, info = ctx.ballistics.seg[si]!;
@@ -104,14 +124,17 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     u = u < 0 ? 0 : u > 1 ? 1 : u;
     const px = s.ax + u * exx, py = s.ay + u * eyy;
     if (hypot2(px - x, py - y) > reach) continue;
-    const rel = z - heightAt(map, px, py);
-    if (rel > info.heightM + reach) continue;
+    const rel = z - heightAt(map, px, py); // ground: ok (walls stand on the ground)
+    if (rel > info.heightM + reach || (info.baseM > 0 && rel < info.baseM - reach)) continue;
     const mat = ctx.ballistics.materials[info.material]!;
     if (mat.resistance * info.thicknessM * 1000 >= strength) continue;
     const off = u * info.len;
-    // Not where the wall is already open.
-    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= 0.01)) continue;
-    state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, tick: state.tick });
+    // The outer wall of a building with floors (M7.5 review fix): the hole is in the storey the burst is on.
+    const band = s.owner === "building" && info.baseM === 0 ? storeyBand(map, s.id, rel) : null;
+    const lo = band ? band[0] : info.baseM;
+    // Not where the wall is already open (from the bottom of that storey).
+    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= lo + 0.01 && (!band || o.headM > lo + 1))) continue;
+    state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, ...(band ? { sillM: band[0], headM: band[1] } : {}), tick: state.tick });
     events.emit({ kind: "terrain.breached", tick: state.tick, x: px, y: py, owner: s.owner, id: s.id });
     breached = true;
     bx0 = Math.min(bx0, px - width); by0 = Math.min(by0, py - width); bx1 = Math.max(bx1, px + width); by1 = Math.max(by1, py + width);

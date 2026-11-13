@@ -16,6 +16,7 @@ import {
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
+  CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
   type DoctrineT, type FactionManifestT, type ItemT, type MovementModeT, type NamesT, type QualityT, type RankT,
   type RoleT, type UnitTemplateT,
 } from "./schemas";
@@ -43,6 +44,8 @@ export interface FactionPack {
   vehicles: Record<string, VehicleT>;
   doctrine: DoctrineT;
   strings: StringTables;
+  /** Look (M7.5; optional file appearance.json): uniform tones and vehicle paint. Not in the catalog. */
+  appearance?: FactionAppearanceT;
 }
 
 export interface TerrainData {
@@ -66,6 +69,8 @@ export interface DataSet {
   qualities: Record<string, QualityT>;
   strings: StringTables;
   factions: Record<string, FactionPack>;
+  /** The flat map palette (M7.5; optional file core/appearance.json). Not in the catalog. */
+  appearance?: CoreAppearanceT;
 }
 
 export interface LoadResult {
@@ -181,6 +186,17 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     strings,
     factions: {},
   };
+  // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
+  if (files["core/appearance.json"] !== undefined) {
+    const ap = parse(CoreAppearanceFile, "core/appearance.json", files["core/appearance.json"], errors);
+    if (ap) {
+      const check = (group: "surfaces" | "vegetation" | "roofs" | "floors", known2: Record<string, unknown>) => {
+        for (const k of Object.keys(ap[group])) if (!known2[k]) errors.push({ file: "core/appearance.json", path: `${group}.${k}`, message: `unknown id '${k}' (known: ${known(known2)})`, severity: "error" });
+      };
+      check("surfaces", terrain.surfaces); check("vegetation", terrain.vegetation); check("roofs", terrain.buildings); check("floors", terrain.buildings);
+      data.appearance = ap;
+    }
+  }
 
   // Group faction files by directory.
   const dirs = new Map<string, string>(); // dir -> faction folder name
@@ -241,6 +257,7 @@ function loadFaction(
   const weaponsF = files[f("weapons.json")] === undefined ? { weapons: [] } : parse(WeaponsFile, f("weapons.json"), files[f("weapons.json")], errors);
   const vehiclesF = files[f("vehicles.json")] === undefined ? { vehicles: [] } : parse(VehiclesFile, f("vehicles.json"), files[f("vehicles.json")], errors);
   if (!ammoF || !weaponsF || !vehiclesF) return null;
+  const appearance: FactionAppearanceT | null = files[f("appearance.json")] === undefined ? null : parse(FactionAppearanceFile, f("appearance.json"), files[f("appearance.json")], errors);
   ammoF.ammunition.forEach((a, i) => {
     if (itemsF.items.some((it) => it.id === a.id)) {
       errors.push({ file: f("ammunition.json"), path: `ammunition[${i}].id`, message: `'${a.id}' is also defined in items.json; ammunition becomes an item automatically`, severity: "error" });
@@ -296,6 +313,7 @@ function loadFaction(
     vehicles: indexById(vehiclesF.vehicles, f("vehicles.json"), "vehicles", errors),
     doctrine,
     strings,
+    ...(appearance ? { appearance } : {}),
   };
 
   // Cross references.

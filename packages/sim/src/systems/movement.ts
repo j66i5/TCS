@@ -18,10 +18,15 @@ import type { SimState } from "../state";
 import { radioFromTarget } from "./orders";
 import type { EntityId } from "../ids";
 import { navCostAt } from "../nav";
+import { indoorAt } from "../interior-nav";
 import { navFor } from "../navctx";
 import { isAble } from "../impair";
 import { isCowering } from "./morale";
 import { pointInObb, PUSH, type Obb } from "../hulls";
+
+/** Pace on stairs relative to the same pace on level ground (M7.5d; game values, not from data yet). */
+const STAIRS_UP_FACTOR = 0.5;
+const STAIRS_DOWN_FACTOR = 0.6;
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
@@ -73,8 +78,18 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     const k = navCostAt(navFor(ctx, mode.class).grid, t.x, t.y);
     let speed = mode.speedMps / (k > 0 ? k : 1);
     speed *= B.postures[posture].speedFactor / B.postures[mode.posture].speedFactor;
-    if (dist > 1e-9) {
+    // Height (M7.5d): a leg with a height climbs or descends evenly (stairs); a leg without one keeps his height
+    // indoors and brings him to the ground outdoors (a route planned without heights from a floor above).
+    let zTo = wp.z;
+    if (zTo === undefined && t.z !== 0) zTo = indoorAt(ctx, wp.x, wp.y) >= 0 ? t.z : 0;
+    const climb = zTo !== undefined && zTo !== t.z && dist > 1e-9;
+    if (climb) {
+      const g = (zTo! - t.z) / dist;
+      m.grade = g;
+      speed *= g > 0 ? STAIRS_UP_FACTOR : STAIRS_DOWN_FACTOR;
+    } else if (dist > 1e-9) {
       const look = Math.min(dist, B.movement.slopeLookAheadM);
+      // ground: ok (the slope of the ground)
       const g = (heightAt(ctx.map, t.x + (dx / dist) * look, t.y + (dy / dist) * look) - heightAt(ctx.map, t.x, t.y)) / look;
       m.grade = g;
       // Tobler's hiking function, normalised to 1 on level ground.
@@ -110,6 +125,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (dist <= step) {
       t.x = wp.x;
       t.y = wp.y;
+      if (zTo !== undefined) t.z = zTo;
       m.waypoints.shift();
       m.speedMps = m.waypoints.length > 0 ? speed : 0;
       if (m.waypoints.length === 0) {
@@ -123,6 +139,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     } else {
       t.x += (dx / dist) * step;
       t.y += (dy / dist) * step;
+      if (climb) t.z += (zTo! - t.z) * (step / dist);
       m.speedMps = speed;
     }
   }

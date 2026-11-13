@@ -23,6 +23,7 @@ import { registerActionHandler, startAction } from "../actions";
 import { lineBlocked, type AmmoRT } from "../ballistics";
 import type { SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
+import { roomAt } from "../interior";
 import type { EventSink } from "../events";
 import { flightStep, type FlightState } from "../flight";
 import { secondsToTicks, type EntityId } from "../ids";
@@ -32,7 +33,7 @@ import { sight } from "../los";
 import { atan2, cos, hypot2, sin } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, pointInPolygon } from "../terrain";
+import { heightAt, pointInPolygon, standZ } from "../terrain";
 import { launchProjectile } from "./ballistics";
 import { skillFactor } from "./fire";
 import { footSoldiers } from "../mount";
@@ -86,13 +87,15 @@ export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId,
   for (const b of ctx.map.buildings) {
     if (!pointInPolygon(b.footprint, t.x, t.y)) continue;
     let area = 0;
-    const f = b.footprint;
+    // With an interior (M7.5c) the room he stands in, not the whole house.
+    const ri = roomAt(b, 0, t.x, t.y);
+    const f = ri >= 0 ? b.interior!.rooms[ri]!.poly : b.footprint;
     for (let k = 0; k < f.length; k += 2) { const j = (k + 2) % f.length; area += f[k]! * f[j + 1]! - f[j]! * f[k + 1]!; }
     area = Math.abs(area) / 2;
     const breached = state.terrain.breaches.some((br) => br.owner === "building" && br.id === b.id);
     if (!breached && area < AT.largeRoomM2) return "at.room";
   }
-  const z = heightAt(ctx.map, t.x, t.y) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const z = standZ(ctx.map, t) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   // A wall right behind the tube.
   const bx = t.x - cos(az) * AT.wallBehindM, by = t.y - sin(az) * AT.wallBehindM;
   if (bx > 0 && by > 0 && bx < ctx.map.widthM && by < ctx.map.heightM && lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, t.x, t.y, z, bx, by, z)) return "at.wallBehind";
@@ -143,11 +146,15 @@ export function aimSolution(ctx: SimContext, am: AmmoRT, v0: number, d: number, 
   return r ? { el: hi, tof: r.tof } : null;
 }
 
-/** The aim point height above the ground: a vehicle's hull middle, a man's chest. */
-function aimHeight(ctx: SimContext, state: SimState, target: EntityId | undefined): number {
+/**
+ * The aim point height above the ground: a vehicle's hull middle, a man's chest — on his floor when the shooter
+ * knows him to be upstairs (M7.5d; M7.5 review fix: the height in the shooter's contact, never the true one).
+ */
+function aimHeight(ctx: SimContext, state: SimState, target: EntityId | undefined, known: { z?: number } | undefined): number {
   const v = target !== undefined ? state.vehicle.get(target) : undefined;
   if (v) { const h = ctx.catalog.vehicles[v.def]?.body.hull; if (h) return (h.u[0] + h.u[1]) / 2; }
-  return 1.0;
+  const z = known?.z ?? 0;
+  return z > 0 ? 1.0 + z : 1.0;
 }
 
 /** Is this contact one his anti-tank rule lets him fire at on his own? */
@@ -177,7 +184,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const range = am.delivery?.maxRangeM ?? 300;
   const me = state.transform.req(id);
   const seen = secondsToTicks(AT.seenWithinSeconds);
-  let best: { target: EntityId; x: number; y: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.wreck) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -187,14 +194,14 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
     else { const es = state.soldier.get(c.target); if (!es || es.casualty !== "none") continue; }
     if (!atTarget(ctx, state, rule, c.target, isV)) continue;
     const score = d * (isV ? 0.5 : 1);
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y }; }
+    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
   if (!best) return false;
   const az = atan2(best.y - me.y, best.x - me.x);
   if (backblastBlocked(ctx, state, id, rd.ammo, az) !== null) return false;
   // A clear line from his shoulder to the aim point (the target's own hull ignored).
-  const z0 = heightAt(ctx.map, me.x, me.y) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
-  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target);
+  const z0 = standZ(ctx.map, me) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target, best); // ground: ok (aimHeight carries a man's floor)
   const r = sight(ctx, me.x, me.y, z0, best.x, best.y, z1, -1, best.target);
   if (r.blockedBy !== null) return false;
   startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: rd.ammo, x: best.x, y: best.y, target: best.target });
@@ -287,23 +294,24 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const AT = ctx.catalog.behaviour.antitank;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammo)]!;
   // Where he believes the target is now, and how it moves.
-  let tx = x0, ty = y0, vx = 0, vy = 0;
+  let tx = x0, ty = y0, vx = 0, vy = 0, known: { z?: number } | undefined;
   if (target !== undefined) {
     const k = s.contacts.find((q) => q.target === target);
-    if (k) { tx = k.x; ty = k.y; vx = k.vx ?? 0; vy = k.vy ?? 0; }
+    if (k) { tx = k.x; ty = k.y; vx = k.vx ?? 0; vy = k.vy ?? 0; known = k; }
   }
   const az0 = atan2(ty - t.y, tx - t.x);
   if (backblastBlocked(ctx, state, id, ammo, az0) !== null) return; // someone stepped behind him: no shot
   const ox = t.x + cos(az0) * 0.3, oy = t.y + sin(az0) * 0.3;
-  const oz = heightAt(ctx.map, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   const v0 = d.velocityMps ?? 100;
   const rng = state.rng;
   // His estimate of the range is off by a few per cent; the lead follows from the flight time.
   const rangeErr = 1 + AT.rangeErrorFraction * nextNormal(rng, Streams.antitank);
-  const aimH = aimHeight(ctx, state, target);
+  const aimH = aimHeight(ctx, state, target, known);
   let ax = tx, ay = ty, sol: { el: number; tof: number } | null = null;
   for (let it = 0; it < 2; it++) {
     const dist = Math.max(1, hypot2(ax - ox, ay - oy));
+    // ground: ok (aimHeight carries a man's floor)
     const dz = heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01)) + aimH - oz;
     sol = aimSolution(ctx, am, v0, dist * rangeErr, dz);
     if (!sol) break;

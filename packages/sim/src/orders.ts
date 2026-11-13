@@ -22,6 +22,9 @@ export interface Waypoint {
   posture?: Posture;
   /** Vehicles (M7): drive this leg in reverse. */
   reverse?: true;
+  /** Height above the ground at this point, m (M7.5d: a floor of a building, or a step on its stairs); the man
+   *  climbs or descends evenly along the leg. Absent: his height does not change (outdoors: 0). */
+  z?: number;
 }
 
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */
@@ -33,6 +36,8 @@ export type OrderBody =
     facing?: number;
     /** Width of the formation at the destination, m (its slots are spaced to fit; M5). */
     frontageM?: number;
+    /** A destination inside a building: the floor (0 = ground, M7.5d; the floor the player has on screen). */
+    floor?: number;
   }
   | { kind: "halt" }
   /** Stop and take a posture. */
@@ -66,7 +71,10 @@ export type OrderBody =
   /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
   | { kind: "dismount" }
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
-  | { kind: "discharge" };
+  | { kind: "discharge" }
+  /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor
+   *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first. */
+  | { kind: "occupy"; building: number; floor?: number; facing?: number };
 
 export type OrderKind = OrderBody["kind"];
 

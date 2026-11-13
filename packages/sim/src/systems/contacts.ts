@@ -60,6 +60,9 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
     if (c.vtype !== undefined) old.vtype = c.vtype;
     if (c.kind !== "seen" && contactErrorM(ctx, c as Contact, now) > contactErrorM(ctx, old, now)) return false;
     old.x = c.x; old.y = c.y; old.errM = c.errM; old.kind = c.kind; old.tick = c.tick;
+    // His height (M7.5 review fix): what was seen or reported replaces it; a sound keeps the last known one.
+    if (c.z !== undefined) old.z = c.z;
+    else if (c.kind !== "heard" && old.z !== undefined) delete old.z;
     if (c.heading !== undefined) { old.heading = c.heading; old.vx = c.vx ?? 0; old.vy = c.vy ?? 0; }
     return false;
   }
@@ -116,6 +119,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       // With his own eyes, this tick: he sees that the man has given up (the only place the flag is created).
       const gaveUp = isCaptive(state.soldier.get(e.target));
       const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen", tick, ...(gaveUp ? { surrendered: true as const } : {}) };
+      // A man on foot upstairs (M7.5 review fix): the height he was seen at.
+      if (t.z > 0 && state.soldier.get(e.target)?.mount === undefined) c.z = t.z;
       // A vehicle (M7.3): its heading and movement; its type once within the range it can be told at (owner Q6).
       const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
       if (veh) {

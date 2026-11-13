@@ -1,0 +1,444 @@
+{
+ "name": "vehicles-s1",
+ "description": "Two Pumas and two BMP-2s with their squads wandering on farmland, seed 1, 150 s (M7.1c)",
+ "scenario": "vehicles",
+ "seed": 1,
+ "seconds": 150,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 434.23843779601157,
+     "y": 665.4056883975863,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 302.7011367492378,
+     "y": 552.9739996511489,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 15,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 655.2460396662354,
+     "y": 654.5489942422137,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 19,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 448.14224895089865,
+     "y": 331.1500020464882,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 29,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 711.8381181266159,
+     "y": 636.3510496728122,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 33,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 484.1830290388316,
+     "y": 717.7957741264254,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 40,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 378.6421456374228,
+     "y": 411.84687801171094,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 44,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 511.981605598703,
+     "y": 552.8498577978462,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 473.671293631196,
+     "y": 287.5265252497047,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 558.5987507365644,
+     "y": 273.6139099812135,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 15,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 599.8788495082408,
+     "y": 273.2351733511314,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 19,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 599.7457542456686,
+     "y": 636.2827395927161,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 29,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 744.245583191514,
+     "y": 583.7933389982209,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 33,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 508.72164834290743,
+     "y": 353.9360781619325,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 40,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 555.6595742236823,
+     "y": 518.1583156809211,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 44,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 660.2645913138986,
+     "y": 706.2236029375345,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 861.8553281296045,
+     "y": 381.3788165571168,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 656.6447061952204,
+     "y": 535.0816047471017,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "blue",
+   "target": 15,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 855.935445567593,
+     "y": 585.3960879240185,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "blue",
+   "target": 19,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 641.527676442638,
+     "y": 624.7801336320117,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "red",
+   "target": 29,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 804.0944470558316,
+     "y": 180.9244417771697,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "red",
+   "target": 33,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 782.0282540749758,
+     "y": 541.9322397373617,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "red",
+   "target": 40,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 721.397446654737,
+     "y": 504.7016746038571,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 5400,
+   "issuer": "red",
+   "target": 44,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 768.3409892488271,
+     "y": 500.2279530186206,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 763.3932427503169,
+     "y": 619.2016303958371,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 380.8272116817534,
+     "y": 673.7557656923309,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "blue",
+   "target": 15,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 738.4925443679094,
+     "y": 360.51073961891234,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "blue",
+   "target": 19,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 663.4463248774409,
+     "y": 648.2194221066311,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "red",
+   "target": 29,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 833.4665999282151,
+     "y": 538.6021427577361,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "red",
+   "target": 33,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 719.3344152532518,
+     "y": 288.0994819337502,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "red",
+   "target": 40,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 812.1539510786533,
+     "y": 194.99888841994107,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
+   "issuer": "red",
+   "target": 44,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 599.4431267492473,
+     "y": 532.0555295795202,
+     "mode": "walk"
+    }
+   ]
+  }
+ ],
+ "checkpoints": {
+  "600": "e0a5ed43fea6646d",
+  "1200": "5709269eab7a611a",
+  "1800": "6964a7515308d3b2",
+  "2400": "a93ac17ac10a3c43",
+  "3000": "103c322ab070d333",
+  "3600": "064852cd6a10ed3c",
+  "4200": "50619bd753066056",
+  "4800": "04d0889a66834ebd",
+  "5400": "70efd0714fccb79b",
+  "6000": "e446763e54e77c6b",
+  "6600": "40f49a37e6e77f6e",
+  "7200": "d6c29cdb246575da",
+  "7800": "eff1e87db045649b",
+  "8400": "10b03d45ca0bf51c",
+  "9000": "28988fb341f74286"
+ },
+ "catalogFingerprint": "c269fc35621d3b0e"
+}

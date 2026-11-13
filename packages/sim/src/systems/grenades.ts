@@ -8,18 +8,19 @@
  */
 import { interruptAction, registerActionHandler, type ActionHandler } from "../actions";
 import type { EventSink } from "../events";
-import { findPath, navCostAt } from "../nav";
+import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { lineBlocked, roofAt, type AmmoRT } from "../ballistics";
 import type { SimContext } from "../context";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import { DT, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { removeItems } from "../items";
 import { atan2, cos, hypot2, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { heightAt, standZ } from "../terrain";
 import { launchProjectile } from "./ballistics";
 import { skillFactor } from "./fire";
 
@@ -110,9 +111,10 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
       const ri = roofAt(B, ctx.mapIndex, q === 0 ? ax : bx, q === 0 ? ay : by);
       if (ri < 0) continue;
       const top = B.roofs[ri]!.heightM;
+      // ground: ok (the grenade's flight against the ground and roofs)
       if ((z - heightAt(map, ax, ay) - top > 0) !== (nz - heightAt(map, bx, by) - top > 0)) return -1; // through the roof plane
     }
-    if (nz <= heightAt(map, bx, by)) return nx; // it has come down: nothing was in the way
+    if (nz <= heightAt(map, bx, by)) return nx; // ground: ok // it has come down: nothing was in the way
     x = nx; z = nz;
   }
   return -1;
@@ -139,8 +141,9 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
   const az = atan2(ay - t.y, ax - t.x);
   t.heading = az;
   const ox = t.x + cos(az) * 0.4, oy = t.y + sin(az) * 0.4;
-  const oz = heightAt(ctx.map, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM + (thrown ? 0.3 : 0);
+  const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM + (thrown ? 0.3 : 0);
   const d = Math.max(1, hypot2(ax - ox, ay - oy));
+  // ground: ok (the point aimed at)
   const drop = oz - heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01));
   // An arc is good if it comes down unobstructed no more than `short` metres short of the point (and not far
   // beyond it), with no wall between where it comes down and the point.
@@ -151,6 +154,7 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
     const lx = ox + cos(az) * L, ly = oy + sin(az) * L, px = ox + cos(az) * d, py = oy + sin(az) * d;
     const inMap = (qx: number, qy: number) => qx >= 0 && qy >= 0 && qx < ctx.map.widthM && qy < ctx.map.heightM;
     if (!inMap(lx, ly) || !inMap(px, py)) return true;
+    // ground: ok (where it comes down and the point aimed at)
     return !lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, lx, ly, heightAt(ctx.map, lx, ly) + 0.15, px, py, heightAt(ctx.map, px, py) + 0.15);
   };
   let v = 0, el = 0, found = false;
@@ -248,7 +252,7 @@ export function grenadeReactionSystem(ctx: SimContext, state: SimState, events: 
         if (e.burstTick + AFTER_TICKS > cur.untilTick) cur.untilTick = e.burstTick + AFTER_TICKS;
         continue;
       }
-      const cz = heightAt(ctx.map, t.x, t.y) + ctx.catalog.body.postures[s.posture].heightM * 0.5;
+      const cz = standZ(ctx.map, t) + ctx.catalog.body.postures[s.posture].heightM * 0.5;
       if (lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, e.x, e.y, e.z + 0.1, t.x, t.y, cz, ctx.catalog.ballistics.blast.shieldSteelMm)) continue;
       const start = cur !== null && state.tick >= cur.startTick ? state.tick : state.tick + Math.round(G.reactDelaySeconds / DT);
       s.evade = {
@@ -305,10 +309,9 @@ function rejoinRoute(ctx: SimContext, state: SimState, id: EntityId): void {
   const wp = m?.waypoints[0];
   if (!m || !t || !wp) return;
   const search = navFor(ctx, ctx.catalog.movementModes[wp.mode]?.class ?? "foot").search;
-  const p = findPath(search, t.x, t.y, wp.x, wp.y, { maxExpansions: 6000 }) ?? findPath(search, t.x, t.y, wp.x, wp.y);
+  const p = routeBetween(ctx, search, t.x, t.y, wp.x, wp.y, { maxExpansions: 6000 }, { sz: t.z, gz: wp.z }) ?? routeBetween(ctx, search, t.x, t.y, wp.x, wp.y, {}, { sz: t.z, gz: wp.z });
   if (!p) { m.waypoints = []; return; } // no way back: he stays where he is
-  const lead = [];
-  for (let i = 0; i + 2 < p.points.length; i += 2) lead.push({ ...wp, x: p.points[i]!, y: p.points[i + 1]! });
+  const lead = routeWaypoints(p, wp, 0, 1);
   m.waypoints = [...lead, ...m.waypoints];
   m.formation = null; // he walks his own way from here
   m.slotLagM = 0;

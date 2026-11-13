@@ -21,7 +21,7 @@ import { resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { detonate } from "./explosions";
 import { resolveVehicleHit } from "./armour";
 import { addStoppedHit } from "../hulls";
-import { HULL_HIT, hullEntry, NEAR_SOLDIER, NEAR_VEHICLE, NEAR_WALL, type AmmoRT } from "../ballistics";
+import { HULL_HIT, hullEntry, NEAR_INTERIOR, NEAR_SOLDIER, NEAR_VEHICLE, NEAR_WALL, type AmmoRT } from "../ballistics";
 
 import { addProjectile, ammoIndexOf, removeProjectile } from "../projectiles";
 import { nextFloat, Streams } from "../rng";
@@ -119,7 +119,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   const W = map.widthM, H = map.heightM;
   const bm = B.bucketM, bcols = B.bcols, brows = B.brows, maxGround = B.maxGround, maxVegTop = B.maxVegTop;
   const invBm = 1 / bm, near = B.near, NW = NEAR_WALL, NS = NEAR_SOLDIER, NV = NEAR_VEHICLE, VG = B.vehicles, hullAt = hullEntry, stoppedHit = addStoppedHit;
-  const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg;
+  const sm = index.bucketM, scols = index.bcols, srows = index.brows, sbuckets = index.buckets, segs = index.segments, segInfo = B.seg, ibuckets = index.interiorBuckets, NI = NEAR_INTERIOR;
   const tick = state.tick, rng = state.rng;
   const X = P.x, Y = P.y, Z = P.z, VX = P.vx, VY = P.vy, VZ = P.vz, AMMO = P.ammo, BORN = P.bornTick;
   const ammoRT = B.ammo, maxAge = B.maxAgeTicks;
@@ -236,7 +236,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     // ---- coarse rejection: sample the path every bucket (8 m) and compare its height there with the highest
     // ground / vegetation top of that bucket. Margins cover slopes between samples; a bullet that slips past
     // is caught on the next tick (it would then start below ground).
-    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false, nearVehicle = false;
+    let nearGround = false, nearVeg = false, nearWall = false, nearSoldier = false, nearRoof = false, nearVehicle = false, nearInner = false;
     const zTop = z0 > z1 ? z0 : z1;
     {
       const adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
@@ -251,6 +251,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         if (pz <= maxVegTop[kk]! + VEG_MARGIN_M) nearVeg = true;
         const nb = near[kk]!;
         if ((nb & NW) !== 0) { nearWall = true; if (zTop >= roofLow[kk]!) nearRoof = true; } // roofs sit on walls
+        if ((nb & NI) !== 0) nearInner = true;
         if ((nb & NS) !== 0) nearSoldier = true;
         if ((nb & NV) !== 0) nearVehicle = true;
       }
@@ -293,6 +294,38 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       }
     }
 
+    // ---- inner walls of building interiors (M7.5c): only near one, and only below its roof
+    if (nearInner) {
+      let c0 = (minX / sm) | 0, c1 = (maxX / sm) | 0, r0 = (minY / sm) | 0, r1 = (maxY / sm) | 0;
+      if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= scols) c1 = scols - 1; if (r1 >= srows) r1 = srows - 1;
+      for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+        const list = ibuckets[r * scols + c]!;
+        for (let q = 0; q < list.length; q++) {
+          const si = list[q]!;
+          const s = segs[si]!;
+          const ex = s.bx - s.ax, ey = s.by - s.ay;
+          const denom = dx * ey - dy * ex;
+          if (denom > -1e-12 && denom < 1e-12) continue;
+          const t = ((s.ax - x0) * ey - (s.ay - y0) * ex) / denom;
+          if (t <= 1e-9 || t > 1 || t >= tHit) continue;
+          const u = ((s.ax - x0) * dy - (s.ay - y0) * dx) / denom;
+          if (u < 0 || u > 1) continue;
+          const info = segInfo[si]!;
+          const rel = z0 + t * dz - hAt(map, x0 + t * dx, y0 + t * dy);
+          if (rel < info.baseM || rel > info.heightM) continue;
+          if (info.openings) {
+            const off = u * info.len;
+            let open = false;
+            for (const o of info.openings) {
+              if (off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && rel >= o.sillM && rel <= o.headM) { open = true; break; }
+            }
+            if (open) continue;
+          }
+          tHit = t; hitSeg = si;
+        }
+      }
+    }
+
     // ---- roofs: a flat lid at wall height over each building's footprint
     let tRoof = 2, roofIdx = -1;
     if (nearRoof && (dz > 1e-9 || dz < -1e-9)) {
@@ -305,6 +338,15 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
         const list = roofBuckets[r * scols + c]!;
         for (let q = 0; q < list.length; q++) {
           const rf = roofs[list[q]!]!;
+          // Floors between storeys (M7.5c) stop or are pierced like the roof (same material and thickness).
+          const sl = rf.slabs;
+          for (let h = 0; h < sl.length; h++) {
+            const b0 = g0 - sl[h]!, b1 = g1 - sl[h]!;
+            if ((b0 > 0) === (b1 > 0)) continue;
+            const t = b0 / (b0 - b1);
+            if (t >= tRoof || t > tHit || !inPoly(rf.footprint, x0 + t * dx, y0 + t * dy)) continue;
+            tRoof = t; roofIdx = list[q]!;
+          }
           const a0 = g0 - rf.heightM, a1 = g1 - rf.heightM;
           if ((a0 > 0) === (a1 > 0)) continue;
           const t = a0 / (a0 - a1);

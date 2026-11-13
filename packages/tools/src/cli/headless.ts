@@ -3,7 +3,7 @@
  *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events]
  */
 import { readFileSync } from "node:fs";
-import { runBattle, type Order, type SimEvent } from "@tcs/sim";
+import { runBattle, stripInteriors, type Order, type SimEvent } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 
@@ -14,6 +14,7 @@ const seconds = Number(args["seconds"] ?? 120);
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 const input = sc.build(data, seed, seconds);
+if (args["no-interiors"] !== undefined) input.map = stripInteriors(input.map); // M7.5c: the map as before interiors
 if (args["orders"]) input.orders = JSON.parse(readFileSync(args["orders"], "utf8")) as Order[];
 const controllers = args["no-ai"] ? [] : (sc.controllers?.(input) ?? []);
 const printEvents = args["events"] === "true";

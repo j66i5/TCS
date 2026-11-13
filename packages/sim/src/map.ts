@@ -17,7 +17,12 @@ import type { DefId } from "./ids";
 import { canonicalJson, hashText } from "./hash";
 
 export const MAX_MAP_SIZE_M = 4000;
-export const MAP_FORMAT_VERSION = 1;
+/**
+ * Format 2 (M7.5c) adds building interiors (rooms, inner walls, stairs, upper-floor openings). A map without any
+ * interior is written as format 1, byte for byte as before (equivalence proof: maps, catalog and goldens of
+ * battles without interiors are unchanged). Both are read.
+ */
+export const MAP_FORMAT_VERSION = 2;
 
 /** Polyline or polygon as a flat list x0, y0, x1, y1, ... */
 export type Coords = number[];
@@ -41,6 +46,50 @@ export interface Opening {
   /** Height of the bottom and top of the opening above the floor, m. */
   sillM: number;
   headM: number;
+  /** Floor of the opening (0 = ground floor, absent = 0; M7.5c). sillM/headM are above that floor. */
+  floor?: number;
+}
+
+/** A room of a building's interior (M7.5c): a convex polygon, counter-clockwise like the footprint. */
+export interface Room {
+  id: number;
+  floor: number;
+  poly: Coords;
+  kind: "room" | "hall" | "stair";
+}
+
+/** A doorway in an inner wall: always open (plan §7.8). */
+export interface InnerDoor {
+  /** Distance of the doorway's centre from the wall's first point, m. */
+  offsetM: number;
+  widthM: number;
+  /** Height of its top above the floor, m. */
+  headM: number;
+}
+
+/** An inner wall on one floor: from the floor to the ceiling, with doorways. */
+export interface InnerWall {
+  id: number;
+  floor: number;
+  ax: number; ay: number; bx: number; by: number;
+  thicknessM: number;
+  material: DefId;
+  doors: InnerDoor[];
+}
+
+/** A flight of stairs from `floor` up to `floor + 1`, in room `room`: from (x0, y0) (bottom) to (x1, y1) (top). */
+export interface Stair {
+  id: number;
+  floor: number;
+  room: number;
+  x0: number; y0: number; x1: number; y1: number;
+  widthM: number;
+}
+
+export interface Interior {
+  rooms: Room[];
+  walls: InnerWall[];
+  stairs: Stair[];
 }
 
 export interface Building {
@@ -54,6 +103,8 @@ export interface Building {
   wallThicknessM: number;
   openings: Opening[];
   roofColour: string;
+  /** Rooms, inner walls and stairs on every floor (M7.5c); absent = one hollow shell (format 1). */
+  interior?: Interior;
 }
 
 export interface Road {
@@ -154,7 +205,7 @@ export function mapToFile(m: MapDef): MapFile {
   const dv = new DataView(hb.buffer);
   for (let i = 0; i < m.heights.length; i++) dv.setFloat32(i * 4, m.heights[i]!, true);
   return {
-    format: "tcs-map", formatVersion: MAP_FORMAT_VERSION,
+    format: "tcs-map", formatVersion: hasInteriors(m) ? MAP_FORMAT_VERSION : 1,
     id: m.id, name: m.name, widthM: m.widthM, heightM: m.heightM, cellSizeM: m.cellSizeM, cols: m.cols, rows: m.rows,
     heights: toBase64(hb),
     surfacePalette: [...m.surfacePalette], surface: toBase64(m.surface),
@@ -164,8 +215,8 @@ export function mapToFile(m: MapDef): MapFile {
 }
 
 export function mapFromFile(f: MapFile): MapDef {
-  if (f.format !== "tcs-map" || f.formatVersion !== MAP_FORMAT_VERSION) {
-    throw new Error(`not a TCS map file of format version ${MAP_FORMAT_VERSION}`);
+  if (f.format !== "tcs-map" || !(f.formatVersion === 1 || f.formatVersion === MAP_FORMAT_VERSION)) {
+    throw new Error(`not a TCS map file of format version 1..${MAP_FORMAT_VERSION}`);
   }
   if (f.cols !== Math.ceil(f.widthM / f.cellSizeM) || f.rows !== Math.ceil(f.heightM / f.cellSizeM)) {
     throw new Error(`map '${f.id}': grid ${f.cols} x ${f.rows} does not cover ${f.widthM} x ${f.heightM} m in ${f.cellSizeM} m cells`);
@@ -186,6 +237,29 @@ export function mapFromFile(f: MapFile): MapDef {
     id: f.id, name: f.name, widthM: f.widthM, heightM: f.heightM, cellSizeM: f.cellSizeM, cols: f.cols, rows: f.rows,
     heights, surfacePalette: [...f.surfacePalette], surface, vegetationPalette: [...f.vegetationPalette], vegetation,
     obstacles: clone(f.obstacles), buildings: clone(f.buildings), roads: clone(f.roads), water: clone(f.water), meta: { ...f.meta },
+  };
+}
+
+/** Does any building of the map have an interior (format 2)? */
+export function hasInteriors(m: Pick<MapDef, "buildings">): boolean {
+  for (const b of m.buildings) if (b.interior) return true;
+  return false;
+}
+
+/**
+ * The same map without interiors (M7.5c equivalence): no rooms, no upper-floor openings, the generator version
+ * of the map before interiors. `generateMap(..., { interiors: false })` gives exactly this (tested).
+ */
+export function stripInteriors(m: MapDef, versionWithout = 1): MapDef {
+  if (!hasInteriors(m)) return m;
+  return {
+    ...m,
+    buildings: m.buildings.map((b) => {
+      const { interior: _i, ...rest } = b;
+      void _i;
+      return { ...rest, openings: b.openings.filter((o) => (o.floor ?? 0) === 0) };
+    }),
+    meta: { ...m.meta, version: versionWithout },
   };
 }
 

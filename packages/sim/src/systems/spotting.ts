@@ -30,7 +30,7 @@ import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { atan2, cos, exp, PI, pow, sin, sqrt } from "../math";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { heightAt, standZ } from "../terrain";
 import type { SpottingDef, VehicleDef } from "../catalog";
 import type { VehicleState } from "../components";
 
@@ -108,7 +108,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     const ot = state.transform.get(oid), oi = state.identity.get(oid);
     if (!ot || !oi) continue;
     targets ??= soldierTargets(ctx, state);
-    const ez = heightAt(map, ot.x, ot.y) + eyeHeightM(ctx, os.posture);
+    const ez = standZ(map, ot) + eyeHeightM(ctx, os.posture);
     const skill = os.skills["observation"] ?? os.skills["marksmanship"] ?? 0.5;
     const own = Math.max(0.2, 1 + D.skillSlope * (skill - 0.5)) * Math.max(0, 1 - D.stressK * Math.max(os.mental.stress, os.mental.suppression));
     // His sensors: his eyes, his weapon's sight, anything he carries that he looks through (night vision).
@@ -202,13 +202,13 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     const moving = speed > D.stillBelowMps;
     const firing = tick - (state.weapon.get(tid)?.lastShotTick ?? -1e9) <= secondsToTicks(D.firingWithinSeconds);
     // Top of the vegetation he is in (where moving plants or the flash of his shots show), or -Infinity.
-    const g = heightAt(map, tt.x, tt.y);
+    const g = heightAt(map, tt.x, tt.y); // ground: ok (vegetation top; his own height below)
     const cell = Math.floor(tt.y / map.cellSizeM) * map.cols + Math.floor(tt.x / map.cellSizeM);
     const v = cell >= 0 && cell < map.vegetation.length ? map.vegetation[cell]! : 0;
     const vegTopZ = v > 0 ? g + B.vegHeightM[v - 1]! : -Infinity;
     let r = targets[n];
     if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0 }; targets[n] = r; }
-    r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + TARGET_POINT_M[ts.posture];
+    r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
     n++;
@@ -236,7 +236,7 @@ function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
     const firing = canFight(v) && v.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= secondsToTicks(D.firingWithinSeconds)));
     const moving = Math.abs(v.drive.speed) > D.vehicles.movingAboveMps;
     out.push({
-      id: vid, side: v.side, x: t.x, y: t.y, gz: heightAt(ctx.map, t.x, t.y), heading: t.heading, turret: t.heading + (v.stations[0]?.azimuth ?? 0), def,
+      id: vid, side: v.side, x: t.x, y: t.y, gz: heightAt(ctx.map, t.x, t.y), heading: t.heading, turret: t.heading + (v.stations[0]?.azimuth ?? 0), def, // ground: ok (a vehicle)
       motion: (firing ? def.signature.firingFactor : 1) * (moving ? def.signature.movingFactor : 1), c: cos(t.heading), s: sin(t.heading),
     });
   }
@@ -326,7 +326,7 @@ function crewScan(
   const sensors = def.seats[seat]!.sensors!;
   const c = cos(t.heading), s = sin(t.heading);
   const p = sensors[0]!.pos ?? def.seats[seat]!.pos;
-  const ex = t.x + c * p[0] - s * p[1], ey = t.y + s * p[0] + c * p[1], ez = heightAt(ctx.map, t.x, t.y) + p[2];
+  const ex = t.x + c * p[0] - s * p[1], ey = t.y + s * p[0] + c * p[1], ez = heightAt(ctx.map, t.x, t.y) + p[2]; // ground: ok (a vehicle sight)
   const light = state.environment.light, rain = state.environment.rain, vis = state.environment.visibilityM;
   const turretAz = t.heading + (v.stations[0]?.azimuth ?? 0);
   const skill = os.skills["observation"] ?? os.skills["marksmanship"] ?? 0.5;

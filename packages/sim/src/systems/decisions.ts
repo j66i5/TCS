@@ -21,16 +21,17 @@ import { startAction } from "../actions";
 import type { Intent, SoldierState, Unit } from "../components";
 import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
+import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import { findPath } from "../nav";
+import type { findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
-import { assignFireTask } from "./fire";
+import { standZ } from "../terrain";
+import { aimHeightAt, assignFireTask } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
@@ -68,10 +69,10 @@ function engageRange(ctx: SimContext, state: SimState, id: EntityId): number {
 }
 
 /** The enemy that matters most to him among those he sees now: near, firing, standing up. */
-function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number): { target: EntityId; x: number; y: number } | null {
+function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number): { target: EntityId; x: number; y: number; z?: number } | null {
   const D = ctx.catalog.behaviour.decisions;
   const me = state.transform.req(id);
-  let best: { target: EntityId; x: number; y: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
     if (c.surrendered) continue; // he knows this man has given up (M6.6)
@@ -82,37 +83,43 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     let score = d;
     if (ew && state.tick - ew.lastShotTick <= 3 * TICK_HZ) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
     if (es.posture === "prone") score *= 1.3;
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y }; }
+    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
   return best;
 }
 
-/** Is a man lying at (x, y) out of sight of an enemy at (tx, ty)? */
-function coveredFrom(ctx: SimContext, x: number, y: number, tx: number, ty: number, heightM: number): boolean {
+/**
+ * Is a man lying at (x, y) (`z` above the ground: his floor, M7.5d) out of sight of an enemy at (tx, ty) (`tz`
+ * above the ground)?
+ */
+function coveredFrom(ctx: SimContext, x: number, y: number, tx: number, ty: number, heightM: number, z = 0, tz = 0): boolean {
   const D = ctx.catalog.behaviour.decisions;
-  const r = sight(ctx, tx, ty, heightAt(ctx.map, tx, ty) + D.threatEyeHeightM, x, y, heightAt(ctx.map, x, y) + heightM);
+  const r = sight(ctx, tx, ty, standZ(ctx.map, { x: tx, y: ty, z: tz }) + D.threatEyeHeightM, x, y, standZ(ctx.map, { x, y, z }) + heightM);
   return r.blockedBy !== null || r.visibility < 0.1;
 }
 
 /** The threat he takes cover from: the nearest enemy he knows to be firing, else the nearest he knows. */
-function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; y: number } | null {
+function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; y: number; z: number } | null {
   const me = state.transform.req(id);
-  let best: { x: number; y: number } | null = null, bestD = Infinity;
+  let best: { x: number; y: number; z: number } | null = null, bestD = Infinity;
   for (const c of s.contacts) {
     if (c.surrendered) continue; // a man he knows has given up is no threat to take cover from
     const ew = state.weapon.get(c.target);
     const firing = ew !== undefined && state.tick - ew.lastShotTick <= 5 * TICK_HZ && c.kind !== "reported";
     const d = hypot2(c.x - me.x, c.y - me.y) * (firing ? 0.5 : 1);
-    if (d < bestD) { bestD = d; best = { x: c.x, y: c.y }; }
+    // (His floor, M7.5d: the height he was last seen at, M7.5 review fix.)
+    if (d < bestD) { bestD = d; best = { x: c.x, y: c.y, z: c.z ?? 0 }; }
   }
   return best;
 }
 
-function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number }): boolean {
+function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
   const D = ctx.catalog.behaviour.decisions, body = ctx.catalog.body.postures;
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6, kneel = body.crouching.muzzleHeightM;
-  if (coveredFrom(ctx, me.x, me.y, threat.x, threat.y, lie)) return false;
+  if (coveredFrom(ctx, me.x, me.y, threat.x, threat.y, lie, me.z, threat.z)) return false;
+  // Indoors (M7.5c) he stays in the house: its walls are his cover (no running out into the open).
+  if (indoorAt(ctx, me.x, me.y) >= 0) return false;
   const { grid, search } = navFor(ctx, "foot");
   const cands: { x: number; y: number; score: number }[] = [];
   for (let ring = 1; ring <= 5; ring++) {
@@ -123,9 +130,9 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
       if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
       const c = Math.floor(x / grid.cellM), rr = Math.floor(y / grid.cellM), i = rr * grid.cols + c;
       if (grid.cost[i]! <= 0 || grid.wall[i] === 1) continue;
-      if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie)) continue;
+      if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie, 0, threat.z)) continue;
       // Better: a spot he can fire from on his knees over the cover (a bank, a low wall).
-      const firing = !coveredFrom(ctx, x, y, threat.x, threat.y, kneel);
+      const firing = !coveredFrom(ctx, x, y, threat.x, threat.y, kneel, 0, threat.z);
       cands.push({ x, y, score: r + (firing ? 0 : 8) });
     }
   }
@@ -133,7 +140,7 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
   let best: { x: number; y: number } | null = null, leg = null as ReturnType<typeof findPath>;
   for (const cnd of cands.slice(0, 6)) {
-    const l = findPath(search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 3000, snapCells: 1 });
+    const l = routeBetween(ctx, search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 3000, snapCells: 1 }); // (outdoors only: seekCover returns indoors)
     if (l && l.cost <= D.coverSearchM * 2.5) { best = cnd; leg = l; break; }
   }
   if (!best || !leg) return false;
@@ -214,10 +221,9 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   const { search } = navFor(ctx, "foot");
   // He comes up behind him (not into his line of fire).
   const bx = b.x - cos(b.heading) * 1.5, by = b.y - sin(b.heading) * 1.5;
-  const leg = findPath(search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 });
+  const leg = routeBetween(ctx, search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 }, { sz: a.z, gz: b.z });
   if (!leg) { gs.intent = null; return; }
-  m.waypoints = [];
-  for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
 }
 
@@ -294,7 +300,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const range = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
       const pick = pickTarget(ctx, state, id, s, range);
       if (pick && (!current || current.contact !== pick.target)) {
-        if (assignFireTask(ctx, state, id, pick.x, pick.y, ctx.catalog.shooting.fire.aimPointHeightM)) {
+        if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
           const ft = state.fire.get(id)!;
           ft.contact = pick.target; ft.self = true;
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;

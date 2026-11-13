@@ -5,18 +5,18 @@
  * as many fixed 1/60 s simulation steps as fit; the renderer interpolates between the last two.
  * Player input becomes ORDERS submitted to the simulation, exactly like an AI or a replay would.
  */
-import { formatErrors, Strings } from "@tcs/data";
+import { buildAppearance, formatErrors, lookOf, Strings, type Appearance } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
 import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, SIDE_COLOURS, VehicleDebug, type Overlay } from "@tcs/render";
-import { createAar, ordersFor, paceToWaypoint, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, type FrameId, type Overlay } from "@tcs/render";
+import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -73,9 +73,15 @@ async function main(): Promise<void> {
   const orderLog: Order[] = [];
 
   const renderer = await BattleRenderer.create(mapRoot);
+  renderer.groundFloorLabel = strings.t("ui.floor.ground");
+  // The look (M7.5b): the flat pixel map and pixel soldiers; `?look=classic` keeps the look before it.
+  const look = params.get("look") === "classic" ? "classic" : "pixel";
+  renderer.setLook(look);
+  // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
+  renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
   renderer.setMap(input.map, input.catalog);
-  const topUnits = [...sim.state.unit.entries()].filter(([, u]) => u.side === playerSide && u.parent === null).map(([id]) => id);
-  const overlay: Overlay = { playerSide, selectedUnit: topUnits[0] ?? null, debug: false };
+  // The battle opens with nothing selected (M7.5a): the order bar is greyed until a unit is picked.
+  const overlay: Overlay = { playerSide, selectedUnit: null, debug: false };
 
   let speed = 1;
   let pace = "walk";
@@ -174,6 +180,9 @@ async function main(): Promise<void> {
       q.set("load", "1");
       location.search = q.toString();
     },
+    onLayout: () => { renderer.setHudInsets(hud.insets()); },
+    onSelectUnit: (u) => { endPlan(); overlay.selectedUnit = overlay.selectedUnit === u ? null : u; syncOrders(); refreshTiles(); },
+    sideColour: `#${(SIDE_COLOURS[Math.max(0, sim.state.sides.findIndex((x) => x.id === playerSide))] ?? 0xffffff).toString(16).padStart(6, "0")}`,
     onDebug: (on) => {
       overlay.debug = on;
       // Debug view shows the navigation grid soldiers plan their routes on.
@@ -185,13 +194,30 @@ async function main(): Promise<void> {
     },
   });
 
-  // Fit the map into the area not covered by the top bar and the radio log.
-  const barH = (hudRoot.querySelector(".hud-bar") as HTMLElement | null)?.offsetHeight ?? 50;
-  const insets = { top: barH, right: 0, bottom: 64, left: 0 };
-  // Start in the tactical view: about 500 m across, centred between your team and the map centre.
+  // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
+  const insets = hud.insets();
+  renderer.setHudInsets(insets);
+  // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
+  // while it rides), at true scale. The classic look keeps the old start: about 600 m across.
   // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
-  if (own.length > 0 && input.map.widthM > 600) {
+  const leadAt = (() => {
+    const tiles = unitTiles(sim.state, playerSide, input.catalog);
+    const lead = tiles.find((t) => t.kind === "infantry") ?? tiles[0];
+    if (!lead) return null;
+    let x = 0, y = 0, n = 0;
+    for (const m of unitSoldierIds(sim, lead.unit)) {
+      const s = sim.state.soldier.get(m);
+      const t = s?.mount !== undefined ? sim.state.transform.get(s.mount.vehicle) : sim.state.transform.get(m);
+      if (t) { x += t.x; y += t.y; n++; }
+    }
+    if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
+    return { x: x / n, y: y / n };
+  })();
+  if (look === "pixel" && leadAt) {
+    renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
+    renderer.primeDetail();
+  } else if (own.length > 0 && input.map.widthM > 600) {
     const ox = own.reduce((a, t) => a + t.x, 0) / own.length, oy = own.reduce((a, t) => a + t.y, 0) / own.length;
     // Look from the team toward the map centre, 600 m across.
     renderer.focus(ox + 0.4 * (input.map.widthM / 2 - ox), oy + 0.4 * (input.map.heightM / 2 - oy), 600, insets);
@@ -206,28 +232,28 @@ async function main(): Promise<void> {
     const v = vid === undefined ? undefined : sim.state.vehicle.get(vid);
     return v ? input.catalog.vehicles[v.def]?.class ?? null : null;
   };
-  /** Can the selected unit get in (men on foot and a vehicle to ride in) or out (men aboard; a vehicle with passengers)? */
-  const boardingOf = (uid: EntityId | null) => {
-    const u = uid === null ? undefined : sim.state.unit.get(uid);
-    if (!u || uid === null) return { mount: false, dismount: false };
-    if (u.vehicle !== undefined) {
-      const v = sim.state.vehicle.get(u.vehicle), def = v ? input.catalog.vehicles[v.def] : undefined;
-      return { mount: false, dismount: !!v && !!def && v.seats.some((o, i) => o !== null && def.seats[i]?.station === "passenger") };
-    }
-    let carrier = false;
-    for (let x: EntityId | null = uid; x !== null; x = sim.state.unit.get(x)?.parent ?? null) if (sim.state.unit.get(x)?.carrier !== undefined) carrier = true;
-    const men = unitSoldierIds(sim, uid).filter((m) => sim.state.unit.get(sim.state.identity.get(m)?.unit ?? -1)?.vehicle === undefined && !isOut(sim.state.soldier.req(m)));
-    return { mount: carrier && men.some((m) => sim.state.soldier.req(m).mount === undefined), dismount: men.some((m) => sim.state.soldier.req(m).mount !== undefined) };
-  };
+  /**
+   * The order bar shows only what the selected unit can do now (M7.5a): its capabilities are read from the state
+   * (checked every frame, cheap; the bar is rebuilt only when they change). Nothing selected: greyed.
+   */
   let ordersKey = "";
   const syncOrders = () => {
-    const b = boardingOf(overlay.selectedUnit);
-    const key = `${overlay.selectedUnit}|${b.mount}|${b.dismount}`;
+    const cap = unitCapabilities(sim.state, input.catalog, overlay.selectedUnit);
+    const key = `${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
     if (ordersShownFor === overlay.selectedUnit && key === ordersKey) return;
+    const changedUnit = ordersShownFor !== undefined && ordersShownFor !== overlay.selectedUnit;
     ordersShownFor = overlay.selectedUnit; ordersKey = key;
-    hud.setOrders(ordersFor(vehicleClassOf(overlay.selectedUnit), input.catalog.movementModes, b));
+    const set = ordersFor(cap, input.catalog.movementModes);
+    hud.setOrders(set);
+    // The order mode on show must be one the unit has (a squad without grenades: back to Move); a new unit
+    // starts with Move.
+    if ((changedUnit && orderMode !== "move") || !set.modes.includes(orderMode)) { orderMode = "move"; hud.setOrderMode("move"); }
+    if (changedUnit && plan) endPlan();
     if (overlay.debug) renderer.setNavOverlay(navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid);
   };
+  /** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
+  let tilesAt = -1e9;
+  const refreshTiles = () => { hud.setTiles(unitTiles(sim.state, playerSide, input.catalog), overlay.selectedUnit); };
   /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
   const forUnit = (o: Order): Order => {
     const cls = vehicleClassOf(o.target);
@@ -236,13 +262,73 @@ async function main(): Promise<void> {
     return { tick: o.tick, issuer: o.issuer, target: o.target, kind: "move", waypoints: o.waypoints.map((w) => ({ x: w.x, y: w.y, ...paceToWaypoint(w.mode, set) })), ...(o.facing !== undefined ? { facing: o.facing } : {}) };
   };
   const issue = (order: Order) => {
+    // A move into a building goes to the floor on screen (M7.5d floor switch).
+    if (order.kind === "move" && order.floor === undefined && floorState.shown > 0) {
+      const last = order.waypoints[order.waypoints.length - 1];
+      const bi = last ? indoorAt(sim.ctx, last.x, last.y) : -1;
+      if (bi >= 0) order = { ...order, floor: Math.min(floorState.shown, input.map.buildings[bi]!.storeys - 1) };
+    }
     orderLog.push(order);
     submitOrder(sim, order);
   };
 
+  /** An occupy order for building index `bi`: facing the nearest enemy the side knows, on the floor shown first. */
+  const occupyOrder = (target: EntityId, bi: number): Order => {
+    const b = input.map.buildings[bi]!;
+    let cx = 0, cy = 0;
+    const n = b.footprint.length / 2;
+    for (let k = 0; k < n; k++) { cx += b.footprint[k * 2]!; cy += b.footprint[k * 2 + 1]!; }
+    cx /= n; cy /= n;
+    // mounted: ok sideKnowledge never lists men aboard
+    const known = sideKnowledge(sim.ctx, sim.state, playerSide);
+    let best: { x: number; y: number } | null = null, bd = Infinity;
+    for (const k of known) { const d = Math.hypot(k.x - cx, k.y - cy); if (!k.surrendered && d < bd) { bd = d; best = k; } }
+    return {
+      tick: sim.state.tick, issuer: playerSide, target, kind: "occupy", building: b.id,
+      ...(floorState.shown > 0 ? { floor: Math.min(floorState.shown, b.storeys - 1) } : {}),
+      ...(best ? { facing: Math.atan2(best.y - cy, best.x - cx) } : {}),
+    };
+  };
+
+  // ---- floor switch (M7.5d): follows the selected unit's floor; shown when it is indoors or a house is opened up.
+  let floorState: FloorFollow = { shown: 0, unit: null, unitFloor: null, manual: false };
+  let floorPick: number | null = null;
+  const floorSwitch = createFloorSwitch(hudRoot, strings.t("ui.floor"), strings.t("ui.floor.ground"), (f) => { floorPick = f; });
+  const updateFloors = () => {
+    const uid = overlay.selectedUnit;
+    let fl: number | null = null, count = 1;
+    if (uid !== null && sim.state.unit.has(uid)) {
+      const floors: number[] = [];
+      for (const m of unitSoldiers(sim.state, uid)) {
+        const ms = sim.state.soldier.get(m), t = sim.state.transform.get(m);
+        if (!ms || !t || ms.mount !== undefined || !ms.physiology.alive) continue;
+        const bi = indoorAt(sim.ctx, t.x, t.y);
+        if (bi < 0) { floors.push(-1); continue; }
+        floors.push(floorOf(sim.ctx, t.x, t.y, t.z));
+        count = Math.max(count, input.map.buildings[bi]!.storeys);
+      }
+      fl = unitFloor(floors);
+    }
+    // Zoomed in close (roofs lifted): the tallest building with an interior in view.
+    const cam = renderer.camera;
+    if ((renderer.zoomLevel() ?? 0) >= 3) {
+      const hw = renderer.app.screen.width / cam.scale / 2, hh = renderer.app.screen.height / cam.scale / 2;
+      for (const b of input.map.buildings) {
+        if (!b.interior || b.storeys <= count) continue;
+        const x = b.footprint[0]!, y = b.footprint[1]!;
+        if (Math.abs(x - cam.x) < hw + 20 && Math.abs(y - cam.y) < hh + 20) count = b.storeys;
+      }
+    }
+    floorState = followFloor(floorState, uid, fl, floorPick, count - 1);
+    floorPick = null;
+    floorSwitch.set(count, floorState.shown);
+    overlay.floor = count > 1 ? floorState.shown : 0;
+  };
+
   attachInput(mapRoot, {
     getCamera: () => renderer.camera,
-    setCamera: (c) => { renderer.camera = c; },
+    // Never further out than the whole map in the free area (M7.5b).
+    setCamera: (c) => { renderer.camera = renderer.clampCamera(c, hud.insets()); },
     onTap: (w) => {
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
@@ -253,12 +339,14 @@ async function main(): Promise<void> {
         const cycle = [hull, ...ridersIn(sim, hull)];
         const k = overlay.selectedUnit === null ? -1 : cycle.indexOf(overlay.selectedUnit);
         overlay.selectedUnit = cycle[(k + 1) % cycle.length]!;
+        refreshTiles();
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
         // His own unit (his squad; the platoon's own men select the platoon).
         overlay.selectedUnit = sim.state.identity.req(hit).unit;
+        refreshTiles();
         return;
       }
       if (overlay.selectedUnit === null) return;
@@ -266,6 +354,14 @@ async function main(): Promise<void> {
       if (orderMode === "grenade" || orderMode === "grenades") {
         // "All grenades": every man who can reach the point throws or fires, a moment apart.
         issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
+        return;
+      }
+      if (orderMode === "occupy") {
+        // Occupy (M7.5d): the tapped building's windows, those facing the nearest enemy the side knows first.
+        const bi = indoorAt(sim.ctx, w.x, w.y);
+        if (bi < 0) { hud.radio(strings.t("plan.tapBuilding"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
+        issue(occupyOrder(overlay.selectedUnit, bi));
+        orderMode = "move"; hud.setOrderMode("move");
         return;
       }
       if (orderMode === "mortar" || orderMode === "smoke") {
@@ -396,15 +492,25 @@ async function main(): Promise<void> {
     handleEvents(step(sim));
   };
 
-  // Hook for the headless screenshot script and for debugging in the browser console.
+  // Hook for the headless screenshot script and for debugging in the browser console. The battle opens with nothing
+  // selected (M7.5a): an order through the hook with nothing selected goes to (and selects) the first own unit.
+  const sel = (): EntityId => {
+    if (overlay.selectedUnit === null) { overlay.selectedUnit = [...sim.state.unit.entries()].find(([, u]) => u.side === playerSide && u.parent === null)?.[0] ?? null; syncOrders(); }
+    return overlay.selectedUnit as EntityId;
+  };
   (window as unknown as { __tcs: unknown }).__tcs = {
     sim,
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
-    grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "grenade", x, y, count }),
-    fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y }),
+    grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
+    /** M7.5d: occupy the building at (x, y) with the selected unit; the floor switch; the floor shown. */
+    occupyAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue(occupyOrder(sel(), bi)); },
+    setFloor: (f: number) => { floorPick = f; },
+    floorShown: () => floorState.shown,
+    fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {
+      sel();
       startPlan("move");
       for (const p of pts) plan = addPoint(plan!, p.x, p.y, p.mode ?? pace);
       if (facing !== undefined) plan = { ...plan!, facing };
@@ -413,24 +519,38 @@ async function main(): Promise<void> {
     cancelPlan: () => { endPlan(); },
     go: () => { if (plan && overlay.selectedUnit !== null) { const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(forUnit(o)); } endPlan(); },
     /** Select a unit (screenshots: a vehicle's crew unit). */
-    select: (uid: EntityId) => { overlay.selectedUnit = uid; syncOrders(); },
+    select: (uid: EntityId | null) => { overlay.selectedUnit = uid; syncOrders(); refreshTiles(); },
+    /** M7.5a screenshots: dock the order bar, open the sidebar's list, the order set shown, the free area. */
+    dock: (e: "top" | "bottom" | "left" | "right") => hud.setDock(e),
+    expandSidebar: (on: boolean) => hud.setSidebarExpanded(on),
+    orderSet: () => hud.orderSet(),
+    insets: () => hud.insets(),
+    /** Own top-level units and all own units (sidebar order). */
+    units: () => unitTiles(sim.state, playerSide, input.catalog).map((t) => ({ unit: t.unit, callsign: t.callsign, kind: t.kind, depth: t.depth })),
     /** Own vehicles: [entity, crew unit] (screenshots). */
     vehicles: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.side === playerSide).map(([id, v]) => [id, v.unit]),
     /** Get in / get out (M7.2), for the selected unit. */
-    mount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "mount" }),
-    dismount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "dismount" }),
+    mount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "mount" }),
+    dismount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "dismount" }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */
     riders: (crew: EntityId) => ridersIn(sim, crew),
-    showRules: () => { (document.querySelector(".hud-orders button:last-child") as HTMLButtonElement | null)?.click(); },
-    assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "assault", x, y }),
-    posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "posture", posture: p }),
+    showRules: () => hud.showRules(),
+    assault: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "assault", x, y }),
+    posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
-    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
+    tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
     setSpeed: (v: number) => { speed = v; },
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
-    discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "discharge" }),
-    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit as EntityId, kind: "fire", x, y, nature: n }),
-    focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM),
+    discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
+    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n }),
+    focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
+    /** M7.5b screenshots: centre at a zoom (px/m); the zoom level shown; a roof's alpha. */
+    focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); renderer.primeDetail(); },
+    zoomLevel: () => renderer.zoomLevel(),
+    /** M7.5b screenshots: every soldier frame of both sides (with variants) as a sheet over the map; false hides it. */
+    showSprites: (on: boolean) => showSpriteSheet(on, sim.state.sides.map((x) => ({ faction: x.faction, colour: SIDE_COLOURS[sim.state.sides.indexOf(x)] ?? 0xffffff })), buildAppearance(data, sim.state.sides.map((x) => x.faction))),
+    roofAlpha: (i: number) => renderer.roofAlpha(i),
+    renderer,
     hash: () => simHash(sim),
     ready: true,
   };
@@ -538,11 +658,19 @@ async function main(): Promise<void> {
   const showObjectives = () => {
     const defs = input.rules.objectives;
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
-    if (defs.length === 0) { hud.setScore(""); return; }
+    if (defs.length === 0) { hud.setScore([]); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
     const sup = sim.state.support.some((x) => x.side === playerSide);
-    const supText = sup ? [strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") })] : [];
-    hud.setScore([...supText, ...defs.map((o, i) => { const st = sim.state.objectives[i]; return strings.t("score.line", { objective: strings.t(o.nameKey), holder: st?.holder ? sideName(st.holder) : strings.t("score.nobody"), contested: st?.contested ? strings.t("score.contested") : "" }); }), strings.t("score.time", { left: fmtClock(left) })].join(" · "));
+    // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
+    // holder's full name as a tooltip), the time left, the mortar rounds left (HE/smoke).
+    hud.setScore([
+      ...defs.map((o, i) => {
+        const st = sim.state.objectives[i];
+        return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };
+      }),
+      { text: strings.t("score.time", { left: fmtClock(left) }) },
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
+    ]);
   };
 
   let acc = 0;
@@ -573,6 +701,8 @@ async function main(): Promise<void> {
     }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     syncOrders();
+    if (now - tilesAt >= 250) { tilesAt = now; refreshTiles(); }
+    updateFloors();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();
@@ -620,6 +750,50 @@ function nearestSoldier(sim: Sim, x: number, y: number, radius: number, side: st
     if (d < bestD) { bestD = d; best = id; }
   }
   return best;
+}
+
+/**
+ * The soldier sprite sheet (M7.5b, screenshots): per side, every frame facing east, then the variants (machine gun
+ * firing, marksman with a launcher wounded) and a turn through the 16 facings, at 3x on a grass-coloured canvas.
+ */
+function showSpriteSheet(on: boolean, sides: { faction: string; colour: number }[], app: Appearance): void {
+  document.getElementById("sprite-sheet")?.remove();
+  if (!on) return;
+  const Z = 3, frames = Object.keys(FRAMES) as FrameId[];
+  const rows: { side: number; frame: FrameId; facing: number; v: { weapon: "rifle" | "mg" | "marksman"; launcher: boolean; firing: boolean; wounded: boolean } }[] = [];
+  sides.forEach((_, si) => {
+    for (const v of [{ weapon: "rifle", launcher: false, firing: false, wounded: false }, { weapon: "mg", launcher: false, firing: true, wounded: false }, { weapon: "marksman", launcher: true, firing: false, wounded: true }] as const) {
+      for (const f of frames) rows.push({ side: si, frame: f, facing: 0, v });
+    }
+    for (let k = 0; k < 16; k++) rows.push({ side: si, frame: k % 2 ? "walk1" : "prone", facing: k, v: { weapon: "rifle", launcher: false, firing: false, wounded: false } });
+  });
+  const perRow = frames.length, cols = 16;
+  const W = cols * CELL * Z, lines = Math.ceil(rows.length / perRow) + 2;
+  const cv = document.createElement("canvas");
+  cv.id = "sprite-sheet";
+  cv.width = W; cv.height = lines * CELL * Z;
+  Object.assign(cv.style, { position: "fixed", left: "0", top: "0", zIndex: "50", width: "100vw", imageRendering: "pixelated", background: "#6a8648" });
+  const g = cv.getContext("2d")!;
+  g.fillStyle = "#6a8648"; g.fillRect(0, 0, cv.width, cv.height);
+  let line = 0, col = 0, last = -1;
+  rows.forEach((r, i) => {
+    const group = r.facing > 0 || (r.frame === "prone" && i > 0 && rows[i - 1]!.facing > 0) ? 1 : 0;
+    const key = r.side * 10 + (r.v.weapon === "rifle" ? 0 : r.v.weapon === "mg" ? 1 : 2) * 2 + group;
+    if (key !== last && col > 0) { line++; col = 0; }
+    last = key;
+    const pal = paletteFor(lookOf(app, sides[r.side]!.faction));
+    const cell = rotateFrame(composeFrame({ frame: r.frame, ...r.v }), r.facing), out = outlineMask(cell);
+    const ox = col * CELL * Z, oy = line * CELL * Z;
+    for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) {
+      const l = cell[y * CELL + x]!;
+      const c = l ? pal[l]! : out[y * CELL + x] ? sides[r.side]!.colour : -1;
+      if (c < 0) continue;
+      g.fillStyle = `#${c.toString(16).padStart(6, "0")}`;
+      g.fillRect(ox + x * Z, oy + y * Z, Z, Z);
+    }
+    if (++col >= cols) { col = 0; line++; }
+  });
+  document.body.append(cv);
 }
 
 /** mm:ss of game time. */

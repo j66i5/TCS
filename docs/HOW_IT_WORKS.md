@@ -124,7 +124,18 @@ crosses a road (a road always cuts a gate through them), every group of roads re
 amounts of buildings, woods and fields are in a plausible range for its kind. The tests check 48 maps; the
 `npm run map -- --all --seeds 40` tool checks 160.
 
-**Drawing the map.** The ground is painted once into one picture: colours blended between neighbouring cells
+**Drawing the map (M7.5b: the flat pixel look).** The ground is painted pixel by pixel in flat, muted colours
+(the `appearance.json` palette): each 4 m square its own colour, its edges wobbled a little so fields do not look
+like a staircase, a thin darker line where one kind of ground meets another, furrows in ploughed fields and rows
+in crops, a light speckle. Trees and bushes are round pixel crowns with a dark rim, a lighter top-left and a hard
+shadow; orchards stand in rows. Roads, streams, ponds, hedges, walls and fences are painted in with a one-pixel
+outline. There is no hill shading: the shape of the ground shows as contour lines (every 2.5 m, bold every 10 m),
+and only when zoomed out. The whole map is one picture at about 1 pixel per metre; close up, squares of 64 m are
+painted again at 4 pixels per metre as you look at them (one per frame, the last 48 kept). Buildings are two
+layers: the floor (boards, walls with door gaps and windows) under the men, and the roof above them (see "The
+screen" below). The look before M7.5b — described next — is kept behind `?look=classic` for a while.
+
+**Classic look.** The ground is painted once into one picture: colours blended between neighbouring cells
 so edges look natural, tree crowns in woods, rows of trees in orchards, light and shade on slopes (light from
 the north-west) and faint contour lines every 2.5 m (stronger every 10 m). Roads, water, hedges, walls and
 buildings (roof colour, ridge line and a shadow) are drawn on top. Moving or zooming the camera only moves
@@ -482,6 +493,108 @@ stand behind its position with only their crews and fire at will. Once the squad
 where they dropped them and support by fire from there; the Russian BMP-2s follow their squads about 150 m behind
 (both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
 knows near the objective, never close to its own men.
+
+## The screen: order bar, unit list, labels (M7.5a)
+The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
+are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.
+The bar then offers only what that unit can do right now: a squad gets Anti-tank only while someone still has a
+Panzerfaust (or RPG) with a round for it, the grenade buttons only while it has grenades, Mortar and Smoke only
+while your mortars have rounds left; a vehicle gets move, fire (the gun choice cycles through the rounds its
+guns really have), the smoke screen while its dischargers are loaded, and Dismount while men ride in it; a unit
+with just one man left can move, fire, throw, change posture, halt and cease fire.
+
+**Moving the bar.** Hold the grip (⠿) at its start and drag: a highlighted strip shows which edge it will go to;
+let go and it docks there — a full-width strip at the top or bottom, or a full-height column at the left or
+right. Your phone remembers the choice. Until you move it, it sits at the bottom with the phone upright and at
+the right with the phone on its side. On a narrow screen the bar is one row; buttons that do not fit (the rarer
+ones first: smoke, mortar, all grenades, withdraw, rules ...) wait behind **⋯**.
+
+**The unit list** is a slim strip of tiles down the side (the right side when the bar is docked left): each tile
+shows the unit's symbol, callsign and how many of its men are fit (5/6), and a coloured edge for its state —
+green ready, light blue moving, orange firing, grey riding, yellow pinned (or a damaged vehicle), red broken,
+dimmed out of action. The ☰ at its head opens the full list with the details; on a wide screen it is always open.
+
+**Labels never pile up.** Callsigns are placed beside their unit so that no two overlap, none covers another
+labelled unit, a bar or the screen edge; the selected unit's label always wins, and the ones that fit nowhere are
+left out until there is room (zoom in). A squad that got out next to its vehicle shares its label ("Puma 1 ·
+Trupp 1").
+
+**The top bar** (M7.5b) is one row: time, pause and speeds; on a narrow screen Save, Load, the map and Debug wait
+behind **⋯**. Under it one short line: each objective with a small square in the colour of the side holding it
+(grey: nobody; "(!)" while contested), the time left and your mortar rounds (HE/smoke). Zoomed far out every vehicle becomes a small symbol (vehicles close together are stacked: "Puma 1 ×4
++18" = four vehicles, 18 men riding); a platoon's infantry symbol appears only for the men on foot.
+
+**Looks are data too.** Each side's uniform tones and vehicle paint, and the colours of the flat map to come, are in
+`appearance.json` files. They are kept apart from everything the battle is computed from, so changing a colour can
+never change the outcome of a battle or a saved game.
+
+## Zoom levels, pixel soldiers and roofs (M7.5b)
+The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
+zoom:
+- **Close** (16 pixels per metre or more): every roof is lifted off, so you look into the buildings; soldiers at
+  their true size once that is big enough to read.
+- **Figures** (5–16 px/m): each soldier is a small top-down pixel figure, never smaller than about 24 pixels on a
+  phone (so close up a man is drawn a little larger than life next to a house).
+- **Dots** (1.2–5 px/m): men are small dots in their side's colour, vehicles at their real size; contour lines show.
+- **Symbols** (below 1.2 px/m): one symbol per unit and per vehicle. You cannot zoom out further than the whole map.
+A level changes a little later on the way back (10 %), so a pinch at a boundary does not flicker.
+
+**The figures** are our own pixel art: a man standing, walking (a boot shows behind him, left and right in turn),
+crouching, lying, crawling; down (on his back, rifle beside him), dead (face down, greyed, blood), surrendered
+(hands up, a white cloth), taken prisoner (kneeling, hands on the helmet). His weapon shows: a rifle, a longer
+machine gun with its belt box, a marksman rifle with a scope, a tube on his back when he carries a Panzerfaust or
+RPG; a flash at the muzzle when he fires; blood and a white dressing when he is wounded but fighting on. He turns
+in 16 steps. Each side wears its own uniform tones (from the appearance data), and a thin blue or red outline
+says whose he is; your selected unit's men have a thin white ring.
+
+**Roofs.** A roof is drawn over each building until one of your own men (on foot, able) is inside it or within
+8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the
+windows. Enemy men never lift a roof.
+
+## Inside the houses (M7.5c)
+Every building now has an inside, on every floor: **rooms**, **inner walls** with open **doorways**, **stairs**
+between floors and **windows upstairs** (each ground-floor window again on every floor, and a window above every
+door). The map generator makes them after it has placed every building, with its own random numbers, so the rest
+of the map is exactly what it was. Houses and farmhouses get two to five rooms (the room with the front door is
+the hall), offices and blocks of flats a corridor with rooms on either side, barns, sheds, warehouses and churches
+one big room. Every room can be reached from a door (checked for every generated map).
+
+What it changes in the battle:
+- **Seeing and shooting:** an inner wall blocks sight and stops or slows a bullet like any wall (brick, 12 cm);
+  you see and shoot through a doorway. The floor between two storeys blocks sight and stops or is pierced like the
+  roof (same material). Upstairs windows let you see into and out of the upper floors.
+- **Blast:** an inner wall or a floor shields a man from a burst on its other side; a charge can blow a hole in an
+  inner wall, and men can then walk through it.
+- **Walking in:** tap a move inside a house and the squad goes in: each man by his own way through the nearest door
+  and the doorways, to his own place in that room (a window first; more rooms of the house if the room is full),
+  where he crouches facing out. Order them somewhere outside and they come out by the doors and form up again. Men
+  walk through doors only (not windows); holes blown in a wall count as doors. Indoors a man under fire stays in
+  the house (its walls are his cover) instead of running outside to find cover.
+- **Anti-tank rockets** are not fired from a small room (the room he stands in counts, not the whole house).
+- **On screen:** when the roof fades you see the rooms, the inner walls with their doorways (a light threshold),
+  the hall a shade lighter and the stairs with their steps and an arrow up. In Debug the paths inside each house
+  are drawn: doorway points (cyan), doors to the outside (orange) and the lines a man may walk.
+
+## Upstairs (M7.5d)
+Men can now go up and down the **stairs**. A man's height above the ground is part of his position: 0 outdoors and
+on the ground floor, 2.8 m (one storey) on the first floor, and in between on the stairs, which he climbs at about
+half his pace. Everything that depends on how high a man stands uses that height: what he sees from a window, where
+his rifle, rocket or grenade starts, where others aim at him, which blast reaches him (the floor between two storeys
+shields a man upstairs from a grenade bursting below him), whom he can take prisoner.
+- **Moving upstairs:** the floor switch (buttons G, 1, 2 … at the right of the map) shows the floor you are looking
+  at; a move tapped inside a house goes to that floor. The squad spreads over the rooms (about one man per 4–5 m²,
+  windows first, then the other rooms, then the other floors) instead of crowding into one corner.
+- **Occupy:** select a squad, press **Occupy** and tap a house: every man takes a window, those facing the nearest
+  enemy your men know first, on all floors (upper floors see further), kneeling or standing so his rifle clears
+  the sill; the men left over take places inside. From there they fire out of the windows.
+- **On screen:** close in, men are drawn at their true size so the rooms read right. The floor switch appears when
+  your selected unit is inside or a house of more than one storey is opened up close in, and it follows the
+  selected unit's floor until you pick one yourself. The plan of the floor shown is drawn over the ground floor;
+  men on another floor are drawn faint with a small badge giving their floor.
+- `npm run lab -- sight` has rows for an observer at a first-floor window: he sees over a 2 m hedge, but a man
+  lying right behind a wall stays hidden.
+
+The AI does not yet use buildings on purpose (M7.5e, for the owner to decide).
 
 ## Does an attack work?
 

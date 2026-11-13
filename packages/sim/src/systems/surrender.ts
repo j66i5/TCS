@@ -22,14 +22,15 @@
 import { isMounted } from "../mount";
 import type { SoldierState, SurrenderReason } from "../components";
 import type { SimContext } from "../context";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { isAble, isFit } from "../impair";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
-import { findPath } from "../nav";
+
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { standZ } from "../terrain";
 import { takeOutOfFight } from "./wounds";
 
 /** The owner's "can no longer fight": a conscious wounded man who cannot fight (whether or not he can walk). */
@@ -116,20 +117,20 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
     if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms)) continue;
     const t = state.transform.req(m);
     if ((t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y) > r2) continue;
-    const ez = heightAt(ctx.map, t.x, t.y) + eyeHeightM(ctx, ms.posture);
-    const pz = heightAt(ctx.map, p.x, p.y) + TARGET_POINT_M[ps.posture];
+    const ez = standZ(ctx.map, t) + eyeHeightM(ctx, ms.posture);
+    const pz = standZ(ctx.map, p) + TARGET_POINT_M[ps.posture];
     if (sight(ctx, t.x, t.y, ez, p.x, p.y, pz).blockedBy === null) return m;
   }
   return null;
 }
 
-function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, endProne: boolean): boolean {
+/** Walk a man to (x, y) at height `gz` above the ground (his floor: a prisoner upstairs, M7.5 review fix). */
+function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, endProne: boolean, gz = 0): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
-  const leg = findPath(navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz });
   if (!leg) return false;
-  m.waypoints = [];
-  for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "walk" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
   m.formation = null; m.endPosture = endProne ? "prone" : null; m.endHeading = null;
   return true;
 }
@@ -163,7 +164,10 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
     if (it?.kind !== "takePrisoner" || it.target === undefined) continue;
     const ps = state.soldier.get(it.target);
     const done = ps?.captive?.state === "captured";
-    if (done) { s.intent = null; walkTo(ctx, state, id, it.x ?? state.transform.req(id).x, it.y ?? state.transform.req(id).y, true); continue; }
+    if (done) {
+      const me = state.transform.req(id);
+      s.intent = null; walkTo(ctx, state, id, it.x ?? me.x, it.y ?? me.y, true, it.x !== undefined ? it.z ?? 0 : me.z); continue;
+    }
     if (!isFit(s) || s.mental.suppression >= D.seekCoverSuppression || !ps || !ps.physiology.alive || ps.captive?.state !== "surrendered"
       || state.tick - it.tick > secondsToTicks(R.fetchTimeoutSeconds)) {
       s.intent = null; halt(state, id); continue;
@@ -203,8 +207,8 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
             const t = state.transform.req(best);
             const dx = t.x - p.x, dy = t.y - p.y, L = Math.max(1e-6, Math.abs(dx) + Math.abs(dy));
             // To his side, a step short of him.
-            if (walkTo(ctx, state, best, p.x + (dx / L) * 1.5, p.y + (dy / L) * 1.5, false)) {
-              state.soldier.req(best).intent = { kind: "takePrisoner", tick: state.tick, target: id, x: t.x, y: t.y };
+            if (walkTo(ctx, state, best, p.x + (dx / L) * 1.5, p.y + (dy / L) * 1.5, false, p.z)) {
+              state.soldier.req(best).intent = { kind: "takePrisoner", tick: state.tick, target: id, x: t.x, y: t.y, ...(t.z > 0 ? { z: t.z } : {}) };
               walkers.set(id, best);
             }
           }

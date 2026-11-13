@@ -75,6 +75,180 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
 }
 
 /**
+ * M7.5a UI shell (`--scene ui`): the mounted platoon battle as it opens (nothing selected, the order bar greyed);
+ * a squad got out and selected (only its relevant orders); a vehicle selected; the order bar docked left, top and
+ * right; the unit list opened; the battle zoomed out to the middle distance and to the overview (labels never
+ * overlap, vehicle symbols).
+ */
+async function uiScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(350); const p = `${outDir}/ui-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+  await shot("0-nothing-selected");
+  // A squad: the first squad of the first platoon gets out, 20 s on; then selected, the view on it.
+  const sq = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+    const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1); t.select(sq.unit); t.dismount(); t.stepTicks(60 * 20);
+    t.select(null); t.select(sq.unit); const u = s.unit.get(sq.unit); let x = 0, y = 0, n = 0;
+    for (const m of u.members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } t.focus(x / n, y / n, 140); t.stepTicks(1);
+    return { unit: sq.unit, set: t.orderSet() };`) as () => object);
+  await shot("1-squad-selected");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focus(p.x, p.y, 140); t.stepTicks(1);`) as () => void);
+  await shot("2-vehicle-selected");
+  const veh = await page.evaluate(new Function("return globalThis.__tcs.orderSet();") as () => object);
+  for (const e of ["left", "top", "right"]) {
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.dock("${e}"); t.select(${JSON.stringify((sq as { unit: number }).unit)}); t.stepTicks(1);`) as () => void);
+    await shot(`3-dock-${e}`);
+  }
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.dock(innerWidth > innerHeight ? "right" : "bottom"); t.expandSidebar(true); t.stepTicks(1);`) as () => void);
+  await shot("4-sidebar-expanded");
+  // Zoomed out over the whole own force: the middle distance (hulls and leaders, labels placed without overlaps)
+  // and the overview (symbols).
+  const ins = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.expandSidebar(false);
+    // The first platoon gets out (its squads beside their Pumas), the second stays aboard.
+    t.select(t.units()[0].unit); t.dismount(); t.select(null); t.stepTicks(60 * 40);
+    let x = 0, y = 0, n = 0; for (const [id, v] of s.vehicle.entries()) if (v.side === "blue") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+    globalThis.__c = { x: x / n, y: y / n }; t.focus(x / n, y / n, 450); t.stepTicks(1); return t.insets();`) as () => object);
+  await shot("5-mid-distance");
+  await page.evaluate(new Function(`const t = globalThis.__tcs; t.focus(globalThis.__c.x, globalThis.__c.y, 2600); t.stepTicks(1);`) as () => void);
+  await shot("6-overview");
+  console.log(`${name}: ui scene squad ${JSON.stringify(sq)}; vehicle ${JSON.stringify(veh)}; insets ${JSON.stringify(ins)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M7.5b look (`--scene look`): the pixel look against the classic one (`&look=classic`) where a pair helps —
+ * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
+ * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
+ * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
+ */
+async function lookScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/look-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  const open = async (q: string) => {
+    await page.goto(`http://localhost:${port}/?seed=${seed}${q}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+  };
+  const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
+  for (const lk of ["classic", "pixel"]) {
+    const q = `&map=village${lk === "classic" ? "&look=classic" : ""}`;
+    await open(q);
+    await shot(`0-opening-${lk}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 2.5); t.stepTicks(1);`) as () => void);
+    await shot(`1-mid-${lk}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 0.01); t.stepTicks(1);`) as () => void);
+    await shot(`2-far-${lk}`);
+    // A squad on foot firing, close up: the platoon battle on foot, the first squad fires east.
+    await open(`&map=village&vehicles=0${lk === "classic" ? "&look=classic" : ""}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+      let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+      t.fireAt(x + 250, y + 30); t.stepTicks(60 * 8);
+      const justFired = () => { for (const [id, w] of s.weapon.entries()) if (s.identity.get(id)?.unit === sq.unit && w.lastShotTick >= s.tick - 2) return true; return false; };
+      for (let k = 0; k < 900 && !justFired(); k++) t.stepTicks(1);
+      x = 0; y = 0; n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; }
+      t.focusScale(x / n, y / n, ${name === "phone" ? 9 : 12.8}); t.stepTicks(1);`) as () => void);
+    await shot(`3-firing-close-${lk}`);
+  }
+  // Casualties close up: the platoon battle on foot, Russia attacking, until the player's own side has a man
+  // wounded but fighting, a man down, a dead man and (if it comes to it) one who surrendered.
+  await open("&map=village&vehicles=0&attacker=red&limit=1200");
+  const cas = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
+    const find = () => { const r = { wounded: null, down: null, dead: null, surrendered: null };
+      for (const [id, x] of s.soldier.entries()) {
+        if (x.mount !== undefined || s.identity.get(id).side !== "blue") continue;
+        if (x.captive && !r.surrendered) r.surrendered = id;
+        else if (x.casualty === "killed" && !r.dead) r.dead = id;
+        else if (x.casualty === "incapacitated" && !r.down) r.down = id;
+        else if (x.casualty === "none" && !x.captive && x.wounds.some((w) => w.mechanism !== "blunt") && !r.wounded) r.wounded = id;
+      } return r; };
+    let r = find();
+    for (let k = 0; k < 80 && !(r.surrendered && r.down && r.dead && r.wounded); k++) { t.stepTicks(60 * 10); r = find(); }
+    globalThis.__cas = r; return { tick: s.tick, ...r };`) as () => object);
+  for (const k of ["surrendered", "down", "wounded", "dead"]) {
+    const ok = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, id = globalThis.__cas["${k}"]; if (id === null) return false;
+      const p = s.transform.get(id); t.focusScale(p.x, p.y, 16); t.stepTicks(1); return true;`) as () => boolean);
+    if (ok) await shot(`4-casualty-${k}`);
+  }
+  // Roofs: the building nearest the lead squad at the figure zoom (roof shown), zoomed in close (faded), then the
+  // squad walked up to it (faded beside the men, shown elsewhere).
+  await open("&map=village&vehicles=0");
+  const roof = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map;
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+    let best = 0, bd = Infinity; map.buildings.forEach((b, i) => { const bx = b.footprint[0], by = b.footprint[1]; const d = (bx - x) ** 2 + (by - y) ** 2; if (d < bd && b.footprint.length === 8 && (b.kind === "house" || b.kind === "farmhouse")) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    globalThis.__b = { i: best, cx, cy, door: b.openings.find((o) => o.kind === "door"), fp: b.footprint };
+    t.focusScale(cx, cy, 7); t.stepTicks(20); return { building: best, dist: Math.sqrt(bd), alpha: t.roofAlpha(best) };`) as () => object);
+  await shot("5-roof-shown");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, b = globalThis.__b; t.focusScale(b.cx, b.cy, 18); t.stepTicks(20);`) as () => void);
+  await shot("6-roof-faded-close");
+  const near = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, b = globalThis.__b;
+    // Walk the squad to a point 4 m outside the middle of the building's front wall.
+    const ax = b.fp[0], ay = b.fp[1], bx = b.fp[2], by = b.fp[3], L = Math.hypot(bx - ax, by - ay);
+    let nx = -(by - ay) / L, ny = (bx - ax) / L; if ((b.cx - ax) * nx + (b.cy - ay) * ny > 0) { nx = -nx; ny = -ny; }
+    t.tap((ax + bx) / 2 + nx * 4, (ay + by) / 2 + ny * 4); t.stepTicks(60 * 5);
+    const sq = t.units().find((u) => u.kind === "infantry"), men = s.unit.get(sq.unit).members;
+    for (let k = 0; k < 60 && men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0); k++) t.stepTicks(60 * 5);
+    t.focusScale(b.cx, b.cy, 7); t.stepTicks(20); return { alpha: t.roofAlpha(b.i) };`) as () => object);
+  await shot("7-roof-faded-men-beside");
+  // The village and the farmland at the middle distance (the flat pixel map, contour lines).
+  for (const map of ["village", "farmland"]) {
+    await open(`&map=${map}`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); const m = t.sim.ctx.map; t.focusScale((c.x + m.widthM / 2) / 2, (c.y + m.heightM / 2) / 2, 1.6); t.stepTicks(1);`) as () => void);
+    await shot(`8-${map}-mid`);
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); const m = t.sim.ctx.map; t.focusScale((c.x + m.widthM / 2) / 2, (c.y + m.heightM / 2) / 2, 5.5); t.stepTicks(30);`) as () => void);
+    await shot(`9-${map}-figure`);
+  }
+  // The sprite sheet: every frame of both sides, the weapon variants and the 16 facings.
+  await page.evaluate(new Function("globalThis.__tcs.showSprites(true);") as () => void);
+  await shot("10-sprite-sheet");
+  console.log(`${name}: look scene casualties ${JSON.stringify(cas)}; roof ${JSON.stringify(roof)} -> ${JSON.stringify(near)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M7.5c interiors (`--scene interiors`): the platoon battle on foot on the village; the lead squad is ordered into
+ * the nearest house with two or more rooms (a tap in its back room): the men in the rooms, the roof faded, inner
+ * walls, doorways and stairs; the same with Debug (the interior graph); then ordered out to a point in front of the
+ * door: leaving through the door, and outside.
+ */
+async function interiorScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/interiors-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 20 : 26;
+  const into = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map; t.setSpeed(0);
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    const men = s.unit.get(sq.unit).members;
+    let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    let best = -1, bd = Infinity;
+    map.buildings.forEach((b, i) => { if (!b.interior || (b.kind !== "house" && b.kind !== "farmhouse") || b.interior.rooms.filter((r) => r.floor === 0).length < 3) return; const d = Math.hypot(b.footprint[0] - x, b.footprint[1] - y); if (d < bd) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    // The ground-floor room farthest from the front door.
+    const door = b.openings.find((o) => o.kind === "door"); const fx = b.footprint[0] + (b.footprint[2] - b.footprint[0]) * door.offsetM / Math.hypot(b.footprint[2] - b.footprint[0], b.footprint[3] - b.footprint[1]);
+    const fy = b.footprint[1] + (b.footprint[3] - b.footprint[1]) * door.offsetM / Math.hypot(b.footprint[2] - b.footprint[0], b.footprint[3] - b.footprint[1]);
+    let tx = cx, ty = cy, far = -1;
+    for (const r of b.interior.rooms) { if (r.floor !== 0) continue; let rx = 0, ry = 0; for (let k = 0; k < 8; k += 2) { rx += r.poly[k] / 4; ry += r.poly[k + 1] / 4; } const d = Math.hypot(rx - fx, ry - fy); if (d > far) { far = d; tx = rx; ty = ry; } }
+    globalThis.__h = { i: best, cx, cy, fx, fy, nx: cx - fx, ny: cy - fy };
+    t.tap(tx, ty);
+    for (let k = 0; k < 90 && (k < 2 || men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0)); k++) t.stepTicks(60 * 5);
+    t.stepTicks(60 * 3);
+    t.focusScale(cx, cy, ${zoom}); t.stepTicks(20);
+    const inside = men.filter((m) => { const p = s.transform.get(m); return b.footprint && t.sim.ctx.map.buildings[best] && (function () { let c = false; const f = b.footprint; for (let a = 0, e = 3; a < 4; e = a++) { const ax = f[2*a], ay = f[2*a+1], ex = f[2*e], ey = f[2*e+1]; if ((ay > p.y) !== (ey > p.y) && p.x < ((ex - ax) * (p.y - ay)) / (ey - ay) + ax) c = !c; } return c; })(); }).length;
+    return { building: best, kind: b.kind, rooms: b.interior.rooms.length, dist: Math.round(bd), inside, men: men.length, roof: t.roofAlpha(best), tick: s.tick };`) as () => object);
+  await shot("0-squad-in-house");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__h; t.setDebug(true); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(2);`) as () => void);
+  await shot("1-debug-graph");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__h; t.setDebug(false); const L = Math.hypot(h.nx, h.ny) || 1;
+    t.tap(h.fx - h.nx / L * 20, h.fy - h.ny / L * 20); t.stepTicks(60 * 6); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(1);`) as () => void);
+  await shot("2-leaving-by-the-door");
+  const out = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, h = globalThis.__h; const sq = t.units().find((u) => u.kind === "infantry"), men = s.unit.get(sq.unit).members;
+    for (let k = 0; k < 30 && men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0); k++) t.stepTicks(60 * 5);
+    t.focusScale(h.fx, h.fy, ${zoom * 0.6}); t.stepTicks(20); return { tick: s.tick, roof: t.roofAlpha(h.i) };`) as () => object);
+  await shot("3-outside");
+  console.log(`${name}: interiors scene ${JSON.stringify(into)} -> ${JSON.stringify(out)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.4b anti-tank and crew reactions (`--scene vehicles`, fifth part): the platoon battle, Russia attacking mounted
  * against the German Pumas, Debug on (both sides shown): the rocket of the first man firing a Panzerfaust or an
  * RPG at a vehicle, in flight; then, in the vehicles scenario with every vehicle firing at the nearest enemy hull,
@@ -219,6 +393,39 @@ async function gunneryScenes(page: Page, name: string, errors: string[], shots: 
   console.log(`${name}: gunnery scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * M7.5d floors (`--scene floors`): the platoon battle on foot on the village; the lead squad occupies the nearest
+ * house of two or more storeys (Occupy, facing the enemy's side): men upstairs at the windows with the floor
+ * switch on 1 and firing out; the same house on G (the men upstairs faint with their floor badge).
+ */
+async function floorScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/floors-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 20 : 26;
+  const info = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map; t.setSpeed(0);
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    const men = s.unit.get(sq.unit).members;
+    let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    let best = -1, bd = Infinity;
+    map.buildings.forEach((b, i) => { if (!b.interior || b.storeys < 2 || (b.kind !== "house" && b.kind !== "farmhouse")) return; const d = Math.hypot(b.footprint[0] - x, b.footprint[1] - y); if (d < bd) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    // The enemy's side: away from the squad's start, through the house.
+    const fx = cx - x, fy = cy - y, fl = Math.hypot(fx, fy) || 1;
+    globalThis.__f = { i: best, cx, cy, ux: fx / fl, uy: fy / fl };
+    t.occupyAt(cx, cy);
+    for (let k = 0; k < 90 && (k < 2 || men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0)); k++) t.stepTicks(60 * 5);
+    t.fireAt(Math.min(Math.max(cx + fx / fl * 120, 5), map.widthM - 5), Math.min(Math.max(cy + fy / fl * 120, 5), map.heightM - 5));
+    t.stepTicks(60 * 4);
+    t.setFloor(1); t.focusScale(cx, cy, ${zoom}); t.stepTicks(8);
+    const zs = men.map((m) => Math.round(s.transform.get(m).z * 10) / 10);
+    return { building: best, kind: b.kind, storeys: b.storeys, dist: Math.round(bd), zs, floor: t.floorShown(), tick: s.tick };`) as () => object);
+  await shot("0-occupy-upstairs-floor-1");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__f; t.setFloor(0); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(4);`) as () => void);
+  await shot("1-floor-G-ghosts");
+  console.log(`${name}: floors scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -237,6 +444,10 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -351,7 +562,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

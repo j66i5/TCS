@@ -7,6 +7,7 @@ import type { CommsModel, CommsParams } from "./comms";
 import type { MapDef } from "./map";
 import type { MapIndex } from "./terrain";
 import type { NavGrid, NavSearch, NavStamp } from "./nav";
+import type { InteriorGraph } from "./interior-nav";
 import type { PhysiologyModel } from "./wounds";
 import type { BallisticsCtx, DropTable } from "./ballistics";
 import type { SideId } from "./ids";
@@ -72,8 +73,12 @@ export interface SimContext {
   /** Rates for the physiology model: data (core/wounds.json) overridden by the scenario rules. */
   physiologyParams: Record<string, number>;
   /** Holes blown in walls so far (a reference to the state's list; set by syncTerrainDamage). */
-  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[];
+  breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number }[];
   /** Wrecks stamped into the navigation grids (derived from the vehicle store; M7), and their key. */
   navStamps: NavStamp[];
   navStampKey: string;
+  /** Interior graphs per building index (M7.5c; built on first use, rebuilt after a breach). Never saved. */
+  interiorNav?: Record<number, InteriorGraph>;
+  /** Does the map have any building interior (M7.5c; derived on first use)? */
+  hasInteriors?: boolean;
 }

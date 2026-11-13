@@ -740,3 +740,24 @@ export type DoctrineT = z.infer<typeof DoctrineFile>;
 export type MovementModeT = z.infer<typeof MovementModeSchema>;
 export type FootModeT = z.infer<typeof FootModeSchema>;
 export type QualityT = z.infer<typeof QualitySchema>;
+
+// ---- Appearance (M7.5): presentation only. NOT part of the catalog or its fingerprint (plan m7.5 §1.1).
+// Original colour choices (docs/ASSETS.md), not researched facts: no provenance, an optional note.
+const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lower case)");
+/** A faction's look: uniform tones for the pixel figures (M7.5b) and its vehicles' paint. */
+export const FactionAppearanceFile = z.object({
+  uniform: z.object({ base: LookColour, dark: LookColour, light: LookColour, helmet: LookColour, skin: LookColour }).strict(),
+  vehicle: z.object({ hull: LookColour, dark: LookColour }).strict(),
+  note: z.string().optional(),
+}).strict();
+/** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */
+export const CoreAppearanceFile = z.object({
+  surfaces: z.record(Id, LookColour),
+  vegetation: z.record(Id, LookColour),
+  roofs: z.record(Id, LookColour),
+  floors: z.record(Id, LookColour),
+  outline: LookColour,
+  note: z.string().optional(),
+}).strict();
+export type FactionAppearanceT = z.infer<typeof FactionAppearanceFile>;
+export type CoreAppearanceT = z.infer<typeof CoreAppearanceFile>;

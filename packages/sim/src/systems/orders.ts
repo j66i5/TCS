@@ -4,15 +4,17 @@
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
 import type { SimContext } from "../context";
+import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
-import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "../nav";
+import { bestCoverNear, clearLine, navCostAt, nearestPassable } from "../nav";
 import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
-import { assignFireTask } from "./fire";
+import { buildingIndex, occupyBuilding } from "./occupy";
+import { aimHeightAt, assignFireTask } from "./fire";
 import { grenadeOption, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
@@ -20,7 +22,7 @@ import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./driv
 import { dischargeSmoke, stationCeaseFire, stationFireOrder } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
 import { secondsToTicks } from "../ids";
-import type { Unit } from "../components";
+import type { Contact, Unit } from "../components";
 import type { SimState } from "../state";
 
 function sideOf(state: SimState, target: EntityId): string | null {
@@ -37,9 +39,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
   switch (o.kind) {
     case "move":
       if (o.waypoints.length === 0 || o.waypoints.length > 64) return "invalid-params";
+      if (o.floor !== undefined && !(Number.isInteger(o.floor) && o.floor >= 0 && o.floor < 64)) return "invalid-params";
       for (const w of o.waypoints) {
         if (!Number.isFinite(w.x) || !Number.isFinite(w.y)) return "invalid-params";
         if (w.x < 0 || w.y < 0 || w.x > ctx.map.widthM || w.y > ctx.map.heightM) return "invalid-params";
+        if (w.z !== undefined && !(w.z >= 0 && w.z <= 100)) return "invalid-params";
         const mode = ctx.catalog.movementModes[w.mode];
         if (!mode) return "invalid-params";
         // A vehicle crew drives at a foot pace (mapped) or a pace of its own class; men on foot at foot paces.
@@ -90,6 +94,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "dismount":
     case "discharge":
       return null;
+    case "occupy":
+      if (buildingIndex(ctx, o.building) < 0) return "invalid-params";
+      if (o.floor !== undefined && !(Number.isInteger(o.floor) && o.floor >= 0 && o.floor < 64)) return "invalid-params";
+      if (o.facing !== undefined && !Number.isFinite(o.facing)) return "invalid-params";
+      return null;
   }
 }
 
@@ -100,7 +109,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
 function orderApplies(state: SimState, o: Order): boolean {
   const crew = state.unit.get(o.target)?.vehicle !== undefined;
   switch (o.kind) {
-    case "posture": case "assault": case "withdraw": case "grenade":
+    case "posture": case "assault": case "withdraw": case "grenade": case "occupy":
       return !crew;
     case "fire":
       return !(crew && o.nature === "at"); // a crew has no launcher (M7.4a)
@@ -287,7 +296,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       const coverW = doctrine?.doctrine["coverPreference"] ?? 0;
       const spacing = doctrine?.doctrine["preferredSpacingM"] ?? 8;
       const formation = ctx.catalog.formations[order.formation ?? doctrine?.defaultFormation ?? ""];
-      const route = routeThrough(ctx, ref.x, ref.y, order.waypoints, coverW);
+      const owps = withFloor(ctx, order.waypoints, order.floor);
+      const route = routeThrough(ctx, ref.x, ref.y, owps, coverW, ref.z);
       if (!route) return false;
       const end = route[route.length - 1]!;
       const followers = soldiers.filter((s) => s !== refId);
@@ -302,10 +312,44 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       };
       // Moving ends a fire order.
       endFire(state, order.target, soldiers, "moved", events);
+      // Into a building with an interior (M7.5c): no formation; each man to his own place in the room (a window
+      // first), by his own route through the doors; he crouches there facing out.
+      const indoor = indoorAt(ctx, end.x, end.y);
+      if (indoor >= 0) {
+        const spots = indoorSpots(ctx, indoor, end.x, end.y, soldiers.length, order.floor ?? 0);
+        const ordered = [refId, ...followers];
+        ordered.forEach((s, k) => {
+          const t = state.transform.req(s), sp = spots[k]!;
+          const wps = owps.map((w, i) => {
+            if (i !== owps.length - 1) return w;
+            const nw: Waypoint = { ...w, x: sp.x, y: sp.y };
+            if (sp.z > 0) nw.z = sp.z; else delete nw.z;
+            return nw;
+          });
+          const own = s === refId && hypot2(end.x - sp.x, end.y - sp.y) < 1e-9 && sp.z === (end.z ?? 0) ? route : routeThrough(ctx, t.x, t.y, wps, coverW, t.z);
+          assign(s, (own ?? []).map((w) => ({ ...w })), null);
+          const m = state.mover.get(s);
+          if (m && m.waypoints.length > 0) { m.endPosture = "crouching"; m.endHeading = sp.heading; }
+        });
+        if (unit) { unit.moving = true; unit.moveTick = state.tick; }
+        else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
+        break;
+      }
       assign(refId, route.map((w) => ({ ...w })), null);
+      // Out of a building (M7.5c): men indoors come out by the doors on their own routes, then form up.
+      const fromIndoors = indoorAt(ctx, ref.x, ref.y) >= 0 || followers.some((f) => { const t = state.transform.get(f); return t !== undefined && indoorAt(ctx, t.x, t.y) >= 0; });
       followers.forEach((s, k) => {
         const t = state.transform.req(s);
         const slot = formation ? slotFor(formation.slots, k + 1) : null;
+        if (fromIndoors) {
+          const fx = route.length >= 2 ? end.x - route[route.length - 2]!.x : end.x - ref.x, fy = route.length >= 2 ? end.y - route[route.length - 2]!.y : end.y - ref.y;
+          const fl = hypot2(fx, fy) || 1, ux = fx / fl, uy = fy / fl;
+          const rM = (slot?.[0] ?? 0) * spacing, bM = (slot?.[1] ?? k + 1) * spacing;
+          const gx = Math.min(Math.max(end.x - uy * rM - ux * bM, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(end.y + ux * rM - uy * bM, 1), ctx.map.heightM - 1);
+          const wps = order.waypoints.map((w, i) => (i === order.waypoints.length - 1 ? { ...w, x: gx, y: gy } : w));
+          assign(s, (routeThrough(ctx, t.x, t.y, wps, coverW, t.z) ?? routeThrough(ctx, t.x, t.y, order.waypoints, coverW, t.z) ?? []).map((w) => ({ ...w })), null);
+          return;
+        }
         const ws = slot
           ? formationRoute(ctx, t.x, t.y, ref.x, ref.y, route, slot[0] * spacing, slot[1] * spacing, coverW)
           : personalRoute(ctx, t.x, t.y, t.x - ref.x, t.y - ref.y, route);
@@ -330,7 +374,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           const from = m.waypoints[m.waypoints.length - 1] ?? { ...end, x: state.transform.req(s).x, y: state.transform.req(s).y };
           if (hypot2(from.x - tx, from.y - ty) < 1) return;
           const { search } = navFor(ctx, ctx.catalog.movementModes[from.mode]?.class ?? "foot");
-          const leg = findPath(search, from.x, from.y, tx, ty, { maxExpansions: 6000, snapCells: 3 });
+          const leg = routeBetween(ctx, search, from.x, from.y, tx, ty, { maxExpansions: 6000, snapCells: 3 });
           if (leg) for (let k = 0; k < leg.points.length; k += 2) m.waypoints.push({ ...from, x: leg.points[k]!, y: leg.points[k + 1]! });
         });
       }
@@ -344,7 +388,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // (With a laid-out formation, cover only close by, so the shape the player chose holds.)
         const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
-          const leg = findPath(search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
+          const leg = routeBetween(ctx, search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
           if (leg && leg.cost <= HALT_COVER_RADIUS_M * 2.5) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...last, x: leg.points[i]!, y: leg.points[i + 1]! });
         }
@@ -354,6 +398,15 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         m.endHeading = laid || s === refId || ox * ox + oy * oy < 4 ? travel : atan2(oy, ox);
       }
       if (unit) { unit.moving = true; unit.moveTick = state.tick; }
+      else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
+      break;
+    }
+    case "occupy": {
+      // Occupy a building (M7.5d): every man to a window place (or one inside), no formation.
+      endFire(state, order.target, soldiers, "moved", events);
+      const bi = buildingIndex(ctx, order.building);
+      if (occupyBuilding(ctx, state, soldiers, bi, order.floor, order.facing) === 0) return false;
+      if (isUnit) { const u = state.unit.req(order.target); u.moving = true; u.moveTick = state.tick; }
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
     }
@@ -379,7 +432,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
         // At a contact: where this man believes the enemy to be, else the point given with the order (what
         // comrades know reaches him only through contact sharing).
-        let x = order.x, y = order.y;
+        let x = order.x, y = order.y, known: Contact | undefined;
         // (A contact naming a man who is dead or of the issuer's own side is simply ignored: rejecting the order
         // would tell the player something his men do not know.)
         const named = order.contact !== undefined && state.soldier.get(order.contact)?.physiology.alive === true && state.identity.get(order.contact)?.side !== order.issuer ? order.contact : undefined;
@@ -387,9 +440,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
           // A man who knows the named enemy has given up (M6.6) halts with the others but does not fire at him.
           if (c?.surrendered === true) continue;
-          if (c) { x = c.x; y = c.y; }
+          if (c) { x = c.x; y = c.y; known = c; }
         }
-        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? ctx.catalog.shooting.fire.aimPointHeightM)) {
+        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known))) {
           any = true;
           const ft = state.fire.get(s);
           if (ft && named !== undefined) ft.contact = named;
@@ -542,20 +595,33 @@ function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: 
   return any;
 }
 
-/** Path through the order's waypoints (each leg with its own mode). null if any leg has no route. */
-function routeThrough(ctx: SimContext, x: number, y: number, wps: readonly Waypoint[], coverW = 0): Waypoint[] | null {
+/**
+ * Path through the order's waypoints (each leg with its own mode). null if any leg has no route. `sz`: the man's
+ * height above the ground (M7.5d: upstairs); each waypoint's own `z` is the floor it lies on.
+ */
+function routeThrough(ctx: SimContext, x: number, y: number, wps: readonly Waypoint[], coverW = 0, sz = 0): Waypoint[] | null {
   const out: Waypoint[] = [];
-  let px = x, py = y;
+  let px = x, py = y, pz = sz;
   for (const w of wps) {
     const mode = ctx.catalog.movementModes[w.mode];
     if (!mode) return null;
     const { search } = navFor(ctx, mode.class, coverW);
-    const p = findPath(search, px, py, w.x, w.y);
+    const p = pz > 0 || (w.z ?? 0) > 0 ? routeBetween(ctx, search, px, py, w.x, w.y, {}, { sz: pz, gz: w.z ?? 0 }) : routeBetween(ctx, search, px, py, w.x, w.y);
     if (!p) return null;
-    for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });
-    px = p.goalX; py = p.goalY;
+    out.push(...routeWaypoints(p, w));
+    px = p.goalX; py = p.goalY; pz = p.zs ? p.zs[p.zs.length - 1]! : 0;
   }
   return out;
+}
+
+/** The order's waypoints with the last one on floor `floor` of the building it lies in (M7.5d). */
+function withFloor(ctx: SimContext, wps: readonly Waypoint[], floor: number | undefined): Waypoint[] {
+  if (!floor) return wps as Waypoint[];
+  const last = wps[wps.length - 1]!;
+  const bi = indoorAt(ctx, last.x, last.y);
+  if (bi < 0) return wps as Waypoint[];
+  const b = ctx.map.buildings[bi]!;
+  return wps.map((w, i) => (i === wps.length - 1 ? { ...w, z: floorAtZ(b, floor * b.storeyHeightM) * b.storeyHeightM } : w));
 }
 
 /** Slot `i` of a formation; beyond the listed slots, extra men extend the last slot straight back. */
@@ -595,7 +661,7 @@ function formationRoute(ctx: SimContext, x: number, y: number, rx: number, ry: n
     if (clearLine(plain, px, py, qx, qy)) {
       out.push({ ...w, x: qx, y: qy });
     } else {
-      const leg = findPath(search, px, py, qx, qy, { maxExpansions: 6000, snapCells: 3 }) ?? findPath(search, px, py, qx, qy);
+      const leg = routeBetween(ctx, search, px, py, qx, qy, { maxExpansions: 6000, snapCells: 3 }) ?? routeBetween(ctx, search, px, py, qx, qy);
       if (!leg) return personalRoute(ctx, x, y, x - rx, y - ry, route);
       for (let i = 0; i < leg.points.length; i += 2) out.push({ ...w, x: leg.points[i]!, y: leg.points[i + 1]! });
       qx = leg.goalX; qy = leg.goalY;
@@ -624,11 +690,11 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   // Otherwise join the reference route, follow it, and leave it for his own spot at the end.
   const out: Waypoint[] = [];
   // Join the route: a quick bounded search first, then a full one. Never an unchecked straight line.
-  const join = findPath(search, x, y, first.x, first.y, { maxExpansions: 3000 }) ?? findPath(search, x, y, first.x, first.y);
+  const join = routeBetween(ctx, search, x, y, first.x, first.y, { maxExpansions: 3000 }) ?? routeBetween(ctx, search, x, y, first.x, first.y);
   if (!join) return []; // cannot reach the route at all: he stays where he is
   for (let i = 0; i + 2 < join.points.length; i += 2) out.push({ ...first, x: join.points[i]!, y: join.points[i + 1]! });
   for (const w of route) out.push({ ...w });
-  const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
+  const end = routeBetween(ctx, search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
 }

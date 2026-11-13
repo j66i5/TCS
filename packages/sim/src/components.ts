@@ -129,6 +129,8 @@ export interface Intent {
   item?: DefId;
   x?: number;
   y?: number;
+  /** takePrisoner: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
+  z?: number;
 }
 
 export interface Contact {
@@ -151,6 +153,11 @@ export interface Contact {
   vx?: number;
   vy?: number;
   wreck?: true;
+  /**
+   * A man on foot above the ground (M7.5 review fix): his height above the ground (his floor) when he was seen
+   * there. Absent = on the ground, or not known (a sound gives no height). What men aim and take cover by.
+   */
+  z?: number;
 }
 
 /** A contact report on its way from one soldier to another. */
@@ -240,8 +247,12 @@ export interface Action {
  * arrive with ballistics (M2); movement, spotting and cover will read it.
  */
 export interface TerrainState {
-  /** Holes blown in walls: in obstacle/building `id`, segment `part`, centred `offsetM` from its start. */
-  breaches: { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; tick: number }[];
+  /**
+   * Holes blown in walls: in obstacle/building `id`, segment `part`, centred `offsetM` from its start. sillM/headM
+   * (M7.5 review fix): the hole's bottom and top above the ground — one storey of the outer wall of a building with
+   * floors; absent = the whole height of the wall.
+   */
+  breaches: { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number; sillM?: number; headM?: number; tick: number }[];
   craters: { x: number; y: number; radiusM: number; depthM: number; tick: number }[];
   /** Vegetation thinned by fire: [cell index, fraction removed 0..1], sorted by cell. */
   vegetationLoss: [number, number][];

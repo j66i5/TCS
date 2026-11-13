@@ -41,7 +41,7 @@ import { compCondition, fireTop, occupant } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
-import { friendInLine, skillFactor } from "./fire";
+import { aimHeightAt, friendInLine, skillFactor } from "./fire";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
@@ -212,7 +212,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   for (const w of sn.weapons) reach = Math.max(reach, w.engageRangeM);
   if (crew.maxEngageM > 0) reach = Math.min(reach, crew.maxEngageM);
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
-  const cands = new Map<EntityId, { x: number; y: number; err: number }>();
+  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number }>();
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
@@ -223,10 +223,10 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
       if (!ok) continue;
       const err = contactErrorM(ctx, c, tick);
       const prev = cands.get(c.target);
-      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err });
+      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, ...(c.z !== undefined ? { z: c.z } : {}) });
     }
   }
-  const scored: { target: EntityId; x: number; y: number; score: number; vehicle: boolean; firing: boolean }[] = [];
+  const scored: { target: EntityId; x: number; y: number; z?: number; score: number; vehicle: boolean; firing: boolean }[] = [];
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -236,7 +236,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
       : ew !== undefined && tick - ew.lastShotTick <= 3 * TICK_HZ;
-    scored.push({ target, x: c.x, y: c.y, score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
+    scored.push({ target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).
@@ -244,7 +244,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const st = v.stations[si]!;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
-    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : ctx.catalog.shooting.fire.aimPointHeightM);
+    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : aimHeightAt(ctx, cnd)); // ground: ok (a man's floor in his aim height)
     const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, cnd.vehicle ? cnd.target : -1);
     if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) { best = cnd; break; }
   }
@@ -375,8 +375,9 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
           }
         }
         const range = Math.max(1, hypot2(tx - px, ty - py));
+        // ground: ok (a vehicle's gun; the point fired at)
         const mz = heightAt(ctx.map, t.x, t.y) + (def.body.turret?.trunnionU ?? 2);
-        const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+        const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at) // ground: ok
         let az = wrapAngle(atan2(ty - py, tx - px) - t.heading);
         if (sn.traverseArcRad) az = Math.min(Math.max(az, sn.traverseArcRad[0]), sn.traverseArcRad[1]);
         st.azCmd = az;
@@ -403,7 +404,7 @@ export function muzzleWorld(ctx: SimContext, def: VehicleDef, si: number, wi: nu
   const m = def.stations[si]!.weapons[wi]!.muzzle;
   const { px, py } = pivotOf(def, x, y, heading);
   const a = heading + azimuth, c = cos(a), s = sin(a);
-  return [px + c * m[0] - s * m[1], py + s * m[0] + c * m[1], heightAt(ctx.map, x, y) + m[2]];
+  return [px + c * m[0] - s * m[1], py + s * m[0] + c * m[1], heightAt(ctx.map, x, y) + m[2]]; // ground: ok (a vehicle's muzzle)
 }
 
 /** A wall or the ground this close to the point fired at is the target, not a block. */
@@ -471,7 +472,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
         const [mx, my, mz] = muzzleWorld(ctx, def, si, st.taskWeapon, t.x, t.y, t.heading, st.azimuth);
         // (Fire at the ground — high explosive at men's feet — is checked to a point a little above it: a line
         // grazing flat ground short of the point is not a wall in the way.)
-        const tz = heightAt(ctx.map, task.x, task.y) + Math.max(task.heightM, 0.6);
+        const tz = heightAt(ctx.map, task.x, task.y) + Math.max(task.heightM, 0.6); // ground: ok (the point fired at)
         const tv = task.contact !== undefined && state.vehicle.has(task.contact) ? task.contact : -1;
         const r = sight(ctx, mx, my, mz, task.x, task.y, tz, vid, tv);
         const range = hypot2(task.x - mx, task.y - my);
@@ -496,7 +497,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       }
       const range = hypot2(tx - mx, ty - my);
       if (range < 2) { st.task = null; continue; }
-      const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+      const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at)
       const a0 = atan2(ty - my, tx - mx);
       const believed = range * (1 + task.rangeError);
       const skill = os.skills["marksmanship"] ?? 0.5;

@@ -1821,3 +1821,277 @@ An independent review of M7 found seven issues; all are fixed on `m7-review-fixe
   which no longer count as enemy hits). Checked first: headless demo-s1, shootout-s1, demo-fixture-s7 (120 s) and
   platoon-s1 (900 s) print the identical event stream and casualties as on the base commit (only wall time differs);
   every other golden unchanged. `npm run check` green, timing tests included.
+
+## 2026-11-12 — M7.5 design questions decided without the owner, for the morning review
+The owner asked for the redesign to be built unattended ("decide yourself, poll me in the morning"). The 17
+questions of `docs/plans/m7.5-look.md` §7 were taken with the recommended option; each is to be confirmed:
+1. Zoom: true scale from 12 px/m; dots and symbols at 1.2–5 px/m; symbols below 1.2; the battle opens at 8 px/m
+   on the lead squad (M7.5b).
+2. Soldier sprites turn freely, snapped to 16 directions. 3. Sprite art 16 × 16 px per metre.
+4. "Man" actions: a unit with one able man left (no picking a single man out of a squad yet).
+5. Order bar default dock: bottom on a screen held upright, right on one held sideways; remembered per device.
+6. When the bar docks left, the unit sidebar moves to the right.
+7. Floor plans: the same partition on every floor. 8. Doorways always open (no door state).
+9. Floors between storeys reuse the roof's material and thickness (no data change in M7.5c).
+10. Stairwell holes ignored for sight and projectiles. 11. No extra concealment in dark rooms.
+12. Interiors for every building kind; big halls are one room. 13. Men enter by doors and breaches, not windows.
+14. AI use of buildings: a separate later slice (M7.5e; the owner already agreed).
+15. An enemy's floor badge only while he is seen. 16. Roofs fade when own men are within 8 m or at ≥ 12 px/m.
+17. The old look stays behind `?look=classic` for one milestone.
+
+## 2026-11-12 — M7.5a UI shell: implementation choices (decided without the owner, for the morning review)
+Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched.
+- **Relevant actions.** `unitCapabilities(view, catalog, unit)` (ui, pure) reads what a unit can do now; `ordersFor`
+  turns it into the bar. Anti-tank only while an able man has a launcher AND a round for it (the simulation's
+  `launcherRound` test); Grenade only with hand or rifle grenades, "All grenades" only with two or more; Mortar /
+  Smoke only while the side has such rounds left; the smoke-screen button only while the dischargers hold
+  grenades; the gun choice cycles only through the natures the vehicle's guns have (AP / HE / MG). A unit with one
+  able man gets move, fire, grenade, posture, halt, cease fire (no rules: plan §7.4). A unit with nobody able left
+  counts as nothing selected. The mode on show falls back to Move when the unit loses it (grenades gone).
+- **Nothing selected:** the battle opens with nothing selected; the bar shows Move, Assault, Fire, Grenade, Halt,
+  Cease fire, Posture, Rules greyed (disabled), the hint asks to pick a unit. Tapping the selected unit's tile again
+  deselects it. The browser debug hook (`__tcs`) still orders the first own unit when given an order with nothing
+  selected (screenshots).
+- **Docking.** The bar is its own strip with a grip (⠿); dragging the grip shows the edge it would dock to, letting
+  go docks it to the nearest edge (`nearestEdge`, ties bottom > right > left > top). Stored in localStorage
+  `tcs.ui.dock` only once the player has moved it; until then it follows the screen's orientation. Horizontal: one
+  row; vertical: one full-height column. Rare buttons move behind "⋯" (a pop-up) until the strip fits, in this
+  order: smoke, mortar, all grenades, withdraw, rules, posture, smoke screen, gun choice, anti-tank, grenade, cease
+  fire, assault, halt, mount, dismount, fire (Move never). On a 390 px phone a squad shows Move, Assault, Fire,
+  Mount/Dismount, Halt and "⋯". The plan bar (pace, formation, undo, cancel, Go) sits beside the order bar on the
+  same edge.
+- **Unit sidebar.** Tiles of 56 px: symbol (infantry, vehicle, HQ: original drawings), callsign, men fit / total;
+  the left border's colour gives the state (ready green, moving light blue, firing orange, aboard grey, pinned or
+  damaged yellow, broken red, out of action dimmed). A platoon is followed by its squads and vehicles. The head (☰)
+  opens the list with details (state, vehicle status, men riding); at 1000 px or wider it is always open (230 px).
+  A vehicle tile counts its crew; its passengers are their own units. Refreshed four times a second.
+- **Free map area.** The HUD reports the area its bars and sidebar leave free (`hud.insets()`); the app frames the
+  opening view in it and the renderer keeps labels out of the covered strips. `renderer.focus` now honours left and
+  right insets too.
+- **Labels (`render/src/labels.ts`).** Each frame the renderer collects label requests and `placeLabels` places them
+  greedily: selected unit first, then objectives, then the rest by id; four places tried (right, left, above,
+  below); a label may not cover another label, another labelled symbol (hull, leader, overview symbol), a HUD strip
+  or the screen edge; what fits nowhere is dropped for that frame. The plan's 16 px occupancy grid was too coarse
+  (labels of hulls 10 px apart never fitted): **8 px** cells. Labels get a thin dark outline for legibility on any
+  ground. A squad on foot whose leader is within 15 m of its own vehicle shares the vehicle's label
+  ("Puma 1 · Trupp 1"). Leader and hull labels are now shown at every zoom outside the overview (before: only above
+  0.5 px/m) since they can no longer pile up.
+- **Overview symbols.** Below 0.35 px/m each vehicle is a symbol (frame with a track oval; original drawing) in the
+  side's colour, a red cross on a wreck; vehicles closer than a symbol are stacked into one, labelled with the first
+  callsign, "×n" and "+n" men riding. Infantry symbols only for a top-level unit with men on foot, at those men; one
+  that would sit on a vehicle symbol is lifted clear with a line to where its men are.
+- **Appearance data.** `factions/<id>/appearance.json` (uniform base / dark / light / helmet / skin, vehicle hull /
+  dark) and `core/appearance.json` (flat palette per surface, vegetation, roof and floor, plus the outline colour),
+  original colours, no provenance (art, not facts; a note). Loaded by the loader (unknown terrain ids and bad colours
+  are errors), turned into numbers by `buildAppearance()` beside `buildCatalog`, never in the catalog (test:
+  removing or changing every appearance file leaves the fingerprint unchanged). A faction without the file gets the
+  neutral grey-green look; the fixture faction `xf` has its own (sand). In M7.5a only the vehicle paint is used
+  (hull and turret colours); uniforms and the palette are for M7.5b. Bundled by the app's existing
+  `core/**` / `factions/**` glob.
+- **Perf:** render 0.9 ms per frame (30 hulls, 270 men, 2000 tracers), new case: middle distance with labels
+  0.9 ms, overview 0.3 ms (target 4 ms).
+
+## 2026-11-12 — M7.5b Look: implementation choices (decided without the owner, for the morning review)
+Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched (never
+regenerated). The old look stays behind **`?look=classic`** for one milestone (plan §7.17).
+- **Zoom levels (`render/src/lod.ts`).** Symbols below 1.2 px/m (was 0.35: the overview now starts at about
+  325 m across a phone), men as dots with hulls at 1.2–5, pixel soldiers from 5, "close" from **16 px/m** (plan:
+  12) — 16 art pixels per metre, the art's own size — where every roof fades. 10 % hysteresis on each boundary.
+- **Sprite size (changed from plan §7.3).** Art 16 × 16 per metre as planned (a man's shoulders and pack are
+  about 0.55 m), but at true size a man is only 9 px across at 16 px/m — too small to read on a phone (screenshots).
+  So a soldier is drawn at `max(true size, about 24 CSS px)`, snapped to whole device pixels per art pixel (24 px
+  on a phone at 2x, 32 px on a desktop at 1x): crisp pixels, never a jump in size between levels, and true scale
+  once true size is the larger (from about 24 px/m on a phone). Below that the men are drawn larger than life
+  next to houses and vehicles — the owner may prefer smaller figures (then `MIN_FIGURE_PX` 16).
+- **Opening view:** 8 px/m on the player's first squad (its vehicle while it rides; the platoon battle starts
+  mounted), with the detail tiles there built before the first picture. Classic: the old 600 m start.
+- **Far view fits the map (parent review of `ui-1-phone-6-overview`):** the camera never zooms out past the whole
+  map in the free area, and the map stays in view while panning (40 px margin; a map smaller than the area is
+  centred).
+- **Pixel soldiers** (`render/src/sprites/`): 11 original frames as string grids (stand, two walking, crouch,
+  crouch-walk, prone, crawl, down, dead, surrendered, captive); the weapon is the frame's longest run of steel
+  pixels — machine guns and marksman rifles lengthen it (a belt box, a scope), the firing frame adds a muzzle flash
+  for 6 ticks after `shot.fired` (the old round flash is not drawn over pixel soldiers); a man carrying a launcher
+  (any weapon of type `launcher` in his kit) has a tube across his pack; a wounded man who fights on shows blood and
+  a white dressing; the dead are greyed with a blood pool. **Facings pre-rotated** into the atlas (16 steps, Scale2x
+  twice then sampled back), so a turned man keeps clean pixels. Palette swap per faction from the uniform tones in
+  the appearance data; a 1-px outline in the side's colour (blue/red) around each man; the selected unit gets a
+  thin white ring (a white outline read as "white men"). Cells built lazily into one RGBA texture (nearest).
+- **Flat pixel map** (`render/src/terrain-flat.ts`): one painter for the whole map at about 1 px/m and for close
+  detail tiles (64 m at 4 px/m, at most one new tile per frame, 48 kept); flat appearance colours, cell edges
+  wobbled by a smooth offset (no 4 m staircase), a 1-px darker seam where the ground changes, furrows and crop
+  rows, a light speckle; trees and bushes as pixel crowns with a dark rim, a light upper-left and a hard shadow
+  (far out one big crown per cell, so woods do not turn to speckle); water, roads, hedges, walls and fences
+  rasterised with a 1-px outline, no anti-aliasing. Cells under roads, building floors and water take their
+  neighbours' ground. **Contour lines** (2.5 m, bold every 10 m) are their own layer, shown only at the dot and
+  symbol levels. No hill shading. Startup: about 0.3–0.6 s for a 2 km map on this machine.
+- **Buildings** (`render/src/buildings.ts`): a floor layer under the men (floor colour, boards, outer walls with
+  door gaps and window glass) and a roof per building above them (hard shadow, flat colour, ridge with one half a
+  shade darker, tile rows; flat roofs with a parapet band). **Roof fade:** a roof goes (over 8 frames) when zoomed in
+  to 16 px/m or more, or when any of the player's own able men on foot is inside or within 8 m of its walls
+  (bucket grid, every frame); enemy men never lift a roof.
+- **Top bar and status line (parent review):** the top bar stays one row; when it does not fit, Save, Load, the
+  map and Debug go behind "⋯" (and the title goes on a very narrow screen). The status line is compact: each
+  objective with a small square in its holder's side colour (grey: nobody; the holder's name as a tooltip), "(!)"
+  while contested, the time left, "mortar 24/12" (HE/smoke; full text as a tooltip); one line, cut with "…".
+- **Perf** (render proxy, target 4 ms): close zoom with 270 pixel soldiers in view 1.1 ms; 64 buildings with the
+  roof rule 0.3 ms; the M7.3 case (now at the dot level, 1.5 px/m) 0.95 ms; middle distance 1.0 ms; overview
+  0.2 ms. The two older render cases were moved to the new levels (their old zooms are now symbols).
+- **Not done (deferred):** pixel vehicles (hulls stay vector shapes), interiors (M7.5c), smoke and bursts in pixel
+  style, the start hint's size on a phone.
+
+## 2026-11-13 — M7.5c Interiors: implementation choices (decided without the owner, for the morning review)
+Plan `docs/plans/m7.5-look.md` §5. The map changes once; goldens regenerated once (below), with the equivalence proof.
+- **Map format 2.** `Building.interior? {rooms, walls, stairs}`, `Opening.floor?`. A map without any interior is
+  written as format 1, byte for byte as before (so its fingerprint is unchanged); `mapFromFile` reads both.
+  `stripInteriors(map)` removes interiors and upper-floor openings and resets the generator version to 1.
+- **Generation** (`scenario/src/mapgen/interiors.ts`), after every building, in id order, stream
+  `mapgen/interiors`; `generateMap(..., { interiors })` default true; MAPGEN_VERSION 2 (1 without interiors).
+  Local frame of the rectangle; axis-aligned cuts, so every room is a rectangle. A cut never ends in an outer door,
+  window or an earlier doorway (random places first, then the clear place nearest the middle in 0.1 m steps).
+  Each cut one 0.9 m doorway (head 2.0 m), 30 % a second (cuts of 4 m or more). Houses and farmhouses: 2–5 rooms
+  by floor area (about one per 22 m², plus 0–1), the room with the front door is the **hall**. Offices and blocks
+  of flats (≥ 16 × 10 m and 3+ storeys or > 200 m²): a **1.8 m corridor** along the building, rooms of 3–6 m either
+  side, a doorway from the corridor into every room, the front room with the door is the hall. One room: anything
+  with storeys ≥ 4 m high (barn, warehouse, church), plank or sheet walls (< 0.1 m: sheds) or under 25 m².
+  **Inner walls: brick, 0.12 m** (an existing material; no data change — the plan's invariant). Stairs 1 m wide,
+  3–3.5 m long, against the long side of the hall (else the largest room that takes them), one flight per floor
+  pair at the same place; that room is kind "stair". Upper windows: every ground window on every floor, and a
+  window (1.2 m, sill 0.9) above every door. Same partition on every floor (plan §7.7).
+- **Validity**: `validateMap` → `interiorProblems`: every floor has rooms, rooms convex inside the footprint
+  (corners within 5 cm: coordinates are rounded to cm — village seed 41 found it), doorways on their walls, every
+  room reachable from an exterior door through doorways and stairs. 480 maps of 2 km and 240 of 1.2 × 0.9 km swept
+  clean; the tests check 4 kinds × 6 seeds. Generation ~170 ms per 2 km map with interiors (182 ms measured
+  without in the same run: noise; the interiors themselves cost a few ms).
+- **Sight / bullets / blast.** Inner walls are segments of the map index after all others (not in the old
+  buckets: everything that only knew outer walls is untouched); slabs are part of each building's roof record
+  (roof material and thickness, plan §7.9), stairwell holes ignored (§7.10). `sight()` tests slabs and inner walls
+  only for buildings the line crosses (inside the existing roof loop). Projectiles: inner walls in buckets with the
+  new `NEAR_INTERIOR` bit; slabs with the roofs (the lowest slab now sets `roofLow`). `lineBlocked`: inner walls and
+  slabs (slabs judged by the line's height at its two ends — exact for a burst and a man in the same building, the
+  M7.5c case; M7.5d revisits it with men upstairs). Breaches also open inner walls (hole from that floor up).
+- **Routes.** No state change and **no schema bump**: `Waypoint.z`/`inside` were not needed (indoor-ness is
+  derived from the position; heights come with M7.5d). Outdoor grid untouched; per-building graph joined at the
+  doors (`routeBetween`, `interior-nav.ts`), every man's `findPath` routed through it (architecture test with an
+  `// outdoor: ok` marker; vehicles untouched). A move whose end is indoors: no formation, each man his own place
+  (`indoorSpots`, windows first, then a 0.9 m grid, about one man per 2.5 m², the nearest rooms after the tapped
+  one), crouching, facing out of the window or away from the room's centre — this is the plan's "indoor cover"
+  (instead of a separate `seekCoverIndoor`). Leaving: men inside come out on their own routes to their formation
+  slots at the destination. **Indoors a man under fire does not seek cover outside** (`seekCover` returns). Windows
+  are not ways in (plan §7.13). Backblast: the room he stands in (with an interior), else the whole house.
+- **UI.** Nothing to change: a tap is already passed on unchanged, so a move tapped inside a building goes inside
+  (the sim keeps an indoor goal; before, it snapped to the nearest open cell outside).
+- **Render.** When the roof fades: halls and stair rooms a shade lighter, inner walls (0.15 m) with a light
+  threshold in each doorway, stairs with steps and an arrow up; only the ground floor (floor switch: M7.5d). Debug
+  (with the nav overlay) draws every interior graph: room edges, doorway steps, exits.
+- **Equivalence proof.** The pre-c goldens are kept unchanged in `packages/tools/golden/no-interiors/` and replayed
+  with the interiors stripped: catalog fingerprint and every checkpoint hash identical (test). Per kind and seed,
+  `generateMap({interiors:false})` has the same fingerprint as `stripInteriors(generateMap())`, and the outdoor nav
+  grid is byte-identical with interiors on and off (tests). Batches with `--no-interiors` reproduce the pre-c
+  batch numbers exactly (platoon 10 × 900 s: casualties 16.10 / 8.20, same as the M7.5b-era report).
+- **Goldens regenerated once** (`npm run golden:update`): demo-s1, vehicles-s1, platoon-vehicles-s1 changed from
+  their first checkpoint (the map fingerprint is in the state hash); shootout-s1, fixture-s7, fixture-cart-s3
+  (flat maps) unchanged.
+- **Batch comparison, interiors on vs off** (same seeds; `npm run batch -- ... [--no-interiors]`):
+
+  | scenario | runs × s | winners on / off | casualties blue/red on | off | prisoners on | off |
+  |---|---|---|---|---|---|---|
+  | platoon | 10 × 900 | red 10 / red 10 | 14.5 / 9.3 | 16.1 / 8.2 | 0 / 0.1 | 0.1 / 0.1 |
+  | platoon-ru | 10 × 900 | blue 10 / blue 10 | 8.1 / 16.1 | 7.8 / 15.4 | 0 / 0 | 0 / 0 |
+  | platoon-vehicles | 10 × 900 | blue 4 red 6 / blue 4 red 6 | 10.5 / 19.5 | 10.9 / 20.2 | 0.2 / 1.0 | 0.3 / 1.2 |
+  | demo | 50 × 120 | 50 draws / 50 draws | 0 / 0 | 0 / 0 | – | – |
+
+  Winners unchanged; casualties within ±1.6 men per side (run-to-run spread of these batches is ±3–4). Why they
+  differ at all: very few men stand indoors (AI v AI, 3 seeds each: on average 0–1 man inside, at most 6, when an
+  ordered point lies in a house), so the change is mostly that **lines of sight and fire into houses** now meet
+  inner walls and slabs, and **upper-floor windows** let some lines through walls that were solid before; any such
+  difference then changes every later random draw (chaotic divergence). Speed unchanged (platoon 155x vs 161x,
+  platoon-vehicles 72x vs 73x, demo 186x vs 189x).
+- **Perf.** bench 14x (15x without interiors), bench-vehicles 8.4–9x (9x; noisy near the 8x floor),
+  bench-combined 3.8x, render 0.97 / 1.13 / 0.32 / 1.56 / 0.24 ms (target 4), village sight micro-benchmark
+  (new `perf-sight.test.ts`, 6000 lines among the houses): +0 to +3 % (target ≤ 10 %, asserted < 20 % for noise).
+  The M7.4b hull-hit perf case measured 34 % once in the full perf run (17 % alone; its limit 25 %): timing noise,
+  not touched by this slice (vehicle maps are farmland; hull code unchanged).
+- **Deferred to M7.5d:** upper floors for men (stairs as routes, `t.z`, floor switch, Occupy with window spots,
+  heights audit), slabs in `lineBlocked` for lines leaving a building, enemy floor badges. **Later:** doors with
+  state, windows as ways in, dark rooms, AI use of buildings (M7.5e), a room-level breach test for backblast.
+
+## 2026-11-13 — M7.5d Upper floors: implementation choices (decided without the owner, for the morning review)
+Plan `docs/plans/m7.5-look.md` §6. Goldens: the six existing goldens **unchanged** (`npm run golden:update` reported
+every one "unchanged"); one new golden `village-occupy-s1`. No data file in the catalog changed (strings only).
+- **Squad spread (parent review of the M7.5c screenshot: six men crowded in one room corner).** `indoorSpots` now
+  takes about **one man per 4.5 m²** of each room (was 2.5), windows first (nearest the tapped point), then grid
+  places each as far as possible from those taken (never closer than 0.8 m), then the other rooms of that floor
+  (nearest first), then the other floors (nearest first; once stairs are routes). Interior placement changes only
+  for men ordered into a building: no golden does that, so no golden changed (outdoor-only goldens verified equal).
+- **Men at true size close in** (same review: figures looked twice life size in rooms). From the close zoom
+  (≥ `CLOSE_SCALE`) the sprite is drawn at exactly 1 m; the readable minimum (`MIN_FIGURE_PX`) applies only at the
+  mid zoom. There is a step in size at the boundary (24 → 16 px on a phone at 16 px/m): accepted, the rooms read right.
+- **Heights.** `standZ(map, t, x?, y?)` = `heightAt + t.z` (takes the map, not ctx: terrain.ts has no context).
+  Audited: spotting eye and target point, fire line-of-fire and shot muzzles, launcher (wall behind, line, origin),
+  grenade origin and blast victims, surrender, `coveredFrom` (own and the threat's floor), aim heights at an enemy
+  upstairs (`aimHeightAt`, launcher `aimHeight`, vehicle crews' target line). Vehicle/ground sites carry
+  `// ground: ok` (architecture test). Men on foot always had `t.z = 0`, so every audited site is bit-identical for
+  them; men aboard are excluded at each site as before. A burst on an upper floor still counts as "in the air" for
+  its fragment cone (changing that touched vehicle HE on walls in goldens; deferred).
+- **Stairs.** One graph node at the foot and one at the head of each flight, joined like a doorway; the edge costs
+  **× 2.5** its run; walking pace on stairs **× 0.5 up, × 0.6 down** (constants in code, not data — moving them to
+  `body.json` would change the catalog fingerprint and every golden; later). Upper-floor nodes are appended after
+  the M7.5c ones, so ground-floor routes keep their node order. Height is interpolated evenly along a leg whose
+  waypoint has `z`; a leg without one keeps the height indoors and comes down to 0 outdoors (safety net for any
+  route planned without heights).
+- **No state schema bump**: `Waypoint.z`, `move.floor` and the `occupy` order are optional additions; older saves
+  load. Save half-way up the stairs round-trips (test).
+- **Occupy** `{building (id), floor?, facing?}`: window places 0.5 m inside every window of every floor, facing out;
+  he kneels if his rifle clears the sill by 0.25 m (crouch muzzle 0.95 m, usual sill 0.9 m: so he stands — kneeling
+  put the muzzle 5 cm over the sill and lines out of the window clipped it), else stands. Places facing `facing`
+  first, the floor given first, otherwise upper floors before lower (they see further); no two within 1.2 m;
+  men left over take `indoorSpots` places. Without `facing`, round the walls. The app's Occupy button: tap a
+  building; `facing` = towards the nearest enemy the side knows (else none); the floor shown is passed as `floor`.
+  Runs to the places ("run").
+- **Floor switch** (`ui/src/floors.ts`): a column of buttons (top floor first) at the right of the free area, shown
+  when the selected unit has men in a multi-storey building or, close in, a multi-storey house with an interior is
+  in view; it follows the floor most of the selected unit's men indoors stand on (ties: lower) whenever the
+  selection or that floor changes; a pick holds until then. No keyboard keys (1/2/… could clash; later).
+  A move tapped inside a building goes to the floor shown.
+- **Rendering**: the plan of the floor shown (floor a shade lighter, that floor's windows, inner walls, stairs) is
+  drawn over the ground floor where the roof is lifted, built per building and floor when first needed; a building
+  with fewer floors shows its top floor. Men inside on another floor: 35 % and a 3 × 5 pixel badge (G, 1, 2 …).
+  Debug draws the ground-floor interior graph only (plus stair links).
+- **New scenario `village-occupy`** (demo squads, front 300 m): the German squad occupies the nearest two-storey
+  house facing the Russian squad and fires at will; the Russians advance to 60 m short of it. Seed 1, 240 s
+  headless: 35 shots, Russians 1 killed 1 wounded, Germans unhurt (4 men upstairs at windows). Golden 180 s.
+- **Sight lab rows**: observer at a first-floor window sees a man over a 2 m hedge at 150 m (100 % vs 10 % from the
+  ground); a man prone right behind a 1.1 m wall at 61 m stays hidden (physically right: the line still grazes the wall).
+- **Perf.** bench-vehicles measured 7.9x (floor 8x) in this container — the commit before this slice measured
+  8.0x (7.98, failing too) in the same container minutes later: the machine, not the slice (the slice adds a `t.z`
+  test per moving man and a lookup per gunnery candidate). Other perf tests passed (render < 4 ms).
+- **Deferred:** enemy floor badges on contacts (plan §7.15), slabs in `lineBlocked` for lines leaving a building
+  (a grenade outside below an upstairs window is judged by its two end heights), upper-floor bursts as ground bursts,
+  keyboard keys for floors, ammunition hand-over across floors (distance is horizontal only), stairs constants into
+  data, the AI using buildings (M7.5e, owner).
+
+## 2026-11-13 — Map generation timing test made relative
+CI measured 425 ms per map against an absolute 300 ms bound (the container measures ~170 ms). The test now compares generation with interiors against generation without them on the same machine (best of three, alternating) and asserts at most 1.5x; absolute times vary several-fold between machines.
+
+## 2026-11-13 — M7.5 review fixes
+- **Stopped part way up the stairs** (`routeBetween`): a man whose height is not a floor's height and who stands on a
+  flight is first routed along it to the floor he is nearer (the foot below half a storey, the head from half a storey
+  up), then on; such a route always carries heights, so the first leg brings him onto a floor (before: he kept
+  floating at 0.8–1 m while `floorOf` said 0, or crossed diagonally to the floor above).
+- **Fog: heights men aim and take cover by** come from what they know. `Contact.z` (new, optional) is the height a man
+  on foot was seen at (set only above the ground: outdoor state and goldens unchanged); a report carries it, a sound
+  keeps the last known one. `aimHeightAt(ctx, known)` (fire orders, own fire, drills, gunnery), the launcher's aim
+  height and `threatOf` read it, never the target's true `transform.z`.
+- **Errands to a floor above**: the walk-over to a prisoner goes to his height and back to where the captor stood
+  (its height kept in the intent, `Intent.z`); a bound inside the house a man is in keeps his floor (drills); carriers
+  run to a casualty's height and only count as beside him on his floor (boarding). Vehicle exits stay on the ground.
+- **Breaches by storey**: a burst at the outer wall of a building with an interior and floors above holes only the
+  storey it is on (`sillM`/`headM` on the breach record, heights above the ground; absent = whole wall as before, so
+  obstacles and pre-interior maps are unchanged). Sight and fire pass the hole only in that band; an upper-floor hole
+  is no way in or out (no graph exit). The "already open there" test uses the bottom of that storey.
+- **Rule 12**: the ground-floor label comes from `ui.floor.ground` for the floor switch and the render badge
+  (`renderer.groundFloorLabel`, set by the app); the badge's pixel glyphs stay (unknown characters draw as G).
+- **Perf**: no indoor work per tick showed up in a profile of bench-vehicles (`routeBetween` 0.1 %, `indoorAt`
+  inlined, nothing measurable); with and without interiors measured 8.7/9.7 vs 9.8/9.4x in alternating runs (noise).
+  Nothing removed. Goldens unchanged (all 74 test files pass without `golden:update`).

@@ -245,6 +245,8 @@ export interface ShootingDef {
     bands: { maxRangeM: number; mode: "aimed" | "rapid" | "burst"; intervalS: number; burstRounds: number }[];
     fullRateSeconds: number; trickleIntervalS: number; trickleSeconds: number; incomingRadiusM: number;
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
+    /** Aim height above the ground at a man seen in each posture (soldier AI package A). */
+    aimHeightByPostureM: Record<"standing" | "crouching" | "prone", number>;
   };
   grenades: {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
@@ -344,6 +346,35 @@ export interface BehaviourDef {
    * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;
    * a burning vehicle makes smoke; men still inside a destroyed vehicle are burnt (severity range).
    */
+  /**
+   * Individual soldier AI (owner 2026-11-13, packages A-D; game values, low).
+   * reserveCloseM / reserveAssaultM: a rifleman down to his last magazine fires it only at an enemy this close, or
+   * this close and assaulting. longRangeM / longRangeIntervalFactor: beyond this range a rifleman's pause between
+   * shots is this many times longer. keepTargetFactor: a man changes his own target only for one that scores
+   * below this fraction of the current one (or when the current one is down or out of sight).
+   * B: crawlMode (movement mode id) / crawlSearchM / crawlRetrySeconds: a pinned or panicked man in sight of the
+   * enemy crawls to cover this near, at most this often. minSpacingM: men going to cover keep this far from each
+   * other's places. beaten*: enemy mortar bursts within beatenNoticeM are remembered for beatenMemorySeconds; a man
+   * halted in the open within beatenRadiusM of the mission goes into a house within beatenHouseM, else beatenMoveM
+   * out of it.
+   * C: riseBelowSuppression: a man not pinned whose suppression is below this takes his fire position's posture
+   * again; lookEverySeconds: how often a man lying blind to the enemy he knows checks whether to rise and look;
+   * rearWatchMinMen: in a team of this many idle men the last watches the rear; atMove*: a man with an anti-tank
+   * launcher who knows of an enemy vehicle he cannot see (contact within atContactSeconds) moves up to atMoveM to
+   * a spot that sees it, at least atMoveMinRangeM from it, at most every atMoveRetrySeconds.
+   * D: grenade*: a man throws a hand grenade on his own at most every grenadeEverySeconds at an enemy known within
+   * grenadeContactSeconds, behind cover or in a house, with no man of his side within grenadeClearM of it;
+   * assaultFireM / assaultFireAimFactor: within this distance of an assault's objective the men on the move fire
+   * as they go, with their aiming error multiplied by this.
+   */
+  soldier: {
+    reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
+    crawlMode: string; crawlSearchM: number; crawlRetrySeconds: number; minSpacingM: number;
+    beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
+    riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
+    atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
+    grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
+  };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }
 

@@ -61,9 +61,14 @@
     "safetyConeDeg": 4,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: rate of fire depends on range (aimed single shots every 2-3 s beyond 100 m, about one shot a second closer, short bursts inside 30 m). A fire order lasts until cease fire, but the unit manages its ammunition: after 30 s without incoming fire near it, it slows to one aimed shot per man every 10 s, and after another 60 s it ceases fire and reports; incoming fire restores the full rate; each man stops when only the magazine in his weapon is left. Men swap a partly used magazine for a fuller one after 5 s without firing. From M3 'expects an enemy' will use what the men see, not only incoming fire.",
+    "note": "Owner decision 2026-11-11: rate of fire depends on range (aimed single shots every 2-3 s beyond 100 m, about one shot a second closer, short bursts inside 30 m). A fire order lasts until cease fire, but the unit manages its ammunition: after 30 s without incoming fire near it, it slows to one aimed shot per man every 10 s, and after another 60 s it ceases fire and reports; incoming fire restores the full rate; each man stops when only the magazine in his weapon is left. Men swap a partly used magazine for a fuller one after 5 s without firing. From M3 'expects an enemy' will use what the men see, not only incoming fire. Soldier AI package A (owner 2026-11-13, game values, low): a man aims at the middle of what he sees of the enemy — 0.2 m above the ground at a man lying down, 0.6 m kneeling, 1.0 m standing (the posture he was last seen in; a man never seen is aimed at 0.9 m, aimPointHeightM). Beyond 200 m riflemen (no magnified sight, not a machine gun) firing on their own fire aimed shots at half the rate (soldier.longRangeIntervalFactor).",
     "topUpBelowFraction": 0.7,
-    "incomingReachM": 800
+    "incomingReachM": 800,
+    "aimHeightByPostureM": {
+      "prone": 0.2,
+      "crouching": 0.6,
+      "standing": 1.0
+    }
   },
   "grenades": {
     "throwRangeM": {

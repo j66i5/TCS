@@ -30,7 +30,10 @@ import { secondsToTicks, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { countItems, removeItems } from "../items";
 import { sight } from "../los";
-import { atan2, cos, hypot2, sin } from "../math";
+import { atan2, cos, hypot2, PI, sin } from "../math";
+import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
+import { navFor } from "../navctx";
+import { navCostAt } from "../nav";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt, pointInPolygon, standZ } from "../terrain";
@@ -186,7 +189,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const seen = secondsToTicks(AT.seenWithinSeconds);
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
-    if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.wreck) continue;
+    if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.down || c.wreck) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
     if (d > range || d < 15) continue;
     const isV = c.cls === "vehicle";
@@ -196,17 +199,81 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
     const score = d * (isV ? 0.5 : 1);
     if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
-  if (!best) return false;
+  if (!best) return repositionForVehicle(ctx, state, id, s, range);
   const az = atan2(best.y - me.y, best.x - me.x);
   if (backblastBlocked(ctx, state, id, rd.ammo, az) !== null) return false;
   // A clear line from his shoulder to the aim point (the target's own hull ignored).
   const z0 = standZ(ctx.map, me) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target, best); // ground: ok (aimHeight carries a man's floor)
   const r = sight(ctx, me.x, me.y, z0, best.x, best.y, z1, -1, best.target);
-  if (r.blockedBy !== null) return false;
+  // (No clear line from here: a spot that has one, package C.)
+  if (r.blockedBy !== null) return repositionForVehicle(ctx, state, id, s, range);
   startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: rd.ammo, x: best.x, y: best.y, target: best.target });
   s.intent = { kind: "engage", tick: state.tick, target: best.target };
   return true;
+}
+
+/**
+ * Package C: he knows of an enemy vehicle within his weapon's reach that he cannot see (heard, reported, or out of
+ * sight: contact within `soldier.atContactSeconds`): he moves up to `atMoveM` to a spot from which he could see it,
+ * at least `atMoveMinRangeM` from it, preferring its flank or rear when he knows which way it faces. At most every
+ * `atMoveRetrySeconds`; not from inside a house.
+ */
+function repositionForVehicle(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, range: number): boolean {
+  const S = ctx.catalog.behaviour.soldier;
+  if (S.atMoveM <= 0) return false;
+  if (s.intent?.kind === "reposition" && state.tick - s.intent.tick < secondsToTicks(S.atMoveRetrySeconds)) return false;
+  const me = state.transform.req(id);
+  if (indoorAt(ctx, me.x, me.y) >= 0) return false;
+  let veh: (typeof s.contacts)[number] | null = null, vd = Infinity;
+  for (const c of s.contacts) {
+    if (c.cls !== "vehicle" || c.wreck || state.tick - c.tick > secondsToTicks(S.atContactSeconds)) continue;
+    const v = state.vehicle.get(c.target);
+    if (!v || v.status === "destroyed" || v.status === "abandoned") continue;
+    const d = hypot2(c.x - me.x, c.y - me.y);
+    if (d <= range + S.atMoveM && d < vd) { vd = d; veh = c; }
+  }
+  if (!veh) return false;
+  s.intent = { kind: "reposition", tick: state.tick, target: veh.target };
+  const v = state.vehicle.get(veh.target)!;
+  const hull = ctx.catalog.vehicles[v.def]?.body.hull;
+  const vz = heightAt(ctx.map, veh.x, veh.y) + (hull ? (hull.u[0] + hull.u[1]) / 2 : 1.2); // ground: ok (a vehicle's hull)
+  const eye = ctx.catalog.body.postures.crouching.muzzleHeightM;
+  const hx = veh.heading !== undefined ? cos(veh.heading) : 0, hy = veh.heading !== undefined ? sin(veh.heading) : 0;
+  const { search } = navFor(ctx, "foot");
+  const cands: { x: number; y: number; score: number }[] = [];
+  for (let ring = 1; ring <= 3; ring++) {
+    const r = (S.atMoveM * ring) / 3;
+    for (let k = 0; k < 12; k++) {
+      const a = (k * PI) / 6 + (ring % 2) * (PI / 12);
+      const x = me.x + cos(a) * r, y = me.y + sin(a) * r;
+      if (x < 2 || y < 2 || x > ctx.map.widthM - 2 || y > ctx.map.heightM - 2 || indoorAt(ctx, x, y) >= 0) continue;
+      if (navCostAt(navFor(ctx, "foot").grid, x, y) <= 0) continue;
+      const d = hypot2(veh.x - x, veh.y - y);
+      if (d < S.atMoveMinRangeM || d > range * 0.9) continue;
+      // Its front is where its gun and armour point: the flank or the rear is better.
+      const front = veh.heading !== undefined ? ((x - veh.x) * hx + (y - veh.y) * hy) / d : 0;
+      cands.push({ x, y, score: r + 20 * Math.max(0, front) });
+    }
+  }
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  let tries = 0;
+  for (const c of cands) {
+    if (tries >= 12) break;
+    const z0 = standZ(ctx.map, { x: c.x, y: c.y, z: 0 }) + eye;
+    const r = sight(ctx, c.x, c.y, z0, veh.x, veh.y, vz, -1, veh.target);
+    tries++;
+    if (r.blockedBy !== null || r.visibility < 0.1) continue;
+    const leg = routeBetween(ctx, search, me.x, me.y, c.x, c.y, { maxExpansions: 4000, snapCells: 2 }, { sz: me.z, gz: 0 });
+    if (!leg || leg.cost > S.atMoveM * 2 + 10) continue;
+    const m = state.mover.get(id);
+    if (!m) return false;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
+    m.formation = null; m.endPosture = "crouching"; m.endHeading = atan2(veh.y - c.y, veh.x - c.x);
+    s.intent = { kind: "reposition", tick: state.tick, target: veh.target, x: c.x, y: c.y };
+    return true;
+  }
+  return false;
 }
 
 /** Out of rounds with his launcher still on him: the nearest comrade within reach who carries one brings it. */

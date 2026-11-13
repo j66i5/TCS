@@ -409,7 +409,7 @@ export function exposureAt(nav: NavGrid, x: number, y: number): number {
  * Best cover within `radiusM` of (x, y): the reachable open (non-wall, passable) cell minimising
  * exposure + 0.3 x distance/radius, in the same connected area. Deterministic (ties by cell index).
  */
-export function bestCoverNear(nav: NavGrid, x: number, y: number, radiusM: number): { x: number; y: number } | null {
+export function bestCoverNear(nav: NavGrid, x: number, y: number, radiusM: number, taken?: readonly { x: number; y: number }[], sepM = 0): { x: number; y: number } | null {
   const c0 = Math.floor(x / nav.cellM), r0 = Math.floor(y / nav.cellM);
   if (c0 < 0 || r0 < 0 || c0 >= nav.cols || r0 >= nav.rows) return null;
   const home = nav.region[r0 * nav.cols + c0]!;
@@ -422,7 +422,14 @@ export function bestCoverNear(nav: NavGrid, x: number, y: number, radiusM: numbe
     if (c < 0 || r < 0 || c >= nav.cols || r >= nav.rows) continue;
     const i = r * nav.cols + c;
     if (nav.cost[i]! <= 0 || nav.wall[i] === 1 || (home !== 0 && nav.region[i] !== home)) continue;
-    const score = nav.exposure[i]! + (0.3 * d) / radiusM;
+    let score = nav.exposure[i]! + (0.3 * d) / radiusM;
+    // (Package B: a cell within sepM of a place another man has taken is passed over unless nothing else is left.)
+    if (taken !== undefined && sepM > 0) {
+      const px = (c + 0.5) * nav.cellM, py = (r + 0.5) * nav.cellM;
+      // (Less most of a cell: places are cell centres.)
+      const lim = sepM - nav.cellM * 0.75;
+      for (const p of taken) if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) < lim * lim) { score += 10; break; }
+    }
     if (score < bestScore || (score === bestScore && i < best)) { bestScore = score; best = i; }
   }
   if (best < 0) return null;

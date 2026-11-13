@@ -373,7 +373,8 @@ describe("line of fire (M3.1)", () => {
     const [uid, unit] = blue(sim);
     submitOrder(sim, { tick: 0, issuer: "blue", target: uid, kind: "posture", posture: "prone" });
     run(sim, 5);
-    for (const id of unit.members) expect(sim.state.soldier.req(id).posture).toBe("prone");
+    // (Lying blind behind the bank they may have risen to look meanwhile, package C: lying is their fire position.)
+    for (const id of unit.members) expect(sim.state.soldier.req(id).homePosture).toBe("prone");
     fireAt(sim, uid, 150, 15);
     const ev = run(sim, 12);
     const shots = kinds(ev, "shot.fired");

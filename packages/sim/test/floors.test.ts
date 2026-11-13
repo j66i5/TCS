@@ -192,13 +192,17 @@ describe("floors: what the enemy knows of a man's height (review fix M7.5)", () 
     const known = reds.flatMap((r) => sim.state.soldier.req(r).contacts.filter((c) => up.includes(c.target) && c.kind === "seen"));
     expect(known.length).toBeGreaterThan(0);
     for (const c of known) expect(c.z).toBe(2.8);
-    const base = sim.ctx.catalog.shooting.fire.aimPointHeightM;
+    // (The middle of what he sees of him: by the posture he was seen in, package A.)
+    expect(known[0]!.posture).toBeDefined();
+    const base = sim.ctx.catalog.shooting.fire.aimHeightByPostureM[known[0]!.posture!];
     expect(aimHeightAt(sim.ctx, known[0])).toBeCloseTo(base + 2.8, 9);
     // He goes down unseen: the enemy still aims where he last saw him; a contact without a height aims low.
     const t = sim.state.transform.req(known[0]!.target);
     t.z = 0;
     expect(aimHeightAt(sim.ctx, known[0])).toBeCloseTo(base + 2.8, 9);
     expect(aimHeightAt(sim.ctx, { ...known[0]!, z: undefined })).toBe(base);
+    // Never seen (only heard): the usual aim point.
+    expect(aimHeightAt(sim.ctx, { z: undefined })).toBe(sim.ctx.catalog.shooting.fire.aimPointHeightM);
     // Men on the ground carry no height in anybody's contacts (outdoor state unchanged).
     const sim2 = simWith(true);
     run(sim2, 60 * 20);

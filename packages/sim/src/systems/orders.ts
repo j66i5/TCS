@@ -3,6 +3,7 @@
  */
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
+import { placesTaken } from "./decisions";
 import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
@@ -15,7 +16,7 @@ import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { buildingIndex, occupyBuilding } from "./occupy";
 import { aimHeightAt, assignFireTask } from "./fire";
-import { grenadeOption, type GrenadeOption } from "./grenades";
+import { grenadeOption, throwArcExists, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
 import { noteVehicleOrder, vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
@@ -388,7 +389,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const last = m.waypoints[m.waypoints.length - 1]!;
         const { grid, search } = navFor(ctx, ctx.catalog.movementModes[last.mode]?.class ?? "foot");
         // (With a laid-out formation, cover only close by, so the shape the player chose holds.)
-        const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M);
+        // (Package B: not on a place another man has taken, men keep minSpacingM apart.)
+        const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M, placesTaken(state, s), ctx.catalog.behaviour.soldier.minSpacingM);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
           const leg = routeBetween(ctx, search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
@@ -441,13 +443,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (named !== undefined) {
           const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
           // A man who knows the named enemy has given up (M6.6) halts with the others but does not fire at him.
-          if (c?.surrendered === true) continue;
+          if (c?.surrendered === true || c?.down === true) continue;
           if (c) { x = c.x; y = c.y; known = c; }
         }
         if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known))) {
           any = true;
           const ft = state.fire.get(s);
-          if (ft && named !== undefined) ft.contact = named;
+          if (ft && named !== undefined) { ft.contact = named; if (order.heightM === undefined) ft.aimAuto = true; else delete ft.aimAuto; }
+          else if (ft) delete ft.aimAuto;
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
@@ -507,16 +510,23 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // The best-placed men act: throwers in range first (nearest first), then men with a launcher (nearest
       // first). Each further man lets go a moment later, so the grenades do not all burst in the same instant.
       const able: { id: EntityId; opt: GrenadeOption }[] = [];
+      let blocked = 0;
       for (const s of soldiers) {
         const opt = grenadeOption(ctx, state, s, order.x, order.y);
+        // (A man who has no way to get it there from where he is — a wall, a roof — is not picked, package D.)
+        if (opt && !throwArcExists(ctx, state, s, opt.ammo, order.x, order.y)) { blocked++; continue; }
         if (opt) able.push({ id: s, opt });
       }
-      if (able.length === 0) return "unable"; // out of range, too close, or nothing to send
+      // Out of range, too close, or nothing to send; or no way to get it there (he keeps it and says so).
+      if (able.length === 0) return blocked > 0 ? { unable: "radio.grenadeBlocked" } : "unable";
       able.sort((p, q) => (p.opt.method === q.opt.method ? p.opt.distanceM - q.opt.distanceM || p.id - q.id : p.opt.method === "thrown" ? -1 : 1));
       const G = ctx.catalog.shooting.grenades;
       able.slice(0, order.count ?? 1).forEach(({ id, opt }, k) => {
         const t = state.transform.req(id);
         t.heading = atan2(order.y - t.y, order.x - t.x);
+        // A man on the move stops to throw (package D: before, a running man's throw was broken off at once).
+        const mv = state.mover.get(id);
+        if (mv && mv.waypoints.length > 0) { mv.waypoints = []; mv.speedMps = 0; mv.formation = null; mv.endPosture = null; mv.endHeading = null; }
         startAction(state, events, id, "grenade", secondsToTicks((opt.method === "thrown" ? G.throwSeconds : G.launchSeconds) + k * G.staggerSeconds), { ammo: opt.ammo, x: order.x, y: order.y });
       });
       break;
@@ -527,6 +537,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
         requestPosture(ctx, state, s, order.posture);
+        const ss = state.soldier.get(s);
+        if (ss) ss.homePosture = order.posture; // (his posture from now on, package C)
         // A man firing keeps firing; this is now the posture he goes back down to.
         const ft = state.fire.get(s);
         if (ft) ft.basePosture = order.posture;

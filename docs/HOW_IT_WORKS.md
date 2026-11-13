@@ -215,7 +215,9 @@ A soldier's rifle holds one magazine; his other magazines are items in his load.
 Each man of the unit turns to it and fires at the rate the range calls for: aimed single shots every 2–3
 seconds beyond about 100 m, about a shot a second closer, short bursts inside 30 m. Every shot takes one round
 out of the magazine in his weapon. When it is empty he changes it (about 3 seconds) and keeps the empty one;
-when only the magazine in his weapon is left he stops and reports "low on ammunition". Now and then a weapon
+when only the magazine in his weapon is left he reports "low on ammunition" and keeps that magazine for close
+defence: he fires it, aimed, only at an enemy within 100 m or at one rushing at him within 200 m (see "The single
+soldier" below). Now and then a weapon
 jams and takes a few seconds to clear. Nobody fires with a comrade in front of his muzzle.
 
 **Where a shot goes** is not looked up in a table. The man has an aiming error — small when he is skilled,
@@ -358,6 +360,61 @@ down — preferably one he can fire from on his knees (a bank, a low wall). **Ou
 he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
 comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
 (orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
+
+## The single soldier (owner's packages, 2026-11-13)
+
+An audit of single men in battle found them shooting high at men lying down, sitting on their last magazine while
+the enemy closed in, lying in the open where they dropped, bunching on one spot, staying under mortar fire, never
+getting up again, never throwing a grenade and never firing on the move. The owner chose all four packages of
+fixes; they came in four steps.
+
+**Shoot straight (A).** A man aims at the middle of what he sees of the enemy: low (0.2 m) at a man lying down,
+0.6 m at one kneeling, 1 m at one standing — what he remembers is the posture he last *saw* the man in (a man only
+heard, never seen, is aimed at as before, 0.9 m). Before this, every shot at a man lying down passed over him: on
+the firing range a regular lying down hit a prone man 0 % of the time at 30–100 m aiming at 0.9 m, 46–91 % aiming
+at 0.2 m. Vehicle machine guns aim the same way. A man who sees an enemy go down (lying hit, or falling while he
+watches) knows he is down and tells his comrades; nobody fires at, takes cover from or plans against a man known
+to be down. His last magazine is a close-defence reserve (above). A rifleman firing on his own beyond 200 m fires
+at half the rate (ordered fire, a base of fire keeping the enemy down, keeps its rate). And he keeps his target:
+he changes to another man only when his own is down or has been out of his sight for 5 s, or when the other
+matters clearly more (less than 0.7 times his score: nearer, firing, standing).
+
+**Use the ground (B).** A man pinned or panicked where the enemy he knows can see him no longer just lies there:
+he low-crawls (0.3 m/s) to the nearest spot within 8 m, never toward the enemy, where that enemy cannot see him
+lying down; once he is no longer pinned he fires back from there. Men going to cover, to the end of a move, to the objective of an assault or to a rally point keep
+about 5 m from the places their comrades have taken or are going to, instead of piling onto the one best spot (two
+squads' last men rallying on the same point used to lie on top of each other). And men remember where enemy
+mortar rounds are falling: a man within 60 m of a burst remembers the mission for 90 s; halted out in the open (no
+wall, hedge, building or wood within about 4 m) within 35 m of where it is falling, he goes into a house within
+30 m if there is one, else 40 m out of the area, not back across it and not toward the enemy, and takes cover
+there; when the fire has lifted (no burst for 90 s) he goes back to the place he left. A man next to a wall or a
+hedge stays down where he is, and so does a squad still on its way somewhere or just given an order.
+
+**Stay in the fight (C).** Each man remembers the posture of his fire position — where his last move, Occupy or
+posture order left him: kneeling or standing at a window, lying in the open. When he dived (pinned, a grenade) he
+used to stay down for good (in a village defence both sides lay below the sills for 23 minutes and fired 35
+rounds); now, once he is no longer pinned and the fire near him has died down (suppression below 0.05, a few
+seconds), he takes that posture again and his fire goes on from there. A man lying where he cannot see the enemy
+he knows (a bank, a low wall in the way) rises to his knees to look, checked every 4 s, and goes down again when
+fired on. Idle men outdoors turn to face the enemy they know when he is behind their shoulders (a sector they were
+given within 90 degrees of him is kept); in a fight the last idle man of a team of three or more watches the
+rear. A squad on its way into a house (Occupy, or a move that ends indoors) no longer stops in the street when it
+comes under fire: it finishes going in. A man with an anti-tank launcher who knows of an enemy vehicle he cannot
+see — heard, reported, or out of his line — moves up to 30 m to a spot from which he could see it, at least 40 m
+from it, preferring its flank or rear, at most every 20 s.
+
+**Close combat (D).** A man carrying hand grenades now throws one on his own at an enemy he knows (seen or
+reported in the last 30 s) within his throwing range who is behind cover from him or in a house — but only if he
+can find a way to get it there from where he is (not into a wall, a ceiling or a lintel), no man of his own side is
+within 10 m of that enemy, and nobody else of his team is already throwing; at most every 20 s. Throwing range still
+depends on posture (about 15 m lying, 20 m kneeling, 30 m standing for a regular), but a man lying down comes up on
+a knee or to his feet for a longer throw, then goes down again. That was the reason the AI's grenade orders at
+enemies 15–35 m away never produced a thrown grenade (only launched ones): the assaulting men were lying down; also
+a man running (an assault's next rush) had his throw broken off at once, and many throws ended "no way to throw it
+there". Now the men picked for a grenade order stop to throw, the drill waits for them, and only men who have a way
+to get it there are picked. In the last 50 m of an assault the men on the move fire as they go — at the enemy they
+know near the objective — with three times their aiming error: fire to keep heads down while they close, not
+to hit.
 
 ## Squad drills
 

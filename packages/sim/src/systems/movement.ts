@@ -58,7 +58,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
     // Pinned or panicked (M4.1): he lies flat where he is; his way is kept for when he gets up again.
-    if (s && isCowering(s) && s.evade === null) {
+    // (A low crawl to cover is what he does pinned, package B: that leg he crawls.)
+    if (s && isCowering(s) && s.evade === null && wp.mode !== ctx.catalog.behaviour.soldier.crawlMode) {
       m.speedMps = 0;
       if (s.posture !== "prone" && s.postureTo === null) requestPosture(ctx, state, id, "prone");
       continue;
@@ -131,7 +132,11 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       if (m.waypoints.length === 0) {
         // Halt drill: face the given way and take the given posture.
         if (m.endHeading !== null) t.heading = m.endHeading;
-        if (m.endPosture !== null) requestPosture(ctx, state, id, m.endPosture);
+        if (m.endPosture !== null) {
+          requestPosture(ctx, state, id, m.endPosture);
+          // His fire position's posture (package C): he goes back to it after a scare.
+          if (s) s.homePosture = m.endPosture;
+        }
         m.endHeading = null;
         m.endPosture = null;
         m.formation = null;

@@ -32,7 +32,7 @@ describe("standing rules (M5.1)", () => {
     const sim = createSim(setup());
     const [bid, blue] = unitOf(sim, "blue");
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "rules", fire: "free" });
-    run(sim, 20);
+    run(sim, 8); // (not longer: men aiming at the middle of what they see, package A, soon hit the red men standing)
     expect(blue.members.some((m) => sim.state.fire.get(m)?.self)).toBe(true);
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "rules", maxEngageM: 50 });
     run(sim, 5);

@@ -18,24 +18,27 @@
  * Casualty care (dragging, first aid) comes with the medical system.
  */
 import { startAction } from "../actions";
-import type { Intent, SoldierState, Unit } from "../components";
+import type { Contact, Intent, SoldierState, Unit } from "../components";
+import type { Posture } from "../orders";
 import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
-import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
+import { indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import type { findPath } from "../nav";
+import { bestCoverNear, exposureAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
-import { aimHeightAt, assignFireTask } from "./fire";
+import { aimHeightAt, assignFireTask, reserveTargetOk } from "./fire";
 import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
 import { launcherDecision } from "./launcher";
+import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -68,24 +71,34 @@ function engageRange(ctx: SimContext, state: SimState, id: EntityId): number {
   return wd.sights.some((s) => s.magnification >= 4) ? R.magnified : R.rifle;
 }
 
-/** The enemy that matters most to him among those he sees now: near, firing, standing up. */
-function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number): { target: EntityId; x: number; y: number; z?: number } | null {
+/**
+ * The enemy that matters most to him among those he sees now: near, firing, standing up (the posture he sees
+ * him in: his contact, package A). `reserve`: down to his last magazine, only an enemy he may fire it at.
+ */
+function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, rangeM: number, reserve: boolean): { target: EntityId; x: number; y: number; z?: number; posture?: Posture; score: number } | null {
   const D = ctx.catalog.behaviour.decisions;
   const me = state.transform.req(id);
-  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; score: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
-    if (c.surrendered) continue; // he knows this man has given up (M6.6)
-    const d = hypot2(c.x - me.x, c.y - me.y);
-    if (d > rangeM) continue;
-    const ew = state.weapon.get(c.target), es = state.soldier.get(c.target);
-    if (!es || !es.physiology.alive || es.casualty !== "none") continue;
-    let score = d;
-    if (ew && state.tick - ew.lastShotTick <= 3 * TICK_HZ) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
-    if (es.posture === "prone") score *= 1.3;
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
+    const score = targetScore(ctx, state, c, me, rangeM);
+    if (score === null || (reserve && !reserveTargetOk(ctx, state, c, me))) continue;
+    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score }; }
   }
   return best;
+}
+
+/** How much an enemy he knows matters (lower = more): null if out of range, given up or down. */
+function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: number; y: number }, rangeM: number): number | null {
+  if (c.surrendered || c.down) return null; // he knows this man has given up (M6.6), or is down (package A)
+  const d = hypot2(c.x - me.x, c.y - me.y);
+  if (d > rangeM) return null;
+  const ew = state.weapon.get(c.target), es = state.soldier.get(c.target);
+  if (!es || !es.physiology.alive || es.casualty !== "none") return null;
+  let score = d;
+  if (ew && state.tick - ew.lastShotTick <= 3 * TICK_HZ) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
+  if (c.posture === "prone") score *= 1.3;
+  return score;
 }
 
 /**
@@ -103,7 +116,7 @@ function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; 
   const me = state.transform.req(id);
   let best: { x: number; y: number; z: number } | null = null, bestD = Infinity;
   for (const c of s.contacts) {
-    if (c.surrendered) continue; // a man he knows has given up is no threat to take cover from
+    if (c.surrendered || c.down) continue; // a man he knows has given up (or is down) is no threat to take cover from
     const ew = state.weapon.get(c.target);
     const firing = ew !== undefined && state.tick - ew.lastShotTick <= 5 * TICK_HZ && c.kind !== "reported";
     const d = hypot2(c.x - me.x, c.y - me.y) * (firing ? 0.5 : 1);
@@ -111,6 +124,162 @@ function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; 
     if (d < bestD) { bestD = d; best = { x: c.x, y: c.y, z: c.z ?? 0 }; }
   }
   return best;
+}
+
+/**
+ * Where the other men of his side on foot are, or are going (the end of their way), on his level (package B: men
+ * keep `soldier.minSpacingM` from each other's places). Indoors (another floor) does not count.
+ */
+export function placesTaken(state: SimState, id: EntityId): { x: number; y: number }[] {
+  const side = state.identity.get(id)?.side, me = state.transform.req(id);
+  const out: { x: number; y: number }[] = [];
+  // mounted: ok men aboard are skipped (they take no place on the ground)
+  for (const [o, os] of state.soldier.entries()) {
+    if (o === id || os.mount !== undefined || !isAble(os) || state.identity.get(o)?.side !== side) continue;
+    const t = state.transform.req(o);
+    if (Math.abs(t.z - me.z) > 1.5) continue;
+    const w = state.mover.get(o)?.waypoints;
+    const last = w && w.length > 0 ? w[w.length - 1]! : null;
+    out.push(last ? { x: last.x, y: last.y } : { x: t.x, y: t.y });
+  }
+  return out;
+}
+
+export function placeFree(taken: readonly { x: number; y: number }[], x: number, y: number, sepM: number): boolean {
+  for (const p of taken) if (hypot2(p.x - x, p.y - y) < sepM) return false;
+  return true;
+}
+
+/**
+ * Pinned or panicked where the enemy he knows can see him (package B): he low-crawls to the nearest spot within
+ * `soldier.crawlSearchM` where that enemy cannot, never toward him, keeping clear of his comrades' places.
+ */
+function crawlToCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
+  const S = ctx.catalog.behaviour.soldier, body = ctx.catalog.body.postures;
+  const me = state.transform.req(id);
+  const lie = body.prone.heightM * 0.6;
+  if (indoorAt(ctx, me.x, me.y) >= 0 || !ctx.catalog.movementModes[S.crawlMode]) return false;
+  if (coveredFrom(ctx, me.x, me.y, threat.x, threat.y, lie, me.z, threat.z)) return false;
+  const tl = hypot2(threat.x - me.x, threat.y - me.y) || 1, tx = (threat.x - me.x) / tl, ty = (threat.y - me.y) / tl;
+  const { grid, search } = navFor(ctx, "foot");
+  const taken = placesTaken(state, id);
+  const cands: { x: number; y: number; score: number }[] = [];
+  for (let ring = 1; ring <= 4; ring++) {
+    const r = (S.crawlSearchM * ring) / 4;
+    for (let k = 0; k < 12; k++) {
+      const a = (k * PI) / 6 + (ring % 2) * (PI / 12);
+      const ux = cos(a), uy = sin(a);
+      if (ux * tx + uy * ty > 0.3) continue; // not toward the enemy
+      const x = me.x + ux * r, y = me.y + uy * r;
+      if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
+      const i = Math.floor(y / grid.cellM) * grid.cols + Math.floor(x / grid.cellM);
+      if (grid.cost[i]! <= 0 || grid.wall[i] === 1) continue;
+      if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie, 0, threat.z)) continue;
+      cands.push({ x, y, score: r + (placeFree(taken, x, y, S.minSpacingM) ? 0 : 6) });
+    }
+  }
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  for (const cnd of cands.slice(0, 4)) {
+    const leg = routeBetween(ctx, search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 1500, snapCells: 1 }); // (outdoors only: he is not indoors)
+    if (!leg || leg.cost > S.crawlSearchM * 2) continue;
+    const m = state.mover.get(id);
+    if (!m) return false;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: S.crawlMode });
+    m.formation = null; m.endPosture = "prone"; m.endHeading = atan2(threat.y - cnd.y, threat.x - cnd.x);
+    s.intent = { kind: "cover", tick: state.tick, x: cnd.x, y: cnd.y };
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Out of a beaten zone (package B): halted in the open within `soldier.beatenRadiusM` of where an enemy mortar
+ * mission he remembers is falling, he goes into a house close by, else `beatenMoveM` out of it, not toward the
+ * enemy he knows; then he takes cover there.
+ */
+function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): boolean {
+  const S = ctx.catalog.behaviour.soldier, b = s.beaten;
+  if (!b) return false;
+  if (state.tick - b.tick > secondsToTicks(S.beatenMemorySeconds)) {
+    // The fire has lifted: he forgets it, and goes back to the place he left if he is still where he went (the
+    // position he held matters; a man moved on by an order meanwhile stays where the order put him).
+    delete s.beaten;
+    const me = state.transform.req(id), m = state.mover.get(id);
+    if (b.ox === undefined || b.oy === undefined || b.gx === undefined || b.gy === undefined || !m || hypot2(me.x - b.gx, me.y - b.gy) > 5) return false;
+    const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, b.ox, b.oy, { maxExpansions: 6000, snapCells: 2 }, { sz: me.z, gz: 0 });
+    if (!leg) return false;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
+    m.formation = null; m.endPosture = s.homePosture ?? "prone"; m.endHeading = null;
+    return true;
+  }
+  if (b.left) return false;
+  const me = state.transform.req(id);
+  if (hypot2(me.x - b.x, me.y - b.y) > S.beatenRadiusM) return false;
+  b.left = true;
+  if (indoorAt(ctx, me.x, me.y) >= 0) return false; // in a house already: its walls and floors are his cover
+  // Only a man in the open: next to a wall, a hedge, a building or in woods he stays down where he is (and a man
+  // in a position, e.g. on a support line, keeps it).
+  if (exposureAt(navFor(ctx, "foot").grid, me.x, me.y) < S.beatenOpenExposure) return false;
+  const m = state.mover.get(id);
+  if (!m) return false;
+  const { search } = navFor(ctx, "foot");
+  const taken = placesTaken(state, id);
+  // A house close by, not in the zone's middle: a place inside away from its windows (the last ones offered).
+  const bs = ctx.map.buildings;
+  let bestB = -1, bestD = S.beatenHouseM;
+  for (let bi = 0; bi < bs.length; bi++) {
+    const bl = bs[bi]!;
+    if (!bl.interior) continue;
+    const fp = bl.footprint;
+    let cx = 0, cy = 0;
+    for (let k = 0; k < fp.length; k += 2) { cx += fp[k]!; cy += fp[k + 1]!; }
+    cx /= fp.length / 2; cy /= fp.length / 2;
+    const d = hypot2(cx - me.x, cy - me.y);
+    if (d < bestD) { bestD = d; bestB = bi; }
+  }
+  if (bestB >= 0) {
+    const spots = indoorSpots(ctx, bestB, me.x, me.y, 8, 0);
+    for (let k = spots.length - 1; k >= 0; k--) {
+      const sp = spots[k]!;
+      if (!placeFree(taken, sp.x, sp.y, 1.2)) continue;
+      const leg = routeBetween(ctx, search, me.x, me.y, sp.x, sp.y, { maxExpansions: 6000, snapCells: 2 }, { sz: me.z, gz: sp.z });
+      if (!leg || leg.cost > S.beatenHouseM * 2.5) break;
+      m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
+      m.formation = null; m.endPosture = "crouching"; m.endHeading = sp.heading;
+      s.intent = { kind: "cover", tick: state.tick, x: sp.x, y: sp.y };
+      b.ox = me.x; b.oy = me.y; b.gx = sp.x; b.gy = sp.y;
+      return true;
+    }
+  }
+  // Out of it: away from its middle and from the enemy he knows, among the ways that leave the zone.
+  const threat = threatOf(state, id, s);
+  const ox = me.x - b.x, oy = me.y - b.y, ol = hypot2(ox, oy) || 1;
+  const cands: { x: number; y: number; score: number }[] = [];
+  for (let k = 0; k < 12; k++) {
+    const a = (k * PI) / 6, ux = cos(a), uy = sin(a);
+    const x = me.x + ux * S.beatenMoveM, y = me.y + uy * S.beatenMoveM;
+    if (x < 2 || y < 2 || x > ctx.map.widthM - 2 || y > ctx.map.heightM - 2) continue;
+    if (hypot2(x - b.x, y - b.y) < S.beatenRadiusM) continue;
+    const away = (ux * ox + uy * oy) / ol;
+    if (away < 0) continue; // never across the zone's middle
+    let score = -2 * away;
+    if (threat) { const tl = hypot2(threat.x - me.x, threat.y - me.y) || 1; score += ((threat.x - me.x) * ux + (threat.y - me.y) * uy) / tl; }
+    cands.push({ x, y, score });
+  }
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  const { grid } = navFor(ctx, "foot");
+  for (const c of cands.slice(0, 4)) {
+    // (The best cover close to that point, clear of his comrades' places.)
+    const spot = bestCoverNear(grid, c.x, c.y, 8, taken, S.minSpacingM) ?? c;
+    const leg = routeBetween(ctx, search, me.x, me.y, spot.x, spot.y, { maxExpansions: 6000, snapCells: 2 }, { sz: me.z, gz: 0 });
+    if (!leg || leg.cost > S.beatenMoveM * 2) continue;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
+    m.formation = null; m.endPosture = "prone"; m.endHeading = threat ? atan2(threat.y - spot.y, threat.x - spot.x) : null;
+    s.intent = { kind: "cover", tick: state.tick, x: spot.x, y: spot.y };
+    b.ox = me.x; b.oy = me.y; b.gx = spot.x; b.gy = spot.y;
+    return true;
+  }
+  return false;
 }
 
 function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, threat: { x: number; y: number; z: number }): boolean {
@@ -121,6 +290,7 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   // Indoors (M7.5c) he stays in the house: its walls are his cover (no running out into the open).
   if (indoorAt(ctx, me.x, me.y) >= 0) return false;
   const { grid, search } = navFor(ctx, "foot");
+  const taken = placesTaken(state, id), sep = ctx.catalog.behaviour.soldier.minSpacingM;
   const cands: { x: number; y: number; score: number }[] = [];
   for (let ring = 1; ring <= 5; ring++) {
     const r = (D.coverSearchM * ring) / 5;
@@ -133,7 +303,8 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
       if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie, 0, threat.z)) continue;
       // Better: a spot he can fire from on his knees over the cover (a bank, a low wall).
       const firing = !coveredFrom(ctx, x, y, threat.x, threat.y, kneel, 0, threat.z);
-      cands.push({ x, y, score: r + (firing ? 0 : 8) });
+      // (Not on top of a comrade, package B: a spot within minSpacingM of another man's place counts as worse.)
+      cands.push({ x, y, score: r + (firing ? 0 : 8) + (placeFree(taken, x, y, sep) ? 0 : 10) });
     }
   }
   // The best first; one he cannot reach without a long detour is passed over for the next (at most 6 tried).
@@ -227,8 +398,119 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
 }
 
+const POSTURES: readonly Posture[] = ["prone", "crouching", "standing"];
+
+/**
+ * Package C, a halted man not pinned: fired on while up higher than his fire position (looking), he goes down to
+ * it; once it is quiet he takes it again (a window place's posture after diving below the sill); lying where he
+ * cannot see the enemy he knows, he rises to his knees to look; idle outdoors, he faces that enemy — except the
+ * last man of a team of `rearWatchMinMen` or more, who watches the rear.
+ */
+function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, every: number): void {
+  const D = ctx.catalog.behaviour.decisions, S = ctx.catalog.behaviour.soldier, body = ctx.catalog.body.postures;
+  const home = s.homePosture, task = state.fire.get(id);
+  const now = POSTURES.indexOf(s.posture), want = home !== undefined ? POSTURES.indexOf(home) : -1;
+  if (want >= 0 && now > want && !task && s.mental.suppression >= D.seekCoverSuppression) { requestPosture(ctx, state, id, home!); return; }
+  if (want >= 0 && now < want && s.mental.suppression < S.riseBelowSuppression) {
+    requestPosture(ctx, state, id, home!);
+    if (task) task.basePosture = home!; // (his fire is from there again)
+    return;
+  }
+  if (task) return;
+  const threat = threatOf(state, id, s);
+  if (!threat) return;
+  const me = state.transform.req(id);
+  if (indoorAt(ctx, me.x, me.y) >= 0) return; // indoors his place (a window) sets his posture and facing
+  // Lying blind: he rises to look (every lookEverySeconds, staggered), if kneeling would let him see.
+  const lookN = Math.max(1, Math.round(S.lookEverySeconds * TICK_HZ / every));
+  if (s.posture === "prone" && s.mental.suppression < S.riseBelowSuppression && Math.floor((state.tick + id) / every) % lookN === 0
+    && coveredFrom(ctx, me.x, me.y, threat.x, threat.y, body.prone.heightM * 0.9, me.z, threat.z)
+    && !coveredFrom(ctx, me.x, me.y, threat.x, threat.y, body.crouching.heightM * 0.9, me.z, threat.z)) {
+    requestPosture(ctx, state, id, "crouching");
+  }
+  // Facing, in a fight (his unit fired on lately): toward the enemy he knows when that enemy is behind his
+  // shoulders (a sector he was given within 90 degrees of the enemy is kept); the last idle man of a team watches the
+  // rear. (Out of a fight the facing he was given stands: the player's laid-out formation, the halt drill's.)
+  const top = topUnit(state, unitId);
+  const inFight = top !== undefined && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds);
+  if (!S.faceEnemy || !inFight) return;
+  let rear = false;
+  const u = state.unit.get(unitId);
+  if (u && S.rearWatchMinMen > 0) {
+    const idle = u.members.filter((m) => {
+      const ms = state.soldier.get(m);
+      return isAble(ms) && ms!.mount === undefined && !state.fire.has(m) && (state.mover.get(m)?.waypoints.length ?? 0) === 0;
+    });
+    rear = idle.length >= S.rearWatchMinMen && idle[idle.length - 1] === id;
+  }
+  const a = atan2(threat.y - me.y, threat.x - me.x);
+  const face = rear ? (a > 0 ? a - PI : a + PI) : a;
+  let off = face - me.heading;
+  while (off > PI) off -= 2 * PI;
+  while (off < -PI) off += 2 * PI;
+  if (Math.abs(off) > PI / 2 + 1e-6) me.heading = face;
+}
+
+/**
+ * Package D: he throws a hand grenade on his own at an enemy he knows (seen or reported within
+ * `soldier.grenadeContactSeconds`) within his throwing range, who is out of his sight behind cover or in a house,
+ * with no man of his side within `grenadeClearM` of him and no comrade of his unit already throwing; at most every
+ * `grenadeEverySeconds`. The throw is the generic grenade action (which rises him for it, and keeps the grenade
+ * if no arc gets there).
+ */
+function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState, unitId: EntityId): boolean {
+  const S = ctx.catalog.behaviour.soldier, G = ctx.catalog.shooting.grenades;
+  if (S.grenadeEverySeconds <= 0 || state.action.has(id) || !s.impair.canUseArms) return false;
+  if (s.grenadeTick !== undefined && state.tick - s.grenadeTick < secondsToTicks(S.grenadeEverySeconds)) return false;
+  const c = state.container.get(id);
+  if (!c || !c.stacks.some((st) => st.count > 0 && ctx.catalog.ammo[st.type]?.delivery?.method === "thrown")) return false;
+  const me = state.transform.req(id);
+  const reach = throwRangeM(ctx, state, id, "standing");
+  const recent = secondsToTicks(S.grenadeContactSeconds);
+  let best: Contact | null = null, bestD = Infinity;
+  for (const k of s.contacts) {
+    if (k.surrendered || k.down || k.cls === "vehicle" || k.kind === "heard" || state.tick - k.tick > recent) continue;
+    const d = hypot2(k.x - me.x, k.y - me.y);
+    if (d > reach || d < G.minSafeDistanceM + 2 || d >= bestD) continue;
+    // Behind cover from him (not in his sight now), or in a house.
+    const inSight = s.seen.some((e) => e.target === k.target && state.tick - e.lastTick <= TICK_HZ);
+    if (inSight && indoorAt(ctx, k.x, k.y) < 0) continue;
+    best = k; bestD = d;
+  }
+  if (!best) return false;
+  // Never near his own side's men, and one thrower at a time in his unit.
+  const side = state.identity.get(id)?.side;
+  const r2 = S.grenadeClearM * S.grenadeClearM;
+  // mounted: ok men aboard are behind armour (skipped)
+  for (const [o, os] of state.soldier.entries()) {
+    if (os.mount !== undefined || !os.physiology.alive || state.identity.get(o)?.side !== side) continue;
+    const t = state.transform.req(o);
+    if ((t.x - best.x) * (t.x - best.x) + (t.y - best.y) * (t.y - best.y) < r2) return false;
+  }
+  const u = state.unit.get(unitId);
+  if (u && u.members.some((m) => m !== id && state.action.get(m)?.kind === "grenade")) return false;
+  const opt = grenadeOption(ctx, state, id, best.x, best.y);
+  if (!opt || opt.method !== "thrown") return false;
+  s.grenadeTick = state.tick;
+  // (No way to get it there from here — a wall, a roof — and he keeps it; he looks again later.)
+  if (!throwArcExists(ctx, state, id, opt.ammo, best.x, best.y)) return false;
+  me.heading = atan2(best.y - me.y, best.x - me.x);
+  startAction(state, events, id, "grenade", secondsToTicks(G.throwSeconds), { ammo: opt.ammo, x: best.x, y: best.y });
+  s.intent = { kind: "engage", tick: state.tick, target: best.target };
+  return true;
+}
+
+/** Is his unit, or one above it, carrying out an assault or a withdrawal (a drill moves him on its own)? */
+function inDrill(state: SimState, unitId: EntityId): boolean {
+  for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
+    const d = state.unit.get(u)?.drill;
+    if (d && d.kind !== "rout") return true;
+  }
+  return false;
+}
+
 export function decisionSystem(ctx: SimContext, state: SimState, events: EventSink): void {
-  const D = ctx.catalog.behaviour.decisions;
+  const D = ctx.catalog.behaviour.decisions, S = ctx.catalog.behaviour.soldier;
   const every = Math.max(1, secondsToTicks(D.stepSeconds));
   // ---- who is under fire: the unit remembers it (for the "return fire" rule)
   // mounted: ok a man aboard who is under fire still tells his unit it is under fire
@@ -271,7 +553,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
       const beyond = c !== undefined && unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM;
-      if (!c || c.surrendered === true || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
+      if (!c || c.surrendered === true || c.down === true || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {
@@ -281,32 +563,67 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     // Stale intents (debug overlay): cover reached, or his own fire replaced by an order.
     if (s.intent?.kind === "cover" && halted) s.intent = null;
     if (s.intent?.kind === "engage" && state.fire.get(id)?.self !== true) s.intent = null;
-    if (isCowering(s)) continue;
+    if (isCowering(s)) {
+      // ---- pinned or panicked in the enemy's sight: a low crawl to the nearest fold (package B). Also a man pinned
+      // on his way (it is held, not walked): the crawl replaces it; his unit's next order or bound sends him on.
+      const crawling = !halted && m!.waypoints[m!.waypoints.length - 1]!.mode === S.crawlMode;
+      if (!crawling && state.tick - s.coverTick >= secondsToTicks(S.crawlRetrySeconds)) {
+        const threat = threatOf(state, id, s);
+        s.coverTick = state.tick;
+        if (threat && crawlToCover(ctx, state, id, s, threat)) continue;
+      }
+      // Nothing else while he is pinned or panicked: he fires back once he is no longer pinned (from the cover he
+      // crawled to; a fire task he already had goes on at his pinned rate).
+      continue;
+    } else {
+      // ---- out of the beaten zone of an enemy mortar mission (package B)
+      // (Not while his unit is still on its way somewhere — a man who has got there first waits for the others — nor
+      // within a minute of an order to it: he was put there on purpose.)
+      if (halted && s.beaten !== undefined && !unit.moving && state.tick - Math.max(unit.orderTick, top.orderTick) > secondsToTicks(60)
+        && !inDrill(state, ident.unit) && leaveBeatenZone(ctx, state, id, s)) continue;
 
-    // ---- cover from the enemy he knows, when under fire
-    if (halted && s.mental.suppression >= D.seekCoverSuppression && state.tick - s.coverTick >= secondsToTicks(D.coverRetrySeconds)) {
-      const threat = threatOf(state, id, s);
-      s.coverTick = state.tick;
-      if (threat && seekCover(ctx, state, id, s, threat)) continue;
+      // ---- cover from the enemy he knows, when under fire
+      if (halted && s.mental.suppression >= D.seekCoverSuppression && state.tick - s.coverTick >= secondsToTicks(D.coverRetrySeconds)) {
+        const threat = threatOf(state, id, s);
+        s.coverTick = state.tick;
+        if (threat && seekCover(ctx, state, id, s, threat)) continue;
+      }
+
+      // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
+      if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
+
+      // ---- a hand grenade on his own at an enemy behind cover or in a house close by (package D)
+      if (halted && fireAllowed(state, ctx, unit, top) && ownGrenade(ctx, state, events, id, s, ident.unit)) continue;
     }
-
-    // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
-    if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
 
     // ---- open fire on his own
     const current = state.fire.get(id);
     if (halted && (!current || current.self) && fireAllowed(state, ctx, unit, top)) {
       // (A unit rule may hold fire to a shorter range, e.g. for an ambush.)
       const range = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
-      const pick = pickTarget(ctx, state, id, s, range);
-      if (pick && (!current || current.contact !== pick.target)) {
+      // Down to the magazine in his weapon (a rifleman): only at an enemy he keeps it for (package A).
+      const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+      const reserve = wd !== undefined && !wd.sustained && spareCount(state.container.get(id), wd.feed.magazine) <= 0;
+      const pick = pickTarget(ctx, state, id, s, range, reserve);
+      // He keeps his target (package A) while it is up and in sight, unless another matters clearly more.
+      let keep = false;
+      if (pick && current && current.contact !== undefined && current.contact !== pick.target) {
+        const cc = s.contacts.find((k) => k.target === current.contact);
+        // (Out of sight for a moment — a man lying down flickers in and out of view — is not "hidden".)
+        const cs = cc && cc.kind === "seen" && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range) : null;
+        keep = cs !== null && pick.score >= ctx.catalog.behaviour.soldier.keepTargetFactor * cs;
+      }
+      if (pick && !keep && (!current || current.contact !== pick.target)) {
         if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
           const ft = state.fire.get(id)!;
-          ft.contact = pick.target; ft.self = true;
+          ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;
         }
       }
     }
+
+    // ---- back to his fire position, look for the enemy, face him (package C)
+    if (halted && !isCowering(s) && !state.action.has(id) && s.postureTo === null) postureAndWatch(ctx, state, id, s, ident.unit, every);
 
     // ---- out of spare magazines or belts: a comrade brings one
     if (state.weapon.get(id)?.lowAmmoReported) shareAmmo(ctx, state, events, id, topId);

@@ -66,8 +66,11 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
   const targets = Array.from({ length: pairs }, (_, i) => man(`t#${i}`, { load: c.armour ? armourItems : [] }));
   const y = (i: number) => 20 + i * 6;
   const tx = 20 + c.rangeM;
+  // (The targets keep the facing the case gives them: an idle man turning to face the fire, package C, is not what
+  // this lab measures.)
+  const labCatalog = { ...catalog, behaviour: { ...catalog.behaviour, soldier: { ...catalog.behaviour.soldier, faceEnemy: false } } };
   const input: BattleInput = {
-    map, catalog, seed, orders: [],
+    map, catalog: labCatalog, seed, orders: [],
     rules: { timeLimitSeconds: 36000, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "simple", physiologyParams: {}, objectives: [] },
     forces: [
       { side: "blue", faction: c.shooterFaction, units: [{ key: "s", callsign: "S", echelon: "team", leaderIndex: 0, subunits: [], members: shooters }], placements: shooters.map((m, i) => ({ personId: m.personId, x: 20, y: y(i), heading: 0 })) },

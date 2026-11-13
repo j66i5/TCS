@@ -492,6 +492,37 @@ he starts a self fire task at the best seen contact; out of spare he calls a giv
 replaced. New state: `Unit.fireRule/underFireTick/ceaseFireTick`, `SoldierState.intent/coverTick`,
 `FireTask.self` (schema 12). New order: `rules`.
 
+## 16l2. Individual soldier AI (owner packages A–D, 2026-11-13)
+Values: `core/behaviour.json` `soldier` (`BehaviourDef.soldier`), `core/shooting.json` `fire.aimHeightByPostureM`.
+**A:** `Contact.posture` (seen posture; a sound keeps it) and `Contact.down` (seen lying hit, or seen within 2 s of
+the fall by a staggered pass in `contactSystem`; passed on at once like `surrendered`; never cleared) are optional
+plain fields (schema stays 17). `aimHeightAt(ctx, {z?, posture?})` aims by posture (foot and vehicle MG);
+`FireTask.aimAuto` (optional) makes a contact task's `heightM` follow it in the line check. `reserveTargetOk`
+(fire.ts) is the close-defence rule for a rifleman with no spare magazine (fire.ts stops him otherwise; decisions
+pick only such targets). Long-range discipline multiplies the shot interval of self fire. `targetScore` +
+`keepTargetFactor`/`keepTargetSeenSeconds` give target hysteresis in `decisionSystem`. Contacts marked `down` are
+skipped by target choice, threats, drills, gunnery, launchers, surrender, armour reactions and the AI commander.
+**B:** a cowering man (`isCowering`) in the decision loop may `crawlToCover` (waypoints in the `soldier.crawlMode`
+movement mode, which movement lets a cowering man use). `placesTaken`/`placeFree`
+(decisions.ts) list the places men of a side hold or are going to; `seekCover`, `crawlToCover`, the halt drill
+(`bestCoverNear(..., taken, sepM)`, nav.ts) and the drills' final rush and rally (`freeSpotNear`) keep
+`soldier.minSpacingM`. `SoldierState.beaten` (optional) is set by `noteBeatenZone` (morale.ts) from the fire
+support system for each enemy mortar burst; `leaveBeatenZone` runs for halted men in the open (`exposureAt` of the
+static nav grid >= `beatenOpenExposure`) whose unit is not moving nor in an assault/withdraw drill.
+**C:** `SoldierState.homePosture` (optional) is set on arrival (`Mover.endPosture`), by a posture order and by the
+react-to-contact halt; `postureAndWatch` (decisions.ts) returns a man to it, lifts a blind prone man to a kneel
+(one `coveredFrom` pair every `lookEverySeconds`), drops him when fired on, and sets the facing / rear watch;
+`assignFireTask` takes `homePosture` as the lowest posture of a new fire task. `enteringHouse` (drills.ts) keeps
+react-to-contact off a unit whose men are going indoors. `repositionForVehicle` (launcher.ts) runs when no seen
+vehicle is in reach or the line from here is blocked; new `Intent.kind` "reposition" rate-limits it.
+**D:** `ownGrenade` (decisions.ts; `SoldierState.grenadeTick` optional) starts the generic grenade action;
+`throwPosture`/`throwPlan`/`findArc`/`throwArcExists` (grenades.ts) split the old `release`: the throw is from
+the lowest posture whose range reaches, the arc search is pure and is used beforehand by own throws and grenade
+orders (a man with no arc is not picked; nobody: `radio.grenadeBlocked`). A grenade order stops the men it picks;
+`startPhase` does not move a man whose grenade action runs. `FireTask.onTheMove` (optional): assault movers within
+`soldier.assaultFireM` of the objective, and the last rush, get contact fire tasks the fire system carries out while
+they move (from the posture they move in), with `aimErrorMrad` x `assaultFireAimFactor`.
+
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:
 two groups of soldier IDs, the group moving now, its start tick, the final rush) or a rout (rally point);

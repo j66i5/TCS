@@ -55,6 +55,8 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
     const old = list[i]!;
     // "He gave up" is kept even from a vaguer report, and never taken back.
     if (c.surrendered === true && old.surrendered !== true) old.surrendered = true;
+    // "He is down" likewise (package A).
+    if (c.down === true && old.down !== true) old.down = true;
     // What he knows a vehicle to be is kept (its type once identified, M7.3).
     if (c.cls !== undefined) old.cls = c.cls;
     if (c.vtype !== undefined) old.vtype = c.vtype;
@@ -63,6 +65,8 @@ function learn(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick"
     // His height (M7.5 review fix): what was seen or reported replaces it; a sound keeps the last known one.
     if (c.z !== undefined) old.z = c.z;
     else if (c.kind !== "heard" && old.z !== undefined) delete old.z;
+    // His posture (soldier AI package A): what was seen or reported replaces it; a sound keeps the last seen one.
+    if (c.posture !== undefined) old.posture = c.posture;
     if (c.heading !== undefined) { old.heading = c.heading; old.vx = c.vx ?? 0; old.vy = c.vy ?? 0; }
     return false;
   }
@@ -120,7 +124,13 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       const gaveUp = isCaptive(state.soldier.get(e.target));
       const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * range, kind: "seen", tick, ...(gaveUp ? { surrendered: true as const } : {}) };
       // A man on foot upstairs (M7.5 review fix): the height he was seen at.
-      if (t.z > 0 && state.soldier.get(e.target)?.mount === undefined) c.z = t.z;
+      const ts = state.soldier.get(e.target);
+      // He sees him lying hit (package A).
+      const isDown = ts !== undefined && ts.casualty !== "none";
+      if (isDown) c.down = true;
+      if (t.z > 0 && ts?.mount === undefined) c.z = t.z;
+      // A man on foot: the posture he is seen in (what the shooter aims at, package A).
+      if (ts !== undefined && ts.mount === undefined) c.posture = ts.posture;
       // A vehicle (M7.3): its heading and movement; its type once within the range it can be told at (owner Q6).
       const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
       if (veh) {
@@ -128,9 +138,25 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         c.cls = "vehicle"; c.heading = t.heading; c.vx = cos(t.heading) * veh.drive.speed; c.vy = sin(t.heading) * veh.drive.speed;
         if (def && range <= def.signature.identifyM) c.vtype = veh.def;
       }
-      const news = isNew || (gaveUp && s.contacts[k]!.surrendered !== true);
+      const news = isNew || (gaveUp && s.contacts[k]!.surrendered !== true) || (isDown && s.contacts[k]!.down !== true);
       learn(ctx, s.contacts, c, -1e9, tick);
       fresh.push({ who: id, c, isNew, news });
+    }
+  }
+
+  // ---- he saw him fall (package A): a man he had in sight moments ago is down (a man killed drops out of sight at
+  // once, so the sighting above never shows him lying). Each man every half second, staggered.
+  // mounted: ok a crew's contacts are kept the same way
+  for (const [id, s] of state.soldier.entries()) {
+    if ((id + tick) % 30 !== 0 || s.contacts.length === 0 || !isAble(s)) continue;
+    for (const c of s.contacts) {
+      if (c.down === true || c.kind !== "seen" || tick - c.tick > 2 * TICK_HZ || c.cls === "vehicle") continue;
+      const ts = state.soldier.get(c.target);
+      if (ts === undefined || ts.casualty === "none") continue;
+      c.down = true;
+      // (News he passes on at once, like a surrender.)
+      const { reportedTick: _r, ...known } = c;
+      fresh.push({ who: id, c: known, isNew: false, news: true });
     }
   }
 
@@ -201,7 +227,7 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       // He does not tell a comrade what that man already knows at least as well (unless it is news to him
       // that the enemy has given up).
       const k = findContact(ms!.contacts, f.c.target);
-      if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM && (reported.surrendered !== true || ms!.contacts[k]!.surrendered === true)) continue;
+      if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM && (reported.surrendered !== true || ms!.contacts[k]!.surrendered === true) && (reported.down !== true || ms!.contacts[k]!.down === true)) continue;
       const d = ctx.comms.contactShareDelayTicks(state, ctx.rules.comms, f.who, m);
       if (d === null) continue;
       state.contactReports.push({ deliverTick: tick + d + secondsToTicks(K.voiceDelaySeconds), from: f.who, to: m, contact: reported });

@@ -17,6 +17,7 @@ import { addItems, countItems, emptyContainer, removeItems } from "../items";
 import { heightAt } from "../terrain";
 import { ammoIndexOf } from "../projectiles";
 import { detonate } from "./explosions";
+import { noteBeatenZone } from "./morale";
 
 /** Give each side with an allotment its mortar section: an entity whose container holds the rounds. */
 export function initSupport(ctx: SimContext, state: SimState): void {
@@ -75,6 +76,8 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
     if (m.ammo === "he") {
       const idx = ammoIndexOf(ctx.catalog, fs.heAmmo);
       if (idx >= 0) detonate(ctx, state, events, x, y, heightAt(ctx.map, x, y) + 0.05, idx, m.caller); // ground: ok (a mortar bomb on the ground)
+      // The enemy near it remember the mission's beaten zone (soldier AI package B).
+      noteBeatenZone(ctx, state, x, y, m.side);
     } else {
       state.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(fs.smokeSeconds) });
       events.emit({ kind: "support.smoke", tick: state.tick, x, y, radiusM: fs.smokeRadiusM, side: m.side });

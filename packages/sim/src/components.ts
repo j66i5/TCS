@@ -100,6 +100,24 @@ export interface SoldierState {
   captive: Captive | null;
   /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
   mount?: { vehicle: EntityId; seat: number };
+  /**
+   * Beaten zone (soldier AI package B): where enemy mortar rounds have been bursting near him (running mean of the
+   * bursts of one mission), the last burst's tick, how many, and whether he has already moved out of it. Absent
+   * until a mission falls near him.
+   */
+  beaten?: {
+    x: number; y: number; tick: number; n: number; left: boolean;
+    /** Where he was when he left it (ox, oy: outdoors) and where he went (gx, gy): he goes back once it lifts. */
+    ox?: number; oy?: number; gx?: number; gy?: number;
+  };
+  /**
+   * The posture of his fire position (soldier AI package C): where his last move, occupy or posture order left him
+   * (kneeling or standing at a window, lying in the open). When the shooting near him has died down he takes it
+   * again. Absent: none yet.
+   */
+  homePosture?: Posture;
+  /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
+  grenadeTick?: number;
 }
 
 export type CommLink = "voice" | "radio" | "none";
@@ -122,7 +140,7 @@ export interface CommState {
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition";
   tick: number;
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
@@ -146,6 +164,11 @@ export interface Contact {
   reportedTick: number;
   /** He knows this enemy has given up: he saw it, or a comrade told him. Absent until set; never cleared while the contact lasts. */
   surrendered?: true;
+  /**
+   * He knows this enemy is down (soldier AI package A): he saw him lying hit or saw him fall, or a comrade told him.
+   * Like `surrendered`, never cleared; nobody fires at, takes cover from or plans against a man known to be down.
+   */
+  down?: true;
   /** Vehicles (M7, filled from M7.3): what he believes the contact is and how it moves. */
   cls?: "vehicle";
   vtype?: DefId;
@@ -158,6 +181,11 @@ export interface Contact {
    * there. Absent = on the ground, or not known (a sound gives no height). What men aim and take cover by.
    */
   z?: number;
+  /**
+   * A man on foot: the posture he was in when last seen (soldier AI package A, 2026-11-13). A sound keeps the last
+   * seen one; absent = never seen (aim at the usual height). What men aim by: the middle of what they see.
+   */
+  posture?: Posture;
 }
 
 /** A contact report on its way from one soldier to another. */
@@ -296,6 +324,10 @@ export interface FireTask {
   /** The posture that check was worked out for, and the lowest posture he may go back down to. */
   linePosture: Posture;
   basePosture: Posture;
+  /** Aim height worked out from his contact (package A): it follows the posture he sees the man in. */
+  aimAuto?: true;
+  /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */
+  onTheMove?: true;
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

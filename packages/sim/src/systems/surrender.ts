@@ -50,7 +50,7 @@ function nearestKnownEnemy2(ctx: SimContext, state: SimState, id: EntityId, s: S
   const lost = secondsToTicks(ctx.catalog.behaviour.decisions.contactLostSeconds);
   let best = Infinity;
   for (const c of s.contacts) {
-    if (c.kind === "heard" || c.surrendered === true || state.tick - c.tick > lost) continue;
+    if (c.kind === "heard" || c.surrendered === true || c.down === true || state.tick - c.tick > lost) continue;
     const es = state.soldier.get(c.target);
     if (!es || es.casualty !== "none") continue;
     const d2 = (c.x - me.x) * (c.x - me.x) + (c.y - me.y) * (c.y - me.y);

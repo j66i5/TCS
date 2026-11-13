@@ -25,12 +25,18 @@ describe("fire rules and own fire (M4.2)", () => {
     for (const rule of ["free", "hold"] as const) {
       const sim = createSim(setup());
       rules(sim, "blue", rule);
-      const ev = run(sim, 30);
+      const ev = run(sim, 10);
+      // (Looked at while the enemy is still up: since men aim at the middle of what they see (package A), the
+      // red men lying in the open are soon hit.)
+      const id = unitOf(sim, "blue")[1].members.find((m) => sim.state.fire.get(m)?.self);
+      if (rule === "free") {
+        expect(sim.state.soldier.req(id!).intent?.kind).toBe("engage");
+        expect(sim.state.identity.req(sim.state.fire.get(id!)!.contact!).side).toBe("red");
+      }
+      ev.push(...run(sim, 20));
       if (rule === "free") {
         expect(shotsBy(sim, ev, "blue")).toBeGreaterThan(5);
-        const id = unitOf(sim, "blue")[1].members.find((m) => sim.state.fire.get(m)?.self)!;
-        expect(sim.state.soldier.req(id).intent?.kind).toBe("engage");
-        expect(sim.state.identity.req(sim.state.fire.get(id)!.contact!).side).toBe("red");
+        expect(id).toBeDefined();
       } else expect(shotsBy(sim, ev, "blue")).toBe(0);
       expect(shotsBy(sim, ev, "red")).toBe(0); // red holds (the test catalog's default)
     }
@@ -47,7 +53,7 @@ describe("fire rules and own fire (M4.2)", () => {
   it("a cease-fire order holds until they are fired upon again", () => {
     const sim = createSim(setup());
     rules(sim, "blue", "free");
-    run(sim, 20);
+    run(sim, 6); // (the red men must still be up when they fire back below)
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "ceaseFire" });
     run(sim, 2);
     expect(shotsBy(sim, run(sim, 20), "blue")).toBe(0);

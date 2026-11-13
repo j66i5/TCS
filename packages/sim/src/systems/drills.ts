@@ -24,10 +24,12 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 
 import { navFor } from "../navctx";
+import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { isCowering } from "./morale";
 import { aimHeightAt, assignFireTask } from "./fire";
+import { placeFree, placesTaken } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 
@@ -63,6 +65,30 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   return true;
 }
 
+/**
+ * (x, y), or the nearest point to it on rings of `soldier.minSpacingM` that is that far from every place another
+ * man of his side has taken (package B: two squads' last men rallying on the same point no longer lie on top of
+ * each other). Indoors (a floor above) it is left as it is.
+ */
+function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { x: number; y: number } {
+  const sep = ctx.catalog.behaviour.soldier.minSpacingM;
+  const taken = placesTaken(state, id);
+  if (sep <= 0 || placeFree(taken, x, y, sep)) return { x, y };
+  for (let ring = 1; ring <= 3; ring++) {
+    for (let k = 0; k < 8; k++) {
+      const a = (k * PI) / 4 + (ring % 2) * (PI / 8);
+      const px = Math.min(Math.max(x + cos(a) * ring * sep, 2), ctx.map.widthM - 2), py = Math.min(Math.max(y + sin(a) * ring * sep, 2), ctx.map.heightM - 2);
+      if (navCostAt(navFor(ctx, "foot").grid, px, py) > 0 && placeFree(taken, px, py, sep)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
+}
+
+/** Is he in the middle of throwing a grenade (the drill does not move him off it)? */
+function throwing(state: SimState, id: EntityId): boolean {
+  return state.action.get(id)?.kind === "grenade";
+}
+
 function halt(state: SimState, id: EntityId): void {
   const m = state.mover.get(id);
   if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
@@ -74,7 +100,7 @@ function knownEnemy(state: SimState, men: EntityId[]): { x: number; y: number } 
   for (const id of men) {
     const s = state.soldier.get(id);
     if (!s) continue;
-    for (const c of s.contacts) { if (c.surrendered) continue; sx += c.x; sy += c.y; n++; }
+    for (const c of s.contacts) { if (c.surrendered || c.down) continue; sx += c.x; sy += c.y; n++; }
   }
   return n > 0 ? { x: sx / n, y: sy / n } : null;
 }
@@ -151,10 +177,18 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     d.final = true;
     d.phaseTick = state.tick;
     const face = d.kind === "assault" ? enemy ?? { x: d.x + (d.x - c.x), y: d.y + (d.y - c.y) } : enemy;
+    // (Spread so that neighbours keep soldier.minSpacingM apart, package B.)
+    const spread = Math.max(D.spreadM, (ctx.catalog.behaviour.soldier.minSpacingM * all.length) / (2 * PI));
     all.forEach((m, i) => {
+      // (A man throwing a grenade finishes the throw first, package D: before, the drill's next rush broke off
+      // nearly every grenade the AI ordered.)
+      if (throwing(state, m)) return;
       state.fire.delete(m);
-      const a = (i * 2 * PI) / all.length, r = all.length > 1 ? D.spreadM : 0;
-      sendTo(ctx, state, m, d.x + r * cos(a), d.y + r * sin(a), face);
+      const a = (i * 2 * PI) / all.length, r = all.length > 1 ? spread : 0;
+      const p = freeSpotNear(ctx, state, m, d.x + r * cos(a), d.y + r * sin(a));
+      sendTo(ctx, state, m, p.x, p.y, face);
+      // (The last rush fires as it goes, package D: fight through the position.)
+      if (d.kind === "assault") fireOnPosition(ctx, state, m, { x: d.x, y: d.y }, true, true);
     });
     return;
   }
@@ -164,6 +198,7 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const step = Math.max(1, Math.min(boundM, dist - (d.kind === "assault" ? finalM : 0)));
   const face = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of movers) {
+    if (throwing(state, m)) continue; // he goes with the next bound
     state.fire.delete(m);
     const t = state.transform.req(m);
     const bx = t.x + ux * step, by = t.y + uy * step, bi = t.z > 0 ? indoorAt(ctx, t.x, t.y) : -1;
@@ -172,21 +207,28 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of cover) {
     halt(state, m);
-    if (!at) continue;
-    // Each man fires at an enemy he knows near the objective (the nearest to it), else at the point itself:
-    // the fire spreads over the position instead of all striking its middle.
-    const s = state.soldier.req(m);
-    let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
-    for (const c of s.contacts) {
-      if (c.surrendered) continue; // a man he knows has given up is not fired at (M6.6)
-      const dd = hypot2(c.x - at.x, c.y - at.y);
-      if (dd < bestD) { bestD = dd; best = c; }
-    }
-    if (best) {
-      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) state.fire.req(m).contact = best.target;
-    } else assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
+    if (at) fireOnPosition(ctx, state, m, at, d.kind === "assault");
   }
+  // Assault fire (package D): within assaultFireM of the objective the men bounding forward fire as they go.
+  if (d.kind === "assault" && dist <= ctx.catalog.behaviour.soldier.assaultFireM) for (const m of movers) fireOnPosition(ctx, state, m, at!, true, true);
   void events;
+}
+
+/**
+ * Each man fires at an enemy he knows near the position `at` (the nearest to it), else at the point itself: the fire
+ * spreads over the position instead of all striking its middle. `onTheMove`: assault fire while he moves (package D).
+ */
+function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, onTheMove = false): void {
+  const s = state.soldier.req(m);
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
+  for (const c of s.contacts) {
+    if (c.surrendered || c.down || c.cls === "vehicle") continue; // a man he knows has given up (M6.6) or is down (package A) is not fired at
+    const dd = hypot2(c.x - at.x, c.y - at.y);
+    if (dd < bestD) { bestD = dd; best = c; }
+  }
+  if (best) {
+    if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) { const ft = state.fire.req(m); ft.contact = best.target; ft.aimAuto = true; if (onTheMove) ft.onTheMove = true; }
+  } else if (assignFireTask(ctx, state, m, at.x, at.y, assault ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM) && onTheMove) state.fire.req(m).onTheMove = true;
 }
 
 function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, events: EventSink): void {
@@ -255,9 +297,22 @@ function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: E
   state.fire.delete(m);
   s.intent = null;
   const t = state.transform.req(m);
-  // Each runs to his own spot near the rally point (kept apart as they were).
-  const c = { x: d.x + (t.x - d.x) * 0.05, y: d.y + (t.y - d.y) * 0.05 };
+  // Each runs to his own spot near the rally point (kept apart as they were), not on another man's place (package B).
+  const c = freeSpotNear(ctx, state, m, d.x + (t.x - d.x) * 0.05, d.y + (t.y - d.y) * 0.05);
   sendTo(ctx, state, m, c.x, c.y, enemy);
+}
+
+/**
+ * Is this unit on its way into a house (an occupy, or a move that ends indoors)? Contact does not stop it: the men
+ * finish going in, where the walls are their cover (package C).
+ */
+function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean {
+  for (const m of footSoldiers(state, uid)) {
+    const w = state.mover.get(m)?.waypoints;
+    const last = w && w.length > 0 ? w[w.length - 1]! : null;
+    if (last && isAble(state.soldier.get(m)) && indoorAt(ctx, last.x, last.y) >= 0) return true;
+  }
+  return false;
 }
 
 export function drillSystem(ctx: SimContext, state: SimState, events: EventSink): void {
@@ -275,7 +330,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
     // ---- react to contact: on the move, fired upon anew since the move began
     if (D.reactToContact && u.moving && !u.drill && !u.broken) {
       const top = state.unit.req(topOf(state, uid));
-      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds)) {
+      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds) && !enteringHouse(ctx, state, uid)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
         for (const m of footSoldiers(state, uid)) {
@@ -285,6 +340,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
           if (w && w.length > 0) goals.set(m, { x: w[w.length - 1]!.x, y: w[w.length - 1]!.y });
           halt(state, m);
           requestPosture(ctx, state, m, "prone");
+          s!.homePosture = "prone"; // (down where he is: his fire position now, package C)
         }
         radio(state, uid, "radio.contactReact", events);
         // Standing rule "fall back" (M5): break contact away from the enemy they know.

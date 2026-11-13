@@ -2313,3 +2313,250 @@ show a problem.
   blanked are identical before/after for demo-s1 120 s, shootout-s1 180 s, demo-fixture-s7 90 s, platoon-s1 900 s,
   platoon-ru-s1 900 s and village-occupy-s1 180 s. Vehicle goldens change intentionally. The no-interiors goldens
   stay skipped (catalog differs since the BMP-2 missile), not regenerated.
+
+## 2026-11-13 — Individual soldier AI: the owner chose all four packages (A–D)
+
+- **Owner's request** "Improve individual soldier AI". An audit (1 Hz samples of men on foot in headless battles,
+  plus a firing-range lab) found ten measured weaknesses and offered four packages: **A** "Shoot straight" (aim
+  point, last magazine, target switching, long-range ammunition discipline), **B** "Use the ground" (crawl to
+  cover when pinned, spacing, mortar beaten zones), **C** "Stay in the fight" (posture to return to, rise to look,
+  facing, contact not interrupting Occupy, anti-tank men moving for a shot), **D** "Close combat" (own hand
+  grenades, assault fire on the move). **The owner chose all four.** They are committed one package per commit,
+  in the order A, B, C, D, each green on its own. All new values are game values, confidence **low**, the same for
+  every side, in `core/behaviour.json` `soldier` (new block) and `core/shooting.json` `fire.aimHeightByPostureM`.
+
+### Package A — Shoot straight
+
+- **Aim at the middle of what he sees** (audit item 1: every shot aimed 0.9 m above the ground, also at men lying
+  down, ~0.35 m high; 67–93 % of battle shots were at prone men; lab, G36 regular prone vs a prone silhouette:
+  30 m 0 % (aim 0.2 m: 91 %), 100 m 0 % (64 %), 200 m 1 % (46 %), 300 m 3 % (22 %) — the real cause of the
+  DECISIONS note "prone defenders never hit"). `Contact.posture` (new, optional, plain data) records the posture
+  the man was last *seen* in; a sound keeps the last seen one; reports carry it. `aimHeightAt` uses
+  `fire.aimHeightByPostureM` **prone 0.2, crouching 0.6, standing 1.0 m** (game values from the body outline:
+  the middle of the silhouette); never seen: `aimPointHeightM` 0.9 as before. A fire task at a contact whose height
+  was worked out from it (`FireTask.aimAuto`, optional) follows the posture as the contact changes. Vehicle machine
+  guns (crew's own choice and ordered fire at a named man) aim the same way. Launcher HE at men keeps 1 m.
+- **Known to be down** (`Contact.down`, optional; added because aiming low made men pour rounds into the fallen):
+  a man who sees an enemy lying hit, or had him in sight within 2 s of his fall, marks him down and passes it on
+  at once (like a surrender); never cleared. Nobody fires at, takes cover from, aims a drill at, or (AI commander)
+  plans against a man known to be down; a fire task at him stops ("no target"). Limitation: a man who comes round
+  stays "down" in the enemy's eyes.
+- **Last magazine = close-defence reserve** (item 2: a rifleman with only the magazine in his weapon stopped and
+  never fired again; 664–1219 man-seconds per battle watching a visible enemy in range, much of it within 100 m).
+  He now fires it — aimed — at an enemy within **100 m** (`reserveCloseM`), or within **200 m** whose unit is in an
+  assault drill (`reserveAssaultM`); his own target choice only considers such enemies, so the
+  assign-and-stop loop every second is gone. Machine gunners keep firing their last belt as before.
+- **Long-range ammunition discipline** (30–140 rounds per hit at 200 m+): a rifleman (no 4x+ sight, not a machine
+  gun) firing **on his own** beyond **200 m** (`longRangeM`) waits **2x** as long between shots
+  (`longRangeIntervalFactor`). Ordered fire keeps its rate: a first version that slowed all fire cut the
+  attackers' base of fire and their wins at 2400 s fell from 4/10 to 1/10 (DE) and 6/10 to 2/10 (RU).
+- **Target hysteresis** (item 10: 47 % of own-target switches within 5 s): he keeps his target unless it is down
+  (known), or he has not seen it for **5 s** (`keepTargetSeenSeconds`; with the 2 s "seen" window alone the
+  switches only fell to ~45 %: men lying down flicker in and out of sight), or another scores below **0.7x** it
+  (`keepTargetFactor`). The target score now uses the posture he *sees* (the contact), not the enemy's true one.
+- **Measured** (audit scripts, 1500 s battles platoon s1–3, platoon-ru s1–2, platoon-vehicles s1, summed):
+  shots per enemy hit by men on foot 15.7 → 10.7 (hits 1058 → 1203 from 16626 → 12860 shots; hits on prone men
+  815 → 996); man-seconds watching a visible enemy in range with no spare magazine 4225 → 113; own-target
+  switches within 5 s 270 of 603 (45 %) → 71 of 298 (24 %). Rounds per hit by range, platoon s2: 0–100 m 27 → 4,
+  100–200 m 23 → 16; platoon-ru s1: 100–200 m 57 → 8, 300+ m 23 → 16.
+- **Batches** (10 seeds; attacker wins / defender wins; casualties attacker / defender; rounds per enemy hit
+  attacker / defender, men on foot; small-arms rounds attacker / defender):
+
+  | Batch | Before | After A |
+  |---|---|---|
+  | platoon 900 s | 1/9; 14.4 / 10.3; 23 / 8; 1023 / 279 | 1/9; 15.1 / 11.9; 22 / 5; 933 / 226 |
+  | platoon-ru 900 s | 2/8; 15.5 / 12.8; 22 / 8; 1609 / 297 | 2/8; 15.8 / 13.0; 22 / 4; 1476 / 200 |
+  | platoon-vehicles 900 s | 2/8; 20.1 / 19.3; 42 / 15; 889 / 835 | 3/7; 19.2 / 21.5; 27 / 3; 905 / 201 |
+  | platoon-ru-vehicles 900 s | 0/10; 28.4 / 11.5; 70 / 9; 621 / 480 | 1/9; 26.0 / 11.4; 30 / 5; 555 / 185 |
+  | platoon 2400 s | 4/6; 18.9 / 12.5; 27 / 10; 1722 / 564 | 3/7; 18.9 / 14.5; 21 / 4; 1153 / 280 |
+  | platoon-ru 2400 s | 6/4; 18.8 / 14.9; 25 / 10; 2293 / 482 | 3/7; 18.6 / 14.5; 26 / 5; 1953 / 256 |
+
+  Defenders now hit with 4–5 rounds instead of 8–15 and spend about half the ammunition; the Russian attack on
+  foot at 2400 s wins less often (6 → 3 of 10) with the same casualties on both sides. Not "badly unbalanced"
+  (no 10/10, casualties not doubled); left for the owner (see the decisions list in STATE.md).
+- **Attack lab** (`npm run lab -- attack`, 20 runs per case): one squad across 300 m on a squad behind a 0.7 m wall
+  0 % before and after; on the wall with a second squad firing in support 25 % (8 runs) before → 10 % (2/20)
+  after; defenders lying in the open 0 % → 10 %. Defenders behind the wall now hit the attackers lying between
+  bounds. The lab test (support must help) ran 8 runs per case and saw 0 % vs 0 %: it now runs 16.
+- **Goldens:** behaviour.json and shooting.json changed (catalog fingerprint) and behaviour changed on purpose:
+  `golden:update` for all regular goldens; the no-interiors goldens stay skipped.
+
+
+### Package B — Use the ground
+
+- **Pinned or panicked men crawl to cover** (audit item 3: 65–83 % of the man-seconds a man was under fire and
+  seen by the enemy he lay pinned or panicked where he dropped, spells up to 217 s; `isCowering` skipped every
+  decision). A cowering man in sight of the enemy he knows (`threatOf`; sight at lying height as in `seekCover`)
+  low-crawls — the data's `crawl` movement mode (`soldier.crawlMode`), which movement now lets a cowering man use —
+  to the nearest spot within **8 m** (`crawlSearchM`, 4 rings x 12 directions, none within ~73 degrees of the
+  enemy) where that enemy cannot see him lying down, at most every **10 s** (`crawlRetrySeconds`). A man pinned on
+  his way (his route is held, not walked) crawls too: the crawl replaces the route; his unit's next order or bound
+  sends him on. He fires back once he is no longer pinned. (A first version also let a pinned man open fire on his
+  own: firing showed him to the enemy and the man-seconds pinned in the enemy's sight went up, so it was dropped.)
+- **Men keep about 5 m apart** (item 5: 282 pair-samples of halted men < 0.3 m apart in platoon s2; cover cells were
+  never reserved, the rally squeezed a unit to 5 % of its spread). `placesTaken` lists the places men of a side hold
+  or are going to; cover seeking and crawling penalise a spot within **5 m** (`minSpacingM`) of one; the halt drill's
+  `bestCoverNear` passes over cells within 5 m less 0.75 of a cell (cells are 2 m; places are cell centres) of a
+  taken place; the assault's last rush spreads on a circle wide enough for 5 m between neighbours; the last rush,
+  the last leg back and the rally go to the nearest free point on 5 m rings (two squads' last men rallying on the
+  same point lay on top of each other).
+- **Beaten zones** (item 6: 80–93 % of the men near a mortar burst were within 3 m of where they had been at the
+  mission's next burst). `SoldierState.beaten` (optional: running mean of a mission's bursts, last tick, count,
+  `left`) is noted by the fire support system for every man on foot of the other side within **60 m** of a burst
+  (`beatenNoticeM`), kept **90 s** (`beatenMemorySeconds`). A man halted **in the open** — static nav exposure at
+  least **0.9** (`beatenOpenExposure`: no wall, hedge, building or wood within about 4 m) — within **35 m** of it
+  (`beatenRadiusM`), his unit neither moving nor in an assault or withdrawal nor given an order in the last 60 s,
+  goes into a house within **30 m** (`beatenHouseM`; the last of up to 8 places inside, away from the windows), else
+  **40 m** out (`beatenMoveM`): 12 directions, never back across the zone's middle, preferring away from it (x2) and
+  from the enemy he knows (x1), then the best cover near that point. When the fire has lifted (no burst for 90 s) he
+  goes back to the place he left if he is still where he went (the drill "reoccupy when the barrage lifts").
+  Tried and dropped: weighting away-from-the-enemy x1.5 with directions across the zone (platoon-ru s1: men ran
+  through the bursts, mortar fragment hits 14 → 73); sideways to the enemy (platoon s2: 97 hits); going back after
+  60 s (platoon-ru s1: 185 hits — the next mission fell on the same place: with 90 s of memory a repeated mission
+  keeps them away); moving men by a wall or on a support line; and never going back (in platoon s1 900 s the
+  defenders sheltered in houses for good, the attackers never saw them and their base of fire never fired — the AI
+  commander test caught it).
+- **Measured** (audit scripts, same 1500 s battles; base → A → B): men out in the open near a mortar burst still
+  within 3 m of where they were at the mission's next burst (platoon s1–3, platoon-ru s1–2) 183 of 210 (87 %) → 121
+  of 228 (53 %; without going back afterwards it was 1 %: most of the rest are men back in their place for a later
+  mission); men by cover or indoors stay, by design (357/399 → 353/390); mortar fragment hits in those five battles
+  209 → 251, casualties 171 → 219 (A's aim mostly). Halted pairs within 2 m (5 s samples; < 0.3 m): platoon s2
+  715 (282) → 273 (170) → 0 (0); platoon-ru s1 532 (40) → 1075 (592) → 482 (0). Pinned or panicked man-seconds in
+  the enemy's sight 4445 → 888 → 1420, spells over 10 s 121 → 42 → 73: **no gain from B here** — the crawl starts
+  only 2–7 times per battle: most pinned men are already out of the sight, at lying height, of the enemy they know
+  (their own estimate), though the enemy still sees them; the rest is battle-to-battle noise (B moves men, the
+  battles take other courses).
+- **Batches** (900 s, 10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender):
+
+  | Batch | After A | After B |
+  |---|---|---|
+  | platoon | 1/9; 15.1 / 11.9; 22 / 5; 933 / 226 | 3/7; 14.7 / 11.8; 14 / 6; 877 / 213 |
+  | platoon-ru | 2/8; 15.8 / 13.0; 22 / 4; 1476 / 200 | 5/5; 11.2 / 13.7; 19 / 5; 1552 / 132 |
+  | platoon-vehicles | 3/7; 19.2 / 21.5; 27 / 3; 905 / 201 | 3/7; 17.2 / 21.2; 31 / 4; 1085 / 278 |
+  | platoon-ru-vehicles | 1/9; 26.0 / 11.4; 30 / 5; 555 / 185 | 0/10; 26.2 / 10.5; 43 / 5; 494 / 195 |
+
+  Within the seed noise of A (the Russian mounted attack was 0/10 before A too); no balance tuning.
+- **Goldens:** regenerated (`golden:update`); no-interiors goldens stay skipped.
+
+### Package C — Stay in the fight
+
+- **A posture to return to** (audit item 4: in village-occupy s2 both sides lay prone for 23 minutes and fired 35
+  rounds; indoors 81 % of the man-seconds were prone below the sills; the window posture was given once and
+  `requestPosture` only ever went down). `SoldierState.homePosture` (optional) is the posture of his fire position:
+  set when he reaches the end of a move or Occupy (`Mover.endPosture`: kneeling or standing at a window, lying in the
+  open), by a posture order and by the react-to-contact halt. Halted, not pinned or panicked, with his suppression
+  below **0.05** (`riseBelowSuppression`: a few seconds after the last near miss), he takes it again; his fire task
+  goes on from there (`assignFireTask` also takes it as the lowest posture of a new task).
+- **Rise to look** (item 4): a man lying where the enemy he knows is out of his sight at lying height but in sight
+  kneeling (two `coveredFrom` checks, every **4 s** per man, `lookEverySeconds`) rises to his knees; higher than his
+  fire position and fired on (suppression >= `decisions.seekCoverSuppression`) with no fire task, he goes down to it.
+- **Facing** (item 9: idle men faced more than 90 degrees away from the enemy they knew 16–17 % of the time, more
+  than 45 degrees ~40 %; the halt drill faces outward): in a fight (his top unit fired on within 30 s) an idle man
+  outdoors whose known enemy (`threatOf`) is more than 90 degrees off his heading turns to face him (a sector within
+  90 degrees — the halt drill's outward facing — is kept), and the last idle man of a team of **3** or more
+  (`rearWatchMinMen`) watches the rear instead. Out of a fight the facing he was given stands: a first version that
+  turned men at any time turned a player's laid-out formation away from the facing he had dragged (UI test) and the
+  casualty lab's side-on targets toward the shooter (`faceEnemy: false` switches the rule off for that lab).
+- **Occupy is not cut short** (item 4: the react-to-contact halt stopped a squad on its way into a house; 2 of 6
+  stayed outside): a unit any of whose able men is going to a place indoors does not halt on contact.
+- **Anti-tank men move for a shot** (extra item: they never moved to get a shot at a vehicle known only by sound;
+  4 of 4 RPG hits stopped in platoon-ru-vehicles s1): a man with a launcher who knows of an enemy vehicle within
+  his reach + 30 m (contact within **20 s**, `atContactSeconds`) that he cannot fire at — none seen, or his line
+  from here blocked — moves up to **30 m** (`atMoveM`; 3 rings x 12 spots, up to 12 sight checks at kneeling
+  height to the vehicle's hull middle) to a spot from which he could see it, at least **40 m** from it
+  (`atMoveMinRangeM`) and within 0.9 of his weapon's range, preferring its flank or rear when he knows its heading
+  (+20 m per unit of "in front"), at most every **20 s** (`atMoveRetrySeconds`; 30 s gave about 10 tries a
+  battle). New `Intent.kind` "reposition".
+- **Measured** (audit scripts; base → A → B → C): idle men with a known enemy (contact within 10 s, in a fight or
+  not) facing more than 90 degrees away 10 % → 13 % → 16 % → 14 % (more than 45 degrees 25 → 27 → 33 → 27 %): little
+  change, as the rule acts only in a fight (turning at all times reached 9 % / 20 % but broke the player's
+  facing, above); halted men with a known enemy lying prone 91 → 88 → 84 → 78 %. Village-occupy (1500 s): s1 rounds
+  fired 35 → 35 → 51 → 415, s2 39 → 54 → 53 → 135; s2 men indoors lying prone 99 % → 100 → 100 → 2 %; s2
+  man-seconds indoors 4358 → 5791 → 5791 → 5981. Anti-tank rockets fired (1500 s): platoon-vehicles s1 1 → 4 → 4 →
+  6, s2 7 → 3 → 3 → 6, platoon-ru-vehicles s1 11 → 11 → 17 → 14; man-seconds with a vehicle heard in reach and no
+  shot 551 / 973 / 628 → 334 / 446 / 446.
+- **Batches** (900 s, 10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender):
+
+  | Batch | After B | After C |
+  |---|---|---|
+  | platoon | 3/7; 14.7 / 11.8; 14 / 6; 877 / 213 | 2/8; 15.5 / 12.1; 21 / 5; 925 / 241 |
+  | platoon-ru | 5/5; 11.2 / 13.7; 19 / 5; 1552 / 132 | 4/6; 13.6 / 14.5; 19 / 5; 1291 / 149 |
+  | platoon-vehicles | 3/7; 17.2 / 21.2; 31 / 4; 1085 / 278 | 4/6; 17.6 / 19.9; 23 / 3; 765 / 220 |
+  | platoon-ru-vehicles | 0/10; 26.2 / 10.5; 43 / 5; 494 / 195 | 1/9; 24.8 / 10.9; 29 / 6; 420 / 184 |
+
+  No balance problem; no tuning.
+- **Screenshots** (`--scene look`, phone and desktop): looked at the firing close-up, the casualty and roof scenes
+  and the village figures; nothing changed in the picture (the close-up's "no line of fire" message is there on
+  main too). No page errors.
+- **Tests changed:** line-of-fire tests now check the fire position (`homePosture`) instead of the posture after
+  5 s (a man lying blind behind the bank may rise to look meanwhile); two decision/rule tests look at the fight
+  earlier (the enemy, aimed at properly since A, is down sooner). **Goldens** regenerated.
+
+### Package D — Close combat
+
+- **Why the AI's grenade orders never produced a thrown hand grenade** (audit item 7; 1500 s, platoon s1–3 and
+  platoon-ru s1–2 before: 264 grenade actions started, 0 hand grenades thrown, 46 launched, 47 "no way to throw it
+  there"): (1) throw range depends on posture (owner decision: about 15 m lying, 20 m kneeling, 30 m standing) and
+  the assaulting men were lying down, so for enemies 15–35 m away (the AI's `grenadeRangeM`) only men with a
+  grenade launcher qualified; (2) the AI orders a grenade and the assault in the same step: the men picked were
+  often running (a bound) and the throw was broken off at once ("moved": 37 of 59 actions in platoon s2), or the
+  drill's next rush moved them before the 2.5 s throw was done; (3) from cover many throws found no arc and the man
+  kept the grenade. Fixes: a man lying down **rises for the throw** to the lowest posture whose range reaches
+  (`throwPosture`; inside the throw's 2.5 s, then he goes down as before) — **this changes the owner's earlier
+  rule** that a man lying down cannot throw beyond 15 m (the ranges per posture are unchanged); the men picked for a
+  grenade order **stop** to throw and the drill does not move a man in the middle of a throw; the arc search is now
+  a pure function (`findArc`) used **beforehand**: a man with no way to get it there is not picked (nobody: the order
+  answers "no way to throw it there"). The grenade test that expected "unable" for a prone man at 25 m now expects
+  the throw (and "unable" at 45 m).
+- **Own hand grenades** (item 7: never on own initiative; 822–3365 man-seconds per battle with an enemy known
+  within 25 m, much of it behind cover): a man carrying hand grenades, halted, allowed to fire, not pinned, throws on
+  his own at an enemy he knows (seen or reported within **30 s**, `grenadeContactSeconds`; 10 s left most such
+  enemies out — they were known but not seen lately) within his standing throwing range and at least 10 m away, who
+  is out of his sight (behind cover) or in a house, when he has a way to get it there, no man of his side is within
+  **10 m** of that enemy (`grenadeClearM`) and no comrade of his unit is already throwing; at most every **20 s**
+  (`grenadeEverySeconds`, `SoldierState.grenadeTick`).
+- **Assault fire** (item 8: moving men never fired; the final rush deleted the fire tasks, the fire system skipped
+  men with waypoints): in an assault, the bounding men within **50 m** of the objective (`assaultFireM`) and every
+  man of the last rush get a fire task at the enemy they know nearest the objective (else the objective at 0.5 m)
+  marked `onTheMove`; the fire system lets such a man fire while he moves, from the posture he moves in (no posture
+  changes for the line of fire), with **3x** his aiming error while he is moving faster than 0.2 m/s
+  (`assaultFireAimFactor`): fire to keep heads down, not to hit.
+- **Measured** (1500 s, platoon s1–3 + platoon-ru s1–2, summed; before → after D): grenade actions 264 → 79 (fewer,
+  but they are carried out), hand grenades thrown 0 → 11 (another run with the same code: 17, of them 8 thrown on the
+  men's own initiative), launched 46 → 54, "no way to throw it there" 47 → 37 (the aim error at release still sends
+  some into walls); rounds fired by men on the move 9 → 517, hitting 4 times. Audit diagnostics (six battles incl.
+  platoon-vehicles s1): hand grenades thrown 0 → 14, launched 50 → 60.
+- **Batches** (10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender; hand grenades thrown attacker / defender per battle):
+
+  | Batch | Before (main) | After C | After D |
+  |---|---|---|---|
+  | platoon 900 s | 1/9; 14.4 / 10.3; 23 / 8; 1023 / 279; 0 / 0 | 2/8; 15.5 / 12.1; 21 / 5; 925 / 241; 0.2 / 0 | 3/7; 15.6 / 12.9; 19 / 5; 1171 / 215; 3.2 / 0.3 |
+  | platoon-ru 900 s | 2/8; 15.5 / 12.8; 22 / 8; 1609 / 297; 0 / 0 | 4/6; 13.6 / 14.5; 19 / 5; 1291 / 149; 0 / 0 | 2/8; 14.2 / 14.6; 21 / 6; 1411 / 196; 1.1 / 0.2 |
+  | platoon-vehicles 900 s | 2/8; 20.1 / 19.3; 42 / 15; 889 / 835; 0.2 / 0 | 4/6; 17.6 / 19.9; 23 / 3; 765 / 220; 0.1 / 0 | 5/5; 15.5 / 20.6; 29 / 4; 855 / 226; 4.7 / 0.7 |
+  | platoon-ru-vehicles 900 s | 0/10; 28.4 / 11.5; 70 / 9; 621 / 480; 0 / 0 | 1/9; 24.8 / 10.9; 29 / 6; 420 / 184; 0 / 0 | 1/9; 26.4 / 11.9; 14 / 5; 475 / 174; 1.8 / 0.5 |
+  | platoon 2400 s | 4/6; 18.9 / 12.5; 27 / 10; 1722 / 564; 0 / 0 | (A: 3/7; 18.9 / 14.5) | 6/4; 18.9 / 14.5; 20 / 5; 1790 / 281; 4.2 / 0.6 |
+  | platoon-ru 2400 s | 6/4; 18.8 / 14.9; 25 / 10; 2293 / 482; 0 / 0 | (A: 3/7; 18.6 / 14.5) | 4/6; 17.5 / 16.6; 21 / 6; 2446 / 290; 1.7 / 0.6 |
+
+  With all four packages the attack on foot over 2400 s wins about as often as before the packages (DE 6/10, was
+  4/10; RU 4/10, was 6/10) with the same attacker casualties and somewhat more defender casualties; defenders hit
+  with 5–6 rounds instead of 8–10 and spend half the ammunition. Not unbalanced; no tuning.
+- **Goldens:** regenerated; no-interiors goldens stay skipped.
+
+### Decisions for the owner (soldier AI, all game values low)
+
+1. **A man lying down rises for a longer grenade throw** (D) — this changes your earlier rule that a man lying down
+   throws only 15 m. Keep it (recommended: it is what made the AI's grenade orders work), or keep men down and let
+   the AI order grenades only within 15 m?
+2. **Aim points** prone 0.2 m / kneeling 0.6 / standing 1.0 (A): defenders now hit with 4–6 rounds instead of 8–15.
+   The Russian attack on foot fell from 6/10 to 3/10 at 2400 s after A alone and is back to 4/10 with all four.
+3. **Last-magazine reserve** within 100 m (200 m against an assault) (A) and **half rate beyond 200 m** for riflemen
+   firing on their own (A).
+4. **Beaten zones** (B): only men out in the open move (40 m out or into a house) and they go back when the fire
+   lifts; men by a wall, hedge or building stay down. The alternatives tried cost more men (DECISIONS B).
+5. **Crawl to cover** (B) rarely triggers: most pinned men are already out of sight of the enemy *they know of*
+   while the enemy still sees them. A wider trigger (e.g. any man pinned in the open) would be a further step.
+6. **Facing** (C) only in a fight, so a player's laid-out facing stands otherwise.
+7. **Assault fire** with 3x aiming error (D): fire on the move hits rarely (4 hits from 517 rounds in five battles).

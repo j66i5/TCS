@@ -2624,3 +2624,41 @@ bench-combined, platoon(-ru)(-vehicles), village-occupy, demo, vehicles, demo-fi
 - **Measured** (vitest perf tests, this container, base and new alternated, two rounds): bench-vehicles 7.5–7.6×
   → 9.6–9.7×; bench 12× → 17–18×; spotting bench 9.4–9.8× → 9.9–12.3×; bench-combined 3.5–3.7× → 3.5–4.0×;
   projectile bench 3.5–4.0× → 4.0–4.1×; fragment volley 15.6–16.2× → 15.3–19.8× (noisy). Floors unchanged.
+
+## 2026-11-13 — Controls step: drag to move, marker re-target, facing handle, LOS preview, mode lock (owner S1, S2, S9, S10, S12)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), all built as chosen. UI only: every gesture
+sends an existing order (`move`, `halt`, `fire`, `assault`, `withdraw`, ...); no new order type, no sim change,
+goldens untouched. Pure helpers in `packages/ui/src/gestures.ts` (tests `packages/ui/test/gestures.test.ts`, the
+turn-in-place and the LOS preview checked against the simulation); input: a drag press released without moving
+ends as "tap" and may be delivered as a tap, a second finger ends it as "cancel" (`input.ts`). Screenshots
+`npm run screenshot -- --scene controls`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Where the gestures apply.** Drag-from-unit, the marker and the facing handle work in Move, Assault and Withdraw
+   modes (an assault/withdrawal dragged from the unit goes at once and the bar returns to Move); in Grenade, Mortar,
+   Smoke and Occupy a drag pans as before. While a multi-point plan is open only its own handles drag.
+2. **Fire mode takes the one-finger drag** (hold, slide, release) anywhere on the map, so it does not pan; two
+   fingers and the wheel still do. The sight lines show at once on press (no hold time) and follow the pointer.
+3. **Sight lines**: from each able man's eyes (posture, floor) to 0.75 m above the ground at the point (a kneeling
+   man, as Debug's sight view); clear = nothing solid in the way and at least 20 % of the view through vegetation
+   or see-through fences; a vehicle's crew from 2.3 m above its hull. A hull that blocks a line and is neither own
+   nor known to the side is looked through (up to two), so no hidden vehicle is revealed. Smoke does not yet thin
+   sight (M8), so the preview ignores it too.
+4. **Re-targeting** (S10) sends a new single-leg move to the dropped point keeping the pace of the old last leg,
+   formation and frontage; the facing is along the new leg from where the unit is now; earlier route points are
+   dropped. Dropped on the unit = Halt. Only moves the player sent have a marker (the app remembers them; it goes
+   when the unit arrives or gets another movement order). Only the selected unit's marker is drawn (lines for every
+   unit are step S7).
+5. **Turn in place** (S9) = move with the facing, current formation and the doctrine width, to the point that keeps
+   the men's middle where it is (a wedge's leader stands ahead of its middle); a vehicle gets a move to its own spot
+   with the facing (it turns on the spot). The handle shows only for a halted, unbroken unit outdoors on foot, or a
+   crewed hull in working order, in Move/Assault/Withdraw mode; it sits 30 px beyond the man farthest forward.
+   A turn has no draggable marker.
+6. **Mode lock** (S12): double-tap = two clicks on the same button within 400 ms; Move never locks; any other mode
+   unlocks; the locked button gets a bold accent frame and a small "LOCK" mark (string table). Occupy, Grenade,
+   All grenades, Mortar, Smoke, Fire and Anti-tank all return to Move after one order unless locked (Occupy did
+   already).
+7. Colours are TCS's own: sight lines pale blue, blocked part broken orange-red; the facing handle mint green; the
+   cancel mark a red ring with a cross; the move marker white.
+8. The start hint was shortened and rewritten for the new gestures.
+Seen in passing, not changed: the app's `issue()` marks every order `player: true`, the AI's too (the AI's orders
+go through the same function).

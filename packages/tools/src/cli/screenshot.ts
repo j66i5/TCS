@@ -28,6 +28,9 @@ interface Page {
   waitForTimeout(ms: number): Promise<void>;
   screenshot(o: { path: string }): Promise<unknown>;
   close(): Promise<void>;
+  mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(): Promise<void>; up(): Promise<void> };
+  click(selector: string, o?: { clickCount?: number; delay?: number }): Promise<void>;
+  dblclick(selector: string): Promise<void>;
 }
 interface Browser { newPage(o: object): Promise<Page>; close(): Promise<void> }
 const { chromium } = createRequire(import.meta.url)("playwright") as { chromium: { launch(): Promise<Browser> } };
@@ -457,6 +460,107 @@ async function floorScenes(page: Page, name: string, errors: string[], shots: st
   console.log(`${name}: floors scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * The "controls" step (`--scene controls`; owner choices S1, S2, S9, S10, S12): real pointer gestures on the platoon
+ * battle on foot (village). The lead squad selected and halted with its facing handle; dragged out from the squad
+ * (the ghost marker), let go (the move is sent, its marker stays); the marker dragged elsewhere (re-targeted) and
+ * onto the squad (the cancel mark: Halt); the facing handle turned; Fire held behind a house (sight lines, solid
+ * clear, broken blocked), dragged back onto the squad (cancel), a quick tap fires and the bar is back on Move;
+ * Fire double-tapped (locked) stays on after a tap. Every step checks the order the app sent.
+ */
+async function controlScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/controls-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 7 : 9;
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const drag = async (from: P, to: P, hold?: () => Promise<void>) => {
+    await page.mouse.move(from.x, from.y); await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    if (hold) await hold();
+    await page.mouse.up();
+  };
+  const log: Record<string, unknown> = {};
+  // The lead squad, selected, the view on it.
+  log["start"] = await ev(`t.setSpeed(0); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y + ${name === "phone" ? 12 : 0}, ${zoom}); t.stepTicks(2);
+    globalThis.__sq = sq.unit; return { unit: sq.unit, callsign: sq.callsign, ...t.controls() };`);
+  await shot("0-selected-facing-handle");
+  // S1: press on a man of the squad, drag out (the ghost follows), let go: the move goes at once.
+  const man = await ev<P>(`const u = s.unit.get(globalThis.__sq); const m = u.leader ?? u.members[0]; const p = s.transform.get(m); return t.toScreen(p.x, p.y);`);
+  const c0 = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x, c.y);`);
+  const dest = { x: c0.x + (name === "phone" ? 110 : 260), y: c0.y - (name === "phone" ? 140 : 170) };
+  await drag(man, dest, () => shot("1-drag-from-squad-ghost"));
+  log["s1"] = await lastOrder();
+  await ev(`t.stepTicks(60 * 4);`);
+  await shot("2-move-sent-marker");
+  // S10: the marker dragged elsewhere (re-targeted)...
+  const mk = await ev<P | null>(`const m = t.controls().marker; return m ? t.toScreen(m.x, m.y) : null;`);
+  if (mk) {
+    const to = { x: mk.x - (name === "phone" ? 150 : 300), y: mk.y + 20 };
+    await drag(mk, to, () => shot("3-marker-dragged"));
+    log["s10retarget"] = await lastOrder();
+    await ev(`t.stepTicks(60 * 3);`);
+    // ... and onto the squad: the cancel mark; let go = Halt.
+    const mk2 = await ev<P | null>(`const m = t.controls().marker; return m ? t.toScreen(m.x, m.y) : null;`);
+    const on = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+    if (mk2) { await drag(mk2, on, () => shot("4-marker-on-squad-halts")); log["s10halt"] = await lastOrder(); }
+  }
+  // S9: the squad halted; its facing handle turned about a quarter round.
+  await ev(`t.stepTicks(60 * 3);`);
+  const fh = await ev<{ h: P; c: P } | null>(`const f = t.controls().facing; return f ? { h: t.toScreen(f.handle.x, f.handle.y), c: t.toScreen(f.centre.x, f.centre.y) } : null;`);
+  if (fh) {
+    const dx = fh.h.x - fh.c.x, dy = fh.h.y - fh.c.y;
+    await drag(fh.h, { x: fh.c.x - dy, y: fh.c.y + dx }, () => shot("5-facing-handle-turned"));
+    log["s9"] = await lastOrder();
+    await ev(`t.stepTicks(60 * 30);`);
+    await shot("6-turned-in-place");
+  } else log["s9"] = "no facing handle";
+  // S2: Fire, held at a point behind the nearest house (some lines blocked by it), then back onto the squad.
+  await page.click('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  // (The view moved to show the squad and the house: the target 25 m behind the house's far wall.)
+  const tgt = await ev<P>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 25 && d < bd) { bd = d; best = { x, y }; } }
+    const ux = best ? (best.x - c.x) / bd : 1, uy = best ? (best.y - c.y) / bd : 0;
+    const w = best ? { x: best.x + ux * 25, y: best.y + uy * 25 } : { x: c.x + 80, y: c.y - 40 };
+    const d = Math.hypot(w.x - c.x, w.y - c.y), ins = t.insets();
+    const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.6;
+    t.focusScale((w.x + c.x) / 2, (w.y + c.y) / 2, Math.min(${zoom}, span / Math.max(1, d))); t.stepTicks(1);
+    return t.toScreen(w.x, w.y);`);
+  // Held first in the open short of the house (every line clear), then slid on to behind the house.
+  const c1 = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x, c.y);`);
+  const open = { x: (c1.x + tgt.x) / 2, y: (c1.y + tgt.y) / 2 };
+  await page.mouse.move(open.x, open.y); await page.mouse.down();
+  await page.mouse.move(open.x + 4, open.y + 3, { steps: 2 });
+  log["s2open"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  await shot("7a-fire-held-clear");
+  await page.mouse.move(tgt.x, tgt.y, { steps: 8 });
+  await shot("7-fire-held-sight-lines");
+  log["s2los"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  const back = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+  await page.mouse.move(back.x, back.y, { steps: 10 });
+  await shot("8-fire-dragged-back-cancel");
+  const before = await ev<number>("return t.orderLog.length;");
+  await page.mouse.up();
+  log["s2cancelSentNothing"] = (await ev<number>("return t.orderLog.length;")) === before;
+  // A quick tap fires, and the bar goes back to Move (S12).
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.up();
+  log["s2tap"] = await lastOrder();
+  log["afterTap"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked };");
+  await ev(`t.stepTicks(60 * 2);`);
+  await shot("9-fired-back-to-move");
+  // S12: Fire double-tapped: locked on; a tap fires and it stays on.
+  await page.dblclick('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.up();
+  log["locked"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked, orders: t.orderLog.length };");
+  await ev(`t.stepTicks(30);`);
+  await shot("10-fire-locked");
+  console.log(`${name}: controls scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -480,6 +584,7 @@ try {
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -594,7 +699,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

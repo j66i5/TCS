@@ -44,7 +44,8 @@ Tap one of your men to select his unit. The bar at the bottom holds the orders:
   sends the order; **Undo** drops the last point, **Cancel** the whole plan. The men lay themselves out exactly
   so, take cover close to their places and face the way the arrow points.
 - **Assault** / **Withdraw**: tap the point, Go (the drills of M4.3).
-- **Fire**: tap the target — on an enemy marker to fire at that enemy. **Grenade** / **All grenades**: tap.
+- **Fire**: tap the target — on an enemy marker to fire at that enemy (hold to see the sight lines first, see
+  "Ordering by dragging"). **Grenade** / **All grenades**: tap.
 - **Halt**, **cease fire**, the posture button.
 - **Rules**: the unit's standing rules — fire (at will / return fire / hold), open fire within (any range or
   400 / 200 / 100 m), on contact (go to ground / push on / fall back), ammunition (conserve / normal /
@@ -636,6 +637,36 @@ behind **⋯**. Under it one short line: each objective with a small square in t
 **Looks are data too.** Each side's uniform tones and vehicle paint, and the colours of the flat map to come, are in
 `appearance.json` files. They are kept apart from everything the battle is computed from, so changing a colour can
 never change the outcome of a battle or a saved game.
+
+## Ordering by dragging (the "controls" step, owner choices 2026-11-13)
+Ideas taken from Firefight's way of giving orders (only the ideas: the look and the words are our own). They
+work the same with a finger and with a mouse; each gesture ends in one of the ordinary orders, so nothing about
+the battle itself changed.
+- **Drag from the unit to move it.** Press on the selected unit (one of its men, or its vehicle), drag, and a ghost
+  of the formation follows the finger with a dashed line from the unit; let go and the move is sent at once, at
+  the pace last chosen. Drag back onto the unit before letting go (a red cross shows) and nothing is sent. In the
+  Assault or Withdraw mode the same drag sends an assault or a withdrawal. For a route with several points, tap
+  the map as before and press Go.
+- **The move's marker.** While a unit carries out a move you gave it, its destination shows as a white ring with
+  a dot. Drag it somewhere else and the unit goes there instead (same pace, formation and width, straight from
+  where it is now). Drag it onto the unit itself (the red cross) and let go: the unit halts. The Halt button
+  still does the same.
+- **Turning on the spot.** A selected unit that stands still has a round green handle ahead of it, with an arrow
+  for the way it faces. Drag the handle round: a ghost shows where the men will stand; let go and they turn that
+  way where they are (it is the usual move order, sent to the place where the unit stands, with that facing; the
+  point is shifted so that the middle of the group stays put). A vehicle turns on its tracks. Indoors there is no
+  handle: Occupy faces the men to the windows.
+- **Seeing before firing.** In Fire (or Anti-tank) mode, hold the finger or mouse down on the map: a line runs
+  from each of the unit's men (a vehicle's sights) to the point — solid where the view is clear, broken (with a
+  small cross) from where a hill, a wall, a roof or thick woods stop it. The check uses only the ground, the
+  buildings, the woods and the vehicles your side knows about, so it never gives away a hidden enemy. Slide the
+  point about while holding; let go to fire there. Slide back onto the unit (red cross) and let go to call it off.
+  A quick tap fires at once, as before. While Fire is chosen, a one-finger drag on the map does not pan it (use
+  two fingers, or the mouse wheel and another mode).
+- **Back to Move after one order.** After a one-tap order — fire, anti-tank, grenade, all grenades, mortar, smoke,
+  occupy, or an assault or withdrawal sent by dragging — the bar goes back to Move, so the next tap does not fire
+  again by mistake. To give several such orders in a row, double-tap the button: it locks on (a bold yellow frame
+  and a small LOCK mark) and stays on after each order; double-tap it again, or pick another order, to unlock.
 
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the

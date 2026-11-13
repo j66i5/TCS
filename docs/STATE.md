@@ -1,6 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+
+**Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
+"Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
+Withdraw likewise in their modes); tapping the map still plans a route with Go. The active move's marker (a white
+ring with a dot) can be dragged to re-target the move, onto the unit to Halt. A halted unit has a round green
+facing handle ahead of it: drag it to turn in place (the existing move with a facing, to where it stands). In
+Fire / Anti-tank, a held press shows sight lines from each man (solid clear, broken from where blocked; terrain,
+walls, roofs, woods and known hulls only), letting go fires, back onto the unit cancels; a quick tap still fires.
+After a one-tap order the bar returns to Move; a double-tap on a mode button locks it on (bold frame, LOCK mark).
+UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene controls`.
+Not done here (other steps of the Firefight list): S3–S8, S11, S13, S14.
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

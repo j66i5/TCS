@@ -11,7 +11,7 @@ function fakeEl() {
     fire: (k: string, id: number, x: number, y: number) => ls.get(k)!({ pointerId: id, clientX: x, clientY: y, preventDefault: () => {} }),
   };
 }
-function setup(dragAt: ((w: { x: number; y: number }) => boolean) | null) {
+function setup(dragAt: ((w: { x: number; y: number }) => boolean) | null, asTap = false) {
   const f = fakeEl();
   let cam: Camera = { x: 0, y: 0, scale: 1 } as Camera;
   const log: string[] = [];
@@ -19,7 +19,7 @@ function setup(dragAt: ((w: { x: number; y: number }) => boolean) | null) {
     getCamera: () => cam,
     setCamera: (c) => { cam = c; log.push("camera"); },
     onTap: (w) => log.push(`tap ${Math.round(w.x)},${Math.round(w.y)}`),
-    ...(dragAt ? { onDragStart: (w: { x: number; y: number }) => { const r = dragAt(w); log.push(`start ${r}`); return r; }, onDrag: () => log.push("drag"), onDragEnd: () => log.push("end") } : {}),
+    ...(dragAt ? { onDragStart: (w: { x: number; y: number }) => { const r = dragAt(w); log.push(`start ${r}`); return r; }, onDrag: () => { log.push("drag"); }, onDragEnd: (how: string) => { log.push("end", `end ${how}`); return asTap; } } : {}),
   });
   return { f, log, cam: () => cam };
 }
@@ -49,9 +49,25 @@ describe("map input", () => {
   it("a second finger turns a handle drag into a pinch (the drag ends)", () => {
     const { f, log } = setup(() => true);
     f.fire("pointerdown", 1, 100, 100); f.fire("pointerdown", 2, 200, 100);
-    expect(log).toContain("end");
+    expect(log).toContain("end cancel");
     f.fire("pointermove", 2, 260, 100);
     expect(log).toContain("camera");
     expect(log).not.toContain("drag");
+  });
+  it("controls step: a drag press released after moving ends as a drop (no tap)", () => {
+    const { f, log } = setup(() => true, true);
+    f.fire("pointerdown", 1, 100, 100); f.fire("pointermove", 1, 160, 100); f.fire("pointerup", 1, 160, 100);
+    expect(log).toContain("end drop");
+    expect(log.some((l) => l.startsWith("tap"))).toBe(false);
+  });
+  it("controls step: a drag press released without moving ends as a tap, delivered as a tap if asked", () => {
+    const a = setup(() => true, true);
+    a.f.fire("pointerdown", 1, 100, 100); a.f.fire("pointerup", 1, 103, 101);
+    expect(a.log).toContain("end tap");
+    expect(a.log).toContain("tap 103,101");
+    const b = setup(() => true, false);
+    b.f.fire("pointerdown", 1, 100, 100); b.f.fire("pointerup", 1, 103, 101);
+    expect(b.log).toContain("end tap");
+    expect(b.log.some((l) => l.startsWith("tap"))).toBe(false);
   });
 });

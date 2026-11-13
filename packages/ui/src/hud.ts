@@ -16,6 +16,7 @@ import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
 import { createSidebar, type UnitTile } from "./sidebar";
+import { isDoubleTap } from "./gestures";
 
 export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
@@ -75,8 +76,11 @@ export interface Hud {
   showError(text: string): void;
   /** Show the plan bar (move / assault / withdraw being planned) or hide it (null). */
   setPlanning(kind: "move" | "assault" | "withdraw" | null): void;
-  /** The order mode shown as active (after Go or Cancel the app returns to move). */
+  /** The order mode shown as active (after Go or Cancel the app returns to move). Another mode than the locked
+   *  one unlocks it. */
   setOrderMode(mode: OrderMode): void;
+  /** S12: the mode shown was locked on by a double-tap on its button (it stays on after each order). */
+  modeLocked(): boolean;
   /** The selected unit's rules and a status line, shown in the rules panel. */
   setUnit(rules: UnitRules | null, status: string): void;
   /** The score line under the top bar (objectives held, M6): text parts, a part with a colour shows a marker
@@ -158,14 +162,31 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   moreMenu.hidden = true;
   moreBtn.onclick = () => { moreMenu.hidden = !moreMenu.hidden; moreBtn.classList.toggle("on", !moreMenu.hidden); };
   const modeBtns = new Map<OrderMode, HTMLButtonElement>();
+  // S12 (owner 2026-11-13): after a one-tap order the app returns to Move; a double-tap on a mode's button locks
+  // it on (shown by a bold frame and a small mark), a double-tap again or another mode unlocks it. Move never locks.
+  let locked: OrderMode | null = null;
+  let lastClick: { mode: string; at: number } | null = null;
   const mode = (m: OrderMode, key: string) => {
     const b = el("button", "hud-btn", s.t(key));
     b.dataset["order"] = m;
-    b.onclick = () => { setMode(m); cb.onOrderMode(m); };
+    b.dataset["lock"] = s.t("order.lockedMark");
+    b.onclick = () => {
+      const now = globalThis.performance?.now() ?? Date.now();
+      if (m !== "move" && isDoubleTap(lastClick, m, now)) { locked = locked === m ? null : m; lastClick = null; }
+      else { lastClick = { mode: m, at: now }; if (locked !== m) locked = null; }
+      setMode(m); cb.onOrderMode(m);
+    };
     modeBtns.set(m, b);
     return b;
   };
-  const setMode = (m: OrderMode) => { for (const [k, b] of modeBtns) b.classList.toggle("on", k === m); hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : "plan.tapTarget"); };
+  const setMode = (m: OrderMode) => {
+    if (locked !== m) locked = null;
+    for (const [k, b] of modeBtns) {
+      b.classList.toggle("on", k === m);
+      b.classList.toggle("locked", k === locked);
+      b.title = k === locked ? s.t("order.lockedHint") : k !== "move" ? s.t("order.lockHint") : "";
+    }
+    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : "plan.tapTarget"); };
   const btn = (key: string, order: string, f: () => void) => { const b = el("button", "hud-btn", s.t(key)); b.dataset["order"] = order; b.onclick = f; return b; };
   const haltBtn = btn("order.halt", "halt", () => cb.onHalt());
   const ceaseBtn = btn("order.ceaseFire", "ceaseFire", () => cb.onCeaseFire());
@@ -397,6 +418,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       undoBtn.hidden = kind !== "move";
     },
     setOrderMode(m) { setMode(m); },
+    modeLocked: () => locked !== null,
     setOrders(given) {
       // Nothing selected (M7.5a, owner answer 6): the bar stays, greyed out.
       const set = given ?? noOrders();

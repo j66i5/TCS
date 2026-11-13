@@ -3,7 +3,9 @@
  * changes). It never touches the simulation: the app turns taps into ORDERS.
  *
  *   one finger / left mouse: tap = tap; drag = pan, unless the press lands on something the app lets the
- *   player drag (an order marker's handle, M5): then the drag moves that instead
+ *   player drag (an order marker's handle, M5; the selected unit, an active move's marker, the facing handle, or
+ *   anywhere in Fire mode, the "controls" step): then the drag moves that instead. A drag press released without
+ *   moving ends the drag as "tap"; the app may then ask for the tap as well (a press on a unit still selects it).
  *   two fingers: pinch = zoom, move = pan
  *   mouse wheel: zoom at cursor
  */
@@ -16,7 +18,11 @@ export interface InputCallbacks {
   /** A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. */
   onDragStart?(world: { x: number; y: number }): boolean;
   onDrag?(world: { x: number; y: number }): void;
-  onDragEnd?(): void;
+  /**
+   * The drag is over: "drop" (released after moving), "tap" (released without moving: return true to have it
+   * delivered as a tap too) or "cancel" (a second finger turned it into a pinch: nothing is to be sent).
+   */
+  onDragEnd?(how: "drop" | "tap" | "cancel"): boolean | void;
 }
 
 const TAP_SLOP_PX = 10;
@@ -49,7 +55,7 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
       downAt = local(e); moved = false;
       dragging = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y)) === true;
     }
-    if (pointers.size === 2) { pinchDist = spread(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.(); } }
+    if (pointers.size === 2) { pinchDist = spread(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.("cancel"); } }
   };
   const move = (e: PointerEvent) => {
     const prev = pointers.get(e.pointerId);
@@ -70,9 +76,13 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     cb.setCamera(cam);
   };
   const up = (e: PointerEvent) => {
-    const wasTap = pointers.size === 1 && !moved && downAt !== null && !dragging;
+    let wasTap = pointers.size === 1 && !moved && downAt !== null && !dragging;
     pointers.delete(e.pointerId);
-    if (dragging && pointers.size === 0) { dragging = false; cb.onDragEnd?.(); }
+    if (dragging && pointers.size === 0) {
+      dragging = false;
+      const asTap = cb.onDragEnd?.(e.type === "pointercancel" ? "cancel" : moved ? "drop" : "tap") === true;
+      if (asTap && !moved && downAt !== null) wasTap = true;
+    }
     if (wasTap) {
       const s = local(e);
       cb.onTap(screenToWorld(cb.getCamera(), s.x, s.y), s);

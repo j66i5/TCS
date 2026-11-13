@@ -56,6 +56,21 @@ export interface Overlay {
   /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
    *  drawn faint with a floor badge. */
   floor?: number;
+  /** Order gestures on the map (the "controls" step): see GestureOverlay. */
+  gesture?: GestureOverlay | null;
+}
+
+/**
+ * Order gestures (owner choices S1, S2, S9, S10): the selected unit's active move marker (drag it to re-target, onto
+ * the unit to halt), its facing handle while halted, the line-of-sight preview of a fire order being held, and a
+ * cancel mark while the pointer is back on the unit (releasing there sends nothing, or Halt for a marker).
+ */
+export interface GestureOverlay {
+  marker?: { x: number; y: number; from: { x: number; y: number } | null; dragging: boolean } | null;
+  facing?: { centre: { x: number; y: number }; handle: { x: number; y: number }; dragging: boolean } | null;
+  los?: readonly { x0: number; y0: number; x1: number; y1: number; stopAt: number; clear: boolean }[] | null;
+  target?: { x: number; y: number } | null;
+  cancelAt?: { x: number; y: number } | null;
 }
 
 export interface PlanOverlay {
@@ -63,6 +78,8 @@ export interface PlanOverlay {
   from: { x: number; y: number };
   points: readonly { x: number; y: number; mode: string }[];
   marker: { centre: { x: number; y: number }; men: readonly { x: number; y: number }[]; arrowTip: { x: number; y: number }; rotate: { x: number; y: number }; resize: { x: number; y: number } | null } | null;
+  /** A move being dragged out from the unit (S1) or a turn in place (S9): no handles, no route points. */
+  ghost?: boolean;
 }
 
 /** Colour of a route leg by its pace. */
@@ -441,6 +458,7 @@ export class BattleRenderer {
       this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
+      if (overlay.gesture) this.drawGesture(g, overlay.gesture);
       this.flushSprites();
       this.flushLabels();
       return;
@@ -552,8 +570,61 @@ export class BattleRenderer {
     this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
+    if (overlay.gesture) this.drawGesture(g, overlay.gesture);
     this.flushSprites();
     this.flushLabels();
+  }
+
+  /** Order gestures (the "controls" step): see GestureOverlay. Colours are TCS's own. */
+  private drawGesture(g: Graphics, gs: GestureOverlay): void {
+    const c = this.camera;
+    // Line of sight (S2): solid where the view is clear, broken from where it is stopped.
+    if (gs.los) {
+      for (const l of gs.los) {
+        const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+        const mx = a.x + (b.x - a.x) * l.stopAt, my = a.y + (b.y - a.y) * l.stopAt;
+        if (l.stopAt > 0) g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 2, color: 0xd9f7ff, alpha: 0.9 });
+        if (l.stopAt < 1) {
+          dashed(g, mx, my, b.x, b.y, 6, 6);
+          g.stroke({ width: 2, color: 0xff7a59, alpha: 0.85 });
+          if (l.stopAt > 0) g.moveTo(mx - 4, my - 4).lineTo(mx + 4, my + 4).moveTo(mx + 4, my - 4).lineTo(mx - 4, my + 4).stroke({ width: 2, color: 0xff7a59 });
+        }
+      }
+    }
+    if (gs.target) {
+      const s = worldToScreen(c, gs.target.x, gs.target.y);
+      g.circle(s.x, s.y, 13).stroke({ width: 2.5, color: 0xff7a59, alpha: 0.95 });
+      g.moveTo(s.x - 19, s.y).lineTo(s.x - 7, s.y).moveTo(s.x + 7, s.y).lineTo(s.x + 19, s.y)
+        .moveTo(s.x, s.y - 19).lineTo(s.x, s.y - 7).moveTo(s.x, s.y + 7).lineTo(s.x, s.y + 19).stroke({ width: 2, color: 0xff7a59, alpha: 0.95 });
+    }
+    // An active move's marker (S10): a ring with a centre, joined to the unit while it is dragged.
+    if (gs.marker) {
+      const s = worldToScreen(c, gs.marker.x, gs.marker.y);
+      if (gs.marker.from && gs.marker.dragging) {
+        const f = worldToScreen(c, gs.marker.from.x, gs.marker.from.y);
+        dashed(g, f.x, f.y, s.x, s.y, 8, 5);
+        g.stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
+      }
+      g.circle(s.x, s.y, 11).fill({ color: 0x1b241a, alpha: 0.65 }).stroke({ width: 2.5, color: 0xffffff, alpha: 0.95 });
+      g.circle(s.x, s.y, 4).fill({ color: 0xffffff, alpha: 0.95 });
+    }
+    // The facing handle (S9): a line out of the unit and a round handle with an arrowhead.
+    if (gs.facing) {
+      const ce = worldToScreen(c, gs.facing.centre.x, gs.facing.centre.y), h = worldToScreen(c, gs.facing.handle.x, gs.facing.handle.y);
+      const ang = Math.atan2(h.y - ce.y, h.x - ce.x);
+      const col = 0x8fe3c0;
+      dashed(g, ce.x, ce.y, h.x - Math.cos(ang) * 12, h.y - Math.sin(ang) * 12, 4, 4);
+      g.stroke({ width: gs.facing.dragging ? 2.5 : 1.5, color: col, alpha: gs.facing.dragging ? 0.95 : 0.7 });
+      g.circle(h.x, h.y, 11).fill({ color: 0x1b241a, alpha: 0.7 }).stroke({ width: 2.5, color: col });
+      const tx = h.x + Math.cos(ang) * 5, ty = h.y + Math.sin(ang) * 5;
+      g.poly([tx, ty, h.x + Math.cos(ang + 2.5) * 6, h.y + Math.sin(ang + 2.5) * 6, h.x + Math.cos(ang - 2.5) * 6, h.y + Math.sin(ang - 2.5) * 6]).fill({ color: col });
+    }
+    // Back on the unit: letting go here cancels (a marker: halts).
+    if (gs.cancelAt) {
+      const s = worldToScreen(c, gs.cancelAt.x, gs.cancelAt.y);
+      g.circle(s.x, s.y, 16).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2.5, color: 0xff5a4a });
+      g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7).stroke({ width: 3, color: 0xff5a4a });
+    }
   }
 
   /**
@@ -776,6 +847,7 @@ export class BattleRenderer {
     let a = worldToScreen(c, plan.from.x, plan.from.y);
     for (const p of plan.points) {
       const b = worldToScreen(c, p.x, p.y);
+      if (plan.ghost) { dashed(g, a.x, a.y, b.x, b.y, 10, 6); g.stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.8 }); a = b; continue; }
       g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.85 });
       g.circle(b.x, b.y, 6).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2, color: 0xffffff });
       a = b;
@@ -796,7 +868,7 @@ export class BattleRenderer {
     g.moveTo(ce.x, ce.y).lineTo(tip.x, tip.y).stroke({ width: 3, color: main });
     const ang = Math.atan2(tip.y - ce.y, tip.x - ce.x);
     g.poly([tip.x + Math.cos(ang) * 10, tip.y + Math.sin(ang) * 10, tip.x + Math.cos(ang + 2.4) * 9, tip.y + Math.sin(ang + 2.4) * 9, tip.x + Math.cos(ang - 2.4) * 9, tip.y + Math.sin(ang - 2.4) * 9]).fill({ color: main });
-    if (plan.kind === "move") {
+    if (plan.kind === "move" && !plan.ghost) {
       // Handles, big enough for a finger: turn (at the arrow), width (at the side).
       for (const h of [m.rotate, m.resize]) {
         if (!h) continue;
@@ -1123,6 +1195,19 @@ export class BattleRenderer {
 }
 
 /** A white flag on a pole beside a man who has surrendered (M6.6). */
+/** A broken line (dash, gap) in screen pixels; the caller strokes it. */
+function dashed(g: Graphics, ax: number, ay: number, bx: number, by: number, dash: number, gap: number): void {
+  const len = Math.hypot(bx - ax, by - ay);
+  if (len < 0.5) return;
+  const ux = (bx - ax) / len, uy = (by - ay) / len;
+  // (Long lines when zoomed in: at most 400 dashes.)
+  const step = Math.max(dash + gap, len / 400);
+  for (let d = 0; d < len; d += step) {
+    const e = Math.min(len, d + dash * (step / (dash + gap)));
+    g.moveTo(ax + ux * d, ay + uy * d).lineTo(ax + ux * e, ay + uy * e);
+  }
+}
+
 function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {
   const k = Math.max(r, 4);
   g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a });

@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (M7.5d Upper floors done — M7.5 complete; M7 Vehicles complete)._
+_Last updated: 2026-11-13 (owner's morning review of M7.5 applied; M7.5 complete; M7 Vehicles complete)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -14,7 +14,7 @@ overlaps (`render/src/labels.ts`), a squad beside its vehicle shares its label; 
 (stacked when close) and infantry symbols show only men on foot; appearance data (`appearance.json`, outside the
 catalog) gives vehicle paint now and uniforms/palette for M7.5b. Presentation only: goldens untouched.
 Screenshots: `npm run screenshot -- --scene ui`.
-**M7.5b Look ✅:** zoom levels (`render/src/lod.ts`: symbols < 1.2 px/m, dots, pixel figures from 5, close from
+**M7.5b Look ✅:** zoom levels (`render/src/lod.ts`: symbols < 1.2 px/m, dots, pixel figures from 8 (5 before the owner's review), close from
 16 with every roof lifted; 10 % hysteresis); the battle opens at 8 px/m on the lead squad; the camera never zooms
 out past the whole map; ORIGINAL 16 × 16 pixel soldiers (11 frames, weapon variants, firing flash, launcher on the
 back, wounded, down, dead, surrendered, captive; 16 pre-rotated facings; faction palette swap; blue/red outline);
@@ -42,8 +42,19 @@ screen; new order **Occupy** `{building, floor?, facing?}` with an Occupy button
 every floor facing the nearest known enemy first; men fire from upper windows. Floor switch G, 1, 2 … (follows the
 selected unit), upper-floor plans drawn, men on other floors faint with a floor badge, men at true size close in.
 New scenario/golden `village-occupy-s1`; existing goldens unchanged. Decisions: DECISIONS.md "M7.5d Upper floors".
-Screenshots `npm run screenshot -- --scene floors`. **Next:** the owner's morning review of M7.5 (all decisions
-made without him); M7.5e "AI uses buildings" only if he wants it.
+Screenshots `npm run screenshot -- --scene floors`.
+**Owner's morning review (2026-11-13) applied** (DECISIONS.md "Owner answers to the morning review"): everything
+decided without him in M7.2–M7.4b and M7.5 confirmed except three changes — soldier figures are now **always at
+true scale** (no minimum figure size; figures from 8 px/m, dots below), **more distinct uniform tones** (German
+greener flecktarn, Russian more khaki-brown; outline unchanged), and men take ammunition **only from their own
+side's** abandoned vehicles. Goldens unchanged. `?look=classic` is deleted after M8.
+**Russian mounted attack investigated (2026-11-13), nothing changed** (`docs/research/ru-mounted-attack.md`): the
+BMP-2s start ~800 m from the Pumas in their sight, cannot hurt their fronts and have no ATGM; two thirds of the hull
+losses come in the first two minutes, one cook-off can break a mounted platoon (casualty stress reaches the men in
+the next carriers), and ~90 % of Russian losses fall more than 300 m out. Eight AI/doctrine variants (smoke, cover to
+cover, dispersal, tempo, flank RPG hunters, casualty tolerance) all stayed at 0/10 and most cost more men.
+**Next:** owner decisions listed in that note (BMP-2 ATGM, start out of direct fire / bigger map, stress for men
+aboard, a pass on the infantry assault, which loses 10/10 on foot for both sides); then M7.5e "AI uses buildings".
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —
@@ -77,7 +88,7 @@ by default** (Q26; `&vehicles=0` for the battle on foot; tools `platoon`/`platoo
 **M7.4b:** the full component table (transmission, turret drive, stabiliser, coax, sights, radio, dischargers,
 extinguisher — each with its effect), extinguishers with counted charges, crews that reverse out behind smoke when
 penetrated or struck by a rocket, crews that bailed out become foot units you can order, men take ammunition from
-abandoned hulls of either side, the AI gives anti-tank tasks (shots at known vehicles in range, a step aside out of
+their own side's abandoned hulls (owner, 2026-11-13; never the enemy's), the AI gives anti-tank tasks (shots at known vehicles in range, a step aside out of
 the danger zone, two hunters after halted vehicles), gets out at once on an anti-tank threat and reverses out on
 withdrawal; active protection and add-on tiles on the fixture; wrecks and vehicle records round-trip.
 M7 deferred items: DECISIONS.md (M7.1c part 3,
@@ -264,7 +275,8 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - Prone throw **15 m**, grenade safety distance **8 m**.
 
 ## Next
-**M3 Spotting and knowledge** — propose slices, ask the owner's questions, then start when he says so.
+**Russian mounted attack** (`platoon-ru-vehicles`: Russia never wins, 0/10): investigate and tune through the AI and
+its tactics, not the armour data. Then **M7.5e** — the AI uses buildings.
 
 ## Reminders for the owner
 - (Answered at the M6 review, 2026-11-12: fog of war stays "what your men have reported"; medical after vehicles.)
@@ -282,9 +294,8 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - **New data (M7.4b), for review (game values):** the new component boxes of the Puma and BMP-2; extinguishers (Puma
   2 charges, 1 s, 70 %; BMP-2 2 charges, 2 s, 40 %); `core/behaviour.json` `crew` reaction values (1 s, recent hit
   3 s, reverse 60 m, hold 30 s, infantry threat 150 m); the AI's anti-tank values (COMMANDER in `ai/commander.ts`).
-  Decided without the owner (DECISIONS.md "M7.4b"): a crew reverses out also when a rocket bounces off; a bailed-out
-  crew becomes a foot unit; men may take ammunition from abandoned enemy hulls; the AI gets out on enemy men within
-  400 m or an enemy vehicle within 600 m (not at any range).
+  Reviewed by the owner 2026-11-13: reversing out (also when a rocket bounces off) and the AI dismount (enemy men
+  within 400 m, an enemy vehicle within 600 m) confirmed; ammunition from abandoned hulls changed to own side only.
 - **New data (M7.4a), for review (game values unless marked):** armour plates of the Puma (owner Q21 b: front 150 /
   140 mm composite at 60°) and the BMP-2 (published thicknesses simplified, low); components (boxes, toughness,
   fire and cook-off chances); `core/ballistics.json` `armour` (LOS floor, graze fuse, jet decay 400 mm/m, spall
@@ -306,8 +317,8 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   distances, refill of 3 magazines; game values, low); vehicle stowage (Puma 20 G36 magazines, 6 MG5 belts,
   4 G28 magazines; BMP-2 24 AK-74 magazines, 6 PKP belts; low); crews carry a rifle with 3 magazines, helmet and
   vest (low); `doctrine.json` `dismount.distanceM` Russia 400 m (medium), Germany 300 m (low, no published figure).
-  Decided without the owner (plan's recommended options): Q13 a crewman (not a passenger) takes over a fallen
-  driver or gunner after about 20 s; an order to a platoon with vehicles moves the vehicles (squads ride along).
+  Confirmed by the owner 2026-11-13: Q13 a crewman (not a passenger) takes over a fallen driver or gunner after
+  about 20 s (the commander takes the gun at once); an order to a platoon with vehicles moves the vehicles.
 - **New low-confidence data (M7.1b vehicles):** `factions/de/vehicles.json` (Puma) and `factions/ru/vehicles.json`
   (BMP-2): power, mass, top speed, crew/passenger counts and the BMP-2 turret rates are sourced (medium); hull
   boxes, gear bands, reverse speeds, braking, steering, fuel capacity and use, ramp times and station errors are

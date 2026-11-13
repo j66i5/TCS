@@ -13,7 +13,7 @@ import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, type LabelRequest, type Rect } from "./labels";
 import { FlatTerrain, flatColours } from "./terrain-flat";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
-import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, figurePx, lodFor, type Lod } from "./lod";
+import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
 import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 
@@ -447,8 +447,8 @@ export class BattleRenderer {
     }
     // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
     const sprites = this.look === "pixel" && lod >= LOD_FIGURE;
-    // Close in, men at true size so rooms read right (M7.5d: the readable minimum only at the mid zoom).
-    const size = lod === LOD_CLOSE ? SPRITE_M * c.scale : Math.max(SPRITE_M * c.scale, figurePx(this.app.renderer.resolution || 1));
+    // Men always at true size (owner, 2026-11-13): below about 8 px the dot level takes over.
+    const size = SPRITE_M * c.scale;
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
     // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {

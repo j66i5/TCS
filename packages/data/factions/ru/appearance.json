@@ -1,5 +1,5 @@
 {
-  "uniform": { "base": "#6e6a4a", "dark": "#4a4733", "light": "#8f8a63", "helmet": "#585b3e", "skin": "#cfa47c" },
+  "uniform": { "base": "#7c6847", "dark": "#53432d", "light": "#a08a62", "helmet": "#6a5c40", "skin": "#cfa47c" },
   "vehicle": { "hull": "#5a6a3c", "dark": "#3a4526" },
-  "note": "Original colour choices (M7.5, docs/ASSETS.md): khaki-olive tones; a brighter protective green paint. Presentation only, outside the catalog."
+  "note": "Original colour choices (M7.5, docs/ASSETS.md): khaki-brown tones (made browner at the owner's review, 2026-11-13); a brighter protective green paint. Presentation only, outside the catalog."
 }

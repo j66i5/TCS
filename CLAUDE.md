@@ -54,7 +54,7 @@ recommended option first — never as a typed list in the chat.
 - Research cannot open web pages here (network), only search extracts: mark such data `confidence: "medium"` at most.
 - The battle opens with nothing selected; `__tcs` debug-hook orders go to the first own unit then, `__tcs.select(null)` deselects. The order-bar dock is remembered in localStorage `tcs.ui.dock`.
 - Appearance data (`appearance.json`) is outside the catalog fingerprint: colour changes need no `golden:update`.
-- Zoom levels live in `render/src/lod.ts` (symbols < 1.2, dots, figures from 5, close >= 16 px/m); soldier art is string grids in `render/src/sprites/soldier-art.ts` (preview via `composeFrame`/`rotateFrame` to PNG in Node).
+- Zoom levels live in `render/src/lod.ts` (symbols < 1.2, dots, figures from 8 (always true scale), close >= 16 px/m); soldier art is string grids in `render/src/sprites/soldier-art.ts` (preview via `composeFrame`/`rotateFrame` to PNG in Node).
 - Batch, headless and `npm run map` take `--no-interiors` (pre-interiors map, for comparisons). `packages/tools/golden/no-interiors/*.json` are pre-interiors goldens replayed with interiors off: never regenerate them.
 - Every route for men goes through `routeBetween`; a raw `findPath` needs an `// outdoor: ok` marker (architecture test). Inner walls live in `MapIndex.segments` from `nOuter` on, not in `buckets` (use `interiorSegmentsInRectInto`).
 - Every soldier height goes through `standZ`; a bare `heightAt` in `sim/src/systems` or `ai/src` needs `// ground: ok` (architecture test). Routes to upper floors need heights: `routeBetween(..., {sz, gz})` + `routeWaypoints`, never hand-built waypoints. Debug hooks `__tcs.occupyAt(x, y)`, `setFloor(f)`, `floorShown()`.

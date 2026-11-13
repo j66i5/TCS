@@ -84,6 +84,9 @@ export type Order = {
   tick: number;
   issuer: SideId;
   target: EntityId;
+  /** Given by the player (the app's own orders; absent for AI and scripted orders). A vehicle under a player's
+   *  move or halt order holds it against close enemy men (owner 2026-11-13). */
+  player?: true;
 } & OrderBody;
 
 /** An order after reception, waiting for the comms delay. Part of the serialised state. */

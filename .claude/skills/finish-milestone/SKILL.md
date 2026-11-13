@@ -18,7 +18,7 @@ Do every step; report evidence (commands and their output), not claims.
    criteria. Fix confirmed correctness gaps or architecture-rule breaks; list the rest in STATE.md.
 6. **Documents**: update `docs/STATE.md` (handover), `docs/ROADMAP.md` (status), `docs/DECISIONS.md` (dated
    entries), `docs/HOW_IT_WORKS.md` (guided tour), `docs/ARCHITECTURE.md` (if interfaces changed), and
-   `CLAUDE.md` gotchas, and the "current version" next to the play link in `README.md` (milestone name and date).
+   `CLAUDE.md` gotchas, and the "current version" next to the play link in `README.md` (milestone name, date and time of the merge, in UTC).
 7. **Ship**: commit in small commits, push the branch, open a pull request; once CI is green, merge so `main`
    deploys to GitHub Pages. Check the deploy job.
 8. **Report to the owner** (plain language, no unexplained jargon):

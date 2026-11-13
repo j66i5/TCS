@@ -740,7 +740,20 @@ export function vehicleHalt(state: SimState, vid: EntityId): void {
  * An order to a vehicle crew unit: `move` routes the vehicle on its class grid (per-leg reverse, end facing),
  * `halt` stops it. Other orders (fire, smoke, mount: M7.2/M7.3) are unable for now.
  */
+/**
+ * A move or halt order reaches a vehicle (owner 2026-11-13): it no longer drives back to where it stood before
+ * reversing out, and it holds the order against close enemy men when the player gave it.
+ */
+export function noteVehicleOrder(state: SimState, vid: EntityId, order: Order): void {
+  if (order.kind !== "move" && order.kind !== "halt") return;
+  const v = state.vehicle.get(vid);
+  if (!v) return;
+  delete v.returnTo;
+  if (order.player === true) v.playerHold = true; else delete v.playerHold;
+}
+
 export function vehicleOrder(ctx: SimContext, state: SimState, order: Order, vid: EntityId): OrderResult {
+  noteVehicleOrder(state, vid, order);
   switch (order.kind) {
     case "move": {
       // A move given in reverse for the whole route reverses every leg.

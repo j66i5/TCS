@@ -31,8 +31,9 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
-  // vehicle seen this close; a crew reversing out is left to it this long; vehicles reverse this far on withdrawal.
-  dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 30, withdrawReverseM: 80,
+  // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
+  // vehicles reverse this far on withdrawal.
+  dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 15, withdrawReverseM: 80,
   // The infantry attack (balance pass 2026-11-13, game values, low confidence; docs/research/inf-assault.md; the
   // pass also moved supportM 300 -> 330, sneakM 200 -> 50 and heEverySeconds 90 -> 45):
   // - axis (on foot): the way in is turned about the objective by up to `axisMaxDeg` so that the support line keeps

@@ -262,6 +262,8 @@ async function main(): Promise<void> {
     return { tick: o.tick, issuer: o.issuer, target: o.target, kind: "move", waypoints: o.waypoints.map((w) => ({ x: w.x, y: w.y, ...paceToWaypoint(w.mode, set) })), ...(o.facing !== undefined ? { facing: o.facing } : {}) };
   };
   const issue = (order: Order) => {
+    // The player's own order (a vehicle holds a move or halt against close enemy men, owner 2026-11-13).
+    order = { ...order, player: true };
     // A move into a building goes to the floor on screen (M7.5d floor switch).
     if (order.kind === "move" && order.floor === undefined && floorState.shown > 0) {
       const last = order.waypoints[order.waypoints.length - 1];

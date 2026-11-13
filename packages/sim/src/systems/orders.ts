@@ -18,7 +18,7 @@ import { aimHeightAt, assignFireTask } from "./fire";
 import { grenadeOption, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
-import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
+import { noteVehicleOrder, vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
 import { dischargeSmoke, stationCeaseFire, stationFireOrder, vehicleHasMissiles } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
 import { secondsToTicks } from "../ids";
@@ -562,7 +562,7 @@ const VEHICLE_SLOT_M = 12;
  */
 function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: EntityId[], events: EventSink): OrderResult | null {
   if (order.kind === "halt") {
-    for (const c of crews) { const v = state.unit.get(c)?.vehicle; if (v !== undefined) vehicleHalt(state, v); }
+    for (const c of crews) { const v = state.unit.get(c)?.vehicle; if (v !== undefined) { noteVehicleOrder(state, v, order); vehicleHalt(state, v); } }
     return true;
   }
   // Anti-tank rounds are the men's (M7.4a); an order to a crew itself fires its guided missile (owner 2026-11-13).
@@ -585,6 +585,7 @@ function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: 
   crews.forEach((c, k) => {
     const vid = state.unit.get(c)?.vehicle;
     if (vid === undefined) return;
+    noteVehicleOrder(state, vid, order);
     const t = state.transform.req(vid);
     const fx0 = prev ? last.x - prev.x : last.x - t.x, fy0 = prev ? last.y - prev.y : last.y - t.y;
     const fl = hypot2(fx0, fy0) || 1, fx = fx0 / fl, fy = fy0 / fl;

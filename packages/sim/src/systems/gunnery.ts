@@ -438,6 +438,36 @@ export function muzzleWorld(ctx: SimContext, def: VehicleDef, si: number, wi: nu
 /** A wall or the ground this close to the point fired at is the target, not a block. */
 const LINE_ALLOWANCE_M = 5;
 
+/**
+ * Could this crew fire at a man at (x, y), `tz` m above sea level, from where it stands (owner 2026-11-13: a crew
+ * reverses out of point-blank infantry only when it cannot)? A station with a man to work it and a gun or machine
+ * gun (not a missile) that is not wrecked, has rounds ready and reaches him; the bearing within its arc, the
+ * elevation within its limits, and a clear line from the muzzle. The fire rule does not matter here.
+ */
+export function canEngageAt(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, x: number, y: number, tz: number): boolean {
+  const t = state.transform.req(vid);
+  const { px, py } = pivotOf(def, t.x, t.y, t.heading);
+  const range = Math.max(1, hypot2(x - px, y - py));
+  const az = wrapAngle(atan2(y - py, x - px) - t.heading);
+  // ground: ok (a vehicle's gun)
+  const el = atan2(tz - (heightAt(ctx.map, t.x, t.y) + (def.body.turret?.trunnionU ?? 2)), range);
+  for (let si = 0; si < v.stations.length; si++) {
+    const sn = def.stations[si]!, st = v.stations[si]!;
+    if (sn.traverseArcRad && (az < sn.traverseArcRad[0] || az > sn.traverseArcRad[1])) continue;
+    if (el < sn.elevationRad[0] || el > sn.elevationRad[1]) continue;
+    if (stationOperator(state, v, def, si) === null) continue;
+    for (let wi = 0; wi < sn.weapons.length; wi++) {
+      const wdef = sn.weapons[wi]!;
+      if (range > wdef.engageRangeM || guidedRound(ctx.catalog, wdef) !== null || weaponOut(ctx, v, def, si, wi)) continue;
+      if (!(st.weapons[wi]?.feeds.some((f) => f.rounds > 0) ?? false)) continue;
+      const [mx, my, mz] = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, az);
+      const r = sight(ctx, mx, my, mz, x, y, tz, vid, -1);
+      if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(x - mx, y - my) <= LINE_ALLOWANCE_M) return true;
+    }
+  }
+  return false;
+}
+
 /** Fire the stations, and fire smoke salvos that are due. */
 export function stationFireSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size === 0) return;

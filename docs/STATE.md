@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass)._
+_Last updated: 2026-11-13 (BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -231,6 +231,10 @@ M7.2 parts 1–3, M7.3, M7.4a, M7.4b).
   batch crew columns, vehicle panel parts, `--scene vehicles` anti-tank screenshots. Batch (10 × 900 s): Germany
   attacks mounted red 6/10, anti-tank rounds 1.5 / 1.7 per battle (was 0.2 / 0); Russia attacks blue 10/10, 0.9 / 2.1
   (was 0 / 0.9); infantry unchanged. Schema 17.
+  Owner change 2026-11-13 ("make armour not back out of every fight"): reverse out only when penetrated, disarmed,
+  commander panicked, or an enemy man within 50 m none of its guns can fire at; 15 s hold, then back to where it
+  stood unless the reason was damage; a player's move/halt order (`Order.player`) holds against the non-damage
+  triggers (DECISIONS.md "Armour no longer backs out of every fight").
 - **M6.5 attack balance**: two platoons attack one; AI sneaks up, splits fire and assault, throws grenades,
   calls mortars; Mortar and Smoke orders for the player (rounds land after 75-90 s; smoke blocks sight).
 - Tests: 559 (550 + 9 timing), all green (incl. 48 generated maps checked for validity and plausibility, map determinism, map

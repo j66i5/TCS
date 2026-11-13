@@ -19,7 +19,9 @@
     "experienceDamp": 0.6,
     "leaderNearbyM": 30,
     "leaderNearbyDamp": 0.3,
-    "quietBelowSuppression": 0.3
+    "quietBelowSuppression": 0.3,
+    "fromOwnVehiclePenetrated": 0.2,
+    "fromOwnVehicleStruck": 0.03
   },
   "states": {
     "pinnedSuppression": 0.6,
@@ -116,7 +118,12 @@
     "refillBelowFraction": 0.25,
     "friendlyClearM": 60,
     "scanReturnSeconds": 20,
-    "dischargeAheadM": 35
+    "dischargeAheadM": 35,
+    "missileBeyondM": 1000,
+    "missileHaltedMps": 0.3,
+    "missileSightSeconds": 0.1,
+    "missileSeenFloor": 0.2,
+    "missileHitLoseChance": 0.5
   },
   "antitank": {
     "atRuleDefault": "vehicles",

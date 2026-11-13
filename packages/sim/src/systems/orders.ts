@@ -19,7 +19,7 @@ import { grenadeOption, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
 import { vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
-import { dischargeSmoke, stationCeaseFire, stationFireOrder } from "./gunnery";
+import { dischargeSmoke, stationCeaseFire, stationFireOrder, vehicleHasMissiles } from "./gunnery";
 import { boardingOrder, dismountThen, hasRiders, leaveBoarding } from "./boarding";
 import { secondsToTicks } from "../ids";
 import type { Contact, Unit } from "../components";
@@ -35,7 +35,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
   const side = sideOf(state, o.target);
   if (side === null) return "unknown-target";
   if (side !== o.issuer) return "not-your-unit";
-  if (!orderApplies(state, o)) return "not-applicable";
+  if (!orderApplies(ctx, state, o)) return "not-applicable";
   switch (o.kind) {
     case "move":
       if (o.waypoints.length === 0 || o.waypoints.length > 64) return "invalid-params";
@@ -106,13 +106,15 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
  * Does this kind of order mean anything to its target (plan §11, M7.3)? A vehicle crew does not take a posture,
  * assault, withdraw or throw grenades; smoke dischargers belong to a vehicle crew or a unit with vehicles.
  */
-function orderApplies(state: SimState, o: Order): boolean {
-  const crew = state.unit.get(o.target)?.vehicle !== undefined;
+function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
+  const vid = state.unit.get(o.target)?.vehicle;
+  const crew = vid !== undefined;
   switch (o.kind) {
     case "posture": case "assault": case "withdraw": case "grenade": case "occupy":
       return !crew;
     case "fire":
-      return !(crew && o.nature === "at"); // a crew has no launcher (M7.4a)
+      // A crew has no launcher (M7.4a), unless its vehicle carries guided missiles (owner 2026-11-13).
+      return !(crew && o.nature === "at") || vehicleHasMissiles(ctx, state, vid);
     case "discharge":
       return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
     default:
@@ -563,7 +565,8 @@ function splitToVehicles(ctx: SimContext, state: SimState, order: Order, crews: 
     for (const c of crews) { const v = state.unit.get(c)?.vehicle; if (v !== undefined) vehicleHalt(state, v); }
     return true;
   }
-  if (order.kind === "fire" && order.nature === "at") return null; // anti-tank rounds are the men's (M7.4a)
+  // Anti-tank rounds are the men's (M7.4a); an order to a crew itself fires its guided missile (owner 2026-11-13).
+  if (order.kind === "fire" && order.nature === "at" && state.unit.get(order.target)?.vehicle === undefined) return null;
   if (order.kind === "fire" || order.kind === "discharge") {
     // Fire (M7.3): every vehicle under the unit engages too; smoke: every vehicle fires a salvo.
     let res: OrderResult | null = null;

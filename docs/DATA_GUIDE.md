@@ -123,6 +123,16 @@ In `factions/<id>/ammunition.json`. One entry per kind of round; it automaticall
   shaped-charge ... / none, impact, time ... / unguided, command-wire ...). Explosive rounds add an `explosive`
   block (used from M2.4).
 - Tracers: `"tracer": true` and `"tracerBurnoutM"`.
+- Wire-guided missiles (owner 2026-11-13; a simple model until M9): `"guidance": "command-wire"` and a `guided`
+  block — `cruiseMps` (the missile's speed), `accelMps2` (from the launcher's velocity up to it), `turnRateDegS`,
+  `minRangeM` and `maxRangeM` (the wire), `trackErrorMrad` (the gunner's tracking error, one standard deviation at
+  skill 0.5) wandering with `trackTauS`, `lookaheadS` (how far ahead on the sight line it is steered) and
+  `lostKickMrad` (how hard it is thrown off when the gunner loses it). Give it an `explosive` block with
+  `selfDestructSeconds` (end of the wire) and a shaped-charge `kind` with `penetration.steelMm` (published mm RHA x
+  1.25). The launcher is a station weapon (`type` `"launcher"`, `reloadSeconds` = time to put the next missile on,
+  halted; its `ammo` velocity = the launch speed) fed by an item with `chargeItem` the missile and `chargeCapacity`
+  1 (`feedKind` `single`, `ready` `{ count: 1, charge: 1 }`); spare missiles go in `stowed`. Check with
+  `npm run lab -- missile`.
 
 ## Add a weapon
 
@@ -205,6 +215,13 @@ as being under fire and for how long, cover search radius and how often, ammunit
 hand-over time), `drills` (reaction to contact on or off, bound length, the last stretch rushed together,
 how long a bound may take, spread on the objective, the share of panicked men that breaks a unit, how far it
 runs and how long it must be quiet to rally, stress after rallying). After a change run `npm run lab -- suppression` and compare the table.
+Men aboard a vehicle (owner 2026-11-13): `stress.fromOwnVehiclePenetrated` and `stress.fromOwnVehicleStruck` (a
+cannon round, heavy bullet or burst that does not get through) are their only blows from outside besides a
+comrade or leader falling inside the same vehicle. `gunnery.missile*` (owner 2026-11-13): the range beyond which a
+crew prefers its guided missile at a vehicle (`missileBeyondM`), the speed below which it counts as halted for
+firing and reloading one (`missileHaltedMps`), how often the gunner's sight line is checked
+(`missileSightSeconds`), the share of the view below which he loses the target (`missileSeenFloor`), and his chance
+of losing the missile when his own hull is struck (`missileHitLoseChance`).
 
 ## Add a grenade or launcher round
 

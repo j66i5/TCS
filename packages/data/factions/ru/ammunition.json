@@ -501,6 +501,62 @@
       ],
       "confidence": "medium",
       "note": "PG-7VL (search extracts, pages not opened): 93 mm, round 2.59-2.6 kg (grenade 2.2 kg, booster 0.39 kg), muzzle 112-115 m/s, the motor ignites about 11 m out and brings it to about 300 m/s, 0.73 kg OKFOL filling; penetration 500 mm RHA (manufacturer; other sources up to 600 mm): 500 x 1.25 = 625 mm mild-steel equivalent; effective range 300 m against a vehicle. Game values (low): motor 0.1 s after launch for 0.5 s at 370 m/s2, drag, self-destruct 4.5 s (the 920 m figure belongs to the OG-7V), dispersion 1.5 mrad, 3 s to aim, danger zone 30 m behind, 120 fragments of its body, 20 fragments thrown inside a hull it penetrates."
+    },
+    {
+      "id": "ru-9m113m",
+      "nameKey": "ammo.ru-9m113m",
+      "calibre": "135mm-atgm",
+      "kind": "tandem-shaped-charge",
+      "projectileMassKg": 16.5,
+      "cartridgeMassKg": 16.5,
+      "diameterM": 0.135,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 937,
+        "atVelocityMps": 208
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "command-wire",
+      "explosive": {
+        "fillingKg": 1.8,
+        "fragmentCount": 150,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.5,
+        "selfDestructSeconds": 21
+      },
+      "guided": {
+        "cruiseMps": 208,
+        "accelMps2": 65,
+        "turnRateDegS": 12,
+        "minRangeM": 75,
+        "maxRangeM": 4000,
+        "trackErrorMrad": 0.3,
+        "trackTauS": 1.0,
+        "lookaheadS": 0.4,
+        "lostKickMrad": 60
+      },
+      "behindArmour": {
+        "spallCount": 25,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 300
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/9M113_Konkurs",
+        "https://roe.ru/en/production/land-forces/missile-systems-multiple-rocket-launchers-mrl-atgm-systems-and-field-artillery-guns/atgm-systems/konkurs-m-anti-tank-guided-missile-system/",
+        "https://bdl-india.in/konkurs1",
+        "https://www.armatec.bg/products/9m113-konkurs-anti-tank"
+      ],
+      "confidence": "medium",
+      "note": "9M113M Konkurs-M, the in-service missile of the BMP-2's 9P135M launcher (which also fires the 9M113 and the 9M111 Fagot); search extracts only, pages not opened. Published (sources agree): range 75-4000 m (wire), semi-automatic command to line of sight by wire, tandem shaped charge 750-800 mm RHA behind reactive armour (the 9M113 600 mm): 750 x 1.25 = 937 mm mild-steel equivalent. Speed: about 208 m/s (Wikipedia; other sources 200-300 m/s), i.e. about 19-20 s to 4000 m. Missile mass 14.6 kg (9M113) to 16.5 kg (BDL, Konkurs-M): 16.5 used; launch container about 10 kg more (game value). Game values (low): leaves the tube at 80 m/s (the launcher's velocity) and speeds up at 65 m/s2 to 208 m/s, turns at most 12 deg/s, gunner's tracking error 0.3 mrad (skill 0.5) wandering over about 1 s, aims 0.4 s ahead along the sight line, filling 1.8 kg (warhead about 2.7 kg), 150 fragments, arms after 0.5 s, destroys itself after 21 s (end of the wire); guidance lost: thrown off by about 60 mrad and falls. A simple model (owner 2026-11-13); full guided-weapon modelling is M9."
     }
   ]
 }

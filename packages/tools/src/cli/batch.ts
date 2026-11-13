@@ -27,6 +27,9 @@ interface Row {
   spent: Record<string, { smallArms: number; grenades: number; rockets: number; cannon: number; coax: number; smoke: number }>;
   /** Crews (M7.4b) per side: times a crew reversed out, fires started, fires its extinguisher put out. */
   crews: Record<string, { reversedOut: number; fires: number; firesOut: number }>;
+  /** Guided missiles (owner 2026-11-13) per side: fired, hit their target, lost by the gunner, missed; and enemy
+   *  hulls penetrated by missiles and by shoulder-fired rockets. */
+  missiles: Record<string, { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -40,6 +43,7 @@ for (let i = 0; i < runs; i++) {
   const sideOfUnit = new Map<number, string>();
   const sideOfVehicle = new Map<number, string>();
   const crews: Row["crews"] = { blue: { reversedOut: 0, fires: 0, firesOut: 0 }, red: { reversedOut: 0, fires: 0, firesOut: 0 } };
+  const missiles: Row["missiles"] = { blue: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 }, red: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 } };
   const exp: Expenditure = {};
   let pending: Parameters<typeof tallyExpenditure>[1] = [];
   const r = runBattle(input, {
@@ -52,6 +56,16 @@ for (let i = 0; i < runs; i++) {
     onEvents: (ev) => {
       pending = ev;
       for (const e of ev) {
+        if (e.kind === "missile.ended") { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m[e.result]++; continue; }
+        if (e.kind === "shot.fired" && e.vehicle !== undefined && input.catalog.ammo[e.ammo]?.guided !== undefined) { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m.fired++; continue; }
+        if (e.kind === "vehicle.hit" && e.result === "penetrated") {
+          const am = input.catalog.ammo[e.ammo];
+          const vs = sideOfVehicle.get(e.vehicle);
+          const m = missiles[vs === "blue" ? "red" : vs === "red" ? "blue" : ""];
+          if (m && am?.guided !== undefined) m.penetrated++;
+          else if (m && am?.delivery?.method === "direct") m.rocketPenetrated++;
+          continue;
+        }
         if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
           const c = crews[sideOfVehicle.get(e.vehicle) ?? ""];
           if (c) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") c.reversedOut++; else if (e.kind === "vehicle.fire") c.fires++; else if (e.kind === "vehicle.extinguished") c.firesOut++; }
@@ -72,7 +86,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: firstDismount,
-    crews,
+    crews, missiles,
     spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
@@ -107,6 +121,7 @@ const md = [
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",
   `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
   `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}`).join("; ")}`,
+  `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",
@@ -117,5 +132,5 @@ const md = [
 const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
-console.log(md.split("\n").slice(0, 18).join("\n"));
+console.log(md.split("\n").slice(0, 20).join("\n"));
 console.log(`\nWrote ${base}.md and .json`);

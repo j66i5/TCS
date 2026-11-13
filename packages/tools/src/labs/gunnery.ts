@@ -19,8 +19,8 @@ interface Layout {
 }
 
 /** A one-vehicle-a-side battle on a flat 2400 x 1200 m field, laid out as asked. */
-export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string]): BattleInput {
-  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM: 2400, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}) });
+export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string], mapWidthM = 2400): BattleInput {
+  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}) });
   input.forces.forEach((f, s) => {
     const p = s === 0 ? lay.blue : lay.red;
     for (const vp of f.vehiclePlacements ?? []) { vp.x = p.x; vp.y = p.y; vp.heading = p.heading; }
@@ -29,7 +29,7 @@ export function duel(data: DataSet, factions: [string, string], lay: Layout, squ
     for (const pl of f.placements) {
       if (crewIds.has(pl.personId)) { pl.x = p.x; pl.y = p.y; continue; }
       if (s === 1 && lay.redSquadAt) { pl.x = lay.redSquadAt.x; pl.y = lay.redSquadAt.y + (k++ - 2.5) * lay.redSquadAt.spacing; pl.heading = Math.PI; continue; }
-      pl.x = s === 0 ? 20 : 2380; pl.y = 20 + 3 * k++; // out of the way, far apart
+      pl.x = s === 0 ? 20 : mapWidthM - 20; pl.y = 20 + 3 * k++; // out of the way, far apart
     }
   });
   return input;

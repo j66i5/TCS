@@ -72,6 +72,7 @@ async function vehicleScenes(page: Page, name: string, errors: string[], shots: 
   await gunneryScenes(page, name, errors, shots);
   await armourScenes(page, name, errors, shots);
   await antitankScenes(page, name, errors, shots);
+  await missileScenes(page, name, errors, shots);
 }
 
 /**
@@ -290,6 +291,36 @@ async function antitankScenes(page: Page, name: string, errors: string[], shots:
 }
 
 /**
+ * Guided missile (`--scene vehicles`, sixth part, or `--scene missile` alone; owner 2026-11-13): the mounted
+ * platoon battle with Russia attacking; the first 9M113M a BMP-2 fires on its own, halfway (the wire back to the
+ * launcher, the motor's flare, its smoke trail), then the hit.
+ */
+async function missileScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  // The mounted platoon battle, Russia attacking on farmland, both sides AI-driven, Debug on (both sides shown):
+  // the first missile a BMP-2 fires on its own.
+  await page.goto(`http://localhost:${port}/?scenario=platoon&seed=${seed}&map=${args["map"] ?? "farmland"}&attacker=red&side=blue`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  const found = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.setDebug(true); const s = t.sim.state;
+    for (let i = 0; i < 60 * 900; i++) { t.stepTicks(1);
+      for (const [vid, v] of s.vehicle.entries()) { const g = v.stations[0] && v.stations[0].guide; if (!g || s.tick - g.launchTick < 30 || g.target < 0) continue;
+        const tg = s.transform.get(g.target), me = s.transform.get(vid); const d = Math.hypot(tg.x - me.x, tg.y - me.y);
+        t.stepTicks(Math.max(1, Math.round((d / 2 / 180) * 60) - 30)); t.focus((tg.x + me.x) / 2, (tg.y + me.y) / 2, d + 120); t.stepTicks(1);
+        return { vehicle: vid, target: g.target, rangeM: Math.round(d), tick: s.tick }; } }
+    return null;`) as () => object | null);
+  await page.waitForTimeout(400);
+  const m0 = `${outDir}/missile-${seed}-${name}-0-in-flight.png`;
+  await page.screenshot({ path: m0 }); shots.push(m0);
+  const end = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state; let r = null;
+    for (let i = 0; i < 900 && r === null; i++) { t.stepTicks(1); for (const [vid, v] of s.vehicle.entries()) if (v.side === "blue" && v.lastHitTick >= s.tick - 1) { r = vid; break; } }
+    if (r !== null) { t.stepTicks(6); const p = s.transform.get(r); t.focus(p.x, p.y, 60); t.stepTicks(1); }
+    return r === null ? null : { vehicle: r, status: s.vehicle.get(r).status, tick: s.tick };`) as () => object | null);
+  await page.waitForTimeout(400);
+  const m1 = `${outDir}/missile-${seed}-${name}-1-hit.png`;
+  await page.screenshot({ path: m1 }); shots.push(m1);
+  console.log(`${name}: missile scene ${JSON.stringify(found)} -> ${JSON.stringify(end)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.2 mounted start (`--scene vehicles`, second part): the platoon battle with `&vehicles=1` — the attacking
  * platoons aboard their Pumas at the map edge ("+n" by each hull, the first Puma selected); that Puma driven
  * 150 m forward; its squad selected by tapping the hull again (the order bar offers Dismount) and ordered out.
@@ -444,6 +475,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
@@ -562,7 +594,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

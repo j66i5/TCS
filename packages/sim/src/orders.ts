@@ -46,7 +46,8 @@ export type OrderBody =
   | {
     kind: "fire"; x: number; y: number; heightM?: number; /** Fire at this enemy wherever each man believes him to be (his contact); x, y are the fallback. */ contact?: EntityId;
     /** Vehicles (M7.3): armour-piercing, high explosive or the machine gun; absent: the crew chooses. "at" (M7.4a):
-     *  men on foot fire one anti-tank round (Panzerfaust, RPG) at it — any target the player picks (owner Q19). */
+     *  men on foot fire one anti-tank round (Panzerfaust, RPG) at it — any target the player picks (owner Q19); a
+     *  vehicle crew fires its guided missile if it has one ready (owner 2026-11-13), else armour-piercing. */
     nature?: "ap" | "he" | "mg" | "at";
   }
   | { kind: "ceaseFire" }

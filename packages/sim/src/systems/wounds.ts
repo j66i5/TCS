@@ -209,7 +209,7 @@ export function takeOutOfFight(ctx: SimContext, state: SimState, events: EventSi
     if (unit.leader === id) {
       // mounted: ok succession: any able man of the unit takes over
       unit.leader = unit.members.find(able) ?? unitSoldiers(state, ident.unit).find(able) ?? null;
-      leaderLost(ctx, state, ident.unit);
+      leaderLost(ctx, state, ident.unit, id);
     }
     let top = ident.unit;
     for (let p = state.unit.get(top)?.parent ?? null; p !== null; p = state.unit.get(top)?.parent ?? null) top = p;

@@ -80,5 +80,8 @@
   "item.ru-30x165-belt-he": "30 mm belt, HE (340)",
   "item.ru-pkt-belt": "PKT belt (250)",
   "ammo.ru-pg7vl": "PG-7VL rocket",
-  "item.ru-bmp2-extinguisher": "BMP-2 fire-extinguisher charge"
+  "item.ru-bmp2-extinguisher": "BMP-2 fire-extinguisher charge",
+  "weapon.ru-9p135m": "9P135M launcher",
+  "ammo.ru-9m113m": "9M113M Konkurs-M missile",
+  "item.ru-9m113m-round": "9M113M missile (tube)"
 }

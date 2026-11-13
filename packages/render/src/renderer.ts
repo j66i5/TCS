@@ -223,7 +223,7 @@ export class BattleRenderer {
   setCatalog(catalog: Catalog): void {
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
-    this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
+    this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.vehicleDefs = catalog.vehicles;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
@@ -901,6 +901,7 @@ export class BattleRenderer {
     if (P.count === 0) return;
     const back = (1 - alpha) * DT; // the picture is drawn between two simulation ticks
     const grenades: number[] = [];
+    const missiles: number[] = [];
     for (let pass = 0; pass < 2; pass++) {
       const wantTracer = pass === 0;
       let drawn = 0;
@@ -916,6 +917,9 @@ export class BattleRenderer {
             const gx = (P.x[i]! - c.x) * c.scale, gy = (P.y[i]! - c.y) * c.scale;
             if (gx > -10 && gy > -10 && gx < W + 10 && gy < H + 10) grenades.push(gx, gy);
           }
+          // A guided missile (owner 2026-11-13): its burning motor, a smoke trail behind it, and the wire back to
+          // the launcher while its gunner guides it.
+          if (sp === 3 && wantTracer) missiles.push(P.x[i]! - P.vx[i]! * back, P.y[i]! - P.vy[i]! * back, P.vx[i]!, P.vy[i]!, P.owner[i]!, P.bornTick[i]!);
           continue;
         }
         const isTracer = this.tracer[P.ammo[i]!] === true
@@ -934,6 +938,18 @@ export class BattleRenderer {
       else g.stroke({ width: 1, color: 0xffffff, alpha: overlay.debug ? 0.7 : 0.28 });
     }
     for (let k = 0; k < grenades.length; k += 2) g.circle(grenades[k]!, grenades[k + 1]!, Math.max(2.5, 0.15 * c.scale)).fill({ color: 0x1c1c1c }).stroke({ width: 1, color: 0xffd27a });
+    for (let k = 0; k < missiles.length; k += 6) {
+      const mx = missiles[k]!, my = missiles[k + 1]!, vx = missiles[k + 2]!, vy = missiles[k + 3]!, owner = missiles[k + 4]!, born = missiles[k + 5]!;
+      const sx = (mx - c.x) * c.scale, sy = (my - c.y) * c.scale;
+      for (const [vid, v] of state.vehicle.entries()) {
+        const gd = v.stations.find((st) => st.guide && st.guide.gunner === owner && st.guide.launchTick === born)?.guide;
+        const t = gd ? state.transform.get(vid) : undefined;
+        if (t) g.moveTo((t.x - c.x) * c.scale, (t.y - c.y) * c.scale).lineTo(sx, sy).stroke({ width: 1, color: 0xe8e8e8, alpha: 0.35 });
+      }
+      const sp = Math.hypot(vx, vy) || 1, len = Math.max(10, 30 * c.scale);
+      g.moveTo(sx, sy).lineTo(sx - (vx / sp) * len, sy - (vy / sp) * len).stroke({ width: Math.max(2, 0.5 * c.scale), color: 0xd8d2c4, alpha: 0.6 });
+      g.circle(sx, sy, Math.max(3, 0.3 * c.scale)).fill({ color: 0xfff1a8 }).stroke({ width: 1.5, color: 0xff8a2a });
+    }
   }
 
   /** Ask for a label beside an anchor point (placed at the end of the frame, M7.5a). */

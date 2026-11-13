@@ -38,6 +38,8 @@ export const Streams = {
   armour: "armour",
   /** Shoulder-fired anti-tank weapons (M7.4a): aiming errors. Created on first use. */
   antitank: "antitank",
+  /** Guided missiles (owner 2026-11-13): gunners' tracking errors, lost missiles. Created on first use. */
+  missile: "missile",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

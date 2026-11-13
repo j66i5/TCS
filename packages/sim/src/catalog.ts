@@ -201,6 +201,8 @@ export interface AmmoDef {
   explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number };
   /** Rocket motor (M7.4a). */
   propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
+  /** Wire-guided (SACLOS) missiles (owner 2026-11-13; full guided weapons M9). */
+  guided?: { cruiseMps: number; accelMps2: number; turnRateDegS: number; minRangeM: number; maxRangeM: number; trackErrorMrad: number; trackTauS: number; lookaheadS: number; lostKickMrad: number };
   /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
   ricochetFactor?: number;
   /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
@@ -263,7 +265,7 @@ export interface ZoneWoundDef {
 }
 export interface BehaviourDef {
   suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
-  stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number };
+  stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number; fromOwnVehiclePenetrated?: number; fromOwnVehicleStruck?: number };
   states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
   effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
   stepSeconds: number;
@@ -326,6 +328,8 @@ export interface BehaviourDef {
     groupRadiusM: number; coaxSingleWithinM: number; vehicleScore: number; firingScore: number;
     lrfRangeErrorFraction: number; refillBelowFraction: number;
     friendlyClearM: number; scanReturnSeconds: number; dischargeAheadM: number;
+    /** Guided missiles (owner 2026-11-13; see the schema). */
+    missileBeyondM?: number; missileHaltedMps?: number; missileSightSeconds?: number; missileSeenFloor?: number; missileHitLoseChance?: number;
   };
   /**
    * Shoulder-fired anti-tank weapons (M7.4a, owner Q19/Q20). atRuleDefault: a unit's standing rule unless set;

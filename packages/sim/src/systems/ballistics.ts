@@ -212,7 +212,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
     vx = wx + rvx * f; vy = wy + rvy * f; vz = vz * f - gdt;
     const speed2 = vx * vx + vy * vy + vz * vz;
     // Spent: too slow at the START of the tick (a light fragment may still wound early in its last tick).
-    if ((rs * rs < am.minSpeed2 && !am.explosive) || tick - BORN[i]! > maxAge) {
+    if ((rs * rs < am.minSpeed2 && !am.explosive) || (tick - BORN[i]! > maxAge && !am.guided)) {
       // Spent. An impact-fuse round still in the air after that long destroys itself (it never just vanishes).
       if (am.explosive && am.fuseTicks === 0) queueBurst(X[i]!, Y[i]!, Z[i]!, AMMO[i]!, P.owner[i]!);
       remove(P, i);

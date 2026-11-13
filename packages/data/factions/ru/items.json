@@ -239,6 +239,25 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
+    },
+    {
+      "id": "ru-9m113m-round",
+      "nameKey": "item.ru-9m113m-round",
+      "category": "missile",
+      "massKg": 10,
+      "chargeCapacity": 1,
+      "chargeMassKg": 16.5,
+      "chargeItem": "ru-9m113m",
+      "sources": [
+        "https://en.wikipedia.org/wiki/9M113_Konkurs",
+        "https://roe.ru/en/production/land-forces/missile-systems-multiple-rocket-launchers-mrl-atgm-systems-and-field-artillery-guns/atgm-systems/konkurs-m-anti-tank-guided-missile-system/",
+        "https://bdl-india.in/konkurs1",
+        "https://www.armatec.bg/products/9m113-konkurs-anti-tank",
+        "https://en.wikipedia.org/wiki/BMP-2",
+        "https://www.tanks-encyclopedia.com/coldwar/ussr/BMP-2.php"
+      ],
+      "confidence": "medium",
+      "note": "One 9M113M missile in its launch container (tube): the launcher holds one, the BMP-2 carries four in all (published: four rounds, reloaded through the gunner's hatch). Container mass (about 10 kg empty) is a game value."
     }
   ]
 }

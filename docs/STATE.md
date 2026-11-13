@@ -48,8 +48,13 @@ decided without him in M7.2–M7.4b and M7.5 confirmed except three changes — 
 true scale** (no minimum figure size; figures from 8 px/m, dots below), **more distinct uniform tones** (German
 greener flecktarn, Russian more khaki-brown; outline unchanged), and men take ammunition **only from their own
 side's** abandoned vehicles. Goldens unchanged. `?look=classic` is deleted after M8.
-**Next:** investigate and tune the Russian mounted attack (never wins, 0/10) through the AI and its tactics, not
-the armour data; then M7.5e "AI uses buildings".
+**Russian mounted attack investigated (2026-11-13), nothing changed** (`docs/research/ru-mounted-attack.md`): the
+BMP-2s start ~800 m from the Pumas in their sight, cannot hurt their fronts and have no ATGM; two thirds of the hull
+losses come in the first two minutes, one cook-off can break a mounted platoon (casualty stress reaches the men in
+the next carriers), and ~90 % of Russian losses fall more than 300 m out. Eight AI/doctrine variants (smoke, cover to
+cover, dispersal, tempo, flank RPG hunters, casualty tolerance) all stayed at 0/10 and most cost more men.
+**Next:** owner decisions listed in that note (BMP-2 ATGM, start out of direct fire / bigger map, stress for men
+aboard, a pass on the infantry assault, which loses 10/10 on foot for both sides); then M7.5e "AI uses buildings".
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —

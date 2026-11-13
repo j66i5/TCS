@@ -2136,3 +2136,16 @@ The owner answered the morning review poll on the choices made without him in M7
   without `golden:update` (no golden battle had a man take from an enemy hull), so no headless comparison was needed.
 **Noted for next steps:** investigate and tune the Russian mounted attack (never wins, 0/10) through the AI and its
 tactics, not the armour data; then M7.5e (the AI uses buildings).
+
+## 2026-11-13 — Russian mounted attack: investigated, no tuning committed
+- Owner: "Investigate and tune" (AI, tactics, doctrine data; not armour/penetration data). Findings and every variant
+  tried in `docs/research/ru-mounted-attack.md`. Batches (10 x 900 s, unchanged): platoon DE attack 0/10 (defender
+  10), platoon-ru RU attack 0/10, platoon-vehicles DE mounted 3/10 (1 draw), platoon-ru-vehicles RU mounted 0/10
+  (casualties blue 8.6 / red 18.5, BMP-2s lost 1.3); demo 50 x 120 s all draws.
+- Eight AI/doctrine variants (vehicle and mortar smoke, cover-to-cover following, wider start and ride spacing,
+  resumed advance to the support line, Russian aggressiveness 0.7, casualty tolerance 0.45, riding on to 400 m,
+  flank-seeking RPG hunters, the break share counting men aboard) left the Russian mounted attack at 0/10 on seeds
+  1..10 and 11..20, mostly with more losses, and some made the German mounted attack attacker-favoured (6/10). All
+  reverted: **no code or data change, goldens untouched.** The cause is the set-up (start ~800 m from the Pumas in
+  the open, no ATGM on the BMP-2, Puma fronts immune) — open for the owner (see the note's last section).
+

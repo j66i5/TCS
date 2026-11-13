@@ -12,7 +12,7 @@ import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, type LabelRequest, type Rect } from "./labels";
 import { FlatTerrain, flatColours } from "./terrain-flat";
-import { BuildingLayers } from "./buildings";
+import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, figurePx, lodFor, type Lod } from "./lod";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
 import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
@@ -83,6 +83,7 @@ export class BattleRenderer {
   private worldLayer = new Container();
   private terrain: Container | null = null;
   private navOverlay: Sprite | null = null;
+  private interiorOverlay: Graphics | null = null;
   private sightOverlay: Sprite | null = null;
   private world = new Graphics();
   private units = new Graphics();
@@ -229,7 +230,9 @@ export class BattleRenderer {
    */
   setNavOverlay(nav: NavGrid | null): void {
     if (this.navOverlay) { this.worldLayer.removeChild(this.navOverlay); this.navOverlay.destroy({ texture: true }); this.navOverlay = null; }
+    if (this.interiorOverlay) { this.worldLayer.removeChild(this.interiorOverlay); this.interiorOverlay.destroy(); this.interiorOverlay = null; }
     if (!nav) return;
+    if (this.map) { this.interiorOverlay = interiorGraphOverlay(this.map); }
     const canvas = document.createElement("canvas");
     canvas.width = nav.cols; canvas.height = nav.rows;
     const ctx = canvas.getContext("2d")!;
@@ -247,6 +250,7 @@ export class BattleRenderer {
     this.navOverlay.width = nav.cols * nav.cellM;
     this.navOverlay.height = nav.rows * nav.cellM;
     this.worldLayer.addChild(this.navOverlay);
+    if (this.interiorOverlay) this.worldLayer.addChild(this.interiorOverlay);
   }
 
   /**

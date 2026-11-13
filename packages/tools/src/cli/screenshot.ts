@@ -206,6 +206,49 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
 }
 
 /**
+ * M7.5c interiors (`--scene interiors`): the platoon battle on foot on the village; the lead squad is ordered into
+ * the nearest house with two or more rooms (a tap in its back room): the men in the rooms, the roof faded, inner
+ * walls, doorways and stairs; the same with Debug (the interior graph); then ordered out to a point in front of the
+ * door: leaving through the door, and outside.
+ */
+async function interiorScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/interiors-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 20 : 26;
+  const into = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map; t.setSpeed(0);
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    const men = s.unit.get(sq.unit).members;
+    let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    let best = -1, bd = Infinity;
+    map.buildings.forEach((b, i) => { if (!b.interior || (b.kind !== "house" && b.kind !== "farmhouse") || b.interior.rooms.filter((r) => r.floor === 0).length < 3) return; const d = Math.hypot(b.footprint[0] - x, b.footprint[1] - y); if (d < bd) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    // The ground-floor room farthest from the front door.
+    const door = b.openings.find((o) => o.kind === "door"); const fx = b.footprint[0] + (b.footprint[2] - b.footprint[0]) * door.offsetM / Math.hypot(b.footprint[2] - b.footprint[0], b.footprint[3] - b.footprint[1]);
+    const fy = b.footprint[1] + (b.footprint[3] - b.footprint[1]) * door.offsetM / Math.hypot(b.footprint[2] - b.footprint[0], b.footprint[3] - b.footprint[1]);
+    let tx = cx, ty = cy, far = -1;
+    for (const r of b.interior.rooms) { if (r.floor !== 0) continue; let rx = 0, ry = 0; for (let k = 0; k < 8; k += 2) { rx += r.poly[k] / 4; ry += r.poly[k + 1] / 4; } const d = Math.hypot(rx - fx, ry - fy); if (d > far) { far = d; tx = rx; ty = ry; } }
+    globalThis.__h = { i: best, cx, cy, fx, fy, nx: cx - fx, ny: cy - fy };
+    t.tap(tx, ty);
+    for (let k = 0; k < 90 && (k < 2 || men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0)); k++) t.stepTicks(60 * 5);
+    t.stepTicks(60 * 3);
+    t.focusScale(cx, cy, ${zoom}); t.stepTicks(20);
+    const inside = men.filter((m) => { const p = s.transform.get(m); return b.footprint && t.sim.ctx.map.buildings[best] && (function () { let c = false; const f = b.footprint; for (let a = 0, e = 3; a < 4; e = a++) { const ax = f[2*a], ay = f[2*a+1], ex = f[2*e], ey = f[2*e+1]; if ((ay > p.y) !== (ey > p.y) && p.x < ((ex - ax) * (p.y - ay)) / (ey - ay) + ax) c = !c; } return c; })(); }).length;
+    return { building: best, kind: b.kind, rooms: b.interior.rooms.length, dist: Math.round(bd), inside, men: men.length, roof: t.roofAlpha(best), tick: s.tick };`) as () => object);
+  await shot("0-squad-in-house");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__h; t.setDebug(true); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(2);`) as () => void);
+  await shot("1-debug-graph");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__h; t.setDebug(false); const L = Math.hypot(h.nx, h.ny) || 1;
+    t.tap(h.fx - h.nx / L * 20, h.fy - h.ny / L * 20); t.stepTicks(60 * 6); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(1);`) as () => void);
+  await shot("2-leaving-by-the-door");
+  const out = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, h = globalThis.__h; const sq = t.units().find((u) => u.kind === "infantry"), men = s.unit.get(sq.unit).members;
+    for (let k = 0; k < 30 && men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0); k++) t.stepTicks(60 * 5);
+    t.focusScale(h.fx, h.fy, ${zoom * 0.6}); t.stepTicks(20); return { tick: s.tick, roof: t.roofAlpha(h.i) };`) as () => object);
+  await shot("3-outside");
+  console.log(`${name}: interiors scene ${JSON.stringify(into)} -> ${JSON.stringify(out)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.4b anti-tank and crew reactions (`--scene vehicles`, fifth part): the platoon battle, Russia attacking mounted
  * against the German Pumas, Debug on (both sides shown): the rocket of the first man firing a Panzerfaust or an
  * RPG at a vehicle, in flight; then, in the vehicles scenario with every vehicle firing at the nearest enemy hull,
@@ -370,6 +413,7 @@ try {
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -484,7 +528,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

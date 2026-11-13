@@ -6,7 +6,7 @@
  * Original drawings (docs/ASSETS.md).
  */
 import { Container, Graphics } from "pixi.js";
-import type { Building, MapDef } from "@tcs/sim";
+import { buildInteriorGraph, type Building, type MapDef } from "@tcs/sim";
 import type { Appearance } from "@tcs/data";
 import { shade } from "./terrain-flat";
 
@@ -62,6 +62,44 @@ export function roofShown(index: BuildingIndex, men: ArrayLike<number>, nMen: nu
 }
 
 const hexN = (c: string) => parseInt(c.slice(1), 16);
+
+/**
+ * The ground floor of an interior (M7.5c): halls and stair rooms a shade lighter, inner walls (thinner than the
+ * outer ones) with their doorway gaps and a light threshold, and the stairs hatched with their steps.
+ * Upper floors are drawn by the floor switch of M7.5d.
+ */
+function drawInterior(f: Graphics, b: Building, floor: number, outline: number): void {
+  const it = b.interior!;
+  for (const r of it.rooms) {
+    if (r.floor !== 0 || r.kind === "room") continue;
+    f.poly(r.poly).fill({ color: shade(floor, r.kind === "stair" ? 1.12 : 1.06) });
+  }
+  for (const s of it.stairs) {
+    if (s.floor !== 0) continue;
+    const L = Math.hypot(s.x1 - s.x0, s.y1 - s.y0) || 1, ux = (s.x1 - s.x0) / L, uy = (s.y1 - s.y0) / L, nx = -uy * s.widthM / 2, ny = ux * s.widthM / 2;
+    f.poly([s.x0 + nx, s.y0 + ny, s.x1 + nx, s.y1 + ny, s.x1 - nx, s.y1 - ny, s.x0 - nx, s.y0 - ny]).fill({ color: shade(floor, 0.8) });
+    for (let d = 0.28; d < L; d += 0.28) f.moveTo(s.x0 + ux * d + nx, s.y0 + uy * d + ny).lineTo(s.x0 + ux * d - nx, s.y0 + uy * d - ny);
+    f.stroke({ width: 0.05, color: shade(floor, 0.55) });
+    // An arrow up the flight.
+    f.moveTo(s.x0 + ux * 0.2, s.y0 + uy * 0.2).lineTo(s.x1 - ux * 0.3, s.y1 - uy * 0.3)
+      .moveTo(s.x1 - ux * 0.3 + nx * 0.6 - ux * 0.35, s.y1 - uy * 0.3 + ny * 0.6 - uy * 0.35).lineTo(s.x1 - ux * 0.3, s.y1 - uy * 0.3)
+      .lineTo(s.x1 - ux * 0.3 - nx * 0.6 - ux * 0.35, s.y1 - uy * 0.3 - ny * 0.6 - uy * 0.35).stroke({ width: 0.07, color: shade(floor, 0.45) });
+  }
+  for (const w of it.walls) {
+    if (w.floor !== 0) continue;
+    const L = Math.hypot(w.bx - w.ax, w.by - w.ay) || 1, ux = (w.bx - w.ax) / L, uy = (w.by - w.ay) / L;
+    const doors = [...w.doors].sort((p, q) => p.offsetM - q.offsetM);
+    let s0 = 0;
+    const piece = (a: number, c: number) => { if (c > a) f.moveTo(w.ax + ux * a, w.ay + uy * a).lineTo(w.ax + ux * c, w.ay + uy * c); };
+    for (const d of doors) { piece(s0, d.offsetM - d.widthM / 2); s0 = d.offsetM + d.widthM / 2; }
+    piece(s0, L);
+    f.stroke({ width: Math.max(0.15, w.thicknessM), color: outline, cap: "square" });
+    for (const d of doors) {
+      const a = d.offsetM - d.widthM / 2, c = d.offsetM + d.widthM / 2;
+      f.moveTo(w.ax + ux * a, w.ay + uy * a).lineTo(w.ax + ux * c, w.ay + uy * c).stroke({ width: 0.08, color: shade(floor, 1.25) });
+    }
+  }
+}
 const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
 
 /** Floors and roofs of a map's buildings. Children are in world metres. */
@@ -103,7 +141,7 @@ export class BuildingLayers {
         let nx = -uy, ny = ux;
         if ((cx - ax) * nx + (cy - ay) * ny < 0) { nx = -nx; ny = -ny; }
         const ox = nx * t / 2, oy = ny * t / 2;
-        const ops = b.openings.filter((o) => o.wall === k).sort((p, q) => p.offsetM - q.offsetM);
+        const ops = b.openings.filter((o) => o.wall === k && (o.floor ?? 0) === 0).sort((p, q) => p.offsetM - q.offsetM);
         let s = 0;
         const piece = (s0: number, s1: number) => { if (s1 > s0) f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy); };
         for (const o of ops) { piece(s, o.offsetM - o.widthM / 2); s = o.offsetM + o.widthM / 2; }
@@ -115,6 +153,7 @@ export class BuildingLayers {
           f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy).stroke({ width: t * 0.6, color: 0xa9cbd6 });
         }
       }
+      if (b.interior) drawInterior(f, b, floor, outline);
       // Roof: a hard shadow, flat colour, the ridge with one half a shade darker, tile rows, a dark outline.
       const g = new Graphics();
       const h = b.storeys * b.storeyHeightM, off = Math.min(5, 0.22 * h + 0.5);
@@ -165,4 +204,32 @@ export class BuildingLayers {
   roofAlpha(i: number): number { return this.alpha[i] ?? 1; }
 
   destroy(): void { this.floors.destroy(); this.roofs.destroy({ children: true }); }
+}
+
+/**
+ * Debug (M7.5c): the interior navigation graphs of every building — nodes (exits orange, doorway nodes cyan), the
+ * edges inside each room (faint), the steps through doorways (white) and out of the exits (orange).
+ */
+export function interiorGraphOverlay(map: MapDef, breaches: readonly { owner: "obstacle" | "building"; id: number; part: number; offsetM: number; widthM: number }[] = []): Graphics {
+  const g = new Graphics();
+  map.buildings.forEach((b, bi) => {
+    if (!b.interior) return;
+    const gr = buildInteriorGraph(b, bi, breaches);
+    for (const list of gr.roomNodes) {
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const p = gr.nodes[list[i]!]!, q = gr.nodes[list[j]!]!;
+        g.moveTo(p.x, p.y).lineTo(q.x, q.y);
+      }
+    }
+    g.stroke({ width: 0.06, color: 0x7fe0ff, alpha: 0.55 });
+    for (let k = 0; k + 1 < gr.through.length; k += 2) {
+      const p = gr.nodes[gr.through[k]!]!, q = gr.nodes[gr.through[k + 1]!]!;
+      g.moveTo(p.x, p.y).lineTo(q.x, q.y);
+    }
+    g.stroke({ width: 0.12, color: 0xffffff });
+    for (const n of gr.nodes) if (n.exit) g.moveTo(n.x, n.y).lineTo(n.ox, n.oy);
+    g.stroke({ width: 0.12, color: 0xff9a2e });
+    for (const n of gr.nodes) g.circle(n.x, n.y, 0.16).fill({ color: n.exit ? 0xff9a2e : 0x7fe0ff });
+  });
+  return g;
 }

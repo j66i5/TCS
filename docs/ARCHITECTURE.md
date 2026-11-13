@@ -515,6 +515,13 @@ react-to-contact halt; `postureAndWatch` (decisions.ts) returns a man to it, lif
 `assignFireTask` takes `homePosture` as the lowest posture of a new fire task. `enteringHouse` (drills.ts) keeps
 react-to-contact off a unit whose men are going indoors. `repositionForVehicle` (launcher.ts) runs when no seen
 vehicle is in reach or the line from here is blocked; new `Intent.kind` "reposition" rate-limits it.
+**D:** `ownGrenade` (decisions.ts; `SoldierState.grenadeTick` optional) starts the generic grenade action;
+`throwPosture`/`throwPlan`/`findArc`/`throwArcExists` (grenades.ts) split the old `release`: the throw is from
+the lowest posture whose range reaches, the arc search is pure and is used beforehand by own throws and grenade
+orders (a man with no arc is not picked; nobody: `radio.grenadeBlocked`). A grenade order stops the men it picks;
+`startPhase` does not move a man whose grenade action runs. `FireTask.onTheMove` (optional): assault movers within
+`soldier.assaultFireM` of the objective, and the last rush, get contact fire tasks the fire system carries out while
+they move (from the posture they move in), with `aimErrorMrad` x `assaultFireAimFactor`.
 
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:

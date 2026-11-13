@@ -11,6 +11,7 @@ import type { EventSink } from "../events";
 import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
+import type { Posture } from "../orders";
 import { lineBlocked, roofAt, type AmmoRT } from "../ballistics";
 import type { SimContext } from "../context";
 import { routeBetween, routeWaypoints } from "../interior-nav";
@@ -26,10 +27,26 @@ import { skillFactor } from "./fire";
 
 export interface GrenadeOption { ammo: string; method: "thrown" | "launched"; distanceM: number }
 
-/** How far this man throws from his present posture (owner decision: about 30 m standing for a regular). */
-export function throwRangeM(ctx: SimContext, state: SimState, id: EntityId): number {
+/**
+ * How far this man throws from a posture — his present one if none is given (owner decision: about 30 m standing for
+ * a regular).
+ */
+export function throwRangeM(ctx: SimContext, state: SimState, id: EntityId, posture?: Posture): number {
   const s = state.soldier.req(id);
-  return ctx.catalog.shooting.grenades.throwRangeM[s.posture] * (0.8 + 0.4 * (s.skills["marksmanship"] ?? 0.5));
+  return ctx.catalog.shooting.grenades.throwRangeM[posture ?? s.posture] * (0.8 + 0.4 * (s.skills["marksmanship"] ?? 0.5));
+}
+
+/**
+ * The posture he throws from to reach `d` metres (soldier AI package D): his own if it reaches, else the lowest that
+ * does — a man lying down comes up on a knee or to his feet for the throw (part of the throw's time), then goes
+ * down again. Beyond his standing range: standing. (Before, a man lying down could only throw 15 m, so the AI's
+ * grenade orders at enemies 15–35 m away never produced a thrown grenade.)
+ */
+export function throwPosture(ctx: SimContext, state: SimState, id: EntityId, d: number): Posture {
+  const s = state.soldier.req(id);
+  const order: Posture[] = ["prone", "crouching", "standing"];
+  for (const p of order.slice(order.indexOf(s.posture))) if (d <= throwRangeM(ctx, state, id, p)) return p;
+  return "standing";
 }
 
 /** What, if anything, this man can send to (x, y) right now. Hand grenades first, then the launcher. */
@@ -45,7 +62,7 @@ export function grenadeOption(ctx: SimContext, state: SimState, id: EntityId, x:
     const def = ctx.catalog.ammo[st.type];
     if (!def?.delivery || !def.explosive || def.delivery.method === "direct") continue; // rockets are aimed, not lobbed (M7.4a)
     if (def.delivery.method === "thrown") {
-      if (d <= throwRangeM(ctx, state, id)) return { ammo: st.type, method: "thrown", distanceM: d };
+      if (d <= throwRangeM(ctx, state, id, "standing")) return { ammo: st.type, method: "thrown", distanceM: d };
     } else if (launched === null) {
       const v = def.delivery.velocityMps ?? 0;
       const has = def.delivery.launcher !== undefined && c.stacks.some((x2) => x2.type === def.delivery!.launcher && x2.count > 0);
@@ -120,28 +137,18 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
   return -1;
 }
 
-/** Send the grenade. Called when the action completes. */
-function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number): "thrown" | "launched" | "blocked" | null {
-  const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
-  const s = state.soldier.get(id), t = state.transform.get(id);
-  if (!def?.delivery || def.delivery.method === "direct" || !def.explosive || !c || !s || !t) return null;
-  if (!c.stacks.some((st) => st.type === ammoId && st.count > 0)) return null; // he no longer has one
+/**
+ * The arc for sending `ammoId` from where he stands to (ax, ay), thrown from posture `pose` (a launcher: his own),
+ * or null if nothing he can do from here would get it there (a ceiling, a wall, a lintel in the way). Pure.
+ */
+function findArc(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, ax: number, ay: number, pose: Posture): { v: number; el: number; az: number; ox: number; oy: number; oz: number } | null {
+  const def = ctx.catalog.ammo[ammoId]!, t = state.transform.req(id);
   const G = ctx.catalog.shooting.grenades;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammoId)]!;
-  const thrown = def.delivery.method === "thrown";
-  // He throws from where and how he is NOW: if the point is out of reach by now, as far as he can toward it.
-  let tx = tx0, ty = ty0, d0 = hypot2(tx - t.x, ty - t.y);
-  if (thrown) {
-    const reach = throwRangeM(ctx, state, id);
-    if (d0 > reach) { tx = t.x + ((tx - t.x) * reach) / d0; ty = t.y + ((ty - t.y) * reach) / d0; d0 = reach; }
-  }
-  // Where it will really go: an error that grows with distance and shrinks with training.
-  const sd = ((thrown ? G.throwErrorMinM : G.launchErrorMinM) + (thrown ? G.throwErrorFraction : G.launchErrorFraction) * d0) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5);
-  const ax = tx + sd * nextNormal(state.rng, Streams.fire), ay = ty + sd * nextNormal(state.rng, Streams.fire);
+  const thrown = def.delivery!.method === "thrown";
   const az = atan2(ay - t.y, ax - t.x);
-  t.heading = az;
   const ox = t.x + cos(az) * 0.4, oy = t.y + sin(az) * 0.4;
-  const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM + (thrown ? 0.3 : 0);
+  const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[pose].muzzleHeightM + (thrown ? 0.3 : 0);
   const d = Math.max(1, hypot2(ax - ox, ay - oy));
   // ground: ok (the point aimed at)
   const drop = oz - heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01));
@@ -157,41 +164,77 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
     // ground: ok (where it comes down and the point aimed at)
     return !lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, lx, ly, heightAt(ctx.map, lx, ly) + 0.15, px, py, heightAt(ctx.map, px, py) + 0.15);
   };
-  let v = 0, el = 0, found = false;
   if (thrown) {
     // He can throw as hard as a full-range lob needs, and a little harder. He tries his throw angles in order:
     // first aiming a little short (the grenade bounces and rolls on), then, if something stands just in front
     // of the point, straight at it. The first good arc is taken.
     const ref = (G.throwElevationDeg * PI) / 180;
-    const vMax = speedFor(ctx, am, ref, 0, throwRangeM(ctx, state, id), 60) * G.throwPowerMargin;
-    for (let pass = 0; pass < 2 && !found; pass++) {
-      for (let k = 0; k < G.throwAnglesDeg.length && !found; k++) {
+    const vMax = speedFor(ctx, am, ref, 0, throwRangeM(ctx, state, id, pose), 60) * G.throwPowerMargin;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let k = 0; k < G.throwAnglesDeg.length; k++) {
         const e = (G.throwAnglesDeg[k]! * PI) / 180;
         let vv = speedFor(ctx, am, e, drop, d, vMax);
         const carry = pass === 0 ? G.carrySeconds * vv * cos(e) : 0;
         if (pass === 0) vv = speedFor(ctx, am, e, drop, Math.max(1, d - carry), vMax);
-        if (good(vv, e, carry + 1.5)) { v = vv; el = e; found = true; }
+        if (good(vv, e, carry + 1.5)) return { v: vv, el: e, az, ox, oy, oz };
       }
     }
-  } else {
-    // A fixed muzzle velocity; he chooses the elevation: the flat arc, or the high one if the flat one is blocked.
-    v = def.delivery.velocityMps ?? 70;
-    let lo = -0.2, hi = (40 * PI) / 180;
-    for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; if (arcRangeM(ctx, am, v, mid, drop) < d) lo = mid; else hi = mid; }
-    el = (lo + hi) / 2;
-    found = good(v, el, 3);
-    if (!found) {
-      lo = (45 * PI) / 180; hi = (80 * PI) / 180; // beyond 45 degrees a steeper barrel means a shorter shot
-      for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; if (arcRangeM(ctx, am, v, mid, drop) > d) lo = mid; else hi = mid; }
-      el = (lo + hi) / 2;
-      found = good(v, el, 3); // also fails if the point is too near for any high shot, or the flight too long
-    }
+    return null;
   }
+  // A fixed muzzle velocity; he chooses the elevation: the flat arc, or the high one if the flat one is blocked.
+  const v = def.delivery!.velocityMps ?? 70;
+  let lo = -0.2, hi = (40 * PI) / 180;
+  for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; if (arcRangeM(ctx, am, v, mid, drop) < d) lo = mid; else hi = mid; }
+  let el = (lo + hi) / 2;
+  if (good(v, el, 3)) return { v, el, az, ox, oy, oz };
+  lo = (45 * PI) / 180; hi = (80 * PI) / 180; // beyond 45 degrees a steeper barrel means a shorter shot
+  for (let k = 0; k < 16; k++) { const mid = (lo + hi) / 2; if (arcRangeM(ctx, am, v, mid, drop) > d) lo = mid; else hi = mid; }
+  el = (lo + hi) / 2;
+  // (Also fails if the point is too near for any high shot, or the flight too long.)
+  return good(v, el, 3) ? { v, el, az, ox, oy, oz } : null;
+}
+
+/** Where he throws to and from which posture: (x, y), or as far as he can toward it (package D: rising as needed). */
+function throwPlan(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { tx: number; ty: number; d: number; pose: Posture } {
+  const t = state.transform.req(id);
+  let tx = x, ty = y, d = hypot2(x - t.x, y - t.y);
+  const pose = throwPosture(ctx, state, id, d);
+  const reach = throwRangeM(ctx, state, id, pose);
+  if (d > reach) { tx = t.x + ((x - t.x) * reach) / d; ty = t.y + ((y - t.y) * reach) / d; d = reach; }
+  return { tx, ty, d, pose };
+}
+
+/**
+ * Could he get grenade `ammoId` (thrown or launched) to (x, y) from where he is now (package D: a man first looks
+ * for a way, instead of finding out with the pin pulled)? Aimed at the point itself, no error; pure.
+ */
+export function throwArcExists(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, x: number, y: number): boolean {
+  if (ctx.catalog.ammo[ammoId]?.delivery?.method !== "thrown") return findArc(ctx, state, id, ammoId, x, y, state.soldier.req(id).posture) !== null;
+  const p = throwPlan(ctx, state, id, x, y);
+  return findArc(ctx, state, id, ammoId, p.tx, p.ty, p.pose) !== null;
+}
+
+/** Send the grenade. Called when the action completes. */
+function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number): "thrown" | "launched" | "blocked" | null {
+  const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
+  const s = state.soldier.get(id), t = state.transform.get(id);
+  if (!def?.delivery || def.delivery.method === "direct" || !def.explosive || !c || !s || !t) return null;
+  if (!c.stacks.some((st) => st.type === ammoId && st.count > 0)) return null; // he no longer has one
+  const G = ctx.catalog.shooting.grenades;
+  const thrown = def.delivery.method === "thrown";
+  // He throws from where he is NOW, rising for the throw as far as the distance needs (package D): if the point is
+  // out of reach by now, as far as he can toward it.
+  const p = thrown ? throwPlan(ctx, state, id, tx0, ty0) : { tx: tx0, ty: ty0, d: hypot2(tx0 - t.x, ty0 - t.y), pose: s.posture };
+  // Where it will really go: an error that grows with distance and shrinks with training.
+  const sd = ((thrown ? G.throwErrorMinM : G.launchErrorMinM) + (thrown ? G.throwErrorFraction : G.launchErrorFraction) * p.d) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5);
+  const ax = p.tx + sd * nextNormal(state.rng, Streams.fire), ay = p.ty + sd * nextNormal(state.rng, Streams.fire);
+  t.heading = atan2(ay - t.y, ax - t.x);
+  const arc = findArc(ctx, state, id, ammoId, ax, ay, p.pose);
   // Nothing he can do from here would get it there (a ceiling, a wall, a lintel in the way): he does not throw.
-  if (!found) return "blocked";
+  if (!arc) return "blocked";
   if (removeItems(c, ammoId, 1).length === 0) return null; // he no longer has one
-  const ce = cos(el);
-  launchProjectile(ctx, state, ammoId, ox, oy, oz, v * cos(az) * ce, v * sin(az) * ce, v * sin(el), id);
+  const ce = cos(arc.el);
+  launchProjectile(ctx, state, ammoId, arc.ox, arc.oy, arc.oz, arc.v * cos(arc.az) * ce, arc.v * sin(arc.az) * ce, arc.v * sin(arc.el), id);
   return def.delivery.method;
 }
 

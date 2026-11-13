@@ -193,3 +193,52 @@ describe("package C: stay in the fight", () => {
     expect(cosH[cosH.length - 1]!).toBeLessThan(-0.9);
   });
 });
+
+describe("package D: close combat", () => {
+  /** Blue (fire rule free) at x = 10 with two hand grenades each; red 20 m east behind a 2 m wall, known to blue
+   *  only by report. */
+  function walled(): Sim {
+    const input = armedInput(1, 600);
+    for (const m of input.forces[0]!.units[0]!.members) m.load.push({ type: "bomb", count: 2 });
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p, i) => ({ ...p, x: 30, y: 13 + i * 3 }));
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [26, 0, 26, 40], heightM: 2, thicknessM: 0.25, material: "brick" } as never);
+    const sim = createSim(input);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "rules", fire: "free" });
+    const reds = unitOf(sim, "red")[1].members;
+    for (const m of unitOf(sim, "blue")[1].members) {
+      const s = sim.state.soldier.req(m);
+      for (const r of reds) { const t = sim.state.transform.req(r); s.contacts.push({ target: r, x: t.x, y: t.y, errM: 2, kind: "reported", tick: 0, reportedTick: 0 }); }
+      s.contacts.sort((a, b) => a.target - b.target);
+    }
+    return sim;
+  }
+
+  it("a man throws a hand grenade on his own at a known enemy behind cover within his throwing range", () => {
+    const sim = walled();
+    const ev = run(sim, 10);
+    const thrown = ev.filter((e) => e.kind === "grenade.launched" && e.method === "thrown");
+    expect(thrown.length).toBeGreaterThan(0);
+    expect(thrown.length).toBeLessThanOrEqual(2); // one thrower at a time per unit, each at most every 20 s
+    const who = thrown[0]!.kind === "grenade.launched" ? thrown[0]!.soldier : -1;
+    expect(sim.state.soldier.req(who).grenadeTick).toBeDefined();
+  });
+
+  it("not with a man of his own side close to the enemy", () => {
+    const sim = walled();
+    const friend = unitOf(sim, "blue")[1].members[2]!;
+    Object.assign(sim.state.transform.req(friend), { x: 33, y: 14.5 }); // within 10 m of both red men
+    const ev = run(sim, 10);
+    expect(ev.some((e) => e.kind === "grenade.launched")).toBe(false);
+  });
+
+  it("in the last stretch of an assault the men fire as they go", () => {
+    const sim = setup(55);
+    run(sim, 3); // they see the red men
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "assault", x: 55, y: 15 });
+    let moving = 0;
+    for (let k = 0; k < secondsToTicks(15); k++) {
+      for (const e of step(sim)) if (e.kind === "shot.fired" && (sim.state.mover.get(e.shooter)?.waypoints.length ?? 0) > 0) moving++;
+    }
+    expect(moving).toBeGreaterThan(0);
+  });
+});

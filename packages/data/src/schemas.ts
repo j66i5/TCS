@@ -382,6 +382,7 @@ export const BehaviourFile = withProv({
     beatenNoticeM: Num(0, 500), beatenRadiusM: Num(0, 500), beatenMemorySeconds: Num(0, 3600), beatenMoveM: Num(0, 500), beatenHouseM: Num(0, 500), beatenOpenExposure: Num(0, 1),
     riseBelowSuppression: Num(0, 1), lookEverySeconds: Num(0.5, 60), faceEnemy: z.boolean(), rearWatchMinMen: z.number().int().min(0).max(50),
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
+    grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
   }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({

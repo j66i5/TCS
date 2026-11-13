@@ -116,6 +116,8 @@ export interface SoldierState {
    * again. Absent: none yet.
    */
   homePosture?: Posture;
+  /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
+  grenadeTick?: number;
 }
 
 export type CommLink = "voice" | "radio" | "none";
@@ -324,6 +326,8 @@ export interface FireTask {
   basePosture: Posture;
   /** Aim height worked out from his contact (package A): it follows the posture he sees the man in. */
   aimAuto?: true;
+  /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */
+  onTheMove?: true;
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

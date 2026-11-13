@@ -362,6 +362,10 @@ export interface BehaviourDef {
    * rearWatchMinMen: in a team of this many idle men the last watches the rear; atMove*: a man with an anti-tank
    * launcher who knows of an enemy vehicle he cannot see (contact within atContactSeconds) moves up to atMoveM to
    * a spot that sees it, at least atMoveMinRangeM from it, at most every atMoveRetrySeconds.
+   * D: grenade*: a man throws a hand grenade on his own at most every grenadeEverySeconds at an enemy known within
+   * grenadeContactSeconds, behind cover or in a house, with no man of his side within grenadeClearM of it;
+   * assaultFireM / assaultFireAimFactor: within this distance of an assault's objective the men on the move fire
+   * as they go, with their aiming error multiplied by this.
    */
   soldier: {
     reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
@@ -369,6 +373,7 @@ export interface BehaviourDef {
     beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
+    grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

@@ -403,6 +403,19 @@ comes under fire: it finishes going in. A man with an anti-tank launcher who kno
 see — heard, reported, or out of his line — moves up to 30 m to a spot from which he could see it, at least 40 m
 from it, preferring its flank or rear, at most every 20 s.
 
+**Close combat (D).** A man carrying hand grenades now throws one on his own at an enemy he knows (seen or
+reported in the last 30 s) within his throwing range who is behind cover from him or in a house — but only if he
+can find a way to get it there from where he is (not into a wall, a ceiling or a lintel), no man of his own side is
+within 10 m of that enemy, and nobody else of his team is already throwing; at most every 20 s. Throwing range still
+depends on posture (about 15 m lying, 20 m kneeling, 30 m standing for a regular), but a man lying down comes up on
+a knee or to his feet for a longer throw, then goes down again. That was the reason the AI's grenade orders at
+enemies 15–35 m away never produced a thrown grenade (only launched ones): the assaulting men were lying down; also
+a man running (an assault's next rush) had his throw broken off at once, and many throws ended "no way to throw it
+there". Now the men picked for a grenade order stop to throw, the drill waits for them, and only men who have a way
+to get it there are picked. In the last 50 m of an assault the men on the move fire as they go — at the enemy they
+know near the objective — with three times their aiming error: fire to keep heads down while they close, not
+to hit.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover

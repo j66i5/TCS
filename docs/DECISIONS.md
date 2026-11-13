@@ -2493,3 +2493,70 @@ show a problem.
 - **Tests changed:** line-of-fire tests now check the fire position (`homePosture`) instead of the posture after
   5 s (a man lying blind behind the bank may rise to look meanwhile); two decision/rule tests look at the fight
   earlier (the enemy, aimed at properly since A, is down sooner). **Goldens** regenerated.
+
+### Package D — Close combat
+
+- **Why the AI's grenade orders never produced a thrown hand grenade** (audit item 7; 1500 s, platoon s1–3 and
+  platoon-ru s1–2 before: 264 grenade actions started, 0 hand grenades thrown, 46 launched, 47 "no way to throw it
+  there"): (1) throw range depends on posture (owner decision: about 15 m lying, 20 m kneeling, 30 m standing) and
+  the assaulting men were lying down, so for enemies 15–35 m away (the AI's `grenadeRangeM`) only men with a
+  grenade launcher qualified; (2) the AI orders a grenade and the assault in the same step: the men picked were
+  often running (a bound) and the throw was broken off at once ("moved": 37 of 59 actions in platoon s2), or the
+  drill's next rush moved them before the 2.5 s throw was done; (3) from cover many throws found no arc and the man
+  kept the grenade. Fixes: a man lying down **rises for the throw** to the lowest posture whose range reaches
+  (`throwPosture`; inside the throw's 2.5 s, then he goes down as before) — **this changes the owner's earlier
+  rule** that a man lying down cannot throw beyond 15 m (the ranges per posture are unchanged); the men picked for a
+  grenade order **stop** to throw and the drill does not move a man in the middle of a throw; the arc search is now
+  a pure function (`findArc`) used **beforehand**: a man with no way to get it there is not picked (nobody: the order
+  answers "no way to throw it there"). The grenade test that expected "unable" for a prone man at 25 m now expects
+  the throw (and "unable" at 45 m).
+- **Own hand grenades** (item 7: never on own initiative; 822–3365 man-seconds per battle with an enemy known
+  within 25 m, much of it behind cover): a man carrying hand grenades, halted, allowed to fire, not pinned, throws on
+  his own at an enemy he knows (seen or reported within **30 s**, `grenadeContactSeconds`; 10 s left most such
+  enemies out — they were known but not seen lately) within his standing throwing range and at least 10 m away, who
+  is out of his sight (behind cover) or in a house, when he has a way to get it there, no man of his side is within
+  **10 m** of that enemy (`grenadeClearM`) and no comrade of his unit is already throwing; at most every **20 s**
+  (`grenadeEverySeconds`, `SoldierState.grenadeTick`).
+- **Assault fire** (item 8: moving men never fired; the final rush deleted the fire tasks, the fire system skipped
+  men with waypoints): in an assault, the bounding men within **50 m** of the objective (`assaultFireM`) and every
+  man of the last rush get a fire task at the enemy they know nearest the objective (else the objective at 0.5 m)
+  marked `onTheMove`; the fire system lets such a man fire while he moves, from the posture he moves in (no posture
+  changes for the line of fire), with **3x** his aiming error while he is moving faster than 0.2 m/s
+  (`assaultFireAimFactor`): fire to keep heads down, not to hit.
+- **Measured** (1500 s, platoon s1–3 + platoon-ru s1–2, summed; before → after D): grenade actions 264 → 79 (fewer,
+  but they are carried out), hand grenades thrown 0 → 11 (another run with the same code: 17, of them 8 thrown on the
+  men's own initiative), launched 46 → 54, "no way to throw it there" 47 → 37 (the aim error at release still sends
+  some into walls); rounds fired by men on the move 9 → 517, hitting 4 times. Audit diagnostics (six battles incl.
+  platoon-vehicles s1): hand grenades thrown 0 → 14, launched 50 → 60.
+- **Batches** (10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender; hand grenades thrown attacker / defender per battle):
+
+  | Batch | Before (main) | After C | After D |
+  |---|---|---|---|
+  | platoon 900 s | 1/9; 14.4 / 10.3; 23 / 8; 1023 / 279; 0 / 0 | 2/8; 15.5 / 12.1; 21 / 5; 925 / 241; 0.2 / 0 | 3/7; 15.6 / 12.9; 19 / 5; 1171 / 215; 3.2 / 0.3 |
+  | platoon-ru 900 s | 2/8; 15.5 / 12.8; 22 / 8; 1609 / 297; 0 / 0 | 4/6; 13.6 / 14.5; 19 / 5; 1291 / 149; 0 / 0 | 2/8; 14.2 / 14.6; 21 / 6; 1411 / 196; 1.1 / 0.2 |
+  | platoon-vehicles 900 s | 2/8; 20.1 / 19.3; 42 / 15; 889 / 835; 0.2 / 0 | 4/6; 17.6 / 19.9; 23 / 3; 765 / 220; 0.1 / 0 | 5/5; 15.5 / 20.6; 29 / 4; 855 / 226; 4.7 / 0.7 |
+  | platoon-ru-vehicles 900 s | 0/10; 28.4 / 11.5; 70 / 9; 621 / 480; 0 / 0 | 1/9; 24.8 / 10.9; 29 / 6; 420 / 184; 0 / 0 | 1/9; 26.4 / 11.9; 14 / 5; 475 / 174; 1.8 / 0.5 |
+  | platoon 2400 s | 4/6; 18.9 / 12.5; 27 / 10; 1722 / 564; 0 / 0 | (A: 3/7; 18.9 / 14.5) | 6/4; 18.9 / 14.5; 20 / 5; 1790 / 281; 4.2 / 0.6 |
+  | platoon-ru 2400 s | 6/4; 18.8 / 14.9; 25 / 10; 2293 / 482; 0 / 0 | (A: 3/7; 18.6 / 14.5) | 4/6; 17.5 / 16.6; 21 / 6; 2446 / 290; 1.7 / 0.6 |
+
+  With all four packages the attack on foot over 2400 s wins about as often as before the packages (DE 6/10, was
+  4/10; RU 4/10, was 6/10) with the same attacker casualties and somewhat more defender casualties; defenders hit
+  with 5–6 rounds instead of 8–10 and spend half the ammunition. Not unbalanced; no tuning.
+- **Goldens:** regenerated; no-interiors goldens stay skipped.
+
+### Decisions for the owner (soldier AI, all game values low)
+
+1. **A man lying down rises for a longer grenade throw** (D) — this changes your earlier rule that a man lying down
+   throws only 15 m. Keep it (recommended: it is what made the AI's grenade orders work), or keep men down and let
+   the AI order grenades only within 15 m?
+2. **Aim points** prone 0.2 m / kneeling 0.6 / standing 1.0 (A): defenders now hit with 4–6 rounds instead of 8–15.
+   The Russian attack on foot fell from 6/10 to 3/10 at 2400 s after A alone and is back to 4/10 with all four.
+3. **Last-magazine reserve** within 100 m (200 m against an assault) (A) and **half rate beyond 200 m** for riflemen
+   firing on their own (A).
+4. **Beaten zones** (B): only men out in the open move (40 m out or into a house) and they go back when the fire
+   lifts; men by a wall, hedge or building stay down. The alternatives tried cost more men (DECISIONS B).
+5. **Crawl to cover** (B) rarely triggers: most pinned men are already out of sight of the enemy *they know of*
+   while the enemy still sees them. A wider trigger (e.g. any man pinned in the open) would be a further step.
+6. **Facing** (C) only in a fight, so a player's laid-out facing stands otherwise.
+7. **Assault fire** with 3x aiming error (D): fire on the move hits rarely (4 hits from 517 rounds in five battles).

@@ -12,6 +12,10 @@ into a house). The crawl rarely triggers (3–7 times a battle): see DECISIONS.
 **C "Stay in the fight" ✅:** men go back to their fire position's posture after a scare (window places again),
 rise to their knees to look when blind lying down, face the enemy (one per team watches the rear in a fight), a
 squad entering a house finishes going in under fire, anti-tank men move for a shot at a vehicle they only heard.
+**D "Close combat" ✅:** men throw hand grenades on their own at enemies behind cover or in a room (rising for the
+throw); the AI's grenade orders now produce thrown grenades (bug: prone throwers, throws broken off by the next
+rush); assault fire on the move in the last 50 m with a heavy aiming penalty.
+**Decisions for the owner (soldier AI):** see the list at the end of DECISIONS.md "Individual soldier AI".
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's

@@ -64,7 +64,10 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   // fires and how high the thing is are not looked at.
   const t = state.transform.get(id);
   const braced = !sus && s.posture !== "prone" && t !== undefined && restWithinReach(navFor(ctx, "foot").grid, t.x, t.y) ? a.bracedFactor : 1;
-  return settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
+  // Firing on the move (assault fire, package D): far worse.
+  const mv = state.mover.get(id);
+  const onTheMove = task?.onTheMove === true && mv !== undefined && mv.speedMps > 0.2 ? ctx.catalog.behaviour.soldier.assaultFireAimFactor : 1;
+  return onTheMove * settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
     * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;
 }
@@ -258,7 +261,9 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;
-    if ((state.mover.get(id)?.waypoints.length ?? 0) > 0) continue;
+    // A man on the move does not fire — except assault fire (package D), from the posture he moves in.
+    const moving = (state.mover.get(id)?.waypoints.length ?? 0) > 0;
+    if (moving && task.onTheMove !== true) continue;
     if (w.jammed) { startAction(state, events, id, "clearStoppage", secondsToTicks(F.clearStoppageSeconds), {}); continue; }
     const spare = fullestSpare(state.container.get(id), wd.feed.magazine);
     let reserve = false;
@@ -305,7 +310,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       }
       const order: Posture[] = ["prone", "crouching", "standing"];
       // A pinned man does not raise himself to clear a bank: he fires from where he lies or not at all.
-      const from = isCowering(s) ? ["prone" as Posture] : order.slice(order.indexOf(task.basePosture));
+      const from = isCowering(s) ? ["prone" as Posture] : moving ? [s.posture] : order.slice(order.indexOf(task.basePosture));
       const ok = from.find((p) => lineOfFireClear(ctx, state, id, task, p));
       task.lineClear = ok !== undefined;
       task.linePosture = ok ?? s.posture;

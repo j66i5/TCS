@@ -118,7 +118,8 @@ export const testCatalog: Catalog = {
     antitank: { atRuleDefault: "vehicles", stepSeconds: 1, seenWithinSeconds: 3, rangeErrorFraction: 0.05, skillMrad: 2.5, largeRoomM2: 60, wallBehindM: 2, handOverM: 30 },
     soldier: { reserveCloseM: 100, reserveAssaultM: 200, longRangeM: 200, longRangeIntervalFactor: 2, keepTargetFactor: 0.7, keepTargetSeenSeconds: 5,
       crawlMode: "crawl", crawlSearchM: 8, crawlRetrySeconds: 10, minSpacingM: 5, beatenNoticeM: 60, beatenRadiusM: 35, beatenMemorySeconds: 90, beatenMoveM: 40, beatenHouseM: 30, beatenOpenExposure: 0.9,
-      riseBelowSuppression: 0.05, lookEverySeconds: 4, faceEnemy: true, rearWatchMinMen: 3, atMoveM: 30, atMoveMinRangeM: 40, atMoveRetrySeconds: 20, atContactSeconds: 20 },
+      riseBelowSuppression: 0.05, lookEverySeconds: 4, faceEnemy: true, rearWatchMinMen: 3, atMoveM: 30, atMoveMinRangeM: 40, atMoveRetrySeconds: 20, atContactSeconds: 20,
+      grenadeEverySeconds: 20, grenadeClearM: 10, grenadeContactSeconds: 30, assaultFireM: 50, assaultFireAimFactor: 3 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
   },
   spotting: {

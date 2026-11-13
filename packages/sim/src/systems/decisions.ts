@@ -38,6 +38,7 @@ import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
 import { launcherDecision } from "./launcher";
+import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -450,6 +451,55 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   if (Math.abs(off) > PI / 2 + 1e-6) me.heading = face;
 }
 
+/**
+ * Package D: he throws a hand grenade on his own at an enemy he knows (seen or reported within
+ * `soldier.grenadeContactSeconds`) within his throwing range, who is out of his sight behind cover or in a house,
+ * with no man of his side within `grenadeClearM` of him and no comrade of his unit already throwing; at most every
+ * `grenadeEverySeconds`. The throw is the generic grenade action (which rises him for it, and keeps the grenade
+ * if no arc gets there).
+ */
+function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState, unitId: EntityId): boolean {
+  const S = ctx.catalog.behaviour.soldier, G = ctx.catalog.shooting.grenades;
+  if (S.grenadeEverySeconds <= 0 || state.action.has(id) || !s.impair.canUseArms) return false;
+  if (s.grenadeTick !== undefined && state.tick - s.grenadeTick < secondsToTicks(S.grenadeEverySeconds)) return false;
+  const c = state.container.get(id);
+  if (!c || !c.stacks.some((st) => st.count > 0 && ctx.catalog.ammo[st.type]?.delivery?.method === "thrown")) return false;
+  const me = state.transform.req(id);
+  const reach = throwRangeM(ctx, state, id, "standing");
+  const recent = secondsToTicks(S.grenadeContactSeconds);
+  let best: Contact | null = null, bestD = Infinity;
+  for (const k of s.contacts) {
+    if (k.surrendered || k.down || k.cls === "vehicle" || k.kind === "heard" || state.tick - k.tick > recent) continue;
+    const d = hypot2(k.x - me.x, k.y - me.y);
+    if (d > reach || d < G.minSafeDistanceM + 2 || d >= bestD) continue;
+    // Behind cover from him (not in his sight now), or in a house.
+    const inSight = s.seen.some((e) => e.target === k.target && state.tick - e.lastTick <= TICK_HZ);
+    if (inSight && indoorAt(ctx, k.x, k.y) < 0) continue;
+    best = k; bestD = d;
+  }
+  if (!best) return false;
+  // Never near his own side's men, and one thrower at a time in his unit.
+  const side = state.identity.get(id)?.side;
+  const r2 = S.grenadeClearM * S.grenadeClearM;
+  // mounted: ok men aboard are behind armour (skipped)
+  for (const [o, os] of state.soldier.entries()) {
+    if (os.mount !== undefined || !os.physiology.alive || state.identity.get(o)?.side !== side) continue;
+    const t = state.transform.req(o);
+    if ((t.x - best.x) * (t.x - best.x) + (t.y - best.y) * (t.y - best.y) < r2) return false;
+  }
+  const u = state.unit.get(unitId);
+  if (u && u.members.some((m) => m !== id && state.action.get(m)?.kind === "grenade")) return false;
+  const opt = grenadeOption(ctx, state, id, best.x, best.y);
+  if (!opt || opt.method !== "thrown") return false;
+  s.grenadeTick = state.tick;
+  // (No way to get it there from here — a wall, a roof — and he keeps it; he looks again later.)
+  if (!throwArcExists(ctx, state, id, opt.ammo, best.x, best.y)) return false;
+  me.heading = atan2(best.y - me.y, best.x - me.x);
+  startAction(state, events, id, "grenade", secondsToTicks(G.throwSeconds), { ammo: opt.ammo, x: best.x, y: best.y });
+  s.intent = { kind: "engage", tick: state.tick, target: best.target };
+  return true;
+}
+
 /** Is his unit, or one above it, carrying out an assault or a withdrawal (a drill moves him on its own)? */
 function inDrill(state: SimState, unitId: EntityId): boolean {
   for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
@@ -541,6 +591,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
 
       // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
       if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
+
+      // ---- a hand grenade on his own at an enemy behind cover or in a house close by (package D)
+      if (halted && fireAllowed(state, ctx, unit, top) && ownGrenade(ctx, state, events, id, s, ident.unit)) continue;
     }
 
     // ---- open fire on his own

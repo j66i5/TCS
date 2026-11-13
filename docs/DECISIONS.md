@@ -2149,3 +2149,39 @@ tactics, not the armour data; then M7.5e (the AI uses buildings).
   reverted: **no code or data change, goldens untouched.** The cause is the set-up (start ~800 m from the Pumas in
   the open, no ATGM on the BMP-2, Puma fronts immune) — open for the owner (see the note's last section).
 
+
+## 2026-11-13 — Infantry attack on foot: balance pass (AI, drill, fire check)
+- Owner: "Yes, next" — a separate pass on the infantry assault (game values, low confidence; not weapon data;
+  defender unchanged). Investigation, variants and table: `docs/research/inf-assault.md`.
+- **Diagnosis:** squads gone to ground counted as arrived (base of fire 430-490 m out); two thirds of the base had no
+  line of fire from its geometric places; one pinned runner stalled his squad's next rush for 40 s; **75 % of the
+  attackers' losses came from the second objective's garrison**, firing across the way in; the two attacking
+  platoons fired through each other (the line-of-fire check knew only the firer's platoon); on foot from ~700 m the
+  attack needs 750-1000 s.
+- **AI (`commander.ts`, game values in `COMMANDER`):** axis on foot turned (<= 45°) to keep the support line 320 m from
+  the other enemy-held objective, blinded with smoke; support places chosen for their field of fire, 330 m out
+  (`supportM` 300 -> 330, `sneakM` 200 -> 50); squads gone to ground move on after 15 s; fires called as the first
+  squad nears the line (HE every 45 s, was 90 s); base of fire man by man at known enemies with a line of fire, full
+  rate, lifting 40 m from own men, one squad on the other garrison; assault element runs in under a smoke screen on
+  the least-seen flank to 60 m (fire and movement at once when under fire inside 120 m); grenade launchers from
+  200 m. Mounted attacks keep the straight axis.
+- **Sim:** drill — a pinned or panicked runner no longer holds the next rush (`drills.ts`); fire — `friendInLine`
+  checks every platoon of the firer's side (`fire.ts`; also vehicle guns).
+- **Kept:** casualty tolerance 30 % (+10 % in the assault tried: no effect at 900 s, more attacker wins at 2400 s);
+  `boundM` 30 (15 m tried: no measurable effect; catalog data, would break the M7.5c no-interiors goldens — owner).
+- **Batches** (attacker wins; casualties attacker / defender):
+
+  | Batch | Before | After |
+  |---|---|---|
+  | platoon (DE on foot) 10 x 900 s, seeds 1..10 / 11..20 | 0 (14.5 / 9.3) / 0 (11.1 / 5.0) | 1 (14.4 / 10.3) / 0 (16.1 / 9.2) |
+  | platoon-ru (RU on foot) 10 x 900 s, seeds 1..10 / 11..20 | 0 (16.1 / 8.1) / 0 (14.4 / 8.6) | 2 (15.5 / 12.8) / 1 (13.1 / 11.2) |
+  | platoon 10 x 2400 s | 0 (21.1 / 10.8) | 4 (18.9 / 12.5) |
+  | platoon-ru 10 x 2400 s | 1 (20.5 / 10.1) | 6 (18.8 / 14.9) |
+  | platoon-vehicles 10 x 900 s | 3, 1 draw (11.5 / 20.0) | 4 (14.9 / 19.2) |
+  | platoon-ru-vehicles 10 x 900 s | 0 (18.5 / 8.6) | 0 (22.5 / 7.4) |
+  | demo 50 x 120 s | draw 50 | draw 50 |
+
+  Target 2-4 in 10 not reached at 900 s (1-3 in 20: the attack reaches the objective about as the clock stops);
+  at 2400 s (the app's battle) 4/10 and 6/10. Open for the owner: balance length, 15 m rushes, hand smoke grenades.
+- **Goldens unchanged** (they replay stored orders, not the AI; no data changed): golden test passes without
+  `golden:update`, the no-interiors equivalence goldens included.

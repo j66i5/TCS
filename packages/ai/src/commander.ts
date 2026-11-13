@@ -8,27 +8,49 @@
  * Defence: everyone down in his position, fire at will out to `defenceRangeM`; a squad that has lost half its
  *   men pulls back behind the main objective; if the main objective is lost while two squads are still fit (or
  *   one nearly whole), the strongest counterattacks it.
- * Attack: the platoon moves up to a support line about `supportM` from the main objective (going to ground on
- *   contact) and looks for the enemy there (up to `reconSeconds`); then the first squad fires on the objective
- *   from the support line while the others assault it; once it is taken, the base of fire comes up and the
- *   strongest squad assaults the second objective, supported by the rest. Losses beyond the faction's doctrine
- *   (`casualtyToleranceBeforeWithdrawal`) make it break off and withdraw to the start.
+ * Attack: the platoon moves up to a support line about `supportM` from the main objective, on an axis turned away
+ *   from the other objective's garrison (blinded with smoke), each squad to a place with a field of fire (going
+ *   to ground on contact, then moving on to it), and looks for the enemy there (up to `reconSeconds`) while the
+ *   mortars' high explosive and a smoke screen come in; then half the squads fire on the objective man by man
+ *   from the support line while the others run in under the smoke on a flank and assault it by fire and
+ *   movement, with grenades; once it is taken, the base of fire comes up and the strongest squad assaults the
+ *   second objective, supported by the rest. Losses beyond the faction's doctrine
+ *   (`casualtyToleranceBeforeWithdrawal`) make it break off and withdraw to the start (balance pass 2026-11-13,
+ *   docs/research/inf-assault.md).
  *
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, cos, createContext, heightAt, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, cos, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 300, sneakM: 200, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 90, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
   // long a man waits between shots, how far beyond his weapon's range he goes after a halted vehicle (and where
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
   // vehicle seen this close; a crew reversing out is left to it this long; vehicles reverse this far on withdrawal.
-  dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 30, withdrawReverseM: 80 } as const;
+  dismountThreatMenM: 400, dismountThreatVehicleM: 600, reverseOutHoldSeconds: 30, withdrawReverseM: 80,
+  // The infantry attack (balance pass 2026-11-13, game values, low confidence; docs/research/inf-assault.md; the
+  // pass also moved supportM 300 -> 330, sneakM 200 -> 50 and heEverySeconds 90 -> 45):
+  // - axis (on foot): the way in is turned about the objective by up to `axisMaxDeg` so that the support line keeps
+  //   `flankClearM` from the other objectives the enemy holds; their garrisons are blinded with smoke laid
+  //   `blindAheadM` in front of them;
+  // - support line: each squad's place is chosen once near its slot (`placeDepthsM` x `placeAsideM` around it)
+  //   for its field of fire onto the objective (a line of fire allowed to end `lineAllowanceM` short of the point);
+  //   a squad gone to ground short of it moves on after `resumeSeconds` (at a run under fire, at most `resumeMax`
+  //   times); in place within `arrivedM`; two thirds in place is enough; the advance stops waiting after
+  //   `advanceTimeoutSeconds`; the fires before the assault are called when the first squad is `prepLeadM` short;
+  // - base of fire: man by man at the enemies known near the objective (full rate), lifting off any its own men are
+  //   within `liftM` of; one squad keeps the other objective's garrison down;
+  // - assault element: runs (screened by smoke `screenShare` of the way from the objective to the assault position)
+  //   toward a point `closeInM` short, on the bearing up to `flankMaxDeg` off the axis seen least from the
+  //   objectives; under fire (a man's suppression >= `underFireSuppression`) within `assaultPositionM` it goes over
+  //   to fire and movement at once, and after `closeTimeoutSeconds` in any case; its grenade launchers engage
+  //   from `launcherReachM`.
+  sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 180, closeInM: 60, underFireSuppression: 0.1, prepLeadM: 100, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200 } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
 interface Memory {
@@ -42,6 +64,13 @@ interface Memory {
   /** M7.4b: crews that bailed out and were sent back; anti-tank tasks: the last look, each gunner's last shot
    *  order, and the men sent after a vehicle (target, since when). */
   sentBack?: number[]; lastAt?: number; atShot?: Record<string, number>; hunt?: Record<string, [number, number]>;
+  /** Infantry attack (balance pass 2026-11-13): when each squad was last sent on toward its place; the assault
+   *  position (bearing off the line of advance, rad); squads that have reached it (or stopped trying). */
+  resumeAt?: Record<string, number>; resumeN?: Record<string, number>; flank?: number; closed?: number[]; maxRate?: number[]; lastBlind?: number;
+  /** The turn of the attack's axis about its objective (rad), chosen once per objective. */
+  axis?: number;
+  /** Each squad's support-by-fire place for objective `placesFor` (chosen once from the map: its field of fire). */
+  places?: Record<string, [number, number]>; placesFor?: number;
 }
 
 /**
@@ -277,7 +306,28 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // ---- attack
       // (Holding what it took, it stays: breaking off would give the objectives back.)
       const tgt = objectives[mem.target] ?? main;
-      const dx = tgt.x - sx, dy = tgt.y - sy, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      // The axis of the attack (balance pass 2026-11-13): from the start, turned about the objective (up to
+      // `axisMaxDeg`) so that the support line keeps `flankClearM` from the other objectives the enemy holds
+      // (their garrisons would fire into the flank of the attack); the least turn that does, else the best.
+      // (A mounted attack keeps the straight way in: its carriers' route and dismount points are planned on it.)
+      if (mem.axis === undefined && mem.phase === "start" && squads.some((sq) => riders(view, sq).length > 0)) mem.axis = 0;
+      if (mem.axis === undefined) {
+        const b0 = atan2(sy - tgt.y, sx - tgt.x), R = COMMANDER.supportM, half = 2 * 45;
+        let best = 0, bestScore = -Infinity;
+        for (const k of [0, -1, 1, -2, 2, -3, 3]) {
+          const a = b0 + (k * COMMANDER.axisMaxDeg * PI) / 180 / 3;
+          const cx = tgt.x + cos(a) * R, cy = tgt.y + sin(a) * R;
+          if (cx < 40 || cy < 40 || cx > W - 40 || cy > H - 40) continue;
+          const pts = [-half, 0, half].map((o) => ({ x: cx - sin(a) * o, y: cy + cos(a) * o }));
+          let gap = Infinity;
+          objectives.forEach((o, i) => { if (i !== mem.target && o.holder !== side) for (const p of pts) gap = Math.min(gap, hypot2(o.x - p.x, o.y - p.y)); });
+          const score = Math.min(gap, COMMANDER.flankClearM) - Math.abs(k) * 1;
+          if (score > bestScore) { bestScore = score; best = a - b0; }
+        }
+        mem.axis = best;
+      }
+      const ax = tgt.x + cos(mem.axis) * (sx - tgt.x) - sin(mem.axis) * (sy - tgt.y), ay = tgt.y + sin(mem.axis) * (sx - tgt.x) + cos(mem.axis) * (sy - tgt.y);
+      const dx = tgt.x - ax, dy = tgt.y - ay, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
       /** Back to the start, each vehicle to its own spot in a line across the way in. */
       const back = (c: EntityId): Record<string, unknown> => {
         const off = (crews.indexOf(c) - (crews.length - 1) / 2) * 20;
@@ -339,9 +389,99 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const lateral = (k: number) => ({ x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) });
       /** The advance on foot to the support line: walk most of the way, sneak the last stretch (from where the
        *  squad is: men who got out near the line only sneak). */
+      /** Can a man lying (or, failing that, kneeling) at (x, y) fire at (tx, ty), `hz` above the ground there? 1, 0.6, 0. */
+      const posture = input.catalog.body.postures;
+      const fireLine = (x: number, y: number, tx: number, ty: number, hz: number): number => {
+        const ctx = ground();
+        // ground: ok (the commander's view of the open ground)
+        const z0 = heightAt(input.map, x, y), z1 = heightAt(input.map, tx, ty) + hz, d = hypot2(tx - x, ty - y);
+        const ok = (h: number) => { const r = sight(ctx, x, y, z0 + h, tx, ty, z1); return r.blockedBy === null || (1 - r.blockedAt) * d <= COMMANDER.lineAllowanceM; };
+        return ok(posture.prone.muzzleHeightM) ? 1 : ok(posture.crouching.muzzleHeightM) ? 0.6 : 0;
+      };
+      /** Support-by-fire places (balance pass 2026-11-13): each squad its slot on the support line, moved to the
+       *  nearby spot (closer, farther, aside) with the best field of fire onto the objective; chosen once. */
+      const slot = (i: number) => (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
+      const ensurePlaces = () => {
+        if (mem.placesFor === mem.target && mem.places !== undefined) return;
+        const foot = navFor(ground(), "foot").grid;
+        const aims = [{ x: tgt.x, y: tgt.y }, ...[0, 1, 2, 3].map((k) => ({ x: tgt.x + cos((k * PI) / 2) * tgt.radiusM * 0.6, y: tgt.y + sin((k * PI) / 2) * tgt.radiusM * 0.6 }))];
+        mem.places = {};
+        squads.forEach((sq, i) => {
+          let best: [number, number] | null = null, bestScore = -1;
+          for (const dd of COMMANDER.placeDepthsM) for (const da of COMMANDER.placeAsideM) {
+            const lat = slot(i) + da, d = COMMANDER.supportM + dd;
+            const x = clamp(tgt.x - ux * d - uy * lat, W), y = clamp(tgt.y - uy * d + ux * lat, H);
+            if (navCostAt(foot, x, y) <= 0 || indoorAt(ground(), x, y) >= 0) continue;
+            const score = aims.reduce((a, t) => a + fireLine(x, y, t.x, t.y, 0.9), 0) - (Math.abs(dd) + Math.abs(da)) * 0.002;
+            if (score > bestScore) { bestScore = score; best = [x, y]; }
+          }
+          const p = lateral(slot(i));
+          mem.places![String(sq)] = best ?? [p.x, p.y];
+        });
+        mem.placesFor = mem.target;
+      };
+      /** A squad's place on the support line. */
+      const placeOf = (i: number) => { ensurePlaces(); const p = mem.places?.[String(squads[i])]; return p ? { x: p[0], y: p[1] } : lateral(slot(i)); };
+      const centre = (sq: EntityId): { x: number; y: number } | null => {
+        const ms = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+        return ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : null;
+      };
+      /** Under fire now: one of its men is being suppressed. */
+      const underFire = (sq: EntityId) => members(view, sq).some((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mental.suppression >= COMMANDER.underFireSuppression; });
+      /** Halted, not in a drill, getting in or out, broken or mostly pinned: free to be sent on. */
+      const idle = (sq: EntityId) => {
+        const u = view.unit.get(sq);
+        if (!u || u.moving || u.drill || u.boarding || u.broken || riders(view, sq).length > 0) return false;
+        const ms = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+        const pinned = ms.filter((m) => { const b = view.soldier.get(m)!.mental.behaviour; return b === "pinned" || b === "panicked"; }).length;
+        return ms.length > 0 && pinned * 2 < ms.length;
+      };
+      /** On (or past) its place on the support line: within `arrivedM` of it, measured along the way in. */
+      const onLine = (sq: EntityId) => {
+        const c = centre(sq), i = squads.indexOf(sq), p = placeOf(i < 0 ? 0 : i);
+        return c !== null && (tgt.x - c.x) * ux + (tgt.y - c.y) * uy <= (tgt.x - p.x) * ux + (tgt.y - p.y) * uy + COMMANDER.arrivedM;
+      };
+      /** Gone to ground short of `p` (balance pass 2026-11-13): sent on after a short while, at a run under fire. */
+      const sendOn = (sq: EntityId, p: { x: number; y: number }, run = false): boolean => {
+        mem.resumeAt ??= {};
+        const c = centre(sq);
+        if (!c || hypot2(c.x - p.x, c.y - p.y) <= COMMANDER.arrivedM) return false;
+        if (!idle(sq) || tick - (mem.resumeAt[String(sq)] ?? -1e9) < COMMANDER.resumeSeconds * 60) return true;
+        // Sent on often enough (its place cannot be reached, or it keeps being stopped): it stays where it is.
+        mem.resumeN ??= {};
+        if ((mem.resumeN[String(sq)] ?? 0) >= COMMANDER.resumeMax) return false;
+        mem.resumeN[String(sq)] = (mem.resumeN[String(sq)] ?? 0) + 1;
+        order(sq, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: run || underFire(sq) ? "run" : "walk" }], facing: atan2(tgt.y - p.y, tgt.x - p.x) });
+        mem.resumeAt[String(sq)] = tick;
+        return true;
+      };
+      /** The assault position (balance pass 2026-11-13): `assaultPositionM` short of the objective, `ang` off the
+       *  line of advance (toward the start), `off` across it. */
+      const assaultPos = (ang: number, off = 0, dist: number = COMMANDER.assaultPositionM) => {
+        const bx = -ux * cos(ang) + uy * sin(ang), by = -uy * cos(ang) - ux * sin(ang);
+        return { x: clamp(tgt.x + bx * dist - by * off, W), y: clamp(tgt.y + by * dist + bx * off, H) };
+      };
+      /** Choose its bearing once: the candidate seen from the fewest of the objectives' edges and the enemies its men
+       *  know, the straighter one when equal ("flanking along covered routes"). */
+      const chooseFlank = (): number => {
+        if (mem.flank !== undefined) return mem.flank;
+        const eyes = [...objectives.flatMap((o) => [{ x: o.x - ux * o.radiusM, y: o.y - uy * o.radiusM }, { x: o.x - uy * o.radiusM, y: o.y + ux * o.radiusM }, { x: o.x + uy * o.radiusM, y: o.y - ux * o.radiusM }]),
+          ...all.flatMap((m) => knownMen(m)).sort((a, b) => a.target - b.target).slice(0, 6)];
+        const lim = (COMMANDER.flankMaxDeg * PI) / 180;
+        let best = 0, bestScore = Infinity;
+        for (const k of [0, -1, 1, -2, 2]) {
+          const a = (k * lim) / 2, p = assaultPos(a);
+          // (Away from the other objectives the enemy holds: their men would fire into its flank.)
+          const exposed = objectives.filter((o, oi) => oi !== mem.target && view.objectives[oi]?.holder !== side && hypot2(o.x - p.x, o.y - p.y) < COMMANDER.flankClearM).length;
+          const score = eyes.filter((e) => !hidden(e.x, e.y, p.x, p.y)).length + Math.abs(k) * 0.25 + exposed * 2;
+          if (score < bestScore) { bestScore = score; best = a; }
+        }
+        mem.flank = best;
+        return best;
+      };
       const advance = (sq: EntityId, i: number) => {
-        const lat = (i - (squads.length - 1) / 2) * (squads.length > 3 ? 45 : 60);
-        const p = lateral(lat);
+        const p = placeOf(i);
+        (mem.resumeAt ??= {})[String(sq)] = tick;
         const q = { x: clamp(p.x - ux * COMMANDER.sneakM, W), y: clamp(p.y - uy * COMMANDER.sneakM, H) };
         const ms = members(view, sq).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
         const here = ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : { x: sx, y: sy };
@@ -396,6 +536,37 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           mem.lastVehicleFire = tick;
         }
       }
+      /** What its men know of the enemy around the objective (seen or heard). */
+      const knownNear = () => { let n = 0; for (const m of all) for (const c of known(m)) if (hypot2(c.x - tgt.x, c.y - tgt.y) < 150) n++; return n; };
+      /** Blinding smoke (balance pass 2026-11-13): on the garrison of each other objective the enemy holds, which
+       *  would fire into the flank of the attack, repeated as the cloud thins (while rounds last). */
+      const blind = () => {
+        if (tick - (mem.lastBlind ?? -1e9) < COMMANDER.smokeEverySeconds * 60) return;
+        let any = false;
+        objectives.forEach((o, i) => {
+          if (i === mem.target || view.objectives[i]?.holder === side || supportLeft(view, side, "smoke") <= 0) return;
+          order(caller, { kind: "callFire", x: clamp(o.x - ux * COMMANDER.blindAheadM, W), y: clamp(o.y - uy * COMMANDER.blindAheadM, H), ammo: "smoke", rounds: COMMANDER.smokeRounds });
+          any = true;
+        });
+        if (any) mem.lastBlind = tick;
+      };
+      /** The fires before the assault: high explosive on the enemy its men know nearest the objective (else on it),
+       *  and (balance pass 2026-11-13) smoke between the objective and the assault position, so that the assault
+       *  element crosses the open ground under it. Each called once. */
+      const prepFires = () => {
+        if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
+          let hx = tgt.x, hy = tgt.y, best = 150;
+          for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
+          order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
+          mem.lastHe = tick;
+        }
+        if (supportLeft(view, side, "smoke") > 0 && mem.lastSmoke === undefined) {
+          const sp = assaultPos(chooseFlank()), f = COMMANDER.screenShare;
+          order(caller, { kind: "callFire", x: clamp(tgt.x + (sp.x - tgt.x) * f, W), y: clamp(tgt.y + (sp.y - tgt.y) * f, H), ammo: "smoke", rounds: COMMANDER.smokeRounds });
+          mem.lastSmoke = tick;
+        }
+        blind();
+      };
       switch (mem.phase) {
         case "start":
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
@@ -472,24 +643,25 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           break;
         }
         case "advance": {
-          // (A squad still getting out before its move has not arrived.)
-          const arrived = squads.every((sq) => !view.unit.get(sq)?.moving && !view.unit.get(sq)?.boarding);
-          if (arrived || tick - mem.phaseTick > 600 * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
+          // (A squad still getting out before its move has not arrived.) A squad that went to ground on contact
+          // short of its place moves on to it (balance pass 2026-11-13: it used to count as arrived, and the base
+          // of fire lay 430-480 m out, beyond the reach of its rifles).
+          let short = 0;
+          squads.forEach((sq, i) => { if (strength(sq) >= 0.5 && !onLine(sq) && sendOn(sq, placeOf(i))) short++; });
+          // (Two thirds of the squads in place is enough: the others come on as the fires go in.)
+          const placed = squads.filter((sq) => onLine(sq) && !view.unit.get(sq)?.boarding).length;
+          const arrived = (short === 0 && squads.every((sq) => !view.unit.get(sq)?.boarding && (onLine(sq) || !view.unit.get(sq)?.moving))) || placed * 3 >= squads.length * 2;
+          // The first squad nearing the line: the fires are called now, to land about as the squads arrive.
+          if (squads.some((sq) => { const c = centre(sq); return c !== null && (tgt.x - c.x) * ux + (tgt.y - c.y) * uy <= COMMANDER.supportM + COMMANDER.prepLeadM; })) prepFires();
+          if (arrived || tick - mem.phaseTick > COMMANDER.advanceTimeoutSeconds * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
           break;
         }
         case "recon": {
-          // Look for the enemy around the objective before going in (what the men have seen or heard).
-          let nKnown = 0;
-          for (const m of all) for (const c of known(m)) if (hypot2(c.x - tgt.x, c.y - tgt.y) < 150) nKnown++;
-          // Call the mortars now (they take a minute or more), and go in when their rounds are landing.
-          if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
-            let hx = tgt.x, hy = tgt.y, best = 150;
-            for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
-            mem.lastHe = tick;
-          }
+          // Look for the enemy around the objective before going in (what the men have seen or heard); call the
+          // mortars (they take a minute or more) unless already called, and go in when their rounds are landing.
+          prepFires();
           const fireLanding = mem.lastHe === undefined || tick - mem.lastHe >= (fireDelayS + 10) * 60;
-          if ((nKnown > 0 && fireLanding) || tick - mem.phaseTick >= Math.max(COMMANDER.reconSeconds, fireDelayS + 30) * 60) { mem.phase = "assault"; mem.phaseTick = tick; mem.lastAssault = {}; }
+          if ((knownNear() > 0 && fireLanding) || tick - mem.phaseTick >= Math.max(COMMANDER.reconSeconds, fireDelayS + 30) * 60) { mem.phase = "assault"; mem.phaseTick = tick; mem.lastAssault = {}; mem.closed = []; mem.resumeN = {}; }
           break;
         }
         case "hold":
@@ -501,8 +673,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // In the second phase, the main objective lost again comes first.
           if (mem.phase === "second" && !holds(0)) { mem.target = 0; mem.phase = "assault"; mem.lastAssault = {}; }
           if (holds(mem.target)) {
-            if (mem.target + 1 < objectives.length) { mem.target++; mem.phase = "second"; mem.phaseTick = tick; mem.lastAssault = {}; }
-            else { mem.phase = "hold"; toAll({ kind: "posture", posture: "prone" }); }
+            // Then the next objective the enemy still holds, the main one first; the main one is assaulted afresh
+            // (closing in, then fire and movement), any other by the strongest squad.
+            const next = objectives.findIndex((_, i) => !holds(i));
+            if (next >= 0) {
+              mem.target = next; mem.phase = next === 0 ? "assault" : "second"; mem.phaseTick = tick; mem.lastAssault = {};
+              delete mem.flank; delete mem.axis;
+              if (next === 0) { mem.closed = []; mem.resumeN = {}; }
+            } else { mem.phase = "hold"; toAll({ kind: "posture", posture: "prone" }); }
             break;
           }
           // The base of fire: the first squad still standing (in the second phase the weakest), the rest assault.
@@ -519,8 +697,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
             if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) }); mem.lastHe = tick; }
           }
+          if (mem.phase === "assault") blind();
           if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
-            const sx3 = clamp(tgt.x - ux * COMMANDER.smokeAheadM, W), sy3 = clamp(tgt.y - uy * COMMANDER.smokeAheadM, H);
+            // (On the assault position's side of the objective.)
+            const ap = assaultPos(chooseFlank()), af = COMMANDER.smokeAheadM / COMMANDER.assaultPositionM;
+            const sx3 = clamp(tgt.x + (ap.x - tgt.x) * af, W), sy3 = clamp(tgt.y + (ap.y - tgt.y) * af, H);
             order(caller, { kind: "callFire", x: sx3, y: sy3, ammo: "smoke", rounds: COMMANDER.smokeRounds });
             mem.lastSmoke = tick;
           }
@@ -529,41 +710,85 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const bases = ranked.slice(0, nBase);
           const assaulters = live.length > 1 ? live.filter((sq) => !bases.includes(sq)) : [ranked[0]!];
           if (bases.length > 0 && tick - mem.lastFire >= COMMANDER.refireSeconds * 60) {
-            // At the enemies the base of fire's men know near the objective (each base squad another one), else the point.
-            const used = new Set<number>();
-            for (const base of bases) {
-              let best: { target: EntityId; x: number; y: number } | null = null, bestD = 120;
-              for (const m of members(view, base)) for (const c of knownMen(m)) {
-                const d = hypot2(c.x - tgt.x, c.y - tgt.y) + (used.has(c.target) ? 60 : 0);
-                if (d < bestD) { bestD = d; best = { target: c.target, x: c.x, y: c.y }; }
+            // Distribution of fire (balance pass 2026-11-13): each man of the base of fire at another enemy its men
+            // know near the objective, at the full rate; fire lifts off an enemy its own men are close to (they
+            // are going in there); none known: at the objective while it is clear of its own men.
+            const ownFoot = all.filter((f) => { const s = view.soldier.get(f) as SoldierState | undefined; return able(s) && s!.mount === undefined && !bases.includes(view.identity.get(f)?.unit ?? -1); })
+              .map((f) => view.transform.get(f)).filter((x) => x !== undefined);
+            const clear = (x: number, y: number) => !ownFoot.some((f) => hypot2(f.x - x, f.y - y) < COMMANDER.liftM);
+            /** The enemies the base's men know within `r` of (px, py), not near its own men, in a fixed order. */
+            const near = (px: number, py: number, r: number): [EntityId, { x: number; y: number }][] => {
+              const targets = new Map<EntityId, { x: number; y: number }>();
+              for (const base of bases) for (const m of members(view, base)) for (const c of knownMen(m)) {
+                if (hypot2(c.x - px, c.y - py) > r || targets.has(c.target)) continue;
+                targets.set(c.target, { x: c.x, y: c.y });
               }
-              if (best) used.add(best.target);
-              order(base, best ? { kind: "fire", x: best.x, y: best.y, contact: best.target } : { kind: "fire", x: tgt.x, y: tgt.y, heightM: 0.5 });
-            }
+              return [...targets.entries()].sort((a, b) => a[0] - b[0]).filter(([, p]) => clear(p.x, p.y));
+            };
+            // One squad of the base keeps the other objective's garrison down while the main one is attacked
+            // (it lies on the flank of the way in), when the base has two squads or more.
+            const other = mem.target === 0 && objectives.length > 1 && !holds(1) && bases.length > 1 ? objectives[1]! : null;
+            const mainList = near(tgt.x, tgt.y, 120);
+            const sideList = other ? near(other.x, other.y, other.radiusM + 30) : [];
+            let k = 0;
+            bases.forEach((base, bi) => {
+              if (mem.maxRate?.includes(base) !== true) { order(base, { kind: "rules", ammo: "max" }); (mem.maxRate ??= []).push(base); }
+              const flankBase = other !== null && bi === bases.length - 1;
+              const list = flankBase ? sideList : mainList, aim = flankBase ? other : tgt;
+              for (const m of members(view, base)) {
+                if (!able(view.soldier.get(m) as SoldierState | undefined) || view.action.has(m)) continue;
+                // (The next enemy on the list he has a line of fire to; none: the objective, if he can fire at it.)
+                const mt = view.transform.get(m);
+                if (!mt) continue;
+                let done = false;
+                for (let j = 0; j < list.length && !done; j++) {
+                  const [id, p] = list[(k + j) % list.length]!;
+                  if (fireLine(mt.x, mt.y, p.x, p.y, 0.9) > 0) { order(m, { kind: "fire", x: p.x, y: p.y, contact: id }); k += j + 1; done = true; }
+                }
+                if (!done && clear(aim.x, aim.y) && fireLine(mt.x, mt.y, aim.x, aim.y, 0.5) > 0) order(m, { kind: "fire", x: aim.x, y: aim.y, heightM: 0.5 });
+              }
+            });
             mem.lastFire = tick;
           }
-          // Close in: grenades at an enemy an assaulting squad knows within throwing range (M6.5b).
+          // Close in: grenades at an enemy an assaulting squad knows within throwing range (M6.5b); from the
+          // assault position on (balance pass 2026-11-13) also its grenade launchers, at the nearest enemy it knows
+          // within their reach (the order's men pick hand grenade or launcher by range).
           mem.lastGrenade ??= {};
           for (const sq of assaulters) {
             if (tick - (mem.lastGrenade[String(sq)] ?? -1e9) < COMMANDER.grenadeEverySeconds * 60) continue;
+            const reach = mem.closed?.includes(sq) === true ? COMMANDER.launcherReachM : COMMANDER.grenadeRangeM;
             const men = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
-            let hit: { x: number; y: number } | null = null;
+            let hit: { x: number; y: number } | null = null, hitD = Infinity;
             for (const m of men) {
               const t = view.transform.get(m);
               if (!t) continue;
               for (const c of knownMen(m)) {
-                if (hypot2(c.x - t.x, c.y - t.y) > COMMANDER.grenadeRangeM) continue;
+                const dc = hypot2(c.x - t.x, c.y - t.y);
+                if (dc > reach || dc >= hitD) continue;
                 // Never where a friend is close to the burst.
                 if (all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - c.x, ft.y - c.y) < 15; })) continue;
-                hit = { x: c.x, y: c.y }; break;
+                hit = { x: c.x, y: c.y }; hitD = dc;
               }
-              if (hit) break;
             }
             if (hit) { order(sq, { kind: "grenade", x: hit.x, y: hit.y, count: 2 }); mem.lastGrenade[String(sq)] = tick; }
           }
+          // The assault element first runs to the assault position (once, in the first phase), then assaults.
+          mem.closed ??= [];
+          const flank = chooseFlank();
+          assaulters.forEach((sq, i) => {
+            if (mem.closed!.includes(sq)) return;
+            const off = (i - (assaulters.length - 1) / 2) * 25;
+            const late = mem.phase === "second" || tick - mem.phaseTick >= COMMANDER.closeTimeoutSeconds * 60;
+            // Not under fire, it goes on past the assault position to `closeInM`; under fire within reach of it,
+            // it goes over to fire and movement from where it is.
+            const c = centre(sq), d = c === null ? 0 : hypot2(c.x - tgt.x, c.y - tgt.y);
+            const there = d <= COMMANDER.closeInM + COMMANDER.arrivedM || (d <= COMMANDER.assaultPositionM + COMMANDER.arrivedM && underFire(sq));
+            if (late || there || !sendOn(sq, assaultPos(flank, off, COMMANDER.closeInM), true)) mem.closed!.push(sq);
+          });
           assaulters.forEach((sq, i) => {
             const u = view.unit.get(sq);
             const last = mem.lastAssault[String(sq)] ?? -1e9;
+            if (!mem.closed!.includes(sq)) return;
             if (u && !u.drill && !u.broken && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60) {
               const off = (i - (assaulters.length - 1) / 2) * 20;
               order(sq, { kind: "assault", x: clamp(tgt.x - uy * off, W), y: clamp(tgt.y + ux * off, H) });

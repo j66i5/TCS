@@ -148,12 +148,20 @@ describe("building interiors (M7.5c)", () => {
     expect(Buffer.from(a.wall.buffer).equals(Buffer.from(b.wall.buffer))).toBe(true);
   });
 
-  it("interiors add little generation time (< 150 ms per 2 x 2 km map in all)", () => {
+  it("interiors add little generation time (relative to generating without them, on the same machine)", () => {
     generateMap(terrain, { kind: "village", seed: 9 });
-    const t0 = performance.now();
-    for (const kind of MAP_KINDS) generateMap(terrain, { kind, seed: 11 });
-    const per = (performance.now() - t0) / MAP_KINDS.length;
-    console.log(`map generation with interiors: ${per.toFixed(0)} ms per map`);
-    expect(per).toBeLessThan(150 * 2); // CI machines are slower than the plan's 150 ms target
+    generateMap(terrain, { kind: "village", seed: 9, interiors: false });
+    // Alternate, best of three each: absolute times differ several-fold between machines (CI is slower).
+    let on = Infinity, off = Infinity;
+    for (let r = 0; r < 3; r++) {
+      let t0 = performance.now();
+      for (const kind of MAP_KINDS) generateMap(terrain, { kind, seed: 11, interiors: false });
+      off = Math.min(off, (performance.now() - t0) / MAP_KINDS.length);
+      t0 = performance.now();
+      for (const kind of MAP_KINDS) generateMap(terrain, { kind, seed: 11 });
+      on = Math.min(on, (performance.now() - t0) / MAP_KINDS.length);
+    }
+    console.log(`map generation: ${on.toFixed(0)} ms per map with interiors, ${off.toFixed(0)} ms without`);
+    expect(on / off).toBeLessThan(1.5);
   });
 });

@@ -2070,3 +2070,6 @@ every one "unchanged"); one new golden `village-occupy-s1`. No data file in the 
   (a grenade outside below an upstairs window is judged by its two end heights), upper-floor bursts as ground bursts,
   keyboard keys for floors, ammunition hand-over across floors (distance is horizontal only), stairs constants into
   data, the AI using buildings (M7.5e, owner).
+
+## 2026-11-13 — Map generation timing test made relative
+CI measured 425 ms per map against an absolute 300 ms bound (the container measures ~170 ms). The test now compares generation with interiors against generation without them on the same machine (best of three, alternating) and asserts at most 1.5x; absolute times vary several-fold between machines.

@@ -2261,3 +2261,55 @@ round's maximum age). To confirm on a quiet machine: `npm run test:perf`.
   at 2400 s (the app's battle) 4/10 and 6/10. Open for the owner: balance length, 15 m rushes, hand smoke grenades.
 - **Goldens unchanged** (they replay stored orders, not the AI; no data changed): golden test passes without
   `golden:update`, the no-interiors equivalence goldens included.
+
+## 2026-11-13 — Armour no longer backs out of every fight (owner change)
+Owner (2026-11-13): "Make armour not back out of every fight." **Supersedes** the morning confirmation of the
+reverse-out triggers ("Owner answers to the morning review": "Crews reverse out as now ... struck by any rocket,
+disarmed, commander shaken, or enemy infantry within 150 m"). Game values, logged, low confidence; tune if batches
+show a problem.
+- **Triggers now** (`crewReactionSystem`, armour.ts): penetrated and still mobile (kept); disarmed (kept); commander
+  **panicked** (`reaction.panicked`; shaken no longer counts); an enemy man on foot its crew saw in the last 10 s
+  within `atThreatM` **50 m** (was 150 m) that **none of its guns can fire at** from where it stands
+  (`canEngageAt`, gunnery.ts: a station with an operator, an unwrecked, loaded gun or MG in reach, bearing in its
+  arc, elevation within its limits — the Puma's -10° and the BMP-2's -5° leave a dead zone of about 11-15 m — and a
+  clear line from the muzzle); the key is `reaction.atClose` when he carries a loaded launcher, else
+  `reaction.atThreat`. The fire rule no longer matters (before: any known man within 150 m while the rule was not
+  "free" — under the default "return" nearly every fight with infantry). **Dropped:** a shaped charge that bounces
+  off (`reaction.rocketHit`; `lastShapedHitTick` is still recorded) and the shaken commander (`reaction.shaken`).
+- **Hold** `reverseHoldSeconds` 30 → **15** (the AI's `reverseOutHoldSeconds`, which leaves a reversing crew alone,
+  15 to match). **Back to its position:** when no reason was damage, the vehicle keeps `returnTo` (where it stood;
+  kept if it is driven off again on the way back) and, when the hold ends with no reason left, drives back there at
+  the walking pace facing as it did (`vehicle.reaction` continue, `reaction.returning`); `returnTo` is dropped on
+  arrival, on penetration/disarm and on any move or halt order.
+- **Player's orders:** `Order.player?: true` (set by the app's `issue` for every order the player gives; AI and
+  scripted orders carry none). A move or halt order with it sets `VehicleState.playerHold` (`noteVehicleOrder`,
+  drive.ts; any move/halt without it clears it): such a vehicle reverses out only when penetrated or disarmed, not
+  for close infantry or a panicked commander. Both new fields are optional (absent normally); schema stays 17.
+- **Shown:** debug overlay lines for `returnTo` and `playerHold`; new strings `reaction.panicked`,
+  `reaction.atClose`, `reaction.returning`, `debug.vehicle.returnTo`, `debug.vehicle.playerHold`
+  (`reaction.atThreat` reworded "enemy infantry too close to fire at"); HOW_IT_WORKS.md and ARCHITECTURE.md updated.
+- **Tests** (components.test.ts): a bouncing RPG no longer drives a Puma back; infantry it can fire at 120 m (rule
+  not free) does not; penetration still does (smoke, reverse, stays back after the hold); men in the Puma's dead
+  zone do, and it drives back to where it stood once they are gone; a player's halt holds against them but not
+  against penetration. Debug overlay test extended.
+- **Batches** (10 runs, seeds 1..10; reversed out per battle blue / red; vehicles lost blue / red; attacker wins):
+
+  | Batch | Before | After |
+  |---|---|---|
+  | platoon-vehicles 900 s | rev 0.2 / 0.3; lost 0.1 / 2.3; DE wins 2 | rev 0.2 / 0.3; lost 0.1 / 2.3; DE wins 2 (identical per seed) |
+  | platoon-vehicles 2400 s | rev 0.2 / 0.3; lost 0.1 / 2.3; DE wins 3 | identical |
+  | platoon-ru-vehicles 900 s | rev 0.9 / 0.8; lost 0.3 / 1.5; RU wins 0 | rev 0.5 / 0.8; lost 0.5 / 1.4; RU wins 0 |
+  | platoon-ru-vehicles 2400 s | rev 0.9 / 0.8; lost 0.3 / 1.5; RU wins 0 | rev 0.5 / 0.8; lost 0.5 / 1.7; RU wins 0 |
+  | platoon 900 s (on foot) | DE wins 1 (14.4 / 10.3 casualties) | identical |
+  | platoon-ru 900 s (on foot) | RU wins 8 (12.8 / 15.5) | identical |
+
+  Reasons over the 10 × 900 s runs: platoon-vehicles before penetrated 5, rocket 2 → after penetrated 5;
+  platoon-ru-vehicles before rocket 7, penetrated 8, shaken 5 → after penetrated 9, panicked 4. The close-infantry
+  trigger never fired in AI battles before either (the AI sets its crews "free" after the dismount): the owner's
+  "every fight" was the player's own vehicles under the default "return" rule, which this change addresses most.
+  No balance problem shown; no tuning.
+- **Goldens:** behaviour.json changed, so the catalog fingerprint (part of every state hash) changed: `golden:update`
+  for all regular goldens. Infantry/demo/shootout/fixture behaviour unchanged: final states with the fingerprint
+  blanked are identical before/after for demo-s1 120 s, shootout-s1 180 s, demo-fixture-s7 90 s, platoon-s1 900 s,
+  platoon-ru-s1 900 s and village-occupy-s1 180 s. Vehicle goldens change intentionally. The no-interiors goldens
+  stay skipped (catalog differs since the BMP-2 missile), not regenerated.

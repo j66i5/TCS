@@ -500,11 +500,17 @@ better than BMP-2; a fire in the ammunition is twice as hard to put out). If it 
 tries again a moment later; with none left — or with the extinguisher wrecked — the crew gets out as before.
 
 **Crews that back off.** A crew whose vehicle can still drive decides once a second whether to fight on or to
-**reverse out**: when it has been penetrated, struck by a rocket (even one that did not get through, like an RPG on
-a Puma's front), lost its weapons, when its commander is shaken, or when enemy infantry is close and it has not been
-told to fire at will. It fires its smoke screen toward the danger and backs away about 60 m — in reverse if the
-danger is in front, so its front armour and gun still face it — and stays there for half a minute. The radio says
-"under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
+**reverse out**. Since the owner's change of 13 November ("make armour not back out of every fight") it backs off
+only when it has really been hurt or really cannot defend itself: when it has been penetrated, when its weapons are
+out of action, when its commander panics (being merely shaken is not enough), or when an enemy soldier on foot is
+right next to it — within about 50 m — and none of its guns can fire at him (too close for the gun to point down
+at him, behind a wall, or no working gun left). A rocket that bounces off the armour, or ordinary rifle and machine
+gun fire, no longer sends it back. When it does back off, it fires its smoke screen toward the danger and backs
+away about 60 m — in reverse if the danger is in front, so its front armour and gun still face it — and waits there
+about 15 seconds. If it backed off because of enemies close by or a panicking commander (not because it was hit),
+it then drives back to where it stood and rejoins the fight, unless something new drives it off again. A vehicle
+you have given a move or halt order to holds that order against enemies close by and a panicking commander: only a
+penetration or lost weapons make it back off. The radio says "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
 select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
 it from one of their own side's vehicles, abandoned ones included, if it carries what their weapon uses — never from
 an enemy vehicle (owner's choice, 2026-11-13).

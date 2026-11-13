@@ -686,12 +686,19 @@ extinguisher component and a charge (`VehicleDef.extinguisher.item`, counted in 
 
 **Crew reactions.** `crewReactionSystem` (after `moraleSystem`, staggered `reactionStepSeconds`): for a crewed
 vehicle that is `ok`/`disarmed` with a driver and an able crewman, reasons `reaction.penetrated` (lastPenTick),
-`reaction.rocketHit` (`lastShapedHitTick`, set by every shaped-charge strike), `reaction.disarmed`,
-`reaction.shaken` (commander shaken/panicked), `reaction.atThreat` (enemy men its crew saw within `atThreatM` while
-its fire rule is not free) → `reverseOut`: smoke (turret swung to the threat if idle), `vehicleMove` `reverseOutM`
-away from `threatAz` (the bearing the last heavy/penetrating/shaped hit came from), reverse legs if the threat is
-ahead, ending facing it; held `reverseHoldSeconds`; `vehicle.reaction` event (debug overlay: `VehicleDebug` keeps
-the last per vehicle). Bail-out stays in `afterDamage`/`vehicleDamageSystem`.
+`reaction.disarmed`, and — unless `playerHold` (its last move/halt order carried `Order.player`, set by the app's
+`issue`; `noteVehicleOrder` in drive.ts) — `reaction.panicked` (commander panicked; shaken is not enough) and
+`reaction.atThreat` / `reaction.atClose` (the nearest enemy man on foot its crew saw in the last 10 s within
+`atThreatM` that `canEngageAt` (gunnery.ts: an operator, a loaded unwrecked gun or MG in reach, the bearing in its
+arc, the elevation within its limits, a clear line from the muzzle) says it cannot fire at; `atClose` when he has a
+loaded launcher (`launcherRound`)) → `reverseOut`: smoke (turret swung to the threat if idle), `vehicleMove`
+`reverseOutM` away from the man or from `threatAz` (the bearing the last heavy/penetrating hit came from), reverse
+legs if the threat is ahead, ending facing it; held `reverseHoldSeconds`; `vehicle.reaction` event (debug overlay:
+`VehicleDebug` keeps the last per vehicle, and shows `returnTo` and `playerHold`). A shaped-charge strike that
+does not get through (`lastShapedHitTick`) is no reason (owner 2026-11-13). Without damage among the reasons the
+vehicle keeps `returnTo` (where it stood; kept across a second reverse on the way back) and, when the hold ends with
+no reason, drives back there (`reaction.returning`); `returnTo` goes on arrival, on damage and on any move/halt
+order. Bail-out stays in `afterDamage`/`vehicleDamageSystem`.
 
 **Crew on foot.** When the bail-out has run, the crew unit loses `vehicle`, gains `exVehicle`, and the hull's `unit`
 becomes null: every order path (`orderApplies`, `vehicleClassOf`, `applyOrder`) then treats it as a foot unit.

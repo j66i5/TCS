@@ -322,6 +322,26 @@ indoors gives each man his own place (`indoorSpots`: windows first, 0.9 m grid, 
 nearest rooms next) and route, no formation, crouching facing out; a unit leaving a building comes out on
 personal routes to its formation slots. Indoors a man does not run outside to seek cover (`seekCover`).
 
+**Upper floors (M7.5d).** `Transform.z` is a man's height above the ground (0 outdoors; k × storeyHeightM on floor k;
+a seat's height aboard). `standZ(map, t[, x, y])` (`terrain.ts`) = `heightAt + t.z` is where every soldier height
+starts (spotting eye and target point, muzzles in `fire.ts`, launcher, grenade origin and blast victims, surrender,
+`coveredFrom`); an enemy man's floor goes into aim heights (`aimHeightAt`, launcher `aimHeight`). An architecture
+test requires every `heightAt(` in `sim/src/systems` and `ai/src` to go through `standZ` or carry a
+`// ground: ok` marker. `floorAtZ(b, z)` / `floorOf(ctx, x, y, z)` derive the floor. The interior graph appends,
+after the M7.5c ground-floor nodes (so ground-floor routes are unchanged), the upper floors' doorways and breaches
+and one node at the foot and one at the head of each flight of stairs, joined like a doorway (cost × 2.5).
+`routeBetween(..., opts, { sz, gz })` takes the start's and goal's heights and, when either is above the ground
+floor, returns `zs` (each point's height); `routeWaypoints(route, base)` turns a route into waypoints with
+`Waypoint.z`. Movement climbs or descends evenly along a leg whose waypoint has a `z` (stairs: × 0.5 up, × 0.6
+down); a leg without one keeps the height indoors and returns to the ground outdoors. Orders: `move.floor` (the
+floor of the destination; `indoorSpots(ctx, bi, x, y, n, floor)` spreads men about one per 4.5 m² over rooms, then
+floors) and `occupy {building, floor?, facing?}` (`systems/occupy.ts`: `windowPlaces` 0.5 m inside each window of
+every floor, facing out, kneeling if the rifle clears the sill by 0.25 m, else standing; `occupyPlaces` picks those
+facing `facing` first). No state schema bump: `Waypoint.z` and the new order are optional additions.
+Render: men at true size from the close zoom; `BuildingLayers.upper` holds one plan per building and floor (built
+when first shown); `Overlay.floor`; men indoors on another floor drawn at 35 % with a pixel badge. UI:
+`ui/src/floors.ts` (`unitFloor`, `followFloor`, `createFloorSwitch`), Occupy order mode.
+
 ## 16b. Body model (SPEC 6.2, 6.4) — `sim/src/systems/body.ts`, `core/body.json`
 
 `SoldierState.posture`, `postureTo`, `postureDoneTick`; `physical.fatigue` (0..1), `physical.heartRateBpm`.

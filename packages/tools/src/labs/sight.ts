@@ -39,9 +39,9 @@ function ridge(m: MapDef, cx: number, h: number, w: number): void {
 }
 
 
-function look(ctx: SimContext, range: number, observer: Posture, target: Posture, situation: string): SightRow {
+function look(ctx: SimContext, range: number, observer: Posture, target: Posture, situation: string, floorZ = 0): SightRow {
   const x0 = 20, y = 50, x1 = 20 + range;
-  const z0 = heightAt(ctx.map, x0, y) + eyeHeightM(ctx, observer);
+  const z0 = heightAt(ctx.map, x0, y) + floorZ + eyeHeightM(ctx, observer);
   const z1 = heightAt(ctx.map, x1, y) + TARGET_POINT_M[target];
   const s = sight(ctx, x0, y, z0, x1, y, z1);
   return { situation, rangeM: range, visibility: s.visibility, blockedBy: s.blockedBy ?? "", vegetationM: s.vegetationM };
@@ -71,6 +71,10 @@ export function sightLab(data: DataSet): SightRow[] {
   const crest = ctxFor(cat, strip(cat, (m) => ridge(m, 170, 4, 120)));
   for (const t of ["standing", "prone"] as Posture[]) rows.push(look(crest, 300, "standing", t, `beyond a 4 m crest (crest at 150 m, target at 300 m), target ${t}`));
   rows.push(look(crest, 150, "standing", "prone", "on the 4 m crest itself, target prone"));
+  // From a first-floor window (M7.5d: eyes 2.8 m higher, as at an upstairs window).
+  rows.push(look(hedge, 150, "standing", "standing", "a 2 m hedge in between, observer at a first-floor window", 2.8));
+  for (const t of ["standing", "prone"] as Posture[]) rows.push(look(wall, 61, "standing", t, `target ${t} right behind a 1.1 m wall, observer at a first-floor window`, 2.8));
+  rows.push(look(crest, 300, "standing", "standing", "beyond a 4 m crest, target standing, observer at a first-floor window", 2.8));
   const house = (openings: boolean) => ctxFor(cat, strip(cat, (m) => {
     m.buildings.push({ id: 1, kind: "house", footprint: [100, 40, 110, 40, 110, 60, 100, 60], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColour: "#8c4a3b",
       openings: openings ? [{ wall: 1, offsetM: 10, widthM: 1.2, kind: "window", sillM: 0.9, headM: 2.1 }, { wall: 3, offsetM: 10, widthM: 1.2, kind: "window", sillM: 0.9, headM: 2.1 }] : [] });

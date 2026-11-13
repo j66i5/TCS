@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (M7.5c Interiors done; M7.5b Look, M7.5a UI shell done; M7 Vehicles complete)._
+_Last updated: 2026-11-13 (M7.5d Upper floors done — M7.5 complete; M7 Vehicles complete)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -33,8 +33,17 @@ again to its formation; indoors men do not run out to seek cover; backblast by r
 walls, doorways and stairs when the roof fades; Debug draws the interior graphs. **Equivalence proof:** the pre-c
 goldens are kept in `packages/tools/golden/no-interiors/` and replay bit for bit with interiors off; goldens
 regenerated once (DECISIONS.md "M7.5c Interiors", with the on/off batch comparison). Screenshots
-`npm run screenshot -- --scene interiors`. **Next: M7.5d Upper floors** (stairs as routes, `t.z`, Occupy order,
-floor switch).
+`npm run screenshot -- --scene interiors`.
+**M7.5d Upper floors ✅ (M7.5 complete):** men climb the stairs (`Waypoint.z`, `t.z` = height above the ground;
+stairs at half pace) to any floor; `standZ` for every soldier height (eyes, muzzles, targets, launcher, grenades,
+blast, surrender, cover; architecture test with `// ground: ok`); a squad ordered into a house spreads about one
+man per 4.5 m² over the rooms, then the floors (fix from the M7.5c screenshots); the move goes to the floor on
+screen; new order **Occupy** `{building, floor?, facing?}` with an Occupy button (tap a house): window places on
+every floor facing the nearest known enemy first; men fire from upper windows. Floor switch G, 1, 2 … (follows the
+selected unit), upper-floor plans drawn, men on other floors faint with a floor badge, men at true size close in.
+New scenario/golden `village-occupy-s1`; existing goldens unchanged. Decisions: DECISIONS.md "M7.5d Upper floors".
+Screenshots `npm run screenshot -- --scene floors`. **Next:** the owner's morning review of M7.5 (all decisions
+made without him); M7.5e "AI uses buildings" only if he wants it.
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —

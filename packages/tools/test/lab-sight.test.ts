@@ -77,4 +77,8 @@ describe("line-of-sight lab", () => {
     for (let r = 0; r <= m.rows; r++) m.heights[r * (m.cols + 1) + c0] = 1;
     for (const x0 of [0.5, 1, 1.3, 2, 2.7, 3.9]) expect(sight(sim.ctx, x0, 50, 0.8, 199 + x0 / 10, 50, 0.8).blockedBy).toBe("ground");
   });
+  it("from a first-floor window (M7.5d) a man sees over a hedge; a man prone right behind a wall stays hidden", () => {
+    expect(row("hedge in between, observer at a first-floor window").visibility).toBeGreaterThan(row("a 2 m hedge in between").visibility);
+    expect(row("prone right behind a 1.1 m wall, observer at a first-floor window").blockedBy).toBe("wall");
+  });
 });

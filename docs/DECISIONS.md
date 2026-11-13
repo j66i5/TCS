@@ -2015,3 +2015,58 @@ Plan `docs/plans/m7.5-look.md` §5. The map changes once; goldens regenerated on
 - **Deferred to M7.5d:** upper floors for men (stairs as routes, `t.z`, floor switch, Occupy with window spots,
   heights audit), slabs in `lineBlocked` for lines leaving a building, enemy floor badges. **Later:** doors with
   state, windows as ways in, dark rooms, AI use of buildings (M7.5e), a room-level breach test for backblast.
+
+## 2026-11-13 — M7.5d Upper floors: implementation choices (decided without the owner, for the morning review)
+Plan `docs/plans/m7.5-look.md` §6. Goldens: the six existing goldens **unchanged** (`npm run golden:update` reported
+every one "unchanged"); one new golden `village-occupy-s1`. No data file in the catalog changed (strings only).
+- **Squad spread (parent review of the M7.5c screenshot: six men crowded in one room corner).** `indoorSpots` now
+  takes about **one man per 4.5 m²** of each room (was 2.5), windows first (nearest the tapped point), then grid
+  places each as far as possible from those taken (never closer than 0.8 m), then the other rooms of that floor
+  (nearest first), then the other floors (nearest first; once stairs are routes). Interior placement changes only
+  for men ordered into a building: no golden does that, so no golden changed (outdoor-only goldens verified equal).
+- **Men at true size close in** (same review: figures looked twice life size in rooms). From the close zoom
+  (≥ `CLOSE_SCALE`) the sprite is drawn at exactly 1 m; the readable minimum (`MIN_FIGURE_PX`) applies only at the
+  mid zoom. There is a step in size at the boundary (24 → 16 px on a phone at 16 px/m): accepted, the rooms read right.
+- **Heights.** `standZ(map, t, x?, y?)` = `heightAt + t.z` (takes the map, not ctx: terrain.ts has no context).
+  Audited: spotting eye and target point, fire line-of-fire and shot muzzles, launcher (wall behind, line, origin),
+  grenade origin and blast victims, surrender, `coveredFrom` (own and the threat's floor), aim heights at an enemy
+  upstairs (`aimHeightAt`, launcher `aimHeight`, vehicle crews' target line). Vehicle/ground sites carry
+  `// ground: ok` (architecture test). Men on foot always had `t.z = 0`, so every audited site is bit-identical for
+  them; men aboard are excluded at each site as before. A burst on an upper floor still counts as "in the air" for
+  its fragment cone (changing that touched vehicle HE on walls in goldens; deferred).
+- **Stairs.** One graph node at the foot and one at the head of each flight, joined like a doorway; the edge costs
+  **× 2.5** its run; walking pace on stairs **× 0.5 up, × 0.6 down** (constants in code, not data — moving them to
+  `body.json` would change the catalog fingerprint and every golden; later). Upper-floor nodes are appended after
+  the M7.5c ones, so ground-floor routes keep their node order. Height is interpolated evenly along a leg whose
+  waypoint has `z`; a leg without one keeps the height indoors and comes down to 0 outdoors (safety net for any
+  route planned without heights).
+- **No state schema bump**: `Waypoint.z`, `move.floor` and the `occupy` order are optional additions; older saves
+  load. Save half-way up the stairs round-trips (test).
+- **Occupy** `{building (id), floor?, facing?}`: window places 0.5 m inside every window of every floor, facing out;
+  he kneels if his rifle clears the sill by 0.25 m (crouch muzzle 0.95 m, usual sill 0.9 m: so he stands — kneeling
+  put the muzzle 5 cm over the sill and lines out of the window clipped it), else stands. Places facing `facing`
+  first, the floor given first, otherwise upper floors before lower (they see further); no two within 1.2 m;
+  men left over take `indoorSpots` places. Without `facing`, round the walls. The app's Occupy button: tap a
+  building; `facing` = towards the nearest enemy the side knows (else none); the floor shown is passed as `floor`.
+  Runs to the places ("run").
+- **Floor switch** (`ui/src/floors.ts`): a column of buttons (top floor first) at the right of the free area, shown
+  when the selected unit has men in a multi-storey building or, close in, a multi-storey house with an interior is
+  in view; it follows the floor most of the selected unit's men indoors stand on (ties: lower) whenever the
+  selection or that floor changes; a pick holds until then. No keyboard keys (1/2/… could clash; later).
+  A move tapped inside a building goes to the floor shown.
+- **Rendering**: the plan of the floor shown (floor a shade lighter, that floor's windows, inner walls, stairs) is
+  drawn over the ground floor where the roof is lifted, built per building and floor when first needed; a building
+  with fewer floors shows its top floor. Men inside on another floor: 35 % and a 3 × 5 pixel badge (G, 1, 2 …).
+  Debug draws the ground-floor interior graph only (plus stair links).
+- **New scenario `village-occupy`** (demo squads, front 300 m): the German squad occupies the nearest two-storey
+  house facing the Russian squad and fires at will; the Russians advance to 60 m short of it. Seed 1, 240 s
+  headless: 35 shots, Russians 1 killed 1 wounded, Germans unhurt (4 men upstairs at windows). Golden 180 s.
+- **Sight lab rows**: observer at a first-floor window sees a man over a 2 m hedge at 150 m (100 % vs 10 % from the
+  ground); a man prone right behind a 1.1 m wall at 61 m stays hidden (physically right: the line still grazes the wall).
+- **Perf.** bench-vehicles measured 7.9x (floor 8x) in this container — the commit before this slice measured
+  8.0x (7.98, failing too) in the same container minutes later: the machine, not the slice (the slice adds a `t.z`
+  test per moving man and a lookup per gunnery candidate). Other perf tests passed (render < 4 ms).
+- **Deferred:** enemy floor badges on contacts (plan §7.15), slabs in `lineBlocked` for lines leaving a building
+  (a grenade outside below an upstairs window is judged by its two end heights), upper-floor bursts as ground bursts,
+  keyboard keys for floors, ammunition hand-over across floors (distance is horizontal only), stairs constants into
+  data, the AI using buildings (M7.5e, owner).

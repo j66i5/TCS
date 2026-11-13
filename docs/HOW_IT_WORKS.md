@@ -562,7 +562,7 @@ one big room. Every room can be reached from a door (checked for every generated
 What it changes in the battle:
 - **Seeing and shooting:** an inner wall blocks sight and stops or slows a bullet like any wall (brick, 12 cm);
   you see and shoot through a doorway. The floor between two storeys blocks sight and stops or is pierced like the
-  roof (same material). Upstairs windows let you see into (and later, M7.5d, out of) the upper floors.
+  roof (same material). Upstairs windows let you see into and out of the upper floors.
 - **Blast:** an inner wall or a floor shields a man from a burst on its other side; a charge can blow a hole in an
   inner wall, and men can then walk through it.
 - **Walking in:** tap a move inside a house and the squad goes in: each man by his own way through the nearest door
@@ -575,8 +575,26 @@ What it changes in the battle:
   the hall a shade lighter and the stairs with their steps and an arrow up. In Debug the paths inside each house
   are drawn: doorway points (cyan), doors to the outside (orange) and the lines a man may walk.
 
-Upper floors (climbing the stairs, firing from upstairs windows, the "Occupy" order and a floor switch) are the
-next slice, M7.5d. The AI does not yet use buildings on purpose (M7.5e).
+## Upstairs (M7.5d)
+Men can now go up and down the **stairs**. A man's height above the ground is part of his position: 0 outdoors and
+on the ground floor, 2.8 m (one storey) on the first floor, and in between on the stairs, which he climbs at about
+half his pace. Everything that depends on how high a man stands uses that height: what he sees from a window, where
+his rifle, rocket or grenade starts, where others aim at him, which blast reaches him (the floor between two storeys
+shields a man upstairs from a grenade bursting below him), whom he can take prisoner.
+- **Moving upstairs:** the floor switch (buttons G, 1, 2 … at the right of the map) shows the floor you are looking
+  at; a move tapped inside a house goes to that floor. The squad spreads over the rooms (about one man per 4–5 m²,
+  windows first, then the other rooms, then the other floors) instead of crowding into one corner.
+- **Occupy:** select a squad, press **Occupy** and tap a house: every man takes a window, those facing the nearest
+  enemy your men know first, on all floors (upper floors see further), kneeling or standing so his rifle clears
+  the sill; the men left over take places inside. From there they fire out of the windows.
+- **On screen:** close in, men are drawn at their true size so the rooms read right. The floor switch appears when
+  your selected unit is inside or a house of more than one storey is opened up close in, and it follows the
+  selected unit's floor until you pick one yourself. The plan of the floor shown is drawn over the ground floor;
+  men on another floor are drawn faint with a small badge giving their floor.
+- `npm run lab -- sight` has rows for an observer at a first-floor window: he sees over a 2 m hedge, but a man
+  lying right behind a wall stays hidden.
+
+The AI does not yet use buildings on purpose (M7.5e, for the owner to decide).
 
 ## Does an attack work?
 

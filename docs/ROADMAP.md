@@ -174,7 +174,9 @@ white flags on the map; the after-action review lists surrendered and captured m
   never overlap, overview vehicle symbols, appearance data; **M7.5b look ✅** 2026-11-12: zoom levels, opening
   zoomed in, original pixel soldiers, flat pixel map, contours only far, roofs that fade; **M7.5c interiors ✅**
   2026-11-13: rooms, inner walls, doorways, stairs and upper windows in every building, sight/bullets/blast with
-  inner walls and floors, squads ordered into, out of and between rooms; next M7.5d upper floors)
+  inner walls and floors, squads ordered into, out of and between rooms; **M7.5d upper floors ✅** 2026-11-13:
+  stairs, heights, floor switch, Occupy order, men at true size close in. **M7.5 complete**; M7.5e "AI uses
+  buildings" waits for the owner)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.
   - A sidebar lists every unit of the player's side; tapping an entry selects the unit.

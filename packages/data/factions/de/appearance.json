@@ -1,5 +1,5 @@
 {
-  "uniform": { "base": "#5f6b45", "dark": "#3b4430", "light": "#828c5e", "helmet": "#4c5638", "skin": "#d2a77f" },
+  "uniform": { "base": "#4d6b36", "dark": "#2e4424", "light": "#7a9a52", "helmet": "#43603a", "skin": "#d2a77f" },
   "vehicle": { "hull": "#56603f", "dark": "#353c29" },
-  "note": "Original colour choices (M7.5, docs/ASSETS.md): muted olive tones in the spirit of a woodland camouflage; NATO-style green paint. Presentation only, outside the catalog."
+  "note": "Original colour choices (M7.5, docs/ASSETS.md): green tones in the spirit of a woodland camouflage (made greener at the owner's review, 2026-11-13); NATO-style green paint. Presentation only, outside the catalog."
 }

@@ -1,9 +1,9 @@
 /**
  * Components, fire, crew reactions and cross-loading (M7.4b, plan §8, C6, C8, C12, C16, C21, C63): damage to a
  * part changes what the vehicle can do as the table says; the extinguisher's charges are counted; a crew struck by
- * a rocket fires smoke and reverses out; a crew that bailed out takes orders on foot; men take belts from an
- * abandoned enemy hull; a wrecked radio takes the crew off the net; the fixture's active protection and add-on
- * tiles; wrecks and vehicle records come out of the battle and go into the next.
+ * a rocket fires smoke and reverses out; a crew that bailed out takes orders on foot; men take belts from their
+ * own side's abandoned hull (never the enemy's); a wrecked radio takes the crew off the net; the fixture's active
+ * protection and add-on tiles; wrecks and vehicle records come out of the battle and go into the next.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -203,35 +203,48 @@ describe("crew reactions (M7.4b, plan §8, C21)", () => {
   });
 });
 
-describe("cross-loading from an abandoned hull (M7.4b, plan C6)", () => {
-  it("men take belts from an abandoned enemy hull; item totals are conserved", () => {
-    // Both sides Russian: a blue machine-gunner out of belts near the red BMP-2, abandoned by its crew.
+describe("cross-loading from an abandoned hull (M7.4b, plan C6; own side only, owner 2026-11-13)", () => {
+  /** A blue machine-gunner out of belts a few metres behind the `side` BMP-2, abandoned by its crew (both sides Russian). */
+  function setup(side: "blue" | "red"): { sim: Sim; hull: EntityId; mc: ReturnType<Sim["state"]["container"]["req"]>; belt: string; gunner: EntityId } {
     const sim = createSim(duel(data, ["ru", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1000, y: 600, heading: Math.PI } }));
     holdAll(sim);
-    const red = [...sim.state.vehicle.entries()].find(([, v]) => v.side === "red")![0];
-    const v = sim.state.vehicle.req(red);
+    const hull = [...sim.state.vehicle.entries()].find(([, v]) => v.side === side)![0];
+    const v = sim.state.vehicle.req(hull);
     v.crewReaction = "bailOut"; v.reactionTick = sim.state.tick - 100000; v.reactionWhy = ["reaction.crewOut"];
     run(sim, 1);
     expect(v.status).toBe("abandoned");
     // Its crew walks off (out of the way).
-    const exCrew = [...sim.state.unit.values()].find((u) => u.exVehicle === red)!;
+    const exCrew = [...sim.state.unit.values()].find((u) => u.exVehicle === hull)!;
     for (const m of exCrew.members) { const t = sim.state.transform.req(m); t.x = 2300; t.y = 100; }
     const gunner = [...sim.state.identity.entries()].find(([id, i]) => i.side === "blue" && sim.state.weapon.get(id) !== undefined && sim.ctx.catalog.weapons[sim.state.weapon.get(id)!.weapon]!.sustained !== undefined && sim.state.soldier.req(id).mount === undefined)![0];
     const belt = sim.ctx.catalog.weapons[sim.state.weapon.req(gunner).weapon]!.feed.magazine;
     const mc = sim.state.container.req(gunner);
     removeItems(mc, belt, countItems(mc, belt));
     sim.state.weapon.req(gunner).lowAmmoReported = true;
-    // He stands a few metres behind the hull (its doors face east).
-    const t = sim.state.transform.req(red), gt = sim.state.transform.req(gunner);
-    gt.x = t.x + 6; gt.y = t.y;
-    const total = () => countItems(sim.state.container.req(red), belt) + countItems(mc, belt);
-    const before = total(), inHull = countItems(sim.state.container.req(red), belt);
-    expect(inHull).toBeGreaterThan(0);
+    // He stands a few metres behind the hull (by its doors).
+    const t = sim.state.transform.req(hull), gt = sim.state.transform.req(gunner);
+    gt.x = t.x + (t.heading === 0 ? -6 : 6); gt.y = t.y;
+    expect(countItems(sim.state.container.req(hull), belt)).toBeGreaterThan(0);
+    return { sim, hull, mc, belt, gunner };
+  }
+  it("men take belts from their own side's abandoned hull; item totals are conserved", () => {
+    const { sim, hull, mc, belt, gunner } = setup("blue");
+    const total = () => countItems(sim.state.container.req(hull), belt) + countItems(mc, belt);
+    const before = total();
     const ev: SimEvent[] = [];
     run(sim, 20, (e) => ev.push(e));
     expect(countItems(mc, belt)).toBeGreaterThan(0);
-    expect(ev.some((e) => e.kind === "items.transferred" && e.from === red && e.to === gunner)).toBe(true);
+    expect(ev.some((e) => e.kind === "items.transferred" && e.from === hull && e.to === gunner)).toBe(true);
     expect(total()).toBe(before);
+  });
+  it("an abandoned enemy hull is refused: nothing is taken from it", () => {
+    const { sim, hull, mc, belt } = setup("red");
+    const inHull = countItems(sim.state.container.req(hull), belt);
+    const ev: SimEvent[] = [];
+    run(sim, 20, (e) => ev.push(e));
+    expect(ev.some((e) => e.kind === "items.transferred" && e.from === hull)).toBe(false);
+    expect(countItems(sim.state.container.req(hull), belt)).toBe(inHull);
+    expect(countItems(mc, belt)).toBe(0);
   });
 });
 

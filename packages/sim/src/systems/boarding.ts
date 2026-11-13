@@ -283,16 +283,10 @@ registerActionHandler("takeFromVehicle", {
   },
 });
 
-/** Nobody able aboard (an abandoned hull: anyone may take from it, M7.4b plan C6). */
-function emptyHull(state: SimState, v: VehicleState): boolean {
-  for (const m of v.seats) if (m !== null && isAble(state.soldier.get(m))) return false;
-  return true;
-}
-
 /**
  * A halted own vehicle (his unit's carrier first, else the nearest) within reach that carries this item: where
- * a man out of spare goes for more (M7.2). M7.4b: also an abandoned hull of either side with nobody able aboard
- * (cross-loading: he takes what fits his weapon). null when there is none.
+ * a man out of spare goes for more (M7.2). M7.4b: an own hull abandoned by its crew counts too (cross-loading:
+ * he takes what fits his weapon); the owner's review (2026-11-13): never an enemy hull. null when there is none.
  */
 export function vehicleSource(ctx: SimContext, state: SimState, id: EntityId, item: string): EntityId | null {
   if (state.vehicle.size === 0) return null;
@@ -303,7 +297,7 @@ export function vehicleSource(ctx: SimContext, state: SimState, id: EntityId, it
     const v = state.vehicle.get(vid);
     const def = v ? ctx.catalog.vehicles[v.def] : undefined;
     if (!v || !def || v.status === "destroyed" || v.fire !== null || !halted(v)) return Infinity;
-    if (v.side !== ident.side && !(v.status === "abandoned" && emptyHull(state, v))) return Infinity;
+    if (v.side !== ident.side) return Infinity; // own side only, abandoned or not (owner, 2026-11-13)
     const c = state.container.get(vid);
     if (!c || !c.stacks.some((s) => s.type === item && (s.charge ?? 1) > 0 && s.count > 0)) return Infinity;
     const t = state.transform.req(vid);

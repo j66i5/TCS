@@ -527,7 +527,7 @@ from its Text pool. The overview draws vehicle stacks and infantry symbols (men 
 (`buildAppearance(data, factionIds)`) is built beside the catalog and never enters it (fingerprint test);
 `renderer.setAppearance` takes it.
 
-**M7.5b Look** — `render/src/lod.ts` (levels and hysteresis, `figurePx`), `render/src/sprites/soldier-art.ts`
+**M7.5b Look** — `render/src/lod.ts` (levels and hysteresis; men always at true size), `render/src/sprites/soldier-art.ts`
 (frames as string grids, letters = palette slots), `render/src/sprites/atlas.ts` (pure `composeFrame` /
 `rotateFrame` (Scale2x ×2 + nearest) / `outlineMask` / `paletteFor` / `frameKey`; `SoldierAtlas` builds cells
 lazily into one `BufferImageSource` and re-uploads once per frame), `render/src/terrain-flat.ts` (pure

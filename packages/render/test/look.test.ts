@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { buildAppearance, buildCatalog } from "@tcs/data";
 import { generateMap } from "@tcs/scenario";
 import { flatMap, type MapDef } from "@tcs/sim";
-import { CLOSE_SCALE, FIGURE_SCALE, LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, SYMBOL_SCALE, figurePx, lodFor } from "../src/lod";
+import { CLOSE_SCALE, FIGURE_SCALE, OPENING_SCALE, LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, SYMBOL_SCALE, lodFor } from "../src/lod";
 import { ART, FRAMES, type FrameId } from "../src/sprites/soldier-art";
 import { CELL, FACINGS, LETTERS, composeFrame, facingOf, frameKey, outlineMask, paletteFor, rotateFrame, weaponLook } from "../src/sprites/atlas";
 import { ROOF_NEAR_M, buildingIndex, roofShown } from "../src/buildings";
@@ -31,10 +31,9 @@ describe("zoom levels", () => {
     expect(lodFor(0.3, LOD_CLOSE)).toBe(LOD_SYMBOLS);
     expect(lodFor(30, LOD_SYMBOLS)).toBe(LOD_CLOSE);
   });
-  it("figure size: whole device pixels per art pixel, about 24 CSS px", () => {
-    expect(figurePx(1)).toBe(32);
-    expect(figurePx(2)).toBe(24);
-    expect(figurePx(3) * 3 % 16).toBe(0);
+  it("figures only where a man (1 m, true scale) is at least 8 px; the opening zoom shows figures", () => {
+    expect(FIGURE_SCALE).toBeGreaterThanOrEqual(8);
+    expect(lodFor(OPENING_SCALE, null)).toBe(LOD_FIGURE);
   });
 });
 

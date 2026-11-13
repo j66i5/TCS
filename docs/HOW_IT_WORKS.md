@@ -472,7 +472,8 @@ told to fire at will. It fires its smoke screen toward the danger and backs away
 danger is in front, so its front armour and gun still face it — and stays there for half a minute. The radio says
 "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
 select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
-it from an abandoned vehicle of either side if it carries what their weapon uses.
+it from one of their own side's vehicles, abandoned ones included, if it carries what their weapon uses — never from
+an enemy vehicle (owner's choice, 2026-11-13).
 
 **Anti-tank fire by the AI (M7.4b).** Before, men fired their Panzerfaust or RPG only if they happened to see a
 vehicle within range at the right moment (about one rocket a battle). Now the AI commander gives anti-tank tasks:
@@ -532,10 +533,11 @@ never change the outcome of a battle or a saved game.
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
 zoom:
 - **Close** (16 pixels per metre or more): every roof is lifted off, so you look into the buildings; soldiers at
-  their true size once that is big enough to read.
-- **Figures** (5–16 px/m): each soldier is a small top-down pixel figure, never smaller than about 24 pixels on a
-  phone (so close up a man is drawn a little larger than life next to a house).
-- **Dots** (1.2–5 px/m): men are small dots in their side's colour, vehicles at their real size; contour lines show.
+  their true size.
+- **Figures** (8–16 px/m): each soldier is a small top-down pixel figure, always at his true size next to houses and
+  vehicles (owner's choice, 2026-11-13): 8 to 16 pixels. Smaller than that a figure cannot be read, so the dots
+  take over.
+- **Dots** (1.2–8 px/m): men are small dots in their side's colour, vehicles at their real size; contour lines show.
 - **Symbols** (below 1.2 px/m): one symbol per unit and per vehicle. You cannot zoom out further than the whole map.
 A level changes a little later on the way back (10 %), so a pinch at a boundary does not flicker.
 

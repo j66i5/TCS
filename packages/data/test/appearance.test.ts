@@ -41,7 +41,7 @@ describe("appearance (M7.5a)", () => {
     const without = Object.fromEntries(Object.entries(files).filter(([k]) => k !== "fixtures/factions/xf/appearance.json"));
     const app = buildAppearance(loadDataSet(without).data!, ["de", "xf"]);
     expect(app.factions["xf"]).toEqual(NEUTRAL_LOOK);
-    expect(app.factions["de"]!.uniform.base).toBe(0x5f6b45);
+    expect(app.factions["de"]!.uniform.base).toBe(0x4d6b36);
     expect(buildAppearance(data, ["xf"]).factions["xf"]).not.toEqual(NEUTRAL_LOOK);
     expect(lookOf(app, "nobody")).toEqual(NEUTRAL_LOOK);
     expect(lookOf(null, "de")).toEqual(NEUTRAL_LOOK);

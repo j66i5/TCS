@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, floorAtZ, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { Sprite, Texture } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
@@ -53,6 +53,9 @@ export interface Overlay {
   objectives?: readonly { x: number; y: number; radiusM: number; holder: string | null; contested: boolean; label: string }[];
   /** After-action heat map (M6): shots as (x, y, side index) triples, men fallen as (x, y, side index). */
   heat?: { shots: readonly number[]; falls: readonly number[] } | null;
+  /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
+   *  drawn faint with a floor badge. */
+  floor?: number;
 }
 
 export interface PlanOverlay {
@@ -188,10 +191,10 @@ export class BattleRenderer {
 
   /** Building floors and roofs (M7.5b; also used alone by the headless render-cost test). */
   setBuildings(map: MapDef): void {
-    if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
+    if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.bld.upper.parent?.removeChild(this.bld.upper); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
     this.map = map;
     this.bld = new BuildingLayers(map, this.appearance);
-    if (this.terrain) this.terrain.addChild(this.bld.floors); else this.worldLayer.addChild(this.bld.floors);
+    if (this.terrain) this.terrain.addChild(this.bld.floors, this.bld.upper); else this.worldLayer.addChild(this.bld.floors, this.bld.upper);
     this.roofLayer.addChild(this.bld.roofs);
   }
 
@@ -371,6 +374,7 @@ export class BattleRenderer {
     const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
     this.lod = lod;
     this.drawGround(map, lod);
+    this.bld?.setFloor(overlay.floor ?? 0);
     this.updateRoofs(state, overlay, lod);
     this.nSprites = 0;
     const g = this.units;
@@ -441,7 +445,8 @@ export class BattleRenderer {
     }
     // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
     const sprites = this.look === "pixel" && lod >= LOD_FIGURE;
-    const size = Math.max(SPRITE_M * c.scale, figurePx(this.app.renderer.resolution || 1));
+    // Close in, men at true size so rooms read right (M7.5d: the readable minimum only at the mid zoom).
+    const size = lod === LOD_CLOSE ? SPRITE_M * c.scale : Math.max(SPRITE_M * c.scale, figurePx(this.app.renderer.resolution || 1));
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
     // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
     for (const [id, ident] of state.identity.entries()) {
@@ -460,7 +465,10 @@ export class BattleRenderer {
       if (sprites) {
         // A pixel soldier (M7.5b): his frame, facing (16 steps), weapon, firing, wounds; the side outline.
         lr = size * 0.45;
-        this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour);
+        // Inside a building on a floor other than the one shown (M7.5d): faint, with his floor's badge.
+        const other = this.otherFloor(t);
+        this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour, other < 0 ? 1 : GHOST_ALPHA);
+        if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)));
         if (selected) g.circle(s.x, s.y, size * 0.42 + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         const bh = sol?.mental.behaviour;
@@ -976,7 +984,19 @@ export class BattleRenderer {
    * marks; snapped to 16 facings. Two sprites from the pool: the figure, and the 1-px outline in the side's
    * colour (the selected unit gets a thin white ring, drawn by the caller).
    */
-  private drawMan(state: SimView, id: EntityId, faction: string, sol: DeepReadonly<SoldierState> | undefined, heading: number, x: number, y: number, size: number, colour: number): void {
+  /** The floor of a man inside a building when it is not the floor shown there (M7.5d), else -1. */
+  private otherFloor(t: { x: number; y: number; z: number }): number {
+    const b = this.bld;
+    if (!b || !this.map) return -1;
+    const bi = b.buildingAt(t.x, t.y);
+    if (bi < 0) return -1;
+    const bd = this.map.buildings[bi]!;
+    if (!bd.interior || bd.storeys < 2) return -1;
+    const f = floorAtZ(bd, t.z);
+    return f === b.floorShown(bi) ? -1 : f;
+  }
+
+  private drawMan(state: SimView, id: EntityId, faction: string, sol: DeepReadonly<SoldierState> | undefined, heading: number, x: number, y: number, size: number, colour: number, alpha = 1): void {
     if (!this.atlas) this.atlas = new SoldierAtlas();
     const k = this.key;
     const t = state.transform.req(id), p = this.prev.get(id);
@@ -1023,7 +1043,8 @@ export class BattleRenderer {
     const dead = frame === "dead";
     fig.tint = dead ? 0xa8a8a0 : 0xffffff;
     out.tint = colour;
-    out.alpha = dead ? 0.55 : 1;
+    out.alpha = (dead ? 0.55 : 1) * alpha;
+    fig.alpha = alpha;
     fig.visible = true; out.visible = true;
   }
 
@@ -1097,4 +1118,25 @@ function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): b
     u = state.unit.get(u)?.parent ?? null;
   }
   return false;
+}
+
+/** Men on another floor than the one shown (M7.5d) are drawn this faint. */
+const GHOST_ALPHA = 0.35;
+
+/** 3 x 5 pixel glyphs for the floor badge: G and the digits. */
+const BADGE_GLYPHS: Record<string, string> = {
+  G: "111100101101111", 0: "111101101101111", 1: "010110010010111", 2: "111001111100111", 3: "111001111001111",
+  4: "101101111001001", 5: "111100111001111", 6: "111100111101111", 7: "111001001001001", 8: "111101111101111", 9: "111101111001111",
+};
+
+/** A small dark badge with the floor's label (G, 1, 2 …) at (x, y) (its bottom-left corner), pixel size `px`. */
+export function drawFloorBadge(g: Graphics, x: number, y: number, floor: number, px: number): void {
+  const label = floor <= 0 ? "G" : String(floor);
+  const w = (label.length * 4 + 1) * px, h = 7 * px;
+  g.rect(x, y - h, w, h).fill({ color: 0x10140f, alpha: 0.85 }).stroke({ width: 1, color: 0xe8e4d8, alpha: 0.8 });
+  for (let c = 0; c < label.length; c++) {
+    const gl = BADGE_GLYPHS[label[c]!] ?? BADGE_GLYPHS["0"]!;
+    for (let k = 0; k < 15; k++) if (gl[k] === "1") g.rect(x + (1 + c * 4 + (k % 3)) * px, y - h + (1 + Math.floor(k / 3)) * px, px, px);
+  }
+  g.fill({ color: 0xe8e4d8 });
 }

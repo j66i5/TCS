@@ -12,11 +12,11 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, type FrameId, type Overlay } from "@tcs/render";
-import { createAar, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -261,8 +261,67 @@ async function main(): Promise<void> {
     return { tick: o.tick, issuer: o.issuer, target: o.target, kind: "move", waypoints: o.waypoints.map((w) => ({ x: w.x, y: w.y, ...paceToWaypoint(w.mode, set) })), ...(o.facing !== undefined ? { facing: o.facing } : {}) };
   };
   const issue = (order: Order) => {
+    // A move into a building goes to the floor on screen (M7.5d floor switch).
+    if (order.kind === "move" && order.floor === undefined && floorState.shown > 0) {
+      const last = order.waypoints[order.waypoints.length - 1];
+      const bi = last ? indoorAt(sim.ctx, last.x, last.y) : -1;
+      if (bi >= 0) order = { ...order, floor: Math.min(floorState.shown, input.map.buildings[bi]!.storeys - 1) };
+    }
     orderLog.push(order);
     submitOrder(sim, order);
+  };
+
+  /** An occupy order for building index `bi`: facing the nearest enemy the side knows, on the floor shown first. */
+  const occupyOrder = (target: EntityId, bi: number): Order => {
+    const b = input.map.buildings[bi]!;
+    let cx = 0, cy = 0;
+    const n = b.footprint.length / 2;
+    for (let k = 0; k < n; k++) { cx += b.footprint[k * 2]!; cy += b.footprint[k * 2 + 1]!; }
+    cx /= n; cy /= n;
+    // mounted: ok sideKnowledge never lists men aboard
+    const known = sideKnowledge(sim.ctx, sim.state, playerSide);
+    let best: { x: number; y: number } | null = null, bd = Infinity;
+    for (const k of known) { const d = Math.hypot(k.x - cx, k.y - cy); if (!k.surrendered && d < bd) { bd = d; best = k; } }
+    return {
+      tick: sim.state.tick, issuer: playerSide, target, kind: "occupy", building: b.id,
+      ...(floorState.shown > 0 ? { floor: Math.min(floorState.shown, b.storeys - 1) } : {}),
+      ...(best ? { facing: Math.atan2(best.y - cy, best.x - cx) } : {}),
+    };
+  };
+
+  // ---- floor switch (M7.5d): follows the selected unit's floor; shown when it is indoors or a house is opened up.
+  let floorState: FloorFollow = { shown: 0, unit: null, unitFloor: null, manual: false };
+  let floorPick: number | null = null;
+  const floorSwitch = createFloorSwitch(hudRoot, strings.t("ui.floor"), (f) => { floorPick = f; });
+  const updateFloors = () => {
+    const uid = overlay.selectedUnit;
+    let fl: number | null = null, count = 1;
+    if (uid !== null && sim.state.unit.has(uid)) {
+      const floors: number[] = [];
+      for (const m of unitSoldiers(sim.state, uid)) {
+        const ms = sim.state.soldier.get(m), t = sim.state.transform.get(m);
+        if (!ms || !t || ms.mount !== undefined || !ms.physiology.alive) continue;
+        const bi = indoorAt(sim.ctx, t.x, t.y);
+        if (bi < 0) { floors.push(-1); continue; }
+        floors.push(floorOf(sim.ctx, t.x, t.y, t.z));
+        count = Math.max(count, input.map.buildings[bi]!.storeys);
+      }
+      fl = unitFloor(floors);
+    }
+    // Zoomed in close (roofs lifted): the tallest building with an interior in view.
+    const cam = renderer.camera;
+    if ((renderer.zoomLevel() ?? 0) >= 3) {
+      const hw = renderer.app.screen.width / cam.scale / 2, hh = renderer.app.screen.height / cam.scale / 2;
+      for (const b of input.map.buildings) {
+        if (!b.interior || b.storeys <= count) continue;
+        const x = b.footprint[0]!, y = b.footprint[1]!;
+        if (Math.abs(x - cam.x) < hw + 20 && Math.abs(y - cam.y) < hh + 20) count = b.storeys;
+      }
+    }
+    floorState = followFloor(floorState, uid, fl, floorPick, count - 1);
+    floorPick = null;
+    floorSwitch.set(count, floorState.shown);
+    overlay.floor = count > 1 ? floorState.shown : 0;
   };
 
   attachInput(mapRoot, {
@@ -294,6 +353,14 @@ async function main(): Promise<void> {
       if (orderMode === "grenade" || orderMode === "grenades") {
         // "All grenades": every man who can reach the point throws or fires, a moment apart.
         issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
+        return;
+      }
+      if (orderMode === "occupy") {
+        // Occupy (M7.5d): the tapped building's windows, those facing the nearest enemy the side knows first.
+        const bi = indoorAt(sim.ctx, w.x, w.y);
+        if (bi < 0) { hud.radio(strings.t("plan.tapBuilding"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
+        issue(occupyOrder(overlay.selectedUnit, bi));
+        orderMode = "move"; hud.setOrderMode("move");
         return;
       }
       if (orderMode === "mortar" || orderMode === "smoke") {
@@ -435,6 +502,10 @@ async function main(): Promise<void> {
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
+    /** M7.5d: occupy the building at (x, y) with the selected unit; the floor switch; the floor shown. */
+    occupyAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue(occupyOrder(sel(), bi)); },
+    setFloor: (f: number) => { floorPick = f; },
+    floorShown: () => floorState.shown,
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {
@@ -630,6 +701,7 @@ async function main(): Promise<void> {
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
     syncOrders();
     if (now - tilesAt >= 250) { tilesAt = now; refreshTiles(); }
+    updateFloors();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();

@@ -64,18 +64,18 @@ export function roofShown(index: BuildingIndex, men: ArrayLike<number>, nMen: nu
 const hexN = (c: string) => parseInt(c.slice(1), 16);
 
 /**
- * The ground floor of an interior (M7.5c): halls and stair rooms a shade lighter, inner walls (thinner than the
- * outer ones) with their doorway gaps and a light threshold, and the stairs hatched with their steps.
- * Upper floors are drawn by the floor switch of M7.5d.
+ * One floor of an interior (M7.5c; any floor `fl`, M7.5d): halls and stair rooms a shade lighter, inner walls
+ * (thinner than the outer ones) with their doorway gaps and a light threshold, and the stairs hatched with their
+ * steps (the flight up from this floor, and the head of the flight from the floor below).
  */
-function drawInterior(f: Graphics, b: Building, floor: number, outline: number): void {
+function drawInterior(f: Graphics, b: Building, floor: number, outline: number, fl = 0): void {
   const it = b.interior!;
   for (const r of it.rooms) {
-    if (r.floor !== 0 || r.kind === "room") continue;
+    if (r.floor !== fl || r.kind === "room") continue;
     f.poly(r.poly).fill({ color: shade(floor, r.kind === "stair" ? 1.12 : 1.06) });
   }
   for (const s of it.stairs) {
-    if (s.floor !== 0) continue;
+    if (s.floor !== fl && s.floor + 1 !== fl) continue;
     const L = Math.hypot(s.x1 - s.x0, s.y1 - s.y0) || 1, ux = (s.x1 - s.x0) / L, uy = (s.y1 - s.y0) / L, nx = -uy * s.widthM / 2, ny = ux * s.widthM / 2;
     f.poly([s.x0 + nx, s.y0 + ny, s.x1 + nx, s.y1 + ny, s.x1 - nx, s.y1 - ny, s.x0 - nx, s.y0 - ny]).fill({ color: shade(floor, 0.8) });
     for (let d = 0.28; d < L; d += 0.28) f.moveTo(s.x0 + ux * d + nx, s.y0 + uy * d + ny).lineTo(s.x0 + ux * d - nx, s.y0 + uy * d - ny);
@@ -86,7 +86,7 @@ function drawInterior(f: Graphics, b: Building, floor: number, outline: number):
       .lineTo(s.x1 - ux * 0.3 - nx * 0.6 - ux * 0.35, s.y1 - uy * 0.3 - ny * 0.6 - uy * 0.35).stroke({ width: 0.07, color: shade(floor, 0.45) });
   }
   for (const w of it.walls) {
-    if (w.floor !== 0) continue;
+    if (w.floor !== fl) continue;
     const L = Math.hypot(w.bx - w.ax, w.by - w.ay) || 1, ux = (w.bx - w.ax) / L, uy = (w.by - w.ay) / L;
     const doors = [...w.doors].sort((p, q) => p.offsetM - q.offsetM);
     let s0 = 0;
@@ -100,13 +100,60 @@ function drawInterior(f: Graphics, b: Building, floor: number, outline: number):
     }
   }
 }
+/** A building's plan on floor `fl` (M7.5d; the ground floor as in M7.5b/c): floor, outer walls with that floor's
+ *  doors and windows, and the interior of that floor. */
+function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: number): void {
+  const fp = b.footprint, n = fp.length / 2;
+  f.poly(fp).fill({ color: floor });
+  // Floorboards / tiles: faint lines every 1 m along the long side.
+  if (n === 4) {
+    const e0 = Math.hypot(fp[2]! - fp[0]!, fp[3]! - fp[1]!), e1 = Math.hypot(fp[6]! - fp[0]!, fp[7]! - fp[1]!);
+    const [ux, uy, L, vx, vy, M] = e0 >= e1
+      ? [(fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0, (fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1]
+      : [(fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1, (fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0];
+    for (let s = 1; s < M; s += 1) f.moveTo(fp[0]! + vx * s, fp[1]! + vy * s).lineTo(fp[0]! + vx * s + ux * L, fp[1]! + vy * s + uy * L);
+    f.stroke({ width: 0.06, color: shade(floor, 0.82) });
+  }
+  // Outer walls, drawn inside the footprint, with gaps for doors and glass in the windows.
+  let cx = 0, cy = 0;
+  for (let k = 0; k < n; k++) { cx += fp[2 * k]!; cy += fp[2 * k + 1]!; }
+  cx /= n; cy /= n;
+  const t = Math.max(0.25, b.wallThicknessM);
+  for (let k = 0; k < n; k++) {
+    const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
+    const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
+    let nx = -uy, ny = ux;
+    if ((cx - ax) * nx + (cy - ay) * ny < 0) { nx = -nx; ny = -ny; }
+    const ox = nx * t / 2, oy = ny * t / 2;
+    const ops = b.openings.filter((o) => o.wall === k && (o.floor ?? 0) === fl).sort((p, q) => p.offsetM - q.offsetM);
+    let s = 0;
+    const piece = (s0: number, s1: number) => { if (s1 > s0) f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy); };
+    for (const o of ops) { piece(s, o.offsetM - o.widthM / 2); s = o.offsetM + o.widthM / 2; }
+    piece(s, L);
+    f.stroke({ width: t, color: outline, cap: "square" });
+    for (const o of ops) {
+      if (o.kind !== "window") continue;
+      const s0 = o.offsetM - o.widthM / 2, s1 = o.offsetM + o.widthM / 2;
+      f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy).stroke({ width: t * 0.6, color: 0xa9cbd6 });
+    }
+  }
+  if (b.interior) drawInterior(f, b, floor, outline, fl);
+}
+
 const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
 
 /** Floors and roofs of a map's buildings. Children are in world metres. */
 export class BuildingLayers {
   readonly floors = new Graphics();
+  /** Upper floors (M7.5d): one Graphics per building and floor, built when first shown, over the ground floors. */
+  readonly upper = new Container();
   readonly roofs = new Container();
   private roofG: Graphics[] = [];
+  private upperG = new Map<number, Graphics>();
+  private shownFloor = 0;
+  private readonly map: MapDef;
+  private readonly floorColour: (b: Building) => number;
+  private readonly outline: number;
   private alpha: Float32Array;
   private target: Uint8Array;
   readonly index: BuildingIndex;
@@ -116,44 +163,14 @@ export class BuildingLayers {
     this.alpha = new Float32Array(map.buildings.length).fill(1);
     this.target = new Uint8Array(map.buildings.length).fill(1);
     const outline = app?.map.outline ?? 0x1d2419;
+    this.map = map;
+    this.outline = outline;
+    this.floorColour = (b) => app?.map.floors[b.kind] ?? 0x9a8a72;
     const f = this.floors;
     for (const b of map.buildings) {
       const fp = b.footprint, n = fp.length / 2;
       const floor = app?.map.floors[b.kind] ?? 0x9a8a72;
-      f.poly(fp).fill({ color: floor });
-      // Floorboards / tiles: faint lines every 1 m along the long side.
-      if (n === 4) {
-        const e0 = Math.hypot(fp[2]! - fp[0]!, fp[3]! - fp[1]!), e1 = Math.hypot(fp[6]! - fp[0]!, fp[7]! - fp[1]!);
-        const [ux, uy, L, vx, vy, M] = e0 >= e1
-          ? [(fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0, (fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1]
-          : [(fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1, (fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0];
-        for (let s = 1; s < M; s += 1) f.moveTo(fp[0]! + vx * s, fp[1]! + vy * s).lineTo(fp[0]! + vx * s + ux * L, fp[1]! + vy * s + uy * L);
-        f.stroke({ width: 0.06, color: shade(floor, 0.82) });
-      }
-      // Outer walls, drawn inside the footprint, with gaps for doors and glass in the windows.
-      let cx = 0, cy = 0;
-      for (let k = 0; k < n; k++) { cx += fp[2 * k]!; cy += fp[2 * k + 1]!; }
-      cx /= n; cy /= n;
-      const t = Math.max(0.25, b.wallThicknessM);
-      for (let k = 0; k < n; k++) {
-        const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
-        const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
-        let nx = -uy, ny = ux;
-        if ((cx - ax) * nx + (cy - ay) * ny < 0) { nx = -nx; ny = -ny; }
-        const ox = nx * t / 2, oy = ny * t / 2;
-        const ops = b.openings.filter((o) => o.wall === k && (o.floor ?? 0) === 0).sort((p, q) => p.offsetM - q.offsetM);
-        let s = 0;
-        const piece = (s0: number, s1: number) => { if (s1 > s0) f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy); };
-        for (const o of ops) { piece(s, o.offsetM - o.widthM / 2); s = o.offsetM + o.widthM / 2; }
-        piece(s, L);
-        f.stroke({ width: t, color: outline, cap: "square" });
-        for (const o of ops) {
-          if (o.kind !== "window") continue;
-          const s0 = o.offsetM - o.widthM / 2, s1 = o.offsetM + o.widthM / 2;
-          f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy).stroke({ width: t * 0.6, color: 0xa9cbd6 });
-        }
-      }
-      if (b.interior) drawInterior(f, b, floor, outline);
+      drawPlan(f, b, 0, floor, outline);
       // Roof: a hard shadow, flat colour, the ridge with one half a shade darker, tile rows, a dark outline.
       const g = new Graphics();
       const h = b.storeys * b.storeyHeightM, off = Math.min(5, 0.22 * h + 0.5);
@@ -186,9 +203,44 @@ export class BuildingLayers {
     }
   }
 
+  /** The floor the player has on screen (M7.5d floor switch; 0 = ground). */
+  setFloor(k: number): void { this.shownFloor = Math.max(0, k | 0); }
+
+  /** The floor of building i on screen: the one switched to, or its top floor if it has fewer. */
+  floorShown(i: number): number {
+    const b = this.map.buildings[i];
+    return b ? Math.min(this.shownFloor, b.storeys - 1) : 0;
+  }
+
+  /** Index of the building whose footprint holds (x, y), or -1. */
+  buildingAt(x: number, y: number): number {
+    const c = Math.floor(x / BUCKET_M), r = Math.floor(y / BUCKET_M);
+    if (c < 0 || r < 0 || c >= this.index.cols || r >= this.index.rows) return -1;
+    for (const i of this.index.buckets[r * this.index.cols + c]!) if (nearPolygon(this.index.buildings[i]!.footprint, x, y, 0)) return i;
+    return -1;
+  }
+
   /** Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). */
   update(men: ArrayLike<number>, nMen: number, close: boolean): void {
     roofShown(this.index, men, nMen, close, this.target);
+    // Upper floors (M7.5d): the floor switched to, where the roof is lifted (a building with an interior).
+    for (const g of this.upperG.values()) g.visible = false;
+    if (this.shownFloor > 0) {
+      for (let i = 0; i < this.roofG.length; i++) {
+        const b = this.map.buildings[i]!;
+        const fl = this.floorShown(i);
+        if (fl <= 0 || !b.interior || this.alpha[i]! >= 1) continue;
+        const key = i * 64 + fl;
+        let g = this.upperG.get(key);
+        if (!g) {
+          g = new Graphics();
+          drawPlan(g, b, fl, shade(this.floorColour(b), 1.04), this.outline);
+          this.upperG.set(key, g);
+          this.upper.addChild(g);
+        }
+        g.visible = true;
+      }
+    }
     for (let i = 0; i < this.roofG.length; i++) {
       const want = this.target[i]!, a = this.alpha[i]!;
       if (a === want) continue;
@@ -203,7 +255,7 @@ export class BuildingLayers {
   /** The roof's current alpha (tests, screenshots). */
   roofAlpha(i: number): number { return this.alpha[i] ?? 1; }
 
-  destroy(): void { this.floors.destroy(); this.roofs.destroy({ children: true }); }
+  destroy(): void { this.floors.destroy(); this.upper.destroy({ children: true }); this.roofs.destroy({ children: true }); }
 }
 
 /**
@@ -215,7 +267,7 @@ export function interiorGraphOverlay(map: MapDef, breaches: readonly { owner: "o
   map.buildings.forEach((b, bi) => {
     if (!b.interior) return;
     const gr = buildInteriorGraph(b, bi, breaches);
-    for (const list of gr.roomNodes) {
+    for (const list of gr.roomNodes.filter((l) => l.length > 0 && gr.nodes[l[0]!]!.floor === 0)) {
       for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
         const p = gr.nodes[list[i]!]!, q = gr.nodes[list[j]!]!;
         g.moveTo(p.x, p.y).lineTo(q.x, q.y);

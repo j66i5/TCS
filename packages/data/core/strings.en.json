@@ -138,6 +138,7 @@
   "plan.tapPoints": "Tap the route, drag the marker, then Go.",
   "plan.tapPoint": "Tap the point, then Go.",
   "plan.tapTarget": "Tap the target.",
+  "plan.tapBuilding": "Tap a building to occupy.",
   "rules.title": "Standing rules",
   "rules.fire": "Fire",
   "rules.fire.free": "at will",

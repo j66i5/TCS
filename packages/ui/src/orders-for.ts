@@ -143,7 +143,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "fire", "antitank", "grenade", "grenades", "mortar", "smoke"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "mortar", "smoke"];
 type Modes = Readonly<Record<string, { class: string; speedFraction?: number }>>;
 
 /** The greyed bar shown while nothing is selected (M7.5a, owner answer 6). */
@@ -184,9 +184,9 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;
   if (cap.kind === "man") {
-    return { modes: ["move", "fire", ...(grenades > 0 ? ["grenade" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
-  const m: OrderMode[] = ["move", "assault", "withdraw", "fire"];
+  const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire"];
   if (cap.hasLauncherRounds) m.push("antitank");
   if (grenades > 0) m.push("grenade");
   if (grenades > 1) m.push("grenades");

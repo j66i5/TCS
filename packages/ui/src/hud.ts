@@ -17,7 +17,7 @@ import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
 import { createSidebar, type UnitTile } from "./sidebar";
 
-export type OrderMode = "move" | "assault" | "withdraw" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
+export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "mortar" | "smoke";
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
 
 export interface HudCallbacks {
@@ -165,7 +165,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     modeBtns.set(m, b);
     return b;
   };
-  const setMode = (m: OrderMode) => { for (const [k, b] of modeBtns) b.classList.toggle("on", k === m); hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : "plan.tapTarget"); };
+  const setMode = (m: OrderMode) => { for (const [k, b] of modeBtns) b.classList.toggle("on", k === m); hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : "plan.tapTarget"); };
   const btn = (key: string, order: string, f: () => void) => { const b = el("button", "hud-btn", s.t(key)); b.dataset["order"] = order; b.onclick = f; return b; };
   const haltBtn = btn("order.halt", "halt", () => cb.onHalt());
   const ceaseBtn = btn("order.ceaseFire", "ceaseFire", () => cb.onCeaseFire());
@@ -190,9 +190,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   });
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which buttons move behind "⋯" when the strip is too short.
-  const barButtons: HTMLButtonElement[] = [mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("fire", "order.fire"), natureBtn, mode("antitank", "order.antitank"),
+  const barButtons: HTMLButtonElement[] = [mode("move", "order.move"), mode("assault", "order.assault"), mode("withdraw", "order.withdraw"), mode("occupy", "order.occupy"), mode("fire", "order.fire"), natureBtn, mode("antitank", "order.antitank"),
     mode("grenade", "order.grenade"), mode("grenades", "order.grenades"), mode("mortar", "order.mortar"), mode("smoke", "order.smoke"), dischargeBtn, mountBtn, dismountBtn, haltBtn, ceaseBtn, postureBtn, rulesBtn];
-  const OVERFLOW_FIRST = ["smoke", "mortar", "grenades", "withdraw", "rules", "posture", "discharge", "nature", "antitank", "grenade", "ceaseFire", "assault", "halt", "mount", "dismount", "fire"];
+  const OVERFLOW_FIRST = ["smoke", "mortar", "grenades", "withdraw", "rules", "posture", "discharge", "nature", "antitank", "occupy", "grenade", "ceaseFire", "assault", "halt", "mount", "dismount", "fire"];
   orders.append(grip, ...barButtons, moreBtn);
   for (const b of barButtons) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 

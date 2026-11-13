@@ -5,3 +5,4 @@ export * from "./aar";
 export * from "./orders-for";
 export * from "./dock";
 export * from "./sidebar";
+export * from "./floors";

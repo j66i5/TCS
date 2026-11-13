@@ -135,3 +135,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-aar-head { font-weight: 700; margin: 6px 0 2px; }
 .hud-aar-sub { font-weight: 600; margin-top: 4px; }
 .hud-aar-row { font-size: 13px; color: var(--text); }
+/* Floor switch (M7.5d): a column of floor buttons at the right of the free area, top floor first. */
+.hud-floors { position: absolute; right: calc(var(--free-right) + 8px); top: calc(var(--free-top) + 64px); display: flex; flex-direction: column; gap: 4px; z-index: 6; pointer-events: auto; }
+.hud-floors[hidden] { display: none; }
+.hud-floors .hud-floor { min-width: 40px; min-height: 36px; padding: 0; font-weight: 600; }

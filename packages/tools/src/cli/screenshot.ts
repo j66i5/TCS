@@ -393,6 +393,39 @@ async function gunneryScenes(page: Page, name: string, errors: string[], shots: 
   console.log(`${name}: gunnery scene ${JSON.stringify(info)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * M7.5d floors (`--scene floors`): the platoon battle on foot on the village; the lead squad occupies the nearest
+ * house of two or more storeys (Occupy, facing the enemy's side): men upstairs at the windows with the floor
+ * switch on 1 and firing out; the same house on G (the men upstairs faint with their floor badge).
+ */
+async function floorScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(450); const p = `${outDir}/floors-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 20 : 26;
+  const info = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, map = t.sim.ctx.map; t.setSpeed(0);
+    const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+    const men = s.unit.get(sq.unit).members;
+    let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    let best = -1, bd = Infinity;
+    map.buildings.forEach((b, i) => { if (!b.interior || b.storeys < 2 || (b.kind !== "house" && b.kind !== "farmhouse")) return; const d = Math.hypot(b.footprint[0] - x, b.footprint[1] - y); if (d < bd) { bd = d; best = i; } });
+    const b = map.buildings[best]; let cx = 0, cy = 0; for (let k = 0; k < 8; k += 2) { cx += b.footprint[k] / 4; cy += b.footprint[k + 1] / 4; }
+    // The enemy's side: away from the squad's start, through the house.
+    const fx = cx - x, fy = cy - y, fl = Math.hypot(fx, fy) || 1;
+    globalThis.__f = { i: best, cx, cy, ux: fx / fl, uy: fy / fl };
+    t.occupyAt(cx, cy);
+    for (let k = 0; k < 90 && (k < 2 || men.some((m) => (s.mover.get(m)?.waypoints.length ?? 0) > 0)); k++) t.stepTicks(60 * 5);
+    t.fireAt(Math.min(Math.max(cx + fx / fl * 120, 5), map.widthM - 5), Math.min(Math.max(cy + fy / fl * 120, 5), map.heightM - 5));
+    t.stepTicks(60 * 4);
+    t.setFloor(1); t.focusScale(cx, cy, ${zoom}); t.stepTicks(8);
+    const zs = men.map((m) => Math.round(s.transform.get(m).z * 10) / 10);
+    return { building: best, kind: b.kind, storeys: b.storeys, dist: Math.round(bd), zs, floor: t.floorShown(), tick: s.tick };`) as () => object);
+  await shot("0-occupy-upstairs-floor-1");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__f; t.setFloor(0); t.focusScale(h.cx, h.cy, ${zoom}); t.stepTicks(4);`) as () => void);
+  await shot("1-floor-G-ghosts");
+  console.log(`${name}: floors scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -414,6 +447,7 @@ try {
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -528,7 +562,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

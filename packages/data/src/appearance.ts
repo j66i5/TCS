@@ -17,6 +17,13 @@ export interface Appearance {
   factions: Record<string, FactionLook>;
   /** Flat map palette (used from M7.5b on): colours by surface, vegetation and building kind id. */
   map: { surfaces: Record<string, number>; vegetation: Record<string, number>; roofs: Record<string, number>; floors: Record<string, number>; outline: number };
+  /** Photo map palette and grade (plan "photo"); absent: the photo map uses `map` and its default grade. */
+  photo?: PhotoPalette;
+}
+
+export interface PhotoPalette {
+  surfaces: Record<string, number>; vegetation: Record<string, number>; obstacles: Record<string, number>;
+  grade?: { desaturate: number; contrast: number; warm: number; grain: number };
 }
 
 /** The neutral look: grey-green uniform and paint, for a faction that has no appearance file. */
@@ -45,7 +52,9 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
     const a = data.factions[fid]?.appearance;
     factions[fid] = a ? factionLook(a) : NEUTRAL_LOOK;
   }
-  return { factions, map: mapPalette(data.appearance) };
+  const ph = data.appearance?.photo;
+  const photo: PhotoPalette | undefined = ph ? { surfaces: hexRec(ph.surfaces ?? {}), vegetation: hexRec(ph.vegetation ?? {}), obstacles: hexRec(ph.obstacles ?? {}), ...(ph.grade ? { grade: { ...ph.grade } } : {}) } : undefined;
+  return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}) };
 }
 
 /** A faction's look, the neutral one if it has none. */

@@ -2,6 +2,7 @@
  * M7.5b look: zoom levels with hysteresis, the soldier art and atlas (original 16 x 16 frames, palette swap,
  * outline, turning), the roof-fade rule, and the flat map painter (deterministic, tiles join seamlessly).
  */
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { buildAppearance, buildCatalog } from "@tcs/data";
 import { generateMap } from "@tcs/scenario";
@@ -10,7 +11,7 @@ import { CLOSE_SCALE, FIGURE_SCALE, OPENING_SCALE, LOD_CLOSE, LOD_DOTS, LOD_FIGU
 import { ART, FRAMES, type FrameId } from "../src/sprites/soldier-art";
 import { CELL, FACINGS, LETTERS, composeFrame, facingOf, frameKey, outlineMask, paletteFor, rotateFrame, weaponLook } from "../src/sprites/atlas";
 import { ROOF_NEAR_M, buildingIndex, roofShown } from "../src/buildings";
-import { flatColours, paintRegion } from "../src/terrain-flat";
+import { flatColours, paintContours, paintRegion } from "../src/terrain-flat";
 import { loadData } from "../../tools/src/scenarios";
 
 describe("zoom levels", () => {
@@ -128,5 +129,23 @@ describe("flat map painter", () => {
     expect(diff).toBe(0);
     expect(a.length).toBe(256 * 256 * 4);
     for (let i = 3; i < a.length; i += 4) if (a[i] !== 255) throw new Error("not opaque");
+  });
+});
+
+describe("flat map painter after the photo split (plan photo step ground)", () => {
+  it("paints the same bytes as before the split (hashes taken from the M7.5b painter)", () => {
+    const data = loadData();
+    const cat = buildCatalog(data, ["de", "ru"]);
+    const app = buildAppearance(data, ["de", "ru"]);
+    const h = (b: Uint8Array) => createHash("sha256").update(b).digest("hex").slice(0, 16);
+    const want: Record<string, [string, string, string]> = {
+      village: ["0f99b6b7ed897225", "c4a715275935319c", "e9e29bcb9ee45348"],
+      woodland: ["fd1bc3357db50640", "72a31a4c6aed3493", "aec003f6eb0839c8"],
+    };
+    for (const kind of ["village", "woodland"] as const) {
+      const map = generateMap(cat.terrain, { kind, seed: 2, widthM: 600, heightM: 600 });
+      const col = flatColours(map, cat.terrain, app);
+      expect([h(paintRegion(map, col, 256, 256, 64, 64, 4)), h(paintRegion(map, col, 0, 0, 600, 600, 1)), h(paintContours(map, 1))], kind).toEqual(want[kind]);
+    }
   });
 });

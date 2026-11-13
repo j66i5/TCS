@@ -81,6 +81,21 @@ describe("simulation purity (packages/sim)", () => {
   });
 });
 
+describe("map painters are pure (plan photo decision 3)", () => {
+  // The photo painter runs in a worker and in Node tests: no Pixi, no DOM, no randomness, no clock.
+  const files = [...sourceFiles(join(PKG, "render", "src", "photo")), join(PKG, "render", "src", "flat", "paint.ts"), join(PKG, "render", "src", "tile-queue.ts")];
+  it("import only @tcs/sim, @tcs/data (types) and each other", () => {
+    const bad: string[] = [];
+    for (const f of files) for (const imp of importsOf(readFileSync(f, "utf8"))) if (!imp.startsWith(".") && imp !== "@tcs/sim" && imp !== "@tcs/data") bad.push(`${relative(ROOT, f)}: ${imp}`);
+    expect(bad).toEqual([]);
+  });
+  it("use no Math.random, clock, timers or DOM", () => {
+    const pat = /\bMath\.random\b|\bDate\b|\bperformance\b|\bsetTimeout\b|\bsetInterval\b|\brequestAnimationFrame\b|\bwindow\b|\bdocument\b/;
+    const bad = files.filter((f) => pat.test(stripStrings(stripComments(readFileSync(f, "utf8"))))).map((f) => relative(ROOT, f));
+    expect(bad).toEqual([]);
+  });
+});
+
 describe("no faction is hard-coded (SPEC 4.3 rule 8)", () => {
   it("engine packages contain no faction ID literals", () => {
     // Faction IDs and IDs prefixed with one (de-puma, ru-pg7vl, xf-cart), the fixture faction included (M7.1c).

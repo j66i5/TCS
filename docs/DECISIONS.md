@@ -2839,3 +2839,45 @@ Choices made here without the owner (low confidence):
    and card; centring and following use the map area above the card and log (`viewInsets`).
 9. German role names with umlauts (strings only; outside the catalog fingerprint).
 Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and desktop).
+
+## 2026-11-13 — Photo map, step "ground": pyramid, worker, photo ground painter, look switch (plan photo)
+1. **Looks:** `Look = "photo" | "flat" | "classic"`; photo is the default; `?look=flat` (alias `?look=pixel`) is
+   the M7.5b map, unchanged byte for byte (test keeps hashes of the pre-split painter); `?look=classic` as before.
+   The choice is remembered in localStorage `tcs.ui.look` (try/catch; a URL parameter wins). Pixel soldiers, roof
+   fade and zoom bands are keyed on `look !== "classic"`.
+2. **Pure painters:** `render/src/flat/paint.ts` (flat, split out of `terrain-flat.ts`) and `render/src/photo/*`
+   import no Pixi or DOM and use no random or clock (architecture test), so they run in a worker and in Node.
+3. **Pyramid:** one `TerrainTiles` (`terrain-tiles.ts`) for both looks. Photo: L0 whole map (1 px/m, 0.75 above
+   1600 m) painted in 4 strips over the flat picture shown at once; L1 128 m @ 2 px/m from 2 screen px/m; L2 64 m @ 4
+   from 4.5; L3 32 m @ 8 from 11, only when `hardwareConcurrency > 4` and device memory > 2 GB (unknown counts as
+   8 on a fine pointer); linear sampling with mipmaps; 150 ms fade-in; coarser tiles stay below missing ones; one LRU
+   over all levels with a byte budget (16 MB phones, 24 MB desktop). Flat keeps nearest sampling, L0 + 64 m tiles
+   at 4 px/m from the figure band, painted here one per frame.
+4. **Worker:** 1 worker (≤ 4 cores) or 2; Vite `new Worker(new URL("./photo/worker.ts", import.meta.url))`.
+   `TileQueue` (pure, unit-tested with a fake worker): centre first, queued tiles that leave the view are dropped,
+   ≤ 4 in flight, ≤ 2 uploads a frame. No `Worker` (Node, tests) or a worker that fails to load: the same painter
+   runs on the main thread. The CPU copy of a tile is kept (Pixi re-uploads it after a context loss), so the byte
+   budget counts it. `prime()` is async; the opening waits for the opening view's tiles at most 3 s.
+   `__tcs.tilesPending()` and `__tcs.terrainLevel()` for the screenshot tool.
+5. **Ground painter:** fields = 4-connected parts of equal flat `cellKey`; per field a ±6 % tint and ±2.5 % warm
+   shift; furrows along the longer grid direction of the field (a principal axis put tramlines on a slant across big irregular fields), ±4° jitter.
+   Field edges: the field with the largest bilinear weight of the 4 cells round the domain-warped point wins
+   (stair steps become curves), blended over ~1.2 m. A 2 m macro grid holds warp, tone, hue, dry patches, hillshade
+   and furrow phase (slow channels on an 8 m grid to keep `prep` under 100 ms). The headland strip of the plan was
+   dropped: its turned furrows made a herringbone at every field edge. The clump octave is a contrast-stretched
+   two-octave value noise, not ridged noise (ridged gave a maze of thin lines). Periodic patterns use a smoothstep-
+   of-triangle wave (no `Math.sin`), all band-limited.
+6. **Grade:** desaturation 0.28 (not 0.22: with 0.22 the village's mean ground saturation was 0.33, above the 0.30
+   cap); the warm lift is multiplicative (an additive blue cut pushed dark woods over the cap); hard per-pixel
+   saturation cap 0.40; contrast +6 %; grain ±3 % from the lattice keyed to the global pixel.
+7. **Photo palette:** `appearance.json` `photo` block (surfaces, vegetation, obstacles, grade, ladder note), set
+   by luminance class so the ladder deep water < wood < hedge < scrub/orchard < plough < grass < crops < tracks <
+   walls holds at ≥ 1.15× (test). Outside the catalog fingerprint: no golden update, no sim change.
+8. **Provisional features:** roads, water, crowns, hedges, walls, fences are the flat feature passes without
+   outlines until steps "vegetation" and "built" replace them.
+9. **Overdraw:** detail tiles are never shown shrunk (each level starts where it is at least its own size), so only
+   the whole-map picture gets mipmaps; under a complete detail level the whole map is not drawn (photo only).
+   Phone proxy here (Playwright, software GL, dpr 2, 10 s pan and zoom over the village): photo p95 frame about
+   1.3-1.5x flat, both far above 50 ms because the container has no GPU; the plan's +10 % check needs a real phone.
+10. No golden, catalog or sim change: the appearance `photo` block is outside the fingerprint (`npm run check` green
+    with the golden tests untouched).

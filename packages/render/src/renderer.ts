@@ -11,7 +11,10 @@ import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, shownCallsigns, type LabelRequest, type Rect } from "./labels";
-import { FlatTerrain, flatColours } from "./terrain-flat";
+import { flatColours, paintRegion } from "./flat/paint";
+import { TerrainTiles, WorkerSource, basePpm, photoBasePpm, type TerrainTilesOptions } from "./terrain-tiles";
+import { TileQueue } from "./tile-queue";
+import { PhotoPainter, photoInit } from "./photo/paint";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
@@ -20,8 +23,27 @@ import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 /** Classic look (`?look=classic`, kept for one milestone): below this many px/m the overview with unit symbols. */
 export const OVERVIEW_SCALE = 0.35;
 
-/** "pixel" (M7.5b: flat pixel map, pixel soldiers, roofs that fade, zoom levels) or the classic look before it. */
-export type Look = "pixel" | "classic";
+/**
+ * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph), "flat" (M7.5b:
+ * the flat pixel map; `?look=pixel` is its old name) or the classic look before them. Pixel soldiers, roofs that
+ * fade and the zoom levels belong to both photo and flat (`look !== "classic"`).
+ */
+export type Look = "photo" | "flat" | "classic";
+
+/** The flat look's tiles: today's M7.5b map (64 m detail tiles at 4 px/m from the figure zoom, painted here). */
+const FLAT_TILES: TerrainTilesOptions = {
+  levels: [{ tileM: 64, ppm: 4, minPx: 0 }], sampling: "nearest", mipmaps: false, budgetBytes: 48 * 256 * 256 * 4, fadeFrames: 0,
+  dpr: 1, maxLevel: 1, byBand: true, strips: 0, stripPpm: 1, maxInFlight: 1, maxUploads: 1,
+};
+
+/** What this device can afford (plan "photo" decision 5): phones stop at 4 px/m and keep a smaller cache. */
+function deviceTier(): { strong: boolean; workers: number } {
+  const nav = (globalThis as { navigator?: { hardwareConcurrency?: number; deviceMemory?: number } }).navigator;
+  const cores = nav?.hardwareConcurrency ?? 4;
+  const fine = typeof globalThis.matchMedia === "function" && globalThis.matchMedia("(pointer: fine)").matches;
+  const mem = nav?.deviceMemory ?? (fine ? 8 : 0);
+  return { strong: cores > 4 && mem > 2, workers: cores <= 4 ? 1 : 2 };
+}
 /** Ticks a man shows his firing frame after a shot. */
 const FIRE_FRAME_TICKS = 6;
 
@@ -168,10 +190,10 @@ export class BattleRenderer {
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
-  private look: Look = "pixel";
+  private look: Look = "photo";
   private lod: Lod | null = null;
   private contoursAlways = false;
-  private flat: FlatTerrain | null = null;
+  private tiles: TerrainTiles | null = null;
   private bld: BuildingLayers | null = null;
   /** Men sprites (screen space) between the floors and the roofs; roofs follow the camera like the map. */
   private menLayer = new Container();
@@ -235,7 +257,7 @@ export class BattleRenderer {
   /** Build the terrain picture for a map (once per map; set the look and the appearance first). */
   setMap(map: MapDef, catalog: Catalog): void {
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); this.terrain = null; }
-    if (this.flat) { this.flat.destroy(); this.flat = null; }
+    if (this.tiles) { this.tiles.destroy(); this.tiles = null; }
     this.setCatalog(catalog);
     this.map = map;
     if (this.look === "classic") {
@@ -243,9 +265,31 @@ export class BattleRenderer {
       this.worldLayer.addChild(this.terrain);
       return;
     }
-    this.flat = new FlatTerrain(map, flatColours(map, catalog.terrain, this.appearance));
+    const col = flatColours(map, catalog.terrain, this.appearance);
+    const flatBase = paintRegion(map, col, 0, 0, map.widthM, map.heightM, basePpm(map));
+    if (this.look === "flat") {
+      this.tiles = new TerrainTiles(map, flatBase, (j) => paintRegion(map, col, j.x0, j.y0, j.w, j.h, j.ppm), null, FLAT_TILES);
+    } else {
+      // Photo (plan "photo"): the flat picture at once, the photo whole map in four strips over it, detail tiles by
+      // screen px per metre; painted in workers where there are workers (the same code paints here otherwise).
+      const init = photoInit(map, catalog.terrain, this.appearance);
+      let painter: PhotoPainter | null = null;
+      const tier = deviceTier();
+      const o: TerrainTilesOptions = {
+        levels: [{ tileM: 128, ppm: 2, minPx: 2 }, { tileM: 64, ppm: 4, minPx: 4.5 }, { tileM: 32, ppm: 8, minPx: 11 }],
+        sampling: "linear", mipmaps: true, budgetBytes: (tier.strong ? 24 : 16) * 1024 * 1024, fadeFrames: 9,
+        dpr: this.app.renderer.resolution || 1, maxLevel: tier.strong ? 3 : 2, byBand: false, strips: 4, stripPpm: photoBasePpm(map),
+        maxInFlight: 4, maxUploads: 2,
+      };
+      const q = new TileQueue(o.maxInFlight, o.maxUploads);
+      let source: WorkerSource | null = null;
+      if (typeof Worker !== "undefined") {
+        try { source = new WorkerSource(() => new Worker(new URL("./photo/worker.ts", import.meta.url), { type: "module" }), tier.workers, init, q); } catch { source = null; }
+      }
+      this.tiles = new TerrainTiles(map, flatBase, (j) => (painter ??= new PhotoPainter(init)).paint(j.x0, j.y0, j.w, j.h, j.ppm), source, o, q);
+    }
     this.terrain = new Container();
-    this.terrain.addChild(this.flat.root);
+    this.terrain.addChild(this.tiles.root);
     this.worldLayer.addChild(this.terrain);
     this.setBuildings(map);
   }
@@ -259,11 +303,20 @@ export class BattleRenderer {
     this.roofLayer.addChild(this.bld.roofs);
   }
 
-  /** Building the detail tiles of an area now (the opening view: the first picture complete). */
-  primeDetail(): void {
+  /**
+   * Paint the detail tiles of the view now (the opening view: the first picture complete). Photo with workers:
+   * resolves when they are painted (callers wait with a time limit).
+   */
+  primeDetail(): Promise<void> {
     const c = this.camera;
-    this.flat?.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale });
+    if (!this.tiles) return Promise.resolve();
+    return this.tiles.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lodFor(c.scale, this.lod) >= LOD_FIGURE);
   }
+
+  /** Terrain tiles still to paint or upload (the screenshot tool waits for 0). */
+  tilesPending(): number { return this.tiles?.pending() ?? 0; }
+  /** Terrain detail level shown last (0 whole map; photo 1..3 = 2, 4, 8 px/m). */
+  terrainLevel(): number { return this.tiles?.shownLevel ?? 0; }
 
   /** Roof alpha of building i (screenshots). */
   roofAlpha(i: number): number { return this.bld?.roofAlpha(i) ?? 1; }
@@ -508,7 +561,7 @@ export class BattleRenderer {
       return;
     }
     // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
-    const sprites = this.look === "pixel" && lod >= LOD_FIGURE;
+    const sprites = this.look !== "classic" && lod >= LOD_FIGURE;
     // Men always at true size (owner, 2026-11-13): below about 8 px the dot level takes over.
     const size = SPRITE_M * c.scale;
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
@@ -1106,7 +1159,7 @@ export class BattleRenderer {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
       if (p.result === "flash") { // muzzle flash: brief and bright (pixel soldiers show their own, M7.5b)
-        if (this.look === "pixel" && this.lod !== null && this.lod >= LOD_FIGURE) continue;
+        if (this.look !== "classic" && this.lod !== null && this.lod >= LOD_FIGURE) continue;
         g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
         continue;
       }
@@ -1292,7 +1345,7 @@ export class BattleRenderer {
   /** The roof-fade rule (M7.5b): own able men on foot near a building, or zoomed in close. */
   private updateRoofs(state: SimView, overlay: Overlay, lod: Lod): void {
     if (!this.bld) return;
-    this.roofLayer.visible = lod !== LOD_SYMBOLS || this.look === "pixel";
+    this.roofLayer.visible = lod !== LOD_SYMBOLS || this.look !== "classic";
     let n = 0;
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== overlay.playerSide) continue;
@@ -1314,7 +1367,7 @@ export class BattleRenderer {
     this.roofLayer.position.set(-c.x * c.scale, -c.y * c.scale);
     // Flat map (M7.5b): detail tiles from the figure level in; contour lines only at the dot and symbol levels.
     // S14 (the "map-feel" step): the top-bar toggle shows them at every zoom (close up: fine tiles in a pale ink).
-    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS || this.contoursAlways, this.contoursAlways);
+    this.tiles?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS || this.contoursAlways, this.contoursAlways);
     const g = this.world;
     g.clear();
     if (this.terrain) {

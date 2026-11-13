@@ -121,7 +121,39 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
 }
 
 /**
- * M7.5b look (`--scene look`): the pixel look against the classic one (`&look=classic`) where a pair helps —
+ * The photo map (`--scene photo`, plan "photo" step "ground"): photo against flat at four zooms — far (the whole
+ * map), middle (dots), the figure zoom and close up — on the village, farmland, woodland, industrial and flat maps
+ * (`--map` picks one). Each shot waits until the terrain tiles are painted and uploaded (`__tcs.tilesPending()`).
+ */
+async function photoScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const maps = args["map"] ? [mapKind] : ["village", "farmland", "woodland", "industrial", "flat"];
+  const settle = async () => {
+    await page.waitForFunction(new Function("const t = globalThis.__tcs; return t.tilesPending() === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400); // the fade-in
+  };
+  const info: string[] = [];
+  for (const map of maps) for (const lk of ["photo", "flat"]) {
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${map}&look=${lk}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+    const t0 = Date.now();
+    await settle();
+    info.push(`${map}/${lk} opening settled ${Date.now() - t0} ms, level ${await page.evaluate(new Function("return globalThis.__tcs.terrainLevel()") as () => number)}`);
+    for (const [label, sc] of [["far", 0.01], ["mid", 2.2], ["figure", name === "phone" ? 7 : 9], ["close", 18]] as const) {
+      await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; let x = 0, y = 0, n = 0;
+        for (const [id, i] of s.identity.entries()) if (i.side === "blue") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+        const m = t.sim.ctx.map; x /= n; y /= n; x = (x * 2 + m.widthM / 2) / 3; y = (y * 2 + m.heightM / 2) / 3;
+        t.focusScale(x, y, ${sc}); t.stepTicks(1);`) as () => void);
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-${label}-${lk}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+  }
+  console.log(`${name}: photo scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M7.5b look (`--scene look`): the flat pixel look (`&look=flat`) against the classic one (`&look=classic`) where a pair helps —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
  * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
@@ -134,8 +166,8 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
   };
   const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
-  for (const lk of ["classic", "pixel"]) {
-    const q = `&map=village${lk === "classic" ? "&look=classic" : ""}`;
+  for (const lk of ["classic", "flat"]) {
+    const q = `&map=village&look=${lk}`;
     await open(q);
     await shot(`0-opening-${lk}`);
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 2.5); t.stepTicks(1);`) as () => void);
@@ -143,7 +175,7 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 0.01); t.stepTicks(1);`) as () => void);
     await shot(`2-far-${lk}`);
     // A squad on foot firing, close up: the platoon battle on foot, the first squad fires east.
-    await open(`&map=village&vehicles=0${lk === "classic" ? "&look=classic" : ""}`);
+    await open(`&map=village&vehicles=0&look=${lk}`);
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
       const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
       let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
@@ -986,6 +1018,7 @@ try {
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "photo") { await photoScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1114,7 +1147,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

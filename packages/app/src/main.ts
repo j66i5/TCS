@@ -15,7 +15,7 @@ import {
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
@@ -23,6 +23,8 @@ import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow,
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
+/** The chosen map look (plan "photo"), remembered per browser. */
+const LOOK_KEY = "tcs.ui.look";
 
 async function main(): Promise<void> {
   const hudRoot = document.getElementById("hud")!;
@@ -77,8 +79,13 @@ async function main(): Promise<void> {
 
   const renderer = await BattleRenderer.create(mapRoot);
   renderer.groundFloorLabel = strings.t("ui.floor.ground");
-  // The look (M7.5b): the flat pixel map and pixel soldiers; `?look=classic` keeps the look before it.
-  const look = params.get("look") === "classic" ? "classic" : "pixel";
+  // The look (plan "photo"): the photo map by default; `?look=flat` (or its old name `pixel`) the M7.5b flat pixel
+  // map; `?look=classic` the look before it. Remembered per browser (a URL parameter wins).
+  const lookOfParam = (v: string | null): Look | null => (v === "photo" ? "photo" : v === "flat" || v === "pixel" ? "flat" : v === "classic" ? "classic" : null);
+  let stored: string | null = null;
+  try { stored = localStorage.getItem(LOOK_KEY); } catch { /* not remembered */ }
+  const look: Look = lookOfParam(params.get("look")) ?? lookOfParam(stored) ?? "photo";
+  try { if (params.get("look")) localStorage.setItem(LOOK_KEY, look); } catch { /* not remembered */ }
   renderer.setLook(look);
   // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
   renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
@@ -246,9 +253,10 @@ async function main(): Promise<void> {
     if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
     return { x: x / n, y: y / n };
   })();
-  if (look === "pixel" && leadAt) {
+  if (look !== "classic" && leadAt) {
     renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
-    renderer.primeDetail();
+    // The opening view's tiles first (photo: painted in workers; shown anyway after 3 s).
+    await Promise.race([renderer.primeDetail(), new Promise<void>((r) => setTimeout(r, 3000))]);
   } else if (own.length > 0 && input.map.widthM > 600) {
     const ox = own.reduce((a, t) => a + t.x, 0) / own.length, oy = own.reduce((a, t) => a + t.y, 0) / own.length;
     // Look from the team toward the map centre, 600 m across.
@@ -476,7 +484,7 @@ async function main(): Promise<void> {
     const ins = viewInsets();
     return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
   };
-  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); renderer.primeDetail(); } };
+  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); void renderer.primeDetail(); } };
   /** Review fix: the selected unit kept clear of the card when it grows (Men opened): centred if it went under it. */
   const keepSelectedClear = () => {
     const uid = overlay.selectedUnit;
@@ -1026,7 +1034,10 @@ async function main(): Promise<void> {
     fireNature: (x: number, y: number, n: "ap" | "he" | "mg" | "at", contact?: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n, ...(contact !== undefined ? { contact } : {}) }),
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
     /** M7.5b screenshots: centre at a zoom (px/m); the zoom level shown; a roof's alpha. */
-    focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); renderer.primeDetail(); },
+    focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); void renderer.primeDetail(); },
+    /** Photo terrain tiles still to paint or upload (screenshots wait for 0). */
+    tilesPending: () => renderer.tilesPending(),
+    terrainLevel: () => renderer.terrainLevel(),
     zoomLevel: () => renderer.zoomLevel(),
     /** M7.5b screenshots: every soldier frame of both sides (with variants) as a sheet over the map; false hides it. */
     showSprites: (on: boolean) => showSpriteSheet(on, sim.state.sides.map((x) => ({ faction: x.faction, colour: SIDE_COLOURS[sim.state.sides.indexOf(x)] ?? 0xffffff })), buildAppearance(data, sim.state.sides.map((x) => x.faction))),

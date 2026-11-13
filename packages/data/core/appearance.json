@@ -16,5 +16,19 @@
     "apartment-block": "#9a968e", "warehouse": "#8c8c88", "office": "#9c9a94"
   },
   "outline": "#1d2419",
+  "photo": {
+    "surfaces": {
+      "grass": "#68774f", "meadow": "#6c754d", "ploughed": "#6e5a49", "stubble": "#8d8360", "forest-floor": "#57573d",
+      "dirt-track": "#a79578", "gravel": "#9d988d", "asphalt": "#595856", "concrete": "#b5b2aa", "yard": "#968b78",
+      "garden": "#5a6f47", "floor": "#7f746c", "mud": "#605143", "water-shallow": "#32484f", "water-deep": "#25363e"
+    },
+    "vegetation": {
+      "crops": "#888657", "tall-grass": "#6f764e", "scrub": "#4d573b", "woodland": "#33422c", "orchard": "#4b583c", "treeline": "#3e4c33"
+    },
+    "obstacles": { "hedge": "#3f4c33", "stone-wall": "#b8b2a5", "concrete-wall": "#b9b6b0" },
+    "grade": { "desaturate": 0.28, "contrast": 0.06, "warm": 0.02, "grain": 0.03 },
+    "ladder": "Luminance ladder, darkest first, each class at least 1.15x the one before: deep water < wood canopy < hedge/treeline < scrub/orchard < plough < grass/meadow < crops/stubble < tracks/gravel < walls/concrete (test: render photo.test.ts).",
+    "note": "Original photo-map palette (plan photo, docs/ASSETS.md): quieter than the flat palette (HSV saturation <= 0.40), set by luminance class. Presentation only, outside the catalog."
+  },
   "note": "Original flat palette (M7.5, docs/ASSETS.md), muted from the terrain colours; used by the flat pixel map from M7.5b. Presentation only, outside the catalog."
 }

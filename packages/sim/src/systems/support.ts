@@ -14,8 +14,9 @@
  * battery fires for effect: volleys of `tubes` rounds, `volleySpreadSeconds` apart, every `intervalSeconds`, each
  * round scattered by `dispersionM` about the corrected point. The ranging rounds come out of the section's stock
  * too (rule 9), on top of the rounds asked for while there are enough; short of rounds, the mission gives up
- * ranging rounds first (always one for effect). A point once ranged on is remembered with the error left there: a
- * new mission within `registeredM` fires for effect at once.
+ * ranging rounds first (always one for effect). A point once ranged on, with at least one ranging round seen, is
+ * remembered with the error left there: a new mission within `registeredM` fires for effect at once (an unobserved
+ * point is not remembered: the next mission there ranges again).
  */
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -185,11 +186,13 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
     if (ranging) {
       // A ranging round: the caller corrects the aim if he saw where it fell.
       const missM = Math.round(sqrt((x - m.x) * (x - m.x) + (y - m.y) * (y - m.y)));
-      if (seen) { m.ex = (m.ex ?? 0) * fs.rangingCorrection; m.ey = (m.ey ?? 0) * fs.rangingCorrection; }
+      if (seen) { m.ex = (m.ex ?? 0) * fs.rangingCorrection; m.ey = (m.ey ?? 0) * fs.rangingCorrection; m.observed = true; }
       m.ranging = m.ranging! - 1;
       events.emit({ kind: "support.ranging", tick: state.tick, side: m.side, caller: m.caller, x, y, tx: m.x, ty: m.y, ammo: m.ammo, seen, missM, left: m.ranging });
       radio(state, events, m, seen ? "radio.fireAdjust" : "radio.fireUnobserved", { miss: missM });
-      if (m.ranging === 0) { delete m.ranging; register(state, fs, m); }
+      // Only an observed point is remembered: unseen, the error is still the battery's full one, and a later
+      // mission there must range again rather than fire for effect with it.
+      if (m.ranging === 0) { delete m.ranging; if (m.observed) register(state, fs, m); }
       m.nextTick = state.tick + Math.max(1, secondsToTicks(fs.rangingSeconds));
       continue;
     }

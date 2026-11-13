@@ -112,6 +112,9 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   applyExpanded();
   globalThis.addEventListener("resize", applyExpanded);
   const els = new Map<EntityId, { b: HTMLButtonElement; key: string }>();
+  /** Review fix: more rows below the bottom edge fade out there (the list scrolls). */
+  const markMore = () => { list.classList.toggle("more", list.scrollHeight - list.scrollTop - list.clientHeight > 4); };
+  list.addEventListener("scroll", markMore, { passive: true });
   return {
     el: root,
     update(tiles, selected) {
@@ -167,6 +170,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
       });
       for (const [u, e] of els) if (!keep.has(u)) { e.b.remove(); els.delete(u); }
+      markMore();
     },
     setSide(side) { root.classList.toggle("side-left", side === "left"); root.classList.toggle("side-right", side === "right"); },
     setExpanded(on) { expanded = on; applyExpanded(); onResize(); },

@@ -56,6 +56,28 @@ export function inPlacePoint(centre: Pt, slotsAt: readonly Pt[]): Pt {
 }
 
 /**
+ * Review fix (S9): the shape the men stand in, measured along `facing`: how deep (front to back) and how wide
+ * (left to right), m. A turn in place keeps it (a column stays a column) instead of re-forming into the default.
+ */
+export function shapeOf(places: readonly Pt[], facing: number): { depthM: number; widthM: number } {
+  if (places.length === 0) return { depthM: 0, widthM: 0 };
+  const fx = Math.cos(facing), fy = Math.sin(facing);
+  let a0 = Infinity, a1 = -Infinity, r0 = Infinity, r1 = -Infinity;
+  for (const p of places) {
+    const a = p.x * fx + p.y * fy, r = -p.x * fy + p.y * fx;
+    a0 = Math.min(a0, a); a1 = Math.max(a1, a); r0 = Math.min(r0, r); r1 = Math.max(r1, r);
+  }
+  return { depthM: a1 - a0, widthM: r1 - r0 };
+}
+
+/** The formation a turn in place keeps: deep and narrow a file, wide and shallow a line, else the default. */
+export function turnFormation(shape: { depthM: number; widthM: number }, has: (id: string) => boolean, fallback: string): string {
+  if (shape.depthM > 1.5 * shape.widthM + 1 && has("file")) return "file";
+  if (shape.widthM > 1.5 * shape.depthM + 1 && has("line")) return "line";
+  return fallback;
+}
+
+/**
  * S10: an active move's marker dragged elsewhere: the same move (pace of its last leg, formation, frontage) straight
  * to the new point, facing along the way there from where the unit is now. Earlier route points are dropped.
  */
@@ -78,25 +100,38 @@ export interface Eye { x: number; y: number; z: number; ignore: number }
 /** Below this share of the view getting through (vegetation, see-through fences) a line counts as blocked. */
 export const LOS_CLEAR_MIN = 0.2;
 
+/** The most unknown hulls one preview line looks through (more: the line counts as blocked there). */
+export const LOS_MAX_UNKNOWN = 8;
+
 /**
  * The preview lines from each eye to (tx, ty, tz). `unknownHull(x, y)` names a hull at the point where a line was
- * stopped by a vehicle that the player's side does not know (its id, else -1): the line is tried again through it,
- * so the preview never gives away an enemy vehicle the side has not seen.
+ * stopped by a vehicle that the player's side does not know (its id, else -1): the line goes on from that point
+ * with the hull ignored (and the view so far kept), as often as it meets such hulls, so the preview never gives
+ * away an enemy vehicle the side has not seen.
  */
 export function losPreview(ctx: SimContext, eyes: readonly Eye[], tx: number, ty: number, tz: number, unknownHull: (x: number, y: number) => number): LosLine[] {
   const out: LosLine[] = [];
   for (const e of eyes) {
-    let a = e.ignore, b = -1;
-    let s = sight(ctx, e.x, e.y, e.z, tx, ty, tz, a, b);
-    for (let k = 0; k < 2 && s.blockedBy === "vehicle"; k++) {
-      const hx = e.x + (tx - e.x) * s.blockedAt, hy = e.y + (ty - e.y) * s.blockedAt;
+    // The line in pieces: from (sx, sy, sz) at share t0 of the whole, ignoring the eye's own hull and the unknown
+    // hull the piece starts at; the view through each piece multiplies.
+    let sx = e.x, sy = e.y, sz = e.z, t0 = 0, vis = 1, skip = -1;
+    let s = sight(ctx, sx, sy, sz, tx, ty, tz, e.ignore, skip);
+    for (let k = 0; k < LOS_MAX_UNKNOWN && s.blockedBy === "vehicle"; k++) {
+      const hx = sx + (tx - sx) * s.blockedAt, hy = sy + (ty - sy) * s.blockedAt;
       const vid = unknownHull(hx, hy);
       if (vid < 0) break;
-      if (a < 0) a = vid; else b = vid;
-      s = sight(ctx, e.x, e.y, e.z, tx, ty, tz, a, b);
+      // The view through the piece up to the hull (a blocked sight reports none): the same line, stopped 5 cm short.
+      const len = Math.hypot(tx - sx, ty - sy, tz - sz), back = len > 0 ? Math.max(0, s.blockedAt - 0.05 / len) : 0;
+      const piece = sight(ctx, sx, sy, sz, sx + (tx - sx) * back, sy + (ty - sy) * back, sz + (tz - sz) * back, e.ignore, skip);
+      vis *= piece.visibility;
+      t0 = t0 + (1 - t0) * s.blockedAt;
+      sx = hx; sy = hy; sz = sz + (tz - sz) * s.blockedAt; skip = vid;
+      s = sight(ctx, sx, sy, sz, tx, ty, tz, e.ignore, skip);
     }
-    const clear = s.blockedBy === null && s.visibility >= LOS_CLEAR_MIN;
-    out.push({ x0: e.x, y0: e.y, x1: tx, y1: ty, clear, stopAt: clear ? 1 : s.blockedBy !== null ? Math.max(0, Math.min(1, s.blockedAt)) : 0 });
+    const visibility = vis * s.visibility;
+    const clear = s.blockedBy === null && visibility >= LOS_CLEAR_MIN;
+    const at = s.blockedBy !== null ? t0 + (1 - t0) * Math.max(0, Math.min(1, s.blockedAt)) : 0;
+    out.push({ x0: e.x, y0: e.y, x1: tx, y1: ty, clear, stopAt: clear ? 1 : at });
   }
   return out;
 }

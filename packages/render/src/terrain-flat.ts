@@ -322,10 +322,10 @@ export function paintContours(map: MapDef, ppm: number, x0 = 0, y0 = 0, w = map.
   return out;
 }
 
-/** Contour ink of the whole-map layer (dark brown) and of the close-up layer the top-bar toggle adds (S14: a pale
- *  rose that shows on the detailed ground and differs from the pale move lines; TCS's own colours). */
+/** Contour ink of the whole-map layer (dark brown) and of the close-up layer the top-bar toggle adds (S14; review
+ *  fix: the same dark brown, a little stronger, rather than a pale rose that read like a route). */
 export const CONTOUR_INK = [0x3a, 0x2e, 0x1f] as const;
-export const CONTOUR_CLOSE_INK = [0xf0, 0xb4, 0xdc] as const;
+export const CONTOUR_CLOSE_INK = [0x2e, 0x24, 0x16] as const;
 /** S14: from this zoom (px/m) in, the toggle's contours are the fine tiles (fewer than TILE_CACHE cover a screen). */
 export const CLOSE_CONTOUR_SCALE = 4;
 

@@ -78,6 +78,17 @@ describe("S8: last seen pins", () => {
     b.update([k(1, 0)], t + 120); b.update([k(1, 8)], t + 120 + 8 * 60);
     expect(b.pins().map((p) => p.target)).toContain(1);
   });
+  it("a contact seen a long time and then lost is watched EMPTY_AFTER_S from the loss, not from the first sighting", () => {
+    const b = new LastSeenBook();
+    for (let s = 0; s <= 60; s++) b.update([k(1, 0)], s * 60);
+    const lost = 60 * 60 + 7 * 60;
+    b.update([k(1, 7)], lost);
+    b.look(lost + 60, () => true);
+    expect(b.pins()).toHaveLength(1);
+    let t = lost + 60;
+    for (let s = 0; s < EMPTY_AFTER_S + 1; s++) { t += 60; b.look(t, () => true); }
+    expect(b.pins()).toHaveLength(0);
+  });
   it("out of view resets the count", () => {
     const b = new LastSeenBook();
     b.update([k(1, 10)], 0);

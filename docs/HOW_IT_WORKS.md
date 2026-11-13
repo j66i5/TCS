@@ -757,6 +757,28 @@ An idea taken from Firefight (only the idea: the drawings, words and colours are
 - This is the one part of the Firefight list that changed the battle itself (see "Mortars and smoke" at the top):
   the order is the same `callFire` order as before; ranging, volleys and the remembered points are in the
   simulation, with new values in the factions' data (game values, low confidence).
+## Fixes after the review of the Firefight-style screen (2026-11-13)
+- **Sharp screens.** On phones and Retina screens the map's idea of the screen size was half the real one, so
+  "centre on this unit" and the follow camera aimed at the wrong place. Now a tapped tile puts the unit in the
+  middle of the map area that is left free — above the unit card and the radio log — and the follow camera keeps it
+  there.
+- **No peeking.** The sight-line preview (hold in Fire) looks through every enemy vehicle your side has not seen,
+  however many stand in the line, and a vehicle you only heard counts as unseen. A mortar round nobody saw fall
+  leaves no cross on the map. A "last seen" pin goes after five seconds of your men watching the empty spot,
+  counted from when the enemy was lost.
+- **Mortar memory.** The battery only remembers a point as "ranged" if someone saw at least one ranging round land.
+  A blind call is ranged again next time instead of firing for effect with the full error.
+- **Touch.** In Fire or Fire support mode a quick swipe moves the map; press and hold still (a fifth of a second) to
+  get the sight lines. Moving the map with two fingers, or holding an arrow key, stops the follow camera.
+- **Small things.** Pressing T twice no longer locks Fire on (only a double tap or click does). Undoing the last
+  route point closes the route. Dragging the facing handle keeps the squad's shape (a column turns as a column) and
+  the handle stays where you let go until the squad starts to turn. The start hint is one short line that goes as
+  soon as you pick a unit. The top line starts with the time and the mortar rounds ("mortar HE 24 · smoke 12").
+  When both platoons have a "Puma 2", the map and the card say "1/Puma 2" and "2/Puma 2". On a phone with the bar at
+  the side, the pace and fire buttons keep their words. Sight lines and the selected men's rings have a dark edge so
+  they show on pale fields; close-up contour lines are dark brown like the zoomed-out ones; the help card shows
+  either the touch or the mouse rows; long lists fade at the bottom to show they scroll.
+
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the
 zoom:

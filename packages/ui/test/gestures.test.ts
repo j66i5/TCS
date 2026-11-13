@@ -5,7 +5,7 @@ import { createSim, step, submitOrder, type Order } from "@tcs/sim";
 import { loadData } from "../../tools/src/scenarios";
 import { addPoint, newPlan, planToOrder } from "../src/planner";
 import { markerGeometry } from "../src/planner";
-import { centreOf, facingHandleAt, inPlacePoint, isDoubleTap, losPreview, modeAfterOrder, onUnitAt, retargetMove } from "../src/gestures";
+import { centreOf, facingHandleAt, inPlacePoint, isDoubleTap, losPreview, modeAfterOrder, onUnitAt, retargetMove, shapeOf, turnFormation } from "../src/gestures";
 import { ordersFor } from "../src/orders-for";
 
 const angDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -29,6 +29,17 @@ describe("gesture helpers", () => {
     expect(h.x).toBeCloseTo(5); expect(h.y).toBeCloseTo(4 + 3);
     const v = facingHandleAt({ x: 0, y: 0 }, [], 0, 3, 4); // a hull: half its length, then the gap
     expect(v.x).toBeCloseTo(7);
+  });
+  it("review fix (S9): a turn in place keeps the men's shape (a column stays a column, a line a line)", () => {
+    const column = [0, 1, 2, 3, 4, 5].map((k) => ({ x: 0, y: -k * 5 })); // facing north (-y), one behind the other
+    const sh = shapeOf(column, -Math.PI / 2);
+    expect(sh.depthM).toBeCloseTo(25); expect(sh.widthM).toBeCloseTo(0);
+    const has = () => true;
+    expect(turnFormation(sh, has, "wedge")).toBe("file");
+    const line = [0, 1, 2, 3, 4, 5].map((k) => ({ x: k * 5, y: 0 }));
+    expect(turnFormation(shapeOf(line, -Math.PI / 2), has, "wedge")).toBe("line");
+    expect(turnFormation({ depthM: 10, widthM: 12 }, has, "wedge")).toBe("wedge");
+    expect(turnFormation(sh, () => false, "wedge")).toBe("wedge");
   });
   it("S10: re-targeting keeps pace, formation and frontage and faces along the new way", () => {
     const prev: Extract<Order, { kind: "move" }> = { tick: 5, issuer: "blue", target: 9, kind: "move", waypoints: [{ x: 10, y: 0, mode: "walk" }, { x: 50, y: 0, mode: "run" }], formation: "wedge", facing: 0, frontageM: 30 };
@@ -59,6 +70,31 @@ describe("S2 line-of-sight preview", () => {
     expect(known[0]!.stopAt).toBeLessThan(0.7);
     const unknown = losPreview(sim.ctx, [eye], t.x + 30, t.y, ground + 0.75, () => vid);
     expect(unknown[0]!.clear).toBe(true);
+  });
+  it("a line through several unknown hulls is looked through all of them (review fix: no hull is given away)", () => {
+    const data = loadData();
+    const input = vehicleBattle(data, { seed: 1, factions: ["de", "ru"], timeLimitSeconds: 600 });
+    const sim = createSim(input);
+    step(sim);
+    const hulls = [...sim.state.vehicle.entries()].map(([id]) => ({ id, t: sim.state.transform.req(id) }));
+    expect(hulls.length).toBeGreaterThanOrEqual(3);
+    const [a, b, c] = hulls as [typeof hulls[0], typeof hulls[0], typeof hulls[0]];
+    const dx = c.t.x - a.t.x, dy = c.t.y - a.t.y, d = Math.hypot(dx, dy);
+    const ux = dx / d, uy = dy / d;
+    const eye = { x: a.t.x - ux * 30, y: a.t.y - uy * 30, z: 1.6, ignore: -1 };
+    void b;
+    const nearest = (x: number, y: number) => {
+      let best = -1, bd = 7 * 7;
+      for (const h of hulls) { const q = (h.t.x - x) ** 2 + (h.t.y - y) ** 2; if (q < bd) { bd = q; best = h.id; } }
+      return best;
+    };
+    let calls = 0;
+    const lines = losPreview(sim.ctx, [eye], c.t.x + ux * 30, c.t.y + uy * 30, 0.75, (x, y) => { calls++; return nearest(x, y); });
+    expect(calls).toBeGreaterThanOrEqual(2); // a and c (and b, if it stands in the way)
+    expect(lines[0]!.clear).toBe(true);
+    const blocked = losPreview(sim.ctx, [eye], c.t.x + ux * 30, c.t.y + uy * 30, 0.75, (x, y) => (nearest(x, y) === c.id ? -1 : nearest(x, y)));
+    expect(blocked[0]!.clear).toBe(false);
+    expect(blocked[0]!.stopAt).toBeGreaterThan(0.5);
   });
 });
 

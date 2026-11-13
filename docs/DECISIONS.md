@@ -2806,3 +2806,36 @@ burst (rounds bunched into volleys, the first rounds off target). Batch tool: a 
 **Goldens regenerated** (`npm run golden:update`): every golden's catalog fingerprint changed (data). demo-s1,
 shootout-s1 and fixture-s7 (no mortar) were replayed on the old and the new code: the serialised state at every
 checkpoint is identical apart from the catalog fingerprint. Screenshots `npm run screenshot -- --scene firesupport`.
+
+## 2026-11-13 — Review fixes for the Firefight-style UI (sim change: unobserved ranging is not registered)
+Fixes from the review of the five Firefight steps. Verified and fixed: the DPR camera bug (`BattleRenderer.width`
+divided Pixi 8's CSS-px `renderer.width` by the resolution; since M0), the last-seen pin watch clock, the LOS preview
+leaking unknown hulls (now walks the line in pieces past any number of them, `LOS_MAX_UNKNOWN` 8) and heard
+vehicles, unseen ranging falls drawn, follow vs two-finger pan / held pan keys, T T locking Fire, an empty plan left
+open, the facing-handle turn (snap-back during the radio delay; re-forming into the default wedge).
+**Sim change:** `FireMission.observed` (set when a ranging round is seen); `register` only for observed missions.
+Goldens regenerated (`npm run golden:update`): only platoon-vehicles-s1 changed its checkpoints (it has a mission).
+Skipped with reasons: "units hidden under the tile column at symbol zoom" — the scene centred the camera on the enemy
+at 0.5 px/m, where the map is wider than the free area and the west edge is panned under the column by design; the
+fitted overview keeps the map clear of the column (and the DPR fix made centring right). "Labels switch sides" —
+the label placer tries right, left, above, below to avoid overlaps by design. "Roger, opening fire then no line of
+fire" — the radio acknowledgement then the men's report is the sim's honest answer; the preview showed the block.
+Not done (left open, effort): vehicle gun and ammunition on the card, pixel-look casualties readability, the
+drag-ghost pile-up on the squad, the phone's expanded list over the card.
+Choices made here without the owner (low confidence):
+1. Touch only: a press in Fire / Fire support must be held still 220 ms before it drags; a quicker swipe pans (the
+   mouse drags at once, as before). Two fingers whose midpoint moves > 12 px count as a pan (stop following).
+2. Duplicate callsigns are shown as "<parent's number>/<callsign>" ("1/Puma 2"), on map labels, the card and the
+   follow badge; the unit list keeps plain names under their platoon tile. Sim callsigns are unchanged.
+3. A turn in place keeps the men's shape: deep and narrow → `file`, wide and shallow → `line` (at their current
+   width), else the default formation; a formation picked in the plan bar still wins.
+4. The group buttons (Move, Fire) keep their own label; the icon and the tooltip show the variant that is on (the
+   bar no longer changes width when Fire support is picked).
+5. Score line order: time, mortar rounds, objectives; "mortar HE {he} · smoke {smoke}". Pin labels "{n} s ago".
+6. The start hint is one line on the desktop too (`app.hintShortMouse`); it hides once a unit is selected; the long
+   text is a tap away. The help card shows touch rows on a touch screen, mouse rows otherwise (keys on both).
+7. Close-up contours use a dark brown (`CONTOUR_CLOSE_INK`), stronger than the zoomed-out ones, not the pale rose.
+8. Radio log lines are nearly opaque and only as wide as their text; the Occupy context button stays above the log
+   and card; centring and following use the map area above the card and log (`viewInsets`).
+9. German role names with umlauts (strings only; outside the catalog fingerprint).
+Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and desktop).

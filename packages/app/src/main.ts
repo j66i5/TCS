@@ -15,9 +15,9 @@ import {
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
 import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
-  centreOf, facingHandleAt, inPlacePoint, losPreview, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
+  centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
   ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
 import { loadBundledData } from "./data";
@@ -118,6 +118,8 @@ async function main(): Promise<void> {
     hud.setPlanning(kind);
   };
   const endPlan = () => { plan = null; dragHandle = null; hud.setPlanning(null); };
+  /** Undo the plan's last point; the last one undone closes the plan (review fix: an empty plan stayed open). */
+  const undoPlanPoint = () => { if (!plan) return; plan = undoPoint(plan); if (plan.points.length === 0) endPlan(); };
   /** Handles stay this far (on screen) from the marker's centre, so a finger can grab the marker itself. */
   const HANDLE_PX = 46;
   /** The formation marker (a move only: an assault or withdrawal ends spread round its point). */
@@ -162,12 +164,12 @@ async function main(): Promise<void> {
     },
     // S6: a man's row on the card: his box (again: closed).
     onInspect: (m) => { inspected = m === null || m === inspected ? null : m; showCard(); },
-    onCardResize: () => { showCard(); },
+    onCardResize: () => { showCard(); keepSelectedClear(); },
     onFormation: (f) => {
       formation = f;
       if (plan) { const n = Math.max(1, unitMen().length); plan = { ...plan, formation: f, frontageM: Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) }; }
     },
-    onUndo: () => { if (plan) plan = undoPoint(plan); },
+    onUndo: () => undoPlanPoint(),
     onGo: () => goPlan(),
     onCancel: () => { endPlan(); orderMode = "move"; hud.setOrderMode("move"); },
     onRules: (r) => {
@@ -200,7 +202,8 @@ async function main(): Promise<void> {
     onSelectUnit: (u) => {
       endPlan(); gesture = null;
       if (overlay.selectedUnit === u && centredOn(u)) { overlay.selectedUnit = null; stopFollow(); }
-      else { overlay.selectedUnit = u; centreOn(u); if (following !== null && following !== u) stopFollow(); }
+      // (The card first: centring keeps the unit clear of it.)
+      else { overlay.selectedUnit = u; showCard(); centreOn(u); if (following !== null && following !== u) stopFollow(); }
       syncOrders(); refreshTiles();
     },
     onFollowUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = u; startFollow(u); syncOrders(); refreshTiles(); },
@@ -295,7 +298,8 @@ async function main(): Promise<void> {
     const men = unitMenRows(sim.state, input.catalog, uid);
     if (inspected !== null && !men.some((r) => r.id === inspected)) inspected = null;
     const state = tile.kind === "vehicle" ? strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : strings.t(`side.state.${tile.state}`);
-    hud.setCard({ callsign: tile.callsign, fit: tile.fit, total: tile.total, state, men });
+    // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
+    hud.setCard({ callsign: shownCallsigns(sim.state.unit.entries()).get(uid) ?? tile.callsign, fit: tile.fit, total: tile.total, state, men });
     hud.setInspected(inspected);
     hud.showMan(inspected === null ? null : manDetail(sim.state, input.catalog, inspected));
   };
@@ -380,9 +384,14 @@ async function main(): Promise<void> {
     return o;
   };
   /** S9: the facing handle of the selected unit while it stands (on foot outdoors, or a crewed hull); null else. */
+  /** Review fix (S9): a turn sent and not yet under way (the radio delay): the handle stays where it was let go. */
+  let pendingTurn: { uid: EntityId; angle: number; tick: number } | null = null;
+  const turnPending = (uid: EntityId): number | null =>
+    pendingTurn && pendingTurn.uid === uid && sim.state.tick - pendingTurn.tick < 10 * 60 ? pendingTurn.angle : null;
   const facingHandle = (): { centre: Pt; handle: Pt; facing: number } | null => {
     const uid = overlay.selectedUnit;
     const u = uid === null ? undefined : sim.state.unit.get(uid);
+    if (u && pendingTurn?.uid === uid && u.moving) pendingTurn = null; // under way: the men show the turn now
     if (!u || uid === null || plan || u.moving || u.drill || u.boarding || u.broken || activeMoveOf(uid)) return null;
     if (orderMode !== "move" && orderMode !== "assault" && orderMode !== "withdraw") return null;
     const { men, hulls } = unitPlaces(uid);
@@ -391,13 +400,14 @@ async function main(): Promise<void> {
       const t = sim.state.transform.get(u.vehicle), v = sim.state.vehicle.get(u.vehicle);
       if (!t || !v || v.status !== "ok") return null;
       const c = { x: t.x, y: t.y };
-      return { centre: c, facing: t.heading, handle: facingHandleAt(c, [], t.heading, 30 / scale, 4) };
+      const h = turnPending(uid) ?? t.heading;
+      return { centre: c, facing: h, handle: facingHandleAt(c, [], h, 30 / scale, 4) };
     }
     if (men.length === 0 || hulls.length > 0) return null; // riding: the vehicle turns, not the squad
     for (const m of men) if (indoorAt(sim.ctx, m.x, m.y) >= 0) return null; // indoors: Occupy faces the windows
     const c = centreOf(men)!;
     const lead = u.leader !== null ? sim.state.transform.get(u.leader) : undefined;
-    const facing = lead?.heading ?? 0;
+    const facing = turnPending(uid) ?? lead?.heading ?? 0;
     return { centre: c, facing, handle: facingHandleAt(c, men, facing, 30 / scale) };
   };
   /** A plan for the selected unit from `from` to `to` (the ghost of S1 and S9). */
@@ -409,9 +419,17 @@ async function main(): Promise<void> {
   /** S9: the move that turns the unit where it stands (a vehicle: to its own spot; men: their middle stays). */
   const turnPlan = (c: Pt, angle: number): Plan => {
     if (vehicleClassOf(overlay.selectedUnit) !== null) return ghostPlan("move", c, c, angle);
-    const g = markerFor(ghostPlan("move", c, c, angle));
-    const p = g ? inPlacePoint(c, g.men) : c;
-    return ghostPlan("move", c, p, angle);
+    // Review fix: the men keep the shape they stand in (a column turns as a column, a line as a line, at its
+    // width) unless a formation was picked in the plan bar; the default one only when the shape says nothing.
+    const fh = facingHandle();
+    const men = unitPlaces(overlay.selectedUnit!).men;
+    const sh = shapeOf(men, fh?.facing ?? angle);
+    const f = formation ?? turnFormation(sh, (id) => input.catalog.formations[id] !== undefined, defaultFormation);
+    const n = Math.max(1, unitMen().length);
+    const front = f === formation || sh.widthM < 2 ? Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) : Math.max(4, sh.widthM);
+    const at = (to: Pt): Plan => ({ ...addPoint(newPlan("move", c, f, front), to.x, to.y, pace), facing: angle });
+    const g = markerFor(at(c));
+    return at(g ? inPlacePoint(c, g.men) : c);
   };
   /** After a one-tap order: back to Move unless the mode is locked on (S12). */
   const oneTapDone = () => {
@@ -451,12 +469,23 @@ async function main(): Promise<void> {
   };
 
   // ---- S5: centring on a unit and the follow camera
+  /** The map area left free by the bars, the sidebar and (review fix) the radio log and the unit card. */
+  const viewInsets = () => { const ins = hud.insets(); return { ...ins, bottom: Math.max(ins.bottom, Math.min(hud.bottomCover(), renderer.app.screen.height * 0.6)) }; };
   /** The world point at the middle of the free map area. */
   const viewCentre = (): Pt => {
-    const ins = hud.insets();
+    const ins = viewInsets();
     return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
   };
-  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, hud.insets()); renderer.primeDetail(); } };
+  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); renderer.primeDetail(); } };
+  /** Review fix: the selected unit kept clear of the card when it grows (Men opened): centred if it went under it. */
+  const keepSelectedClear = () => {
+    const uid = overlay.selectedUnit;
+    if (uid === null || following !== null) return;
+    const p = centreOf(placesOf(uid));
+    if (!p) return;
+    const s = worldToScreen(renderer.camera, p.x, p.y), ins = viewInsets();
+    if (s.y > renderer.app.screen.height - ins.bottom - 20) centreOn(uid);
+  };
   /** Is the camera on the unit already (within 24 px of the middle of the free area)? */
   const centredOn = (uid: EntityId): boolean => {
     const p = centreOf(placesOf(uid));
@@ -464,7 +493,7 @@ async function main(): Promise<void> {
     const v = viewCentre();
     return Math.hypot(p.x - v.x, p.y - v.y) * renderer.camera.scale <= 24;
   };
-  const followText = () => { const u = following === null ? undefined : sim.state.unit.get(following); hud.setFollowing(u ? strings.t("follow.badge", { callsign: u.callsign }) : null); };
+  const followText = () => { const u = following === null ? undefined : sim.state.unit.get(following); hud.setFollowing(u && following !== null ? strings.t("follow.badge", { callsign: shownCallsigns(sim.state.unit.entries()).get(following) ?? u.callsign }) : null); };
   const startFollow = (uid: EntityId) => { following = uid; followText(); };
   const stopFollow = () => { if (following === null) return; following = null; followText(); };
   /** Each frame: ease the camera toward the followed unit's middle (stops when the unit has no one left). */
@@ -473,12 +502,13 @@ async function main(): Promise<void> {
     const p = centreOf(placesOf(following));
     if (!p) { stopFollow(); return; }
     const e = easeToward(viewCentre(), p);
-    renderer.focusScale(e.x, e.y, renderer.camera.scale, hud.insets());
+    renderer.focusScale(e.x, e.y, renderer.camera.scale, viewInsets());
   };
   /** S13: select a unit and centre on it (Tab), following it instead while the camera follows. */
   const selectAndCentre = (uid: EntityId) => {
     endPlan(); gesture = null;
     overlay.selectedUnit = uid;
+    showCard();
     if (following !== null) startFollow(uid); else centreOn(uid);
     syncOrders(); refreshTiles();
   };
@@ -520,7 +550,8 @@ async function main(): Promise<void> {
     }
     // A hull's sights: about 2.3 m above the ground (a low-confidence stand-in for its gunner's sight).
     for (const h of hulls) { const t = sim.state.transform.get(h); if (t) eyes.push({ x: t.x, y: t.y, z: heightAt(input.map, t.x, t.y) + 2.3, ignore: h }); }
-    const knownHulls = new Set((overlay.known ?? []).filter((k) => k.cls === "vehicle").map((k) => k.target));
+    // Hulls the side has seen or been told of (a heard engine gives no place to draw a line against).
+    const knownHulls = new Set((overlay.known ?? []).filter((k) => k.cls === "vehicle" && k.kind !== "heard").map((k) => k.target));
     const unknownHull = (x: number, y: number): number => {
       let best = -1, bd = 7 * 7;
       for (const [vid, v] of sim.state.vehicle.entries()) {
@@ -676,14 +707,14 @@ async function main(): Promise<void> {
         if (!inMap(w)) return false;
         const on = onSelected(w);
         gesture = { kind: "fire", at: { ...w }, onUnit: on, los: on ? [] : losTo(w) };
-        return true;
+        return "hold"; // (touch: a quick swipe pans instead; review fix)
       }
       // S11: a press in Fire support mode holds a point (it can be slid to adjust); letting go offers HE or smoke.
       if (orderMode === "support") {
         if (!inMap(w)) return false;
         hud.offerSupport(null);
         gesture = { kind: "support", at: { ...w } };
-        return true;
+        return "hold";
       }
       if (orderMode !== "move" && orderMode !== "assault" && orderMode !== "withdraw") return false;
       const tolM = 22 / renderer.camera.scale + 1;
@@ -724,7 +755,7 @@ async function main(): Promise<void> {
       if (gs.kind === "facing") {
         if (gs.angle === null) return false;
         const o = planToOrder(turnPlan(gs.centre, gs.angle), playerSide, uid, sim.state.tick);
-        if (o) issue(forUnit(o));
+        if (o) { issue(forUnit(o)); pendingTurn = { uid, angle: gs.angle, tick: sim.state.tick }; }
         activeMoves.delete(uid); // a turn on the spot has no marker to drag
 
         return false;
@@ -778,7 +809,7 @@ async function main(): Promise<void> {
       case "follow": if (overlay.selectedUnit !== null) { if (following === overlay.selectedUnit) stopFollow(); else startFollow(overlay.selectedUnit); } return;
       case "order": if (overlay.selectedUnit !== null) hud.press(a.order); return;
       case "go": if (plan) goPlan(); return;
-      case "undo": if (plan) plan = undoPoint(plan); return;
+      case "undo": undoPlanPoint(); return;
       case "contours": hud.setContours(!contoursOn); return;
       case "help": hud.toggleHelp(); return;
     }
@@ -806,6 +837,7 @@ async function main(): Promise<void> {
     if (panKeys.size === 0) return;
     const v = panVector(panKeys);
     if (v.x === 0 && v.y === 0) return;
+    stopFollow(); // (a pan key held from before F was pressed pans too: the follow ends)
     const c = renderer.camera, d = (PAN_PX_PER_S * dt) / c.scale;
     renderer.camera = renderer.clampCamera({ ...c, x: c.x + v.x * d, y: c.y + v.y * d }, hud.insets());
   };
@@ -971,6 +1003,8 @@ async function main(): Promise<void> {
     expandSidebar: (on: boolean) => hud.setSidebarExpanded(on),
     orderSet: () => hud.orderSet(),
     insets: () => hud.insets(),
+    /** The free map area less the radio log and card (review fix; the follow camera and centring use it). */
+    viewInsets: () => viewInsets(),
     /** Own top-level units and all own units (sidebar order). */
     units: () => unitTiles(sim.state, playerSide, input.catalog).map((t) => ({ unit: t.unit, callsign: t.callsign, kind: t.kind, depth: t.depth })),
     /** Own vehicles: [entity, crew unit] (screenshots). */
@@ -1140,14 +1174,16 @@ async function main(): Promise<void> {
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
     const sup = sim.state.support.some((x) => x.side === playerSide);
     // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
-    // holder's full name as a tooltip), the time left, the mortar rounds left (HE/smoke).
+    // holder's full name as a tooltip), the time left, the mortar rounds left (HE and smoke, named). The time and
+    // the rounds come first (review fix: at the end of the line they were cut off on a phone); the objectives'
+    // names may run out of room, their coloured marks stay.
     hud.setScore([
+      { text: strings.t("score.time", { left: fmtClock(left) }) },
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
       ...defs.map((o, i) => {
         const st = sim.state.objectives[i];
         return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };
       }),
-      { text: strings.t("score.time", { left: fmtClock(left) }) },
-      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
     ]);
   };
 

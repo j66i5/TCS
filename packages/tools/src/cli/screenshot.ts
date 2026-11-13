@@ -866,6 +866,105 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
   console.log(`${name}: firesupport scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * The "review fixes" step (`--scene review`): at device pixel ratio 2 (as on nearly every phone and Retina screen;
+ * the other scenes run at 1 and never saw the halved screen size). The mounted platoon battle as it opens (the short
+ * hint, the score line with the time and mortar rounds first, both platoons' vehicles told apart as "1/Puma 2" and
+ * "2/Puma 2"); a tile tapped (the squad in the middle of the free area, the hint gone); held (the follow camera
+ * keeps the squad in the middle while it drives); on foot: the detailed card (the squad kept clear of it); the bar
+ * docked at the side on a phone (the pace and fire chips keep their labels); Fire held behind a house (sight lines
+ * with dark edges); contours close up (dark brown); the help card (touch or mouse rows only). Every step is checked.
+ */
+async function reviewScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/review-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  const phone = name === "phone";
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const log: Record<string, unknown> = { dpr: await page.evaluate(new Function("return globalThis.devicePixelRatio") as () => number) };
+  const ready = () => page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  // Where a unit's middle sits on screen against the middle of the free area (less log and card), px.
+  const offCentre = (uid: string) => ev<{ dx: number; dy: number }>(`const u = s.unit.get(${uid}); let x = 0, y = 0, n = 0;
+    const ids = u.vehicle !== undefined ? [u.vehicle] : u.members; for (const m of ids) { const p = s.transform.get(m); if (p) { x += p.x; y += p.y; n++; } }
+    const a = t.toScreen(x / n, y / n), i = t.viewInsets(); const W = t.renderer.app.screen.width, H = t.renderer.app.screen.height;
+    return { dx: Math.round(a.x - (i.left + (W - i.left - i.right) / 2)), dy: Math.round(a.y - (i.top + (H - i.top - i.bottom) / 2)) };`);
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await ready();
+  await ev("t.setSpeed(0);");
+  log["open"] = await ev(`const h = document.querySelector('.hud-hint'); return { hint: h && !h.hidden ? h.textContent : null, score: document.querySelector('.hud-score')?.textContent,
+    screen: [t.renderer.width, t.renderer.height], inner: [innerWidth, innerHeight] };`);
+  await shot("0-opening-dpr2");
+  // A tile tapped: selected and centred.
+  const veh = await ev<number>(`return t.units().find((u) => u.kind === "vehicle").unit;`);
+  await page.click(`.hud-tile[data-unit="${veh}"]`);
+  log["tileTap"] = { off: await offCentre(String(veh)), centred: (await ev<Record<string, unknown>>("return t.mapfeel();"))["centred"],
+    hint: await ev("const h = document.querySelector('.hud-hint'); return h.hidden;") };
+  await shot("1-tile-tap-centred");
+  // Held: the follow camera; the hull drives forward 150 m.
+  const box = await ev<P>(`const r = document.querySelector('.hud-tile[data-unit="${veh}"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
+  // (Held well past the 450 ms: at pixel ratio 2 the headless browser draws slowly and the timer runs late.)
+  await page.mouse.move(box.x, box.y); await page.mouse.down(); await page.waitForTimeout(1500); await page.mouse.up();
+  await ev(`const e = (() => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; })();
+    const v = s.unit.get(${veh}).vehicle, p = s.transform.get(v), d = Math.hypot(e.x - p.x, e.y - p.y); t.moveUnit(${veh}, p.x + (e.x - p.x) / d * 150, p.y + (e.y - p.y) / d * 150);`);
+  const track: { dx: number; dy: number }[] = [];
+  // (Each 2 s step jumps the hull at once; the camera eases after it over a few frames: a second to settle.)
+  for (let k = 0; k < 6; k++) { await ev("t.stepTicks(60 * 2);"); await page.waitForTimeout(1000); track.push(await offCentre(String(veh))); }
+  log["follow"] = { following: (await ev<Record<string, unknown>>("return t.mapfeel();"))["following"], track };
+  await shot("2-following-dpr2");
+  await ev("t.follow(null);");
+  // On foot: the lead squad, its detailed card; the squad kept clear of the card.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await ready();
+  const sq = await ev<number>(`t.setSpeed(0); return t.units().find((u) => u.kind === "infantry" && u.depth >= 1).unit;`);
+  await page.click(`.hud-tile[data-unit="${sq}"]`);
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y - ${phone ? 35 : 25}, ${phone ? 7 : 9}); t.stepTicks(1);`);
+  const menBtn = await ev<boolean>("const b = [...document.querySelectorAll('.hud-card-btn')][0]; if (b) b.click(); return !!b;");
+  await page.waitForTimeout(300);
+  const under = await ev<{ y: number; cardTop: number }>(`const u = s.unit.get(${sq}); let x = 0, y = 0; for (const m of u.members) { const p = s.transform.get(m); x += p.x; y += p.y; }
+    const a = t.toScreen(x / u.members.length, y / u.members.length); return { y: Math.round(a.y), cardTop: Math.round(document.querySelector('.hud-bottom').getBoundingClientRect().top) };`);
+  log["detailedCard"] = { menBtn, ...under, clear: under.y < under.cardTop };
+  await shot("3-detailed-card-squad-clear");
+  await ev("const b = [...document.querySelectorAll('.hud-card-btn')][0]; if (b) b.click();");
+  // A phone with the bar docked at the side: the chips keep their labels.
+  if (phone) {
+    await ev(`t.dock("left");`);
+    await page.waitForTimeout(200);
+    log["dockLeft"] = await ev("return [...document.querySelectorAll('.hud-chip span')].filter((x) => x.offsetWidth > 0).length;");
+    await shot("4-dock-left-chips-labelled");
+    await ev(`t.dock("bottom");`);
+  }
+  // Fire held behind the nearest house: sight lines with dark edges, the blocked part red and dashed.
+  await page.click('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  const tgt = await ev<P>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 25 && d < bd) { bd = d; best = { x, y }; } }
+    const ux = best ? (best.x - c.x) / bd : 1, uy = best ? (best.y - c.y) / bd : 0;
+    const w = best ? { x: best.x + ux * 25, y: best.y + uy * 25 } : { x: c.x + 80, y: c.y - 40 };
+    const d = Math.hypot(w.x - c.x, w.y - c.y), ins = t.viewInsets();
+    const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.6;
+    t.focusScale((w.x + c.x) / 2, (w.y + c.y) / 2, Math.min(${phone ? 7 : 9}, span / Math.max(1, d))); t.stepTicks(1);
+    return t.toScreen(w.x, w.y);`);
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.move(tgt.x + 3, tgt.y + 2, { steps: 3 });
+  log["los"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  await shot("5-fire-held-sight-lines");
+  // Dragged back onto the squad: nothing is sent.
+  const back = await ev<P>(`const u = s.unit.get(${sq}); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+  await page.mouse.move(back.x, back.y, { steps: 8 }); await page.mouse.up();
+  // T twice quickly: Fire, not locked (only taps and clicks lock).
+  await page.keyboard.press("t"); await page.keyboard.press("t");
+  log["tTwice"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked };");
+  await page.keyboard.press("Escape");
+  // Contours close up (dark brown now).
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y, ${phone ? 7 : 9}); t.setContours?.(true); t.renderer.setContoursAlways(true); t.renderer.primeDetail(); t.stepTicks(1);`);
+  for (let k = 0; k < 30; k++) await ev("t.stepTicks(1);");
+  await page.waitForTimeout(500);
+  await shot("6-contours-close");
+  // The help card: the touch rows on a phone, mouse rows on the desktop (never both).
+  await page.keyboard.press("?");
+  log["help"] = await ev("return [...document.querySelectorAll('.hud-help-sec')].map((x) => x.textContent);");
+  await shot("7-help-card");
+  console.log(`${name}: review scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -893,6 +992,14 @@ try {
     if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "review") {
+      // (Its own page at device pixel ratio 2.)
+      await page.close();
+      const p2 = await browser.newPage({ viewport: vp, deviceScaleFactor: 2, hasTouch: name === "phone" });
+      p2.on("pageerror", (e) => errors.push(e.message));
+      p2.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+      await reviewScenes(p2, name, errors, shots); await p2.close(); continue;
+    }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -1007,7 +1114,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

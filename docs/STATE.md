@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (Firefight-inspired fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 **Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
 "Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
@@ -45,6 +45,23 @@ container on top of the rounds asked; a point already ranged on (100 m) skips ra
 a second ring for effect. Batches (10 × 900 s): attacker wins unchanged except RU on foot 3 → 4/10; the attackers'
 mortars hurt about 25–35 % fewer men. Goldens regenerated (fingerprint; non-mortar goldens' states identical).
 Screenshots `npm run screenshot -- --scene firesupport`. With this step all 14 Firefight choices are built.
+
+**Firefight UI review fixes (DECISIONS.md "Review fixes for the Firefight-style UI").** The camera used half the
+screen size on every high-DPI screen (Pixi 8's `renderer.width` is already CSS px): centring, the follow camera and
+the zoom clamp were off on nearly every phone since M0 — fixed. The LOS preview no longer shows hulls the side has
+not seen (any number of unknown hulls looked through; heard-only vehicles count as unknown); a last-seen pin is
+watched 5 s from the loss, not from the first sighting; unseen ranging falls are not drawn; a point ranged on with
+no round seen is no longer remembered (sim change, goldens regenerated). Touch: a quick swipe in Fire / Fire support
+pans instead of firing; two fingers moving together (and held pan keys) stop the follow camera. Keys: T T no longer
+locks Fire; Backspace past the last point closes the plan. Turning in place keeps the squad's shape and the handle
+stays at the new facing while the order is on its way. Screen: the start hint is one line everywhere and goes when
+a unit is picked; time and mortar rounds ("HE 24 · smoke 12") lead the score line; duplicate callsigns read
+"1/Puma 2" / "2/Puma 2"; the centring keeps the unit clear of the card; narrow cards keep their chip labels; dark
+close-up contours; darker-edged sight lines and selection rings; umlauts in German role names; help card shows only
+touch or mouse rows and fades where it scrolls; the unit list fades where it scrolls. Not done (left open): vehicle
+gun/ammo on the card, the pixel look's casualty readability, the drag-ghost pile-up, a release-time "no line of
+fire" warning, the phone's expanded list overlapping the card. Screenshots `npm run screenshot -- --scene review`
+(device pixel ratio 2).
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

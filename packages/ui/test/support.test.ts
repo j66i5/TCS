@@ -39,10 +39,10 @@ describe("S11: fire support", () => {
     const run = (s: number) => { for (let k = 0; k < s * 60; k++) for (const e of step(sim) as SimEvent[]) if (e.kind === "support.ranging" && e.side === "blue") book.add(e); };
     run(fs.delaySeconds + 3);
     expect(fire()[0]!.phase).toBe("ranging");
-    expect(fire()[0]!.falls).toHaveLength(1);
+    expect(fire()[0]!.falls ?? []).toHaveLength(book.falls.filter((f) => f.seen).length); // only seen falls are drawn
     run(secondsToEffect(fs) - fs.delaySeconds);
     const l = fire();
-    if (l.length > 0) { expect(l[0]!.phase).toBe("effect"); expect(l[0]!.falls).toHaveLength(fs.rangingRounds); }
+    if (l.length > 0) { expect(l[0]!.phase).toBe("effect"); expect(l[0]!.falls ?? []).toHaveLength(book.falls.filter((f) => f.seen).length); }
     expect(book.falls).toHaveLength(fs.rangingRounds);
     book.prune(sim.state.tick + (RANGING_KEEP_S + 1) * 60);
     expect(book.falls).toHaveLength(0);

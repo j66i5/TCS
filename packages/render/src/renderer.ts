@@ -10,7 +10,7 @@ import { Sprite, Texture } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
-import { placeLabels, type LabelRequest, type Rect } from "./labels";
+import { placeLabels, shownCallsigns, type LabelRequest, type Rect } from "./labels";
 import { FlatTerrain, flatColours } from "./terrain-flat";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
@@ -157,6 +157,11 @@ export class BattleRenderer {
   private nReqs = 0;
   /** Vehicle label requests by vehicle entity this frame (a dismounted squad near its vehicle joins its label). */
   private vehReq = new Map<EntityId, number>();
+  /** Callsigns as shown (duplicates told apart, review fix), rebuilt when the number of units changes. */
+  private shown = new Map<EntityId, string>();
+  private shownFor = -1;
+  private shownStore: unknown = null;
+  private callsign(uid: EntityId): string { return this.shown.get(uid) ?? ""; }
   /** Uniform tones and vehicle paint (M7.5a), outside the catalog. */
   private appearance: Appearance | null = null;
   private hudRects: Rect[] = [];
@@ -214,8 +219,9 @@ export class BattleRenderer {
     return new BattleRenderer(fake);
   }
 
-  get width(): number { return this.app.renderer.width / this.app.renderer.resolution; }
-  get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
+  /** Screen size in CSS px: Pixi 8's `renderer.width` is already in CSS px (not device px), whatever the resolution. */
+  get width(): number { return this.app.renderer.width; }
+  get height(): number { return this.app.renderer.height; }
 
   /** The look (M7.5b): set before `setMap`. */
   setLook(look: Look): void { this.look = look; this.lod = null; }
@@ -428,6 +434,7 @@ export class BattleRenderer {
     // Zoom level (M7.5b): the classic look keeps its single overview threshold.
     const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
     this.lod = lod;
+    if (state.unit.size !== this.shownFor || state.unit !== this.shownStore) { this.shown = shownCallsigns(state.unit.entries()); this.shownFor = state.unit.size; this.shownStore = state.unit; }
     this.drawGround(map, lod);
     this.bld?.setFloor(overlay.floor ?? 0);
     this.updateRoofs(state, overlay, lod);
@@ -526,7 +533,8 @@ export class BattleRenderer {
         const other = this.otherFloor(t);
         this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour, other < 0 ? 1 : GHOST_ALPHA);
         if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
-        if (selected) g.circle(s.x, s.y, size * 0.42 + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+        // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
+        if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         const bh = sol?.mental.behaviour;
         if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
@@ -584,9 +592,9 @@ export class BattleRenderer {
         const vt = unit.carrier !== undefined ? state.transform.get(unit.carrier) : undefined;
         if (vr !== undefined && vt && (vt.x - t.x) ** 2 + (vt.y - t.y) ** 2 <= 15 * 15 && drill === "") {
           const q = this.reqs[vr]!;
-          q.text = `${q.text} · ${unit.callsign}`;
+          q.text = `${q.text} · ${this.callsign(ident.unit)}`;
           if (selected) q.priority = 0;
-        } else this.request(unit.callsign + drill, s.x, s.y, lr, colour, selected ? 0 : 2, ident.unit);
+        } else this.request(this.callsign(ident.unit) + drill, s.x, s.y, lr, colour, selected ? 0 : 2, ident.unit);
       }
       // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
       // he brings ammunition to.
@@ -676,11 +684,21 @@ export class BattleRenderer {
       for (const l of gs.los) {
         const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
         const mx = a.x + (b.x - a.x) * l.stopAt, my = a.y + (b.y - a.y) * l.stopAt;
-        if (l.stopAt > 0) g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 2, color: 0xd9f7ff, alpha: 0.9 });
+        // (Review fix: a dark edge under each line keeps it readable on pale fields; the blocked part is thicker
+        // and its cross bigger, so it shows at phone size.)
+        if (l.stopAt > 0) {
+          g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 4, color: 0x0b0f0a, alpha: 0.55 });
+          g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 2, color: 0xd9f7ff, alpha: 0.95 });
+        }
         if (l.stopAt < 1) {
-          dashed(g, mx, my, b.x, b.y, 6, 6);
-          g.stroke({ width: 2, color: 0xff7a59, alpha: 0.85 });
-          if (l.stopAt > 0) g.moveTo(mx - 4, my - 4).lineTo(mx + 4, my + 4).moveTo(mx + 4, my - 4).lineTo(mx - 4, my + 4).stroke({ width: 2, color: 0xff7a59 });
+          dashed(g, mx, my, b.x, b.y, 7, 5);
+          g.stroke({ width: 4.5, color: 0x0b0f0a, alpha: 0.55 });
+          dashed(g, mx, my, b.x, b.y, 7, 5);
+          g.stroke({ width: 2.5, color: 0xff7a59, alpha: 0.95 });
+          if (l.stopAt > 0) {
+            g.moveTo(mx - 6, my - 6).lineTo(mx + 6, my + 6).moveTo(mx + 6, my - 6).lineTo(mx - 6, my + 6).stroke({ width: 4.5, color: 0x0b0f0a, alpha: 0.6 });
+            g.moveTo(mx - 6, my - 6).lineTo(mx + 6, my + 6).moveTo(mx + 6, my - 6).lineTo(mx - 6, my + 6).stroke({ width: 2.5, color: 0xff7a59 });
+          }
         }
       }
     }
@@ -808,7 +826,7 @@ export class BattleRenderer {
       g.moveTo(s.x - W / 2, s.y - H / 2).lineTo(s.x + W / 2, s.y + H / 2).moveTo(s.x + W / 2, s.y - H / 2).lineTo(s.x - W / 2, s.y + H / 2).stroke({ width: 1.5, color: colour });
       const sel = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, uid);
       if (overlay.selectedUnit === uid) g.rect(s.x - W / 2 - 3, s.y - H / 2 - 3, W + 6, H + 6).stroke({ width: 2, color: 0xffffff });
-      this.request(u.callsign, s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
+      this.request(this.callsign(uid), s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
     }
   }
 
@@ -890,7 +908,7 @@ export class BattleRenderer {
       const unit = v.unit !== null ? state.unit.get(v.unit) : undefined;
       if (unit && v.unit !== null) {
         this.vehReq.set(vid, this.nReqs);
-        this.request(aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 2, colour, selected ? 0 : 2, v.unit);
+        this.request(aboard > 0 ? `${this.callsign(v.unit)} +${aboard}` : this.callsign(v.unit), s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 2, colour, selected ? 0 : 2, v.unit);
       }
       // Debug overlay (M7.3): the target line of each station and its reasons beside the hull.
       const dbg = overlay.vehicleDebug;

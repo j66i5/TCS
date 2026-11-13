@@ -39,6 +39,9 @@ export interface SupportSection {
 export interface FireMission {
   side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number;
   ranging?: number; ex?: number; ey?: number; volley?: number;
+  /** Review fixes: true once someone of the side saw one of its ranging rounds fall (only then is the point
+   *  remembered as registered: an unobserved one would keep the full aiming error for later missions). */
+  observed?: boolean;
 }
 
 export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }

@@ -8,10 +8,10 @@ function fakeEl() {
   const ls = new Map<string, L>();
   return {
     el: { addEventListener: (k: string, f: L) => ls.set(k, f), removeEventListener: () => {}, setPointerCapture: () => {}, getBoundingClientRect: () => ({ left: 0, top: 0 }) },
-    fire: (k: string, id: number, x: number, y: number) => ls.get(k)!({ pointerId: id, clientX: x, clientY: y, preventDefault: () => {} }),
+    fire: (k: string, id: number, x: number, y: number, timeStamp?: number) => ls.get(k)!({ pointerId: id, clientX: x, clientY: y, timeStamp, preventDefault: () => {} }),
   };
 }
-function setup(dragAt: ((w: { x: number; y: number }) => boolean) | null, asTap = false) {
+function setup(dragAt: ((w: { x: number; y: number }) => boolean | "hold") | null, asTap = false) {
   const f = fakeEl();
   let cam: Camera = { x: 0, y: 0, scale: 1 } as Camera;
   const log: string[] = [];
@@ -78,8 +78,27 @@ describe("map input", () => {
     f.fire("pointerdown", 1, 100, 100); f.fire("pointermove", 1, 160, 100); f.fire("pointerup", 1, 160, 100);
     expect(pans).toBeGreaterThan(0);
     const before = pans;
-    f.fire("pointerdown", 1, 100, 100); f.fire("pointerdown", 2, 200, 100); f.fire("pointermove", 2, 260, 100);
+    // A pinch (the fingers spread about a still middle) only zooms.
+    f.fire("pointerdown", 1, 100, 100); f.fire("pointerdown", 2, 200, 100);
+    for (let k = 1; k <= 6; k++) { f.fire("pointermove", 2, 200 + k * 10, 100); f.fire("pointermove", 1, 100 - k * 10, 100); }
     expect(pans).toBe(before);
+    f.fire("pointerup", 1, 40, 100); f.fire("pointerup", 2, 260, 100);
+    // Review fix: two fingers moving together pan (and stop the follow camera).
+    f.fire("pointerdown", 1, 100, 100); f.fire("pointerdown", 2, 200, 100); f.fire("pointermove", 1, 100, 140); f.fire("pointermove", 2, 200, 140);
+    expect(pans).toBeGreaterThan(before);
+  });
+  it("review fix: a quick swipe from a 'hold' press (Fire mode, touch) pans; held still first, it drags", () => {
+    const a = setup(() => "hold");
+    a.f.fire("pointerdown", 1, 100, 100, 1000); a.f.fire("pointermove", 1, 160, 100, 1080); a.f.fire("pointermove", 1, 190, 100, 1100); a.f.fire("pointerup", 1, 190, 100, 1120);
+    expect(a.log).toContain("end cancel");
+    expect(a.log).toContain("camera");
+    expect(a.log).not.toContain("drag");
+    expect(a.log.some((l) => l.startsWith("tap"))).toBe(false);
+    const b = setup(() => "hold");
+    b.f.fire("pointerdown", 1, 100, 100, 1000); b.f.fire("pointermove", 1, 160, 100, 1400); b.f.fire("pointerup", 1, 160, 100, 1450);
+    expect(b.log).toContain("drag");
+    expect(b.log).toContain("end drop");
+    expect(b.log).not.toContain("camera");
   });
   it("map-feel step: the right mouse button drags for the app (never a pan, never a tap); a click ends as a tap", () => {
     const ls = new Map<string, (e: unknown) => void>();

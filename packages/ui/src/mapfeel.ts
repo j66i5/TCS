@@ -21,7 +21,7 @@ export interface IntentLine {
   /** For a selected unit's move: the route points still ahead (the last one is the destination). */
   route?: Pt[];
   /** A fire mission (S11, step fire-support): called (no round down yet), ranging, or firing for effect; where its
-   *  ranging rounds fell so far (seen by the caller or not), oldest first. */
+   *  ranging rounds fell so far, oldest first (only those someone of the side saw: review fix). */
   phase?: "called" | "ranging" | "effect";
   falls?: { x: number; y: number; seen: boolean }[];
 }
@@ -102,8 +102,11 @@ export function intentLines(view: SimView, side: string, selected: EntityId | nu
     const from = callerAt(f.caller);
     if (!from) continue;
     const u = view.identity.get(f.caller)?.unit;
-    const mine = falls.filter((r) => r.tx === f.x && r.ty === f.y).map((r) => ({ x: r.x, y: r.y, seen: r.seen }));
-    const phase = f.volley !== undefined ? "effect" : mine.length > 0 ? "ranging" : "called";
+    // Only the falls someone of the side saw are drawn (an unseen one would tell the player the battery's error the
+    // caller could not see); the phase still counts every ranging round.
+    const all = falls.filter((r) => r.tx === f.x && r.ty === f.y);
+    const mine = all.filter((r) => r.seen).map((r) => ({ x: r.x, y: r.y, seen: true }));
+    const phase = f.volley !== undefined ? "effect" : all.length > 0 ? "ranging" : "called";
     out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u), phase, ...(mine.length > 0 ? { falls: mine } : {}) });
   }
   for (const p of [...view.inbox, ...view.pendingOrders]) {
@@ -178,7 +181,9 @@ export class LastSeenBook {
       const e: Entry = {
         target: k.target, x: k.x, y: k.y, seenTick, live,
         watchedS: was && !was.live && !live ? was.watchedS : 0,
-        checkTick: was?.checkTick ?? tick,
+        // The watch starts when the contact is lost: a live contact (or a new one) keeps its clock at now, so
+        // the first look after the loss counts from then, not from when the contact was first seen.
+        checkTick: was && !was.live && !live ? was.checkTick : tick,
         ...(k.cls !== undefined ? { cls: k.cls } : {}), ...(k.vtype !== undefined ? { vtype: k.vtype } : {}), ...(k.heading !== undefined ? { heading: k.heading } : {}),
       };
       this.entries.set(k.target, e);

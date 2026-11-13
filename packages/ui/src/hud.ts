@@ -117,6 +117,8 @@ export interface Hud {
   setTiles(tiles: readonly UnitTile[], selected: EntityId | null): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
   insets(): Insets;
+  /** Review fix: how far up from the screen's bottom edge the radio log and the unit card reach (px; 0: none). */
+  bottomCover(): number;
   /** The edge the order bar is docked to; dock it elsewhere (remembered on this device). */
   dock(): Edge;
   setDock(e: Edge): void;
@@ -324,10 +326,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     for (const g of groups) {
       const mine = GROUP_OF[m] === g.id;
       const shown = mine ? m : g.base;
-      if (shown !== g.shown || g.main.dataset["order"] !== shown) { g.shown = shown; g.main.dataset["order"] = shown; setLabel(g.main, MODE_ICON[shown], MODE_KEY[shown]); }
+      // (Review fix: the label stays the group's own — "Move", "Fire" — so the bar keeps its width; the icon and
+      // the button's name show the variant that is on.)
+      if (shown !== g.shown || g.main.dataset["order"] !== shown) {
+        g.shown = shown; g.main.dataset["order"] = shown;
+        setLabel(g.main, MODE_ICON[shown], MODE_KEY[g.base]);
+        g.main.setAttribute("aria-label", s.t(MODE_KEY[shown]));
+      }
       g.main.classList.toggle("on", mine);
       g.main.classList.toggle("locked", mine && locked === m);
-      g.main.title = mine && locked === m ? s.t("order.lockedHint") : shown !== "move" ? s.t("order.lockHint") : "";
+      g.main.title = `${s.t(MODE_KEY[shown])}${mine && locked === m ? ` · ${s.t("order.lockedHint")}` : shown !== "move" ? ` · ${s.t("order.lockHint")}` : ""}`;
     }
     hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "support" ? "plan.support" : "plan.tapTarget");
   };
@@ -399,7 +407,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     // Beside the point, kept on the screen.
     const w = globalThis.innerWidth || 1000, hgt = globalThis.innerHeight || 800;
     ctx.style.left = `${Math.max(8, Math.min(w - 150, c.x + 18))}px`;
-    ctx.style.top = `${Math.max(8, Math.min(hgt - 60, c.y - 22))}px`;
+    // (Never over the radio log and the card: above them, review fix.)
+    const floor = Math.min(hgt - 60, (bottom.getBoundingClientRect?.().top ?? hgt) - 48);
+    ctx.style.top = `${Math.max(free.top + 8, Math.min(floor, c.y - 22))}px`;
     ctx.onclick = () => { offerContext(null); c.run(); };
     ctxTimer = setTimeout(() => offerContext(null), 6000);
   };
@@ -468,9 +478,9 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   helpClose.onclick = () => toggleHelp(false);
   helpHead.append(el("span", "hud-panel-title", s.t("help.title")), helpClose);
   help.append(helpHead);
-  // (A touch screen lists the touch gestures first.)
+  // (A touch screen lists the touch gestures first and leaves out the mouse; a mouse screen leaves out touch.)
   const coarse = globalThis.matchMedia?.("(pointer: coarse)").matches === true;
-  for (const sec of coarse ? [...HELP_SECTIONS].reverse() : HELP_SECTIONS) {
+  for (const sec of (coarse ? [...HELP_SECTIONS].reverse() : HELP_SECTIONS).filter((x) => x.title !== (coarse ? "help.mouse" : "help.touch"))) {
     help.append(el("div", "hud-help-sec", s.t(sec.title)));
     const tbl = el("div", "hud-help-rows");
     const kbd = sec.title === "help.keys";
@@ -480,8 +490,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const toggleHelp = (on?: boolean) => {
     help.hidden = !(on ?? help.hidden);
     helpBtn.classList.toggle("on", !help.hidden);
-    if (!help.hidden) { help.style.top = `${free.top + 8}px`; hint.hidden = true; barMenu.hidden = true; barMoreBtn.classList.remove("on"); }
+    if (!help.hidden) { help.style.top = `${free.top + 8}px`; hint.hidden = true; barMenu.hidden = true; barMoreBtn.classList.remove("on"); helpMore(); }
   };
+  /** Review fix: the card fades out at the bottom while more of it is below (it scrolls). */
+  const helpMore = () => { help.classList.toggle("more", help.scrollHeight - help.scrollTop - help.clientHeight > 4); };
+  help.addEventListener("scroll", helpMore, { passive: true });
   // ---- the follow camera's badge (S5): tap it to stop following.
   const follow = el("button", "hud-btn hud-follow");
   follow.hidden = true;
@@ -489,12 +502,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const support = createSupportPopup(s);
   root.append(bar, score, hint, panel, manBox.el, bottom, sidebar.el, dock, ctx, support.el, follow, preview, help, dbg, err);
   setMode("move");
-  // On a phone the start hint is one short line (M7.5b: the long one covered the opening view); tapping it shows
-  // the whole text.
-  const narrow = () => (globalThis.innerWidth || 1000) < 700;
-  hint.textContent = narrow() ? s.t("app.hintShort") : s.t("app.hint");
+  // The start hint is one short line on every screen (M7.5b on the phone; review fix on the desktop, where the
+  // long one was a wall of text over the map); tapping it shows the whole text, again: short. It goes once a unit
+  // is picked.
+  const shortHint = () => s.t(coarse ? "app.hintShort" : "app.hintShortMouse");
+  hint.textContent = shortHint();
   hint.style.pointerEvents = "auto";
-  hint.onclick = () => { hint.textContent = hint.textContent === s.t("app.hint") ? s.t("app.hintShort") : s.t("app.hint"); };
+  hint.onclick = () => { hint.textContent = hint.textContent === s.t("app.hint") ? shortHint() : s.t("app.hint"); };
 
   // ---- docking and layout
   const store = (): Storage | null => { try { return globalThis.localStorage; } catch { return null; } };
@@ -640,6 +654,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       const set = given ?? noOrders();
       current = set;
       const off = set.none === true;
+      // The start hint ("Pick a unit") has done its job once a unit is picked (review fix).
+      if (!off) hint.hidden = true;
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
@@ -685,6 +701,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     },
     setTiles(tiles, selected) { sidebar.update(tiles, selected); },
     insets: () => ({ ...free }),
+    bottomCover: () => {
+      if (bottom.hidden || bottom.childElementCount === 0) return 0;
+      const r = bottom.getBoundingClientRect?.();
+      const H = root.clientHeight || globalThis.innerHeight || 0;
+      return r && r.height > 0 ? Math.max(0, H - r.top) : 0;
+    },
     dock: () => edge,
     setDock: (e) => setDock(e, true),
     setSidebarExpanded: (on) => sidebar.setExpanded(on),
@@ -711,7 +733,10 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (current?.none) return false;
       const b = modeBtns.get(order as OrderMode) ?? (order === "halt" ? haltBtn : order === "mount" ? (mountBtn.hidden ? dismountBtn : mountBtn) : order === "dismount" ? dismountBtn : undefined);
       if (!b || b.hidden || b.disabled) return false;
+      // A key pressed twice is not a double-tap (review fix: T T locked Fire on unseen); only taps and clicks lock.
+      lastClick = null;
       b.click();
+      lastClick = null;
       if (modeBtns.has(order as OrderMode)) closeTrays();
       return true;
     },

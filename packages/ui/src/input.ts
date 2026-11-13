@@ -10,7 +10,8 @@
  *   mouse wheel: zoom at cursor
  *   right mouse button (S13, the "map-feel" step): the app may take the press (`onRightStart`): then the drag goes to
  *   onDrag / onDragEnd as above (a move dragged from the selected unit wherever the press was); otherwise nothing.
- * `onPan` is told when the player pans the map by hand (one finger or the mouse; it stops the follow camera, S5).
+ * `onPan` is told when the player pans the map by hand (one finger, the mouse, or two fingers whose midpoint moves
+ * more than a few pixels; it stops the follow camera, S5).
  */
 import { pan, screenToWorld, zoomAt, type Camera } from "@tcs/render";
 
@@ -18,8 +19,12 @@ export interface InputCallbacks {
   getCamera(): Camera;
   setCamera(c: Camera): void;
   onTap(world: { x: number; y: number }, screen: { x: number; y: number }): void;
-  /** A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. */
-  onDragStart?(world: { x: number; y: number }): boolean;
+  /**
+   * A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. "hold": the
+   * same, but on touch a finger that moves off at once (within DRAG_HOLD_MS) pans the map instead (the drag ends as
+   * "cancel"); a finger held still first, or the mouse, drags.
+   */
+  onDragStart?(world: { x: number; y: number }): boolean | "hold";
   onDrag?(world: { x: number; y: number }): void;
   /**
    * The drag is over: "drop" (released after moving), "tap" (released without moving: return true to have it
@@ -33,15 +38,23 @@ export interface InputCallbacks {
 }
 
 const TAP_SLOP_PX = 10;
+/** Review fix: on touch, a "hold" drag (Fire, Fire support) must be held this long before it drags (ms). */
+export const DRAG_HOLD_MS = 220;
+/** A two-finger gesture whose midpoint moves farther than this pans (a pinch alone only zooms). */
+const PINCH_PAN_PX = 12;
 
 export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   const pointers = new Map<number, { x: number; y: number }>();
   let downAt: { x: number; y: number } | null = null;
   let moved = false;
   let pinchDist = 0;
+  /** Where a two-finger gesture's midpoint started: moved more than PINCH_PAN_PX, it pans (stops the follow camera). */
+  let pinchMid: { x: number; y: number } | null = null;
   let dragging = false;
   /** The drag is the right button's (S13): released without moving it is still "tap" to the app, never a map tap. */
   let right = false;
+  /** A touch "hold" drag: it becomes a pan if the finger moves before this time (event time, ms; 0: no limit). */
+  let holdUntil = 0;
 
   const local = (e: PointerEvent | WheelEvent) => {
     const r = el.getBoundingClientRect();
@@ -72,9 +85,11 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     pointers.set(e.pointerId, local(e));
     if (pointers.size === 1) {
       downAt = local(e); moved = false;
-      dragging = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y)) === true;
+      const r = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y));
+      dragging = r === true || r === "hold";
+      holdUntil = r === "hold" && e.pointerType !== "mouse" ? e.timeStamp + DRAG_HOLD_MS : 0;
     }
-    if (pointers.size === 2) { pinchDist = spread(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.("cancel"); } }
+    if (pointers.size === 2) { pinchDist = spread(); pinchMid = centroid(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.("cancel"); } }
   };
   const move = (e: PointerEvent) => {
     const prev = pointers.get(e.pointerId);
@@ -85,10 +100,20 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     const after = centroid();
     if (downAt && Math.hypot(p.x - downAt.x, p.y - downAt.y) > TAP_SLOP_PX) moved = true;
     if (!moved) return;
+    if (dragging && pointers.size === 1 && holdUntil > 0 && e.timeStamp < holdUntil && downAt && !right) {
+      // A quick swipe from a "hold" press: a pan after all (from where the finger went down).
+      dragging = false; holdUntil = 0;
+      cb.onDragEnd?.("cancel");
+      cb.setCamera(pan(cb.getCamera(), p.x - downAt.x, p.y - downAt.y));
+      cb.onPan?.();
+      return;
+    }
+    holdUntil = 0;
     if (dragging && pointers.size === 1) { cb.onDrag?.(screenToWorld(cb.getCamera(), p.x, p.y)); return; }
     if (dragging) return; // (a right-button drag never pans)
     let cam = pan(cb.getCamera(), after.x - before.x, after.y - before.y);
     if (pointers.size === 1 && (after.x !== before.x || after.y !== before.y)) cb.onPan?.();
+    if (pointers.size === 2 && pinchMid && Math.hypot(after.x - pinchMid.x, after.y - pinchMid.y) > PINCH_PAN_PX) cb.onPan?.();
     if (pointers.size === 2) {
       const d = spread();
       if (pinchDist > 0 && d > 0) cam = zoomAt(cam, after.x, after.y, d / pinchDist);
@@ -111,7 +136,7 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
       cb.onTap(screenToWorld(cb.getCamera(), s.x, s.y), s);
     }
     if (pointers.size === 0) downAt = null;
-    if (pointers.size < 2) pinchDist = 0;
+    if (pointers.size < 2) { pinchDist = 0; pinchMid = null; }
   };
   const wheel = (e: WheelEvent) => {
     e.preventDefault();

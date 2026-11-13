@@ -503,7 +503,11 @@ pick only such targets). Long-range discipline multiplies the shot interval of s
 `keepTargetFactor`/`keepTargetSeenSeconds` give target hysteresis in `decisionSystem`. Contacts marked `down` are
 skipped by target choice, threats, drills, gunnery, launchers, surrender, armour reactions and the AI commander.
 **B:** a cowering man (`isCowering`) in the decision loop may `crawlToCover` (waypoints in the `soldier.crawlMode`
-movement mode, which movement lets a cowering man use). `placesTaken`/`placeFree`
+movement mode, which movement lets a cowering man use), else, lying in the open (static exposure >=
+`beatenOpenExposure`, not indoors), `crawlOutOfOpen`: hidden from `SoldierState.fireFrom` (optional; set by the
+ballistics system's suppression pass, the suppression-weighted direction back along the rounds that passed him, kept
+`decisions.underFireMemorySeconds`), else his `threatOf`, else his unit's (`unitThreat`), within `crawlSearchM`, else
+`crawlSearchFarM` (or any nav cell below `beatenOpenExposure`); both at most every `crawlRetrySeconds`. `placesTaken`/`placeFree`
 (decisions.ts) list the places men of a side hold or are going to; `seekCover`, `crawlToCover`, the halt drill
 (`bestCoverNear(..., taken, sepM)`, nav.ts) and the drills' final rush and rally (`freeSpotNear`) keep
 `soldier.minSpacingM`. `SoldierState.beaten` (optional) is set by `noteBeatenZone` (morale.ts) from the fire

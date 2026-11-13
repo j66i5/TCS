@@ -134,7 +134,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       const cap = Math.max(count, SG.id.length * 2);
       SG.id = new Int32Array(cap); SG.x = new Float64Array(cap); SG.y = new Float64Array(cap); SG.gz = new Float64Array(cap);
       SG.cf = new Float64Array(cap); SG.sf = new Float64Array(cap); SG.posture = new Uint8Array(cap); SG.next = new Int32Array(cap);
-      SG.side = new Int32Array(cap); SG.sup = new Float64Array(cap);
+      SG.side = new Int32Array(cap); SG.sup = new Float64Array(cap); SG.fx = new Float64Array(cap); SG.fy = new Float64Array(cap);
       SG.touched = new Int32Array(cap * 10);
     }
     let n = 0;
@@ -148,7 +148,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (sc < 0) { sc = SG.sides.length; SG.sides.push(sd); }
       SG.sideOf.set(id, sc);
       if (s.mount !== undefined) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
-      SG.side[n] = sc; SG.sup[n] = 0;
+      SG.side[n] = sc; SG.sup[n] = 0; SG.fx[n] = 0; SG.fy[n] = 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
       SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
@@ -450,7 +450,7 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       if (os !== undefined && len2 > 1e-12) {
         let c0 = ((minX - supR) * invBm) | 0, c1 = ((maxX + supR) * invBm) | 0, r0 = ((minY - supR) * invBm) | 0, r1 = ((maxY + supR) * invBm) | 0;
         if (c0 < 0) c0 = 0; if (r0 < 0) r0 = 0; if (c1 >= bcols) c1 = bcols - 1; if (r1 >= brows) r1 = brows - 1;
-        let eK = -1;
+        let eK = -1, bx = 0, by = 0;
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
           for (let j = SG.head[r * bcols + c]!; j !== -1; j = SG.next[j]!) {
             if (SG.side[j] === os) continue;
@@ -462,8 +462,13 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
             const ex2 = rx - t * dx, ey2 = ry - t * dy, ez2 = rz - t * dz;
             const d2 = ex2 * ex2 + ey2 * ey2 + ez2 * ez2;
             if (d2 > supR2) continue;
-            if (eK < 0) { const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); const capK = am.heavy ? heavyCap : 2; if (eK > capK) eK = capK; if (eK < 0.25) eK = 0.25; }
-            SG.sup[j] = SG.sup[j]! + supPer * eK * (1 - 0.5 * sq(d2) / supR);
+            if (eK < 0) {
+              const e = 0.5 * am.massKg * speed2; eK = sq(e / supERef); const capK = am.heavy ? heavyCap : 2; if (eK > capK) eK = capK; if (eK < 0.25) eK = 0.25;
+              // (Back along the round's flight: where it came from, as the man hears the crack — package B.)
+              const hl = sq(dx * dx + dy * dy); if (hl > 1e-9) { bx = -dx / hl; by = -dy / hl; }
+            }
+            const add = supPer * eK * (1 - 0.5 * sq(d2) / supR);
+            SG.sup[j] = SG.sup[j]! + add; SG.fx[j] = SG.fx[j]! + add * bx; SG.fy[j] = SG.fy[j]! + add * by;
           }
         }
       }
@@ -761,7 +766,15 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
   }
   // Suppression gathered from rounds passing close (M4.1).
   for (let j = 0; j < SG.n; j++) {
-    if (SG.sup[j]! > 0) { const s = state.soldier.get(SG.id[j]!); if (s) addSuppression(ctx, s, SG.sup[j]!); }
+    if (SG.sup[j]! > 0) {
+      const s = state.soldier.get(SG.id[j]!);
+      if (s) {
+        addSuppression(ctx, s, SG.sup[j]!);
+        // Where the fire came from (package B: a man pinned in the open crawls out of it).
+        const fl = sq(SG.fx[j]! * SG.fx[j]! + SG.fy[j]! * SG.fy[j]!);
+        if (fl > 1e-6) s.fireFrom = { dx: SG.fx[j]! / fl, dy: SG.fy[j]! / fl, tick };
+      }
+    }
   }
   // Bursts happen after the loop: they add fragments to the pool (never add projectiles inside the loop).
   for (let q = 0; q < detCount; q++) {

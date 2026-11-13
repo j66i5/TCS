@@ -2439,6 +2439,49 @@ show a problem.
   Within the seed noise of A (the Russian mounted attack was 0/10 before A too); no balance tuning.
 - **Goldens:** regenerated (`golden:update`); no-interiors goldens stay skipped.
 
+### Owner decision 2026-11-13: a man pinned in the open crawls (answers decision 5 below)
+
+- **Owner:** "a man pinned in the open should crawl." The package-B crawl started only when a pinned or panicked
+  man knew a threat that could see him and found a spot within 8 m hidden from it: 2–7 crawls a battle, most pinned
+  men lying in the open under fire from a shooter they did not know of (or a stale contact).
+- **Rule** (`crawlOutOfOpen`, decisions.ts, after `crawlToCover` in the same 10 s retry): a cowering man lying **in
+  the open** — the beaten-zone definition, static nav exposure >= `beatenOpenExposure` 0.9 (no wall, hedge, building
+  or wood within about 4 m), and not indoors — low-crawls to cover. He hides from where the fire comes from: the new
+  optional `SoldierState.fireFrom` (the suppression-weighted direction back along the rounds that cracked past him,
+  gathered in the ballistics suppression pass at no extra cost per round; kept `underFireMemorySeconds` 30 s), else
+  the enemy he knows (`threatOf`), else the enemy his unit's men know (`unitThreat`). A fire direction is tested
+  from a point at the known enemy's distance (30–400 m), else 150 m. Rings at 2, 4, 6, 8 m (`crawlSearchM`), then
+  11.5 and **15 m** (new `soldier.crawlSearchFarM`, confidence low; searched only when nothing within 8 m hides him):
+  a spot hidden lying down from that direction (wall, hedge, house, wood or a fold) scores its distance; a spot
+  next to a cover feature (nav exposure below 0.9) that does not hide him from it scores distance + 15, so any
+  hidden spot within 15 m comes first; spacing penalty as before; never within ~73 degrees of the fire or the known
+  enemy; route (`routeBetween`) at most 30 m of cost (round a wall's end, not a long detour). Already hidden from
+  that direction where he lies, or by cover, he stays (as today).
+- **Tried:** testing a fire direction from 50, 150 and 300 m (all three must be hidden) — fewer "hidden where he
+  lies" mistakes but almost no folds pass it, so fewer crawls; pinned man-seconds in sight 955 → 1153 on the same
+  six battles. Dropped.
+- **Measured** (audit `diag`, six 1500 s battles: platoon s1–3, platoon-ru s1–2, platoon-vehicles s1; before →
+  after): crawls started 78 → 108; pinned or panicked man-seconds in the enemy's sight 1023 → 955; exposure spells
+  over 10 s 50 → 44. A probe of the rule's outcomes (platoon-ru s1): of 53 calls in the open, 24 found no hidden
+  spot or cover feature within 15 m (open fields), 20 were already hidden from the fire direction (their estimate),
+  9 crawled. The gain is modest: in open fields there is nothing within 15 m to crawl to.
+- **Batches** (10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender):
+
+  | Batch | Before | After |
+  |---|---|---|
+  | platoon 900 s | 3/7; 15.6 / 12.9; 19 / 5 | 2/8; 16.6 / 12.0; 22 / 5 |
+  | platoon-ru 900 s | 2/8; 14.2 / 14.6; 21 / 6 | 3/7; 14.5 / 14.5; 23 / 5 |
+  | platoon-vehicles 900 s | 5/5; 15.5 / 20.6; 29 / 4 | 5/5; 17.4 / 19.7; 25 / 4 |
+  | platoon-ru-vehicles 900 s | 1/9; 26.4 / 11.9; 14 / 5 | 0/10; 28.6 / 11.7; 37 / 6 |
+  | platoon 2400 s | 6/4; 18.9 / 14.5; 20 / 5 | 5/5; 20.4 / 14.2; 25 / 6 |
+  | platoon-ru 2400 s | 4/6; 17.5 / 16.6; 21 / 6 | 6/4; 18.0 / 16.4; 25 / 6 |
+
+  Within seed noise (the Russian mounted attack was 0–1/10 before); no tuning.
+- **Perf:** bench-vehicles alternating with a clean main checkout, 6 rounds: main 8.69x, after 8.80x (mean).
+- **Goldens:** behaviour.json changed (catalog fingerprint) and behaviour changed on purpose: `golden:update`;
+  the no-interiors goldens stay skipped.
+
 ### Package C — Stay in the fight
 
 - **A posture to return to** (audit item 4: in village-occupy s2 both sides lay prone for 23 minutes and fired 35
@@ -2556,7 +2599,28 @@ show a problem.
    firing on their own (A).
 4. **Beaten zones** (B): only men out in the open move (40 m out or into a house) and they go back when the fire
    lifts; men by a wall, hedge or building stay down. The alternatives tried cost more men (DECISIONS B).
-5. **Crawl to cover** (B) rarely triggers: most pinned men are already out of sight of the enemy *they know of*
-   while the enemy still sees them. A wider trigger (e.g. any man pinned in the open) would be a further step.
+5. ~~**Crawl to cover** (B) rarely triggers~~ — **answered 2026-11-13: a man pinned in the open crawls** (see "Owner
+   decision 2026-11-13" under package B).
 6. **Facing** (C) only in a fight, so a player's laid-out facing stands otherwise.
 7. **Assault fire** with 3x aiming error (D): fire on the move hits rarely (4 hits from 517 rounds in five battles).
+
+## 2026-11-13 — performance: bench-vehicles back above its floor, no result change, goldens identical
+CI measured bench-vehicles at 7.8× (floor 8×) after the soldier-AI packages. Only how the sim computes changed,
+never what it computes: same floating-point operations in the same order, goldens untouched (no `golden:update`),
+final state hashes equal to the previous commit's for 12 scenario/seed runs (bench, bench-vehicles,
+bench-combined, platoon(-ru)(-vehicles), village-occupy, demo, vehicles, demo-fixture, shootout).
+- **A\*** (`nav.ts`): an indexed 4-ary heap with decrease-key in place of a binary heap with duplicate entries
+  ((f, cell) is a total order, so cells come out in the same order); one mark array for reached/closed; the
+  neighbours unrolled with the corner test from the side cells already read. A search that ran out of its budget
+  is resumed by the identical search asked next (formation legs: a bounded try, then the full search) instead of
+  repeated; a patch to the grid (`NavGrid.version`) or any other search in between cancels the resume.
+- **Grids:** connected areas labelled by a two-pass union-find over the rows (same labels as the flood fill);
+  the cover-seeking foot grid derived from the plain foot grid (`coverGridFrom`; patches keep the plain grid
+  equal to a fresh build, tested) instead of a second full build; `lineCost` without a closure per call.
+- **Systems:** a man's load summed once per tick for movement and physiology (`tickLoadKg`); the level-ground
+  slope normaliser hoisted; hull-against-hull scans in the drive over a per-tick table; the staggered per-man
+  loops (spotting, morale, decisions, contacts, magazine top-up) step through the IDs whose turn it is
+  (`staggerFirst`) instead of visiting every man every tick.
+- **Measured** (vitest perf tests, this container, base and new alternated, two rounds): bench-vehicles 7.5–7.6×
+  → 9.6–9.7×; bench 12× → 17–18×; spotting bench 9.4–9.8× → 9.9–12.3×; bench-combined 3.5–3.7× → 3.5–4.0×;
+  projectile bench 3.5–4.0× → 4.0–4.1×; fragment volley 15.6–16.2× → 15.3–19.8× (noisy). Floors unchanged.

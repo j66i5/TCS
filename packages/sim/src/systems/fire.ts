@@ -19,7 +19,7 @@ import type { Posture } from "../orders";
 import { requestPosture } from "./body";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
-import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import type { Container } from "../items";
 import { atan2, cos, exp, hypot2, PI, sin, sqrt } from "../math";
@@ -222,8 +222,9 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
   const tick = state.tick;
   // ---- lulls: swap a partly used magazine for a fuller one (staggered check, twice a second per man)
   // Not while he has a fire task (even a slow one), and only if the magazine is well below full.
-  for (const [id, w] of state.weapon.entries()) {
-    if ((id + tick) % 30 !== 0 || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
+  for (let id = staggerFirst(tick, 30); id < state.nextEntityId; id += 30) {
+    const w = state.weapon.get(id);
+    if (w === undefined || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (isMounted(state.soldier.get(id))) continue; // aboard: no reloading his own weapon (M7)
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
     const sol = state.soldier.get(id);

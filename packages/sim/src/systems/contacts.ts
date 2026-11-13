@@ -18,7 +18,7 @@
 import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
-import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
@@ -147,8 +147,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   // ---- he saw him fall (package A): a man he had in sight moments ago is down (a man killed drops out of sight at
   // once, so the sighting above never shows him lying). Each man every half second, staggered.
   // mounted: ok a crew's contacts are kept the same way
-  for (const [id, s] of state.soldier.entries()) {
-    if ((id + tick) % 30 !== 0 || s.contacts.length === 0 || !isAble(s)) continue;
+  for (let id = staggerFirst(tick, 30); id < state.nextEntityId; id += 30) {
+    const s = state.soldier.get(id);
+    if (s === undefined || s.contacts.length === 0 || !isAble(s)) continue;
     for (const c of s.contacts) {
       if (c.down === true || c.kind !== "seen" || tick - c.tick > 2 * TICK_HZ || c.cls === "vehicle") continue;
       const ts = state.soldier.get(c.target);
@@ -250,8 +251,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
   // ---- forget old contacts (once a second per man, staggered), and those he saw die
   // mounted: ok contacts age for every man
   const forgetVeh = secondsToTicks(ctx.catalog.spotting.vehicles.forgetSeconds);
-  for (const [id, s] of state.soldier.entries()) {
-    if ((id + tick) % TICK_HZ !== 0 || s.contacts.length === 0) continue;
+  for (let id = staggerFirst(tick, TICK_HZ); id < state.nextEntityId; id += TICK_HZ) {
+    const s = state.soldier.get(id);
+    if (s === undefined || s.contacts.length === 0) continue;
     s.contacts = s.contacts.filter((c) => tick - c.tick <= (c.cls === "vehicle" ? forgetVeh : forget) && !(c.kind === "seen" && state.soldier.get(c.target)?.physiology.alive === false));
   }
 }

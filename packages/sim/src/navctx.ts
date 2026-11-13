@@ -1,7 +1,7 @@
 /** Access to navigation grids, built lazily from the map (derived, never saved). */
 import type { MovementClass } from "./catalog";
 import type { SimContext } from "./context";
-import { buildNavGrid, createNavSearch, ensureNavGrid, patchNavGrid, type NavGrid, type NavSearch } from "./nav";
+import { buildNavGrid, coverGridFrom, createNavSearch, ensureNavGrid, patchNavGrid, type NavGrid, type NavSearch } from "./nav";
 
 /** Clearance (cells of 2 m) of the vehicle grids: hard blocks grow by one cell (M7). */
 export const VEHICLE_CLEARANCE_CELLS = 1;
@@ -16,8 +16,11 @@ export function navFor(ctx: SimContext, cls: MovementClass, coverWeight = 0): { 
   const key = vehicle ? `${cls}:c${VEHICLE_CLEARANCE_CELLS}` : coverWeight > 0 ? `${cls}:cover:${coverWeight}` : cls;
   let n = ctx.nav[key];
   if (!n) {
-    const grid = buildNavGrid(ctx.map, ctx.catalog.terrain, cls, 2, vehicle ? 0 : coverWeight, ctx.breaches,
-      vehicle ? { clearanceCells: VEHICLE_CLEARANCE_CELLS, minBreachM: widestHull(ctx, cls) + 0.5, stamps: ctx.navStamps } : { stamps: ctx.navStamps });
+    // (A cover-seeking foot grid is derived from the plain one, kept equal to a fresh build by the patches.)
+    const grid = !vehicle && coverWeight > 0
+      ? coverGridFrom(navFor(ctx, cls, 0).grid, coverWeight)
+      : buildNavGrid(ctx.map, ctx.catalog.terrain, cls, 2, vehicle ? 0 : coverWeight, ctx.breaches,
+        vehicle ? { clearanceCells: VEHICLE_CLEARANCE_CELLS, minBreachM: widestHull(ctx, cls) + 0.5, stamps: ctx.navStamps } : { stamps: ctx.navStamps });
     n = { grid, search: createNavSearch(grid) };
     ctx.nav[key] = n;
   }

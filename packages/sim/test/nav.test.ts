@@ -30,6 +30,20 @@ function crossesX(points: number[], sx: number, x: number): number[] {
 }
 
 describe("navigation", () => {
+  it("a search that ran out of its budget, asked again with more, gives what a fresh search gives (2026-11-13)", () => {
+    const nav = buildNavGrid(walled("concrete", 50), T, "foot");
+    const fresh = findPath(createNavSearch(nav), 10, 30, 90, 30)!;
+    expect(fresh.expanded).toBeGreaterThan(60);
+    const s = createNavSearch(nav);
+    expect(findPath(s, 10, 30, 90, 30, { maxExpansions: 50 })).toBeNull();
+    expect(findPath(s, 10, 30, 90, 30, { maxExpansions: 60 })).toBeNull(); // (paused again, further on)
+    expect(findPath(s, 10, 30, 90, 30)).toEqual(fresh);
+    // Another search in between: no resuming (a fresh search).
+    expect(findPath(s, 10, 30, 90, 30, { maxExpansions: 50 })).toBeNull();
+    findPath(s, 20, 20, 30, 20);
+    expect(findPath(s, 10, 30, 90, 30)).toEqual(fresh);
+  });
+
   it("goes through a nearby gate rather than climbing the wall", () => {
     // Gap from y = 40 to 60. From (10,30) to (90,30): via the gate ~84 m, straight over ~80 m + 8 m climbing.
     const nav = buildNavGrid(walled("wall", 40), T, "foot");

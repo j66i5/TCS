@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  buildBallistics, buildMapIndex, buildNavGrid, createSim, ensureNavGrid, followRoute, hullObb, idleDrive, launchProjectile, navFor, obbOverlap, patchNavGrid, pointInObb,
+  buildBallistics, buildMapIndex, buildNavGrid, coverGridFrom, createSim, ensureNavGrid, followRoute, hullObb, idleDrive, launchProjectile, navFor, obbOverlap, patchNavGrid, pointInObb,
   sight, step, stepDriveDynamics, submitOrder, syncTerrainDamage, type BattleInput, type Catalog, type DriveSurface, type MapDef, type NavGrid, type Sim, type SimEvent, type UnitInput,
 } from "../src/index";
 import { rec, team, testCatalog, vehicleInput } from "./helpers";
@@ -89,6 +89,30 @@ describe("vehicle navigation grid (tracked:c1)", () => {
       expect(canonical(g.region)).toEqual(canonical(full.region));
       expect(g.minCost).toBe(full.minCost);
     }
+  });
+
+  it("the cover grid derived from a patched plain foot grid equals a fresh cover build (performance 2026-11-13)", () => {
+    const m: MapDef = vehicleInput().map;
+    house(m, 1, 200, 80, 220, 120);
+    m.obstacles.push({ id: 7, kind: "brick", points: [400, 0, 400, 200], heightM: 2, thicknessM: 0.25, material: "brick" });
+    m.obstacles.push({ id: 8, kind: "fence", points: [300, 0, 300, 90, 330, 200], heightM: 1.2, thicknessM: 0.05, material: "wood" });
+    const breaches = [
+      { owner: "obstacle" as const, id: 7, part: 0, offsetM: 100, widthM: 5, tick: 1 },
+      { owner: "obstacle" as const, id: 8, part: 1, offsetM: 40, widthM: 6, tick: 2 },
+    ];
+    const stamps = [{ x: 150, y: 50, heading: 0.7, halfL: 3.5, halfW: 1.75 }];
+    const plain = buildNavGrid(m, T, "foot", 2, 0, [], {});
+    expect(Array.from(coverGridFrom(plain, 0.3).cost)).toEqual(Array.from(buildNavGrid(m, T, "foot", 2, 0.3, [], {}).cost));
+    patchNavGrid(plain, m, T, breaches.slice(0, 1), [], 395, 95, 405, 105);
+    patchNavGrid(plain, m, T, breaches, [], 310, 120, 325, 140);
+    patchNavGrid(plain, m, T, breaches, stamps, 140, 40, 160, 60);
+    const g = coverGridFrom(plain, 0.3), full = buildNavGrid(m, T, "foot", 2, 0.3, breaches, { stamps });
+    expect(Array.from(g.cost)).toEqual(Array.from(full.cost));
+    expect(Array.from(g.wall)).toEqual(Array.from(full.wall));
+    expect(Array.from(g.exposure)).toEqual(Array.from(full.exposure));
+    expect(canonical(g.region)).toEqual(canonical(full.region));
+    expect(g.minCost).toBe(full.minCost);
+    expect(g.coverWeight).toBe(0.3);
   });
 });
 

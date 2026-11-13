@@ -13,7 +13,7 @@ const FORMATION_SLACK_M = 3;
 /** The leader slows to half pace while any follower is more than this far behind his slot, m. */
 const LEADER_WAIT_LAG_M = 15;
 import { heightAt } from "../terrain";
-import { loadKg, requestPosture } from "./body";
+import { clearTickLoads, requestPosture, tickLoadKg } from "./body";
 import type { SimState } from "../state";
 import { radioFromTarget } from "./orders";
 import type { EntityId } from "../ids";
@@ -30,6 +30,9 @@ const STAIRS_DOWN_FACTOR = 0.6;
 
 export function movementSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const B = ctx.catalog.body;
+  clearTickLoads(); // (loads summed from here to the physiology step: body.ts)
+  // Tobler's function on level ground (the normaliser below; the same value for every man).
+  const levelK = exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
   // mounted: ok a man aboard has no waypoints
@@ -94,10 +97,10 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       const g = (heightAt(ctx.map, t.x + (dx / dist) * look, t.y + (dy / dist) * look) - heightAt(ctx.map, t.x, t.y)) / look;
       m.grade = g;
       // Tobler's hiking function, normalised to 1 on level ground.
-      speed *= exp(-B.movement.slopeK * Math.abs(g + B.movement.slopeOffset)) / exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
+      speed *= exp(-B.movement.slopeK * Math.abs(g + B.movement.slopeOffset)) / levelK;
     }
     if (s) {
-      const load = loadKg(ctx, state, id);
+      const load = tickLoadKg(ctx, state, id);
       speed *= clamp(1 - B.movement.loadSpeedPerKg * Math.max(0, load - B.movement.loadFreeKg), B.movement.minLoadSpeedFactor, 1);
       speed *= 1 - B.movement.fatigueSpeedPenalty * s.physical.fatigue;
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).

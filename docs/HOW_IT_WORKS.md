@@ -390,6 +390,19 @@ wall, hedge, building or wood within about 4 m) within 35 m of where it is falli
 there; when the fire has lifted (no burst for 90 s) he goes back to the place he left. A man next to a wall or a
 hedge stays down where he is, and so does a squad still on its way somewhere or just given an order.
 
+**Stay in the fight (C).** Each man remembers the posture of his fire position — where his last move, Occupy or
+posture order left him: kneeling or standing at a window, lying in the open. When he dived (pinned, a grenade) he
+used to stay down for good (in a village defence both sides lay below the sills for 23 minutes and fired 35
+rounds); now, once he is no longer pinned and the fire near him has died down (suppression below 0.05, a few
+seconds), he takes that posture again and his fire goes on from there. A man lying where he cannot see the enemy
+he knows (a bank, a low wall in the way) rises to his knees to look, checked every 4 s, and goes down again when
+fired on. Idle men outdoors turn to face the enemy they know when he is behind their shoulders (a sector they were
+given within 90 degrees of him is kept); in a fight the last idle man of a team of three or more watches the
+rear. A squad on its way into a house (Occupy, or a move that ends indoors) no longer stops in the street when it
+comes under fire: it finishes going in. A man with an anti-tank launcher who knows of an enemy vehicle he cannot
+see — heard, reported, or out of his line — moves up to 30 m to a spot from which he could see it, at least 40 m
+from it, preferring its flank or rear, at most every 20 s.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover

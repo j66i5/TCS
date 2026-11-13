@@ -132,7 +132,11 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       if (m.waypoints.length === 0) {
         // Halt drill: face the given way and take the given posture.
         if (m.endHeading !== null) t.heading = m.endHeading;
-        if (m.endPosture !== null) requestPosture(ctx, state, id, m.endPosture);
+        if (m.endPosture !== null) {
+          requestPosture(ctx, state, id, m.endPosture);
+          // His fire position's posture (package C): he goes back to it after a scare.
+          if (s) s.homePosture = m.endPosture;
+        }
         m.endHeading = null;
         m.endPosture = null;
         m.formation = null;

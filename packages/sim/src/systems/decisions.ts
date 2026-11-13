@@ -25,6 +25,7 @@ import type { SimContext } from "../context";
 import { indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
+import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
@@ -207,7 +208,7 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
     const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, b.ox, b.oy, { maxExpansions: 6000, snapCells: 2 }, { sz: me.z, gz: 0 });
     if (!leg) return false;
     m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
-    m.formation = null; m.endPosture = "prone"; m.endHeading = null;
+    m.formation = null; m.endPosture = s.homePosture ?? "prone"; m.endHeading = null;
     return true;
   }
   if (b.left) return false;
@@ -396,6 +397,59 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
 }
 
+const POSTURES: readonly Posture[] = ["prone", "crouching", "standing"];
+
+/**
+ * Package C, a halted man not pinned: fired on while up higher than his fire position (looking), he goes down to
+ * it; once it is quiet he takes it again (a window place's posture after diving below the sill); lying where he
+ * cannot see the enemy he knows, he rises to his knees to look; idle outdoors, he faces that enemy — except the
+ * last man of a team of `rearWatchMinMen` or more, who watches the rear.
+ */
+function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId, every: number): void {
+  const D = ctx.catalog.behaviour.decisions, S = ctx.catalog.behaviour.soldier, body = ctx.catalog.body.postures;
+  const home = s.homePosture, task = state.fire.get(id);
+  const now = POSTURES.indexOf(s.posture), want = home !== undefined ? POSTURES.indexOf(home) : -1;
+  if (want >= 0 && now > want && !task && s.mental.suppression >= D.seekCoverSuppression) { requestPosture(ctx, state, id, home!); return; }
+  if (want >= 0 && now < want && s.mental.suppression < S.riseBelowSuppression) {
+    requestPosture(ctx, state, id, home!);
+    if (task) task.basePosture = home!; // (his fire is from there again)
+    return;
+  }
+  if (task) return;
+  const threat = threatOf(state, id, s);
+  if (!threat) return;
+  const me = state.transform.req(id);
+  if (indoorAt(ctx, me.x, me.y) >= 0) return; // indoors his place (a window) sets his posture and facing
+  // Lying blind: he rises to look (every lookEverySeconds, staggered), if kneeling would let him see.
+  const lookN = Math.max(1, Math.round(S.lookEverySeconds * TICK_HZ / every));
+  if (s.posture === "prone" && s.mental.suppression < S.riseBelowSuppression && Math.floor((state.tick + id) / every) % lookN === 0
+    && coveredFrom(ctx, me.x, me.y, threat.x, threat.y, body.prone.heightM * 0.9, me.z, threat.z)
+    && !coveredFrom(ctx, me.x, me.y, threat.x, threat.y, body.crouching.heightM * 0.9, me.z, threat.z)) {
+    requestPosture(ctx, state, id, "crouching");
+  }
+  // Facing, in a fight (his unit fired on lately): toward the enemy he knows when that enemy is behind his
+  // shoulders (a sector he was given within 90 degrees of the enemy is kept); the last idle man of a team watches the
+  // rear. (Out of a fight the facing he was given stands: the player's laid-out formation, the halt drill's.)
+  const top = topUnit(state, unitId);
+  const inFight = top !== undefined && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds);
+  if (!S.faceEnemy || !inFight) return;
+  let rear = false;
+  const u = state.unit.get(unitId);
+  if (u && S.rearWatchMinMen > 0) {
+    const idle = u.members.filter((m) => {
+      const ms = state.soldier.get(m);
+      return isAble(ms) && ms!.mount === undefined && !state.fire.has(m) && (state.mover.get(m)?.waypoints.length ?? 0) === 0;
+    });
+    rear = idle.length >= S.rearWatchMinMen && idle[idle.length - 1] === id;
+  }
+  const a = atan2(threat.y - me.y, threat.x - me.x);
+  const face = rear ? (a > 0 ? a - PI : a + PI) : a;
+  let off = face - me.heading;
+  while (off > PI) off -= 2 * PI;
+  while (off < -PI) off += 2 * PI;
+  if (Math.abs(off) > PI / 2 + 1e-6) me.heading = face;
+}
+
 /** Is his unit, or one above it, carrying out an assault or a withdrawal (a drill moves him on its own)? */
 function inDrill(state: SimState, unitId: EntityId): boolean {
   for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
@@ -514,6 +568,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         }
       }
     }
+
+    // ---- back to his fire position, look for the enemy, face him (package C)
+    if (halted && !isCowering(s) && !state.action.has(id) && s.postureTo === null) postureAndWatch(ctx, state, id, s, ident.unit, every);
 
     // ---- out of spare magazines or belts: a comrade brings one
     if (state.weapon.get(id)?.lowAmmoReported) shareAmmo(ctx, state, events, id, topId);

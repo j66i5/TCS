@@ -2438,3 +2438,58 @@ show a problem.
 
   Within the seed noise of A (the Russian mounted attack was 0/10 before A too); no balance tuning.
 - **Goldens:** regenerated (`golden:update`); no-interiors goldens stay skipped.
+
+### Package C — Stay in the fight
+
+- **A posture to return to** (audit item 4: in village-occupy s2 both sides lay prone for 23 minutes and fired 35
+  rounds; indoors 81 % of the man-seconds were prone below the sills; the window posture was given once and
+  `requestPosture` only ever went down). `SoldierState.homePosture` (optional) is the posture of his fire position:
+  set when he reaches the end of a move or Occupy (`Mover.endPosture`: kneeling or standing at a window, lying in the
+  open), by a posture order and by the react-to-contact halt. Halted, not pinned or panicked, with his suppression
+  below **0.05** (`riseBelowSuppression`: a few seconds after the last near miss), he takes it again; his fire task
+  goes on from there (`assignFireTask` also takes it as the lowest posture of a new task).
+- **Rise to look** (item 4): a man lying where the enemy he knows is out of his sight at lying height but in sight
+  kneeling (two `coveredFrom` checks, every **4 s** per man, `lookEverySeconds`) rises to his knees; higher than his
+  fire position and fired on (suppression >= `decisions.seekCoverSuppression`) with no fire task, he goes down to it.
+- **Facing** (item 9: idle men faced more than 90 degrees away from the enemy they knew 16–17 % of the time, more
+  than 45 degrees ~40 %; the halt drill faces outward): in a fight (his top unit fired on within 30 s) an idle man
+  outdoors whose known enemy (`threatOf`) is more than 90 degrees off his heading turns to face him (a sector within
+  90 degrees — the halt drill's outward facing — is kept), and the last idle man of a team of **3** or more
+  (`rearWatchMinMen`) watches the rear instead. Out of a fight the facing he was given stands: a first version that
+  turned men at any time turned a player's laid-out formation away from the facing he had dragged (UI test) and the
+  casualty lab's side-on targets toward the shooter (`faceEnemy: false` switches the rule off for that lab).
+- **Occupy is not cut short** (item 4: the react-to-contact halt stopped a squad on its way into a house; 2 of 6
+  stayed outside): a unit any of whose able men is going to a place indoors does not halt on contact.
+- **Anti-tank men move for a shot** (extra item: they never moved to get a shot at a vehicle known only by sound;
+  4 of 4 RPG hits stopped in platoon-ru-vehicles s1): a man with a launcher who knows of an enemy vehicle within
+  his reach + 30 m (contact within **20 s**, `atContactSeconds`) that he cannot fire at — none seen, or his line
+  from here blocked — moves up to **30 m** (`atMoveM`; 3 rings x 12 spots, up to 12 sight checks at kneeling
+  height to the vehicle's hull middle) to a spot from which he could see it, at least **40 m** from it
+  (`atMoveMinRangeM`) and within 0.9 of his weapon's range, preferring its flank or rear when he knows its heading
+  (+20 m per unit of "in front"), at most every **20 s** (`atMoveRetrySeconds`; 30 s gave about 10 tries a
+  battle). New `Intent.kind` "reposition".
+- **Measured** (audit scripts; base → A → B → C): idle men with a known enemy (contact within 10 s, in a fight or
+  not) facing more than 90 degrees away 10 % → 13 % → 16 % → 14 % (more than 45 degrees 25 → 27 → 33 → 27 %): little
+  change, as the rule acts only in a fight (turning at all times reached 9 % / 20 % but broke the player's
+  facing, above); halted men with a known enemy lying prone 91 → 88 → 84 → 78 %. Village-occupy (1500 s): s1 rounds
+  fired 35 → 35 → 51 → 415, s2 39 → 54 → 53 → 135; s2 men indoors lying prone 99 % → 100 → 100 → 2 %; s2
+  man-seconds indoors 4358 → 5791 → 5791 → 5981. Anti-tank rockets fired (1500 s): platoon-vehicles s1 1 → 4 → 4 →
+  6, s2 7 → 3 → 3 → 6, platoon-ru-vehicles s1 11 → 11 → 17 → 14; man-seconds with a vehicle heard in reach and no
+  shot 551 / 973 / 628 → 334 / 446 / 446.
+- **Batches** (900 s, 10 seeds; attacker / defender wins; casualties attacker / defender; rounds per hit attacker /
+  defender; small arms attacker / defender):
+
+  | Batch | After B | After C |
+  |---|---|---|
+  | platoon | 3/7; 14.7 / 11.8; 14 / 6; 877 / 213 | 2/8; 15.5 / 12.1; 21 / 5; 925 / 241 |
+  | platoon-ru | 5/5; 11.2 / 13.7; 19 / 5; 1552 / 132 | 4/6; 13.6 / 14.5; 19 / 5; 1291 / 149 |
+  | platoon-vehicles | 3/7; 17.2 / 21.2; 31 / 4; 1085 / 278 | 4/6; 17.6 / 19.9; 23 / 3; 765 / 220 |
+  | platoon-ru-vehicles | 0/10; 26.2 / 10.5; 43 / 5; 494 / 195 | 1/9; 24.8 / 10.9; 29 / 6; 420 / 184 |
+
+  No balance problem; no tuning.
+- **Screenshots** (`--scene look`, phone and desktop): looked at the firing close-up, the casualty and roof scenes
+  and the village figures; nothing changed in the picture (the close-up's "no line of fire" message is there on
+  main too). No page errors.
+- **Tests changed:** line-of-fire tests now check the fire position (`homePosture`) instead of the posture after
+  5 s (a man lying blind behind the bank may rise to look meanwhile); two decision/rule tests look at the fight
+  earlier (the enemy, aimed at properly since A, is down sooner). **Goldens** regenerated.

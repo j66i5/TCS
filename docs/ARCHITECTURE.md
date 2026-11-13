@@ -509,6 +509,12 @@ movement mode, which movement lets a cowering man use). `placesTaken`/`placeFree
 `soldier.minSpacingM`. `SoldierState.beaten` (optional) is set by `noteBeatenZone` (morale.ts) from the fire
 support system for each enemy mortar burst; `leaveBeatenZone` runs for halted men in the open (`exposureAt` of the
 static nav grid >= `beatenOpenExposure`) whose unit is not moving nor in an assault/withdraw drill.
+**C:** `SoldierState.homePosture` (optional) is set on arrival (`Mover.endPosture`), by a posture order and by the
+react-to-contact halt; `postureAndWatch` (decisions.ts) returns a man to it, lifts a blind prone man to a kneel
+(one `coveredFrom` pair every `lookEverySeconds`), drops him when fired on, and sets the facing / rear watch;
+`assignFireTask` takes `homePosture` as the lowest posture of a new fire task. `enteringHouse` (drills.ts) keeps
+react-to-contact off a unit whose men are going indoors. `repositionForVehicle` (launcher.ts) runs when no seen
+vehicle is in reach or the line from here is blocked; new `Intent.kind` "reposition" rate-limits it.
 
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:

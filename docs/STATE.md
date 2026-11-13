@@ -9,6 +9,9 @@ Open for the owner: the Russian attack on foot at 2400 s wins 3/10 instead of 6/
 **B "Use the ground" ✅:** pinned/panicked men in the enemy's sight crawl to cover within 8 m, men keep about 5 m
 apart (cover, halt drill, last rush, rally), men out in the open move out of a mortar mission's beaten zone (or
 into a house). The crawl rarely triggers (3–7 times a battle): see DECISIONS.
+**C "Stay in the fight" ✅:** men go back to their fire position's posture after a scare (window places again),
+rise to their knees to look when blind lying down, face the enemy (one per team watches the rear in a fight), a
+squad entering a house finishes going in under fire, anti-tank men move for a shot at a vehicle they only heard.
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's

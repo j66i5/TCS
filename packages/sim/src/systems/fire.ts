@@ -142,7 +142,8 @@ export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x
     lineCheckTick: -100000, lineClear: true, linePosture: s.posture,
     // The posture he goes back to when rising is no longer needed: his own, or the one he was firing from.
     // (If he is changing posture now, the one he is going to: a man ordered down who opens fire meanwhile.)
-    basePosture: prev?.basePosture ?? s.postureTo ?? s.posture,
+    // (His fire position's posture first, package C: a man who rose to look goes back down when he can.)
+    basePosture: prev?.basePosture ?? s.homePosture ?? s.postureTo ?? s.posture,
     rangeError: a.rangeErrorFraction * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * nextNormal(state.rng, Streams.fire),
   });
   // Men do not all fire on the same tick.

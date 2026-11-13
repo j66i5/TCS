@@ -284,6 +284,19 @@ function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: E
   sendTo(ctx, state, m, c.x, c.y, enemy);
 }
 
+/**
+ * Is this unit on its way into a house (an occupy, or a move that ends indoors)? Contact does not stop it: the men
+ * finish going in, where the walls are their cover (package C).
+ */
+function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean {
+  for (const m of footSoldiers(state, uid)) {
+    const w = state.mover.get(m)?.waypoints;
+    const last = w && w.length > 0 ? w[w.length - 1]! : null;
+    if (last && isAble(state.soldier.get(m)) && indoorAt(ctx, last.x, last.y) >= 0) return true;
+  }
+  return false;
+}
+
 export function drillSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills;
   if (state.tick % Math.max(1, secondsToTicks(D.stepSeconds)) !== 0) return;
@@ -299,7 +312,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
     // ---- react to contact: on the move, fired upon anew since the move began
     if (D.reactToContact && u.moving && !u.drill && !u.broken) {
       const top = state.unit.req(topOf(state, uid));
-      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds)) {
+      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds) && !enteringHouse(ctx, state, uid)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
         for (const m of footSoldiers(state, uid)) {
@@ -309,6 +322,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
           if (w && w.length > 0) goals.set(m, { x: w[w.length - 1]!.x, y: w[w.length - 1]!.y });
           halt(state, m);
           requestPosture(ctx, state, m, "prone");
+          s!.homePosture = "prone"; // (down where he is: his fire position now, package C)
         }
         radio(state, uid, "radio.contactReact", events);
         // Standing rule "fall back" (M5): break contact away from the enemy they know.

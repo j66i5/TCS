@@ -53,7 +53,7 @@ describe("fire rules and own fire (M4.2)", () => {
   it("a cease-fire order holds until they are fired upon again", () => {
     const sim = createSim(setup());
     rules(sim, "blue", "free");
-    run(sim, 20);
+    run(sim, 6); // (the red men must still be up when they fire back below)
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "ceaseFire" });
     run(sim, 2);
     expect(shotsBy(sim, run(sim, 20), "blue")).toBe(0);

@@ -110,6 +110,12 @@ export interface SoldierState {
     /** Where he was when he left it (ox, oy: outdoors) and where he went (gx, gy): he goes back once it lifts. */
     ox?: number; oy?: number; gx?: number; gy?: number;
   };
+  /**
+   * The posture of his fire position (soldier AI package C): where his last move, occupy or posture order left him
+   * (kneeling or standing at a window, lying in the open). When the shooting near him has died down he takes it
+   * again. Absent: none yet.
+   */
+  homePosture?: Posture;
 }
 
 export type CommLink = "voice" | "radio" | "none";
@@ -132,7 +138,7 @@ export interface CommState {
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition";
   tick: number;
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */

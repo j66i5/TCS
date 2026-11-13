@@ -132,3 +132,64 @@ describe("package B: use the ground", () => {
     expect(sim.state.soldier.req(me).beaten?.n).toBe(2);
   });
 });
+
+describe("package C: stay in the fight", () => {
+  const hold = (sim: Sim) => submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "rules", fire: "hold" });
+
+  it("after diving he takes his fire position's posture again once it is quiet", () => {
+    const sim = setup(190);
+    hold(sim);
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    submitOrder(sim, { tick: 0, issuer: "blue", target: me, kind: "posture", posture: "crouching" });
+    run(sim, 4);
+    const s = sim.state.soldier.req(me);
+    expect(s.homePosture).toBe("crouching");
+    expect(s.posture).toBe("crouching");
+    s.posture = "prone"; s.mental.suppression = 0.3; // he dived (a near miss)
+    run(sim, 1);
+    expect(s.posture).toBe("prone"); // not while the fire is still near
+    run(sim, 6);
+    expect(s.posture).toBe("crouching");
+  });
+
+  it("lying blind behind a low wall he rises to his knees to look, and goes down again when fired on", () => {
+    const input = armedInput(1, 600);
+    input.forces[0]!.units[0]!.members = input.forces[0]!.units[0]!.members.slice(0, 1);
+    input.forces[0]!.placements = [{ personId: input.forces[0]!.units[0]!.members[0]!.personId, x: 50, y: 50, heading: 0 }];
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p, i) => ({ ...p, x: 150, y: 48 + 4 * i }));
+    input.map.obstacles.push({ id: 1, kind: "wall", points: [52, 40, 52, 60], heightM: 0.7, thicknessM: 0.25, material: "brick" } as never);
+    const sim = createSim(input);
+    hold(sim);
+    const me = unitOf(sim, "blue")[1].members[0]!;
+    run(sim, 3); // he sees them standing
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: me, kind: "posture", posture: "prone" });
+    run(sim, 3);
+    const s = sim.state.soldier.req(me);
+    expect(s.homePosture).toBe("prone");
+    let rose = false;
+    for (let k = 0; k < 10 && !rose; k++) { run(sim, 1); rose = s.posture === "crouching"; }
+    expect(rose).toBe(true);
+    s.mental.suppression = 0.3;
+    run(sim, 3);
+    expect(s.posture).toBe("prone");
+  });
+
+  it("in a fight idle men turn to face the enemy they know behind them, and the last man of a team of three watches the rear", () => {
+    const input = armedInput(1, 600);
+    input.forces[1]!.placements = input.forces[1]!.placements.map((p) => ({ ...p, x: 150 }));
+    const sim = createSim(input);
+    hold(sim);
+    run(sim, 3); // they see the red men (facing east), then turn round (west)
+    const men = unitOf(sim, "blue")[1].members;
+    for (const m of men) sim.state.transform.req(m).heading = Math.PI;
+    run(sim, 3);
+    // Out of a fight the facing they were given stands.
+    expect(men.every((m) => Math.cos(sim.state.transform.req(m).heading) < -0.9)).toBe(true);
+    // In a fight (the unit was fired on): they face the enemy, the last idle man the rear.
+    sim.state.unit.req(unitOf(sim, "blue")[0]).underFireTick = sim.state.tick;
+    run(sim, 3);
+    const cosH = men.map((m) => Math.cos(sim.state.transform.req(m).heading));
+    expect(cosH.slice(0, -1).every((c) => c > 0.9)).toBe(true);
+    expect(cosH[cosH.length - 1]!).toBeLessThan(-0.9);
+  });
+});

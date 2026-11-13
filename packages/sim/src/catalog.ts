@@ -357,11 +357,18 @@ export interface BehaviourDef {
    * other's places. beaten*: enemy mortar bursts within beatenNoticeM are remembered for beatenMemorySeconds; a man
    * halted in the open within beatenRadiusM of the mission goes into a house within beatenHouseM, else beatenMoveM
    * out of it.
+   * C: riseBelowSuppression: a man not pinned whose suppression is below this takes his fire position's posture
+   * again; lookEverySeconds: how often a man lying blind to the enemy he knows checks whether to rise and look;
+   * rearWatchMinMen: in a team of this many idle men the last watches the rear; atMove*: a man with an anti-tank
+   * launcher who knows of an enemy vehicle he cannot see (contact within atContactSeconds) moves up to atMoveM to
+   * a spot that sees it, at least atMoveMinRangeM from it, at most every atMoveRetrySeconds.
    */
   soldier: {
     reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
     crawlMode: string; crawlSearchM: number; crawlRetrySeconds: number; minSpacingM: number;
     beatenNoticeM: number; beatenRadiusM: number; beatenMemorySeconds: number; beatenMoveM: number; beatenHouseM: number; beatenOpenExposure: number;
+    riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
+    atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

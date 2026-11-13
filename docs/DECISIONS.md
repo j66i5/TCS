@@ -1428,6 +1428,7 @@ Plan §5/§11/§15 M7.1c steps 1–6, with these decisions (all game values, con
   (M7.3); vehicle contacts drawn under fog (M7.3).
 
 ## 2026-11-12 — M7.2 part 1: getting in and out of vehicles in the simulation (one golden update)
+**Owner review 2026-11-13: seat swap CONFIRMED** (a crewman only, ~20 s; the commander takes the gun at once).
 Plan §6/§15 M7.2 steps 2–4 and 10, owner answers Q10, Q12, Q24, Q25 applied; game values (confidence low) in
 `core/behaviour.json` `mounting` and the vehicles' `ramp` blocks:
 - **Infantry baseline (plan step 2), recorded before any M7.2 change** (base commit 528b81c, 10 × 900 s each,
@@ -1478,6 +1479,7 @@ Plan §6/§15 M7.2 steps 2–4 and 10, owner answers Q10, Q12, Q24, Q25 applied;
   the identical event stream and casualties as on the base commit; every golden's order stream is unchanged.
 
 ## 2026-11-12 — M7.2 part 2: platoons with vehicles, mounted start, AI ride and dismount (golden update)
+**Owner review 2026-11-13: CONFIRMED** (choices made without the owner here stand; reversing out as built in M7.4b).
 - **Templates (owner Q1, Q2):** `pzgren-zug` = 3 squads + 4 × `puma-besatzung`, `carriage` Puma 1–3 carry squads
   1–3, Puma 4 the platoon's own men (new `carriage[].hq`, loader: counted in the seats, only one per parent);
   `motor-rifle-platoon` = 3 squads + 3 × `bmp2-ekipazh`, the first carrying squad 1 and the commander (7 seats).
@@ -1732,6 +1734,8 @@ the data says otherwise; the data notes give each):
   against parked), fragment volley 18×, render 0.97 ms per frame.
 
 ## 2026-11-12 — M7.4b components, fire, crew reactions, AI anti-tank tasks (golden update) — M7 done
+**Owner review 2026-11-13:** crew reactions (reverse out) and the AI dismount distances **CONFIRMED**; cross-loading
+**CHANGED** to own side only (see the entry of 2026-11-13); everything else stands as decided.
 Plan §6/§8/§12/§13/§15 M7.4b; no new owner answers were needed (Q13 stays as decided in M7.2). Decided without the
 owner, **for review** (game values, confidence low unless the data says otherwise):
 - **Components:** the Puma and BMP-2 gain transmission, turret drive, stabiliser, coaxial MG, sights, radio, smoke
@@ -1823,6 +1827,9 @@ An independent review of M7 found seven issues; all are fixed on `m7-review-fixe
   every other golden unchanged. `npm run check` green, timing tests included.
 
 ## 2026-11-12 — M7.5 design questions decided without the owner, for the morning review
+**Owner review 2026-11-13: CONFIRMED except 1** — 1 CHANGED (figures always at true scale, no minimum size; figures
+from 8 px/m, dots below; opening at 8 px/m and symbols below 1.2 confirmed); 8 and 13 confirmed by name; 17
+confirmed (classic look deleted after M8); the rest stand as decided.
 The owner asked for the redesign to be built unattended ("decide yourself, poll me in the morning"). The 17
 questions of `docs/plans/m7.5-look.md` §7 were taken with the recommended option; each is to be confirmed:
 1. Zoom: true scale from 12 px/m; dots and symbols at 1.2–5 px/m; symbols below 1.2; the battle opens at 8 px/m
@@ -1840,6 +1847,7 @@ questions of `docs/plans/m7.5-look.md` §7 were taken with the recommended optio
 17. The old look stays behind `?look=classic` for one milestone.
 
 ## 2026-11-12 — M7.5a UI shell: implementation choices (decided without the owner, for the morning review)
+**Owner review 2026-11-13: CONFIRMED** (not asked; stands as decided).
 Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched.
 - **Relevant actions.** `unitCapabilities(view, catalog, unit)` (ui, pure) reads what a unit can do now; `ordersFor`
   turns it into the bar. Anti-tank only while an able man has a launcher AND a round for it (the simulation's
@@ -1892,6 +1900,8 @@ Presentation only: no simulation, scenario or catalog change; every golden repla
   0.9 ms, overview 0.3 ms (target 4 ms).
 
 ## 2026-11-12 — M7.5b Look: implementation choices (decided without the owner, for the morning review)
+**Owner review 2026-11-13:** zoom levels CONFIRMED; the **sprite size CHANGED** (no readable minimum, true scale at
+every figure zoom, figures from 8 px/m); uniform tones CHANGED (more distinct); `?look=classic` kept until after M8.
 Presentation only: no simulation, scenario or catalog change; every golden replay passes untouched (never
 regenerated). The old look stays behind **`?look=classic`** for one milestone (plan §7.17).
 - **Zoom levels (`render/src/lod.ts`).** Symbols below 1.2 px/m (was 0.35: the overview now starts at about
@@ -1941,6 +1951,7 @@ regenerated). The old look stays behind **`?look=classic`** for one milestone (p
   style, the start hint's size on a phone.
 
 ## 2026-11-13 — M7.5c Interiors: implementation choices (decided without the owner, for the morning review)
+**Owner review 2026-11-13: CONFIRMED** (doors always open; entry by doors and blown holes only; the rest stands).
 Plan `docs/plans/m7.5-look.md` §5. The map changes once; goldens regenerated once (below), with the equivalence proof.
 - **Map format 2.** `Building.interior? {rooms, walls, stairs}`, `Opening.floor?`. A map without any interior is
   written as format 1, byte for byte as before (so its fingerprint is unchanged); `mapFromFile` reads both.
@@ -2017,6 +2028,7 @@ Plan `docs/plans/m7.5-look.md` §5. The map changes once; goldens regenerated on
   state, windows as ways in, dark rooms, AI use of buildings (M7.5e), a room-level breach test for backblast.
 
 ## 2026-11-13 — M7.5d Upper floors: implementation choices (decided without the owner, for the morning review)
+**Owner review 2026-11-13: CONFIRMED** (not asked; stands as decided).
 Plan `docs/plans/m7.5-look.md` §6. Goldens: the six existing goldens **unchanged** (`npm run golden:update` reported
 every one "unchanged"); one new golden `village-occupy-s1`. No data file in the catalog changed (strings only).
 - **Squad spread (parent review of the M7.5c screenshot: six men crowded in one room corner).** `indoorSpots` now
@@ -2095,3 +2107,32 @@ CI measured 425 ms per map against an absolute 300 ms bound (the container measu
 - **Perf**: no indoor work per tick showed up in a profile of bench-vehicles (`routeBetween` 0.1 %, `indoorAt`
   inlined, nothing measurable); with and without interiors measured 8.7/9.7 vs 9.8/9.4x in alternating runs (noise).
   Nothing removed. Goldens unchanged (all 74 test files pass without `golden:update`).
+
+## 2026-11-13 — Owner answers to the morning review
+The owner answered the morning review poll on the choices made without him in M7.2–M7.4b, M7.5 §7 and M7.5a–d.
+**Confirmed:**
+- Zoom levels: the battle opens at 8 px/m on the lead squad; unit symbols below 1.2 px/m.
+- Doorways always open (no door state); men enter buildings by doors and blown holes only (not windows).
+- `?look=classic` stays one more milestone, then is deleted (after M8).
+- Crew seat swap: a crewman only, about 20 s; the commander takes the gun at once.
+- Crews reverse out as now: about 60 m back behind smoke when penetrated, struck by any rocket, disarmed, commander
+  shaken, or enemy infantry within 150 m.
+- AI dismount: out when the crews know enemy men within 400 m or have seen an enemy vehicle within 600 m.
+- Every other M7.5 §7 and slice choice not asked stands as decided.
+**Changed:**
+- **Soldier figures always at true scale** (owner: "Always true scale", over the larger mid-zoom minimum).
+  `MIN_FIGURE_PX`/`figurePx` removed; a man is drawn at 1 m × the zoom at every figure zoom. `FIGURE_SCALE` 5 → 8
+  px/m, so a figure is never drawn under 8 px (7.3 px at the bottom of the 10 % hysteresis); below that the dots
+  (and symbols below 1.2 px/m) take over. The opening zoom (8 px/m) shows figures. Render only; goldens untouched. Render perf (alone): 1.00 ms
+  (30 hulls, 270 men, 2000 tracers), close zoom 1.09 ms, figure zoom with roofs 0.50 ms (target < 4 ms). Screenshots
+  (`--scene look`): figures 9–13 px at the phone/desktop firing zoom, small but readable.
+- **More distinct uniform tones, still realistic** (`appearance.json`, outside the catalog fingerprint): Germany
+  greener (flecktarn: base #4d6b36, dark #2e4424, light #7a9a52, helmet #43603a; was olive #5f6b45), Russia more
+  khaki-brown (base #7c6847, dark #53432d, light #a08a62, helmet #6a5c40; was #6e6a4a). The blue/red outline stays;
+  vehicle paint unchanged.
+- **Cross-loading from abandoned vehicles: own side only.** `vehicleSource` accepts only own-side hulls (abandoned
+  ones included, as any own halted vehicle); an enemy hull, abandoned or not, is never a source. Test: belts taken
+  from the own side's abandoned hull, an abandoned enemy hull refused. **Goldens unchanged**: the golden test passes
+  without `golden:update` (no golden battle had a man take from an enemy hull), so no headless comparison was needed.
+**Noted for next steps:** investigate and tune the Russian mounted attack (never wins, 0/10) through the AI and its
+tactics, not the armour data; then M7.5e (the AI uses buildings).

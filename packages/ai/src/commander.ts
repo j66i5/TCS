@@ -177,7 +177,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
       // given up (M6.6: the commander does not fire, shell or throw at him).
-      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => c.surrendered !== true); };
+      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => c.surrendered !== true && c.down !== true); };
       // Men only (M7.3): no mortar, grenade or rifle base of fire at a vehicle contact (plan §12).
       const knownMen = (m: EntityId) => known(m).filter((c) => c.cls !== "vehicle");
       // Fire is called through the first platoon that still has a man who can use the radio.

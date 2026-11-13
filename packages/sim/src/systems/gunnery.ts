@@ -31,7 +31,7 @@ import type { AmmoDef, Catalog, VehicleDef } from "../catalog";
 import type { FireTask, StationState, Unit, VehicleState, VehicleWeaponState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
-import type { OrderBody } from "../orders";
+import type { OrderBody, Posture } from "../orders";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
@@ -183,15 +183,15 @@ export function setStationTask(
 }
 
 /** A crew's picture of an enemy: the most certain contact any able man of the crew unit holds. */
-function crewContact(ctx: SimContext, state: SimState, crew: Unit, target: EntityId): { x: number; y: number; err: number; vx: number; vy: number } | null {
-  let best: { x: number; y: number; err: number; vx: number; vy: number } | null = null;
+function crewContact(ctx: SimContext, state: SimState, crew: Unit, target: EntityId): { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture } | null {
+  let best: { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture } | null = null;
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
     for (const c of s!.contacts) {
       if (c.target !== target) continue;
       const err = contactErrorM(ctx, c, state.tick);
-      if (!best || err < best.err) best = { x: c.x, y: c.y, err, vx: c.vx ?? 0, vy: c.vy ?? 0 };
+      if (!best || err < best.err) best = { x: c.x, y: c.y, err, vx: c.vx ?? 0, vy: c.vy ?? 0, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) };
     }
   }
   return best;
@@ -231,21 +231,21 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   let mReach = msl ? Math.min(sn.weapons[msl.weapon]!.engageRangeM, msl.g.maxRangeM) : 0;
   if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
-  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number }>();
+  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number; posture?: Posture }>();
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
     for (const c of s!.contacts) {
-      if (c.surrendered) continue;
+      if (c.surrendered || c.down) continue;
       const age = tick - c.tick;
       const ok = c.kind === "seen" ? age <= secondsToTicks(G.seenWithinSeconds) : c.kind === "reported" && age <= secondsToTicks(G.reportedWithinSeconds) && contactErrorM(ctx, c, tick) <= G.reportedErrorM;
       if (!ok) continue;
       const err = contactErrorM(ctx, c, tick);
       const prev = cands.get(c.target);
-      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, ...(c.z !== undefined ? { z: c.z } : {}) });
+      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) });
     }
   }
-  const scored: { target: EntityId; x: number; y: number; z?: number; score: number; vehicle: boolean; firing: boolean }[] = [];
+  const scored: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; score: number; vehicle: boolean; firing: boolean }[] = [];
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -255,7 +255,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
       : ew !== undefined && tick - ew.lastShotTick <= 3 * TICK_HZ;
-    scored.push({ target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
+    scored.push({ target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).
@@ -286,10 +286,11 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     if (group > 0) { nature = "he"; keys.push("why.nature.group"); }
     else if (d > G.coaxSingleWithinM) { nature = "he"; keys.push("why.nature.far"); }
     else { nature = "mg"; keys.push("why.nature.single"); }
-    heightM = nature === "he" ? 0 : ctx.catalog.shooting.fire.aimPointHeightM;
+    // (The machine gun at the middle of what the crew sees of him, package A.)
+    heightM = nature === "he" ? 0 : aimHeightAt(ctx, best);
     // Never high explosive close to own men on foot: the machine gun, if he is in its reach, else nothing.
     if (nature === "he" && ownMenNear(state, v.side, best.x, best.y, G.friendlyClearM)) {
-      if (d <= (sn.weapons.find((w) => w.coax)?.engageRangeM ?? 0)) { nature = "mg"; heightM = ctx.catalog.shooting.fire.aimPointHeightM; keys.push("why.hold.friends"); }
+      if (d <= (sn.weapons.find((w) => w.coax)?.engageRangeM ?? 0)) { nature = "mg"; heightM = aimHeightAt(ctx, best); keys.push("why.hold.friends"); }
       else return null;
     }
   }
@@ -851,7 +852,8 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   // The named enemy, if the crew knows him (an unknown or own entity is ignored: the point is used).
   const named = order.contact !== undefined && targetLive(state, order.contact) && (state.identity.get(order.contact)?.side ?? state.vehicle.get(order.contact)?.side) !== issuer ? order.contact : undefined;
   let x = order.x, y = order.y;
-  if (named !== undefined && crew) { const c = crewContact(ctx, state, crew, named); if (c) { x = c.x; y = c.y; } }
+  let known: { z?: number; posture?: Posture } | undefined;
+  if (named !== undefined && crew) { const c = crewContact(ctx, state, crew, named); if (c) { x = c.x; y = c.y; known = c; } }
   const isVeh = named !== undefined && state.vehicle.has(named);
   const d = hypot2(x - t.x, y - t.y);
   const G = ctx.catalog.behaviour.gunnery;
@@ -869,7 +871,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
     const want: Nature = order.nature === undefined && mslVeh(si) ? "atgm" : want0;
     const f = feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
-    const h = order.heightM ?? (isVeh || f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : ctx.catalog.shooting.fire.aimPointHeightM);
+    const h = order.heightM ?? (isVeh || f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);
     v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", `why.nature.${f.nature}`] };
     any = true;

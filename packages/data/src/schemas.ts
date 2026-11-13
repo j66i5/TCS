@@ -256,6 +256,8 @@ export const ShootingFile = z.object({
     /** Enemy rounds fired past a unit within incomingRadiusM, out to this distance from the muzzle, count as incoming fire. */
     incomingReachM: Num(1, 5000),
     topUpAfterSeconds: Num(0.5, 600), clearStoppageSeconds: Num(0.1, 120), aimPointHeightM: Num(0, 3), safetyConeDeg: Num(0, 45),
+    /** Soldier AI package A (2026-11-13): aim height above the ground at a man seen in each posture, m. */
+    aimHeightByPostureM: z.object({ standing: Num(0, 3), crouching: Num(0, 3), prone: Num(0, 3) }).strict(),
   }),
   grenades: withProv({
     /** How far a soldier of skill 0.5 in full kit throws a hand grenade, by posture, m. */
@@ -373,6 +375,10 @@ export const BehaviourFile = withProv({
     atRuleDefault: z.enum(["vehicles", "vehiclesAndPositions", "hold"]), stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60),
     rangeErrorFraction: Num(0, 1), skillMrad: Num(0, 50), largeRoomM2: Num(0, 10000), wallBehindM: Num(0, 20), handOverM: Num(0, 200),
   }).strict(),
+  /** Individual soldier AI (owner 2026-11-13, packages A-D). See BehaviourDef.soldier. */
+  soldier: withProv({
+    reserveCloseM: Num(0, 1000), reserveAssaultM: Num(0, 2000), longRangeM: Num(0, 5000), longRangeIntervalFactor: Num(0.1, 20), keepTargetFactor: Num(0, 1), keepTargetSeenSeconds: Num(0, 60),
+  }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({
     bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),

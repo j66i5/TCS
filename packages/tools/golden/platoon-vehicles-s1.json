@@ -539,7 +539,7 @@
    ]
   },
   {
-   "tick": 3900,
+   "tick": 4200,
    "issuer": "red",
    "target": 123,
    "kind": "move",
@@ -634,7 +634,43 @@
    "nature": "at"
   },
   {
+   "tick": 6300,
+   "issuer": "red",
+   "target": 104,
+   "kind": "fire",
+   "x": 314.2079751140806,
+   "y": 430.8007845084444,
+   "contact": 4,
+   "nature": "at"
+  },
+  {
    "tick": 6600,
+   "issuer": "red",
+   "target": 97,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 552.5343032431452,
+     "y": 459.09497685453266,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 6600,
+   "issuer": "red",
+   "target": 111,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 553.8562422818912,
+     "y": 417.81201845982935,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 8100,
    "issuer": "blue",
    "target": 12,
    "kind": "move",
@@ -648,7 +684,7 @@
    "facing": 0.3155935010625776
   },
   {
-   "tick": 6600,
+   "tick": 8100,
    "issuer": "blue",
    "target": 19,
    "kind": "move",
@@ -662,7 +698,7 @@
    "facing": 0.3014911185327966
   },
   {
-   "tick": 6600,
+   "tick": 8100,
    "issuer": "blue",
    "target": 26,
    "kind": "move",
@@ -676,71 +712,32 @@
    "facing": 0.05011616124060869
   },
   {
-   "tick": 7800,
-   "issuer": "red",
-   "target": 104,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 535.1777800064415,
-     "y": 433.9299087944961,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 7800,
+   "tick": 8400,
    "issuer": "red",
    "target": 111,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 564.9523391601444,
-     "y": 372.55253358343066,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 8700,
-   "issuer": "red",
-   "target": 104,
    "kind": "fire",
    "x": 336.32342181788937,
    "y": 299.5537791083832,
    "contact": 1,
    "nature": "at"
-  },
-  {
-   "tick": 8700,
-   "issuer": "red",
-   "target": 111,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 565.5907658685763,
-     "y": 370.52197587245445,
-     "mode": "run"
-    }
-   ]
   }
  ],
  "checkpoints": {
-  "600": "9aa0a4ce46dcc8e9",
-  "1200": "75beeb26204c0a30",
-  "1800": "43465204f9b10ccd",
-  "2400": "309b41513d644de6",
-  "3000": "c3365aaddb54d06f",
-  "3600": "6f7c6dfe3dfe253c",
-  "4200": "fc0a15fa744b337d",
-  "4800": "7369466332c9adeb",
-  "5400": "086e560b2464d503",
-  "6000": "81d5813cee72cfcb",
-  "6600": "e3af16812dceb3ae",
-  "7200": "327bfaa111c70bb7",
-  "7800": "67ca53c66711cc89",
-  "8400": "2faa87cc5cf9dd48",
-  "9000": "c341b6a14015f4aa"
+  "600": "42f5814d75300765",
+  "1200": "51a11ba10aa4cd9c",
+  "1800": "3c0918f924d01ce9",
+  "2400": "8c6acf725f6b993d",
+  "3000": "7cc8b8bfcb6f4906",
+  "3600": "5f28c42ba2ca3710",
+  "4200": "56544da71b22167b",
+  "4800": "52211c5525632dd3",
+  "5400": "c943cea5d0abcb9b",
+  "6000": "10e18fc005424d8d",
+  "6600": "81cf08209b77cb6b",
+  "7200": "3e3ecfcde1aa89f7",
+  "7800": "0ed374a716e18e36",
+  "8400": "94f5d9b563f9666a",
+  "9000": "4a36aa874e324230"
  },
- "catalogFingerprint": "92c1f7baa9dbdd73"
+ "catalogFingerprint": "817c8e7c5d538a75"
 }

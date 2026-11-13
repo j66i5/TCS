@@ -492,6 +492,17 @@ he starts a self fire task at the best seen contact; out of spare he calls a giv
 replaced. New state: `Unit.fireRule/underFireTick/ceaseFireTick`, `SoldierState.intent/coverTick`,
 `FireTask.self` (schema 12). New order: `rules`.
 
+## 16l2. Individual soldier AI (owner packages A–D, 2026-11-13)
+Values: `core/behaviour.json` `soldier` (`BehaviourDef.soldier`), `core/shooting.json` `fire.aimHeightByPostureM`.
+**A:** `Contact.posture` (seen posture; a sound keeps it) and `Contact.down` (seen lying hit, or seen within 2 s of
+the fall by a staggered pass in `contactSystem`; passed on at once like `surrendered`; never cleared) are optional
+plain fields (schema stays 17). `aimHeightAt(ctx, {z?, posture?})` aims by posture (foot and vehicle MG);
+`FireTask.aimAuto` (optional) makes a contact task's `heightM` follow it in the line check. `reserveTargetOk`
+(fire.ts) is the close-defence rule for a rifleman with no spare magazine (fire.ts stops him otherwise; decisions
+pick only such targets). Long-range discipline multiplies the shot interval of self fire. `targetScore` +
+`keepTargetFactor`/`keepTargetSeenSeconds` give target hysteresis in `decisionSystem`. Contacts marked `down` are
+skipped by target choice, threats, drills, gunnery, launchers, surrender, armour reactions and the AI commander.
+
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:
 two groups of soldier IDs, the group moving now, its start tick, the final rush) or a rout (rally point);

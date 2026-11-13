@@ -441,13 +441,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (named !== undefined) {
           const c = state.soldier.get(s)?.contacts.find((k) => k.target === named);
           // A man who knows the named enemy has given up (M6.6) halts with the others but does not fire at him.
-          if (c?.surrendered === true) continue;
+          if (c?.surrendered === true || c?.down === true) continue;
           if (c) { x = c.x; y = c.y; known = c; }
         }
         if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known))) {
           any = true;
           const ft = state.fire.get(s);
-          if (ft && named !== undefined) ft.contact = named;
+          if (ft && named !== undefined) { ft.contact = named; if (order.heightM === undefined) ft.aimAuto = true; else delete ft.aimAuto; }
+          else if (ft) delete ft.aimAuto;
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;

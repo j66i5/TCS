@@ -74,7 +74,7 @@ function knownEnemy(state: SimState, men: EntityId[]): { x: number; y: number } 
   for (const id of men) {
     const s = state.soldier.get(id);
     if (!s) continue;
-    for (const c of s.contacts) { if (c.surrendered) continue; sx += c.x; sy += c.y; n++; }
+    for (const c of s.contacts) { if (c.surrendered || c.down) continue; sx += c.x; sy += c.y; n++; }
   }
   return n > 0 ? { x: sx / n, y: sy / n } : null;
 }
@@ -178,13 +178,13 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     const s = state.soldier.req(m);
     let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
     for (const c of s.contacts) {
-      if (c.surrendered) continue; // a man he knows has given up is not fired at (M6.6)
+      if (c.surrendered || c.down) continue; // a man he knows has given up (M6.6) or is down (package A) is not fired at
       const dd = hypot2(c.x - at.x, c.y - at.y);
       if (dd < bestD) { bestD = dd; best = c; }
     }
     if (best) {
-      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) state.fire.req(m).contact = best.target;
-    } else assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
+      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) { const ft = state.fire.req(m); ft.contact = best.target; ft.aimAuto = true; }
+    } else if (assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM)) delete state.fire.req(m).aimAuto;
   }
   void events;
 }

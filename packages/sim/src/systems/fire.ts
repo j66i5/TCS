@@ -94,10 +94,40 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
  * shooter knows him to be upstairs (M7.5 review fix: `known` is the shooter's contact, whose height is where he was
  * last seen; never the target's true position).
  */
-export function aimHeightAt(ctx: SimContext, known: { z?: number } | undefined): number {
-  const base = ctx.catalog.shooting.fire.aimPointHeightM;
+export function aimHeightAt(ctx: SimContext, known: { z?: number; posture?: Posture } | undefined): number {
+  const F = ctx.catalog.shooting.fire;
+  // The middle of what he sees of him (soldier AI package A): by the posture he was last seen in; never seen, the
+  // usual aim point.
+  const base = known?.posture !== undefined ? F.aimHeightByPostureM[known.posture] : F.aimPointHeightM;
   const z = known?.z ?? 0;
   return z > 0 ? base + z : base;
+}
+
+/** Spare magazines (or belts) of his weapon's type with rounds in them. */
+export function spareMagazines(c: Container | undefined, magazine: string): number {
+  let n = 0;
+  if (c) for (const s of c.stacks) if (s.type === magazine && (s.charge ?? 0) > 0) n += s.count;
+  return n;
+}
+
+/**
+ * Close-defence reserve (soldier AI package A): a rifleman down to the magazine in his weapon fires it only at an
+ * enemy he knows within `reserveCloseM`, or within `reserveAssaultM` whose unit is assaulting (men rushing at him:
+ * something he sees, not a guess).
+ */
+export function reserveTargetOk(ctx: SimContext, state: SimState, c: { target: EntityId; x: number; y: number }, me: { x: number; y: number }): boolean {
+  const S = ctx.catalog.behaviour.soldier;
+  const d = hypot2(c.x - me.x, c.y - me.y);
+  if (d <= S.reserveCloseM) return true;
+  if (d > S.reserveAssaultM) return false;
+  let u = state.identity.get(c.target)?.unit ?? null;
+  while (u !== null) {
+    const unit = state.unit.get(u);
+    if (!unit) return false;
+    if (unit.drill?.kind === "assault") return true;
+    u = unit.parent;
+  }
+  return false;
 }
 
 export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
@@ -184,7 +214,7 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
 }
 
 export function fireSystem(ctx: SimContext, state: SimState, events: EventSink): void {
-  const F = ctx.catalog.shooting.fire;
+  const F = ctx.catalog.shooting.fire, S = ctx.catalog.behaviour.soldier;
   const tick = state.tick;
   // ---- lulls: swap a partly used magazine for a fuller one (staggered check, twice a second per man)
   // Not while he has a fire task (even a slow one), and only if the magazine is well below full.
@@ -217,6 +247,9 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     // He knows the man he is firing at has given up (his own contact says so, M6.6): he holds his fire —
     // whether the task came from an order, a drill or himself. (Fire at a point is not stopped by this.)
     if (task.contact !== undefined && s.contacts.find((k) => k.target === task.contact)?.surrendered === true) { stop("no-target"); continue; }
+    // He saw the man he is firing at go down (package A: aiming low at men lying down, rounds went into the fallen):
+    // he stops (a man he has not seen for a few seconds may still be up: fire at where he was goes on).
+    if (task.contact !== undefined && (tick + id) % 30 === 0 && s.contacts.find((k) => k.target === task.contact)?.down === true) { stop("no-target"); continue; }
     if (tick < s.stunnedUntilTick) continue; // knocked down
     const rateK = fireRateFactor(ctx, s);
     if (rateK <= 0) continue; // panicked: he does not fire (the task stays for when he recovers)
@@ -227,6 +260,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if ((state.mover.get(id)?.waypoints.length ?? 0) > 0) continue;
     if (w.jammed) { startAction(state, events, id, "clearStoppage", secondsToTicks(F.clearStoppageSeconds), {}); continue; }
     const spare = fullestSpare(state.container.get(id), wd.feed.magazine);
+    let reserve = false;
     if (!w.magazine || w.magazine.rounds <= 0) {
       if (spare > 0) startAction(state, events, id, "reload", secondsToTicks(wd.reloadSeconds), {});
       else stop("ammunition");
@@ -244,7 +278,13 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
         w.lowAmmoRadioed = true;
         events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
-      if (!wd.sustained) { stop("ammunition"); continue; }
+      // A rifleman keeps that last magazine as a close-defence reserve (package A): he fires it, aimed, only at an
+      // enemy close by or assaulting him.
+      if (!wd.sustained) {
+        const c = task.contact !== undefined ? s.contacts.find((k) => k.target === task.contact) : undefined;
+        if (!c || !reserveTargetOk(ctx, state, c, state.transform.req(id))) { stop("ammunition"); continue; }
+        reserve = true;
+      }
     }
     if (tick < w.nextShotTick) continue;
     // Line of fire: a bank, a crest or a wall right in front of him — he rises to a kneel or to his feet if
@@ -259,6 +299,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (task.contact !== undefined) {
         const c = s.contacts.find((k) => k.target === task.contact);
         if (c && (c.x !== task.x || c.y !== task.y)) { task.x = c.x; task.y = c.y; }
+        // (His aim height follows the posture he sees the man in, package A, unless the order gave one.)
+        if (c && task.aimAuto === true) task.heightM = aimHeightAt(ctx, c);
       }
       const order: Posture[] = ["prone", "crouching", "standing"];
       // A pinned man does not raise himself to clear a bank: he fires from where he lies or not at all.
@@ -286,7 +328,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     const band = F.bands.find((b) => range <= b.maxRangeM) ?? F.bands[F.bands.length - 1]!;
     const canBurst = wd.fireModes.includes("auto") || wd.fireModes.includes("burst");
     // A machine gun fires bursts at every range (also on the slow rate: the same bursts, further apart).
-    const mode = wd.sustained ? "burst" : trickle ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
+    const mode = wd.sustained ? "burst" : trickle || reserve ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
     if (w.burstLeft <= 0) {
       if (friendInLine(ctx, state, id, task.x, task.y)) { w.nextShotTick = tick + TICK_HZ / 2; continue; }
       w.burstLeft = wd.sustained ? wd.sustained.burstRounds : mode === "burst" ? band.burstRounds : 1;
@@ -303,7 +345,10 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.
       const rule = state.unit.get(state.identity.req(id).unit)?.ammoRule ?? "normal";
-      const disc = ctx.catalog.behaviour.decisions.ammoIntervalFactor[rule];
+      const disc = ctx.catalog.behaviour.decisions.ammoIntervalFactor[rule]
+        // Long-range discipline (package A): a rifleman (no magnified sight) firing on his own beyond longRangeM fires
+        // slower (ordered fire, e.g. a base of fire keeping the enemy down, keeps its rate).
+        * (task.self === true && !wd.sustained && range > S.longRangeM && !wd.sights.some((q) => q.magnification >= 4) ? S.longRangeIntervalFactor : 1);
       w.nextShotTick = tick + Math.max(1, Math.round((secondsToTicks(interval) * disc / rateK) * (0.85 + 0.3 * nextFloat(state.rng, Streams.fire))));
     }
   }

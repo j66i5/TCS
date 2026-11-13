@@ -66,6 +66,7 @@ export const testCatalog: Catalog = {
     fire: {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],
       fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
+      aimHeightByPostureM: { standing: 1.0, crouching: 0.6, prone: 0.2 },
     },
     grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 15 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 8, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
   },
@@ -115,6 +116,7 @@ export const testCatalog: Catalog = {
       lrfRangeErrorFraction: 0.005, refillBelowFraction: 0.25, friendlyClearM: 60, scanReturnSeconds: 20, dischargeAheadM: 35,
     },
     antitank: { atRuleDefault: "vehicles", stepSeconds: 1, seenWithinSeconds: 3, rangeErrorFraction: 0.05, skillMrad: 2.5, largeRoomM2: 60, wallBehindM: 2, handOverM: 30 },
+    soldier: { reserveCloseM: 100, reserveAssaultM: 200, longRangeM: 200, longRangeIntervalFactor: 2, keepTargetFactor: 0.7, keepTargetSeenSeconds: 5 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
   },
   spotting: {

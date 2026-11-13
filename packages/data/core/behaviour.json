@@ -150,5 +150,16 @@
     "reverseOutM": 60,
     "reverseHoldSeconds": 15,
     "atThreatM": 50
+  },
+  "soldier": {
+    "reserveCloseM": 100,
+    "reserveAssaultM": 200,
+    "longRangeM": 200,
+    "longRangeIntervalFactor": 2,
+    "keepTargetFactor": 0.7,
+    "keepTargetSeenSeconds": 5,
+    "note": "Individual soldier AI (owner 2026-11-13, packages A-D; game values, low, the same for every side). A: a rifleman down to the magazine in his weapon keeps it as a close-defence reserve: he fires it (aimed) only at an enemy within 100 m, or within 200 m whose unit is assaulting; beyond 200 m riflemen firing on their own fire at half the rate; a man keeps his own target until it is down or he has not seen it for 5 s, unless another scores better than 0.7 x the current one.",
+    "sources": [],
+    "confidence": "low"
   }
 }

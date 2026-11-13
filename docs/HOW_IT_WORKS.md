@@ -215,7 +215,9 @@ A soldier's rifle holds one magazine; his other magazines are items in his load.
 Each man of the unit turns to it and fires at the rate the range calls for: aimed single shots every 2–3
 seconds beyond about 100 m, about a shot a second closer, short bursts inside 30 m. Every shot takes one round
 out of the magazine in his weapon. When it is empty he changes it (about 3 seconds) and keeps the empty one;
-when only the magazine in his weapon is left he stops and reports "low on ammunition". Now and then a weapon
+when only the magazine in his weapon is left he reports "low on ammunition" and keeps that magazine for close
+defence: he fires it, aimed, only at an enemy within 100 m or at one rushing at him within 200 m (see "The single
+soldier" below). Now and then a weapon
 jams and takes a few seconds to clear. Nobody fires with a comrade in front of his muzzle.
 
 **Where a shot goes** is not looked up in a table. The man has an aiming error — small when he is skilled,
@@ -358,6 +360,24 @@ down — preferably one he can fire from on his knees (a bank, a low wall). **Ou
 he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
 comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
 (orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
+
+## The single soldier (owner's packages, 2026-11-13)
+
+An audit of single men in battle found them shooting high at men lying down, sitting on their last magazine while
+the enemy closed in, lying in the open where they dropped, bunching on one spot, staying under mortar fire, never
+getting up again, never throwing a grenade and never firing on the move. The owner chose all four packages of
+fixes; they came in four steps.
+
+**Shoot straight (A).** A man aims at the middle of what he sees of the enemy: low (0.2 m) at a man lying down,
+0.6 m at one kneeling, 1 m at one standing — what he remembers is the posture he last *saw* the man in (a man only
+heard, never seen, is aimed at as before, 0.9 m). Before this, every shot at a man lying down passed over him: on
+the firing range a regular lying down hit a prone man 0 % of the time at 30–100 m aiming at 0.9 m, 46–91 % aiming
+at 0.2 m. Vehicle machine guns aim the same way. A man who sees an enemy go down (lying hit, or falling while he
+watches) knows he is down and tells his comrades; nobody fires at, takes cover from or plans against a man known
+to be down. His last magazine is a close-defence reserve (above). A rifleman firing on his own beyond 200 m fires
+at half the rate (ordered fire, a base of fire keeping the enemy down, keeps its rate). And he keeps his target:
+he changes to another man only when his own is down or has been out of his sight for 5 s, or when the other
+matters clearly more (less than 0.7 times his score: nearer, firing, standing).
 
 ## Squad drills
 

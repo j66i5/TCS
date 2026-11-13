@@ -2313,3 +2313,70 @@ show a problem.
   blanked are identical before/after for demo-s1 120 s, shootout-s1 180 s, demo-fixture-s7 90 s, platoon-s1 900 s,
   platoon-ru-s1 900 s and village-occupy-s1 180 s. Vehicle goldens change intentionally. The no-interiors goldens
   stay skipped (catalog differs since the BMP-2 missile), not regenerated.
+
+## 2026-11-13 — Individual soldier AI: the owner chose all four packages (A–D)
+
+- **Owner's request** "Improve individual soldier AI". An audit (1 Hz samples of men on foot in headless battles,
+  plus a firing-range lab) found ten measured weaknesses and offered four packages: **A** "Shoot straight" (aim
+  point, last magazine, target switching, long-range ammunition discipline), **B** "Use the ground" (crawl to
+  cover when pinned, spacing, mortar beaten zones), **C** "Stay in the fight" (posture to return to, rise to look,
+  facing, contact not interrupting Occupy, anti-tank men moving for a shot), **D** "Close combat" (own hand
+  grenades, assault fire on the move). **The owner chose all four.** They are committed one package per commit,
+  in the order A, B, C, D, each green on its own. All new values are game values, confidence **low**, the same for
+  every side, in `core/behaviour.json` `soldier` (new block) and `core/shooting.json` `fire.aimHeightByPostureM`.
+
+### Package A — Shoot straight
+
+- **Aim at the middle of what he sees** (audit item 1: every shot aimed 0.9 m above the ground, also at men lying
+  down, ~0.35 m high; 67–93 % of battle shots were at prone men; lab, G36 regular prone vs a prone silhouette:
+  30 m 0 % (aim 0.2 m: 91 %), 100 m 0 % (64 %), 200 m 1 % (46 %), 300 m 3 % (22 %) — the real cause of the
+  DECISIONS note "prone defenders never hit"). `Contact.posture` (new, optional, plain data) records the posture
+  the man was last *seen* in; a sound keeps the last seen one; reports carry it. `aimHeightAt` uses
+  `fire.aimHeightByPostureM` **prone 0.2, crouching 0.6, standing 1.0 m** (game values from the body outline:
+  the middle of the silhouette); never seen: `aimPointHeightM` 0.9 as before. A fire task at a contact whose height
+  was worked out from it (`FireTask.aimAuto`, optional) follows the posture as the contact changes. Vehicle machine
+  guns (crew's own choice and ordered fire at a named man) aim the same way. Launcher HE at men keeps 1 m.
+- **Known to be down** (`Contact.down`, optional; added because aiming low made men pour rounds into the fallen):
+  a man who sees an enemy lying hit, or had him in sight within 2 s of his fall, marks him down and passes it on
+  at once (like a surrender); never cleared. Nobody fires at, takes cover from, aims a drill at, or (AI commander)
+  plans against a man known to be down; a fire task at him stops ("no target"). Limitation: a man who comes round
+  stays "down" in the enemy's eyes.
+- **Last magazine = close-defence reserve** (item 2: a rifleman with only the magazine in his weapon stopped and
+  never fired again; 664–1219 man-seconds per battle watching a visible enemy in range, much of it within 100 m).
+  He now fires it — aimed — at an enemy within **100 m** (`reserveCloseM`), or within **200 m** whose unit is in an
+  assault drill (`reserveAssaultM`); his own target choice only considers such enemies, so the
+  assign-and-stop loop every second is gone. Machine gunners keep firing their last belt as before.
+- **Long-range ammunition discipline** (30–140 rounds per hit at 200 m+): a rifleman (no 4x+ sight, not a machine
+  gun) firing **on his own** beyond **200 m** (`longRangeM`) waits **2x** as long between shots
+  (`longRangeIntervalFactor`). Ordered fire keeps its rate: a first version that slowed all fire cut the
+  attackers' base of fire and their wins at 2400 s fell from 4/10 to 1/10 (DE) and 6/10 to 2/10 (RU).
+- **Target hysteresis** (item 10: 47 % of own-target switches within 5 s): he keeps his target unless it is down
+  (known), or he has not seen it for **5 s** (`keepTargetSeenSeconds`; with the 2 s "seen" window alone the
+  switches only fell to ~45 %: men lying down flicker in and out of sight), or another scores below **0.7x** it
+  (`keepTargetFactor`). The target score now uses the posture he *sees* (the contact), not the enemy's true one.
+- **Measured** (audit scripts, 1500 s battles platoon s1–3, platoon-ru s1–2, platoon-vehicles s1, summed):
+  shots per enemy hit by men on foot 15.7 → 10.7 (hits 1058 → 1203 from 16626 → 12860 shots; hits on prone men
+  815 → 996); man-seconds watching a visible enemy in range with no spare magazine 4225 → 113; own-target
+  switches within 5 s 270 of 603 (45 %) → 71 of 298 (24 %). Rounds per hit by range, platoon s2: 0–100 m 27 → 4,
+  100–200 m 23 → 16; platoon-ru s1: 100–200 m 57 → 8, 300+ m 23 → 16.
+- **Batches** (10 seeds; attacker wins / defender wins; casualties attacker / defender; rounds per enemy hit
+  attacker / defender, men on foot; small-arms rounds attacker / defender):
+
+  | Batch | Before | After A |
+  |---|---|---|
+  | platoon 900 s | 1/9; 14.4 / 10.3; 23 / 8; 1023 / 279 | 1/9; 15.1 / 11.9; 22 / 5; 933 / 226 |
+  | platoon-ru 900 s | 2/8; 15.5 / 12.8; 22 / 8; 1609 / 297 | 2/8; 15.8 / 13.0; 22 / 4; 1476 / 200 |
+  | platoon-vehicles 900 s | 2/8; 20.1 / 19.3; 42 / 15; 889 / 835 | 3/7; 19.2 / 21.5; 27 / 3; 905 / 201 |
+  | platoon-ru-vehicles 900 s | 0/10; 28.4 / 11.5; 70 / 9; 621 / 480 | 1/9; 26.0 / 11.4; 30 / 5; 555 / 185 |
+  | platoon 2400 s | 4/6; 18.9 / 12.5; 27 / 10; 1722 / 564 | 3/7; 18.9 / 14.5; 21 / 4; 1153 / 280 |
+  | platoon-ru 2400 s | 6/4; 18.8 / 14.9; 25 / 10; 2293 / 482 | 3/7; 18.6 / 14.5; 26 / 5; 1953 / 256 |
+
+  Defenders now hit with 4–5 rounds instead of 8–15 and spend about half the ammunition; the Russian attack on
+  foot at 2400 s wins less often (6 → 3 of 10) with the same casualties on both sides. Not "badly unbalanced"
+  (no 10/10, casualties not doubled); left for the owner (see the decisions list in STATE.md).
+- **Attack lab** (`npm run lab -- attack`, 20 runs per case): one squad across 300 m on a squad behind a 0.7 m wall
+  0 % before and after; on the wall with a second squad firing in support 25 % (8 runs) before → 10 % (2/20)
+  after; defenders lying in the open 0 % → 10 %. Defenders behind the wall now hit the attackers lying between
+  bounds. The lab test (support must help) ran 8 runs per case and saw 0 % vs 0 %: it now runs 16.
+- **Goldens:** behaviour.json and shooting.json changed (catalog fingerprint) and behaviour changed on purpose:
+  `golden:update` for all regular goldens; the no-interiors goldens stay skipped.

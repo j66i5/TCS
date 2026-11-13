@@ -186,7 +186,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const seen = secondsToTicks(AT.seenWithinSeconds);
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
-    if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.wreck) continue;
+    if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.down || c.wreck) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
     if (d > range || d < 15) continue;
     const isV = c.cls === "vehicle";

@@ -1,6 +1,11 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+
+**Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
+**A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who
+is down, keep the last magazine for close defence, slow their own long-range rifle fire, keep their target.
+Open for the owner: the Russian attack on foot at 2400 s wins 3/10 instead of 6/10 (casualties unchanged).
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's

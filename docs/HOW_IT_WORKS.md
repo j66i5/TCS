@@ -24,10 +24,20 @@ brings it back exactly. At the end the **after-action review** shows the result 
 battlefield, a **heat map** (dots where shots came from, crosses where men fell).
 `?scenario=demo` opens the old one-squad sandbox.
 
-**Mortars and smoke (M6.5).** The attacker has two platoons. Each side can call mortar fire (the line under the
-top bar shows the rounds left; the attacker has more, and more smoke): pick **Mortar** or **Smoke** and tap the
-target. The selected unit's leader calls it by radio; the first round lands after a minute or more (German
-120 mm: 90 s, Russian 82 mm: 75 s), then one every few seconds, scattered about the point. High explosive bursts
+**Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
+call mortar fire (the line under the top bar shows the rounds left; the attacker has more, and more smoke): pick
+**Fire support** (under Fire), hold or tap the target and choose **HE** or **Smoke** in the little box that opens
+there. The selected unit's leader calls it by radio. About a minute later (German 120 mm: 75 s, Russian 82 mm:
+60 s) a single **ranging round** lands — not on the point, but off it by the mortars' aiming error (tens of metres).
+If the caller or any man of his platoon can see where it fell (a hill, a house, thick woods or smoke in the way
+and nobody can), the next rounds come much closer (the error drops to a third); 20 s later a second ranging round,
+then the whole battery fires together (**fire for effect**: German 4 tubes, Russian 6 tubes; one volley lands
+within about three seconds, the next a few seconds later), scattered about the corrected point. Ranging rounds no
+one saw do not bring the aim closer, so fire called blind may land well off. The radio says each step ("ranging
+round 70 m off, adjusting", "ranging round not observed", "fire for effect!"). The ranging rounds come from the
+same stock, on top of the rounds asked for (if the stock runs short, ranging rounds are given up first). A point
+the mortars have already ranged on is remembered: a new mission within 100 m of it fires for effect at once.
+High explosive bursts
 like a big grenade; smoke lays grey clouds for two minutes or more that nobody can see through (bullets still
 go through). The AI attacker calls high explosive and a smoke screen as its first squad nears its support line,
 goes in as they land and keeps both coming (high explosive every 45 s until its own men are close, smoke on the
@@ -44,7 +54,8 @@ Tap one of your men to select his unit. The bar at the bottom holds the orders:
   sends the order; **Undo** drops the last point, **Cancel** the whole plan. The men lay themselves out exactly
   so, take cover close to their places and face the way the arrow points.
 - **Assault** / **Withdraw**: tap the point, Go (the drills of M4.3).
-- **Fire**: tap the target — on an enemy marker to fire at that enemy. **Grenade** / **All grenades**: tap.
+- **Fire**: tap the target — on an enemy marker to fire at that enemy (hold to see the sight lines first, see
+  "Ordering by dragging"). **Grenade** / **All grenades**: tap.
 - **Halt**, **cease fire**, the posture button.
 - **Rules**: the unit's standing rules — fire (at will / return fire / hold), open fire within (any range or
   400 / 200 / 100 m), on contact (go to ground / push on / fall back), ammunition (conserve / normal /
@@ -607,16 +618,16 @@ knows near the objective, never close to its own men.
 The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
 are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.
 The bar then offers only what that unit can do right now: a squad gets Anti-tank only while someone still has a
-Panzerfaust (or RPG) with a round for it, the grenade buttons only while it has grenades, Mortar and Smoke only
+Panzerfaust (or RPG) with a round for it, the grenade orders only while it has grenades, Fire support only
 while your mortars have rounds left; a vehicle gets move, fire (the gun choice cycles through the rounds its
 guns really have), the smoke screen while its dischargers are loaded, and Dismount while men ride in it; a unit
-with just one man left can move, fire, throw, change posture, halt and cease fire.
+with just one man left can move, fire, throw, change posture, halt and cease fire. (Since the "bar-card" step the
+bar itself is short: see "The order bar, the unit card and the men" below.)
 
 **Moving the bar.** Hold the grip (⠿) at its start and drag: a highlighted strip shows which edge it will go to;
 let go and it docks there — a full-width strip at the top or bottom, or a full-height column at the left or
 right. Your phone remembers the choice. Until you move it, it sits at the bottom with the phone upright and at
-the right with the phone on its side. On a narrow screen the bar is one row; buttons that do not fit (the rarer
-ones first: smoke, mortar, all grenades, withdraw, rules ...) wait behind **⋯**.
+the right with the phone on its side. If the bar ever does not fit, Mount, Dismount and Halt wait behind **⋯**.
 
 **The unit list** is a slim strip of tiles down the side (the right side when the bar is docked left): each tile
 shows the unit's symbol, callsign and how many of its men are fit (5/6), and a coloured edge for its state —
@@ -636,6 +647,137 @@ behind **⋯**. Under it one short line: each objective with a small square in t
 **Looks are data too.** Each side's uniform tones and vehicle paint, and the colours of the flat map to come, are in
 `appearance.json` files. They are kept apart from everything the battle is computed from, so changing a colour can
 never change the outcome of a battle or a saved game.
+
+## Ordering by dragging (the "controls" step, owner choices 2026-11-13)
+Ideas taken from Firefight's way of giving orders (only the ideas: the look and the words are our own). They
+work the same with a finger and with a mouse; each gesture ends in one of the ordinary orders, so nothing about
+the battle itself changed.
+- **Drag from the unit to move it.** Press on the selected unit (one of its men, or its vehicle), drag, and a ghost
+  of the formation follows the finger with a dashed line from the unit; let go and the move is sent at once, at
+  the pace last chosen. Drag back onto the unit before letting go (a red cross shows) and nothing is sent. In the
+  Assault or Withdraw mode the same drag sends an assault or a withdrawal. For a route with several points, tap
+  the map as before and press Go.
+- **The move's marker.** While a unit carries out a move you gave it, its destination shows as a white ring with
+  a dot. Drag it somewhere else and the unit goes there instead (same pace, formation and width, straight from
+  where it is now). Drag it onto the unit itself (the red cross) and let go: the unit halts. The Halt button
+  still does the same.
+- **Turning on the spot.** A selected unit that stands still has a round green handle ahead of it, with an arrow
+  for the way it faces. Drag the handle round: a ghost shows where the men will stand; let go and they turn that
+  way where they are (it is the usual move order, sent to the place where the unit stands, with that facing; the
+  point is shifted so that the middle of the group stays put). A vehicle turns on its tracks. Indoors there is no
+  handle: Occupy faces the men to the windows.
+- **Seeing before firing.** In Fire (or Anti-tank) mode, hold the finger or mouse down on the map: a line runs
+  from each of the unit's men (a vehicle's sights) to the point — solid where the view is clear, broken (with a
+  small cross) from where a hill, a wall, a roof or thick woods stop it. The check uses only the ground, the
+  buildings, the woods and the vehicles your side knows about, so it never gives away a hidden enemy. Slide the
+  point about while holding; let go to fire there. Slide back onto the unit (red cross) and let go to call it off.
+  A quick tap fires at once, as before. While Fire is chosen, a one-finger drag on the map does not pan it (use
+  two fingers, or the mouse wheel and another mode).
+- **Back to Move after one order.** After a one-tap order — fire, anti-tank, grenade, all grenades, fire support,
+  occupy, or an assault or withdrawal sent by dragging — the bar goes back to Move, so the next tap does not fire
+  again by mistake. To give several such orders in a row, double-tap the button: it locks on (a bold yellow frame
+  and a small LOCK mark) and stays on after each order; double-tap it again, or pick another order, to unlock.
+
+## The order bar, the unit card and the men (the "bar-card" step, owner choices 2026-11-13)
+Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own).
+- **A short bar.** The order bar has only the main orders, each a small drawing with a short name: **Move**,
+  **Fire**, **Halt**, and **Mount** or **Dismount** when they apply. The little arrow beside Move opens the other
+  ways to move: Assault, Withdraw, Occupy, and Stand up / Kneel / Lie down. The arrow beside Fire opens the
+  weapons: Anti-tank, Grenade, All grenades, Fire support (a vehicle: its gun choice and its smoke screen) and
+  Cease fire. Pick one and the Fire (or Move) button shows it, lit, until the order is given; the next tap on the
+  button gives that order again. The same rules as before decide what is offered (no grenades left, no Grenade).
+- **Occupy where you drag.** Drag a squad onto a house and let go: it goes into the house as before, and an
+  **Occupy** button pops up beside the spot for a few seconds. Press it and the squad occupies the house instead
+  (men at the windows facing the enemy).
+- **The unit card.** With a unit selected, a card at the bottom left shows its name, how many men are fit and its
+  state, and two rows of buttons always in view. **Pace:** Run, Walk, Sneak, Crawl (a vehicle: Fast, Drive, Slow,
+  Reverse) — the pace of the next move; pressed while the unit is on a move you gave it, it goes on at that pace
+  along the rest of its route. **Fire:** At will (fire at any enemy they see), Return (only once fired upon), Hold
+  (only when ordered), **Ambush** (hold fire until an enemy is within 100 m, then fire at will). The lit button is the
+  one in force; the Rules button on the card opens the full rules (range, on contact, ammunition, anti-tank).
+- **The men.** The card's **Men** button lists every man: a coloured mark for how he is (green steady, yellow
+  shaken, orange pinned, red wounded, grey down or a prisoner), his job, his weapon and a small ammunition bar with
+  one cell per magazine or belt. Tap a man's row, or tap him on the map, and a box opens: his rank and name, his
+  weapon and rounds, what he is doing right now (moving at a walk, firing at an enemy he sees, pinned down, bringing
+  ammunition ...), his pulse, bars for fatigue, how hard he is under fire, stress and morale, and his wounds. A
+  yellow ring marks him on the map. Tap him again or the × to close it. The card remembers whether you like it short
+  or with the men. On a phone the card keeps to a small part of the screen: the radio shows its two newest lines
+  while it is open.
+- Nothing about the battle changed: every button sends one of the orders that already existed.
+
+## Reading the map, following units, the keyboard (the "map-feel" step, owner choices 2026-11-13)
+Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own). Nothing about the battle
+changed: the lines and pins are drawn from what your side already knows, and the keys send the same orders as the
+buttons.
+- **Where everyone is going.** Every one of your units on the move has one thin, faint line from the middle of its
+  men (a vehicle: from the hull) to where it is going, with a small dot at the end — one line per unit, never one per
+  man. The selected unit's line is bright and follows its route. A mortar mission has a broken amber line from the
+  man who called it to a ring on the target, from the moment it is called until the last round has fallen. Zoomed
+  right out to the unit symbols, the faint lines are left out when more than six units are moving (the selected
+  unit's line and the mortar lines stay).
+- **"Last seen" pins.** An enemy your men lose sight of does not just fade away any more: about 6 seconds after the
+  last sighting his mark turns into a hollow pin standing on the spot where he was last seen, with how long ago
+  ("seen 45 s ago", "seen 3 min ago"). The pin stays — even after the men have forgotten him — until he is seen again
+  (the pin goes, he is a live mark again) or your men have had a clear look at the spot for 5 seconds and he is not
+  there: a man within 200 m (600 m for a vehicle's spot) sees the ground there clearly, low enough that he would see
+  a man lying in it. An enemy seen falling or getting into a vehicle leaves no pin; a sound alone never makes one.
+  A lost vehicle keeps its hollow outline under its pin.
+- **Following a unit.** Tap a unit's tile in the unit list: it is selected and the map centres on it (tap it again
+  while the map is on it to unselect it). Hold the tile for about half a second: the camera follows the unit,
+  gliding after it, and a small green "Following …" badge shows at the top; zooming keeps following, panning the map
+  (or tapping the badge) stops it.
+- **Contour lines.** Height lines still come by themselves when zoomed out. The **Contours** button in the top bar
+  (on a phone behind "⋯"; the C key) shows them at every zoom: close up they are fine pink lines, every 2.5 m of
+  height, stronger every 10 m — for finding a reverse slope or a hull-down spot. The choice is remembered on the
+  device.
+- **Keyboard and mouse (desktop).** Space pauses and goes on; 1, 2, 3, 4 are the speed buttons in order (pause, 1×,
+  2×, 4×); W A S D or the arrows move the map; Tab and Shift+Tab pick the next or previous unit and centre on it; F
+  follows the selected unit; M, T, H, B, G are Move, Fire, Halt, Get in/out and Grenade (T twice quickly locks Fire
+  on); Enter sends a planned route and Backspace takes back its last point; C toggles the contours. **Esc** closes
+  or cancels the innermost thing — a menu or this card, a drag, a planned route, a chosen order (back to Move), the
+  man's box, following, then the selection — and never leaves the battle. The **right mouse button** moves the
+  selected unit from anywhere: right-click a spot and it goes there, or right-drag and a ghost of the formation shows
+  where it will stand. **?** (or F1, or the ? button in the top bar) shows a card with every key and every mouse and
+  touch gesture. Touch is unchanged.
+
+
+## Calling mortar fire: hold a point, pick HE or smoke (the "fire-support" step, owner choice 2026-11-13)
+An idea taken from Firefight (only the idea: the drawings, words and colours are our own).
+- **One button.** Under Fire's little arrow there is one **Fire support** button (it is offered while your mortars
+  have rounds left). Pick it, then press and hold on the map where the rounds should fall: an amber ring with a
+  broken line from the unit's leader marks the point; slide your finger (or the mouse) to adjust it, and let go. A
+  quick tap or click works too. A small box opens beside the point with **HE** and **Smoke** and how many rounds of
+  each are left. Pick one and the call goes out (4 high explosive or 2 smoke, plus the ranging rounds); the × , Esc
+  or waiting eight seconds closes the box without calling anything. Like the other one-tap orders, the bar then
+  goes back to Move (double-tap Fire support to keep it on).
+- **Watching it walk in.** The mission's broken amber line runs from the caller to a ring on the point. Each ranging
+  round leaves a cross where it fell (amber if someone saw it fall, pale if no one did), joined by a short dotted
+  trail to the point, so you can see the rounds walking in. When the battery fires for effect a second, wider ring
+  appears round the point. The line and the crosses go when the last round has fallen.
+- This is the one part of the Firefight list that changed the battle itself (see "Mortars and smoke" at the top):
+  the order is the same `callFire` order as before; ranging, volleys and the remembered points are in the
+  simulation, with new values in the factions' data (game values, low confidence).
+## Fixes after the review of the Firefight-style screen (2026-11-13)
+- **Sharp screens.** On phones and Retina screens the map's idea of the screen size was half the real one, so
+  "centre on this unit" and the follow camera aimed at the wrong place. Now a tapped tile puts the unit in the
+  middle of the map area that is left free — above the unit card and the radio log — and the follow camera keeps it
+  there.
+- **No peeking.** The sight-line preview (hold in Fire) looks through every enemy vehicle your side has not seen,
+  however many stand in the line, and a vehicle you only heard counts as unseen. A mortar round nobody saw fall
+  leaves no cross on the map. A "last seen" pin goes after five seconds of your men watching the empty spot,
+  counted from when the enemy was lost.
+- **Mortar memory.** The battery only remembers a point as "ranged" if someone saw at least one ranging round land.
+  A blind call is ranged again next time instead of firing for effect with the full error.
+- **Touch.** In Fire or Fire support mode a quick swipe moves the map; press and hold still (a fifth of a second) to
+  get the sight lines. Moving the map with two fingers, or holding an arrow key, stops the follow camera.
+- **Small things.** Pressing T twice no longer locks Fire on (only a double tap or click does). Undoing the last
+  route point closes the route. Dragging the facing handle keeps the squad's shape (a column turns as a column) and
+  the handle stays where you let go until the squad starts to turn. The start hint is one short line that goes as
+  soon as you pick a unit. The top line starts with the time and the mortar rounds ("mortar HE 24 · smoke 12").
+  When both platoons have a "Puma 2", the map and the card say "1/Puma 2" and "2/Puma 2". On a phone with the bar at
+  the side, the pace and fire buttons keep their words. Sight lines and the selected men's rings have a dark edge so
+  they show on pale fields; close-up contour lines are dark brown like the zoomed-out ones; the help card shows
+  either the touch or the mouse rows; long lists fade at the bottom to show they scroll.
 
 ## Zoom levels, pixel soldiers and roofs (M7.5b)
 The battle opens zoomed in on your first squad (or the vehicle it rides in). How things are drawn depends on the

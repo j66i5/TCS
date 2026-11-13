@@ -19,11 +19,17 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-btn { min-width: 44px; min-height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid #4a5745;
   background: #263223; color: var(--text); font-size: 15px; }
 .hud-btn.on { background: #4a5c2f; border-color: var(--accent); }
+/* S12: a mode locked on by a double-tap: a bold accent frame and a small mark on its corner */
+.hud-btn[data-order] { position: relative; }
+.hud-btn.locked { border-width: 2px; border-color: var(--accent); background: #5f5a22; box-shadow: inset 0 0 0 1px var(--accent); }
+.hud-btn.locked::after { content: attr(data-lock); position: absolute; top: 1px; right: 1px; padding: 0 2px; border-radius: 3px;
+  background: var(--accent); color: #1b241a; font-size: 10px; font-weight: 800; line-height: 12px; letter-spacing: 0.04em;
+  top: auto; bottom: -6px; right: -4px; border: 1px solid #1b241a; z-index: 1; }
 .hud-hint { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); max-width: 92vw; text-align: center;
   background: var(--panel); padding: 6px 10px; border-radius: 6px; color: var(--muted); font-size: 14px; }
 .hud-radio { position: absolute; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0)); max-width: 520px;
   display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
-.hud-radio-line { background: var(--panel); padding: 3px 8px; border-radius: 4px; }
+.hud-radio-line { background: rgba(15, 20, 14, 0.94); padding: 3px 8px; border-radius: 4px; width: fit-content; max-width: 100%; }
 .hud-radio-time { color: var(--muted); font-variant-numeric: tabular-nums; }
 .hud-debug { position: absolute; right: 8px; top: 60px; margin: 0; padding: 6px 8px; background: var(--panel);
   font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; border-radius: 4px; }
@@ -87,6 +93,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-side.expanded { width: 230px; }
 .hud-side-head { flex: 0 0 auto; min-height: 32px; border-radius: 6px; border: 1px solid #4a5745; background: #263223; color: var(--text); font-size: 15px; }
 .hud-side-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: none; }
+/* Review fix: a list longer than the screen fades out at the bottom (more below; it scrolls). */
+.hud-side-list.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
+.hud-side.expanded .hud-side-list { scrollbar-width: thin; scrollbar-color: #6b7a63 transparent; }
 .hud-tile { position: relative; flex: 0 0 auto; width: 56px; min-height: 56px; padding: 3px 2px 3px 5px; border-radius: 6px; border: 1px solid #3d4a39;
   border-left: 4px solid #7bbf5a; background: #1f2a1c; color: var(--text); display: grid; grid-template-columns: 1fr; justify-items: center;
   align-content: center; gap: 1px; font-size: 10px; line-height: 1.15; text-align: center; }
@@ -105,7 +114,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-side.expanded .hud-tile { width: 100%; min-height: 40px; grid-template-columns: 30px 1fr auto; grid-template-rows: auto auto; justify-items: start;
   text-align: left; column-gap: 6px; font-size: 13px; }
 .hud-side.expanded .hud-tile-sym { grid-row: 1 / 3; align-self: center; }
-.hud-side.expanded .hud-tile-men { grid-column: 3; grid-row: 1; justify-self: end; }
+.hud-side.expanded .hud-tile-men { grid-column: 3; grid-row: 1; justify-self: end; padding-right: 4px; }
 .hud-side.expanded .hud-tile-detail { display: block; grid-column: 2 / 4; grid-row: 2; color: var(--muted); font-size: 12px; }
 .hud-side.expanded .hud-tile.depth-1 { margin-left: 10px; width: calc(100% - 10px); }
 .hud-side.expanded .hud-tile.depth-2 { margin-left: 20px; width: calc(100% - 20px); }
@@ -139,3 +148,116 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-floors { position: absolute; right: calc(var(--free-right) + 8px); top: calc(var(--free-top) + 64px); display: flex; flex-direction: column; gap: 4px; z-index: 6; pointer-events: auto; }
 .hud-floors[hidden] { display: none; }
 .hud-floors .hud-floor { min-width: 40px; min-height: 36px; padding: 0; font-weight: 600; }
+/* The "bar-card" step (owner choices S3, S4, S6): icon verbs with trays, the unit card, the man's box. */
+.hud-ico { display: block; flex: 0 0 auto; }
+.hud-verb, .hud-tray-item, .hud-context { display: inline-flex; align-items: center; gap: 5px; }
+.hud-group { display: inline-flex; flex: 0 0 auto; }
+.hud-group .hud-verb { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.hud-caret { min-width: 28px; padding: 0 3px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-color: #33402f;
+  display: inline-flex; align-items: center; justify-content: center; }
+.hud-caret.on { background: #4a5c2f; }
+.hud-orders.vertical .hud-group { flex-direction: column; }
+.hud-orders.vertical .hud-group .hud-verb { border-radius: 6px 6px 0 0; }
+.hud-orders.vertical .hud-caret { min-height: 22px; border-radius: 0 0 6px 6px; border-left-color: #4a5745; border-top-color: #33402f; }
+.hud-orders.vertical .hud-verb { flex-direction: column; gap: 1px; padding: 3px 4px; font-size: 12px; min-width: 52px; }
+.hud-tray { position: absolute; display: flex; flex-direction: column; gap: 4px; background: rgba(15, 20, 14, 0.95); padding: 6px;
+  border: 1px solid var(--accent); border-radius: 8px; max-height: 70vh; overflow-y: auto; z-index: 3; }
+.dock-bottom .hud-tray { bottom: calc(100% + 2px); }
+.dock-top .hud-tray { top: calc(100% + 2px); }
+.dock-left .hud-tray { left: calc(100% + 2px); }
+.dock-right .hud-tray { right: calc(100% + 2px); }
+.hud-tray .hud-btn { white-space: nowrap; text-align: left; }
+.hud-context { position: absolute; z-index: 4; pointer-events: auto; border-color: var(--accent); background: #3b4a22; font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+/* S11 (step fire-support): the fire support pop-up beside the point held: HE or smoke with the rounds left */
+.hud-support { position: absolute; z-index: 4; pointer-events: auto; background: rgba(15, 20, 14, 0.95); border: 1px solid #e0913a;
+  border-radius: 8px; padding: 5px 6px 6px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55); }
+.hud-support[hidden] { display: none; }
+.hud-support-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #f0b56a; }
+.hud-support-head span { margin-right: auto; white-space: nowrap; }
+.hud-support-close { min-width: 30px; min-height: 28px; padding: 0 6px; font-size: 18px; line-height: 1; }
+.hud-support-row { display: flex; gap: 6px; }
+.hud-support-pick { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 76px; min-height: 58px;
+  padding: 3px 8px; font-weight: 600; }
+.hud-support-pick svg { width: 22px; height: 22px; }
+.hud-support-pick:disabled { opacity: 0.4; }
+.hud-support-n { font-size: 11px; font-weight: 400; color: var(--muted); }
+.hud-card { pointer-events: auto; align-self: flex-start; width: min(400px, 100%); container-type: inline-size; background: rgba(15, 20, 14, 0.9); border-radius: 8px;
+  padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #3d4a39; }
+.hud-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hud-card-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.hud-card-men { color: var(--muted); font-size: 13px; white-space: nowrap; margin-right: auto; }
+.hud-card-btn { min-height: 30px; min-width: 0; padding: 0 7px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.hud-seg { display: flex; align-items: stretch; gap: 3px; }
+.hud-seg-label { flex: 0 0 34px; font-size: 11px; color: var(--muted); align-self: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.hud-chip { flex: 1 1 0; min-width: 0; min-height: 34px; padding: 2px 4px; border-radius: 6px; border: 1px solid #3d4a39; background: #1f2a1c;
+  color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; }
+.hud-chip span { overflow: hidden; text-overflow: ellipsis; }
+.hud-chip.on { background: #4a5c2f; border-color: var(--accent); color: var(--text); font-weight: 600; }
+.hud-card-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-width: thin; }
+.hud-man { display: grid; grid-template-columns: 16px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 6px; min-height: 28px;
+  padding: 1px 6px; border-radius: 5px; border: 1px solid transparent; background: #1f2a1c; color: var(--text); font-size: 12px; text-align: left; }
+.hud-man.leader .hud-man-role { font-weight: 700; }
+.hud-man.inspected { border-color: #fff3a0; background: #33402a; }
+.hud-man-role, .hud-man-weapon { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-man-weapon { color: var(--muted); }
+.hud-man-mark { display: flex; }
+.hud-man.st-steady .hud-man-mark { color: #8fd36a; }
+.hud-man.st-shaken .hud-man-mark { color: #ffd23d; }
+.hud-man.st-pinned .hud-man-mark { color: #ffb347; }
+.hud-man.st-wounded .hud-man-mark { color: #ff6b57; }
+.hud-man.st-down .hud-man-mark, .hud-man.st-captive .hud-man-mark { color: #8a8a8a; }
+.hud-man.st-down, .hud-man.st-captive { opacity: 0.6; }
+.hud-ammo { display: inline-flex; gap: 1px; align-items: center; }
+.hud-ammo i { width: 5px; height: 11px; border: 1px solid #7d8a71; border-radius: 1px; background: linear-gradient(to top, #e8d48a var(--f), transparent var(--f)); }
+.hud-ammo b { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+.hud-manbox { position: absolute; left: calc(var(--free-left) + 8px); width: min(300px, calc(100vw - var(--free-left) - var(--free-right) - 16px));
+  background: rgba(15, 20, 14, 0.95); border: 1px solid #fff3a0; border-radius: 8px; padding: 7px 8px; pointer-events: auto; z-index: 3; font-size: 13px; }
+.hud-manbox-close { position: absolute; top: 4px; right: 4px; min-width: 32px; min-height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.hud-manbox-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 5px; padding-right: 36px; }
+.hud-manbox-name .hud-mark { color: #fff3a0; }
+.hud-manbox-line { color: var(--text); margin-top: 3px; }
+.hud-manbox-line b { color: var(--muted); font-weight: 600; }
+.hud-manbox-bar { display: grid; grid-template-columns: 6.5em 1fr 3.2em; gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.hud-manbox-bar i { height: 7px; background: #2b3627; border-radius: 3px; overflow: hidden; }
+.hud-manbox-bar b { display: block; height: 100%; }
+.hud-manbox-bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }
+/* A narrow card (a phone with the bar at its side): review fix — the chips keep their labels, two to a row, rather
+   than icons alone that were hard to tell apart; Men and Rules show their icons only (the label stays as a tooltip). */
+@container (max-width: 345px) {
+  .hud-seg-label { display: none; }
+}
+@container (max-width: 290px) {
+  .hud-seg { flex-wrap: wrap; }
+  .hud-chip { flex: 1 1 calc(50% - 3px); min-height: 30px; font-size: 12px; }
+  .hud-card-btn span { display: none; }
+}
+/* A phone: with the card open the radio log keeps its two newest lines, the men's list a quarter of the height. */
+@media (max-width: 700px) {
+  .hud-bottom.with-card .hud-radio-line:nth-child(n+3) { display: none; }
+  .hud-card-list { max-height: 24vh; }
+}
+@media (max-width: 420px) {
+  .hud-verb { padding: 0 7px; gap: 3px; }
+  .hud-chip { font-size: 11px; gap: 2px; padding: 2px 2px; }
+  .hud-chip .hud-ico { width: 14px; height: 14px; }
+  .hud-seg-label { flex-basis: 28px; font-size: 10px; }
+}
+/* The "map-feel" step: the help card (S13), the follow badge (S5), the contour toggle (S14) */
+.hud-help { position: absolute; z-index: 5; left: calc(var(--free-left) + 8px); right: calc(var(--free-right) + 8px); margin: 0 auto;
+  width: min(560px, calc(100vw - var(--free-left) - var(--free-right) - 16px)); max-height: calc(100vh - var(--free-top) - var(--free-bottom) - 24px);
+  overflow-y: auto; background: rgba(15, 20, 14, 0.96); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px 10px;
+  pointer-events: auto; font-size: 13px; }
+.hud-help-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; position: sticky; top: -8px; background: rgba(15, 20, 14, 0.96); padding: 2px 0; }
+.hud-help-close { min-width: 36px; padding: 0; }
+.hud-help-sec { margin: 8px 0 3px; color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.hud-help-rows { display: grid; grid-template-columns: 150px 1fr; column-gap: 10px; row-gap: 3px; }
+.hud-help.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent); }
+.hud-help-key { font-weight: 600; white-space: normal; color: var(--text); justify-self: start; }
+.hud-help-key.kbd { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #263223; border: 1px solid #4a5745;
+  border-radius: 4px; padding: 0 5px; align-self: start; }
+.hud-help-what { color: var(--muted); }
+@media (max-width: 480px) { .hud-help-rows { grid-template-columns: 1fr; row-gap: 1px; } .hud-help-what { margin-bottom: 4px; } }
+.hud-follow { position: absolute; z-index: 3; transform: translateX(-50%); min-height: 30px; padding: 0 10px; font-size: 13px; pointer-events: auto;
+  border-color: #8fe3c0; background: rgba(27, 52, 40, 0.92); color: #d9fbe9; white-space: nowrap; }
+.hud-help-btn { font-weight: 700; }

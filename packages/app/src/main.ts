@@ -12,11 +12,14 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, OPENING_SCALE, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, type FrameId, type Overlay } from "@tcs/render";
-import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules } from "@tcs/ui";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Overlay } from "@tcs/render";
+import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
+  centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
+  manDetail, repaceMove, unitMenRows,
+  ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -115,11 +118,21 @@ async function main(): Promise<void> {
     hud.setPlanning(kind);
   };
   const endPlan = () => { plan = null; dragHandle = null; hud.setPlanning(null); };
+  /** Undo the plan's last point; the last one undone closes the plan (review fix: an empty plan stayed open). */
+  const undoPlanPoint = () => { if (!plan) return; plan = undoPoint(plan); if (plan.points.length === 0) endPlan(); };
   /** Handles stay this far (on screen) from the marker's centre, so a finger can grab the marker itself. */
   const HANDLE_PX = 46;
   /** The formation marker (a move only: an assault or withdrawal ends spread round its point). */
-  const planMarker = () => plan && plan.kind === "move" ? markerGeometry(plan, slotsOf(plan.formation), Math.max(1, unitMen().length), doctrineSpacing, HANDLE_PX / renderer.camera.scale) : null;
+  const markerFor = (p: Plan | null) => p && p.kind === "move" ? markerGeometry(p, slotsOf(p.formation), Math.max(1, unitMen().length), doctrineSpacing, HANDLE_PX / renderer.camera.scale) : null;
+  const planMarker = () => markerFor(plan);
   let dragGapM = 3;
+  /** S6: the man whose detail box is open (one of the selected unit's men), or null. */
+  let inspected: EntityId | null = null;
+  /** S14: the contour toggle (remembered on this device). */
+  const CONTOURS_KEY = "tcs.ui.contours";
+  let contoursOn = false;
+  /** S5: the unit the camera follows (null: none). */
+  let following: EntityId | null = null;
   const hud = createHud(hudRoot, strings, {
     formations: Object.keys(input.catalog.formations).sort(),
     defaultFormation,
@@ -131,8 +144,8 @@ async function main(): Promise<void> {
       location.search = q.toString();
     },
     onSpeed: (v) => { speed = v; },
-    onOrderMode: (m) => { orderMode = m; if (plan && plan.kind !== m) endPlan(); },
-    onHalt: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
+    onOrderMode: (m) => { orderMode = m; gesture = null; if (plan && plan.kind !== m) endPlan(); },
+    onHalt: () => { endPlan(); gesture = null; if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
     onMount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "mount" }); },
     onDismount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "dismount" }); },
     // Vehicles (M7.3): smoke screen now; the gun and round of the next fire order.
@@ -142,19 +155,22 @@ async function main(): Promise<void> {
       if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "ceaseFire" });
     },
     onPace: (m) => { pace = m; },
+    // S3: a pace chip while the unit carries out a move the player gave it: the rest of the move at that pace.
+    onPaceChosen: (p) => {
+      const uid = overlay.selectedUnit, mv = activeMoveOf(uid);
+      if (uid === null || !mv || plan) return;
+      const at = centreOf(placesOf(uid));
+      if (at) issue(forUnit(repaceMove(mv, at, p, sim.state.tick)));
+    },
+    // S6: a man's row on the card: his box (again: closed).
+    onInspect: (m) => { inspected = m === null || m === inspected ? null : m; showCard(); },
+    onCardResize: () => { showCard(); keepSelectedClear(); },
     onFormation: (f) => {
       formation = f;
       if (plan) { const n = Math.max(1, unitMen().length); plan = { ...plan, formation: f, frontageM: Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) }; }
     },
-    onUndo: () => { if (plan) plan = undoPoint(plan); },
-    onGo: () => {
-      if (plan && overlay.selectedUnit !== null) {
-        const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
-        if (o) issue(forUnit(o));
-      }
-      endPlan();
-      orderMode = "move"; hud.setOrderMode("move");
-    },
+    onUndo: () => undoPlanPoint(),
+    onGo: () => goPlan(),
     onCancel: () => { endPlan(); orderMode = "move"; hud.setOrderMode("move"); },
     onRules: (r) => {
       if (overlay.selectedUnit === null) return;
@@ -181,7 +197,22 @@ async function main(): Promise<void> {
       location.search = q.toString();
     },
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
-    onSelectUnit: (u) => { endPlan(); overlay.selectedUnit = overlay.selectedUnit === u ? null : u; syncOrders(); refreshTiles(); },
+    // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
+    // unselects (as before). A press held on a tile follows the unit; the badge (or any pan) stops following.
+    onSelectUnit: (u) => {
+      endPlan(); gesture = null;
+      if (overlay.selectedUnit === u && centredOn(u)) { overlay.selectedUnit = null; stopFollow(); }
+      // (The card first: centring keeps the unit clear of it.)
+      else { overlay.selectedUnit = u; showCard(); centreOn(u); if (following !== null && following !== u) stopFollow(); }
+      syncOrders(); refreshTiles();
+    },
+    onFollowUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = u; startFollow(u); syncOrders(); refreshTiles(); },
+    onStopFollow: () => stopFollow(),
+    onContours: (on) => {
+      contoursOn = on;
+      renderer.setContoursAlways(on);
+      try { localStorage.setItem(CONTOURS_KEY, on ? "1" : "0"); } catch { /* private window: not remembered */ }
+    },
     sideColour: `#${(SIDE_COLOURS[Math.max(0, sim.state.sides.findIndex((x) => x.id === playerSide))] ?? 0xffffff).toString(16).padStart(6, "0")}`,
     onDebug: (on) => {
       overlay.debug = on;
@@ -194,6 +225,7 @@ async function main(): Promise<void> {
     },
   });
 
+  try { if (localStorage.getItem(CONTOURS_KEY) === "1") hud.setContours(true); } catch { /* not remembered */ }
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
   const insets = hud.insets();
   renderer.setHudInsets(insets);
@@ -253,7 +285,24 @@ async function main(): Promise<void> {
   };
   /** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
   let tilesAt = -1e9;
-  const refreshTiles = () => { hud.setTiles(unitTiles(sim.state, playerSide, input.catalog), overlay.selectedUnit); };
+  const refreshTiles = () => {
+    const tiles = unitTiles(sim.state, playerSide, input.catalog);
+    hud.setTiles(tiles, overlay.selectedUnit);
+    showCard(tiles);
+  };
+  /** The selected unit's card (S3, S6) and the open man's box: refreshed with the tiles and on every selection. */
+  const showCard = (tiles = unitTiles(sim.state, playerSide, input.catalog)) => {
+    const uid = overlay.selectedUnit;
+    const tile = uid === null ? undefined : tiles.find((x) => x.unit === uid);
+    if (uid === null || !tile) { inspected = null; hud.setCard(null); hud.showMan(null); hud.setInspected(null); return; }
+    const men = unitMenRows(sim.state, input.catalog, uid);
+    if (inspected !== null && !men.some((r) => r.id === inspected)) inspected = null;
+    const state = tile.kind === "vehicle" ? strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : strings.t(`side.state.${tile.state}`);
+    // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
+    hud.setCard({ callsign: shownCallsigns(sim.state.unit.entries()).get(uid) ?? tile.callsign, fit: tile.fit, total: tile.total, state, men });
+    hud.setInspected(inspected);
+    hud.showMan(inspected === null ? null : manDetail(sim.state, input.catalog, inspected));
+  };
   /** A planned move for a vehicle: "reverse" legs drive the slowest pace backwards; no formation. */
   const forUnit = (o: Order): Order => {
     const cls = vehicleClassOf(o.target);
@@ -272,6 +321,248 @@ async function main(): Promise<void> {
     }
     orderLog.push(order);
     submitOrder(sim, order);
+    // The last move sent to a unit (its marker can be dragged, S10); any other movement order ends it.
+    if (order.issuer !== playerSide) { /* the AI's orders */ } else if (order.kind === "move") activeMoves.set(order.target, order);
+    else if (order.kind === "halt" || order.kind === "assault" || order.kind === "withdraw" || order.kind === "occupy" || order.kind === "mount" || order.kind === "dismount") activeMoves.delete(order.target);
+  };
+
+  // ---- order gestures on the map (the "controls" step, owner choices S1, S2, S9, S10, S12)
+  type MoveOrder = Extract<Order, { kind: "move" }>;
+  const activeMoves = new Map<EntityId, MoveOrder>();
+  type Pt = { x: number; y: number };
+  type Gesture =
+    | { kind: "plan" }
+    /** S1: dragging out from the selected unit; `plan` is the ghost (null while the pointer is still on the unit). */
+    | { kind: "fromUnit"; planKind: PlanKind; plan: Plan | null; from: Pt; left: boolean; right?: Pt }
+    /** S10: an active move's marker; `onUnit`: dropped now it would halt. */
+    | { kind: "marker"; prev: MoveOrder; at: Pt; from: Pt; onUnit: boolean }
+    /** S9: the facing handle; `angle` null until it was turned. */
+    | { kind: "facing"; centre: Pt; angle: number | null; start: number; dist: number }
+    /** S2: a fire order held; `onUnit`: back on the unit (release cancels). */
+    | { kind: "fire"; at: Pt; onUnit: boolean; los: LosLine[] }
+    /** S11: a point held for fire support (letting go opens the HE / smoke pop-up there). */
+    | { kind: "support"; at: Pt };
+  let gesture: Gesture | null = null;
+  /** The selected unit's men on foot and the hulls it is in or crews (alive men only). */
+  const unitPlaces = (uid: EntityId | null): { men: Pt[]; hulls: EntityId[] } => {
+    const men: Pt[] = [], hulls: EntityId[] = [];
+    if (uid === null) return { men, hulls };
+    const own = sim.state.unit.get(uid)?.vehicle;
+    if (own !== undefined && sim.state.vehicle.has(own)) hulls.push(own);
+    for (const m of unitSoldierIds(sim, uid)) {
+      const s = sim.state.soldier.get(m);
+      if (!s || isOut(s)) continue;
+      if (s.mount !== undefined) { if (!hulls.includes(s.mount.vehicle)) hulls.push(s.mount.vehicle); continue; }
+      const t = sim.state.transform.get(m);
+      if (t) men.push({ x: t.x, y: t.y });
+    }
+    return { men, hulls };
+  };
+  const placesOf = (uid: EntityId | null): Pt[] => {
+    const { men, hulls } = unitPlaces(uid);
+    return [...men, ...hulls.map((h) => sim.state.transform.get(h)).filter((t) => t !== undefined).map((t) => ({ x: t.x, y: t.y }))];
+  };
+  /** Is the world point on the selected unit (one of its men, or a hull it is in)? */
+  const onSelected = (w: Pt): boolean => {
+    const { men, hulls } = unitPlaces(overlay.selectedUnit);
+    const tol = 16 / renderer.camera.scale + 0.8;
+    if (onUnitAt(men, w.x, w.y, tol)) return true;
+    for (const h of hulls) {
+      const v = sim.state.vehicle.get(h), t = sim.state.transform.get(h), def = v ? input.catalog.vehicles[v.def] : undefined;
+      if (def && t && pointInObb(hullObb(def, t.x, t.y, t.heading), w.x, w.y, tol)) return true;
+    }
+    return false;
+  };
+  /** The move a unit is carrying out (or that is on its way to it), if the player sent it. */
+  const activeMoveOf = (uid: EntityId | null): MoveOrder | null => {
+    if (uid === null) return null;
+    const o = activeMoves.get(uid);
+    if (!o) return null;
+    const u = sim.state.unit.get(uid);
+    const waiting = sim.state.inbox.some((p) => p.order.target === uid && p.order.kind === "move") || sim.state.pendingOrders.some((p) => p.order.target === uid && p.order.kind === "move");
+    if (!u || (!u.moving && !waiting)) { activeMoves.delete(uid); return null; }
+    return o;
+  };
+  /** S9: the facing handle of the selected unit while it stands (on foot outdoors, or a crewed hull); null else. */
+  /** Review fix (S9): a turn sent and not yet under way (the radio delay): the handle stays where it was let go. */
+  let pendingTurn: { uid: EntityId; angle: number; tick: number } | null = null;
+  const turnPending = (uid: EntityId): number | null =>
+    pendingTurn && pendingTurn.uid === uid && sim.state.tick - pendingTurn.tick < 10 * 60 ? pendingTurn.angle : null;
+  const facingHandle = (): { centre: Pt; handle: Pt; facing: number } | null => {
+    const uid = overlay.selectedUnit;
+    const u = uid === null ? undefined : sim.state.unit.get(uid);
+    if (u && pendingTurn?.uid === uid && u.moving) pendingTurn = null; // under way: the men show the turn now
+    if (!u || uid === null || plan || u.moving || u.drill || u.boarding || u.broken || activeMoveOf(uid)) return null;
+    if (orderMode !== "move" && orderMode !== "assault" && orderMode !== "withdraw") return null;
+    const { men, hulls } = unitPlaces(uid);
+    const scale = renderer.camera.scale;
+    if (u.vehicle !== undefined) {
+      const t = sim.state.transform.get(u.vehicle), v = sim.state.vehicle.get(u.vehicle);
+      if (!t || !v || v.status !== "ok") return null;
+      const c = { x: t.x, y: t.y };
+      const h = turnPending(uid) ?? t.heading;
+      return { centre: c, facing: h, handle: facingHandleAt(c, [], h, 30 / scale, 4) };
+    }
+    if (men.length === 0 || hulls.length > 0) return null; // riding: the vehicle turns, not the squad
+    for (const m of men) if (indoorAt(sim.ctx, m.x, m.y) >= 0) return null; // indoors: Occupy faces the windows
+    const c = centreOf(men)!;
+    const lead = u.leader !== null ? sim.state.transform.get(u.leader) : undefined;
+    const facing = turnPending(uid) ?? lead?.heading ?? 0;
+    return { centre: c, facing, handle: facingHandleAt(c, men, facing, 30 / scale) };
+  };
+  /** A plan for the selected unit from `from` to `to` (the ghost of S1 and S9). */
+  const ghostPlan = (kind: PlanKind, from: Pt, to: Pt, facing: number | null): Plan => {
+    const f = formation ?? defaultFormation, n = Math.max(1, unitMen().length);
+    const p = addPoint(newPlan(kind, from, f, Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing)), to.x, to.y, pace);
+    return facing === null ? p : { ...p, facing };
+  };
+  /** S9: the move that turns the unit where it stands (a vehicle: to its own spot; men: their middle stays). */
+  const turnPlan = (c: Pt, angle: number): Plan => {
+    if (vehicleClassOf(overlay.selectedUnit) !== null) return ghostPlan("move", c, c, angle);
+    // Review fix: the men keep the shape they stand in (a column turns as a column, a line as a line, at its
+    // width) unless a formation was picked in the plan bar; the default one only when the shape says nothing.
+    const fh = facingHandle();
+    const men = unitPlaces(overlay.selectedUnit!).men;
+    const sh = shapeOf(men, fh?.facing ?? angle);
+    const f = formation ?? turnFormation(sh, (id) => input.catalog.formations[id] !== undefined, defaultFormation);
+    const n = Math.max(1, unitMen().length);
+    const front = f === formation || sh.widthM < 2 ? Math.max(4, slotSpan(slotsOf(f), n) * doctrineSpacing) : Math.max(4, sh.widthM);
+    const at = (to: Pt): Plan => ({ ...addPoint(newPlan("move", c, f, front), to.x, to.y, pace), facing: angle });
+    const g = markerFor(at(c));
+    return at(g ? inPlacePoint(c, g.men) : c);
+  };
+  /** After a one-tap order: back to Move unless the mode is locked on (S12). */
+  const oneTapDone = () => {
+    const next = modeAfterOrder(orderMode, hud.modeLocked());
+    if (next !== orderMode) { orderMode = next; hud.setOrderMode(next); }
+  };
+  const inMap = (w: Pt) => w.x >= 0 && w.y >= 0 && w.x <= input.map.widthM && w.y <= input.map.heightM;
+  // ---- S11 (step fire-support): the point picked for fire support, while its pop-up is open.
+  let supportAt: Pt | null = null;
+  /** Rounds per mission from the pop-up (the ranging rounds come on top, from the same stock). */
+  const SUPPORT_ROUNDS = { he: 4, smoke: 2 } as const;
+  const offerSupport = (w: Pt) => {
+    const uid = overlay.selectedUnit;
+    if (uid === null || !inMap(w)) return;
+    const at = { x: w.x, y: w.y };
+    supportAt = at;
+    const sc = worldToScreen(renderer.camera, at.x, at.y);
+    hud.offerSupport({
+      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      pick: (ammo) => {
+        supportAt = null;
+        if (overlay.selectedUnit !== uid || !sim.state.unit.has(uid)) return;
+        issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "callFire", x: at.x, y: at.y, ammo, rounds: SUPPORT_ROUNDS[ammo] });
+        oneTapDone();
+      },
+      cancel: () => { if (supportAt === at) supportAt = null; },
+    });
+  };
+  /** Send the planned route (the plan bar's Go, Enter). */
+  const goPlan = () => {
+    if (plan && overlay.selectedUnit !== null) {
+      const o = planToOrder(plan, playerSide, overlay.selectedUnit, sim.state.tick);
+      if (o) issue(forUnit(o));
+    }
+    endPlan();
+    orderMode = "move"; hud.setOrderMode("move");
+  };
+
+  // ---- S5: centring on a unit and the follow camera
+  /** The map area left free by the bars, the sidebar and (review fix) the radio log and the unit card. */
+  const viewInsets = () => { const ins = hud.insets(); return { ...ins, bottom: Math.max(ins.bottom, Math.min(hud.bottomCover(), renderer.app.screen.height * 0.6)) }; };
+  /** The world point at the middle of the free map area. */
+  const viewCentre = (): Pt => {
+    const ins = viewInsets();
+    return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
+  };
+  const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); renderer.primeDetail(); } };
+  /** Review fix: the selected unit kept clear of the card when it grows (Men opened): centred if it went under it. */
+  const keepSelectedClear = () => {
+    const uid = overlay.selectedUnit;
+    if (uid === null || following !== null) return;
+    const p = centreOf(placesOf(uid));
+    if (!p) return;
+    const s = worldToScreen(renderer.camera, p.x, p.y), ins = viewInsets();
+    if (s.y > renderer.app.screen.height - ins.bottom - 20) centreOn(uid);
+  };
+  /** Is the camera on the unit already (within 24 px of the middle of the free area)? */
+  const centredOn = (uid: EntityId): boolean => {
+    const p = centreOf(placesOf(uid));
+    if (!p) return true;
+    const v = viewCentre();
+    return Math.hypot(p.x - v.x, p.y - v.y) * renderer.camera.scale <= 24;
+  };
+  const followText = () => { const u = following === null ? undefined : sim.state.unit.get(following); hud.setFollowing(u && following !== null ? strings.t("follow.badge", { callsign: shownCallsigns(sim.state.unit.entries()).get(following) ?? u.callsign }) : null); };
+  const startFollow = (uid: EntityId) => { following = uid; followText(); };
+  const stopFollow = () => { if (following === null) return; following = null; followText(); };
+  /** Each frame: ease the camera toward the followed unit's middle (stops when the unit has no one left). */
+  const followStep = () => {
+    if (following === null) return;
+    const p = centreOf(placesOf(following));
+    if (!p) { stopFollow(); return; }
+    const e = easeToward(viewCentre(), p);
+    renderer.focusScale(e.x, e.y, renderer.camera.scale, viewInsets());
+  };
+  /** S13: select a unit and centre on it (Tab), following it instead while the camera follows. */
+  const selectAndCentre = (uid: EntityId) => {
+    endPlan(); gesture = null;
+    overlay.selectedUnit = uid;
+    showCard();
+    if (following !== null) startFollow(uid); else centreOn(uid);
+    syncOrders(); refreshTiles();
+  };
+  /** Fire (or anti-tank) at a point for the selected unit: at the contact marker under it, if any (M5). */
+  const fireAtPoint = (w: Pt) => {
+    if (overlay.selectedUnit === null) return;
+    // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
+    // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
+    // mounted: ok sideKnowledge never lists men aboard
+    const known = sideKnowledge(sim.ctx, sim.state, playerSide);
+    const hits = known
+      .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
+      .filter(({ d }) => d <= 20 / renderer.scale())
+      .sort((a, b) => a.d - b.d);
+    const near = hits.find((h) => !h.k.surrendered);
+    // A tap on an enemy your men know has surrendered: no order (fire at that point would hit him).
+    if (!near && hits.length > 0) { hud.radio(strings.t("order.surrenderedTarget"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
+    // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
+    // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
+    const nat = orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(overlay.selectedUnit) !== null && nature !== null ? { nature } : {};
+    if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
+    else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y, ...nat });
+    oneTapDone();
+  };
+  /** S2: the sight lines from the selected unit's men (or its hull's sights) to the point: terrain, walls, roofs,
+   *  woods and hulls the side knows — never an enemy it has not found. */
+  const losTo = (w: Pt): LosLine[] => {
+    const uid = overlay.selectedUnit;
+    if (uid === null) return [];
+    const eyes: Eye[] = [];
+    const hulls = new Set<EntityId>();
+    const own = sim.state.unit.get(uid)?.vehicle;
+    if (own !== undefined) hulls.add(own);
+    for (const m of unitSoldierIds(sim, uid)) {
+      const s = sim.state.soldier.get(m), t = sim.state.transform.get(m);
+      if (!s || !t || isOut(s) || s.physiology.consciousness < 0.5) continue;
+      if (s.mount !== undefined) { hulls.add(s.mount.vehicle); continue; }
+      eyes.push({ x: t.x, y: t.y, z: standZ(input.map, t) + eyeHeightM(sim.ctx, s.posture), ignore: -1 });
+    }
+    // A hull's sights: about 2.3 m above the ground (a low-confidence stand-in for its gunner's sight).
+    for (const h of hulls) { const t = sim.state.transform.get(h); if (t) eyes.push({ x: t.x, y: t.y, z: heightAt(input.map, t.x, t.y) + 2.3, ignore: h }); }
+    // Hulls the side has seen or been told of (a heard engine gives no place to draw a line against).
+    const knownHulls = new Set((overlay.known ?? []).filter((k) => k.cls === "vehicle" && k.kind !== "heard").map((k) => k.target));
+    const unknownHull = (x: number, y: number): number => {
+      let best = -1, bd = 7 * 7;
+      for (const [vid, v] of sim.state.vehicle.entries()) {
+        const t = sim.state.transform.get(vid);
+        if (!t) continue;
+        const d = (t.x - x) ** 2 + (t.y - y) ** 2;
+        if (d < bd) { bd = d; best = v.side !== playerSide && !knownHulls.has(vid) ? vid : -1; }
+      }
+      return best;
+    };
+    return losPreview(sim.ctx, eyes, w.x, w.y, heightAt(input.map, w.x, w.y) + 0.75, unknownHull);
   };
 
   /** An occupy order for building index `bi`: facing the nearest enemy the side knows, on the floor shown first. */
@@ -331,7 +622,22 @@ async function main(): Promise<void> {
     getCamera: () => renderer.camera,
     // Never further out than the whole map in the free area (M7.5b).
     setCamera: (c) => { renderer.camera = renderer.clampCamera(c, hud.insets()); },
+    // S5: panning by hand stops the follow camera (a pinch or the wheel only zooms: it keeps following).
+    onPan: () => stopFollow(),
+    // S13: the right button moves the selected unit from wherever it is pressed: let go where it should go (a click
+    // without moving: there). The ghost marker follows the mouse; back on the unit: nothing is sent.
+    onRightStart: (w) => {
+      const uid = overlay.selectedUnit;
+      if (uid === null || !sim.state.unit.has(uid) || plan) return false;
+      hud.offerContext(null);
+      const from = centreOf(placesOf(uid));
+      if (!from) return false;
+      const kind: PlanKind = orderMode === "assault" || orderMode === "withdraw" ? orderMode : "move";
+      gesture = { kind: "fromUnit", planKind: kind, plan: inMap(w) && !onSelected(w) ? ghostPlan(kind, from, w, null) : null, from, left: true, right: { ...w } };
+      return true;
+    },
     onTap: (w) => {
+      hud.offerContext(null);
       // Tap on one of your men: select his top-level unit. Elsewhere: plan or order for the selected unit.
       // Only own men can be selected (and hidden enemies must not stand in the way of a tap).
       // A tap on one of your vehicles selects its crew unit (M7.1c).
@@ -341,13 +647,17 @@ async function main(): Promise<void> {
         const cycle = [hull, ...ridersIn(sim, hull)];
         const k = overlay.selectedUnit === null ? -1 : cycle.indexOf(overlay.selectedUnit);
         overlay.selectedUnit = cycle[(k + 1) % cycle.length]!;
+        inspected = null;
         refreshTiles();
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !plan) {
-        // His own unit (his squad; the platoon's own men select the platoon).
-        overlay.selectedUnit = sim.state.identity.req(hit).unit;
+        // His own unit (his squad; the platoon's own men select the platoon). A man of the unit already selected:
+        // his detail box (S6; again: closed).
+        const his = sim.state.identity.req(hit).unit;
+        if (his === overlay.selectedUnit) inspected = inspected === hit ? null : hit;
+        else { overlay.selectedUnit = his; inspected = null; }
         refreshTiles();
         return;
       }
@@ -356,6 +666,7 @@ async function main(): Promise<void> {
       if (orderMode === "grenade" || orderMode === "grenades") {
         // "All grenades": every man who can reach the point throws or fires, a moment apart.
         issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
+        oneTapDone();
         return;
       }
       if (orderMode === "occupy") {
@@ -363,47 +674,211 @@ async function main(): Promise<void> {
         const bi = indoorAt(sim.ctx, w.x, w.y);
         if (bi < 0) { hud.radio(strings.t("plan.tapBuilding"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
         issue(occupyOrder(overlay.selectedUnit, bi));
-        orderMode = "move"; hud.setOrderMode("move");
+        oneTapDone();
         return;
       }
-      if (orderMode === "mortar" || orderMode === "smoke") {
-        // Mortar fire (M6.5c): the unit's leader calls it; it lands after a minute or more.
-        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "callFire", x: w.x, y: w.y, ammo: orderMode === "mortar" ? "he" : "smoke", rounds: orderMode === "mortar" ? 4 : 2 });
+      if (orderMode === "support") {
+        // Fire support (M6.5c; S11): a pop-up at the point offers HE or smoke; the unit's leader calls it, ranging
+        // rounds land after a minute or more, then the battery fires together.
+        offerSupport(w);
         return;
       }
-      if (orderMode === "fire" || orderMode === "antitank") {
-        // A tap on (or near) an enemy marker fires at that contact: the men aim where they believe he is.
-        // (Only a tap on the marker itself: a tap anywhere else is fire at that point.)
-        // mounted: ok sideKnowledge never lists men aboard
-        const known = sideKnowledge(sim.ctx, sim.state, playerSide);
-        const hits = known
-          .map((k) => ({ k, d: Math.hypot(k.x - w.x, k.y - w.y) }))
-          .filter(({ d }) => d <= 20 / renderer.scale())
-          .sort((a, b) => a.d - b.d);
-        const near = hits.find((h) => !h.k.surrendered);
-        // A tap on an enemy your men know has surrendered: no order (fire at that point would hit him).
-        if (!near && hits.length > 0) { hud.radio(strings.t("order.surrenderedTarget"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return; }
-        // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
-        // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
-        const nat = orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(overlay.selectedUnit) !== null && nature !== null ? { nature } : {};
-        if (near) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
-        else issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "fire", x: w.x, y: w.y, ...nat });
-        return;
-      }
+      if (orderMode === "fire" || orderMode === "antitank") { fireAtPoint(w); return; }
       // Move / assault / withdraw: each tap adds a point to the plan; Go sends it.
       if (!plan) startPlan(orderMode);
       plan = addPoint(plan!, w.x, w.y, pace);
     },
+    // Gestures (the "controls" step): a plan's handles first; then, with a unit selected, in Fire mode a held
+    // press anywhere (S2); in Move / Assault / Withdraw the facing handle (S9), the active move's marker (S10) or
+    // the unit itself (S1). Anything else pans the map as before.
     onDragStart: (w) => {
-      if (!plan) return false;
-      const g = planMarker();
-      dragHandle = hitHandle(plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
-      dragGapM = g?.resizeGapM ?? 3;
-      return dragHandle !== null;
+      gesture = null;
+      hud.offerContext(null);
+      if (plan) {
+        const g = planMarker();
+        dragHandle = hitHandle(plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
+        dragGapM = g?.resizeGapM ?? 3;
+        if (dragHandle !== null) gesture = { kind: "plan" };
+        return dragHandle !== null;
+      }
+      const uid = overlay.selectedUnit;
+      if (uid === null || !sim.state.unit.has(uid)) return false;
+      if (orderMode === "fire" || orderMode === "antitank") {
+        if (!inMap(w)) return false;
+        const on = onSelected(w);
+        gesture = { kind: "fire", at: { ...w }, onUnit: on, los: on ? [] : losTo(w) };
+        return "hold"; // (touch: a quick swipe pans instead; review fix)
+      }
+      // S11: a press in Fire support mode holds a point (it can be slid to adjust); letting go offers HE or smoke.
+      if (orderMode === "support") {
+        if (!inMap(w)) return false;
+        hud.offerSupport(null);
+        gesture = { kind: "support", at: { ...w } };
+        return "hold";
+      }
+      if (orderMode !== "move" && orderMode !== "assault" && orderMode !== "withdraw") return false;
+      const tolM = 22 / renderer.camera.scale + 1;
+      const fh = facingHandle();
+      if (fh && Math.hypot(fh.handle.x - w.x, fh.handle.y - w.y) <= tolM) { gesture = { kind: "facing", centre: fh.centre, angle: null, start: fh.facing, dist: Math.hypot(fh.handle.x - fh.centre.x, fh.handle.y - fh.centre.y) }; return true; }
+      const mv = activeMoveOf(uid);
+      const end = mv?.waypoints[mv.waypoints.length - 1];
+      if (mv && end && Math.hypot(end.x - w.x, end.y - w.y) <= tolM) {
+        gesture = { kind: "marker", prev: mv, at: { x: end.x, y: end.y }, from: centreOf(placesOf(uid)) ?? { x: end.x, y: end.y }, onUnit: false };
+        return true;
+      }
+      if (onSelected(w)) { gesture = { kind: "fromUnit", planKind: orderMode, plan: null, from: centreOf(placesOf(uid)) ?? { ...w }, left: false }; return true; }
+      return false;
     },
-    onDrag: (w) => { if (plan && dragHandle !== null) plan = dragTo(plan, dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: dragGapM }); },
-    onDragEnd: () => { dragHandle = null; },
+    onDrag: (w) => {
+      const gs = gesture;
+      if (!gs) return;
+      if (gs.kind === "plan") { if (plan && dragHandle !== null) plan = dragTo(plan, dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: dragGapM }); return; }
+      if (gs.kind === "fire") { gs.at = { ...w }; gs.onUnit = onSelected(w); gs.los = gs.onUnit || !inMap(w) ? [] : losTo(w); return; }
+      if (gs.kind === "support") { if (inMap(w)) gs.at = { ...w }; return; }
+      if (gs.kind === "facing") { if (Math.hypot(w.x - gs.centre.x, w.y - gs.centre.y) > 0.5) gs.angle = Math.atan2(w.y - gs.centre.y, w.x - gs.centre.x); return; }
+      if (gs.kind === "marker") { gs.at = { ...w }; gs.onUnit = onSelected(w); return; }
+      // From the unit: the ghost marker appears once the pointer has left the unit.
+      gs.plan = onSelected(w) || !inMap(w) ? null : ghostPlan(gs.planKind, gs.from, w, null);
+      if (gs.plan) gs.left = true;
+    },
+    onDragEnd: (how) => {
+      const gs = gesture;
+      gesture = null;
+      dragHandle = null;
+      const uid = overlay.selectedUnit;
+      if (!gs || gs.kind === "plan" || how === "cancel" || uid === null) return false;
+      // Released without moving: a tap as before (a press on the unit still selects it, in Fire mode it fires); only
+      // a tap on the facing handle does nothing. (A right click: the move to that point, below.)
+      if (how === "tap" && !(gs.kind === "fromUnit" && gs.right)) return gs.kind !== "facing";
+      if (gs.kind === "fire") { if (!gs.onUnit && inMap(gs.at)) fireAtPoint(gs.at); return false; }
+      if (gs.kind === "support") { offerSupport(gs.at); return false; }
+      if (gs.kind === "facing") {
+        if (gs.angle === null) return false;
+        const o = planToOrder(turnPlan(gs.centre, gs.angle), playerSide, uid, sim.state.tick);
+        if (o) { issue(forUnit(o)); pendingTurn = { uid, angle: gs.angle, tick: sim.state.tick }; }
+        activeMoves.delete(uid); // a turn on the spot has no marker to drag
+
+        return false;
+      }
+      if (gs.kind === "marker") {
+        if (gs.onUnit) { issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "halt" }); return false; }
+        if (!inMap(gs.at)) return false;
+        issue(forUnit(retargetMove(gs.prev, gs.at, centreOf(placesOf(uid)) ?? gs.from, sim.state.tick)));
+        return false;
+      }
+      if (!gs.plan) return false; // let go on the unit (or off the map): nothing is sent
+      const o = planToOrder(gs.plan, playerSide, uid, sim.state.tick);
+      if (o) issue(forUnit(o));
+      if (gs.planKind !== "move" && !gs.right) oneTapDone();
+      // S4: a move dragged onto a building offers Occupy there (a context button at the drop point, a few seconds).
+      const end = gs.plan.points.at(-1);
+      const bi = end && gs.planKind === "move" && vehicleClassOf(uid) === null && ordersFor(unitCapabilities(sim.state, input.catalog, uid), input.catalog.movementModes).modes.includes("occupy") ? indoorAt(sim.ctx, end.x, end.y) : -1;
+      if (end && bi >= 0) {
+        const at = worldToScreen(renderer.camera, end.x, end.y);
+        hud.offerContext({ icon: "occupy", key: "order.occupyHere", x: at.x, y: at.y, run: () => { if (overlay.selectedUnit === uid) issue(occupyOrder(uid, bi)); } });
+      }
+      return false;
+    },
   });
+
+  // ---- S13: the keyboard (desktop; touch is unchanged). Keys send what the buttons send; Esc never leaves the battle.
+  const panKeys = new Set<string>();
+  let speedBefore = 1;
+  const SPEEDS = [0, 1, 2, 4];
+  /** Esc: the innermost thing first — a menu or card, a drag, the plan, the mode, the man's box, following, the unit. */
+  const escape = () => {
+    if (hud.dismiss()) return;
+    if (gesture) { gesture = null; return; }
+    if (plan) { endPlan(); orderMode = "move"; hud.setOrderMode("move"); return; }
+    if (orderMode !== "move") { orderMode = "move"; hud.setOrderMode("move"); return; }
+    if (inspected !== null) { inspected = null; showCard(); return; }
+    if (following !== null) { stopFollow(); return; }
+    if (overlay.selectedUnit !== null) { overlay.selectedUnit = null; syncOrders(); refreshTiles(); }
+  };
+  const doKey = (a: KeyAction) => {
+    switch (a.kind) {
+      case "pause": if (hud.speed() > 0) { speedBefore = hud.speed(); hud.setSpeed(0); } else hud.setSpeed(speedBefore || 1); return;
+      case "speed": hud.setSpeed(SPEEDS[a.index] ?? 1); return;
+      case "cancel": escape(); return;
+      case "cycle": {
+        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost").map((t) => t.unit);
+        const next = cycleUnit(order, overlay.selectedUnit, a.dir);
+        if (next !== null) selectAndCentre(next);
+        return;
+      }
+      case "follow": if (overlay.selectedUnit !== null) { if (following === overlay.selectedUnit) stopFollow(); else startFollow(overlay.selectedUnit); } return;
+      case "order": if (overlay.selectedUnit !== null) hud.press(a.order); return;
+      case "go": if (plan) goPlan(); return;
+      case "undo": undoPlanPoint(); return;
+      case "contours": hud.setContours(!contoursOn); return;
+      case "help": hud.toggleHelp(); return;
+    }
+  };
+  const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+  window.addEventListener("keydown", (e) => {
+    if (typing(e.target)) return;
+    const mods = { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey };
+    if (isPanKey(e.code) && !mods.ctrl && !mods.alt && !mods.meta) { panKeys.add(e.code); stopFollow(); e.preventDefault(); return; }
+    const a = keyAction(e.code, e.key, mods);
+    if (!a) return;
+    e.preventDefault();
+    // (A button keeps the focus after a click: Space or Enter would press it again.)
+    if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) document.activeElement.blur();
+    if (e.repeat && a.kind !== "cycle" && a.kind !== "undo") return;
+    doKey(a);
+  });
+  window.addEventListener("keyup", (e) => { panKeys.delete(e.code); if (e.code === "Space" || e.code === "Enter") e.preventDefault(); });
+  window.addEventListener("blur", () => panKeys.clear());
+  /** Held pan keys move the map at a steady speed on screen (whatever the zoom). */
+  let panAt = performance.now();
+  const keyPan = (now: number) => {
+    const dt = Math.min(0.1, (now - panAt) / 1000);
+    panAt = now;
+    if (panKeys.size === 0) return;
+    const v = panVector(panKeys);
+    if (v.x === 0 && v.y === 0) return;
+    stopFollow(); // (a pan key held from before F was pressed pans too: the follow ends)
+    const c = renderer.camera, d = (PAN_PX_PER_S * dt) / c.scale;
+    renderer.camera = renderer.clampCamera({ ...c, x: c.x + v.x * d, y: c.y + v.y * d }, hud.insets());
+  };
+
+  // ---- S8: "last seen" pins (from the side's own contacts) and whether own men see a pin's spot empty.
+  const lastSeen = new LastSeenBook();
+  // S11: where the side's ranging rounds fell (from its own events), shown on its fire mission lines.
+  const rangingBook = new RangingBook();
+  let pinsTick = -1;
+  /** Own men on foot (eyes) and crewed own hulls (sights) that can look now. */
+  const ownEyes = (): { x: number; y: number; z: number; ignore: number }[] => {
+    const eyes: { x: number; y: number; z: number; ignore: number }[] = [];
+    // mounted: ok men aboard are skipped (their hull's sights are added below)
+    for (const [id, s] of sim.state.soldier.entries()) {
+      if (s.mount !== undefined || isOut(s) || s.physiology.consciousness < 0.5 || sim.state.identity.get(id)?.side !== playerSide) continue;
+      const t = sim.state.transform.get(id);
+      if (t) eyes.push({ x: t.x, y: t.y, z: standZ(input.map, t) + eyeHeightM(sim.ctx, s.posture), ignore: -1 });
+    }
+    for (const [vid, v] of sim.state.vehicle.entries()) {
+      if (v.side !== playerSide || v.unit === null || v.status === "destroyed" || v.status === "abandoned") continue;
+      const t = sim.state.transform.get(vid);
+      if (t) eyes.push({ x: t.x, y: t.y, z: heightAt(input.map, t.x, t.y) + 2.3, ignore: vid });
+    }
+    return eyes;
+  };
+  /** A spot is seen empty when one of the 3 nearest own eyes within range (200 m; a hull's spot 600 m) has it in clear
+   *  view: for a man, low enough to see one lying there (0.4 m), for a hull 1.5 m up. */
+  const SEEN_EMPTY_M = 200, SEEN_EMPTY_HULL_M = 600;
+  const updatePins = (known: NonNullable<Overlay["known"]>) => {
+    if (pinsTick === sim.state.tick) return;
+    pinsTick = sim.state.tick;
+    lastSeen.update(known, sim.state.tick);
+    let eyes: { x: number; y: number; z: number; ignore: number }[] | null = null;
+    lastSeen.look(sim.state.tick, (p) => {
+      eyes ??= ownEyes();
+      const R = p.cls === "vehicle" ? SEEN_EMPTY_HULL_M : SEEN_EMPTY_M;
+      const near = eyes.map((e) => ({ e, d: (e.x - p.x) ** 2 + (e.y - p.y) ** 2 })).filter((x) => x.d <= R * R).sort((a, b) => a.d - b.d).slice(0, 3);
+      const tz = heightAt(input.map, p.x, p.y) + (p.cls === "vehicle" ? 1.5 : 0.4);
+      return near.some(({ e }) => { const v = sight(sim.ctx, e.x, e.y, e.z, p.x, p.y, tz, e.ignore); return v.blockedBy === null && v.visibility >= 0.6; });
+    });
+  };
 
   const sideColour = (side: string) => {
     const i = sim.state.sides.findIndex((s) => s.id === side);
@@ -454,6 +929,7 @@ async function main(): Promise<void> {
       } else if (e.kind === "battle.ended") {
         timeline.push({ tick: e.tick, colour: "#ffd23d", text: strings.t("timeline.ended", { reason: strings.t(`aar.reason.${e.reason}`, { loser: e.loser ? sideName(e.loser) : "" }) }) });
       }
+      if (e.kind === "support.ranging" && e.side === playerSide) rangingBook.add(e);
       if (e.kind === "radio" && e.side === playerSide) {
         const faction = sim.state.identity.get(e.from)?.faction;
         hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), sideColour(e.side));
@@ -527,6 +1003,8 @@ async function main(): Promise<void> {
     expandSidebar: (on: boolean) => hud.setSidebarExpanded(on),
     orderSet: () => hud.orderSet(),
     insets: () => hud.insets(),
+    /** The free map area less the radio log and card (review fix; the follow camera and centring use it). */
+    viewInsets: () => viewInsets(),
     /** Own top-level units and all own units (sidebar order). */
     units: () => unitTiles(sim.state, playerSide, input.catalog).map((t) => ({ unit: t.unit, callsign: t.callsign, kind: t.kind, depth: t.depth })),
     /** Own vehicles: [entity, crew unit] (screenshots). */
@@ -541,7 +1019,7 @@ async function main(): Promise<void> {
     posture: (p: "standing" | "crouching" | "prone") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "posture", posture: p }),
     setDebug: (on: boolean) => { overlay.debug = on; renderer.setNavOverlay(on ? navFor(sim.ctx, vehicleClassOf(overlay.selectedUnit) ?? "foot").grid : null); renderer.setSightOverlay(on ? sightView() : null); sightAt = sim.state.tick; },
     tap: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "move", waypoints: [{ x, y, mode: pace }], ...(formation ? { formation } : {}) }),
-    setSpeed: (v: number) => { speed = v; },
+    setSpeed: (v: number) => { hud.setSpeed(v); speed = v; },
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
     discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
     halt: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "halt" }),
@@ -554,6 +1032,36 @@ async function main(): Promise<void> {
     showSprites: (on: boolean) => showSpriteSheet(on, sim.state.sides.map((x) => ({ faction: x.faction, colour: SIDE_COLOURS[sim.state.sides.indexOf(x)] ?? 0xffffff })), buildAppearance(data, sim.state.sides.map((x) => x.faction))),
     roofAlpha: (i: number) => renderer.roofAlpha(i),
     renderer,
+    /** The "controls" step (screenshots, checks): a world point on the screen (CSS px), and the gestures' state. */
+    toScreen: (x: number, y: number) => worldToScreen(renderer.camera, x, y),
+    controls: () => {
+      const gs = gesture;
+      return {
+        mode: orderMode, locked: hud.modeLocked(), gesture: gs?.kind ?? null,
+        los: gs?.kind === "fire" ? gs.los.map((l) => (l.clear ? "clear" : "blocked")) : null,
+        marker: activeMoveOf(overlay.selectedUnit)?.waypoints.at(-1) ?? null,
+        facing: facingHandle(), centre: centreOf(placesOf(overlay.selectedUnit)),
+      };
+    },
+    /** The "bar-card" step (screenshots, checks): the man box for a man (null closes), the card's state. */
+    inspect: (id: EntityId | null) => { inspected = id; showCard(); },
+    card: () => ({ inspected, pace, detailed: document.querySelector(".hud-card.detailed") !== null, rules: overlay.selectedUnit === null ? null : { fire: sim.state.unit.get(overlay.selectedUnit)?.fireRule, maxEngageM: sim.state.unit.get(overlay.selectedUnit)?.maxEngageM } }),
+    /** The "map-feel" step (screenshots, checks): lines, pins, follow, contours, help, speed. */
+    mapfeel: () => ({
+      following, contours: contoursOn, help: hud.helpShown(), speed: hud.speed(), selected: overlay.selectedUnit, mode: orderMode, plan: plan !== null,
+      intents: (overlay.intents ?? []).map((l) => ({ kind: l.kind, selected: l.selected })), pins: (overlay.pins ?? []).map((p) => ({ target: p.target, x: p.x, y: p.y, label: p.label })),
+      centred: overlay.selectedUnit === null ? null : centredOn(overlay.selectedUnit), inspected,
+    }),
+    follow: (uid: EntityId | null) => { if (uid === null) stopFollow(); else { overlay.selectedUnit = uid; startFollow(uid); syncOrders(); refreshTiles(); } },
+    callFire: (x: number, y: number, ammo: "he" | "smoke" = "he") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "callFire", x, y, ammo, rounds: SUPPORT_ROUNDS[ammo] }),
+    /** S11: open the fire support pop-up at a world point (as a press held there in the Fire support mode). */
+    offerSupport: (x: number, y: number) => offerSupport({ x, y }),
+    /** Step fire-support (screenshots, checks): the pop-up, the point held, the side's missions as their lines show. */
+    support: () => ({
+      popup: hud.supportShown(), at: gesture?.kind === "support" ? gesture.at : supportAt, mode: orderMode, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      missions: (overlay.intents ?? []).filter((l) => l.kind === "fire").map((l) => ({ x: l.x1, y: l.y1, phase: l.phase ?? null, falls: l.falls?.length ?? 0 })),
+    }),
+    moveUnit: (uid: EntityId, x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "move", waypoints: [{ x, y, mode: "walk" }] }),
     hash: () => simHash(sim),
     ready: true,
   };
@@ -666,15 +1174,55 @@ async function main(): Promise<void> {
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
     const sup = sim.state.support.some((x) => x.side === playerSide);
     // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
-    // holder's full name as a tooltip), the time left, the mortar rounds left (HE/smoke).
+    // holder's full name as a tooltip), the time left, the mortar rounds left (HE and smoke, named). The time and
+    // the rounds come first (review fix: at the end of the line they were cut off on a phone); the objectives'
+    // names may run out of room, their coloured marks stay.
     hud.setScore([
+      { text: strings.t("score.time", { left: fmtClock(left) }) },
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
       ...defs.map((o, i) => {
         const st = sim.state.objectives[i];
         return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };
       }),
-      { text: strings.t("score.time", { left: fmtClock(left) }) },
-      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
     ]);
+  };
+
+  /** What the gestures show this frame (S1, S2, S9, S10). */
+  const gestureOverlay = (): GestureOverlay | null => {
+    const uid = overlay.selectedUnit;
+    if (uid === null) return null;
+    const gs = gesture, out: GestureOverlay = {};
+    const here = () => centreOf(placesOf(uid));
+    // S11: the point held for fire support, or picked while its pop-up is open, joined to the unit's leader.
+    const sp = gs?.kind === "support" ? gs.at : supportAt;
+    if (sp) {
+      const lead = sim.state.unit.get(uid)?.leader;
+      const lt = lead !== null && lead !== undefined ? sim.state.transform.get(lead) : undefined;
+      out.support = { x: sp.x, y: sp.y, from: lt ? { x: lt.x, y: lt.y } : here() };
+    }
+    if (gs?.kind === "fire") {
+      out.los = gs.los;
+      out.target = gs.onUnit ? null : gs.at;
+      if (gs.onUnit) out.cancelAt = here();
+    } else if (gs?.kind === "marker") {
+      out.marker = gs.onUnit ? null : { x: gs.at.x, y: gs.at.y, from: here(), dragging: true };
+      if (gs.onUnit) out.cancelAt = here();
+    } else if (gs?.kind === "fromUnit") {
+      if (gs.left && !gs.plan) out.cancelAt = here();
+    } else if (gs?.kind === "facing") {
+      const a = gs.angle ?? gs.start;
+      out.facing = { centre: gs.centre, handle: { x: gs.centre.x + Math.cos(a) * gs.dist, y: gs.centre.y + Math.sin(a) * gs.dist }, dragging: true };
+    }
+    if (!plan && gs?.kind !== "marker") {
+      const end = activeMoveOf(uid)?.waypoints.at(-1);
+      if (end) out.marker = { x: end.x, y: end.y, from: null, dragging: false };
+    }
+    if (!gs) { const fh = facingHandle(); if (fh) out.facing = { centre: fh.centre, handle: fh.handle, dragging: false }; }
+    // S6: the man whose box is open (on foot: his ring; aboard: none).
+    const im = inspected === null ? undefined : sim.state.soldier.get(inspected);
+    const it = inspected === null || im?.mount !== undefined ? undefined : sim.state.transform.get(inspected);
+    if (it) out.man = { x: it.x, y: it.y };
+    return out;
   };
 
   let acc = 0;
@@ -698,15 +1246,32 @@ async function main(): Promise<void> {
     if (overlay.debug) { overlay.known = null; knownTick = -1; }
     // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
+    // S8: "last seen" pins (Debug shows the enemy as he is: no pins); S7: one line per own unit on the move.
+    if (overlay.known) {
+      updatePins(overlay.known);
+      overlay.pins = lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
+    } else overlay.pins = null;
+    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS);
+    rangingBook.prune(sim.state.tick);
     // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
     {
       const vid = overlay.debug && overlay.selectedUnit !== null ? sim.state.unit.get(overlay.selectedUnit)?.vehicle : undefined;
       overlay.vehicleDebug = vid === undefined ? null : { vehicle: vid, ...vehicleDebug.view(sim.state, vid, strings) };
     }
     overlay.plan = plan ? { kind: plan.kind, from: plan.from, points: plan.points, marker: planMarker() } : null;
+    overlay.gesture = gestureOverlay();
+    if (!plan && gesture && (gesture.kind === "fromUnit" || (gesture.kind === "facing" && gesture.angle !== null) || (gesture.kind === "marker" && !gesture.onUnit))) {
+      // The ghost marker (S1, S9, S10): where the men will stand, no handles.
+      const gp = gesture.kind === "fromUnit" ? gesture.plan
+        : gesture.kind === "facing" ? (vehicleClassOf(overlay.selectedUnit) === null ? turnPlan(gesture.centre, gesture.angle!) : null)
+        : ghostPlan("move", gesture.from, gesture.at, null);
+      overlay.plan = gp ? { kind: gp.kind, from: gp.from, points: gesture.kind === "facing" ? [] : gp.points, marker: vehicleClassOf(overlay.selectedUnit) === null ? markerFor(gp) : null, ghost: true } : null;
+    }
     syncOrders();
     if (now - tilesAt >= 250) { tilesAt = now; refreshTiles(); }
     updateFloors();
+    keyPan(now);
+    followStep();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
     if (now - statusAt >= 500) { statusAt = now; showUnit(); showObjectives(); }
     if (sim.state.ended && !aarShown) showAar();

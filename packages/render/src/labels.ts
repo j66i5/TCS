@@ -114,3 +114,24 @@ export function placeLabels(reqs: readonly LabelRequest[], screenW: number, scre
   }
   return out;
 }
+
+/**
+ * Review fix: the callsigns as shown — the same callsign in two units of a side (each platoon has its "Puma 1",
+ * its "Trupp 1") is told apart by the number of the unit above it, as "1/Puma 2" (the parent's last number, else
+ * its whole callsign). Unique callsigns stay as they are. Pure; the renderer builds it once a frame.
+ */
+export function shownCallsigns(units: Iterable<readonly [number, { readonly side: string; readonly callsign: string; readonly parent: number | null }]>): Map<number, string> {
+  const all = [...units];
+  const count = new Map<string, number>();
+  for (const [, u] of all) { const k = `${u.side}\u0000${u.callsign}`; count.set(k, (count.get(k) ?? 0) + 1); }
+  const byId = new Map(all);
+  const out = new Map<number, string>();
+  for (const [id, u] of all) {
+    const dup = (count.get(`${u.side}\u0000${u.callsign}`) ?? 0) > 1;
+    const p = dup && u.parent !== null ? byId.get(u.parent) : undefined;
+    if (!p) { out.set(id, u.callsign); continue; }
+    const num = /(\d+)\s*$/.exec(p.callsign);
+    out.set(id, `${num ? num[1] : p.callsign}/${u.callsign}`);
+  }
+  return out;
+}

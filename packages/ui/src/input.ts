@@ -3,9 +3,15 @@
  * changes). It never touches the simulation: the app turns taps into ORDERS.
  *
  *   one finger / left mouse: tap = tap; drag = pan, unless the press lands on something the app lets the
- *   player drag (an order marker's handle, M5): then the drag moves that instead
+ *   player drag (an order marker's handle, M5; the selected unit, an active move's marker, the facing handle, or
+ *   anywhere in Fire mode, the "controls" step): then the drag moves that instead. A drag press released without
+ *   moving ends the drag as "tap"; the app may then ask for the tap as well (a press on a unit still selects it).
  *   two fingers: pinch = zoom, move = pan
  *   mouse wheel: zoom at cursor
+ *   right mouse button (S13, the "map-feel" step): the app may take the press (`onRightStart`): then the drag goes to
+ *   onDrag / onDragEnd as above (a move dragged from the selected unit wherever the press was); otherwise nothing.
+ * `onPan` is told when the player pans the map by hand (one finger, the mouse, or two fingers whose midpoint moves
+ * more than a few pixels; it stops the follow camera, S5).
  */
 import { pan, screenToWorld, zoomAt, type Camera } from "@tcs/render";
 
@@ -13,20 +19,42 @@ export interface InputCallbacks {
   getCamera(): Camera;
   setCamera(c: Camera): void;
   onTap(world: { x: number; y: number }, screen: { x: number; y: number }): void;
-  /** A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. */
-  onDragStart?(world: { x: number; y: number }): boolean;
+  /**
+   * A one-finger press: return true to drag something (no panning); then onDrag / onDragEnd follow. "hold": the
+   * same, but on touch a finger that moves off at once (within DRAG_HOLD_MS) pans the map instead (the drag ends as
+   * "cancel"); a finger held still first, or the mouse, drags.
+   */
+  onDragStart?(world: { x: number; y: number }): boolean | "hold";
   onDrag?(world: { x: number; y: number }): void;
-  onDragEnd?(): void;
+  /**
+   * The drag is over: "drop" (released after moving), "tap" (released without moving: return true to have it
+   * delivered as a tap too) or "cancel" (a second finger turned it into a pinch: nothing is to be sent).
+   */
+  onDragEnd?(how: "drop" | "tap" | "cancel"): boolean | void;
+  /** A right-button press (mouse): return true to drag (onDrag / onDragEnd follow; never delivered as a tap). */
+  onRightStart?(world: { x: number; y: number }): boolean;
+  /** The map was panned by hand (not a pinch's zoom, not a drag of something). */
+  onPan?(): void;
 }
 
 const TAP_SLOP_PX = 10;
+/** Review fix: on touch, a "hold" drag (Fire, Fire support) must be held this long before it drags (ms). */
+export const DRAG_HOLD_MS = 220;
+/** A two-finger gesture whose midpoint moves farther than this pans (a pinch alone only zooms). */
+const PINCH_PAN_PX = 12;
 
 export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   const pointers = new Map<number, { x: number; y: number }>();
   let downAt: { x: number; y: number } | null = null;
   let moved = false;
   let pinchDist = 0;
+  /** Where a two-finger gesture's midpoint started: moved more than PINCH_PAN_PX, it pans (stops the follow camera). */
+  let pinchMid: { x: number; y: number } | null = null;
   let dragging = false;
+  /** The drag is the right button's (S13): released without moving it is still "tap" to the app, never a map tap. */
+  let right = false;
+  /** A touch "hold" drag: it becomes a pan if the finger moves before this time (event time, ms; 0: no limit). */
+  let holdUntil = 0;
 
   const local = (e: PointerEvent | WheelEvent) => {
     const r = el.getBoundingClientRect();
@@ -43,13 +71,25 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   };
 
   const down = (e: PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button === 2) {
+      if (pointers.size > 0 || !cb.onRightStart) return;
+      const at = local(e);
+      if (cb.onRightStart(screenToWorld(cb.getCamera(), at.x, at.y)) !== true) return;
+      el.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, at);
+      downAt = at; moved = false; dragging = true; right = true;
+      return;
+    }
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     el.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, local(e));
     if (pointers.size === 1) {
       downAt = local(e); moved = false;
-      dragging = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y)) === true;
+      const r = cb.onDragStart?.(screenToWorld(cb.getCamera(), downAt.x, downAt.y));
+      dragging = r === true || r === "hold";
+      holdUntil = r === "hold" && e.pointerType !== "mouse" ? e.timeStamp + DRAG_HOLD_MS : 0;
     }
-    if (pointers.size === 2) { pinchDist = spread(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.(); } }
+    if (pointers.size === 2) { pinchDist = spread(); pinchMid = centroid(); moved = true; if (dragging) { dragging = false; cb.onDragEnd?.("cancel"); } }
   };
   const move = (e: PointerEvent) => {
     const prev = pointers.get(e.pointerId);
@@ -60,8 +100,20 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     const after = centroid();
     if (downAt && Math.hypot(p.x - downAt.x, p.y - downAt.y) > TAP_SLOP_PX) moved = true;
     if (!moved) return;
+    if (dragging && pointers.size === 1 && holdUntil > 0 && e.timeStamp < holdUntil && downAt && !right) {
+      // A quick swipe from a "hold" press: a pan after all (from where the finger went down).
+      dragging = false; holdUntil = 0;
+      cb.onDragEnd?.("cancel");
+      cb.setCamera(pan(cb.getCamera(), p.x - downAt.x, p.y - downAt.y));
+      cb.onPan?.();
+      return;
+    }
+    holdUntil = 0;
     if (dragging && pointers.size === 1) { cb.onDrag?.(screenToWorld(cb.getCamera(), p.x, p.y)); return; }
+    if (dragging) return; // (a right-button drag never pans)
     let cam = pan(cb.getCamera(), after.x - before.x, after.y - before.y);
+    if (pointers.size === 1 && (after.x !== before.x || after.y !== before.y)) cb.onPan?.();
+    if (pointers.size === 2 && pinchMid && Math.hypot(after.x - pinchMid.x, after.y - pinchMid.y) > PINCH_PAN_PX) cb.onPan?.();
     if (pointers.size === 2) {
       const d = spread();
       if (pinchDist > 0 && d > 0) cam = zoomAt(cam, after.x, after.y, d / pinchDist);
@@ -70,15 +122,21 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
     cb.setCamera(cam);
   };
   const up = (e: PointerEvent) => {
-    const wasTap = pointers.size === 1 && !moved && downAt !== null && !dragging;
+    if (!pointers.has(e.pointerId)) return;
+    let wasTap = pointers.size === 1 && !moved && downAt !== null && !dragging;
     pointers.delete(e.pointerId);
-    if (dragging && pointers.size === 0) { dragging = false; cb.onDragEnd?.(); }
+    if (dragging && pointers.size === 0) {
+      dragging = false;
+      const asTap = cb.onDragEnd?.(e.type === "pointercancel" ? "cancel" : moved ? "drop" : "tap") === true;
+      if (asTap && !moved && downAt !== null && !right) wasTap = true;
+      right = false;
+    }
     if (wasTap) {
       const s = local(e);
       cb.onTap(screenToWorld(cb.getCamera(), s.x, s.y), s);
     }
     if (pointers.size === 0) downAt = null;
-    if (pointers.size < 2) pinchDist = 0;
+    if (pointers.size < 2) { pinchDist = 0; pinchMid = null; }
   };
   const wheel = (e: WheelEvent) => {
     e.preventDefault();
@@ -91,7 +149,11 @@ export function attachInput(el: HTMLElement, cb: InputCallbacks): () => void {
   el.addEventListener("pointerup", up);
   el.addEventListener("pointercancel", up);
   el.addEventListener("wheel", wheel, { passive: false });
+  // (The right button is the S13 move gesture: no browser menu over the map.)
+  const menu = (e: Event) => { e.preventDefault(); };
+  el.addEventListener("contextmenu", menu);
   return () => {
+    el.removeEventListener("contextmenu", menu);
     el.removeEventListener("pointerdown", down);
     el.removeEventListener("pointermove", move);
     el.removeEventListener("pointerup", up);

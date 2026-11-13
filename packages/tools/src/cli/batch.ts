@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBattle, stripInteriors, tallyExpenditure, type Expenditure } from "@tcs/sim";
+import { runBattle, stripInteriors, tallyExpenditure, type Expenditure, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 
@@ -30,6 +30,9 @@ interface Row {
   /** Guided missiles (owner 2026-11-13) per side: fired, hit their target, lost by the gunner, missed; and enemy
    *  hulls penetrated by missiles and by shoulder-fired rockets. */
   missiles: Record<string, { fired: number; hit: number; lost: number; miss: number; penetrated: number; rocketPenetrated: number }>;
+  /** Mortar fire (step fire-support) per calling side: HE bursts, of them ranging rounds, enemy men wounded in a
+   *  tick with one of its bursts (fragments or blast), and of them put out of action. */
+  mortar: Record<string, { bursts: number; ranging: number; enemyWounded: number; enemyDown: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -45,16 +48,34 @@ for (let i = 0; i < runs; i++) {
   const crews: Row["crews"] = { blue: { reversedOut: 0, fires: 0, firesOut: 0 }, red: { reversedOut: 0, fires: 0, firesOut: 0 } };
   const missiles: Row["missiles"] = { blue: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 }, red: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 } };
   const exp: Expenditure = {};
+  const mortar: Row["mortar"] = { blue: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 }, red: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 } };
+  const mortarHe = new Set(Object.values(input.catalog.factions).map((f) => f.fireSupport?.heAmmo).filter((x): x is string => x !== undefined));
+  const sideOfSoldier = (sim: Sim, id: number) => sim.state.identity.get(id)?.side;
+  let simRef: Sim | null = null;
   let pending: Parameters<typeof tallyExpenditure>[1] = [];
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
     onTick: (sim) => {
+      simRef = sim;
       if (sideOfUnit.size === 0) for (const [id, u] of sim.state.unit.entries()) sideOfUnit.set(id, u.side);
       if (sideOfVehicle.size === 0) for (const [id, v] of sim.state.vehicle.entries()) sideOfVehicle.set(id, v.side);
       if (pending.length > 0) { tallyExpenditure(exp, pending, sim.state, input.catalog); pending = []; }
     },
     onEvents: (ev) => {
       pending = ev;
+      // Mortar bursts this tick (by the side of the man who called them), then the enemy men hurt in the same tick.
+      let burstSide: string | undefined;
+      for (const e of ev) {
+        if (e.kind === "explosion" && mortarHe.has(e.ammo) && simRef) { burstSide = sideOfSoldier(simRef, e.owner); const m = mortar[burstSide ?? ""]; if (m) m.bursts++; }
+        else if ((e as { kind: string }).kind === "support.ranging") { const m = mortar[(e as unknown as { side: string }).side]; if (m) m.ranging++; }
+      }
+      if (burstSide !== undefined && simRef) {
+        const hurt = new Set<number>();
+        for (const e of ev) {
+          if (e.kind === "wound" && (e.mechanism === "fragment" || e.mechanism === "blast") && sideOfSoldier(simRef, e.soldier) !== burstSide && !hurt.has(e.soldier)) { hurt.add(e.soldier); mortar[burstSide]!.enemyWounded++; }
+          else if (e.kind === "casualty" && sideOfSoldier(simRef, e.soldier) !== burstSide) mortar[burstSide]!.enemyDown++;
+        }
+      }
       for (const e of ev) {
         if (e.kind === "missile.ended") { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m[e.result]++; continue; }
         if (e.kind === "shot.fired" && e.vehicle !== undefined && input.catalog.ammo[e.ammo]?.guided !== undefined) { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m.fired++; continue; }
@@ -86,7 +107,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: firstDismount,
-    crews, missiles,
+    crews, missiles, mortar,
     spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
@@ -122,6 +143,7 @@ const md = [
   `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
   `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
+  `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",

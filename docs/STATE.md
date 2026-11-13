@@ -1,6 +1,67 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-13 (Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+
+**Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
+"Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /
+Withdraw likewise in their modes); tapping the map still plans a route with Go. The active move's marker (a white
+ring with a dot) can be dragged to re-target the move, onto the unit to Halt. A halted unit has a round green
+facing handle ahead of it: drag it to turn in place (the existing move with a facing, to where it stands). In
+Fire / Anti-tank, a held press shows sight lines from each man (solid clear, broken from where blocked; terrain,
+walls, roofs, woods and known hulls only), letting go fires, back onto the unit cancels; a quick tap still fires.
+After a one-tap order the bar returns to Move; a double-tap on a mode button locks it on (bold frame, LOCK mark).
+UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene controls`.
+Not done in that step: S3–S8, S11, S13, S14.
+
+**Firefight-inspired bar and card (owner choices 2026-11-13, step "bar-card": S3, S4, S6; DECISIONS.md "Bar-card
+step").** The order bar is Move, Fire, Halt, Mount/Dismount as icon + short label; the arrows beside Move and Fire
+open trays (Assault, Withdraw, Occupy, posture; Anti-tank, Grenade, All grenades, Mortar, Smoke, vehicle gun and
+smoke screen, Cease fire); the group's button shows the variant that is on. A move dragged onto a house offers an
+Occupy button there. The selected unit's card (bottom left): pace row (Run/Walk/Sneak/Crawl; a vehicle's paces;
+pressed while moving re-sends the move at that pace) and fire row (At will/Return/Hold/Ambush = fire at will with the
+existing 100 m "no fire beyond" rule); Rules button for the rest. "Men" switches to the detailed card, one row per man
+(state mark, role, weapon, ammunition cells); his row or a tap on him on the map opens his box (rank, name, weapon,
+rounds, activity, pulse, fatigue, suppression, stress, morale, wounds). UI only (`ui/src/card.ts`, `icons.ts`),
+goldens untouched. Screenshots `npm run screenshot -- --scene card`.
+Not done in that step: S5, S7, S8, S11, S13, S14 (all but S11 done in the map-feel step).
+
+**Firefight-inspired map feel (owner choices 2026-11-13, step "map-feel": S5, S7, S8, S13, S14; DECISIONS.md
+"Map-feel step").** One faint line per own unit on the move to its destination (the selected unit's bright along
+its route; mortar missions amber from the caller to the target; thinned at the symbol zoom). Lost contacts become
+hollow "last seen" pins with their age, kept until seen again or the spot is seen empty (UI only, `LastSeenBook`).
+A tile tap selects and centres; a held tile follows the unit (badge; a pan stops it). Keyboard: Space, 1-4, WASD /
+arrows, Esc (never quits), Tab, F, M/T/H/B/G, Enter, Backspace, C, ? (help card with every key and gesture); the
+right mouse button moves the selected unit. A Contours top-bar button shows height lines at every zoom (fine pink
+tiles close up). UI only: orders unchanged, goldens untouched. Screenshots `npm run screenshot -- --scene mapfeel`.
+S11 (mortar ranging shots) followed in the fire-support step.
+
+**Firefight-inspired fire support (owner choice S11 with ranging shots, 2026-11-13; DECISIONS.md "Fire-support
+step").** Fire's tray has one **Fire support** button; hold (or tap) a point, a pop-up offers HE or Smoke with the
+rounds left and sends the existing `callFire`. SIM CHANGE: a mission fires 2 ranging rounds first, off the point by
+the battery's aiming error (DE 40 m, RU 50 m per axis), corrected to 30 % each time the caller or a man of his
+platoon sees the fall; then the battery's volleys (DE 4, RU 6 tubes); ranging rounds come from the battery's
+container on top of the rounds asked; a point already ranged on (100 m) skips ranging. New event
+`support.ranging`, radio keys, data fields in `fireSupport` (low). The mission line shows the falls walking in and
+a second ring for effect. Batches (10 × 900 s): attacker wins unchanged except RU on foot 3 → 4/10; the attackers'
+mortars hurt about 25–35 % fewer men. Goldens regenerated (fingerprint; non-mortar goldens' states identical).
+Screenshots `npm run screenshot -- --scene firesupport`. With this step all 14 Firefight choices are built.
+
+**Firefight UI review fixes (DECISIONS.md "Review fixes for the Firefight-style UI").** The camera used half the
+screen size on every high-DPI screen (Pixi 8's `renderer.width` is already CSS px): centring, the follow camera and
+the zoom clamp were off on nearly every phone since M0 — fixed. The LOS preview no longer shows hulls the side has
+not seen (any number of unknown hulls looked through; heard-only vehicles count as unknown); a last-seen pin is
+watched 5 s from the loss, not from the first sighting; unseen ranging falls are not drawn; a point ranged on with
+no round seen is no longer remembered (sim change, goldens regenerated). Touch: a quick swipe in Fire / Fire support
+pans instead of firing; two fingers moving together (and held pan keys) stop the follow camera. Keys: T T no longer
+locks Fire; Backspace past the last point closes the plan. Turning in place keeps the squad's shape and the handle
+stays at the new facing while the order is on its way. Screen: the start hint is one line everywhere and goes when
+a unit is picked; time and mortar rounds ("HE 24 · smoke 12") lead the score line; duplicate callsigns read
+"1/Puma 2" / "2/Puma 2"; the centring keeps the unit clear of the card; narrow cards keep their chip labels; dark
+close-up contours; darker-edged sight lines and selection rings; umlauts in German role names; help card shows only
+touch or mouse rows and fades where it scrolls; the unit list fades where it scrolls. Not done (left open): vehicle
+gun/ammo on the card, the pixel look's casualty readability, the drag-ghost pile-up, a release-time "no line of
+fire" warning, the phone's expanded list overlapping the card. Screenshots `npm run screenshot -- --scene review`
+(device pixel ratio 2).
 
 **Individual soldier AI (owner 2026-11-13, all four packages chosen; DECISIONS.md "Individual soldier AI").**
 **A "Shoot straight" ✅:** men aim at the middle of what they see (posture on the contact; prone 0.2 m), know who

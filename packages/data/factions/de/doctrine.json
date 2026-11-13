@@ -13,17 +13,24 @@
   },
   "sources": [],
   "confidence": "low",
-  "note": "Placeholder values identical for both factions, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover). M4.4: boundM (length of one bound in fire and movement) and finalAssaultM (the last stretch rushed together) are game values, the same for both sides until a public source gives a difference (owner to review). M6.5c fire support: Battalion 120 mm mortars (Moerser 120 mm): game values for the time to first round, spread and cadence. Pulled forward from M8 by the owner (M6 review); low confidence.",
+  "note": "Placeholder values identical for both factions, except owner decisions 2026-11-11: wedge default, 10 m spacing, balanced cover preference (accept ~30 % longer routes to stay in cover). M4.4: boundM (length of one bound in fire and movement) and finalAssaultM (the last stretch rushed together) are game values, the same for both sides until a public source gives a difference (owner to review). M6.5c fire support: Battalion 120 mm mortars (Moerser 120 mm): game values for the time to first round, spread and cadence. Pulled forward from M8 by the owner (M6 review); low confidence. Step fire-support (owner 2026-11-13, Firefight S11): two ranging rounds land first (first one off by the aiming error, each seen fall cuts the error to 30 %), 20 s apart, then the 4-tube battery fires for effect in volleys (rounds 0.6 s apart, volleys every intervalSeconds); delaySeconds is now the time to the first ranging round (was 90/75 s to the first round); a mission within 100 m of a point already ranged on skips ranging. All game values, no public source (search extracts only): low.",
   "defaultFormation": "wedge",
   "fireSupport": {
     "heAmmo": "de-120-he",
     "smokeAmmo": "de-120-smoke",
-    "delaySeconds": 90,
+    "delaySeconds": 75,
     "dispersionM": 30,
-    "intervalSeconds": 6,
+    "intervalSeconds": 12,
     "smokeRadiusM": 35,
     "smokeSeconds": 150,
-    "roundsFactor": 1
+    "roundsFactor": 1,
+    "rangingRounds": 2,
+    "rangingErrorM": 40,
+    "rangingCorrection": 0.3,
+    "rangingSeconds": 20,
+    "tubes": 4,
+    "volleySpreadSeconds": 0.6,
+    "registeredM": 100
   },
   "dismount": {
     "distanceM": 300,

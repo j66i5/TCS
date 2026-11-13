@@ -459,7 +459,15 @@ export interface FactionDef {
   /** Formation used when an order names none. */
   defaultFormation: DefId;
   /** Mortar fire the platoon can call (M6.5c); none if absent. */
-  fireSupport?: { heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number };
+  fireSupport?: {
+    heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number;
+    /** Ranging (step fire-support): rounds fired one at a time before the battery fires for effect; the aiming
+     *  error of the first (one standard deviation per axis, m); the share of the error left after the caller saw
+     *  where a round fell; seconds from one ranging round to the next (and to the first volley); tubes in the
+     *  battery (rounds per volley); seconds between the rounds of one volley; a new mission within this of a point
+     *  already ranged on fires for effect at once. */
+    rangingRounds: number; rangingErrorM: number; rangingCorrection: number; rangingSeconds: number; tubes: number; volleySpreadSeconds: number; registeredM: number;
+  };
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
   dismountM?: number;

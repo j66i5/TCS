@@ -28,6 +28,10 @@ interface Page {
   waitForTimeout(ms: number): Promise<void>;
   screenshot(o: { path: string }): Promise<unknown>;
   close(): Promise<void>;
+  mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(o?: { button?: "left" | "right" }): Promise<void>; up(o?: { button?: "left" | "right" }): Promise<void> };
+  keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
+  click(selector: string, o?: { clickCount?: number; delay?: number }): Promise<void>;
+  dblclick(selector: string): Promise<void>;
 }
 interface Browser { newPage(o: object): Promise<Page>; close(): Promise<void> }
 const { chromium } = createRequire(import.meta.url)("playwright") as { chromium: { launch(): Promise<Browser> } };
@@ -457,6 +461,510 @@ async function floorScenes(page: Page, name: string, errors: string[], shots: st
   console.log(`${name}: floors scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * The "controls" step (`--scene controls`; owner choices S1, S2, S9, S10, S12): real pointer gestures on the platoon
+ * battle on foot (village). The lead squad selected and halted with its facing handle; dragged out from the squad
+ * (the ghost marker), let go (the move is sent, its marker stays); the marker dragged elsewhere (re-targeted) and
+ * onto the squad (the cancel mark: Halt); the facing handle turned; Fire held behind a house (sight lines, solid
+ * clear, broken blocked), dragged back onto the squad (cancel), a quick tap fires and the bar is back on Move;
+ * Fire double-tapped (locked) stays on after a tap. Every step checks the order the app sent.
+ */
+async function controlScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/controls-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 7 : 9;
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const drag = async (from: P, to: P, hold?: () => Promise<void>) => {
+    await page.mouse.move(from.x, from.y); await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 12 });
+    if (hold) await hold();
+    await page.mouse.up();
+  };
+  const log: Record<string, unknown> = {};
+  // The lead squad, selected, the view on it.
+  log["start"] = await ev(`t.setSpeed(0); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y + ${name === "phone" ? 12 : 0}, ${zoom}); t.stepTicks(2);
+    globalThis.__sq = sq.unit; return { unit: sq.unit, callsign: sq.callsign, ...t.controls() };`);
+  await shot("0-selected-facing-handle");
+  // S1: press on a man of the squad, drag out (the ghost follows), let go: the move goes at once.
+  const man = await ev<P>(`const u = s.unit.get(globalThis.__sq); const m = u.leader ?? u.members[0]; const p = s.transform.get(m); return t.toScreen(p.x, p.y);`);
+  const c0 = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x, c.y);`);
+  const dest = { x: c0.x + (name === "phone" ? 110 : 260), y: c0.y - (name === "phone" ? 140 : 170) };
+  await drag(man, dest, () => shot("1-drag-from-squad-ghost"));
+  log["s1"] = await lastOrder();
+  await ev(`t.stepTicks(60 * 4);`);
+  await shot("2-move-sent-marker");
+  // S10: the marker dragged elsewhere (re-targeted)...
+  const mk = await ev<P | null>(`const m = t.controls().marker; return m ? t.toScreen(m.x, m.y) : null;`);
+  if (mk) {
+    const to = { x: mk.x - (name === "phone" ? 150 : 300), y: mk.y + 20 };
+    await drag(mk, to, () => shot("3-marker-dragged"));
+    log["s10retarget"] = await lastOrder();
+    await ev(`t.stepTicks(60 * 3);`);
+    // ... and onto the squad: the cancel mark; let go = Halt.
+    const mk2 = await ev<P | null>(`const m = t.controls().marker; return m ? t.toScreen(m.x, m.y) : null;`);
+    const on = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+    if (mk2) { await drag(mk2, on, () => shot("4-marker-on-squad-halts")); log["s10halt"] = await lastOrder(); }
+  }
+  // S9: the squad halted; its facing handle turned about a quarter round.
+  await ev(`t.stepTicks(60 * 3);`);
+  const fh = await ev<{ h: P; c: P } | null>(`const f = t.controls().facing; return f ? { h: t.toScreen(f.handle.x, f.handle.y), c: t.toScreen(f.centre.x, f.centre.y) } : null;`);
+  if (fh) {
+    const dx = fh.h.x - fh.c.x, dy = fh.h.y - fh.c.y;
+    await drag(fh.h, { x: fh.c.x - dy, y: fh.c.y + dx }, () => shot("5-facing-handle-turned"));
+    log["s9"] = await lastOrder();
+    await ev(`t.stepTicks(60 * 30);`);
+    await shot("6-turned-in-place");
+  } else log["s9"] = "no facing handle";
+  // S2: Fire, held at a point behind the nearest house (some lines blocked by it), then back onto the squad.
+  await page.click('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  // (The view moved to show the squad and the house: the target 25 m behind the house's far wall.)
+  const tgt = await ev<P>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 25 && d < bd) { bd = d; best = { x, y }; } }
+    const ux = best ? (best.x - c.x) / bd : 1, uy = best ? (best.y - c.y) / bd : 0;
+    const w = best ? { x: best.x + ux * 25, y: best.y + uy * 25 } : { x: c.x + 80, y: c.y - 40 };
+    const d = Math.hypot(w.x - c.x, w.y - c.y), ins = t.insets();
+    const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.6;
+    t.focusScale((w.x + c.x) / 2, (w.y + c.y) / 2, Math.min(${zoom}, span / Math.max(1, d))); t.stepTicks(1);
+    return t.toScreen(w.x, w.y);`);
+  // Held first in the open short of the house (every line clear), then slid on to behind the house.
+  const c1 = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x, c.y);`);
+  const open = { x: (c1.x + tgt.x) / 2, y: (c1.y + tgt.y) / 2 };
+  await page.mouse.move(open.x, open.y); await page.mouse.down();
+  await page.mouse.move(open.x + 4, open.y + 3, { steps: 2 });
+  log["s2open"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  await shot("7a-fire-held-clear");
+  await page.mouse.move(tgt.x, tgt.y, { steps: 8 });
+  await shot("7-fire-held-sight-lines");
+  log["s2los"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  const back = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+  await page.mouse.move(back.x, back.y, { steps: 10 });
+  await shot("8-fire-dragged-back-cancel");
+  const before = await ev<number>("return t.orderLog.length;");
+  await page.mouse.up();
+  log["s2cancelSentNothing"] = (await ev<number>("return t.orderLog.length;")) === before;
+  // A quick tap fires, and the bar goes back to Move (S12).
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.up();
+  log["s2tap"] = await lastOrder();
+  log["afterTap"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked };");
+  await ev(`t.stepTicks(60 * 2);`);
+  await shot("9-fired-back-to-move");
+  // S12: Fire double-tapped: locked on; a tap fires and it stays on.
+  await page.dblclick('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.up();
+  log["locked"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked, orders: t.orderLog.length };");
+  await ev(`t.stepTicks(30);`);
+  await shot("10-fire-locked");
+  console.log(`${name}: controls scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * The "bar-card" step (`--scene card`; owner choices S3, S4, S6): the platoon battle on foot (village), the lead
+ * squad selected — the slim order bar (Move, Fire, Halt) and the compact card (pace and fire rows); the Fire tray
+ * and the Move tray opened; Run and Ambush chosen on the card (the rules order arrives); a pace chip while moving
+ * (the move goes on at the new pace); the detailed card (one row per man); a man's box from his row and from a tap
+ * on the map; a move dragged onto a house (Occupy offered, then sent); the squad after a spell under fire; the
+ * mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire tray); the bar docked left.
+ * Every step checks what the app sent.
+ */
+async function cardScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/card-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const zoom = name === "phone" ? 6 : 8;
+  const log: Record<string, unknown> = {};
+  log["start"] = await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2); globalThis.__sq = sq.unit;
+    return { unit: sq.unit, callsign: sq.callsign, card: t.card() };`);
+  // Compact card first (the choice is remembered on the device).
+  if (await ev<boolean>("return t.card().detailed;")) await page.click('[data-card="detail"]');
+  await shot("0-compact-card-slim-bar");
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("1-fire-tray");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="grenade"]');
+  await page.waitForTimeout(500);
+  log["grenadeMode"] = await ev("return { mode: t.controls().mode, shown: document.querySelector('.hud-group[data-group=fire] .hud-verb').dataset.order };");
+  await page.click('.hud-group[data-group="move"] .hud-caret');
+  await shot("2-move-tray-grenade-on");
+  await page.click('.hud-tray[data-tray="move"] [data-order="move"]');
+  await page.waitForTimeout(500);
+  // S3: Run and Ambush on the card.
+  await page.click('.hud-seg [data-pace="run"]');
+  await page.click('.hud-seg [data-fire="ambush"]');
+  log["ambushOrder"] = await lastOrder();
+  await ev("t.stepTicks(60 * 5);");
+  log["afterAmbush"] = await ev("return t.card();");
+  await shot("3-run-ambush");
+  // A pace chip while the squad moves: the rest of the move at the new pace.
+  await ev(`const c = t.controls().centre; t.tap(c.x + 60, c.y - 30); t.stepTicks(60 * 3);`);
+  await page.click('.hud-seg [data-pace="sneak"]');
+  log["repaced"] = await lastOrder();
+  await ev("t.halt(); t.stepTicks(60 * 3);");
+  // S6: the detailed card; a man's box from his row, then from a tap on another man on the map.
+  await page.click('[data-card="detail"]');
+  await shot("4-detailed-card");
+  await page.click('.hud-card-list .hud-man:nth-child(2)');
+  log["rowBox"] = await ev("return t.card().inspected;");
+  await shot("5-man-box-from-row");
+  // (The squad in the upper part of the free area, clear of the card.)
+  await ev(`const c = t.controls().centre, ins = t.insets(); const box = document.querySelector('.hud-manbox').getBoundingClientRect(), card = document.querySelector('.hud-card').getBoundingClientRect();
+    const want = (box.bottom + Math.min(card.top, document.querySelector('.hud-radio').getBoundingClientRect().top || card.top)) / 2, mid = ins.top + (innerHeight - ins.top - ins.bottom) / 2;
+    t.focusScale(c.x, c.y - (want - mid) / ${zoom}, ${zoom}); t.stepTicks(1);`);
+  const other = await ev<P & { id: number }>(`const u = s.unit.get(globalThis.__sq); const men = [...u.members]; const id = men.find((m) => m !== t.card().inspected && m !== u.leader) ?? men[0];
+    const p = s.transform.get(id); return { ...t.toScreen(p.x, p.y), id };`);
+  await page.mouse.move(other.x, other.y); await page.mouse.down(); await page.mouse.up();
+  log["mapBox"] = { wanted: other.id, got: await ev("return t.card().inspected;") };
+  await shot("6-man-box-from-map");
+  await page.click(".hud-manbox-close");
+  log["closed"] = await ev("return t.card().inspected;");
+  // S4: a move dragged onto the nearest house: Occupy is offered at the drop point.
+  const house = await ev<P | null>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 15 && d < bd) { bd = d; best = { x, y }; } }
+    if (!best) return null; const ins = t.insets(); const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.7;
+    t.focusScale((best.x + c.x) / 2, (best.y + c.y) / 2, Math.min(${zoom}, span / Math.max(1, bd))); t.stepTicks(1); globalThis.__house = best; return t.toScreen(best.x, best.y);`);
+  if (house) {
+    const lead = await ev<P>(`const u = s.unit.get(globalThis.__sq); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+    await page.mouse.move(lead.x, lead.y); await page.mouse.down();
+    await page.mouse.move(house.x, house.y, { steps: 12 }); await page.mouse.up();
+    log["dragOntoHouse"] = (await lastOrder())?.kind;
+    await shot("7-occupy-offered");
+    const offered = await ev<boolean>("const b = document.querySelector('.hud-context'); return !!b && !b.hidden;");
+    if (offered) { await page.click(".hud-context"); log["occupy"] = (await lastOrder())?.kind; } else log["occupy"] = "not offered";
+  }
+  // Under fire: the squad runs at the enemy's side of the map for a while; the card and a man's box then.
+  await page.click('.hud-seg [data-pace="run"]');
+  await ev(`const map = t.sim.ctx.map; const c = t.controls().centre; let x = 0, y = 0, n = 0;
+    for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+    const dx = x / n - c.x, dy = y / n - c.y, d = Math.hypot(dx, dy); const go = Math.max(50, Math.min(d - 60, 500)); t.tap(c.x + dx / d * go, c.y + dy / d * go);
+    for (let k = 0; k < 60; k++) { t.stepTicks(60 * 5); if ([...s.unit.get(globalThis.__sq).members].some((m) => s.soldier.get(m).mental.suppression > 0.3 || s.soldier.get(m).wounds.length > 0)) break; }
+    t.stepTicks(60 * 4); const q = t.controls().centre; t.focusScale(q.x, q.y, ${zoom}); const u = s.unit.get(globalThis.__sq);
+    const worst = [...u.members].sort((a, b) => s.soldier.get(b).mental.suppression + s.soldier.get(b).wounds.length - s.soldier.get(a).mental.suppression - s.soldier.get(a).wounds.length)[0];
+    t.inspect(worst); t.stepTicks(1);`);
+  log["underFire"] = await ev(`const u = s.unit.get(globalThis.__sq); return { tick: s.tick, states: [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => b.className.split(' ')[1]) };`);
+  await shot("8-under-fire-detailed");
+  // A vehicle (the mounted battle): its paces on the card, the gun and smoke screen in the Fire tray.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  log["vehicle"] = await ev(`t.setSpeed(0); const [vid, unit] = t.vehicles()[0]; t.select(unit); const p = s.transform.get(vid); t.focusScale(p.x, p.y, ${zoom}); t.stepTicks(2);
+    return { paces: [...document.querySelectorAll('.hud-seg [data-pace]')].map((b) => b.dataset.pace), set: t.orderSet().modes };`);
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("9-vehicle-card-fire-tray");
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  // The bar docked left, a squad aboard selected (Dismount on the bar), the Move tray open.
+  await ev(`t.dock("left"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1); t.select(sq.unit); t.stepTicks(1);`);
+  await page.click('.hud-group[data-group="move"] .hud-caret');
+  await shot("10-dock-left-move-tray");
+  await ev(`t.dock(innerWidth > innerHeight ? "right" : "bottom");`);
+  console.log(`${name}: card scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * The "map-feel" step (`--scene mapfeel`; owner choices S5, S7, S8, S13, S14): the platoon battle on foot (village).
+ * Every own squad sent forward and a mortar mission called: one faint line per unit, the selected one bright along its
+ * route, the mission's amber line (figure zoom, then zoomed out to the symbols); a tile tapped (selected and centred),
+ * a tile held (the camera follows, the badge), a pan by hand (following stops); the contour toggle close up; the
+ * help card (the ? key); Tab, T, Esc, Space and 3 on the keyboard; a right-click move (desktop); then the squads
+ * pushed at the enemy until contacts are lost: the "last seen" pins with their age. Every step checks the app.
+ */
+async function mapfeelScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/mapfeel-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const mf = () => ev<Record<string, unknown>>("return t.mapfeel();");
+  const phone = name === "phone";
+  const log: Record<string, unknown> = {};
+  try { await page.evaluate(new Function("localStorage.removeItem('tcs.ui.contours')") as () => void); } catch { /* none */ }
+  // S7: every squad of the platoon forward 120 m toward the enemy; a mortar mission called by the lead squad.
+  log["sent"] = await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom");
+    let ex = 0, ey = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); ex += p.x; ey += p.y; n++; }
+    ex /= n; ey /= n; globalThis.__enemy = { x: ex, y: ey };
+    const sqs = t.units().filter((u) => u.kind === "infantry" && u.depth >= 1);
+    const mid = (uid) => { const u = s.unit.get(uid); let x = 0, y = 0, k = 0; for (const m of u.members) { const p = s.transform.get(m); x += p.x; y += p.y; k++; } return { x: x / k, y: y / k }; };
+    for (const q of sqs) { const c = mid(q.unit); const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy); t.moveUnit(q.unit, c.x + dx / d * 120, c.y + dy / d * 120); }
+    const lead = sqs[0].unit; t.select(lead); const c = mid(lead); const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy);
+    t.callFire(c.x + dx / d * 260, c.y + dy / d * 260, "he");
+    t.stepTicks(60 * 6); globalThis.__sq = lead;
+    const all = sqs.map((q) => mid(q.unit)); const bx = all.reduce((a, p) => a + p.x, 0) / all.length, by = all.reduce((a, p) => a + p.y, 0) / all.length;
+    t.focusScale(bx + dx / d * 90, by + dy / d * 90, ${phone ? 1.7 : 2.6}); t.stepTicks(1);
+    return { squads: sqs.length, mf: t.mapfeel().intents };`);
+  await shot("0-lines-dots");
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y, ${phone ? 6 : 8}); t.stepTicks(1);`);
+  await shot("1-lines-figures-selected");
+  await ev(`t.focusScale(globalThis.__enemy.x, globalThis.__enemy.y, 0.5); t.stepTicks(1);`);
+  log["symbols"] = (await mf())["intents"];
+  await shot("2-lines-symbols");
+  // S5: a tile tapped: selected and centred; held: followed (badge); a pan by hand stops it.
+  await ev(`t.select(null); t.focusScale(globalThis.__enemy.x, globalThis.__enemy.y, ${phone ? 4 : 6}); t.stepTicks(1);`);
+  const sq2 = await ev<number>(`return t.units().filter((u) => u.kind === "infantry" && u.depth >= 1)[1].unit;`);
+  await page.click(`.hud-tile[data-unit="${sq2}"]`);
+  log["tileTap"] = await mf();
+  await shot("3-tile-tap-centred");
+  const tile = `.hud-tile[data-unit="${sq2}"]`;
+  const box = await ev<P>(`const r = document.querySelector('${tile}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
+  await page.mouse.move(box.x, box.y); await page.mouse.down(); await page.waitForTimeout(700); await page.mouse.up();
+  await ev(`t.stepTicks(60 * 8);`);
+  await page.waitForTimeout(400);
+  log["held"] = (await mf())["following"];
+  await shot("4-following-badge");
+  const mid = await ev<P>(`const i = t.insets(); return { x: i.left + (innerWidth - i.left - i.right) / 2, y: i.top + (innerHeight - i.top - i.bottom) / 2 };`);
+  await page.mouse.move(mid.x + 30, mid.y + 40); await page.mouse.down(); await page.mouse.move(mid.x - 60, mid.y - 20, { steps: 8 }); await page.mouse.up();
+  log["afterPan"] = (await mf())["following"];
+  // S14: contours close up (the toggle: in the top bar, behind the menu on a phone).
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y, ${phone ? 7 : 9}); t.renderer.primeDetail(); t.stepTicks(1);`);
+  await shot("5-contours-off-close");
+  if (await ev<boolean>("const b = document.querySelector('.hud-contours'); return b.parentElement.classList.contains('hud-bar-menu');")) await page.click(".hud-bar .hud-more-btn");
+  await page.click(".hud-contours");
+  for (let k = 0; k < 40; k++) await ev("t.stepTicks(1);");
+  await page.waitForTimeout(600);
+  log["contours"] = (await mf())["contours"];
+  await shot("6-contours-on-close");
+  await ev(`t.focusScale(globalThis.__enemy.x, globalThis.__enemy.y, ${phone ? 2 : 3}); t.stepTicks(1);`);
+  await shot("7-contours-on-dots");
+  await page.keyboard.press("c");
+  log["cKey"] = (await mf())["contours"];
+  // S13: the help card (?), Esc closes it; Tab selects the next unit, T picks Fire, Esc back to Move; Space, 3.
+  await page.keyboard.press("?");
+  log["help"] = (await mf())["help"];
+  await shot("8-help-card");
+  await page.keyboard.press("Escape");
+  log["helpAfterEsc"] = (await mf())["help"];
+  const before = (await mf())["selected"];
+  await page.keyboard.press("Tab");
+  const afterTab = await mf();
+  await page.keyboard.press("t");
+  const afterT = (await mf())["mode"];
+  await page.keyboard.press("Escape");
+  const afterEsc = (await mf())["mode"];
+  await page.keyboard.press("Space");
+  const sp1 = (await mf())["speed"];
+  await page.keyboard.press("3");
+  const sp2 = (await mf())["speed"];
+  await page.keyboard.press("Space");
+  const sp3 = (await mf())["speed"];
+  await page.keyboard.press("Space");
+  log["keys"] = { before, afterTab: afterTab["selected"], centred: afterTab["centred"], afterT, afterEsc, speeds: [sp1, sp2, sp3, (await mf())["speed"]] };
+  await ev("t.setSpeed(0);");
+  // Right-click (desktop): the selected unit moves to the point at once.
+  if (!phone) {
+    const c = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x + 25, c.y - 15);`);
+    await page.mouse.move(c.x, c.y); await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" });
+    log["rightClick"] = (await lastOrder())?.kind;
+    const from = await ev<P>(`const c = t.controls().centre; return t.toScreen(c.x - 40, c.y + 40);`);
+    await page.mouse.move(from.x, from.y); await page.mouse.down({ button: "right" }); await page.mouse.move(from.x + 140, from.y - 60, { steps: 10 });
+    await shot("9-right-drag-ghost");
+    await page.mouse.up({ button: "right" });
+    log["rightDrag"] = await lastOrder();
+  }
+  // S8: the platoon pushed at the enemy; when contacts are lost they leave "last seen" pins with their age.
+  // (Stepped a few seconds per frame: the app reads what the side knows once per frame.)
+  await ev(`const sqs = t.units().filter((u) => u.kind === "infantry" && u.depth >= 1); const e = globalThis.__enemy; for (const q of sqs) t.moveUnit(q.unit, e.x, e.y);`);
+  let pins: unknown[] = [];
+  for (let k = 0; k < 200 && pins.length < 2; k++) { await ev("t.stepTicks(60 * 3);"); await page.waitForTimeout(40); pins = (await mf())["pins"] as unknown[]; }
+  for (let k = 0; k < 5; k++) { await ev("t.stepTicks(60 * 2);"); await page.waitForTimeout(40); }
+  log["pins"] = { tick: await ev<number>("return s.tick;"), pins: (await mf())["pins"] };
+  // (Centred on the pins as the app shows them: their last known places, not where the enemy is.)
+  await ev(`t.select(null); const ps = t.mapfeel().pins; if (ps.length) { const x = ps.reduce((a, p) => a + p.x, 0) / ps.length, y = ps.reduce((a, p) => a + p.y, 0) / ps.length; t.focusScale(x, y, ${phone ? 3 : 4}); } t.stepTicks(1);`);
+  await shot("10-last-seen-pins");
+  console.log(`${name}: mapfeel scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * The "fire-support" step (`--scene firesupport`; owner choice S11 with ranging shots): the platoon battle on foot
+ * (village). The lead squad selected; the Fire tray open with its one Fire support item; a point 250 m toward the
+ * enemy held (the amber crosshair joined to the leader), let go: the pop-up offers HE and smoke with the rounds
+ * left; HE picked (the order sent, the bar back on Move); the mission line while called, the first ranging round
+ * down (its cross, the radio), the second, the battery's volley for effect (the second ring); a second pop-up
+ * dismissed with Esc sends nothing. Every step checks the app.
+ */
+async function fireSupportScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/firesupport-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const lastOrder = () => ev<{ kind: string; [k: string]: unknown } | null>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  const sup = () => ev<{ popup: boolean; at: P | null; mode: string; he: number; smoke: number; missions: { phase: string | null; falls: number }[] }>("return t.support();");
+  const phone = name === "phone";
+  const log: Record<string, unknown> = {};
+  // The lead squad selected; the view on it and on a point 250 m toward the enemy.
+  log["start"] = await ev(`t.setSpeed(0);
+    let ex = 0, ey = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); ex += p.x; ey += p.y; n++; }
+    ex /= n; ey /= n;
+    const sq = t.units().filter((u) => u.kind === "infantry" && u.depth >= 1)[0]; t.select(sq.unit); globalThis.__sq = sq.unit;
+    const c = t.controls().centre; const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy);
+    const p = { x: c.x + dx / d * 250, y: c.y + dy / d * 250 }; globalThis.__pt = p;
+    const ins = t.insets(); const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.75;
+    globalThis.__fit = () => t.focusScale((p.x + c.x) / 2, (p.y + c.y) / 2, Math.min(4, span / 280));
+    globalThis.__fit(); t.stepTicks(1);
+    return { squad: sq.callsign, point: p, ...t.support() };`);
+  // The Fire tray with its one Fire support item.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  log["trayItems"] = await ev<string[]>(`return [...document.querySelectorAll('.hud-tray[data-tray="fire"] [data-order]')].filter((b) => !b.hidden).map((b) => b.dataset.order);`);
+  await shot("0-fire-tray");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  log["mode"] = (await sup()).mode;
+  // Hold the point (slid a little to adjust it), let go: the pop-up.
+  const pt = await ev<P>("return t.toScreen(globalThis.__pt.x, globalThis.__pt.y);");
+  await page.mouse.move(pt.x - 20, pt.y + 14); await page.mouse.down();
+  await page.mouse.move(pt.x, pt.y, { steps: 6 });
+  await page.waitForTimeout(600);
+  log["held"] = await sup();
+  await shot("1-point-held");
+  await page.mouse.up();
+  log["popup"] = await sup();
+  await shot("2-popup-he-smoke");
+  const n0 = await ev<number>("return t.orderLog.length;");
+  await page.click('.hud-support [data-ammo="he"]');
+  log["order"] = await lastOrder();
+  log["sent"] = (await ev<number>("return t.orderLog.length;")) - n0;
+  log["after"] = await sup();
+  await ev("t.stepTicks(60 * 5);");
+  await shot("3-mission-called");
+  // The ranging rounds: step until the first falls, then the second; then the volley for effect.
+  const until = async (phase: string, falls: number, maxS: number) => {
+    for (let k = 0; k < maxS; k++) {
+      const m = (await sup()).missions[0];
+      if (m && m.phase === phase && m.falls >= falls) return true;
+      await ev("t.stepTicks(60);");
+    }
+    return false;
+  };
+  log["ranging1"] = await until("ranging", 1, 150);
+  await ev("t.stepTicks(20); globalThis.__fit(); t.stepTicks(1);");
+  await shot("4-first-ranging-round");
+  log["ranging2"] = await until("ranging", 2, 60);
+  await ev("t.stepTicks(20);");
+  await shot("5-second-ranging-round");
+  log["effect"] = await until("effect", 0, 60);
+  await ev("t.stepTicks(40);");
+  log["effectState"] = await sup();
+  await shot("6-fire-for-effect");
+  await ev("t.stepTicks(60 * 3);");
+  await shot("7-after-volley");
+  // A second pop-up (tapped this time) closed with Esc: nothing sent; Smoke offered with what is left.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  const p2 = await ev<P>("const c = t.controls().centre, p = globalThis.__pt; return t.toScreen((c.x + p.x) / 2 + 30, (c.y + p.y) / 2 - 20);");
+  await page.mouse.move(p2.x, p2.y); await page.mouse.down(); await page.mouse.up();
+  log["tapPopup"] = await sup();
+  await shot("8-tap-popup");
+  const n1 = await ev<number>("return t.orderLog.length;");
+  await page.keyboard.press("Escape");
+  log["escClosed"] = { popup: (await sup()).popup, sentNothing: (await ev<number>("return t.orderLog.length;")) === n1 };
+  if (phone) log["phone"] = true;
+  console.log(`${name}: firesupport scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * The "review fixes" step (`--scene review`): at device pixel ratio 2 (as on nearly every phone and Retina screen;
+ * the other scenes run at 1 and never saw the halved screen size). The mounted platoon battle as it opens (the short
+ * hint, the score line with the time and mortar rounds first, both platoons' vehicles told apart as "1/Puma 2" and
+ * "2/Puma 2"); a tile tapped (the squad in the middle of the free area, the hint gone); held (the follow camera
+ * keeps the squad in the middle while it drives); on foot: the detailed card (the squad kept clear of it); the bar
+ * docked at the side on a phone (the pace and fire chips keep their labels); Fire held behind a house (sight lines
+ * with dark edges); contours close up (dark brown); the help card (touch or mouse rows only). Every step is checked.
+ */
+async function reviewScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/review-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  const phone = name === "phone";
+  type P = { x: number; y: number };
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const log: Record<string, unknown> = { dpr: await page.evaluate(new Function("return globalThis.devicePixelRatio") as () => number) };
+  const ready = () => page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  // Where a unit's middle sits on screen against the middle of the free area (less log and card), px.
+  const offCentre = (uid: string) => ev<{ dx: number; dy: number }>(`const u = s.unit.get(${uid}); let x = 0, y = 0, n = 0;
+    const ids = u.vehicle !== undefined ? [u.vehicle] : u.members; for (const m of ids) { const p = s.transform.get(m); if (p) { x += p.x; y += p.y; n++; } }
+    const a = t.toScreen(x / n, y / n), i = t.viewInsets(); const W = t.renderer.app.screen.width, H = t.renderer.app.screen.height;
+    return { dx: Math.round(a.x - (i.left + (W - i.left - i.right) / 2)), dy: Math.round(a.y - (i.top + (H - i.top - i.bottom) / 2)) };`);
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await ready();
+  await ev("t.setSpeed(0);");
+  log["open"] = await ev(`const h = document.querySelector('.hud-hint'); return { hint: h && !h.hidden ? h.textContent : null, score: document.querySelector('.hud-score')?.textContent,
+    screen: [t.renderer.width, t.renderer.height], inner: [innerWidth, innerHeight] };`);
+  await shot("0-opening-dpr2");
+  // A tile tapped: selected and centred.
+  const veh = await ev<number>(`return t.units().find((u) => u.kind === "vehicle").unit;`);
+  await page.click(`.hud-tile[data-unit="${veh}"]`);
+  log["tileTap"] = { off: await offCentre(String(veh)), centred: (await ev<Record<string, unknown>>("return t.mapfeel();"))["centred"],
+    hint: await ev("const h = document.querySelector('.hud-hint'); return h.hidden;") };
+  await shot("1-tile-tap-centred");
+  // Held: the follow camera; the hull drives forward 150 m.
+  const box = await ev<P>(`const r = document.querySelector('.hud-tile[data-unit="${veh}"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
+  // (Held well past the 450 ms: at pixel ratio 2 the headless browser draws slowly and the timer runs late.)
+  await page.mouse.move(box.x, box.y); await page.mouse.down(); await page.waitForTimeout(1500); await page.mouse.up();
+  await ev(`const e = (() => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; })();
+    const v = s.unit.get(${veh}).vehicle, p = s.transform.get(v), d = Math.hypot(e.x - p.x, e.y - p.y); t.moveUnit(${veh}, p.x + (e.x - p.x) / d * 150, p.y + (e.y - p.y) / d * 150);`);
+  const track: { dx: number; dy: number }[] = [];
+  // (Each 2 s step jumps the hull at once; the camera eases after it over a few frames: a second to settle.)
+  for (let k = 0; k < 6; k++) { await ev("t.stepTicks(60 * 2);"); await page.waitForTimeout(1000); track.push(await offCentre(String(veh))); }
+  log["follow"] = { following: (await ev<Record<string, unknown>>("return t.mapfeel();"))["following"], track };
+  await shot("2-following-dpr2");
+  await ev("t.follow(null);");
+  // On foot: the lead squad, its detailed card; the squad kept clear of the card.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await ready();
+  const sq = await ev<number>(`t.setSpeed(0); return t.units().find((u) => u.kind === "infantry" && u.depth >= 1).unit;`);
+  await page.click(`.hud-tile[data-unit="${sq}"]`);
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y - ${phone ? 35 : 25}, ${phone ? 7 : 9}); t.stepTicks(1);`);
+  const menBtn = await ev<boolean>("const b = [...document.querySelectorAll('.hud-card-btn')][0]; if (b) b.click(); return !!b;");
+  await page.waitForTimeout(300);
+  const under = await ev<{ y: number; cardTop: number }>(`const u = s.unit.get(${sq}); let x = 0, y = 0; for (const m of u.members) { const p = s.transform.get(m); x += p.x; y += p.y; }
+    const a = t.toScreen(x / u.members.length, y / u.members.length); return { y: Math.round(a.y), cardTop: Math.round(document.querySelector('.hud-bottom').getBoundingClientRect().top) };`);
+  log["detailedCard"] = { menBtn, ...under, clear: under.y < under.cardTop };
+  await shot("3-detailed-card-squad-clear");
+  await ev("const b = [...document.querySelectorAll('.hud-card-btn')][0]; if (b) b.click();");
+  // A phone with the bar docked at the side: the chips keep their labels.
+  if (phone) {
+    await ev(`t.dock("left");`);
+    await page.waitForTimeout(200);
+    log["dockLeft"] = await ev("return [...document.querySelectorAll('.hud-chip span')].filter((x) => x.offsetWidth > 0).length;");
+    await shot("4-dock-left-chips-labelled");
+    await ev(`t.dock("bottom");`);
+  }
+  // Fire held behind the nearest house: sight lines with dark edges, the blocked part red and dashed.
+  await page.click('.hud-orders [data-order="fire"], .hud-more [data-order="fire"]');
+  const tgt = await ev<P>(`const map = t.sim.ctx.map, c = t.controls().centre; let best = null, bd = Infinity;
+    for (const b of map.buildings) { let x = 0, y = 0; const n = b.footprint.length / 2; for (let k = 0; k < n; k++) { x += b.footprint[2 * k] / n; y += b.footprint[2 * k + 1] / n; }
+      const d = Math.hypot(x - c.x, y - c.y); if (d > 25 && d < bd) { bd = d; best = { x, y }; } }
+    const ux = best ? (best.x - c.x) / bd : 1, uy = best ? (best.y - c.y) / bd : 0;
+    const w = best ? { x: best.x + ux * 25, y: best.y + uy * 25 } : { x: c.x + 80, y: c.y - 40 };
+    const d = Math.hypot(w.x - c.x, w.y - c.y), ins = t.viewInsets();
+    const span = Math.min(innerWidth - ins.left - ins.right, innerHeight - ins.top - ins.bottom) * 0.6;
+    t.focusScale((w.x + c.x) / 2, (w.y + c.y) / 2, Math.min(${phone ? 7 : 9}, span / Math.max(1, d))); t.stepTicks(1);
+    return t.toScreen(w.x, w.y);`);
+  await page.mouse.move(tgt.x, tgt.y); await page.mouse.down(); await page.mouse.move(tgt.x + 3, tgt.y + 2, { steps: 3 });
+  log["los"] = (await ev<{ los: string[] | null }>("return t.controls();")).los;
+  await shot("5-fire-held-sight-lines");
+  // Dragged back onto the squad: nothing is sent.
+  const back = await ev<P>(`const u = s.unit.get(${sq}); const p = s.transform.get(u.leader ?? u.members[0]); return t.toScreen(p.x, p.y);`);
+  await page.mouse.move(back.x, back.y, { steps: 8 }); await page.mouse.up();
+  // T twice quickly: Fire, not locked (only taps and clicks lock).
+  await page.keyboard.press("t"); await page.keyboard.press("t");
+  log["tTwice"] = await ev("const c = t.controls(); return { mode: c.mode, locked: c.locked };");
+  await page.keyboard.press("Escape");
+  // Contours close up (dark brown now).
+  await ev(`const c = t.controls().centre; t.focusScale(c.x, c.y, ${phone ? 7 : 9}); t.setContours?.(true); t.renderer.setContoursAlways(true); t.renderer.primeDetail(); t.stepTicks(1);`);
+  for (let k = 0; k < 30; k++) await ev("t.stepTicks(1);");
+  await page.waitForTimeout(500);
+  await shot("6-contours-close");
+  // The help card: the touch rows on a phone, mouse rows on the desktop (never both).
+  await page.keyboard.press("?");
+  log["help"] = await ev("return [...document.querySelectorAll('.hud-help-sec')].map((x) => x.textContent);");
+  await shot("7-help-card");
+  console.log(`${name}: review scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -480,6 +988,18 @@ try {
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "review") {
+      // (Its own page at device pixel ratio 2.)
+      await page.close();
+      const p2 = await browser.newPage({ viewport: vp, deviceScaleFactor: 2, hasTouch: name === "phone" });
+      p2.on("pageerror", (e) => errors.push(e.message));
+      p2.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+      await reviewScenes(p2, name, errors, shots); await p2.close(); continue;
+    }
     await page.goto(`http://localhost:${port}/?scenario=demo&seed=${seed}&map=${mapKind}`);
     try {
       await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
@@ -594,7 +1114,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

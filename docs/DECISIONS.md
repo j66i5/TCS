@@ -2624,3 +2624,218 @@ bench-combined, platoon(-ru)(-vehicles), village-occupy, demo, vehicles, demo-fi
 - **Measured** (vitest perf tests, this container, base and new alternated, two rounds): bench-vehicles 7.5–7.6×
   → 9.6–9.7×; bench 12× → 17–18×; spotting bench 9.4–9.8× → 9.9–12.3×; bench-combined 3.5–3.7× → 3.5–4.0×;
   projectile bench 3.5–4.0× → 4.0–4.1×; fragment volley 15.6–16.2× → 15.3–19.8× (noisy). Floors unchanged.
+
+## 2026-11-13 — Controls step: drag to move, marker re-target, facing handle, LOS preview, mode lock (owner S1, S2, S9, S10, S12)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), all built as chosen. UI only: every gesture
+sends an existing order (`move`, `halt`, `fire`, `assault`, `withdraw`, ...); no new order type, no sim change,
+goldens untouched. Pure helpers in `packages/ui/src/gestures.ts` (tests `packages/ui/test/gestures.test.ts`, the
+turn-in-place and the LOS preview checked against the simulation); input: a drag press released without moving
+ends as "tap" and may be delivered as a tap, a second finger ends it as "cancel" (`input.ts`). Screenshots
+`npm run screenshot -- --scene controls`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Where the gestures apply.** Drag-from-unit, the marker and the facing handle work in Move, Assault and Withdraw
+   modes (an assault/withdrawal dragged from the unit goes at once and the bar returns to Move); in Grenade, Mortar,
+   Smoke and Occupy a drag pans as before. While a multi-point plan is open only its own handles drag.
+2. **Fire mode takes the one-finger drag** (hold, slide, release) anywhere on the map, so it does not pan; two
+   fingers and the wheel still do. The sight lines show at once on press (no hold time) and follow the pointer.
+3. **Sight lines**: from each able man's eyes (posture, floor) to 0.75 m above the ground at the point (a kneeling
+   man, as Debug's sight view); clear = nothing solid in the way and at least 20 % of the view through vegetation
+   or see-through fences; a vehicle's crew from 2.3 m above its hull. A hull that blocks a line and is neither own
+   nor known to the side is looked through (up to two), so no hidden vehicle is revealed. Smoke does not yet thin
+   sight (M8), so the preview ignores it too.
+4. **Re-targeting** (S10) sends a new single-leg move to the dropped point keeping the pace of the old last leg,
+   formation and frontage; the facing is along the new leg from where the unit is now; earlier route points are
+   dropped. Dropped on the unit = Halt. Only moves the player sent have a marker (the app remembers them; it goes
+   when the unit arrives or gets another movement order). Only the selected unit's marker is drawn (lines for every
+   unit are step S7).
+5. **Turn in place** (S9) = move with the facing, current formation and the doctrine width, to the point that keeps
+   the men's middle where it is (a wedge's leader stands ahead of its middle); a vehicle gets a move to its own spot
+   with the facing (it turns on the spot). The handle shows only for a halted, unbroken unit outdoors on foot, or a
+   crewed hull in working order, in Move/Assault/Withdraw mode; it sits 30 px beyond the man farthest forward.
+   A turn has no draggable marker.
+6. **Mode lock** (S12): double-tap = two clicks on the same button within 400 ms; Move never locks; any other mode
+   unlocks; the locked button gets a bold accent frame and a small "LOCK" mark (string table). Occupy, Grenade,
+   All grenades, Mortar, Smoke, Fire and Anti-tank all return to Move after one order unless locked (Occupy did
+   already).
+7. Colours are TCS's own: sight lines pale blue, blocked part broken orange-red; the facing handle mint green; the
+   cancel mark a red ring with a cross; the move marker white.
+8. The start hint was shortened and rewritten for the new gestures.
+Seen in passing, not changed: the app's `issue()` marks every order `player: true`, the AI's too (the AI's orders
+go through the same function).
+
+## 2026-11-13 — Bar-card step: slim order bar, unit card with pace and fire rows, men and the man's box (owner S3, S4, S6)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), built as chosen. UI only: every chip and
+button sends an existing order (`move`, `rules`, `occupy`, `posture`, `ceaseFire`, ...); no new order type, no sim
+change, goldens untouched (strings only in data, outside the catalog fingerprint). Pure parts in
+`packages/ui/src/card.ts` and `icons.ts` (tests `packages/ui/test/card.test.ts`); the card and the man's box read
+read-only snapshots of the state (`unitMenRows`, `manDetail`, like the sidebar's `unitTiles`). Screenshots
+`npm run screenshot -- --scene card`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Bar (S4).** Move and Fire are split buttons: the button gives the order shown on it, the small arrow beside it
+   opens a tray of the rest. The owner's choice named a "Weapons" group; the step's brief said "grouped under Fire":
+   the Fire tray is that group (Fire, Anti-tank, Grenade, All grenades, Mortar, Smoke; for a vehicle also the gun
+   choice and the smoke screen) plus Cease fire. The Move tray: Move, Assault, Withdraw, Occupy and the posture
+   (Stand up, Kneel, Lie down). While a variant is on, its group's button shows it (icon and name) lit; once the
+   bar goes back to Move (S12) the button shows Move / Fire again. A tray stays open 0.45 s after a pick so a
+   double-tap can lock the mode (S12). Halt and Mount/Dismount stay on the bar. The capability rules decide which
+   tray items show; a tray with only its own button shows no arrow (a vehicle's Move).
+2. **Occupy** is kept in the Move tray as well as the context action: after a move dragged from the unit (S1) ends
+   in a building, an "Occupy" button appears beside the drop point for 6 s; the move has already gone (into the
+   house by its doors, as before); pressing Occupy sends the occupy order for that building instead.
+3. **Rules** moved from the bar to the card's head (the panel itself is unchanged); Cease fire went into the Fire
+   tray; the posture cycle became three tray buttons.
+4. **Pace row (S3).** Fastest first (Run, Walk, Sneak, Crawl; a vehicle's Fast, Drive, Slow, Reverse); it sets the
+   pace of the next move (drag or planned route; the plan bar lost its pace button). Pressed while the unit carries
+   out a move the player gave it, the move is sent again at that pace from where the unit is, keeping the route
+   points still ahead (the unit's leg = the route leg within 15 m of its middle, else the first).
+5. **Fire row (S3).** At will / Return / Hold = the `rules` fire rule. **Ambush = fire at will with "no fire on their
+   own beyond" set to 100 m** (`AMBUSH_M`, the existing range rule the simulation already describes as "e.g. for an
+   ambush"; 100 m is the shortest range the Rules panel offers). Leaving Ambush for another chip sets that range back
+   to none; a range chosen in the Rules panel is kept otherwise. An ambush does not change "on contact" or the
+   anti-tank rule. Ordered fire (Fire, Anti-tank, Grenade) is not limited by it, as before.
+6. **The card** sits at the bottom left of the free map area, above the radio log's place (the radio log now above
+   it); compact by default, the "Men" button switches to detailed (remembered on the device, `tcs.ui.card`). On a
+   phone with the card open the radio log shows its two newest lines and the men's list takes at most a quarter of
+   the height; a very narrow card (bar docked at the side) shows icons only.
+7. **Men rows (S6):** a vehicle lists its crew (passengers are their own units' cards). State marks: steady (green
+   dot), shaken (yellow ring), pinned (orange; also panicked and routed), wounded (red cross: a wound that broke the
+   skin), down (grey X), prisoner (grey flag), worst first: prisoner, down, wounded, pinned, shaken. The ammunition
+   bar has one cell per magazine or belt (the one in the weapon first, filled by its rounds; spares shown at their
+   average fill; at most 8 cells then "+n").
+8. **The man's box (S6)** opens from his row or from a tap on him on the map while his own unit is selected (a tap
+   on a man of another unit still selects that unit; a second tap closes the box). It shows rank and name, role and
+   unit, weapon with rounds loaded and spare, what he is doing now (from his state: aboard, getting away from a
+   grenade, panicking, going to cover, bringing or fetching ammunition, taking a prisoner, firing on his own or as
+   ordered, pinned, moving at a pace, in position and his posture), behaviour, pulse, fatigue, suppression ("Under
+   fire"), stress and morale as bars, and his wounds by body part with light / serious / critical at severity
+   0.25 / 0.6. A pale yellow ring marks him on the map.
+9. Icons are TCS's own line drawings (`icons.ts`); colours are TCS's own.
+
+## 2026-11-13 — Map-feel step: unit lines, "last seen" pins, tile centre and follow, keyboard, contour toggle (owner S5, S7, S8, S13, S14)
+Owner choices from the Firefight comparison (CHOICES of 2026-11-13), built as chosen. UI only: no new order type,
+no sim change, goldens untouched (strings only in data, outside the catalog fingerprint). Pure parts in
+`packages/ui/src/mapfeel.ts` (`intentLines`, `linesShown`, `LastSeenBook`, `ageLabel`, `keyAction`, `panVector`,
+`cycleUnit`, `HELP_SECTIONS`; tests `packages/ui/test/mapfeel.test.ts`, `input.test.ts`); drawing in
+`render/src/renderer.ts` (`Overlay.intents`, `Overlay.pins`, `setContoursAlways`) and `terrain-flat.ts` (contour
+tiles). Screenshots `npm run screenshot -- --scene mapfeel`.
+Choices made here without the owner (low confidence, easy to change):
+1. **Lines (S7).** One line per own unit whose `moving` flag is set: from the middle of its own able men on foot (a
+   crew: its hull) to the last point of its leader's route (a hull's drive route); a squad riding in a vehicle has no
+   line of its own (the vehicle's shows). Others: straight, pale (`#eef3e2`, 35 %), a dot at the end; the selected
+   unit and its sub-units: bright, along the route still ahead. They replace the old faint route of the selected
+   leaders (Debug still shows every man's path). Moves the units make on their own (on-contact push, drills) also
+   show — they are the player's units. **Fire missions**: amber (`#ffa23a`), broken line from the caller to a ring on
+   the target, from the call on its way (inbox) until the last round. **Clutter:** at the symbol zoom, more than 6
+   faint lines → only the selected and the missions.
+2. **Pins (S8).** A seen or reported contact unseen ≥ 6 s (the sim's own "keep in sight" time) becomes a hollow pin
+   with "seen N s ago" (5 s steps) / "seen N min ago"; it outlives the sim forgetting the contact (2 min, vehicles
+   5 min). It goes when the enemy is seen again, or when the spot is **seen empty**: one of the 3 nearest own able men
+   on foot within 200 m (crewed own hulls' sights 2.3 m up; 600 m for a vehicle's pin) has an unblocked line with ≥ 60 %
+   visibility to 0.4 m above the ground there (1.5 m for a vehicle) for 5 s of game time in a row (a man lying in
+   crops keeps his pin). Checked 4 pins per tick, round robin. A contact that leaves what the side knows while still
+   fresh (seen falling, boarding) leaves no pin; heard-only contacts never pin and keep their old marks. Stale
+   seen/reported contacts are now drawn only as pins (the fading diamond is gone for them). Known limit: the "seen
+   empty" check does not see through an enemy hull the side has not spotted (the pin then just stays).
+3. **Tiles (S5).** Tap = select and centre (zoom kept); tap on the selected unit **while the map is centred on it**
+   (within 24 px) = unselect, as before — so a second tap after panning away re-centres instead. Hold 450 ms = select
+   and follow (the click that ends the hold does nothing more; moving the finger 10 px cancels the hold, for scrolling
+   the list). The follow camera eases 20 % of the way per frame to the unit's middle; a one-finger or mouse pan, the
+   pan keys or the badge stop it; wheel and pinch zoom keep it. The badge is a small green pill at the top of the free
+   area ("◎ Following Trupp 2 ✕"). Following stops when the unit has nobody left.
+4. **Keys (S13).** 1–4 = the four speed buttons in order (pause, 1×, 2×, 4×) — the owner's "1-4 set speed" with four
+   buttons; Space toggles pause and back to the speed before. Number keys are therefore not used for units: Tab /
+   Shift+Tab cycle the unit list (lost units skipped), select and centre (or follow, while following). Verbs: M Move,
+   **T Fire** (F is Follow), H Halt, B Mount/Dismount, G Grenade (a key pressed twice quickly locks a mode, like a
+   double-tap); also Enter = Go, Backspace = undo a route point, C = contours, ? / F1 = help. Esc order: close a
+   menu/tray/rules/help/context button → drop a drag in progress → drop the plan → back to Move → close the man's box →
+   stop following → unselect. Keys are ignored with Ctrl/Alt/Meta (browser shortcuts) and in text fields; a focused
+   button is blurred so Space/Enter do not press it again. Tab no longer moves the keyboard focus.
+5. **Right button (S13, in the owner's option text).** Right-press anywhere with a unit selected and no route being
+   planned: a move (Assault / Withdraw in those modes) dragged from the unit's middle to the pointer, sent on release;
+   right-click without moving = the move to that point; released on the unit = nothing. Pace and formation as for
+   S1. Right-click never opens the browser menu over the map.
+6. **Help card (S13).** A card over the map (z 5) with three sections — keyboard (key caps), mouse, touch; a touch
+   screen lists touch first. Opened by ?, F1 or a "?" top-bar button (behind "⋯" on a phone, with Contours).
+7. **Contours (S14).** The toggle shows the whole-map contour layer at every zoom; from 4 px/m in it is replaced by
+   fine contour tiles (64 m, 4 px/m, built lazily like the detail tiles, diagonal pixels joined) in a **pale rose**
+   (`#f0b4dc`, 45 % / 80 % for every 10 m) — chosen to show on fields and woods and to differ from the pale move
+   lines, the amber fire lines and the blue water. Remembered on the device (`tcs.ui.contours`). The whole-map layer
+   now also samples one pixel past the bottom row (no visible change).
+8. The `__tcs.setSpeed` hook now goes through the speed buttons (so the bar shows the speed the screenshots use).
+
+## 2026-11-13 — Fire-support step: one Fire support button with an HE / smoke pop-up; ranging rounds before the battery's salvo (owner S11, the sim change)
+Owner choice S11 from the Firefight comparison: "same UI plus ranging shots before the salvo" (a sim change).
+**UI:** the Fire tray's Mortar and Smoke are one **Fire support** mode (`OrderMode` "support", icon `support`); in it a
+held press (slid to adjust; a tap or click also works) opens a pop-up beside the point (`ui/src/support.ts`) with HE
+and Smoke and the rounds left; a pick sends the existing `callFire` (HE 4, smoke 2 rounds, as before); × / Esc / 8 s
+close it. The S7 mission line now carries its phase (called / ranging / effect) and the side's ranging falls (from
+`support.ranging` events, `RangingBook`, kept 4 min): crosses joined by a dotted trail, a second ring for effect.
+**Sim (`sim/systems/support.ts`):** a mission fires `rangingRounds` single rounds first, each off the point by the
+battery's aiming error (normal, `rangingErrorM` per axis, drawn at the call on the `support` stream), `rangingSeconds`
+apart; a ranging round seen by the caller **or any able man of his platoon** shrinks the error to `rangingCorrection`
+of itself; unseen, it stays. Then volleys of `tubes` rounds, `volleySpreadSeconds` apart, every `intervalSeconds`, each
+scattered by `dispersionM` about the corrected point. New event `support.ranging` (point, fall, miss, seen, rounds
+left); radio keys `radio.fireAdjust`, `radio.fireUnobserved`, `radio.fireForEffect`. Ranging rounds are counted items
+from the battery container (rule 9) on top of the rounds asked for; short of stock, ranging rounds go first, one round
+always kept for effect. A side remembers up to 6 points it has ranged on (`SupportSection.registered`, with the error
+left there): a mission within `registeredM` fires for effect at once with that error. The AI commander waits for the
+time to effect (`secondsToEffect` = delay + ranging) instead of the delay alone. Data with defaults (old data and the
+fixture faction keep the old behaviour: no ranging, one tube).
+Choices made here without the owner (low confidence, game values, no public source):
+1. Values: DE 120 mm `delaySeconds` 90 → **75** (now the time to the first ranging round), `intervalSeconds` 6 → **12**
+   (now between volleys), **4 tubes**, aiming error **40 m**; RU 82 mm 75 → **60**, 4 → **10**, **6 tubes**, **50 m**;
+   both 2 ranging rounds 20 s apart, correction to 30 %, rounds of a volley 0.6 s apart, registered within 100 m. The
+   errors were first 60 / 80 m: the attackers' mortar then hurt about a third as many men (calls are mostly blind:
+   callers 450–650 m back behind crests and walls), so they were lowered.
+2. **Who observes:** the caller, then any man of his top-level unit who can use the radio, in ID order; his eyes at
+   least at kneeling height (he lifts his head to watch), to 5 m above the burst (the dust), visibility ≥ 0.1 through
+   terrain, walls, roofs, woods (`sight`) and smoke. Only the caller's platoon: the owner's text said "while the caller
+   can see the impact area"; the caller alone saw 2 of 43 ranging rounds in four platoon battles.
+3. Smoke missions range with smoke rounds (each lays its cloud where it falls); a seen ranging round is judged before
+   its own cloud is laid.
+4. "Fire for effect!" is said even when nobody saw the ranging rounds (the error then stays as drawn).
+5. The player's pop-up keeps the old mission sizes (HE 4, smoke 2) — with the 2 ranging rounds a call now costs 6 / 4.
+**Batches, 10 × 900 s, seeds 1–10, before → after** (attacker wins; casualties blue/red; enemy men wounded in a tick
+with one of the side's mortar bursts, attacker side):
+- platoon (DE attacks on foot): 2/10 → 2/10; 16.6/12.0 → 17.0/12.0; 8.0 → 5.3.
+- platoon-ru (RU attacks on foot): 3/10 → 4/10; 14.5/14.5 → 14.2/13.2; 7.1 → 5.6.
+- platoon-vehicles (DE mounted): 5/10 → 5/10; 17.4/19.7 → 19.1/19.2; 4.9 → 4.2.
+- platoon-ru-vehicles (RU mounted): 0/10 → 0/10; 11.7/28.6 → 10.8/26.8; 3.9 → 3.0.
+Mortar bursts per battle about the same (the ranging rounds are part of them, 3–7 per battle); fewer men hurt per
+burst (rounds bunched into volleys, the first rounds off target). Batch tool: a "Mortar per battle" line.
+**Goldens regenerated** (`npm run golden:update`): every golden's catalog fingerprint changed (data). demo-s1,
+shootout-s1 and fixture-s7 (no mortar) were replayed on the old and the new code: the serialised state at every
+checkpoint is identical apart from the catalog fingerprint. Screenshots `npm run screenshot -- --scene firesupport`.
+
+## 2026-11-13 — Review fixes for the Firefight-style UI (sim change: unobserved ranging is not registered)
+Fixes from the review of the five Firefight steps. Verified and fixed: the DPR camera bug (`BattleRenderer.width`
+divided Pixi 8's CSS-px `renderer.width` by the resolution; since M0), the last-seen pin watch clock, the LOS preview
+leaking unknown hulls (now walks the line in pieces past any number of them, `LOS_MAX_UNKNOWN` 8) and heard
+vehicles, unseen ranging falls drawn, follow vs two-finger pan / held pan keys, T T locking Fire, an empty plan left
+open, the facing-handle turn (snap-back during the radio delay; re-forming into the default wedge).
+**Sim change:** `FireMission.observed` (set when a ranging round is seen); `register` only for observed missions.
+Goldens regenerated (`npm run golden:update`): only platoon-vehicles-s1 changed its checkpoints (it has a mission).
+Skipped with reasons: "units hidden under the tile column at symbol zoom" — the scene centred the camera on the enemy
+at 0.5 px/m, where the map is wider than the free area and the west edge is panned under the column by design; the
+fitted overview keeps the map clear of the column (and the DPR fix made centring right). "Labels switch sides" —
+the label placer tries right, left, above, below to avoid overlaps by design. "Roger, opening fire then no line of
+fire" — the radio acknowledgement then the men's report is the sim's honest answer; the preview showed the block.
+Not done (left open, effort): vehicle gun and ammunition on the card, pixel-look casualties readability, the
+drag-ghost pile-up on the squad, the phone's expanded list over the card.
+Choices made here without the owner (low confidence):
+1. Touch only: a press in Fire / Fire support must be held still 220 ms before it drags; a quicker swipe pans (the
+   mouse drags at once, as before). Two fingers whose midpoint moves > 12 px count as a pan (stop following).
+2. Duplicate callsigns are shown as "<parent's number>/<callsign>" ("1/Puma 2"), on map labels, the card and the
+   follow badge; the unit list keeps plain names under their platoon tile. Sim callsigns are unchanged.
+3. A turn in place keeps the men's shape: deep and narrow → `file`, wide and shallow → `line` (at their current
+   width), else the default formation; a formation picked in the plan bar still wins.
+4. The group buttons (Move, Fire) keep their own label; the icon and the tooltip show the variant that is on (the
+   bar no longer changes width when Fire support is picked).
+5. Score line order: time, mortar rounds, objectives; "mortar HE {he} · smoke {smoke}". Pin labels "{n} s ago".
+6. The start hint is one line on the desktop too (`app.hintShortMouse`); it hides once a unit is selected; the long
+   text is a tap away. The help card shows touch rows on a touch screen, mouse rows otherwise (keys on both).
+7. Close-up contours use a dark brown (`CONTOUR_CLOSE_INK`), stronger than the zoomed-out ones, not the pale rose.
+8. Radio log lines are nearly opaque and only as wide as their text; the Occupy context button stays above the log
+   and card; centring and following use the map area above the card and log (`viewInsets`).
+9. German role names with umlauts (strings only; outside the catalog fingerprint).
+Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and desktop).

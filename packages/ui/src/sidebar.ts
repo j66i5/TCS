@@ -1,6 +1,7 @@
 /**
  * The unit sidebar (M7.5a, owner answer 8): a slim strip with one small tile per own unit — its symbol, callsign,
- * men fit and a colour for its state. A tap on a tile selects the unit; a tap on the strip's head opens the full
+ * men fit and a colour for its state. A tap on a tile selects the unit (and centres the camera on it, S5); a press
+ * held on a tile for `HOLD_MS` makes the camera follow the unit (S5); a tap on the strip's head opens the full
  * list with details; on a wide screen (>= 1000 px) the list is always open. `unitTiles` is pure (SimView only);
  * the strip itself is plain DOM.
  */
@@ -88,7 +89,10 @@ export const WIDE_SCREEN_PX = 1000;
 /** The slim strip's width (56 px tiles and a margin; matches style.css). */
 export const SLIM_PX = 64;
 
-export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId) => void, onResize: () => void): Sidebar {
+/** S5: a press held this long on a tile follows the unit. */
+export const HOLD_MS = 450;
+
+export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId) => void, onResize: () => void, onHold?: (unit: EntityId) => void): Sidebar {
   const root = document.createElement("div");
   root.className = "hud-side side-left";
   const head = document.createElement("button");
@@ -108,6 +112,9 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   applyExpanded();
   globalThis.addEventListener("resize", applyExpanded);
   const els = new Map<EntityId, { b: HTMLButtonElement; key: string }>();
+  /** Review fix: more rows below the bottom edge fade out there (the list scrolls). */
+  const markMore = () => { list.classList.toggle("more", list.scrollHeight - list.scrollTop - list.clientHeight > 4); };
+  list.addEventListener("scroll", markMore, { passive: true });
   return {
     el: root,
     update(tiles, selected) {
@@ -119,7 +126,20 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           const b = document.createElement("button");
           b.className = "hud-tile";
           b.dataset["unit"] = String(t.unit);
-          b.onclick = () => onSelect(t.unit);
+          // A press held HOLD_MS follows the unit (the click that ends it is then not a select); moving away
+          // (scrolling the list) or letting go sooner leaves it a tap.
+          let timer: ReturnType<typeof setTimeout> | null = null, held = false, at: { x: number; y: number } | null = null;
+          const stop = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+          b.addEventListener("pointerdown", (ev) => {
+            held = false; at = { x: ev.clientX, y: ev.clientY }; stop();
+            if (onHold) timer = setTimeout(() => { timer = null; held = true; onHold(t.unit); }, HOLD_MS);
+          });
+          b.addEventListener("pointermove", (ev) => { if (at && Math.hypot(ev.clientX - at.x, ev.clientY - at.y) > 10) stop(); });
+          b.addEventListener("pointerup", stop);
+          b.addEventListener("pointercancel", stop);
+          b.addEventListener("pointerleave", stop);
+          b.addEventListener("contextmenu", (ev) => ev.preventDefault());
+          b.onclick = () => { if (held) { held = false; return; } onSelect(t.unit); };
           e = { b, key: "" };
           els.set(t.unit, e);
         }
@@ -150,6 +170,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
       });
       for (const [u, e] of els) if (!keep.has(u)) { e.b.remove(); els.delete(u); }
+      markMore();
     },
     setSide(side) { root.classList.toggle("side-left", side === "left"); root.classList.toggle("side-right", side === "right"); },
     setExpanded(on) { expanded = on; applyExpanded(); onResize(); },

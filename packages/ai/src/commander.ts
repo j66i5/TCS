@@ -21,7 +21,7 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, cos, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, cos, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 
@@ -132,7 +132,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   const force = input.forces.find((f) => f.side === side)!;
   const doctrine = input.catalog.factions[force.faction]?.doctrine ?? {};
   const tolerance = doctrine["casualtyToleranceBeforeWithdrawal"] ?? 0.3;
-  const fireDelayS = input.catalog.factions[force.faction]?.fireSupport?.delaySeconds ?? 0;
+  // (Step fire-support: until the volleys for effect, after the ranging rounds.)
+  const fsDef = input.catalog.factions[force.faction]?.fireSupport;
+  const fireDelayS = fsDef ? secondsToEffect(fsDef) : 0;
   // Where this side starts (its men's mean position): the way back, and the side the attack comes from.
   const sx = force.placements.reduce((a, p) => a + p.x, 0) / Math.max(1, force.placements.length);
   const sy = force.placements.reduce((a, p) => a + p.y, 0) / Math.max(1, force.placements.length);

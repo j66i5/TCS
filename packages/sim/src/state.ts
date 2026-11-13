@@ -20,6 +20,30 @@ import {
 
 /** Deeply read-only type: what controllers, the renderer and UI may see of the state. */
 /** Read-only face of a typed array (index and length only). */
+/**
+ * A side's mortar section (M6.5c): an off-map entity whose container holds its rounds (rule 9). `registered`
+ * (step fire-support): points it has already ranged onto, with the aiming error left there (m), so a new mission
+ * near one fires for effect at once. Absent until the first mission has ranged.
+ */
+export interface SupportSection {
+  side: SideId; battery: EntityId; heType: DefId; smokeType: DefId;
+  registered?: { x: number; y: number; ex: number; ey: number }[];
+}
+
+/**
+ * A fire mission on its way (M6.5c). `left`: rounds still to land in all (ranging rounds included). Step
+ * fire-support: `ranging` ranging rounds land first, one at a time, each off the point by the battery's aiming
+ * error (`ex`, `ey`, m), which the caller corrects when he sees where it fell; then the battery fires for effect
+ * in volleys (`volley` = rounds of the current volley fired).
+ */
+export interface FireMission {
+  side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number;
+  ranging?: number; ex?: number; ey?: number; volley?: number;
+  /** Review fixes: true once someone of the side saw one of its ranging rounds fall (only then is the point
+   *  remembered as registered: an unobserved one would keep the full aiming error for later missions). */
+  observed?: boolean;
+}
+
 export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
 
 export type DeepReadonly<T> =
@@ -65,8 +89,8 @@ export interface SimState {
   endLoser: SideId | null;
   /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
-  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
-  fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
+  support: SupportSection[];
+  fireMissions: FireMission[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: { tick: number; reason: BattleEndReason } | null;
@@ -150,8 +174,8 @@ export interface SerializedState {
   endLoser: SideId | null;
   /** Fire support (M6.5c): each side's mortar section (an off-map entity whose container holds its rounds as
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
-  support: { side: SideId; battery: EntityId; heType: DefId; smokeType: DefId }[];
-  fireMissions: { side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number }[];
+  support: SupportSection[];
+  fireMissions: FireMission[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
   ended: SimState["ended"];

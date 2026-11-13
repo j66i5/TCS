@@ -10,7 +10,7 @@ import { Sprite, Texture } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
-import { placeLabels, type LabelRequest, type Rect } from "./labels";
+import { placeLabels, shownCallsigns, type LabelRequest, type Rect } from "./labels";
 import { FlatTerrain, flatColours } from "./terrain-flat";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
@@ -56,6 +56,48 @@ export interface Overlay {
   /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
    *  drawn faint with a floor badge. */
   floor?: number;
+  /** Order gestures on the map (the "controls" step): see GestureOverlay. */
+  gesture?: GestureOverlay | null;
+  /**
+   * S7 (the "map-feel" step): one line per own unit on the move, faint, to its destination (the selected unit's
+   * bright, along its route ahead), and fire missions from the caller to the target in their own colour. Given (and
+   * Debug off), these replace the selected leaders' route lines.
+   */
+  intents?: readonly IntentLineView[] | null;
+  /**
+   * S8: "last seen" pins of lost contacts, with their age label (string table). Given, a contact seen or reported
+   * longer ago than `PIN_AFTER_S` is drawn only as its pin (or not at all once its spot was seen empty).
+   */
+  pins?: readonly { target: EntityId; x: number; y: number; label: string; cls?: "vehicle"; vtype?: string; heading?: number }[] | null;
+}
+
+/** A line of the S7 overlay (see Overlay.intents). */
+export interface IntentLineView {
+  x0: number; y0: number; x1: number; y1: number; kind: "move" | "fire"; selected: boolean;
+  route?: readonly { x: number; y: number }[];
+  /** A fire mission (S11): its phase and where its ranging rounds fell (oldest first). */
+  phase?: "called" | "ranging" | "effect";
+  falls?: readonly { x: number; y: number; seen: boolean }[];
+}
+
+/** S8: a known contact unseen this long (s) is a "last seen" pin (when the app gives pins). */
+export const PIN_AFTER_S = 6;
+
+/**
+ * Order gestures (owner choices S1, S2, S9, S10): the selected unit's active move marker (drag it to re-target, onto
+ * the unit to halt), its facing handle while halted, the line-of-sight preview of a fire order being held, and a
+ * cancel mark while the pointer is back on the unit (releasing there sends nothing, or Halt for a marker).
+ */
+export interface GestureOverlay {
+  marker?: { x: number; y: number; from: { x: number; y: number } | null; dragging: boolean } | null;
+  facing?: { centre: { x: number; y: number }; handle: { x: number; y: number }; dragging: boolean } | null;
+  los?: readonly { x0: number; y0: number; x1: number; y1: number; stopAt: number; clear: boolean }[] | null;
+  target?: { x: number; y: number } | null;
+  cancelAt?: { x: number; y: number } | null;
+  /** The man whose detail box is open (S6, the "bar-card" step): a ring round him. */
+  man?: { x: number; y: number } | null;
+  /** S11: the point held for fire support (while it is held and its pop-up is open), joined to the caller. */
+  support?: { x: number; y: number; from: { x: number; y: number } | null } | null;
 }
 
 export interface PlanOverlay {
@@ -63,7 +105,14 @@ export interface PlanOverlay {
   from: { x: number; y: number };
   points: readonly { x: number; y: number; mode: string }[];
   marker: { centre: { x: number; y: number }; men: readonly { x: number; y: number }[]; arrowTip: { x: number; y: number }; rotate: { x: number; y: number }; resize: { x: number; y: number } | null } | null;
+  /** A move being dragged out from the unit (S1) or a turn in place (S9): no handles, no route points. */
+  ghost?: boolean;
 }
+
+/** S7: the lines to where own units go (pale), and fire missions (amber); S8: the pins' age labels. */
+const INTENT_COLOUR = 0xeef3e2;
+const FIRE_COLOUR = 0xffa23a;
+const PIN_LABEL_COLOUR = 0xd9cfc4;
 
 /** Colour of a route leg by its pace. */
 const PACE_COLOURS: Record<string, number> = { walk: 0xffffff, run: 0xffc23d, sneak: 0x7fd7ff, crawl: 0xb08cff };
@@ -108,6 +157,11 @@ export class BattleRenderer {
   private nReqs = 0;
   /** Vehicle label requests by vehicle entity this frame (a dismounted squad near its vehicle joins its label). */
   private vehReq = new Map<EntityId, number>();
+  /** Callsigns as shown (duplicates told apart, review fix), rebuilt when the number of units changes. */
+  private shown = new Map<EntityId, string>();
+  private shownFor = -1;
+  private shownStore: unknown = null;
+  private callsign(uid: EntityId): string { return this.shown.get(uid) ?? ""; }
   /** Uniform tones and vehicle paint (M7.5a), outside the catalog. */
   private appearance: Appearance | null = null;
   private hudRects: Rect[] = [];
@@ -116,6 +170,7 @@ export class BattleRenderer {
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
   private look: Look = "pixel";
   private lod: Lod | null = null;
+  private contoursAlways = false;
   private flat: FlatTerrain | null = null;
   private bld: BuildingLayers | null = null;
   /** Men sprites (screen space) between the floors and the roofs; roofs follow the camera like the map. */
@@ -164,11 +219,15 @@ export class BattleRenderer {
     return new BattleRenderer(fake);
   }
 
-  get width(): number { return this.app.renderer.width / this.app.renderer.resolution; }
-  get height(): number { return this.app.renderer.height / this.app.renderer.resolution; }
+  /** Screen size in CSS px: Pixi 8's `renderer.width` is already in CSS px (not device px), whatever the resolution. */
+  get width(): number { return this.app.renderer.width; }
+  get height(): number { return this.app.renderer.height; }
 
   /** The look (M7.5b): set before `setMap`. */
   setLook(look: Look): void { this.look = look; this.lod = null; }
+  /** S14: contour lines at every zoom (true) or only zoomed out (false, the automatic rule). */
+  setContoursAlways(on: boolean): void { this.contoursAlways = on; }
+  contoursShown(): boolean { return this.contoursAlways || (this.lod ?? 0) <= LOD_DOTS; }
   getLook(): Look { return this.look; }
   /** The zoom level shown last (0 symbols, 1 dots, 2 figures, 3 close; M7.5b). */
   zoomLevel(): Lod | null { return this.lod; }
@@ -375,6 +434,7 @@ export class BattleRenderer {
     // Zoom level (M7.5b): the classic look keeps its single overview threshold.
     const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
     this.lod = lod;
+    if (state.unit.size !== this.shownFor || state.unit !== this.shownStore) { this.shown = shownCallsigns(state.unit.entries()); this.shownFor = state.unit.size; this.shownStore = state.unit; }
     this.drawGround(map, lod);
     this.bld?.setFloor(overlay.floor ?? 0);
     this.updateRoofs(state, overlay, lod);
@@ -389,13 +449,14 @@ export class BattleRenderer {
     // Route lines. In play only ONE per unit: the way of the leader of the selected unit (and of the leaders
     // of its sub-units) — not a trace for every man (owner, 2026-11-12). Debug shows every man's own path.
     const leaders = new Set<EntityId>();
-    if (!overlay.debug && overlay.selectedUnit !== null) {
+    if (!overlay.debug && overlay.intents) this.drawIntents(g, overlay.intents);
+    else if (!overlay.debug && overlay.selectedUnit !== null) {
       for (const [uid, u] of state.unit.entries()) {
         if (u.leader !== null && u.side === overlay.playerSide && unitIsOrContains(state, overlay.selectedUnit, uid)) leaders.add(u.leader);
       }
     }
     // mounted: ok men aboard have no waypoints
-    for (const [id, m] of state.mover.entries()) {
+    for (const [id, m] of overlay.debug || !overlay.intents ? state.mover.entries() : []) {
       if (m.waypoints.length === 0) continue;
       if (!overlay.debug && !leaders.has(id)) continue;
       const ident = state.identity.get(id);
@@ -441,6 +502,7 @@ export class BattleRenderer {
       this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
+      if (overlay.gesture) this.drawGesture(g, overlay.gesture);
       this.flushSprites();
       this.flushLabels();
       return;
@@ -471,7 +533,8 @@ export class BattleRenderer {
         const other = this.otherFloor(t);
         this.drawMan(state, id, ident.faction, sol, t.heading, s.x, s.y, size, colour, other < 0 ? 1 : GHOST_ALPHA);
         if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
-        if (selected) g.circle(s.x, s.y, size * 0.42 + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+        // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
+        if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         const bh = sol?.mental.behaviour;
         if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
@@ -529,9 +592,9 @@ export class BattleRenderer {
         const vt = unit.carrier !== undefined ? state.transform.get(unit.carrier) : undefined;
         if (vr !== undefined && vt && (vt.x - t.x) ** 2 + (vt.y - t.y) ** 2 <= 15 * 15 && drill === "") {
           const q = this.reqs[vr]!;
-          q.text = `${q.text} · ${unit.callsign}`;
+          q.text = `${q.text} · ${this.callsign(ident.unit)}`;
           if (selected) q.priority = 0;
-        } else this.request(unit.callsign + drill, s.x, s.y, lr, colour, selected ? 0 : 2, ident.unit);
+        } else this.request(this.callsign(ident.unit) + drill, s.x, s.y, lr, colour, selected ? 0 : 2, ident.unit);
       }
       // Debug: what he decided on his own (M4.2) — a line to the enemy he engages, the cover he runs to, the man
       // he brings ammunition to.
@@ -552,8 +615,147 @@ export class BattleRenderer {
     this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
+    if (overlay.gesture) this.drawGesture(g, overlay.gesture);
     this.flushSprites();
     this.flushLabels();
+  }
+
+  /**
+   * S7: where own units are going — a faint straight line from each unit on the move to its destination with a small
+   * dot there; the selected unit's bright, along its route ahead; fire missions as a broken amber line from the caller
+   * to a ring on the target. Colours are TCS's own.
+   */
+  private drawIntents(g: Graphics, lines: readonly IntentLineView[]): void {
+    const c = this.camera;
+    for (const l of lines) {
+      if (l.kind !== "move" || l.selected) continue;
+      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+    }
+    g.stroke({ width: 1.5, color: INTENT_COLOUR, alpha: 0.35 });
+    for (const l of lines) {
+      if (l.kind !== "move" || l.selected) continue;
+      const b = worldToScreen(c, l.x1, l.y1);
+      g.circle(b.x, b.y, 2.5);
+    }
+    g.fill({ color: INTENT_COLOUR, alpha: 0.5 });
+    for (const l of lines) {
+      if (l.kind !== "move" || !l.selected) continue;
+      let a = worldToScreen(c, l.x0, l.y0);
+      for (const p of l.route ?? [{ x: l.x1, y: l.y1 }]) { const b = worldToScreen(c, p.x, p.y); g.moveTo(a.x, a.y).lineTo(b.x, b.y); a = b; }
+      g.stroke({ width: 2, color: INTENT_COLOUR, alpha: 0.9 });
+      g.circle(a.x, a.y, 3.5).fill({ color: INTENT_COLOUR, alpha: 0.95 });
+    }
+    for (const l of lines) {
+      if (l.kind !== "fire") continue;
+      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+      const al = l.selected ? 0.95 : 0.6;
+      dashed(g, a.x, a.y, b.x, b.y, 9, 6);
+      g.stroke({ width: l.selected ? 2.5 : 2, color: FIRE_COLOUR, alpha: al });
+      // S11: the ranging rounds walking in (a small cross where each fell, a thin trail on to the point; unseen
+      // falls hollow), and a second, wider ring once the battery fires for effect.
+      if (l.falls && l.falls.length > 0) {
+        let p = worldToScreen(c, l.falls[0]!.x, l.falls[0]!.y);
+        for (let k = 1; k <= l.falls.length; k++) {
+          const q = k < l.falls.length ? worldToScreen(c, l.falls[k]!.x, l.falls[k]!.y) : b;
+          dashed(g, p.x, p.y, q.x, q.y, 4, 4);
+          p = q;
+        }
+        g.stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.85 });
+        for (const f of l.falls) {
+          const s = worldToScreen(c, f.x, f.y);
+          g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7);
+          g.stroke({ width: 4.5, color: 0x1b241a, alpha: 0.75 });
+          g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7);
+          g.stroke({ width: 2.5, color: f.seen ? FIRE_COLOUR : 0xd8cbb0, alpha: al });
+        }
+      }
+      g.circle(b.x, b.y, 9).stroke({ width: 2, color: FIRE_COLOUR, alpha: al });
+      g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
+      if (l.phase === "effect") g.circle(b.x, b.y, 15).stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.8 });
+    }
+  }
+
+  /** Order gestures (the "controls" step): see GestureOverlay. Colours are TCS's own. */
+  private drawGesture(g: Graphics, gs: GestureOverlay): void {
+    const c = this.camera;
+    // Line of sight (S2): solid where the view is clear, broken from where it is stopped.
+    if (gs.los) {
+      for (const l of gs.los) {
+        const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+        const mx = a.x + (b.x - a.x) * l.stopAt, my = a.y + (b.y - a.y) * l.stopAt;
+        // (Review fix: a dark edge under each line keeps it readable on pale fields; the blocked part is thicker
+        // and its cross bigger, so it shows at phone size.)
+        if (l.stopAt > 0) {
+          g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 4, color: 0x0b0f0a, alpha: 0.55 });
+          g.moveTo(a.x, a.y).lineTo(mx, my).stroke({ width: 2, color: 0xd9f7ff, alpha: 0.95 });
+        }
+        if (l.stopAt < 1) {
+          dashed(g, mx, my, b.x, b.y, 7, 5);
+          g.stroke({ width: 4.5, color: 0x0b0f0a, alpha: 0.55 });
+          dashed(g, mx, my, b.x, b.y, 7, 5);
+          g.stroke({ width: 2.5, color: 0xff7a59, alpha: 0.95 });
+          if (l.stopAt > 0) {
+            g.moveTo(mx - 6, my - 6).lineTo(mx + 6, my + 6).moveTo(mx + 6, my - 6).lineTo(mx - 6, my + 6).stroke({ width: 4.5, color: 0x0b0f0a, alpha: 0.6 });
+            g.moveTo(mx - 6, my - 6).lineTo(mx + 6, my + 6).moveTo(mx + 6, my - 6).lineTo(mx - 6, my + 6).stroke({ width: 2.5, color: 0xff7a59 });
+          }
+        }
+      }
+    }
+    if (gs.target) {
+      const s = worldToScreen(c, gs.target.x, gs.target.y);
+      g.circle(s.x, s.y, 13).stroke({ width: 2.5, color: 0xff7a59, alpha: 0.95 });
+      g.moveTo(s.x - 19, s.y).lineTo(s.x - 7, s.y).moveTo(s.x + 7, s.y).lineTo(s.x + 19, s.y)
+        .moveTo(s.x, s.y - 19).lineTo(s.x, s.y - 7).moveTo(s.x, s.y + 7).lineTo(s.x, s.y + 19).stroke({ width: 2, color: 0xff7a59, alpha: 0.95 });
+    }
+    // The point held for fire support (S11): the mission line's colour, a ring with four ticks, joined to the caller.
+    if (gs.support) {
+      const s = worldToScreen(c, gs.support.x, gs.support.y);
+      if (gs.support.from) {
+        const f = worldToScreen(c, gs.support.from.x, gs.support.from.y);
+        dashed(g, f.x, f.y, s.x, s.y, 9, 6);
+        g.stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.75 });
+      }
+      g.circle(s.x, s.y, 16).fill({ color: 0x1b241a, alpha: 0.35 }).stroke({ width: 2.5, color: FIRE_COLOUR, alpha: 0.95 });
+      g.moveTo(s.x - 24, s.y).lineTo(s.x - 10, s.y).moveTo(s.x + 10, s.y).lineTo(s.x + 24, s.y)
+        .moveTo(s.x, s.y - 24).lineTo(s.x, s.y - 10).moveTo(s.x, s.y + 10).lineTo(s.x, s.y + 24).stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.95 });
+      g.circle(s.x, s.y, 3).fill({ color: FIRE_COLOUR, alpha: 0.95 });
+    }
+    // An active move's marker (S10): a ring with a centre, joined to the unit while it is dragged.
+    if (gs.marker) {
+      const s = worldToScreen(c, gs.marker.x, gs.marker.y);
+      if (gs.marker.from && gs.marker.dragging) {
+        const f = worldToScreen(c, gs.marker.from.x, gs.marker.from.y);
+        dashed(g, f.x, f.y, s.x, s.y, 8, 5);
+        g.stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
+      }
+      g.circle(s.x, s.y, 11).fill({ color: 0x1b241a, alpha: 0.65 }).stroke({ width: 2.5, color: 0xffffff, alpha: 0.95 });
+      g.circle(s.x, s.y, 4).fill({ color: 0xffffff, alpha: 0.95 });
+    }
+    // The facing handle (S9): a line out of the unit and a round handle with an arrowhead.
+    if (gs.facing) {
+      const ce = worldToScreen(c, gs.facing.centre.x, gs.facing.centre.y), h = worldToScreen(c, gs.facing.handle.x, gs.facing.handle.y);
+      const ang = Math.atan2(h.y - ce.y, h.x - ce.x);
+      const col = 0x8fe3c0;
+      dashed(g, ce.x, ce.y, h.x - Math.cos(ang) * 12, h.y - Math.sin(ang) * 12, 4, 4);
+      g.stroke({ width: gs.facing.dragging ? 2.5 : 1.5, color: col, alpha: gs.facing.dragging ? 0.95 : 0.7 });
+      g.circle(h.x, h.y, 11).fill({ color: 0x1b241a, alpha: 0.7 }).stroke({ width: 2.5, color: col });
+      const tx = h.x + Math.cos(ang) * 5, ty = h.y + Math.sin(ang) * 5;
+      g.poly([tx, ty, h.x + Math.cos(ang + 2.5) * 6, h.y + Math.sin(ang + 2.5) * 6, h.x + Math.cos(ang - 2.5) * 6, h.y + Math.sin(ang - 2.5) * 6]).fill({ color: col });
+    }
+    // The man whose box is open (S6): a bright ring with four ticks, sized to stay visible at any zoom.
+    if (gs.man) {
+      const s = worldToScreen(c, gs.man.x, gs.man.y), r = Math.max(9, 0.9 * c.scale);
+      g.circle(s.x, s.y, r).stroke({ width: 2, color: 0xfff3a0, alpha: 0.95 });
+      g.moveTo(s.x - r - 5, s.y).lineTo(s.x - r + 1, s.y).moveTo(s.x + r - 1, s.y).lineTo(s.x + r + 5, s.y)
+        .moveTo(s.x, s.y - r - 5).lineTo(s.x, s.y - r + 1).moveTo(s.x, s.y + r - 1).lineTo(s.x, s.y + r + 5).stroke({ width: 2, color: 0xfff3a0, alpha: 0.95 });
+    }
+    // Back on the unit: letting go here cancels (a marker: halts).
+    if (gs.cancelAt) {
+      const s = worldToScreen(c, gs.cancelAt.x, gs.cancelAt.y);
+      g.circle(s.x, s.y, 16).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2.5, color: 0xff5a4a });
+      g.moveTo(s.x - 7, s.y - 7).lineTo(s.x + 7, s.y + 7).moveTo(s.x + 7, s.y - 7).lineTo(s.x - 7, s.y + 7).stroke({ width: 3, color: 0xff5a4a });
+    }
   }
 
   /**
@@ -624,7 +826,7 @@ export class BattleRenderer {
       g.moveTo(s.x - W / 2, s.y - H / 2).lineTo(s.x + W / 2, s.y + H / 2).moveTo(s.x + W / 2, s.y - H / 2).lineTo(s.x - W / 2, s.y + H / 2).stroke({ width: 1.5, color: colour });
       const sel = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, uid);
       if (overlay.selectedUnit === uid) g.rect(s.x - W / 2 - 3, s.y - H / 2 - 3, W + 6, H + 6).stroke({ width: 2, color: 0xffffff });
-      this.request(u.callsign, s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
+      this.request(this.callsign(uid), s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
     }
   }
 
@@ -706,7 +908,7 @@ export class BattleRenderer {
       const unit = v.unit !== null ? state.unit.get(v.unit) : undefined;
       if (unit && v.unit !== null) {
         this.vehReq.set(vid, this.nReqs);
-        this.request(aboard > 0 ? `${unit.callsign} +${aboard}` : unit.callsign, s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 2, colour, selected ? 0 : 2, v.unit);
+        this.request(aboard > 0 ? `${this.callsign(v.unit)} +${aboard}` : this.callsign(v.unit), s.x, s.y, (def.body.lengthM / 2) * c.scale * k + 2, colour, selected ? 0 : 2, v.unit);
       }
       // Debug overlay (M7.3): the target line of each station and its reasons beside the hull.
       const dbg = overlay.vehicleDebug;
@@ -776,6 +978,7 @@ export class BattleRenderer {
     let a = worldToScreen(c, plan.from.x, plan.from.y);
     for (const p of plan.points) {
       const b = worldToScreen(c, p.x, p.y);
+      if (plan.ghost) { dashed(g, a.x, a.y, b.x, b.y, 10, 6); g.stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.8 }); a = b; continue; }
       g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.85 });
       g.circle(b.x, b.y, 6).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2, color: 0xffffff });
       a = b;
@@ -796,7 +999,7 @@ export class BattleRenderer {
     g.moveTo(ce.x, ce.y).lineTo(tip.x, tip.y).stroke({ width: 3, color: main });
     const ang = Math.atan2(tip.y - ce.y, tip.x - ce.x);
     g.poly([tip.x + Math.cos(ang) * 10, tip.y + Math.sin(ang) * 10, tip.x + Math.cos(ang + 2.4) * 9, tip.y + Math.sin(ang + 2.4) * 9, tip.x + Math.cos(ang - 2.4) * 9, tip.y + Math.sin(ang - 2.4) * 9]).fill({ color: main });
-    if (plan.kind === "move") {
+    if (plan.kind === "move" && !plan.ghost) {
       // Handles, big enough for a finger: turn (at the arrow), width (at the side).
       for (const h of [m.rotate, m.resize]) {
         if (!h) continue;
@@ -840,7 +1043,10 @@ export class BattleRenderer {
     for (const [id, i] of sideIndex) if (id !== overlay.playerSide) { enemy = i; break; }
     const colour = SIDE_COLOURS[enemy % SIDE_COLOURS.length]!;
     const d = Math.max(4, 0.7 * c.scale);
+    const pinned = overlay.pins !== undefined && overlay.pins !== null;
     for (const k of overlay.known ?? []) {
+      // S8: lost (unseen PIN_AFTER_S) contacts that were seen or reported are drawn as their pins below.
+      if (pinned && k.kind !== "heard" && k.ageS >= PIN_AFTER_S) continue;
       const s = worldToScreen(c, k.x, k.y);
       const fade = Math.max(0.15, 1 - k.ageS / 120);
       if (k.cls === "vehicle") { this.drawKnownVehicle(g, k, s, colour, fade); continue; }
@@ -861,6 +1067,17 @@ export class BattleRenderer {
       if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
       if (k.kind === "seen" && k.ageS < 2) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
       else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
+    }
+    // S8: "last seen" pins — a hollow pin standing on the spot (a hull: its hollow outline too), with the age.
+    for (const p of overlay.pins ?? []) {
+      const s = worldToScreen(c, p.x, p.y);
+      if (p.cls === "vehicle") this.drawKnownVehicle(g, { target: p.target, x: p.x, y: p.y, errM: 0, kind: "seen", ageS: 1e9, cls: "vehicle", ...(p.vtype !== undefined ? { vtype: p.vtype } : {}), ...(p.heading !== undefined ? { heading: p.heading } : {}) }, s, colour, 0.55);
+      const hy = s.y - 13;
+      g.moveTo(s.x - 3.5, hy + 4).lineTo(s.x, s.y).lineTo(s.x + 3.5, hy + 4);
+      g.stroke({ width: 1.5, color: colour, alpha: 0.85 });
+      g.circle(s.x, hy, 5.5).fill({ color: 0x10140f, alpha: 0.55 }).stroke({ width: 2, color: colour, alpha: 0.9 });
+      g.circle(s.x, s.y, 1.5).fill({ color: colour, alpha: 0.9 });
+      this.request(p.label, s.x, hy, 6, PIN_LABEL_COLOUR, 3, 1_000_000 + p.target);
     }
   }
 
@@ -1096,7 +1313,8 @@ export class BattleRenderer {
     this.roofLayer.scale.set(c.scale);
     this.roofLayer.position.set(-c.x * c.scale, -c.y * c.scale);
     // Flat map (M7.5b): detail tiles from the figure level in; contour lines only at the dot and symbol levels.
-    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS);
+    // S14 (the "map-feel" step): the top-bar toggle shows them at every zoom (close up: fine tiles in a pale ink).
+    this.flat?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS || this.contoursAlways, this.contoursAlways);
     const g = this.world;
     g.clear();
     if (this.terrain) {
@@ -1123,6 +1341,19 @@ export class BattleRenderer {
 }
 
 /** A white flag on a pole beside a man who has surrendered (M6.6). */
+/** A broken line (dash, gap) in screen pixels; the caller strokes it. */
+function dashed(g: Graphics, ax: number, ay: number, bx: number, by: number, dash: number, gap: number): void {
+  const len = Math.hypot(bx - ax, by - ay);
+  if (len < 0.5) return;
+  const ux = (bx - ax) / len, uy = (by - ay) / len;
+  // (Long lines when zoomed in: at most 400 dashes.)
+  const step = Math.max(dash + gap, len / 400);
+  for (let d = 0; d < len; d += step) {
+    const e = Math.min(len, d + dash * (step / (dash + gap)));
+    g.moveTo(ax + ux * d, ay + uy * d).lineTo(ax + ux * e, ay + uy * e);
+  }
+}
+
 function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {
   const k = Math.max(r, 4);
   g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a });

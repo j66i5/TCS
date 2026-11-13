@@ -41,7 +41,7 @@ import { compCondition, fireTop, occupant } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
-import { friendInLine, skillFactor } from "./fire";
+import { aimHeightAt, friendInLine, skillFactor } from "./fire";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
@@ -244,7 +244,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const st = v.stations[si]!;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
-    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : ctx.catalog.shooting.fire.aimPointHeightM);
+    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : aimHeightAt(ctx, state, cnd.target)); // ground: ok (a man's floor in his aim height)
     const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, cnd.vehicle ? cnd.target : -1);
     if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) { best = cnd; break; }
   }
@@ -375,8 +375,9 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
           }
         }
         const range = Math.max(1, hypot2(tx - px, ty - py));
+        // ground: ok (a vehicle's gun; the point fired at)
         const mz = heightAt(ctx.map, t.x, t.y) + (def.body.turret?.trunnionU ?? 2);
-        const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+        const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at) // ground: ok
         let az = wrapAngle(atan2(ty - py, tx - px) - t.heading);
         if (sn.traverseArcRad) az = Math.min(Math.max(az, sn.traverseArcRad[0]), sn.traverseArcRad[1]);
         st.azCmd = az;
@@ -403,7 +404,7 @@ export function muzzleWorld(ctx: SimContext, def: VehicleDef, si: number, wi: nu
   const m = def.stations[si]!.weapons[wi]!.muzzle;
   const { px, py } = pivotOf(def, x, y, heading);
   const a = heading + azimuth, c = cos(a), s = sin(a);
-  return [px + c * m[0] - s * m[1], py + s * m[0] + c * m[1], heightAt(ctx.map, x, y) + m[2]];
+  return [px + c * m[0] - s * m[1], py + s * m[0] + c * m[1], heightAt(ctx.map, x, y) + m[2]]; // ground: ok (a vehicle's muzzle)
 }
 
 /** A wall or the ground this close to the point fired at is the target, not a block. */
@@ -471,7 +472,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
         const [mx, my, mz] = muzzleWorld(ctx, def, si, st.taskWeapon, t.x, t.y, t.heading, st.azimuth);
         // (Fire at the ground — high explosive at men's feet — is checked to a point a little above it: a line
         // grazing flat ground short of the point is not a wall in the way.)
-        const tz = heightAt(ctx.map, task.x, task.y) + Math.max(task.heightM, 0.6);
+        const tz = heightAt(ctx.map, task.x, task.y) + Math.max(task.heightM, 0.6); // ground: ok (the point fired at)
         const tv = task.contact !== undefined && state.vehicle.has(task.contact) ? task.contact : -1;
         const r = sight(ctx, mx, my, mz, task.x, task.y, tz, vid, tv);
         const range = hypot2(task.x - mx, task.y - my);
@@ -496,7 +497,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       }
       const range = hypot2(tx - mx, ty - my);
       if (range < 2) { st.task = null; continue; }
-      const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+      const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at)
       const a0 = atan2(ty - my, tx - mx);
       const believed = range * (1 + task.rangeError);
       const skill = os.skills["marksmanship"] ?? 0.5;

@@ -21,7 +21,7 @@ import { registerActionHandler, startAction } from "../actions";
 import type { VehicleDef } from "../catalog";
 import type { Boarding, SoldierState, Unit, VehicleState } from "../components";
 import type { SimContext } from "../context";
-import { routeBetween } from "../interior-nav";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { transferItems } from "../items";
@@ -103,10 +103,9 @@ function runTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: num
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z });
   if (!leg) return false;
-  m.waypoints = [];
-  for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null; m.endPosture = null; m.endHeading = null;
   return true;
 }

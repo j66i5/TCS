@@ -85,6 +85,7 @@ export function driveSurface(ctx: SimContext, def: VehicleDef, x: number, y: num
   const sv: SurfaceVehicleDef | undefined = sid === undefined ? undefined : ctx.catalog.terrain.surfaces[sid]?.vehicle;
   const half = def.body.lengthM / 2;
   const c = cos(heading), s = sin(heading);
+  // ground: ok (a hull on the ground)
   const hf = heightAt(map, x + c * half, y + s * half), hb = heightAt(map, x - c * half, y - s * half);
   const dh = hf - hb, len = sqrt(dh * dh + 4 * half * half);
   const sinPitch = dh / len, cosPitch = (2 * half) / len;

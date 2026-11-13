@@ -120,6 +120,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   /** Out of sight of (ox, oy) from a man standing there to a hull's top at (x, y)? */
   const hidden = (ox: number, oy: number, x: number, y: number): boolean => {
     const ctx = ground();
+    // ground: ok (the commander's view of open ground)
     const z0 = heightAt(input.map, ox, oy) + 1.7, z1 = heightAt(input.map, x, y) + 2.2;
     return sight(ctx, ox, oy, z0, x, y, z1).blockedBy !== null;
   };

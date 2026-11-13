@@ -30,6 +30,15 @@ export function heightAt(m: MapDef, x: number, y: number): number {
   return (h00 * (1 - tx) + h10 * tx) * (1 - ty) + (h01 * (1 - tx) + h11 * tx) * ty;
 }
 
+/**
+ * Height of a man's feet (M7.5d): the ground under (x, y) — by default where he stands — plus his height above it
+ * (`t.z`: 0 on the ground, the floor's height upstairs, the seat's aboard). Every soldier height (eyes, muzzle,
+ * target point, grenade throw) starts here; a bare `heightAt` for a man carries a `// ground: ok` marker.
+ */
+export function standZ(m: MapDef, t: { x: number; y: number; z: number }, x = t.x, y = t.y): number {
+  return heightAt(m, x, y) + t.z;
+}
+
 /** Gradient (dh/dx, dh/dy) at (x, y) from central differences over one cell. */
 export function slopeAt(m: MapDef, x: number, y: number): { dx: number; dy: number } {
   const d = m.cellSizeM / 2;

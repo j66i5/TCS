@@ -33,7 +33,7 @@ import { sight } from "../los";
 import { atan2, cos, hypot2, sin } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, pointInPolygon } from "../terrain";
+import { heightAt, pointInPolygon, standZ } from "../terrain";
 import { launchProjectile } from "./ballistics";
 import { skillFactor } from "./fire";
 import { footSoldiers } from "../mount";
@@ -95,7 +95,7 @@ export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId,
     const breached = state.terrain.breaches.some((br) => br.owner === "building" && br.id === b.id);
     if (!breached && area < AT.largeRoomM2) return "at.room";
   }
-  const z = heightAt(ctx.map, t.x, t.y) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const z = standZ(ctx.map, t) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   // A wall right behind the tube.
   const bx = t.x - cos(az) * AT.wallBehindM, by = t.y - sin(az) * AT.wallBehindM;
   if (bx > 0 && by > 0 && bx < ctx.map.widthM && by < ctx.map.heightM && lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, t.x, t.y, z, bx, by, z)) return "at.wallBehind";
@@ -150,7 +150,10 @@ export function aimSolution(ctx: SimContext, am: AmmoRT, v0: number, d: number, 
 function aimHeight(ctx: SimContext, state: SimState, target: EntityId | undefined): number {
   const v = target !== undefined ? state.vehicle.get(target) : undefined;
   if (v) { const h = ctx.catalog.vehicles[v.def]?.body.hull; if (h) return (h.u[0] + h.u[1]) / 2; }
-  return 1.0;
+  // A man upstairs (M7.5d): his floor's height.
+  const ms = target !== undefined ? state.soldier.get(target) : undefined;
+  const z = ms && ms.mount === undefined ? state.transform.get(target!)?.z ?? 0 : 0;
+  return z > 0 ? 1.0 + z : 1.0;
 }
 
 /** Is this contact one his anti-tank rule lets him fire at on his own? */
@@ -196,8 +199,8 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const az = atan2(best.y - me.y, best.x - me.x);
   if (backblastBlocked(ctx, state, id, rd.ammo, az) !== null) return false;
   // A clear line from his shoulder to the aim point (the target's own hull ignored).
-  const z0 = heightAt(ctx.map, me.x, me.y) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
-  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target);
+  const z0 = standZ(ctx.map, me) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target); // ground: ok (aimHeight carries a man's floor)
   const r = sight(ctx, me.x, me.y, z0, best.x, best.y, z1, -1, best.target);
   if (r.blockedBy !== null) return false;
   startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: rd.ammo, x: best.x, y: best.y, target: best.target });
@@ -298,7 +301,7 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   const az0 = atan2(ty - t.y, tx - t.x);
   if (backblastBlocked(ctx, state, id, ammo, az0) !== null) return; // someone stepped behind him: no shot
   const ox = t.x + cos(az0) * 0.3, oy = t.y + sin(az0) * 0.3;
-  const oz = heightAt(ctx.map, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   const v0 = d.velocityMps ?? 100;
   const rng = state.rng;
   // His estimate of the range is off by a few per cent; the lead follows from the flight time.
@@ -307,6 +310,7 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   let ax = tx, ay = ty, sol: { el: number; tof: number } | null = null;
   for (let it = 0; it < 2; it++) {
     const dist = Math.max(1, hypot2(ax - ox, ay - oy));
+    // ground: ok (aimHeight carries a man's floor)
     const dz = heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01)) + aimH - oz;
     sol = aimSolution(ctx, am, v0, dist * rangeErr, dz);
     if (!sol) break;

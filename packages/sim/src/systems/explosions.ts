@@ -19,7 +19,7 @@ import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
+import { heightAt, standZ, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 
 /**
@@ -57,7 +57,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     if (!t) continue;
     const dx = t.x - x, dy = t.y - y;
     if (dx > stunR || dx < -stunR || dy > stunR || dy < -stunR) continue;
-    const cz = heightAt(map, t.x, t.y) + t.z + ctx.catalog.body.postures[s.posture].heightM * 0.5;
+    const cz = standZ(map, t) + ctx.catalog.body.postures[s.posture].heightM * 0.5;
     const d = sqrt(dx * dx + dy * dy + (cz - z) * (cz - z));
     if (d > stunR) continue;
     if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
@@ -68,6 +68,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const fragIdx = ammoIndexOf(ctx.catalog, ex.fragmentAmmo);
   // On the ground the lower half goes into the earth; a burst in the air (fuse ran out in flight, a round
   // striking a wall or a ceiling) throws fragments downward too.
+  // ground: ok (a burst above the ground; one on an upper floor counts as in the air: fragments both ways)
   const airborne = z - heightAt(map, x, y) > bal.fragments.airburstAboveM;
   const lo = airborne ? -1 : sin((bal.fragments.bandDeg[0] * PI) / 180), hi = sin((bal.fragments.bandDeg[1] * PI) / 180);
   const n = Math.min(bal.fragments.maxPerBurst, Math.round((ex.fragmentCount * (hi - lo)) / 2));
@@ -89,7 +90,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   P.count = i;
 
   // ---- terrain damage
-  const ground = heightAt(map, x, y);
+  const ground = heightAt(map, x, y); // ground: ok (craters)
   if (z - ground < 0.5 && BL.craterScaledM > 0) {
     const r = BL.craterScaledM * cube;
     state.terrain.craters.push({ x, y, radiusM: r, depthM: r * 0.4, tick: state.tick });
@@ -111,7 +112,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     u = u < 0 ? 0 : u > 1 ? 1 : u;
     const px = s.ax + u * exx, py = s.ay + u * eyy;
     if (hypot2(px - x, py - y) > reach) continue;
-    const rel = z - heightAt(map, px, py);
+    const rel = z - heightAt(map, px, py); // ground: ok (walls stand on the ground)
     if (rel > info.heightM + reach || (info.baseM > 0 && rel < info.baseM - reach)) continue;
     const mat = ctx.ballistics.materials[info.material]!;
     if (mat.resistance * info.thicknessM * 1000 >= strength) continue;

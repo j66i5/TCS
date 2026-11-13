@@ -17,7 +17,7 @@
  */
 import type { Drill, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
-import { routeBetween } from "../interior-nav";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, isCaptive } from "../impair";
@@ -26,7 +26,7 @@ import { atan2, cos, hypot2, PI, sin } from "../math";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
-import { assignFireTask } from "./fire";
+import { aimHeightAt, assignFireTask } from "./fire";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 
@@ -50,10 +50,9 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z });
   if (!leg) return false;
-  m.waypoints = [];
-  for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null;
   m.endPosture = "prone";
   m.endHeading = face ? atan2(face.y - leg.goalY, face.x - leg.goalX) : null;
@@ -179,7 +178,7 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
       if (dd < bestD) { bestD = dd; best = c; }
     }
     if (best) {
-      if (assignFireTask(ctx, state, m, best.x, best.y, ctx.catalog.shooting.fire.aimPointHeightM)) state.fire.req(m).contact = best.target;
+      if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, state, best.target))) state.fire.req(m).contact = best.target;
     } else assignFireTask(ctx, state, m, at.x, at.y, d.kind === "assault" ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM);
   }
   void events;

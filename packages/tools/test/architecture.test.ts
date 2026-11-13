@@ -141,6 +141,24 @@ describe("men's routes know building interiors (M7.5c)", () => {
   });
 });
 
+describe("soldier heights know upper floors (M7.5d)", () => {
+  it("every heightAt call in sim systems and ai goes through standZ or carries a `ground: ok` marker", () => {
+    const bad: string[] = [];
+    const dirs = [join(PKG, "sim", "src", "systems"), join(PKG, "ai", "src")];
+    for (const dir of dirs) {
+      for (const f of sourceFiles(dir)) {
+        const lines = readFileSync(f, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          if (!/\bheightAt\(/.test(stripComments(line))) return;
+          const near = lines.slice(Math.max(0, i - 2), i + 1).join("\n");
+          if (!/ground: ok/.test(near)) bad.push(`${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
 describe("app data bundle", () => {
   it("bundles every data folder the Node loader reads (core/**, factions/**)", () => {
     const text = readFileSync(join(PKG, "app", "src", "data.ts"), "utf8");

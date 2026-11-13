@@ -27,7 +27,7 @@ import { restWithinReach } from "../nav";
 import { navFor } from "../navctx";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt } from "../terrain";
+import { heightAt, standZ } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
 import { isMounted } from "../mount";
@@ -80,8 +80,8 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
   const t = state.transform.req(id);
   const a0 = atan2(task.y - t.y, task.x - t.x);
   const mx = t.x + cos(a0) * 0.4, my = t.y + sin(a0) * 0.4;
-  const mz = heightAt(ctx.map, mx, my) + ctx.catalog.body.postures[p].muzzleHeightM;
-  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+  const mz = standZ(ctx.map, t, mx, my) + ctx.catalog.body.postures[p].muzzleHeightM;
+  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (a point fired at; a man's floor is in heightM)
   const r = sight(ctx, mx, my, mz, task.x, task.y, tz);
   // (Within the last few metres before the point, a wall or the ground is what he is firing at.)
   const range = hypot2(task.x - mx, task.y - my);
@@ -89,6 +89,17 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
 }
 
 /** Give a soldier a fire task (from a fire order). */
+/**
+ * Aim height above the ground for firing at enemy man `target` (M7.5d): the usual aim point, on his floor when he
+ * is upstairs in a building (a man aboard a vehicle is not aimed at this way: 0 extra).
+ */
+export function aimHeightAt(ctx: SimContext, state: SimState, target: EntityId | undefined): number {
+  const base = ctx.catalog.shooting.fire.aimPointHeightM;
+  if (target === undefined || state.soldier.get(target)?.mount !== undefined) return base;
+  const z = state.transform.get(target)?.z ?? 0;
+  return z > 0 ? base + z : base;
+}
+
 export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
   if (!w || !s || !t || !isAble(s) || !s.impair.canFight || s.mount !== undefined) return false; // aboard: the station fires (M7.3)
@@ -151,10 +162,10 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const a0 = atan2(task.y - t.y, task.x - t.x);
   t.heading = a0;
   const mx = t.x + cos(a0) * 0.4, my = t.y + sin(a0) * 0.4;
-  const mz = heightAt(ctx.map, mx, my) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
+  const mz = standZ(ctx.map, t, mx, my) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   const range = hypot2(task.x - mx, task.y - my);
   if (range < 0.5) return;
-  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM;
+  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (a point fired at; a man's floor is in heightM)
   // He sets his point of aim for the range he believes it is.
   const believed = range * (1 + task.rangeError);
   const sd = aimErrorMrad(ctx, state, id, w, aimed);

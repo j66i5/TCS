@@ -74,7 +74,7 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
     const y = Math.min(Math.max(m.y + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), H - 1);
     if (m.ammo === "he") {
       const idx = ammoIndexOf(ctx.catalog, fs.heAmmo);
-      if (idx >= 0) detonate(ctx, state, events, x, y, heightAt(ctx.map, x, y) + 0.05, idx, m.caller);
+      if (idx >= 0) detonate(ctx, state, events, x, y, heightAt(ctx.map, x, y) + 0.05, idx, m.caller); // ground: ok (a mortar bomb on the ground)
     } else {
       state.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(fs.smokeSeconds) });
       events.emit({ kind: "support.smoke", tick: state.tick, x, y, radiusM: fs.smokeRadiusM, side: m.side });

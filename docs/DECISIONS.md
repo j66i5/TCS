@@ -2881,3 +2881,30 @@ Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and des
    1.3-1.5x flat, both far above 50 ms because the container has no GPU; the plan's +10 % check needs a real phone.
 10. No golden, catalog or sim change: the appearance `photo` block is outside the fingerprint (`npm run check` green
     with the golden tests untouched).
+
+## 2026-11-13 — Photo map, step "vegetation": crowns, hedges, orchards, scrub, cast shadows (plan photo)
+1. **Crowns on demand:** no crown list is stored. A picture's crowns are generated from world lattices hashed by
+   lattice index (woods 4/sqrt(3) m, one big crown per 4 m below 2 px/m; scrub 60 % of the fine lattice; orchards a
+   7 m grid) and from each hedge's index and step, within 16 m of the picture. Draw order = height (1/8 m), y, x
+   (1/16 m), then a hashed id: a function of the crown alone, so tiles join byte for byte (tests at 2/4/8 px/m across
+   a wood edge and a hedge) and the list is the same after a map file round trip. Saves prep time and worker memory
+   (a 2 km woodland has about 350 000 crowns).
+2. **Woods follow the ground's warped field edges** (the same 2 m macro warp), so canopy and forest floor agree.
+3. **Stamps:** a crown is a central dome plus 5-8 foliage clumps (their union gives the lumpy outline and dark
+   creases), 0.3 m leaf bumps and speckle (band-limited), shade 0.52 + 0.62 max(0, n . sun) (the plan's 0.45 + 0.7
+   left near-black pixels), 8 radii x 4 variants per ppm, built once per worker and ppm (<= 10 ms at 8 px/m). Each
+   crown carries a small contact shadow (0.25, offset 0.4 r east-south-east) onto whatever was drawn before it
+   (lower crowns, ground), instead of crown-on-crown cast shadows.
+4. **Cast shadows** on a 1 m world node grid per picture: shadow where a sun-ward sample within 6 m stands tall enough
+   (0.3 L..L of its shadow length L = min(6, 0.6 h)), 0.45; at most 0.2 on ground under a crown (the forest floor
+   is already shaded); ambient 0.18 within about 2 m of any canopy; two 3 x 3 blurs; max-combined, not stacked.
+5. **Hedges:** crowns r 1.2-1.8 m (the plan's 1.0-1.5 read thin at the figure band), at least 1.3 px; 8 % hedgerow
+   trees. The flat painter's hedge band and tree crowns are off in the photo look (`paintFeatures(..., vegetation=false)`;
+   flat output unchanged, hash test).
+6. **Lanes:** crowns dropped within half-width + 0.75 r of a road (plan: 0.6 r; 0.6 left tracks half covered) and
+   + 0.9 r of a stream (streams under the canopy disappeared at 1 px/m).
+7. **Aerial haze** in the grade (5 % toward a pale neutral): shaded canopy never goes black and the saturation cap
+   holds on dark pixels; it lifts the whole picture a little (all photo tests still pass).
+8. L3 (8 px/m) was already wired in step "ground"; the screenshot tool's desktop shots of `--scene photo` now report
+   8 cores so they show it; the scene also shoots a hedge and a wood edge at the figure zoom.
+9. No golden, catalog or sim change.

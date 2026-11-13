@@ -1,7 +1,8 @@
 /**
  * The photo map painter (plan "photo"): any rectangle of the map at any resolution, as opaque RGBA bytes. Ground
- * (`ground.ts`), then the features (step "ground": the flat painter's feature passes without outlines, provisional
- * until steps "vegetation" and "built" replace them), then the grade (`grade.ts`: blur with a one-pixel apron from
+ * (`ground.ts`), then roads, water, walls and fences (the flat painter's passes without outlines, provisional until step
+ * "built" replaces them), then cast shadows and the tree, hedge, orchard and scrub crowns (`shadows.ts`, `crowns.ts`),
+ * then the grade (`grade.ts`: blur with a one-pixel apron from
  * 2 px/m, colour grade, grain). Pure (no Pixi, no DOM): runs in a worker, in tests and in Node.
  *
  * Rectangles must start on the global pixel grid of `ppm` (x0 * ppm whole), so tiles join byte for byte.
@@ -11,11 +12,15 @@ import type { Appearance } from "@tcs/data";
 import { flatColours, paintFeatures, type FlatColours } from "../flat/paint";
 import { paintGround, type GroundOptions } from "./ground";
 import { gradeInto } from "./grade";
-import { DEFAULT_GRADE, preparePhoto, type PhotoGrade, type PhotoPrep } from "./prep";
+import { DEFAULT_GRADE, MACRO_CH, MACRO_M, M_WX, M_WY, preparePhoto, stampsFor, type PhotoGrade, type PhotoPrep } from "./prep";
+import { blitCrowns, CROWN_REACH, Crowns, gatherCrowns } from "./crowns";
+import { applyShadows, shadowGrid } from "./shadows";
 
 export interface PhotoOptions extends GroundOptions {
-  /** Paint roads, water, crowns, hedges, walls (default true). */
+  /** Paint roads, water, walls, fences (default true). */
   features?: boolean;
+  /** Paint crowns, hedges and their shadows (default true). */
+  vegetation?: boolean;
   /** Blur (default: from 2 px/m). */
   blur?: boolean;
 }
@@ -43,6 +48,21 @@ export class PhotoPainter {
   }
 }
 
+/** The crowns that touch the world rectangle [x0, x1) x [y0, y1) at `ppm` (their shadows included), unsorted. */
+export function crownsAround(prep: PhotoPrep, x0: number, y0: number, x1: number, y1: number, ppm: number, out = new Crowns()): Crowns {
+  const warp = { macro: prep.macro, mcols: prep.mcols, mrows: prep.mrows, ch: MACRO_CH, wx: M_WX, wy: M_WY, mM: MACRO_M };
+  gatherCrowns(prep.veg, warp, x0 - CROWN_REACH, y0 - CROWN_REACH, x1 + CROWN_REACH, y1 + CROWN_REACH, ppm, out);
+  return out;
+}
+
+/** Cast shadows and ambient darkening on the ground, then the crowns, low to high. */
+function paintVegetation(prep: PhotoPrep, buf: Uint32Array, W: number, H: number, gx0: number, gy0: number, ppm: number, bx0: number, by0: number, bx1: number, by1: number): void {
+  const c = crownsAround(prep, bx0, by0, bx1, by1, ppm);
+  if (c.n === 0) return;
+  applyShadows(shadowGrid(c, bx0, by0, bx1, by1), buf, W, H, gx0, gy0, ppm);
+  blitCrowns(c, c.order(), stampsFor(prep, ppm), buf, W, H, gx0, gy0, ppm);
+}
+
 export function paintPhoto(map: MapDef, col: FlatColours, prep: PhotoPrep, x0: number, y0: number, w: number, h: number, ppm: number, opt: PhotoOptions = {}): Uint8Array {
   const W = Math.max(1, Math.round(w * ppm)), H = Math.max(1, Math.round(h * ppm));
   const gx0 = Math.round(x0 * ppm), gy0 = Math.round(y0 * ppm);
@@ -50,6 +70,8 @@ export function paintPhoto(map: MapDef, col: FlatColours, prep: PhotoPrep, x0: n
   const SW = W + 2 * a, SH = H + 2 * a;
   const buf = new Uint32Array(SW * SH);
   paintGround(prep, buf, SW, SH, gx0 - a, gy0 - a, ppm, opt);
-  if (opt.features !== false) paintFeatures(buf, SW, SH, map, col, (gx0 - a) / ppm, (gy0 - a) / ppm, SW / ppm, SH / ppm, ppm, false);
+  const bx0 = (gx0 - a) / ppm, by0 = (gy0 - a) / ppm, bx1 = bx0 + SW / ppm, by1 = by0 + SH / ppm;
+  if (opt.features !== false) paintFeatures(buf, SW, SH, map, col, bx0, by0, SW / ppm, SH / ppm, ppm, false, false);
+  if (opt.vegetation !== false) paintVegetation(prep, buf, SW, SH, gx0 - a, gy0 - a, ppm, bx0, by0, bx1, by1);
   return gradeInto(buf, SW, a, W, H, gx0, gy0, prep.grade);
 }

@@ -1,7 +1,7 @@
 /**
  * The photo grade (plan "photo" step "ground" 5): a light [1 2 1] blur (from 2 px/m; it needs a one-pixel apron
  * round the tile, painted and then cropped, so tiles still join), then a slight desaturation, a little contrast, a
- * warm lift, a saturation cap (readability: ground never louder than the units) and grain keyed to the global pixel
+ * warm lift, a little aerial haze (darks never go black), a saturation cap (readability: ground never louder than the units) and grain keyed to the global pixel
  * grid. Pure (no Pixi, no DOM).
  */
 import { TABLE } from "./noise";
@@ -10,6 +10,9 @@ import type { PhotoGrade } from "./prep";
 /** Readability cap (plan section 2): no painted pixel above this HSV saturation. */
 export const SAT_CAP = 0.4;
 const PIVOT = 118;
+/** Aerial haze (step "vegetation"): a little of a pale neutral over everything, so canopy shade never goes black. */
+export const HAZE = 0.05;
+const HAZE_R = 168, HAZE_G = 172, HAZE_B = 172;
 
 /**
  * Grade `src` (SW x SH words) into RGBA bytes of W x H. With `apron` 1 the source is one pixel larger on every side
@@ -37,6 +40,7 @@ export function gradeInto(src: Uint32Array, SW: number, apron: 0 | 1, W: number,
       const L = 0.299 * r + 0.587 * gg + 0.114 * b;
       r = L + (r - L) * keep; gg = L + (gg - L) * keep; b = L + (b - L) * keep;
       r = (PIVOT + (r - PIVOT) * con) * warmR; gg = (PIVOT + (gg - PIVOT) * con) * warmG; b = (PIVOT + (b - PIVOT) * con) * warmB;
+      r += (HAZE_R - r) * HAZE; gg += (HAZE_G - gg) * HAZE; b += (HAZE_B - b) * HAZE;
       // Saturation cap.
       const mx = r > gg ? (r > b ? r : b) : (gg > b ? gg : b), mn = r < gg ? (r < b ? r : b) : (gg < b ? gg : b);
       if (mx > 0 && mx - mn > SAT_CAP * mx) {

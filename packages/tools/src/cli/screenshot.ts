@@ -28,6 +28,7 @@ interface Page {
   waitForTimeout(ms: number): Promise<void>;
   screenshot(o: { path: string }): Promise<unknown>;
   close(): Promise<void>;
+  addInitScript(f: () => void): Promise<void>;
   mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(o?: { button?: "left" | "right" }): Promise<void>; up(o?: { button?: "left" | "right" }): Promise<void> };
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
   click(selector: string, o?: { clickCount?: number; delay?: number }): Promise<void>;
@@ -127,6 +128,8 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
  */
 async function photoScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const maps = args["map"] ? [mapKind] : ["village", "farmland", "woodland", "industrial", "flat"];
+  // The container has 4 cores; the desktop shots stand for a desktop with more (the 8 px/m level, step "vegetation").
+  if (name === "desktop") await page.addInitScript(new Function("Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });") as () => void);
   const settle = async () => {
     await page.waitForFunction(new Function("const t = globalThis.__tcs; return t.tilesPending() === 0") as () => boolean, null, { timeout: 30000 });
     await page.waitForTimeout(400); // the fade-in
@@ -146,6 +149,29 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
         t.focusScale(x, y, ${sc}); t.stepTicks(1);`) as () => void);
       await settle();
       const p = `${outDir}/photo-${seed}-${name}-${map}-${label}-${lk}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+    // Vegetation at the figure zoom (step "vegetation"): a hedge and a wood's east edge near the middle of the map.
+    for (const what of ["hedge", "woodedge"] as const) {
+      const ok = await page.evaluate(new Function(`const t = globalThis.__tcs, m = t.sim.ctx.map, cx = m.widthM / 2, cy = m.heightM / 2;
+        let bx = -1, by = -1, bd = Infinity;
+        if (${JSON.stringify(what)} === "hedge") {
+          for (const o of m.obstacles) if (o.kind === "hedge") for (let k = 0; k + 3 < o.points.length; k += 2) {
+            const x = (o.points[k] + o.points[k + 2]) / 2, y = (o.points[k + 1] + o.points[k + 3]) / 2, d = Math.hypot(x - cx, y - cy);
+            if (d < bd) { bd = d; bx = x; by = y; }
+          }
+        } else {
+          const w = m.vegetationPalette.indexOf("woodland") + 1;
+          for (let k = 0; k < m.cols * m.rows - 1; k++) if (w > 0 && m.vegetation[k] === w && m.vegetation[k + 1] === 0 && m.vegetation[k + 2] === 0 && m.vegetation[k + 3] === 0 && m.surface[k + 2] === m.surface[k + 3]) {
+            const x = (k % m.cols + 1) * m.cellSizeM, y = (Math.floor(k / m.cols) + 0.5) * m.cellSizeM, d = Math.hypot(x - cx, y - cy);
+            if (d < bd) { bd = d; bx = x; by = y; }
+          }
+        }
+        if (bx < 0) return false;
+        t.focusScale(bx, by, ${name === "phone" ? 7 : 9}); t.stepTicks(1); return true;`) as () => boolean);
+      if (!ok) continue;
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-${what}-${lk}.png`;
       await page.screenshot({ path: p }); shots.push(p);
     }
   }

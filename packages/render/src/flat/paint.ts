@@ -178,9 +178,10 @@ function paintFlatGround(out: Uint32Array, W: number, H: number, map: MapDef, co
 /**
  * Everything on the ground but buildings, into `out` (W x H words over the rectangle x0, y0, w, h at `ppm`): tree
  * crowns with shadows, water, roads, walls, hedges, fences. `outlines` false (the photo look's provisional features,
- * step "ground"): no dark rims round crowns, water, roads and walls.
+ * step "ground"): no dark rims round crowns, water, roads and walls. `vegetation` false (the photo look from step
+ * "vegetation", which paints its own crowns and hedges): no tree crowns, bushes or hedges.
  */
-export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDef, col: FlatColours, x0: number, y0: number, w: number, h: number, ppm: number, outlines: boolean): void {
+export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDef, col: FlatColours, x0: number, y0: number, w: number, h: number, ppm: number, outlines: boolean, vegetation = true): void {
   const C = map.cols, R = map.rows, cs = map.cellSizeM, px = 1 / ppm;
   const cellAt = (x: number, y: number) => {
     const c = Math.min(C - 1, Math.max(0, Math.floor(x / cs))), r = Math.min(R - 1, Math.max(0, Math.floor(y / cs)));
@@ -213,8 +214,8 @@ export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDe
       if (v > 0 && col.treeKind[v] === 2) f(x, y, 1.7, col.vegetation[v]!);
     }
   };
-  const shadowed = new Uint8Array(W * H);
-  forEachTree((tx, ty, tr) => {
+  const shadowed = new Uint8Array(vegetation ? W * H : 0);
+  if (vegetation) forEachTree((tx, ty, tr) => {
     // Shadow (south-east): darken the ground once.
     const sx = tx + 0.45 * tr, sy = ty + 0.6 * tr, rr = tr * tr;
     const i0 = Math.max(0, Math.floor((sx - tr - x0) * ppm)), i1 = Math.min(W - 1, Math.ceil((sx + tr - x0) * ppm));
@@ -230,7 +231,7 @@ export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDe
     }
   });
   const edge = Math.max(px, 0.3);
-  forEachTree((tx, ty, tr, tc) => {
+  if (vegetation) forEachTree((tx, ty, tr, tc) => {
     const dark = word(shade(tc, outlines ? 0.55 : 0.8)), lite = word(shade(tc, 1.2)), low = word(shade(tc, 0.86)), mid = word(tc);
     const rr = tr * tr, inner = (tr - edge) * (tr - edge), hl = (tr * 0.72) * (tr * 0.72);
     const i0 = Math.max(0, Math.floor((tx - tr - x0) * ppm)), i1 = Math.min(W - 1, Math.ceil((tx + tr - x0) * ppm));
@@ -299,13 +300,14 @@ export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDe
   for (const r of map.roads) stampLine(r.points, r.widthM / 2, col.road[r.surface] ?? 0x777777);
   if (outlines) for (const o of map.obstacles) {
     const c = col.obstacle[o.kind] ?? 0xffffff;
-    if (o.kind === "hedge") { stampLine(o.points, 1.3 + ol, shade(c, 0.55)); }
+    if (o.kind === "hedge") { if (vegetation) stampLine(o.points, 1.3 + ol, shade(c, 0.55)); }
     else if (o.kind === "embankment") { stampLine(o.points, o.thicknessM / 2 + ol, shade(c, 0.7)); }
     else if (o.thicknessM * ppm >= 1.5) stampLine(o.points, o.thicknessM / 2 + ol, shade(c, 0.5));
   }
   for (const o of map.obstacles) {
     const c = col.obstacle[o.kind] ?? 0xffffff;
     if (o.kind === "hedge") {
+      if (!vegetation) continue;
       stampLine(o.points, 1.3, c);
       if (ppm >= 2) stampLine(o.points, 0.45, shade(c, 1.18), false, true); // a broken lighter crest
     } else if (o.kind === "embankment") stampLine(o.points, o.thicknessM / 2, c);

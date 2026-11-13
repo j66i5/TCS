@@ -14,6 +14,7 @@ import { heightAt, type MapDef } from "@tcs/sim";
 import type { FlatColours } from "../flat/paint";
 import { fbm as fbmImp, hash2, smoothstep as smoothstepImp, vnoise as vnoiseImp } from "./noise";
 import { hillshade as hillshadeImp } from "./light";
+import { buildStamps, prepareVegetation, type Stamp, type VegPrep } from "./crowns";
 
 /** Ground textures of the photo painter. */
 export const Tex = { Grass: 0, Plough: 1, Rows: 2, Meadow: 3, Garden: 4, Forest: 5, Worn: 6, Hard: 7 } as const;
@@ -45,6 +46,17 @@ export interface PhotoPrep {
   grass: [number, number, number];
   straw: [number, number, number];
   grade: PhotoGrade;
+  /** Trees, hedges, orchards, scrub (step "vegetation"). */
+  veg: VegPrep;
+  /** Crown stamps per ppm, built on first use (at most about 10 ms each). */
+  stamps: Map<number, Stamp[]>;
+}
+
+/** The crown stamps of a prep at `ppm` (built once). */
+export function stampsFor(p: PhotoPrep, ppm: number): Stamp[] {
+  let s = p.stamps.get(ppm);
+  if (!s) { s = buildStamps(ppm); p.stamps.set(ppm, s); }
+  return s;
 }
 
 const rgb = (c: number): [number, number, number] => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
@@ -181,5 +193,6 @@ export function preparePhoto(map: MapDef, col: FlatColours, grade: PhotoGrade = 
     cols: C, rows: R, cs, widthM: map.widthM, heightM: map.heightM,
     field, r, g, b, tex, edge, fcos, fsin, macro, mcols, mrows,
     grass: rgb(grassC), straw: [0xb4, 0xa8, 0x7c], grade,
+    veg: prepareVegetation(map, col), stamps: new Map(),
   };
 }

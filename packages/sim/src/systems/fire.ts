@@ -132,19 +132,22 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
   }
 }
 
-/** Is a man of the same unit in front of the muzzle, inside the safety cone and nearer than the target? */
+/**
+ * Is a man of his side in front of the muzzle, inside the safety cone and nearer than the target? (Balance pass
+ * 2026-11-13: any platoon of his side, not only his own; the attacker's two platoons fired through each other.)
+ */
 export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number): boolean {
-  const top = topUnit(state, id);
-  if (top === null) return false;
+  const side = state.identity.get(id)?.side;
+  if (side === undefined) return false;
   const me = state.transform.req(id);
   const dx = tx - me.x, dy = ty - me.y;
   const range = hypot2(dx, dy);
   if (range < 1e-6) return false;
   const ux = dx / range, uy = dy / range;
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
-  for (const other of unitSoldiers(state, top)) {
+  for (const [other, ident] of state.identity.entries()) {
     // (Men aboard a vehicle never block a comrade's fire: they are behind armour, M7.)
-    if (other === id || isMounted(state.soldier.get(other))) continue;
+    if (ident.side !== side || other === id || isMounted(state.soldier.get(other))) continue;
     const o = state.transform.req(other);
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
     if (along <= 0.5 || along >= range) continue;

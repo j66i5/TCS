@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (owner decisions on the Russian mounted attack: BMP-2 missile, dead-ground start, stress aboard)._
+_Last updated: 2026-11-13 (BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -62,8 +62,14 @@ lines (`buildScenario`, `deadGroundStart`); men aboard feel **only their own veh
 it). Batches: the Russian mounted attack still 0/10 (seeds 1–10 and 11–20), fewer early BMP-2 losses, Pumas now lost
 0.4–0.5 per battle; the German mounted attack fell from 3–4/10 to 1/10; infantry battles unchanged. The pre-interiors
 goldens are skipped while the data differ (owner: keep or delete). Screenshots: `npm run screenshot -- --scene missile`.
-**Next:** the infantry assault pass (owner question 4: both on-foot attacks lose 10/10, and it caps the mounted
-ones); then M7.5e "AI uses buildings".
+**Infantry attack on foot: balance pass (2026-11-13)** (`docs/research/inf-assault.md`, DECISIONS.md): the AI's
+foot attack keeps its way in out of the second objective's fire (axis turned, that garrison blinded with smoke),
+chooses support places with a field of fire 330 m out and moves on to them after going to ground, calls its fires to
+land as it arrives, fires man by man at full rate (lifting near its own men), runs its assault element in under smoke
+on a flank and uses its grenade launchers; drill runners pinned on the way no longer hold the next rush; no man fires
+through any platoon of his own side. Attack wins: 900 s 1-3 in 20 (was 0), 2400 s DE 4/10, RU 6/10 (was 0 and 1).
+Goldens unchanged. Owner decisions in the note (balance length, 15 m rushes, hand smoke grenades).
+**Next:** owner decisions from both notes (balance length, 15 m rushes, hand smoke grenades, missile values, pre-interiors goldens); then M7.5e "AI uses buildings".
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —

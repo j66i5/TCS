@@ -11,8 +11,12 @@ command the German platoon attacking from the west; `?side=red` gives you the Ru
 the Russians attack, `?map=farmland` (or woodland, industrial) another map, `?seed=` another battle. The other
 side is commanded by the computer: in defence it lies in its positions and fires at will out to 300 m, pulls
 back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
-attack it moves up to about 300 m, looks for the enemy, then one squad fires on the objective while the others
-assault it, then the second objective; past its doctrine's loss limit (30 %) it breaks off and withdraws.
+attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
+up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground
+on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives, then half
+its squads fire on the defenders man by man while the others run in under the smoke on a flank and assault by
+fire and movement with grenades; then the second objective; past its doctrine's loss limit (30 %) it breaks off
+and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attack work?").
 **Winning:** points for the objectives you hold at the end (main 100, second 50), minus 5 for each of your men
 down; a side that breaks or has nobody left loses at once. **Save** keeps the battle in the browser; **Load**
 brings it back exactly. At the end the **after-action review** shows the result and why, both casualty lists
@@ -25,8 +29,10 @@ top bar shows the rounds left; the attacker has more, and more smoke): pick **Mo
 target. The selected unit's leader calls it by radio; the first round lands after a minute or more (German
 120 mm: 90 s, Russian 82 mm: 75 s), then one every few seconds, scattered about the point. High explosive bursts
 like a big grenade; smoke lays grey clouds for two minutes or more that nobody can see through (bullets still
-go through). The AI attacker calls fire while it looks for the enemy and goes in as it lands, with smoke on
-the near edge of the objective; the AI defender shells attackers it sees out in the open.
+go through). The AI attacker calls high explosive and a smoke screen as its first squad nears its support line,
+goes in as they land and keeps both coming (high explosive every 45 s until its own men are close, smoke on the
+side it attacks from and on the other objective's defenders); the AI defender shells attackers it sees out in the
+open.
 
 ## How to play (M5)
 
@@ -360,7 +366,8 @@ and fire back under their fire rule; the radio says "contact! Taking cover." **A
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
 goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
 spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
-40 s. **Withdraw** (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
+40 s; a runner who is pinned on the way stays down and the others go on without waiting for him. **Withdraw**
+(order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
 the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
@@ -637,6 +644,14 @@ the same squad lying in the open it fails faster still (prone men at 300 m are h
 are not). With a second squad firing on the position from the start line the whole time, about 4 attacks in 10
 succeed, usually because the defenders break. Bound lengths come from the faction's doctrine (`boundM`,
 `finalAssaultM`), the same for both sides for now.
+
+In the platoon battle (two platoons attacking one dug-in platoon, balance pass 2026-11-13,
+`docs/research/inf-assault.md`) the attack on foot gets home in about 1 battle in 10 when the battle lasts 15
+minutes (it reaches the objective about as time runs out) and in 4 (German attack on the village) to 6 (Russian
+attack on farmland) in 10 over the app's 40 minutes. Before that pass it nearly never did: its fire line lay where
+the first shot came from, out of rifle reach; the defenders of the second objective shot three quarters of the
+attackers from the flank; and the two attacking platoons fired through each other. Nobody fires through a man of
+his own side now, whichever platoon he belongs to.
 
 ## One order, traced step by step
 

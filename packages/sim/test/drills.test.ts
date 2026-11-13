@@ -149,4 +149,23 @@ describe("drills after the review (M4)", () => {
     for (let k = 0; k < secondsToTicks(60) && sim.state.unit.req(bid).drill?.final !== true; k++) { step(sim); for (const m of blue.members) maxX = Math.max(maxX, sim.state.transform.req(m).x); }
     expect(maxX).toBeLessThan(60 - 10 + 3);
   });
+
+  it("a runner pinned on the way does not hold the next rush (balance pass 2026-11-13)", () => {
+    const sim = createSim(setup());
+    const [bid] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
+    // Wait for the first bound to start, then pin one of its runners for good.
+    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    const d = sim.state.unit.req(bid).drill!;
+    const first = d.mover, pinned = d.groups[first]![0]!;
+    let swapped = -1;
+    for (let k = 0; k < secondsToTicks(40) && swapped < 0; k++) {
+      const s = sim.state.soldier.req(pinned);
+      s.mental.suppression = 1; s.mental.behaviour = "pinned";
+      step(sim);
+      if (sim.state.unit.req(bid).drill?.mover !== first) swapped = k;
+    }
+    expect(swapped).toBeGreaterThan(0);
+    expect(swapped).toBeLessThan(secondsToTicks(sim.ctx.catalog.behaviour.drills.phaseTimeoutSeconds) / 2);
+  });
 });

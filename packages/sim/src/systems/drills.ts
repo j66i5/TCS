@@ -26,6 +26,7 @@ import { atan2, cos, hypot2, PI, sin } from "../math";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
+import { isCowering } from "./morale";
 import { aimHeightAt, assignFireTask } from "./fire";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
@@ -221,7 +222,9 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
     }
     return;
   }
-  const movers = (d.groups[d.mover] ?? []).filter((m) => able(state.soldier.get(m)));
+  // A mover pinned or panicked on the way has gone down where he is: the others do not wait for him (balance
+  // pass 2026-11-13: one pinned man held his whole squad's next rush for the full phase timeout).
+  const movers = (d.groups[d.mover] ?? []).filter((m) => able(state.soldier.get(m)) && !isCowering(state.soldier.req(m)));
   if (!movers.some(moving) || state.tick - d.phaseTick >= secondsToTicks(D.phaseTimeoutSeconds)) {
     d.mover = (d.mover + 1) % d.groups.length;
     startPhase(ctx, state, uid, d, events);

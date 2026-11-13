@@ -118,3 +118,19 @@ fire-and-movement is slow under fire) is a second, separate problem that also ca
    (move on after going to ground), the assault start distance, and the bounding pace under fire.
 5. Time limit: the batches use 900 s; the app's default battle lasts 2400 s, where the attack reaches the assault
    later but the outcome is the same.
+
+## Owner decisions (2026-11-13) and their effect
+
+1. ATGM: **yes** — the BMP-2 now carries the 9P135M with four 9M113M Konkurs-M (DECISIONS.md "BMP-2 missile,
+   dead-ground start, stress aboard").
+2. Start out of direct fire: **dead ground on the 1200 × 900 m maps** (not a bigger map).
+3. Stress aboard: **only own vehicle**.
+4. and 5. (the infantry assault in general, the time limit) were not part of this pass.
+
+Result (10 × 900 s, seeds 1..10 / 11..20): the Russian mounted attack still wins **0/10 and 0/10**; its BMP-2 losses
+fall without the early cook-off cascades (1.2 / 2.5 per battle; 2.0 on seeds 1..10 without the dead-ground start),
+the Pumas are now lost too (0.4 / 0.5), but the Russian infantry still loses most of its men far out. The German
+mounted attack on the village fell from 3/10 and 4/10 to **1/10 and 1/10** (2/10 without the dead-ground start):
+the Russian defenders' missiles cost it men, though no Puma was lost. Missiles are fired 1–2 times per Russian
+attack (the BMP-2s are rarely halted with a Puma in sight) and about three in four strike. Table in DECISIONS.md.
+The next lever is question 4 (the infantry assault: support line, start distance, bounding pace under fire).

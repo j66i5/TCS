@@ -11,8 +11,12 @@ command the German platoon attacking from the west; `?side=red` gives you the Ru
 the Russians attack, `?map=farmland` (or woodland, industrial) another map, `?seed=` another battle. The other
 side is commanded by the computer: in defence it lies in its positions and fires at will out to 300 m, pulls
 back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
-attack it moves up to about 300 m, looks for the enemy, then one squad fires on the objective while the others
-assault it, then the second objective; past its doctrine's loss limit (30 %) it breaks off and withdraws.
+attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
+up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground
+on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives, then half
+its squads fire on the defenders man by man while the others run in under the smoke on a flank and assault by
+fire and movement with grenades; then the second objective; past its doctrine's loss limit (30 %) it breaks off
+and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attack work?").
 **Winning:** points for the objectives you hold at the end (main 100, second 50), minus 5 for each of your men
 down; a side that breaks or has nobody left loses at once. **Save** keeps the battle in the browser; **Load**
 brings it back exactly. At the end the **after-action review** shows the result and why, both casualty lists
@@ -25,8 +29,10 @@ top bar shows the rounds left; the attacker has more, and more smoke): pick **Mo
 target. The selected unit's leader calls it by radio; the first round lands after a minute or more (German
 120 mm: 90 s, Russian 82 mm: 75 s), then one every few seconds, scattered about the point. High explosive bursts
 like a big grenade; smoke lays grey clouds for two minutes or more that nobody can see through (bullets still
-go through). The AI attacker calls fire while it looks for the enemy and goes in as it lands, with smoke on
-the near edge of the objective; the AI defender shells attackers it sees out in the open.
+go through). The AI attacker calls high explosive and a smoke screen as its first squad nears its support line,
+goes in as they land and keeps both coming (high explosive every 45 s until its own men are close, smoke on the
+side it attacks from and on the other objective's defenders); the AI defender shells attackers it sees out in the
+open.
 
 ## How to play (M5)
 
@@ -332,6 +338,13 @@ fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fi
 single aimed rifle seldom pins anyone. `npm run lab -- suppression` prints the table. Debug labels show
 suppression / stress per man.
 
+**Men inside a vehicle** (owner's choice, 2026-11-13: "only own vehicle") see nothing outside, so they are shaken
+only by what happens to their own vehicle: a comrade falling *inside it*, its armour being penetrated (a big
+blow) or struck by a cannon round, a heavy bullet or a burst that does not get through (a small one). Comrades
+falling outside, a neighbouring carrier burning or a leader falling in another vehicle do not reach them; once
+they are out they feel everything as before. (Before, a cook-off could panic the men in the carriers 20 m away
+and break a mounted platoon within seconds.)
+
 ## Thinking for themselves
 
 Between orders each man decides a few things for himself, once a second. **Fire rules** (per unit, set with
@@ -353,7 +366,8 @@ and fire back under their fire rule; the radio says "contact! Taking cover." **A
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
 goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
 spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
-40 s. **Withdraw** (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
+40 s; a runner who is pinned on the way stays down and the others go on without waiting for him. **Withdraw**
+(order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
 the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
@@ -438,6 +452,26 @@ are burnt. A destroyed or abandoned vehicle is a **wreck**: both sides know of i
 men take cover beside it and nobody drives through it; it is listed in the battle's result for the campaign.
 Points (owner's choice): a vehicle destroyed or abandoned costs its side 20 points, immobilised 10.
 
+**Guided missile on the BMP-2 (owner's choice, 2026-11-13).** The BMP-2 has its anti-tank missile launcher on the
+turret roof: one 9M113M Konkurs-M on the launcher and three more stowed (four in all, as published; each is a
+counted item). The missile is wire-guided by the gunner (semi-automatic command to line of sight): once fired it
+speeds up to about 208 m/s and flies wherever the gunner's sight points — he keeps the cross on the target and the
+missile follows, so it also hits a target that moves. It needs at least 75 m and reaches 4 km (the wire's
+length): about 5 s to 1 km, 10 s to 2 km, 15 s to 3 km. **It misses** when the gunner cannot keep the target in
+his sight: a crest, a house or a hull in the way, thick woods, or **smoke** (his is a day sight: nothing through
+smoke — the Puma's own smoke screen works if it stands before the missile arrives); when he is hit, stunned or
+knocked out; when the BMP-2 is knocked out; and with an even chance each time his own vehicle is struck by a
+cannon round, a heavy bullet or a burst while he guides. Then the missile flies on unguided, thrown off its line,
+and falls. It fires only with the vehicle halted, and while it flies the gunner does nothing else. Its tandem
+warhead gets through the Puma anywhere, the front included (750 mm of steel armour behind reactive armour, as
+published for the Konkurs-M — more than the Puma's front stops in the game). Putting the next missile on takes
+40 s, halted. **When the crew uses it**: at an enemy vehicle beyond 1000 m, or nearer when its 30 mm armour-
+piercing round cannot get through the face the enemy shows (a Puma's front) — else the cannon. The **Anti-tank**
+button with a BMP-2 selected fires the missile (or armour-piercing if none is ready). `npm run lab -- missile`
+prints the hit table (a regular gunner at a halted Puma on open ground: practically every missile hits and gets
+through at 1 and 2 km, nine in ten at 3 km; with the Puma's smoke screen at 3 km it is lost). This is a simple
+model; guided weapons in full (other guidance types, sensors, countermeasures) come with M9.
+
 **Panzerfaust and RPG (M7.4a).** The German anti-tank man carries a Panzerfaust 3 (the firing unit and one round
 — the round is a tube he throws away after the shot), the Russian one an RPG-7 with two PG-7VL rockets (his
 assistant carries three more and brings one over when he has none). A shot takes a few seconds to aim; he lays on
@@ -485,7 +519,11 @@ when their vehicle's crew sees enemy infantry within 400 m or an enemy vehicle w
 vehicles first back away before turning for home.
 
 **In a battle** (the default since M7.4a; `&vehicles=0` gives the battle on foot): the attacking platoons
-start aboard at their map edge — the Germans in four Pumas (the fourth carries the platoon leader and his radio
+start aboard on their side of the map, **in dead ground** (owner's choice, 2026-11-13): the scenario looks, every
+20 m over the attacker's side (at least 600 m from the objectives), for spots that none of the defenders can see —
+not from its vehicles' sights, not from its men's places — behind a crest, a wood or houses, and puts the hulls
+there, close together and as near the middle of the attacker's edge as it can; where too few such spots exist it
+takes the least seen ones (on flat open ground that is the old line at the edge). The Germans in four Pumas (the fourth carries the platoon leader and his radio
 operator), the Russians in three BMP-2s (the platoon commander in the back of the first). The AI drives them up
 to a point out of sight of the objectives, 300 m short of them for the Germans and 400 m for the Russians (from
 their published doctrine), and the squads get out and go on as before; they get out at once if a vehicle is hit.
@@ -606,6 +644,14 @@ the same squad lying in the open it fails faster still (prone men at 300 m are h
 are not). With a second squad firing on the position from the start line the whole time, about 4 attacks in 10
 succeed, usually because the defenders break. Bound lengths come from the faction's doctrine (`boundM`,
 `finalAssaultM`), the same for both sides for now.
+
+In the platoon battle (two platoons attacking one dug-in platoon, balance pass 2026-11-13,
+`docs/research/inf-assault.md`) the attack on foot gets home in about 1 battle in 10 when the battle lasts 15
+minutes (it reaches the objective about as time runs out) and in 4 (German attack on the village) to 6 (Russian
+attack on farmland) in 10 over the app's 40 minutes. Before that pass it nearly never did: its fire line lay where
+the first shot came from, out of rifle reach; the defenders of the second objective shot three quarters of the
+attackers from the flank; and the two attacking platoons fired through each other. Nobody fires through a man of
+his own side now, whichever platoon he belongs to.
 
 ## One order, traced step by step
 

@@ -185,6 +185,40 @@
       ],
       "confidence": "low",
       "note": "PKT coaxial machine gun (BMP-2): 250-round belts, 2000 rounds carried (published); bursts are game values."
+    },
+    {
+      "id": "ru-9p135m",
+      "nameKey": "weapon.ru-9p135m",
+      "type": "launcher",
+      "calibre": "135mm-atgm",
+      "massKg": 22.5,
+      "feed": {
+        "magazine": "ru-9m113m-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 1,
+      "dispersionMrad": 0,
+      "reloadSeconds": 40,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "telescopic",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "ru-9m113m": 80
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/BMP-2",
+        "https://www.tanks-encyclopedia.com/coldwar/ussr/BMP-2.php",
+        "https://en.wikipedia.org/wiki/9M113_Konkurs"
+      ],
+      "confidence": "low",
+      "note": "9P135M anti-tank missile launcher on the BMP-2's turret roof (published: fires 9M111 Fagot, 9M113 Konkurs and 9M113M Konkurs-M; the empty tube is changed by hand through the gunner's hatch). Game values (low): 40 s to put the next missile on, halted (sources differ on whether the crew must open a hatch; not modelled: the man reloading is not exposed), the missile leaves the tube at 80 m/s, launch post mass 22.5 kg (9P135, Wikipedia), sight x10 (from memory)."
     }
   ]
 }

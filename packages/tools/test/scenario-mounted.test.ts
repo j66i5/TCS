@@ -4,10 +4,10 @@
  * commander riding in, getting out on arrival or at once when a hull is hit, getting back in on withdrawal (Q24).
  */
 import { describe, expect, it } from "vitest";
-import { buildScenario, withoutVehicles, buildForceWithVehicles, type ScenarioDef } from "@tcs/scenario";
+import { buildScenario, lastDeadGround, withoutVehicles, buildForceWithVehicles, type ScenarioDef } from "@tcs/scenario";
 import { commanderController } from "@tcs/ai";
 import {
-  createSim, hashState, hypot2, step, submitOrder, type BattleInput, type Controller, type EntityId, type Sim, type SimEvent,
+  createSim, hashState, hypot2, isAble, step, submitOrder, type BattleInput, type Controller, type EntityId, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
@@ -29,6 +29,24 @@ function play(input: BattleInput, seconds: number, each?: (sim: Sim, ev: SimEven
 }
 
 describe("platoons with vehicles (M7.2)", () => {
+  it("owner 2026-11-13: the attacker starts in dead ground, out of the defenders' sight, at least 600 m from the objectives; off: the old line at its edge", () => {
+    for (const [mapKind, attacker] of [["farmland", "red"], ["village", "blue"]] as const) {
+      for (const seed of [1, 2, 12]) {
+        const input = buildScenario(data, def(seed, { attacker, mapKind }));
+        const dg = lastDeadGround!;
+        const atk = input.forces.find((f) => f.side === attacker)!, dfn = input.forces.find((f) => f.side !== attacker)!;
+        expect(dg.observers).toBe((dfn.vehiclePlacements?.length ?? 0) + 4);
+        expect(dg.seen.length).toBe(atk.vehiclePlacements!.length);
+        expect(dg.seen.every((n) => n === 0), `${mapKind} seed ${seed}: ${JSON.stringify(dg)}`).toBe(true);
+        for (const p of atk.vehiclePlacements!) for (const o of input.rules.objectives) expect(hypot2(p.x - o.x, p.y - o.y)).toBeGreaterThan(590);
+        // Deterministic: the same definition, the same starts.
+        expect(buildScenario(data, def(seed, { attacker, mapKind })).forces.find((f) => f.side === attacker)!.vehiclePlacements).toEqual(atk.vehiclePlacements);
+        const old = buildScenario(data, def(seed, { attacker, mapKind, deadGroundStart: false })).forces.find((f) => f.side === attacker)!;
+        for (const p of old.vehiclePlacements!) expect(Math.abs(p.x - (attacker === "blue" ? 0.08 : 0.92) * input.map.widthM)).toBeLessThan(20);
+      }
+    }
+  });
+
   it("templates: four Pumas (the fourth carries the platoon leader and radio operator, Q1); three BMP-2s with the commander in the back of the first (Q2)", () => {
     const de = buildForceWithVehicles(data, { faction: "de", template: "pzgren-zug", seed: 3, keyPrefix: "b" });
     expect(de.vehicles.map((v) => v.type)).toEqual(["de-puma", "de-puma", "de-puma", "de-puma"]);
@@ -60,13 +78,13 @@ describe("platoons with vehicles (M7.2)", () => {
       const s = sim.state;
       const obj = input.rules.objectives[0]!;
       const atkSide = attacker, dfnSide = attacker === "blue" ? "red" : "blue";
-      // Attackers: every man aboard, every vehicle near its own edge.
+      // Attackers: every man aboard, every vehicle on its own side (in dead ground, owner 2026-11-13: the next test).
       const atkMen = [...s.identity.entries()].filter(([, i]) => i.side === atkSide);
       // mounted: ok the test checks that every man is aboard
       for (const [id] of atkMen) expect(s.soldier.req(id).mount, `man ${id}`).toBeDefined();
       for (const [vid, v] of s.vehicle.entries()) {
         const t = s.transform.req(vid);
-        if (v.side === atkSide) expect(atkSide === "blue" ? t.x < 0.15 * input.map.widthM : t.x > 0.85 * input.map.widthM).toBe(true);
+        if (v.side === atkSide) expect(atkSide === "blue" ? t.x < 0.4 * input.map.widthM : t.x > 0.6 * input.map.widthM).toBe(true);
         else {
           // Behind the main objective (away from the attack), crew only.
           const d = hypot2(t.x - obj.x, t.y - obj.y);
@@ -95,7 +113,7 @@ describe("platoons with vehicles (M7.2)", () => {
     for (const [attacker, kind] of [["blue", "village"], ["red", "farmland"]] as const) {
       const input = buildScenario(data, def(1, { attacker, mapKind: kind }));
       const D = input.catalog.factions[attacker === "blue" ? "de" : "ru"]!.dismountM!;
-      const { sim, events } = play(input, 120);
+      const { sim, events } = play(input, 180);
       const outs = events.filter((e): e is Extract<SimEvent, { kind: "unit.dismounted" }> => e.kind === "unit.dismounted");
       expect(outs.length, `${attacker}`).toBeGreaterThanOrEqual(6);
       for (const e of outs) {
@@ -103,8 +121,9 @@ describe("platoons with vehicles (M7.2)", () => {
         const t = sim.state.transform.req(e.vehicle);
         for (const o of input.rules.objectives) expect(hypot2(t.x - o.x, t.y - o.y)).toBeGreaterThan(D - 40);
       }
-      // Nobody of the attacker is aboard any more, apart from the crews.
-      for (const [id, i] of sim.state.identity.entries()) if (i.side === attacker && sim.state.unit.req(i.unit).vehicle === undefined) expect(sim.state.soldier.req(id).mount).toBeUndefined();
+      // Nobody of the attacker is aboard any more, apart from the crews (and wounded who cannot walk, left in a struck hull: the
+      // defender's BMP-2s have missiles since 2026-11-13).
+      for (const [id, i] of sim.state.identity.entries()) if (i.side === attacker && sim.state.unit.req(i.unit).vehicle === undefined && isAble(sim.state.soldier.req(id)) && sim.state.soldier.req(id).impair.canWalk) expect(sim.state.soldier.req(id).mount).toBeUndefined();
     }
   });
 
@@ -158,7 +177,8 @@ describe("platoons with vehicles (M7.2)", () => {
 
   it("M7.4b anti-tank tasks: a man with a Panzerfaust is ordered to fire at an enemy vehicle his side knows within its range", () => {
     // Russia attacks; the German defenders are told of a BMP-2 250 m from one of their Panzerfaust gunners.
-    const input = buildScenario(data, def(1, { attacker: "red", mapKind: "farmland" }));
+    // (The old start at the edge, as when the test was written: the told-of BMP-2 is where the contact says.)
+    const input = buildScenario(data, def(1, { attacker: "red", mapKind: "farmland", deadGroundStart: false }));
     let gunner = -1;
     const { orders } = play(input, 60, (sim) => {
       if (sim.state.tick !== 20 * 60) return;

@@ -348,13 +348,35 @@
               "switchSeconds": 0,
               "engageRangeM": 800,
               "feedKind": "belt"
+            },
+            {
+              "weapon": "ru-9p135m",
+              "coax": false,
+              "muzzle": [
+                -0.2,
+                0.0,
+                2.75
+              ],
+              "feeds": [
+                {
+                  "item": "ru-9m113m-round",
+                  "ready": {
+                    "count": 1,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 4000,
+              "feedKind": "single",
+              "roundLoadSeconds": 1
             }
           ],
           "sources": [
             "https://man.fas.org/dod-101/sys/land/row/bmp-2.htm"
           ],
           "confidence": "low",
-          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. M7.3: 2A42 with both belts ready (160 AP, 340 HE: the published 500) and the PKT (250 ready, 7 belts stowed: the published 2000); owner Q17: ready belts refilled from stowage in battle, halted, about 90 s.",
+          "note": "Traverse 360 deg in 10.28 s, elevation -5 to +74 deg through 74 deg in 12.33 s, two-plane stabiliser 2E36-1 (published); errors and tolerance are game values. M7.3: 2A42 with both belts ready (160 AP, 340 HE: the published 500) and the PKT (250 ready, 7 belts stowed: the published 2000); owner Q17: ready belts refilled from stowage in battle, halted, about 90 s. Owner 2026-11-13 (\"Yes, add the ATGM\"): the 9P135M launcher on the turret roof with one 9M113M missile on it (three more stowed: four in all, published); the gunner guides it (SACLOS) and puts the next one on in 40 s, halted.",
           "refillSeconds": 90
         }
       ],
@@ -381,6 +403,11 @@
         {
           "item": "ru-bmp2-extinguisher",
           "count": 2
+        },
+        {
+          "item": "ru-9m113m-round",
+          "count": 3,
+          "charge": 1
         }
       ],
       "sources": [

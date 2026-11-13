@@ -2149,3 +2149,115 @@ tactics, not the armour data; then M7.5e (the AI uses buildings).
   reverted: **no code or data change, goldens untouched.** The cause is the set-up (start ~800 m from the Pumas in
   the open, no ATGM on the BMP-2, Puma fronts immune) — open for the owner (see the note's last section).
 
+
+## 2026-11-13 — BMP-2 missile, dead-ground start, stress aboard (owner decisions on the Russian mounted attack)
+Owner answers to the three questions of `docs/research/ru-mounted-attack.md` (2026-11-13):
+1. **"Yes, add the ATGM."** The BMP-2's 9P135M launcher on the turret roof with the **9M113M Konkurs-M** (the
+   in-service missile; the launcher also fires the 9M113 and the 9M111 Fagot, not modelled). Data from search
+   extracts only (confidence medium at most): range 75–4000 m (wire), ~208 m/s, tandem shaped charge 750–800 mm RHA
+   behind ERA → 937 mm mild-steel equivalent (×1.25), missile 14.6–16.5 kg (16.5 used), four carried (one on the
+   launcher, three stowed; counted items `ru-9m113m-round`). Game values (low): launch 80 m/s, 65 m/s² to cruise,
+   12°/s turn, tracking error 0.3 mrad (skill 0.5) wandering over 1 s, reload 40 s halted (the man reloading is
+   not exposed: not modelled), self-destruct 21 s. A simple SACLOS model (`sim/systems/missiles.ts`): the missile is
+   a projectile in the pool (hits resolved by the existing armour code) steered every tick toward the gunner's line
+   of sight; lost (flies on unguided, kicked off its line) when the gunner is out, stunned or out of his seat, the
+   BMP-2 is knocked out, the wire runs out, his sight line is blocked or thinned below 0.2 (woods, smoke: a day sight
+   sees nothing through smoke), or — even chance — his hull is struck by an enemy round ≥ 12.7 mm or a burst. Fired
+   only halted; while it flies the station does nothing else. Crew choice: the missile at an enemy vehicle beyond
+   1000 m (`gunnery.missileBeyondM`) or when the 30 mm AP round cannot get through the face shown (a Puma's front),
+   provided the gunner sees the hull well enough to guide; else the cannon. An AI or player fire order without a
+   nature at a vehicle uses the same rule; "Anti-tank" with a BMP-2 selected fires the missile (orders to a crew with
+   nature `at` are now accepted when its vehicle has missiles). Missile lab (`npm run lab -- missile`, 10 trials,
+   flat open field, halted Puma): front and side 100 % hits and penetrations at 1000 and 2000 m (5.4 s, 10.2 s
+   flight), 90 % at 3000 m (15 s); with the Puma's smoke screen ordered at launch at 3000 m 0 % (lost 100 %). Full
+   guided-weapon modelling (other guidance types, countermeasures, crew exposure while reloading) stays M9.
+   **Decided without the owner (for review):** Konkurs-M rather than Konkurs or Fagot; it penetrates the Puma's
+   front (750 mm vs a jet head-on), so the owner's Q21 b ("front stops a single RPG") does not extend to missiles;
+   own men on the line do not block a missile shot (it flies above their heads); the lose-on-hit chance 0.5.
+2. **Start in dead ground** (owner: keep the 1200 × 900 m maps). `buildScenario` builds the defender first, then
+   samples the attacker's side every 20 m (≥ 600 m from both objectives, within 40 % of the map width, on the hull
+   grid's main area) and counts, for each spot, the defenders that see a hull there (lines from each defender
+   vehicle's highest sight and from the four defence spots at 1.7 m to 1.2 m and to the hull top; blocked by ground,
+   walls, roofs, or seen through less than 15 %). The group (hulls ≥ 20 m apart within 200 m of an anchor) seen
+   least, then tightest, then nearest the old start wins; with too few hidden spots the least seen ones are used (on
+   open flat ground: the old line). Hulls face the main objective. Both mounted scenarios and the app's mounted
+   battle; `deadGroundStart: false` gives the old line (tests, comparisons). All 20 tested farmland/village starts
+   (seeds 1–10) are fully hidden; farmland seed 13 has only 2 hidden spots (4 of 6 hulls seen by one defender).
+   Scenario build +0.2–0.6 s.
+3. **Stress aboard: "Only own vehicle."** A man aboard (every seat counts as a closed hull) takes stress from a
+   comrade falling inside the same vehicle, from his leader falling only if inside the same vehicle, and from hits
+   on his own hull: penetrated 0.2, struck without penetration by a round ≥ 12.7 mm or a burst 0.03 (game values,
+   `stress.fromOwnVehiclePenetrated` / `fromOwnVehicleStruck`). Comrades falling outside and neighbouring carriers'
+   losses no longer reach him; men on foot are unchanged.
+
+**Goldens.** Data changed (catalog fingerprint; the new ammunition id also shifts later ammunition indices in the
+saved projectile pool). Before `golden:update` the headless event streams and casualties of demo-s1 (120 s),
+shootout-s1 (180 s), fixture-s7 (90 s), platoon-s1 (900 s) and village-occupy-s1 (180 s) were compared with `main`:
+**identical** (0 differing lines; only the state hashes differ); the infantry batches (platoon, platoon-ru) are
+identical to `main` too. The goldens were regenerated (vehicles-s1, fixture-cart-s3 and platoon-vehicles-s1 change
+behaviour: missiles, dead ground). The pre-interiors goldens in `golden/no-interiors/` cannot match any data change;
+they are kept unchanged and their replay is now skipped while the data differ from theirs (the proof stands for
+the commits up to 76f13d9). **For the owner:** keep them as a historical record, or delete them.
+
+**Batches** (10 × 900 s; before = `main`; vehicles lost = destroyed or abandoned, per battle):
+
+| Scenario | Attacker | Wins att. before → after | Casualties blue/red before → after | Vehicles lost blue/red before → after | Missiles fired / hit (after) | RPG+PzF rounds (after) |
+|---|---|---|---|---|---|---|
+| platoon (village) | DE on foot | 0 → 0 | 14.5/9.3 → 14.5/9.3 | – | – | – |
+| platoon-ru (farmland) | RU on foot | 0 → 0 | 8.1/16.1 → 8.1/16.1 | – | – | – |
+| platoon-vehicles s1–10 | DE mounted | 3 (1 draw) → 1 | 11.5/20.0 → 14.6/18.1 | 0.1/2.5 → 0.0/2.4 | red 0.5 / 0.4 | blue 2.4, red 1.3 |
+| platoon-vehicles s11–20 | DE mounted | 4 → 1 | 10.5/15.6 → 14.2/15.7 | 0.1/1.8 → 0.0/1.6 | red 0.2 / 0.1 | blue 4.9, red 3.1 |
+| platoon-ru-vehicles s1–10 | RU mounted | 0 → 0 | 8.6/18.5 → 10.9/20.9 | 0.0/1.3 → 0.4/1.2 | red 0.9 / 0.7 | red 3.7, blue 1.5 |
+| platoon-ru-vehicles s11–20 | RU mounted | 0 → 0 | 5.8/22.4 → 8.4/24.7 | 0.0/2.4 → 0.5/2.5 | red 1.8 / 1.3 | red 4.9, blue 1.1 |
+
+Variant without the dead-ground start (missile and stress only, seeds 1–10): RU mounted 0/10, BMP-2s lost 2.0
+(1.2 with dead ground), DE mounted 2/10. **Reading:** defender-favoured everywhere, now strongly so for the German
+mounted attack too. The missile works (hits ~75 % of those fired in battle; most losses are the gunner losing sight
+of the hull); it is fired rarely (≈ 1–2 per battle on the Russian attack) because the BMP-2s are mostly on the move
+or see only infantry when halted. Pumas are now lost (0.4–0.5 per battle) and side-broken collapses from a cook-off
+are gone (0–1 in 10 vs 2–3), but the Russian infantry still loses most men far out (the infantry-assault problem,
+owner question 4, untouched). No tuning was done beyond the three decisions.
+
+**Checks and timing.** `npm run check`: typecheck, lint, data lint and all 660 tests green (6 pre-interiors replays
+skipped, above). The timing tests could not be run on a quiet machine: another session ran batches in parallel all
+along, and `main` failed the same tests in the same conditions (bench-vehicles 5.2–6.1× on `main`, 6.5–7.5× here;
+floor 8×). Paired headless runs, alternating `main` and this branch under the same load: bench-vehicles 60 s 8.80 /
+8.25 / 8.60 s vs `main` 8.71 / 8.75 / 8.31 s; bench-combined 20 s 6.64 / 5.96 s vs 6.80 / 5.72 s — no measurable
+cost (the missile system only touches vehicles with launchers; the projectile loop gained one flag test past a
+round's maximum age). To confirm on a quiet machine: `npm run test:perf`.
+
+## 2026-11-13 — Infantry attack on foot: balance pass (AI, drill, fire check)
+- Owner: "Yes, next" — a separate pass on the infantry assault (game values, low confidence; not weapon data;
+  defender unchanged). Investigation, variants and table: `docs/research/inf-assault.md`.
+- **Diagnosis:** squads gone to ground counted as arrived (base of fire 430-490 m out); two thirds of the base had no
+  line of fire from its geometric places; one pinned runner stalled his squad's next rush for 40 s; **75 % of the
+  attackers' losses came from the second objective's garrison**, firing across the way in; the two attacking
+  platoons fired through each other (the line-of-fire check knew only the firer's platoon); on foot from ~700 m the
+  attack needs 750-1000 s.
+- **AI (`commander.ts`, game values in `COMMANDER`):** axis on foot turned (<= 45°) to keep the support line 320 m from
+  the other enemy-held objective, blinded with smoke; support places chosen for their field of fire, 330 m out
+  (`supportM` 300 -> 330, `sneakM` 200 -> 50); squads gone to ground move on after 15 s; fires called as the first
+  squad nears the line (HE every 45 s, was 90 s); base of fire man by man at known enemies with a line of fire, full
+  rate, lifting 40 m from own men, one squad on the other garrison; assault element runs in under a smoke screen on
+  the least-seen flank to 60 m (fire and movement at once when under fire inside 120 m); grenade launchers from
+  200 m. Mounted attacks keep the straight axis.
+- **Sim:** drill — a pinned or panicked runner no longer holds the next rush (`drills.ts`); fire — `friendInLine`
+  checks every platoon of the firer's side (`fire.ts`; also vehicle guns).
+- **Kept:** casualty tolerance 30 % (+10 % in the assault tried: no effect at 900 s, more attacker wins at 2400 s);
+  `boundM` 30 (15 m tried: no measurable effect; catalog data, would break the M7.5c no-interiors goldens — owner).
+- **Batches** (attacker wins; casualties attacker / defender):
+
+  | Batch | Before | After |
+  |---|---|---|
+  | platoon (DE on foot) 10 x 900 s, seeds 1..10 / 11..20 | 0 (14.5 / 9.3) / 0 (11.1 / 5.0) | 1 (14.4 / 10.3) / 0 (16.1 / 9.2) |
+  | platoon-ru (RU on foot) 10 x 900 s, seeds 1..10 / 11..20 | 0 (16.1 / 8.1) / 0 (14.4 / 8.6) | 2 (15.5 / 12.8) / 1 (13.1 / 11.2) |
+  | platoon 10 x 2400 s | 0 (21.1 / 10.8) | 4 (18.9 / 12.5) |
+  | platoon-ru 10 x 2400 s | 1 (20.5 / 10.1) | 6 (18.8 / 14.9) |
+  | platoon-vehicles 10 x 900 s | 3, 1 draw (11.5 / 20.0) | 4 (14.9 / 19.2) |
+  | platoon-ru-vehicles 10 x 900 s | 0 (18.5 / 8.6) | 0 (22.5 / 7.4) |
+  | demo 50 x 120 s | draw 50 | draw 50 |
+
+  Target 2-4 in 10 not reached at 900 s (1-3 in 20: the attack reaches the objective about as the clock stops);
+  at 2400 s (the app's battle) 4/10 and 6/10. Open for the owner: balance length, 15 m rushes, hand smoke grenades.
+- **Goldens unchanged** (they replay stored orders, not the AI; no data changed): golden test passes without
+  `golden:update`, the no-interiors equivalence goldens included.

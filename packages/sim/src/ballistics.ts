@@ -72,6 +72,8 @@ export interface AmmoRT {
   burnEndTicks: number;
   /** Bursts by itself this many ticks after launch (0 = never; M7.4a rockets). */
   selfDestructTicks: number;
+  /** A guided missile (owner 2026-11-13): steered by systems/missiles.ts, not removed for age (it self-destructs). */
+  guided: boolean;
 }
 
 /** One armour plate, ready for the hit test (M7.4a): mild-steel-equivalent mm per mm of thickness. */
@@ -431,6 +433,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
       ignTicks: Math.round((a.propulsion?.ignitionSeconds ?? 0) * tickHz),
       burnEndTicks: Math.round(((a.propulsion?.ignitionSeconds ?? 0) + (a.propulsion?.burnSeconds ?? 0)) * tickHz),
       selfDestructTicks: a.explosive?.selfDestructSeconds !== undefined ? Math.round(a.explosive.selfDestructSeconds * tickHz) : 0,
+      guided: a.guided !== undefined,
       fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
       armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
       minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };

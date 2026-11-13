@@ -27,7 +27,7 @@
  */
 import { registerActionHandler, startAction } from "../actions";
 import { dropAt, flightTimeAt } from "../ballistics";
-import type { Catalog, VehicleDef } from "../catalog";
+import type { AmmoDef, Catalog, VehicleDef } from "../catalog";
 import type { FireTask, StationState, Unit, VehicleState, VehicleWeaponState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -36,17 +36,26 @@ import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
-import { atan2, cos, hypot2, sin, sqrt, wrapAngle } from "../math";
+import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
 import { compCondition, fireTop, occupant } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
 import { aimHeightAt, friendInLine, skillFactor } from "./fire";
 import { burstCadence, launchShot, pickRound } from "./shot";
+import { launchProjectile } from "./ballistics";
 import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
+import { smokeTransmission } from "./support";
 
-export type Nature = "ap" | "he" | "mg";
+export type Nature = "ap" | "he" | "mg" | "atgm";
+
+/** The guided missile a station weapon fires (owner 2026-11-13), if it is a missile launcher. */
+export function guidedRound(catalog: Catalog, wdef: VehicleDef["stations"][number]["weapons"][number] | undefined): { ammo: string; g: NonNullable<AmmoDef["guided"]> } | null {
+  const round = wdef ? catalog.items[wdef.feeds[0]?.item ?? ""]?.chargeItem : undefined;
+  const g = round !== undefined ? catalog.ammo[round]?.guided : undefined;
+  return g && round !== undefined ? { ammo: round, g } : null;
+}
 
 /** Can this vehicle still fight (not knocked out, abandoned or destroyed)? */
 export function canFight(v: VehicleState): boolean {
@@ -99,6 +108,10 @@ export function pickFeed(ctx: SimContext, def: VehicleDef, st: StationState, si:
   const sn = def.stations[si]!;
   for (let wi = 0; wi < sn.weapons.length; wi++) {
     const wdef = sn.weapons[wi]!, w = st.weapons[wi]!;
+    // Guided missiles only as "atgm" (owner 2026-11-13); a missile still being put on is not there.
+    const guided = guidedRound(ctx.catalog, wdef) !== null;
+    if (guided !== (nature === "atgm")) continue;
+    if (guided) { if ((w.feeds[0]?.rounds ?? 0) > 0 && !(v && weaponOut(ctx, v, def, si, wi))) return { weapon: wi, feed: 0 }; continue; }
     const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
     if ((nature === "mg") === cannon) continue;
     if (v && weaponOut(ctx, v, def, si, wi)) continue; // wrecked (M7.4b)
@@ -113,7 +126,7 @@ export function pickFeed(ctx: SimContext, def: VehicleDef, st: StationState, si:
 
 /** First choice of nature, then the others in a sensible order (a crew out of one kind uses what it has). */
 function feedFor(ctx: SimContext, def: VehicleDef, st: StationState, si: number, want: Nature, v: VehicleState): { weapon: number; feed: number; nature: Nature } | null {
-  const order: Nature[] = want === "ap" ? ["ap", "he"] : want === "he" ? ["he", "mg", "ap"] : ["mg", "he", "ap"];
+  const order: Nature[] = want === "atgm" ? ["atgm", "ap", "he"] : want === "ap" ? ["ap", "he"] : want === "he" ? ["he", "mg", "ap"] : ["mg", "he", "ap"];
   for (const n of order) { const f = pickFeed(ctx, def, st, si, n, v); if (f) return { ...f, nature: n }; }
   return null;
 }
@@ -122,6 +135,8 @@ function feedFor(ctx: SimContext, def: VehicleDef, st: StationState, si: number,
 export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number, wi: number): boolean {
   const wdef = def.stations[si]?.weapons[wi];
   if (!wdef || !def.components) return false;
+  // A missile launcher is guided through the gunner's sight: wrecked sights, no missile (owner 2026-11-13).
+  if (guidedRound(ctx.catalog, wdef)) return compCondition(v, def, "sights") <= 0;
   const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
   return compCondition(v, def, cannon ? "gun" : "coax") <= 0;
 }
@@ -130,6 +145,7 @@ export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si:
 function natureOf(ctx: SimContext, def: VehicleDef, si: number, wi: number, fi: number): Nature {
   const wdef = def.stations[si]?.weapons[wi];
   if (!wdef) return "mg";
+  if (guidedRound(ctx.catalog, wdef)) return "atgm";
   const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
   if (!cannon) return "mg";
   return feedIsHe(ctx.catalog, wdef.feeds[fi]?.item ?? "") ? "he" : "ap";
@@ -208,9 +224,12 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const G = ctx.catalog.behaviour.gunnery, tick = state.tick;
   const me = state.transform.req(vid);
   const sn = def.stations[si]!;
+  // The guns' reach; a missile ready on its launcher, halted, reaches further at vehicles (owner 2026-11-13).
   let reach = 0;
-  for (const w of sn.weapons) reach = Math.max(reach, w.engageRangeM);
-  if (crew.maxEngageM > 0) reach = Math.min(reach, crew.maxEngageM);
+  for (const w of sn.weapons) if (!guidedRound(ctx.catalog, w)) reach = Math.max(reach, w.engageRangeM);
+  const msl = missileReady(ctx, v, def, si);
+  let mReach = msl ? Math.min(sn.weapons[msl.weapon]!.engageRangeM, msl.g.maxRangeM) : 0;
+  if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
   const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number }>();
   for (const m of crew.members) {
@@ -230,8 +249,8 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
-    if (d > reach) continue;
     const isVeh = state.vehicle.has(target);
+    if (d > (isVeh ? Math.max(reach, mReach) : reach)) continue;
     const ew = isVeh ? undefined : state.weapon.get(target);
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
@@ -253,7 +272,14 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const d = hypot2(best.x - me.x, best.y - me.y);
   let nature: Nature;
   let heightM: number;
-  if (best.vehicle) { nature = "ap"; heightM = 1.2; keys.push("why.nature.vehicle"); }
+  if (best.vehicle) {
+    heightM = 1.2;
+    // The missile at an enemy vehicle beyond missileBeyondM (or beyond the guns), or nearer when armour-piercing
+    // cannot get through the face it shows (owner 2026-11-13).
+    const far = d > reach || d >= (G.missileBeyondM ?? 1000);
+    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || !apCanPierce(ctx, state, def, si, me.x, me.y, best.target)) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
+    else { nature = "ap"; keys.push("why.nature.vehicle"); }
+  }
   else {
     let group = 0;
     for (const [t, c] of cands) if (t !== best.target && !state.vehicle.has(t) && hypot2(c.x - best.x, c.y - best.y) <= G.groupRadiusM) group++;
@@ -292,6 +318,7 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
     const allowed = gunneryAllowed(ctx, state, v.unit!);
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!;
+      if (st.guide) continue; // the gunner is guiding a missile: nothing else until it ends (owner 2026-11-13)
       refillCheck(ctx, state, events, vid, v, def, si);
       if (stationOperator(state, v, def, si) === null) continue;
       // Its target is down or a wreck (M7.4a): the task ends, ordered or not.
@@ -363,7 +390,8 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
           const wd = ctx.catalog.weapons[wdef.weapon];
           const round = feed ? ctx.catalog.items[feed.item]?.chargeItem : undefined;
           const v0 = round !== undefined ? wd?.ammo[round] : undefined;
-          if (round !== undefined && v0 !== undefined && range0 > 1) {
+          // (A guided missile flies along the sight line: no drop, no lead.)
+          if (round !== undefined && v0 !== undefined && range0 > 1 && ctx.catalog.ammo[round]?.guided === undefined) {
             const tr = tableRange(wdef.engageRangeM);
             // Lead on a moving vehicle the crew knows the movement of.
             const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
@@ -423,7 +451,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
     const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!, task = st.task, sn = def.stations[si]!;
-      if (!task) continue;
+      if (!task || st.guide) continue;
       const op = stationOperator(state, v, def, si);
       if (op === null) continue;
       const os = state.soldier.req(op);
@@ -441,6 +469,9 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       if (!wd) continue;
       // The weapon wrecked (M7.4b): the task ends; the next decision picks another weapon if one works.
       if (weaponOut(ctx, v, def, si, st.taskWeapon)) { st.task = null; continue; }
+      // A guided missile (owner 2026-11-13): fired halted, laid, with the line clear; then guided (missiles.ts).
+      const gr = guidedRound(ctx.catalog, wdef);
+      if (gr) { fireMissile(ctx, state, events, vid, v, def, si, op, gr, crew, t.x, t.y, t.heading); continue; }
       // Feed: switch to the task's feed first (a dual-feed cannon takes a moment).
       if (w.feed !== st.taskFeed) { w.feed = st.taskFeed; w.switchUntilTick = tick + secondsToTicks(wdef.switchSeconds); w.burstLeft = 0; w.loadedRound = false; w.burstIndex = 0; }
       if (tick < w.switchUntilTick) continue;
@@ -529,6 +560,138 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
   }
 }
 
+// ---------------------------------------------------------------- guided missiles (owner 2026-11-13)
+
+/** Does this vehicle carry a guided missile launcher? */
+export function vehicleHasMissiles(ctx: SimContext, state: SimState, vid: EntityId | undefined): boolean {
+  const v = vid === undefined ? undefined : state.vehicle.get(vid);
+  const def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  return def !== undefined && def.stations.some((sn) => sn.weapons.some((w) => guidedRound(ctx.catalog, w) !== null));
+}
+
+/** The point a missile gunner holds his sight on: an enemy vehicle's aim point (its true place: he sees it). */
+export function missileAimPoint(ctx: SimContext, state: SimState, target: EntityId, out: { x: number; y: number; z: number }): boolean {
+  const tv = state.vehicle.get(target), tt = state.transform.get(target);
+  const td = tv ? ctx.catalog.vehicles[tv.def] : undefined;
+  if (!tv || !tt || !td) return false;
+  const ap = td.signature?.aimPoints[0] ?? [0, 0, 1.2];
+  const c = cos(tt.heading), s = sin(tt.heading);
+  out.x = tt.x + c * ap[0] - s * ap[1]; out.y = tt.y + s * ap[0] + c * ap[1];
+  out.z = heightAt(ctx.map, tt.x, tt.y) + ap[2]; // ground: ok (a hull's aim point)
+  return true;
+}
+
+/** A sight line blocked this close to its end is blocked by the target's surroundings, not in the way. */
+const MISSILE_END_ALLOWANCE_M = 5;
+
+/**
+ * Does the missile gunner at (sx, sy, sz) see the point (ax, ay, az) well enough to guide onto it? Not blocked
+ * (ground, walls, roofs, hulls; the own and the target's hull ignored), and seen through woods, hedges and smoke
+ * (a day sight: nothing through smoke) at least `missileSeenFloor`.
+ */
+export function missileSees(ctx: SimContext, state: SimState, vid: EntityId, target: EntityId, sx: number, sy: number, sz: number, ax: number, ay: number, az: number): boolean {
+  const r = sight(ctx, sx, sy, sz, ax, ay, az, vid, target);
+  const range = hypot2(ax - sx, ay - sy);
+  if (r.blockedBy !== null && (1 - r.blockedAt) * range > MISSILE_END_ALLOWANCE_M) return false;
+  let seen = r.visibility;
+  if (state.smoke.length > 0) {
+    const D = ctx.catalog.spotting, build = secondsToTicks(D.smokeBuildSeconds);
+    // (A day sight keeps only what smoke of either kind lets through: spotting's throughSmoke with factor 0.)
+    seen *= smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "conventional") * smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "multispectral");
+  }
+  return seen >= (ctx.catalog.behaviour.gunnery.missileSeenFloor ?? 0.2);
+}
+
+const MSL_AIM = { x: 0, y: 0, z: 0 };
+
+/** Can this station's missile gunner, from where the launcher stands now, see the enemy vehicle to guide onto it? */
+function missileSeesTarget(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, wi: number, target: EntityId): boolean {
+  const t = state.transform.get(vid);
+  if (!t || !missileAimPoint(ctx, state, target, MSL_AIM)) return false;
+  const [sx, sy, sz] = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth);
+  return missileSees(ctx, state, vid, target, sx, sy, sz, MSL_AIM.x, MSL_AIM.y, MSL_AIM.z);
+}
+
+/** A missile on this station's launcher, ready to fire now: halted, nothing in flight, the launcher working. */
+function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: number): { weapon: number; g: NonNullable<AmmoDef["guided"]> } | null {
+  const st = v.stations[si]!, sn = def.stations[si]!;
+  if (st.guide || Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3)) return null;
+  for (let wi = 0; wi < sn.weapons.length; wi++) {
+    const gr = guidedRound(ctx.catalog, sn.weapons[wi]);
+    if (!gr || (st.weapons[wi]?.feeds[0]?.rounds ?? 0) <= 0 || weaponOut(ctx, v, def, si, wi)) continue;
+    return { weapon: wi, g: gr.g };
+  }
+  return null;
+}
+
+/**
+ * The crew's judgement whether its armour-piercing round gets through the face the enemy vehicle shows it (hull,
+ * struck level): the plate's resistance along a level path against the round's published penetration.
+ */
+function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId): boolean {
+  const tv = state.vehicle.get(target), tt = state.transform.get(target);
+  const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
+  if (!tv || !tt || !rt) return true;
+  let pen = 0;
+  for (const w of def.stations[si]!.weapons) {
+    if (guidedRound(ctx.catalog, w)) continue;
+    for (const f of w.feeds) {
+      const round = ctx.catalog.items[f.item]?.chargeItem;
+      const am = round !== undefined ? ctx.catalog.ammo[round] : undefined;
+      if (am && am.explosive === undefined && am.penetration.steelMm > pen) pen = am.penetration.steelMm;
+    }
+  }
+  const rel = Math.abs(wrapAngle(atan2(y - tt.y, x - tt.x) - tt.heading));
+  const face = rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1;
+  const p = rt.plates[face];
+  if (!p) return true;
+  return pen >= (p.thicknessMm * p.kPerMm) / Math.max(p.cosS, ctx.catalog.ballistics.armour.losFloorCos);
+}
+
+/**
+ * Fire the station's missile at its task (owner 2026-11-13): halted, laid, the line clear from the launcher, the
+ * range between the missile's minimum and its wire; it leaves at the launcher's velocity along the sight line and
+ * is guided from the next tick (systems/missiles.ts). The round comes off the launcher (counted).
+ */
+function fireMissile(
+  ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, op: EntityId,
+  gr: { ammo: string; g: NonNullable<AmmoDef["guided"]> }, crew: Unit | undefined, x: number, y: number, heading: number,
+): void {
+  const st = v.stations[si]!, task = st.task!, tick = state.tick, wi = st.taskWeapon;
+  const w = st.weapons[wi]!, wdef = def.stations[si]!.weapons[wi]!, feed = w.feeds[0];
+  const nature = (): void => {
+    // Nothing on the launcher: an ordered task goes on with armour-piercing; a crew's own choice is made again.
+    if (!task.self) { const f = feedFor(ctx, def, st, si, "ap", v); if (f) { st.taskWeapon = f.weapon; st.taskFeed = f.feed; return; } }
+    st.task = null;
+  };
+  if (!feed || feed.rounds <= 0) { nature(); return; }
+  if (Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3) || st.laidTick < 0) return;
+  if (task.contact !== undefined && crew) { const c = crewContact(ctx, state, crew, task.contact); if (c) { task.x = c.x; task.y = c.y; } }
+  const [mx, my, mz] = muzzleWorld(ctx, def, si, wi, x, y, heading, st.azimuth);
+  const range = hypot2(task.x - mx, task.y - my);
+  if (range < gr.g.minRangeM || range > Math.min(gr.g.maxRangeM, wdef.engageRangeM)) { nature(); return; }
+  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (the point fired at)
+  const tv = task.contact !== undefined && state.vehicle.has(task.contact) ? task.contact : -1;
+  if (tick - task.lineCheckTick >= TICK_HZ) {
+    task.lineCheckTick = tick;
+    // At a vehicle: the gunner must see it well enough to guide (the same test as in flight); at a point: the line.
+    if (tv >= 0) task.lineClear = missileSeesTarget(ctx, state, vid, v, def, si, wi, tv);
+    else { const r = sight(ctx, mx, my, mz, task.x, task.y, tz, vid, tv); task.lineClear = r.blockedBy === null || (1 - r.blockedAt) * range <= LINE_ALLOWANCE_M; }
+    if (!task.lineClear && task.self) { nature(); return; } // the crew's own choice: the gun instead
+  }
+  // (Own men on the way are no bar: the missile flies along the gunner's sight line, above their heads.)
+  if (!task.lineClear || tick < w.nextShotTick) return;
+  const v0 = ctx.catalog.weapons[wdef.weapon]?.ammo[gr.ammo] ?? 50;
+  const a0 = atan2(task.y - my, task.x - mx), e0 = atan2(tz - mz, range);
+  const ce = cos(e0);
+  launchProjectile(ctx, state, gr.ammo, mx, my, mz, v0 * cos(a0) * ce, v0 * sin(a0) * ce, v0 * sin(e0), op);
+  events.emit({ kind: "shot.fired", tick, shooter: op, x: mx, y: my, z: mz, dirX: cos(a0), dirY: sin(a0), weapon: wdef.weapon, ammo: gr.ammo, vehicle: vid });
+  feed.rounds--;
+  w.lastShotTick = tick;
+  w.nextShotTick = tick + TICK_HZ;
+  st.guide = { ammo: gr.ammo, weapon: wi, gunner: op, launchTick: tick, target: tv, errH: 0, errV: 0, checkTick: -1, ax: task.x, ay: task.y, az: tz };
+}
+
 function loaderFit(state: SimState, v: VehicleState, def: VehicleDef, kind: string): boolean {
   for (let i = 0; i < def.seats.length; i++) {
     if (def.seats[i]!.station !== kind) continue;
@@ -600,6 +763,7 @@ function refillCheck(ctx: SimContext, state: SimState, events: EventSink, vid: E
   const st = v.stations[si]!;
   for (let wi = 0; wi < st.weapons.length; wi++) {
     const w = st.weapons[wi]!;
+    if (guidedRound(ctx.catalog, def.stations[si]!.weapons[wi])) continue; // missiles: systems/missiles.ts reloads
     for (let fi = 0; fi < w.feeds.length; fi++) {
       const f = w.feeds[fi]!, cap = readyCapacity(def, si, wi, fi);
       if (cap <= 0 || f.rounds > cap * frac) continue;
@@ -661,13 +825,21 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   const isVeh = named !== undefined && state.vehicle.has(named);
   const d = hypot2(x - t.x, y - t.y);
   const G = ctx.catalog.behaviour.gunnery;
-  const want: Nature = (order.nature === "at" ? undefined : order.nature) ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
+  // "Anti-tank" (owner 2026-11-13): the guided missile if the vehicle has one ready, else armour-piercing.
+  // An order without a nature at an enemy vehicle: the missile where the crew would choose it itself.
+  const mslVeh = (si: number): boolean => {
+    const m = isVeh ? missileReady(ctx, v, def, si) : null;
+    return m !== null && named !== undefined && d >= m.g.minRangeM && d <= Math.min(m.g.maxRangeM, def.stations[si]!.weapons[m.weapon]!.engageRangeM)
+      && (d >= (G.missileBeyondM ?? 1000) || !apCanPierce(ctx, state, def, si, t.x, t.y, named));
+  };
+  const want0: Nature = order.nature === "at" ? "atgm" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
   let any = false;
   for (let si = 0; si < v.stations.length; si++) {
     if (stationOperator(state, v, def, si) === null) continue;
+    const want: Nature = order.nature === undefined && mslVeh(si) ? "atgm" : want0;
     const f = feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
-    const h = order.heightM ?? (isVeh ? 1.2 : f.nature === "he" ? 0 : ctx.catalog.shooting.fire.aimPointHeightM);
+    const h = order.heightM ?? (isVeh || f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : ctx.catalog.shooting.fire.aimPointHeightM);
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);
     v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", `why.nature.${f.nature}`] };
     any = true;

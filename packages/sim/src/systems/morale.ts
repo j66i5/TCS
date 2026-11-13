@@ -65,9 +65,15 @@ export function suppressByBurst(ctx: SimContext, state: SimState, x: number, y: 
 }
 
 /** His unit has lost its leader: every man of it takes the blow. */
-export function leaderLost(ctx: SimContext, state: SimState, unitId: EntityId): void {
-  // mounted: ok losing the leader shakes every man, aboard or not
-  for (const m of unitSoldiers(state, unitId)) addStress(ctx, state, m, ctx.catalog.behaviour.stress.fromLeaderLoss);
+export function leaderLost(ctx: SimContext, state: SimState, unitId: EntityId, leader?: EntityId): void {
+  // mounted: ok losing the leader shakes every man; a man aboard a closed hull only when the leader fell inside it
+  // (owner 2026-11-13, "only own vehicle")
+  const inside = leader === undefined ? undefined : state.soldier.get(leader)?.mount?.vehicle;
+  for (const m of unitSoldiers(state, unitId)) {
+    const mv = state.soldier.get(m)?.mount?.vehicle;
+    if (mv !== undefined && leader !== undefined && mv !== inside) continue;
+    addStress(ctx, state, m, ctx.catalog.behaviour.stress.fromLeaderLoss);
+  }
 }
 
 function nextBehaviour(ctx: SimContext, s: SoldierState): Behaviour {
@@ -105,14 +111,24 @@ export function moraleSystem(ctx: SimContext, state: SimState, events: EventSink
       const at = state.transform.get(e.soldier);
       if (side === undefined || !at) continue;
       const r2 = B.stress.casualtyNearbyM * B.stress.casualtyNearbyM;
-      // mounted: ok a comrade falling nearby shakes men aboard too
-      for (const [id] of state.soldier.entries()) {
+      const inside = state.soldier.get(e.soldier)?.mount?.vehicle;
+      // mounted: ok men aboard a closed hull feel only a comrade falling inside it (owner 2026-11-13, "only own vehicle")
+      for (const [id, s] of state.soldier.entries()) {
         if (id === e.soldier || state.identity.get(id)?.side !== side) continue;
+        if (s.mount !== undefined) { if (s.mount.vehicle === inside) addStress(ctx, state, id, B.stress.fromCasualty); continue; }
         const t = state.transform.get(id);
         if (!t) continue;
         const dx = t.x - at.x, dy = t.y - at.y;
         if (dx * dx + dy * dy <= r2) addStress(ctx, state, id, B.stress.fromCasualty);
       }
+    } else if (e.kind === "vehicle.hit") {
+      // Men aboard take stress from hits on their own hull (owner 2026-11-13): a penetration, or a heavy round or
+      // a burst that the armour stops (rifle-calibre strikes, aggregated, do not count).
+      const pen = e.result === "penetrated";
+      const am = ctx.catalog.ammo[e.ammo];
+      const k = pen ? B.stress.fromOwnVehiclePenetrated ?? 0 : am !== undefined && (am.diameterM >= 0.0125 || am.explosive !== undefined) ? B.stress.fromOwnVehicleStruck ?? 0 : 0;
+      const v = k > 0 ? state.vehicle.get(e.vehicle) : undefined;
+      if (v) for (const id of v.seats) if (id !== null && id !== undefined) addStress(ctx, state, id, k);
     }
   }
   // ---- fading and state changes, each man every stepSeconds (staggered)

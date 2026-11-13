@@ -171,6 +171,15 @@ export const AmmoSchema = withProv({
   /** Rockets (M7.4a): a motor that ignites `ignitionSeconds` after launch and speeds it up at `accelMps2` for
    *  `burnSeconds` along its flight path. */
   propulsion: z.object({ ignitionSeconds: Num(0, 10), burnSeconds: Num(0, 30), accelMps2: Num(0, 5000) }).strict().optional(),
+  /** Wire-guided (SACLOS) missiles (owner 2026-11-13, a simple model; full guided weapons are M9): after launch
+   *  it speeds up at `accelMps2` to `cruiseMps` and flies toward the gunner's line of sight to his aim point,
+   *  turning at most `turnRateDegS`; the gunner's tracking error is `trackErrorMrad` (one standard deviation at
+   *  skill 0.5, wandering with `trackTauS`). Fired only between `minRangeM` and `maxRangeM` (the wire's length);
+   *  with guidance lost it flies on unguided, thrown off by `lostKickMrad`. */
+  guided: z.object({
+    cruiseMps: Num(10, 2000), accelMps2: Num(0, 5000), turnRateDegS: Num(1, 360), minRangeM: Num(0, 2000), maxRangeM: Num(10, 20000),
+    trackErrorMrad: Num(0, 20), trackTauS: Num(0.05, 30), lookaheadS: Num(0, 5), lostKickMrad: Num(0, 500),
+  }).strict().optional(),
   /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
   ricochetFactor: Num(0, 2).optional(),
   /** What a round that gets through armour throws inside (M7.4a, owner Q11): fragments of the plate and the
@@ -314,7 +323,10 @@ export const BehaviourFile = withProv({
   suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1),
     /** M7.3: the energy factor of a near miss is capped at 2; heavy rounds (12.7 mm and up) at this. */
     heavyEnergyCap: Num(0.25, 20).optional() }).strict(),
-  stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1) }).strict(),
+  stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1),
+    /** Men aboard a closed vehicle (owner 2026-11-13, "only own vehicle"): stress when their own hull is penetrated,
+     *  and when it is struck by a heavy round (12.7 mm and up) or a burst that does not get through. */
+    fromOwnVehiclePenetrated: Num(0, 1).optional(), fromOwnVehicleStruck: Num(0, 1).optional() }).strict(),
   states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
   effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
   stepSeconds: Num(0.05, 10),
@@ -348,6 +360,13 @@ export const BehaviourFile = withProv({
     groupRadiusM: Num(0, 100), coaxSingleWithinM: Num(0, 3000), vehicleScore: Num(0.01, 10), firingScore: Num(0.01, 10),
     lrfRangeErrorFraction: Num(0, 1), refillBelowFraction: Num(0, 1),
     friendlyClearM: Num(0, 500), scanReturnSeconds: Num(0, 600), dischargeAheadM: Num(0, 200),
+    /** Guided missiles from a station (owner 2026-11-13): a crew prefers the missile against an enemy vehicle beyond
+     *  `missileBeyondM`, or nearer when its armour-piercing round cannot get through the face it shows; it fires
+     *  halted only (below `missileHaltedMps`); the gunner checks his sight line every `missileSightSeconds` and
+     *  loses the missile when it is blocked or seen through less than `missileSeenFloor`, and with a chance of
+     *  `missileHitLoseChance` when his own hull is struck by an enemy round or burst (12.7 mm and up). */
+    missileBeyondM: Num(0, 10000).optional(), missileHaltedMps: Num(0, 10).optional(), missileSightSeconds: Num(0.02, 5).optional(),
+    missileSeenFloor: Num(0, 1).optional(), missileHitLoseChance: Num(0, 1).optional(),
   }).strict(),
   /** Shoulder-fired anti-tank weapons (M7.4a). See BehaviourDef.antitank. */
   antitank: z.object({

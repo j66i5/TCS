@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  aimErrorMrad, createSim, EventSink, hashState, interruptAction, loadSim, saveSim, secondsToTicks, step, submitOrder,
+  aimErrorMrad, createSim, EventSink, friendInLine, hashState, interruptAction, loadSim, saveSim, secondsToTicks, step, submitOrder,
   type Sim, type SimEvent,
 } from "../src/index";
-import { armedInput } from "./helpers";
+import { armedInput, team } from "./helpers";
 
 const blue = (sim: Sim) => [...sim.state.unit.entries()].find(([, u]) => u.side === "blue")!;
 const kinds = (ev: SimEvent[], k: SimEvent["kind"]) => ev.filter((e) => e.kind === k);
@@ -440,5 +440,27 @@ describe("line of fire review fixes (M3.1)", () => {
     const ev = run(sim, 10);
     expect(kinds(ev, "shot.fired")).toHaveLength(0);
     expect(ev.some((e) => e.kind === "radio" && e.key === "radio.noLineOfFire")).toBe(true);
+  });
+});
+
+describe("friend in the line of fire (balance pass 2026-11-13)", () => {
+  it("a man of another platoon of his side in front of the muzzle holds his fire, as one of his own does", () => {
+    const input = armedInput();
+    const blueForce = input.forces[0]!;
+    const other = team("c", 1);
+    other.members[0]!.weapon = "rifle";
+    blueForce.units.push(other);
+    blueForce.placements.push({ personId: "c.0", x: 60, y: 10, heading: 0 });
+    const sim = createSim(input);
+    const shooter = [...sim.state.identity.entries()].find(([, i]) => i.personId === "a.0")![0];
+    const s = sim.state;
+    // Firing east along y = 10 past the other platoon's man at x = 60: blocked; firing well to the side: clear.
+    expect(friendInLine(sim.ctx, s, shooter, 150, 10)).toBe(true);
+    expect(friendInLine(sim.ctx, s, shooter, 150, 120)).toBe(false);
+    // An enemy in the way does not hold his fire.
+    const redMan = [...s.identity.entries()].find(([, i]) => i.side === "red")![0];
+    const rt = s.transform.req(redMan);
+    rt.x = 60; rt.y = 120 * 0.4 + 10 * 0.6;
+    expect(friendInLine(sim.ctx, s, shooter, 150, 120)).toBe(false);
   });
 });

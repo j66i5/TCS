@@ -112,11 +112,17 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     out.hasSmokeDischargers = vdef.dischargers !== undefined && countIn(view, u.vehicle, vdef.dischargers.item) > 0;
     // The natures its guns offer: a coaxial machine gun "mg"; a cannon "ap" / "he" by the feed's round.
     const set = new Set<Nature>();
-    for (const st of vdef.stations) for (const w of st.weapons) {
+    vdef.stations.forEach((st, si) => st.weapons.forEach((w, wi) => {
+      // A guided missile launcher (owner 2026-11-13): "Anti-tank" while a missile is on it or in stowage.
+      const round = catalog.items[w.feeds[0]?.item ?? ""]?.chargeItem;
+      if (round !== undefined && catalog.ammo[round]?.guided !== undefined) {
+        if ((veh.stations[si]?.weapons[wi]?.feeds[0]?.rounds ?? 0) > 0 || countIn(view, u.vehicle!, w.feeds[0]!.item) > 0) out.hasLauncherRounds = true;
+        return;
+      }
       const cannon = catalog.weapons[w.weapon]?.type === "autocannon" || !w.coax;
-      if (!cannon) { set.add("mg"); continue; }
-      for (const f of w.feeds) { const round = catalog.items[f.item]?.chargeItem; set.add(round !== undefined && catalog.ammo[round]?.explosive !== undefined ? "he" : "ap"); }
-    }
+      if (!cannon) { set.add("mg"); return; }
+      for (const f of w.feeds) { const r = catalog.items[f.item]?.chargeItem; set.add(r !== undefined && catalog.ammo[r]?.explosive !== undefined ? "he" : "ap"); }
+    }));
     out.natures = (["ap", "he", "mg"] as const).filter((n) => set.has(n));
     return out;
   }
@@ -180,6 +186,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     o.discharge = cap.hasSmokeDischargers;
     o.natures = cap.natures;
     o.nature = cap.natures.length > 1;
+    if (cap.hasLauncherRounds) o.modes = [...o.modes, "antitank"];
     return o;
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;

@@ -346,6 +346,25 @@ export interface VehicleWeaponState {
   loadedRound: boolean;
   jammed: boolean; lastShotTick: number;
   lowAmmoReported: boolean[];
+  /** Guided missile launchers (owner 2026-11-13): the next missile is on the launcher at this tick (absent: no
+   *  reload running). */
+  reloadDoneTick?: number;
+}
+
+/**
+ * A wire-guided missile in flight from a station (owner 2026-11-13). The projectile is the row of the pool whose
+ * owner is `gunner`, ammunition `ammo` and birth tick `launchTick` (one missile per station at a time).
+ */
+export interface MissileGuide {
+  ammo: DefId; weapon: number; gunner: EntityId; launchTick: number;
+  /** The enemy vehicle the gunner keeps in his sight. */
+  target: EntityId;
+  /** His tracking error now, rad (across the sight line, and up). */
+  errH: number; errV: number;
+  /** When the sight line was last checked (-1: not yet: the error is drawn then). */
+  checkTick: number;
+  /** His aim point now (world; the target's aim point, or the point ordered), without his error. */
+  ax: number; ay: number; az: number;
 }
 
 export interface StationState {
@@ -359,6 +378,8 @@ export interface StationState {
   scanAz: number;
   /** Last decision and its reasons (string keys), for the debug overlay. */
   why: { tick: number; keys: string[] };
+  /** A guided missile this station's gunner is guiding (owner 2026-11-13; absent or null: none). */
+  guide?: MissileGuide | null;
 }
 
 /** Getting in or out (M7.2). */

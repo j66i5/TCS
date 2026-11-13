@@ -9,8 +9,8 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  buildNavGrid, hypot2, nearestPassable, newVehicleRecord, PI,
-  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type UnitInput, type VehicleRecord,
+  atan2, buildBallistics, buildMapIndex, buildNavGrid, heightAt, hypot2, nearestPassable, newVehicleRecord, PI, sight, TICK_HZ,
+  type BattleInput, type Catalog, type ForceInput, type MapDef, type NavGrid, type ObjectiveDef, type Placement, type SimContext, type UnitInput, type VehicleRecord,
 } from "@tcs/sim";
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
@@ -35,6 +35,9 @@ export interface ScenarioDef {
    *  starts mounted at its map edge, the defender's vehicles stand behind its main objective with only their
    *  crews aboard. Off: the same platoons on foot, without their crews (as before M7.2). */
   vehicles?: boolean;
+  /** With vehicles: the attacker's hulls start in dead ground, out of the defenders' sight (owner 2026-11-13;
+   *  default true). False: the old line across the attacker's map edge (for comparisons). */
+  deadGroundStart?: boolean;
 }
 
 /** Mortar rounds each side may call (game values). */
@@ -78,7 +81,9 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     { id: "main", nameKey: "objective.main", x: mainP.x, y: mainP.y, radiusM: 40, points: SCENARIO_POINTS.main, holder: defender },
     { id: "second", nameKey: "objective.second", x: secondP.x, y: secondP.y, radiusM: 30, points: SCENARIO_POINTS.second, holder: defender },
   ];
-  const forces: ForceInput[] = SIDES.map((side, s) => {
+  // The defender is built first: the attacker's start (dead ground) depends on where the defenders stand.
+  let observers: { x: number; y: number; z: number }[] = [];
+  const buildSide = (side: "blue" | "red", s: number): ForceInput => {
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
     const template = def.templates?.[s] ?? pack?.manifest.platoonTemplate ?? pack?.manifest.demoTemplate ?? "demo-team";
@@ -89,7 +94,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const placements: Placement[] = [];
     const heading = side === "blue" ? 0 : PI; // facing the other side
     const attacking = side === def.attacker;
-    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H) : null;
+    const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null) : null;
     if (fv) placements.push(...fv.placements);
     // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
     // (With vehicles: crews are in their seats, and the attacker's carried men start aboard.)
@@ -109,8 +114,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       if (side === defender) {
         // Defence: the platoon's men behind the main objective's centre and two squads at its front corners (all
         // inside its 40 m ring), one squad at the second objective, in front of its centre.
-        const spots = [{ x: mainP.x + dx * 10, y: mainP.y }, { x: mainP.x - dx * 14, y: mainP.y - 20 }, { x: mainP.x - dx * 14, y: mainP.y + 20 }, { x: secondP.x - dx * 8, y: secondP.y }];
-        const sp = spots[Math.min(gi, spots.length - 1)]!;
+        const sp = defenceSpots(mainP, secondP, dx)[Math.min(gi, 3)]!;
         cx = sp.x; cy = sp.y;
       } else {
         // Attack: start in a line of squads near the own map edge, opposite the objectives.
@@ -124,8 +128,20 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     });
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
+    if (!attacking) {
+      // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
+      const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };
+      observers = [
+        ...(fv?.vehiclePlacements ?? []).map((p) => ({ x: p.x, y: p.y, z: eye(force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? "") })),
+        ...defenceSpots(mainP, secondP, dx).map((p) => ({ x: p.x, y: p.y, z: 1.7 })),
+      ];
+    }
     return force;
-  });
+  };
+  const forces: ForceInput[] = [];
+  const dIdx = SIDES.indexOf(defender), aIdx = SIDES.indexOf(def.attacker);
+  forces[dIdx] = buildSide(defender, dIdx);
+  forces[aIdx] = buildSide(def.attacker, aIdx);
   const rules = defaultRules(def.timeLimitSeconds ?? 2400);
   rules.objectives = objectives;
   rules.victory = { casualtyPoints: SCENARIO_POINTS.perManDown, endOnDefeat: true };
@@ -142,6 +158,80 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
 
 interface SoldierGroup { men: string[]; carrier: string | undefined }
 
+/** Where the defence stands at the start: its platoon's men behind the main objective's centre, two squads at
+ *  its front corners (inside its 40 m ring), one squad in front of the second objective. */
+function defenceSpots(mainP: { x: number; y: number }, secondP: { x: number; y: number }, dx: number): { x: number; y: number }[] {
+  return [{ x: mainP.x + dx * 10, y: mainP.y }, { x: mainP.x - dx * 14, y: mainP.y - 20 }, { x: mainP.x - dx * 14, y: mainP.y + 20 }, { x: secondP.x - dx * 8, y: secondP.y }];
+}
+
+/** Dead ground (owner 2026-11-13): candidate starts this far apart, at least this far from every objective, and on
+ *  the attacker's side of this share of the map. A spot is hidden from an observer when the line to a hull's middle
+ *  and to its top is blocked (ground, walls, roofs) or seen through less than this share (woods, hedges); a group
+ *  of hulls stays within groupRadiusM of its first spot. */
+const DEAD_GROUND = { stepM: 20, minFromObjectiveM: 600, ownShare: 0.4, edgeM: 30, seenAbove: 0.15, spacingM: 20, groupRadiusM: 200 } as const;
+
+/**
+ * The attacker's vehicle starts in dead ground (owner 2026-11-13): spots on its side of the map, at least 600 m
+ * from the objectives, that no defender (its vehicles' sights, its men) can see, sampled every 20 m. The spot
+ * hidden from everyone and nearest the usual start (the middle of the attacker's edge) anchors the group; the
+ * hulls take the hidden spots nearest it, 20 m apart. Where too few spots are hidden from all, the least seen
+ * ones are used (on open, flat ground that is the usual line at the edge); a group stays within 200 m. Deterministic: the map and the
+ * defenders' places only.
+ */
+function deadGroundStarts(
+  catalog: Catalog, map: MapDef, grid: NavGrid, region: number, n: number, side: string, hullHeightM: number,
+  observers: readonly { x: number; y: number; z: number }[], objectives: readonly { x: number; y: number }[], W: number, H: number,
+): { x: number; y: number }[] | null {
+  if (observers.length === 0 || n === 0) return null;
+  const D = DEAD_GROUND;
+  const mapIndex = buildMapIndex(map);
+  const ctx = { catalog, map, mapIndex, ballistics: buildBallistics(map, catalog, mapIndex, TICK_HZ) } as unknown as SimContext;
+  const homeX = side === "blue" ? W * 0.08 : W * 0.92, homeY = H / 2;
+  const cands: { x: number; y: number; seen: number; home: number }[] = [];
+  for (let x = D.edgeM; x <= W - D.edgeM; x += D.stepM) {
+    if (side === "blue" ? x > W * D.ownShare : x < W * (1 - D.ownShare)) continue;
+    for (let y = D.edgeM; y <= H - D.edgeM; y += D.stepM) {
+      if (objectives.some((o) => hypot2(o.x - x, o.y - y) < D.minFromObjectiveM)) continue;
+      const cell = nearestPassable(grid, x, y, 0, region);
+      if (cell < 0) continue;
+      const g = heightAt(map, x, y);
+      let seen = 0;
+      for (const o of observers) {
+        const oz = heightAt(map, o.x, o.y) + o.z;
+        for (const h of [1.2, hullHeightM - 0.1]) {
+          const r = sight(ctx, o.x, o.y, oz, x, y, g + h);
+          if (r.blockedBy === null && r.visibility >= D.seenAbove) { seen++; break; }
+        }
+      }
+      cands.push({ x, y, seen, home: hypot2(x - homeX, y - homeY) });
+    }
+  }
+  if (cands.length === 0) return null;
+  cands.sort((a, b) => a.seen - b.seen || a.home - b.home || a.x - b.x || a.y - b.y);
+  // A group round each of the best anchors: the least seen spots nearest it, at least 20 m apart. The group seen
+  // least wins, then the tighter one, then the one nearer the usual start.
+  let best: { x: number; y: number; seen: number }[] | null = null, bestCost = Infinity;
+  for (const anchor of cands.slice(0, 80)) {
+    const near = [...cands].sort((a, b) => a.seen - b.seen || hypot2(a.x - anchor.x, a.y - anchor.y) - hypot2(b.x - anchor.x, b.y - anchor.y) || a.x - b.x || a.y - b.y);
+    const out: { x: number; y: number; seen: number }[] = [];
+    let seen = 0, spread = 0;
+    for (const c of near) {
+      if (out.length >= n) break;
+      if (out.some((p) => hypot2(p.x - c.x, p.y - c.y) < D.spacingM - 1e-6) || hypot2(c.x - anchor.x, c.y - anchor.y) > D.groupRadiusM) continue;
+      out.push(c); seen += c.seen; spread = Math.max(spread, hypot2(c.x - anchor.x, c.y - anchor.y));
+    }
+    if (out.length < n) continue;
+    const cost = seen * 1000 + spread + 0.3 * anchor.home;
+    if (cost < bestCost) { bestCost = cost; best = out; }
+  }
+  if (!best) return null;
+  lastDeadGround = { seen: best.map((c) => c.seen), observers: observers.length, candidates: cands.length, hidden: cands.filter((c) => c.seen === 0).length };
+  return best.map((c) => ({ x: c.x, y: c.y }));
+}
+
+/** Diagnostics of the last dead-ground choice (tools and tests): observers seeing each start, hidden spots. */
+export let lastDeadGround: { seen: number[]; observers: number; candidates: number; hidden: number } | null = null;
+
 /** Spacing of the vehicles at the start, m. */
 const VEHICLE_SPACING_M = 20;
 
@@ -152,10 +242,30 @@ const VEHICLE_SPACING_M = 20;
  */
 function placeVehicles(
   catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
+  dead: { observers: readonly { x: number; y: number; z: number }[]; objectives: readonly { x: number; y: number }[] } | null = null,
 ): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
   const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
   const grids = new Map<string, NavGrid>();
-  const heading = side === "blue" ? 0 : PI;
+  let heading = side === "blue" ? 0 : PI;
+  // Dead ground for the attacker's start (owner 2026-11-13): spots chosen for the first vehicle's class.
+  let starts: { x: number; y: number }[] | null = null;
+  if (dead && vehicles.length > 0) {
+    const def0 = catalog.vehicles[vehicles[0]!.type];
+    if (def0) {
+      const grid = buildNavGrid(map, catalog.terrain, def0.class, 2, 0, [], { clearanceCells: 3 });
+      grids.set(def0.class, grid);
+      const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
+      let tallest = 0;
+      for (const fv of vehicles) tallest = Math.max(tallest, catalog.vehicles[fv.type]?.body.heightM ?? 2.5);
+      starts = deadGroundStarts(catalog, map, grid, mainRegion, vehicles.length, side, tallest, dead.observers, dead.objectives, W, H);
+      if (starts) {
+        // Facing the main objective from the group's middle.
+        let sx = 0, sy = 0;
+        for (const p of starts) { sx += p.x; sy += p.y; }
+        heading = atan2(mainP.y - sy / starts.length, mainP.x - sx / starts.length);
+      }
+    }
+  }
   vehicles.forEach((fv, i) => {
     const def = catalog.vehicles[fv.type];
     if (!def) throw new Error(`scenario: vehicle type '${fv.type}' not in the catalog`);
@@ -164,8 +274,8 @@ function placeVehicles(
     const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
     const lat = (i - (vehicles.length - 1) / 2) * VEHICLE_SPACING_M;
     // Attack: a line across the own edge. Defence: behind the main objective (away from the attack), staggered.
-    const x0 = attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (60 + (i % 2) * 60);
-    const y0 = attacking ? H / 2 + lat : mainP.y + lat * 1.5;
+    const x0 = starts ? starts[i]!.x : attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (60 + (i % 2) * 60);
+    const y0 = starts ? starts[i]!.y : attacking ? H / 2 + lat : mainP.y + lat * 1.5;
     const cell = nearestPassable(grid, Math.min(Math.max(x0, 1), W - 1), Math.min(Math.max(y0, 1), H - 1), 80, mainRegion);
     const taken = (x: number, y: number) => vehiclePlacements.some((p) => hypot2(p.x - x, p.y - y) < 12);
     let vx = cell < 0 ? x0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? y0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;

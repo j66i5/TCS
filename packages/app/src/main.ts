@@ -542,7 +542,8 @@ async function main(): Promise<void> {
     setSpeed: (v: number) => { speed = v; },
     /** Vehicles (M7.3): smoke screen, and the gun and round of the next fire order (screenshots). */
     discharge: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "discharge" }),
-    fireNature: (x: number, y: number, n: "ap" | "he" | "mg") => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n }),
+    halt: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "halt" }),
+    fireNature: (x: number, y: number, n: "ap" | "he" | "mg" | "at", contact?: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y, nature: n, ...(contact !== undefined ? { contact } : {}) }),
     focus: (x: number, y: number, widthM: number) => renderer.focus(x, y, widthM, hud.insets()),
     /** M7.5b screenshots: centre at a zoom (px/m); the zoom level shown; a roof's alpha. */
     focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); renderer.primeDetail(); },
@@ -641,6 +642,7 @@ async function main(): Promise<void> {
             const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
             const name = call && call.unit !== null ? sim.state.unit.get(call.unit)?.callsign ?? vid : vid;
             for (const [ammo, n] of Object.entries(v.cannon)) spent.push(strings.t("aar.exp.cannon", { vehicle: name, ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
+            for (const [ammo, n] of Object.entries(v.missiles)) spent.push(strings.t("aar.exp.cannon", { vehicle: name, ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
             if (v.coax > 0) spent.push(strings.t("aar.exp.coax", { vehicle: name, n: v.coax }));
             if (v.smoke > 0) spent.push(strings.t("aar.exp.smoke", { vehicle: name, n: v.smoke }));
           }

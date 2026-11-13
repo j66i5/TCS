@@ -94,7 +94,10 @@ export type SimEvent =
   /** A vehicle's smoke dischargers fired (M7.3): the screen's centre. */
   | { kind: "vehicle.smoke"; tick: number; vehicle: EntityId; x: number; y: number }
   /** A vehicle station's decision changed (M7.3; debug overlay): its target (if any) and the reasons (string keys). */
-  | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | null; keys: string[] }
+  | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | "atgm" | null; keys: string[] }
+  /** A guided missile's flight ended (owner 2026-11-13): it struck its target vehicle ("hit"), burst elsewhere or
+   *  flew off the map ("miss"), or its gunner lost it ("lost": `reason` key; it flies on unguided). */
+  | { kind: "missile.ended"; tick: number; vehicle: EntityId; station: number; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

@@ -5,6 +5,7 @@
  */
 import type { MovementClass, TerrainCatalog } from "./catalog";
 import type { DefId } from "./ids";
+import { interiorProblems } from "./interior";
 import { MAX_MAP_SIZE_M, type MapDef } from "./map";
 
 /** Index of the cell containing (x, y), or -1 outside the map. */
@@ -82,8 +83,17 @@ export interface MapIndex {
   bcols: number;
   brows: number;
   segments: Segment[];
-  /** For each bucket, indices into `segments` (ascending). */
+  /** For each bucket, indices into `segments` (ascending). Outer walls and obstacles only. */
   buckets: number[][];
+  /**
+   * M7.5c: inner walls of building interiors are appended to `segments` after every outer wall and obstacle
+   * (owner "building", part = number of outer walls + index in `interior.walls`), from index `nOuter` on. They are
+   * not in `buckets` (everything that only knows outer walls sees exactly what it saw before) but in
+   * `interiorBuckets`; `interiorOf[i]` = [first, end) of building i's (map order) inner segments.
+   */
+  nOuter: number;
+  interiorBuckets: number[][];
+  interiorOf: Int32Array;
   /** Scratch for `segmentsInRectInto`: the query generation each segment was last collected in. */
   stamp: Uint32Array;
   stampGen: number;
@@ -106,13 +116,25 @@ export function buildMapIndex(m: MapDef, bucketM = 32): MapIndex {
       segments.push({ ax: b.footprint[i * 2]!, ay: b.footprint[i * 2 + 1]!, bx: b.footprint[j * 2]!, by: b.footprint[j * 2 + 1]!, owner: "building", id: b.id, part: i });
     }
   }
-  const buckets: number[][] = Array.from({ length: bcols * brows }, () => []);
-  segments.forEach((s, si) => {
+  const nOuter = segments.length;
+  const interiorOf = new Int32Array(m.buildings.length * 2);
+  m.buildings.forEach((b, bi) => {
+    interiorOf[bi * 2] = segments.length;
+    const nf = b.footprint.length / 2;
+    b.interior?.walls.forEach((w, i) => segments.push({ ax: w.ax, ay: w.ay, bx: w.bx, by: w.by, owner: "building", id: b.id, part: nf + i }));
+    interiorOf[bi * 2 + 1] = segments.length;
+  });
+  const into = (list: number[][], si: number) => {
+    const s = segments[si]!;
     const c0 = clampI(Math.floor(Math.min(s.ax, s.bx) / bucketM), bcols), c1 = clampI(Math.floor(Math.max(s.ax, s.bx) / bucketM), bcols);
     const r0 = clampI(Math.floor(Math.min(s.ay, s.by) / bucketM), brows), r1 = clampI(Math.floor(Math.max(s.ay, s.by) / bucketM), brows);
-    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) buckets[r * bcols + c]!.push(si);
-  });
-  return { bucketM, bcols, brows, segments, buckets, stamp: new Uint32Array(segments.length), stampGen: 0 };
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) list[r * bcols + c]!.push(si);
+  };
+  const buckets: number[][] = Array.from({ length: bcols * brows }, () => []);
+  for (let si = 0; si < nOuter; si++) into(buckets, si);
+  const interiorBuckets: number[][] = Array.from({ length: bcols * brows }, () => []);
+  for (let si = nOuter; si < segments.length; si++) into(interiorBuckets, si);
+  return { bucketM, bcols, brows, segments, buckets, nOuter, interiorBuckets, interiorOf, stamp: new Uint32Array(segments.length), stampGen: 0 };
 }
 
 const clampI = (v: number, n: number) => (v < 0 ? 0 : v >= n ? n - 1 : v);
@@ -132,6 +154,10 @@ export function segmentsInRect(ix: MapIndex, x0: number, y0: number, x1: number,
  * The caller must finish with the list before the next call that writes the same `out`.
  */
 export function segmentsInRectInto(ix: MapIndex, x0: number, y0: number, x1: number, y1: number, out: number[]): number {
+  return collectInto(ix, ix.buckets, x0, y0, x1, y1, out);
+}
+
+function collectInto(ix: MapIndex, buckets: number[][], x0: number, y0: number, x1: number, y1: number, out: number[]): number {
   const c0 = clampI(Math.floor(Math.min(x0, x1) / ix.bucketM), ix.bcols), c1 = clampI(Math.floor(Math.max(x0, x1) / ix.bucketM), ix.bcols);
   const r0 = clampI(Math.floor(Math.min(y0, y1) / ix.bucketM), ix.brows), r1 = clampI(Math.floor(Math.max(y0, y1) / ix.bucketM), ix.brows);
   let gen = ix.stampGen + 1;
@@ -140,7 +166,7 @@ export function segmentsInRectInto(ix: MapIndex, x0: number, y0: number, x1: num
   const stamp = ix.stamp;
   let n = 0;
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-    const list = ix.buckets[r * ix.bcols + c]!;
+    const list = buckets[r * ix.bcols + c]!;
     for (let q = 0; q < list.length; q++) {
       const si = list[q]!;
       if (stamp[si] === gen) continue;
@@ -162,6 +188,12 @@ export function segmentsInRectInto(ix: MapIndex, x0: number, y0: number, x1: num
     out[j + 1] = v;
   }
   return n;
+}
+
+/** `segmentsInRectInto` over the inner walls of building interiors (M7.5c). */
+export function interiorSegmentsInRectInto(ix: MapIndex, x0: number, y0: number, x1: number, y1: number, out: number[]): number {
+  if (ix.segments.length === ix.nOuter) return 0;
+  return collectInto(ix, ix.interiorBuckets, x0, y0, x1, y1, out);
 }
 
 /** Point-in-polygon (even-odd rule) for a flat coordinate list. */
@@ -203,6 +235,8 @@ export function validateMap(m: MapDef, t: TerrainCatalog): string[] {
   for (const b of m.buildings) {
     if (!t.buildings[b.kind]) p.push(`building ${b.id}: unknown kind '${b.kind}'`);
     if (!t.materials[b.wallMaterial]) p.push(`building ${b.id}: unknown material '${b.wallMaterial}'`);
+    for (const w of b.interior?.walls ?? []) if (!t.materials[w.material]) { p.push(`building ${b.id}: unknown inner wall material '${w.material}'`); break; }
+    p.push(...interiorProblems(b));
   }
   for (const r of m.roads) if (!t.surfaces[r.surface]) p.push(`road ${r.id}: unknown surface '${r.surface}'`);
   return p;

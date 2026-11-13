@@ -21,12 +21,13 @@ import { startAction } from "../actions";
 import type { Intent, SoldierState, Unit } from "../components";
 import { countItems, type Container } from "../items";
 import type { SimContext } from "../context";
+import { indoorAt, routeBetween } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import { findPath } from "../nav";
+import type { findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -113,6 +114,8 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   const me = state.transform.req(id);
   const lie = body.prone.heightM * 0.6, kneel = body.crouching.muzzleHeightM;
   if (coveredFrom(ctx, me.x, me.y, threat.x, threat.y, lie)) return false;
+  // Indoors (M7.5c) he stays in the house: its walls are his cover (no running out into the open).
+  if (indoorAt(ctx, me.x, me.y) >= 0) return false;
   const { grid, search } = navFor(ctx, "foot");
   const cands: { x: number; y: number; score: number }[] = [];
   for (let ring = 1; ring <= 5; ring++) {
@@ -133,7 +136,7 @@ function seekCover(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
   cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
   let best: { x: number; y: number } | null = null, leg = null as ReturnType<typeof findPath>;
   for (const cnd of cands.slice(0, 6)) {
-    const l = findPath(search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 3000, snapCells: 1 });
+    const l = routeBetween(ctx, search, me.x, me.y, cnd.x, cnd.y, { maxExpansions: 3000, snapCells: 1 });
     if (l && l.cost <= D.coverSearchM * 2.5) { best = cnd; leg = l; break; }
   }
   if (!best || !leg) return false;
@@ -214,7 +217,7 @@ function stepBringAmmo(ctx: SimContext, state: SimState, events: EventSink, g: E
   const { search } = navFor(ctx, "foot");
   // He comes up behind him (not into his line of fire).
   const bx = b.x - cos(b.heading) * 1.5, by = b.y - sin(b.heading) * 1.5;
-  const leg = findPath(search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 });
+  const leg = routeBetween(ctx, search, a.x, a.y, bx, by, { maxExpansions: 4000, snapCells: 2 });
   if (!leg) { gs.intent = null; return; }
   m.waypoints = [];
   for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });

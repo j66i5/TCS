@@ -1,5 +1,5 @@
 /** Map statistics and validity checks, used by tests, the `npm run map` tool and generator tuning. */
-import { cellIndex, hypot2, pointInPolygon, type MapDef } from "@tcs/sim";
+import { cellIndex, hypot2, interiorProblems, pointInPolygon, type MapDef } from "@tcs/sim";
 import { along as alongPts, bbox, convexOverlap, distToPolyline, polylineLength } from "./geom";
 
 export interface MapStats {
@@ -15,6 +15,11 @@ export interface MapStats {
   water: number;
   heightMin: number;
   heightMax: number;
+  /** Interiors (M7.5c): rooms, inner walls, doorways and stairs over all buildings and floors. */
+  rooms: number;
+  innerWalls: number;
+  innerDoors: number;
+  stairs: number;
 }
 
 export function mapStats(m: MapDef): MapStats {
@@ -34,7 +39,13 @@ export function mapStats(m: MapDef): MapStats {
   for (const r of m.roads) roadM[r.surface] = (roadM[r.surface] ?? 0) + polylineLength(r.points);
   let hmin = Infinity, hmax = -Infinity;
   for (const h of m.heights) { if (h < hmin) hmin = h; if (h > hmax) hmax = h; }
-  return { cells: n, surface, vegetation, buildings, buildingCount: m.buildings.length, obstacleM, roadM, water: m.water.length, heightMin: hmin, heightMax: hmax };
+  let rooms = 0, innerWalls = 0, innerDoors = 0, stairs = 0;
+  for (const b of m.buildings) {
+    if (!b.interior) continue;
+    rooms += b.interior.rooms.length; innerWalls += b.interior.walls.length; stairs += b.interior.stairs.length;
+    for (const w of b.interior.walls) innerDoors += w.doors.length;
+  }
+  return { cells: n, surface, vegetation, buildings, buildingCount: m.buildings.length, obstacleM, roadM, water: m.water.length, heightMin: hmin, heightMax: hmax, rooms, innerWalls, innerDoors, stairs };
 }
 
 /**
@@ -66,6 +77,7 @@ export function checkMap(m: MapDef): string[] {
       const wet = probes.some(([x, y]) => (w.kind === "pond" ? pointInPolygon(w.points, x, y) : distToPolyline(x, y, w.points) < w.widthM / 2));
       if (wet) p.push(`building ${b.id} stands in water ${w.id}`);
     }
+    p.push(...interiorProblems(b));
     const ci = cellIndex(m, cx, cy);
     if (ci >= 0 && m.surfacePalette[m.surface[ci]!] !== "floor") p.push(`building ${b.id}: floor not painted under it`);
   });

@@ -123,6 +123,24 @@ describe("men aboard vehicles are gated (A7, plan §15 M7.1c)", () => {
   });
 });
 
+describe("men's routes know building interiors (M7.5c)", () => {
+  it("every findPath call in sim and ai goes through routeBetween or carries an `outdoor: ok` marker", () => {
+    const bad: string[] = [];
+    for (const pkg of ["sim", "ai"]) {
+      for (const f of sourceFiles(join(PKG, pkg, "src"))) {
+        if (f.endsWith("nav.ts") || f.endsWith("interior-nav.ts")) continue; // the search itself, and routeBetween
+        const lines = readFileSync(f, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          if (!/\bfindPath\(/.test(stripComments(line))) return;
+          const near = lines.slice(Math.max(0, i - 2), i + 1).join("\n");
+          if (!/outdoor: ok/.test(near)) bad.push(`${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
 describe("app data bundle", () => {
   it("bundles every data folder the Node loader reads (core/**, factions/**)", () => {
     const text = readFileSync(join(PKG, "app", "src", "data.ts"), "utf8");

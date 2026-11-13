@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runBattle, tallyExpenditure, type Expenditure } from "@tcs/sim";
+import { runBattle, stripInteriors, tallyExpenditure, type Expenditure } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 
@@ -14,6 +14,8 @@ const name = args["scenario"] ?? "demo";
 const runs = Number(args["runs"] ?? 100);
 const seconds = Number(args["seconds"] ?? 120);
 const firstSeed = Number(args["seed"] ?? 1);
+/** `--no-interiors`: the maps without building interiors, exactly as before M7.5c (comparison batches). */
+const noInteriors = args["no-interiors"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -31,6 +33,7 @@ const t0 = performance.now();
 for (let i = 0; i < runs; i++) {
   const seed = firstSeed + i;
   const input = sc.build(data, seed, seconds);
+  if (noInteriors) input.map = stripInteriors(input.map);
   const s0 = performance.now();
   // Each side's first dismount (M7.2), from the event stream.
   const firstDismount: Record<string, number | null> = { blue: null, red: null };
@@ -90,6 +93,7 @@ const md = [
   "",
   `${sc.description}`,
   "",
+  `- Building interiors: ${noInteriors ? "off (--no-interiors)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
   `- Speed: ${((runs * seconds) / (totalMs / 1000)).toFixed(0)}x real time`,
@@ -110,7 +114,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 18).join("\n"));

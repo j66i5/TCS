@@ -23,6 +23,7 @@ import { registerActionHandler, startAction } from "../actions";
 import { lineBlocked, type AmmoRT } from "../ballistics";
 import type { SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
+import { roomAt } from "../interior";
 import type { EventSink } from "../events";
 import { flightStep, type FlightState } from "../flight";
 import { secondsToTicks, type EntityId } from "../ids";
@@ -86,7 +87,9 @@ export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId,
   for (const b of ctx.map.buildings) {
     if (!pointInPolygon(b.footprint, t.x, t.y)) continue;
     let area = 0;
-    const f = b.footprint;
+    // With an interior (M7.5c) the room he stands in, not the whole house.
+    const ri = roomAt(b, 0, t.x, t.y);
+    const f = ri >= 0 ? b.interior!.rooms[ri]!.poly : b.footprint;
     for (let k = 0; k < f.length; k += 2) { const j = (k + 2) % f.length; area += f[k]! * f[j + 1]! - f[j]! * f[k + 1]!; }
     area = Math.abs(area) / 2;
     const breached = state.terrain.breaches.some((br) => br.owner === "building" && br.id === b.id);

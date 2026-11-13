@@ -17,11 +17,12 @@
  */
 import type { Drill, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
+import { routeBetween } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import { findPath } from "../nav";
+
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
@@ -49,7 +50,7 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
-  const leg = findPath(navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 });
   if (!leg) return false;
   m.waypoints = [];
   for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "run" });

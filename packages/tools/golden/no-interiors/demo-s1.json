@@ -1,0 +1,77 @@
+{
+ "name": "demo-s1",
+ "description": "Demo scenario, seed 1, 120 s, wander orders",
+ "scenario": "demo",
+ "seed": 1,
+ "seconds": 120,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 778.9845837280154,
+     "y": 1478.6793075501919,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 1149.1174908354878,
+     "y": 1414.1134437173605,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 3600,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 603.6015156656504,
+     "y": 1228.8311103358865,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 3600,
+   "issuer": "red",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 845.5773720517755,
+     "y": 1595.1017202809453,
+     "mode": "walk"
+    }
+   ]
+  }
+ ],
+ "checkpoints": {
+  "600": "c35e5863cc711d29",
+  "1200": "52c499db889aa005",
+  "1800": "8a0f8b3a22cf80ff",
+  "2400": "c7e0f3374bed076d",
+  "3000": "1495538080e01342",
+  "3600": "c9479e14568c14e8",
+  "4200": "f2e3b7d319e1542e",
+  "4800": "72c40268ebd27c28",
+  "5400": "cb4056f4bb3e271a",
+  "6000": "9178fcb093e1ce80",
+  "6600": "b4a2837824ec5e05",
+  "7200": "6bfeae04b6e5a3d9"
+ },
+ "catalogFingerprint": "c269fc35621d3b0e"
+}

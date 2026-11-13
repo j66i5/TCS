@@ -1,0 +1,231 @@
+{
+ "name": "shootout-s1",
+ "description": "Scripted shoot-out of the two real squads, seed 1, 180 s",
+ "scenario": "shootout",
+ "seed": 1,
+ "seconds": 180,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "posture",
+   "posture": "prone"
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 8,
+   "kind": "posture",
+   "posture": "prone"
+  },
+  {
+   "tick": 360,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 360,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 275,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 1560,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 1560,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 275,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "grenade",
+   "x": 525,
+   "y": 300
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 8,
+   "kind": "grenade",
+   "x": 275,
+   "y": 300
+  },
+  {
+   "tick": 2760,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 2760,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 275,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 3960,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 3960,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 275,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 5160,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 5160,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 274.9046905392008,
+   "y": 298.4706296380934,
+   "heightM": 0.3
+  },
+  {
+   "tick": 6360,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 300,
+   "heightM": 0.3
+  },
+  {
+   "tick": 6360,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 274.8598720026927,
+   "y": 297.7514550585219,
+   "heightM": 0.3
+  },
+  {
+   "tick": 7560,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525,
+   "y": 299.4,
+   "heightM": 0.3
+  },
+  {
+   "tick": 7560,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 274.8598720026927,
+   "y": 297.7514550585219,
+   "heightM": 0.3
+  },
+  {
+   "tick": 8760,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "fire",
+   "x": 525.1666225817329,
+   "y": 296.72857053735635,
+   "heightM": 0.3
+  },
+  {
+   "tick": 8760,
+   "issuer": "red",
+   "target": 8,
+   "kind": "fire",
+   "x": 274.8598720026927,
+   "y": 297.7514550585219,
+   "heightM": 0.3
+  },
+  {
+   "tick": 9000,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "rules",
+   "fire": "hold"
+  },
+  {
+   "tick": 9000,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "ceaseFire"
+  },
+  {
+   "tick": 9000,
+   "issuer": "red",
+   "target": 8,
+   "kind": "rules",
+   "fire": "hold"
+  },
+  {
+   "tick": 9000,
+   "issuer": "red",
+   "target": 8,
+   "kind": "ceaseFire"
+  }
+ ],
+ "checkpoints": {
+  "600": "be1199457e73f96e",
+  "1200": "554c32e9f565d9fd",
+  "1800": "2af36df431050e89",
+  "2400": "23fbb56d2d5068b3",
+  "3000": "51804edf8af9a6e3",
+  "3600": "935bb9dc55408f1d",
+  "4200": "074f627923207717",
+  "4800": "787f13407e1d4a3d",
+  "5400": "b5b3b040922b658e",
+  "6000": "038cb7154ba090f6",
+  "6600": "223831188b686d57",
+  "7200": "00d832ee26878136",
+  "7800": "4ffc653af0ad5aed",
+  "8400": "86ba26e2747c0221",
+  "9000": "dbe7195d0b096ac3",
+  "9600": "9934d3d0ace8d036",
+  "10200": "ef4fe9f7b98f5e6e",
+  "10800": "b7332b76c8acecfd"
+ },
+ "catalogFingerprint": "c269fc35621d3b0e"
+}

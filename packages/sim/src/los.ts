@@ -112,13 +112,27 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
         }
         for (let k = 0; k + 1 < nt; k += 2) {
           const ta = ts[k]!, tb = ts[k + 1]!;
-          const za = z0 + ta * dz - heightAt(map, x0 + ta * dx, y0 + ta * dy) - rf.heightM;
-          const zb = z0 + tb * dz - heightAt(map, x0 + tb * dx, y0 + tb * dy) - rf.heightM;
+          const ga = z0 + ta * dz - heightAt(map, x0 + ta * dx, y0 + ta * dy), gb = z0 + tb * dz - heightAt(map, x0 + tb * dx, y0 + tb * dy);
+          const za = ga - rf.heightM;
+          const zb = gb - rf.heightM;
           if ((za > 0) !== (zb > 0)) {
             // Where it crosses the roof plane (linear between the two footprint crossings).
             const tc = ta + ((tb - ta) * za) / (za - zb);
             if (tc < tBlock) { tBlock = tc; blockedBy = "roof"; }
           }
+          // Floors between storeys (M7.5c): the same test at each slab.
+          for (let q2 = 0; q2 < rf.slabs.length; q2++) {
+            const h = rf.slabs[q2]!, sa = ga - h, sb = gb - h;
+            if ((sa > 0) !== (sb > 0)) {
+              const tc = ta + ((tb - ta) * sa) / (sa - sb);
+              if (tc < tBlock) { tBlock = tc; blockedBy = "roof"; }
+            }
+          }
+        }
+        // Inner walls (M7.5c): only of buildings the line passes through.
+        if (nt > 0 && rf.innerTo > rf.innerFrom) {
+          const tIn = innerWallOnLine(ctx, rf.innerFrom, rf.innerTo, x0, y0, z0, dx, dy, dz);
+          if (tIn < tBlock) { tBlock = tIn; blockedBy = "wall"; }
         }
       }
     }
@@ -203,6 +217,33 @@ export function sight(ctx: SimContext, x0: number, y0: number, z0: number, x1: n
   if (blockedBy !== null) return { visibility: 0, blockedBy, vegetationM: vegM, blockedAt: tBlock };
   if (conceal > 0) visibility *= exp(-conceal);
   return { visibility, blockedBy: null, vegetationM: vegM, blockedAt: 1 };
+}
+
+/** Nearest point (0..1) where the line meets an inner wall [from, to) above its floor and outside a doorway; 2 if none. */
+function innerWallOnLine(ctx: SimContext, from: number, to: number, x0: number, y0: number, z0: number, dx: number, dy: number, dz: number): number {
+  const map = ctx.map, segs = ctx.mapIndex.segments, info = ctx.ballistics.seg;
+  let best = 2;
+  for (let si = from; si < to; si++) {
+    const s = segs[si]!;
+    const ex = s.bx - s.ax, ey = s.by - s.ay;
+    const denom = dx * ey - dy * ex;
+    if (denom > -1e-12 && denom < 1e-12) continue;
+    const t = ((s.ax - x0) * ey - (s.ay - y0) * ex) / denom;
+    if (t <= 1e-9 || t >= 1 - 1e-9 || t >= best) continue;
+    const u = ((s.ax - x0) * dy - (s.ay - y0) * dx) / denom;
+    if (u < 0 || u > 1) continue;
+    const w = info[si]!;
+    const rel = z0 + t * dz - heightAt(map, x0 + t * dx, y0 + t * dy);
+    if (rel < w.baseM || rel > w.heightM) continue;
+    if (w.openings) {
+      const off = u * w.len;
+      let open = false;
+      for (const o of w.openings) if (off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && rel >= o.sillM && rel <= o.headM) { open = true; break; }
+      if (open) continue;
+    }
+    best = t;
+  }
+  return best;
 }
 
 /** The point an observer looks at on a man: the middle of what shows of him in this posture, m above ground. */

@@ -612,6 +612,7 @@ export function planVehicleRoute(ctx: SimContext, cls: "tracked" | "wheeled", x:
   const out: Waypoint[] = wps.length > 0 ? [{ ...wps[0]!, x, y }] : [];
   let px = x, py = y;
   for (const w of wps) {
+    // outdoor: ok (vehicles never enter buildings)
     const p = findPath(search, px, py, w.x, w.y, blocked ? { snapCells: 6, blocked, maxExpansions: 200000 } : { snapCells: 6 });
     if (!p) return null;
     for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });

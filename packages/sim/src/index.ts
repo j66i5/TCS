@@ -6,6 +6,8 @@ export * from "./catalog";
 export * from "./environment";
 export * from "./map";
 export * from "./terrain";
+export * from "./interior";
+export * from "./interior-nav";
 export * from "./nav";
 export * from "./navctx";
 export * from "./spatial";

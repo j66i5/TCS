@@ -4,10 +4,11 @@
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
 import type { SimContext } from "../context";
+import { indoorAt, indoorSpots, routeBetween } from "../interior-nav";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
 import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
-import { bestCoverNear, clearLine, findPath, navCostAt, nearestPassable } from "../nav";
+import { bestCoverNear, clearLine, navCostAt, nearestPassable } from "../nav";
 import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
@@ -302,10 +303,39 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       };
       // Moving ends a fire order.
       endFire(state, order.target, soldiers, "moved", events);
+      // Into a building with an interior (M7.5c): no formation; each man to his own place in the room (a window
+      // first), by his own route through the doors; he crouches there facing out.
+      const indoor = indoorAt(ctx, end.x, end.y);
+      if (indoor >= 0) {
+        const spots = indoorSpots(ctx, indoor, end.x, end.y, soldiers.length);
+        const ordered = [refId, ...followers];
+        ordered.forEach((s, k) => {
+          const t = state.transform.req(s), sp = spots[k]!;
+          const wps = order.waypoints.map((w, i) => (i === order.waypoints.length - 1 ? { ...w, x: sp.x, y: sp.y } : w));
+          const own = s === refId && hypot2(end.x - sp.x, end.y - sp.y) < 1e-9 ? route : routeThrough(ctx, t.x, t.y, wps, coverW);
+          assign(s, (own ?? []).map((w) => ({ ...w })), null);
+          const m = state.mover.get(s);
+          if (m && m.waypoints.length > 0) { m.endPosture = "crouching"; m.endHeading = sp.heading; }
+        });
+        if (unit) { unit.moving = true; unit.moveTick = state.tick; }
+        else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
+        break;
+      }
       assign(refId, route.map((w) => ({ ...w })), null);
+      // Out of a building (M7.5c): men indoors come out by the doors on their own routes, then form up.
+      const fromIndoors = indoorAt(ctx, ref.x, ref.y) >= 0 || followers.some((f) => { const t = state.transform.get(f); return t !== undefined && indoorAt(ctx, t.x, t.y) >= 0; });
       followers.forEach((s, k) => {
         const t = state.transform.req(s);
         const slot = formation ? slotFor(formation.slots, k + 1) : null;
+        if (fromIndoors) {
+          const fx = route.length >= 2 ? end.x - route[route.length - 2]!.x : end.x - ref.x, fy = route.length >= 2 ? end.y - route[route.length - 2]!.y : end.y - ref.y;
+          const fl = hypot2(fx, fy) || 1, ux = fx / fl, uy = fy / fl;
+          const rM = (slot?.[0] ?? 0) * spacing, bM = (slot?.[1] ?? k + 1) * spacing;
+          const gx = Math.min(Math.max(end.x - uy * rM - ux * bM, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(end.y + ux * rM - uy * bM, 1), ctx.map.heightM - 1);
+          const wps = order.waypoints.map((w, i) => (i === order.waypoints.length - 1 ? { ...w, x: gx, y: gy } : w));
+          assign(s, (routeThrough(ctx, t.x, t.y, wps, coverW) ?? routeThrough(ctx, t.x, t.y, order.waypoints, coverW) ?? []).map((w) => ({ ...w })), null);
+          return;
+        }
         const ws = slot
           ? formationRoute(ctx, t.x, t.y, ref.x, ref.y, route, slot[0] * spacing, slot[1] * spacing, coverW)
           : personalRoute(ctx, t.x, t.y, t.x - ref.x, t.y - ref.y, route);
@@ -330,7 +360,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           const from = m.waypoints[m.waypoints.length - 1] ?? { ...end, x: state.transform.req(s).x, y: state.transform.req(s).y };
           if (hypot2(from.x - tx, from.y - ty) < 1) return;
           const { search } = navFor(ctx, ctx.catalog.movementModes[from.mode]?.class ?? "foot");
-          const leg = findPath(search, from.x, from.y, tx, ty, { maxExpansions: 6000, snapCells: 3 });
+          const leg = routeBetween(ctx, search, from.x, from.y, tx, ty, { maxExpansions: 6000, snapCells: 3 });
           if (leg) for (let k = 0; k < leg.points.length; k += 2) m.waypoints.push({ ...from, x: leg.points[k]!, y: leg.points[k + 1]! });
         });
       }
@@ -344,7 +374,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // (With a laid-out formation, cover only close by, so the shape the player chose holds.)
         const spot = bestCoverNear(grid, last.x, last.y, laid ? LAID_COVER_RADIUS_M : HALT_COVER_RADIUS_M);
         if (spot && (spot.x !== last.x || spot.y !== last.y)) {
-          const leg = findPath(search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
+          const leg = routeBetween(ctx, search, last.x, last.y, spot.x, spot.y, { maxExpansions: 4000, snapCells: 2 });
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
           if (leg && leg.cost <= HALT_COVER_RADIUS_M * 2.5) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...last, x: leg.points[i]!, y: leg.points[i + 1]! });
         }
@@ -550,7 +580,7 @@ function routeThrough(ctx: SimContext, x: number, y: number, wps: readonly Waypo
     const mode = ctx.catalog.movementModes[w.mode];
     if (!mode) return null;
     const { search } = navFor(ctx, mode.class, coverW);
-    const p = findPath(search, px, py, w.x, w.y);
+    const p = routeBetween(ctx, search, px, py, w.x, w.y);
     if (!p) return null;
     for (let i = 0; i < p.points.length; i += 2) out.push({ ...w, x: p.points[i]!, y: p.points[i + 1]! });
     px = p.goalX; py = p.goalY;
@@ -595,7 +625,7 @@ function formationRoute(ctx: SimContext, x: number, y: number, rx: number, ry: n
     if (clearLine(plain, px, py, qx, qy)) {
       out.push({ ...w, x: qx, y: qy });
     } else {
-      const leg = findPath(search, px, py, qx, qy, { maxExpansions: 6000, snapCells: 3 }) ?? findPath(search, px, py, qx, qy);
+      const leg = routeBetween(ctx, search, px, py, qx, qy, { maxExpansions: 6000, snapCells: 3 }) ?? routeBetween(ctx, search, px, py, qx, qy);
       if (!leg) return personalRoute(ctx, x, y, x - rx, y - ry, route);
       for (let i = 0; i < leg.points.length; i += 2) out.push({ ...w, x: leg.points[i]!, y: leg.points[i + 1]! });
       qx = leg.goalX; qy = leg.goalY;
@@ -624,11 +654,11 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   // Otherwise join the reference route, follow it, and leave it for his own spot at the end.
   const out: Waypoint[] = [];
   // Join the route: a quick bounded search first, then a full one. Never an unchecked straight line.
-  const join = findPath(search, x, y, first.x, first.y, { maxExpansions: 3000 }) ?? findPath(search, x, y, first.x, first.y);
+  const join = routeBetween(ctx, search, x, y, first.x, first.y, { maxExpansions: 3000 }) ?? routeBetween(ctx, search, x, y, first.x, first.y);
   if (!join) return []; // cannot reach the route at all: he stays where he is
   for (let i = 0; i + 2 < join.points.length; i += 2) out.push({ ...first, x: join.points[i]!, y: join.points[i + 1]! });
   for (const w of route) out.push({ ...w });
-  const end = findPath(search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
+  const end = routeBetween(ctx, search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
 }

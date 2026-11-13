@@ -19,7 +19,7 @@ import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { heightAt, segmentsInRectInto } from "../terrain";
+import { heightAt, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 
 /**
@@ -35,6 +35,8 @@ export function syncTerrainDamage(ctx: SimContext, state: SimState, rect?: reado
   ctx.nav = {}; // routes are planned on grids rebuilt with the holes in them
 }
 
+/** Scratch list of inner walls near a burst (M7.5c). */
+const BREACH_IN: number[] = [];
 /** Scratch list of wall segments near a burst (reused: no allocation per burst). */
 const BREACH_SEGS: number[] = [];
 
@@ -95,7 +97,12 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const reach = BL.breachReachScaledM * cube, strength = BL.breachSteelMmScaled * cube, width = BL.breachWidthScaledM * cube;
   let breached = false;
   let bx0 = x, by0 = y, bx1 = x, by1 = y;
-  const nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
+  let nSeg = segmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_SEGS);
+  // Inner walls of building interiors too (M7.5c), after the outer walls.
+  if (ctx.mapIndex.segments.length > ctx.mapIndex.nOuter) {
+    const nIn = interiorSegmentsInRectInto(ctx.mapIndex, x - reach, y - reach, x + reach, y + reach, BREACH_IN);
+    for (let q = 0; q < nIn; q++) BREACH_SEGS[nSeg++] = BREACH_IN[q]!;
+  }
   for (let q = 0; q < nSeg; q++) {
     const si = BREACH_SEGS[q]!;
     const s = ctx.mapIndex.segments[si]!, info = ctx.ballistics.seg[si]!;
@@ -105,12 +112,12 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     const px = s.ax + u * exx, py = s.ay + u * eyy;
     if (hypot2(px - x, py - y) > reach) continue;
     const rel = z - heightAt(map, px, py);
-    if (rel > info.heightM + reach) continue;
+    if (rel > info.heightM + reach || (info.baseM > 0 && rel < info.baseM - reach)) continue;
     const mat = ctx.ballistics.materials[info.material]!;
     if (mat.resistance * info.thicknessM * 1000 >= strength) continue;
     const off = u * info.len;
     // Not where the wall is already open.
-    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= 0.01)) continue;
+    if (info.openings && info.openings.some((o) => off >= o.offsetM - o.widthM / 2 && off <= o.offsetM + o.widthM / 2 && o.sillM <= info.baseM + 0.01)) continue;
     state.terrain.breaches.push({ owner: s.owner, id: s.id, part: s.part, offsetM: off, widthM: width, tick: state.tick });
     events.emit({ kind: "terrain.breached", tick: state.tick, x: px, y: py, owner: s.owner, id: s.id });
     breached = true;

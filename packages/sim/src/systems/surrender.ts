@@ -22,11 +22,12 @@
 import { isMounted } from "../mount";
 import type { SoldierState, SurrenderReason } from "../components";
 import type { SimContext } from "../context";
+import { routeBetween } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { isAble, isFit } from "../impair";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
-import { findPath } from "../nav";
+
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -126,7 +127,7 @@ function captor(ctx: SimContext, state: SimState, id: EntityId): EntityId | null
 function walkTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, endProne: boolean): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
-  const leg = findPath(navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, x, y, { maxExpansions: 6000, snapCells: 3 });
   if (!leg) return false;
   m.waypoints = [];
   for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ x: leg.points[i]!, y: leg.points[i + 1]!, mode: "walk" });

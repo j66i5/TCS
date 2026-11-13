@@ -17,7 +17,7 @@ const pct = (v: number | undefined) => `${((v ?? 0) * 100).toFixed(1)}%`;
 
 function one(kind: MapKind, seed: number, verbose: boolean) {
   const t0 = performance.now();
-  const m = generateMap(terrain, { kind, seed, widthM: size, heightM: size });
+  const m = generateMap(terrain, { kind, seed, widthM: size, heightM: size, interiors: !args["no-interiors"] });
   const ms = performance.now() - t0;
   const st = mapStats(m);
   const problems = checkMap(m);
@@ -28,6 +28,7 @@ function one(kind: MapKind, seed: number, verbose: boolean) {
     console.log("vegetation: " + Object.entries(st.vegetation).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v)}`).join(", "));
     console.log(`buildings (${st.buildingCount}): ` + Object.entries(st.buildings).map(([k, v]) => `${k} ${v}`).join(", "));
     console.log("obstacles:  " + Object.entries(st.obstacleM).map(([k, v]) => `${k} ${v.toFixed(0)} m`).join(", "));
+    console.log(`interiors:  ${st.rooms} rooms, ${st.innerWalls} inner walls, ${st.innerDoors} doorways, ${st.stairs} stairs`);
     console.log("roads:      " + Object.entries(st.roadM).map(([k, v]) => `${k} ${v.toFixed(0)} m`).join(", ") + `; water bodies ${st.water}`);
     console.log(problems.length ? `PROBLEMS (${problems.length}):\n  ${problems.slice(0, 20).join("\n  ")}` : "valid: no problems");
     if (args["out"]) { writeFileSync(args["out"], JSON.stringify(mapToFile(m))); console.log(`wrote ${args["out"]}`); }

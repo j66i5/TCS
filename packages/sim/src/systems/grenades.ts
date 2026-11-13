@@ -8,11 +8,12 @@
  */
 import { interruptAction, registerActionHandler, type ActionHandler } from "../actions";
 import type { EventSink } from "../events";
-import { findPath, navCostAt } from "../nav";
+import { navCostAt } from "../nav";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
 import { lineBlocked, roofAt, type AmmoRT } from "../ballistics";
 import type { SimContext } from "../context";
+import { routeBetween } from "../interior-nav";
 import { DT, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { removeItems } from "../items";
@@ -305,7 +306,7 @@ function rejoinRoute(ctx: SimContext, state: SimState, id: EntityId): void {
   const wp = m?.waypoints[0];
   if (!m || !t || !wp) return;
   const search = navFor(ctx, ctx.catalog.movementModes[wp.mode]?.class ?? "foot").search;
-  const p = findPath(search, t.x, t.y, wp.x, wp.y, { maxExpansions: 6000 }) ?? findPath(search, t.x, t.y, wp.x, wp.y);
+  const p = routeBetween(ctx, search, t.x, t.y, wp.x, wp.y, { maxExpansions: 6000 }) ?? routeBetween(ctx, search, t.x, t.y, wp.x, wp.y);
   if (!p) { m.waypoints = []; return; } // no way back: he stays where he is
   const lead = [];
   for (let i = 0; i + 2 < p.points.length; i += 2) lead.push({ ...wp, x: p.points[i]!, y: p.points[i + 1]! });

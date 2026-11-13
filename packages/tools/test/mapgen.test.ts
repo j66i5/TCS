@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import { checkMap, demoBattle, generateMap, MAP_KINDS, mapStats, type MapKind } from "@tcs/scenario";
-import { buildingAt, buildMapIndex, cellIndex, cellMoveCost, mapFingerprint, segmentsInRect, segmentsInRectInto, mapFromFile, mapToFile, validateMap } from "@tcs/sim";
+import { buildingAt, buildNavGrid, stripInteriors, buildMapIndex, cellIndex, cellMoveCost, mapFingerprint, segmentsInRect, segmentsInRectInto, mapFromFile, mapToFile, validateMap } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -107,5 +107,53 @@ describe("procedural maps", () => {
         expect(buildingAt(input.map, p.x, p.y)).toBeNull();
       }
     }
+  });
+});
+
+describe("building interiors (M7.5c)", () => {
+  for (const kind of MAP_KINDS) {
+    for (const seed of [1, 2, 3, 4, 5, 41]) { // 41: a corner rounded to cm just outside the footprint
+      it(`${kind} seed ${seed}: every building has a valid interior; without interiors the map is the map of before`, () => {
+        const on = generateMap(terrain, { kind, seed }), off = generateMap(terrain, { kind, seed, interiors: false });
+        expect(on.buildings.every((b) => b.interior && b.interior.rooms.length >= b.storeys)).toBe(true);
+        expect(validateMap(on, terrain)).toEqual([]);
+        expect(mapToFile(on).formatVersion).toBe(2);
+        // Equivalence (plan §1.3): interiors off is format 1, generator version 1, no interior, no upper window,
+        // and exactly the map with interiors on stripped of them (the interiors come last, on their own stream).
+        expect(mapToFile(off).formatVersion).toBe(1);
+        expect(off.meta.version).toBe(1);
+        expect(off.buildings.some((b) => b.interior || b.openings.some((o) => o.floor !== undefined))).toBe(false);
+        expect(mapFingerprint(stripInteriors(on))).toBe(mapFingerprint(off));
+      });
+    }
+  }
+
+  it("houses get 2-5 rooms with a hall, big halls one room, offices and blocks a corridor; stairs in every multi-storey building", () => {
+    const m = generateMap(terrain, { kind: "village", seed: 3 });
+    for (const b of m.buildings) {
+      const ground = b.interior!.rooms.filter((r) => r.floor === 0);
+      if (b.kind === "barn" || b.kind === "church" || b.kind === "shed" || b.kind === "warehouse") expect(ground).toHaveLength(1);
+      if (b.kind === "house" || b.kind === "farmhouse") {
+        expect(ground.length).toBeGreaterThanOrEqual(2);
+        expect(ground.length).toBeLessThanOrEqual(5);
+      }
+      if (b.storeys > 1) expect(b.interior!.stairs.length).toBe(b.storeys - 1);
+    }
+  });
+
+  it("the outdoor navigation grid is identical with interiors on and off", () => {
+    const on = generateMap(terrain, { kind: "village", seed: 2, widthM: 800, heightM: 800 }), off = generateMap(terrain, { kind: "village", seed: 2, widthM: 800, heightM: 800, interiors: false });
+    const a = buildNavGrid(on, terrain, "foot"), b = buildNavGrid(off, terrain, "foot");
+    expect(Buffer.from(a.cost.buffer).equals(Buffer.from(b.cost.buffer))).toBe(true);
+    expect(Buffer.from(a.wall.buffer).equals(Buffer.from(b.wall.buffer))).toBe(true);
+  });
+
+  it("interiors add little generation time (< 150 ms per 2 x 2 km map in all)", () => {
+    generateMap(terrain, { kind: "village", seed: 9 });
+    const t0 = performance.now();
+    for (const kind of MAP_KINDS) generateMap(terrain, { kind, seed: 11 });
+    const per = (performance.now() - t0) / MAP_KINDS.length;
+    console.log(`map generation with interiors: ${per.toFixed(0)} ms per map`);
+    expect(per).toBeLessThan(150 * 2); // CI machines are slower than the plan's 150 ms target
   });
 });

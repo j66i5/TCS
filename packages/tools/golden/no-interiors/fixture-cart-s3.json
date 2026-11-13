@@ -1,0 +1,282 @@
+{
+ "name": "fixture-cart-s3",
+ "description": "Fixture wheeled carts vs Pumas on a flat field, seed 3, 90 s (M7.1c)",
+ "scenario": "vehicles-fixture",
+ "seed": 3,
+ "seconds": 90,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 252.39583933725953,
+     "y": 200.1117412559688,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 492.1306962147355,
+     "y": 147.63626924715936,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 12,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 472.65311079099774,
+     "y": 210.46790960244834,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 16,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 380.36701306700706,
+     "y": 358.6974640097469,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 20,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 244.63624898344278,
+     "y": 294.22388459555805,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 24,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 571.8497800640762,
+     "y": 387.20554229803383,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 31,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 209.66716073453426,
+     "y": 287.45369324460626,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 35,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 272.3432691767812,
+     "y": 225.4335030913353,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 42,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 587.0414148084819,
+     "y": 319.55432798713446,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 46,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 240.81085212528706,
+     "y": 335.9262209292501,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 261.3806207664311,
+     "y": 363.5798038356006,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 532.277412340045,
+     "y": 431.9257930107415,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 12,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 558.4393180906773,
+     "y": 190.8010012563318,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 16,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 585.6650503352284,
+     "y": 373.04553017020226,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 20,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 501.36767383664846,
+     "y": 161.6608674544841,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "blue",
+   "target": 24,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 332.6239362359047,
+     "y": 215.97793788649142,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 31,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 460.9095181338489,
+     "y": 190.5819610040635,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 35,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 578.3162915147841,
+     "y": 121.46632821299136,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 42,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 542.2920998185873,
+     "y": 230.6703828368336,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2700,
+   "issuer": "red",
+   "target": 46,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 555.5523757822812,
+     "y": 139.54742968082428,
+     "mode": "walk"
+    }
+   ]
+  }
+ ],
+ "checkpoints": {
+  "600": "a7a006b9d0e8ac6c",
+  "1200": "cf2264bfe0ae4238",
+  "1800": "69a94ff45c8650a2",
+  "2400": "20b18cf6d8ef2642",
+  "3000": "21910edd06439146",
+  "3600": "3deee7cebf726070",
+  "4200": "a97919283f8de7d7",
+  "4800": "1fc1c50112cc8790",
+  "5400": "aef2da6906d2d1a0"
+ },
+ "catalogFingerprint": "31e134804f486bf3"
+}

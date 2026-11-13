@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (owner's morning review of M7.5 applied; M7.5 complete; M7 Vehicles complete)._
+_Last updated: 2026-11-13 (owner decisions on the Russian mounted attack: BMP-2 missile, dead-ground start, stress aboard)._
 
 ## Current milestone
 **M7.5 Look and interface** (plan `docs/plans/m7.5-look.md`), built unattended at the owner's request; the plan's
@@ -53,8 +53,17 @@ BMP-2s start ~800 m from the Pumas in their sight, cannot hurt their fronts and 
 losses come in the first two minutes, one cook-off can break a mounted platoon (casualty stress reaches the men in
 the next carriers), and ~90 % of Russian losses fall more than 300 m out. Eight AI/doctrine variants (smoke, cover to
 cover, dispersal, tempo, flank RPG hunters, casualty tolerance) all stayed at 0/10 and most cost more men.
-**Next:** owner decisions listed in that note (BMP-2 ATGM, start out of direct fire / bigger map, stress for men
-aboard, a pass on the infantry assault, which loses 10/10 on foot for both sides); then M7.5e "AI uses buildings".
+**Owner decisions applied (2026-11-13; DECISIONS.md "BMP-2 missile, dead-ground start, stress aboard"):** the
+BMP-2 has its **9M113M Konkurs-M** (9P135M launcher, 1 + 3 counted missiles, wire-guided SACLOS model in
+`sim/systems/missiles.ts`: lost when the gunner loses sight — terrain, woods, smoke — is hit or his hull struck;
+reload 40 s halted; the crew prefers it at vehicles beyond 1000 m or when 30 mm cannot get through; "Anti-tank" on a
+BMP-2; `npm run lab -- missile`); the mounted attacker **starts in dead ground** chosen from the defenders' sight
+lines (`buildScenario`, `deadGroundStart`); men aboard feel **only their own vehicle** (casualties inside it, hits on
+it). Batches: the Russian mounted attack still 0/10 (seeds 1–10 and 11–20), fewer early BMP-2 losses, Pumas now lost
+0.4–0.5 per battle; the German mounted attack fell from 3–4/10 to 1/10; infantry battles unchanged. The pre-interiors
+goldens are skipped while the data differ (owner: keep or delete). Screenshots: `npm run screenshot -- --scene missile`.
+**Next:** the infantry assault pass (owner question 4: both on-foot attacks lose 10/10, and it caps the mounted
+ones); then M7.5e "AI uses buildings".
 
 Before M7.5 (M7 summary):
 **M7 Vehicles is done** (plan `docs/plans/m7-vehicles.md`; M7.1a–c, M7.2, M7.3, M7.4a, **M7.4b**) —
@@ -275,13 +284,21 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - Prone throw **15 m**, grenade safety distance **8 m**.
 
 ## Next
-**Russian mounted attack** (`platoon-ru-vehicles`: Russia never wins, 0/10): investigate and tune through the AI and
-its tactics, not the armour data. Then **M7.5e** — the AI uses buildings.
+**Infantry assault pass** (owner question 4 of `docs/research/ru-mounted-attack.md`): every attack on foot loses,
+and mounted attacks too after the 2026-11-13 decisions (Russian 0/10, German 1/10). Then **M7.5e** — the AI uses
+buildings.
 
 ## Reminders for the owner
 - (Answered at the M6 review, 2026-11-12: fog of war stays "what your men have reported"; medical after vehicles.)
 
 ## Open questions for the owner
+- **New data (2026-11-13), for review:** the 9M113M Konkurs-M and 9P135M (`ru` ammunition/weapons/items/vehicles;
+  medium from search extracts: range, speed, penetration 750 mm RHA, mass, four carried; low game values: launch
+  speed, acceleration, turn rate, tracking error, reload 40 s, filling, fragments, self-destruct), `core/behaviour.json`
+  `gunnery.missile*` (beyond 1000 m, halted below 0.3 m/s, sight check 0.1 s, seen floor 0.2, lose chance 0.5 when
+  struck) and `stress.fromOwnVehiclePenetrated` 0.2 / `fromOwnVehicleStruck` 0.03 (low). Decided without the owner:
+  Konkurs-M rather than Konkurs/Fagot (it gets through the Puma's front); the pre-interiors goldens are kept but
+  skipped (keep or delete?).
 - **Corrections to the two squads** (roles, ranks, weapons, ammunition) whenever the owner wishes.
 - (Answered by choosing the research defaults:) squad tables wanted before M2.5: Panzergrenadier dismounts of a Puma and motor-rifle squad on a BMP — per
   man: role, rank, weapon; ammunition and grenades. Public-source research is in `docs/research/squads.md`

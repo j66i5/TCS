@@ -2,7 +2,7 @@
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
 import { callFire } from "./support";
-import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
+import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
 import type { SimContext } from "../context";
@@ -278,7 +278,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     if (isUnit) clearDrills(state, ou);
     releaseFromParentDrills(state, ou, soldiers);
     // (An order to one man takes him out of his own unit's drill too.)
-    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") d.groups = d.groups.map((g) => g.filter((m) => m !== order.target)); }
+    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
   const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");

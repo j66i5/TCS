@@ -269,6 +269,9 @@ export interface Unit {
    * keep it out of that house for `soldier.houseReenterSeconds`. Absent: none.
    */
   leftHouse?: { building: number; tick: number; reason: HouseLeaveReason };
+  /** The house this unit last tried and failed to send anyone out of (M7.5e review): it looks again after
+   *  `soldier.houseLeaveRetryS`. Absent: none. */
+  leaveTry?: { building: number; tick: number };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }

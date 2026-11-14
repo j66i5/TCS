@@ -746,7 +746,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       // ---- pinned or panicked in the enemy's sight: a low crawl to the nearest fold (package B). Also a man pinned
       // on his way (it is held, not walked): the crawl replaces it; his unit's next order or bound sends him on.
       const crawling = !halted && m!.waypoints[m!.waypoints.length - 1]!.mode === S.crawlMode;
-      if (!crawling && state.tick - s.coverTick >= secondsToTicks(S.crawlRetrySeconds)) {
+      // (Not a man bolting out of a house, M7.5e: his run is not cut short by a crawl once he is past the door.)
+      const bolting = !halted && m!.waypoints[m!.waypoints.length - 1]!.bolt === true;
+      if (!crawling && !bolting && state.tick - s.coverTick >= secondsToTicks(S.crawlRetrySeconds)) {
         const threat = threatOf(state, id, s);
         s.coverTick = state.tick;
         if (threat && crawlToCover(ctx, state, id, s, threat)) continue;

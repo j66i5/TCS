@@ -14,7 +14,7 @@ import { requestPosture } from "./body";
 import type { Posture } from "../orders";
 import { lineBlocked, roofAt, type AmmoRT } from "../ballistics";
 import type { SimContext } from "../context";
-import { routeBetween, routeWaypoints } from "../interior-nav";
+import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
 import { DT, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { removeItems } from "../items";
@@ -109,7 +109,7 @@ function speedFor(ctx: SimContext, am: AmmoRT, el: number, drop: number, d: numb
  * it strikes a wall or a roof first, or would fly longer than the engine keeps a projectile. Doors, windows
  * and breaches let it through, so the same test finds the throw through a window.
  */
-export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, oz: number, az: number, v: number, el: number): number {
+export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, oz: number, az: number, v: number, el: number, floorZ = 0): number {
   const bal = ctx.catalog.ballistics, B = ctx.ballistics, map = ctx.map;
   const ca = cos(az), sa = sin(az);
   let x = 0, z = oz, vx = v * cos(el), vz = v * sin(el);
@@ -123,7 +123,9 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
     vx *= f; vz = vz * f - gdt;
     const ax = ox + ca * x, ay = oy + sa * x, bx = ox + ca * nx, by = oy + sa * nx;
     if (bx < 0 || by < 0 || bx >= map.widthM || by >= map.heightM) return nx;
-    if (lineBlocked(B, map, ctx.mapIndex, ax, ay, z, bx, by, nz)) return -1;
+    // (On an upper floor it comes down on the slab: the last stretch is tested down to just above it, not through it.)
+    const fl = floorZ > 0 ? heightAt(map, bx, by) + floorZ : -Infinity; // ground: ok
+    if (lineBlocked(B, map, ctx.mapIndex, ax, ay, z, bx, by, nz > fl ? nz : fl + 0.02)) return -1;
     for (let q = 0; q < 2; q++) {
       const ri = roofAt(B, ctx.mapIndex, q === 0 ? ax : bx, q === 0 ? ay : by);
       if (ri < 0) continue;
@@ -131,7 +133,7 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
       // ground: ok (the grenade's flight against the ground and roofs)
       if ((z - heightAt(map, ax, ay) - top > 0) !== (nz - heightAt(map, bx, by) - top > 0)) return -1; // through the roof plane
     }
-    if (nz <= heightAt(map, bx, by)) return nx; // ground: ok // it has come down: nothing was in the way
+    if (nz <= heightAt(map, bx, by) + floorZ) return nx; // ground: ok // it has come down (on the floor it is thrown along): nothing was in the way
     x = nx; z = nz;
   }
   return -1;
@@ -150,19 +152,22 @@ function findArc(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
   const ox = t.x + cos(az) * 0.4, oy = t.y + sin(az) * 0.4;
   const oz = standZ(ctx.map, t, ox, oy) + ctx.catalog.body.postures[pose].muzzleHeightM + (thrown ? 0.3 : 0);
   const d = Math.max(1, hypot2(ax - ox, ay - oy));
+  // (Thrown along an upper floor into a room of the same house: it comes down on that floor, not on the ground.)
+  const tb = t.z > 0.1 ? indoorAt(ctx, t.x, t.y) : -1;
+  const fz = tb >= 0 && indoorAt(ctx, ax, ay) === tb ? t.z : 0;
   // ground: ok (the point aimed at)
-  const drop = oz - heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01));
+  const drop = oz - fz - heightAt(ctx.map, Math.min(Math.max(ax, 0), ctx.map.widthM - 0.01), Math.min(Math.max(ay, 0), ctx.map.heightM - 0.01));
   // An arc is good if it comes down unobstructed no more than `short` metres short of the point (and not far
   // beyond it), with no wall between where it comes down and the point.
   const good = (vv: number, e: number, short: number): boolean => {
-    const L = arcLanding(ctx, am, ox, oy, oz, az, vv, e);
+    const L = arcLanding(ctx, am, ox, oy, oz, az, vv, e, fz);
     if (L < 0 || L < d - short || L > d + 4) return false;
     if (L >= d - 0.3) return true;
     const lx = ox + cos(az) * L, ly = oy + sin(az) * L, px = ox + cos(az) * d, py = oy + sin(az) * d;
     const inMap = (qx: number, qy: number) => qx >= 0 && qy >= 0 && qx < ctx.map.widthM && qy < ctx.map.heightM;
     if (!inMap(lx, ly) || !inMap(px, py)) return true;
     // ground: ok (where it comes down and the point aimed at)
-    return !lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, lx, ly, heightAt(ctx.map, lx, ly) + 0.15, px, py, heightAt(ctx.map, px, py) + 0.15);
+    return !lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, lx, ly, heightAt(ctx.map, lx, ly) + fz + 0.15, px, py, heightAt(ctx.map, px, py) + fz + 0.15);
   };
   if (thrown) {
     // He can throw as hard as a full-range lob needs, and a little harder. He tries his throw angles in order:

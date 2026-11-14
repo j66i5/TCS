@@ -3699,3 +3699,61 @@ left to the owner's session, as CLAUDE.md is the owner's instructions file).
    re-entry for 120 s after leaving. Keep?
 6. Balance: village attack on foot 5 -> 3 / 20, farmland 13 -> 10 / 20 (mounted unchanged). Accept, or a tuning
    step for the attack (not done: owner said harder village accepted)?
+
+## 2026-11-14 — M7.5e review fixes
+
+An independent review of M7.5e (spec, behaviour and code lenses) found 20 issues. Fixed in this commit (game values
+**low**, the same for every side; new soldier/drill values in `behaviour.json`, commander values in `COMMANDER.clear`):
+- **Save/load (hard rule 4):** `markHouseDanger`/`burstBuilding` read `ctx.hasInteriors` directly, which is set
+  lazily by the first `indoorAt`; on a freshly loaded game the first burst before any `indoorAt` was dropped (no trap
+  count). New `mapHasInteriors(ctx)` (interior-nav) is the only way to read it; test: a burst right after a load
+  counts as in the unbroken run (same hash).
+- **Own grenades (behaviour):** a clearing grenade is aimed at least `drills.clearThrowMinM` 4 m from the throw place
+  and the thrower's step aside (a small room: no throw from there; the old fallback to a 2.8 m corridor's middle put
+  the burst 2 m from the thrower), and never within `clearShieldM` 3.5 m of a man of the unit staying in a cleared
+  room; before the throw, men within `clearOfM` 6 m (was 5) of the aim move away, and within 3.5 m a partition or door
+  jamb no longer counts as cover. Platoon (20 x 1200 s) clearing grenades 28 -> 28, own men wounded by them 22 -> 18
+  (now mostly light: 1-5 fragments at 5-11 m), own men put down 8 -> 4, an enemy put down near one 0 -> 1;
+  platoon-vehicles (15) 22 -> 9 grenades, 12 -> 3 wounded, 2 -> 1 down. **Not solved:** one burst in 37 still landed in
+  a cleared room among the men (a bounce from the frame); light wounds through doorways at 5-10 m remain.
+- **Upstairs throws:** the arc planner aimed at the ground under an upper floor, so no arc into an upstairs room was
+  ever found. `findArc` now lands a throw along an upper floor of the same house on that floor (`arcLanding` takes the
+  floor height; its last stretch is tested down to just above the slab). Test: the test house's upstairs room gets
+  its grenade (clear.test.ts, also a direct arc test).
+- **Vague houses (commander):** only an enemy placed within `COMMANDER.clear.errM` 10 m (a sight or close report, not a
+  far sound) marks a house; a squad is sent only to houses within `reachM` 200 m of it (was: up to 490 m, mostly
+  empty). Clearings per platoon battle 1.30 -> 0.50, houses cleared 0.65 -> 0.25, but grenades into houses 1.20 -> 1.40
+  and wins ending with an attacker in a house of the main ring 1 / 3 -> 2 / 4.
+- **Taken houses:** a clearing that ended (timeout, too few men) with an enemy known in the house within `stillS` 15 s
+  is not taken (left for `retrySeconds`); a house is taken only with `takenMen` 2 able men of the squad inside; a
+  taken house is cleared again once an enemy is known in it after it was taken (`Memory.takenAt`, plain data).
+- **HE near a clearing:** the commander's own-men check before calling mortars counts squads in a `clear` drill as
+  it did `assault` drills.
+- **Clear drill:** the stack goes on only with a man within `clearStackNearM` 8 m of the door (none after twice
+  `clearStackWaitS`: the drill ends); a room with nobody able to go in is retried every 2 s and the drill ends after
+  `clearRoomS` — no more rooms "passed" by an empty team; `radio.houseCleared` only with a man of the unit inside. A
+  man given his own order leaves the drill as its thrower and entry man too (`dropFromDrill`).
+- **Leaving:** an order after leaving no longer switches the rule off for that house: it is looked at afresh, a trap
+  needing a burst after the order (test: re-occupied, two new bursts, they leave again). Outflanked needs two
+  enemies, each where the unit last knew it (one man known behind the house earlier and in front now is not; test).
+  A unit that could send nobody out does not report leaving and looks again after `soldier.houseLeaveRetryS` 5 s
+  (`Unit.leaveTry`, plain data). A man bolting out is no longer stopped by a pinned crawl once past the door.
+- **Values to data:** `drills.clearOfM, clearShieldM, clearThrowMinM, clearAimInM (0.9), clearStackRankM (1.2),
+  clearThrowAsideM (0.6), clearEntrySeenW (15), clearEntrySeenM (40), clearKnownS (60), clearMoveAwayM (12),
+  clearStackNearM`; `soldier.houseLeaveCoverM (8), houseLeaveTries (6), houseLeaveCost ([3, 20]), houseFrontMin
+  (0.3), houseLeaveRetryS`.
+- **Fixture faction:** `tools/test/fixture-faction.test.ts` — an xf band clears a one-storey house with its own thrown
+  `xf-bomb` and reports it clear.
+- **Docs:** ROADMAP and the plan no longer mark M7.5e complete: the attacker's step-3 battle targets are not met (see
+  the clear and polish entries); built, for the owner to accept.
+
+Skipped: the `house-clear` scenario / golden that rarely exercises a clearing (low; the golden is 180 s by design of
+the golden suite, a longer one would lengthen `npm test`; the scenario stays a defence-siting check — left for the
+owner's answer on clearing earlier, question 4).
+
+Balance (20 seeds x 1200 s, mounted 15; head e8da60e -> this commit; attacker wins / defenders down / attackers down):
+platoon (village) 3 -> 4 / 11.2 -> 11.4 / 19.9 -> 19.9; platoon-ru (farmland) 10 -> 11 / 14.3 -> 14.4 / 14.4 -> 14.6;
+platoon-vehicles (village, mounted) 7 -> 4 / 21.0 -> 21.2 / 19.4 -> 20.3 (within the noise of 15 seeds, but lower: the
+mounted attack clears fewer houses, 1.13 -> 0.40); village-occupy (600 s) unchanged (attackers down 1.80, defenders
+0.95, defenders indoors 94.8 %). Not re-tuned (owner accepted a harder village). Goldens: `npm run golden:update`
+changed all eight (catalog fingerprint: `behaviour.json`); `golden/no-interiors` untouched.

@@ -346,6 +346,7 @@ export const BehaviourFile = withProv({
     reactNeighbourM: Num(0, 1000), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600), withdrawTogetherMen: Num(0, 50),
     suppressShortM: Num(0, 100), coverTargetM: Num(0, 500), laneClearM: Num(0, 50), laneShiftMaxM: Num(0, 100), coverFiredS: Num(0, 60), coverWaitS: Num(0, 600), coverRetaskS: Num(0, 60), sidestep: z.boolean(), sidestepM: z.array(Num(-20, 20)).max(12), coverCandidates: z.number().int().min(1).max(50), suppressIntervalS: Num(0, 60),
     clearEntryMen: z.number().int().min(1).max(20), clearStackOffM: Num(0, 10), clearStackAsideM: Num(0, 10), clearAfterBurstS: Num(0, 30), clearStackWaitS: Num(0, 600), clearThrowWaitS: Num(0, 600), clearRoomS: Num(1, 600), clearTimeoutS: Num(1, 3600), clearMinMen: z.number().int().min(1).max(20),
+    clearOfM: Num(0, 50), clearShieldM: Num(0, 50), clearThrowMinM: Num(0, 50), clearAimInM: Num(0, 10), clearStackRankM: Num(0.3, 10), clearThrowAsideM: Num(0, 10), clearEntrySeenW: Num(0, 1000), clearEntrySeenM: Num(0, 500), clearKnownS: Num(0, 600), clearMoveAwayM: Num(0, 100), clearStackNearM: Num(0, 100),
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({
@@ -391,6 +392,7 @@ export const BehaviourFile = withProv({
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
     houseLeaveM: z.tuple([Num(0, 500), Num(0, 500)]), houseLeaveDeg: Num(0, 180), houseLeaveMode: z.string(), houseReenterSeconds: Num(0, 3600), houseContactErrM: Num(0, 1000),
+    houseLeaveCoverM: Num(0, 50), houseLeaveTries: z.number().int().min(1).max(50), houseLeaveCost: z.tuple([Num(1, 50), Num(0, 1000)]), houseFrontMin: Num(0, 1), houseLeaveRetryS: Num(0, 600),
   }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({

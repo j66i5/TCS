@@ -24,7 +24,7 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
@@ -40,7 +40,11 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // enemy is known in that ring (within `enemySeconds`), the nearest along the way first; one that failed is left for `retrySeconds`. A squad that took a house within `ringSlackM` of the main
   // objective's ring holds it (the defence's siting around it within `holdSiteM`, windows included, facing the next
   // objective or away from where the attack came from) and is not sent on unless it is the only squad left to assault.
-  clear: { ringSlackM: 20, corridorM: 25, enemySeconds: 60, retrySeconds: 120, holdSiteM: 30, pendingSeconds: 20 },
+  // Review fixes (2026-11-14): only an enemy placed within `errM` (a sight, a close report; not a far sound) marks a
+  // house; a squad is sent only to houses within `reachM` of it; a house with an enemy known in it within `stillS` of
+  // the drill's end is not taken (left for `retrySeconds`); a taken house is cleared again once an enemy is known in
+  // it after it was taken; it is taken with at least `takenMen` able men of the squad inside (fewer if it has fewer).
+  clear: { ringSlackM: 20, corridorM: 25, enemySeconds: 60, retrySeconds: 120, holdSiteM: 30, pendingSeconds: 20, errM: 10, reachM: 200, stillS: 15, takenMen: 2 },
   // Falling back (overnight pick "defence-fallback", game values, low confidence): a squad below half strength
   // pulls back only when a known enemy is within `threatM` of it, its objective is contested while it is within
   // `assaultSlackM` of the ring, or enemies are known within `flankM` on two sides (bearings spread `flankDeg`).
@@ -113,7 +117,7 @@ interface Memory {
   /** M7.5e step "clear": per squad, the house (building id) it was sent to clear and when; houses taken (ids); per
    *  squad, the house in the main ring it holds; per house, when its clearing last failed and when an enemy was last
    *  known in it. */
-  clearing?: Record<string, [number, number]>; taken?: number[]; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
+  clearing?: Record<string, [number, number]>; taken?: number[]; takenAt?: Record<string, number>; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
 }
 
 /**
@@ -712,10 +716,10 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       /** Where an enemy was known in each house lately (the houses' ids), from what its men know. */
       const noteHouses = () => {
         const ctx = ground();
-        if (!ctx.hasInteriors && !ctx.map.buildings.some((b) => b.interior)) return;
+        if (!mapHasInteriors(ctx)) return;
         mem.houseSeen ??= {};
         for (const m of all) for (const c of knownMen(m)) {
-          if (tick - c.tick > CL.enemySeconds * 60) continue;
+          if (tick - c.tick > CL.enemySeconds * 60 || contactErrorM(ctx, c, tick) > CL.errM) continue;
           const bi = indoorAt(ctx, c.x, c.y);
           if (bi < 0) continue;
           const k = String(ctx.map.buildings[bi]!.id);
@@ -734,8 +738,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const ringDefended = all.some((m) => knownMen(m).some((c) => tick - c.tick <= CL.enemySeconds * 60 && hypot2(c.x - tgt.x, c.y - tgt.y) <= tgt.radiusM));
         let best = -1, bestAlong = Infinity;
         input.map.buildings.forEach((b, bi) => {
-          if (!b.interior || (mem.taken ?? []).includes(b.id) || busy.has(b.id) || tick - (mem.clearFailed?.[String(b.id)] ?? -1e9) < CL.retrySeconds * 60) return;
+          // (A house taken is cleared again once an enemy is known in it after it was taken.)
+          const retaken = (mem.houseSeen?.[String(b.id)] ?? -1e9) > (mem.takenAt?.[String(b.id)] ?? -1e9);
+          if (!b.interior || ((mem.taken ?? []).includes(b.id) && !retaken) || busy.has(b.id) || tick - (mem.clearFailed?.[String(b.id)] ?? -1e9) < CL.retrySeconds * 60) return;
           const h = houseMid(bi), dT = hypot2(h.x - tgt.x, h.y - tgt.y);
+          if (hypot2(h.x - c.x, h.y - c.y) > CL.reachM) return;
           const along = (h.x - c.x) * vx + (h.y - c.y) * vy, across = Math.abs(-(h.x - c.x) * vy + (h.y - c.y) * vx);
           const near = dT <= tgt.radiusM + CL.ringSlackM, onWay = along > -10 && along < dl && across <= CL.corridorM;
           if (!near && !onWay) return;
@@ -774,9 +781,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (u && !u.drill && tick - t0 < CL.pendingSeconds * 60) continue;
           delete mem.clearing![k];
           const bi = buildingIndexOf(ctx, bid);
-          const inside = bi >= 0 && members(view, sq).some((m) => { const t = view.transform.get(m); return able(view.soldier.get(m) as SoldierState | undefined) && t !== undefined && indoorAt(ctx, t.x, t.y) === bi; });
-          if (!inside) { (mem.clearFailed ??= {})[String(bid)] = tick; continue; }
-          (mem.taken ??= []).push(bid);
+          const ables = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && view.transform.has(m));
+          const inside = bi >= 0 ? ables.filter((m) => { const t = view.transform.get(m)!; return indoorAt(ctx, t.x, t.y) === bi; }).length : 0;
+          // (Taken: men of the squad inside, and no enemy known in it lately — a drill that ran out of time or men
+          // with the enemy still upstairs did not take it.)
+          const still = tick - (mem.houseSeen?.[String(bid)] ?? -1e9) <= CL.stillS * 60;
+          if (inside < Math.min(CL.takenMen, ables.length) || inside === 0 || still) { (mem.clearFailed ??= {})[String(bid)] = tick; continue; }
+          if (!(mem.taken ??= []).includes(bid)) mem.taken.push(bid);
+          (mem.takenAt ??= {})[String(bid)] = tick;
           if (inMainRing(bi) && mem.held?.[k] === undefined) { (mem.held ??= {})[k] = bid; holdHouse(sq, bi); }
         }
       };
@@ -996,7 +1008,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // its near edge to blind them while the assault goes in; repeated while rounds last.
           // (Its own men near the point now, or squads assaulting toward it — they will be there when the rounds land.)
           const ownNear = (px: number, py: number, r: number) => all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - px, ft.y - py) < r; })
-            || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && d.kind === "assault" && hypot2(d.x - px, d.y - py) < 150; });
+            || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && (d.kind === "assault" || d.kind === "clear") && hypot2(d.x - px, d.y - py) < 150; });
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }

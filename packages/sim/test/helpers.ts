@@ -106,6 +106,7 @@ export const testCatalog: Catalog = {
       stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
       breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10, withdrawTogetherMen: 3, suppressShortM: 15, coverTargetM: 60, laneClearM: 1.5, laneShiftMaxM: 10, coverFiredS: 5, coverWaitS: 10, coverRetaskS: 2, sidestep: true, sidestepM: [2, -2, 4, -4, 6, -6], coverCandidates: 8, suppressIntervalS: 4,
       clearEntryMen: 3, clearStackOffM: 1, clearStackAsideM: 1.5, clearAfterBurstS: 1, clearStackWaitS: 20, clearThrowWaitS: 15, clearRoomS: 20, clearTimeoutS: 240, clearMinMen: 3,
+      clearOfM: 6, clearShieldM: 3.5, clearThrowMinM: 4, clearAimInM: 0.9, clearStackRankM: 1.2, clearThrowAsideM: 0.6, clearEntrySeenW: 15, clearEntrySeenM: 40, clearKnownS: 60, clearMoveAwayM: 12, clearStackNearM: 8,
     },
     surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
     mounting: {
@@ -125,7 +126,8 @@ export const testCatalog: Catalog = {
       hurryModes: ["walk", "sneak"], hurryMode: "run", hurryFiredOnSeconds: 0, hurryQuietSeconds: 10,
       houseLeave: true, houseTrapBursts: 2, houseTrapSeconds: 30, houseHeavyKg: 0.3, houseHeavyCount: 2, houseBurstNearM: 1,
       houseEnemySeconds: 5, houseFightM: 4, houseFlankM: 150, houseFlankDeg: 120, houseFlankSeconds: 10,
-      houseLeaveM: [25, 50], houseLeaveDeg: 60, houseLeaveMode: "run", houseReenterSeconds: 120, houseContactErrM: 25 },
+      houseLeaveM: [25, 50], houseLeaveDeg: 60, houseLeaveMode: "run", houseReenterSeconds: 120, houseContactErrM: 25,
+      houseLeaveCoverM: 8, houseLeaveTries: 6, houseLeaveCost: [3, 20], houseFrontMin: 0.3, houseLeaveRetryS: 5 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
   },
   spotting: {

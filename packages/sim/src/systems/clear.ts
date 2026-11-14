@@ -130,7 +130,7 @@ function exitFrame(ctx: SimContext, bi: number, node: number): { wx: number; wy:
  * unit; the drill's point (x, y) is just outside it.
  */
 export function startClear(ctx: SimContext, state: SimState, uid: EntityId, id: number, groups: EntityId[][]): Drill {
-  const bi = buildingIndex(ctx, id), g = interiorGraph(ctx, bi)!;
+  const D = ctx.catalog.behaviour.drills, bi = buildingIndex(ctx, id), g = interiorGraph(ctx, bi)!;
   const men = groups.flat();
   let cx = 0, cy = 0;
   for (const m of men) { const t = state.transform.req(m); cx += t.x / men.length; cy += t.y / men.length; }
@@ -139,12 +139,12 @@ export function startClear(ctx: SimContext, state: SimState, uid: EntityId, id: 
   g.nodes.forEach((n, i) => {
     if (!n.exit) return;
     let seen = 0;
-    for (const w of wins) if ((n.ox - w.x) * w.normalX + (n.oy - w.y) * w.normalY > 1.5 && hypot2(n.ox - w.x, n.oy - w.y) < 40) seen++;
-    const score = hypot2(n.ox - cx, n.oy - cy) + 15 * seen;
+    for (const w of wins) if ((n.ox - w.x) * w.normalX + (n.oy - w.y) * w.normalY > 1.5 && hypot2(n.ox - w.x, n.oy - w.y) < D.clearEntrySeenM) seen++;
+    const score = hypot2(n.ox - cx, n.oy - cy) + D.clearEntrySeenW * seen;
     if (score < best) { best = score; entry = i; }
   });
   const e = g.nodes[entry]!;
-  const rooms = roomOrder(ctx, bi, e.room, knownRooms(ctx, state, men, bi, 60));
+  const rooms = roomOrder(ctx, bi, e.room, knownRooms(ctx, state, men, bi, D.clearKnownS));
   void uid;
   return { kind: "clear", x: e.ox, y: e.oy, groups, mover: 0, phaseTick: -1, final: false, building: id, entry, rooms, room: 0 };
 }
@@ -191,7 +191,7 @@ export function beginStack(ctx: SimContext, state: SimState, d: Drill, all: read
     for (let tries = 0; tries < 12; tries++) {
       const side = k % 2 === 0 ? 1 : -1, rank = Math.floor(k / 2);
       k++;
-      const a = f.half + D.clearStackAsideM + rank * 1.2;
+      const a = f.half + D.clearStackAsideM + rank * D.clearStackRankM;
       const x = f.wx + f.nx * D.clearStackOffM + f.ux * side * a, y = f.wy + f.ny * D.clearStackOffM + f.uy * side * a;
       if (!standable(ctx, x, y, f.nx, f.ny)) continue;
       state.fire.delete(m);
@@ -229,7 +229,7 @@ function throwPlaces(ctx: SimContext, bi: number, d: Drill, r: number): ThrowPla
   const done = new Set(d.rooms!.slice(0, d.room!));
   if (done.size === 0) {
     const f = exitFrame(ctx, bi, d.entry!);
-    const beside = (side: number): [number, number, number] => [f.wx + f.nx * D.clearStackOffM + f.ux * side * (f.half + 0.6), f.wy + f.ny * D.clearStackOffM + f.uy * side * (f.half + 0.6), 0];
+    const beside = (side: number): [number, number, number] => [f.wx + f.nx * D.clearStackOffM + f.ux * side * (f.half + D.clearThrowAsideM), f.wy + f.ny * D.clearStackOffM + f.uy * side * (f.half + D.clearThrowAsideM), 0];
     for (const side of [1, -1]) { const [x, y] = beside(side); if (standable(ctx, x, y, f.nx, f.ny)) out.push({ x, y, z: 0, pose: "crouching" }); }
     const fp = b.footprint;
     for (const o of b.openings) {
@@ -238,7 +238,7 @@ function throwPlaces(ctx: SimContext, bi: number, d: Drill, r: number): ThrowPla
       if (roomAt(b, 0, w.ix, w.iy) !== r) continue;
       const nx = w.ox - w.x, ny = w.oy - w.y, l = hypot2(nx, ny) || 1, ux = -ny / l, uy = nx / l;
       for (const side of [1, -1]) {
-        const a = o.widthM / 2 + 0.6, x = w.ox + ux * side * a, y = w.oy + uy * side * a;
+        const a = o.widthM / 2 + D.clearThrowAsideM, x = w.ox + ux * side * a, y = w.oy + uy * side * a;
         if (standable(ctx, x, y, nx / l, ny / l)) out.push({ x, y, z: 0, pose: "standing" });
       }
     }
@@ -286,23 +286,26 @@ function standable(ctx: SimContext, x: number, y: number, nx: number, ny: number
 }
 
 /**
- * Where in room `r` a grenade thrown from `p` is aimed: its corners drawn `AIM_IN_M` in toward its middle, the
- * farthest from him first, then the middle.
+ * Where in room `r` a grenade thrown from `p` is aimed: its corners drawn `clearAimInM` in toward its middle, the
+ * farthest from him first, then the middle; none nearer than `clearThrowMinM` to where he throws from or steps aside
+ * to (a small room: no throw from there), nor within `clearShieldM` of a man of `near` (his comrades in the cleared
+ * rooms: a partition or a door jamb does not stop the fragments that close).
  */
-function aimPoints(ctx: SimContext, bi: number, r: number, p: { x: number; y: number }): { x: number; y: number }[] {
+function aimPoints(ctx: SimContext, bi: number, r: number, p: ThrowPlace, near: readonly { x: number; y: number; z: number }[]): { x: number; y: number }[] {
+  const D = ctx.catalog.behaviour.drills, inM = D.clearAimInM;
   const rm = ctx.map.buildings[bi]!.interior!.rooms[r]!, c = centreOf(rm.poly), n = rm.poly.length / 2;
   const out: { x: number; y: number }[] = [];
   for (let k = 0; k < n; k++) {
     const vx = rm.poly[k * 2]!, vy = rm.poly[k * 2 + 1]!, l = hypot2(c.x - vx, c.y - vy);
-    if (l <= AIM_IN_M * 1.5) continue;
-    out.push({ x: vx + ((c.x - vx) * AIM_IN_M) / l, y: vy + ((c.y - vy) * AIM_IN_M) / l });
+    if (l <= inM * 1.5) continue;
+    out.push({ x: vx + ((c.x - vx) * inM) / l, y: vy + ((c.y - vy) * inM) / l });
   }
   out.sort((a, b) => hypot2(b.x - p.x, b.y - p.y) - hypot2(a.x - p.x, a.y - p.y) || a.x - b.x || a.y - b.y);
-  return [...out.slice(0, 2), c];
+  const az = rm.floor * ctx.map.buildings[bi]!.storeyHeightM;
+  return [...out.slice(0, 2), c].filter((q) => hypot2(q.x - p.x, q.y - p.y) >= D.clearThrowMinM
+    && (!p.aside || hypot2(q.x - p.aside[0], q.y - p.aside[1]) >= D.clearThrowMinM)
+    && !near.some((t) => Math.abs(t.z - az) < 1.5 && hypot2(t.x - q.x, t.y - q.y) < D.clearShieldM));
 }
-
-/** How far in from a room's corner a grenade is aimed, m. */
-const AIM_IN_M = 0.9;
 
 /**
  * The next room: a man with a hand grenade who has a throw into it from one of its throw places (the nearest man
@@ -313,6 +316,9 @@ function prepareThrow(ctx: SimContext, state: SimState, d: Drill, all: readonly 
   const places = throwPlaces(ctx, bi, d, r);
   const holders = all.filter((m) => !isCowering(state.soldier.req(m)) && state.soldier.req(m).impair.canUseArms && handGrenade(ctx, state, m) !== null);
   delete d.thrower; delete d.throwAt; delete d.ammo; delete d.burstTick; delete d.aimAt; delete d.aside;
+  // (His comrades staying in the rooms already cleared: no burst close to them.)
+  const b = ctx.map.buildings[bi]!, done = d.rooms!.slice(0, d.room!);
+  const stay = all.filter((m) => { const t = state.transform.req(m); return indoorAt(ctx, t.x, t.y) === bi && done.includes(roomAt(b, floorAtZ(b, t.z), t.x, t.y)); });
   for (let i = d.tried ?? 0; i < places.length; i++) {
     const p = places[i]!;
     let man = -1, md = Infinity;
@@ -320,7 +326,8 @@ function prepareThrow(ctx: SimContext, state: SimState, d: Drill, all: readonly 
     if (man < 0) break;
     const g = handGrenade(ctx, state, man)!;
     // (Into the far part of the room first: the farther from him the burst, the less of it reaches him.)
-    const at = aimPoints(ctx, bi, r, p).find((q) => throwArcExists(ctx, state, man, g.ammo, q.x, q.y, p, p.pose));
+    const near = stay.filter((o) => o !== man).map((o) => state.transform.req(o));
+    const at = aimPoints(ctx, bi, r, p, near).find((q) => throwArcExists(ctx, state, man, g.ammo, q.x, q.y, p, p.pose));
     if (!at) continue;
     d.tried = i + 1;
     d.thrower = man; d.throwAt = [p.x, p.y, p.z]; d.ammo = g.ammo; d.had = -1; d.aimAt = [at.x, at.y];
@@ -336,13 +343,15 @@ function prepareThrow(ctx: SimContext, state: SimState, d: Drill, all: readonly 
 }
 
 /**
- * Before a grenade goes into a room: the other men of the unit within `CLEAR_OF_M` of where it is aimed, with nothing
- * solid between, move to the nearest place in the rooms already cleared that far from it, or behind a wall.
+ * Before a grenade goes into a room: the other men of the unit within `clearOfM` of where it is aimed, with nothing
+ * solid between (within `clearShieldM`: whatever is between), move to the nearest place in the rooms already cleared that far from it, or behind a wall.
  */
 function clearOfBurst(ctx: SimContext, state: SimState, all: readonly EntityId[], thrower: EntityId, bi: number, ax: number, ay: number, az: number, done: readonly number[]): void {
   const B = ctx.ballistics, map = ctx.map, shield = ctx.catalog.ballistics.blast.shieldSteelMm;
   const g0 = heightAt(map, ax, ay) + az + 0.2; // ground: ok (the burst's height on its floor)
-  const exposed = (x: number, y: number, z: number) => hypot2(x - ax, y - ay) < CLEAR_OF_M && !lineBlocked(B, map, ctx.mapIndex, ax, ay, g0, x, y, standZ(map, { x, y, z }) + 0.6, shield);
+  const D = ctx.catalog.behaviour.drills;
+  // (Within `clearShieldM` a thin partition or a door jamb is no cover from the fragments.)
+  const exposed = (x: number, y: number, z: number) => { const dd = hypot2(x - ax, y - ay); return dd < D.clearOfM && (dd < D.clearShieldM || !lineBlocked(B, map, ctx.mapIndex, ax, ay, g0, x, y, standZ(map, { x, y, z }) + 0.6, shield)); };
   const b = ctx.map.buildings[bi]!;
   const c = centreOf(b.footprint);
   let spots: { x: number; y: number; z: number; heading: number }[] | null = null;
@@ -358,15 +367,12 @@ function clearOfBurst(ctx: SimContext, state: SimState, all: readonly EntityId[]
       const dd = hypot2(p.x - t.x, p.y - t.y) + Math.abs(p.z - t.z) * 3;
       if (dd < bd) { bd = dd; best = i; }
     });
-    if (best < 0 || bd > 12) continue;
+    if (best < 0 || bd > D.clearMoveAwayM) continue;
     const p = spots[best]!;
     taken.push(p);
     goTo(ctx, state, m, p.x, p.y, p.z, p.heading, "crouching");
   }
 }
-
-/** Men nearer than this to where a grenade is aimed, with nothing solid between, get away first, m. */
-const CLEAR_OF_M = 5;
 
 /** The men going in: `clearEntryMen` nearest the room, to places in it, firing as they go; the others follow. */
 function enterRoom(ctx: SimContext, state: SimState, d: Drill, all: readonly EntityId[], fire: (m: EntityId, at: { x: number; y: number }) => void): void {
@@ -415,9 +421,14 @@ export function stepClear(ctx: SimContext, state: SimState, u: Unit, d: Drill, e
   if (all.length < D.clearMinMen || tick - (d.startTick ?? tick) >= secondsToTicks(D.clearTimeoutS)) { u.drill = null; return; }
   const since = tick - (d.stageTick ?? tick);
   switch (d.stage) {
-    case "stack":
-      if (!all.some(moving) || since >= secondsToTicks(D.clearStackWaitS)) { d.tried = 0; prepareThrow(ctx, state, d, all); }
+    case "stack": {
+      // (On only with a man at the door: men pinned 20 m out have not stacked up.)
+      const f = exitFrame(ctx, buildingIndex(ctx, d.building!), d.entry!);
+      const atDoor = all.some((m) => { const t = state.transform.req(m); return hypot2(t.x - f.wx, t.y - f.wy) <= D.clearStackNearM; });
+      if (atDoor && (!all.some(moving) || since >= secondsToTicks(D.clearStackWaitS))) { d.tried = 0; prepareThrow(ctx, state, d, all); }
+      else if (!atDoor && since >= secondsToTicks(2 * D.clearStackWaitS)) u.drill = null; // nobody got there
       return;
+    }
     case "throw": {
       const m = d.thrower;
       if (m === undefined || !able(state, m) || d.ammo === undefined) { prepareThrow(ctx, state, d, all); return; }
@@ -452,14 +463,25 @@ export function stepClear(ctx: SimContext, state: SimState, u: Unit, d: Drill, e
       return;
     case "enter": {
       const team = (d.entryMen ?? []).filter((m) => able(state, m));
-      const there = team.length === 0 || !team.some(moving);
+      if (team.length === 0) {
+        // (Nobody could go in — all pinned or panicked: they try again; nobody for a whole room's time ends the drill.)
+        if (since >= secondsToTicks(D.clearRoomS)) { u.drill = null; return; }
+        if (since % secondsToTicks(2) < Math.max(1, secondsToTicks(D.stepSeconds))) enterRoom(ctx, state, d, all, fire);
+        return;
+      }
+      const there = !team.some(moving);
       // (In the room: an enemy seen in it a moment ago is fought before the next room.)
       const bi = buildingIndex(ctx, d.building!);
       const fight = there && knownRooms(ctx, state, team, bi, 2).has(d.rooms![d.room!]!);
       if ((there && !fight) || since >= secondsToTicks(D.clearRoomS)) {
         d.room = d.room! + 1;
         delete d.entryMen;
-        if (d.room >= d.rooms!.length) { u.drill = null; radio("radio.houseCleared"); return; }
+        if (d.room >= d.rooms!.length) {
+          u.drill = null;
+          // (Reported clear only with a man of the unit inside it.)
+          if (all.some((m) => { const t = state.transform.req(m); return indoorAt(ctx, t.x, t.y) === bi; })) radio("radio.houseCleared");
+          return;
+        }
         d.tried = 0;
         prepareThrow(ctx, state, d, all);
       }

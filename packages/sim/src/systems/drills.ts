@@ -126,9 +126,16 @@ export function releaseFromParentDrills(state: SimState, uid: EntityId, men: Ent
   for (let p = state.unit.get(uid)?.parent ?? null; p !== null; p = state.unit.get(p)?.parent ?? null) {
     const d = state.unit.get(p)?.drill;
     if (!d || d.kind === "rout") continue;
-    d.groups = d.groups.map((g) => g.filter((m) => !set.has(m)));
+    dropFromDrill(d, set);
     if (d.groups.every((g) => g.length === 0)) state.unit.req(p).drill = null;
   }
+}
+
+/** Take these men out of a drill: its groups, and a clearing's thrower and entry team (M7.5e review). */
+export function dropFromDrill(d: Drill, set: ReadonlySet<EntityId>): void {
+  d.groups = d.groups.map((g) => g.filter((m) => !set.has(m)));
+  if (d.thrower !== undefined && set.has(d.thrower)) delete d.thrower;
+  if (d.entryMen) d.entryMen = d.entryMen.filter((m) => !set.has(m));
 }
 
 /** Clear the drill of a unit and its sub-units (an order replaces it). */

@@ -1,6 +1,6 @@
 /** Clearing a house (M7.5e step "clear"): room order, the stack, grenades room by room, entering, fails safe, saves. */
 import { describe, expect, it } from "vitest";
-import { createSim, deserializeState, hashState, indoorAt, roomAt, roomOrder, serializeState, step, submitOrder, type BattleInput, type Building, type MapDef, type Sim, type SimEvent } from "../src/index";
+import { createSim, deserializeState, hashState, indoorAt, throwArcExists, roomAt, roomOrder, serializeState, step, submitOrder, type BattleInput, type Building, type MapDef, type Sim, type SimEvent } from "../src/index";
 import { armedInput, testCatalog } from "./helpers";
 
 /**
@@ -115,9 +115,9 @@ describe("clear: stack, grenade, in", () => {
     if (process.env.DBG) console.log(ev.filter((e) => e.kind === "explosion" || e.kind === "grenade.launched" || e.kind === "radio" || e.kind === "action.started").map((e) => JSON.stringify(e)).join("\n"));
     const bursts = ev.filter((e) => e.kind === "explosion" && indoorAt(sim.ctx, e.x, e.y) === 0).map((e) => e as Extract<SimEvent, { kind: "explosion" }>);
     // (Into the hall, both east rooms and the east room upstairs: none up the stairs.)
-    expect(bursts.length).toBeGreaterThanOrEqual(3);
+    expect(bursts.length).toBeGreaterThanOrEqual(4);
     const burstRoom = (e: { x: number; y: number; z: number }) => roomAt(b, e.z > 2 ? 1 : 0, e.x, e.y);
-    for (const r of [0, 1, 2]) {
+    for (const r of [0, 1, 2, 4]) {
       const bt = bursts.find((e) => burstRoom(e) === r);
       expect(bt, `a grenade burst in room ${r}`).toBeDefined();
       expect(firstIn.get(r)!).toBeGreaterThan(bt!.tick);
@@ -125,6 +125,14 @@ describe("clear: stack, grenade, in", () => {
     for (const r of [0, 1, 2, 3, 4]) expect(firstIn.has(r), `room ${r} entered`).toBe(true);
     // (The men still able: the burst keeps away from them.)
     expect(menOf(sim, "blue").filter((id) => sim.state.soldier.req(id).casualty === "none").length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("upstairs a throw along the floor finds its arc (it comes down on the slab, not the ground under it)", () => {
+    const sim = createSim(input());
+    const man = menOf(sim, "blue")[0]!;
+    for (const pose of ["crouching", "standing"] as const) for (const [x, y] of [[111, 81], [111, 89]] as const) {
+      expect(throwArcExists(sim.ctx, sim.state, man, "bomb", x, y, { x: 105.6, y: 85, z: 2.8 }, pose), `${pose} (${x}, ${y})`).toBe(true);
+    }
   });
 
   it("without grenades the men still go in, room by room", () => {

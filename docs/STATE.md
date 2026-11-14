@@ -1,9 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M7.5e AI uses buildings complete: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
-**AI uses buildings, step "polish" — M7.5e complete (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 4 of
+**M7.5e review fixes (2026-11-14, DECISIONS "M7.5e review fixes").** Fixed: a house burst lost after a load;
+clearing grenades aimed too close to the thrower or his comrades (own men down 8 -> 4 per 20 platoon battles); no
+grenade ever into an upstairs room; the commander sending squads to empty houses placed by far sounds (up to 490 m);
+houses wrongly kept as "taken"; mortars called on a house being cleared; a cleared radio call with nobody inside;
+the leave rule switched off by any order; "outflanked" from one enemy. ROADMAP no longer marks M7.5e complete (the
+attacker's battle targets are not met). Balance: attacker wins village 3 -> 4 / 20, farmland 10 -> 11 / 20, mounted
+7 -> 4 / 15.
+
+**AI uses buildings, step "polish" — M7.5e built (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 4 of
 4).** No sim or data change. New scenario `house-clear` (one German squad holds a house sited by the AI, two Russian
 squads attack it with mortars, both AI; two squads, not the plan's one: one squad always broke off before the door)
 and golden `house-clear-s1`; `npm run screenshot -- --scene buildings [--seed 3]` (app hooks `reveal`, `clearAt`);

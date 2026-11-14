@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createSim, deserializeState, detonate, hashState, indoorAt, serializeState, step, submitOrder, type BattleInput, type Building, type MapDef, type Sim, type SimEvent } from "../src/index";
 import { EventSink } from "../src/events";
 import { armedInput, team, testCatalog } from "./helpers";
-import { leftLately } from "../src/systems/house";
+import { houseThreat, leftLately } from "../src/systems/house";
 
 /** The M7.5c/d test house (12 x 10 m, two storeys, a door west, windows upstairs east and north). */
 function house(): Building {
@@ -170,6 +170,54 @@ describe("house leave: the enemy inside, outflanked", () => {
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue"), kind: "occupy", building: 1, facing: 0 });
     run(sim, 60 * 90);
     expect(inside(sim).length).toBe(3);
+  });
+});
+
+describe("house leave: review fixes", () => {
+  it("outflanked needs two enemies: one man known at an old place behind the house and now in front is not", () => {
+    const sim = occupied();
+    const reds = menOf(sim, "red"), blue = menOf(sim, "blue"), tick = sim.state.tick;
+    for (const b of blue) sim.state.soldier.req(b).contacts = [];
+    const put = (who: number, target: number, x: number, y: number, ago: number) => {
+      const s = sim.state.soldier.req(who);
+      s.contacts = [...s.contacts.filter((c) => c.target !== target), { target, x, y, z: 0, errM: 0, kind: "seen" as const, tick: tick - ago, reportedTick: tick - ago }].sort((p, q) => p.target - q.target);
+    };
+    put(blue[0]!, reds[0]!, 60, 85, 8 * 60); // seen west 8 s ago...
+    put(blue[1]!, reds[0]!, 160, 85, 0); //     ...and east now
+    const u = sim.state.unit.req(unitOf(sim, "blue")), men = inside(sim);
+    expect(houseThreat(sim.ctx, sim.state, sim.state.soldier.req(blue[0]!), u, 0, men)).toBeNull();
+    put(blue[0]!, reds[1]!, 60, 85, 8 * 60); // another man west: cut off
+    expect(houseThreat(sim.ctx, sim.state, sim.state.soldier.req(blue[0]!), u, 0, men)?.reason).toBe("flank");
+  });
+
+  it("a burst on the house right after a load counts as before it (the lazily known interiors)", () => {
+    const sim = occupied();
+    const red = menOf(sim, "red")[0]!, bomb = testCatalog.ammoIds.indexOf("bomb"), b0 = menOf(sim, "blue")[0]!;
+    detonate(sim.ctx, sim.state, new EventSink(), 99.5, 82, 0.05, bomb, red);
+    const copy = createSim(input());
+    copy.state = deserializeState(JSON.parse(JSON.stringify(serializeState(sim.state))));
+    expect(copy.ctx.hasInteriors).toBeUndefined();
+    detonate(sim.ctx, sim.state, new EventSink(), 99.5, 88.5, 0.05, bomb, red);
+    detonate(copy.ctx, copy.state, new EventSink(), 99.5, 88.5, 0.05, bomb, red);
+    expect(copy.state.soldier.req(b0).houseDanger?.n).toBe(2);
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
+  });
+
+  it("an order after leaving: the house is looked at afresh — back in, a new burst makes it a trap again", () => {
+    const sim = occupied();
+    twoBursts(sim);
+    run(sim, 60 * 25);
+    expect(inside(sim)).toEqual([]);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue"), kind: "occupy", building: 1, facing: 0 });
+    run(sim, 60 * 60);
+    expect(inside(sim).length).toBe(3);
+    const red = menOf(sim, "red")[0]!, bomb = testCatalog.ammoIds.indexOf("bomb");
+    detonate(sim.ctx, sim.state, new EventSink(), 99.5, 82, 0.05, bomb, red);
+    run(sim, 60 * 2);
+    detonate(sim.ctx, sim.state, new EventSink(), 99.5, 88.5, 0.05, bomb, red);
+    const ev = run(sim, 60 * 25);
+    expect(ev.some((e) => e.kind === "radio" && e.key === "radio.houseLeftTrap")).toBe(true);
+    expect(inside(sim)).toEqual([]);
   });
 });
 

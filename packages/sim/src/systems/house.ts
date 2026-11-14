@@ -16,14 +16,16 @@
  * Then every man of his unit in that house, or on his way into it, runs out (pinning does not hold him: a `bolt`
  * leg) to a covered spot outdoors `houseLeaveM` from the house, within `houseLeaveDeg` of straight away from the
  * threat, and lies down facing it. `Unit.leftHouse` keeps the unit's own rules out of that house for
- * `houseReenterSeconds`; a man of the unit still inside then (he was fighting in his room) follows when he can.
+ * `houseReenterSeconds`; a man of the unit still inside then (he was fighting in his room) follows when he can. An
+ * order to the unit after it left makes the rule look at the house afresh (a trap then needs a burst since the
+ * order). A unit that could send nobody out (`Unit.leaveTry`) reports nothing and looks again after `houseLeaveRetryS`.
  */
 import type { Contact, HouseLeaveReason, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { isAble } from "../impair";
-import { floorAtZ, indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
+import { floorAtZ, indoorAt, mapHasInteriors, routeBetween, routeWaypoints } from "../interior-nav";
 import { roomAt } from "../interior";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 import { bestCoverNear, exposureAt, navCostAt } from "../nav";
@@ -48,7 +50,7 @@ function centreOf(fp: readonly number[]): [number, number] {
  */
 export function burstBuilding(ctx: SimContext, x: number, y: number, nearM: number): number {
   const bi = indoorAt(ctx, x, y);
-  if (bi >= 0 || nearM <= 0 || !ctx.hasInteriors) return bi;
+  if (bi >= 0 || nearM <= 0 || !mapHasInteriors(ctx)) return bi;
   const bs = ctx.map.buildings;
   let best = -1, bestD = nearM;
   for (let i = 0; i < bs.length; i++) {
@@ -75,7 +77,8 @@ export function burstBuilding(ctx: SimContext, x: number, y: number, nearM: numb
  */
 export function markHouseDanger(ctx: SimContext, state: SimState, x: number, y: number, fillingKg: number, owner: EntityId): void {
   const S = ctx.catalog.behaviour.soldier;
-  if (!S.houseLeave || !ctx.hasInteriors) return;
+  // (Not `ctx.hasInteriors` directly: it is set lazily, and a loaded game may not have it yet.)
+  if (!S.houseLeave || !mapHasInteriors(ctx)) return;
   const bi = burstBuilding(ctx, x, y, S.houseBurstNearM);
   if (bi < 0) return;
   const bid = ctx.map.buildings[bi]!.id, side = state.identity.get(owner)?.side;
@@ -148,42 +151,50 @@ function unitFront(ctx: SimContext, state: SimState, men: readonly EntityId[], b
   }
   if (n === 0) return null;
   const l = hypot2(fx, fy) / n;
-  if (l < 0.3) return null;
+  if (l < ctx.catalog.behaviour.soldier.houseFrontMin) return null;
   return { x: fx / (l * n), y: fy / (l * n) };
 }
 
-/** Scratch: the enemies a unit knows of (one contact per enemy, the freshest), reused. */
+/** Scratch: the enemies a unit knows of lately (one contact per enemy, the freshest), reused. */
 const KNOWN: Contact[] = [];
+/** Scratch: every enemy the unit remembers, at the place it was last known (one contact per enemy), reused. */
+const LATEST: Contact[] = [];
+
+/** Keep in `list` the freshest of `c` and the contact already there for its target (a sighting before a report). */
+function keepFreshest(list: Contact[], c: Contact): void {
+  let k = 0;
+  while (k < list.length && list[k]!.target !== c.target) k++;
+  if (k === list.length) list.push(c);
+  else if (c.tick > list[k]!.tick || (c.kind === "seen" && list[k]!.kind !== "seen" && c.tick === list[k]!.tick)) list[k] = c;
+}
 
 /**
- * Should his unit leave the house he is in, and why, with the bearings (rad, from the house) of what it flees from:
+ * Should his unit leave the house he is in (exported for tests), and why, with the bearings (rad, from the house) of what it flees from:
  * every enemy the unit knows near, or (a trap with none known near) the way its men's windows face.
  * `fight`: the men who stay to fight an enemy in their own room.
  */
-function houseThreat(ctx: SimContext, state: SimState, s: SoldierState, unit: Unit, bi: number, men: readonly EntityId[]): { reason: HouseLeaveReason; bearings: number[]; fight: EntityId[] } | null {
+export function houseThreat(ctx: SimContext, state: SimState, s: SoldierState, unit: Unit, bi: number, men: readonly EntityId[], trapSince = -Infinity): { reason: HouseLeaveReason; bearings: number[]; fight: EntityId[] } | null {
   const S = ctx.catalog.behaviour.soldier, tick = state.tick;
   const b = ctx.map.buildings[bi]!;
   const [cx, cy] = centreOf(b.footprint);
   const flankTicks = secondsToTicks(S.houseFlankSeconds), enemyTicks = secondsToTicks(S.houseEnemySeconds);
   // The enemies the unit knows lately (one contact each: the freshest; unit members in id order).
-  KNOWN.length = 0;
+  KNOWN.length = 0; LATEST.length = 0;
   for (const o of unit.members) {
     const os = state.soldier.get(o);
     if (!os || !isAble(os)) continue;
     for (const c of os.contacts) {
+      keepFreshest(LATEST, c);
       if (!live(c) || tick - c.tick > flankTicks || !located(ctx, c, tick, cx, cy)) continue;
-      let k = 0;
-      while (k < KNOWN.length && KNOWN[k]!.target !== c.target) k++;
-      if (k === KNOWN.length) KNOWN.push(c);
-      else if (c.tick > KNOWN[k]!.tick || (c.kind === "seen" && KNOWN[k]!.kind !== "seen" && c.tick === KNOWN[k]!.tick)) KNOWN[k] = c;
+      keepFreshest(KNOWN, c);
     }
   }
-  const bearings: number[] = [];
+  const bearings: number[] = [], near: EntityId[] = [];
   let inside: Contact | null = null;
   for (const c of KNOWN) {
     const dx = c.x - cx, dy = c.y - cy, d = hypot2(dx, dy);
     if (d > S.houseFlankM) continue;
-    if (d > 0.5) bearings.push(atan2(dy, dx));
+    if (d > 0.5) { bearings.push(atan2(dy, dx)); near.push(c.target); }
     if (!inside && c.kind === "seen" && c.cls !== "vehicle" && tick - c.tick <= enemyTicks && indoorAt(ctx, c.x, c.y) === bi) inside = c;
   }
   if (inside) {
@@ -192,7 +203,8 @@ function houseThreat(ctx: SimContext, state: SimState, s: SoldierState, unit: Un
     return { reason: "enemy", bearings, fight };
   }
   const hd = s.houseDanger;
-  const trap = hd !== undefined && hd.building === b.id && tick - hd.tick <= secondsToTicks(S.houseTrapSeconds) && hd.n >= S.houseTrapBursts;
+  // (`trapSince`: after an order put the unit back in a house it left, only a burst since counts it a trap again.)
+  const trap = hd !== undefined && hd.building === b.id && hd.tick > trapSince && tick - hd.tick <= secondsToTicks(S.houseTrapSeconds) && hd.n >= S.houseTrapBursts;
   if (!trap && bearings.length === 0) return null;
   if (trap) {
     // (No enemy known close: the bursts come from where the house faces.)
@@ -200,13 +212,13 @@ function houseThreat(ctx: SimContext, state: SimState, s: SoldierState, unit: Un
     return { reason: "trap", bearings, fight: [] };
   }
   // Cut off: an enemy near (known lately) more than houseFlankDeg off another enemy the unit remembers, at any
-  // distance: enemies on two sides of the house.
+  // distance: enemies on two sides of the house — two enemies, each where the unit last knew it (one man seen at two
+  // places, or an old place of a man known elsewhere now, is not).
   const cosFlank = cos((S.houseFlankDeg * PI) / 180);
-  for (const e of bearings) for (const o of unit.members) {
-    const os = state.soldier.get(o);
-    if (!os || !isAble(os)) continue;
-    for (const c of os.contacts) {
-      if (!live(c) || hypot2(c.x - cx, c.y - cy) <= 0.5 || !located(ctx, c, tick, cx, cy)) continue;
+  for (let i = 0; i < bearings.length; i++) {
+    const e = bearings[i]!, et = near[i]!;
+    for (const c of LATEST) {
+      if (c.target === et || !live(c) || hypot2(c.x - cx, c.y - cy) <= 0.5 || !located(ctx, c, tick, cx, cy)) continue;
       if (cos(atan2(c.y - cy, c.x - cx) - e) < cosFlank) return { reason: "flank", bearings, fight: [] };
     }
   }
@@ -252,7 +264,7 @@ export function leaveHouse(ctx: SimContext, state: SimState, men: readonly Entit
     for (let k = away === null ? 0 : -steps; k < steps || (away !== null && k === steps); k++) {
       const a = away === null ? (k * PI) / 6 : away + (k * maxOff) / steps;
       const x = Math.min(Math.max(cx + cos(a) * r, 2), ctx.map.widthM - 2), y = Math.min(Math.max(cy + sin(a) * r, 2), ctx.map.heightM - 2);
-      const spot = bestCoverNear(grid, x, y, 8) ?? { x, y };
+      const spot = bestCoverNear(grid, x, y, S.houseLeaveCoverM) ?? { x, y };
       if (navCostAt(grid, spot.x, spot.y) <= 0 || indoorAt(ctx, spot.x, spot.y) >= 0) continue;
       const sa = atan2(spot.y - cy, spot.x - cx);
       // Still within houseLeaveDeg (and a little) of the way out after the snap to cover.
@@ -274,9 +286,9 @@ export function leaveHouse(ctx: SimContext, state: SimState, men: readonly Entit
     let tries = 0;
     for (const c of cands) {
       if (!placeFree(taken, c.x, c.y, S.minSpacingM)) continue;
-      if (++tries > 6) break;
+      if (++tries > S.houseLeaveTries) break;
       const leg = routeBetween(ctx, search, t.x, t.y, c.x, c.y, { maxExpansions: 8000, snapCells: 2 }, { sz: t.z, gz: 0 });
-      if (!leg || leg.cost > c.r * 3 + 20) continue;
+      if (!leg || leg.cost > c.r * S.houseLeaveCost[0] + S.houseLeaveCost[1]) continue;
       m.waypoints = routeWaypoints<Waypoint>(leg, { x: 0, y: 0, mode: S.houseLeaveMode, bolt: true });
       m.formation = null; m.slotLagM = 0;
       m.endPosture = "prone";
@@ -316,21 +328,32 @@ export function houseLeaveDecision(ctx: SimContext, state: SimState, events: Eve
   const w = m?.waypoints;
   if (w && w.length > 0 && w[w.length - 1]!.bolt === true) return false; // on his way out already
   const b = ctx.map.buildings[bi]!;
-  const lh = unit.leftHouse;
-  if (lh && lh.building === b.id && state.tick - lh.tick < secondsToTicks(S.houseReenterSeconds)) {
-    // His unit has left this house: he follows (he stayed to fight in his room), unless an order put it back since.
-    if (unit.orderTick > lh.tick) return false;
-    const th = houseThreat(ctx, state, s, unit, bi, [id]);
-    if (th && th.fight.includes(id)) return false;
-    return leaveHouse(ctx, state, [id], bi, th?.bearings ?? []) > 0;
+  const lh = unit.leftHouse, tick = state.tick;
+  const retry = (): boolean => { const lt = unit.leaveTry; return lt !== undefined && lt.building === b.id && tick - lt.tick < secondsToTicks(S.houseLeaveRetryS); };
+  let trapSince = -Infinity;
+  if (lh && lh.building === b.id && tick - lh.tick < secondsToTicks(S.houseReenterSeconds)) {
+    if (unit.orderTick <= lh.tick) {
+      // His unit has left this house: he follows (he stayed to fight in his room).
+      if (retry()) return false;
+      const th = houseThreat(ctx, state, s, unit, bi, [id]);
+      if (th && th.fight.includes(id)) return false;
+      if (leaveHouse(ctx, state, [id], bi, th?.bearings ?? []) > 0) return true;
+      unit.leaveTry = { building: b.id, tick };
+      return false;
+    }
+    // An order since (it put the unit back, or any other): the house is looked at afresh; a trap needs a new burst.
+    trapSince = unit.orderTick;
   }
+  if (retry()) return false;
   const men = menIn(ctx, state, unit, bi);
-  const th = houseThreat(ctx, state, s, unit, bi, men);
+  const th = houseThreat(ctx, state, s, unit, bi, men, trapSince);
   if (!th) return false;
   const go = men.filter((o) => !th.fight.includes(o));
-  unit.leftHouse = { building: b.id, tick: state.tick, reason: th.reason };
-  leaveHouse(ctx, state, go, bi, th.bearings);
+  // (Nobody could be sent out — all fighting in their rooms, or no way out found: no leaving reported; look again later.)
+  if (leaveHouse(ctx, state, go, bi, th.bearings) === 0) { unit.leaveTry = { building: b.id, tick }; return false; }
+  unit.leftHouse = { building: b.id, tick, reason: th.reason };
   const key = th.reason === "trap" ? "radio.houseLeftTrap" : th.reason === "enemy" ? "radio.houseLeftEnemy" : "radio.houseLeftFlank";
-  events.emit({ kind: "radio", tick: state.tick, side: unit.side, from: id, key, params: { callsign: unit.callsign } });
-  return go.includes(id);
+  events.emit({ kind: "radio", tick, side: unit.side, from: id, key, params: { callsign: unit.callsign } });
+  const w2 = state.mover.get(id)?.waypoints;
+  return w2 !== undefined && w2.length > 0 && w2[w2.length - 1]!.bolt === true;
 }

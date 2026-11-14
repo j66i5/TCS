@@ -336,6 +336,33 @@ calls, `doctrine.json` `fireSupport`) stays as it is; a side with mortar teams c
 Check with `npm run lint:data`, `npx vitest run packages/tools/test/mortars.test.ts` and
 `npx vitest run packages/tools/test/mortars-signature.test.ts`, and a batch of `platoon-mortars`.
 
+## Night and light (M9.1)
+
+`core/spotting.json` `night`: `sun` is a table of `[hour, light]` points (local time 0-24, light 0..1, interpolated);
+`moonFullLight` the light of a full moon (scaled by the battle's `moon`); `flashLight` the light a man's muzzle
+flash gives him at night for every observer; `vehicleFlashLight` the same for a firing vehicle; `tracerContrast` how much more a man firing tracers shows in full darkness. Sensors keep
+their `nightLight` (the light they see by at least: goggles 0.5, thermal 1). A battle follows the clock only with
+`environment.sky` (`environmentAt(catalog, seconds, moon)`; app `?time=`, tools `--time`). Check with
+`npm run lab -- night`.
+
+## Sensor physics (M9.2)
+
+A sensor kind in `core/spotting.json` `sensors` may set `thermal: true` (it sees heat) and `arcDeg` (the half-angle
+it covers from where a man looks; a sight or goggle, not his eyes). `thermal` gives heat relative to what the eye
+sees: `man`, `vehicleCold` (halted longer than `hotSeconds`), `vehicleHot` (moving or moved within `hotSeconds`), `vehicleFiring`,
+`vehicleBurning`, and `vegetationExponent` (visibility through vegetation for heat = visibility^exponent; the better of the best
+sensor and the best thermal one counts). Items: a
+thermal weapon sight is an item with `"sensor": "thermal"`; a thermal blanket has `thermalCover` (the share of a still
+man's heat it lets through); `batteryHours` is reserved for M11.6. Check with `npm run lab -- thermal`.
+
+## Guided missiles (M9.3a)
+
+A guided round's `guidance` picks its kind: `command-wire` (the gunner guides it by wire to the end of `maxRangeM`),
+`command-beam` (by beam: the same, no wire), `fire-and-forget-direct` / `fire-and-forget-top-attack` (its seeker,
+`guided.seekerSmokeFactor`; top attack adds `guided.topAttack {climbM, diveAtM, launchElevationDeg}`). A vehicle
+launcher weapon with `reloadOutside: true` is reloaded by a crewman on the roof; a vehicle with `laserWarner: true`
+notices beam riders. Check with `npm run lab -- missile`.
+
 ## Add a vehicle
 
 Vehicle types live in `factions/<id>/vehicles.json` (optional file; M7). Units are SI except where the field name

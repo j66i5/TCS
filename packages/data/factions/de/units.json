@@ -423,6 +423,10 @@
             {
               "item": "de-nvg",
               "count": 1
+            },
+            {
+              "item": "de-thermal-sight",
+              "count": 1
             }
           ],
           "weapon": "de-g28"
@@ -612,7 +616,7 @@
         "https://de.wikipedia.org/wiki/Puma_(Sch%C3%BCtzenpanzer)"
       ],
       "confidence": "low",
-      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man)."
+      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the marksman carries the Trupp's thermal weapon sight (research default, low)."
     },
     {
       "id": "pzgren-zug",

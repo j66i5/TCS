@@ -43,7 +43,7 @@ import { addStoppedHit } from "../hulls";
 import { applyBurn, resolveBodyHit, ZONE_GROUPS } from "./wounds";
 import { getOut } from "./boarding";
 import { removeItems } from "../items";
-import { compCondition, hasDriver, occupant, vehicleItems } from "../mount";
+import { compCondition, hasDriver, occupant, vehicleItems, onRoof } from "../mount";
 import { vehicleMove } from "./drive";
 import { canEngageAt, dischargeSmoke } from "./gunnery";
 import { aimHeightAt } from "./fire";
@@ -115,7 +115,7 @@ function insideLength(def: VehicleDef, x: number, y: number, z: number, dx: numb
 }
 
 /** Men in seats and components along the path within [0, L], nearest first. */
-function collectTargets(ctx: SimContext, v: VehicleState, def: VehicleDef, x: number, y: number, z: number, dx: number, dy: number, dz: number, L: number, firstOnly: boolean): number {
+function collectTargets(ctx: SimContext, state: SimState, v: VehicleState, def: VehicleDef, x: number, y: number, z: number, dx: number, dy: number, dz: number, L: number, firstOnly: boolean): number {
   const A = ctx.catalog.ballistics.armour;
   let n = 0;
   const push = (t: number, kind: 0 | 1, index: number) => {
@@ -125,7 +125,7 @@ function collectTargets(ctx: SimContext, v: VehicleState, def: VehicleDef, x: nu
   };
   for (let k = 0; k < def.seats.length; k++) {
     const who = v.seats[k];
-    if (who === null || who === undefined) continue;
+    if (who === null || who === undefined || onRoof(state, who)) continue; // (M9.3a: out on the roof, not in his seat)
     const p = def.seats[k]!.pos;
     const u0 = p[2] - 0.4;
     if (clipBox(HULL, x, y, z, dx, dy, dz, L, p[0] - A.seatHalfM, p[0] + A.seatHalfM, p[1] - A.seatHalfM, p[1] + A.seatHalfM, u0, u0 + A.seatHeightM)) push(ct0, 0, k);
@@ -186,7 +186,7 @@ function interior(
   let res = residual;
   if (kind !== "blast" && L > 0) {
     const reach = kind === "shaped" ? Math.min(L, residual / Math.max(1e-6, A.jetDecayMmPerM)) : L;
-    const n = collectTargets(ctx, v, def, x, y, z, dx, dy, dz, reach, false);
+    const n = collectTargets(ctx, state, v, def, x, y, z, dx, dy, dz, reach, false);
     const can0 = residual;
     for (let q = 0; q < n && res > 0; q++) {
       const tg = TARGETS[q]!;
@@ -224,7 +224,7 @@ function interior(
     const ex = dx * cth + ax * c1 + bx * c2, ey = dy * cth + ay * c1 + by * c2, ez = dz * cth + az * c1 + bz * c2;
     const Lk = insideLength(def, x, y, z, ex, ey, ez);
     if (Lk <= 0) continue;
-    if (collectTargets(ctx, v, def, x, y, z, ex, ey, ez, Lk, true) === 0) continue;
+    if (collectTargets(ctx, state, v, def, x, y, z, ex, ey, ez, Lk, true) === 0) continue;
     const tg = TARGETS[0]!;
     if (tg.kind === 1) damageComponent(ctx, state, events, vid, v, tg.index, A.spallComponentDamage, kind === "shaped", dmg);
     else {

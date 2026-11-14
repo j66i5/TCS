@@ -28,6 +28,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
       if (it.sensor !== undefined) d.sensor = it.sensor;
+      if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
       if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.armour !== undefined) d.armour = it.armour.map((a) => ({ ...a }));
@@ -147,6 +148,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),
     ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds, cloudTopM: v.dischargers.cloudTopM } } : {}),
+    ...(v.laserWarner ? { laserWarner: true } : {}),
     ...(v.ambulance ? { ambulance: { layouts: v.ambulance.layouts.map((l) => ({ lying: l.lying, sitting: l.sitting, lyingOutside: l.lyingOutside ?? 0 })), marked: v.ambulance.marked } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
     signature: v.signature

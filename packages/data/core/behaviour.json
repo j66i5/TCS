@@ -200,7 +200,8 @@
     "recentHitSeconds": 3,
     "reverseOutM": 60,
     "reverseHoldSeconds": 15,
-    "atThreatM": 50
+    "atThreatM": 50,
+    "launchReactionSeconds": 1.5
   },
   "soldier": {
     "reserveCloseM": 100,

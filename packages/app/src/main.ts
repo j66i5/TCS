@@ -12,7 +12,7 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
+  tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
   mortarTeams, fireOptions,
 } from "@tcs/sim";
@@ -57,6 +57,9 @@ async function main(): Promise<void> {
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}) });
+  // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
+  const timeOfDay = parseTimeOfDay(params.get("time"));
+  if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : [commanderController(enemySide, input)];
@@ -1256,6 +1259,8 @@ async function main(): Promise<void> {
     // names may run out of room, their coloured marks stay.
     hud.setScore([
       { text: strings.t("score.time", { left: fmtClock(left) }) },
+      // Night and light (M9.1): with a sky, the local time and how light it is.
+      ...(sim.state.environment.sky ? [{ text: strings.t("score.localTime", { time: localClock(sim.state.environment.timeOfDaySeconds) }), title: strings.t("score.light", { pct: Math.round(sim.state.environment.light * 100) }) }] : []),
       ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }) }] : []),
       ...defs.map((o, i) => {
         const st = sim.state.objectives[i];
@@ -1471,4 +1476,10 @@ main().catch((e: unknown) => {
 function crewParam(v: string | null): { crewTemplates?: [string, string] } {
   const parts = (v ?? "").split(",").filter((x) => x.length > 0);
   return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
+}
+
+/** Local time of day as "HH:MM" (M9.1). */
+function localClock(sec: number): string {
+  const m = Math.floor((((sec % 86400) + 86400) % 86400) / 60);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }

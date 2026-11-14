@@ -37,7 +37,7 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
-import { compCondition, fireTop, occupant } from "../mount";
+import { compCondition, fireTop, occupant, onRoof } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -58,6 +58,11 @@ export function guidedRound(catalog: Catalog, wdef: VehicleDef["stations"][numbe
   return g && round !== undefined ? { ammo: round, g } : null;
 }
 
+/** A fire-and-forget guidance kind (M9.3a): no gunner after the launch. */
+export function fireAndForget(kind: string | undefined): boolean {
+  return kind !== undefined && kind.startsWith("fire-and-forget");
+}
+
 /** Can this vehicle still fight (not knocked out, abandoned or destroyed)? */
 export function canFight(v: VehicleState): boolean {
   return v.status === "ok" || v.status === "immobilised";
@@ -66,7 +71,8 @@ export function canFight(v: VehicleState): boolean {
 /** The man who works this station now: its operator if able, else the commander if the station allows it. */
 export function stationOperator(state: SimState, v: VehicleState, def: VehicleDef, si: number): EntityId | null {
   const sn = def.stations[si]!;
-  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight; };
+  // (M9.3a: a man out on the roof reloading works no station.)
+  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight && !onRoof(state, id!); };
   const op = occupant(v, def, sn.operator);
   if (fit(op)) return op;
   if (sn.commanderOverride) { const c = occupant(v, def, "commander"); if (fit(c)) return c; }
@@ -320,7 +326,9 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
     const allowed = gunneryAllowed(ctx, state, v.unit!);
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!;
-      if (st.guide) continue; // the gunner is guiding a missile: nothing else until it ends (owner 2026-11-13)
+      // The gunner is guiding a missile: nothing else until it ends (owner 2026-11-13); a fire-and-forget one needs
+      // no gunner after the launch (M9.3a).
+      if (st.guide && !fireAndForget(st.guide.kind)) continue;
       refillCheck(ctx, state, events, vid, v, def, si);
       if (stationOperator(state, v, def, si) === null) continue;
       // Its target is down or a wreck (M7.4a): the task ends, ordered or not.
@@ -483,7 +491,8 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
     const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!, task = st.task, sn = def.stations[si]!;
-      if (!task || st.guide) continue;
+      // (M9.3a: while a fire-and-forget missile flies the station's guns fire on; no second missile until it ends.)
+      if (!task || (st.guide && !fireAndForget(st.guide.kind))) continue;
       const op = stationOperator(state, v, def, si);
       if (op === null) continue;
       const os = state.soldier.req(op);
@@ -696,6 +705,7 @@ function fireMissile(
     st.task = null;
   };
   if (!feed || feed.rounds <= 0) { nature(); return; }
+  if (st.guide) return; // one missile in flight per station (M9.3a: also while a fire-and-forget one flies)
   if (Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3) || st.laidTick < 0) return;
   if (task.contact !== undefined && crew) { const c = crewContact(ctx, state, crew, task.contact); if (c) { task.x = c.x; task.y = c.y; } }
   const [mx, my, mz] = muzzleWorld(ctx, def, si, wi, x, y, heading, st.azimuth);
@@ -713,7 +723,9 @@ function fireMissile(
   // (Own men on the way are no bar: the missile flies along the gunner's sight line, above their heads.)
   if (!task.lineClear || tick < w.nextShotTick) return;
   const v0 = ctx.catalog.weapons[wdef.weapon]?.ammo[gr.ammo] ?? 50;
-  const a0 = atan2(task.y - my, task.x - mx), e0 = atan2(tz - mz, range);
+  // (M9.3a: a top-attack missile leaves pointing up, to climb above its target.)
+  const loft = gr.g.topAttack ? (gr.g.topAttack.launchElevationDeg * PI) / 180 : 0;
+  const a0 = atan2(task.y - my, task.x - mx), e0 = atan2(tz - mz, range) + loft;
   const ce = cos(e0);
   launchProjectile(ctx, state, gr.ammo, mx, my, mz, v0 * cos(a0) * ce, v0 * sin(a0) * ce, v0 * sin(e0), op);
   events.emit({ kind: "shot.fired", tick, shooter: op, x: mx, y: my, z: mz, dirX: cos(a0), dirY: sin(a0), weapon: wdef.weapon, ammo: gr.ammo, vehicle: vid });
@@ -721,6 +733,27 @@ function fireMissile(
   w.lastShotTick = tick;
   w.nextShotTick = tick + TICK_HZ;
   st.guide = { ammo: gr.ammo, weapon: wi, gunner: op, launchTick: tick, target: tv, errH: 0, errV: 0, checkTick: -1, ax: task.x, ay: task.y, az: tz };
+  const kind = ctx.catalog.ammo[gr.ammo]?.guidance;
+  if (kind !== undefined && kind !== "command-wire") st.guide.kind = kind;
+  // Launch warning (M9.3a): the target's crew notices the launch — a laser warner against a beam-riding missile, or
+  // an able crewman who has the launcher in sight — and fires its smoke toward it a moment later (missiles.ts).
+  if (tv >= 0 && launchNoticed(ctx, state, tv, vid, kind)) st.guide.warnTick = tick + Math.max(1, secondsToTicks(ctx.catalog.behaviour.crew.launchReactionSeconds));
+}
+
+/** Does the crew of vehicle `tv` notice a missile launched at it from vehicle `from` (M9.3a)? */
+function launchNoticed(ctx: SimContext, state: SimState, tv: EntityId, from: EntityId, kind: string | undefined): boolean {
+  const v = state.vehicle.get(tv), def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  if (!v || !def || !def.dischargers || v.unit === null || v.status === "destroyed" || v.status === "abandoned") return false;
+  if (def.laserWarner === true && kind === "command-beam") return true;
+  const recent = secondsToTicks(ctx.catalog.behaviour.gunnery.seenWithinSeconds);
+  for (let k = 0; k < def.seats.length; k++) {
+    if (def.seats[k]!.station === "passenger") continue;
+    const m = v.seats[k];
+    const s = m === null || m === undefined ? undefined : state.soldier.get(m);
+    if (!isAble(s)) continue;
+    for (const e of s!.seen) if (e.target === from && state.tick - e.lastTick <= recent) return true;
+  }
+  return false;
 }
 
 function loaderFit(state: SimState, v: VehicleState, def: VehicleDef, kind: string): boolean {

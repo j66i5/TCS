@@ -17,6 +17,9 @@ export interface Environment {
   visibilityM: number;
   /** Air temperature, degrees Celsius. */
   temperatureC: number;
+  /** The sky (M9.1): present = `light` follows the clock (light.ts `lightAt`), `moon` its illumination 0 (new)
+   *  .. 1 (full). Absent = `light` stays as given (every battle before M9.1). */
+  sky?: { moon: number };
 }
 
 export function defaultEnvironment(): Environment {

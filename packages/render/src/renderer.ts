@@ -168,6 +168,9 @@ const PACE_COLOURS: Record<string, number> = { walk: 0xffffff, run: 0xffc23d, sn
 /** A short-lived mark where a projectile struck. */
 interface Puff { x: number; y: number; untilTick: number; result: "stopped" | "penetrated" | "ricochet" | "flash" | "hit" }
 const FLASH_TICKS = 5;
+/** Night (M9.1): the tints of the map and roofs, and of the men's figures, in full darkness. */
+const NIGHT_MAP = 0x283252;
+const NIGHT_MEN = 0x8a93b8;
 const BURST_TICKS = 50;
 const PUFF_TICKS = 24;
 const MAX_PUFFS = 600;
@@ -189,6 +192,10 @@ export class BattleRenderer {
   private sightOverlay: Sprite | null = null;
   private world = new Graphics();
   private units = new Graphics();
+  /** How dark it is now (M9.1), 0 (full daylight: nothing night-related is drawn or tinted) .. 1. */
+  private dark = 0;
+  /** The tint last given to the map, roofs and men (night), to change it only when it changes. */
+  private nightTint = -1;
   private labels = new Container();
   private prev = new Map<EntityId, { x: number; y: number }>();
   private markers: Marker[] = [];
@@ -558,6 +565,7 @@ export class BattleRenderer {
     // Zoom level (M7.5b).
     const lod: Lod = lodFor(c.scale, this.lod);
     this.lod = lod;
+    this.drawNight(state);
     if (state.unit.size !== this.shownFor || state.unit !== this.shownStore) { this.shown = shownCallsigns(state.unit.entries()); this.shownFor = state.unit.size; this.shownStore = state.unit; }
     this.drawGround(map, lod);
     this.bld?.setFloor(overlay.floor ?? 0);
@@ -1062,6 +1070,8 @@ export class BattleRenderer {
       // Burning (M7.4a): flames on the hull while the fire lasts (a destroyed hull that burnt out stays dark).
       if (v.fire !== null && (v.status !== "destroyed" || state.tick - v.fire.startTick < 7200)) {
         const ph = (state.tick % 20) / 20;
+        // (Night, M9.1: the fire lights the ground round the hull.)
+        if (this.dark > 0) { const cp = at((h.f[0] + h.f[1]) / 2, 0); g.circle(cp.x, cp.y, Math.max(20, def.body.lengthM * 1.6 * c.scale * k)).fill({ color: 0xff8a2a, alpha: 0.22 * this.dark }); }
         for (let q = 0; q < 3; q++) {
           const fp = at(h.f[0] + (h.f[1] - h.f[0]) * (0.3 + 0.2 * q), ((q % 2) - 0.5) * (h.r[1] - h.r[0]) * 0.3);
           const rr = (0.9 + 0.5 * Math.sin((ph + q / 3) * 2 * Math.PI)) * c.scale * k;
@@ -1274,6 +1284,28 @@ export class BattleRenderer {
    * Bullets in flight and impact marks (owner decision 2026-11-11): tracer rounds as clear streaks, all other
    * bullets as very faint streaks (clear in the debug view), plus a puff where each one strikes.
    */
+  /**
+   * Night (M9.1, owner default "darkened map with fires and flashes lit"): the map and roofs are tinted toward a dark
+   * blue, the men's figures less (they stay readable); symbols, hulls, flashes, tracers, bursts and fires keep their
+   * colours and gain a glow. In full daylight the tint is white (flat stays byte-identical).
+   */
+  private drawNight(state: SimView): void {
+    const light = state.environment.light;
+    this.dark = light >= 1 ? 0 : 1 - Math.max(0, light);
+    const k = Math.round(Math.min(1, this.dark * 1.15) * 255);
+    if (k === this.nightTint) return;
+    this.nightTint = k;
+    const mix = (night: number, w: number) => {
+      const ch = (sh: number) => Math.round(255 + (((night >> sh) & 255) - 255) * w);
+      return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+    };
+    const w = k / 255;
+    this.worldLayer.tint = mix(NIGHT_MAP, w);
+    this.roofLayer.tint = mix(NIGHT_MAP, w);
+    this.shadowLayer.tint = mix(NIGHT_MAP, w);
+    this.menLayer.tint = mix(NIGHT_MEN, w);
+  }
+
   private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, fog = false): void {
     const c = this.camera, W = this.width, H = this.height;
     // Craters stay (terrain damage is part of the battle state).
@@ -1290,14 +1322,20 @@ export class BattleRenderer {
       if (sx < -80 || sy < -80 || sx > W + 80 || sy > H + 80) continue;
       const age = 1 - (b.untilTick - state.tick) / BURST_TICKS;
       const rad = Math.max(5, b.radiusM * c.scale * (0.5 + age));
-      if (age < 0.12) g.circle(sx, sy, rad).fill({ color: 0xfff0a8, alpha: 0.95 });
+      if (age < 0.12) {
+        // (Night, M9.1: the flash lights the ground round it for a moment.)
+        if (this.dark > 0) g.circle(sx, sy, rad * 3).fill({ color: 0xffd27a, alpha: 0.3 * this.dark });
+        g.circle(sx, sy, rad).fill({ color: 0xfff0a8, alpha: 0.95 });
+      }
       else g.circle(sx, sy, rad).fill({ color: 0x8a7c6a, alpha: 0.5 * (1 - age) });
     }
     for (const p of this.puffs) {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
       if (p.result === "flash") { // muzzle flash: brief and bright (pixel soldiers show their own, M7.5b)
-        if (this.lod !== null && this.lod >= LOD_FIGURE) continue;
+        // (Night, M9.1: drawn at every zoom with a halo — the figure under the veil is dark.)
+        if (this.dark <= 0 && this.lod !== null && this.lod >= LOD_FIGURE) continue;
+        if (this.dark > 0) g.circle(sx, sy, Math.max(8, 2.5 * c.scale)).fill({ color: 0xffd27a, alpha: 0.35 * this.dark });
         g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
         continue;
       }

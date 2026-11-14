@@ -26,12 +26,18 @@ import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
-import { atan2, exp, sin, sqrt } from "../math";
+import { registerActionHandler, startAction } from "../actions";
+import { ROOF_ACTION } from "../mount";
+import { atan2, exp, sin, sqrt, wrapAngle } from "../math";
 import { vehicleItems } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { skillFactor } from "./fire";
-import { canFight, guidedRound, missileAimPoint, missileSees, muzzleWorld, stationOperator } from "./gunnery";
+import { canFight, dischargeSmoke, fireAndForget, guidedRound, missileAimPoint, missileSees, muzzleWorld, stationOperator } from "./gunnery";
+import { radioFromTarget } from "./orders";
+import { smokePhysics, smokeTransmission } from "../smoke";
+import { sight } from "../los";
+import { heightAt } from "../terrain";
 
 /** Guided launchers of each vehicle type: [station, weapon] (derived from the catalog, never saved). */
 const LAUNCHERS = new WeakMap<VehicleDef, [number, number][]>();
@@ -81,6 +87,10 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
     end(hit ? "hit" : "miss");
     return;
   }
+  // ---- launch warning (M9.3a): the target's crew fires its smoke toward the launcher
+  if (g.warnTick !== undefined && tick >= g.warnTick) { delete g.warnTick; smokeAgainst(ctx, state, events, g.target, vid); }
+  // ---- fire-and-forget (M9.3a): its own seeker, no gunner, no wire
+  if (fireAndForget(g.kind)) { seekStep(ctx, state, g, gd, row, vid); return; }
   // ---- can the gunner still guide it?
   const lose = (reason: string): void => {
     // Thrown off its line: a kick across and up or down, then it flies on unguided (drag and gravity).
@@ -107,7 +117,7 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
   const t = state.transform.req(vid);
   const [sx, sy, sz] = muzzleWorld(ctx, def, si, g.weapon, t.x, t.y, t.heading, st.azimuth);
   const mx = P.x[row]!, my = P.y[row]!, mz = P.z[row]!;
-  if ((mx - sx) * (mx - sx) + (my - sy) * (my - sy) > gd.maxRangeM * gd.maxRangeM) { lose("missile.lost.wire"); return; }
+  if ((mx - sx) * (mx - sx) + (my - sy) * (my - sy) > gd.maxRangeM * gd.maxRangeM) { lose(g.kind === "command-beam" ? "missile.lost.range" : "missile.lost.wire"); return; }
   if (g.target >= 0) { if (!missileAimPoint(ctx, state, g.target, AIM)) { lose("missile.lost.unseen"); return; } g.ax = AIM.x; g.ay = AIM.y; g.az = AIM.z; }
   const ax = g.ax, ay = g.ay, az = g.az;
   // His sight line to the target, every missileSightSeconds.
@@ -141,6 +151,13 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
   let dx = sx + ux * along - mx, dy = sy + uy * along - my, dz = sz + uz * along - mz;
   const dl = sqrt(dx * dx + dy * dy + dz * dz) || 1;
   dx /= dl; dy /= dl; dz /= dl;
+  turnToward(P, row, dx, dy, dz, gd);
+}
+
+/** Turn the missile in row `row` at most turnRate x dt toward the unit direction (dx, dy, dz) and speed it up. */
+function turnToward(P: SimState["projectiles"], row: number, dx: number, dy: number, dz: number, gd: NonNullable<AmmoDef["guided"]>): void {
+  const vx = P.vx[row]!, vy = P.vy[row]!, vz = P.vz[row]!;
+  const sp = sqrt(vx * vx + vy * vy + vz * vz) || 1;
   const cx = vx / sp, cy = vy / sp, cz = vz / sp;
   // Turn at most turnRate x dt toward the wanted direction (along the great circle between the two).
   const dot = Math.min(1, Math.max(-1, cx * dx + cy * dy + cz * dz));
@@ -157,30 +174,148 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
   P.vx[row] = nx * speed; P.vy[row] = ny * speed; P.vz[row] = nz * speed;
 }
 
+const SEEK = { x: 0, y: 0, z: 0 };
+
+/**
+ * Fire-and-forget (M9.3a): every missileSightSeconds its seeker looks at the target from where the missile is; while
+ * it sees it (the line clear, smoke thinning it to no less than missileSeenFloor; ordinary smoke kept at
+ * seekerSmokeFactor), the aim point follows the target's top; when it does not, the missile flies on to the last
+ * point seen (owner, M9 round). It pursues the aim point; a top-attack missile first climbs `climbM` above it and
+ * dives on it within `diveAtM`.
+ */
+function seekStep(ctx: SimContext, state: SimState, g: NonNullable<VehicleState["stations"][number]["guide"]>, gd: NonNullable<AmmoDef["guided"]>, row: number, vid: EntityId): void {
+  const P = state.projectiles, tick = state.tick, G = ctx.catalog.behaviour.gunnery;
+  const mx = P.x[row]!, my = P.y[row]!, mz = P.z[row]!;
+  const every = Math.max(1, secondsToTicks(G.missileSightSeconds ?? 0.1));
+  if (g.target >= 0 && (g.checkTick < 0 || tick - g.checkTick >= every)) {
+    g.checkTick = tick;
+    if (missileAimPoint(ctx, state, g.target, SEEK)) {
+      const tv = state.vehicle.get(g.target), tdef = tv ? ctx.catalog.vehicles[tv.def] : undefined, tt = state.transform.get(g.target);
+      // (A top-attack seeker aims at the roof.)
+      if (gd.topAttack && tdef && tt) SEEK.z = heightAt(ctx.map, tt.x, tt.y) + tdef.body.hull.u[1] - 0.2; // ground: ok (a hull)
+      if (seekerSees(ctx, state, gd, vid, g.target, mx, my, mz, SEEK.x, SEEK.y, SEEK.z)) { g.ax = SEEK.x; g.ay = SEEK.y; g.az = SEEK.z; }
+    }
+  }
+  let wx = g.ax - mx, wy = g.ay - my, wz = g.az - mz;
+  const hr = sqrt(wx * wx + wy * wy);
+  if (gd.topAttack && hr > gd.topAttack.diveAtM) wz = Math.max(g.az + gd.topAttack.climbM - mz, 0);
+  const L = sqrt(wx * wx + wy * wy + wz * wz) || 1;
+  wx /= L; wy /= L; wz /= L;
+  turnToward(P, row, wx, wy, wz, gd);
+}
+
+/** Does a missile's seeker at (sx, sy, sz) see the target (M9.3a)? The sight line, and smoke as its seeker sees it. */
+function seekerSees(ctx: SimContext, state: SimState, gd: NonNullable<AmmoDef["guided"]>, launcher: EntityId, target: EntityId, sx: number, sy: number, sz: number, ax: number, ay: number, az: number): boolean {
+  const r = sight(ctx, sx, sy, sz, ax, ay, az, launcher, target);
+  const range = sqrt((ax - sx) * (ax - sx) + (ay - sy) * (ay - sy));
+  if (r.blockedBy !== null && (1 - r.blockedAt) * range > 5) return false;
+  let seen = r.visibility;
+  if (state.smoke.length > 0) {
+    const SP = smokePhysics(ctx.catalog);
+    const conv = smokeTransmission(state, SP, sx, sy, sz, ax, ay, az, "conventional");
+    const ms = smokeTransmission(state, SP, sx, sy, sz, ax, ay, az, "multispectral");
+    seen *= ms * (conv + (1 - conv) * (gd.seekerSmokeFactor ?? 0));
+  }
+  return seen >= (ctx.catalog.behaviour.gunnery.missileSeenFloor ?? 0.2);
+}
+
+/** Launch warning (M9.3a): vehicle `tv` lays its turret toward `from` (if it has no target) and fires its smoke. */
+function smokeAgainst(ctx: SimContext, state: SimState, events: EventSink, tv: EntityId, from: EntityId): void {
+  const v = state.vehicle.get(tv), t = state.transform.get(tv), f = state.transform.get(from);
+  if (!v || !t || !f || v.status === "destroyed" || v.status === "abandoned" || v.unit === null) return;
+  const st = v.stations[0];
+  if (st && st.task === null) st.azCmd = wrapAngle(atan2(f.y - t.y, f.x - t.x) - t.heading);
+  if (dischargeSmoke(ctx, state, tv) === true) radioFromTarget(state, v.unit, "radio.launchWarning", events);
+}
+
 /** The gunner's tracking error (one standard deviation, rad): the missile's, his skill and wounds, x3 on the move. */
 function trackSd(ctx: SimContext, v: VehicleState, skill: number, impairAim: number, mrad: number): number {
   const moving = Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3) ? 3 : 1;
   return (mrad / 1000) * skillFactor(ctx, skill) * impairAim * moving;
 }
 
-/** Put the next missile on an empty launcher from stowage: the weapon's reload time, counted only while halted. */
+/**
+ * Put the next missile on the launcher from stowage, up to its ready count (M9.3a: MELLS holds 2): the weapon's
+ * reload time, counted only while halted. A launcher reloaded from outside (`reloadOutside`, M9.3a, owner: "with
+ * a man exposed") is reloaded by a crewman with a hatch, out on the roof: an action ("reloadOutside") during which
+ * he can be seen, shot at and hit (mount.ts `onRoof`); it breaks off if the vehicle moves, he is hit or it is lost.
+ */
 function reloadStep(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, wi: number): void {
   const st = v.stations[si]!, w = st.weapons[wi]!, feed = w.feeds[0], wdef = def.stations[si]!.weapons[wi]!;
   if (!feed) return;
-  if (feed.rounds > 0) { if (w.reloadDoneTick !== undefined) delete w.reloadDoneTick; return; }
+  const fd = wdef.feeds[0];
+  const cap = fd ? fd.ready.count * Math.max(1, fd.ready.charge) : 1;
+  if (feed.rounds >= cap) { if (w.reloadDoneTick !== undefined) delete w.reloadDoneTick; return; }
   if (v.status === "destroyed" || v.status === "abandoned" || vehicleItems(state, vid, feed.item) <= 0) return;
   const tick = state.tick;
-  const busy = st.guide || !canFight(v) || stationOperator(state, v, def, si) === null || Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3);
-  if (w.reloadDoneTick === undefined) { if (!busy) w.reloadDoneTick = tick + secondsToTicks(ctx.catalog.weapons[wdef.weapon]?.reloadSeconds ?? 30); return; }
+  const halted = Math.abs(v.drive.speed) <= (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3);
+  const wd = ctx.catalog.weapons[wdef.weapon];
+  if (wd?.reloadOutside === true) {
+    // Outside: one man at a time, not while a missile is being guided by wire or beam from this station.
+    if (!halted || !canFight(v) || (st.guide && !fireAndForget(st.guide.kind))) return;
+    for (const m of v.seats) if (m !== null && m !== undefined && state.action.get(m)?.kind === ROOF_ACTION) return;
+    const man = roofMan(state, v, def, si);
+    if (man === null) return;
+    startAction(state, events, man, ROOF_ACTION, secondsToTicks(wd.reloadSeconds), { vehicle: vid, station: si, weapon: wi });
+    // He stands up there (every system sees a standing man: spotting, blast, bullets, contacts).
+    const ms = state.soldier.get(man);
+    if (ms && ms.posture !== "standing") { ms.posture = "standing"; ms.postureTo = null; events.emit({ kind: "posture.changed", tick, soldier: man, posture: "standing" }); }
+    radioFromTarget(state, v.unit ?? vid, "radio.reloadOutside", events);
+    return;
+  }
+  const busy = st.guide || !canFight(v) || stationOperator(state, v, def, si) === null || !halted;
+  if (w.reloadDoneTick === undefined) { if (!busy) w.reloadDoneTick = tick + secondsToTicks(wd?.reloadSeconds ?? 30); return; }
   if (busy) { w.reloadDoneTick++; return; } // paused
   if (tick < w.reloadDoneTick) return;
   delete w.reloadDoneTick;
+  loadOne(ctx, state, events, vid, v, def, si, wi);
+}
+
+/** One missile from the vehicle's stowage onto the launcher (counted items, rule 9). */
+function loadOne(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, wi: number): void {
+  const w = v.stations[si]!.weapons[wi]!, feed = w.feeds[0];
   const c = state.container.get(vid);
-  if (!c) return;
+  if (!feed || !c) return;
   const sink = emptyContainer();
   const r = transferItems(ctx.catalog, { get: (id: EntityId) => (id === vid ? c : id === -1 ? sink : undefined) }, { from: vid, to: -1, type: feed.item, count: 1 });
   if (r.moved === 0) return;
   for (const s2 of sink.stacks) feed.rounds += (s2.charge ?? 1) * s2.count;
   w.lowAmmoReported[0] = false;
-  events.emit({ kind: "items.transferred", tick, from: vid, to: stationOperator(state, v, def, si) ?? vid, item: feed.item, count: 1 });
+  events.emit({ kind: "items.transferred", tick: state.tick, from: vid, to: stationOperator(state, v, def, si) ?? vid, item: feed.item, count: 1 });
 }
+
+/** The crewman who goes out on the roof to reload: an able crewman in a seat with a hatch, not the station's
+ *  operator if another can go (the gun stays manned), commander first. */
+function roofMan(state: SimState, v: VehicleState, def: VehicleDef, si: number): EntityId | null {
+  const op = stationOperator(state, v, def, si);
+  let fallback: EntityId | null = null;
+  for (const kind of ["loader", "commander", "gunner"] as const) {
+    for (let k = 0; k < def.seats.length; k++) {
+      const seat = def.seats[k]!;
+      if (seat.station !== kind || !seat.hatch) continue;
+      const m = v.seats[k];
+      if (m === null || m === undefined || !isAble(state.soldier.get(m)) || state.action.has(m)) continue;
+      if (m === op) { fallback ??= m; continue; }
+      return m;
+    }
+  }
+  return fallback;
+}
+
+/** Action "reloadOutside" (M9.3a): params { vehicle, station, weapon }. */
+registerActionHandler(ROOF_ACTION, {
+  check(ctx, state, actor, a) {
+    const vid = Number(a.params["vehicle"]), v = state.vehicle.get(vid), s = state.soldier.get(actor);
+    if (!v || v.status === "destroyed" || v.status === "abandoned" || v.fire !== null) return "left-vehicle";
+    if (!s || !isAble(s) || s.mount?.vehicle !== vid) return "left-vehicle";
+    if (Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3)) return "moving";
+    return null;
+  },
+  complete(ctx, state, actor, a, events) {
+    const vid = Number(a.params["vehicle"]), v = state.vehicle.get(vid);
+    const def = v ? ctx.catalog.vehicles[v.def] : undefined;
+    if (!v || !def) return;
+    loadOne(ctx, state, events, vid, v, def, Number(a.params["station"]), Number(a.params["weapon"]));
+    void actor;
+  },
+});

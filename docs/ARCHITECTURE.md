@@ -545,7 +545,13 @@ room by room (`roomOrder`: breadth first, ground floor first); values `drills.cl
 **Commander (`ai/src/commander.ts`, `COMMANDER.clear`):** an assaulting squad first gets `assault {building}` for the
 next house on its way in or by the objective with a known enemy (any in the main ring while it is defended);
 `Memory.clearing/taken/held/houseSeen` are plain data; a squad that took a house in the main ring holds it with the
-defence's siting. A squad that left a house is re-sited outdoors.
+defence's siting. A squad that left a house is re-sited outdoors. On the approach (slice s0-clear, owner 2026-11-14):
+a squad advancing to the support line or closing in first clears a house with a known enemy that overlooks its way
+(`approachHouse`/`clearOnApproach`, `COMMANDER.clear.approach*`; advancing, not a house of the objective it is going
+for; closing in, its line runs on to the objective; one at a time); a base of fire squad in a clear drill gets no fire orders.
+**Player (slice s0-clear):** order mode `"clear"` in the Move tray (`ui/hud.ts`, `orders-for.ts`: squads only); the
+app's `clearAt` (tap a house, or drag the unit onto it) sends `assault {x, y, building}` if `clearable`, else a radio
+hint (`plan.cannotClear`).
 Tools: batch "buildings" block, `npm run lab -- house defend|leave|clear`, scenario `house-clear` (golden
 `house-clear-s1`), `npm run screenshot -- --scene buildings` (app hooks `clearAt`, `reveal`).
 

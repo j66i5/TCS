@@ -180,7 +180,9 @@ white flags on the map; the after-action review lists surrendered and captured m
   defence holds houses with a mixed spread, men leave a house that is a trap, has the enemy inside or is cut off;
   the AI attacker can clear a house room by room and hold what it takes (shown in the lab and in some battles), but
   the plan's step-3 battle targets for the attacker (houses taken, time indoors, grenades into houses, holding a
-  house of the main ring at the end) are not met — see DECISIONS.md; scenario `house-clear`, `--scene buildings`)
+  house of the main ring at the end) are not met — see DECISIONS.md; scenario `house-clear`, `--scene buildings`;
+  follow-ups (owner answers 2026-11-14) ✅: a **Clear** button in the Move tray, and the AI attacker clears houses
+  with a known, well-placed enemy on its approach too)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.
   - A sidebar lists every unit of the player's side; tapping an entry selects the unit.

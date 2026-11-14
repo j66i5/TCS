@@ -44,7 +44,15 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // house; a squad is sent only to houses within `reachM` of it; a house with an enemy known in it within `stillS` of
   // the drill's end is not taken (left for `retrySeconds`); a taken house is cleared again once an enemy is known in
   // it after it was taken; it is taken with at least `takenMen` able men of the squad inside (fewer if it has fewer).
-  clear: { ringSlackM: 20, corridorM: 25, enemySeconds: 60, retrySeconds: 120, holdSiteM: 30, pendingSeconds: 20, errM: 10, reachM: 200, stillS: 15, takenMen: 2 },
+  // On the approach (owner answer 2026-11-14, slice s0-clear): before the assault too — a squad advancing to the
+  // support line, or an assaulting squad closing in, first clears a house with an enemy known in it (as above) that
+  // lies on its way (within `approachM` of it, ahead of it, within `approachCorridorM` of its line to where it is
+  // going, short of it) and overlooks that way (a sight line from where the enemy was placed, at the window height of
+  // any of its floors, to the squad or to where it is going); advancing, never a house within `ringSlackM` of the ring
+  // of the objective it goes for (the assault's); closing in, its line runs on to the objective, so a house of that
+  // ring on its way counts; at most `approachMax` such clearings at a time, only a squad with `approachMinMen` able men.
+  clear: { ringSlackM: 20, corridorM: 25, enemySeconds: 60, retrySeconds: 120, holdSiteM: 30, pendingSeconds: 20, errM: 10, reachM: 200, stillS: 15, takenMen: 2,
+    approachM: 150, approachCorridorM: 60, approachMax: 1, approachMinMen: 4, storeyM: 3, eyeM: 1.5 },
   // Falling back (overnight pick "defence-fallback", game values, low confidence): a squad below half strength
   // pulls back only when a known enemy is within `threatM` of it, its objective is contested while it is within
   // `assaultSlackM` of the ring, or enemies are known within `flankM` on two sides (bearings spread `flankDeg`).
@@ -714,8 +722,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // ---- houses (M7.5e step "clear", D8/D9; values COMMANDER.clear)
       const CL = COMMANDER.clear;
       /** Where an enemy was known in each house lately (the houses' ids), from what its men know. */
+      /** Where enemies were placed in each house lately (building index -> places; derived on each call, never saved). */
+      const houseSpots = new Map<number, { x: number; y: number }[]>();
       const noteHouses = () => {
         const ctx = ground();
+        houseSpots.clear();
         if (!mapHasInteriors(ctx)) return;
         mem.houseSeen ??= {};
         for (const m of all) for (const c of knownMen(m)) {
@@ -724,6 +735,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (bi < 0) continue;
           const k = String(ctx.map.buildings[bi]!.id);
           if ((mem.houseSeen[k] ?? -1e9) < c.tick) mem.houseSeen[k] = c.tick;
+          const spots = houseSpots.get(bi);
+          if (!spots) houseSpots.set(bi, [{ x: c.x, y: c.y }]);
+          else if (spots.length < 4 && !spots.some((p) => hypot2(p.x - c.x, p.y - c.y) < 1)) spots.push({ x: c.x, y: c.y });
         }
       };
       const houseMid = (bi: number) => { const fp = input.map.buildings[bi]!.footprint, n = fp.length / 2; let x = 0, y = 0; for (let k = 0; k < n; k++) { x += fp[k * 2]! / n; y += fp[k * 2 + 1]! / n; } return { x, y }; };
@@ -754,6 +768,68 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           best = bi; bestAlong = along;
         });
         return best;
+      };
+      /** Is house `bi` free to be sent to (an interior, not taken unless an enemy came back, nobody else on it, not
+       *  failed lately, a way in)? */
+      const houseFree = (bi: number, sq: EntityId): boolean => {
+        const b = input.map.buildings[bi]!;
+        const retaken = (mem.houseSeen?.[String(b.id)] ?? -1e9) > (mem.takenAt?.[String(b.id)] ?? -1e9);
+        if (!b.interior || ((mem.taken ?? []).includes(b.id) && !retaken) || tick - (mem.clearFailed?.[String(b.id)] ?? -1e9) < CL.retrySeconds * 60) return false;
+        if (Object.entries(mem.clearing ?? {}).some(([k, v]) => k !== String(sq) && v[0] === b.id)) return false;
+        return clearable(ground(), b.id);
+      };
+      /** On the approach (slice s0-clear): the house with a known, well-placed enemy squad `sq` clears on its way to
+       *  `goal` (index in map.buildings), or -1; `looks`: the places the enemy must overlook (besides the squad);
+       *  `ringToo`: houses of the objective it is going for count (closing in on it). */
+      const approachHouse = (sq: EntityId, goal: { x: number; y: number }, looks: { x: number; y: number }[], ringToo: boolean): number => {
+        const c = centre(sq);
+        if (!c || houseSpots.size === 0) return -1;
+        if (members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length < CL.approachMinMen) return -1;
+        const dl = hypot2(goal.x - c.x, goal.y - c.y);
+        if (dl < 1) return -1;
+        const vx = (goal.x - c.x) / dl, vy = (goal.y - c.y) / dl;
+        const ctx = ground();
+        let best = -1, bestAlong = Infinity;
+        for (const [bi, spots] of [...houseSpots.entries()].sort((a, b) => a[0] - b[0])) {
+          const b = input.map.buildings[bi]!, h = houseMid(bi);
+          if (tick - (mem.houseSeen?.[String(b.id)] ?? -1e9) > CL.enemySeconds * 60) continue;
+          if (hypot2(h.x - c.x, h.y - c.y) > CL.approachM) continue;
+          const along = (h.x - c.x) * vx + (h.y - c.y) * vy, across = Math.abs(-(h.x - c.x) * vy + (h.y - c.y) * vx);
+          if (along <= -10 || along >= dl || across > CL.approachCorridorM || along >= bestAlong) continue;
+          // (Advancing to the support line, a house of the objective it is going for is the assault's.)
+          if (!ringToo && hypot2(h.x - tgt.x, h.y - tgt.y) <= tgt.radiusM + CL.ringSlackM) continue;
+          // Well placed: a sight line from where an enemy was placed in it, at a window of any floor, to the squad or
+          // to where it is going.
+          const overlooks = spots.some((p) => {
+            // ground: ok (the commander's view: a window's height above the ground at the house)
+            const z = heightAt(input.map, p.x, p.y);
+            for (let f = 0; f < Math.max(1, b.storeys); f++) {
+              const z0 = z + CL.eyeM + f * CL.storeyM;
+              for (const q of [c, ...looks]) {
+                // ground: ok (the commander's view of open ground)
+                if (sight(ctx, p.x, p.y, z0, q.x, q.y, heightAt(input.map, q.x, q.y) + 1).blockedBy === null) return true;
+              }
+            }
+            return false;
+          });
+          if (!overlooks || !houseFree(bi, sq)) continue;
+          best = bi; bestAlong = along;
+        }
+        return best;
+      };
+      /** Sends squads on their approach to clear such a house first (at most `approachMax` at a time); true if `sq`
+       *  is clearing one (or was just sent to). */
+      const clearOnApproach = (sq: EntityId, goal: { x: number; y: number }, looks: { x: number; y: number }[], ringToo: boolean): boolean => {
+        if (mem.clearing?.[String(sq)] !== undefined) return true;
+        const u = view.unit.get(sq);
+        if (!u || u.drill || u.boarding || u.broken || riders(view, sq).length > 0 || mem.held?.[String(sq)] !== undefined) return false;
+        if (Object.keys(mem.clearing ?? {}).length >= CL.approachMax) return false;
+        const hb = approachHouse(sq, goal, looks, ringToo);
+        if (hb < 0) return false;
+        const h = houseMid(hb), bid = input.map.buildings[hb]!.id;
+        order(sq, { kind: "assault", x: clamp(h.x, W), y: clamp(h.y, H), building: bid });
+        (mem.clearing ??= {})[String(sq)] = [bid, tick];
+        return true;
       };
       /** A squad that took a house in the main ring holds it: the defence's siting around it, windows included. */
       const holdHouse = (sq: EntityId, bi: number) => {
@@ -960,8 +1036,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // (A squad still getting out before its move has not arrived.) A squad that went to ground on contact
           // short of its place moves on to it (balance pass 2026-11-13: it used to count as arrived, and the base
           // of fire lay 430-480 m out, beyond the reach of its rifles).
+          // (Slice s0-clear: a house with a known, well-placed enemy on a squad's way is cleared first.)
+          noteHouses();
+          reviewClearings();
           let short = 0;
-          squads.forEach((sq, i) => { if (strength(sq) >= 0.5 && !onLine(sq) && sendOn(sq, placeOf(i))) short++; });
+          squads.forEach((sq, i) => {
+            if (strength(sq) < 0.5 || onLine(sq)) return;
+            if (clearOnApproach(sq, placeOf(i), [placeOf(i)], false) || sendOn(sq, placeOf(i))) short++;
+          });
           // (Two thirds of the squads in place is enough: the others come on as the fires go in.)
           const placed = squads.filter((sq) => onLine(sq) && !view.unit.get(sq)?.boarding).length;
           const arrived = (short === 0 && squads.every((sq) => !view.unit.get(sq)?.boarding && (onLine(sq) || !view.unit.get(sq)?.moving))) || placed * 3 >= squads.length * 2;
@@ -1056,6 +1138,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             const sideList = other ? near(other.x, other.y, other.radiusM + 30) : [];
             let k = 0;
             bases.forEach((base, bi) => {
+              // (A squad clearing a house on its approach is left to its drill.)
+              if (view.unit.get(base)?.drill?.kind === "clear") return;
               if (mem.maxRate?.includes(base) !== true) { order(base, { kind: "rules", ammo: "max" }); (mem.maxRate ??= []).push(base); }
               const flankBase = other !== null && bi === bases.length - 1;
               const list = flankBase ? sideList : mainList, aim = flankBase ? other : tgt;
@@ -1105,6 +1189,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             if (mem.closed!.includes(sq)) return;
             const off = (i - (assaulters.length - 1) / 2) * 25;
             const late = mem.phase === "second" || tick - mem.phaseTick >= COMMANDER.closeTimeoutSeconds * 60;
+            // (Slice s0-clear: closing in, a house with a known, well-placed enemy on its way is cleared first.)
+            // (Its way leads on to the objective: a house of the objective's ring on it counts.)
+            if (!late && clearOnApproach(sq, tgt, [assaultPos(flank, off, COMMANDER.closeInM)], true)) return;
             // Not under fire, it goes on past the assault position to `closeInM`; under fire within reach of it,
             // it goes over to fire and movement from where it is.
             const c = centre(sq), d = c === null ? 0 : hypot2(c.x - tgt.x, c.y - tgt.y);
@@ -1130,7 +1217,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           assaulters.forEach((sq, i) => {
             const u = view.unit.get(sq);
             const last = mem.lastAssault[String(sq)] ?? -1e9;
-            if (!mem.closed!.includes(sq)) return;
+            if (!mem.closed!.includes(sq) || mem.clearing?.[String(sq)] !== undefined && !u?.drill) return;
             if (u && !u.drill && !u.broken && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq)) {
               const off = (i - (assaulters.length - 1) / 2) * 20;
               const hb = nextHouse(sq);

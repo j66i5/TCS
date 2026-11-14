@@ -10,6 +10,7 @@ const P: Record<string, string> = {
   assault: `<path d="M3 5l5 5-5 5"/><path d="M9 5l5 5-5 5"/><path d="M16.5 4v12"/>`,
   withdraw: `<path d="M17 10H5"/><path d="M9 5.5L4.5 10 9 14.5"/><path d="M17 5v10" stroke-dasharray="2 2"/>`,
   occupy: `<path d="M3 10l7-6 7 6"/><path d="M5 8.5V17h10V8.5"/><path d="M8.5 17v-4h3v4"/>`,
+  clear: `<path d="M2.5 10l6-5.2 6 5.2"/><path d="M4.3 8.6V17h8.4V8.6"/><path d="M11 13h7"/><path d="M15.5 10.5L18 13l-2.5 2.5"/>`,
   fire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><circle cx="10" cy="10" r="0.8" fill="currentColor"/>`,
   antitank: `<path d="M3.5 16.5l7-7"/><path d="M9 8l3-3h3v3l-3 3z"/><path d="M3 13.5l3.5 3.5"/>`,
   grenade: `<circle cx="9" cy="12" r="5"/><path d="M9 7V4.5h4"/><circle cx="15" cy="4.5" r="1.5"/><path d="M6.5 12h5M9 9.5v5" stroke-width="1.2"/>`,

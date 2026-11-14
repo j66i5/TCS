@@ -340,10 +340,16 @@ nearby within a second, by radio to the others after a few seconds — and the u
 the radio log. Old contacts grow vaguer and are forgotten after two minutes. A fire order can name an enemy:
 each man then fires where he believes that enemy is, and follows him as reports come in.
 
-**Fog of war.** You see the enemy only as your men know him: a solid diamond where one of your men sees him now,
-a hollow one where he was last seen or reported, with a ring for how far off that may be, a dashed ring with a
-cross for shots heard. Old contacts fade over two minutes. Tap an enemy marker in fire mode to fire at him.
-Debug shows the enemy as he really is.
+**Fog of war.** You see the enemy only as your men know him. An enemy man one of your men sees now (seen within
+the last 2 s) is drawn as a real figure in the enemy's colour, like your own men: posture, facing, weapon, firing,
+wounded, down — a dot when zoomed out, and still a solid diamond at the symbol zoom; no callsign and no morale rings
+(his state of mind is not seen). His muzzle flashes and the hits on him show too, but only while he is in sight.
+Everything else of the enemy stays a symbol: a hollow diamond where he was last seen or reported, with a ring for
+how far off that may be, a dashed ring with a cross for shots heard, a "last seen" pin once lost. Old contacts fade
+over two minutes. A man killed drops out of sight at once (the simulation's rule), so he becomes a hollow diamond,
+then a pin. Tap an enemy marker in fire mode to fire at him. Debug shows the enemy as he really is. (Which men are
+drawn: `enemyMenInSight` in `render/src/fog.ts`, the same "in sight now" test as the solid diamond and solid hull;
+`npm run screenshot -- --scene sight` shows it.)
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
@@ -721,7 +727,7 @@ the battle itself changed.
 Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own).
 - **A short bar.** The order bar has only the main orders, each a small drawing with a short name: **Move**,
   **Fire**, **Halt**, and **Mount** or **Dismount** when they apply. The little arrow beside Move opens the other
-  ways to move: Assault, Withdraw, Occupy, and Stand up / Kneel / Lie down. The arrow beside Fire opens the
+  ways to move: Assault, Withdraw, Occupy, Clear (a house, room by room; added 2026-11-14), and Stand up / Kneel / Lie down. The arrow beside Fire opens the
   weapons: Anti-tank, Grenade, All grenades, Fire support (a vehicle: its gun choice and its smoke screen) and
   Cease fire. Pick one and the Fire (or Move) button shows it, lit, until the order is given; the next tap on the
   button gives that order again. The same rules as before decide what is offered (no grenades left, no Grenade).
@@ -946,8 +952,17 @@ Both sides now use houses on purpose (owner, 2026-11-14).
   facing it; the men stack against the wall beside the door (never in front of it); one posts a grenade into the
   room behind it (aimed at the far corner); after the burst three men go in, then the next room the same way, from
   the doorway, ground floor first, then up the stairs (no grenade up a stairwell). A squad that took a house in the
-  objective's ring stays in it and holds it as a defender would. The player has no Clear button yet (the order
-  exists: `assault` with a building).
+  objective's ring stays in it and holds it as a defender would.
+- **Clearing on the way (owner, 2026-11-14):** the AI attacker does not only clear houses in the assault. A squad
+  advancing to its fire position, or closing in on the objective, first clears a house on its way when an enemy
+  its men have placed (seen, or reported close) is in it and that enemy overlooks the squad or the place it is
+  going to — at most one such clearing at a time, up to 150 m out, only a squad of at least four. While it closes in
+  on the objective, a house at the near edge of the objective counts too (it no longer walks past it to 60 m first).
+  In the usual platoon battles this is rare: the defenders hold the objectives, so few enemies sit in a house on the
+  way in (4 of 20 village battles changed, clearings a little earlier).
+- **Clear button (owner, 2026-11-14):** the player has the same drill. Open the Move tray (the arrow beside Move)
+  and press **Clear**, then tap a house — or drag the squad onto it — and the squad clears it room by room as
+  above. A house with no way in is refused with a note in the radio log. Single men cannot clear.
 - **Measuring:** `npm run batch` prints a "buildings" block (time indoors and upstairs, wounds inside and outside,
   grenades into houses, bombs on houses); `npm run lab -- house defend|leave|clear`; the scenario `house-clear`
   (one squad holding a house, two attacking it, both under the AI); `npm run screenshot -- --scene buildings`

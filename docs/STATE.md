@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (M7.5e follow-ups, slice s0-clear: a Clear button, the AI clears on its approach; before: M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
 **M8.1 Smoke volume v2 (2026-11-14, parallel session, branch `claude/m8-smoke-fires`; DECISIONS "M8.1").** Smoke
@@ -8,6 +8,13 @@ clouds are volumes: capsule plumes with a top (mortar 15 m, vehicle grenades 8 m
 10 s, fading over their last 20 s, drifting with the wind (none in the scenarios yet) while the round burns at its
 place (`sim/src/smoke.ts`); sight lines above the top pass. `callFire` takes `x2, y2` for a screen along a line (no
 UI yet). `npm run lab -- smoke`, `--scene smoke`. Batches within noise.
+**M7.5e follow-ups, slice s0-clear (2026-11-14, owner answers).** The player has a **Clear** button in the Move tray
+(squads only): tap a house or drag the squad onto it and it runs the house-clearing drill; a house with no way in is
+refused with a radio note. The AI attacker now also clears a house with a known enemy that overlooks its way while
+advancing to its fire position or closing in (up to 150 m out, one at a time; `COMMANDER.clear.approach*`). Effect in
+the batches is small (20 x 1200 s: village wins 5 -> 5, clearings 46 -> 47, own-grenade casualties unchanged;
+mounted unchanged): enemies sit in the objectives' houses, rarely on the way in. Goldens unchanged. Next: M10
+medical (plan `docs/plans/roadmap-detail.md` Phase 1).
 
 **M7.5e review fixes (2026-11-14, DECISIONS "M7.5e review fixes").** Fixed: a house burst lost after a load;
 clearing grenades aimed too close to the thrower or his comrades (own men down 8 -> 4 per 20 platoon battles); no

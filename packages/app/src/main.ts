@@ -12,10 +12,10 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
@@ -340,7 +340,7 @@ async function main(): Promise<void> {
   type Gesture =
     | { kind: "plan" }
     /** S1: dragging out from the selected unit; `plan` is the ghost (null while the pointer is still on the unit). */
-    | { kind: "fromUnit"; planKind: PlanKind; plan: Plan | null; from: Pt; left: boolean; right?: Pt }
+    | { kind: "fromUnit"; planKind: PlanKind; plan: Plan | null; from: Pt; left: boolean; right?: Pt; clear?: true }
     /** S10: an active move's marker; `onUnit`: dropped now it would halt. */
     | { kind: "marker"; prev: MoveOrder; at: Pt; from: Pt; onUnit: boolean }
     /** S9: the facing handle; `angle` null until it was turned. */
@@ -590,6 +590,24 @@ async function main(): Promise<void> {
     };
   };
 
+  /** Slice s0-clear: the clear drill (an assault with the building) on building index `bi`, or null (no way in). */
+  const clearOrder = (target: EntityId, bi: number): Order | null => {
+    const b = input.map.buildings[bi]!;
+    if (!clearable(sim.ctx, b.id)) return null;
+    let cx = 0, cy = 0;
+    const n = b.footprint.length / 2;
+    for (let k = 0; k < n; k++) { cx += b.footprint[k * 2]!; cy += b.footprint[k * 2 + 1]!; }
+    return { tick: sim.state.tick, issuer: playerSide, target, kind: "assault", x: cx / n, y: cy / n, building: b.id };
+  };
+  /** Clear the house at (x, y) with unit `uid`: true if sent; else a hint in the radio log. */
+  const clearAt = (uid: EntityId, x: number, y: number): boolean => {
+    const bi = indoorAt(sim.ctx, x, y);
+    const o = bi >= 0 ? clearOrder(uid, bi) : null;
+    if (!o) { hud.radio(strings.t(bi >= 0 ? "plan.cannotClear" : "plan.tapClear"), ticksToSeconds(sim.state.tick), "#ffb4b4"); return false; }
+    issue(o);
+    return true;
+  };
+
   // ---- floor switch (M7.5d): follows the selected unit's floor; shown when it is indoors or a house is opened up.
   let floorState: FloorFollow = { shown: 0, unit: null, unitFloor: null, manual: false };
   let floorPick: number | null = null;
@@ -686,6 +704,11 @@ async function main(): Promise<void> {
         oneTapDone();
         return;
       }
+      if (orderMode === "clear") {
+        // Clear (slice s0-clear): the squad's house-clearing drill on the tapped house.
+        if (clearAt(overlay.selectedUnit, w.x, w.y)) oneTapDone();
+        return;
+      }
       if (orderMode === "support") {
         // Fire support (M6.5c; S11): a pop-up at the point offers HE or smoke; the unit's leader calls it, ranging
         // rounds land after a minute or more, then the battery fires together.
@@ -724,6 +747,12 @@ async function main(): Promise<void> {
         hud.offerSupport(null);
         gesture = { kind: "support", at: { ...w } };
         return "hold";
+      }
+      // Clear (slice s0-clear): drag the unit onto a house (the ghost of an assault follows the pointer).
+      if (orderMode === "clear") {
+        if (!onSelected(w)) return false;
+        gesture = { kind: "fromUnit", planKind: "assault", plan: null, from: centreOf(placesOf(uid)) ?? { ...w }, left: false, clear: true };
+        return true;
       }
       if (orderMode !== "move" && orderMode !== "assault" && orderMode !== "withdraw") return false;
       const tolM = 22 / renderer.camera.scale + 1;
@@ -776,6 +805,11 @@ async function main(): Promise<void> {
         return false;
       }
       if (!gs.plan) return false; // let go on the unit (or off the map): nothing is sent
+      if (gs.clear) {
+        const end = gs.plan.points.at(-1);
+        if (end && clearAt(uid, end.x, end.y)) oneTapDone();
+        return false;
+      }
       const o = planToOrder(gs.plan, playerSide, uid, sim.state.tick);
       if (o) issue(forUnit(o));
       if (gs.planKind !== "move" && !gs.right) oneTapDone();
@@ -992,11 +1026,13 @@ async function main(): Promise<void> {
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
     /** M7.5d: occupy the building at (x, y) with the selected unit; the floor switch; the floor shown. */
     occupyAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue(occupyOrder(sel(), bi)); },
-    /** M7.5e screenshots: clear the building at (x, y) with the selected unit (`assault` with its building; no button yet). */
-    clearAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "assault", x, y, building: input.map.buildings[bi]!.id }); },
+    /** Clear the building at (x, y) with the selected unit, as the Clear button does (M7.5e screenshots; slice s0-clear). */
+    clearAt: (x: number, y: number) => { clearAt(sel(), x, y); },
     setFloor: (f: number) => { floorPick = f; },
     reveal: (on: boolean) => { revealAll = on; overlay.reveal = on; },
     floorShown: () => floorState.shown,
+    /** Fog of war (screenshots): the enemy men drawn as figures now (in sight of the player's side). */
+    enemyInSight: () => [...enemyMenInSight(overlay.known)],
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {

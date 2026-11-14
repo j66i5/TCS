@@ -3,6 +3,7 @@ export * from "./renderer";
 export * from "./vehicle-debug";
 export * from "./labels";
 export * from "./lod";
+export * from "./fog";
 export * from "./buildings";
 export * from "./terrain-flat";
 export { TerrainTiles, SyncSource, WorkerSource, photoBasePpm, type TerrainLevel, type TerrainTilesOptions, type TileSource } from "./terrain-tiles";

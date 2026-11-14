@@ -3886,3 +3886,30 @@ flashes and hit puffs show while they are in sight (a flash of a hidden man stay
 contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
 not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
 No golden change (render only).
+
+## 2026-11-14 — M8.2a Call-for-fire chain: phases, first-round error by location method, planned targets (slice 22; decided without the owner, owner to review)
+
+M8 owner round (screen 1) answered here, owner to review: **any unit with a radio may call** (as before: the unit's
+leader or a man who can still report); **first-round accuracy automatic, from the best means the caller has** (a).
+- **Phases:** the order's own comms delay, then of `fireSupport.delaySeconds` (unchanged: DE 75 s, RU 60 s) the
+  radio call `requestSeconds` 15 s, processing (computing, laying: the rest, DE 44 s, RU 31 s) and the flight
+  `flightSeconds` (DE 16 s, RU 14 s: a section about 2 km back). Events `support.call` (method, first-round error,
+  seconds to the first round), `support.shot` (as the round leaves, for each ranging round and the first volley),
+  `support.splash` (`splashSeconds` 5 s before it lands); radio `radio.fireCall*`, `radio.fireShot`,
+  `radio.fireSplash`. Time to effect = comms + request + processing + flight (+ ranging rounds x `rangingSeconds`, which
+  stays the fall-to-fall time 20 s: correction 4-6 s after the fall, then the flight). `missionPhases(fs)` exported.
+- **First-round error by location method:** `rangingErrorM` is now the battery's own error (meteorology, survey:
+  15 m per axis for both, was 40 / 50 total); the location adds `locationError.estimate` 5 m + 7 % of the caller's
+  range (map or eye: range estimates err 10-20 %) or `locationError.laser` 2 m + 0.5 % (a laser rangefinder he has
+  and the point seen: a vehicle seat sensor or station with one, or a carried item with the new `rangefinder` flag —
+  no such item in the data yet). At 500 m an estimate misses 2.7x as far as a laser (both factions; test band
+  2.4-3.8); a registered point keeps its residual. At typical call ranges (300-500 m) the estimate error is about the
+  old 40 m. (First try 9 % of range: village attacker wins 2 -> 0 / 10, mortar wounded 6.0 -> 4.1: tuned to 7 %.)
+- **Planned targets:** `rules.support[].planned` (points set in deployment): registered at the start with the
+  residual of an observed adjustment (`rangingErrorM` x `rangingCorrection`), so a mission within `registeredM` fires
+  for effect at once. No UI (M8.6) and no AI use (M8.5) yet.
+- **xf:** the fixture faction has no fire support; every new field is optional (absent: the old behaviour).
+- Batches (10 x 1200 s, slice 21 -> slice 22; attacker wins / blue down / red down): platoon 2 -> 1 / 18.8 -> 19.8 /
+  11.9 -> 10.6 (blue mortar: enemy wounded 6.0 -> 4.8); platoon-ru (red attacks) 6 -> 6 / 15.8 -> 15.8 / 12.4 -> 13.5;
+  platoon-vehicles 3 -> 5 / 19.2 -> 18.0 / 22.5 -> 21.7; platoon-ru-vehicles 1 -> 1 / 10.8 -> 10.2 / 26.2 -> 26.3
+  (ru runs with the 9 % first try: unchanged there). Goldens regenerated.

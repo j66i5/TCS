@@ -60,6 +60,12 @@ export type SimEvent =
   /** A ranging round of a fire mission has landed (step fire-support): where (x, y), the point called (tx, ty), how
    *  far off it fell (m), whether the man who called it saw it fall (then the next rounds come closer), ranging
    *  rounds still to come. */
+  /** M8.2a call-for-fire chain: a mission begins (how the point was located, the first round's aiming error per
+   *  axis, seconds until it lands); a round leaves the tube ("shot", seconds of flight); a round lands in `inS`
+   *  ("splash"). */
+  | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; method: "estimate" | "laser" | "registered"; errorM: number; firstS: number }
+  | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
+  | { kind: "support.splash"; tick: number; side: SideId; caller: EntityId; x: number; y: number; inS: number }
   | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke"; seen: boolean; missM: number; left: number }
   /**
    * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:

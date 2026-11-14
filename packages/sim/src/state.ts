@@ -28,7 +28,7 @@ import {
  */
 export interface SupportSection {
   side: SideId; battery: EntityId; heType: DefId; smokeType: DefId;
-  registered?: { x: number; y: number; ex: number; ey: number }[];
+  registered?: { x: number; y: number; ex: number; ey: number; /** M8.2a: set before the battle. */ planned?: true }[];
 }
 
 /**
@@ -46,7 +46,14 @@ export interface FireMission {
   /** M8.1 screen: the rounds for effect land along a line through (x, y) from (x - lx, y - ly) to (x + lx, y + ly),
    *  evenly: `effect` rounds in all, `fired` of them down. */
   lx?: number; ly?: number; effect?: number; fired?: number;
+  /** M8.2a: how the point was located ("estimate": map or eye, "laser": a laser rangefinder, "registered": a point
+   *  ranged on or planned before); the round landing at the tick in `shotFor` / `splashFor` has had its "shot" /
+   *  "splash" call. */
+  method?: LocationMethod; shotFor?: number; splashFor?: number;
 }
+
+/** How the caller located the target (M8.2a). */
+export type LocationMethod = "estimate" | "laser" | "registered";
 
 export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
 

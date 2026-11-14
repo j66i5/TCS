@@ -207,6 +207,8 @@ white flags on the map; the after-action review lists surrendered and captured m
   1. ✅ **M8.1 Smoke volume v2** (2026-11-14) — cloud height, wind drift and plumes, build-up and fade in data, the
      renderer drawing the sim's shapes, smoke screen along a line (`callFire` x2/y2), `lab -- smoke`, perf with 30
      clouds.
+  2. ✅ **M8.2a Call-for-fire chain** (2026-11-14) — request, processing, shot, flight, splash; first-round error
+     by location method (estimate, laser, registered); planned targets in the battle's support rules.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 

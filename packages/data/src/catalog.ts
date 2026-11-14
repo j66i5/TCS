@@ -22,6 +22,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
       if (it.sensor !== undefined) d.sensor = it.sensor;
+      if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
       if (it.armour !== undefined) d.armour = it.armour.map((a) => ({ ...a }));
       if (it.tracerItem !== undefined && it.tracerEvery !== undefined) { d.tracerItem = it.tracerItem; d.tracerEvery = it.tracerEvery; }
       items[it.id] = d;

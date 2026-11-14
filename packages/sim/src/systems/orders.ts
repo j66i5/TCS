@@ -509,7 +509,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // mounted: ok a call for fire goes over the radio from inside a vehicle as well
       const all = isUnit ? unitSoldiers(state, order.target).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
       const callers = isUnit && u && u.leader !== null && all.includes(u.leader) ? [u.leader, ...all] : all;
-      if (!callFire(ctx, state, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined)) return "unable";
+      if (!callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined)) return "unable";
       break;
     }
     case "rules": {

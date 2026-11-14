@@ -23,6 +23,8 @@ export interface ItemTypeDef {
   chargeItem?: DefId;
   /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
   sensor?: string;
+  /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
+  rangefinder?: boolean;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
   tracerItem?: DefId;
   tracerEvery?: number;
@@ -552,6 +554,10 @@ export interface FactionDef {
      *  battery (rounds per volley); seconds between the rounds of one volley; a new mission within this of a point
      *  already ranged on fires for effect at once. */
     rangingRounds: number; rangingErrorM: number; rangingCorrection: number; rangingSeconds: number; tubes: number; volleySpreadSeconds: number; registeredM: number;
+    /** Call-for-fire chain (M8.2a): of `delaySeconds`, the radio call and the flight (the rest: processing); "splash"
+     *  this long before a round lands; first-round error by location method (sd per axis: baseM + perM x range). */
+    requestSeconds?: number; flightSeconds?: number; splashSeconds?: number;
+    locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number } };
   };
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */

@@ -581,6 +581,8 @@ export const ItemSchema = withProv({
   chargeItem: Id.optional(),
   /** A sensor the wearer looks through (night-vision goggle ...): a kind in core/spotting.json `sensors`. */
   sensor: z.string().optional(),
+  /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
+  rangefinder: z.boolean().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */
@@ -773,6 +775,17 @@ export const DoctrineFile = withProv({
     rangingRounds: z.number().int().min(0).max(5).default(0), rangingErrorM: Num(0, 500).default(0), rangingCorrection: Num(0, 1).default(0.3),
     rangingSeconds: Num(1, 300).default(20), tubes: z.number().int().min(1).max(12).default(1), volleySpreadSeconds: Num(0, 10).default(0.5),
     registeredM: Num(0, 1000).default(0),
+    /** The call-for-fire chain (M8.2a): of `delaySeconds` (the call reaching the section to the first round
+     *  landing), the radio call itself takes `requestSeconds` and the round's flight `flightSeconds`; the rest is
+     *  processing (computing and laying). "Splash" is called `splashSeconds` before a round lands. */
+    requestSeconds: Num(0, 600).default(0), flightSeconds: Num(0, 300).default(0), splashSeconds: Num(0, 60).default(5),
+    /** First-round error by how the target was located (M8.2a): one standard deviation per axis, m, of
+     *  `baseM` + `perM` x the caller's distance to the point, on top of the battery's own `rangingErrorM`
+     *  (absent: the battery's error alone, whatever the method). */
+    locationError: z.object({
+      estimate: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+      laser: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+    }).strict().optional(),
   }).strict().optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */

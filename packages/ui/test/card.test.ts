@@ -65,6 +65,41 @@ describe("unit card snapshots (S6)", () => {
     expect(manState(s)).toBe("captive");
     Object.assign(s, keep);
   });
+  it("triage (M10.3b): the tag on his row and in his box, by whom; care activities; not for the dead or prisoners", () => {
+    const rows0 = unitMenRows(sim.state, cat, squad.unit);
+    const id = rows0[2]!.id, by = rows0[3]!.id;
+    const s = sim.state.soldier.req(id);
+    const keep = structuredClone(s), keepBy = structuredClone(sim.state.soldier.req(by));
+    expect(rows0[2]!.triage).toBeUndefined();
+    s.triage = { cat: 1, by, tick: 0, skill: "buddy" };
+    const h = simHash(sim);
+    expect(unitMenRows(sim.state, cat, squad.unit)[2]!.triage).toBe(1);
+    expect(manDetail(sim.state, cat, id)!.triage).toEqual({ cat: 1, byRole: sim.state.identity.req(by).role, byFaction: sim.state.identity.req(by).faction });
+    expect(simHash(sim)).toBe(h);
+    // What a helper is doing: treating, dragging, on his way.
+    delete sim.state.soldier.req(by).mount;
+    sim.state.action.set(by, { kind: "treat", startTick: 0, durationTicks: 60, params: { casualty: id } });
+    expect(activityOf(sim.state, by).key).toBe("treating");
+    sim.state.action.delete(by);
+    const party = { method: "drag", carriers: [by], phase: "move" as const, phaseTick: 0, startTick: 0, dest: { x: 0, y: 0, z: 0 }, purpose: "cover" as const, massKg: 100, speedMps: 0.7, trail: [], sinceRestM: 0, totalM: 0 };
+    sim.state.carry.set(id, party);
+    sim.state.soldier.req(by).carrying = id;
+    expect(activityOf(sim.state, by).key).toBe("dragging");
+    sim.state.carry.set(id, { ...party, method: "fireman", purpose: "move" });
+    expect(activityOf(sim.state, by).key).toBe("carrying");
+    sim.state.carry.delete(id);
+    delete sim.state.soldier.req(by).carrying;
+    sim.state.soldier.req(by).intent = { kind: "care", tick: 0, target: id };
+    expect(activityOf(sim.state, by).key).toBe("care");
+    // No tag shown for a prisoner or a dead man.
+    s.captive = { state: "surrendered", tick: 0 };
+    expect(unitMenRows(sim.state, cat, squad.unit)[2]!.triage).toBeUndefined();
+    s.captive = null; s.physiology.alive = false;
+    expect(manDetail(sim.state, cat, id)!.triage).toBeUndefined();
+    delete s.triage;
+    Object.assign(s, keep);
+    Object.assign(sim.state.soldier.req(by), keepBy);
+  });
   it("the ammunition bar: one cell per magazine, the loaded one first", () => {
     expect(ammoCells({ loaded: 15, capacity: 30, spareMags: 3, spareRounds: 90 })).toEqual({ fill: [0.5, 1, 1, 1], more: 0 });
     expect(ammoCells({ loaded: 0, capacity: 30, spareMags: 0, spareRounds: 0 })).toEqual({ fill: [0], more: 0 });

@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|treatment|smoke [seeds]|night|thermal|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|treatment|carry|smoke [seeds]|night|thermal|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -23,10 +23,12 @@ import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown,
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
 import { artilleryLab, artilleryLabMarkdown } from "../labs/artillery";
 import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
+import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { loadData } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
+  carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
   range: () => `# Firing range lab\n\n${rangeLabMarkdown(rangeLab(loadData()))}\n`,
   casualty: () => `# Casualty lab\n\n${casualtyLabMarkdown(casualtyLab(loadData()))}\n`,
   fragmentation: () => `# Fragmentation lab\n\n${fragmentationLabMarkdown(fragmentationLab(loadData()))}\n`,

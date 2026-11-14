@@ -78,8 +78,9 @@ export type OrderBody =
   /** Get in (M7.2): the men on foot walk to the vehicle and board it; to a parent, each unit under it boards its
    *  own carrier. `vehicle` (an own vehicle) overrides the carrier. */
   | { kind: "mount"; vehicle?: EntityId }
-  /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
-  | { kind: "dismount" }
+  /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers.
+   *  `wounded` (M10.4b): then two of them carry the casualties aboard out too (laid down behind the exit). */
+  | { kind: "dismount"; wounded?: boolean }
   /** Set up a crew-served weapon where the men stand (M8.3a, SPEC 6.6 "deploy crew-served weapon"): a mortar team,
    *  or a section of them; the men stop. */
   | { kind: "deploy" }

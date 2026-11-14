@@ -94,6 +94,9 @@ export function medicalCatalog(m: MedicalT): MedicalDef {
     protection: noProv(m.protection) as MedicalDef["protection"],
     triage: noProv(m.triage) as MedicalDef["triage"],
     care: noProv(m.care) as MedicalDef["care"],
+    ...(m.carers ? { carers: noProv(m.carers) as NonNullable<MedicalDef["carers"]> } : {}),
+    ...(m.carrying ? { carrying: noProv(m.carrying) as NonNullable<MedicalDef["carrying"]> } : {}),
+    ...(m.vehicleLoading ? { vehicleLoading: noProv(m.vehicleLoading) as NonNullable<MedicalDef["vehicleLoading"]> } : {}),
   };
 }
 

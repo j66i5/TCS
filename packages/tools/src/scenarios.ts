@@ -2,7 +2,7 @@
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
 import { allMembers, buildScenario, demoBattle, freeSpot, vehicleBattle } from "@tcs/scenario";
 import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
-import { hypot2, PI, type BattleInput, type Controller } from "@tcs/sim";
+import { healthyPhysiology, hypot2, PI, type BattleInput, type Controller, type UnitInput } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 
 export function loadData(includeFixtures = false): DataSet {
@@ -208,6 +208,14 @@ export const SCENARIOS: Record<string, NamedScenario> = {
       freeFire(vehicleWanderController("red", input.seed * 2 + 2, input.map, 60)),
     ],
   },
+  "bench-medical": {
+    description: "Benchmark (M10.4b): bench-vehicles (30 IFVs, about 270 men) with every third man of each squad down from the start (a bleeding thigh wound, unconscious): the squads get in at once, carrying their wounded to the vehicles (care, carrying parties, loading); from 45 s the vehicles wander, with whoever is aboard.",
+    build: (data, seed, seconds) => woundEveryThird(vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 5, vehiclesPerPlatoon: 3, mapKind: "farmland", mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds })),
+    controllers: (input) => [
+      mountFirst(vehicleWanderController("blue", input.seed * 2 + 1, input.map, 45), 45),
+      mountFirst(vehicleWanderController("red", input.seed * 2 + 2, input.map, 45), 45),
+    ],
+  },
   "bench-vehicles": {
     description: "Benchmark (M7.1c): 15 IFVs per side (30), each with its squad on foot (about 300 men in all), on a generated 2 x 2 km farmland map, all moving.",
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 5, vehiclesPerPlatoon: 3, mapKind: "farmland", mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds }),
@@ -227,6 +235,39 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     ],
   },
 };
+
+/** Every third man of each unit on foot starts down: unconscious with a bleeding thigh wound (bench-medical). */
+function woundEveryThird(input: BattleInput): BattleInput {
+  const walk = (u: UnitInput): void => {
+    if (u.vehicleId === undefined) u.members.forEach((m, i) => {
+      if (i % 3 !== 2) return;
+      m.wounds = [{ id: 1, zone: "legL", mechanism: "bullet", severity: 0.45, bleedingLps: 0.004, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] }];
+      m.status = "incapacitated";
+      m.physiology = { ...healthyPhysiology(), consciousness: 0.2, shock: 0.2, bloodVolumeL: 4.4 };
+    });
+    u.subunits.forEach(walk);
+  };
+  for (const f of input.forces) f.units.forEach(walk);
+  return input;
+}
+
+/** At tick 0 every unit of its side with a carrier gets in; after `holdS` seconds `c` moves the vehicles (bench-medical). */
+function mountFirst(c: Controller, holdS: number): Controller {
+  return {
+    side: c.side,
+    think(view, tick) {
+      if (tick === 0) {
+        const out = [];
+        for (const [id, u] of view.unit.entries()) if (u.side === c.side && u.carrier !== undefined) out.push({ tick, issuer: c.side, target: id, kind: "mount" as const });
+        return out;
+      }
+      // Then only the vehicles move (the squads stay with them, aboard or not).
+      return tick < holdS * 60 ? [] : c.think(view, tick).filter((o) => view.unit.get(o.target)?.vehicle !== undefined);
+    },
+    ...(c.saveState ? { saveState: c.saveState } : {}),
+    ...(c.loadState ? { loadState: c.loadState } : {}),
+  };
+}
 
 /** A controller that first sets every platoon of its side to fire at will (benchmarks), then does what `c` does. */
 function freeFire(c: Controller): Controller {

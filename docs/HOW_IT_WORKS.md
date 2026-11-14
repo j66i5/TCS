@@ -309,10 +309,95 @@ the helper's — and works with the data's chance (a comrade's tourniquet 75 %, 
 the time and the item; each intervention is tried at most three times on a wound. It is broken off when the
 helper is ordered to move, comes under fire (anything but a tourniquet), is hit, or the casualty dies. Every
 attempt is written on the wound (who, what, which items, whether it worked) and sent as a `medical.treated` event.
-In the debug view each man's line shows what he is treating and what care has worked on him. Who walks over to a
-casualty further away (carers, first responders, the medic) comes in M10.3a. `npm run lab -- treatment` checks the
-odds and times against the data (300 trials each) and shows that self-applied tourniquets cut the deaths from a
-limb bleed at 10 minutes from 23 % to about 1 %.
+In the debug view each man's line shows what he is treating and what care has worked on him. `npm run lab --
+treatment` checks the odds and times against the data (300 trials each) and shows that self-applied tourniquets
+cut the deaths from a limb bleed at 10 minutes from 23 % to about 1 %.
+
+**Who helps: carers and first responders (M10.3a).** A casualty who needs care that nobody beside him gives gets a
+carer, who leaves the fight and runs over to him. If he looks urgent — a bleed too large to stop by itself, a
+blocked airway, a chest wound, shock — the first responder comes (his own squad's first, else the nearest one of
+his side within 150 m: the German Einsatzersthelfer B of each Gruppe and the Sanitäter of the Zug HQ, the Russian
+platoon's rifleman-medic), and with him the nearest willing comrade within 40 m; any other casualty gets a willing
+comrade, or a free first responder if no comrade will go. Never more than the first responder plus one comrade
+per casualty (the owner's rule for men leaving the fight in contact). Squad and platoon leaders stay with their
+men. Whether a comrade is willing depends on his side's doctrine (`casualtyCarePriority`, the same 0.5 for every
+side for now), how he is (steady or cautious: yes; shaken: half as ready; pinned: hardly; panicked: never), his
+morale, how hard he is being shot at, whether the casualty is from his own squad (a man from another squad is
+less ready) and whether the casualty lies under fire; a first responder is twice as ready (it is his job). A carer
+does not fire, his unit's orders and drills pass him by (an order to him alone ends the errand), and he treats
+with the same treat action as buddy aid once he is beside the casualty. A comrade goes back when the first
+responder arrives; any carer goes back to where he stood when there is nothing more he can do, after 5 minutes, or
+when the casualty dies. A downed man with a carer on the way or beside him does not give up. All the numbers are
+game values in `core/medical.json` `carers` (low confidence). Debug view: "carer -> id" or "responder -> id".
+
+**Triage, care under fire, "Medic!" (M10.3b).** When an urgent casualty needs care, his squad calls "Medic! Man
+down!" on the radio (he himself if he can speak, else a comrade; once for him). The man who starts treating a
+comrade tags him: **T1 immediate** (red: massive bleeding, airway or breathing trouble, deep shock, or barely
+conscious), **T2 delayed** (yellow: cannot walk, or needs other care such as a splint) or **T3 minimal** (green:
+walking wounded) — the NATO categories and the Bundeswehr's Sichtungskategorien I-III; the "expectant" category is
+for mass casualties and is not used by a platoon. A tag can be wrong, one category off: a comrade errs one time in
+four, a first responder about one in seven, a medic one in ten, each one in ten more often under fire (game values).
+The first time a comrade tags him, his squad says "man down, treating" on the radio (each call at most once every
+15 s per squad). A first responder or medic who comes to him tags him again (he looks better), and so does anyone
+treating him once the tag is five minutes old. The tag shows on the map beside the man (a small coloured square, own
+men only: enemy casualties show only what your men see) and on the card: in his row and in his box, with who tagged
+him. **Under fire** a carer beside a casualty first puts a tourniquet on if one is needed (the only treatment allowed
+under fire); then, if the casualty lies where the enemy can see him, he gets him into cover: the nearest spot within
+15 m hidden from the enemy (by a way of at most 30 m), not toward the enemy. A casualty who can still walk goes there
+himself (pinning does not hold him: he is told to go); one who cannot is **dragged** there by the carer, crouched, at
+0.7 m/s (the drag in `core/medical.json` `carry`, from a published drag test; a carrying party since M10.4a, below),
+the casualty at his heels, and a
+comrade of the squad throws a smoke grenade to screen it if he has one. Lying in that cover, care goes on: from then
+on only the carer's own suppression counts as "under fire" (his squad being shot at elsewhere no longer stops him),
+so the dressing, the chest seal or the line can be done. The debug view adds "drag -> id (move)", the tag ("T1"), "(in
+cover)", and why nobody comes to a casualty: "waits: nobody" (no one in reach), "waits: too exposed" (men in reach,
+none willing to go under fire), "waits: unwilling", "waits: no kit". The batch report's "Triage, care under fire"
+line counts life-threatening needs, deaths of wounds after one (preventable deaths), wrong tags by training and
+drags.
+
+**Carrying (M10.4a).** Moving a casualty is a **carrying party**: one or more men and the man they carry, moving
+together as one. Each way of carrying is a line in `core/medical.json` `carry`: **walking wounded** (he walks
+himself, 0.9 m/s), **supported** (an arm over a comrade's shoulder, 0.6 m/s), the **drag** (one man, crouched,
+0.7 m/s, from a published drag test), the **two-man drag** (1.0 m/s), the **fireman's carry** (one man, upright,
+1.0 m/s), the **two-man carry** (1.0 m/s) and the **four-man litter** (1.0 m/s, 45 s to unfold it and get him on;
+only with a litter: the German Sanitaeter carries a folding one). The party takes the fastest way the men at hand
+can do — under fire only the low ones (the drags), and a man who can still walk walks — then the one that lasts
+longest. The first carrier leads and walks the way (through doors and up stairs like anyone), and the others and
+the casualty follow on his trail, so the casualty is never more than a step and a half from a carrier. The speed is
+the data's speed for a casualty of about 105 kg (a soldier in kit), a little faster for a lighter load and slower
+for a heavier one, and ground, slopes, stairs, tiredness and wounds slow a party as they slow any man. After a
+stretch (40 m for a drag, 80 m for a fireman's carry, 300 m for a litter) the party rests (30-60 s). **Carriers
+leave the fight:** they do not fire except in self-defence at an enemy within 30 m while the party is still, and
+their squad's orders and drills pass them by (an order to one of them alone takes him out of the party; the others
+carry on with a way for fewer men, or put the casualty down). **Fired on** (a carrier pinned or suppressed), the
+party takes the casualty into the nearest cover within 15 m hidden from the enemy, lies down there, and goes on
+after 10 s without fire. A party ends when it gets there, or when the casualty dies, is loaded or taken prisoner.
+For now carrying is used by the drag to cover under fire (with two carers beside him it is the two-man drag, and on
+the ground floor a casualty can be dragged into a house) and by men taking a casualty to their vehicle (below);
+taking casualties back to the Verwundetennest comes with it in M10.5. The debug view shows "drag -> id (move)" or
+"two-man -> id (hold)" for a carrier and "carried" for the casualty; the man box says "carrying a wounded comrade".
+On the map a casualty being carried is drawn limp on his back with a dressing, or lying on the litter between its
+four bearers. The **carry lab** (`npm run lab -- carry`) measures every way on flat ground, a slope, through a house
+and up stairs against the data; the batch report counts carrying parties by way, metres carried and how often they
+took cover.
+
+**Into and out of vehicles (M10.4b).** When a squad is ordered into its vehicle (by the player or the AI, for
+example a squad pulling back to its carrier), its wounded who cannot walk come too: those within 150 m of the
+vehicle (`core/medical.json` `vehicleLoading.fetchM`) are carried to the nearest door or ramp by a carrying party of
+up to four of the men still outside, nearest first, one casualty after another; at the ramp two men lift each in
+(the vehicle's `loadCasualtySeconds`, 15 s for a Puma or a BMP-2, 30-40 s for the ambulances). The squad waits for
+them (up to five minutes) and only then reports "mounted". Aboard, a casualty **lies** if he is unconscious or in
+shock, otherwise he **sits**. **Places:** in a carrier every passenger seat takes one man; a man lying takes
+`lyingSeats` of them (1 in the data: he is laid across the floor in the room of his own seat, so a full squad still
+takes its wounded). An ambulance uses its own layouts instead: the Boxer takes 3 lying, or 7 sitting, or 2 lying and
+3 sitting; the BMM 4 lying inside and 2 on the hull, or 7 sitting and 2 on the hull (the two outside places only
+while there are seats for them: 7 men in all). Casualties there is no place for are left where they lie. A
+**dismount with the wounded** (the order's `wounded` flag; the player's button for it comes with the wounded list in
+M10.5) first lets every able man out, then two of them carry each casualty out of the nearest door and lay him down
+close behind it. An ordinary dismount leaves the wounded aboard. The man box says "lifting a wounded comrade into
+the vehicle" or "carrying a wounded comrade out of the vehicle"; the batch report counts casualties into and out of
+vehicles per side. The **bench-medical** benchmark (a third of 270 men down from the start, carried to 30 vehicles)
+must run at 8× real time or more.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

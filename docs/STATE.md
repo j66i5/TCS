@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.2 interventions, self-aid and buddy aid, roadmap-detail slice 4). The long session-by-session
+_Last updated: 2026-11-14 (M10.4b carrying to and into vehicles, roadmap-detail slice 9). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -9,9 +9,19 @@ DECISIONS.md under its date._
   Phase 1, slices 2-17; ROADMAP lists them. **Done: slices 2 (M10.0), 3 (M10.1: `core/medical.json`, kits
   as counted items, medical roles, the "medical" physiology model as the default, state schema 18) and 4 (M10.2:
   the generic `treat` action, MARCH order from `care.order`, self-aid, buddy aid within 3 m, `medical.treated`,
-  `--no-medical`, `lab -- treatment`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel
-  sessions and are merged.** **Next: slice 6, M10.3a who helps (carers and first responders); it starts with a
-  profiler pass if bench-vehicles measured below 9×.** Slice 13 needs slice 12 (merged).
+  `--no-medical`, `lab -- treatment`) and 6 (M10.3a: carers — the first responder for urgent casualties plus at most
+  one willing comrade, `care` intent, doctrine `casualtyCarePriority`, `medical.carer` events, batch "Carers"
+  line) and 7 (M10.3b: triage tags T1-T3 by the man who treats, sometimes wrong; the tag on the map and the card;
+  under fire a casualty is got into cover — he walks or is dragged — and care goes on there; "Medic!" and "Man down,
+  treating" on the radio; batch "Triage, care under fire" line with preventable deaths) and 8 (M10.4a: a generic
+  `carry` store, state schema 19; seven carry methods from data incl. the four-man litter (Sanitaeter's
+  `de-litter`); the leader walks the way, the rest follow his trail; rests, cover under fire, carriers fire only in
+  self-defence; the M10.3b drag is a carrying party now; `npm run lab -- carry`) and 9 (M10.4b: a squad getting in
+  carries its wounded from up to 150 m to the ramp and lifts them in; lying and sitting places, ambulance layouts;
+  `dismount` with `wounded` carries them out; "carried" and "stretcher" sprite frames; `bench-medical` perf case,
+  floor 8×; `--scene medical`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and
+  are merged, and so is M8 (fire support, from main).** **Next: slice 10, D2 battle record and `main.ts` split**
+  (it must come before slice 11). Slice 13 needs slices 11 and 12 (12 merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -75,10 +85,23 @@ grenade" in the Fire tray; units screen themselves on a withdrawal and on a move
   mounted village (platoon-vehicles) 5/20; farmland 10/20 (M7.5e polish); Russian mounted attack 0/10 (900 s,
   waits for M8.5 mortars and M9.3 missiles, owner A4). **After M10.1** (10 seeds × 1200 s): village 0/10 (20 seeds:
   1/20; men with broken legs may be why), mounted village 6/10, platoon-ru 6/10: watch in M10.8.
+- **After M10.3a** (10 seeds × 1200 s, care on): village 0/10, mounted village 6/10, platoon-ru 6/10; median time to
+  first treatment 67-157 s; the side with carers fires about a quarter to a third fewer rounds.
+- **After M10.3b** (10 seeds × 1200 s, `--no-medical` → care on): preventable deaths (died of wounds after a
+  life-threatening need) per battle blue/red: platoon 3.8/2.6 → 1.4/2.6, mounted village 2.9/3.4 → 2.0/3.1,
+  platoon-ru 2.5/1.6 → 1.3/1.0 (−32 % overall; the plan's −40 % met for the German side on foot and the Russian
+  attack, not for the Russian defenders). Attacker wins with care: village 4/10, mounted village 5/10, platoon-ru
+  6/10.
+- **After M10.4a** (10 seeds × 1200 s, care on): attacker wins village 2/10, mounted village 3/10, platoon-ru 5/10
+  (before the slice 4/10, 5/10, 6/10: noise; carrying is only used for drags to cover so far). `lab -- carry`: every
+  method within 10 % of the data on flat, slope, house and stairs.
+- **After M10.4b** (10 seeds × 1200 s, care on; mounted battles only, the others do not mount): see DECISIONS
+  "M10.4b" for the before/after table.
 - **Performance** (this container, `npm run test:perf -- --silent=false` alone, two runs): bench 16× / 19×,
-  spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×; below 9× once, so slice 6 starts with a profiler
-  pass), bench-combined 3.7× / 3.9× (floor 3×), 20,000 projectiles 3.8× / 4.3×, render 1.2 ms per frame. The
-  hull-hit variant flakes (known noise).
+  spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×), bench-combined 3.7× / 3.9× (floor 3×), 20,000
+  projectiles 3.8× / 4.3×, render 1.2 ms per frame. The hull-hit variant flakes (known noise). After M10.3a: bench
+  19× / 17×, spotting 10.8× / 8.9×, bench-vehicles 10.6× / 8.4×, bench-combined 4.0× / 4.0×; the profiler pass
+  (DECISIONS M10.3a) found path finding (19 %) and movement (10 %) on top, medical not visible.
 - **Test time:** `npm test` 201 s → 160 s (shared map cache, `isolate: false` for sim and data, two redundant
   re-runs trimmed; the plan's 120 s is not met: long battle tests). `npm run test:quick` (sim, data, render, ui;
   514 tests) 29 s: use it while working, `npm run check` alone at the end of a slice (5 min 55 s, green).
@@ -130,8 +153,15 @@ sensor physics (thermal, goggle numbers).
   looks too), after-action review, save and load; phone layout.
 
 ## What is weak or missing (honest list)
-- **Medical care is only first aid so far:** a man treats himself, or a free comrade within 3 m treats him
-  (M10.2); nobody walks over to a casualty further away (M10.3a), carries or evacuates him (M10.4-10.6). Wound values
+- **Medical care is only first aid so far:** a man treats himself, a free comrade within 3 m treats him (M10.2), or
+  a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b, a carrying party since M10.4a);
+  carrying works (M10.4a) and squads take their wounded into their vehicles (M10.4b), but nobody yet carries
+  casualties back to a nest or evacuates them (M10.5-10.6); the player has no button yet for "get out with the
+  wounded" (an order flag; the Wounded list in M10.5); carriers' extra
+  tiredness from the load is not modelled (the data's rests stand for it). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
+  in houses are not dragged): watch in M10.5 (the medic) and M10.8. Only 54-86 % of the
+  casualties who live past 2 minutes get any care in 10-seed batches (plan target 70 %): carers are hit on the way,
+  and under fire few are willing; tuning waits for M10.8. Wound values
   are game values (low) reviewed once by the owner (2026-11-11); the medical numbers (`core/medical.json`, mostly
   low, a few medium) wait for his review after M10.8.
 - **Attacks rarely win in villages** (5/20) and the Russian mounted attack never does (0/10): accepted for now;

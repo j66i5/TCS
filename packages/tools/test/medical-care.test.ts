@@ -110,7 +110,7 @@ describe("care in a running battle (M10.2)", () => {
     if (w.treatments[0]!.success) { expect(w.tourniquetS).toBeGreaterThan(0); expect(w.bleedingLps).toBe(0); }
   });
 
-  it("buddy aid: an unconscious man is treated by a comrade within 3 m, with his own kit first; not by one 5 m away", () => {
+  it("buddy aid: an unconscious man is treated by a comrade within 3 m at once, with his own kit first; one 5 m away first walks over (M10.3a)", () => {
     const near = battle([{ id: "c", x: 50, y: 50, wounds: [legBleed()], conscious: false }, { id: "b", x: 52, y: 50 }]);
     near.run(60);
     const t = near.events.find((e) => e.kind === "medical.treated");
@@ -118,8 +118,12 @@ describe("care in a running battle (M10.2)", () => {
     expect(count(near.sim, near.id("c"), "de-tourniquet-cat")).toBe(0);
     expect(count(near.sim, near.id("b"), "de-tourniquet-cat")).toBe(1);
     const far = battle([{ id: "c", x: 50, y: 50, wounds: [legBleed()], conscious: false }, { id: "b", x: 55, y: 50 }]);
-    far.run(60);
-    expect(far.events.some((e) => e.kind === "medical.treated" || (e.kind === "action.started" && e.action === "treat"))).toBe(false);
+    far.run(10);
+    const go = far.events.findIndex((e) => e.kind === "medical.carer" && e.assigned && e.by === far.id("b"));
+    const start = far.events.findIndex((e) => e.kind === "action.started" && e.action === "treat");
+    expect(go).toBeGreaterThanOrEqual(0);
+    expect(start).toBeGreaterThan(go);
+    expect(far.events[start]!.tick).toBeGreaterThan(far.events[go]!.tick);
   });
 
   it("a comrade ordered to move breaks off; care switched off does nothing", () => {

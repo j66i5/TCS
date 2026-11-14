@@ -1,12 +1,15 @@
 /** Procedural test maps (M1.1): valid, deterministic, plausible, fast. */
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
-import { checkMap, demoBattle, generateMap, MAP_KINDS, mapStats, type MapKind } from "@tcs/scenario";
+import { checkMap, demoBattle, generateMap, MAP_KINDS, MAPGEN_VERSION, mapStats, setMapCache, type MapKind } from "@tcs/scenario";
+import { diskMapCache } from "../src/map-cache";
 import { buildingAt, buildNavGrid, stripInteriors, buildMapIndex, cellIndex, cellMoveCost, mapFingerprint, segmentsInRect, segmentsInRectInto, mapFromFile, mapToFile, validateMap } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
 const terrain = buildCatalog(data, ["de", "ru"]).terrain;
+// This file tests the generator itself (determinism, timing): no shared map cache here.
+setMapCache(null);
 /** 12 seeds per kind: a generator bug that shows up in ~5 % of maps is caught with high probability. */
 const SEEDS = Array.from({ length: 12 }, (_, i) => i + 1);
 const share = (r: Record<string, number>, ...ids: string[]) => ids.reduce((s, id) => s + (r[id] ?? 0), 0);
@@ -163,5 +166,29 @@ describe("building interiors (M7.5c)", () => {
     }
     console.log(`map generation: ${on.toFixed(0)} ms per map with interiors, ${off.toFixed(0)} ms without`);
     expect(on / off).toBeLessThan(1.5);
+  });
+});
+
+describe("the shared test map cache (M10.0)", () => {
+  it("hands out exact, fresh copies of what the generator makes", () => {
+    const cache = diskMapCache();
+    const o = { kind: "village" as const, seed: 23, widthM: 600, heightM: 600 };
+    const made = generateMap(terrain, o);
+    const key = "mapgen-test|village|23|600";
+    cache.set(terrain, key, made);
+    const a = cache.get(terrain, key)!, b = cache.get(terrain, key)!;
+    expect(mapFingerprint(a)).toBe(mapFingerprint(made));
+    expect(a).toEqual(made);
+    expect(a).not.toBe(b);
+    a.buildings.length = 0; // a test changing its copy changes nobody else's
+    expect(mapFingerprint(cache.get(terrain, key)!)).toBe(mapFingerprint(made));
+    // Through the generator's hook: the same map with or without the cache.
+    setMapCache(cache);
+    try {
+      expect(mapFingerprint(generateMap(terrain, { kind: "farmland", seed: 23, widthM: 600, heightM: 600 })))
+        .toBe(mapFingerprint(generateMap(terrain, { kind: "farmland", seed: 23, widthM: 600, heightM: 600 })));
+    } finally { setMapCache(null); }
+    expect(mapFingerprint(generateMap(terrain, { kind: "farmland", seed: 23, widthM: 600, heightM: 600 }))).toBe(
+      mapFingerprint(cache.get(terrain, `farmland|23|600|600|4|true|v${MAPGEN_VERSION}`)!));
   });
 });

@@ -149,7 +149,7 @@ side playable, AI-versus-AI batch report available.
 also: pull the medical system forward or not; **owner asked to be reminded (2026-11-11): fog of war "only what
 reached the squad leader"** instead of "what your men have reported" — see DECISIONS.md, M3.4).
 
-### M6.5 Attack balance — ✅ partly (owner, M6 review; Russian attack still 0 of 10, owner to decide)
+### M6.5 Attack balance — ✅ closed (owner answer A4, 2026-11-14: the Russian attack is carried to M8.5 mortars and M9.3 missiles)
 The AI attack never succeeded against the AI defence (40 of 40). All three remedies:
 - **M6.5a More attackers** — two platoons attack one (scenario generator; the AI commander leads both).
 - **M6.5b Better attack tactics** — covered approach routes, crawling the last stretch, fire support closer and
@@ -158,7 +158,8 @@ The AI attack never succeeded against the AI defence (40 of 40). All three remed
   concealment volume).
 Acceptance: AI-versus-AI attacks succeed some of the time (neither side wins every battle); the player can
 call mortar fire and smoke. **Result:** the German attack now wins 2 of 10 (was 0 of 20); the Russian attack
-still 0 of 10 (its 82 mm mortar is far lighter than the German 120 mm) — for the owner's review.
+still 0 of 10 (its 82 mm mortar is far lighter than the German 120 mm). Owner (2026-11-14): wait for fire support;
+the Russian mounted attack is looked at again in M8.5 (mortars) and M9.3 (missiles), not tuned now.
 
 ### M6.6 Surrender — ✅ (owner request 2026-11-12)
 Wounded men who can no longer fight, and panicked or fleeing men, give up when a known enemy is close; enemies
@@ -182,7 +183,7 @@ white flags on the map; the after-action review lists surrendered and captured m
   the plan's step-3 battle targets for the attacker (houses taken, time indoors, grenades into houses, holding a
   house of the main ring at the end) are not met — see DECISIONS.md; scenario `house-clear`, `--scene buildings`;
   follow-ups (owner answers 2026-11-14) ✅: a **Clear** button in the Move tray, and the AI attacker clears houses
-  with a known, well-placed enemy on its approach too)
+  with a known, well-placed enemy on its approach too; the owner accepted the values as built)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.
   - A sidebar lists every unit of the player's side; tapping an entry selects the unit.
@@ -202,12 +203,49 @@ white flags on the map; the after-action review lists surrendered and captured m
   bar docks to any of the four edges; the unit sidebar is a slim strip of tiles that expands.
   Acceptance: the owner finds it clearer and better looking on his phone; nothing about how the simulation
   resolves fights changes except where interiors and upper floors add walls, stairs and firing positions.
-- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. ⬜
+- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. ⬜ (after M10)
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
+- **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
+  before logistics). ⬜
 
-## Stage C — depth (order may change after the M6 review)
-- **M10 Medical system** (SPEC 9.1) ⬜
+## Stage C — depth
+
+**Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e and is the current milestone.
+After it: D3 phone pass and D4 infantry tactics (the debt slot), then M8 → M9 → M7.6 (tanks, wheeled carriers,
+Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
+`docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
+
+### M10 Medical system (SPEC 9.1) — 🔨 (owner answers in DECISIONS.md, 2026-11-14)
+The full chain: self-aid → buddy aid → squad first responder → platoon medic → Verwundetennest → armoured
+ambulance → aid station off the map; medical jobs as roles (Sanitäter, Einsatzersthelfer, stretcher bearers,
+ambulance crews); both sides try to keep the laws of war but can misidentify, and rarely break them on purpose
+(same rules for both, from unit quality, stress and losses only); breaches shown in the after-action review.
+Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
+1. ✅ **M10.0 Kick-off and clean slate** (slice 2, 2026-11-14) — owner rounds A, M10-1, M10-2 and M10-3 answered
+   up front; roadmap and SPEC §11 updated; ARCHITECTURE §17 refreshed with two new guards (contact sharing only
+   through comms, environment save and load mid-battle); faster tests (`npm run test:quick`); STATE.md cut.
+2. ⬜ **M10.1 Medical data and the new physiology** (slice 3)
+3. ⬜ **M10.2 Interventions; self-aid and buddy aid** (slice 4)
+4. ⬜ **D1 Hand smoke grenades** (slice 5; owner: a small step inside medical)
+5. ⬜ **M10.3a Who helps: carers and first responders** (slice 6)
+6. ⬜ **M10.3b Triage, care under fire, "Medic!"** (slice 7)
+7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
+8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
+9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)
+10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)
+11. ⬜ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12)
+12. ⬜ **M10.6a Off-map vehicles and ambulance runs** (slice 13)
+13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)
+14. ⬜ **M10.7a Recognition and respect** (slice 15)
+15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16; an order to fire at a recognised
+    protected target is refused)
+16. ⬜ **M10.8 Review, statistics, balance** (slice 17; batches at 2400 s)
+
+Acceptance: the chain runs for both sides and the xf fixture; preventable deaths clearly lower than with
+`--no-medical`; recognition and breaches measured in a lab; the owner reviews the numbers table and plays a battle
+on his phone.
+
 - **M11 Logistics** (SPEC 9.2) ⬜
 - **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜

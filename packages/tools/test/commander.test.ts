@@ -70,12 +70,9 @@ describe("AI commander (M6.3)", () => {
     expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 90);
   });
 
-  it("the same battle twice is the same battle", () => {
-    const again = runBattle(input, { controllers: ctrls(input) });
-    expect(again.finalStateHash).toBe(r.finalStateHash);
-  });
-
-  it("saved halfway with the commanders' memory and loaded, it ends exactly as the battle played through", () => {
+  // (M10.0, test speed) "the same battle twice is the same battle" ran the whole battle again; the test below already
+  // replays it (to 400 s, then from a save) and must end on the same hash, so it covers that too.
+  it("the same battle again, saved halfway with the commanders' memory and loaded, ends exactly as the battle played through", () => {
     const sim = createSim(input);
     const cs = ctrls(input);
     for (let k = 0; k < 400 * 60; k++) { for (const c of cs) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o); step(sim); }

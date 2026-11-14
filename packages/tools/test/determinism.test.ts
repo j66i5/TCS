@@ -104,11 +104,14 @@ describe("determinism", () => {
     const input = sc.build(data, 4, 30);
     const ctrls = sc.controllers!(input);
     const sim = createSim(input);
+    // Hashing the whole state around every think cost ~10 s (M10.0, test speed): every 4th tick is checked here; a
+    // change on the other ticks would also break "a recorded order stream replays identically without the controllers".
     for (let t = 0; t < secondsToTicks(30); t++) {
       for (const c of ctrls) {
-        const before = hashState(sim.state);
+        const check = t % 4 === 0;
+        const before = check ? hashState(sim.state) : "";
         const orders = c.think(sim.state, sim.state.tick);
-        expect(hashState(sim.state)).toBe(before);
+        if (check) expect(hashState(sim.state)).toBe(before);
         orders.forEach((o) => submitOrder(sim, o));
       }
       step(sim);

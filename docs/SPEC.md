@@ -345,6 +345,8 @@ Stop after M6 for a review with the owner: is it fun, what is wrong, what to cha
 
 The order inside stages C and D may change after the M6 review. The medical system may be pulled forward if the owner wants it; the foundations allow that.
 
+**Order in force (owner, 2026-11-14).** After M7 and the look-and-interface work (M7.5, including M7.5e, the AI in buildings), **M10 Medical is next**, pulled forward, in the slices listed in `docs/ROADMAP.md` (detail: `docs/plans/roadmap-detail.md`, Phase 1). After it: a short debt slot (phone pass, infantry tactics), then M8, M9, M7.6 (main battle tanks, wheeled carriers, more unit types), M11 (minimum first, after measuring ammunition use), M12, M13. One short debt slot follows every milestone. Air evacuation (section 9.1, "where the scenario allows") is deferred past M10 (owner, 2026-11-14): M10 evacuates by ground.
+
 ## 12. How to work in each session
 
 1. Read `CLAUDE.md`, `docs/STATE.md` and the current milestone in `docs/ROADMAP.md`.

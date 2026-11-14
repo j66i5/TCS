@@ -3857,3 +3857,58 @@ flashes and hit puffs show while they are in sight (a flash of a hidden man stay
 contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
 not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
 No golden change (render only).
+
+## 2026-11-14 — M10.0 kick-off and clean slate (roadmap-detail slice 2)
+Owner rounds A, M10-1, M10-2 and M10-3 were all answered up front (the three entries above); they override any
+option the plan still lists. Q-7 (asked in M10-3): an order to fire at a recognised protected target is **refused**
+(the men will not fire; the player gets a short radio note) — built in M10.7b. Done in this slice (no sim behaviour,
+data or golden change):
+- **Roadmap and SPEC §11:** M10 Medical is the current milestone with its 16 slices listed in ROADMAP; the order after
+  it (owner): debt slot (D3, D4) → M8 → M9 → M7.6 → M11 (minimum first) → M12 → M13. M6.5 closed: the Russian attack is
+  carried to M8.5 / M9.3 (owner A4). SPEC §11 gets an "order in force" paragraph; air evacuation deferred past M10
+  (owner: "later"), so M10 evacuates by ground (SPEC 9.1 note).
+- **Cross-cutting rules for M10 (software decisions, recorded here as the plan asks):** carrying, rear points and
+  off-map vehicles take generic payloads (an entity with mass; a point with a `kind`: medical or supply) so M11
+  reuses them; a new `medical` RNG stream created on first use (battles without care never draw from it); a
+  `--no-medical` BattleRules switch for A/B batches; `medicalSystem` at 1 Hz per side, staggered, idle while nobody
+  needs care; breach propensity only from unit quality, stress and losses, never faction data; the interface word is
+  "Verwundetennest" (documents note the Bundeswehr terms Verwundetensammelstelle / -sammelpunkt). **One short debt
+  slot after every milestone** (ROADMAP).
+- **ARCHITECTURE §17:** stale rows refreshed (4.3.10, 4.4, 9.1 physiology, 9.1 medical events, 9.1 carrying, 9.3
+  generator, 9.5 contacts); rows reserved for M10 (medical data, interventions, `medical` stream, `--no-medical`,
+  rear points, off-map vehicles, roster status, laws of war). Two new guards in
+  `tools/test/foundation-guards.test.ts`: (1) **contact sharing only through comms** — the shoot-out run with a comms
+  model whose `contactShareDelayTicks` always says "no path" queues no report and gives no man a "reported" contact
+  (with the foundations model it does), plus a source guard that only `systems/contacts.ts` queues reports or makes a
+  "reported" contact; (2) **environment save and load mid-battle** — wind, rain, fog, temperature, light and the
+  running clock survive a JSON save at 35 s and the battle ends on the same hash at 80 s. `windY` comment fixed: the
+  code and tests use y = south (map coordinates), not north.
+- **Test speed:** vitest `projects` (`vitest.config.ts`): `pure` (sim, data) with `isolate: false`, `view` (render,
+  ui) and `tools`, the last two with a **shared map cache** (`tools/src/map-cache.ts`, installed by
+  `tools/test/setup-map-cache.ts` through the new `@tcs/scenario` hook `setMapCache`): generated maps are kept in
+  memory and in `node_modules/.cache/tcs-maps/` (keyed by a hash of the terrain catalog, the options and the source of
+  `packages/scenario/src` and `packages/sim/src`, so a code change never meets a stale map); every hit is a fresh exact
+  copy (`v8` serialise); `TCS_MAP_CACHE=0` turns it off; `mapgen.test.ts` (the generator's own tests) runs without it
+  and tests the cache (exact fresh copies; same map with and without). 328 map generations per `npm test` before,
+  about 65 different. `isolate: false` for `tools` was tried: no gain (its time is battles, not module loading), so
+  it stays isolated; 4 workers instead of 3 was slower (248 s). Two redundant re-runs trimmed: commander.test's "the
+  same battle twice" (the halfway-save test replays the same battle to the same hash, now named for both) and
+  determinism's "controllers do not change state" hashes around every 4th tick instead of every tick (the replay
+  test covers the rest). New `npm run test:quick` (pure + view, 514 tests): **29 s**.
+  **Measured** (this container, alone): `npm test` 201 s before → 187 s (cold cache) / 178 s / 165 s / **160 s** after;
+  **the plan's 120 s is not met**: the time is long battle tests (mounted invariants 2 × 20 s, mounted scenario 15 s,
+  commander tests, goldens); cutting them further means shorter battles, i.e. less coverage — left for the owner's
+  view, not done silently. Full `npm run check` alone: **5 min 55 s**, green (the plan's 4 min not met: `npm test`
+  plus about 1 min 45 s of timing tests).
+- **Performance baseline before medical** (`npm run test:perf -- --silent=false`, alone, two runs): bench 16× / 19×,
+  spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×), bench-combined 3.7× / 3.9× (floor 3×), projectiles
+  3.8× / 4.3×, fragment volley 15.9× / 18.8×, village sight with interiors ×1.08 / ×1.03, render 1.2 ms per frame.
+  bench-vehicles measured once below 9×, so M10.3a (slice 6) starts with a profiler pass as the plan says. The
+  hull-hit perf variant failed 2 of 4 runs (+29 % and +24 % against its 25 % limit; the known noise in CLAUDE.md;
+  passed alone in the other runs).
+- **Not done:** the six skipped pre-interiors goldens (`packages/tools/golden/no-interiors/`) are **kept, untouched**;
+  the plan proposed deleting them as a software decision, but this session's rules forbid touching that folder, so
+  the deletion (and the CLAUDE.md note about them) waits for the owner (STATE "Open questions"); the test count
+  therefore still shows 6 skipped. STATE.md cut from 55 KB to under 20 KB; the old text is in
+  `docs/history/STATE-until-2026-11-14.md`.
+- Goldens unchanged (no sim or data change; golden test green).

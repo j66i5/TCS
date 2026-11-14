@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, floorAtZ, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, floorAtZ, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
@@ -217,6 +217,8 @@ export class BattleRenderer {
   /** Uniform tones and vehicle paint (M7.5a), outside the catalog. */
   private appearance: Appearance | null = null;
   private hudRects: Rect[] = [];
+  /** Smoke model constants (M8.1) for drawing the clouds as the sim sees them. */
+  private smokePhys: SmokePhysics | null = null;
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
@@ -406,6 +408,7 @@ export class BattleRenderer {
 
   /** What the renderer needs to know of the data: ammunition looks and vehicle shapes. */
   setCatalog(catalog: Catalog): void {
+    this.smokePhys = smokePhysics(catalog);
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
@@ -1080,12 +1083,18 @@ export class BattleRenderer {
   private drawObjectives(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, state?: SimView): void {
     const c = this.camera;
     // Smoke (M6.5c): grey clouds, thin while they build up and as they clear (everyone can see smoke).
-    if (state) for (const sm of state.smoke) {
-      const s = worldToScreen(c, sm.x, sm.y);
-      const grow = Math.min(1, (state.tick - sm.startTick) / 600), fade = Math.min(1, (sm.untilTick - state.tick) / 1200);
-      const r = Math.max(6, sm.radiusM * (0.3 + 0.7 * grow) * c.scale);
-      g.circle(s.x, s.y, r).fill({ color: 0xd8d8d0, alpha: 0.55 * fade });
-      g.circle(s.x - r * 0.3, s.y - r * 0.2, r * 0.6).fill({ color: 0xeeeeea, alpha: 0.35 * fade });
+    // M8.1: the sim's own shapes (build-up, drift and stretch with the wind, fade): a plume is a capsule.
+    if (state && state.smoke.length > 0 && this.smokePhys) for (const sm of smokeShapes(state, this.smokePhys)) {
+      const a = worldToScreen(c, sm.ax, sm.ay), b = worldToScreen(c, sm.bx, sm.by);
+      const fade = sm.density;
+      const r = Math.max(6, sm.r * c.scale);
+      if (Math.hypot(b.x - a.x, b.y - a.y) > 1) {
+        g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 2 * r, color: 0xd8d8d0, alpha: 0.5 * fade, cap: "round" });
+        g.moveTo(a.x - r * 0.3, a.y - r * 0.2).lineTo(b.x - r * 0.3, b.y - r * 0.2).stroke({ width: 1.2 * r, color: 0xeeeeea, alpha: 0.3 * fade, cap: "round" });
+      } else {
+        g.circle(b.x, b.y, r).fill({ color: 0xd8d8d0, alpha: 0.55 * fade });
+        g.circle(b.x - r * 0.3, b.y - r * 0.2, r * 0.6).fill({ color: 0xeeeeea, alpha: 0.35 * fade });
+      }
     }
     let k = 0;
     for (const o of overlay.objectives ?? []) {

@@ -3770,6 +3770,35 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
 
+## 2026-11-14 — M8.1 Smoke volume v2: height, wind drift and plumes, fade, screen along a line (slice 21; decided without the owner, owner to review)
+
+The owner was not reachable (parallel cloud session); the M8 owner round (roadmap-detail Phase 3, screen 2 "Smoke")
+is answered here with option **(a) height, wind drift and screen lines**, owner to review.
+- **Model** (`sim/src/smoke.ts`): a cloud is a capsule in plan (tail to head, radius r) standing from the ground where
+  it rose up to a top. Radius and top grow from 30 % to full over `spotting.smokeBuildSeconds` 10 s; density fades to
+  nothing over the last `smokeFadeSeconds` 20 s (was: full until it vanished; the renderer already faded over 20 s,
+  now it draws the sim's own shapes). Wind (`environment.windX/windY`, m/s; **y is south**, the map's y) carries the
+  head with `smokeDriftFactor` 1 x the wind; the tail stays on the burning round for `burnS`, then follows; a plume
+  is cut at `smokeStretchMaxM` 200 m. Never upwind of the round. Only the part of a sight line below the top counts.
+- **Values** (game values, low): mortar smoke top `fireSupport.smokeTopM` 15 m, burn `smokeBurnSeconds` DE 60 s / RU
+  40 s (red phosphorus / HC fillings burn a minute or more; search extracts only); vehicle grenades `cloudTopM` 8 m, a
+  puff; burning vehicle `crew.fireSmokeTopM` 30 m, fed while it burns. Shapes are cached per tick and culled by
+  bounding box (`smokeTransmission(state, physics, x0, y0, z0, x1, y1, z1, only)` now takes heights).
+- **Screen along a line:** `callFire` takes optional `x2, y2` (smoke only): ranging at the line's middle, the rounds
+  for effect spread evenly end to end. No UI yet (M8.6 "smoke along a line"); the AI does not use it yet (M8.5).
+- **Wind:** all scenarios still have no wind (unchanged); the `Environment` comment said y north — fixed to south
+  (code, the ballistics and sound tests always used south).
+- **Lab** `npm run lab -- smoke [seeds]`: a man sees over a cloud only when his line clears its top (ground, upstairs,
+  roof, hill rows); drift at 4 m/s 120 m in 30 s, 0 m upwind at every bearing; a 6-round screen across 150 m blocks
+  98 % (DE) / 93 % (RU) of spotting checks across its middle 120 m without wind, 100 % with 3 m/s along it.
+- **Perf:** new perf test, the full-load spotting bench with 30 clouds (plumes, heights): 11.2x (without 12.5x; floor
+  8x); bench-vehicles 11.0x.
+- Batches (10 seeds x 1200 s, origin/main -> slice 21; attacker wins / blue down / red down): platoon 3 -> 2 /
+  19.9 -> 18.8 / 12.9 -> 11.9; platoon-ru 3 -> 4 (red attacks: 7 -> 6) / 15.6 -> 15.8 / 12.9 -> 12.4; platoon-vehicles
+  4 -> 3 (+1 draw) / 19.4 -> 19.2 / 22.5 -> 22.5; platoon-ru-vehicles 1 -> 1 (red) / 11.0 -> 10.8 / 25.8 -> 26.2. Within
+  noise. Goldens regenerated (catalog fingerprint and fading smoke); `golden/no-interiors` untouched.
+- Screenshots `npm run screenshot -- --scene smoke` (a six-round screen and two grenade puffs in 4 m/s wind at 5, 30
+  and 140 s).
 ## 2026-11-14 — Owner answers: M7.5e follow-ups, round A and medical round 1
 - Own squads leave houses on their own as built. Add a **Clear** button (Move tray, beside Occupy). The AI attacker
   also clears houses with a known enemy **on its approach**, not only in the assault. Overnight and M7.5e values:
@@ -3857,3 +3886,54 @@ flashes and hit puffs show while they are in sight (a flash of a hidden man stay
 contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
 not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
 No golden change (render only).
+
+## 2026-11-14 — M8.2a Call-for-fire chain: phases, first-round error by location method, planned targets (slice 22; decided without the owner, owner to review)
+
+M8 owner round (screen 1) answered here, owner to review: **any unit with a radio may call** (as before: the unit's
+leader or a man who can still report); **first-round accuracy automatic, from the best means the caller has** (a).
+- **Phases:** the order's own comms delay, then of `fireSupport.delaySeconds` (unchanged: DE 75 s, RU 60 s) the
+  radio call `requestSeconds` 15 s, processing (computing, laying: the rest, DE 44 s, RU 31 s) and the flight
+  `flightSeconds` (DE 16 s, RU 14 s: a section about 2 km back). Events `support.call` (method, first-round error,
+  seconds to the first round), `support.shot` (as the round leaves, for each ranging round and the first volley),
+  `support.splash` (`splashSeconds` 5 s before it lands); radio `radio.fireCall*`, `radio.fireShot`,
+  `radio.fireSplash`. Time to effect = comms + request + processing + flight (+ ranging rounds x `rangingSeconds`, which
+  stays the fall-to-fall time 20 s: correction 4-6 s after the fall, then the flight). `missionPhases(fs)` exported.
+- **First-round error by location method:** `rangingErrorM` is now the battery's own error (meteorology, survey:
+  15 m per axis for both, was 40 / 50 total); the location adds `locationError.estimate` 5 m + 7 % of the caller's
+  range (map or eye: range estimates err 10-20 %) or `locationError.laser` 2 m + 0.5 % (a laser rangefinder he has
+  and the point seen: a vehicle seat sensor or station with one, or a carried item with the new `rangefinder` flag —
+  no such item in the data yet). At 500 m an estimate misses 2.7x as far as a laser (both factions; test band
+  2.4-3.8); a registered point keeps its residual. At typical call ranges (300-500 m) the estimate error is about the
+  old 40 m. (First try 9 % of range: village attacker wins 2 -> 0 / 10, mortar wounded 6.0 -> 4.1: tuned to 7 %.)
+- **Planned targets:** `rules.support[].planned` (points set in deployment): registered at the start with the
+  residual of an observed adjustment (`rangingErrorM` x `rangingCorrection`), so a mission within `registeredM` fires
+  for effect at once. No UI (M8.6) and no AI use (M8.5) yet.
+- **xf:** the fixture faction has no fire support; every new field is optional (absent: the old behaviour).
+- Batches (10 x 1200 s, slice 21 -> slice 22; attacker wins / blue down / red down): platoon 2 -> 1 / 18.8 -> 19.8 /
+  11.9 -> 10.6 (blue mortar: enemy wounded 6.0 -> 4.8); platoon-ru (red attacks) 6 -> 6 / 15.8 -> 15.8 / 12.4 -> 13.5;
+  platoon-vehicles 3 -> 5 / 19.2 -> 18.0 / 22.5 -> 21.7; platoon-ru-vehicles 1 -> 1 / 10.8 -> 10.2 / 26.2 -> 26.3
+  (ru runs with the 9 % first try: unchanged there). Goldens regenerated.
+
+## 2026-11-14 — M8.2b Observers and adjustment (slice 23; decided without the owner, owner to review)
+
+- **Observers** (`sim/src/systems/observers.ts`): an `Observer` is a man on foot (eyes raised to at least kneeling),
+  a crewman through his seat's sight (from the sight's place on the hull or turret; its laser if the seat sensor or
+  his station has one) or — a reserved kind for M9.5 — a drone camera (no producer yet). A mission's observers are
+  the caller first, then his platoon's men who can still report (ID order; the platoon net, as before). The
+  mission's laser method (M8.2a) now uses the caller's observer.
+- **Adjustment with skill:** of the observers who see a ranging round fall, the best reader corrects: the error left
+  is `rangingCorrection` (0.3) x a skill factor (`adjust.skillWorst` 1.5 at skill 0 to `skillBest` 0.6 at skill 1;
+  skill = `observation`, else `experience`, else 0.5) of the old one, plus his reading error per axis
+  (`readBaseM` 3 m + `readPerM` 1 % of his distance to the fall by eye, `laserReadM` 2 m with a laser, x the same
+  factor). Before: x0.3 exactly and no reading error. `support.ranging` carries `observer` and `observerKind`.
+  Game values, low.
+- **Lab** `npm run lab -- indirect [seeds]`: mean aim miss after two seen ranging rounds by eye at 600 m: skill 0.2 /
+  0.5 / 0.8 = 20 / 15 / 10 m (bands 25 / 18 / 12), with a laser 2-5 m (band 6); real missions on the open demo ground:
+  all ranging rounds seen, aim miss 41 -> 12 m (300 m) and 61 -> 16 m (500 m) from the first round to the effect.
+- **Not built:** "missions skip a recognised Verwundetennest" (M10.7a) — the medical system is being built on another
+  branch (claude/new-session-avoifd) and this branch must not touch it. The hook point is `callFire` / the mission
+  loop in `systems/support.ts`; to add once the Verwundetennest exists on main.
+- **Batches** (10 x 1200 s; attacker wins, pre-M8 origin/main -> slice 23; acceptance: at or above baseline - 1):
+  platoon 3 -> 3, platoon-ru (red) 7 -> 7, platoon-vehicles 4 -> 5, platoon-ru-vehicles (red) 1 -> 0. Met (the last at
+  its floor). Down (blue / red): platoon 19.6 / 13.3, platoon-ru 14.8 / 10.7, platoon-vehicles 19.3 / 21.7,
+  platoon-ru-vehicles 10.0 / 25.2. Goldens regenerated.

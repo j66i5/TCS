@@ -999,6 +999,38 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
 }
 
 /**
+ * Smoke volume v2 (`--scene smoke`, M8.1): the platoon battle on foot with a 4 m/s wind toward the east-south-east;
+ * a six-round mortar screen laid north-south in front of the blue platoon (plumes fed by the burning rounds) and
+ * two vehicle-grenade puffs; shots at 5 s (building up), 30 s (plumes stretched downwind) and 140 s (fading).
+ */
+async function smokeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "farmland"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const info = await ev<object>(`t.setSpeed(0);
+    let bx = 0, by = 0, nb = 0, rx = 0, ry = 0, nr = 0;
+    for (const [id, i] of s.identity.entries()) { const p = s.transform.get(id); if (i.side === "blue") { bx += p.x; by += p.y; nb++; } else { rx += p.x; ry += p.y; nr++; } }
+    bx /= nb; by /= nb; rx /= nr; ry /= nr;
+    const dx = rx - bx, dy = ry - by, d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
+    const cx = bx + ux * 200, cy = by + uy * 200;
+    s.environment.windX = 3.7; s.environment.windY = 1.5;
+    const fs = t.sim.ctx.catalog.factions.de.fireSupport;
+    for (let k = 0; k < 6; k++) { const f = k / 5 - 0.5, x = cx - uy * 150 * f, y = cy + ux * 150 * f;
+      s.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: s.tick, untilTick: s.tick + 150 * 60, gz: 0, topM: fs.smokeTopM, burnS: fs.smokeBurnSeconds }); }
+    for (let k = 0; k < 2; k++) s.smoke.push({ x: bx + ux * 60 - uy * (k * 30 - 15), y: by + uy * 60 + ux * (k * 30 - 15), radiusM: 10, startTick: s.tick, untilTick: s.tick + 90 * 60, gz: 0, topM: 8, burnS: 0 });
+    globalThis.__c = { x: cx + 40, y: cy };
+    t.focus(cx + 40, cy, 600); t.stepTicks(1);
+    return { clouds: s.smoke.length, centre: { x: Math.round(cx), y: Math.round(cy) } };`);
+  for (const [label, at] of [["1-5s", 5], ["2-30s", 30], ["3-140s", 140]] as const) {
+    await ev(`const now = s.tick; t.stepTicks(Math.max(0, ${at} * 60 - (now - (globalThis.__t0 ?? (globalThis.__t0 = now - 1)))));`);
+    await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 30000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+    const p = `${outDir}/smoke-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  }
+  console.log(`${name}: smoke scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * The "review fixes" step (`--scene review`): at device pixel ratio 2 (as on nearly every phone and Retina screen;
  * the other scenes run at 1 and never saw the halved screen size). The mounted platoon battle as it opens (the short
  * hint, the score line with the time and mortar rounds first, both platoons' vehicles told apart as "1/Puma 2" and
@@ -1238,6 +1270,7 @@ try {
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "sight") { await sightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "review") {
       // (Its own page at device pixel ratio 2.)
       await page.close();
@@ -1360,7 +1393,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

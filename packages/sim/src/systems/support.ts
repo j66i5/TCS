@@ -22,15 +22,16 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { canReport } from "../impair";
-import { exp, sqrt } from "../math";
+import { sqrt } from "../math";
+import type { SmokeCloud } from "../smoke";
 import { nextNormal, Streams } from "../rng";
-import { newEntity, type FireMission, type SimState, type SimView } from "../state";
+import { newEntity, type FireMission, type LocationMethod, type SimState, type SimView, type SupportSection } from "../state";
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
-import { heightAt, standZ } from "../terrain";
-import { eyeHeightM, sight } from "../los";
+import { heightAt } from "../terrain";
 import type { FactionDef } from "../catalog";
 import { ammoIndexOf } from "../projectiles";
 import { detonate } from "./explosions";
+import { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM } from "./observers";
 import { noteBeatenZone } from "./morale";
 
 /** Give each side with an allotment its mortar section: an entity whose container holds the rounds. */
@@ -45,7 +46,17 @@ export function initSupport(ctx: SimContext, state: SimState): void {
     if (s.he > 0) addItems(c, fs.heAmmo, s.he);
     if (s.smoke > 0) addItems(c, fs.smokeAmmo, s.smoke);
     state.container.set(battery, c);
-    state.support.push({ side: s.side, battery, heType: fs.heAmmo, smokeType: fs.smokeAmmo });
+    const sec: SupportSection = { side: s.side, battery, heType: fs.heAmmo, smokeType: fs.smokeAmmo };
+    // Planned targets (M8.2a): registered before the battle, with what is left of the battery's error after an
+    // observed adjustment there.
+    if (s.planned && s.planned.length > 0) {
+      sec.registered = s.planned.slice(-REGISTERED_MAX).map((p) => ({
+        x: p.x, y: p.y, planned: true as const,
+        ex: fs.rangingErrorM * fs.rangingCorrection * nextNormal(state.rng, Streams.support),
+        ey: fs.rangingErrorM * fs.rangingCorrection * nextNormal(state.rng, Streams.support),
+      }));
+    }
+    state.support.push(sec);
   }
 }
 
@@ -68,8 +79,30 @@ export function secondsToEffect(fs: FireSupportDef): number {
   return fs.delaySeconds + fs.rangingRounds * fs.rangingSeconds;
 }
 
+/**
+ * The call-for-fire chain's phases (M8.2a), seconds: the radio call, processing (computing, laying), the flight;
+ * their sum is `delaySeconds`, the call reaching the section to the first round landing (before it, the order's
+ * own comms delay).
+ */
+export function missionPhases(fs: FireSupportDef): { requestS: number; processingS: number; flightS: number } {
+  const requestS = Math.min(fs.requestSeconds ?? 0, fs.delaySeconds);
+  const flightS = Math.min(fs.flightSeconds ?? 0, fs.delaySeconds - requestS);
+  return { requestS, processingS: fs.delaySeconds - requestS - flightS, flightS };
+}
+
+/** The first round's aiming error (one standard deviation per axis, m) for a point located by `method` at
+ *  `distM` from the man who located it (M8.2a): the battery's own error and the location error together. */
+export function firstRoundErrorM(fs: FireSupportDef, method: Exclude<LocationMethod, "registered">, distM: number): number {
+  const L = fs.locationError?.[method];
+  const loc = L ? L.baseM + L.perM * distM : 0;
+  return sqrt(fs.rangingErrorM * fs.rangingErrorM + loc * loc);
+}
+
 /** Start a fire mission (from a delivered `callFire` order). False if nobody can call or nothing is left. */
-export function callFire(ctx: SimContext, state: SimState, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number): boolean {
+export function callFire(ctx: SimContext, state: SimState, events: EventSink, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number, line?: { x2: number; y2: number }): boolean {
+  // A screen (M8.1): ranging and registration at the line's middle, the rounds for effect along it.
+  let lx = 0, ly = 0;
+  if (line && ammo === "smoke") { lx = (line.x2 - x) / 2; ly = (line.y2 - y) / 2; x += lx; y += ly; }
   const caller = callers.find((m) => canReport(state.soldier.get(m)));
   const faction = caller !== undefined ? state.identity.get(caller)?.faction : undefined;
   const fs = faction ? ctx.catalog.factions[faction]?.fireSupport : undefined;
@@ -88,50 +121,25 @@ export function callFire(ctx: SimContext, state: SimState, side: SideId, callers
   const m: FireMission = { side, caller, x, y, ammo, left: n, nextTick: state.tick + secondsToTicks(fs.delaySeconds) };
   const rg = Math.min(ranging, n - 1);
   if (rg > 0) m.ranging = rg;
-  if (reg) { m.ex = reg.ex; m.ey = reg.ey; } else if (fs.rangingErrorM > 0) {
-    m.ex = fs.rangingErrorM * nextNormal(state.rng, Streams.support);
-    m.ey = fs.rangingErrorM * nextNormal(state.rng, Streams.support);
+  if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
+  // How the point was located (M8.2a): a registered or planned point; else a laser rangefinder if the caller has
+  // one and sees the point; else a map or eye estimate. The first round's error follows from it.
+  let sd = 0;
+  if (reg) { m.ex = reg.ex; m.ey = reg.ey; m.method = "registered"; } else {
+    const t = state.transform.get(caller);
+    const dist = t ? sqrt((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y)) : 0;
+    const o = observerOf(ctx, state, caller);
+    m.method = fs.locationError && o !== null && o.laser && observerSees(ctx, state, o, x, y) ? "laser" : "estimate";
+    sd = firstRoundErrorM(fs, m.method, dist);
+    if (sd > 0) {
+      m.ex = sd * nextNormal(state.rng, Streams.support);
+      m.ey = sd * nextNormal(state.rng, Streams.support);
+    }
   }
   state.fireMissions.push(m);
+  events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS: fs.delaySeconds });
+  radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : "radio.fireCall", { s: Math.round(fs.delaySeconds) });
   return true;
-}
-
-/** Can the man who called the mission see a burst at (x, y)? His eyes (raised to at least kneeling: he lifts his
- *  head to watch the fall of shot) to the dust and smoke cloud a few metres above it, through terrain, walls, roofs
- *  and woods (nearly all of the view gone counts as unseen), and smoke. */
-const BURST_SEEN_Z_M = 5;
-const BURST_SEEN_VIS = 0.1;
-function burstSeen(ctx: SimContext, state: SimState, caller: EntityId, x: number, y: number): boolean {
-  const s = state.soldier.get(caller), t = state.transform.get(caller);
-  if (!s || !t || !canReport(s)) return false;
-  const ez = standZ(ctx.map, t) + Math.max(eyeHeightM(ctx, s.posture), s.mount !== undefined ? 0 : eyeHeightM(ctx, "crouching"));
-  const tz = heightAt(ctx.map, x, y) + BURST_SEEN_Z_M; // ground: ok (a burst on the ground, not a man)
-  const v = s.mount !== undefined ? s.mount.vehicle : -1;
-  let vis = sight(ctx, t.x, t.y, ez, x, y, tz, v).visibility;
-  if (vis > 0 && state.smoke.length > 0) {
-    const D = ctx.catalog.spotting;
-    vis *= smokeTransmission(state, D.smokeExtinctionPerM, t.x, t.y, x, y, secondsToTicks(D.smokeBuildSeconds));
-  }
-  return vis >= BURST_SEEN_VIS;
-}
-
-/**
- * Does anyone see the ranging round fall? The caller first, then any man of his platoon (his top-level unit, in ID
- * order) who can still use the radio: the call goes over the platoon net (game choice, step fire-support).
- */
-function rangingSeen(ctx: SimContext, state: SimState, caller: EntityId, x: number, y: number): boolean {
-  if (burstSeen(ctx, state, caller, x, y)) return true;
-  let top = state.identity.get(caller)?.unit;
-  for (let k = 0; top !== undefined && k < 16; k++) { const p = state.unit.get(top)?.parent; if (p === null || p === undefined) break; top = p; }
-  if (top === undefined) return false;
-  const stack: EntityId[] = [top];
-  while (stack.length > 0) {
-    const u = state.unit.get(stack.pop()!);
-    if (!u) continue;
-    for (const m of u.members) if (m !== caller && burstSeen(ctx, state, m, x, y)) return true;
-    for (let i = u.children.length - 1; i >= 0; i--) stack.push(u.children[i]!);
-  }
-  return false;
 }
 
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. */
@@ -142,7 +150,7 @@ function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
     // The enemy near it remember the mission's beaten zone (soldier AI package B).
     noteBeatenZone(ctx, state, x, y, m.side);
   } else {
-    state.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(fs.smokeSeconds) });
+    addSmoke(ctx, state, x, y, fs.smokeRadiusM, fs.smokeSeconds, fs.smokeTopM ?? 15, fs.smokeBurnSeconds ?? 0);
     events.emit({ kind: "support.smoke", tick: state.tick, x, y, radiusM: fs.smokeRadiusM, side: m.side });
   }
 }
@@ -171,24 +179,56 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
   if (state.fireMissions.length === 0) return;
   const W = ctx.map.widthM, H = ctx.map.heightM;
   for (const m of state.fireMissions) {
-    if (m.left <= 0 || state.tick < m.nextTick) continue;
+    if (m.left <= 0) continue;
     const faction = state.identity.get(m.caller)?.faction ?? "";
     const fs = ctx.catalog.factions[faction]?.fireSupport;
     if (!fs) { m.left = 0; continue; }
-    const ax = m.x + (m.ex ?? 0), ay = m.y + (m.ey ?? 0);
+    // "Shot" and "splash" (M8.2a) for each ranging round and the first volley for effect.
+    if (state.tick < m.nextTick) {
+      if ((m.ranging ?? 0) > 0 || m.volley === undefined) {
+        const flight = secondsToTicks(missionPhases(fs).flightS), splash = secondsToTicks(fs.splashSeconds ?? 0);
+        if (flight > 0 && m.shotFor !== m.nextTick && state.tick >= m.nextTick - flight) {
+          m.shotFor = m.nextTick;
+          events.emit({ kind: "support.shot", tick: state.tick, side: m.side, caller: m.caller, x: m.x, y: m.y, flightS: Math.round((m.nextTick - state.tick) / 60) });
+          radio(state, events, m, "radio.fireShot", { s: Math.round((m.nextTick - state.tick) / 60) });
+        }
+        if (splash > 0 && m.splashFor !== m.nextTick && state.tick >= m.nextTick - splash) {
+          m.splashFor = m.nextTick;
+          events.emit({ kind: "support.splash", tick: state.tick, side: m.side, caller: m.caller, x: m.x, y: m.y, inS: Math.round((m.nextTick - state.tick) / 60) });
+          radio(state, events, m, "radio.fireSplash");
+        }
+      }
+      continue;
+    }
+    let ax = m.x + (m.ex ?? 0), ay = m.y + (m.ey ?? 0);
+    // A screen's round for effect: its place along the line (evenly, end to end).
+    if (m.effect !== undefined && (m.ranging ?? 0) <= 0) {
+      const k = m.fired ?? 0, f = m.effect > 1 ? (2 * k) / (m.effect - 1) - 1 : 0;
+      ax += (m.lx ?? 0) * f; ay += (m.ly ?? 0) * f;
+      m.fired = k + 1;
+    }
     const x = Math.min(Math.max(ax + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), W - 1);
     const y = Math.min(Math.max(ay + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), H - 1);
     // (A ranging round: seen or not before its own smoke is in the way.)
     const ranging = (m.ranging ?? 0) > 0;
-    const seen = ranging && rangingSeen(ctx, state, m.caller, x, y);
+    const by = ranging ? bestObserverOf(ctx, state, fs, observersFor(ctx, state, m.caller), x, y) : null;
+    const seen = by !== null;
     landRound(ctx, state, events, fs, m, x, y);
     m.left--;
     if (ranging) {
       // A ranging round: the caller corrects the aim if he saw where it fell.
       const missM = Math.round(sqrt((x - m.x) * (x - m.x) + (y - m.y) * (y - m.y)));
-      if (seen) { m.ex = (m.ex ?? 0) * fs.rangingCorrection; m.ey = (m.ey ?? 0) * fs.rangingCorrection; m.observed = true; }
+      if (by) {
+        // The observer who read it best (M8.2b): all but the correction share of the error goes, his reading error
+        // comes in (skill, distance, laser).
+        const c = Math.min(1, fs.rangingCorrection * adjustSkillFactor(fs, by.skill));
+        const read = readErrorM(fs, by, sqrt((by.x - x) * (by.x - x) + (by.y - y) * (by.y - y)));
+        m.ex = (m.ex ?? 0) * c + (read > 0 ? read * nextNormal(state.rng, Streams.support) : 0);
+        m.ey = (m.ey ?? 0) * c + (read > 0 ? read * nextNormal(state.rng, Streams.support) : 0);
+        m.observed = true;
+      }
       m.ranging = m.ranging! - 1;
-      events.emit({ kind: "support.ranging", tick: state.tick, side: m.side, caller: m.caller, x, y, tx: m.x, ty: m.y, ammo: m.ammo, seen, missM, left: m.ranging });
+      events.emit({ kind: "support.ranging", tick: state.tick, side: m.side, caller: m.caller, x, y, tx: m.x, ty: m.y, ammo: m.ammo, seen, missM, left: m.ranging, ...(by ? { observer: by.who, observerKind: by.kind } : {}) });
       radio(state, events, m, seen ? "radio.fireAdjust" : "radio.fireUnobserved", { miss: missM });
       // Only an observed point is remembered: unseen, the error is still the battery's full one, and a later
       // mission there must range again rather than fire for effect with it.
@@ -208,28 +248,9 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
   state.fireMissions = state.fireMissions.filter((m) => m.left > 0);
 }
 
-/**
- * How much of the view survives the smoke along a line (1 = none in the way): exp(-k x metres of smoke). A
- * cloud grows to its full size over `buildTicks` (data: spotting.smokeBuildSeconds).
- */
-export function smokeTransmission(state: SimView, k: number, x0: number, y0: number, x1: number, y1: number, buildTicks = 600, only: "all" | "conventional" | "multispectral" = "all"): number {
-  if (state.smoke.length === 0 || k <= 0) return 1;
-  const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
-  let metres = 0;
-  for (const c of state.smoke) {
-    // (M7.3: thermal sights see through ordinary smoke in part, not through a multispectral cloud.)
-    if (only !== "all" && (c.multispectral === true) !== (only === "multispectral")) continue;
-    const grow = buildTicks > 0 ? Math.min(1, (state.tick - c.startTick) / buildTicks) : 1;
-    const r = c.radiusM * (0.3 + 0.7 * grow);
-    // Chord of the segment through the circle.
-    const fx = x0 - c.x, fy = y0 - c.y;
-    const b = fx * dx + fy * dy, cc = fx * fx + fy * fy - r * r;
-    if (L2 <= 1e-9) { if (cc <= 0) metres += r; continue; }
-    const disc = b * b - L2 * cc;
-    if (disc <= 0) continue;
-    const s = sqrt(disc);
-    const t0 = Math.max(0, (-b - s) / L2), t1 = Math.min(1, (-b + s) / L2);
-    if (t1 > t0) metres += (t1 - t0) * sqrt(L2);
-  }
-  return metres > 0 ? exp(-k * metres) : 1;
+/** Lay a smoke cloud at (x, y) on the ground (M8.1: its ground height, top, burn time at its place). */
+export function addSmoke(ctx: SimContext, state: SimState, x: number, y: number, radiusM: number, seconds: number, topM: number, burnS: number, multispectral = false): void {
+  const c: SmokeCloud = { x, y, radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(seconds), gz: heightAt(ctx.map, x, y), topM, burnS }; // ground: ok (a cloud on the ground)
+  if (multispectral) c.multispectral = true;
+  state.smoke.push(c);
 }

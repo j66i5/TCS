@@ -27,6 +27,7 @@
  * Randomness: the "armour" stream (created on first use: vehicle-free battles never draw from it). No
  * allocation on the stopped-round path; one event per hit (small arms stay aggregated per vehicle and tick).
  */
+import { addSmoke } from "./support";
 import type { VehicleComponent, VehicleDef } from "../catalog";
 import type { VehicleState } from "../components";
 import type { SimContext } from "../context";
@@ -397,7 +398,7 @@ function afterDamage(ctx: SimContext, state: SimState, events: EventSink, vid: E
     v.fire = { startTick: state.tick, nextCheckTick: state.tick + secondsToTicks(C.cookOffCheckSeconds), intensity: dmg.fireAmmo ? 2 : 1, nextExtTick: canExtinguish(state, vid, v, def) ? state.tick + Math.max(1, secondsToTicks(def.extinguisher!.delaySeconds)) : -1 };
     events.emit({ kind: "vehicle.fire", tick: state.tick, vehicle: vid });
     const t = state.transform.req(vid);
-    if (C.fireSmokeRadiusM > 0) state.smoke.push({ x: t.x, y: t.y, radiusM: C.fireSmokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(C.burnSeconds + 60) });
+    if (C.fireSmokeRadiusM > 0) addSmoke(ctx, state, t.x, t.y, C.fireSmokeRadiusM, C.burnSeconds + 60, C.fireSmokeTopM ?? 30, C.burnSeconds + 60);
   }
   updateStatus(ctx, state, events, vid, v, def);
   if (v.status === "abandoned") return;

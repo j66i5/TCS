@@ -22,6 +22,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
       if (it.sensor !== undefined) d.sensor = it.sensor;
+      if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
       if (it.armour !== undefined) d.armour = it.armour.map((a) => ({ ...a }));
       if (it.tracerItem !== undefined && it.tracerEvery !== undefined) { d.tracerItem = it.tracerItem; d.tracerEvery = it.tracerEvery; }
       items[it.id] = d;
@@ -116,7 +117,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     ...(v.extinguisher ? { extinguisher: { item: v.extinguisher.item, chance: v.extinguisher.chance, delaySeconds: v.extinguisher.delaySeconds } } : {}),
     ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),
-    ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds } } : {}),
+    ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds, cloudTopM: v.dischargers.cloudTopM } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
     signature: v.signature
       ? { sizeFactor: v.signature.sizeFactor, movingFactor: v.signature.movingFactor, firingFactor: v.signature.firingFactor, identifyM: v.signature.identifyM, noiseIdleM: v.signature.noiseIdleM, noiseMovingM: v.signature.noiseMovingM, aimPoints: v.signature.aimPoints.map((p) => [...p] as [number, number, number]) }

@@ -4793,3 +4793,55 @@ Conflicts kept both sides: the app's sim imports (environment and time of day ne
 string tables (litters next to thermal sights, blankets and MELLS), the batch tool's imports, the lab list (carry
 next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm run golden:update` after the merge
 (intended: the two branches' changes together); `golden/no-interiors` untouched. `npm test` green (118 files).
+
+## 2026-11-14 — Exact rank insignia ("insignia-exact"; owner: strap shapes, device geometry, Waffenfarben)
+The `insignia` block of `appearance.json` is now millimetre data: `board` (trapezoid length, top and bottom width,
+corner radius, colours), optional `strap` (the shoulder strap showing above and below the board, its button),
+optional `litze` (arm-of-service loop: colour, width, gap below the board, branch) and per rank `{bare?, elements}`
+where an element is a `band`, `bar`, `braid`, `chevron` (optional `headMm` = Kopfwinkel) or `star` with positions in
+mm (x from the centre line, y from the shoulder end). `ui/src/insignia.ts` draws it with a viewBox in mm (no faction
+names); at small sizes it only widens gaps between stripes (to about 1 px), keeps stars about 5 px and the Litze
+1 px. Card rows show the insignia 34 px tall (was 30; column 18 px, rows 36 px), the man's box 64 px (was 56).
+Appearance is outside the catalog: goldens unchanged.
+Sources and confidence (search extracts only; every page was blocked by the proxy):
+- DE carrier: field slide (Aufschiebeschlaufe), black woven devices on olive: BPrDGrUnifAnO para 5(3), TL 8455-0009
+  Anhang A "DG Schwarz auf Oliv" (medium). Size 90 x 52/60 mm: one TL 8455-0009 extract and a shop (medium-low; a
+  skeptic search could not reproduce it). Square ends, no button of its own (low).
+- DE Litze: Heer only, on the Feldanzug strap, 4 mm wide (bundeswehr.de "Litzen beim Heer", medium); Panzergrenadiere
+  green (Jaegergruen), shared with the Jaeger (de.wikipedia, FOTW, medium); hex #2f7d3a and its place 3 mm below the
+  slide at the shoulder seam (low). One colour per faction: a per-unit colour (e.g. medical crews) would need the unit
+  template on the man in the sim state (a golden change), so not done.
+- DE devices: kinds and counts per Anlage 2 BPrDGrUnifAnO (medium): Schuetze none (drawn as the bare strap: no slide),
+  1-4 Schraegstreifen, Tresse "unten offen" / closed, closed Tresse + 1/2 Winkel point up, closed Tresse + Kopfwinkel,
+  1/2 stars. All sizes and positions inferred (low): stripes 5 mm, 3 mm gaps, 35 deg rising to the right, 4 mm in;
+  Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg, the first 6 mm under the top braid, the next 10 mm lower; stars
+  four-pointed, 17 mm (retail metal stars 17-19 mm), from 24 mm above the shoulder end, 20 mm apart. Stabsgefreiter:
+  four evenly spaced stripes (a set-apart top stripe unconfirmed). Kopfwinkel drawn Odal-like (legs crossing, a small
+  diamond above; one researcher saw Wikipedia note the likeness, a skeptic found no extract): low, owner to check
+  against a picture.
+- RU carrier: rectangular field sleeve ("pogonchik tipa mufta") of the jacket cloth, no button, no lumen, no piping
+  (Ukaz 293 field wording, Prikaz MO 525 "s'emnye, pryamougol'nye": medium-uncertain, not reproduced verbatim by the
+  skeptic). Stripes and stars protective colour (GUSP 48/2009 analogue, medium). Size 50 x 120 mm (retail, low).
+  The old drawing (pentagon with button) was the parade/everyday board.
+- RU devices: narrow stripe 10 mm, wide 30 mm (Ukaz 531/293, medium, confirmed); stars 13 mm (Ukaz 293, medium,
+  confirmed); pair midway between centre line and edge, +-12.5 mm (confirmed wording); first stripe 25 mm from the
+  shoulder end with 2 mm gaps (Prikaz 525 table 3) and first star 25 mm, rows 25 mm apart (table 1): one extract each,
+  medium-low; starshina's long stripe along the full length: medium-low.
+- Ranks not added (Hauptmann, kapitan, Oberstabsgefreiter, Stabsfeldwebel ...): no unit template uses them (the Zug
+  is led by a Leutnant, there is no company HQ), and ranks.json is in the catalog (a golden change for nothing seen).
+Review fixes (independent review, same day; all from memory of the real insignia, confidence low, appearance only,
+goldens unchanged):
+- RU small sizes: a new optional `insignia.small {belowPx, device?, outline?}`; the Russian sleeve below 40 px tall (the
+  34 px card row) draws its devices darker (#262a19) with a light 1 px outline (#b5bc95) so stars and stripes read;
+  at 40 px and above (the 64 px man box, the reference sheet) they stay protective colour as woven.
+- DE stars: Leutnant's single star at 42 mm from the shoulder end (was 24), Oberleutnant's pair at 33 and 55 mm (was
+  24 and 44). The four-pointed star is drawn as a faceted pip (inner radius 0.42 of the outer, 17 mm; the half-points
+  facing the upper left lighter) once it is 12 px across; smaller, a plain star.
+- DE Winkel: the group centred about 53 mm above the shoulder end (Feldwebel's point at 58.9 mm, Oberfeldwebel's at
+  63.9 and 53.9; was 71.7 and 61.7 against the collar end), leaving room under it for a Stabsfeldwebel Winkel later.
+- DE Kopfwinkel: same topology (legs crossing under a diamond head), now a 5 mm band like the Winkel (was 4), legs
+  12 mm out and 9 mm down (was 14 and 14), the head 11 mm tall and about 15 mm across, centred on the Winkel group:
+  about as tall as a plain Winkel.
+- DE strap: `strap.widthMm` is now its width at the slide's collar end and it widens with the slide's taper, 52 mm
+  (was a 50 mm parallel strap), so below the slide it is as wide as the slide's shoulder end (60 mm, 61.1 at its
+  bottom) instead of looking pinched.

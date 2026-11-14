@@ -1008,48 +1008,60 @@ export type QualityT = z.infer<typeof QualitySchema>;
 // Original colour choices (docs/ASSETS.md), not researched facts: no provenance, an optional note.
 const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lower case)");
 /**
- * Rank insignia (the "insignia" step, owner 2026-11-14): what one rank wears on the field uniform, as devices drawn
- * in code by the UI (`ui/src/insignia.ts`). Every count is a device of that kind; absent = none (so `{}` is a plain
- * board, e.g. a private). Faction-neutral: the drawing never knows whose uniform it is.
+ * Rank insignia (the "insignia" step, owner 2026-11-14; exact shapes, "insignia-exact" 2026-11-14): what one rank
+ * wears on the field uniform, drawn in code by the UI (`ui/src/insignia.ts`) at true proportions. Every length is
+ * in millimetres on the real board: x across it from its centre line (+ = right as seen), y along it from its
+ * shoulder-seam end (0) towards the collar end. Faction-neutral: the drawing never knows whose uniform it is.
  */
+const Mm = z.number().min(-300).max(300);
+const PosMm = z.number().positive().max(300);
+export const InsigniaElementSchema = z.discriminatedUnion("kind", [
+  /** A band across the board between y0 and y1; x0/x1 absent: edge to edge (cross stripes, lychki, galun);
+   *  given: a band along the board (a long stripe). */
+  z.object({ kind: z.literal("band"), y0: Mm, y1: Mm, x0: Mm.optional(), x1: Mm.optional() }).strict(),
+  /** A diagonal stripe (Schraegstreifen) `widthMm` wide, its centre line through (0, y) at `angleDeg` (+ = rising to
+   *  the right), its ends cut square to the board's long edges `insetMm` inside them. */
+  z.object({ kind: z.literal("bar"), y: Mm, widthMm: PosMm, angleDeg: z.number().min(-75).max(75), insetMm: z.number().min(0).max(50) }).strict(),
+  /** A braid (Tresse) `widthMm` wide round the board, `insetMm` inside its edge; `open`: no braid along the
+   *  shoulder end (the long sides run out to it). */
+  z.object({ kind: z.literal("braid"), widthMm: PosMm, insetMm: z.number().min(0).max(50), open: z.boolean() }).strict(),
+  /** A chevron (Winkel) of a `widthMm` band, point towards the collar: its centre line from (-halfSpanMm, y - riseMm)
+   *  to the point (0, y) and back down. `headMm` > 0: a headed chevron (Kopfwinkel): the legs cross at (0, y) and run
+   *  on `headMm` (measured up the board) to close a diamond above it. */
+  z.object({ kind: z.literal("chevron"), y: Mm, halfSpanMm: PosMm, riseMm: PosMm, widthMm: PosMm, headMm: z.number().min(0).max(60).optional() }).strict(),
+  /** A star (pip) of `points` points, `diameterMm` across its points, one point towards the collar. */
+  z.object({ kind: z.literal("star"), x: Mm, y: Mm, diameterMm: PosMm, points: z.union([z.literal(4), z.literal(5)]) }).strict(),
+]);
+/** One rank: the devices on its board; `bare`: the rank wears no board at all (only the strap, if any, shows). */
 export const InsigniaDeviceSchema = z.object({
-  /** Diagonal stripes (Schrägstreifen). */
-  bars: z.number().int().min(0).max(6).optional(),
-  /** Narrow stripes across the board (lychki), from its collar end. */
-  stripes: z.number().int().min(0).max(4).optional(),
-  /** One wide stripe across the board (galun), at its collar end. */
-  wideStripe: z.boolean().optional(),
-  /** One wide stripe along the board's middle. */
-  longStripe: z.boolean().optional(),
-  /** Braid (Tresse) round the board: "open" leaves its outer end open, "closed" runs all round. */
-  braid: z.enum(["open", "closed"]).optional(),
-  /** Chevrons, point towards the collar. */
-  chevrons: z.number().int().min(0).max(3).optional(),
-  /** A headed chevron (Kopfwinkel: a chevron closed by a bar under its point) above the chevrons. */
-  headChevron: z.boolean().optional(),
-  /** Stars (pips). */
-  stars: z.number().int().min(0).max(4).optional(),
-  /** "column": along the board's middle from its outer end; "pairs": two side by side at the outer end, the rest
-   *  on the middle line above them (Russian officers). Default "column". */
-  starLayout: z.enum(["column", "pairs"]).optional(),
-  /** Oak leaves (staff officers) at the outer end. */
-  oakLeaves: z.boolean().optional(),
+  bare: z.boolean().optional(),
+  elements: z.array(InsigniaElementSchema).max(12),
   note: z.string().optional(),
 }).strict();
-/** A faction's rank insignia: how the board looks and, per rank id, its devices. Researched (sources, confidence). */
+/** A faction's rank insignia: the board, the strap under it, the arm-of-service loop, and per rank id its devices. */
 export const FactionInsigniaSchema = z.object({
-  /** "slide": a cloth loop over the shoulder strap (square ends); "pogon": a shoulder board with a pointed,
-   *  buttoned collar end; "tab": a small rounded patch. */
-  shape: z.enum(["slide", "pogon", "tab"]),
-  /** The board's cloth, its edge and the devices' colour. */
-  base: LookColour, edge: LookColour, device: LookColour,
-  /** Points of a star: 4 (pip) or 5. */
-  starPoints: z.union([z.literal(4), z.literal(5)]),
+  /** The rank board (slide, sleeve, shoulder board or tab): a trapezoid `lengthMm` long, `widthTopMm` wide at the
+   *  collar end and `widthBottomMm` at the shoulder end, corners rounded by `cornerMm`; its cloth and edge colours. */
+  board: z.object({ lengthMm: PosMm, widthTopMm: PosMm, widthBottomMm: PosMm, cornerMm: z.number().min(0).max(40), colour: LookColour, edge: LookColour }).strict(),
+  /** The uniform's shoulder strap the board is slid onto, where it shows: `aboveMm` beyond the board's collar end
+   *  (a blunt point with its button, `buttonMm` across; 0 = none) and `belowMm` beyond its shoulder end. `widthMm`
+   *  is its width at the board's collar end; it widens with the board's taper towards the shoulder. Absent: no
+   *  strap is drawn. */
+  strap: z.object({ widthMm: PosMm, aboveMm: z.number().min(0).max(100), belowMm: z.number().min(0).max(100), buttonMm: z.number().min(0).max(30), colour: LookColour, edge: LookColour }).strict().optional(),
+  /** The arm-of-service loop (Litze) round the strap at the shoulder seam, in the branch colour (Waffenfarbe) of
+   *  `branch`, `widthMm` wide, `gapMm` below the board's shoulder end. Needs a strap. */
+  litze: z.object({ colour: LookColour, widthMm: PosMm, gapMm: z.number().min(0).max(50), branch: z.string() }).strict().optional(),
+  /** The devices' colour (embroidered or woven). */
+  device: LookColour,
+  /** Drawn smaller than `belowPx` tall (a card row): devices in `device` instead (absent: the usual colour) with a
+   *  1 px `outline` round them (absent: none), so low-contrast (protective-colour) devices still read. */
+  small: z.object({ belowPx: PosMm, device: LookColour.optional(), outline: LookColour.optional() }).strict().optional(),
   ranks: z.record(Id, InsigniaDeviceSchema),
   sources: z.array(z.url()),
   confidence: Confidence,
   note: z.string().optional(),
 }).strict();
+export type InsigniaElementT = z.infer<typeof InsigniaElementSchema>;
 export type InsigniaDeviceT = z.infer<typeof InsigniaDeviceSchema>;
 export type FactionInsigniaT = z.infer<typeof FactionInsigniaSchema>;
 /** A faction's look: uniform tones for the pixel figures (M7.5b) and its vehicles' paint. */

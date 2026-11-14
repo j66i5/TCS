@@ -3784,3 +3784,15 @@ Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretch
 - Term: **Verwundetennest** (platoon level); company level Verwundetensammelpunkt. Air evacuation later.
 - Roadmap: tanks, wheeled carriers, Jäger/BTR platoons after M9, before logistics; after M9: logistics (minimum,
   after measuring ammunition use), then persistent company, then campaign.
+
+## 2026-11-14 — Owner answers: medical rounds 2 and 3 (asked up front)
+- Helpers in contact: the first responder plus at most one comrade per casualty. Triage: a tag on the map and on the
+  card. Wounded list: a sidebar tab. Enemy casualties: only what your men see.
+- Bearers: riflemen tasked by the platoon leader. Under fire: take cover with the casualty, fire only in
+  self-defence, go on when it eases.
+- Ambulances: new Boxer ambulance and BMM vehicles (one data step). Delay 10-15 min plus drive time.
+- Combat vehicles take wounded when going back or idle; the player can order any vehicle. Wounded left at the end:
+  the side holding the ground evacuates; wounded on enemy-held ground are captured and treated.
+- Player orders fire at a recognised protected target: **refused** (his men will not fire). Incidental hits on
+  protected people: a separate list in the after-action review.
+- Recovery for the campaign (not asked, plan default): days from wound severity and treatment.

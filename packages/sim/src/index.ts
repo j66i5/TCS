@@ -28,6 +28,7 @@ export { atRuleOf, aimSolution, backblastBlocked, launcherRound, orderLauncherSh
 export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } from "./systems/armour";
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
+export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
 export { addSmoke, firstRoundErrorM, missionPhases, secondsToEffect, supportLeft } from "./systems/support";
 export { smokePhysics, smokeShapes, smokeTransmission, type SmokeCloud, type SmokePhysics, type SmokeShape } from "./smoke";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";

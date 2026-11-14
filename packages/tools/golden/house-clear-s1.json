@@ -147,6 +147,90 @@
    "fire": "free"
   },
   {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 3,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 971,
+     "y": 1021,
+     "mode": "run"
+    }
+   ],
+   "facing": -0.469201711133384
+  },
+  {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 983,
+     "y": 1005,
+     "mode": "run"
+    }
+   ],
+   "facing": 0.05221242016186598
+  },
+  {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 5,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 979,
+     "y": 1037,
+     "mode": "run"
+    }
+   ],
+   "facing": -1.1061111635711947
+  },
+  {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 6,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 995,
+     "y": 1055,
+     "mode": "run"
+    }
+   ],
+   "facing": -0.9919300768152622
+  },
+  {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 7,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 961,
+     "y": 1015,
+     "mode": "run"
+    }
+   ],
+   "facing": -0.6504339320328059
+  },
+  {
+   "tick": 7800,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 981,
+     "y": 1011,
+     "mode": "run"
+    }
+   ],
+   "facing": -1.5815165973555008
+  },
+  {
    "tick": 8400,
    "issuer": "red",
    "target": 9,
@@ -165,24 +249,24 @@
   }
  ],
  "checkpoints": {
-  "600": "9747f0d6e92b9636",
-  "1200": "2047a8dc521649a4",
-  "1800": "4c9b1fbb543d18a7",
-  "2400": "85ca984181cb4f09",
-  "3000": "047132187f5b821a",
-  "3600": "1cc26148e570fca4",
-  "4200": "235181ad24fedce1",
-  "4800": "960cd6e603a5bc62",
-  "5400": "3bedad55f9b187ef",
-  "6000": "2cea76f20f3d87d3",
-  "6600": "8ae0c57117e242bc",
-  "7200": "3207d641dc59c2a7",
-  "7800": "eddaf01c03b79b52",
-  "8400": "23bf9f41ac9a88f3",
-  "9000": "a918c7d0eafb1c45",
-  "9600": "6f53ffa3d865057e",
-  "10200": "081b196fa7f78451",
-  "10800": "d7ca0e7ca64b5942"
+  "600": "08229a0b331eaaeb",
+  "1200": "d3eaeb146b316576",
+  "1800": "0ddb260ebbd60643",
+  "2400": "2729617942162a1a",
+  "3000": "f210e9a3b9999687",
+  "3600": "5565ee2fd55c82d0",
+  "4200": "d3f4506d7d592f53",
+  "4800": "c047363085200199",
+  "5400": "f9e3609adabd1bde",
+  "6000": "4cb37a1789c76712",
+  "6600": "6cadd740f51f1288",
+  "7200": "2a865912afcb0a48",
+  "7800": "d70852ea40fb31bb",
+  "8400": "ffaf064c49ec1157",
+  "9000": "4dc48cc03e2ed1c1",
+  "9600": "9c6237d85be90658",
+  "10200": "3b0f735e4d5f9918",
+  "10800": "8c9d59fd402c4857"
  },
- "catalogFingerprint": "c2a0f280d475e3ed"
+ "catalogFingerprint": "b981df4e2fd4d3fc"
 }

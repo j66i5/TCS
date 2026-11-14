@@ -786,6 +786,10 @@ export const DoctrineFile = withProv({
       estimate: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
       laser: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
     }).strict().optional(),
+    /** Adjustment by the observer (M8.2b): his reading error of a fall (m, one standard deviation per axis):
+     *  `readBaseM` + `readPerM` x his distance to it by eye, `laserReadM` with a laser; correction share and reading
+     *  error x a skill factor from `skillWorst` (skill 0) to `skillBest` (skill 1). Absent: the correction alone. */
+    adjust: z.object({ readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5) }).strict().optional(),
   }).strict().optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */

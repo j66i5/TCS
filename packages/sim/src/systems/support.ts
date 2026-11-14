@@ -23,15 +23,15 @@ import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { canReport } from "../impair";
 import { sqrt } from "../math";
-import { smokePhysics, smokeTransmission, type SmokeCloud } from "../smoke";
+import type { SmokeCloud } from "../smoke";
 import { nextNormal, Streams } from "../rng";
 import { newEntity, type FireMission, type LocationMethod, type SimState, type SimView, type SupportSection } from "../state";
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
-import { heightAt, standZ } from "../terrain";
-import { eyeHeightM, sight } from "../los";
+import { heightAt } from "../terrain";
 import type { FactionDef } from "../catalog";
 import { ammoIndexOf } from "../projectiles";
 import { detonate } from "./explosions";
+import { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM } from "./observers";
 import { noteBeatenZone } from "./morale";
 
 /** Give each side with an allotment its mortar section: an entity whose container holds the rounds. */
@@ -98,21 +98,6 @@ export function firstRoundErrorM(fs: FireSupportDef, method: Exclude<LocationMet
   return sqrt(fs.rangingErrorM * fs.rangingErrorM + loc * loc);
 }
 
-/** Does the caller have a laser rangefinder to the point (M8.2a)? Aboard a vehicle: a sensor of his seat with one,
- *  or the station he works with one; on foot: an item he carries marked as one (none in the data yet). */
-function hasLaser(ctx: SimContext, state: SimState, caller: EntityId): boolean {
-  const s = state.soldier.get(caller);
-  if (s?.mount !== undefined) {
-    const v = state.vehicle.get(s.mount.vehicle), def = v ? ctx.catalog.vehicles[v.def] : undefined;
-    const seat = def?.seats[s.mount.seat];
-    if (!def || !seat) return false;
-    if (seat.sensors?.some((x) => x.lrf === true)) return true;
-    return def.stations.some((st) => st.rangefinder && st.operator === seat.station);
-  }
-  const c = state.container.get(caller);
-  return c !== undefined && c.stacks.some((st) => ctx.catalog.items[st.type]?.rangefinder === true);
-}
-
 /** Start a fire mission (from a delivered `callFire` order). False if nobody can call or nothing is left. */
 export function callFire(ctx: SimContext, state: SimState, events: EventSink, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number, line?: { x2: number; y2: number }): boolean {
   // A screen (M8.1): ranging and registration at the line's middle, the rounds for effect along it.
@@ -143,7 +128,8 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
   if (reg) { m.ex = reg.ex; m.ey = reg.ey; m.method = "registered"; } else {
     const t = state.transform.get(caller);
     const dist = t ? sqrt((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y)) : 0;
-    m.method = fs.locationError && hasLaser(ctx, state, caller) && burstSeen(ctx, state, caller, x, y) ? "laser" : "estimate";
+    const o = observerOf(ctx, state, caller);
+    m.method = fs.locationError && o !== null && o.laser && observerSees(ctx, state, o, x, y) ? "laser" : "estimate";
     sd = firstRoundErrorM(fs, m.method, dist);
     if (sd > 0) {
       m.ex = sd * nextNormal(state.rng, Streams.support);
@@ -154,41 +140,6 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
   events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS: fs.delaySeconds });
   radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : "radio.fireCall", { s: Math.round(fs.delaySeconds) });
   return true;
-}
-
-/** Can the man who called the mission see a burst at (x, y)? His eyes (raised to at least kneeling: he lifts his
- *  head to watch the fall of shot) to the dust and smoke cloud a few metres above it, through terrain, walls, roofs
- *  and woods (nearly all of the view gone counts as unseen), and smoke. */
-const BURST_SEEN_Z_M = 5;
-const BURST_SEEN_VIS = 0.1;
-function burstSeen(ctx: SimContext, state: SimState, caller: EntityId, x: number, y: number): boolean {
-  const s = state.soldier.get(caller), t = state.transform.get(caller);
-  if (!s || !t || !canReport(s)) return false;
-  const ez = standZ(ctx.map, t) + Math.max(eyeHeightM(ctx, s.posture), s.mount !== undefined ? 0 : eyeHeightM(ctx, "crouching"));
-  const tz = heightAt(ctx.map, x, y) + BURST_SEEN_Z_M; // ground: ok (a burst on the ground, not a man)
-  const v = s.mount !== undefined ? s.mount.vehicle : -1;
-  let vis = sight(ctx, t.x, t.y, ez, x, y, tz, v).visibility;
-  if (vis > 0 && state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), t.x, t.y, ez, x, y, tz);
-  return vis >= BURST_SEEN_VIS;
-}
-
-/**
- * Does anyone see the ranging round fall? The caller first, then any man of his platoon (his top-level unit, in ID
- * order) who can still use the radio: the call goes over the platoon net (game choice, step fire-support).
- */
-function rangingSeen(ctx: SimContext, state: SimState, caller: EntityId, x: number, y: number): boolean {
-  if (burstSeen(ctx, state, caller, x, y)) return true;
-  let top = state.identity.get(caller)?.unit;
-  for (let k = 0; top !== undefined && k < 16; k++) { const p = state.unit.get(top)?.parent; if (p === null || p === undefined) break; top = p; }
-  if (top === undefined) return false;
-  const stack: EntityId[] = [top];
-  while (stack.length > 0) {
-    const u = state.unit.get(stack.pop()!);
-    if (!u) continue;
-    for (const m of u.members) if (m !== caller && burstSeen(ctx, state, m, x, y)) return true;
-    for (let i = u.children.length - 1; i >= 0; i--) stack.push(u.children[i]!);
-  }
-  return false;
 }
 
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. */
@@ -260,15 +211,24 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
     const y = Math.min(Math.max(ay + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), H - 1);
     // (A ranging round: seen or not before its own smoke is in the way.)
     const ranging = (m.ranging ?? 0) > 0;
-    const seen = ranging && rangingSeen(ctx, state, m.caller, x, y);
+    const by = ranging ? bestObserverOf(ctx, state, fs, observersFor(ctx, state, m.caller), x, y) : null;
+    const seen = by !== null;
     landRound(ctx, state, events, fs, m, x, y);
     m.left--;
     if (ranging) {
       // A ranging round: the caller corrects the aim if he saw where it fell.
       const missM = Math.round(sqrt((x - m.x) * (x - m.x) + (y - m.y) * (y - m.y)));
-      if (seen) { m.ex = (m.ex ?? 0) * fs.rangingCorrection; m.ey = (m.ey ?? 0) * fs.rangingCorrection; m.observed = true; }
+      if (by) {
+        // The observer who read it best (M8.2b): all but the correction share of the error goes, his reading error
+        // comes in (skill, distance, laser).
+        const c = Math.min(1, fs.rangingCorrection * adjustSkillFactor(fs, by.skill));
+        const read = readErrorM(fs, by, sqrt((by.x - x) * (by.x - x) + (by.y - y) * (by.y - y)));
+        m.ex = (m.ex ?? 0) * c + (read > 0 ? read * nextNormal(state.rng, Streams.support) : 0);
+        m.ey = (m.ey ?? 0) * c + (read > 0 ? read * nextNormal(state.rng, Streams.support) : 0);
+        m.observed = true;
+      }
       m.ranging = m.ranging! - 1;
-      events.emit({ kind: "support.ranging", tick: state.tick, side: m.side, caller: m.caller, x, y, tx: m.x, ty: m.y, ammo: m.ammo, seen, missM, left: m.ranging });
+      events.emit({ kind: "support.ranging", tick: state.tick, side: m.side, caller: m.caller, x, y, tx: m.x, ty: m.y, ammo: m.ammo, seen, missM, left: m.ranging, ...(by ? { observer: by.who, observerKind: by.kind } : {}) });
       radio(state, events, m, seen ? "radio.fireAdjust" : "radio.fireUnobserved", { miss: missM });
       // Only an observed point is remembered: unseen, the error is still the battery's full one, and a later
       // mission there must range again rather than fire for effect with it.

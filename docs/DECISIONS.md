@@ -3913,3 +3913,27 @@ leader or a man who can still report); **first-round accuracy automatic, from th
   11.9 -> 10.6 (blue mortar: enemy wounded 6.0 -> 4.8); platoon-ru (red attacks) 6 -> 6 / 15.8 -> 15.8 / 12.4 -> 13.5;
   platoon-vehicles 3 -> 5 / 19.2 -> 18.0 / 22.5 -> 21.7; platoon-ru-vehicles 1 -> 1 / 10.8 -> 10.2 / 26.2 -> 26.3
   (ru runs with the 9 % first try: unchanged there). Goldens regenerated.
+
+## 2026-11-14 — M8.2b Observers and adjustment (slice 23; decided without the owner, owner to review)
+
+- **Observers** (`sim/src/systems/observers.ts`): an `Observer` is a man on foot (eyes raised to at least kneeling),
+  a crewman through his seat's sight (from the sight's place on the hull or turret; its laser if the seat sensor or
+  his station has one) or — a reserved kind for M9.5 — a drone camera (no producer yet). A mission's observers are
+  the caller first, then his platoon's men who can still report (ID order; the platoon net, as before). The
+  mission's laser method (M8.2a) now uses the caller's observer.
+- **Adjustment with skill:** of the observers who see a ranging round fall, the best reader corrects: the error left
+  is `rangingCorrection` (0.3) x a skill factor (`adjust.skillWorst` 1.5 at skill 0 to `skillBest` 0.6 at skill 1;
+  skill = `observation`, else `experience`, else 0.5) of the old one, plus his reading error per axis
+  (`readBaseM` 3 m + `readPerM` 1 % of his distance to the fall by eye, `laserReadM` 2 m with a laser, x the same
+  factor). Before: x0.3 exactly and no reading error. `support.ranging` carries `observer` and `observerKind`.
+  Game values, low.
+- **Lab** `npm run lab -- indirect [seeds]`: mean aim miss after two seen ranging rounds by eye at 600 m: skill 0.2 /
+  0.5 / 0.8 = 20 / 15 / 10 m (bands 25 / 18 / 12), with a laser 2-5 m (band 6); real missions on the open demo ground:
+  all ranging rounds seen, aim miss 41 -> 12 m (300 m) and 61 -> 16 m (500 m) from the first round to the effect.
+- **Not built:** "missions skip a recognised Verwundetennest" (M10.7a) — the medical system is being built on another
+  branch (claude/new-session-avoifd) and this branch must not touch it. The hook point is `callFire` / the mission
+  loop in `systems/support.ts`; to add once the Verwundetennest exists on main.
+- **Batches** (10 x 1200 s; attacker wins, pre-M8 origin/main -> slice 23; acceptance: at or above baseline - 1):
+  platoon 3 -> 3, platoon-ru (red) 7 -> 7, platoon-vehicles 4 -> 5, platoon-ru-vehicles (red) 1 -> 0. Met (the last at
+  its floor). Down (blue / red): platoon 19.6 / 13.3, platoon-ru 14.8 / 10.7, platoon-vehicles 19.3 / 21.7,
+  platoon-ru-vehicles 10.0 / 25.2. Goldens regenerated.

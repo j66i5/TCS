@@ -558,6 +558,8 @@ export interface FactionDef {
      *  this long before a round lands; first-round error by location method (sd per axis: baseM + perM x range). */
     requestSeconds?: number; flightSeconds?: number; splashSeconds?: number;
     locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number } };
+    /** Observer adjustment (M8.2b): reading error of a fall by eye (base + per metre) or laser; skill factor range. */
+    adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number };
   };
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */

@@ -209,6 +209,9 @@ white flags on the map; the after-action review lists surrendered and captured m
      clouds.
   2. ✅ **M8.2a Call-for-fire chain** (2026-11-14) — request, processing, shot, flight, splash; first-round error
      by location method (estimate, laser, registered); planned targets in the battle's support rules.
+  3. ✅ **M8.2b Observers and adjustment** (2026-11-14) — observers for men and vehicle sights (drone kind reserved),
+     adjustment converging with observer skill, `lab -- indirect`. Skipping a recognised Verwundetennest waits for
+     M10.7a (medical branch).
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 

@@ -3,6 +3,12 @@
 _Last updated: 2026-11-14 (M7.5e follow-ups, slice s0-clear: a Clear button, the AI clears on its approach; before: M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**M8.2b Observers and adjustment (2026-11-14, same branch; DECISIONS "M8.2b").** The caller or any man of his
+platoon who sees a ranging round fall (a crewman through his sight, with its laser) reads it; the best reader's
+skill sets how much error is left (x0.3 x 1.5..0.6) plus his reading error (3 m + 1 % of range, laser 2 m).
+`npm run lab -- indirect`. Attacker wins vs pre-M8: 3 -> 3, 7 -> 7, 4 -> 5, 1 -> 0 (10 seeds). Open: missions skipping
+a recognised Verwundetennest (needs M10.7a from the medical branch). Next: M8.3a on-map mortars.
+
 **M8.2a Call-for-fire chain (2026-11-14, same branch; DECISIONS "M8.2a").** A mission runs request (15 s),
 processing, "shot", flight (DE 16 / RU 14 s) and "splash" (radio and events); the first round's error is the
 battery's 15 m plus the location error (map or eye estimate 5 m + 7 % of range, laser 2 m + 0.5 %); registered and

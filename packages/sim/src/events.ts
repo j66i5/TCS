@@ -66,7 +66,7 @@ export type SimEvent =
   | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; method: "estimate" | "laser" | "registered"; errorM: number; firstS: number }
   | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
   | { kind: "support.splash"; tick: number; side: SideId; caller: EntityId; x: number; y: number; inS: number }
-  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke"; seen: boolean; missM: number; left: number }
+  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke"; seen: boolean; missM: number; left: number; /** M8.2b: who read the fall (a man, a vehicle sight; a drone from M9.5). */ observer?: EntityId; observerKind?: "man" | "vehicle" | "drone" }
   /**
    * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
    * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).

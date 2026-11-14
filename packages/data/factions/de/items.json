@@ -501,6 +501,30 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the vehicle's fire extinguishing system."
+    },
+    {
+      "id": "de-thermal-sight",
+      "nameKey": "item.de-thermal-sight",
+      "category": "kit",
+      "massKg": 0.9,
+      "sensor": "thermal",
+      "batteryHours": 6,
+      "sources": [
+        "https://militaeraktuell.at/deutschland-neue-nachtsichtsysteme-thales/",
+        "https://defence-network.com/thales-liefert-optronik-systeme-an-rheinmetall/"
+      ],
+      "confidence": "low",
+      "note": "Thermal weapon sight (M9.2): IdZ-ES optics include a combined reflex and thermal rifle sight (Thales XTRAIM, search extracts); how many a Gruppe has is not public. Research default, low (owner round M9 screen 3 (a)): one per Schuetzentrupp, with the marksman. Mass and battery life are game values (batteries reserved for M11.6)."
+    },
+    {
+      "id": "de-thermal-blanket",
+      "nameKey": "item.de-thermal-blanket",
+      "category": "kit",
+      "massKg": 0.8,
+      "thermalCover": 0.25,
+      "sources": [],
+      "confidence": "low",
+      "note": "Thermal (multispectral) camouflage blanket (M9.2): a still man under it shows a quarter of his heat to a thermal sight. Game values; not issued to anyone by default (no public per-squad issue found)."
     }
   ]
 }

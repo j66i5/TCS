@@ -31,6 +31,11 @@ export interface SpotCase {
   moon?: number;
   /** The observer wears night-vision goggles (his faction's item with `sensor: "night"`). */
   nvg?: boolean;
+  /** M9.2: the observer has a thermal weapon sight; the target carries a thermal blanket; the target stands this
+   *  many degrees off where the observer looks. */
+  thermal?: boolean;
+  blanket?: boolean;
+  offAxisDeg?: number;
 }
 export interface SpotRow extends SpotCase { runs: number; spotted: number; medianS: number | null; within10: number; within30: number }
 
@@ -50,13 +55,15 @@ export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
     const ox = 20, ty = 100, tx = 20 + c.rangeM;
     const obs = man("obs", c.ironSights ? "ru-ak74m" : "de-g36", c.ironSights ? "ru-ak74-mag" : "de-g36-mag", catalog);
     if (c.nvg) obs.load.push({ type: "de-nvg", count: 1 });
+    if (c.thermal) obs.load.push({ type: "de-thermal-sight", count: 1 });
     const tgt = man("tgt", "ru-ak74m", "ru-ak74-mag", catalog);
+    if (c.blanket) tgt.load.push({ type: "ru-thermal-blanket", count: 1 });
     const input: BattleInput = {
       map, catalog, seed, orders: [],
       ...(c.timeOfDay !== undefined ? { environment: environmentAt(catalog, c.timeOfDay, c.moon ?? 0.5) } : {}),
       rules: { timeLimitSeconds: max + 10, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "none", physiologyParams: {}, objectives: [] },
       forces: [
-        { side: "blue", faction: "de", units: [{ key: "o", callsign: "O", echelon: "team", leaderIndex: 0, subunits: [], members: [obs] }], placements: [{ personId: "obs", x: ox, y: ty, heading: c.away ? Math.PI : 0 }] },
+        { side: "blue", faction: "de", units: [{ key: "o", callsign: "O", echelon: "team", leaderIndex: 0, subunits: [], members: [obs] }], placements: [{ personId: "obs", x: ox, y: ty, heading: c.away ? Math.PI : -((c.offAxisDeg ?? 0) * Math.PI) / 180 }] },
         { side: "red", faction: "ru", units: [{ key: "t", callsign: "T", echelon: "team", leaderIndex: 0, subunits: [], members: [tgt] }], placements: [{ personId: "tgt", x: tx, y: ty, heading: Math.PI }] },
       ],
     };

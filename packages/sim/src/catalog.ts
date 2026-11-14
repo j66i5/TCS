@@ -24,6 +24,8 @@ export interface ItemTypeDef {
   chargeItem?: DefId;
   /** A sensor kind the wearer looks through (core/spotting.json `sensors`). */
   sensor?: string;
+  /** Thermal blanket (M9.2): the share of his heat a still man carrying it shows. */
+  thermalCover?: number;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
   tracerItem?: DefId;
   tracerEvery?: number;
@@ -488,7 +490,9 @@ export interface SpottingDef {
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
-  sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number }>;
+  sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number; thermal?: boolean; arcDeg?: number }>;
+  /** Thermal signatures (M9.2): relative to what the eye sees. */
+  thermal: { man: number; vehicleCold: number; vehicleHot: number; vehicleFiring: number; vehicleBurning: number; hotSeconds: number; vegetationExponent: number };
   /** Vehicles as targets and contacts (M7.3). */
   vehicles: {
     referenceAreaM2: number; targetMaxRangeM: number; movingAboveMps: number; maxTracked: number; driftMps: number; forgetSeconds: number;

@@ -462,6 +462,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
     } else if (d.yieldTo !== null) d.yieldTo = null;
     const surf = driveSurface(ctx, def, t.x, t.y, t.heading, wet);
     const power = driveDynamicsInPlace(def, d, CMD, surf, DT, state.tick, driveFactors(v, def));
+    if (Math.abs(d.speed) > 0.5) v.movedTick = state.tick; // (M9.2: its tracks, engine and exhaust are hot)
     // Integrate the pose, then check it against houses, walls, water and the other hulls.
     if (d.speed !== 0 || d.yawRate !== 0) {
       const nh = wrapAngle(t.heading + d.yawRate * DT);

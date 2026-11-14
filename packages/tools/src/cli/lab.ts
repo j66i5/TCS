@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|smoke|night|mount|gunnery|armour|antitank|missile|treatment|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|smoke|night|thermal|mount|gunnery|armour|antitank|missile|treatment|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -12,6 +12,7 @@ import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { driveLab, driveLabMarkdown } from "../labs/drive";
 import { smokeLab, smokeLabMarkdown } from "../labs/smoke";
 import { nightLab, nightLabMarkdown } from "../labs/night";
+import { thermalLab, thermalLabMarkdown } from "../labs/thermal";
 import { mountLab, mountLabMarkdown } from "../labs/mount";
 import { gunneryLab, gunneryLabMarkdown } from "../labs/gunnery";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
@@ -33,6 +34,7 @@ const LABS: Record<string, () => string> = {
   attack: () => `# Attack lab\n\n${attackLabMarkdown(attackLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   cover: () => `# Cover and flight lab\n\n${coverLabMarkdown(coverLab(loadData()))}\n`,
   drive: () => `# Drive lab\n\n${driveLabMarkdown(driveLab(loadData(true)))}\n`,
+  thermal: () => `# Thermal lab\n\n${thermalLabMarkdown(thermalLab(loadData()))}\n`,
   night: () => `# Night lab\n\n${nightLabMarkdown(nightLab(loadData()))}\n`,
   smoke: () => `# Smoke lab\n\n${smokeLabMarkdown(smokeLab(loadData()))}\n`,
   mount: () => `# Mount lab\n\n${mountLabMarkdown(mountLab(loadData(true)))}\n`,

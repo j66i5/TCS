@@ -47,6 +47,12 @@ DECISIONS.md under its date._
   medical drag) and slice 12 M10.6-data wheeled ambulance hulls (Boxer ambulance `de-boxer-san`, BMM `ru-bmm`,
   xf `xf-litter-cart`; `--scene ambulances`; no ambulance behaviour yet: slice 13).
 
+**Sensor physics (2026-11-14, roadmap-detail slice 31 "M9.2", parallel session; DECISIONS "M9.2").** Thermal
+sensors see heat (men, hot and cooled hulls, firing, burning; heat comes through vegetation better; thermal blankets),
+a man's sight and goggles help only within their arc; thermal weapon sights as items (DE one per Trupp, RU one per
+platoon; low); goggle numbers kept as built; batteries reserved. `npm run lab -- thermal`. Next on this line: M9.3a
+guided missiles on vehicles (if the coordinator keeps this line on M9).
+
 **Night and light (2026-11-14, roadmap-detail slice 30 "M9.1", parallel session; DECISIONS "M9.1").** Light follows
 the clock in a battle with a sky (`?time=HH:MM&moon=`, tools `--time`): sun and moon table in `core/spotting.json`
 `night`; muzzle flashes and gun flashes light the shooter at night, tracers show him more; the night look tints the
@@ -102,7 +108,8 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 ## Open questions for the owner
 
 - M9 owner round (roadmap-detail Phase 4) is open; M9.1 took the night look (a) darkened map with fires and flashes
-  lit. Low-confidence M9.1 values: the sun table (one date), full-moon light 0.12, flash light 0.8, tracers x3.
+  lit; M9.2 took goggles (a) research defaults. Low-confidence M9.1/M9.2 values: thermal heats, sight arcs, who
+  carries thermal sights (DE marksman per Trupp, RU platoon commander), blankets issued to nobody; M9.1: the sun table (one date), full-moon light 0.12, flash light 0.8, tracers x3.
 - **Pre-interiors goldens:** delete the six skipped files in `packages/tools/golden/no-interiors/` (they have tested
   nothing since 2026-11-13; the plan recommends deleting, and updating the CLAUDE.md note), or keep them?
 - Data reviews whenever convenient (lists in the earlier STATE, `docs/history/STATE-until-2026-11-14.md`, "Open

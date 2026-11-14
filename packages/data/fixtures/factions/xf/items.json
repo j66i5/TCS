@@ -118,6 +118,26 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture: a protective sash (an emblem)."
+    },
+    {
+      "id": "xf-heat-eye",
+      "nameKey": "item.xf-heat-eye",
+      "category": "kit",
+      "massKg": 0.5,
+      "sensor": "thermal",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.2): a thermal sight."
+    },
+    {
+      "id": "xf-cool-cloak",
+      "nameKey": "item.xf-cool-cloak",
+      "category": "kit",
+      "massKg": 0.5,
+      "thermalCover": 0.1,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.2): a thermal blanket."
     }
   ]
 }

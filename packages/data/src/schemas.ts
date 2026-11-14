@@ -298,6 +298,9 @@ export const SpottingFile = withProv({
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
   sensors: z.record(z.string(), z.object({
     factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1),
+    /** M9.2: it sees heat (target signature by `thermal` below; vegetation thins it less), and the half-angle it
+     *  covers from where its holder looks (a man's sight or goggle; absent: everywhere he looks). */
+    thermal: z.boolean().optional(), arcDeg: Num(1, 180).optional(),
     /** M7.3: share of the view kept through a standard (not multispectral) smoke cloud (0 = blinded; default 0). */
     smokeFactor: Num(0, 1).optional(),
     /** M7.3 vehicle sights: range limit (default: maxRangeM), fog floor (it sees at least this far in fog) and
@@ -319,6 +322,12 @@ export const SpottingFile = withProv({
    *  muzzle flash lights him for observers as at least `flashLight`, a vehicle's gun flash lights it as at least
    *  `vehicleFlashLight`, and a man firing tracers (a belt with tracer rounds) shows
    *  `tracerContrast` times more in full darkness (scaled by the darkness). */
+  /** Thermal signatures (M9.2), relative to what the eye sees: a man; a vehicle halted longer than `hotSeconds`
+   *  (cooled), moving or moved within `hotSeconds` (hot), firing, burning; vegetation lets heat through as visibility^vegetationExponent. */
+  thermal: z.object({
+    man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),
+    hotSeconds: Num(0, 7200), vegetationExponent: Num(0.1, 1),
+  }).strict(),
   night: z.object({
     sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
     moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
@@ -664,6 +673,10 @@ export const ItemSchema = withProv({
   chargeItem: Id.optional(),
   /** A sensor the wearer looks through (night-vision goggle ...): a kind in core/spotting.json `sensors`. */
   sensor: z.string().optional(),
+  /** Thermal blanket (M9.2): a man carrying it who is still and not firing shows this share of his heat. */
+  thermalCover: Num(0, 1).optional(),
+  /** Battery life of a powered item, hours (M9.2: reserved, not used yet; batteries are M11.6). */
+  batteryHours: Num(0, 10000).optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */

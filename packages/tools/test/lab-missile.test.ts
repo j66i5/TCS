@@ -41,6 +41,10 @@ describe("guided missile (owner 2026-11-13)", () => {
     expect(launcher()).toBe(1);
     expect(count(sim, shooter, "ru-9m113m-round")).toBe(3);
     const t = sim.state.transform.req(target);
+    // (M9.2: the target Puma's thermal sight finds the hot BMP-2 at 1000 m and would fire back; it holds fire here,
+    // the test is about the missile items.)
+    const tu = sim.state.vehicle.req(target).unit;
+    if (tu !== null) submitOrder(sim, { tick: 0, issuer: "blue", target: tu, kind: "rules", fire: "hold" });
     submitOrder(sim, { tick: 0, issuer: "red", target: v.unit!, kind: "fire", x: t.x, y: t.y, contact: target, nature: "at" });
     let fired = 0, ended = 0, moved = 0;
     run(sim, 10, (e) => {

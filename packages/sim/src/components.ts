@@ -532,6 +532,8 @@ export interface VehicleState {
   fire: { startTick: number; nextCheckTick: number; intensity: number; nextExtTick: number } | null;
   smokeReadyTick: number;
   pendingSmokeTick: number;
+  /** Last tick it moved (M9.2: a hull halted longer than thermal.hotSeconds has cooled). Absent: not since the start. */
+  movedTick?: number;
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;

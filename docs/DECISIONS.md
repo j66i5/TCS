@@ -4130,3 +4130,35 @@ phone (a) a darkened map with fires and flashes lit**. Night-vision goggle numbe
 - **Night batches (10 seeds x 1200 s, 23:00, half moon; day figures from the D1 batches):** platoon: attacker wins 2
   (day 3) of 10, casualties 19.5 / 10.9 (day 18.0 / 12.7); platoon-vehicles 5 (day 5), 18.5 / 20.3 (day 17.7 /
   21.4). No AI change for the night (M9.6). Speed: platoon 159x, platoon-vehicles 96x real time.
+
+## 2026-11-14 — M9.2 Sensor physics (roadmap-detail slice 31, parallel session)
+Owner round M9 still open (the coordinator asks the owner); recommended defaults taken and logged here: **goggles
+screen 3 (a) research defaults, marked low**. Software decisions:
+- **Sensors:** a sensor kind may be `thermal` (sees heat) and have `arcDeg` (the half-angle a man's sight or goggle
+  covers from where he looks; his eyes cover everything): thermal weapon sight 12 degrees, goggles 20 (a 40-degree
+  field of view); `vehicle-thermal` is thermal. Field of view of vehicle sights was already per seat (M7.3).
+- **Heat (`core/spotting.json` `thermal`, game values, low), relative to what the eye sees:** a man x1; a still man
+  under a thermal blanket its `thermalCover` (0.25); a vehicle moving or moved within 10 minutes x1.6, halted longer
+  x0.8 (cooled; new optional `VehicleState.movedTick`, set by the drive), firing x2.5, burning x6. Through vegetation
+  heat comes as visibility^0.5; the better of the best sensor and the best thermal one counts (review fix: the first
+  version took the thermal path only when the thermal sight was the strongest sensor before vegetation, so a
+  marksman's telescopic sight or a vehicle's day sight listed first hid it). Heat is computed once per target per
+  tick (in the target rows), not per observer-target pair (acceptance).
+- **Data (research defaults, low; search extracts only):** thermal weapon sights `de-thermal-sight` (IdZ-ES
+  optics include a reflex + thermal rifle sight) — one per Schuetzentrupp, with the marksman; `ru-thermal-sight`
+  (Ratnik lists 1PN140/141; night optics of limited distribution) — one per platoon, with the platoon commander.
+  Thermal blankets `de-thermal-blanket` / `ru-thermal-blanket` as items, issued to nobody (no public per-squad issue
+  found). Goggles stay as built: every man of both sides' squads has one (no public per-squad numbers; this is the
+  owner's "research defaults" with the M10.1 itemised loads). `batteryHours` on items: reserved for M11.6.
+  Battlefield surveillance radar stays reserved (SPEC 8). xf: `xf-heat-eye`, `xf-cool-cloak`.
+- **Lab (`npm run lab -- thermal`, 30 seeds):** a man standing still at 300 m on a moonless night: optic 17 % within
+  30 s, with the thermal sight 100 % (as by day); prone in crops at 100 m: optic 0 %, thermal found him in 57-60 %
+  of runs; under a blanket the thermal finds a prone man far less (37 % vs 97 % within 120 s at night); 40 degrees
+  off the sight's arc it does not help; a BMP-2 at 1000 m at night: just driven median 3 s, halted 10 minutes 7 s.
+- **Missile test:** the target Puma's thermal crew now finds the hot BMP-2 at 1000 m and fires back, breaking off the
+  BMP's reload in `lab-missile.test.ts`; the test now holds the target's fire (it is about the missile items).
+- **Batches (10 seeds x 1200 s, main -> now, daylight):** platoon 1 -> 0 attacker wins, casualties 19.0/10.3 ->
+  20.1/12.2; platoon-ru 7 -> 4 Russian wins, 16.6/13.1 -> 14.9/14.4; platoon-vehicles 5 -> 5, 17.9/24.0 -> 15.7/22.9;
+  within the noise of 10 seeds (the marksman's 0.9 kg sight, crews' thermal view of men in vegetation and of hot
+  hulls). Night platoon-vehicles (23:00) 6 German wins. Perf alone: bench-vehicles 12.9x, spotting bench 12.5x
+  (floors 8x). Golden update.

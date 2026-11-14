@@ -10,8 +10,10 @@ export function updateImpairment(catalog: Catalog, s: SoldierState): void {
   const e = catalog.wounds.effects;
   let leg = 0, arm = 0;
   for (const w of s.wounds) {
-    if (w.zone === "legL" || w.zone === "legR") leg = Math.max(leg, w.severity);
-    else if (w.zone === "armL" || w.zone === "armR") arm = Math.max(arm, w.severity);
+    // A broken bone (medical model, M10.1) counts as a limb he cannot use: no walking on a broken leg, no rifle
+    // with a broken arm.
+    if (w.zone === "legL" || w.zone === "legR") leg = Math.max(leg, w.fracture ? e.legNoWalkSeverity : w.severity);
+    else if (w.zone === "armL" || w.zone === "armR") arm = Math.max(arm, w.fracture ? e.armNoFightSeverity : w.severity);
   }
   const p = s.physiology;
   const conscious = p.alive && p.consciousness >= 0.5;

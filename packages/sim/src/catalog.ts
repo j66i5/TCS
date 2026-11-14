@@ -28,6 +28,11 @@ export interface ItemTypeDef {
   tracerEvery?: number;
   /** Body armour and helmets: zones covered (zone group: "arm" and "leg" cover both sides). */
   armour?: { zone: string; coverageFront: number; coverageSide: number; protectionSteelMm: number }[];
+  /** Medical supplies (M10.1): what the item is for (tags matched by core/medical.json interventions), and how
+   *  much slower and less reliable it is than the reference item (a rubber tourniquet against the CAT). */
+  medical?: { tags: string[]; timeFactor: number; successFactor: number };
+  /** A protective emblem (red cross armband, M10.1): a man wearing one is marked as medical personnel. */
+  emblem?: true;
 }
 
 export type MovementClass = "foot" | "wheeled" | "tracked";
@@ -533,6 +538,9 @@ export interface QualityDef {
 
 export interface FactionDef {
   id: DefId;
+  /** Roles with medical training (M10.1), by role id: the level and, if the national training is narrower than
+   *  the level's, the interventions the role is trained for (Q-1b: skills per national training). */
+  medicalRoles?: Record<DefId, { level: MedicalLevel; interventions?: DefId[] }>;
   /** Key into the string table for the faction's display name. */
   nameKey: string;
   /** Doctrine profile values (data-driven behaviour weights; SPEC 6.6). */
@@ -562,9 +570,59 @@ export interface FormationDef {
   slots: [number, number][];
 }
 
+/** Medical jobs (M10.1): roles in the units, data (factions/<id>/roles.json `medical.level`). */
+export type MedicalLevel = "firstResponder" | "medic" | "stretcherBearer" | "ambulanceCrew";
+/** Who performs a treatment, by training: every soldier on himself or a comrade, a first responder, a medic. */
+export type CareSkill = "self" | "buddy" | "firstResponder" | "medic";
+
+/** One kind of treatment (core/medical.json `interventions`, M10.1; performed from M10.2). */
+export interface InterventionDef {
+  id: DefId;
+  /** The condition it treats (a key the medical system knows). */
+  treats: string;
+  /** Allowed under effective fire (TCCC care under fire: tourniquet only). */
+  underFire: boolean;
+  /** Seconds to perform, by skill; a skill not listed cannot perform it. */
+  timeS: Partial<Record<CareSkill, number>>;
+  /** Chance of success per attempt, by skill (self-aid uses buddy times `selfFactor`). */
+  success: Partial<Record<CareSkill, number>>;
+  stressFactor: number;
+  selfFactor: number;
+  underFireTimeFactor: number;
+  /** Items used up: `count` items carrying `tag` in their `medical.tags`. */
+  consumes: { tag: string; count: number }[];
+  effect: {
+    bleedFactor?: number; painAdd?: number; painRelief?: number; tourniquet?: boolean; airwayFactor?: number;
+    breathingFactor?: number; decompress?: boolean; access?: boolean; fluidL?: number; warms?: boolean; splints?: boolean;
+  };
+}
+
+/** The medical data (core/medical.json, M10.1) without provenance. */
+export interface MedicalDef {
+  /** Rates of the "medical" physiology model; merged into the physiology parameters. */
+  physiology: Record<string, number>;
+  /** What each medical job may do: the skill it treats with. */
+  levels: Record<MedicalLevel, { skill: CareSkill }>;
+  interventions: Record<DefId, InterventionDef>;
+  /** Ways of moving a casualty (M10.4): carriers needed, speed, distance before a rest. */
+  carry: Record<DefId, { carriers: number; speedMps: number; enduranceM: number; restS: number; setupS: number; upright: boolean }>;
+  /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
+  chain: { firstAidS: number; role1S: number; surgeryS: number };
+  /** Recognising protected persons and breaches (M10.7). */
+  protection: {
+    recognitionM: { vehicleEye: number; vehicleOptics: number; armbandEye: number; armbandOptics: number };
+    obscuredFactor: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
+    medicFiredLosesProtectionS: number;
+  };
+  /** Triage (M10.3): chance of a wrong category by skill, more under fire. */
+  triage: { errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number };
+}
+
 export interface Catalog {
   /** Content fingerprint of the loaded data (stable hash). Stored in battle results and saves. */
   fingerprint: string;
+  /** Medical data (core/medical.json, M10.1); absent in data sets without it (old tests). */
+  medical?: MedicalDef;
   items: Record<DefId, ItemTypeDef>;
   movementModes: Record<DefId, MovementModeDef>;
   qualities: Record<DefId, QualityDef>;

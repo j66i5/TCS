@@ -18,7 +18,7 @@ describe("squads and kit (M2.5)", () => {
 
   it("the demo starts with the Puma dismount squad and the BMP motor-rifle squad, six men each, as chosen", () => {
     expect(side("blue").map((m) => `${m.role}:${m.weapon}`)).toEqual([
-      "truppfuehrer:de-g36", "mg-gunner:de-mg5", "at-gunner:de-g36", "marksman:de-g28", "grenadier:de-g36", "panzergrenadier:de-g36",
+      "truppfuehrer:de-g36", "mg-gunner:de-mg5", "at-gunner:de-g36", "marksman:de-g28", "grenadier:de-g36", "einsatzersthelfer:de-g36",
     ]);
     expect(side("red").map((m) => `${m.role}:${m.weapon}`)).toEqual([
       "squad-leader:ru-ak74m", "mg-gunner:ru-pkp", "at-gunner:ru-ak74m", "assistant-at-gunner:ru-ak74m", "senior-rifleman:ru-ak74m", "rifleman-gl:ru-ak74m",

@@ -50,13 +50,14 @@ export function createContext(input: BattleInput): SimContext {
   if (!comms) throw new Error(`unknown comms model '${input.rules.commsModel}'`);
   const problems = validateMap(input.map, input.catalog.terrain);
   if (problems.length > 0) throw new Error(`map '${input.map.id}' does not fit the data: ${problems.slice(0, 5).join("; ")}`);
+  if (input.rules.physiologyModel === "medical" && !input.catalog.medical) throw new Error("the 'medical' physiology model needs core/medical.json in the data");
   const mapIndex = buildMapIndex(input.map);
   return {
     catalog: input.catalog, map: input.map, mapIndex, mapFingerprint: mapFingerprint(input.map), nav: {},
     ballistics: buildBallistics(input.map, input.catalog, mapIndex, TICK_HZ), dropTables: {},
     rules: input.rules, comms,
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
-    physiologyParams: { ...input.catalog.wounds.physiology, ...input.rules.physiologyParams },
+    physiologyParams: { ...input.catalog.wounds.physiology, ...input.catalog.medical?.physiology, ...input.rules.physiologyParams },
     breaches: [], navStamps: [], navStampKey: "",
   };
 }

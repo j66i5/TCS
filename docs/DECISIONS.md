@@ -3912,3 +3912,60 @@ data or golden change):
   therefore still shows 6 skipped. STATE.md cut from 55 KB to under 20 KB; the old text is in
   `docs/history/STATE-until-2026-11-14.md`.
 - Goldens unchanged (no sim or data change; golden test green).
+
+## 2026-11-14 — M10.1 medical data and the new physiology (roadmap-detail slice 3; goldens regenerated)
+All owner questions were answered up front (entries above). Built (nobody treats anyone yet; that is M10.2):
+- **`core/medical.json`** (new, in the catalog fingerprint as `Catalog.medical`): `physiology` (rates of the medical
+  model), `levels` (skill per medical job), 17 `interventions` (time and success by skill self / buddy / first
+  responder / medic, allowed under fire or not, items used up by tag, effect), 7 ways to `carry` a casualty, the
+  10-1-2 `chain` targets, `protection` (recognition ranges, breach chances from quality, stress and losses only)
+  and `triage` errors. Values from the research of 2026-11-14 (search extracts only): **medium** where a number was
+  seen in an extract of a primary source (tourniquet times, drag speed, 10-1-2 chain, needle failure rates), all
+  else **low** game values with a note. The data lint now refuses "high" confidence anywhere in medical data and
+  warns if an intervention uses a tag no faction's item carries.
+- **Kits as counted items:** the `de-ifak` / `ru-ifak` placeholder became the pouch plus its contents at the same
+  0.6 kg (DE: CAT tourniquet, two field dressings, haemostatic gauze, rescue blanket, pain tablets; RU: rubber
+  tourniquet, two IPP-1, haemostatic powder, pain syringe tube). Items carry `medical: { tags, timeFactor,
+  successFactor }`; the Russian rubber tourniquet and powder are ×1.4 time, ×0.8 success (owner Q-1d, item data,
+  no faction in code). First responder bag (DE EH-B, about 3 kg), medic bag (Sanitäter), rifleman-medic bag (RU),
+  red cross armband (`emblem: true`).
+- **Roles and templates (owner Q-1c, Q-1b):** role field `medical: { level, interventions? }` (catalog
+  `FactionDef.medicalRoles`). DE: the Gruppe's panzergrenadier became the **Einsatzersthelfer B** (no extra man;
+  trained for airway relief, needle, IV, not IO); a **Sanitäter** (medic, G36 with three magazines, armband)
+  joins the Zug HQ and rides in the HQ Puma (3 of 6 seats). RU: the BMP's seven passenger seats are full, so the
+  platoon's **strelok-sanitar** is the GP-25 rifleman of a new template `motor-rifle-squad-1` (the platoon's first
+  squad; he keeps rifle and GP-25; dressings, tourniquets, pain syringe, blanket only). xf fixture: the boss is a
+  first responder; strap, poultice and sash items. Software decision: no company medics, bearers or ambulances
+  on the map (owner Q-1c: off the map, later slices).
+- **The "medical" physiology model** (`medicalPhysiology`, default in every scenario via `defaultRules`; tests
+  that set "simple" keep it): the owner's clock of 2026-11-11 unchanged, plus tension pneumothorax (15 % of
+  penetrating chest wounds, onset 5-30 min, dead 10 min after), a head injury's lucid interval (30 % of conscious
+  head wounds of severity ≥ 0.15 pass out after 2-30 min), broken bones (30 % of limb wounds of severity ≥ 0.25:
+  no walking on the leg, no rifle with the arm, in `updateImpairment`), burn plasma loss, fluids (500 ml in 10 min,
+  70 % counts), hypothermia from the weather (new optional `env` argument of `PhysiologyModel.step`: air
+  temperature, rain, wind, aboard = sheltered; only a man in shock cools; below 35 °C slower clotting and a smaller
+  lethal loss; out below 31 °C, dead at 28 °C) and the tourniquet clock (`tourniquetS`, `amputationChance`: none
+  within 2 h, 0.5 at 6 h, 0.9 at 10 h). **Software decision:** the later conditions are rolled when the wound is
+  made (new optional `PhysiologyModel.onWound`) from a new **`conditions`** RNG stream, not from `wounds`, so the
+  hits of a battle draw exactly as with the simple model (the casualty lab reproduces the owner's table hit for
+  hit); care in M10.2 will draw from `medical`. `createSim` refuses the medical model without medical data.
+- **State schema 18**, new fields all optional; a schema-17 save loads through the new `migrateState` (tested),
+  16 and older are refused as before.
+- **Casualty lab** (acceptance): both models on the same wounds, plus "dead by 120 min". Untreated, medical vs the
+  accepted clock: dead by 10 min identical in all eight rows; by 60 min +0 to +2 points (e.g. plated, standing,
+  100 m: 32 % / 44 % both; no armour 54 % / 61 % → 62 %; prone 78 % → 80 %); dead by 120 min = by 60 min. "Of the
+  conscious wounded, can still fight" fell 5-13 points (73 → 68 %, side-on 71 → 58 %) because of arm fractures.
+- **Tests:** `tools/test/medical-physiology.test.ts` (one test per condition, onWound rolls, simple model
+  unaffected, data checks, save/load mid-battle on the same hash, schema 17 migration, xf battle);
+  `lab-casualty.test.ts` gains the ±3-point acceptance; `lab-house` "leave": a man the trap leaves down or with a
+  broken leg is counted as unable to walk out (seed 1: 5 of 6 out in time, 1 down); squads, loader and fixture
+  tests follow the new roles and items.
+- **Goldens regenerated** (`npm run golden:update`, intended: catalog fingerprint, roles, kits, the medical model):
+  demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `no-interiors`
+  untouched.
+- **Balance (10 seeds × 1200 s, before → after, attacker wins):** platoon (village) 4/10 → 0/10 (seeds 11-20:
+  1/10 → 1/10, so 5/20 → 1/20; blue casualties 19.4 → 19.7, red 12.5 → 10.9); platoon-vehicles 4/10 → 6/10;
+  platoon-ru 3/10 → 6/10. Mixed and within the noise of 10-20 seeds except perhaps the infantry village attack,
+  which may lose men to broken legs; not tuned here (balance belongs to M10.8, owner A3).
+- **Checks:** `npm run check` alone: green except the hull-hit perf variant (the known noise in CLAUDE.md), which passed when its file was rerun alone. **Not run separately:** `npm run test:perf` twice (no per-tick per-man work: the wound system still steps only wounded men every
+  0.5 s); screenshots (no visible change beyond role names on the card).

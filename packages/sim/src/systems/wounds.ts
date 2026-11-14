@@ -11,10 +11,10 @@ import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, updateImpairment } from "../impair";
 import { unitSoldiers } from "./orders";
-import { clamp, pow } from "../math";
+import { clamp, pow, sqrt } from "../math";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import type { BodyZone, Wound } from "../wounds";
+import type { BodyZone, PhysiologyEnv, Wound } from "../wounds";
 
 /** Zone groups in core/wounds.json; "arm" and "leg" become left or right by where the round struck. */
 export const ZONE_GROUPS = ["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"] as const;
@@ -181,6 +181,9 @@ function addWound(ctx: SimContext, state: SimState, events: EventSink, target: E
   const s = state.soldier.req(target);
   const wound: Wound = { id: s.nextWoundId++, ...w, tickInflicted: state.tick, treatments: [] };
   if (source > 0) wound.source = source;
+  // The physiology model rolls the conditions that appear later (M10.1; the simple model draws nothing).
+  const model = ctx.physiology;
+  if (model?.onWound) { const rng = state.rng; model.onWound(wound, () => nextFloat(rng, Streams.conditions), ctx.physiologyParams); }
   s.wounds.push(wound);
   // Pain is at least that of the worst wound, and every further wound adds to it (many small wounds overwhelm).
   s.physiology.pain = Math.min(1, Math.max(w.severity, s.physiology.pain + ctx.catalog.wounds.effects.painPerWoundK * w.severity));
@@ -258,11 +261,14 @@ export function woundSystem(ctx: SimContext, state: SimState, events: EventSink)
   const every = Math.max(1, secondsToTicks(params["stepSeconds"] ?? 0.5));
   if (state.tick % every !== 0) return;
   const dt = every / secondsToTicks(1);
-  // mounted: ok wounds run their course aboard too
+  const E = state.environment;
+  const open: PhysiologyEnv = { temperatureC: E.temperatureC, rain: E.rain, windMps: sqrt(E.windX * E.windX + E.windY * E.windY), sheltered: false };
+  const aboard: PhysiologyEnv = { ...open, sheltered: true };
+  // mounted: ok wounds run their course aboard too (out of the weather)
   for (const [id, s] of state.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive) continue;
     // Without a physiology model ("none") nothing bleeds, but pain still fades.
-    if (model) model.step(s.physiology, s.wounds, dt, params);
+    if (model) model.step(s.physiology, s.wounds, dt, params, s.mount ? aboard : open);
     else s.physiology.pain = Math.max(0, s.physiology.pain - (params["painDecayPerS"] ?? 0) * dt);
     refreshStatus(ctx, state, events, id);
   }

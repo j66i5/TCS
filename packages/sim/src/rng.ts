@@ -40,6 +40,10 @@ export const Streams = {
   antitank: "antitank",
   /** Guided missiles (owner 2026-11-13): gunners' tracking errors, lost missiles. Created on first use. */
   missile: "missile",
+  /** Conditions of a wound that appear later (M10.1 medical physiology: tension pneumothorax, head injury, broken
+   *  bones), rolled when the wound is made. Its own stream so the hits themselves draw exactly as with the simple
+   *  model; created on first use (the simple model never draws). Care itself (M10.2) draws from "medical". */
+  conditions: "conditions",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

@@ -66,6 +66,20 @@ describe("casualty lab", () => {
     }
   });
 
+  it("M10.1 acceptance: untreated, the medical model kills within 3 points of the accepted clock at 10 and 60 min", () => {
+    for (const r of rows) {
+      expect(Math.abs(share(r.medDead10min, r.wounded) - share(r.dead10min, r.wounded))).toBeLessThanOrEqual(0.03);
+      expect(Math.abs(share(r.medDead60min, r.wounded) - share(r.dead60min, r.wounded))).toBeLessThanOrEqual(0.03);
+      expect(r.medDead120min).toBeGreaterThanOrEqual(r.medDead60min);
+      expect(r.medDead60min).toBeGreaterThanOrEqual(r.medDead10min);
+    }
+    // The hits themselves are drawn exactly as before (the conditions have their own stream): the owner's table of
+    // 2026-11-11 for the plated standing case (13 % killed outright, 44 % dead within the hour).
+    const st = row("G36 at 100 m, standing, facing, helmet");
+    expect(Math.abs(share(st.killedOutright, st.wounded) - 0.13)).toBeLessThan(0.02);
+    expect(Math.abs(share(st.medDead60min, st.wounded) - 0.44)).toBeLessThanOrEqual(0.03);
+  });
+
   it("where rounds strike follows the posture: chest first standing; head and shoulders prone", () => {
     const st = row("G36 at 100 m, standing, facing, helmet"), pr = row("prone");
     expect(share(st.zones["chest"] ?? 0, st.struck)).toBeGreaterThan(0.4);

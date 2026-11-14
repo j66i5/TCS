@@ -176,6 +176,26 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
@@ -217,6 +237,26 @@
             },
             {
               "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
               "count": 1
             },
             {
@@ -277,6 +317,26 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
@@ -318,6 +378,26 @@
             },
             {
               "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
               "count": 1
             },
             {
@@ -373,6 +453,26 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
@@ -384,7 +484,7 @@
           "weapon": "de-g36"
         },
         {
-          "role": "panzergrenadier",
+          "role": "einsatzersthelfer",
           "rank": "gefreiter",
           "load": [
             {
@@ -422,11 +522,59 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 3
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 6
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 3
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 3
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 3
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
             {
               "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-ehb-bag",
+              "count": 1
+            },
+            {
+              "item": "de-chest-seal",
+              "count": 2
+            },
+            {
+              "item": "de-npa",
+              "count": 2
+            },
+            {
+              "item": "de-decompression-needle",
+              "count": 1
+            },
+            {
+              "item": "de-iv-set",
+              "count": 1
+            },
+            {
+              "item": "de-fluid-500",
+              "count": 2
+            },
+            {
+              "item": "de-splint",
               "count": 1
             }
           ],
@@ -486,6 +634,26 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
@@ -534,11 +702,131 @@
               "count": 1
             },
             {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
               "item": "de-webbing",
               "count": 1
             },
             {
               "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "sanitaeter",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 5
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 10
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 5
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 4
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 5
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-medic-bag",
+              "count": 1
+            },
+            {
+              "item": "de-chest-seal",
+              "count": 4
+            },
+            {
+              "item": "de-npa",
+              "count": 2
+            },
+            {
+              "item": "de-decompression-needle",
+              "count": 2
+            },
+            {
+              "item": "de-iv-set",
+              "count": 2
+            },
+            {
+              "item": "de-io-set",
+              "count": 1
+            },
+            {
+              "item": "de-fluid-500",
+              "count": 3
+            },
+            {
+              "item": "de-ketamine",
+              "count": 3
+            },
+            {
+              "item": "de-splint",
+              "count": 2
+            },
+            {
+              "item": "de-armband",
               "count": 1
             }
           ],
@@ -559,7 +847,7 @@
         "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe"
       ],
       "confidence": "low",
-      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios).",
+      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). M10.1: a Sanitaeter (medic) with the Zug headquarters (owner Q-1c), riding in the headquarters Puma.",
       "carriage": [
         {
           "crew": 3,

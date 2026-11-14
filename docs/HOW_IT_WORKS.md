@@ -276,6 +276,22 @@ at about half; an untreated chest wound that stops him breathing kills in some m
 yet. Until then a wounded man carries on as well as he can: a leg wound slows him or leaves him crawling, an
 arm wound or strong pain spoils his aim or stops him using his rifle.
 
+**The medical clock (M10.1).** Since the medical step every battle runs the "medical" body model. It keeps the
+clock above and adds what makes casualties a problem with a clock: some chest wounds develop a **tension
+pneumothorax** 5-30 minutes later, which kills about ten minutes after it starts unless a medic puts a needle in
+(from M10.2); some men with a head wound walk and talk for a while and then pass out; about three in ten limb
+wounds break a bone, so the man cannot walk on that leg or use his rifle with that arm; burns lose fluid slowly;
+a man in shock gets cold — faster in rain and wind, far slower aboard a vehicle or wrapped in a rescue blanket —
+and a cold man bleeds more and dies of less; a tourniquet's time on the limb is counted (no limb is lost within two
+hours, more and more after). Untreated, the medical model kills the same share of men as the clock the owner
+accepted on 2026-11-11 (the casualty lab compares both on the same wounds and adds "dead by 120 min"). Every man
+carries his first-aid kit as counted items (a tourniquet, two field dressings, haemostatic gauze or powder, a
+rescue blanket or a pain syringe); in each German Gruppe one man is an Einsatzersthelfer B with a first
+responder bag, the Zug headquarters has a Sanitäter with a medic bag and a red cross armband, and the first
+Russian squad has the platoon's rifleman-medic. The Russian rubber tourniquet and haemostatic powder are slower
+and less reliable than the German ones (item data). All numbers are in `core/medical.json` with their sources;
+nothing there is better than "medium". **Nobody treats anyone yet** — that comes in M10.2.
+
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
 down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what
@@ -309,7 +325,8 @@ among rings of men and prints who was hurt at which distance.
 The game starts with two real squads of six: German Panzergrenadiers dismounted from a Puma (leader, machine
 gunner with the MG5, Panzerfaust man, marksman with the G28, a man with the AG36 grenade launcher, a rifleman)
 and a Russian motor-rifle squad from a BMP (leader, PKP machine gunner, RPG grenadier and his assistant, two
-riflemen with GP-25 launchers). Who is in a squad, with which weapon and which load, is a data file. Every man
+riflemen with GP-25 launchers). Since M10.1 the German rifleman is the squad's first responder
+(Einsatzersthelfer B) and the first Russian squad's second GP-25 man is the platoon's rifleman-medic. Who is in a squad, with which weapon and which load, is a data file. Every man
 carries listed items — weapon, magazines or belts, grenades, helmet, vest, water, rations, first-aid kit — and
 their weight slows and tires him. A machine gun fires bursts of five from a belt with a tracer every fifth
 round; the marksman's telescopic sight makes him more accurate at long range.

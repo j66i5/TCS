@@ -225,7 +225,12 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
 1. ✅ **M10.0 Kick-off and clean slate** (slice 2, 2026-11-14) — owner rounds A, M10-1, M10-2 and M10-3 answered
    up front; roadmap and SPEC §11 updated; ARCHITECTURE §17 refreshed with two new guards (contact sharing only
    through comms, environment save and load mid-battle); faster tests (`npm run test:quick`); STATE.md cut.
-2. ⬜ **M10.1 Medical data and the new physiology** (slice 3)
+2. ✅ **M10.1 Medical data and the new physiology** (slice 3, 2026-11-14) — `core/medical.json` (physiology,
+   17 interventions, carrying, chain targets, protection, triage; medium confidence at most); first-aid kits as
+   counted contents; first responder and medic bags; medical roles (one Einsatzersthelfer B per Gruppe, a marked
+   Sanitäter in the Zug HQ, a rifleman-medic in the first Russian squad); the "medical" physiology model (tension
+   pneumothorax, head injury, hypothermia, fluids, burns, tourniquet clock, broken bones) as the default; state
+   schema 18. Nobody treats anyone yet.
 3. ⬜ **M10.2 Interventions; self-aid and buddy aid** (slice 4)
 4. ⬜ **D1 Hand smoke grenades** (slice 5; owner: a small step inside medical)
 5. ⬜ **M10.3a Who helps: carers and first responders** (slice 6)

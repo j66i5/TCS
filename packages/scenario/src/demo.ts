@@ -37,7 +37,8 @@ export function defaultRules(timeLimitSeconds = 600): BattleRules {
     timeLimitSeconds,
     commsModel: "simple",
     comms: { ...DEFAULT_COMMS },
-    physiologyModel: "simple",
+    // M10.1: the medical physiology model (needs core/medical.json in the data).
+    physiologyModel: "medical",
     physiologyParams: {},
     objectives: [],
   };

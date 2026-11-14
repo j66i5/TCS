@@ -143,10 +143,10 @@
       "id": "ru-ifak",
       "nameKey": "item.ru-ifak",
       "category": "kit",
-      "massKg": 0.6,
+      "massKg": 0.27,
       "sources": [],
       "confidence": "low",
-      "note": "Individual first-aid kit (tourniquet, dressings); used by the medical system in M10. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+      "note": "The pouch of the individual first-aid kit; its contents are counted items since M10.1 (a rubber tourniquet, two IPP-1 dressings, haemostatic powder, a pain-relief syringe tube: 0.6 kg with the pouch, the old placeholder mass). 2011-model Russian kit contents from nordsint.org and CNA 2024 (search extracts; quantities one each, low)."
     },
     {
       "id": "ru-webbing",
@@ -258,6 +258,97 @@
       ],
       "confidence": "medium",
       "note": "One 9M113M missile in its launch container (tube): the launcher holds one, the BMP-2 carries four in all (published: four rounds, reloaded through the gunner's hatch). Container mass (about 10 kg empty) is a game value."
+    },
+    {
+      "id": "ru-tourniquet-rubber",
+      "nameKey": "item.ru-tourniquet-rubber",
+      "category": "medical",
+      "massKg": 0.1,
+      "medical": {
+        "tags": [
+          "tourniquet"
+        ],
+        "timeFactor": 1.4,
+        "successFactor": 0.8
+      },
+      "sources": [
+        "https://nordsint.org/"
+      ],
+      "confidence": "medium",
+      "note": "Elastic rubber (Esmarch / Alfa type) tourniquet of the Russian kit (nordsint.org, search extract). UK Defence Intelligence 2023: 'inappropriate use of the crude in-service Russian combat tourniquet' a leading cause of preventable deaths (forcesnews, search extract). Owner: about 1.4x the time and 0.8x the success of the CAT (item factors)."
+    },
+    {
+      "id": "ru-ipp1",
+      "nameKey": "item.ru-ipp1",
+      "category": "medical",
+      "massKg": 0.08,
+      "medical": {
+        "tags": [
+          "pressure-dressing"
+        ]
+      },
+      "sources": [
+        "https://nordsint.org/"
+      ],
+      "confidence": "low",
+      "note": "Individual dressing packet IPP-1 (nordsint.org, search extract). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "ru-hemostatic-powder",
+      "nameKey": "item.ru-hemostatic-powder",
+      "category": "medical",
+      "massKg": 0.05,
+      "medical": {
+        "tags": [
+          "hemostatic"
+        ],
+        "timeFactor": 1.4,
+        "successFactor": 0.8
+      },
+      "sources": [
+        "https://nordsint.org/"
+      ],
+      "confidence": "low",
+      "note": "Haemostatic powder ('Gemostop' type) of the Russian kit (nordsint.org, search extract). Owner: about 1.4x the time and 0.8x the success of gauze."
+    },
+    {
+      "id": "ru-pain-syringe",
+      "nameKey": "item.ru-pain-syringe",
+      "category": "medical",
+      "massKg": 0.02,
+      "medical": {
+        "tags": [
+          "pain-injector"
+        ]
+      },
+      "sources": [
+        "https://nordsint.org/"
+      ],
+      "confidence": "low",
+      "note": "Syringe tube with an opioid (promedol) of the Russian kit (nordsint.org, search extract). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "ru-rescue-blanket",
+      "nameKey": "item.ru-rescue-blanket",
+      "category": "medical",
+      "massKg": 0.06,
+      "medical": {
+        "tags": [
+          "blanket"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Rescue blanket (rifleman-medic's bag; proposal). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "ru-fr-bag",
+      "nameKey": "item.ru-fr-bag",
+      "category": "medical",
+      "massKg": 0.4,
+      "sources": [],
+      "confidence": "low",
+      "note": "The rifleman-medic's (strelok-sanitar) bag, empty; contents counted in his load (three rubber tourniquets, six dressings, two haemostatic powders, two pain syringe tubes, a rescue blanket). Proposal: kit not found beyond the individual one (research 2026-11-14)."
     }
   ]
 }

@@ -22,6 +22,14 @@
             {
               "item": "xf-bomb",
               "count": 1
+            },
+            {
+              "item": "xf-strap",
+              "count": 1
+            },
+            {
+              "item": "xf-poultice",
+              "count": 2
             }
           ],
           "weapon": "xf-blaster"

@@ -203,9 +203,14 @@ registered per kind (generic, not per faction). Interrupts emit `action.interrup
 
 ```ts
 interface Wound { id; zone: BodyZone; mechanism; severity; bleedingLps; compressible;
-                  airway; breathing; consciousness; tickInflicted; source?; treatments: TreatmentRecord[] }
-interface Physiology { bloodVolumeL; shock; consciousness; pain; respiratory; alive }
-interface PhysiologyModel { id; step(physiology, wounds, dtSeconds, params): void }   // rates from data
+                  airway; breathing; consciousness; tickInflicted; source?; treatments: TreatmentRecord[];
+                  tensionInS?; tension?; headInS?; fracture?; tourniquetS? }          // M10.1, optional
+interface Physiology { bloodVolumeL; shock; consciousness; pain; respiratory; alive; coreTempC?; fluidL?; warmed? }
+interface PhysiologyEnv { temperatureC; rain; windMps; sheltered }                    // M10.1
+interface PhysiologyModel {
+  id; step(physiology, wounds, dtSeconds, params, env?: PhysiologyEnv): void         // rates from data
+  onWound?(wound, draw: () => number, params): void   // M10.1: roll later conditions ("conditions" RNG stream)
+}
 ```
 
 ✅ (M2.3) Every soldier carries `wounds[]`, `physiology`, `impair { move, aim, canWalk, canFight }`,
@@ -218,6 +223,17 @@ parameters from `core/wounds.json` merged with `physiologyParams`) every `stepSe
 `refreshStatus`, which recomputes `impair` and handles the transition to casualty (drop tasks, leader
 succession, `casualty` and `radio.manDown` events). `isAble()` (alive and conscious) is the one test other
 systems use. The medical system (M10) replaces the model's contents and adds treatments, not this interface.
+
+✅ (M10.1) The `"medical"` model (`medicalPhysiology`, the default in every scenario through `defaultRules`) keeps
+the simple clock and adds: a tension pneumothorax that develops `tensionInS` after some chest wounds, a head
+injury that knocks a man out after a lucid interval (`headInS`), plasma loss from burns, fluids running in
+(`fluidL`), hypothermia (`coreTempC`, from the weather passed as the optional `env`: air temperature, rain,
+wind, aboard = sheltered), the tourniquet clock (`tourniquetS`, read by `amputationChance`) and broken bones
+(`fracture`, read by `updateImpairment`). The later conditions are rolled in `onWound`, called by `addWound`
+with draws from the `conditions` stream (the simple model has no `onWound` and draws nothing, so the hits of a
+battle draw exactly as before). Its rates are `core/medical.json` "physiology", merged into `physiologyParams`;
+`createSim` refuses the model when the data has no medical file. State schema 18 (17 loads through
+`migrateState`: new fields are optional).
 
 ## 12. Communication state (SPEC 6.5, 9.5) — `sim/src/comms.ts`
 
@@ -817,7 +833,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 4.3.11 | Battle is a function; roster in/out | battle.ts, run.ts, setup.ts | ✅ | `fixture-faction.test.ts` (forcesOut), determinism.test.ts |
 | 4.3.12 | Player text through string table | strings.ts, events carry keys | ✅ | `fixture-faction.test.ts` (radio phrasing) |
 | 4.4 | Performance floor (headless ≥ 8× real time on benchmark) | perf.test.ts, perf-projectiles.test.ts, perf-sight.test.ts | ✅ soldiers (`bench`), `bench-vehicles` and spotting ≥ 8×; 🟡 with 20,000 projectiles about 4× here, floor 3× (baseline of 2026-11-14 in DECISIONS "M10.0 kick-off") | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts`, `tools/test/perf-sight.test.ts` |
-| 9.1 | Time-stepped physiology with data-driven rates behind a swappable model | wounds.ts (`PhysiologyModel`), context.ts | 🟡 simple model ✅ (M2.3); the "medical" model and an optional environment argument to `step` in M10.1 | `sim/test/wounds.test.ts` (bleeding clocks), `tools/test/lab-casualty.test.ts` |
+| 9.1 | Time-stepped physiology with data-driven rates behind a swappable model | wounds.ts (`PhysiologyModel`), context.ts | ✅ simple model (M2.3); the "medical" model (default), `onWound` and the optional environment argument to `step` (M10.1) | `sim/test/wounds.test.ts` (bleeding clocks), `tools/test/medical-physiology.test.ts` (one test per condition), `tools/test/lab-casualty.test.ts` (within 3 points of the accepted clock) |
 | 9.1 | Actions with duration that can be interrupted | actions.ts | ✅ | `sim/test/orders.test.ts` "actions with duration" |
 | 9.1 | Skills per soldier | SoldierState.skills, force builder | ✅ | `fixture-faction.test.ts` |
 | 9.1 | Carrying as a movement mode involving several soldiers | generic `carry` store (payload = any entity with mass) | ⬜ reserved M10.4a | `lab -- carry` (M10.4a) |
@@ -849,7 +865,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.8 | Map format and event stream as specified; importer interface | map.ts, mapgen/index.ts | ✅ (heightfield in JSON: proposed SPEC change) | `sim/test/terrain.test.ts` "map file format", `tools/test/mapgen.test.ts` |
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |
-| 9.1 | Medical data with sources and confidence; medical roles and an emblem item | `core/medical.json`, roles `medicalLevel` | ⬜ reserved M10.1 | data lint, `lab -- casualty` "dead by 120 min" |
+| 9.1 | Medical data with sources and confidence; medical roles and an emblem item | `core/medical.json` (`Catalog.medical`), roles `medical.level` (`FactionDef.medicalRoles`), items `medical.tags` / `emblem` | ✅ (M10.1): data lint refuses "high" confidence in medical data | `tools/test/medical-physiology.test.ts` "medical data", data lint, `lab -- casualty` "dead by 120 min" |
 | 9.1 | Interventions as interruptible actions consuming counted items | generic `treat` action, `TreatmentRecord` | ⬜ reserved M10.2 | `lab -- treatment`; items conserved; save/load mid-action |
 | 9.1 | `medical` RNG stream created on first use; battles without care never draw from it | rng.ts | ⬜ reserved M10.2 | goldens unchanged where nobody is treated |
 | 9.1 | `--no-medical` rules switch for A/B batches | BattleRules | ⬜ reserved M10.3a | batch A/B |

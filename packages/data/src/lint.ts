@@ -40,6 +40,21 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     check("core/shooting.json", "grenades", data.shooting.grenades, false);
   }
   if (data.behaviour) check("core/behaviour.json", "behaviour", data.behaviour, false);
+  // Medical data (M10.1): researched from search extracts only (web pages cannot be opened here), so nothing in it
+  // may claim more than "medium" confidence.
+  const notHigh = (file: string, path: string, p: Prov) => {
+    if (p.confidence === "high") errors.push({ file, path, message: "medical data comes from search extracts only: confidence 'medium' at most", severity: "error" });
+  };
+  if (data.medical) {
+    const m = data.medical, f = "core/medical.json";
+    for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
+    for (const v of m.interventions) { check(f, `interventions.${v.id}`, v, false); notHigh(f, `interventions.${v.id}`, v); }
+    for (const c of m.carry) { check(f, `carry.${c.id}`, c, false); notHigh(f, `carry.${c.id}`, c); }
+    // Every tag a treatment uses up should be carried by some item of some real faction.
+    const tags = new Set<string>();
+    for (const pack of Object.values(data.factions)) if (pack.manifest.fixture !== true) for (const it of Object.values(pack.items)) for (const t of it.medical?.tags ?? []) tags.add(t);
+    for (const v of m.interventions) for (const c of v.consumes) if (!tags.has(c.tag)) errors.push({ file: f, path: `interventions.${v.id}.consumes`, message: `no faction's item carries the tag '${c.tag}'`, severity: "warning" });
+  }
   if (data.spotting) {
     check("core/spotting.json", "spotting", data.spotting, false);
   }
@@ -59,8 +74,8 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);
     Object.values(pack.ranks).forEach((x) => check(`${d}/ranks.json`, x.id, x, fx));
-    Object.values(pack.roles).forEach((x) => check(`${d}/roles.json`, x.id, x, fx));
-    Object.values(pack.items).forEach((x) => check(`${d}/items.json`, x.id, x, fx));
+    Object.values(pack.roles).forEach((x) => { check(`${d}/roles.json`, x.id, x, fx); if (x.medical) notHigh(`${d}/roles.json`, x.id, x); });
+    Object.values(pack.items).forEach((x) => { check(`${d}/items.json`, x.id, x, fx); if (x.medical || x.emblem) notHigh(`${d}/items.json`, x.id, x); });
     Object.values(pack.units).forEach((x) => check(`${d}/units.json`, x.id, x, fx));
     Object.values(pack.weapons).forEach((x) => check(`${d}/weapons.json`, x.id, x, fx));
     // Vehicles (M7): provenance per vehicle and per block; power-to-weight within what tracked and wheeled

@@ -14,13 +14,13 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink, startCarry,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent, type Wound,
-  mortarTeams,
+  mortarTeams, fireOptions, airborneDroneOf,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
-  ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
+  ageLabel, droneOrders, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -84,8 +84,8 @@ async function main(): Promise<void> {
   const renderer = await BattleRenderer.create(mapRoot);
   renderer.groundFloorLabel = strings.t("ui.floor.ground");
   // The look (plan "photo"): the photo map by default; `?look=flat` (or its old name `pixel`) the M7.5b flat pixel
-  // map; `?look=classic` the look before it. Remembered per browser (a URL parameter wins).
-  const lookOfParam = (v: string | null): Look | null => (v === "photo" ? "photo" : v === "flat" || v === "pixel" ? "flat" : v === "classic" ? "classic" : null);
+  // map. Remembered per browser (a URL parameter wins; a remembered "classic", deleted after M8, falls back to photo).
+  const lookOfParam = (v: string | null): Look | null => (v === "photo" ? "photo" : v === "flat" || v === "pixel" ? "flat" : null);
   let stored: string | null = null;
   try { stored = localStorage.getItem(LOOK_KEY); } catch { /* not remembered */ }
   const look: Look = lookOfParam(params.get("look")) ?? lookOfParam(stored) ?? "photo";
@@ -157,7 +157,12 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onOrderMode: (m) => { orderMode = m; gesture = null; if (plan && plan.kind !== m) endPlan(); },
-    onHalt: () => { endPlan(); gesture = null; if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
+    onHalt: () => {
+      endPlan(); gesture = null;
+      if (overlay.selectedUnit === null) return;
+      // (M9.4a: the drone selected: Halt brings it home to land.)
+      issue(droneMode() ? { tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "drone", op: "home" } : { tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" });
+    },
     onMount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "mount" }); },
     onDismount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "dismount" }); },
     // Vehicles (M7.3): smoke screen now; the gun and round of the next fire order.
@@ -211,11 +216,17 @@ async function main(): Promise<void> {
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
     // unselects (as before). A press held on a tile follows the unit; the badge (or any pan) stops following.
-    onSelectUnit: (u) => {
+    onSelectUnit: (u, drone) => {
       endPlan(); gesture = null;
-      if (overlay.selectedUnit === u && centredOn(u)) { overlay.selectedUnit = null; stopFollow(); }
+      // (M9.4a: the unit's drone tile selects its drone: Move means fly, Halt brings it home.)
+      const same = overlay.selectedUnit === u && (drone === true) === droneMode();
+      if (same && (drone === true ? droneCentred(u) : centredOn(u))) { overlay.selectedUnit = null; overlay.selectedDrone = null; stopFollow(); }
       // (The card first: centring keeps the unit clear of it.)
-      else { overlay.selectedUnit = u; showCard(); centreOn(u); if (following !== null && following !== u) stopFollow(); }
+      else {
+        overlay.selectedUnit = u; overlay.selectedDrone = drone === true ? u : null; showCard();
+        if (drone === true) centreOnDrone(u); else centreOn(u);
+        if (following !== null && following !== u) stopFollow();
+      }
       syncOrders(); refreshTiles();
     },
     onFollowUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = u; startFollow(u); syncOrders(); refreshTiles(); },
@@ -244,7 +255,7 @@ async function main(): Promise<void> {
   const insets = hud.insets();
   renderer.setHudInsets(insets);
   // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
-  // while it rides), at true scale. The classic look keeps the old start: about 600 m across.
+  // while it rides), at true scale.
   // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
   const leadAt = (() => {
@@ -260,7 +271,7 @@ async function main(): Promise<void> {
     if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
     return { x: x / n, y: y / n };
   })();
-  if (look !== "classic" && leadAt) {
+  if (leadAt) {
     renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
     // The opening view's tiles first (photo: painted in workers; shown anyway after 3 s).
     await Promise.race([renderer.primeDetail(), new Promise<void>((r) => setTimeout(r, 3000))]);
@@ -286,11 +297,12 @@ async function main(): Promise<void> {
   let ordersKey = "";
   const syncOrders = () => {
     const cap = unitCapabilities(sim.state, input.catalog, overlay.selectedUnit);
-    const key = `${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
+    const key = `${droneMode() ? "drone|" : ""}${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
     if (ordersShownFor === overlay.selectedUnit && key === ordersKey) return;
     const changedUnit = ordersShownFor !== undefined && ordersShownFor !== overlay.selectedUnit;
     ordersShownFor = overlay.selectedUnit; ordersKey = key;
-    const set = ordersFor(cap, input.catalog.movementModes);
+    // (M9.4a: the drone: Move (fly there) and Halt (home) only.)
+    const set = droneMode() ? droneOrders() : ordersFor(cap, input.catalog.movementModes);
     hud.setOrders(set);
     // The order mode on show must be one the unit has (a squad without grenades: back to Move); a new unit
     // starts with Move.
@@ -302,7 +314,7 @@ async function main(): Promise<void> {
   let tilesAt = -1e9;
   const refreshTiles = () => {
     const tiles = unitTiles(sim.state, playerSide, input.catalog);
-    hud.setTiles(tiles, overlay.selectedUnit);
+    hud.setTiles(tiles, overlay.selectedUnit, droneMode());
     showCard(tiles);
   };
   /** The selected unit's card (S3, S6) and the open man's box: refreshed with the tiles and on every selection. */
@@ -355,7 +367,7 @@ async function main(): Promise<void> {
     /** S2: a fire order held; `onUnit`: back on the unit (release cancels). */
     | { kind: "fire"; at: Pt; onUnit: boolean; los: LosLine[] }
     /** S11: a point held for fire support (letting go opens the HE / smoke pop-up there). */
-    | { kind: "support"; at: Pt };
+    | { kind: "support"; at: Pt; from: Pt };
   let gesture: Gesture | null = null;
   /** The selected unit's men on foot and the hulls it is in or crews (alive men only). */
   const unitPlaces = (uid: EntityId | null): { men: Pt[]; hulls: EntityId[] } => {
@@ -451,22 +463,32 @@ async function main(): Promise<void> {
     if (next !== orderMode) { orderMode = next; hud.setOrderMode(next); }
   };
   const inMap = (w: Pt) => w.x >= 0 && w.y >= 0 && w.x <= input.map.widthM && w.y <= input.map.heightM;
-  // ---- S11 (step fire-support): the point picked for fire support, while its pop-up is open.
-  let supportAt: Pt | null = null;
-  /** Rounds per mission from the pop-up (the ranging rounds come on top, from the same stock). */
-  const SUPPORT_ROUNDS = { he: 4, smoke: 2 } as const;
-  const offerSupport = (w: Pt) => {
+  // ---- S11 (step fire-support): the point picked for fire support, while its pop-up is open (M8.6: or the line of a
+  // smoke screen dragged out from it).
+  let supportAt: (Pt & { x2?: number; y2?: number }) | null = null;
+  /** Rounds per mission from the pop-up (the ranging rounds come on top, from the same stock); a screen 6 rounds. */
+  const SUPPORT_ROUNDS = { he: 4, smoke: 2, illum: 1 } as const;
+  const SCREEN_ROUNDS = 6;
+  /** A held press dragged this far (m) from where it started is a smoke screen's line (M8.6). */
+  const SCREEN_MIN_M = 30;
+  const offerSupport = (w: Pt, end?: Pt) => {
     const uid = overlay.selectedUnit;
     if (uid === null || !inMap(w)) return;
-    const at = { x: w.x, y: w.y };
+    const line = end !== undefined && inMap(end) && Math.hypot(end.x - w.x, end.y - w.y) >= SCREEN_MIN_M ? end : undefined;
+    const at = { x: w.x, y: w.y, ...(line ? { x2: line.x, y2: line.y } : {}) };
     supportAt = at;
-    const sc = worldToScreen(renderer.camera, at.x, at.y);
+    const sc = worldToScreen(renderer.camera, line ? (at.x + line.x) / 2 : at.x, line ? (at.y + line.y) / 2 : at.y);
+    const faction = sim.state.sides.find((x) => x.id === playerSide)?.faction ?? "";
     hud.offerSupport({
-      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
-      pick: (ammo) => {
+      x: sc.x, y: sc.y, assets: fireOptions(sim.ctx, sim.state, playerSide, faction, at.x, at.y, line?.x, line?.y),
+      ...(line ? { line: true } : {}), night: sim.state.environment.light < 0.5,
+      pick: (asset, ammo, opts) => {
         supportAt = null;
         if (overlay.selectedUnit !== uid || !sim.state.unit.has(uid)) return;
-        issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "callFire", x: at.x, y: at.y, ammo, rounds: SUPPORT_ROUNDS[ammo] });
+        issue({
+          tick: sim.state.tick, issuer: playerSide, target: uid, kind: "callFire", x: at.x, y: at.y, ammo, rounds: line ? SCREEN_ROUNDS : SUPPORT_ROUNDS[ammo],
+          ...(line ? { x2: line.x, y2: line.y } : {}), ...(asset === "artillery" ? { asset } : {}), ...(opts.airburst ? { fuse: "airburst" as const } : {}), ...(opts.dangerClose ? { dangerClose: true } : {}),
+        });
         oneTapDone();
       },
       cancel: () => { if (supportAt === at) supportAt = null; },
@@ -490,6 +512,11 @@ async function main(): Promise<void> {
     const ins = viewInsets();
     return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
   };
+  /** M9.4a: the selected unit's drone is selected (its tile), not the unit. */
+  const droneMode = () => overlay.selectedDrone !== undefined && overlay.selectedDrone !== null && overlay.selectedDrone === overlay.selectedUnit;
+  const droneAt = (uid: EntityId) => { const id = airborneDroneOf(sim.state, uid); return id === null ? null : sim.state.transform.get(id) ?? null; };
+  const centreOnDrone = (uid: EntityId) => { const p = droneAt(uid); if (!p) { centreOn(uid); return; } renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); void renderer.primeDetail(); };
+  const droneCentred = (uid: EntityId) => { const p = droneAt(uid); if (!p) return centredOn(uid); const v = viewCentre(); return Math.hypot(p.x - v.x, p.y - v.y) * renderer.camera.scale <= 24; };
   const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); void renderer.primeDetail(); } };
   /** Review fix: the selected unit kept clear of the card when it grows (Men opened): centred if it went under it. */
   const keepSelectedClear = () => {
@@ -662,7 +689,7 @@ async function main(): Promise<void> {
     // without moving: there). The ghost marker follows the mouse; back on the unit: nothing is sent.
     onRightStart: (w) => {
       const uid = overlay.selectedUnit;
-      if (uid === null || !sim.state.unit.has(uid) || plan) return false;
+      if (uid === null || !sim.state.unit.has(uid) || plan || droneMode()) return false;
       hud.offerContext(null);
       const from = centreOf(placesOf(uid));
       if (!from) return false;
@@ -692,11 +719,17 @@ async function main(): Promise<void> {
         const his = sim.state.identity.req(hit).unit;
         if (his === overlay.selectedUnit) inspected = inspected === hit ? null : hit;
         else { overlay.selectedUnit = his; inspected = null; }
-        refreshTiles();
+        overlay.selectedDrone = null;
+        syncOrders(); refreshTiles();
         return;
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
+      if (droneMode()) {
+        // The drone (M9.4a): a tap sends it there (launched first if it is on the ground).
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "drone", op: "fly", x: w.x, y: w.y });
+        return;
+      }
       if (orderMode === "grenade" || orderMode === "grenades" || orderMode === "smoke") {
         // "All grenades": every man who can reach the point throws or fires, a moment apart. "Smoke" (D1): one man
         // throws a hand smoke grenade there.
@@ -742,7 +775,7 @@ async function main(): Promise<void> {
         return dragHandle !== null;
       }
       const uid = overlay.selectedUnit;
-      if (uid === null || !sim.state.unit.has(uid)) return false;
+      if (uid === null || !sim.state.unit.has(uid) || droneMode()) return false;
       if (orderMode === "fire" || orderMode === "antitank") {
         if (!inMap(w)) return false;
         const on = onSelected(w);
@@ -753,7 +786,7 @@ async function main(): Promise<void> {
       if (orderMode === "support") {
         if (!inMap(w)) return false;
         hud.offerSupport(null);
-        gesture = { kind: "support", at: { ...w } };
+        gesture = { kind: "support", at: { ...w }, from: { ...w } };
         return "hold";
       }
       // Clear (slice s0-clear): drag the unit onto a house (the ghost of an assault follows the pointer).
@@ -797,7 +830,12 @@ async function main(): Promise<void> {
       // a tap on the facing handle does nothing. (A right click: the move to that point, below.)
       if (how === "tap" && !(gs.kind === "fromUnit" && gs.right)) return gs.kind !== "facing";
       if (gs.kind === "fire") { if (!gs.onUnit && inMap(gs.at)) fireAtPoint(gs.at); return false; }
-      if (gs.kind === "support") { offerSupport(gs.at); return false; }
+      if (gs.kind === "support") {
+        // (M8.6: dragged out far enough, a smoke screen from where the press began to where it let go; else the point,
+        // slid as before.)
+        if (Math.hypot(gs.at.x - gs.from.x, gs.at.y - gs.from.y) >= SCREEN_MIN_M) offerSupport(gs.from, gs.at); else offerSupport(gs.at);
+        return false;
+      }
       if (gs.kind === "facing") {
         if (gs.angle === null) return false;
         const o = planToOrder(turnPlan(gs.centre, gs.angle), playerSide, uid, sim.state.tick);
@@ -852,7 +890,7 @@ async function main(): Promise<void> {
       case "speed": hud.setSpeed(SPEEDS[a.index] ?? 1); return;
       case "cancel": escape(); return;
       case "cycle": {
-        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost").map((t) => t.unit);
+        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost" && t.kind !== "drone").map((t) => t.unit);
         const next = cycleUnit(order, overlay.selectedUnit, a.dir);
         if (next !== null) selectAndCentre(next);
         return;
@@ -1221,6 +1259,11 @@ async function main(): Promise<void> {
         if (e) {
           spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }), ...(e.handSmoke > 0 ? [strings.t("aar.exp.handSmoke", { n: e.handSmoke })] : []));
           for (const [ammo, n] of Object.entries(e.rockets).sort(([a], [b]) => (a < b ? -1 : 1))) spent.push(strings.t("aar.exp.rockets", { ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
+          // M8.6: fire support rounds by asset and kind.
+          for (const [k, n] of Object.entries(e.support ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) {
+            const [asset, ammo] = k.split(":");
+            spent.push(strings.t("aar.exp.support", { asset: strings.t(asset === "artillery" ? "support.artillery" : "support.mortar"), ammo: strings.t(`support.${ammo}`), n }));
+          }
           for (const [vid, v] of Object.entries(e.vehicles).sort(([a], [b]) => (a < b ? -1 : 1))) {
             const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
             const name = call && call.unit !== null ? sim.state.unit.get(call.unit)?.callsign ?? vid : vid;
@@ -1269,11 +1312,13 @@ async function main(): Promise<void> {
     const gs = gesture, out: GestureOverlay = {};
     const here = () => centreOf(placesOf(uid));
     // S11: the point held for fire support, or picked while its pop-up is open, joined to the unit's leader.
-    const sp = gs?.kind === "support" ? gs.at : supportAt;
+    const sp: (Pt & { x2?: number; y2?: number }) | null = gs?.kind === "support"
+      ? (Math.hypot(gs.at.x - gs.from.x, gs.at.y - gs.from.y) >= SCREEN_MIN_M ? { x: gs.from.x, y: gs.from.y, x2: gs.at.x, y2: gs.at.y } : gs.at)
+      : supportAt;
     if (sp) {
       const lead = sim.state.unit.get(uid)?.leader;
       const lt = lead !== null && lead !== undefined ? sim.state.transform.get(lead) : undefined;
-      out.support = { x: sp.x, y: sp.y, from: lt ? { x: lt.x, y: lt.y } : here() };
+      out.support = { x: sp.x, y: sp.y, from: lt ? { x: lt.x, y: lt.y } : here(), ...(sp.x2 !== undefined && sp.y2 !== undefined ? { x2: sp.x2, y2: sp.y2 } : {}) };
     }
     if (gs?.kind === "fire") {
       out.los = gs.los;
@@ -1326,7 +1371,8 @@ async function main(): Promise<void> {
       updatePins(overlay.known);
       overlay.pins = lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
     } else overlay.pins = null;
-    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS);
+    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS)
+      .map((l) => (l.splashS !== undefined ? { ...l, label: strings.t("support.splash", { s: l.splashS }) } : l));
     rangingBook.prune(sim.state.tick);
     // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
     {

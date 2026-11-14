@@ -1096,6 +1096,15 @@
             {
               "item": "ru-thermal-sight",
               "count": 1
+            },
+            {
+              "item": "ru-quadcopter",
+              "count": 1
+            },
+            {
+              "item": "ru-drone-battery",
+              "count": 3,
+              "charge": 77
             }
           ],
           "weapon": "ru-ak74m"
@@ -1114,7 +1123,7 @@
         "https://www.battleorder.org/rus-bmp-platoon"
       ],
       "confidence": "low",
-      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the platoon commander carries the platoon's thermal weapon sight (research default, low; Ratnik's night optics have limited distribution).",
+      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the platoon commander carries the platoon's thermal weapon sight (research default, low; Ratnik's night optics have limited distribution). M9.4a (owner M9 round): the platoon commander carries and flies the platoon's quadcopter with three batteries (no separate headquarters and no seat left in the first BMP-2 for an operator: game assumption, low, owner to review).",
       "carriage": [
         {
           "crew": 3,

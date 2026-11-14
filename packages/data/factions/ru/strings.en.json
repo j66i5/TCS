@@ -110,5 +110,7 @@
   "ammo.ru-152-fragment": "152 mm shell fragment",
   "ammo.ru-152-smoke": "152 mm smoke shell",
   "ammo.ru-152-illum": "152 mm illumination shell",
-  "ammo.ru-82-illum": "82 mm illumination bomb"
+  "ammo.ru-82-illum": "82 mm illumination bomb",
+  "item.ru-quadcopter": "Reconnaissance quadcopter (Mavic class)",
+  "item.ru-drone-battery": "Drone battery"
 }

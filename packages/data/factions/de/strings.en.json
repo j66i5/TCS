@@ -126,5 +126,7 @@
   "ammo.de-155-fragment": "155 mm shell fragment",
   "ammo.de-155-smoke": "155 mm smoke shell",
   "ammo.de-155-illum": "155 mm illumination shell",
-  "ammo.de-120-illum": "120 mm illumination bomb"
+  "ammo.de-120-illum": "120 mm illumination bomb",
+  "item.de-quadcopter": "Reconnaissance quadcopter",
+  "item.de-drone-battery": "Drone battery"
 }

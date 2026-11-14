@@ -337,6 +337,14 @@ export const SpottingFile = withProv({
    *  `tracerContrast` times more in full darkness (scaled by the darkness). */
   /** Thermal signatures (M9.2), relative to what the eye sees: a man; a vehicle halted longer than `hotSeconds`
    *  (cooled), moving or moved within `hotSeconds` (hot), firing, burning; vegetation lets heat through as visibility^vegetationExponent. */
+  /** Drone cameras (M9.4a): a man's size seen from above by posture (per 0.7 m^2 of a standing man seen from the
+   *  side), the error a drone's report adds to a man's own sighting (m; reading the position off the picture). */
+  drone: z.object({
+    postureSize: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 2) }).strict(), feedErrorM: Num(0, 500),
+    /** The camera searches its whole footprint (a rate factor); a man under a canopy higher than canopyAboveM over him
+     *  shows canopyDay of himself to a day camera, canopyThermal to a thermal one. */
+    searchFactor: Num(0, 1), canopyAboveM: Num(0, 50), canopyDay: Num(0, 1), canopyThermal: Num(0, 1),
+  }).strict().optional(),
   thermal: z.object({
     man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),
     hotSeconds: Num(0, 7200), vegetationExponent: Num(0.1, 1),
@@ -728,6 +736,16 @@ export const ItemSchema = withProv({
     calibre: z.string(), he: Id, smoke: Id, minRangeM: Num(0, 20000), maxRangeM: Num(1, 20000), setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
     roundSeconds: Num(0.5, 120), crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), aimErrorM: Num(0, 500),
     dispersionPerKmM: Num(0, 200), processingSeconds: Num(0, 600), flightBaseSeconds: Num(0, 120), flightPerKmSeconds: Num(0, 60), hearingRangeM: Num(0, 20000),
+  }).strict().optional(),
+  /** M9.4a: a reconnaissance quadcopter (the airframe item; its operator carries it and its batteries): the battery
+   *  item (charge = Wh) and the power it draws (W), the share of a battery kept to fly home on, cruise and climb
+   *  speeds (m/s), the usual, lowest and highest flying height above the ground (m), seconds to launch, how far from
+   *  its operator it can be flown (m), its cameras (sensor kinds in core/spotting.json) and the radius on the ground
+   *  they search (m), how far it is heard (m) and the area it shows to an eye (m^2; M9.4b). */
+  drone: z.object({
+    battery: Id, powerW: Num(1, 5000), reserveShare: Num(0, 0.9), cruiseMps: Num(1, 60), climbMps: Num(0.5, 30),
+    altitudeM: Num(5, 2000), minAltitudeM: Num(5, 2000), maxAltitudeM: Num(5, 3000), launchSeconds: Num(0, 600), controlRangeM: Num(50, 50000),
+    sensors: z.array(z.string()).min(1), footprintM: Num(10, 5000), noiseM: Num(0, 2000), areaM2: Num(0.001, 10),
   }).strict().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),

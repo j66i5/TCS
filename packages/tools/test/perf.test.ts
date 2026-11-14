@@ -88,6 +88,22 @@ describe("performance floor", () => {
     expect(soldiers).toBeGreaterThanOrEqual(250);
     expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
   });
+
+  it(`bench-drones (the bench battle with 16 quadcopters in the air, M9.4a) runs at >= ${PERF_FLOOR_X_REALTIME}x real time`, () => {
+    const sc = getScenario("bench-drones");
+    const input = sc.build(loadData(), 1, 600);
+    const sim = createSim(input), cs = sc.controllers!(input);
+    const tick = () => { for (const c of cs) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o); step(sim); };
+    // (Launched and out over the field first: launching takes up to a minute.)
+    for (let i = 0; i < 90 * 60; i++) tick();
+    const t0 = performance.now();
+    for (let i = 0; i < 60 * 60; i++) tick();
+    const speed = 60 / ((performance.now() - t0) / 1000);
+    console.log(`bench-drones: ${sim.state.drone.size} drones up, ${speed.toFixed(1)}x real time`);
+    expect(sim.state.drone.size).toBeGreaterThanOrEqual(12);
+    expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
+  });
+
   // M10.4b (roadmap-detail slice 9): the medical load on top of bench-vehicles: a third of the men down from the
   // start, carried to the vehicles and loaded. Floor BENCH_MEDICAL_FLOOR_X: a software decision (DECISIONS.md).
   it(`bench-medical (bench-vehicles with a third of the men down, carried in) runs at >= ${BENCH_MEDICAL_FLOOR_X}x real time`, () => {

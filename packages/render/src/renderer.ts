@@ -8,7 +8,6 @@ import { Application, Container, Graphics, Text } from "pixi.js";
 import { DT, floorAtZ, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
-import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, shownCallsigns, type LabelRequest, type Rect } from "./labels";
 import { flatColours, paintRegion } from "./flat/paint";
@@ -23,15 +22,12 @@ import { enemyMenInSight, inSightNow } from "./fog";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
 import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 
-/** Classic look (`?look=classic`, kept for one milestone): below this many px/m the overview with unit symbols. */
-export const OVERVIEW_SCALE = 0.35;
-
 /**
- * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph), "flat" (M7.5b:
- * the flat pixel map; `?look=pixel` is its old name) or the classic look before them. Pixel soldiers, roofs that
- * fade and the zoom levels belong to both photo and flat (`look !== "classic"`).
+ * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph) or "flat" (M7.5b:
+ * the flat pixel map; `?look=pixel` is its old name). (The classic look before them was deleted after M8, owner
+ * 2026-11-13.)
  */
-export type Look = "photo" | "flat" | "classic";
+export type Look = "photo" | "flat";
 
 /** The flat look's tiles: today's M7.5b map (64 m detail tiles at 4 px/m from the figure zoom, painted here). */
 const FLAT_TILES: TerrainTilesOptions = {
@@ -79,6 +75,8 @@ export interface Overlay {
   /** Side whose own units are fully shown (waypoints etc.). */
   playerSide: string;
   selectedUnit: EntityId | null;
+  /** M9.4a: the unit whose drone is selected (its sidebar tile): its cameras' footprint and goal are drawn. */
+  selectedDrone?: EntityId | null;
   /** Debug drawing: entity IDs, all sides' waypoints — and the enemy as he really is (no fog of war). */
   debug: boolean;
   /** Screenshots (M7.5e): the enemy as he really is, without Debug's other drawing. */
@@ -127,6 +125,9 @@ export interface IntentLineView {
   /** A fire mission (S11): its phase and where its ranging rounds fell (oldest first). */
   phase?: "called" | "ranging" | "effect";
   falls?: readonly { x: number; y: number; seen: boolean }[];
+  /** M8.6: a short label by the target ("splash in 12 s", from the string table) and a smoke screen's line. */
+  label?: string;
+  screen?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /** S8: a known contact unseen this long (s) is a "last seen" pin (when the app gives pins). */
@@ -146,7 +147,7 @@ export interface GestureOverlay {
   /** The man whose detail box is open (S6, the "bar-card" step): a ring round him. */
   man?: { x: number; y: number } | null;
   /** S11: the point held for fire support (while it is held and its pop-up is open), joined to the caller. */
-  support?: { x: number; y: number; from: { x: number; y: number } | null } | null;
+  support?: { x: number; y: number; from: { x: number; y: number } | null; /** M8.6: a screen's other end. */ x2?: number; y2?: number } | null;
 }
 
 export interface PlanOverlay {
@@ -228,6 +229,8 @@ export class BattleRenderer {
   private smokePhys: SmokePhysics | null = null;
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
+  /** M9.4a: each quadcopter item's camera footprint radius (m). */
+  private droneFootprint: Record<string, number> = {};
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
   private look: Look = "photo";
   private lod: Lod | null = null;
@@ -239,7 +242,7 @@ export class BattleRenderer {
   private roofLayer = new Container();
   /**
    * Photo look (plan "photo", step "polish"): under the men, in screen space — wreck scorch decals, soft contact
-   * shadows of the men, then their dark outer rims. Pools, hidden when unused; empty in the flat and classic looks.
+   * shadows of the men, then their dark outer rims. Pools, hidden when unused; empty in the flat look.
    */
   private shadowLayer = new Container();
   private scorchC = new Container();
@@ -340,11 +343,6 @@ export class BattleRenderer {
     if (this.tiles) { this.tiles.destroy(); this.tiles = null; }
     this.setCatalog(catalog);
     this.map = map;
-    if (this.look === "classic") {
-      this.terrain = buildTerrain(map, catalog.terrain);
-      this.worldLayer.addChild(this.terrain);
-      return;
-    }
     const col = flatColours(map, catalog.terrain, this.appearance);
     const flatBase = paintRegion(map, col, 0, 0, map.widthM, map.heightM, basePpm(map));
     if (this.look === "flat") {
@@ -420,6 +418,8 @@ export class BattleRenderer {
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.vehicleDefs = catalog.vehicles;
+    this.droneFootprint = {};
+    for (const [k, it] of Object.entries(catalog.items)) if (it.drone) this.droneFootprint[k] = it.drone.footprintM;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
   }
@@ -568,8 +568,8 @@ export class BattleRenderer {
 
   draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
     const c = this.camera;
-    // Zoom level (M7.5b): the classic look keeps its single overview threshold.
-    const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
+    // Zoom level (M7.5b).
+    const lod: Lod = lodFor(c.scale, this.lod);
     this.lod = lod;
     this.drawNight(state);
     if (state.unit.size !== this.shownFor || state.unit !== this.shownStore) { this.shown = shownCallsigns(state.unit.entries()); this.shownFor = state.unit.size; this.shownStore = state.unit; }
@@ -639,6 +639,7 @@ export class BattleRenderer {
     // stacked into one — and an infantry symbol only for a unit with men on foot).
     if (lod === LOD_SYMBOLS) {
       this.drawOverview(g, state, alpha, overlay, sideIndex, fog);
+      this.drawDrones(g, state, alpha, overlay, sideIndex, fog);
       this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex, false);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
@@ -647,8 +648,8 @@ export class BattleRenderer {
       this.flushLabels();
       return;
     }
-    // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
-    const sprites = this.look !== "classic" && lod >= LOD_FIGURE;
+    // Pixel soldiers from the figure level in (M7.5b); discs at the dot level.
+    const sprites = lod >= LOD_FIGURE;
     // Men always at true size (owner, 2026-11-13): below about 8 px the dot level takes over.
     const size = SPRITE_M * c.scale;
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
@@ -763,6 +764,7 @@ export class BattleRenderer {
         this.force(`${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}${careLine(state, id)}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
+    this.drawDrones(g, state, alpha, overlay, sideIndex, fog);
     this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex, true);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
@@ -822,6 +824,12 @@ export class BattleRenderer {
         }
       }
       this.inked(g, () => g.circle(b.x, b.y, 9), { width: 2, color: FIRE_COLOUR, alpha: al });
+      // M8.6: a screen's line, and the splash countdown by the target.
+      if (l.screen) {
+        const p0 = worldToScreen(c, l.screen.x0, l.screen.y0), p1 = worldToScreen(c, l.screen.x1, l.screen.y1);
+        this.inked(g, () => dashed(g, p0.x, p0.y, p1.x, p1.y, 7, 5), { width: 2.5, color: 0xd8d8d0, alpha: al });
+      }
+      if (l.label) this.request(l.label, b.x, b.y - 22, 4, FIRE_COLOUR, 1, 900 + lines.indexOf(l));
       g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
       if (l.phase === "effect") g.circle(b.x, b.y, 15).stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.8 });
     }
@@ -871,6 +879,12 @@ export class BattleRenderer {
       g.moveTo(s.x - 24, s.y).lineTo(s.x - 10, s.y).moveTo(s.x + 10, s.y).lineTo(s.x + 24, s.y)
         .moveTo(s.x, s.y - 24).lineTo(s.x, s.y - 10).moveTo(s.x, s.y + 10).lineTo(s.x, s.y + 24).stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.95 });
       g.circle(s.x, s.y, 3).fill({ color: FIRE_COLOUR, alpha: 0.95 });
+      // M8.6: a smoke screen dragged out from the point: the line and its far end.
+      if (gs.support.x2 !== undefined && gs.support.y2 !== undefined) {
+        const e = worldToScreen(c, gs.support.x2, gs.support.y2);
+        this.inked(g, () => dashed(g, s.x, s.y, e.x, e.y, 9, 5), { width: 3, color: 0xe8e8e0, alpha: 0.95 });
+        g.circle(e.x, e.y, 10).fill({ color: 0x1b241a, alpha: 0.35 }).stroke({ width: 2.5, color: 0xe8e8e0, alpha: 0.95 });
+      }
     }
     // An active move's marker (S10): a ring with a centre, joined to the unit while it is dragged.
     if (gs.marker) {
@@ -986,6 +1000,42 @@ export class BattleRenderer {
    * heading, the turret and barrel; side colour; a ring when its unit is selected; its route (reverse legs orange);
    * the callsign when zoomed in. Under fog of war only the player's own (enemy vehicles come with contacts, M7.3).
    */
+  /**
+   * Reconnaissance quadcopters (M9.4a): a small four-rotor symbol at its place (a fixed size on screen), its height
+   * beside it, a thin line down to its operator and, for the drone selected, the ground its cameras search. Under fog
+   * of war only the player's own (an enemy drone is seen and heard from M9.4b).
+   */
+  private drawDrones(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
+    if (state.drone.size === 0) return;
+    const c = this.camera;
+    for (const [id, d] of state.drone.entries()) {
+      if (fog && d.side !== overlay.playerSide) continue;
+      const t = state.transform.get(id);
+      if (!t) continue;
+      const p = this.pos(state, id, alpha);
+      const s = worldToScreen(c, p.x, p.y);
+      const colour = SIDE_COLOURS[(sideIndex.get(d.side) ?? 0) % SIDE_COLOURS.length]!;
+      const mine = d.side === overlay.playerSide;
+      if (mine && overlay.selectedDrone === d.unit) {
+        const fp = (this.droneFootprint[d.item] ?? 0) * c.scale;
+        if (fp > 6) g.circle(s.x, s.y, fp).fill({ color: colour, alpha: 0.06 }).stroke({ width: 1, color: colour, alpha: 0.5 });
+        if (d.goal && d.mode !== "home") { const q = worldToScreen(c, d.goal.x, d.goal.y); g.moveTo(s.x, s.y).lineTo(q.x, q.y).stroke({ width: 1, color: colour, alpha: 0.6 }); }
+      }
+      if (mine && d.operator !== null) {
+        const ot = state.transform.get(d.operator);
+        if (ot) { const q = worldToScreen(c, ot.x, ot.y); g.moveTo(s.x, s.y).lineTo(q.x, q.y).stroke({ width: 1, color: colour, alpha: 0.25 }); }
+      }
+      // Four rotors on an X (7 px arms), a dark rim so it reads on any ground.
+      const a = 7;
+      for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+        g.moveTo(s.x, s.y).lineTo(s.x + dx * a, s.y + dy * a).stroke({ width: 3, color: 0x10140f, alpha: 0.8 });
+        g.moveTo(s.x, s.y).lineTo(s.x + dx * a, s.y + dy * a).stroke({ width: 1.5, color: colour });
+        g.circle(s.x + dx * a, s.y + dy * a, 3).fill({ color: 0x10140f, alpha: 0.6 }).stroke({ width: 1.2, color: colour });
+      }
+      this.force(`${Math.round(t.z)} m`, s.x + a + 5, s.y - 4, 0xffffff);
+    }
+  }
+
   private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {
@@ -1283,7 +1333,7 @@ export class BattleRenderer {
   /**
    * Night (M9.1, owner default "darkened map with fires and flashes lit"): the map and roofs are tinted toward a dark
    * blue, the men's figures less (they stay readable); symbols, hulls, flashes, tracers, bursts and fires keep their
-   * colours and gain a glow. In full daylight the tint is white (flat and classic stay byte-identical).
+   * colours and gain a glow. In full daylight the tint is white (flat stays byte-identical).
    */
   private drawNight(state: SimView): void {
     const light = state.environment.light;
@@ -1330,7 +1380,7 @@ export class BattleRenderer {
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
       if (p.result === "flash") { // muzzle flash: brief and bright (pixel soldiers show their own, M7.5b)
         // (Night, M9.1: drawn at every zoom with a halo — the figure under the veil is dark.)
-        if (this.dark <= 0 && this.look !== "classic" && this.lod !== null && this.lod >= LOD_FIGURE) continue;
+        if (this.dark <= 0 && this.lod !== null && this.lod >= LOD_FIGURE) continue;
         if (this.dark > 0) g.circle(sx, sy, Math.max(8, 2.5 * c.scale)).fill({ color: 0xffd27a, alpha: 0.35 * this.dark });
         g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
         continue;
@@ -1552,7 +1602,7 @@ export class BattleRenderer {
   /** The roof-fade rule (M7.5b): own able men on foot near a building, or zoomed in close. */
   private updateRoofs(state: SimView, overlay: Overlay, lod: Lod): void {
     if (!this.bld) return;
-    this.roofLayer.visible = lod !== LOD_SYMBOLS || this.look !== "classic";
+    this.roofLayer.visible = true;
     let n = 0;
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== overlay.playerSide) continue;

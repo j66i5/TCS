@@ -212,6 +212,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
 
   // ---- pass on what he saw or heard himself; call new contacts out on the radio
   const called = new Set<EntityId>();
+  // (M9.4a: what drones' cameras see, first.)
+  if (state.drone.size > 0) droneFeed(ctx, state, events, called);
   // The men of each top unit, worked out once per tick (a platoon with many squads reports often, M7.3).
   const menOf = new Map<EntityId, EntityId[]>();
   for (const f of fresh) {
@@ -330,6 +332,68 @@ function hearEngines(ctx: SimContext, state: SimState, fresh: { who: EntityId; c
       const isNew = i < 0;
       learn(ctx, s.contacts, c, -1e9, tick);
       fresh.push({ who: id, c, isNew, news: isNew });
+    }
+  }
+}
+
+/**
+ * A drone's feed (M9.4a, owner M9 round: over the radio with the usual delay). What its cameras have in view this
+ * tick its operator sees on his screen at once; he passes it to the men of his top unit as any report (voice to those
+ * near him, the radio to the others, the comms model's delay), each enemy at most every `reportEverySeconds`, and
+ * calls a new one out on the radio. The position carries the sighting's error at the camera's slant range plus the
+ * feed's own (`drone.feedErrorM`, reading it off the picture).
+ */
+function droneFeed(ctx: SimContext, state: SimState, events: EventSink, called: Set<EntityId>): void {
+  const K = ctx.catalog.spotting.contacts, tick = state.tick, reportEvery = secondsToTicks(K.reportEverySeconds);
+  const feedErr = ctx.catalog.spotting.drone?.feedErrorM ?? 0;
+  for (const [did, d] of state.drone.entries()) {
+    if (d.operator === null || d.seen.length === 0) continue;
+    const op = state.soldier.get(d.operator), me = state.transform.get(did), ot = state.transform.get(d.operator);
+    if (!op || !me || !ot || !isAble(op)) continue;
+    const top = topUnit(state, d.operator);
+    let men: EntityId[] | null = null;
+    for (const e of d.seen) {
+      if (e.lastTick !== tick) continue;
+      const isNew = e.rep === undefined;
+      if (!isNew && tick - e.rep! < reportEvery) continue;
+      const t = state.transform.get(e.target);
+      if (!t) continue;
+      e.rep = tick;
+      const dx = t.x - me.x, dy = t.y - me.y, slant = sqrt(dx * dx + dy * dy + me.z * me.z);
+      const ts = state.soldier.get(e.target);
+      const c: Omit<Contact, "reportedTick"> = { target: e.target, x: t.x, y: t.y, errM: K.seenErrorM + K.seenErrorPerM * slant + feedErr, kind: "reported", tick };
+      if (isCaptive(ts)) c.surrendered = true;
+      if (ts !== undefined && ts.casualty !== "none") c.down = true;
+      if (ts !== undefined && ts.mount === undefined) { c.posture = ts.posture; if (t.z > 0) c.z = t.z; }
+      const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
+      if (veh) {
+        const def = ctx.catalog.vehicles[veh.def];
+        c.cls = "vehicle"; c.heading = t.heading; c.vx = cos(t.heading) * veh.drive.speed; c.vy = sin(t.heading) * veh.drive.speed;
+        if (def && slant <= def.signature.identifyM) c.vtype = veh.def;
+      }
+      // The operator: at once, from his screen (not passed on again by the ordinary sharing).
+      learn(ctx, op.contacts, c, tick, tick);
+      if (!canReport(op) || top === null) continue;
+      men ??= unitSoldiers(state, top); // mounted: ok the feed reaches men aboard by radio
+      const reported = { ...c, errM: c.errM + K.reportedErrorM };
+      for (const m of men) {
+        const ms = state.soldier.get(m);
+        if (m === d.operator || !isAble(ms)) continue;
+        const k = findContact(ms!.contacts, e.target);
+        if (k >= 0 && contactErrorM(ctx, ms!.contacts[k]!, tick) <= reported.errM && (reported.surrendered !== true || ms!.contacts[k]!.surrendered === true) && (reported.down !== true || ms!.contacts[k]!.down === true)) continue;
+        const delay = ctx.comms.contactShareDelayTicks(state, ctx.rules.comms, d.operator, m);
+        if (delay === null) continue;
+        state.contactReports.push({ deliverTick: tick + delay + secondsToTicks(K.voiceDelaySeconds), from: d.operator, to: m, contact: reported });
+      }
+      // Call-out on the radio: a new enemy, his unit not having called out for a while.
+      const u = state.unit.get(top);
+      if (isNew && c.surrendered !== true && u && !called.has(top) && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds)) {
+        called.add(top);
+        u.lastCallTick = tick;
+        const bx = t.x - ot.x, by = t.y - ot.y;
+        const ident = state.identity.req(d.operator);
+        events.emit({ kind: "radio", tick, side: ident.side, from: d.operator, key: "radio.contactDrone", params: { callsign: state.unit.get(ident.unit)?.callsign ?? u.callsign, range: Math.round(sqrt(bx * bx + by * by) / 10) * 10, bearing: bearingDeg(bx, by) } });
+      }
     }
   }
 }

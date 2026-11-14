@@ -3,18 +3,21 @@
  *
  *   compact   the unit's name, men fit and state; two segmented rows always in view: how it moves (Run, Walk,
  *             Sneak, Crawl; a vehicle's own paces) and when it fires (Fire at will, Return fire, Hold, Ambush).
- *   detailed  also one row per man: state mark, role, weapon, an ammunition bar (one cell per magazine or belt).
- *   man box   a tap on a row (or on one of the unit's men on the map): his name, rank, weapon and rounds, what he
- *             is doing, fatigue, stress, suppression and morale, his wounds.
+ *   detailed  also one row per man: his status pictogram, rank insignia, role, weapon, an ammunition bar (one cell
+ *             per magazine or belt).
+ *   man box   a tap on a row (or on one of the unit's men on the map): his insignia, status, name, rank, weapon and
+ *             rounds, what he is doing, fatigue, stress, suppression and morale, his wounds.
  *
  * The data comes from read-only snapshots of the state (`unitMenRows`, `manDetail`; pure, tested without a DOM),
  * and every choice goes out as an existing order (pace: the next move, or the move under way sent again; fire: the
  * `rules` order — Ambush is fire at will with the existing "no fire beyond" range at `AMBUSH_M`).
  */
-import type { Strings } from "@tcs/data";
+import type { Insignia, Strings } from "@tcs/data";
 import { isAble, isOut, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
 import type { UnitRules } from "./hud";
-import { icon, paceIcon, stateMark } from "./icons";
+import { icon, paceIcon } from "./icons";
+import { insigniaSvg } from "./insignia";
+import { statusPictogram, type ManStatus } from "./pictograms";
 import { unitSoldierIds } from "./orders-for";
 
 /** A man's state as the card shows it (worst first: captive, down, wounded, pinned, shaken, steady). */
@@ -32,6 +35,8 @@ export interface ManRow {
   weapon: string | null;
   ammo: AmmoState | null;
   state: ManState;
+  /** The finer state the row's pictogram shows (owner 2026-11-14). */
+  status: ManStatus;
   leader: boolean;
 }
 
@@ -45,6 +50,28 @@ export function manState(s: Man): ManState {
   if (b === "pinned" || b === "panicked" || b === "routed") return "pinned";
   if (b === "shaken") return "shaken";
   return "steady";
+}
+
+/** Wounds at or above this severity count as serious (as the man box labels them). */
+export const SERIOUS_WOUND = 0.25;
+
+/**
+ * The pictogram's status (worst first): dead; a prisoner (surrendered, then captured); down (out of the fight);
+ * seriously wounded (a wound of `SERIOUS_WOUND` or worse, or one still bleeding hard); lightly wounded; pinned
+ * (also panicked or routed); shaken; aboard a vehicle; ready. Only own men are listed, so nothing here is hidden.
+ */
+export function manStatus(s: Man): ManStatus {
+  if (s.casualty === "killed" || !s.physiology.alive) return "dead";
+  if (s.captive !== null) return s.captive.state === "captured" ? "captured" : "surrendered";
+  if (isOut(s) || !isAble(s)) return "down";
+  const open = s.wounds.filter((w) => w.mechanism !== "blunt");
+  if (open.some((w) => w.severity >= SERIOUS_WOUND || w.bleedingLps >= 0.01)) return "serious";
+  if (open.length > 0) return "wounded";
+  const b = s.mental.behaviour;
+  if (b === "pinned" || b === "panicked" || b === "routed") return "pinned";
+  if (b === "shaken") return "shaken";
+  if (s.mount !== undefined) return "mounted";
+  return "ready";
 }
 
 /** His weapon's rounds (null without a weapon that takes magazines or belts). */
@@ -86,8 +113,10 @@ export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId): Ma
   }
   for (const id of cardMen(view, catalog, unit)) {
     const s = view.soldier.get(id), i = view.identity.get(id);
-    if (!s || !i) continue;
-    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), leader: leaders.has(id) });
+    if (!i) continue;
+    // (No soldier record left for a listed man: shown as missing rather than dropped.)
+    if (!s) { out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: null, ammo: null, state: "down", status: "missing", leader: leaders.has(id) }); continue; }
+    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), leader: leaders.has(id) });
   }
   return out;
 }
@@ -127,6 +156,7 @@ export interface ManDetail {
   weapon: string | null;
   ammo: AmmoState | null;
   state: ManState;
+  status: ManStatus;
   behaviour: string;
   /** 0..1 each (morale: 1 = high). */
   fatigue: number;
@@ -147,7 +177,7 @@ export function manDetail(view: SimView, catalog: Catalog, id: EntityId): ManDet
   return {
     id, given: i.given, family: i.family, rank: i.rank, role: i.role, faction: i.faction,
     callsign: view.unit.get(i.unit)?.callsign ?? "",
-    weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), behaviour: s.mental.behaviour,
+    weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), behaviour: s.mental.behaviour,
     fatigue: s.physical.fatigue, stress: s.mental.stress, suppression: s.mental.suppression, morale: s.mental.morale,
     heartRateBpm: s.physical.heartRateBpm, winded: s.physical.winded,
     wounds: s.wounds.filter((w) => w.mechanism !== "blunt").map((w) => ({ zone: w.zone, severity: w.severity })).sort((a, b) => b.severity - a.severity),
@@ -238,6 +268,8 @@ export interface UnitCard {
   setInspected(id: EntityId | null): void;
   setDetailed(on: boolean): void;
   detailed(): boolean;
+  /** The rank insignia of the factions taking part (from the appearance data); absent: rows show none. */
+  setInsignia(t: Readonly<Record<string, Insignia>> | undefined): void;
 }
 
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text = ""): HTMLElementTagNameMap[K] {
@@ -303,6 +335,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   fireRow.append(segLabel("card.fireRow"), ...fireBtns.map((x) => x.b));
 
   let inspected: EntityId | null = null;
+  let insignia: Readonly<Record<string, Insignia>> | undefined;
   const rows = new Map<EntityId, { b: HTMLButtonElement; key: string }>();
   const fmtAmmo = (a: AmmoState | null) => {
     if (!a) return "";
@@ -333,15 +366,19 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           rows.set(r.id, e);
         }
         const a = r.ammo;
-        const key = `${r.state}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}`;
+        const key = `${r.status}|${r.state}|${r.rank}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}|${insignia ? 1 : 0}`;
         if (key !== e.key) {
           e.key = key;
-          e.b.className = `hud-man st-${r.state}${r.leader ? " leader" : ""}`;
-          e.b.innerHTML = `<span class="hud-man-mark">${stateMark(r.state)}</span>`
+          const rankName = text(`rank.${r.faction}.${r.rank}`, r.faction), statusName = s.t(`card.status.${r.status}`);
+          e.b.className = `hud-man st-${r.state} ss-${r.status}${r.leader ? " leader" : ""}`;
+          e.b.dataset["status"] = r.status;
+          // The pictogram cell keeps a slot for the medical line's triage tag (not built yet).
+          e.b.innerHTML = `<span class="hud-man-mark">${statusPictogram(r.status, 20, statusName)}<span class="hud-man-tag" hidden></span></span>`
+            + `<span class="hud-man-rank">${insigniaSvg(insignia?.[r.faction], r.rank, 30, rankName)}</span>`
             + `<span class="hud-man-role">${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`
             + `<span class="hud-man-weapon">${r.weapon ? text(`weapon.${r.weapon}`, r.faction) : ""}</span>`
             + fmtAmmo(a);
-          e.b.title = `${text(`rank.${r.faction}.${r.rank}`, r.faction)} ${r.family} · ${s.t(`card.state.${r.state}`)}`;
+          e.b.title = `${rankName} ${r.family} · ${statusName}`;
         }
         e.b.classList.toggle("inspected", inspected === r.id);
         if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
@@ -375,6 +412,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
     setInspected(id) { inspected = id; for (const [k, e] of rows) e.b.classList.toggle("inspected", k === id); },
     setDetailed(on) { if (on !== detailed) detailBtn.click(); },
     detailed: () => detailed,
+    setInsignia(t) { insignia = t; },
   };
 }
 
@@ -382,6 +420,7 @@ export interface ManBox {
   readonly el: HTMLElement;
   /** null hides it. */
   update(d: ManDetail | null): void;
+  setInsignia(t: Readonly<Record<string, Insignia>> | undefined): void;
 }
 
 /** A bar of 0..1 with a label (fatigue, stress, ...); `bad`: high values are bad (drawn warmer). */
@@ -405,8 +444,10 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
   close.onclick = () => onClose();
   root.append(close, body);
   let last = "";
+  let insignia: Readonly<Record<string, Insignia>> | undefined;
   return {
     el: root,
+    setInsignia(t) { insignia = t; last = ""; },
     update(d) {
       root.hidden = d === null;
       if (!d) { last = ""; return; }
@@ -418,7 +459,11 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
         pace: act.pace ? s.t(`move.${act.pace}`) : "",
         posture: act.posture ? s.t(`card.posture.${act.posture}`) : "",
       });
-      const html = `<div class="hud-manbox-name">${stateMark(d.state, 14)} ${esc(s.t(`rank.${f}.${d.rank}`, {}, f))} ${esc(d.given)} ${esc(d.family)}</div>`
+      const rankName = s.t(`rank.${f}.${d.rank}`, {}, f), statusName = s.t(`card.status.${d.status}`);
+      const ins = insigniaSvg(insignia?.[f], d.rank, 56, rankName);
+      const html = `<div class="hud-manbox-head">${ins ? `<span class="hud-manbox-rank">${ins}</span>` : ""}<div>`
+        + `<div class="hud-manbox-name">${esc(rankName)} ${esc(d.given)} ${esc(d.family)}</div>`
+        + `<div class="hud-manbox-status ss-${d.status}">${statusPictogram(d.status, 24, statusName)}<span>${esc(statusName)}</span></div></div></div>`
         + `<div class="hud-manbox-line">${esc(s.t(`role.${f}.${d.role}`, {}, f))} · ${esc(d.callsign)}</div>`
         + `<div class="hud-manbox-line">${d.weapon ? esc(s.t(`weapon.${d.weapon}`, {}, f)) : esc(s.t("card.noWeapon"))}${a ? ` · ${esc(s.t("card.rounds", { loaded: a.loaded, spare: a.spareRounds, mags: a.spareMags }))}` : ""}</div>`
         + `<div class="hud-manbox-line"><b>${esc(s.t("card.doing"))}</b> ${esc(doing)}</div>`

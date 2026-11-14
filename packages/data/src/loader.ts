@@ -329,6 +329,9 @@ function loadFaction(
   };
 
   // Cross references.
+  for (const k of Object.keys(appearance?.insignia?.ranks ?? {})) {
+    if (!pack.ranks[k]) errors.push({ file: f("appearance.json"), path: `insignia.ranks.${k}`, message: `unknown rank '${k}' (known: ${known(pack.ranks)})`, severity: "error" });
+  }
   itemsF.items.forEach((it, i) => {
     if (it.chargeItem && !pack.items[it.chargeItem]) {
       errors.push({ file: f("items.json"), path: `items[${i}].chargeItem`, message: `unknown item '${it.chargeItem}'`, severity: "error" });

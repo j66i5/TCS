@@ -88,7 +88,8 @@ async function main(): Promise<void> {
   try { if (params.get("look")) localStorage.setItem(LOOK_KEY, look); } catch { /* not remembered */ }
   renderer.setLook(look);
   // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
-  renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
+  const appearance = buildAppearance(data, sim.state.sides.map((x) => x.faction));
+  renderer.setAppearance(appearance);
   renderer.setMap(input.map, input.catalog);
   // The battle opens with nothing selected (M7.5a): the order bar is greyed until a unit is picked.
   const overlay: Overlay = { playerSide, selectedUnit: null, debug: false };
@@ -231,6 +232,8 @@ async function main(): Promise<void> {
       sightAt = sim.state.tick;
     },
   });
+  // Rank insignia on the unit card (the "insignia" step): appearance data, outside the catalog.
+  hud.setInsignia(appearance.insignia);
 
   try { if (localStorage.getItem(CONTOURS_KEY) === "1") hud.setContours(true); } catch { /* not remembered */ }
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).

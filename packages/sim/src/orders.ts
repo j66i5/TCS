@@ -67,8 +67,12 @@ export type OrderBody =
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
   | { kind: "withdraw"; x: number; y: number }
   /** Call mortar fire (M6.5c): high explosive or smoke, this many rounds at (x, y); the unit's leader (or a man
-   *  who can still use the radio) passes it on; the side's allotment pays for it. */
-  | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke"; rounds: number }
+   *  who can still use the radio) passes it on; the side's allotment pays for it.
+   *  M8.1: smoke along a line: `x2, y2` the line's other end; the rounds for effect land spread evenly from (x, y)
+   *  to (x2, y2) (a screen; ranging aims at the line's middle).
+   *  M8.4: `asset` "artillery" for the off-map battery (default: the mortars); `ammo` "illum" for illumination; `fuse`
+   *  "airburst" for high explosive bursting over the target; `dangerClose` to fire this close to own men. */
+  | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke" | "illum"; rounds: number; x2?: number; y2?: number; asset?: "mortar" | "artillery"; fuse?: "airburst"; dangerClose?: boolean }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
   | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number; /** Hand smoke grenades only (D1): a screen at the point. */ smoke?: boolean }
   /** Get in (M7.2): the men on foot walk to the vehicle and board it; to a parent, each unit under it boards its
@@ -76,6 +80,9 @@ export type OrderBody =
   | { kind: "mount"; vehicle?: EntityId }
   /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
   | { kind: "dismount" }
+  /** Set up a crew-served weapon where the men stand (M8.3a, SPEC 6.6 "deploy crew-served weapon"): a mortar team,
+   *  or a section of them; the men stop. */
+  | { kind: "deploy" }
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor

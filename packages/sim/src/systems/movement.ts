@@ -59,6 +59,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       if (m.hurryUntilTick !== undefined) delete m.hurryUntilTick;
       continue;
     }
+    // A mortar crew packing its tube waits for it (M8.3a).
+    if (m.holdUntilTick !== undefined) { if (tick < m.holdUntilTick) { m.speedMps = 0; continue; } delete m.holdUntilTick; }
     const t = state.transform.req(id);
     const s = state.soldier.get(id);
     // Under fire (his suppression, or his own unit fired on just now) a man on a walk or sneak leg runs for the

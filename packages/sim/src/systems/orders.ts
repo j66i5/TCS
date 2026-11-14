@@ -2,6 +2,7 @@
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
 import { callFire } from "./support";
+import { startSetup } from "./mortars";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
@@ -60,6 +61,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.frontageM !== undefined && !(o.frontageM >= 1 && o.frontageM <= 500)) return "invalid-params";
       return null;
     case "halt":
+    case "deploy":
       return null;
     case "posture":
       return o.posture === "standing" || o.posture === "crouching" || o.posture === "prone" ? null : "invalid-params";
@@ -79,7 +81,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "callFire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
-      if (o.ammo !== "he" && o.ammo !== "smoke") return "invalid-params";
+      if (o.ammo !== "he" && o.ammo !== "smoke" && o.ammo !== "illum") return "invalid-params";
+      if (o.asset !== undefined && o.asset !== "mortar" && o.asset !== "artillery") return "invalid-params";
+      if (o.fuse !== undefined && (o.fuse !== "airburst" || o.ammo !== "he")) return "invalid-params";
+      if ((o.x2 === undefined) !== (o.y2 === undefined)) return "invalid-params";
+      if (o.x2 !== undefined && (o.ammo !== "smoke" || !Number.isFinite(o.x2) || !Number.isFinite(o.y2!) || o.x2 < 0 || o.y2! < 0 || o.x2 > ctx.map.widthM || o.y2! > ctx.map.heightM)) return "invalid-params";
       return Number.isInteger(o.rounds) && o.rounds >= 1 && o.rounds <= 24 ? null : "invalid-params";
     case "assault":
     case "withdraw":
@@ -125,6 +131,8 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
       return !(crew && o.nature === "at") || vehicleHasMissiles(ctx, state, vid);
     case "discharge":
       return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
+    case "deploy":
+      return mortarTeamsUnder(state, o.target).length > 0;
     default:
       return true;
   }
@@ -440,6 +448,17 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
     }
+    case "deploy": {
+      // Stop and set up each mortar team (M8.3a): the men's moves end where they are.
+      let ok = false;
+      for (const team of mortarTeamsUnder(state, order.target)) {
+        const tu = state.unit.get(team)!;
+        for (const s of tu.members) { const m = state.mover.get(s); if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; } }
+        stopUnit(state, team);
+        if (startSetup(ctx, state, events, team)) ok = true;
+      }
+      return ok ? true : "unable";
+    }
     case "halt": {
       for (const s of soldiers) {
         const m = state.mover.get(s);
@@ -517,7 +536,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // mounted: ok a call for fire goes over the radio from inside a vehicle as well
       const all = isUnit ? unitSoldiers(state, order.target).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
       const callers = isUnit && u && u.leader !== null && all.includes(u.leader) ? [u.leader, ...all] : all;
-      if (!callFire(ctx, state, order.issuer, callers, order.x, order.y, order.ammo, order.rounds)) return "unable";
+      const cf = callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined,
+        { ...(order.asset === "artillery" ? { asset: "artillery" as const } : {}), ...(order.fuse ? { fuse: order.fuse } : {}), ...(order.dangerClose ? { dangerClose: true } : {}) });
+      if (cf === "range") return { unable: "radio.fireOutOfRange" };
+      if (cf === "dangerClose") return { unable: "radio.fireDangerClose" };
+      if (cf === "moving") return { unable: "radio.batteryMoving" };
+      if (cf === "guided") return { unable: "radio.guidedNotYet" };
+      if (cf === "noFuse") return { unable: "radio.noAirburst" };
+      if (!cf) return "unable";
       break;
     }
     case "rules": {
@@ -779,3 +805,16 @@ function markUnitMoving(state: SimState, soldier: EntityId): void {
 }
 
 export { radioFromTarget };
+
+/** The mortar teams at or under a unit (M8.3a), ascending id. */
+function mortarTeamsUnder(state: SimState, uid: EntityId): EntityId[] {
+  const out: EntityId[] = [];
+  const walk = (u: EntityId) => {
+    const unit = state.unit.get(u);
+    if (!unit) return;
+    if (unit.mortar !== undefined) out.push(u);
+    for (const c of unit.children) walk(c);
+  };
+  walk(uid);
+  return out.sort((a, b) => a - b);
+}

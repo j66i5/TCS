@@ -34,6 +34,7 @@ export function tallyExpenditure(out: Expenditure, events: readonly SimEvent[], 
       const sd = sideOf(e.vehicle ?? e.shooter);
       if (sd === undefined) continue;
       const s = side(sd);
+      if (e.indirect) continue; // (an on-map mortar round, M8.3b: counted with the fire missions, not small arms)
       if (e.vehicle === undefined) { s.smallArms++; continue; }
       const v = veh(s, e.vehicle);
       if (catalog.weapons[e.weapon]?.type === "autocannon") v.cannon[e.ammo] = (v.cannon[e.ammo] ?? 0) + 1;

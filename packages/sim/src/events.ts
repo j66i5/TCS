@@ -44,7 +44,7 @@ export type SimEvent =
    *  with what training (`skill`: self, buddy, firstResponder, medic), and whether it worked. */
   | { kind: "medical.treated"; tick: number; casualty: EntityId; by: EntityId; intervention: DefId; wound: number; success: boolean; skill: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
-  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
+  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
@@ -68,7 +68,21 @@ export type SimEvent =
   /** A ranging round of a fire mission has landed (step fire-support): where (x, y), the point called (tx, ty), how
    *  far off it fell (m), whether the man who called it saw it fall (then the next rounds come closer), ranging
    *  rounds still to come. */
-  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke"; seen: boolean; missM: number; left: number }
+  /** M8.2a call-for-fire chain: a mission begins (how the point was located, the first round's aiming error per
+   *  axis, seconds until it lands); a round leaves the tube ("shot", seconds of flight); a round lands in `inS`
+   *  ("splash"). */
+  | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
+  /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: M9.1). */
+  | { kind: "support.illum"; tick: number; x: number; y: number; side: SideId; burnS: number }
+  | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
+  | { kind: "support.splash"; tick: number; side: SideId; caller: EntityId; x: number; y: number; inS: number }
+  /** M8.3a on-map mortars: a team starts setting up its tube (ready at `readyTick`), is ready, has packed up to move;
+   *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
+  | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
+  | { kind: "mortar.ready"; tick: number; unit: EntityId }
+  | { kind: "mortar.packed"; tick: number; unit: EntityId }
+  | { kind: "mortar.fired"; tick: number; side: SideId; unit: EntityId; gunner: EntityId; x: number; y: number; tx: number; ty: number; ammo: DefId; flightS: number }
+  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke" | "illum"; seen: boolean; missM: number; left: number; /** M8.2b: who read the fall (a man, a vehicle sight; a drone from M9.5). */ observer?: EntityId; observerKind?: "man" | "vehicle" | "drone" }
   /**
    * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
    * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).

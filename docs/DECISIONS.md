@@ -3770,6 +3770,35 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
 
+## 2026-11-14 — M8.1 Smoke volume v2: height, wind drift and plumes, fade, screen along a line (slice 21; decided without the owner, owner to review)
+
+The owner was not reachable (parallel cloud session); the M8 owner round (roadmap-detail Phase 3, screen 2 "Smoke")
+is answered here with option **(a) height, wind drift and screen lines**, owner to review.
+- **Model** (`sim/src/smoke.ts`): a cloud is a capsule in plan (tail to head, radius r) standing from the ground where
+  it rose up to a top. Radius and top grow from 30 % to full over `spotting.smokeBuildSeconds` 10 s; density fades to
+  nothing over the last `smokeFadeSeconds` 20 s (was: full until it vanished; the renderer already faded over 20 s,
+  now it draws the sim's own shapes). Wind (`environment.windX/windY`, m/s; **y is south**, the map's y) carries the
+  head with `smokeDriftFactor` 1 x the wind; the tail stays on the burning round for `burnS`, then follows; a plume
+  is cut at `smokeStretchMaxM` 200 m. Never upwind of the round. Only the part of a sight line below the top counts.
+- **Values** (game values, low): mortar smoke top `fireSupport.smokeTopM` 15 m, burn `smokeBurnSeconds` DE 60 s / RU
+  40 s (red phosphorus / HC fillings burn a minute or more; search extracts only); vehicle grenades `cloudTopM` 8 m, a
+  puff; burning vehicle `crew.fireSmokeTopM` 30 m, fed while it burns. Shapes are cached per tick and culled by
+  bounding box (`smokeTransmission(state, physics, x0, y0, z0, x1, y1, z1, only)` now takes heights).
+- **Screen along a line:** `callFire` takes optional `x2, y2` (smoke only): ranging at the line's middle, the rounds
+  for effect spread evenly end to end. No UI yet (M8.6 "smoke along a line"); the AI does not use it yet (M8.5).
+- **Wind:** all scenarios still have no wind (unchanged); the `Environment` comment said y north — fixed to south
+  (code, the ballistics and sound tests always used south).
+- **Lab** `npm run lab -- smoke [seeds]`: a man sees over a cloud only when his line clears its top (ground, upstairs,
+  roof, hill rows); drift at 4 m/s 120 m in 30 s, 0 m upwind at every bearing; a 6-round screen across 150 m blocks
+  98 % (DE) / 93 % (RU) of spotting checks across its middle 120 m without wind, 100 % with 3 m/s along it.
+- **Perf:** new perf test, the full-load spotting bench with 30 clouds (plumes, heights): 11.2x (without 12.5x; floor
+  8x); bench-vehicles 11.0x.
+- Batches (10 seeds x 1200 s, origin/main -> slice 21; attacker wins / blue down / red down): platoon 3 -> 2 /
+  19.9 -> 18.8 / 12.9 -> 11.9; platoon-ru 3 -> 4 (red attacks: 7 -> 6) / 15.6 -> 15.8 / 12.9 -> 12.4; platoon-vehicles
+  4 -> 3 (+1 draw) / 19.4 -> 19.2 / 22.5 -> 22.5; platoon-ru-vehicles 1 -> 1 (red) / 11.0 -> 10.8 / 25.8 -> 26.2. Within
+  noise. Goldens regenerated (catalog fingerprint and fading smoke); `golden/no-interiors` untouched.
+- Screenshots `npm run screenshot -- --scene smoke` (a six-round screen and two grenade puffs in 4 m/s wind at 5, 30
+  and 140 s).
 ## 2026-11-14 — Owner answers: M7.5e follow-ups, round A and medical round 1
 - Own squads leave houses on their own as built. Add a **Clear** button (Move tray, beside Occupy). The AI attacker
   also clears houses with a known enemy **on its approach**, not only in the assault. Overnight and M7.5e values:
@@ -3858,6 +3887,56 @@ contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at 
 not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
 No golden change (render only).
 
+## 2026-11-14 — M8.2a Call-for-fire chain: phases, first-round error by location method, planned targets (slice 22; decided without the owner, owner to review)
+
+M8 owner round (screen 1) answered here, owner to review: **any unit with a radio may call** (as before: the unit's
+leader or a man who can still report); **first-round accuracy automatic, from the best means the caller has** (a).
+- **Phases:** the order's own comms delay, then of `fireSupport.delaySeconds` (unchanged: DE 75 s, RU 60 s) the
+  radio call `requestSeconds` 15 s, processing (computing, laying: the rest, DE 44 s, RU 31 s) and the flight
+  `flightSeconds` (DE 16 s, RU 14 s: a section about 2 km back). Events `support.call` (method, first-round error,
+  seconds to the first round), `support.shot` (as the round leaves, for each ranging round and the first volley),
+  `support.splash` (`splashSeconds` 5 s before it lands); radio `radio.fireCall*`, `radio.fireShot`,
+  `radio.fireSplash`. Time to effect = comms + request + processing + flight (+ ranging rounds x `rangingSeconds`, which
+  stays the fall-to-fall time 20 s: correction 4-6 s after the fall, then the flight). `missionPhases(fs)` exported.
+- **First-round error by location method:** `rangingErrorM` is now the battery's own error (meteorology, survey:
+  15 m per axis for both, was 40 / 50 total); the location adds `locationError.estimate` 5 m + 7 % of the caller's
+  range (map or eye: range estimates err 10-20 %) or `locationError.laser` 2 m + 0.5 % (a laser rangefinder he has
+  and the point seen: a vehicle seat sensor or station with one, or a carried item with the new `rangefinder` flag —
+  no such item in the data yet). At 500 m an estimate misses 2.7x as far as a laser (both factions; test band
+  2.4-3.8); a registered point keeps its residual. At typical call ranges (300-500 m) the estimate error is about the
+  old 40 m. (First try 9 % of range: village attacker wins 2 -> 0 / 10, mortar wounded 6.0 -> 4.1: tuned to 7 %.)
+- **Planned targets:** `rules.support[].planned` (points set in deployment): registered at the start with the
+  residual of an observed adjustment (`rangingErrorM` x `rangingCorrection`), so a mission within `registeredM` fires
+  for effect at once. No UI (M8.6) and no AI use (M8.5) yet.
+- **xf:** the fixture faction has no fire support; every new field is optional (absent: the old behaviour).
+- Batches (10 x 1200 s, slice 21 -> slice 22; attacker wins / blue down / red down): platoon 2 -> 1 / 18.8 -> 19.8 /
+  11.9 -> 10.6 (blue mortar: enemy wounded 6.0 -> 4.8); platoon-ru (red attacks) 6 -> 6 / 15.8 -> 15.8 / 12.4 -> 13.5;
+  platoon-vehicles 3 -> 5 / 19.2 -> 18.0 / 22.5 -> 21.7; platoon-ru-vehicles 1 -> 1 / 10.8 -> 10.2 / 26.2 -> 26.3
+  (ru runs with the 9 % first try: unchanged there). Goldens regenerated.
+
+## 2026-11-14 — M8.2b Observers and adjustment (slice 23; decided without the owner, owner to review)
+
+- **Observers** (`sim/src/systems/observers.ts`): an `Observer` is a man on foot (eyes raised to at least kneeling),
+  a crewman through his seat's sight (from the sight's place on the hull or turret; its laser if the seat sensor or
+  his station has one) or — a reserved kind for M9.5 — a drone camera (no producer yet). A mission's observers are
+  the caller first, then his platoon's men who can still report (ID order; the platoon net, as before). The
+  mission's laser method (M8.2a) now uses the caller's observer.
+- **Adjustment with skill:** of the observers who see a ranging round fall, the best reader corrects: the error left
+  is `rangingCorrection` (0.3) x a skill factor (`adjust.skillWorst` 1.5 at skill 0 to `skillBest` 0.6 at skill 1;
+  skill = `observation`, else `experience`, else 0.5) of the old one, plus his reading error per axis
+  (`readBaseM` 3 m + `readPerM` 1 % of his distance to the fall by eye, `laserReadM` 2 m with a laser, x the same
+  factor). Before: x0.3 exactly and no reading error. `support.ranging` carries `observer` and `observerKind`.
+  Game values, low.
+- **Lab** `npm run lab -- indirect [seeds]`: mean aim miss after two seen ranging rounds by eye at 600 m: skill 0.2 /
+  0.5 / 0.8 = 20 / 15 / 10 m (bands 25 / 18 / 12), with a laser 2-5 m (band 6); real missions on the open demo ground:
+  all ranging rounds seen, aim miss 41 -> 12 m (300 m) and 61 -> 16 m (500 m) from the first round to the effect.
+- **Not built:** "missions skip a recognised Verwundetennest" (M10.7a) — the medical system is being built on another
+  branch (claude/new-session-avoifd) and this branch must not touch it. The hook point is `callFire` / the mission
+  loop in `systems/support.ts`; to add once the Verwundetennest exists on main.
+- **Batches** (10 x 1200 s; attacker wins, pre-M8 origin/main -> slice 23; acceptance: at or above baseline - 1):
+  platoon 3 -> 3, platoon-ru (red) 7 -> 7, platoon-vehicles 4 -> 5, platoon-ru-vehicles (red) 1 -> 0. Met (the last at
+  its floor). Down (blue / red): platoon 19.6 / 13.3, platoon-ru 14.8 / 10.7, platoon-vehicles 19.3 / 21.7,
+  platoon-ru-vehicles 10.0 / 25.2. Goldens regenerated.
 ## 2026-11-14 — M10.0 kick-off and clean slate (roadmap-detail slice 2)
 Owner rounds A, M10-1, M10-2 and M10-3 were all answered up front (the three entries above); they override any
 option the plan still lists. Q-7 (asked in M10-3): an order to fire at a recognised protected target is **refused**
@@ -4035,6 +4114,82 @@ Owner answer used (BINDING, round A): hand smoke grenades as a small step inside
   1.0. Within noise of 10 seeds; the attacker throws most (moves under fire). No per-tick work (only on orders):
   no perf run. Golden update (loads and data), `golden/no-interiors` untouched. Screens: `--scene smoke`.
 
+## 2026-11-14 — Hand smoke grenades on the M8.1 smoke volumes (merge of PR #43 into the M8 branch; owner to review)
+
+- Hand smoke grenades (`de-dm45`, `ru-rdg2`, `xf-puff`) now lay M8.1 volumes (`addSmoke`, moved to `sim/src/smoke.ts`):
+  a low plume 20 m across (16 m for `xf-puff`), top `smoke.topM` 4 m (3 m `xf-puff`; new optional ammo field, game
+  value, low), fed at its place for the grenade's `seconds` (a plume in wind) and lingering over the 20 s fade after
+  it burns out (without that the new fade would have cut DM45's blocked time from about 58 s to about 38 s; the D1
+  band is 45 s). `screenCasualty` and the break-contact drill are unchanged.
+- The two smoke labs share `npm run lab -- smoke`: the hand grenade rows (DM45 cuts the line through its middle 58 s,
+  RDG-2 73 s; band 12.5 m; nobody hurt) and the volume tables (a new height row: a man at a second-floor window
+  sees over a hand smoke cloud, one at a first-floor window does not). PR #43's `--scene smoke` keeps its name; the
+  M8.1 plume screenshots are now `--scene plumes`. Goldens regenerated.
+
+## 2026-11-14 — M8.3a On-map mortars: crews and firing (slice 24; decided without the owner, owner to review)
+
+M8 owner round, screen 1 "Mortars", answered here (owner to review): **(a) on the map, plus artillery off the map**.
+The off-map battery stays (M6.5c); generated battles keep it by default (goldens' battles and the default batches
+are unchanged); on-map sections come with `mortars: true` (tools scenarios `platoon-mortars`, `platoon-ru-mortars`;
+app `?mortars=1`).
+- **Data** (research defaults, search extracts only): German 120 mm mortar (Tampella; over 6 km, 160 kg, a round
+  almost 14 kg, carried by the Wolf or fired from the M113: Bundeswehr/ESUT extracts) `de-m120-mortar`, low; Russian
+  82 mm 2B14 Podnos (crew 4, 80-85 m to 4,270 m, up to 24 rounds a minute) `ru-2b14-mortar`, medium; 120 mm 2B11 of
+  the 2S12 Sani (480 m to 7,100 m, 10 a minute normal, 15 maximum, crew 5, GAZ-66-based 2F510 truck) `ru-2b11-mortar`,
+  medium, with new `ru-120-he/-fragment/-smoke` rounds (low). The tube is an **item** with a `mortar` block (not a
+  weapon: no direct-fire path touches it); set-up 60-120 s, packing 30-60 s, sustained 4-8 s per round, crewMin 2,
+  aim error 15 m, dispersion 8-10 m per km, processing 25-30 s, flight 8-10 s + 6 s per km: game values, low.
+  **Carriers are not modelled** (no Wolf/M113/truck hull yet): a section starts at its position; the data notes name
+  the carriers. Teams `moerser-trupp` (4 men, 12 HE + 4 smoke), `raschet-2b14` (4 men, 24 HE + 6 smoke),
+  `raschet-2b11` (5 men, 15 HE + 4 smoke); sections of two (`moerser-gruppe`, `minomyotny-vzvod-82`,
+  `batareya-2s12`); manifest `mortarTemplate` (DE 120 mm, RU 82 mm).
+- **Sim** (`systems/mortars.ts`, support.ts): a team (its men carry a tube) is packed / setting up / ready; it sets up
+  on the new `deploy` order (SPEC 6.6) or on its own after standing still 3 s (player and AI alike, so no new button
+  is needed yet); a move packs it first (`Mover.holdUntilTick`). A call for fire goes to the side's set-up (or
+  setting-up) teams that reach the point (and both ends of a screen) with rounds of the kind; else the off-map
+  battery; with neither and a team out of range: `radio.fireOutOfRange`. Rounds stay with the crews until the tube
+  fires (rule 9: one round out of a load per shot; `supportLeft` counts them); rounds in flight are kept in the
+  mission (`FireMission.flying`). Ranging and adjustment as M8.2a/b (first error from the tube's `aimErrorM`); one
+  ranging round at a time, then every tube at its own rate. Events `mortar.setup/ready/packed/fired`; radio
+  `radio.mortarReady`, `radio.ack.deploy`. The AI commander leaves a mortar section alone (`isMortarUnit`); its calls
+  are routed to the tubes as to the battery.
+- **Not done:** registration of points by on-map missions only works through the off-map section's list (a side
+  without one does not remember ranged points); no UI button for `deploy` (auto set-up); vehicles carrying tubes.
+- **Tests** `tools/test/mortars.test.ts`: set-up time, deploy order accepted (rifle squad: not applicable), a
+  mission fires 6 + 2 ranging rounds from both tubes and exactly that many rounds leave the crews' loads, out of range
+  (inside the 500 m minimum, beyond a shortened maximum) refused with nothing fired, packing before a move.
+- **Batches** (10 x 1200 s; attacker wins / blue down / red down): default `platoon` and `platoon-ru` identical before
+  and after (3 / 18.0 / 12.8 and 6 (red) / 15.3 / 12.6). New: `platoon-mortars` (German 120 mm attacking, Russian
+  82 mm defending) 4 / 20.5 / 15.3 (blue mortar: 24 HE, enemy wounded 8.3); `platoon-ru-mortars` 4 (red) / 17.6 /
+  18.5. Speed 101-111x. Goldens regenerated (fingerprint only).
+
+## 2026-11-14 — M8.3b On-map mortars: signature and degradation; review fixes for M8.3a (slice 25; decided without the owner, owner to review)
+
+- **Signature:** every round a tube fires emits `shot.fired` from the man carrying the tube with `indirect: true`
+  and `loudM` = the tube's `hearingRangeM` (120 mm 4 km, 2B14 3 km; game values, low; rifles stay 1,500 m): the enemy's
+  contacts hear it (heard contact, bearing and range guess as any shot; `radio.contactHeard`), and the carrier's
+  weapon `lastShotTick` makes him "firing" for the enemy's spotting (the flash). An indirect shot is no flat line of
+  fire: incoming-fire checks (infantry and vehicles) skip it; expenditure does not count it as small arms.
+- **Degradation:** a tube's rate = (sum over its `crew` places of the man's fire-rate factor: steady 1, shaken 0.7,
+  pinned 0.35, empty or stunned 0) / crew: two of four men fire at half the rate, a crew all pinned at about a third;
+  below `crewMin` able men (not panicked) within 20 m it stops (a mission whose tubes can never fire ends). Set-up
+  already took longer short-handed (M8.3a).
+- **DATA_GUIDE** "Add a mortar (on the map, M8.3)".
+- **Review fixes for M8.3a** (independent review, 8 findings, all confirmed by two skeptics each): rounds in flight
+  land at their own tick (they were held behind the first-fired round when tubes stood at different ranges); an
+  on-map mission takes no more rounds than the crews hold and keeps one for effect (a screen asked with more rounds
+  than held covered only half its line); "fire for effect" and the shot/splash calls go with the first effect round
+  that actually leaves; a fallen gunner's tube passes to the nearest able crewman (`transferItems`; the corpse was
+  "firing" and the team could not set up again after moving); any team member walking (a move to the section or one
+  man) packs the team; a defending section placed at least its minimum range + 50 m behind the main objective where
+  the map allows, and a side whose section still cannot reach it keeps its off-map allotment.
+- **Tests:** `mortars-signature.test.ts` (heard beyond rifle range with the right bearing, called out, no flat line;
+  the flash; full crew at its rate, pinned below half, two of four men half rate, below crewMin nothing);
+  `mortars.test.ts` review cases.
+- **Batches** (x 1200 s; attacker wins / blue down / red down): `platoon-mortars` 20 seeds: slice 24 5 / 20, first
+  slice-25 try 1 / 20, with the review fixes 3 / 20 / 19.1 / 12.75 (the defenders now hear the attacker's 120 mm
+  tubes at about 1.1 km and are alerted earlier; likely the cost, unproven); `platoon-ru-mortars` 10 seeds: 4 -> 6
+  (red) / 17.1 / 19.9. Default battles unaffected (no on-map tubes). Balance with on-map mortars is M8.5's job.
 ## 2026-11-14 — Merge of origin/main (slices 5 D1 and 12 M10.6-data) into the medical line; goldens regenerated
 The parallel sessions' slices 5 (hand smoke grenades) and 12 (Boxer ambulance / BMM hulls) were merged into
 `claude/new-session-avoifd` before slice 4. Conflicts resolved by keeping both sides (string tables, roles, items,
@@ -4096,6 +4251,69 @@ success (item data), same rules for both sides and the player. Built:
   trap leaves with a bad leg wound limps out a few seconds after the 20 s limit → all but one out in time. Care is
   not involved in either (no treatment in the house run).
 
+## 2026-11-14 — Merge of medical part 1 (#45) into the M8 branch: two AI tests moved to other runs
+
+After merging M10 part 1 (first aid) with M8 (smoke v2, call-for-fire chain, observers), each passing alone, the
+village battle of seed 1 takes longer to reach its first assault (recon at 590 s instead of 530 s; first assault
+order at 925 s). `commander.test.ts` now runs its battle to 1200 s (was 900 s) and `commander-clear.test.ts` uses seed
+2 (seed 1 no longer reaches a house to clear in 1200 s). Same assertions; no sim change. Goldens regenerated
+(fingerprint).
+
+## 2026-11-14 — M8.4 Off-map 155 / 152 mm, airburst, illumination as data, reserved interfaces (slice 26; decided without the owner, owner to review)
+
+M8 owner round answered here (owner to review): screen 1 artillery in the platoon battle **(b) only when the battle
+asks for it** (`ScenarioDef.artillery`, app `?artillery=1`; the AI commander does not call it until M8.5); screen 2
+counter-battery **(a) abstract** (the battery moves after a few missions), illumination **(a) rounds and data now, the
+light in M9**, airburst **(a) where a public source shows the fuse** (multi-option / proximity fuzes are standard for
+155 mm and 152 mm; none given to the mortars); screen 3 white phosphorus **(a) generic smoke** (unchanged), Russian
+type **(a) 2S19 Msta-S**.
+- **Data** (`doctrine.json` `artillery`, the same shape as `fireSupport`; game values unless noted): PzH 2000 (155 mm,
+  4 guns; up to 10 rounds a minute, about 30 km with DM121: KNDS / Wikipedia extracts), 2S19 Msta-S (152 mm, 6 guns;
+  7-10 rounds a minute: Canadian Army Journal / Defense Magazine extracts); first round after 150 / 180 s (request 20
+  s, flight 40 s), ranging rounds 45 s apart, battery error 25 / 35 m, dispersion 45 / 55 m, volleys every 12 / 15 s,
+  smoke cloud 60 m radius, 25 m high, 90 s burn. Rounds: `de-155-he` (43.5 kg; filling 10 kg, 3,500 fragments: low),
+  `ru-152-he` (3OF45 43.56 kg, FAS extract; 7.6 kg, 3,000 fragments: low), heavier fragments, smoke and illumination
+  shells; illumination bombs for both mortars. Illumination (`illum` block on the round): 155/152 mm about 1,000,000
+  cd, 120 s, sinking 4.5 m/s (M485A2 class: FAS / Yugoimport extracts, medium), ejected 600 m up (game value).
+- **Airburst:** `callFire` `fuse: "airburst"` (high explosive only) bursts `airburstHeightM` 8 m over the ground; an
+  asset without it refuses (`radio.noAirburst`). Lab `npm run lab -- artillery`: prone men in the open at 10 m take
+  3.6x (155 mm) / 2.8x (152 mm) the fragment wounds of an impact burst; men lying under a house's roof take about the
+  same as from an impact on the roof (x1.1 / x1.1: a 6 cm wooden roof stops few heavy fragments either way); at 25 m a
+  155 mm shell wounds standing men about 2x as often as a 120 mm bomb.
+- **Danger close:** `dangerCloseM` 600 m for the artillery (US practice; not reached in search, low): a call within it
+  of any able own man is refused (`radio.fireDangerClose`) unless it says `dangerClose: true`. The mortars have none
+  in the data yet (600 m for them would refuse most of today's AI calls: owner to review with M8.5).
+- **Illumination** (`ammo: "illum"`, no ranging): a `Flare` in `state.flares` (x, y, height, start, end, sink rate,
+  candela, side; saved) and `support.illum`; the light is unchanged until M9.1.
+- **Counter-battery** (`CounterBatteryModel`, implementation `DISPLACE_MODEL`): after `missionsBeforeMove` 3 missions
+  the battery is moving for `moveSeconds` 600 s after its rounds; calls meanwhile: `radio.batteryMoving`.
+- **Guided rounds:** a round whose `guidance` is not "unguided" is refused (`radio.guidedNotYet`) until M9.
+- Sim: `SupportSection.asset`, per-asset `supportLeft(..., asset)`, `FireMission.asset / fuse / dangerClose`,
+  `FireAmmo` "he" | "smoke" | "illum". Default battles unchanged (see the batch line below). Goldens regenerated.
+- Batches (10 x 1200 s, merged head -> M8.4): `platoon` 3 / 19.6 / 13.8 and `platoon-ru` 6 (red) / 15.9 / 12.9, identical
+  (attacker wins / blue down / red down).
+
+## 2026-11-14 — M8.5 AI and fire support, part 1: screens, artillery, planned fires (slice 27 without its balance part; owner to review)
+
+The plan makes M8.5 depend on D4 (infantry tactics pass 2, after M10), not built yet: built here are the AI's uses of
+the new fire support; the balance re-tune and the Russian mounted attack revisit (A4) wait for D4.
+- **Screens across the line:** the attacker's smoke between the objective and its assault position (prep fires and
+  the re-lay as squads go in) is now a screen along a line (`callFire` x2/y2) square to the line from the objective,
+  `COMMANDER.screenHalfM` 50 m either side, `screenRounds` 4 (was 3 rounds on a point), laid upwind by the wind over
+  `screenLeadS` 20 s so it drifts onto the line. Smoke blinding the objective itself stays on a point.
+- **Artillery:** every HE call (defence, prep fires, assault) goes to the side's artillery when it has rounds, the
+  battery is not moving and no own man is within its danger-close distance + `dangerCloseMarginM` 50 m; airburst when
+  at least half the men it knows within 60 m of the point are outdoors; never with the danger-close flag. Else the
+  mortars as before. On the 1,200 m battle map almost every target is danger close: in `platoon-artillery` the guns
+  were never called (outcome identical to `platoon`); on a 2,400 m map they are (test).
+- **Planned fires:** generated battles give the defender's mortars three planned targets (150 and 300 m in front of
+  the main objective toward the attacker, 150 m in front of the second): registered before the battle, so a call
+  there fires for effect at once.
+- **Not built (needs D4 or M8.6):** AI choice of observers by view (siting), the observing overlay, the agreed win
+  band and A4.
+- **Batches** (10 x 1200 s, M8.4 -> this; attacker wins / blue down / red down): platoon 3 -> 2 / 19.6 -> 19.9 / 13.8
+  -> 12.9; platoon-ru 6 -> 5 (red) / 15.9 -> 15.3 / 12.9 -> 13.9; platoon-vehicles 5 -> 5 and platoon-ru-vehicles 1 ->
+  1 (red), identical; platoon-artillery = platoon. Within noise. Goldens regenerated.
 ## 2026-11-14 — Surrendered men walk over to give themselves up (owner request; goldens regenerated)
 Owner: "include that surrendering soldiers will move toward the forces they surrender to and hand themselves over".
 **All details below decided without the owner: confidence low, for his review.** Values in `core/behaviour.json`

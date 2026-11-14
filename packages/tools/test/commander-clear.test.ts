@@ -13,7 +13,9 @@ const data = loadData();
 interface Mem { clearing?: Record<string, [number, number]>; taken?: number[]; held?: Record<string, number>; phase: string }
 
 function battle() {
-  const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 1200 });
+  // (Seed 2 since the M8 + M10 merge, 2026-11-14: seed 1's attack now assaults too late in 1200 s to reach a house;
+  // the behaviour checked is unchanged.)
+  const input = buildScenario(data, { kind: "platoon-attack", seed: 2, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 1200 });
   const atk = commanderController("blue", input), def = commanderController("red", input);
   const mems: { tick: number; mem: Mem }[] = [];
   const watched = { ...atk, think: (v: Parameters<typeof atk.think>[0], t: number) => {

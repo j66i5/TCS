@@ -9,5 +9,6 @@
     "https://en.wikipedia.org/wiki/Russian_Ground_Forces"
   ],
   "confidence": "high",
-  "platoonTemplate": "motor-rifle-platoon"
+  "platoonTemplate": "motor-rifle-platoon",
+  "mortarTemplate": "minomyotny-vzvod-82"
 }

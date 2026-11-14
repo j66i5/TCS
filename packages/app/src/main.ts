@@ -14,6 +14,7 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
+  mortarTeams,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
@@ -55,7 +56,7 @@ async function main(): Promise<void> {
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}) });
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}) });
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
     : [commanderController(enemySide, input)];
@@ -458,7 +459,7 @@ async function main(): Promise<void> {
     supportAt = at;
     const sc = worldToScreen(renderer.camera, at.x, at.y);
     hud.offerSupport({
-      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
       pick: (ammo) => {
         supportAt = null;
         if (overlay.selectedUnit !== uid || !sim.state.unit.has(uid)) return;
@@ -1114,7 +1115,7 @@ async function main(): Promise<void> {
     offerSupport: (x: number, y: number) => offerSupport({ x, y }),
     /** Step fire-support (screenshots, checks): the pop-up, the point held, the side's missions as their lines show. */
     support: () => ({
-      popup: hud.supportShown(), at: gesture?.kind === "support" ? gesture.at : supportAt, mode: orderMode, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      popup: hud.supportShown(), at: gesture?.kind === "support" ? gesture.at : supportAt, mode: orderMode, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
       missions: (overlay.intents ?? []).filter((l) => l.kind === "fire").map((l) => ({ x: l.x1, y: l.y1, phase: l.phase ?? null, falls: l.falls?.length ?? 0 })),
     }),
     moveUnit: (uid: EntityId, x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "move", waypoints: [{ x, y, mode: "walk" }] }),
@@ -1228,14 +1229,14 @@ async function main(): Promise<void> {
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
     if (defs.length === 0) { hud.setScore([]); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
-    const sup = sim.state.support.some((x) => x.side === playerSide);
+    const sup = sim.state.support.some((x) => x.side === playerSide) || mortarTeams(sim.state, playerSide).length > 0;
     // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
     // holder's full name as a tooltip), the time left, the mortar rounds left (HE and smoke, named). The time and
     // the rounds come first (review fix: at the end of the line they were cut off on a phone); the objectives'
     // names may run out of room, their coloured marks stay.
     hud.setScore([
       { text: strings.t("score.time", { left: fmtClock(left) }) },
-      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }) }] : []),
       ...defs.map((o, i) => {
         const st = sim.state.objectives[i];
         return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };

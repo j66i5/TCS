@@ -131,6 +131,28 @@
       ],
       "confidence": "low",
       "note": "The medic (sanitar) in the BMM's medical compartment (crew of three; search extracts). Medical skills come with the medical line (M10)."
+    },
+    {
+      "id": "mortar-commander",
+      "nameKey": "role.ru.mortar-commander",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M8.3a on-map mortar crew (game role, low): the leader lays and commands, the gunner carries and fires the tube, loaders carry the rounds."
+    },
+    {
+      "id": "mortar-gunner",
+      "nameKey": "role.ru.mortar-gunner",
+      "sources": [],
+      "confidence": "low",
+      "note": "M8.3a on-map mortar crew (game role, low): the leader lays and commands, the gunner carries and fires the tube, loaders carry the rounds."
+    },
+    {
+      "id": "mortar-loader",
+      "nameKey": "role.ru.mortar-loader",
+      "sources": [],
+      "confidence": "low",
+      "note": "M8.3a on-map mortar crew (game role, low): the leader lays and commands, the gunner carries and fires the tube, loaders carry the rounds."
     }
   ]
 }

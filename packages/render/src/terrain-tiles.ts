@@ -11,9 +11,10 @@
  */
 import { BufferImageSource, Container, Sprite, Texture } from "pixi.js";
 import type { MapDef } from "@tcs/sim";
-import { CLOSE_CONTOUR_SCALE, CONTOUR_CLOSE_INK, TILE_CACHE, TILE_M, TILE_PPM, paintContours } from "./flat/paint";
+import { CLOSE_CONTOUR_SCALE, CONTOUR_CLOSE_INK, CONTOUR_INK, TILE_CACHE, TILE_M, TILE_PPM, paintContours } from "./flat/paint";
 import { TileQueue, type TileJob } from "./tile-queue";
 import type { PhotoInit } from "./photo/paint";
+import { contourHalo } from "./photo/decals";
 import type { PhotoReply, PhotoRequest } from "./photo/worker";
 
 export interface TerrainLevel { tileM: number; ppm: number; /** Shown from this many screen px per metre (x device ratio). */ minPx: number }
@@ -38,6 +39,9 @@ export interface TerrainTilesOptions {
   stripPpm: number;
   maxInFlight: number;
   maxUploads: number;
+  /** Whole-map contour ink alphas (minor, major; default the flat look's) and a light north-west halo (photo). */
+  contourAlphas?: [number, number];
+  contourHalo?: boolean;
 }
 
 /** Paints queued tiles. */
@@ -139,7 +143,8 @@ export class TerrainTiles {
     const W = Math.round(map.widthM * this.ppm), H = Math.round(map.heightM * this.ppm);
     this.base = new Sprite(texOf(base, W, H, o.sampling, o.mipmaps));
     this.base.width = map.widthM; this.base.height = map.heightM;
-    this.contours = new Sprite(texOf(paintContours(map, this.ppm), W, H, "linear"));
+    const ink = paintContours(map, this.ppm, 0, 0, map.widthM, map.heightM, CONTOUR_INK, o.contourAlphas);
+    this.contours = new Sprite(texOf(o.contourHalo ? contourHalo(ink, W, H) : ink, W, H, "linear"));
     this.contours.width = map.widthM; this.contours.height = map.heightM;
     for (let i = 0; i < o.levels.length; i++) this.levelLayers.push(new Container());
     this.root.addChild(this.base, this.strips, ...this.levelLayers, this.contours, this.ctiles);

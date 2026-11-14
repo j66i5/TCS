@@ -189,11 +189,29 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
       await page.screenshot({ path: p }); shots.push(p);
     }
   }
+  // Step "polish": men on foot on each map in the photo look — the lead squad selected and ordered 80 m on (its route
+  // line), at the dots zoom and close up (contact shadows, rims, labels, overlays), and the far view (symbols, veil).
+  for (const map of maps) {
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${map}&vehicles=0&look=photo`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0); t.stepTicks(1);
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+      let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+      const m = t.sim.ctx.map; const dx = x < m.widthM / 2 ? 80 : -80; t.tap(x + dx, y + 20); t.stepTicks(60 * 20);
+      const lead = s.unit.get(sq.unit).leader, p = s.transform.get(lead ?? s.unit.get(sq.unit).members[0]);
+      globalThis.__sq = { x: p.x, y: p.y };`) as () => void);
+    for (const [label, sc, sel] of [["dots", 3, true], ["close", name === "phone" ? 16 : 20, true], ["close-unselected", name === "phone" ? 16 : 20, false], ["far", 0.01, true]] as const) {
+      await page.evaluate(new Function(`const t = globalThis.__tcs, q = globalThis.__sq; ${sel ? "" : "t.select(null);"} t.focusScale(q.x, q.y, ${sc}); t.stepTicks(1);`) as () => void);
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-units-${label}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+  }
   console.log(`${name}: photo scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
- * M7.5b look (`--scene look`): the flat pixel look (`&look=flat`) against the classic one (`&look=classic`) where a pair helps —
+ * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
  * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
@@ -206,7 +224,7 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
   };
   const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
-  for (const lk of ["classic", "flat"]) {
+  for (const lk of ["classic", "flat", "photo"]) {
     const q = `&map=village&look=${lk}`;
     await open(q);
     await shot(`0-opening-${lk}`);

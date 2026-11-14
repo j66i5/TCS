@@ -2944,3 +2944,46 @@ Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and des
 9. The photo painter no longer calls any flat feature code (`paintFeatures` is flat-only again; flat output
    unchanged, hash test).
 10. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo map, step "polish": units on the map, overlays, contours, defaults, docs (plan photo)
+1. **Photo is the default look** (since step "ground"); `?look=flat`, its old name `?look=pixel` and
+   `?look=classic` stay; the choice is remembered in localStorage `tcs.ui.look`, a URL parameter wins.
+2. **One sun** for everything (west-north-west, about 40 degrees up, `photo/light.ts`): the men's contact shadows and
+   the hulls' shadows added here fall the same way as the trees', walls' and buildings'.
+3. **Worker painting and the L3 gate** (summary of steps "ground"/"vegetation"): tiles paint in 1 worker on <= 4
+   cores, else 2; 8 px/m tiles only with > 4 cores and > 2 GB (or a desktop pointer); phones stop at 4 px/m.
+4. **Amplitude caps** kept as in step "ground" (blotches +-5 %, per-field tint +-6 %, saturation <= 0.40):
+   readability beats photo realism; the palette pass on this step's screenshots found nothing to change in the
+   `appearance.json` photo block (ladder and saturation tests still pass unchanged).
+5. **Photo-only unit extras** (all keyed on `look === "photo"`, so flat and classic draw exactly as before; checked:
+   the flat and classic `--scene look` shots are byte-identical to the ones before the step except for bullets in
+   flight and the clock): per man at the figure/close zoom a soft contact shadow (16 px pre-blurred disc, 1.4 x 1.1 m,
+   0.28 m down-sun, alpha 0.5; 1.35x for men lying; smaller ones hid under the figure on the screenshots) and a dark rim (the side-colour outline sprite again, scaled up
+   by about 1.2 px, tinted #121410, alpha 0.8); at the dots zoom a 1.5 px dark rim and a 15 % lighter core. Both are
+   sprite pools in a `shadowLayer` under the men (one more sprite pair per man: +-0.1 ms for 270 men close up in the
+   render-cost test, within its noise).
+6. **Hulls** cast their outline 0.6 m down-sun at alpha 0.35. **Wrecks and craters** get a ragged scorch decal
+   (radial falloff, fbm edge, soot patches, alpha <= 0.5; 8 m across under a wreck, about 5x the crater radius for a
+   crater) instead of the flat dark disc the craters had: the flat disc read as a hole cut in the photo.
+7. **Labels** get a 4 px stroke (2 px each side) in the photo look (3 before). **Overlay lines** (unit routes, move
+   lines, the selected route, fire mission lines and rings, vehicle routes, objective rings, planned legs, order
+   markers) are drawn over a dark line 2 px wider (`inked`), alpha 0.3 + 0.3 x the line's alpha. LOS lines and the
+   ranging crosses already had one. Dashes were already >= 6 px except the ranging trail (4/4), left as it is.
+8. **Symbols zoom veil:** a light warm-grey veil (alpha 0.15) over the map below 1.2 px/m. The "woods 5 % darker
+   there" idea was dropped: the woods already read on the screenshots.
+9. **Close-zoom grain:** one world-anchored TilingSprite, 256 px of neutral grain over 16 m (repeat, mipmaps),
+   inside the terrain under the floors; fades in from 12 px/m to alpha 0.55 at 24 px/m. No paint cost.
+10. **Contours** in the photo look: ink alpha 0.25 minor / 0.45 major (flat keeps 0.28 / 0.55) and a light halo
+   on the north-west side of the ink. First tried at alpha 0.22: on dark woods the halo alone showed and read like
+   footpaths; 0.12 keeps it a hint. Close contour tiles of the top-bar toggle unchanged.
+11. **The sight tint** (`setSightOverlay`) is shown only with Debug on, so it was left as a colour wash (no
+   multiply variant; not judged on screenshots).
+12. **Zoom thresholds** (`lod.ts` bands and the tile levels' minPx) unchanged: no smear or shimmer seen on the
+   step's screenshots at the band edges.
+13. `--scene look` now shoots photo / flat / classic triples; `--scene photo` adds men on foot per map (dots,
+   close selected and unselected, far).
+14. Phone pan proxy (Playwright, 390x844 at dpr 2, 4x CPU throttle, 10 s pan, SwiftShader software WebGL in the
+   container): every frame of both looks is > 50 ms here (flat p50 ~100-117 ms), so the "no frame > 50 ms" budget
+   cannot be judged in this container; photo p95 200 ms vs flat 133-150 ms on all five maps, the same as before this
+   step (village before: 200 vs 133-150). Not met; left for a real-phone check.
+15. No golden, catalog or sim change.

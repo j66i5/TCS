@@ -6,7 +6,7 @@
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
 import { DT, floorAtZ, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
-import { Sprite, Texture } from "pixi.js";
+import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -15,6 +15,8 @@ import { flatColours, paintRegion } from "./flat/paint";
 import { TerrainTiles, WorkerSource, basePpm, photoBasePpm, type TerrainTilesOptions } from "./terrain-tiles";
 import { TileQueue } from "./tile-queue";
 import { PhotoPainter, photoInit } from "./photo/paint";
+import { contactShadow, grainTile, scorchDecal } from "./photo/decals";
+import { shadowOffset } from "./photo/light";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
@@ -198,6 +200,21 @@ export class BattleRenderer {
   /** Men sprites (screen space) between the floors and the roofs; roofs follow the camera like the map. */
   private menLayer = new Container();
   private roofLayer = new Container();
+  /**
+   * Photo look (plan "photo", step "polish"): under the men, in screen space — wreck scorch decals, soft contact
+   * shadows of the men, then their dark outer rims. Pools, hidden when unused; empty in the flat and classic looks.
+   */
+  private shadowLayer = new Container();
+  private scorchC = new Container();
+  private contactC = new Container();
+  private rimC = new Container();
+  private contacts: Sprite[] = [];
+  private rims: Sprite[] = [];
+  private scorches: Sprite[] = [];
+  private nScorch = 0;
+  private decalTex: { contact: Texture; scorch: Texture; grain: Texture } | null = null;
+  /** Close-zoom grain over the photo map (world-anchored, fades in from GRAIN_FROM px/m). */
+  private grain: TilingSprite | null = null;
   private atlas: SoldierAtlas | null = null;
   private figures: Sprite[] = [];
   private outlines: Sprite[] = [];
@@ -215,7 +232,8 @@ export class BattleRenderer {
 
   private constructor(app: Application) {
     this.app = app;
-    app.stage.addChild(this.worldLayer, this.menLayer, this.roofLayer, this.world, this.units, this.labels);
+    this.shadowLayer.addChild(this.scorchC, this.contactC, this.rimC);
+    app.stage.addChild(this.worldLayer, this.shadowLayer, this.menLayer, this.roofLayer, this.world, this.units, this.labels);
   }
 
   static async create(host: HTMLElement): Promise<BattleRenderer> {
@@ -246,16 +264,41 @@ export class BattleRenderer {
   get height(): number { return this.app.renderer.height; }
 
   /** The look (M7.5b): set before `setMap`. */
-  setLook(look: Look): void { this.look = look; this.lod = null; }
+  setLook(look: Look): void {
+    this.look = look; this.lod = null;
+    for (const t of this.labelPool) t.destroy(); // (their stroke width depends on the look)
+    this.labelPool = [];
+  }
+
+  /**
+   * Stroke the path `draw` makes; in the photo look first a dark under-stroke 2 px wider, so overlay lines read on
+   * a textured picture (plan "photo", step "polish"). Pixi starts a new path after each stroke, hence `draw` twice.
+   */
+  private inked(g: Graphics, draw: () => void, style: { width: number; color: number; alpha?: number }): void {
+    if (this.look === "photo") { draw(); g.stroke({ width: style.width + 2, color: UNDER, alpha: 0.3 + 0.3 * (style.alpha ?? 1) }); }
+    draw(); g.stroke(style);
+  }
   /** S14: contour lines at every zoom (true) or only zoomed out (false, the automatic rule). */
   setContoursAlways(on: boolean): void { this.contoursAlways = on; }
   contoursShown(): boolean { return this.contoursAlways || (this.lod ?? 0) <= LOD_DOTS; }
   getLook(): Look { return this.look; }
+
+  /** The photo look's small textures (contact shadow, wreck scorch, grain), made once. */
+  private decals(): { contact: Texture; scorch: Texture; grain: Texture } {
+    if (this.decalTex) return this.decalTex;
+    const tex = (data: Uint8Array, n: number, mode: "linear" | "nearest", wrap = false) => new Texture({ source: new BufferImageSource({
+      resource: data, width: n, height: n, format: "rgba8unorm", alphaMode: "premultiplied-alpha", scaleMode: mode, autoGenerateMipmaps: true,
+      ...(wrap ? { addressMode: "repeat" as const } : {}),
+    }) });
+    this.decalTex = { contact: tex(contactShadow(16), 16, "linear"), scorch: tex(scorchDecal(64), 64, "linear"), grain: tex(grainTile(256), 256, "linear", true) };
+    return this.decalTex;
+  }
   /** The zoom level shown last (0 symbols, 1 dots, 2 figures, 3 close; M7.5b). */
   zoomLevel(): Lod | null { return this.lod; }
 
   /** Build the terrain picture for a map (once per map; set the look and the appearance first). */
   setMap(map: MapDef, catalog: Catalog): void {
+    if (this.grain) { this.grain.parent?.removeChild(this.grain); this.grain.destroy(); this.grain = null; }
     if (this.terrain) { this.worldLayer.removeChild(this.terrain); this.terrain.destroy({ children: true, texture: true }); this.terrain = null; }
     if (this.tiles) { this.tiles.destroy(); this.tiles = null; }
     this.setCatalog(catalog);
@@ -279,7 +322,7 @@ export class BattleRenderer {
         levels: [{ tileM: 128, ppm: 2, minPx: 2 }, { tileM: 64, ppm: 4, minPx: 4.5 }, { tileM: 32, ppm: 8, minPx: 11 }],
         sampling: "linear", mipmaps: true, budgetBytes: (tier.strong ? 24 : 16) * 1024 * 1024, fadeFrames: 9,
         dpr: this.app.renderer.resolution || 1, maxLevel: tier.strong ? 3 : 2, byBand: false, strips: 4, stripPpm: photoBasePpm(map),
-        maxInFlight: 4, maxUploads: 2,
+        maxInFlight: 4, maxUploads: 2, contourAlphas: [0.25, 0.45], contourHalo: true,
       };
       const q = new TileQueue(o.maxInFlight, o.maxUploads);
       let source: WorkerSource | null = null;
@@ -290,6 +333,13 @@ export class BattleRenderer {
     }
     this.terrain = new Container();
     this.terrain.addChild(this.tiles.root);
+    if (this.look === "photo") {
+      // Neutral grain for close zoom: 256 px over 16 m, repeated over the map (no paint cost; under the floors).
+      this.grain = new TilingSprite({ texture: this.decals().grain, width: map.widthM, height: map.heightM });
+      this.grain.tileScale.set(GRAIN_TILE_M / 256);
+      this.grain.visible = false;
+      this.terrain.addChild(this.grain);
+    }
     this.worldLayer.addChild(this.terrain);
     this.setBuildings(map);
   }
@@ -492,6 +542,7 @@ export class BattleRenderer {
     this.bld?.setFloor(overlay.floor ?? 0);
     this.updateRoofs(state, overlay, lod);
     this.nSprites = 0;
+    this.nScorch = 0;
     const g = this.units;
     g.clear();
     this.nReqs = 0;
@@ -515,19 +566,20 @@ export class BattleRenderer {
       const ident = state.identity.get(id);
       if (!ident) continue;
       const p = this.pos(state, id, alpha);
-      let a = worldToScreen(c, p.x, p.y);
-      for (const w of m.waypoints) {
-        const b = worldToScreen(c, w.x, w.y);
-        g.moveTo(a.x, a.y).lineTo(b.x, b.y);
-        a = b;
-      }
-      g.stroke({ width: 1, color: 0xffffff, alpha: 0.25 });
+      this.inked(g, () => {
+        let a = worldToScreen(c, p.x, p.y);
+        for (const w of m.waypoints) {
+          const b = worldToScreen(c, w.x, w.y);
+          g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+          a = b;
+        }
+      }, { width: 1, color: 0xffffff, alpha: 0.25 });
     }
 
     // Order markers: hollow while the order is still on its way, filled once acknowledged.
     for (const m of this.markers) {
       const s = worldToScreen(c, m.x, m.y);
-      g.circle(s.x, s.y, 8).stroke({ width: 2, color: 0xffffff, alpha: 0.8 });
+      this.inked(g, () => g.circle(s.x, s.y, 8), { width: 2, color: 0xffffff, alpha: 0.8 });
       if (m.delivered) g.circle(s.x, s.y, 3).fill({ color: 0xffffff, alpha: 0.8 });
     }
 
@@ -610,12 +662,17 @@ export class BattleRenderer {
           if (sol.captive !== null && sol.casualty !== "killed") drawWhiteFlag(g, s.x, s.y, r);
           continue;
         }
+        // Photo look: a 1.5 px dark rim and a lighter core, so a dot reads on crops, plough, woods and roads.
+        const photo = this.look === "photo", core = photo ? lighten(colour) : colour;
         if (posture === "prone") {
           const ux = Math.cos(t.heading), uy = Math.sin(t.heading);
           const L = r * 1.5, Wd = r * 0.6;
-          g.poly([s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd]).fill({ color: colour });
+          const shape = [s.x + ux * L, s.y + uy * L, s.x - uy * Wd, s.y + ux * Wd, s.x - ux * L, s.y - uy * L, s.x + uy * Wd, s.y - ux * Wd];
+          if (photo) g.poly(shape).stroke({ width: 3, color: RIM, alpha: 0.9 });
+          g.poly(shape).fill({ color: core });
         } else {
-          g.circle(s.x, s.y, pr).fill({ color: colour });
+          if (photo) g.circle(s.x, s.y, pr + 1.5).fill({ color: RIM, alpha: 0.9 });
+          g.circle(s.x, s.y, pr).fill({ color: core });
         }
         if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
         // A prisoner (M6.6): a white flag, a white square once taken; no rings, no facing line.
@@ -680,12 +737,13 @@ export class BattleRenderer {
    */
   private drawIntents(g: Graphics, lines: readonly IntentLineView[]): void {
     const c = this.camera;
-    for (const l of lines) {
-      if (l.kind !== "move" || l.selected) continue;
-      const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
-      g.moveTo(a.x, a.y).lineTo(b.x, b.y);
-    }
-    g.stroke({ width: 1.5, color: INTENT_COLOUR, alpha: 0.35 });
+    this.inked(g, () => {
+      for (const l of lines) {
+        if (l.kind !== "move" || l.selected) continue;
+        const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
+        g.moveTo(a.x, a.y).lineTo(b.x, b.y);
+      }
+    }, { width: 1.5, color: INTENT_COLOUR, alpha: 0.35 });
     for (const l of lines) {
       if (l.kind !== "move" || l.selected) continue;
       const b = worldToScreen(c, l.x1, l.y1);
@@ -695,16 +753,15 @@ export class BattleRenderer {
     for (const l of lines) {
       if (l.kind !== "move" || !l.selected) continue;
       let a = worldToScreen(c, l.x0, l.y0);
-      for (const p of l.route ?? [{ x: l.x1, y: l.y1 }]) { const b = worldToScreen(c, p.x, p.y); g.moveTo(a.x, a.y).lineTo(b.x, b.y); a = b; }
-      g.stroke({ width: 2, color: INTENT_COLOUR, alpha: 0.9 });
+      const a0 = a;
+      this.inked(g, () => { a = a0; for (const p of l.route ?? [{ x: l.x1, y: l.y1 }]) { const b = worldToScreen(c, p.x, p.y); g.moveTo(a.x, a.y).lineTo(b.x, b.y); a = b; } }, { width: 2, color: INTENT_COLOUR, alpha: 0.9 });
       g.circle(a.x, a.y, 3.5).fill({ color: INTENT_COLOUR, alpha: 0.95 });
     }
     for (const l of lines) {
       if (l.kind !== "fire") continue;
       const a = worldToScreen(c, l.x0, l.y0), b = worldToScreen(c, l.x1, l.y1);
       const al = l.selected ? 0.95 : 0.6;
-      dashed(g, a.x, a.y, b.x, b.y, 9, 6);
-      g.stroke({ width: l.selected ? 2.5 : 2, color: FIRE_COLOUR, alpha: al });
+      this.inked(g, () => dashed(g, a.x, a.y, b.x, b.y, 9, 6), { width: l.selected ? 2.5 : 2, color: FIRE_COLOUR, alpha: al });
       // S11: the ranging rounds walking in (a small cross where each fell, a thin trail on to the point; unseen
       // falls hollow), and a second, wider ring once the battery fires for effect.
       if (l.falls && l.falls.length > 0) {
@@ -723,7 +780,7 @@ export class BattleRenderer {
           g.stroke({ width: 2.5, color: f.seen ? FIRE_COLOUR : 0xd8cbb0, alpha: al });
         }
       }
-      g.circle(b.x, b.y, 9).stroke({ width: 2, color: FIRE_COLOUR, alpha: al });
+      this.inked(g, () => g.circle(b.x, b.y, 9), { width: 2, color: FIRE_COLOUR, alpha: al });
       g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
       if (l.phase === "effect") g.circle(b.x, b.y, 15).stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.8 });
     }
@@ -922,11 +979,17 @@ export class BattleRenderer {
         let a = worldToScreen(c, p.x, p.y);
         for (let i = v.drive.routeIdx; i < v.drive.route.length; i++) {
           const w = v.drive.route[i]!, b = worldToScreen(c, w.x, w.y);
-          g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 2, color: w.reverse ? 0xff9a3d : 0xffffff, alpha: 0.6 });
+          const a1 = a;
+          this.inked(g, () => g.moveTo(a1.x, a1.y).lineTo(b.x, b.y), { width: 2, color: w.reverse ? 0xff9a3d : 0xffffff, alpha: 0.6 });
           a = b;
         }
       }
       const look = lookOf(this.appearance, v.faction).vehicle;
+      if (this.look === "photo") {
+        // Photo look: scorched ground round a wreck, and the hull's shadow on the ground, down-sun (2 m high).
+        if (wreck) { const sp = worldToScreen(c, p.x, p.y); this.scorch(sp.x, sp.y, SCORCH_M * c.scale * k, vid * 2.399); }
+        g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1], p.x + SHADOW_DIR.dx * HULL_SHADOW_M * k, p.y + SHADOW_DIR.dy * HULL_SHADOW_M * k)).fill({ color: 0x000000, alpha: 0.35 });
+      }
       g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1])).fill({ color: wreck ? 0x1a1714 : look.dark, alpha: 0.95 }).stroke({ width: 2, color: colour });
       // Tracks along both sides, and the nose (a wedge at the front).
       const tw = (h.r[1] - h.r[0]) * 0.18;
@@ -1007,7 +1070,10 @@ export class BattleRenderer {
           g.moveTo(s.x + Math.cos(a0) * r, s.y + Math.sin(a0) * r).lineTo(s.x + Math.cos(a1) * r, s.y + Math.sin(a1) * r);
         }
         g.stroke({ width: 3, color: colour, alpha: 0.95 });
-      } else g.circle(s.x, s.y, r).fill({ color: colour, alpha: 0.08 }).stroke({ width: 3, color: colour, alpha: 0.9 });
+      } else {
+        g.circle(s.x, s.y, r).fill({ color: colour, alpha: 0.08 });
+        this.inked(g, () => g.circle(s.x, s.y, r), { width: 3, color: colour, alpha: 0.9 });
+      }
       this.request(o.label, s.x, s.y - r - 9, 4, colour, 1, k++);
     }
     const h = overlay.heat;
@@ -1032,7 +1098,8 @@ export class BattleRenderer {
     for (const p of plan.points) {
       const b = worldToScreen(c, p.x, p.y);
       if (plan.ghost) { dashed(g, a.x, a.y, b.x, b.y, 10, 6); g.stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.8 }); a = b; continue; }
-      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.85 });
+      const a1 = a;
+      this.inked(g, () => g.moveTo(a1.x, a1.y).lineTo(b.x, b.y), { width: 3, color: plan.kind === "move" ? (PACE_COLOURS[p.mode] ?? 0xffffff) : main, alpha: 0.85 });
       g.circle(b.x, b.y, 6).fill({ color: 0x1b241a, alpha: 0.6 }).stroke({ width: 2, color: 0xffffff });
       a = b;
     }
@@ -1144,7 +1211,9 @@ export class BattleRenderer {
     for (const cr of state.terrain.craters) {
       const sx = (cr.x - c.x) * c.scale, sy = (cr.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
-      g.circle(sx, sy, Math.max(2, cr.radiusM * 2.2 * c.scale)).fill({ color: 0x2b2018, alpha: 0.55 });
+      const rad = Math.max(2, cr.radiusM * 2.2 * c.scale);
+      if (this.look === "photo") { this.scorch(sx, sy, rad * 2.3, cr.x * 7.1 + cr.y * 3.3); continue; } // soft, ragged
+      g.circle(sx, sy, rad).fill({ color: 0x2b2018, alpha: 0.55 });
     }
     // Bursts: a bright flash that becomes a spreading grey-brown cloud.
     for (const b of this.bursts) {
@@ -1246,7 +1315,8 @@ export class BattleRenderer {
       let t = this.labelPool[i];
       if (!t) {
         // (A dark outline keeps the side's colour readable on any ground, M7.5a.)
-        t = new Text({ text: q.text, style: { fontFamily: "system-ui, sans-serif", fontSize: 12, fill: q.colour, stroke: { color: 0x0b0f0a, width: 3, join: "round" } } });
+        // (Photo look: a 2 px stroke each side, the picture is busier than the flat map.)
+        t = new Text({ text: q.text, style: { fontFamily: "system-ui, sans-serif", fontSize: 12, fill: q.colour, stroke: { color: 0x0b0f0a, width: this.look === "photo" ? 4 : 3, join: "round" } } });
         this.labelPool.push(t);
         this.labels.addChild(t);
       }
@@ -1334,11 +1404,42 @@ export class BattleRenderer {
     out.alpha = (dead ? 0.55 : 1) * alpha;
     fig.alpha = alpha;
     fig.visible = true; out.visible = true;
+    if (this.look === "photo") {
+      // A soft contact shadow under him (a little down-sun) and a dark rim outside the side-colour outline, so he
+      // stands on the ground and reads on any field (plan "photo", step "polish").
+      const i = this.nSprites - 1;
+      let sh = this.contacts[i], rim = this.rims[i];
+      if (!sh || !rim) {
+        sh = new Sprite(this.decals().contact); sh.anchor.set(0.5);
+        rim = new Sprite(cell.outline); rim.anchor.set(PIVOT / CELL); rim.tint = RIM;
+        this.contacts.push(sh); this.rims.push(rim);
+        this.contactC.addChild(sh); this.rimC.addChild(rim);
+      }
+      const lying = frame === "dead" || frame === "down" || frame === "prone" || frame === "crawl";
+      const k2 = lying ? 1.35 : 1;
+      sh.position.set(x + SHADOW_DIR.dx * size * 0.28, y + SHADOW_DIR.dy * size * 0.28);
+      sh.width = size * CONTACT_W * k2; sh.height = size * CONTACT_H * k2;
+      sh.alpha = CONTACT_ALPHA * alpha; sh.visible = true;
+      if (rim.texture !== cell.outline) rim.texture = cell.outline;
+      rim.scale.set(sc * (1 + Math.min(0.3, 1.2 / (0.3 * size))));
+      rim.position.set(x, y);
+      rim.alpha = (dead ? 0.4 : 0.8) * alpha; rim.visible = true;
+    }
+  }
+
+  /** A scorch decal (photo: wrecks and craters) `d` px across at screen (x, y), turned by `turn` rad. */
+  private scorch(x: number, y: number, d: number, turn: number): void {
+    let sc = this.scorches[this.nScorch];
+    if (!sc) { sc = new Sprite(this.decals().scorch); sc.anchor.set(0.5); this.scorches.push(sc); this.scorchC.addChild(sc); }
+    sc.position.set(x, y); sc.width = sc.height = d; sc.rotation = turn % 6.283; sc.visible = true;
+    this.nScorch++;
   }
 
   /** Hide the pool's unused sprites and upload new atlas cells. */
   private flushSprites(): void {
     for (let i = this.nSprites; i < this.figures.length; i++) { this.figures[i]!.visible = false; this.outlines[i]!.visible = false; }
+    for (let i = this.look === "photo" ? this.nSprites : 0; i < this.contacts.length; i++) { this.contacts[i]!.visible = false; this.rims[i]!.visible = false; }
+    for (let i = this.look === "photo" ? this.nScorch : 0; i < this.scorches.length; i++) this.scorches[i]!.visible = false;
     this.atlas?.flush();
   }
 
@@ -1368,11 +1469,18 @@ export class BattleRenderer {
     // Flat map (M7.5b): detail tiles from the figure level in; contour lines only at the dot and symbol levels.
     // S14 (the "map-feel" step): the top-bar toggle shows them at every zoom (close up: fine tiles in a pale ink).
     this.tiles?.update({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lod >= LOD_FIGURE, lod <= LOD_DOTS || this.contoursAlways, this.contoursAlways);
+    if (this.grain) {
+      const a = GRAIN_ALPHA * Math.min(1, Math.max(0, (c.scale - GRAIN_FROM) / GRAIN_FROM));
+      this.grain.visible = a > 0.01;
+      this.grain.alpha = a;
+    }
     const g = this.world;
     g.clear();
     if (this.terrain) {
-      // Terrain picture present: only a thin map border.
+      // Terrain picture present: only a thin map border. Photo, symbols zoom: a light veil so the symbols stand out
+      // from the busy picture (plan "photo", step "polish").
       const tl = worldToScreen(c, 0, 0);
+      if (this.look === "photo" && lod === LOD_SYMBOLS) g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).fill({ color: VEIL_COLOUR, alpha: VEIL_ALPHA });
       g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).stroke({ width: 2, color: 0x1f2a1d });
       return;
     }
@@ -1420,6 +1528,24 @@ function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): b
     u = state.unit.get(u)?.parent ?? null;
   }
   return false;
+}
+
+/** Photo look (plan "photo", step "polish"): close-zoom grain (256 px over GRAIN_TILE_M metres) fades in from
+ *  GRAIN_FROM px/m to full GRAIN_ALPHA at twice that; the symbols-zoom veil. */
+const GRAIN_TILE_M = 16, GRAIN_FROM = 12, GRAIN_ALPHA = 0.55;
+const VEIL_COLOUR = 0xdedbd0, VEIL_ALPHA = 0.15;
+/** A hull's shadow offset (m, down-sun) and a wreck's scorch decal size (m across). */
+const HULL_SHADOW_M = 0.6, SCORCH_M = 8;
+/** A man's contact shadow (photo): width and depth as a share of his 1 m sprite, alpha, rim colour of dots. */
+const CONTACT_W = 1.4, CONTACT_H = 1.1, CONTACT_ALPHA = 0.5, RIM = 0x121410;
+/** Where shadows fall (photo light): screen offset direction per metre of height. */
+const SHADOW_DIR = shadowOffset(1 / 0.6);
+/** Under-stroke of overlay lines on the photo map: dark, 2 px wider than the line. */
+const UNDER = 0x0b0f0a;
+/** A side colour 15 % toward white (the core of a photo-look dot). */
+function lighten(c: number, k = 0.15): number {
+  const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+  return (Math.round(r + (255 - r) * k) << 16) | (Math.round(g + (255 - g) * k) << 8) | Math.round(b + (255 - b) * k);
 }
 
 /** Men on another floor than the one shown (M7.5d) are drawn this faint. */

@@ -803,6 +803,48 @@ says whose he is; your selected unit's men have a thin white ring.
 8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the
 windows. Enemy men never lift a roof.
 
+## The photo map (plan "photo", 2026-11-14)
+The map is drawn like a soft, low-resolution aerial photograph of countryside (the owner's wish: the feel of
+Firefight's battlefields, but every pixel our own, generated in code from the map; no reference images). It is the
+default look; `?look=flat` (or `pixel`) gives the M7.5b flat pixel map and `?look=classic` the look before it. The
+choice is remembered in the browser (`tcs.ui.look`); a URL parameter wins. Only the picture changes: the battle,
+the map data and the replays are exactly the same in every look.
+
+**How it is painted.** Pure painters in `render/src/photo/` (no Pixi, no browser, no randomness, no clock) turn the
+map into pixels. `prep` runs once per map: the fields (connected areas of the same ground, each with its own tint and
+furrow direction), the distance to each field's edge, a 2 m grid of warps, tones and hillshade. Then for any rectangle
+at any resolution: the ground (soft warped field edges, tone patches, clumps, furrows, crop rows and tramlines,
+meadow tufts, garden rows, dry patches), the roads and tracks (soft wobbly edges, dusty verges, ruts), water (mud
+banks, deeper in the middle, sheen), bridges, walls and fences, the shadows of trees, walls and buildings (one
+buffer, the darkest wins, so nothing is darkened twice), the tree crowns (woods, tree lines, hedges, orchards, scrub:
+domes and leaf clumps lit from one side), then a light blur, a quiet colour grade and grain. Every pattern is keyed
+to world metres, so any tile joins its neighbours byte for byte, and fine patterns fade out when they would be
+finer than about three pixels (no shimmer when zoomed out).
+
+**One sun.** Light comes from the west-north-west, about 40 degrees up (`photo/light.ts`): every lit roof face,
+crown, hillside, and every shadow (trees, walls, buildings, hulls, men) falls the same way, toward the
+east-south-east.
+
+**Resolution by zoom.** The whole map at about 1 pixel per metre is always there; over it, tiles at 2, 4 and (on
+strong devices) 8 pixels per metre, chosen by how many screen pixels a metre takes. Tiles paint in a worker (one on
+small devices, two otherwise) off the main thread, nearest the middle of the screen first; at most two are uploaded
+per frame and a new tile fades in. While the photo map is still painting, the flat map shows, so the screen is never
+blank. Phones stop at 4 px/m and keep a smaller tile cache. Roofs are painted once per map into a roof atlas (hipped,
+gabled or flat, lit by the sun) and still fade when your men are near or you zoom in close.
+
+**Keeping the game readable.** The ground is kept quiet: colour saturation capped, patches at most about 5 %
+brighter or darker (larger swings read like camouflage), cover classes in a fixed order of brightness (water, woods,
+hedges, scrub and orchards, plough, grass, crops, tracks, walls), minimum widths on screen for roads, streams,
+hedges and walls. Bright blue, red, yellow, white and cyan are left for units and overlays. On this busier picture
+the units get a little help (photo look only, so the flat and classic looks stay exactly as they were):
+- each man at the figure and close zooms has a soft contact shadow under him and a dark rim outside his side's
+  outline; at the dots zoom a dot has a dark rim and a lighter core;
+- each hull casts a soft shadow down-sun; a wreck and a shell crater leave a ragged scorch mark on the ground;
+- labels have a thicker dark edge; route, move, fire and objective lines are drawn over a dark line 2 px wider;
+- zoomed far out (symbols) a light veil sits over the map so the symbols stand out;
+- contour lines are fainter, with a faint light edge on their north-west side; close up (from 12 px/m) a fine
+  neutral grain fades in so the ground does not look smeared.
+
 ## Inside the houses (M7.5c)
 Every building now has an inside, on every floor: **rooms**, **inner walls** with open **doorways**, **stairs**
 between floors and **windows upstairs** (each ground-floor window again on every floor, and a window above every

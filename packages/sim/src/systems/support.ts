@@ -508,7 +508,7 @@ function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1:
 function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, m: FireMission, x: number, y: number, heAmmo = fs.heAmmo): void {
   events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y });
   if (m.ammo === "illum") {
-    // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (no light until M9.1).
+    // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (its light: flares.ts).
     const type = sectionOf(state, m.side, m.asset ?? "mortar")?.illumType ?? fs.illumAmmo;
     const il = type !== undefined ? ctx.catalog.ammo[type]?.illum : undefined;
     if (il) {

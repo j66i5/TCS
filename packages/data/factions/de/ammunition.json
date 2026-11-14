@@ -712,7 +712,7 @@
         "https://man.fas.org/dod-101/sys/land/m485.htm"
       ],
       "confidence": "medium",
-      "note": "Heavy artillery illumination shell (M8.4; M485A2 class): a parachute flare of about 1,000,000 cd burning up to 120 s, sinking 4-5 m/s (FAS / Yugoimport extracts); ejected about 600 m up (game value). Saved in the state; it gives no light until M9.1.",
+      "note": "Heavy artillery illumination shell (M8.4; M485A2 class): a parachute flare of about 1,000,000 cd burning up to 120 s, sinking 4-5 m/s (FAS / Yugoimport extracts); ejected about 600 m up (game value). Saved in the state; its light on the ground: M9.6 (core/spotting.json night.flare*).",
       "illum": {
         "candela": 1000000,
         "burnSeconds": 120,
@@ -742,7 +742,7 @@
       "guidance": "unguided",
       "sources": [],
       "confidence": "low",
-      "note": "Mortar illumination bomb (M8.4): parachute flare; candela, burn, height and descent are game values in the range of public mortar illumination rounds (none reached). Saved in the state; light from M9.1.",
+      "note": "Mortar illumination bomb (M8.4): parachute flare; candela, burn, height and descent are game values in the range of public mortar illumination rounds (none reached). Saved in the state; its light on the ground: M9.6 (core/spotting.json night.flare*).",
       "illum": {
         "candela": 1000000,
         "burnSeconds": 60,

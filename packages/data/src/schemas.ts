@@ -359,6 +359,8 @@ export const SpottingFile = withProv({
   night: z.object({
     sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
     moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
+    /** Flares (M9.6): a burning flare's light = min(flareMaxLight, lux / flareFullLux), lux = candela / (h^2 + d^2). */
+    flareFullLux: Num(0.01, 100000), flareMaxLight: Num(0, 1),
   }).strict(),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a

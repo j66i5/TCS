@@ -252,7 +252,7 @@ export interface AmmoDef {
   multispectral?: boolean;
   /** Hand smoke grenade (D1): starts to smoke `fuseSeconds` after release, a cloud of `radiusM` for `seconds`. */
   smoke?: { fuseSeconds: number; radiusM: number; seconds: number; topM?: number };
-  /** M8.4 illumination round: the flare (light from M9.1). */
+  /** M8.4 illumination round: the flare (its light: flares.ts, M9.6). */
   illum?: { candela: number; burnSeconds: number; heightM: number; descentMps: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
@@ -550,8 +550,9 @@ export interface SpottingDef {
     engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
   };
   skillSlope: number; stressK: number; lightFloor: number;
-  /** Night and light (M9.1): sun table [hour, light], full-moon light, the muzzle flash's light, tracers. */
-  night: { sun: [number, number][]; moonFullLight: number; flashLight: number; vehicleFlashLight: number; tracerContrast: number };
+  /** Night and light (M9.1): sun table [hour, light], full-moon light, the muzzle flash's light, tracers; M9.6: a
+   *  burning flare's light = min(flareMaxLight, lux / flareFullLux). */
+  night: { sun: [number, number][]; moonFullLight: number; flashLight: number; vehicleFlashLight: number; tracerContrast: number; flareFullLux: number; flareMaxLight: number };
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number;
   /** Smoke v2 (M8.1): fade at the end of a cloud's life (s), share of the wind it drifts with, longest plume (m). */
   smokeFadeSeconds?: number; smokeDriftFactor?: number; smokeStretchMaxM?: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;

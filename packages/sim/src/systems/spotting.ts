@@ -26,6 +26,7 @@ import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
+import { flareLightAt } from "../flares";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { atan2, cos, exp, PI, pow, sin, sqrt } from "../math";
 import { nextFloat, Streams } from "../rng";
@@ -89,6 +90,8 @@ interface VehTarget {
   id: EntityId; side: string; x: number; y: number; gz: number; heading: number; turret: number; def: VehicleDef; motion: number; c: number; s: number;
   /** The light its gun flash gives it at night (M9.1): 0 by day or when it is not firing. */
   flash: number;
+  /** The light burning flares give it (M9.6): 0 without flares. */
+  lit: number;
   /** Its heat as a thermal sight sees it, relative to the eye (M9.2): cold, hot (moving or run lately), firing, burning. */
   heat: number;
 }
@@ -143,11 +146,12 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       const dist = sqrt(d2);
       const look = angleBetween(ot.heading, atan2(dy, dx));
       let sensor = 0, heat = 0;
-      // (M9.1: a muzzle flash at night lights him up to `flash` for every sensor; 0 by day and when not firing.)
+      // (M9.1: a muzzle flash at night lights him up to `flash` for every sensor; 0 by day and when not firing.
+      // M9.6: a burning flare lights him up to `lit`, 0 without flares.)
       // (M9.2: a sight or goggle helps only within its arc of where he looks; a thermal one sees his heat.)
       for (const sn of sensors) {
         if (!sn || (sn.arcDeg !== undefined && look > (sn.arcDeg * PI) / 180)) continue;
-        const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, tg.flash) * (sn.thermal === true ? tg.heat : 1);
+        const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, tg.flash, tg.lit) * (sn.thermal === true ? tg.heat : 1);
         if (f > sensor) sensor = f;
         if (sn.thermal === true && f > heat) heat = f;
       }
@@ -316,7 +320,7 @@ function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: Ent
     const dx = tg.x - ex, dy = tg.y - ey, d2 = dx * dx + dy * dy;
     if (d2 > fp2) continue;
     const dz = ez - tg.z, slant = sqrt(d2 + dz * dz);
-    const sensor = sensorAt(slant, 1, 1, tg.flash, tg.heat);
+    const sensor = sensorAt(slant, 1, 1, Math.max(tg.flash, tg.lit), tg.heat);
     const heat = SENSOR_HEAT;
     if (sensor <= 0) continue;
     const idx = d.seen.findIndex((e) => e.target === tg.id);
@@ -339,7 +343,7 @@ function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: Ent
       const SP = smokePhysics(ctx.catalog);
       const conv = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "conventional");
       const ms = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "multispectral");
-      vis *= sensorAt(slant, conv, ms, tg.flash, tg.heat) / sensor;
+      vis *= sensorAt(slant, conv, ms, Math.max(tg.flash, tg.lit), tg.heat) / sensor;
     }
     if (vis < D.minVisibility) vis = 0;
     if (u >= 1 - exp(-rate * vis * scanS)) continue;
@@ -371,6 +375,8 @@ interface SoldierTarget {
   id: EntityId; side: string; x: number; y: number; z: number; size: number; motion: number; firing: boolean; moving: boolean; vegTopZ: number;
   /** The light his muzzle flash gives him at night (M9.1): 0 by day or when he is not firing. */
   flash: number;
+  /** The light burning flares give him (M9.6): 0 without flares. */
+  lit: number;
   /** His heat as a thermal sight sees it, relative to what the eye sees (M9.2; a blanket hides most of it). */
   heat: number;
   /** His size seen from above (M9.4a: a drone's camera), as `size`. */
@@ -383,6 +389,7 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
   // Night (M9.1): how dark it is (0 in full daylight: nothing below changes then).
   const dark = 1 - Math.min(1, Math.max(0, state.environment.light));
   const N = D.night, TH = D.thermal;
+  const flaring = state.flares !== undefined && state.flares.length > 0;
   // (Rows are reused from tick to tick: no allocation per man per tick, M7.3.)
   const targets = TARGETS;
   let n = 0;
@@ -401,13 +408,15 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     const v = cell >= 0 && cell < map.vegetation.length ? map.vegetation[cell]! : 0;
     const vegTopZ = v > 0 ? g + B.vegHeightM[v - 1]! : -Infinity;
     let r = targets[n];
-    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, heat: 1, top: 0 }; targets[n] = r; }
+    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, lit: 0, heat: 1, top: 0 }; targets[n] = r; }
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.top = D.drone?.postureSize[ts.posture] ?? r.size; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
     // A guided missile launched from his post moments ago (M9.3b): its flash, dust and smoke show him more.
     if (ts.launchTick !== undefined && tick - ts.launchTick <= secondsToTicks(D.launchFlashSeconds)) r.motion *= D.launchFlashFactor;
     r.flash = 0;
+    // Flares (M9.6): the light they give him, once per target (not per observer); 0 without flares.
+    r.lit = flaring ? flareLightAt(state, ctx.catalog, tt.x, tt.y, g) : 0;
     // Heat (M9.2): a man as by eye; still and not firing under a thermal blanket, its share.
     r.heat = TH.man;
     if (!moving && !firing) {
@@ -438,6 +447,7 @@ function vehicleSeeable(v: VehicleState | undefined): boolean {
 function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
   const D = ctx.catalog.spotting, tick = state.tick, light = state.environment.light;
   const out: VehTarget[] = [];
+  const flaring = state.flares !== undefined && state.flares.length > 0;
   for (const [vid, v] of state.vehicle.entries()) {
     if (!vehicleSeeable(v)) continue;
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
@@ -452,9 +462,11 @@ function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
     const TH = D.thermal;
     const hot = moving || (v.movedTick !== undefined && tick - v.movedTick <= secondsToTicks(TH.hotSeconds));
     const heat = v.fire !== null ? TH.vehicleBurning : firing ? TH.vehicleFiring : hot ? TH.vehicleHot : TH.vehicleCold;
+    const gz = heightAt(ctx.map, t.x, t.y); // ground: ok (a vehicle)
     out.push({
-      id: vid, side: v.side, x: t.x, y: t.y, gz: heightAt(ctx.map, t.x, t.y), heading: t.heading, turret: t.heading + (v.stations[0]?.azimuth ?? 0), def, // ground: ok (a vehicle)
+      id: vid, side: v.side, x: t.x, y: t.y, gz, heading: t.heading, turret: t.heading + (v.stations[0]?.azimuth ?? 0), def,
       motion: (firing ? def.signature.firingFactor : 1) * (moving ? def.signature.movingFactor : 1), c: cos(t.heading), s: sin(t.heading), flash, heat,
+      lit: flaring ? flareLightAt(state, ctx.catalog, t.x, t.y, gz) : 0, // (M9.6: flares; once per target)
     });
   }
   return out;
@@ -481,7 +493,7 @@ function scanVehicles(
     if (d2 > cap * cap) continue;
     const dist = sqrt(d2);
     const bearing = atan2(dy, dx);
-    const sensor = sensorAt(dist, bearing, tg.flash, tg.heat);
+    const sensor = sensorAt(dist, bearing, Math.max(tg.flash, tg.lit), tg.heat); // (M9.6: a flare's light as one more term)
     const heat = SENSOR_HEAT;
     if (sensor <= 0) continue;
     const { size, turretShare } = vehicleSize(D, tg.def, bearing - tg.heading, bearing - tg.turret);
@@ -515,7 +527,7 @@ function scanVehicles(
       const SP = smokePhysics(ctx.catalog), tz = tg.gz + tg.def.signature.aimPoints[0]![2];
       const conv = smokeTransmission(state, SP, eye.x, eye.y, eye.z, tg.x, tg.y, tz, "conventional");
       const ms = smokeTransmission(state, SP, eye.x, eye.y, eye.z, tg.x, tg.y, tz, "multispectral");
-      vis *= smokeAt(dist, bearing, conv, ms, tg.flash, tg.heat);
+      vis *= smokeAt(dist, bearing, conv, ms, Math.max(tg.flash, tg.lit), tg.heat);
     }
     if (vis < D.minVisibility) vis = 0;
     if (u >= 1 - exp(-rate * vis * scanS)) continue;
@@ -581,7 +593,7 @@ function crewScan(
     const dx = tg.x - ex, dy = tg.y - ey, d2 = dx * dx + dy * dy;
     if (d2 > maxR * maxR) continue;
     const dist = sqrt(d2), bearing = atan2(dy, dx);
-    const sensor = sensorAt(dist, bearing, 1, 1, tg.flash, tg.heat);
+    const sensor = sensorAt(dist, bearing, 1, 1, Math.max(tg.flash, tg.lit), tg.heat);
     const heat = SENSOR_HEAT;
     if (sensor <= 0) continue;
     const idx = os.seen.findIndex((e) => e.target === tg.id);
@@ -616,7 +628,7 @@ function crewScan(
       const SP = smokePhysics(ctx.catalog);
       const conv = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "conventional");
       const ms = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "multispectral");
-      vv *= sensorAt(dist, bearing, conv, ms, tg.flash, tg.heat) / sensor;
+      vv *= sensorAt(dist, bearing, conv, ms, Math.max(tg.flash, tg.lit), tg.heat) / sensor;
     }
     if (vv < D.minVisibility) vv = 0;
     if (u >= 1 - exp(-rate * vv * scanS)) continue;

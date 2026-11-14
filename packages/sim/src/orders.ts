@@ -25,6 +25,8 @@ export interface Waypoint {
   /** Height above the ground at this point, m (M7.5d: a floor of a building, or a step on its stairs); the man
    *  climbs or descends evenly along the leg. Absent: his height does not change (outdoors: 0). */
   z?: number;
+  /** A flight that pinning does not hold (M7.5e: men leaving a house that has become a trap). */
+  bolt?: true;
 }
 
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */

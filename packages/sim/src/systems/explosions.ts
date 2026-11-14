@@ -21,6 +21,7 @@ import { rngStream, streamFloat, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt, standZ, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
+import { markHouseDanger } from "./house";
 
 /**
  * Re-derive everything that depends on terrain damage (after a new breach, and after loading a save).
@@ -75,6 +76,9 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
     if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
     applyBlast(ctx, state, events, id, d, severeR, injuryR, stunR, owner);
   }
+
+  // ---- the men in the house it bursts in or on remember it (M7.5e: a house that has become a trap)
+  markHouseDanger(ctx, state, x, y, ex.fillingKg, owner);
 
   // ---- fragments
   const fragIdx = ammoIndexOf(ctx.catalog, ex.fragmentAmmo);

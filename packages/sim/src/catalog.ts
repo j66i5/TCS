@@ -417,6 +417,21 @@ export interface BehaviourDef {
      *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
      *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
     hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
+    /**
+     * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).
+     * A trap: enemy bursts in or on his house (inside its walls, or within houseBurstNearM outside them) add up to
+     * houseTrapBursts within houseTrapSeconds; a burst of at least houseHeavyKg of filling counts houseHeavyCount.
+     * The enemy inside: an enemy he or a man of his unit has seen in the last houseEnemySeconds inside his
+     * house (one in his own room within houseFightM is fought, not fled from). Outflanked: an enemy known (any
+     * kind, in the last houseFlankSeconds) within houseFlankM of the house, more than houseFlankDeg off another enemy
+     * his unit remembers (at any distance): enemies on two sides. Then every man of his unit in that house runs (houseLeaveMode,
+     * pinning does not hold him) to a covered spot outdoors houseLeaveM[0]..[1] from the house, within houseLeaveDeg
+     * of straight away from the threat; his unit keeps out of that house for houseReenterSeconds (its own rules).
+     * Only contacts located within houseContactErrM (or a quarter of their distance) count (a sound is vague).
+     */
+    houseLeave: boolean; houseTrapBursts: number; houseTrapSeconds: number; houseHeavyKg: number; houseHeavyCount: number; houseBurstNearM: number;
+    houseEnemySeconds: number; houseFightM: number; houseFlankM: number; houseFlankDeg: number; houseFlankSeconds: number;
+    houseLeaveM: [number, number]; houseLeaveDeg: number; houseLeaveMode: string; houseReenterSeconds: number; houseContactErrM: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

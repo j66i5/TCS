@@ -39,6 +39,7 @@ import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
 import { launcherDecision } from "./launcher";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
+import { houseLeaveDecision, leftLately } from "./house";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -327,9 +328,10 @@ function leaveBeatenZone(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   // A house close by, not in the zone's middle: a place inside away from its windows (the last ones offered).
   const bs = ctx.map.buildings;
   let bestB = -1, bestD = S.beatenHouseM;
+  const uid = state.identity.get(id)?.unit;
   for (let bi = 0; bi < bs.length; bi++) {
     const bl = bs[bi]!;
-    if (!bl.interior) continue;
+    if (!bl.interior || (uid !== undefined && leftLately(ctx, state, uid, bi))) continue; // (not one his unit has just left, M7.5e)
     const fp = bl.footprint;
     let cx = 0, cy = 0;
     for (let k = 0; k < fp.length; k += 2) { cx += fp[k]!; cy += fp[k + 1]!; }
@@ -737,6 +739,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     // Stale intents (debug overlay): cover reached, or his own fire replaced by an order.
     if (s.intent?.kind === "cover" && halted) s.intent = null;
     if (s.intent?.kind === "engage" && state.fire.get(id)?.self !== true) s.intent = null;
+    // ---- out of a house that has become a trap, that the enemy is inside, or that is cut off from behind (M7.5e;
+    // pinned or not; not while his unit carries out a drill: an assault or a withdrawal moves him on its own)
+    if (S.houseLeave && !inDrill(state, ident.unit) && houseLeaveDecision(ctx, state, events, id, s, ident.unit)) continue;
     if (isCowering(s)) {
       // ---- pinned or panicked in the enemy's sight: a low crawl to the nearest fold (package B). Also a man pinned
       // on his way (it is held, not walked): the crawl replaces it; his unit's next order or bound sends him on.

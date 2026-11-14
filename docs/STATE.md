@@ -1,7 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M7.5e AI uses buildings, step defend; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (M7.5e AI uses buildings, steps defend and leave; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
+
+**AI uses buildings, step "leave" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 2 of 4).** Men leave a
+house on their own (sim `systems/house.ts`, every side, player squads too; `soldier.houseLeave`): a trap (2 enemy
+bursts in or on it within 30 s, a mortar bomb counting 2: `detonate` marks `houseDanger`), an enemy seen inside
+(a man with him in his own room within 4 m fights), or cut off (an enemy within 150 m more than 120 deg off another
+enemy the unit knows); only well-located contacts count. The unit runs out (pinning does not hold it) to covered
+spots 25-50 m away on the side away from the threats, `Unit.leftHouse` keeps its own rules out for 120 s, radio
+`radio.houseLeft*`; the AI defence re-sites such a squad outdoors. Lab `npm run lab -- house leave`: out in time
+90 / 81 / 91 % (trap / enemy / cut off), trap casualties 2.25 -> 0.25. Batches: indoors 36 -> 34 % (village), 27 ->
+19 % (mounted); attacker wins 4 -> 5 / 20, 4 -> 6 / 15, 12 -> 12 / 20 (not re-tuned). Next steps: clear, polish.
 
 **AI uses buildings, step "defend" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 1 of 4).** The AI
 defender now holds houses with a mixed spread: its siting takes window places (upper floors where they see as much

@@ -176,7 +176,7 @@ white flags on the map; the after-action review lists surrendered and captured m
   2026-11-13: rooms, inner walls, doorways, stairs and upper windows in every building, sight/bullets/blast with
   inner walls and floors, squads ordered into, out of and between rooms; **M7.5d upper floors ✅** 2026-11-13:
   stairs, heights, floor switch, Occupy order, men at true size close in. **M7.5 complete**; M7.5e "AI uses
-  buildings" in progress, plan `docs/plans/m7.5e-ai-buildings.md`: step defend ✅ 2026-11-14; leave, clear,
+  buildings" in progress, plan `docs/plans/m7.5e-ai-buildings.md`: steps defend, leave ✅ 2026-11-14; clear,
   polish to come)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.

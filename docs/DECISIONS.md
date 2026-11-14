@@ -3456,3 +3456,90 @@ on three village seeds, caps, upper rule, back watcher, wall clearance, determin
 `tools/test/lab-house.test.ts`. `mounted-invariants.test.ts`: men out by 180 s on platoon-ru-vehicles s2 must be
 > 20 (was > 30): with the German defence at windows two BMPs are lost with men aboard in the first minute (22 men get
 out, 31 before); the invariants are still checked on every man aboard.
+
+## 2026-11-14 — AI uses buildings, step "leave": men leave a house that has become a trap, that the enemy is in, or that is cut off (plan m7.5e, step 2)
+
+Owner answer 2026-11-14 (binding): men leave a house when it becomes a trap (grenades or HE land in or on it), when
+the enemy gets inside, or when it is cut off from behind (outflanked). Before, a man indoors never left on his own
+(`leaveBeatenZone` and `seekCover` kept him in: "its walls are his cover"). Values in `behaviour.json`
+`soldier.house*` (game values, **low**), commander values in `COMMANDER`.
+- **D3 Soldier behaviour in the sim** (`sim/systems/house.ts`), checked in each man's decision step before the
+  pinned branch, for every side and for the player's squads too (an Occupy is not a promise to die in a burning
+  house; owner question below); not while his unit is in a drill (an assault or withdrawal moves him). Decided by
+  one man, it sends every man of his unit in that house, or on his way into it; men of other units decide on their own.
+  `soldier.houseLeave` false = off (today's behaviour; lab and test).
+- **D4 Danger without events.** `detonate` marks `SoldierState.houseDanger {building, n, tick}` on the able men of
+  the other sides inside the building a burst is in or on (inside its walls, or within `houseBurstNearM` **1 m**
+  outside them). **Trap:** n >= `houseTrapBursts` **2** with no more than `houseTrapSeconds` **30 s** between one
+  burst and the next; a burst with at least `houseHeavyKg` **0.3 kg** of filling (a mortar bomb, a rocket) counts
+  `houseHeavyCount` **2**, a hand grenade, a 40 mm grenade or a 30 mm round 1. Own side's bursts do not count (the
+  clearing step throws into the next room).
+- **The enemy inside:** an enemy **seen** (plan: seen or heard; a sound gives too vague a place to say "in this
+  house") by him or a man of his unit in the last `houseEnemySeconds` **5 s** inside his house. A man with that
+  enemy in his own room within `houseFightM` **4 m** stays and fights; he follows his unit out when he can.
+- **Cut off (deviation from the plan):** an enemy known in the last `houseFlankSeconds` **10 s** within
+  `houseFlankM` **150 m** of the house, more than `houseFlankDeg` **120 deg** off **another enemy his unit remembers
+  (any distance): enemies on two sides**. The plan measured it against the unit's front (the mean facing of its
+  windows): with the player's all-round Occupy the mean is near zero (no front: never cut off), and with the AI's
+  window men a defence attacked from a side its windows do not face left at once though every enemy was on one
+  side (platoon s2 at 375 s: all enemies west, windows east).
+- **Only well-located contacts** count for the enemy inside and cut off: position error now within
+  `houseContactErrM` **25 m** or a quarter of its distance. Before this filter, "heard" vehicle contacts with
+  105-125 m of error placed an enemy 14 m from the house and caused most "cut off" calls in the mounted battle
+  (cut-off leaves per battle 0.93 -> 0.27 mounted, 0.80 -> 0.15 village).
+- **Leaving:** the way out is the one of 24 bearings farthest from every threat (the enemies known within 150 m;
+  a trap with none known: the way the windows face); each man runs (`houseLeaveMode` run; a `bolt` waypoint flag:
+  pinning does not hold him, a pinned man would otherwise lie in the burning house) to a covered spot outdoors
+  (best cover within 8 m of points `houseLeaveM` **25-50 m** from the house within `houseLeaveDeg` **60 deg** of the
+  way out, exposure < 0.9 preferred, `minSpacingM` apart), by `routeBetween` from his floor; lies down there facing
+  the nearest threat bearing; his `homePosture` becomes prone. `Unit.leftHouse {building, tick, reason}`; radio
+  `radio.houseLeftTrap` / `radio.houseLeftEnemy` / `radio.houseLeftFlank` (separate keys instead of one key with a
+  reason parameter: a parameter cannot be translated). His unit's own rules keep out of that house for
+  `houseReenterSeconds` **120 s** (the beaten-zone rule's house); orders may send it back.
+- **Commander:** a defending squad whose men left a house re-sites once they are out and halted (or after
+  `COMMANDER.houseResiteSeconds` 30 s): outdoor siting within `rallySiteM` 20 m of where they went, as after a
+  rally (`Memory.houseLeft`, plain data). It does not go back into houses (step "clear"/"polish" may revisit).
+- New state is optional plain data (`houseDanger`, `leftHouse`, `Waypoint.bolt`, `Memory.houseLeft`); save/load
+  hash test mid-leave. No schema bump.
+
+Measured (scratch `m75e/leave.mts` = `base.mts` + leave counts; same seeds as the step "defend" figures (e78138e):
+platoon and platoon-ru 20 x 1200 s, platoon-vehicles 15, village-occupy 20 x 300 s):
+
+| | platoon (village, RU defends) | platoon-ru (farmland, DE) | platoon-vehicles (village) |
+|---|---|---|---|
+| Defender man-seconds indoors | 35.9 -> **33.9 %** (>= 20) | 16.1 -> 14.7 % | 26.8 -> **19.0 %** |
+| Upstairs | 9.2 -> 8.8 % | 3.9 -> 3.8 % | 6.3 -> 3.8 % |
+| Defender wounds / 100 man-min inside vs outside | 8.9 / 20.2 -> **6.9 / 25.2** | 15.0 / 32.1 -> **10.7 / 31.2** | 10.2 / 42.2 -> 11.7 / 45.4 |
+| Defenders down inside / outside per battle | 3.70 / 9.50 -> 2.45 / 11.40 | 1.50 / 18.45 -> 0.85 / 18.10 | 2.20 / 26.67 -> 1.40 / 27.00 |
+| Houses left per battle (trap / enemy / cut off) | 0.45 / 0 / 0.15 | 0.65 / 0 / 0.05 | 0.80 / 0 / 0.27 |
+| Attacker wins | 4 -> 5 / 20 | 12 -> 12 / 20 | 4 -> 6 / 15 |
+| Defenders down / attackers down | 11.2 / 19.8 -> 11.3 / 19.5 | 15.2 / 14.5 -> 14.9 / 14.6 | 21.2 / 19.7 -> 21.1 / 18.9 |
+| Main objective held at the end | 16 -> 15 / 20 | 12 -> 11 / 20 | 12 -> 11 / 15 |
+
+village-occupy: identical (89.9 % of defender man-seconds indoors, no leave call: nothing bursts on its house). No
+leave by the attackers but 0-0.07 per battle (no attacker clears houses yet). "Enemy inside" never fired in the
+batches: no attacker gets into a defended house yet (step "clear").
+House lab `npm run lab -- house leave 20` (`tools/src/labs/house.ts`; the squad in the two-storey house nearest it,
+the trigger at 90 s, rule on vs off, same seeds; enemy / cut-off runs counted from when a man inside knows of it,
+runs where none does left out):
+
+| trigger | runs | out in time (target >= 80 %) | in cover | within 60 deg of away (target >= 80 %) | blue down, on / off |
+|---|---:|---|---|---|---|
+| trap (2 grenades inside, then 4 mortar bombs through the roof 20-35 s later), within 20 s of the 2nd grenade | 20 | **90 %** | 92 % | 96 % | **0.25 / 2.25** (-89 %, target -30 %) |
+| enemy (a red man put in a ground-floor room), within 15 s | 16 | **81 %** | 94 % | 100 % | 0 / 0 |
+| cut off (AI mixed defence; 2 red men behind, red opening fire), within 20 s | 13 | **91 %** | 97 % | 94 % | 2.38 / 1.85 |
+
+Leaving under fire costs men (cut off: 2.38 vs 1.85 down staying put in the lab; outdoor wounds per 100 man-minutes
+up in the village batches); inside, the men who stay are safer (inside wound rate down on the village and farmland).
+**Not met:** "defender wounds per 100 man-min inside not worse than step 1" in the mounted battle (10.2 -> 11.7: 1.4
+men down inside per battle against 2.2, on fewer man-minutes inside; noise-level), and its indoors share is 19 %
+(the plan's >= 20 % names the village platoon battle: 33.9 %). **Balance (reported, not re-tuned):** village
+attacker wins 4 -> 5 / 20, mounted 4 -> 6 / 15, farmland 12 -> 12 / 20.
+Goldens: `npm run golden:update` changed all seven (catalog fingerprint: `behaviour.json`, `strings.en.json`; first
+difference at tick 600); `golden/no-interiors` untouched. Tests: `sim/test/house-leave.test.ts` (trap, one burst /
+own bursts / bursts 30 s apart / switch off, heavy rounds count double, no trigger stays, enemy inside with the man in
+his room fighting, cut off, only his unit goes, no re-entry by own rules for 120 s, an order sends it back in, save
+and load mid-leave), `tools/test/house-resite.test.ts` (commander re-sites once its men are out, once),
+`tools/test/lab-house.test.ts` (leave mode). `npm run batch` "buildings" block: houses left by reason.
+Owner questions (for step "polish"): should the player's squads leave on their own (as built: yes, switchable only in
+data)? Should an AI squad that left a house go back into another house when re-sited (as built: no, outdoors)?

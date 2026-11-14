@@ -387,6 +387,9 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
+    houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
+    houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
+    houseLeaveM: z.tuple([Num(0, 500), Num(0, 500)]), houseLeaveDeg: Num(0, 180), houseLeaveMode: z.string(), houseReenterSeconds: Num(0, 3600), houseContactErrM: Num(0, 1000),
   }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({

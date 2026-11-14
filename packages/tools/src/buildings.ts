@@ -3,7 +3,8 @@
  * state as tools may read it): man-seconds indoors and upstairs per side (sampled once a second, able men on
  * foot), wounds and casualties of men indoors and outdoors, grenades aimed at a point in a house, explosions in or
  * on houses (mortar high explosive apart), and the defence's spread at `spreadAtS` (men within 10 m / 5 m of each
- * defender, men per house and per room, units with men inside and how many of theirs are outside).
+ * defender, men per house and per room, units with men inside and how many of theirs are outside), and the houses
+ * left on the men's own rule by reason (step "leave": the radio calls).
  */
 import { floorAtZ, hypot2, indoorAt, isAble, roomAt, type BattleInput, type SimEvent, type Sim } from "@tcs/sim";
 
@@ -11,6 +12,8 @@ export interface SideBuildings {
   manS: number; manSIn: number; manSUp: number; everIn: number;
   woundsIn: number; woundsOut: number; downIn: number; downOut: number;
   grenades: number; grenadesAtHouse: number; blastsInHouse: number;
+  /** Houses left on the men's own rule (M7.5e step "leave"), by reason. */
+  leftTrap: number; leftEnemy: number; leftFlank: number;
 }
 export interface Spread {
   men: number; inside: number; upper: number; max10: number; mean10: number; max5: number;
@@ -18,7 +21,7 @@ export interface Spread {
 }
 export interface BuildingsTally { sides: Record<string, SideBuildings>; mortarHeOnHouse: number; mortarHeElsewhere: number; spread: Spread | null }
 
-const empty = (): SideBuildings => ({ manS: 0, manSIn: 0, manSUp: 0, everIn: 0, woundsIn: 0, woundsOut: 0, downIn: 0, downOut: 0, grenades: 0, grenadesAtHouse: 0, blastsInHouse: 0 });
+const empty = (): SideBuildings => ({ manS: 0, manSIn: 0, manSUp: 0, everIn: 0, woundsIn: 0, woundsOut: 0, downIn: 0, downOut: 0, grenades: 0, grenadesAtHouse: 0, blastsInHouse: 0, leftTrap: 0, leftEnemy: 0, leftFlank: 0 });
 
 /** A tally and its two hooks for `runBattle` (call `onTick` and `onEvents` from the batch's own hooks). */
 export function buildingsTally(input: BattleInput, spreadAtS = 239): { tally: BuildingsTally; onTick: (sim: Sim) => void; onEvents: (ev: readonly SimEvent[]) => void } {
@@ -79,6 +82,10 @@ export function buildingsTally(input: BattleInput, spreadAtS = 239): { tally: Bu
         if (e.kind === "wound") { const sd = sideOf(e.soldier); if (sd) { if (indoors(e.soldier)) sd.woundsIn++; else sd.woundsOut++; } }
         else if (e.kind === "casualty") { const sd = sideOf(e.soldier); if (sd) { if (indoors(e.soldier)) sd.downIn++; else sd.downOut++; } }
         else if (e.kind === "grenade.launched") { const sd = sideOf(e.soldier); if (sd) { sd.grenades++; if (indoorAt(sim.ctx, e.x, e.y) >= 0) sd.grenadesAtHouse++; } }
+        else if (e.kind === "radio" && e.key.startsWith("radio.houseLeft")) {
+          const sd = tally.sides[e.side];
+          if (sd) { if (e.key === "radio.houseLeftTrap") sd.leftTrap++; else if (e.key === "radio.houseLeftEnemy") sd.leftEnemy++; else sd.leftFlank++; }
+        }
         else if (e.kind === "explosion") {
           const inHouse = indoorAt(sim.ctx, e.x, e.y) >= 0;
           if (mortarHe.has(e.ammo)) { if (inHouse) tally.mortarHeOnHouse++; else tally.mortarHeElsewhere++; }
@@ -99,7 +106,7 @@ export function buildingsMarkdown(tallies: readonly BuildingsTally[], defender: 
     const g = (k: keyof SideBuildings) => sum((t) => t.sides[side]?.[k] ?? 0);
     const msIn = g("manSIn"), msOut = g("manS") - msIn;
     const rate = (w: number, ms: number) => (ms > 0 ? ((100 * w) / (ms / 60)).toFixed(1) : "-");
-    lines.push(`- Buildings, ${side}${side === defender ? " (defends)" : ""}: indoors ${pct(msIn, g("manS"))} of man-seconds, upstairs ${pct(g("manSUp"), g("manS"))}; men ever inside ${(g("everIn") / n).toFixed(1)}; wounds per 100 man-minutes inside ${rate(g("woundsIn"), msIn)} / outside ${rate(g("woundsOut"), msOut)}; down inside ${(g("downIn") / n).toFixed(2)} / outside ${(g("downOut") / n).toFixed(2)}; grenades ${(g("grenades") / n).toFixed(1)} (at a house ${(g("grenadesAtHouse") / n).toFixed(2)}), own bursts in or on houses ${(g("blastsInHouse") / n).toFixed(2)}`);
+    lines.push(`- Buildings, ${side}${side === defender ? " (defends)" : ""}: indoors ${pct(msIn, g("manS"))} of man-seconds, upstairs ${pct(g("manSUp"), g("manS"))}; men ever inside ${(g("everIn") / n).toFixed(1)}; wounds per 100 man-minutes inside ${rate(g("woundsIn"), msIn)} / outside ${rate(g("woundsOut"), msOut)}; down inside ${(g("downIn") / n).toFixed(2)} / outside ${(g("downOut") / n).toFixed(2)}; grenades ${(g("grenades") / n).toFixed(1)} (at a house ${(g("grenadesAtHouse") / n).toFixed(2)}), own bursts in or on houses ${(g("blastsInHouse") / n).toFixed(2)}; houses left (trap / enemy inside / cut off) ${(g("leftTrap") / n).toFixed(2)} / ${(g("leftEnemy") / n).toFixed(2)} / ${(g("leftFlank") / n).toFixed(2)}`);
   }
   const sp = tallies.map((t) => t.spread).filter((s): s is Spread => s !== null);
   lines.push(`- Mortar HE per battle: on houses ${(sum((t) => t.mortarHeOnHouse) / n).toFixed(2)}, elsewhere ${(sum((t) => t.mortarHeElsewhere) / n).toFixed(1)}`);

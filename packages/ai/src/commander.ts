@@ -9,7 +9,8 @@
  *   men pulls back once the enemy is close (within `fallback.threatM`, its objective assaulted, or enemies on two
  *   sides) to a covered rally point of its own behind it that still sees its objective, and holds there; if the main
  *   objective is lost while two squads are still fit (a squad holding its rally point counts as the second), or one
- *   nearly whole, the strongest counterattacks it.
+ *   nearly whole, the strongest counterattacks it. A squad whose men left a house on their own (a trap, the enemy
+ *   inside, cut off: sim systems/house.ts, M7.5e) takes fire positions outdoors around where they went.
  * Attack: the platoon moves up to a support line about `supportM` from the main objective, on an axis turned away
  *   from the other objective's garrison (blinded with smoke), each squad to a place with a field of fire (going
  *   to ground on contact, then moving on to it), and looks for the enemy there (up to `reconSeconds`) while the
@@ -28,7 +29,7 @@ import {
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
   // objective's ring holds it, and its men stay inside the ring.
   siteRingSlackM: 15,
@@ -99,6 +100,8 @@ interface Memory {
   /** Defence (overnight pick "defence-fallback"): the way the attack is expected (rad); each squad's rally point
    *  [x, y, objective index, tick ordered]; squads seen in their withdraw drill; squads rallied and placed. */
   front?: number; rally?: Record<string, [number, number, number, number]>; rallySeen?: number[]; rallied?: number[];
+  /** M7.5e step "leave": per squad, the tick of the house leaving it has been re-sited after. */
+  houseLeft?: Record<string, number>;
 }
 
 /**
@@ -460,6 +463,25 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
             if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
             else order(p.id, { kind: "posture", posture: "prone" });
+          }
+        }
+        // Out of a house (M7.5e step "leave": a trap, the enemy inside, cut off): once its men are out and halted (or
+        // `houseResiteSeconds` on), each takes a fire position of his own around where they went, outdoors
+        // (`rallySiteM`), facing its objective and the way the enemy comes, as after a rally.
+        for (const sq of squads) {
+          const u = view.unit.get(sq), lh = u?.leftHouse;
+          if (!u || !lh || u.drill || (mem.houseLeft ??= {})[String(sq)] === lh.tick) continue;
+          const men = members(view, sq).filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); })
+            .sort((a, b) => a - b).map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; });
+          if (men.length === 0) { mem.houseLeft[String(sq)] = lh.tick; continue; }
+          if (tick - lh.tick < COMMANDER.houseResiteSeconds * 60 && men.some((m) => (view.mover.get(m.id)?.waypoints.length ?? 0) > 0)) continue;
+          mem.houseLeft[String(sq)] = lh.tick;
+          const cx = men.reduce((a, m) => a + m.x, 0) / men.length, cy = men.reduce((a, m) => a + m.y, 0) / men.length;
+          const o = objectives[ownObjective(cx, cy)] ?? main;
+          const e = enemyCentre(cx, cy, men.map((m) => m.id));
+          const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
+          for (const p of siteDefence(ground(), [{ men, cx, cy }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
+            if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
           }
         }
         // Mortars on attackers its men have seen out in the open (not near its own men).

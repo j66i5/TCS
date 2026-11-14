@@ -121,7 +121,10 @@ export const testCatalog: Catalog = {
       riseBelowSuppression: 0.05, lookEverySeconds: 4, faceEnemy: true, rearWatchMinMen: 3, atMoveM: 30, atMoveMinRangeM: 40, atMoveRetrySeconds: 20, atContactSeconds: 20,
       grenadeEverySeconds: 20, grenadeClearM: 10, grenadeContactSeconds: 30, assaultFireM: 50, assaultFireAimFactor: 3,
       friendBeyondM: 60, overlapM: 1, stepAsideM: [2, 3], overlapCheckSeconds: 1, duckAboveIntervalS: 3, duckHoldS: 1,
-      hurryModes: ["walk", "sneak"], hurryMode: "run", hurryFiredOnSeconds: 0, hurryQuietSeconds: 10 },
+      hurryModes: ["walk", "sneak"], hurryMode: "run", hurryFiredOnSeconds: 0, hurryQuietSeconds: 10,
+      houseLeave: true, houseTrapBursts: 2, houseTrapSeconds: 30, houseHeavyKg: 0.3, houseHeavyCount: 2, houseBurstNearM: 1,
+      houseEnemySeconds: 5, houseFightM: 4, houseFlankM: 150, houseFlankDeg: 120, houseFlankSeconds: 10,
+      houseLeaveM: [25, 50], houseLeaveDeg: 60, houseLeaveMode: "run", houseReenterSeconds: 120, houseContactErrM: 25 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
   },
   spotting: {

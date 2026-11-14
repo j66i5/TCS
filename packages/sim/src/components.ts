@@ -114,6 +114,12 @@ export interface SoldierState {
     ox?: number; oy?: number; gx?: number; gy?: number;
   };
   /**
+   * Danger to the house he is in (M7.5e step "leave"): enemy bursts in or on building `building` (its id), counted
+   * (a heavy round counts more) while no more than `soldier.houseTrapSeconds` pass between one and the next, and the
+   * last one's tick. Absent until one bursts on a house he is in.
+   */
+  houseDanger?: { building: number; n: number; tick: number };
+  /**
    * The posture of his fire position (soldier AI package C): where his last move, occupy or posture order left him
    * (kneeling or standing at a window, lying in the open). When the shooting near him has died down he takes it
    * again. Absent: none yet.
@@ -204,6 +210,9 @@ export interface ContactReport {
   contact: Omit<Contact, "reportedTick">;
 }
 
+/** Why a unit left a house (M7.5e): grenades or HE on it, the enemy inside, cut off from behind. */
+export type HouseLeaveReason = "trap" | "enemy" | "flank";
+
 export interface Unit {
   callsign: string;
   side: SideId;
@@ -255,6 +264,11 @@ export interface Unit {
   carrier?: EntityId;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
+  /**
+   * The house this unit last left on its own (M7.5e step "leave"): the building's id, when, and why. Its own rules
+   * keep it out of that house for `soldier.houseReenterSeconds`. Absent: none.
+   */
+  leftHouse?: { building: number; tick: number; reason: HouseLeaveReason };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }

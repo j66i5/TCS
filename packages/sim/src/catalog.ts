@@ -209,6 +209,8 @@ export interface AmmoDef {
   behindArmour?: { spallCount: number; spallConeDeg: number; spallEnergyJ: number };
   /** Smoke (M7.3): a multispectral cloud blinds thermal sights too. */
   multispectral?: boolean;
+  /** Hand smoke grenade (D1): starts to smoke `fuseSeconds` after release, a cloud of `radiusM` for `seconds`. */
+  smoke?: { fuseSeconds: number; radiusM: number; seconds: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
 }
@@ -343,6 +345,13 @@ export interface BehaviourDef {
    * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
    * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
    */
+  /**
+   * Hand smoke screens (D1, M10): a unit with a smoke grenade throws one to screen itself, `screenM` from its
+   * thrower toward the nearest enemy it knows (seen within `knownWithinS`, `enemyMinM`-`enemyMaxM` away), at most
+   * once in `cooldownS`: when it withdraws (`onWithdraw`, the break-contact drill) and when it moves off under fire
+   * (`onMoveUnderFire`: fired on within `underFireS`). The medical line calls `screenCasualty` for a drag.
+   */
+  smoke: { screenM: number; enemyMinM: number; enemyMaxM: number; knownWithinS: number; cooldownS: number; onWithdraw: boolean; onMoveUnderFire: boolean; underFireS: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
@@ -646,11 +655,13 @@ export interface VehicleDef {
   dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
   /** How it is seen and heard (M7.3; defaults when the data gives none). */
   signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
+  /** An ambulance (M10.6-data): patient layouts (alternatives) and the protective emblem. Behaviour: M10.6a. */
+  ambulance?: { layouts: { lying: number; sitting: number; lyingOutside: number }[]; marked: boolean };
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
 /** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
-export type ComponentKind = "engine" | "transmission" | "track" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
+export type ComponentKind = "engine" | "transmission" | "track" | "wheels" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
 export interface VehicleComponent {
   id: string; kind: ComponentKind; part: "hull" | "turret";
   box: { f: [number, number]; r: [number, number]; u: [number, number] };

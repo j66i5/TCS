@@ -829,6 +829,513 @@
         "confidence": "low",
         "note": "Game values: the Puma has an automatic fire suppression system (search extracts); its charges, the delay and the chance to put a fire out are not published."
       }
+    },
+    {
+      "id": "de-boxer-san",
+      "nameKey": "vehicle.de.boxer-san",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 7.93,
+        "widthM": 2.99,
+        "heightM": 2.94,
+        "groundClearanceM": 0.5,
+        "hull": {
+          "f": [
+            -3.96,
+            3.96
+          ],
+          "r": [
+            -1.495,
+            1.495
+          ],
+          "u": [
+            0.5,
+            2.94
+          ]
+        },
+        "wheelbaseM": 4,
+        "sources": [
+          "https://www.army-technology.com/projects/boxer/",
+          "https://www.joint-forces.com/features/15013-album-gtk-boxer-ambulance",
+          "https://en.wikipedia.org/wiki/Boxer_(armoured_fighting_vehicle)"
+        ],
+        "confidence": "medium",
+        "note": "Boxer 8x8: length 7.93 m, width 2.99 m (army-technology; search extracts only); roof height of the ambulance module 2.94 m (army-technology; joint-forces gives 8.33 x 3.0 x 3.36 m, probably over fittings). The hull box and the effective steering wheelbase (front axle pair to rear axle pair, for the one-track steering model) are game values."
+      },
+      "mass": {
+        "kg": 35000,
+        "sources": [
+          "https://www.joint-forces.com/features/15013-album-gtk-boxer-ambulance"
+        ],
+        "confidence": "medium",
+        "note": "Gross weight 35,000 kg for the ambulance (joint-forces, search extract)."
+      },
+      "drive": {
+        "powerKw": 530,
+        "efficiency": 0.75,
+        "topSpeedKmh": 100,
+        "reverseTopSpeedKmh": 20,
+        "brakeMps2": 6.5,
+        "gears": [
+          {
+            "toKmh": 10
+          },
+          {
+            "toKmh": 20
+          },
+          {
+            "toKmh": 32
+          },
+          {
+            "toKmh": 46
+          },
+          {
+            "toKmh": 62
+          },
+          {
+            "toKmh": 80
+          },
+          {
+            "toKmh": 100
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 20
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 18,
+          "steerRateDegS": 30,
+          "maxLatAccelMps2": 4
+        },
+        "idleKw": 25,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.knds.de/en/systems-products/wheeled-vehicles/boxer/boxer-ambulance/",
+          "https://www.artec-boxer.com/index.php?id=20",
+          "https://www.army-technology.com/projects/boxer/"
+        ],
+        "confidence": "medium",
+        "note": "MTU V8 of 530 kW (KNDS) and a top speed of 100 km/h (ARTEC; army-technology: over 100 km/h) are published. Seven forward gear bands (an automatic gearbox), reverse speed, braking, steering (about 25 m turning circle), idle power and fuel use are game values (low)."
+      },
+      "fuel": {
+        "item": "de-boxer-diesel",
+        "capacityL": 562
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            2.2,
+            0.6,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                2.2,
+                0.6,
+                3.1
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            -0.6,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "med",
+          "station": "loader",
+          "pos": [
+            0.6,
+            -0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            0,
+            0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -0.8,
+            0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.6,
+            0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            -2.4,
+            0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -0.8,
+            -0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -1.6,
+            -0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            -2.4,
+            -0.8,
+            1.4
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -4.4,
+            0
+          ]
+        ],
+        "openSeconds": 6,
+        "mountSecondsPerMan": 2.5,
+        "dismountSecondsPerMan": 1.5,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 30,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: one rear ramp (with a door); loading a casualty is slower than mounting (stretcher handling, M10.6a decides how it is used)."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "de-g36-mag",
+          "count": 6,
+          "charge": 30
+        },
+        {
+          "item": "de-boxer-extinguisher",
+          "count": 2
+        }
+      ],
+      "signature": {
+        "sizeFactor": 1.1,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 300,
+        "noiseMovingM": 900,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.4
+          ],
+          [
+            -1,
+            0,
+            2.3
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a high, slab-sided hull; quieter than the tracked carriers (wheels, no track noise)."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 50
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 25,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 12,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/Boxer_(armoured_fighting_vehicle)"
+        ],
+        "confidence": "low",
+        "note": "The Boxer's modular armour is classified; search extracts describe protection against heavy machine-gun fire (about 14.5 mm) over the frontal arc and artillery fragments all round. Expressed as armour-steel equivalents: front 30 mm at 50 degrees (stops 12.7 mm AP and most 14.5 mm at range), sides 25 mm (stop 7.62 mm AP and 12.7 mm ball at range), rear 20, roof 12. Every cannon round and rocket in the game penetrates."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                2,
+                3.8
+              ],
+              "r": [
+                0,
+                1.4
+              ],
+              "u": [
+                0.6,
+                1.8
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.12
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2.2
+              ],
+              "r": [
+                -0.4,
+                1.4
+              ],
+              "u": [
+                0.6,
+                1.3
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.2,
+                3.2
+              ],
+              "r": [
+                -1.495,
+                -1.1
+              ],
+              "u": [
+                0,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 10
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.2,
+                3.2
+              ],
+              "r": [
+                1.1,
+                1.495
+              ],
+              "u": [
+                0,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 10
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                1,
+                1.6
+              ],
+              "r": [
+                -1.3,
+                1.3
+              ],
+              "u": [
+                0.6,
+                1.2
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.25
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                0.3,
+                0.9
+              ],
+              "u": [
+                1.2,
+                1.7
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                -1,
+                -0.6
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the drive module sits at the front right (driver front left), the mission module behind it; boxes, toughness and chances are game values. 'wheels': each side's running gear (run-flat tyres; a wrecked side immobilises it)."
+      },
+      "extinguisher": {
+        "item": "de-boxer-extinguisher",
+        "chance": 0.6,
+        "delaySeconds": 2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values as the Puma's: an automatic fire suppression system is usual on the Boxer; charges, delay and chance are not published."
+      },
+      "ambulance": {
+        "layouts": [
+          {
+            "lying": 3,
+            "sitting": 0
+          },
+          {
+            "lying": 0,
+            "sitting": 7
+          },
+          {
+            "lying": 2,
+            "sitting": 3
+          }
+        ],
+        "marked": true,
+        "sources": [
+          "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf",
+          "https://www.knds.de/en/systems-products/wheeled-vehicles/boxer/boxer-ambulance/"
+        ],
+        "confidence": "medium",
+        "note": "Boxer ambulance (Sanitaetskraftfahrzeug): crew of three (driver, commander or doctor, medic; ARTEC brochure) and 7 seated or 3 lying casualties, or 2 lying and 3 seated (search extracts only). Unarmed apart from the crew's rifles; marked with the red cross."
+      },
+      "sources": [
+        "https://www.artec-boxer.com/index.php?id=20",
+        "https://www.knds.de/en/systems-products/wheeled-vehicles/boxer/boxer-ambulance/",
+        "https://www.army-technology.com/projects/boxer/"
+      ],
+      "confidence": "medium",
+      "note": "Boxer ambulance (M10.6-data): the first German wheeled vehicle. Crew of three: commander, driver and a medic in the patient compartment (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places. No weapon station. M7.6b reuses this hull for the Boxer carrier. Ambulance behaviour (requests, runs, loading casualties) comes with M10.6a."
     }
   ]
 }

@@ -3857,3 +3857,68 @@ flashes and hit puffs show while they are in sight (a flash of a hidden man stay
 contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
 not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
 No golden change (render only).
+
+## 2026-11-14 — M10.6-data: wheeled ambulance hulls, Boxer ambulance (DE) and BMM (RU) (roadmap-detail slice 12, parallel session)
+Owner answers used (BINDING, medical rounds 2 and 3): new Boxer ambulance and BMM vehicles in one data step. No
+ambulance behaviour yet (slice 13, M10.6a, on the medical main line). Software decisions, made without the owner:
+- **Data (add-data-entry, search extracts only, so medium at most):** `de-boxer-san` (Boxer 8x8 ambulance: 7.93 x
+  2.99 x 2.94 m, 35 t, MTU V8 530 kW, 100 km/h, 562 L; crew of three; 7 sitting or 3 lying or 2 lying + 3 sitting)
+  and `ru-bmm` (BMM on the BTR-80: 7.65 x 2.90 m, 13.6 t, 191 kW, 80 km/h, 290 L; crew of three; 4 lying inside + 2
+  outside, or 7 sitting inside + 2 lying outside = 9). Armour, components, gears, reverse speeds, steering, ramp
+  times, extinguishers and signatures are game values (low). Neither carries a weapon station (the crews' rifles
+  only). Crews `boxer-san-besatzung` ("Sanka {n}") and `bmm-ekipazh` with new roles `sankfz-sanitaeter` /
+  `sanitar-bmm`; they are in no platoon (ambulances come from off the map, M10.6a). xf fixture: `xf-litter-cart`.
+- **Schema:** optional vehicle block `ambulance { layouts: [{ lying, sitting, lyingOutside? }], marked }` (catalog:
+  `VehicleDef.ambulance`, `lyingOutside` defaults to 0). The layouts are alternatives; the `passenger` seats are the
+  sitting places; lying places are not seats (how stretchers are loaded is M10.6a's). `marked` is in the catalog so
+  that recognition (M10.7a) can use it; the painted emblem itself is appearance data (`markings` in a faction's
+  `appearance.json`, outside the fingerprint).
+- **The medic's seat** is a crew seat of the existing generic kind `loader` (no weapon uses it; like a loader he
+  takes over the driving if the driver falls). A dedicated station kind can come with M10.6a if needed. The crew
+  templates list their men in crew-seat order (commander, medic, driver) so that the drive lab, which seats crews
+  without placements, seats them as the template names.
+- **Wheeled-hull code:** new component kind `wheels` (each side's running gear). The drive factors treat it as a
+  track; the wheeled dynamics pull and grip with 0.4 + 0.6 x the worse side's condition (run-flat tyres, many
+  axles); a wrecked side immobilises the hull (armour `mobile`). Hulls without components (the xf carts) are
+  unchanged.
+- **Vehicles scenario:** `crewTemplateOf` skips crews of ambulances (else `bmm-ekipazh` would sort before
+  `bmp2-ekipazh`). App option `&crew=<blue template>,<red template>` for the vehicles scenario; screenshot scene
+  `--scene ambulances` (wheels a side and the red cross on the roof, photo and flat; looked at: fine).
+- **Drive lab bands (software decision):** 0-50 km/h Boxer 8-16 s (12.6), BMM 10-18 s (13.9); top and reverse
+  speed within 5 % of the data; braking from 50 km/h 12-25 m (14.6 / 15.7); no pivot: 90 degrees from a standstill
+  3-10 s (5.6 / 6.0), turning circle 20-30 m (24.6 / 24.1); ground and rain order, 20 % slope (16.4 / 9.6 km/h),
+  fuel per km (2.0 / 0.7 L), no driver: no move.
+- **No batches:** neither hull is in any battle scenario; the state at tick 600 of the demo golden is identical
+  apart from the catalog fingerprint. Golden update (fingerprint only), `golden/no-interiors` untouched.
+
+## 2026-11-14 — D1: hand smoke grenades (roadmap-detail slice 5, parallel session)
+Owner answer used (BINDING, round A): hand smoke grenades as a small step inside medical. Software decisions:
+- **Data:** `de-dm45` (Granate, Hand, DM45, 800 g; Rheinmetall/Bundeswehr extracts; burn time not found: cloud is a
+  game value, low) and `ru-rdg2` (RDG-2, 500 g, 60-90 s of smoke, screen about 30 x 5-8 m; medium), xf `xf-puff`.
+  Every man of the German and Russian squads and platoon HQs carries one (game value: the issue per man is not in
+  the sources); crews and the demo teams carry none. Ammo block `smoke { fuseSeconds, radiusM, seconds }` (no
+  explosive; the loader accepts a thrown munition with a smoke block). Abstraction: a round cloud of 10 m radius (about
+  the published screen's area, no wind drift), 60 s (DM45) / 75 s (RDG-2), smoking 2 s after the throw.
+- **Sim:** the throw is the existing grenade action; when the fuse runs the grenade lays a cloud in `state.smoke`
+  (the existing concealment) and emits `smoke.grenade`. Nobody runs from a landed smoke grenade; the thrower does not
+  dive; a smoke throw is not broken off by moving (it is lobbed on the move). A fragmentation grenade order never
+  takes a smoke grenade; the `grenade` order takes `smoke: true` for smoke only. The runtime flag "explosive" in the
+  projectile engine now also covers smoke grenades (bounce, rest, fuse; no wounds). Expenditure counts `handSmoke`
+  apart from `grenades`; the buildings tally and house lab count only fragmentation grenades.
+- **Player:** a "Smoke grenade" button in the Fire tray (squads and single men with one): tap a point, one man
+  throws there; radio "smoke!".
+- **Own use (behaviour.smoke, same for every side, player and AI):** a unit ordered to withdraw (the break-contact
+  drill), or ordered to move within 10 s of coming under fire (a crossing under fire), throws one smoke grenade 15 m
+  toward the nearest enemy its men know (seen or reported within 30 s, 40-400 m away), at most once a minute;
+  radio "smoke out!". Hook for the medical line: `screenCasualty(ctx, state, events, helper, casualty, threat?)`
+  (systems/smoke.ts, exported from @tcs/sim) screens a drag between the casualty and the enemy; nothing calls it yet
+  (M10.3b's drag will).
+- **Lab (`npm run lab -- smoke`) and acceptance reading:** "blocks sight across 20 m for 45 s" is read as a cloud
+  20 m across whose middle cuts a line of sight to a tenth or less (exp(-0.15 x 20) = 0.05) for at least 45 s:
+  DM45 53 s, RDG-2 68 s; the band cut to a tenth is 12.5 m wide; one item used, none on a fragmentation order,
+  nobody hurt.
+- **Batches (10 seeds x 1200 s, main -> now):** platoon: attacker wins 3 -> 3, casualties blue 19.9 -> 18.0, red
+  12.9 -> 12.7, hand smoke 7.5 (attacker) / 0.8 per battle; platoon-ru: 7 -> 5 Russian wins, casualties 15.6/12.9 ->
+  14.1/12.2, smoke 0.4 / 4.9; platoon-vehicles: 4 -> 5 German wins, casualties 19.4/22.5 -> 17.7/21.4, smoke 5.6 /
+  1.0. Within noise of 10 seeds; the attacker throws most (moves under fire). No per-tick work (only on orders):
+  no perf run. Golden update (loads and data), `golden/no-interiors` untouched. Screens: `--scene smoke`.

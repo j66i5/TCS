@@ -49,8 +49,11 @@ export function throwPosture(ctx: SimContext, state: SimState, id: EntityId, d: 
   return "standing";
 }
 
-/** What, if anything, this man can send to (x, y) right now. Hand grenades first, then the launcher. */
-export function grenadeOption(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): GrenadeOption | null {
+/**
+ * What, if anything, this man can send to (x, y) right now. Hand grenades first, then the launcher. `smoke` (D1):
+ * only a hand smoke grenade (thrown); otherwise smoke grenades are never chosen.
+ */
+export function grenadeOption(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, smoke = false): GrenadeOption | null {
   const s = state.soldier.get(id), t = state.transform.get(id), c = state.container.get(id);
   if (!s || !t || !c || !isAble(s) || !s.impair.canUseArms || state.tick < s.stunnedUntilTick || state.action.has(id) || s.evade !== null) return null;
   const G = ctx.catalog.shooting.grenades;
@@ -60,13 +63,14 @@ export function grenadeOption(ctx: SimContext, state: SimState, id: EntityId, x:
   for (const st of [...c.stacks].sort((a, b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : 0))) {
     if (st.count <= 0) continue;
     const def = ctx.catalog.ammo[st.type];
-    if (!def?.delivery || !def.explosive || def.delivery.method === "direct") continue; // rockets are aimed, not lobbed (M7.4a)
+    if (!def?.delivery || def.delivery.method === "direct") continue; // rockets are aimed, not lobbed (M7.4a)
+    if (smoke ? !def.smoke || def.delivery.method !== "thrown" : !def.explosive) continue;
     if (def.delivery.method === "thrown") {
       if (d <= throwRangeM(ctx, state, id, "standing")) return { ammo: st.type, method: "thrown", distanceM: d };
     } else if (launched === null) {
       const v = def.delivery.velocityMps ?? 0;
       const has = def.delivery.launcher !== undefined && c.stacks.some((x2) => x2.type === def.delivery!.launcher && x2.count > 0);
-      const armM = v * (def.explosive.armingSeconds ?? 0) * 1.2;
+      const armM = v * (def.explosive?.armingSeconds ?? 0) * 1.2;
       if (has && d >= armM && d <= (def.delivery.maxRangeM ?? 300)) launched = { ammo: st.type, method: "launched", distanceM: d };
     }
   }
@@ -227,7 +231,7 @@ const POSE_ORDER: readonly Posture[] = ["prone", "crouching", "standing"];
 function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number, minPose?: Posture, post = false): "thrown" | "launched" | "blocked" | null {
   const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
   const s = state.soldier.get(id), t = state.transform.get(id);
-  if (!def?.delivery || def.delivery.method === "direct" || !def.explosive || !c || !s || !t) return null;
+  if (!def?.delivery || def.delivery.method === "direct" || (!def.explosive && !def.smoke) || !c || !s || !t) return null;
   if (!c.stacks.some((st) => st.type === ammoId && st.count > 0)) return null; // he no longer has one
   const G = ctx.catalog.shooting.grenades;
   const thrown = def.delivery.method === "thrown";
@@ -250,9 +254,11 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
 
 /** Action "grenade": params { ammo, x, y, pose?, post? (1: posted into a room, M7.5e) }. Interrupted if the man can no longer use his arms. */
 export const grenadeHandler: ActionHandler = {
-  check(_ctx, state, actor) {
+  check(ctx, state, actor, a) {
     const s = state.soldier.get(actor);
     if (!isAble(s) || !s!.impair.canUseArms) return "unable";
+    // (D1: a smoke grenade is lobbed on the move, as the unit breaks contact: moving does not break it off.)
+    if (ctx.catalog.ammo[String(a.params["ammo"])]?.smoke !== undefined) return null;
     // A new order to move or to change posture breaks it off (the grenade stays in his load).
     if ((state.mover.get(actor)?.waypoints.length ?? 0) > 0) return "moved";
     return s!.postureTo !== null ? "posture" : null;
@@ -268,8 +274,8 @@ export const grenadeHandler: ActionHandler = {
       if (ident) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from: actor, key: "radio.grenadeBlocked", params: { callsign: state.unit.get(ident.unit)?.callsign ?? "" } });
     } else if (method) {
       events.emit({ kind: "grenade.launched", tick: state.tick, soldier: actor, ammo, method, x, y });
-      // Throw and get down: his own fragments reach further than he throws.
-      if (method === "thrown") requestPosture(ctx, state, actor, "prone");
+      // Throw and get down: his own fragments reach further than he throws (not after a smoke grenade).
+      if (method === "thrown" && !ctx.catalog.ammo[ammo]?.smoke) requestPosture(ctx, state, actor, "prone");
     }
   },
 };
@@ -294,6 +300,7 @@ export function grenadeReactionSystem(ctx: SimContext, state: SimState, events: 
   for (let k = 0; k < list.length; k++) {
     const e = list[k]!;
     if (e.kind !== "grenade.landed" || e.burstTick <= state.tick) continue;
+    if (ctx.catalog.ammo[e.ammo]?.explosive === undefined) continue; // a smoke grenade (D1): nothing to run from
     for (const [id, s] of state.soldier.entries()) {
       if (!isAble(s) || state.tick < s.stunnedUntilTick || s.mount !== undefined) continue; // men aboard: behind armour
       const t = state.transform.get(id);

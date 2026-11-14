@@ -359,6 +359,7 @@
   "vehicle.comp.engine": "engine",
   "vehicle.comp.transmission": "transmission",
   "vehicle.comp.track": "track",
+  "vehicle.comp.wheels": "wheels",
   "vehicle.comp.turret-drive": "turret drive",
   "vehicle.comp.stabiliser": "stabiliser",
   "vehicle.comp.gun": "gun",
@@ -542,5 +543,12 @@
   "help.t.pinch": "Pinch",
   "help.t.holdFire": "Hold in Fire",
   "help.t.tile": "Tap a unit tile",
-  "help.t.tileHold": "Hold a unit tile"
+  "help.t.tileHold": "Hold a unit tile",
+  "vehicle.de.boxer-san": "Boxer ambulance",
+  "vehicle.ru.bmm": "BMM ambulance",
+  "radio.smokeOut": "{callsign}: smoke out!",
+  "order.smoke": "Smoke grenade",
+  "plan.tapSmoke": "Tap where the smoke screen should go.",
+  "aar.exp.handSmoke": "smoke grenades: {n}",
+  "radio.ack.smoke": "{callsign}: smoke!"
 }

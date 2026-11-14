@@ -187,6 +187,9 @@ export const AmmoSchema = withProv({
   behindArmour: z.object({ spallCount: z.number().int().min(0).max(200), spallConeDeg: Num(0, 90), spallEnergyJ: Num(0, 100000) }).strict().optional(),
   /** Smoke rounds (M7.3): a multispectral cloud also blinds thermal sights (default false). */
   multispectral: z.boolean().optional(),
+  /** Hand smoke grenades (D1, M10): `fuseSeconds` after release the grenade starts to smoke where it lies, a cloud
+   *  of `radiusM` (growing over spotting.smokeBuildSeconds) for `seconds`. No explosive: it never wounds. */
+  smoke: z.object({ fuseSeconds: Num(0.1, 30), radiusM: Num(1, 100), seconds: Num(1, 1200) }).strict().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
@@ -401,6 +404,11 @@ export const BehaviourFile = withProv({
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
+  }).strict(),
+  /** Hand smoke screens (D1, M10): the same for every side. See BehaviourDef.smoke. */
+  smoke: z.object({
+    screenM: Num(1, 100), enemyMinM: Num(0, 2000), enemyMaxM: Num(0, 5000), knownWithinS: Num(0, 600), cooldownS: Num(0, 3600),
+    onWithdraw: z.boolean(), onMoveUnderFire: z.boolean(), underFireS: Num(0, 600),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
@@ -638,7 +646,7 @@ export const VehicleWeaponSchema = z.object({
   loaderStation: StationKind.optional(), roundLoadSeconds: Num(0.1, 120).optional(), noLoaderFactor: Num(1, 20).optional(),
 }).strict();
 /** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
-export const COMPONENT_KINDS = ["engine", "transmission", "track", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
+export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
 export const VehicleSchema = withProv({
   id: Id, nameKey: z.string(), class: z.enum(["tracked", "wheeled"]),
   body: withProv({
@@ -727,6 +735,13 @@ export const VehicleSchema = withProv({
    *  `interceptChance` one charge `item` (counted in the container) bursts it `standoffM` short of the hull (no jet
    *  reaches the plate); the next engagement no sooner than `cooldownSeconds` later. */
   activeProtection: withProv({ item: Id, detectM: Num(0.5, 100), standoffM: Num(0.5, 50), interceptChance: Num(0, 1), cooldownSeconds: Num(0, 60) }).optional(),
+  /** An ambulance (M10.6-data): the patient layouts it can take (alternatives: lying places, sitting places and
+   *  lying places outside the hull), and whether it carries the protective emblem (recognition: M10.7a). How
+   *  casualties are loaded and carried is the medical line's (M10.6a); the seats list the sitting places. */
+  ambulance: withProv({
+    layouts: z.array(z.object({ lying: z.number().int().min(0).max(20), sitting: z.number().int().min(0).max(20), lyingOutside: z.number().int().min(0).max(10).optional() }).strict()).min(1),
+    marked: z.boolean(),
+  }).optional(),
   recovery: z.null().optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();
@@ -795,6 +810,9 @@ const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lo
 export const FactionAppearanceFile = z.object({
   uniform: z.object({ base: LookColour, dark: LookColour, light: LookColour, helmet: LookColour, skin: LookColour }).strict(),
   vehicle: z.object({ hull: LookColour, dark: LookColour }).strict(),
+  /** Painted emblems by vehicle type (M10.6-data): the red cross on an ambulance's roof and sides. Presentation
+   *  only; whether the sim treats the hull as marked is the vehicle's `ambulance.marked` (catalog). */
+  markings: z.record(Id, z.enum(["red-cross"])).optional(),
   note: z.string().optional(),
 }).strict();
 /** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */

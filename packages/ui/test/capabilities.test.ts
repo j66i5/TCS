@@ -35,7 +35,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(cap.canDismount).toBe(true);
     expect(cap.canMount).toBe(false);
     const o = ordersFor(cap, modes);
-    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "support"]);
+    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"]);
     expect(o.dismount && !o.mount && o.posture && o.rules).toBe(true);
     expect(boardingOf(sim.state, cat, uid)).toEqual({ mount: false, dismount: true });
   });
@@ -92,7 +92,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     const cap = unitCapabilities(s2.state, cat, uid);
     expect(cap.kind).toBe("man");
     const o = ordersFor(cap, modes);
-    expect(o.modes.filter((m) => m !== "grenade")).toEqual(["move", "occupy", "fire"]);
+    expect(o.modes.filter((m) => m !== "grenade")).toEqual(["move", "occupy", "fire", "smoke"]);
     expect(o.posture && o.halt && o.ceaseFire && !o.rules).toBe(true);
     for (const m of men) s2.state.soldier.req(m).physiology.consciousness = 0;
     expect(unitCapabilities(s2.state, cat, uid).kind).toBe("none");

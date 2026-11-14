@@ -860,6 +860,509 @@
         "confidence": "low",
         "note": "Game values: the BMP-2 carries a fire-extinguishing system (search extracts); its charges, delay and chance are not published. Lower than the Puma's: fuel in the rear doors and between the seats (owner: the BMP-2 burns easily)."
       }
+    },
+    {
+      "id": "ru-bmm",
+      "nameKey": "vehicle.ru.bmm",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 7.65,
+        "widthM": 2.9,
+        "heightM": 2.35,
+        "groundClearanceM": 0.475,
+        "hull": {
+          "f": [
+            -3.825,
+            3.825
+          ],
+          "r": [
+            -1.45,
+            1.45
+          ],
+          "u": [
+            0.475,
+            2.35
+          ]
+        },
+        "wheelbaseM": 3,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BTR-80",
+          "https://army-technology.com/?p=11913"
+        ],
+        "confidence": "medium",
+        "note": "BTR-80 hull: 7.65 x 2.90 m (search extracts); the BMM has no turret, so the height is the hull roof (game value about 2.35 m). Hull box and effective steering wheelbase are game values."
+      },
+      "mass": {
+        "kg": 13600,
+        "sources": [
+          "https://en.valka.cz/topic/view/41396",
+          "https://www.army-guide.com/eng/product1994.html"
+        ],
+        "confidence": "medium",
+        "note": "Combat weight 13.6 t (one source gives 12.6 t; search extracts only)."
+      },
+      "drive": {
+        "powerKw": 191,
+        "efficiency": 0.75,
+        "topSpeedKmh": 80,
+        "reverseTopSpeedKmh": 15,
+        "brakeMps2": 6,
+        "gears": [
+          {
+            "toKmh": 10
+          },
+          {
+            "toKmh": 20
+          },
+          {
+            "toKmh": 35
+          },
+          {
+            "toKmh": 55
+          },
+          {
+            "toKmh": 80
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 15
+          }
+        ],
+        "shiftSeconds": 0.8,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 14,
+          "steerRateDegS": 25,
+          "maxLatAccelMps2": 3.5
+        },
+        "idleKw": 12,
+        "litresPerKwh": 0.3,
+        "sources": [
+          "https://en.wikipedia.org/wiki/BTR-80",
+          "https://en.valka.cz/topic/view/41396"
+        ],
+        "confidence": "medium",
+        "note": "BTR-80: KamAZ-7403 diesel of 260 hp (191 kW) and 80 km/h on roads are published (search extracts). Five gear bands (manual gearbox, slower shifts), reverse speed, braking, steering (about 25 m turning circle), idle power and fuel use are game values (low). Swimming is not modelled."
+      },
+      "fuel": {
+        "item": "ru-bmm-diesel",
+        "capacityL": 290
+      },
+      "seats": [
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.3,
+            0.45,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            2.3,
+            -0.45,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                2.3,
+                -0.45,
+                2.5
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "med",
+          "station": "loader",
+          "pos": [
+            1.2,
+            0.6,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            0.4,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -0.4,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            0.4,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -0.4,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            1.2,
+            -0.6,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0,
+            1.8
+          ],
+          [
+            0,
+            -1.8
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the BTR-80's side doors between the second and third axles; a stretcher through a side door is slow."
+      },
+      "stations": [],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 6,
+          "charge": 30
+        },
+        {
+          "item": "ru-bmm-extinguisher",
+          "count": 2
+        }
+      ],
+      "signature": {
+        "sizeFactor": 0.95,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 300,
+        "noiseMovingM": 900,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.2
+          ],
+          [
+            -1,
+            0,
+            1.9
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a low hull without a turret; quieter than the tracked carriers."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 10,
+            "slopeDeg": 60
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 9,
+            "slopeDeg": 15
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BTR-80"
+        ],
+        "confidence": "low",
+        "note": "Search extracts give the BTR-80 welded steel of about 10 mm on the front and 7-9 mm on the sides, rear and roof: proof against rifle fire and fragments, not heavy machine guns. One plate per face."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                -1.9
+              ],
+              "r": [
+                -1.1,
+                1.1
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 70,
+            "absorbMm": 50,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -1.9,
+                -1.5
+              ],
+              "r": [
+                -1.1,
+                1.1
+              ],
+              "u": [
+                0.5,
+                1
+              ]
+            },
+            "toughnessMm": 50,
+            "absorbMm": 40
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3,
+                3
+              ],
+              "r": [
+                -1.45,
+                -1.05
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3,
+                3
+              ],
+              "r": [
+                1.05,
+                1.45
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -1.5,
+                -1
+              ],
+              "r": [
+                -1.2,
+                1.2
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 20,
+            "fireChance": 0.35
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                -1,
+                -0.5
+              ],
+              "u": [
+                1.2,
+                1.7
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                0.5,
+                1
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BTR-80"
+        ],
+        "confidence": "low",
+        "note": "The BTR-80 has its engine at the rear and the crew at the front (search extracts); boxes, toughness and chances are game values; 'wheels': each side's running gear (a wrecked side immobilises it)."
+      },
+      "extinguisher": {
+        "item": "ru-bmm-extinguisher",
+        "chance": 0.4,
+        "delaySeconds": 2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values as the BMP-2's."
+      },
+      "ambulance": {
+        "layouts": [
+          {
+            "lying": 4,
+            "sitting": 0,
+            "lyingOutside": 2
+          },
+          {
+            "lying": 0,
+            "sitting": 7,
+            "lyingOutside": 2
+          }
+        ],
+        "marked": true,
+        "sources": [
+          "https://en.valka.cz/topic/view/41396",
+          "https://www.armyrecognition.com/archives/archives-land-defense/land-defense-2016/russian-company-vpk-develops-new-bmm-armoured-medevac-vehicle-tass-52704161"
+        ],
+        "confidence": "medium",
+        "note": "BMM (BMM-1 'Simfoniya' family on the BTR-80): crew of three; up to 9 patients, 7 in the medical compartment and 2 on stretchers outside on the hull, or 4 stretchers inside plus 2 outside (search extracts; a third source says 4 in all). Unarmed apart from the crew's rifles; marked with the red cross."
+      },
+      "sources": [
+        "https://en.valka.cz/topic/view/41396",
+        "https://en.wikipedia.org/wiki/BTR-80"
+      ],
+      "confidence": "medium",
+      "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a."
     }
   ]
 }

@@ -224,6 +224,9 @@ white flags on the map; the after-action review lists surrendered and captured m
      guided rounds refused; `lab -- artillery`.
   7. 🔶 **M8.5 AI and balance**, part 1 (2026-11-14) — screens across the line upwind, artillery beyond danger close
      with airburst, planned fires for the defender. Balance, observers by view and A4 wait for D4.
+  8. ✅ **M8.6 Interface** (2026-11-14) — fire support pop-up per asset (HE, airburst, smoke, flare greyed until night,
+     rounds left, time to effect, danger close), smoke screens by dragging a line, "splash N s", review rows. Planned
+     targets by the player wait for a deployment phase; owner play-test open.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,

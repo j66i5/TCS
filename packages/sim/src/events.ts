@@ -72,6 +72,8 @@ export type SimEvent =
    *  axis, seconds until it lands); a round leaves the tube ("shot", seconds of flight); a round lands in `inS`
    *  ("splash"). */
   | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
+  /** M8.6: a round of a fire mission lands (for the review's tally: which asset, which kind). */
+  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number }
   /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: M9.1). */
   | { kind: "support.illum"; tick: number; x: number; y: number; side: SideId; burnS: number }
   | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }

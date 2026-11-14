@@ -30,6 +30,11 @@ DECISIONS.md under its date._
   after, only the scenarios a slice affects; `npm run check` once at the end of a slice, alone; `npm run test:perf`
   only when a slice adds per-tick per-man work; screenshots only for visible changes.
 
+**M8.6 Interface (2026-11-14, branch `claude/m8-smoke-fires`; DECISIONS "M8.6").** Fire support pop-up with one row
+per asset (own mortars / mortars / artillery: HE, airburst, smoke, flare, rounds, time to effect, DANGER CLOSE), a
+dragged line = smoke screen, "splash N s" on the mission line, fire-support rows in the review. Screenshots
+`--scene firesupport`. Next: slice 29 (debt slot after M8), then drones 34-36 once M9.2 is on main.
+
 **M8.5 part 1 (2026-11-14, same branch; DECISIONS "M8.5 ... part 1").** The AI lays its screens as lines across
 the line of sight (upwind of the wind), calls the guns beyond danger close (airburst on men in the open), and the
 defender's mortars start with three planned targets. Balance and A4 wait for D4. Scenario `platoon-artillery`.

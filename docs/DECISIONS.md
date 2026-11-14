@@ -4355,3 +4355,25 @@ Owner: "include that surrendering soldiers will move toward the forces they surr
 - **Goldens regenerated** (`npm run golden:update`, intended: new data, so the catalog fingerprint changes every
   checkpoint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
   `golden/no-interiors` untouched.
+
+## 2026-11-14 — M8.6 Interface: the fire support pop-up per asset, smoke screens by drag, splash countdown, review rows (slice 28; decided without the owner, owner to review)
+
+- **Pop-up** (Fire tray > Fire support, hold or tap a point): one row per asset the side has — "Own mortars" (on-map
+  teams that reach the point), "Mortars" (the off-map section), "Artillery" — with HE, Airburst (where the asset has
+  the fuse), Smoke and Flare, each with its rounds left, and "effect in ~N s" (request + processing + flight +
+  ranging, from the sim's new read-only `fireOptions`; the order's comms delay not included). Flares are greyed
+  "night only" in daylight (light below 0.5) until M9's night. A point within the asset's danger-close distance of own
+  men shows DANGER CLOSE in red and a pick there sends the call with `dangerClose` (the player has been warned).
+  Out of range / moving position grey the row. Rounds per pick: HE 4, smoke 2, flare 1, a screen 6.
+- **Smoke screen by drag:** a held press dragged 30 m or more becomes a line (the line and its far end are drawn
+  while dragging); letting go offers only "Screen" (smoke) per asset and sends `callFire` with x2/y2.
+- **Mission line:** a screen mission draws its line; while a round is in the air the target carries "splash N s"
+  (off-map: after its "shot"; on-map: the first round flying).
+- **Review table:** the after-action ammunition list gains "Mortars / Artillery, HE / smoke / flare: N rounds" per side
+  (new sim event `support.round` as each round lands; `Expenditure.support`).
+- **Hint and help** mention dragging a line and the asset choice.
+- **Not built:** planned targets set by the player in a deployment phase (the app has no deployment phase; planned
+  targets come from the scenario: M8.5 gives the AI defender three); the owner's phone play-test (acceptance: "on your
+  phone, without a manual, you call adjusted HE, a smoke screen and artillery") is for the owner.
+- Screenshots `npm run screenshot -- --scene firesupport` (now with `&artillery=1`: steps 9-12 drag a screen, its
+  pop-up, the splash countdown, the screen laid). No sim behaviour change (goldens unchanged); no batches needed.

@@ -1001,7 +1001,7 @@ async function sightScenes(page: Page, name: string, errors: string[], shots: st
  */
 async function fireSupportScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/firesupport-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
-  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&artillery=1`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
   type P = { x: number; y: number };
   const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
@@ -1074,6 +1074,34 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
   const n1 = await ev<number>("return t.orderLog.length;");
   await page.keyboard.press("Escape");
   log["escClosed"] = { popup: (await sup()).popup, sentNothing: (await ev<number>("return t.orderLog.length;")) === n1 };
+  // M8.6: a held press dragged into a line offers a smoke screen along it; picked, its mission shows the line and
+  // the splash countdown once a round is in the air.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  const l0 = await ev<P>("const c = t.controls().centre, p = globalThis.__pt; globalThis.__l0 = { x: (c.x + 2 * p.x) / 3 - 40, y: (c.y + 2 * p.y) / 3 - 70 }; globalThis.__l1 = { x: globalThis.__l0.x + 30, y: globalThis.__l0.y + 140 }; return t.toScreen(globalThis.__l0.x, globalThis.__l0.y);");
+  const l1 = await ev<P>("return t.toScreen(globalThis.__l1.x, globalThis.__l1.y);");
+  await page.mouse.move(l0.x, l0.y); await page.mouse.down();
+  await page.mouse.move(l1.x, l1.y, { steps: 10 });
+  await page.waitForTimeout(500);
+  await shot("9-screen-dragged");
+  await page.mouse.up();
+  log["screenPopup"] = await ev<object>("return { popup: t.support().popup, title: document.querySelector('.hud-support-head span')?.textContent, buttons: [...document.querySelectorAll('.hud-support [data-ammo]')].map((b) => b.dataset.asset + ':' + b.dataset.ammo + (b.disabled ? '(off)' : '')) };");
+  await shot("10-screen-popup");
+  const nScreen = await ev<number>("return t.orderLog.length;");
+  await page.click('.hud-support [data-asset="mortar"][data-ammo="smoke"]');
+  log["screenOrder"] = await lastOrder();
+  log["screenSent"] = (await ev<number>("return t.orderLog.length;")) - nScreen;
+  // On until a round of it is in the air: the countdown label by the target.
+  let splash = false;
+  for (let k = 0; k < 200 && !splash; k++) {
+    await ev("t.stepTicks(30);");
+    splash = await ev<boolean>("return s.fireMissions.some((m) => m.side === 'blue' && m.lx !== undefined && m.shotFor === m.nextTick && m.nextTick > s.tick);");
+  }
+  log["splashShown"] = splash;
+  await ev("t.stepTicks(5);");
+  await shot("11-screen-splash");
+  await ev("t.stepTicks(60 * 40);");
+  await shot("12-screen-laid");
   if (phone) log["phone"] = true;
   console.log(`${name}: firesupport scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }

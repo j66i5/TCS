@@ -14,7 +14,7 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
-  mortarTeams,
+  mortarTeams, fireOptions,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
@@ -352,7 +352,7 @@ async function main(): Promise<void> {
     /** S2: a fire order held; `onUnit`: back on the unit (release cancels). */
     | { kind: "fire"; at: Pt; onUnit: boolean; los: LosLine[] }
     /** S11: a point held for fire support (letting go opens the HE / smoke pop-up there). */
-    | { kind: "support"; at: Pt };
+    | { kind: "support"; at: Pt; from: Pt };
   let gesture: Gesture | null = null;
   /** The selected unit's men on foot and the hulls it is in or crews (alive men only). */
   const unitPlaces = (uid: EntityId | null): { men: Pt[]; hulls: EntityId[] } => {
@@ -448,22 +448,32 @@ async function main(): Promise<void> {
     if (next !== orderMode) { orderMode = next; hud.setOrderMode(next); }
   };
   const inMap = (w: Pt) => w.x >= 0 && w.y >= 0 && w.x <= input.map.widthM && w.y <= input.map.heightM;
-  // ---- S11 (step fire-support): the point picked for fire support, while its pop-up is open.
-  let supportAt: Pt | null = null;
-  /** Rounds per mission from the pop-up (the ranging rounds come on top, from the same stock). */
-  const SUPPORT_ROUNDS = { he: 4, smoke: 2 } as const;
-  const offerSupport = (w: Pt) => {
+  // ---- S11 (step fire-support): the point picked for fire support, while its pop-up is open (M8.6: or the line of a
+  // smoke screen dragged out from it).
+  let supportAt: (Pt & { x2?: number; y2?: number }) | null = null;
+  /** Rounds per mission from the pop-up (the ranging rounds come on top, from the same stock); a screen 6 rounds. */
+  const SUPPORT_ROUNDS = { he: 4, smoke: 2, illum: 1 } as const;
+  const SCREEN_ROUNDS = 6;
+  /** A held press dragged this far (m) from where it started is a smoke screen's line (M8.6). */
+  const SCREEN_MIN_M = 30;
+  const offerSupport = (w: Pt, end?: Pt) => {
     const uid = overlay.selectedUnit;
     if (uid === null || !inMap(w)) return;
-    const at = { x: w.x, y: w.y };
+    const line = end !== undefined && inMap(end) && Math.hypot(end.x - w.x, end.y - w.y) >= SCREEN_MIN_M ? end : undefined;
+    const at = { x: w.x, y: w.y, ...(line ? { x2: line.x, y2: line.y } : {}) };
     supportAt = at;
-    const sc = worldToScreen(renderer.camera, at.x, at.y);
+    const sc = worldToScreen(renderer.camera, line ? (at.x + line.x) / 2 : at.x, line ? (at.y + line.y) / 2 : at.y);
+    const faction = sim.state.sides.find((x) => x.id === playerSide)?.faction ?? "";
     hud.offerSupport({
-      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
-      pick: (ammo) => {
+      x: sc.x, y: sc.y, assets: fireOptions(sim.ctx, sim.state, playerSide, faction, at.x, at.y, line?.x, line?.y),
+      ...(line ? { line: true } : {}), night: sim.state.environment.light < 0.5,
+      pick: (asset, ammo, opts) => {
         supportAt = null;
         if (overlay.selectedUnit !== uid || !sim.state.unit.has(uid)) return;
-        issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "callFire", x: at.x, y: at.y, ammo, rounds: SUPPORT_ROUNDS[ammo] });
+        issue({
+          tick: sim.state.tick, issuer: playerSide, target: uid, kind: "callFire", x: at.x, y: at.y, ammo, rounds: line ? SCREEN_ROUNDS : SUPPORT_ROUNDS[ammo],
+          ...(line ? { x2: line.x, y2: line.y } : {}), ...(asset === "artillery" ? { asset } : {}), ...(opts.airburst ? { fuse: "airburst" as const } : {}), ...(opts.dangerClose ? { dangerClose: true } : {}),
+        });
         oneTapDone();
       },
       cancel: () => { if (supportAt === at) supportAt = null; },
@@ -750,7 +760,7 @@ async function main(): Promise<void> {
       if (orderMode === "support") {
         if (!inMap(w)) return false;
         hud.offerSupport(null);
-        gesture = { kind: "support", at: { ...w } };
+        gesture = { kind: "support", at: { ...w }, from: { ...w } };
         return "hold";
       }
       // Clear (slice s0-clear): drag the unit onto a house (the ghost of an assault follows the pointer).
@@ -794,7 +804,12 @@ async function main(): Promise<void> {
       // a tap on the facing handle does nothing. (A right click: the move to that point, below.)
       if (how === "tap" && !(gs.kind === "fromUnit" && gs.right)) return gs.kind !== "facing";
       if (gs.kind === "fire") { if (!gs.onUnit && inMap(gs.at)) fireAtPoint(gs.at); return false; }
-      if (gs.kind === "support") { offerSupport(gs.at); return false; }
+      if (gs.kind === "support") {
+        // (M8.6: dragged out far enough, a smoke screen from where the press began to where it let go; else the point,
+        // slid as before.)
+        if (Math.hypot(gs.at.x - gs.from.x, gs.at.y - gs.from.y) >= SCREEN_MIN_M) offerSupport(gs.from, gs.at); else offerSupport(gs.at);
+        return false;
+      }
       if (gs.kind === "facing") {
         if (gs.angle === null) return false;
         const o = planToOrder(turnPlan(gs.centre, gs.angle), playerSide, uid, sim.state.tick);
@@ -1205,6 +1220,11 @@ async function main(): Promise<void> {
         if (e) {
           spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }), ...(e.handSmoke > 0 ? [strings.t("aar.exp.handSmoke", { n: e.handSmoke })] : []));
           for (const [ammo, n] of Object.entries(e.rockets).sort(([a], [b]) => (a < b ? -1 : 1))) spent.push(strings.t("aar.exp.rockets", { ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
+          // M8.6: fire support rounds by asset and kind.
+          for (const [k, n] of Object.entries(e.support ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) {
+            const [asset, ammo] = k.split(":");
+            spent.push(strings.t("aar.exp.support", { asset: strings.t(asset === "artillery" ? "support.artillery" : "support.mortar"), ammo: strings.t(`support.${ammo}`), n }));
+          }
           for (const [vid, v] of Object.entries(e.vehicles).sort(([a], [b]) => (a < b ? -1 : 1))) {
             const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
             const name = call && call.unit !== null ? sim.state.unit.get(call.unit)?.callsign ?? vid : vid;
@@ -1251,11 +1271,13 @@ async function main(): Promise<void> {
     const gs = gesture, out: GestureOverlay = {};
     const here = () => centreOf(placesOf(uid));
     // S11: the point held for fire support, or picked while its pop-up is open, joined to the unit's leader.
-    const sp = gs?.kind === "support" ? gs.at : supportAt;
+    const sp: (Pt & { x2?: number; y2?: number }) | null = gs?.kind === "support"
+      ? (Math.hypot(gs.at.x - gs.from.x, gs.at.y - gs.from.y) >= SCREEN_MIN_M ? { x: gs.from.x, y: gs.from.y, x2: gs.at.x, y2: gs.at.y } : gs.at)
+      : supportAt;
     if (sp) {
       const lead = sim.state.unit.get(uid)?.leader;
       const lt = lead !== null && lead !== undefined ? sim.state.transform.get(lead) : undefined;
-      out.support = { x: sp.x, y: sp.y, from: lt ? { x: lt.x, y: lt.y } : here() };
+      out.support = { x: sp.x, y: sp.y, from: lt ? { x: lt.x, y: lt.y } : here(), ...(sp.x2 !== undefined && sp.y2 !== undefined ? { x2: sp.x2, y2: sp.y2 } : {}) };
     }
     if (gs?.kind === "fire") {
       out.los = gs.los;
@@ -1308,7 +1330,8 @@ async function main(): Promise<void> {
       updatePins(overlay.known);
       overlay.pins = lastSeen.pins().map((p) => { const l = ageLabel((sim.state.tick - p.seenTick) / 60); return { ...p, label: strings.t(l.key, l.params) }; });
     } else overlay.pins = null;
-    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS);
+    overlay.intents = overlay.debug ? null : linesShown(intentLines(sim.state, playerSide, overlay.selectedUnit, rangingBook.falls), renderer.zoomLevel() === LOD_SYMBOLS)
+      .map((l) => (l.splashS !== undefined ? { ...l, label: strings.t("support.splash", { s: l.splashS }) } : l));
     rangingBook.prune(sim.state.tick);
     // Vehicle debug overlay (M7.3): turret lay, the station's target and reasons, track speeds.
     {

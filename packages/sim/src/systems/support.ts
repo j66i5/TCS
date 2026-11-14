@@ -416,6 +416,60 @@ function stepOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
 }
 const ON_MAP_CORRECTION_MIN_S = 4;
 
+/**
+ * What a call at (x, y) (a screen: to (x2, y2)) could get now, per fire support asset of the caller's faction (M8.6,
+ * for the interface; read-only): who would fire it (the mortar teams on the map, else the off-map section), the
+ * rounds of each kind left, about how long until fire for effect (the comms delay of the order not included; a
+ * registered point skips ranging), danger close to own men, an airburst fuse, in range, the battery displacing.
+ */
+export interface FireOption {
+  asset: "mortar" | "artillery"; onMap: boolean; he: number; smoke: number; illum: number; etaS: number;
+  dangerClose: boolean; airburst: boolean; inRange: boolean; moving: boolean;
+}
+export function fireOptions(ctx: SimContext, state: SimState, side: SideId, faction: string, x: number, y: number, x2 = x, y2 = y): FireOption[] {
+  const out: FireOption[] = [];
+  const mx = (x + x2) / 2, my = (y + y2) / 2;
+  for (const asset of ["mortar", "artillery"] as const) {
+    const fs = assetDef(ctx, faction, asset);
+    if (!fs) continue;
+    const dangerClose = fs.dangerCloseM !== undefined && ownMenWithin(state, side, x, y, x2, y2, fs.dangerCloseM);
+    const airburst = fs.airburstHeightM !== undefined;
+    const sec = sectionOf(state, side, asset);
+    const box = sec ? state.container.get(sec.battery) : undefined;
+    const count = (t: string | undefined) => (box && t ? countItems(box, t) : 0);
+    if (asset === "mortar") {
+      const he = onMapTubes(ctx, state, side, x, y, "he", x2, y2), sm = onMapTubes(ctx, state, side, x, y, "smoke", x2, y2);
+      const tubes = he.ok.length > 0 ? he.ok : sm.ok;
+      if (tubes.length > 0) {
+        const ph = missionPhases(fs);
+        let proc = 0, fl = Infinity, nHe = 0, nSm = 0;
+        for (const t of tubes) { proc = Math.max(proc, t.def.processingSeconds); fl = Math.min(fl, flightSecondsOf(t, mx, my)); }
+        for (const t of he.ok) nHe += teamRounds(state, t.team, t.def.he);
+        for (const t of sm.ok) nSm += teamRounds(state, t.team, t.def.smoke);
+        // (To effect: the first round, then each ranging round's fall, correction and flight; none on a registered
+        // point.)
+        const reg = registeredNear(state, fs, side, mx, my) !== undefined;
+        const cycle = fl + Math.max(ON_MAP_CORRECTION_MIN_S, fs.rangingSeconds - (fs.flightSeconds ?? 0));
+        out.push({ asset, onMap: true, he: nHe, smoke: nSm, illum: count(sec?.illumType), etaS: Math.round(ph.requestS + proc + fl + (reg ? 0 : fs.rangingRounds * cycle)), dangerClose, airburst, inRange: true, moving: false });
+        continue;
+      }
+      if (!sec) {
+        if (he.outOfRange + sm.outOfRange > 0) out.push({ asset, onMap: true, he: 0, smoke: 0, illum: 0, etaS: 0, dangerClose, airburst, inRange: false, moving: false });
+        continue;
+      }
+    }
+    if (!sec) continue;
+    const r2 = fs.registeredM * fs.registeredM;
+    const reg = sec.registered?.some((p) => (p.x - mx) * (p.x - mx) + (p.y - my) * (p.y - my) <= r2) ?? false;
+    out.push({
+      asset, onMap: false, he: count(sec.heType), smoke: count(sec.smokeType), illum: count(sec.illumType),
+      etaS: Math.round(fs.delaySeconds + (reg ? 0 : fs.rangingRounds * fs.rangingSeconds)), dangerClose, airburst, inRange: true,
+      moving: !DISPLACE_MODEL.available(fs, sec, state.tick),
+    });
+  }
+  return out;
+}
+
 /** Is any able man of the side within `r` of the segment (x0, y0)-(x1, y1) (a point when both ends are equal)? */
 function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1: number, y1: number, r: number): boolean {
   const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy, r2 = r * r;
@@ -433,6 +487,7 @@ function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1:
 
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. `heAmmo`: an on-map tube's round. */
 function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, m: FireMission, x: number, y: number, heAmmo = fs.heAmmo): void {
+  events.emit({ kind: "support.round", tick: state.tick, side: m.side, asset: m.asset ?? "mortar", ammo: m.ammo, x, y });
   if (m.ammo === "illum") {
     // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (no light until M9.1).
     const type = sectionOf(state, m.side, m.asset ?? "mortar")?.illumType ?? fs.illumAmmo;

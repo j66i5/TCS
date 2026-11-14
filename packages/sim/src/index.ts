@@ -31,6 +31,7 @@ export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
 export { AUTO_DEPLOY_S, crewAt, isMortarUnit, mortarTeams, teamRounds, tubeOf, tubeRangeM, tubeReaches, type Tube } from "./systems/mortars";
+export { fireOptions, type FireOption } from "./systems/support";
 export { crewRate, flightSecondsOf, firstRoundErrorM, missionPhases, secondsToEffect, supportLeft } from "./systems/support";
 export { addSmoke, smokePhysics, smokeShapes, smokeTransmission, type SmokeCloud, type SmokePhysics, type SmokeShape } from "./smoke";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";

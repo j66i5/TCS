@@ -127,6 +127,9 @@ export interface IntentLineView {
   /** A fire mission (S11): its phase and where its ranging rounds fell (oldest first). */
   phase?: "called" | "ranging" | "effect";
   falls?: readonly { x: number; y: number; seen: boolean }[];
+  /** M8.6: a short label by the target ("splash in 12 s", from the string table) and a smoke screen's line. */
+  label?: string;
+  screen?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /** S8: a known contact unseen this long (s) is a "last seen" pin (when the app gives pins). */
@@ -146,7 +149,7 @@ export interface GestureOverlay {
   /** The man whose detail box is open (S6, the "bar-card" step): a ring round him. */
   man?: { x: number; y: number } | null;
   /** S11: the point held for fire support (while it is held and its pop-up is open), joined to the caller. */
-  support?: { x: number; y: number; from: { x: number; y: number } | null } | null;
+  support?: { x: number; y: number; from: { x: number; y: number } | null; /** M8.6: a screen's other end. */ x2?: number; y2?: number } | null;
 }
 
 export interface PlanOverlay {
@@ -812,6 +815,12 @@ export class BattleRenderer {
         }
       }
       this.inked(g, () => g.circle(b.x, b.y, 9), { width: 2, color: FIRE_COLOUR, alpha: al });
+      // M8.6: a screen's line, and the splash countdown by the target.
+      if (l.screen) {
+        const p0 = worldToScreen(c, l.screen.x0, l.screen.y0), p1 = worldToScreen(c, l.screen.x1, l.screen.y1);
+        this.inked(g, () => dashed(g, p0.x, p0.y, p1.x, p1.y, 7, 5), { width: 2.5, color: 0xd8d8d0, alpha: al });
+      }
+      if (l.label) this.request(l.label, b.x, b.y - 22, 4, FIRE_COLOUR, 1, 900 + lines.indexOf(l));
       g.circle(b.x, b.y, 2.5).fill({ color: FIRE_COLOUR, alpha: al });
       if (l.phase === "effect") g.circle(b.x, b.y, 15).stroke({ width: 2, color: FIRE_COLOUR, alpha: al * 0.8 });
     }
@@ -861,6 +870,12 @@ export class BattleRenderer {
       g.moveTo(s.x - 24, s.y).lineTo(s.x - 10, s.y).moveTo(s.x + 10, s.y).lineTo(s.x + 24, s.y)
         .moveTo(s.x, s.y - 24).lineTo(s.x, s.y - 10).moveTo(s.x, s.y + 10).lineTo(s.x, s.y + 24).stroke({ width: 2, color: FIRE_COLOUR, alpha: 0.95 });
       g.circle(s.x, s.y, 3).fill({ color: FIRE_COLOUR, alpha: 0.95 });
+      // M8.6: a smoke screen dragged out from the point: the line and its far end.
+      if (gs.support.x2 !== undefined && gs.support.y2 !== undefined) {
+        const e = worldToScreen(c, gs.support.x2, gs.support.y2);
+        this.inked(g, () => dashed(g, s.x, s.y, e.x, e.y, 9, 5), { width: 3, color: 0xe8e8e0, alpha: 0.95 });
+        g.circle(e.x, e.y, 10).fill({ color: 0x1b241a, alpha: 0.35 }).stroke({ width: 2.5, color: 0xe8e8e0, alpha: 0.95 });
+      }
     }
     // An active move's marker (S10): a ring with a centre, joined to the unit while it is dragged.
     if (gs.marker) {

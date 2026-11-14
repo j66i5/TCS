@@ -3796,3 +3796,51 @@ Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretch
 - Player orders fire at a recognised protected target: **refused** (his men will not fire). Incidental hits on
   protected people: a separate list in the after-action review.
 - Recovery for the campaign (not asked, plan default): days from wound severity and treatment.
+
+## 2026-11-14 — M7.5e follow-ups: a Clear button, and the AI attacker clears on its approach (slice s0-clear)
+Owner answers (binding, "M7.5e follow-ups, round A"): a **Clear** button for the player in the Move tray beside
+Occupy; the AI attacker also clears houses with a known enemy **on its approach**, not only in the assault.
+Decided here (software and game values, **low**, the same for every side):
+- **Clear button (ui/app):** order mode `"clear"` in the Move group (`hud.ts`, own icon, `order.clear`, hint
+  `plan.tapClear`); offered to squads only (a single man gets no Clear: the drill needs `clearMinMen`). Tap a house,
+  or drag from the unit onto a house (the assault ghost follows the pointer), sends the existing drill
+  `assault {x, y, building}` (x, y the footprint's middle). A house without a way in (`clearable` false) or a tap off
+  any house sends nothing and puts `plan.cannotClear` / `plan.tapClear` in the radio log. A move dragged onto a
+  house still offers Occupy (unchanged). The debug hook `clearAt` now goes through the same code; the help text
+  (`app.hint`) names it. Screenshots: `--scene buildings` shots 4a (Move tray with Clear) and 4b (Clear on).
+- **On the approach (ai, `COMMANDER.clear.approach*`):** while advancing to the support line, and while an
+  assaulting squad closes in on the objective, a squad first clears a house when (1) an enemy its side placed within
+  `errM` was in it within `enemySeconds`, (2) the house is within `approachM` 150 m of it, ahead of it and short of
+  where it is going, within `approachCorridorM` 60 m of that line, and (3) the enemy **overlooks** the way: a sight
+  line from where he was placed, at window height (`eyeM` 1.5 m + `storeyM` 3 m per floor) of any floor, to the
+  squad's middle or to its destination (`looks`). Advancing, a house of the objective it goes for is left to the
+  assault; closing in, its line runs on to the objective, so a house of the objective's ring on its way counts
+  (this is what "clearing earlier" means in practice: houses on the way in are taken from up to 150 m instead of
+  only once the squad has closed to 60 m). At most `approachMax` 1 such clearing at a time; only a squad with
+  `approachMinMen` 4 able men, not riding, not broken, not holding a house. The usual review (taken / failed /
+  retry) applies (`reviewClearings` now also runs in the advance). A base-of-fire squad in a clear drill gets no
+  per-man fire orders (they would pull its men out of the drill). Where the enemy was placed in each house is derived
+  on each look (`houseSpots`, not saved).
+- **Measured** (scratch script counting drill starts, `radio.houseCleared` and fragment wounds within 20 m and 1/3 s of an own non-mortar burst; 20 seeds x 1200 s, HEAD a6a834a -> this commit, same seeds; attacker side):
+
+| | platoon (village) | platoon-vehicles (village, mounted) |
+|---|---|---|
+| Attacker wins | 5 -> 5 / 20 | 5 -> 5 / 20 |
+| Clearings started (20 battles) | 46 -> 47 | 27 -> 27 |
+| Houses cleared (radio) | 8 -> 8 | 2 -> 2 |
+| Grenades into houses | 32 -> 32 | 16 -> 16 |
+| Own men hit by own grenades (of them by clearing grenades) | 31 (15) -> 31 (15) | 20 (3) -> 20 (3) |
+| Own men put down by own grenades (by clearing grenades) | 5 (5) -> 5 (5) | 10 (1) -> 10 (1) |
+| Attackers down / defenders down per battle | 19.9 / 11.2 -> 19.6 / 11.2 | 20.4 / 20.2 -> 20.4 / 20.2 |
+
+  Four village battles changed (seeds 3, 4, 18, 19: clearings start 5-30 s earlier, one new at 597 s), no mounted
+  one. **The rule rarely fires in these battles:** the defence holds the objectives' rings, so an enemy in a house
+  on the way in is almost always a house of the objective (taken by the assault) or of the second objective, which
+  lies 140-180 m to the side of the base of fire, not on any squad's way (probe over 8 battles). A first version that
+  left out the objective's ring while closing in changed nothing in 40 battles. Not re-tuned. Test:
+  `tools/test/commander-clear.test.ts` ("on the approach": an enemy put at a window of a house on a squad's way and
+  known to its men brings one clear order, the squad not sent on in the same look; none without the enemy).
+  `ui/test/capabilities.test.ts`: squads get Clear, single men do not. Goldens unchanged (`golden:update`: all eight
+  unchanged; `golden/no-interiors` untouched). Perf: commander work every 5 s, not per tick per man; `npm run
+  test:perf` alone passed (the parked-hulls case failed once inside `npm run check` at 1.29x and passed alone, the
+  known noise).

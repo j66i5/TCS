@@ -1121,6 +1121,16 @@ async function buildingScenes(page: Page, name: string, errors: string[], shots:
     t.setFloor(0); t.focusScale(h.x, h.y, ${zoom * 0.8}); t.stepTicks(2);
     return { left, stillIn: inHouse(h.i).length, tick: s.tick };`) as () => object);
   await shot("3-leaving-a-trap");
+  // Slice s0-clear: the Clear button in the Move tray (the squad selected; picked, its hint shown).
+  await page.evaluate(new Function(`${helpers} const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1).unit; t.select(sq);
+    const men = s.unit.get(sq).members.filter(able); let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    t.focusScale(x, y, ${zoom * 0.4}); t.stepTicks(2);`) as () => void);
+  await page.click('.hud-group[data-group="move"] .hud-caret');
+  await shot("4a-move-tray-clear");
+  await page.click('.hud-tray[data-tray="move"] [data-order="clear"]');
+  await page.waitForTimeout(600);
+  info["clearMode"] = await page.evaluate(new Function("return globalThis.__tcs.controls().mode") as () => string | null);
+  await shot("4b-clear-mode-on");
   info["clear"] = await page.evaluate(new Function(`${helpers} const own = new Set(t.units().map((u) => u.unit));
     const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1).unit; t.select(sq);
     const men = s.unit.get(sq).members.filter(able);

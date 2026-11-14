@@ -3844,3 +3844,16 @@ Decided here (software and game values, **low**, the same for every side):
   unchanged; `golden/no-interiors` untouched). Perf: commander work every 5 s, not per tick per man; `npm run
   test:perf` alone passed (the parked-hulls case failed once inside `npm run check` at 1.29x and passed alone, the
   known noise).
+## 2026-11-14 — Fog of war: enemy men in sight are drawn as figures (owner request)
+
+The owner asked that enemy soldiers his men can see be drawn like his own. Render/app only, no sim change:
+`render/src/fog.ts` `enemyMenInSight(known)` (pure, tested) picks the enemy men whose contact is "seen" within
+`IN_SIGHT_S` = 2 s (the existing solid-diamond / solid-hull test, now shared as `inSightNow`); the renderer draws them
+in the soldier loop exactly as own men (pixel figure with posture, facing, weapon, firing frame, wound and casualty
+states, photo extras; dots at the dot zoom) in the enemy colour, and drops their diamond. Decided without the owner:
+no callsign label, no pinned / panicked / shaken rings and no posture-change ring on enemy men (state of mind is not
+seen); at the symbol zoom they stay solid diamonds (an enemy unit symbol would place unseen men); their muzzle
+flashes and hit puffs show while they are in sight (a flash of a hidden man stays hidden). Heard, reported and lost
+contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
+not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
+No golden change (render only).

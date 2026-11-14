@@ -870,6 +870,48 @@ async function mapfeelScenes(page: Page, name: string, errors: string[], shots: 
 }
 
 /**
+ * Enemy in sight (`--scene sight`; owner 2026-11-14): the platoon battle on foot (village), every squad pushed at the
+ * enemy until some of his men are in sight: those are drawn as figures (posture, facing, weapon) in his colour,
+ * the rest only as contact symbols. Close (figures), then the dot zoom, then the symbol zoom (diamonds); the same
+ * moment with `reveal` for comparison (every enemy man drawn).
+ */
+async function sightScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForTimeout(80);
+    await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(150);
+    const p = `${outDir}/sight-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const phone = name === "phone";
+  const log: Record<string, unknown> = {};
+  await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom");
+    const me = t.units()[0]; const mySide = s.unit.get(me.unit).side; globalThis.__mySide = mySide;
+    let ex = 0, ey = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side !== mySide) { const p = s.transform.get(id); ex += p.x; ey += p.y; n++; }
+    const sqs = t.units().filter((u) => u.kind === "infantry" && u.depth >= 1); for (const q of sqs) t.moveUnit(q.unit, ex / n, ey / n);`);
+  let seen: number[] = [];
+  for (let k = 0; k < 120 && seen.length < 3; k++) { await ev("t.stepTicks(60 * 2);"); await page.waitForTimeout(40); seen = await ev<number[]>("return t.enemyInSight();"); }
+  // (Speed 0: the moment holds while the shots are taken.)
+  log["tick"] = await ev<number>("return s.tick;");
+  log["inSight"] = seen;
+  log["enemyAlive"] = await ev<number>("let n = 0; for (const [id, i] of s.identity.entries()) { const so = s.soldier.get(id); if (i.side !== globalThis.__mySide && so && so.casualty === 'none') n++; } return n;");
+  if (seen.length === 0) { console.log(`${name}: sight scene: no enemy in sight ${JSON.stringify(log)}`); return; }
+  const centre = await ev<{ x: number; y: number }>(`const ids = t.enemyInSight(); let x = 0, y = 0; for (const id of ids) { const p = s.transform.get(id); x += p.x; y += p.y; } return { x: x / ids.length, y: y / ids.length };`);
+  await ev(`t.select(null); t.focusScale(${centre.x}, ${centre.y}, ${phone ? 10 : 14});`);
+  await shot("0-figures");
+  await ev(`t.focusScale(${centre.x}, ${centre.y}, ${phone ? 3 : 4});`);
+  await shot("1-dots");
+  await ev(`t.focusScale(${centre.x}, ${centre.y}, 0.9);`);
+  await shot("2-symbols");
+  await ev(`t.reveal(true); t.focusScale(${centre.x}, ${centre.y}, ${phone ? 3 : 4});`);
+  await shot("3-dots-revealed");
+  await ev("t.reveal(false);");
+  console.log(`${name}: sight scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * The "fire-support" step (`--scene firesupport`; owner choice S11 with ranging shots): the platoon battle on foot
  * (village). The lead squad selected; the Fire tray open with its one Fire support item; a point 250 m toward the
  * enemy held (the amber crosshair joined to the leader), let go: the pop-up offers HE and smoke with the rounds
@@ -1194,6 +1236,7 @@ try {
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "sight") { await sightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "review") {
       // (Its own page at device pixel ratio 2.)

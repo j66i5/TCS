@@ -15,7 +15,7 @@ import {
   tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
-import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
+import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
@@ -1031,6 +1031,8 @@ async function main(): Promise<void> {
     setFloor: (f: number) => { floorPick = f; },
     reveal: (on: boolean) => { revealAll = on; overlay.reveal = on; },
     floorShown: () => floorState.shown,
+    /** Fog of war (screenshots): the enemy men drawn as figures now (in sight of the player's side). */
+    enemyInSight: () => [...enemyMenInSight(overlay.known)],
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {

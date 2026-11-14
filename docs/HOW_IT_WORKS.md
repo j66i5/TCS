@@ -340,10 +340,16 @@ nearby within a second, by radio to the others after a few seconds — and the u
 the radio log. Old contacts grow vaguer and are forgotten after two minutes. A fire order can name an enemy:
 each man then fires where he believes that enemy is, and follows him as reports come in.
 
-**Fog of war.** You see the enemy only as your men know him: a solid diamond where one of your men sees him now,
-a hollow one where he was last seen or reported, with a ring for how far off that may be, a dashed ring with a
-cross for shots heard. Old contacts fade over two minutes. Tap an enemy marker in fire mode to fire at him.
-Debug shows the enemy as he really is.
+**Fog of war.** You see the enemy only as your men know him. An enemy man one of your men sees now (seen within
+the last 2 s) is drawn as a real figure in the enemy's colour, like your own men: posture, facing, weapon, firing,
+wounded, down — a dot when zoomed out, and still a solid diamond at the symbol zoom; no callsign and no morale rings
+(his state of mind is not seen). His muzzle flashes and the hits on him show too, but only while he is in sight.
+Everything else of the enemy stays a symbol: a hollow diamond where he was last seen or reported, with a ring for
+how far off that may be, a dashed ring with a cross for shots heard, a "last seen" pin once lost. Old contacts fade
+over two minutes. A man killed drops out of sight at once (the simulation's rule), so he becomes a hollow diamond,
+then a pin. Tap an enemy marker in fire mode to fire at him. Debug shows the enemy as he really is. (Which men are
+drawn: `enemyMenInSight` in `render/src/fog.ts`, the same "in sight now" test as the solid diamond and solid hull;
+`npm run screenshot -- --scene sight` shows it.)
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 

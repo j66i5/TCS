@@ -849,15 +849,43 @@ Ideas taken from Firefight (only the ideas: the drawings, words and colours are 
   along the rest of its route. **Fire:** At will (fire at any enemy they see), Return (only once fired upon), Hold
   (only when ordered), **Ambush** (hold fire until an enemy is within 100 m, then fire at will). The lit button is the
   one in force; the Rules button on the card opens the full rules (range, on contact, ammunition, anti-tank).
-- **The men.** The card's **Men** button lists every man: a coloured mark for how he is (green steady, yellow
-  shaken, orange pinned, red wounded, grey down or a prisoner), his job, his weapon and a small ammunition bar with
-  one cell per magazine or belt. Tap a man's row, or tap him on the map, and a box opens: his rank and name, his
+- **The men.** The card's **Men** button lists every man: a little picture of a soldier for how he is, his rank
+  insignia, his job, his weapon and a small ammunition bar with one cell per magazine or belt (see "Rank insignia and
+  status pictures" below). Tap a man's row, or tap him on the map, and a box opens: his insignia drawn larger, his
+  status in words, his rank and name, his
   weapon and rounds, what he is doing right now (moving at a walk, firing at an enemy he sees, pinned down, bringing
   ammunition ...), his pulse, bars for fatigue, how hard he is under fire, stress and morale, and his wounds. A
   yellow ring marks him on the map. Tap him again or the × to close it. The card remembers whether you like it short
   or with the men. On a phone the card keeps to a small part of the screen: the radio shows its two newest lines
   while it is open.
 - Nothing about the battle changed: every button sends one of the orders that already existed.
+
+## Rank insignia and status pictures (owner 2026-11-14)
+- **Rank insignia.** Each man's row and his box show his rank as it is worn on the field uniform, drawn by the game
+  itself (no copied pictures). The German side wears the olive **rank slide** over the shoulder strap with black
+  embroidery: nothing for a Schütze, one to four diagonal stripes for Gefreiter, Obergefreiter, Hauptgefreiter and
+  Stabsgefreiter, braid open at the bottom for an Unteroffizier and closed all round for a Stabsunteroffizier, the
+  closed braid with one or two chevrons for Feldwebel and Oberfeldwebel and a "headed" chevron for a Hauptfeldwebel,
+  one or two four-pointed stars for Leutnant and Oberleutnant. The Russian side wears subdued **field shoulder
+  boards** (pogony, pointed and buttoned at the collar end, no officers' stripes on the field version): one, two or
+  three narrow cross stripes for efreytor, mladshiy serzhant and serzhant, one wide one for starshiy serzhant, a wide
+  stripe along the board for starshina, two or three stars in a line for the praporshchiki, two stars side by side
+  for a leytenant and a third above them for a starshiy leytenant. The test faction has a made-up grey tab.
+- **Where it comes from.** Each faction's `appearance.json` describes its insignia as data — the board (slide,
+  shoulder board or tab, its colours) and per rank how many stripes, chevrons, stars and so on — and one drawing
+  routine (`ui/src/insignia.ts`) turns that into a picture for any faction. The descriptions come from public rank
+  tables found by web search (the pages themselves could not be opened here), so they are marked "medium"
+  confidence; the exact shape of a few devices (the headed chevron, the German stars) is drawn from a description.
+  Like the uniform colours they are outside the battle data: changing them never changes a battle or a replay. A
+  test checks that every rank a faction has, and so every rank in its unit templates, has an insignia.
+- **Status pictures.** The little soldier at the start of a row shows how the man is, by posture and colour, with a
+  badge where it helps: standing green (ready), standing yellow with tremble marks (shaken), lying under incoming
+  fire, orange (pinned down), in a vehicle hatch, blue (mounted), standing with a red cross badge (lightly wounded),
+  on one knee with a blood drop (seriously wounded: a wound of a quarter severity or worse, or one still bleeding
+  hard), lying with a red cross (out of the fight), lying grey with a cross (killed), hands up with a white flag
+  (surrendered), behind bars (prisoner), and a dashed outline with a question mark (missing). Hover or long-press
+  shows the words; screen readers read them too. Only your own men are listed, so nothing about the enemy shows.
+  The picture leaves a corner free for the medics' triage tag, which comes later.
 
 ## Reading the map, following units, the keyboard (the "map-feel" step, owner choices 2026-11-13)
 Ideas taken from Firefight (only the ideas: the drawings, words and colours are our own). Nothing about the battle

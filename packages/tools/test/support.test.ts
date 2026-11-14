@@ -89,7 +89,9 @@ describe("fire support (M6.5c)", () => {
     const open = errors(true);
     // (Same seed, same first error: he sees at least one of them on the open demo ground.)
     expect(open.seen.some((x) => x)).toBe(true);
-    expect(open.e1).toBeLessThan(open.e0 * fs.rangingCorrection + 1e-6);
+    // (M8.2b: the observer's skill scales the correction, his reading of the fall adds a few metres.)
+    expect(open.e1).toBeLessThan(open.e0 * fs.rangingCorrection * (fs.adjust?.skillWorst ?? 1) + 4 * (fs.adjust ? fs.adjust.readBaseM + fs.adjust.readPerM * 600 : 0) + 1e-6);
+    expect(open.e1).toBeLessThan(open.e0);
   });
 
   it("smoke between them hides men from each other; without it they are seen", () => {

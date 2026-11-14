@@ -9,6 +9,8 @@ export * from "./floors";
 export * from "./gestures";
 export * from "./icons";
 export * from "./card";
+export * from "./insignia";
+export * from "./pictograms";
 export * from "./mapfeel";
 export * from "./support";
 export * from "./player-order";

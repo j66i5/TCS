@@ -46,6 +46,8 @@ export interface Mover {
   endPosture: Posture | null;
   /** Under fire on a walk or sneak leg he runs (`soldier.hurryMode`) until this tick; renewed while the fire lasts,
    *  dropped when his way ends. Optional (absent = his legs' own paces). */
+  /** M8.3a: he waits in place until this tick (a mortar crew packing its tube before the move). Absent: no wait. */
+  holdUntilTick?: number;
   hurryUntilTick?: number;
   endHeading: number | null;
 }
@@ -350,6 +352,9 @@ export interface Unit {
   /** Tick of the unit's last medical radio call of each kind, by string key ("radio.medic", "radio.treating"; M10.3b).
    *  Absent: none yet. */
   medRadio?: Record<string, number>;
+  /** M8.3a: a mortar team (its men carry a tube): packed, setting up (ready at `readyTick`) or ready; `stillTick`:
+   *  when it last moved (it sets up on its own after standing still a moment). Absent: not a mortar team. */
+  mortar?: { state: "packed" | "setting" | "ready"; readyTick: number; stillTick: number };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }

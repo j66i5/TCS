@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|smoke|mount|gunnery|armour|antitank|missile|treatment|carry|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|treatment|carry|smoke [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -10,7 +10,7 @@ import { attackLab, attackLabMarkdown } from "../labs/attack";
 import { coverLab, coverLabMarkdown } from "../labs/cover";
 import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { driveLab, driveLabMarkdown } from "../labs/drive";
-import { smokeLab, smokeLabMarkdown } from "../labs/smoke";
+import { handSmokeLab, handSmokeLabMarkdown, smokeLab, smokeLabMarkdown } from "../labs/smoke";
 import { mountLab, mountLabMarkdown } from "../labs/mount";
 import { gunneryLab, gunneryLabMarkdown } from "../labs/gunnery";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
@@ -18,6 +18,8 @@ import { armourLab, armourLabMarkdown } from "../labs/armour";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
+import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
+import { artilleryLab, artilleryLabMarkdown } from "../labs/artillery";
 import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
 import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { loadData } from "../scenarios";
@@ -34,7 +36,6 @@ const LABS: Record<string, () => string> = {
   attack: () => `# Attack lab\n\n${attackLabMarkdown(attackLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   cover: () => `# Cover and flight lab\n\n${coverLabMarkdown(coverLab(loadData()))}\n`,
   drive: () => `# Drive lab\n\n${driveLabMarkdown(driveLab(loadData(true)))}\n`,
-  smoke: () => `# Smoke lab\n\n${smokeLabMarkdown(smokeLab(loadData()))}\n`,
   mount: () => `# Mount lab\n\n${mountLabMarkdown(mountLab(loadData(true)))}\n`,
   gunnery: () => `# Gunnery lab\n\n${gunneryLabMarkdown(gunneryLab(loadData()))}\n`,
   armour: () => `# Armour lab\n\n${armourLabMarkdown(armourLab(loadData()))}\n`,
@@ -46,6 +47,9 @@ const LABS: Record<string, () => string> = {
     if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
+  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
+  indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
+  smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
 };

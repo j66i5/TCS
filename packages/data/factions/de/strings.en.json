@@ -112,5 +112,14 @@
   "item.de-boxer-extinguisher": "Boxer fire-extinguisher charge",
   "role.de.sankfz-sanitaeter": "Ambulance medic",
   "ammo.de-dm45": "DM45 smoke hand grenade",
-  "item.de-litter": "Folding litter"
+  "item.de-litter": "Folding litter",
+  "item.de-m120-mortar": "120 mm mortar",
+  "role.de.mortar-leader": "Mortar team leader",
+  "role.de.mortar-gunner": "Mortar gunner",
+  "role.de.mortar-loader": "Mortar loader",
+  "ammo.de-155-he": "155 mm HE shell",
+  "ammo.de-155-fragment": "155 mm shell fragment",
+  "ammo.de-155-smoke": "155 mm smoke shell",
+  "ammo.de-155-illum": "155 mm illumination shell",
+  "ammo.de-120-illum": "120 mm illumination bomb"
 }

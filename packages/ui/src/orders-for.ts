@@ -102,8 +102,8 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
   const out: UnitCapabilities = { ...NONE, natures: [] };
   const b = boardingOf(view, catalog, unitId);
   out.canMount = b.mount; out.canDismount = b.dismount;
-  out.supportHe = supportLeft(view, u.side, "he");
-  out.supportSmoke = supportLeft(view, u.side, "smoke");
+  out.supportHe = supportLeft(view, u.side, "he", catalog);
+  out.supportSmoke = supportLeft(view, u.side, "smoke", catalog);
   const veh = u.vehicle !== undefined ? view.vehicle.get(u.vehicle) : undefined;
   const vdef = veh ? catalog.vehicles[veh.def] : undefined;
   if (veh && vdef && u.vehicle !== undefined) {

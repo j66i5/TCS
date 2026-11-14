@@ -17,6 +17,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     }
     if (Object.keys(medRoles).length > 0) factions[fid]!.medicalRoles = medRoles;
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
+    if (pack.doctrine.artillery) factions[fid]!.artillery = { ...pack.doctrine.artillery };
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
       if (pack.doctrine.dismount.afterward !== undefined) factions[fid]!.afterDismount = { kind: pack.doctrine.dismount.afterward, followM: pack.doctrine.dismount.followM ?? 150 };
@@ -27,6 +28,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.chargeMassKg !== undefined) d.chargeMassKg = it.chargeMassKg;
       if (it.chargeItem !== undefined) d.chargeItem = it.chargeItem;
       if (it.sensor !== undefined) d.sensor = it.sensor;
+      if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
+      if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.armour !== undefined) d.armour = it.armour.map((a) => ({ ...a }));
       if (it.tracerItem !== undefined && it.tracerEvery !== undefined) { d.tracerItem = it.tracerItem; d.tracerEvery = it.tracerEvery; }
       if (it.medical !== undefined) d.medical = { tags: [...it.medical.tags], timeFactor: it.medical.timeFactor, successFactor: it.medical.successFactor };
@@ -145,7 +148,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     ...(v.extinguisher ? { extinguisher: { item: v.extinguisher.item, chance: v.extinguisher.chance, delaySeconds: v.extinguisher.delaySeconds } } : {}),
     ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),
-    ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds } } : {}),
+    ...(v.dischargers ? { dischargers: { item: v.dischargers.item, perSalvo: v.dischargers.perSalvo, salvos: v.dischargers.salvos, arcRad: rad(v.dischargers.arcDeg), rangeM: v.dischargers.rangeM, delaySeconds: v.dischargers.delaySeconds, cloudRadiusM: v.dischargers.cloudRadiusM, cloudSeconds: v.dischargers.cloudSeconds, cloudTopM: v.dischargers.cloudTopM } } : {}),
     ...(v.ambulance ? { ambulance: { layouts: v.ambulance.layouts.map((l) => ({ lying: l.lying, sitting: l.sitting, lyingOutside: l.lyingOutside ?? 0 })), marked: v.ambulance.marked } } : {}),
     // A vehicle without signature data: plain defaults (its boxes give the area), aimed at the middle of its hull.
     signature: v.signature

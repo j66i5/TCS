@@ -37,6 +37,46 @@ DECISIONS.md under its date._
   after, only the scenarios a slice affects; `npm run check` once at the end of a slice, alone; `npm run test:perf`
   only when a slice adds per-tick per-man work; screenshots only for visible changes.
 
+**M8.5 part 1 (2026-11-14, same branch; DECISIONS "M8.5 ... part 1").** The AI lays its screens as lines across
+the line of sight (upwind of the wind), calls the guns beyond danger close (airburst on men in the open), and the
+defender's mortars start with three planned targets. Balance and A4 wait for D4. Scenario `platoon-artillery`.
+
+**M8.4 Off-map artillery (2026-11-14, same branch; DECISIONS "M8.4").** Each faction has an off-map battery
+(`doctrine.json` `artillery`: PzH 2000 / 2S19), called with `callFire` `asset: "artillery"`; opt-in in battles
+(`artillery: true`, `?artillery=1`; not used by the AI yet). Airburst fuses (8 m), danger close 600 m (flag needed),
+illumination flares saved in `state.flares` (no light until M9.1), counter-battery displacement after 3 missions,
+guided rounds refused. `npm run lab -- artillery`. Next: M8.5 AI and balance (needs D4).
+
+**M8.3b On-map mortars: signature and degradation (2026-11-14, same branch; DECISIONS "M8.3b").** A tube firing
+is heard by the enemy out to its `hearingRangeM` (3-4 km) and shows the crew (flash); the rate falls with every
+missing, pinned or shaken man and stops below `crewMin`. Review fixes for M8.3a (landing order, rounds cap, fallen
+gunner, section moves, defender placement). `platoon-mortars` attacker 3 / 20. Next: M8.4 off-map 155 mm (slice 26).
+
+**M8.3a On-map mortars (2026-11-14, same branch; DECISIONS "M8.3a").** Mortar teams carry a tube (item with a
+`mortar` block) and rounds; they set up on `deploy` or after standing still 3 s, pack before a move, and fire the
+side's calls in their range band (rounds leave the crews as fired; out of range with no battery: refused). DE 120 mm,
+RU 2B14 / 2B11 data; `platoon-mortars`, `platoon-ru-mortars`, app `?mortars=1`. Default battles unchanged.
+
+**M8.2b Observers and adjustment (2026-11-14, same branch; DECISIONS "M8.2b").** The caller or any man of his
+platoon who sees a ranging round fall (a crewman through his sight, with its laser) reads it; the best reader's
+skill sets how much error is left (x0.3 x 1.5..0.6) plus his reading error (3 m + 1 % of range, laser 2 m).
+`npm run lab -- indirect`. Attacker wins vs pre-M8: 3 -> 3, 7 -> 7, 4 -> 5, 1 -> 0 (10 seeds). Open: missions skipping
+a recognised Verwundetennest (needs M10.7a from the medical branch). Next: M8.3a on-map mortars.
+
+**M8.2a Call-for-fire chain (2026-11-14, same branch; DECISIONS "M8.2a").** A mission runs request (15 s),
+processing, "shot", flight (DE 16 / RU 14 s) and "splash" (radio and events); the first round's error is the
+battery's 15 m plus the location error (map or eye estimate 5 m + 7 % of range, laser 2 m + 0.5 %); registered and
+planned (`rules.support[].planned`) points fire for effect at once. No UI / AI use yet (M8.5, M8.6).
+
+**M8.1 Smoke volume v2 (2026-11-14, parallel session, branch `claude/m8-smoke-fires`; DECISIONS "M8.1").** Smoke
+clouds are volumes: capsule plumes with a top (mortar 15 m, vehicle grenades 8 m, burning hull 30 m), built up over
+10 s, fading over their last 20 s, drifting with the wind (none in the scenarios yet) while the round burns at its
+place (`sim/src/smoke.ts`); sight lines above the top pass. `callFire` takes `x2, y2` for a screen along a line (no
+UI yet). `npm run lab -- smoke`, `--scene plumes`. Batches within noise.
+**Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
+RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
+grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook
+`screenCasualty` for the medical line's drag (not called yet). `npm run lab -- smoke`, `--scene smoke`.
 ## Baselines (2026-11-14, before medical)
 - **Attacker wins, 20 seeds × 1200 s** (M7.5e follow-ups, DECISIONS "slice s0-clear"): village (platoon) 5/20,
   mounted village (platoon-vehicles) 5/20; farmland 10/20 (M7.5e polish); Russian mounted attack 0/10 (900 s,

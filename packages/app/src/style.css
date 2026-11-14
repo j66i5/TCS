@@ -195,32 +195,35 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-chip span { overflow: hidden; text-overflow: ellipsis; }
 .hud-chip.on { background: #4a5c2f; border-color: var(--accent); color: var(--text); font-weight: 600; }
 .hud-card-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-width: thin; }
-.hud-man { display: grid; grid-template-columns: 16px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 6px; min-height: 28px;
+.hud-man { display: grid; grid-template-columns: 20px 14px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 5px; min-height: 32px;
   padding: 1px 6px; border-radius: 5px; border: 1px solid transparent; background: #1f2a1c; color: var(--text); font-size: 12px; text-align: left; }
 .hud-man.leader .hud-man-role { font-weight: 700; }
 .hud-man.inspected { border-color: #fff3a0; background: #33402a; }
 .hud-man-role, .hud-man-weapon { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-man-weapon { color: var(--muted); }
-.hud-man-mark { display: flex; }
-.hud-man.st-steady .hud-man-mark { color: #8fd36a; }
-.hud-man.st-shaken .hud-man-mark { color: #ffd23d; }
-.hud-man.st-pinned .hud-man-mark { color: #ffb347; }
-.hud-man.st-wounded .hud-man-mark { color: #ff6b57; }
-.hud-man.st-down .hud-man-mark, .hud-man.st-captive .hud-man-mark { color: #8a8a8a; }
-.hud-man.st-down, .hud-man.st-captive { opacity: 0.6; }
-/* Triage tag (M10.3b): T1 red, T2 yellow, T3 green, as on the map. */
-.hud-triage { display: inline-block; padding: 0 3px; border-radius: 3px; font-size: 10px; font-weight: 700; line-height: 14px; color: #111; }
+.hud-man-mark { display: flex; position: relative; width: 20px; height: 20px; }
+/* The man's triage tag (M10.3b) in this corner slot: T1 red, T2 yellow, T3 green, as on the map. */
+.hud-man-tag { position: absolute; right: -3px; bottom: -3px; }
+.hud-triage { display: inline-block; padding: 0 2px; border-radius: 3px; font-size: 9px; font-weight: 700; line-height: 11px; color: #111; }
 .hud-triage.t1 { background: #ff4a3d; color: #fff; }
 .hud-triage.t2 { background: #ffd23d; }
 .hud-triage.t3 { background: #8fd36a; }
+.hud-man-rank { display: flex; align-items: center; justify-content: center; height: 30px; }
+.hud-picto, .hud-insignia { display: block; flex: none; }
+.hud-man.ss-down .hud-man-role, .hud-man.ss-dead .hud-man-role, .hud-man.ss-surrendered .hud-man-role, .hud-man.ss-captured .hud-man-role,
+.hud-man.ss-missing .hud-man-role { color: var(--muted); }
+.hud-man.ss-dead .hud-man-role { text-decoration: line-through; }
+.hud-man.ss-down, .hud-man.ss-dead, .hud-man.ss-captured, .hud-man.ss-surrendered, .hud-man.ss-missing { background: #1a2118; }
 .hud-ammo { display: inline-flex; gap: 1px; align-items: center; }
 .hud-ammo i { width: 5px; height: 11px; border: 1px solid #7d8a71; border-radius: 1px; background: linear-gradient(to top, #e8d48a var(--f), transparent var(--f)); }
 .hud-ammo b { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 2px; }
 .hud-manbox { position: absolute; left: calc(var(--free-left) + 8px); width: min(300px, calc(100vw - var(--free-left) - var(--free-right) - 16px));
   background: rgba(15, 20, 14, 0.95); border: 1px solid #fff3a0; border-radius: 8px; padding: 7px 8px; pointer-events: auto; z-index: 3; font-size: 13px; }
 .hud-manbox-close { position: absolute; top: 4px; right: 4px; min-width: 32px; min-height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-.hud-manbox-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 5px; padding-right: 36px; }
-.hud-manbox-name .hud-mark { color: #fff3a0; }
+.hud-manbox-head { display: flex; align-items: center; gap: 8px; padding-right: 36px; }
+.hud-manbox-rank { display: flex; flex: none; }
+.hud-manbox-name { font-weight: 700; font-size: 14px; }
+.hud-manbox-status { display: flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 13px; color: var(--muted); }
 .hud-manbox-line { color: var(--text); margin-top: 3px; }
 .hud-manbox-line b { color: var(--muted); font-weight: 600; }
 .hud-manbox-bar { display: grid; grid-template-columns: 6.5em 1fr 3.2em; gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 12px; }

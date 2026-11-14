@@ -385,6 +385,67 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the vehicle's fire extinguishing system."
+    },
+    {
+      "id": "ru-2b14-mortar",
+      "nameKey": "item.ru-2b14-mortar",
+      "category": "crew-served",
+      "massKg": 42,
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B14_Podnos",
+        "https://old.weaponsystems.net/weaponsystem/DD01 - 2B14 Podnos.html"
+      ],
+      "confidence": "medium",
+      "note": "2B14 Podnos, M8.3a: 82 mm, 42 kg, crew 4, range 80-85 m to 4,270 m, up to 24 rounds a minute (Wikipedia and weaponsystems.net, search extracts; a 2024 MoD-linked report gives 15-22 per minute); man-portable in three loads or carried by a vehicle. Sustained one round every 4 s, set-up 60 s, packing 30 s, crewMin 2, aim error 15 m, dispersion 10 m per km, processing 25 s, flight 8 s + 6 s per km and heard out to 3 km are game values.",
+      "mortar": {
+        "calibre": "82mm-mortar",
+        "he": "ru-82-he",
+        "smoke": "ru-82-smoke",
+        "minRangeM": 85,
+        "maxRangeM": 4270,
+        "setupSeconds": 60,
+        "packSeconds": 30,
+        "roundSeconds": 4,
+        "crew": 4,
+        "crewMin": 2,
+        "aimErrorM": 15,
+        "dispersionPerKmM": 10,
+        "processingSeconds": 25,
+        "flightBaseSeconds": 8,
+        "flightPerKmSeconds": 6,
+        "hearingRangeM": 3000
+      }
+    },
+    {
+      "id": "ru-2b11-mortar",
+      "nameKey": "item.ru-2b11-mortar",
+      "category": "crew-served",
+      "massKg": 210,
+      "sources": [
+        "https://en.wikipedia.org/wiki/2S12_Sani",
+        "https://weaponsystems.net/system/1140-120mm 2B11 Sani",
+        "https://armyrecognition.com/news/army-news/army-news-2024/rostec-delivers-new-batch-of-mobile-mortars-to-russian-forces-in-ukraine"
+      ],
+      "confidence": "medium",
+      "note": "2B11 of the 2S12 Sani complex, M8.3a: 120 mm, range 480 m to 7,100 m (OF-843B), 10 rounds a minute normal, 15 maximum, crew 5 (Rostec via Army Recognition; Wikipedia: 4 gunners and a commander), carried on a GAZ-66-based truck (2F510) with the 2L81 wheeled carriage (search extracts). Mass about 210 kg, set-up 120 s, packing 60 s, sustained a round every 6 s, crewMin 2, aim error 15 m, dispersion 8 m per km, processing 30 s, flight 10 s + 6 s per km, heard out to 4 km: game values. The truck is not modelled: the section starts at its position.",
+      "mortar": {
+        "calibre": "120mm-mortar-ru",
+        "he": "ru-120-he",
+        "smoke": "ru-120-smoke",
+        "minRangeM": 480,
+        "maxRangeM": 7100,
+        "setupSeconds": 120,
+        "packSeconds": 60,
+        "roundSeconds": 6,
+        "crew": 5,
+        "crewMin": 2,
+        "aimErrorM": 15,
+        "dispersionPerKmM": 8,
+        "processingSeconds": 30,
+        "flightBaseSeconds": 10,
+        "flightPerKmSeconds": 6,
+        "hearingRangeM": 4000
+      }
     }
   ]
 }

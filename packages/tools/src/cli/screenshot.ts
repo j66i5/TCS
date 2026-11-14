@@ -749,9 +749,10 @@ async function controlScenes(page: Page, name: string, errors: string[], shots: 
  * The "bar-card" step (`--scene card`; owner choices S3, S4, S6): the platoon battle on foot (village), the lead
  * squad selected — the slim order bar (Move, Fire, Halt) and the compact card (pace and fire rows); the Fire tray
  * and the Move tray opened; Run and Ambush chosen on the card (the rules order arrives); a pace chip while moving
- * (the move goes on at the new pace); the detailed card (one row per man); a man's box from his row and from a tap
- * on the map; a move dragged onto a house (Occupy offered, then sent); the squad after a spell under fire; the
- * mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire tray); the bar docked left.
+ * (the move goes on at the new pace); the detailed card (one row per man: status pictogram, rank insignia); a man's
+ * box from his row and from a tap on the map; a move dragged onto a house (Occupy offered, then sent); the squad after
+ * a spell under fire; the mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire
+ * tray); the bar docked left; the other side's squad with every status pictogram and its leader's box.
  * Every step checks what the app sent.
  */
 async function cardScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
@@ -846,6 +847,25 @@ async function cardScenes(page: Page, name: string, errors: string[], shots: str
   await page.click('.hud-group[data-group="move"] .hud-caret');
   await shot("10-dock-left-move-tray");
   await ev(`t.dock(innerWidth > innerHeight ? "right" : "bottom");`);
+  // The "insignia" step: the other side's card (its rank insignia), every status pictogram on one squad (states set
+  // by hand on this page only, for the picture), and its leader's box.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&side=red`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  // (The platoon: its headquarters and squads, so there are men enough for every status.)
+  await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.depth === 0 && u.kind !== "vehicle") ?? t.units()[0];
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.inspect(null); t.stepTicks(1);`);
+  if (!(await ev<boolean>("return t.card().detailed;"))) await page.click('[data-card="detail"]');
+  await page.waitForTimeout(400);
+  log["statuses"] = await ev(`const men = [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => Number(b.dataset.man)).slice(1);
+    const wound = (sev, lps) => ({ id: 99, zone: "armL", mechanism: "penetrating", severity: sev, bleedingLps: lps, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    const set = [(m) => { m.mental.behaviour = "shaken"; }, (m) => { m.mental.behaviour = "pinned"; }, (m) => { m.wounds.push(wound(0.1, 0)); }, (m) => { m.wounds.push(wound(0.5, 0.02)); },
+      (m) => { m.casualty = "incapacitated"; }, (m) => { m.casualty = "killed"; m.physiology.alive = false; }, (m) => { m.captive = { state: "surrendered", tick: s.tick }; }, (m) => { m.captive = { state: "captured", tick: s.tick }; }];
+    men.slice(0, set.length).forEach((id, k) => set[k](s.soldier.get(id))); t.inspect(null); return men.length + 1;`);
+  await page.waitForTimeout(600);
+  log["statusRows"] = await ev(`return [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => b.dataset.status);`);
+  await shot("11-other-side-statuses");
+  await page.click('.hud-card-list .hud-man:nth-child(1)');
+  await shot("12-other-side-leader-box");
   console.log(`${name}: card scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
@@ -1092,6 +1112,38 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
 }
 
 /**
+ * Smoke volume v2 (`--scene plumes`, M8.1): the platoon battle on foot with a 4 m/s wind toward the east-south-east;
+ * a six-round mortar screen laid north-south in front of the blue platoon (plumes fed by the burning rounds) and
+ * two vehicle-grenade puffs; shots at 5 s (building up), 30 s (plumes stretched downwind) and 140 s (fading).
+ */
+async function plumeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "farmland"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const info = await ev<object>(`t.setSpeed(0);
+    let bx = 0, by = 0, nb = 0, rx = 0, ry = 0, nr = 0;
+    for (const [id, i] of s.identity.entries()) { const p = s.transform.get(id); if (i.side === "blue") { bx += p.x; by += p.y; nb++; } else { rx += p.x; ry += p.y; nr++; } }
+    bx /= nb; by /= nb; rx /= nr; ry /= nr;
+    const dx = rx - bx, dy = ry - by, d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
+    const cx = bx + ux * 200, cy = by + uy * 200;
+    s.environment.windX = 3.7; s.environment.windY = 1.5;
+    const fs = t.sim.ctx.catalog.factions.de.fireSupport;
+    for (let k = 0; k < 6; k++) { const f = k / 5 - 0.5, x = cx - uy * 150 * f, y = cy + ux * 150 * f;
+      s.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: s.tick, untilTick: s.tick + 150 * 60, gz: 0, topM: fs.smokeTopM, burnS: fs.smokeBurnSeconds }); }
+    for (let k = 0; k < 2; k++) s.smoke.push({ x: bx + ux * 60 - uy * (k * 30 - 15), y: by + uy * 60 + ux * (k * 30 - 15), radiusM: 10, startTick: s.tick, untilTick: s.tick + 90 * 60, gz: 0, topM: 8, burnS: 0 });
+    globalThis.__c = { x: cx + 40, y: cy };
+    t.focus(cx + 40, cy, 600); t.stepTicks(1);
+    return { clouds: s.smoke.length, centre: { x: Math.round(cx), y: Math.round(cy) } };`);
+  for (const [label, at] of [["1-5s", 5], ["2-30s", 30], ["3-140s", 140]] as const) {
+    await ev(`const now = s.tick; t.stepTicks(Math.max(0, ${at} * 60 - (now - (globalThis.__t0 ?? (globalThis.__t0 = now - 1)))));`);
+    await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 30000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+    const p = `${outDir}/plumes-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  }
+  console.log(`${name}: plumes scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * The "review fixes" step (`--scene review`): at device pixel ratio 2 (as on nearly every phone and Retina screen;
  * the other scenes run at 1 and never saw the halved screen size). The mounted platoon battle as it opens (the short
  * hint, the score line with the time and mortar rounds first, both platoons' vehicles told apart as "1/Puma 2" and
@@ -1334,6 +1386,7 @@ try {
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "sight") { await sightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "plumes") { await plumeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "review") {
       // (Its own page at device pixel ratio 2.)
       await page.close();
@@ -1456,7 +1509,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -499,7 +499,7 @@ export function incomingFireSystem(ctx: SimContext, state: SimState, events: rea
   const refresh = new Set<EntityId>(); // top units
   for (const e of events) {
     let side: string | undefined;
-    if (e.kind === "shot.fired") side = state.identity.get(e.shooter)?.side;
+    if (e.kind === "shot.fired") { if (e.indirect) continue; side = state.identity.get(e.shooter)?.side; } // (M8.3b: a mortar has no flat line of fire)
     else if (e.kind === "impact" && e.owner > 0) side = state.identity.get(e.owner)?.side;
     else continue;
     if (side === undefined) continue;

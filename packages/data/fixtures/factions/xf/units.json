@@ -173,6 +173,56 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3a): the wagon crew (its beam-riding dart)."
+    },
+    {
+      "id": "dart-team",
+      "echelon": "team",
+      "callsign": "Dart {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 2,
+              "charge": 20
+            },
+            {
+              "item": "xf-dart-tube",
+              "count": 1,
+              "charge": 1
+            }
+          ],
+          "weapon": "xf-blaster"
+        },
+        {
+          "role": "porter",
+          "rank": "private",
+          "load": [
+            {
+              "item": "xf-mag",
+              "count": 2,
+              "charge": 20
+            },
+            {
+              "item": "xf-dart-tripod",
+              "count": 1
+            },
+            {
+              "item": "xf-dart-tube",
+              "count": 2,
+              "charge": 1
+            }
+          ],
+          "weapon": "xf-blaster"
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3b): a two-man beam-riding dart team on foot."
     }
   ]
 }

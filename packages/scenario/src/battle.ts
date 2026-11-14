@@ -41,6 +41,10 @@ export interface ScenarioDef {
   /** On-map mortars (M8.3a): each side gets its faction's mortar section (manifest `mortarTemplate`) behind its own
    *  line instead of the off-map allotment (a side whose faction has none keeps the allotment). */
   mortars?: boolean;
+  /** Dismounted missile teams (M9.3b; owner: a Metis-M team at company level attached to the platoon battle): each
+   *  side whose faction has a `missileTeamTemplate` gets one team as a unit of its own (not part of a platoon): the
+   *  defender's 300 m behind its main objective, the attacker's 150 m behind its start on a flank. */
+  missileTeams?: boolean;
   /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
    *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
   artillery?: boolean;
@@ -159,6 +163,30 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       });
       if (hypot2(bx - mainP.x, H / 2 - mainP.y) >= minR) mortarSides.add(side);
     }
+    // Dismounted missile team (M9.3b): a unit of its own, behind the own line (never mounted, not a foot group).
+    const at = def.missileTeams === true ? pack?.manifest.missileTeamTemplate : undefined;
+    if (at) {
+      const team = buildForceWithVehicles(data, { faction, template: at, seed: def.seed * 41 + s * 13, keyPrefix: `${side}-a`, number: 1 }).unit;
+      units.push(team);
+      const flank = def.seed % 2 === 0 ? -1 : 1; // (the flank away from the second objective)
+      let bx = side === defender ? Math.min(Math.max(mainP.x + dx * 300, 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
+      let by = side === defender ? mainP.y : H / 2 + flank * H * 0.3;
+      // Review fix: the attacker's team starts in dead ground as its vehicles do (hidden from the defence's sights
+      // and men, nearest the flank spot, clear of the hulls); else next to the vehicles' start, behind them.
+      if (attacking && def.deadGroundStart !== false) {
+        const spot = teamDeadGround(catalog, map, side, observers, [mainP, secondP], W, H, { x: bx, y: by }, fv?.vehiclePlacements ?? []);
+        if (spot) { bx = spot.x; by = spot.y; }
+        else if (fv && fv.vehiclePlacements.length > 0) {
+          let sx = 0, sy = 0;
+          for (const p of fv.vehiclePlacements) { sx += p.x; sy += p.y; }
+          bx = Math.min(Math.max(sx / fv.vehiclePlacements.length - dx * 30, 20), W - 20); by = sy / fv.vehiclePlacements.length;
+        }
+      }
+      allMembers(team).forEach((m, mi) => {
+        const p = freeSpot(map, catalog, bx + (mi % 2) * 4 * (side === "blue" ? -1 : 1), by + (Math.floor(mi / 2) - 0.5) * 4);
+        placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
+      });
+    }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
     if (!attacking) {
@@ -228,17 +256,19 @@ const DEAD_GROUND = { stepM: 20, minFromObjectiveM: 600, ownShare: 0.4, edgeM: 3
 function deadGroundStarts(
   catalog: Catalog, map: MapDef, grid: NavGrid, region: number, n: number, side: string, hullHeightM: number,
   observers: readonly { x: number; y: number; z: number }[], objectives: readonly { x: number; y: number }[], W: number, H: number,
+  home: { x: number; y: number } | null = null, avoid: readonly { x: number; y: number }[] = [], avoidM = 0, seenAbove: number = DEAD_GROUND.seenAbove,
 ): { x: number; y: number }[] | null {
   if (observers.length === 0 || n === 0) return null;
   const D = DEAD_GROUND;
   const mapIndex = buildMapIndex(map);
   const ctx = { catalog, map, mapIndex, ballistics: buildBallistics(map, catalog, mapIndex, TICK_HZ) } as unknown as SimContext;
-  const homeX = side === "blue" ? W * 0.08 : W * 0.92, homeY = H / 2;
+  const homeX = home ? home.x : side === "blue" ? W * 0.08 : W * 0.92, homeY = home ? home.y : H / 2;
   const cands: { x: number; y: number; seen: number; home: number }[] = [];
   for (let x = D.edgeM; x <= W - D.edgeM; x += D.stepM) {
     if (side === "blue" ? x > W * D.ownShare : x < W * (1 - D.ownShare)) continue;
     for (let y = D.edgeM; y <= H - D.edgeM; y += D.stepM) {
       if (objectives.some((o) => hypot2(o.x - x, o.y - y) < D.minFromObjectiveM)) continue;
+      if (avoid.some((o) => hypot2(o.x - x, o.y - y) < avoidM)) continue;
       const cell = nearestPassable(grid, x, y, 0, region);
       if (cell < 0) continue;
       const g = heightAt(map, x, y);
@@ -247,7 +277,7 @@ function deadGroundStarts(
         const oz = heightAt(map, o.x, o.y) + o.z;
         for (const h of [1.2, hullHeightM - 0.1]) {
           const r = sight(ctx, o.x, o.y, oz, x, y, g + h);
-          if (r.blockedBy === null && r.visibility >= D.seenAbove) { seen++; break; }
+          if (r.blockedBy === null && r.visibility >= seenAbove) { seen++; break; }
         }
       }
       cands.push({ x, y, seen, home: hypot2(x - homeX, y - homeY) });
@@ -274,6 +304,24 @@ function deadGroundStarts(
   if (!best) return null;
   lastDeadGround = { seen: best.map((c) => c.seen), observers: observers.length, candidates: cands.length, hidden: cands.filter((c) => c.seen === 0).length };
   return best.map((c) => ({ x: c.x, y: c.y }));
+}
+
+/** Men are seen through thin cover by thermal sights: the team's start must hide it almost wholly. */
+const TEAM_SEEN_ABOVE = 0.001;
+
+/** Review fix (M9.3b): a dead-ground start for the attacker's missile team (men's height, one spot, nearest
+ *  `home`, at least 30 m from the vehicles' starts); null if no spot is hidden from every observer. */
+function teamDeadGround(
+  catalog: Catalog, map: MapDef, side: string, observers: readonly { x: number; y: number; z: number }[], objectives: readonly { x: number; y: number }[],
+  W: number, H: number, home: { x: number; y: number }, hulls: readonly { x: number; y: number }[],
+): { x: number; y: number } | null {
+  const grid = buildNavGrid(map, catalog.terrain, "foot", 2, 0, [], { clearanceCells: 1 });
+  const region = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
+  const keep = lastDeadGround; // (the diagnostics describe the vehicles' start)
+  const spots = deadGroundStarts(catalog, map, grid, region, 1, side, 1.8, observers, objectives, W, H, home, hulls, 30, TEAM_SEEN_ABOVE);
+  const hidden = lastDeadGround !== null && lastDeadGround !== keep && lastDeadGround.seen[0] === 0;
+  lastDeadGround = keep;
+  return spots && hidden ? spots[0]! : null;
 }
 
 /** Diagnostics of the last dead-ground choice (tools and tests): observers seeing each start, hidden spots. */

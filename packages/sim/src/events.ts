@@ -103,6 +103,10 @@ export type SimEvent =
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
   | { kind: "mortar.packed"; tick: number; unit: EntityId }
+  /** A dismounted missile team (M9.3b) sets up its launch post, is ready, packs up. */
+  | { kind: "missileTeam.setup"; tick: number; unit: EntityId; readyTick: number }
+  | { kind: "missileTeam.ready"; tick: number; unit: EntityId }
+  | { kind: "missileTeam.packed"; tick: number; unit: EntityId }
   | { kind: "mortar.fired"; tick: number; side: SideId; unit: EntityId; gunner: EntityId; x: number; y: number; tx: number; ty: number; ammo: DefId; flightS: number }
   | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke" | "illum"; seen: boolean; missM: number; left: number; /** M8.2b: who read the fall (a man, a vehicle sight; a drone from M9.5). */ observer?: EntityId; observerKind?: "man" | "vehicle" | "drone" | "air" }
   /**
@@ -145,7 +149,9 @@ export type SimEvent =
   | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | "atgm" | null; keys: string[] }
   /** A guided missile's flight ended (owner 2026-11-13): it struck its target vehicle ("hit"), burst elsewhere or
    *  flew off the map ("miss"), or its gunner lost it ("lost": `reason` key; it flies on unguided). */
-  | { kind: "missile.ended"; tick: number; vehicle: EntityId; station: number; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string }
+  | { kind: "missile.ended"; tick: number; vehicle: EntityId; station: number; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string; team?: undefined; gunner?: undefined }
+  /** M9.3b: the same for a missile guided from a team's tripod: the team and its gunner instead of a vehicle. */
+  | { kind: "missile.ended"; tick: number; team: EntityId; gunner: EntityId; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string; vehicle?: undefined; station?: undefined }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

@@ -94,6 +94,18 @@ grenade" in the Fire tray; units screen themselves on a withdrawal and on a move
   medical drag) and slice 12 M10.6-data wheeled ambulance hulls (Boxer ambulance `de-boxer-san`, BMM `ru-bmm`,
   xf `xf-litter-cart`; `--scene ambulances`; no ambulance behaviour yet: slice 13).
 
+**Dismounted missile teams (2026-11-14, roadmap-detail slice 33 "M9.3b", parallel session; DECISIONS "M9.3b").**
+A Russian Metis-M team (`raschet-metis`: 9P151 launch post, four 9M131, crew of 3) as a unit of its own, opt-in per
+scenario with `missileTeams: true` (on in `platoon-vehicles`, `platoon-ru-vehicles`, the app's mounted battle
+unless `?missiles=0`; new `bench-missile-team`). Crew-served life shared with the mortars (`crewServed` item block:
+packed / setting / ready, pack on move, auto-deploy, post taken over); `systems/missile-team.ts` fires on its own
+(anti-tank rule) or on a fire "at" order, guided by missiles.ts from the stored sight point (gunner pinned while
+guiding, moves wait). AI: overwatch post (`siteOverwatch`), moves on after each launch, attacker's carriers wait for
+it only while it can be set up within 90 s; the attacker's team starts in dead ground. `npm run lab -- missile-team`.
+Open (owner): in `platoon-ru-vehicles` the team sets up but fires almost never (Pumas on a reverse slope; Russian
+wins 2 -> 0 of 10) — closer posts or a forward move are a tuning question. Fast crossing hulls (>= 10 m/s) beyond
+500 m are always missed (shared guidance lag). Not done: a German ground team, tripod sprite, Deploy/Pack buttons.
+
 **Guided missiles on vehicles (2026-11-14, roadmap-detail slice 32 "M9.3a", parallel session; DECISIONS "M9.3a").**
 Guidance kinds wire / beam riding / fire-and-forget (seeker, flies on to the last point seen, top attack); the Puma's
 MELLS Spike LR (2 ready, reloaded from the roof by an exposed crewman); launch warning and smoke; xf beam dart.

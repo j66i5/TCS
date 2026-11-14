@@ -34,6 +34,7 @@ import { heightAt, standZ } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
 import { isMounted } from "../mount";
+import { isGuiding } from "./missile-team";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -303,6 +304,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (w === undefined || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (isMounted(state.soldier.get(id))) continue; // aboard: no reloading his own weapon (M7)
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
+    if (isGuiding(state, id)) continue; // (M9.3b review fix: a gunner guiding a missile stays at his sight)
     const sol = state.soldier.get(id);
     if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
     const wd = ctx.catalog.weapons[w.weapon];
@@ -338,6 +340,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;
+    if (isGuiding(state, id)) continue; // (M9.3b review fix: no fire, reload or ducking while he guides; task kept)
     // A drone (M9.4b): he aims where he sees it now; out of his sight (or down), he stops.
     if (task.contact !== undefined && state.drone.size > 0 && state.drone.has(task.contact)) {
       const p = droneInSight(state, id, task.contact, secondsToTicks(DRONE_SEEN_S));

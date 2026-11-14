@@ -153,6 +153,28 @@
       "sources": [],
       "confidence": "low",
       "note": "M8.3a on-map mortar crew (game role, low): the leader lays and commands, the gunner carries and fires the tube, loaders carry the rounds."
+    },
+    {
+      "id": "ptur-commander",
+      "nameKey": "role.ru.ptur-commander",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "M9.3b dismounted missile team (game role, low): the commander picks targets and carries a round, the operator carries and works the 9P151 launch post, the loader carries rounds."
+    },
+    {
+      "id": "ptur-operator",
+      "nameKey": "role.ru.ptur-operator",
+      "sources": [],
+      "confidence": "low",
+      "note": "M9.3b dismounted missile team (game role, low): the commander picks targets and carries a round, the operator carries and works the 9P151 launch post, the loader carries rounds."
+    },
+    {
+      "id": "ptur-loader",
+      "nameKey": "role.ru.ptur-loader",
+      "sources": [],
+      "confidence": "low",
+      "note": "M9.3b dismounted missile team (game role, low): the commander picks targets and carries a round, the operator carries and works the 9P151 launch post, the loader carries rounds."
     }
   ]
 }

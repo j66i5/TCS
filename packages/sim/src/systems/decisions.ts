@@ -39,6 +39,7 @@ import { isCowering } from "./morale";
 import { footSoldiers } from "../mount";
 import { stepFetchAmmo, vehicleSource } from "./boarding";
 import { launcherDecision } from "./launcher";
+import { isGuiding } from "./missile-team";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 import { houseLeaveDecision, leftLately } from "./house";
 
@@ -741,6 +742,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!isAble(s)) { s.intent = null; continue; }
     if (s.mount !== undefined) { s.intent = null; continue; } // aboard: no decisions of his own (M7)
     if (state.tick < s.stunnedUntilTick || s.evade !== null) continue;
+    // Guiding a missile from his team's post (M9.3b): he keeps his eye to the sight — no cover, no moves, no fire.
+    if (isGuiding(state, id)) continue;
     const ident = state.identity.get(id);
     const unit = ident ? state.unit.get(ident.unit) : undefined;
     if (!ident || !unit) continue;

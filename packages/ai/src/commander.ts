@@ -25,10 +25,10 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
-import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
+import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 
 export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
@@ -69,6 +69,12 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
   // long a man waits between shots, how far beyond his weapon's range he goes after a halted vehicle (and where
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
+  // Missile teams (M9.3b, game values, low): at its post within `mtArrivedM`; a move to it sent again after
+  // `mtResendSeconds` if the team stopped short; the attacker's carriers wait in dead ground for its team to be ready,
+  // at most `overwatchWaitSeconds`, and only while the team can still be set up on its post within that time (its
+  // walk at `mtWalkMps` (the last `sneakM` at `mtSneakMps`), packing and set-up; review fix). The attacker's team sites its post on the ground
+  // `mtBeyondObjectiveM` beyond the main objective (where the defence's vehicles stand).
+  mtArrivedM: 15, mtResendSeconds: 60, overwatchWaitSeconds: 90, mtWalkMps: 0.9, mtSneakMps: 0.45, mtBeyondObjectiveM: 100,
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
   // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
@@ -123,6 +129,9 @@ interface Memory {
   front?: number; rally?: Record<string, [number, number, number, number]>; rallySeen?: number[]; rallied?: number[];
   /** M7.5e step "leave": per squad, the tick of the house leaving it has been re-sited after. */
   houseLeft?: Record<string, number>;
+  /** M9.3b missile teams, per team: its overwatch posts [x, y, facing] (chosen once), the post it holds or goes to,
+   *  the last launch it has answered (by moving on), and when it was last sent. */
+  mt?: Record<string, { posts: [number, number, number][]; post: number; launch: number; sent: number }>;
   /** M7.5e step "clear": per squad, the house (building id) it was sent to clear and when; houses taken (ids); per
    *  squad, the house in the main ring it holds; per house, when its clearing last failed and when an enemy was last
    *  known in it. */
@@ -158,7 +167,7 @@ function members(view: SimView, uid: EntityId): EntityId[] {
 /** A unit on foot that fights as a squad: not a vehicle crew, nor a crew that bailed out (M7.4b). */
 function isFootUnit(view: SimView, uid: EntityId): boolean {
   const u = view.unit.get(uid);
-  return u !== undefined && u.vehicle === undefined && u.exVehicle === undefined && u.mortar === undefined;
+  return u !== undefined && u.vehicle === undefined && u.exVehicle === undefined && u.mortar === undefined && u.missileTeam === undefined;
 }
 
 /** Able men of a unit who are aboard a vehicle (not crew): they ride, and are never ordered to walk. */
@@ -314,6 +323,103 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     return best ?? { x: Math.min(Math.max(cx + cos(away) * F.rallyM[0]!, 5), W - 5), y: Math.min(Math.max(cy + sin(away) * F.rallyM[0]!, 5), H - 5) };
   };
 
+  /** Enemy vehicles these men know (seen or reported within `atContactSeconds`, not wrecks), the freshest report of
+   *  each (M7.4b; shared with the missile teams, M9.3b). */
+  const freshVehicleContacts = (men: readonly EntityId[]): Map<EntityId, { x: number; y: number; tick: number; moving: boolean }> => {
+    const v = curView!, tick = curTick;
+    const vk = new Map<EntityId, { x: number; y: number; tick: number; moving: boolean }>();
+    for (const m of men) {
+      const s = v.soldier.get(m);
+      if (s === undefined || isCaptive(s)) continue;
+      for (const c of s.contacts) {
+        if (c.surrendered === true || c.down === true) continue;
+        if (c.cls !== "vehicle" || c.wreck === true || c.kind === "heard" || tick - c.tick > COMMANDER.atContactSeconds * 60) continue;
+        const prev = vk.get(c.target);
+        if (!prev || c.tick > prev.tick) vk.set(c.target, { x: c.x, y: c.y, tick: c.tick, moving: Math.abs(c.vx ?? 0) + Math.abs(c.vy ?? 0) > 1 });
+      }
+    }
+    return vk;
+  };
+  /** Is this missile team set up on its overwatch post (M9.3b)? */
+  const teamOnPost = (view: SimView, id: EntityId): boolean => {
+    const mt = view.unit.get(id)?.missileTeam, st = mem.mt?.[String(id)], p = st?.posts[st.post];
+    const l = launcherOf(ground(), view, id), lt = l ? view.transform.get(l.carrier) : undefined;
+    return mt?.state === "ready" && (!p || (lt !== undefined && hypot2(p[0] - lt.x, p[1] - lt.y) <= COMMANDER.mtArrivedM));
+  };
+  /** Can this missile team still fight: rounds left and an able man (review fix)? */
+  const teamLive = (view: SimView, id: EntityId): boolean => {
+    const u = view.unit.get(id), l = launcherOf(ground(), view, id);
+    return u !== undefined && l !== null && teamRounds(view, id, l.def.round) > 0 && u.members.some((m) => able(view.soldier.get(m) as SoldierState | undefined));
+  };
+  /** When this missile team will be set up on its post, s from now (Infinity: not sited, or cannot fight; review fix). */
+  const teamEtaS = (view: SimView, id: EntityId, tick: number): number => {
+    if (!teamLive(view, id)) return Infinity;
+    if (teamOnPost(view, id)) return 0;
+    const mt = view.unit.get(id)!.missileTeam!, st = mem.mt?.[String(id)], p = st?.posts[st.post];
+    const l = launcherOf(ground(), view, id)!, lt = view.transform.get(l.carrier);
+    if (!p || !lt) return Infinity;
+    const d = hypot2(p[0] - lt.x, p[1] - lt.y);
+    if (d <= COMMANDER.mtArrivedM) return mt.state === "setting" ? Math.max(0, mt.readyTick - tick) / 60 : AUTO_DEPLOY_S + l.def.setupSeconds;
+    const sneak = Math.min(d, COMMANDER.sneakM); // (the last stretch sneaking, as the move is ordered)
+    return (mt.state === "packed" ? 0 : l.def.packSeconds) + (d - sneak) / COMMANDER.mtWalkMps + sneak / COMMANDER.mtSneakMps + AUTO_DEPLOY_S + l.def.setupSeconds;
+  };
+  /** The men of the side's missile teams (M9.3b). */
+  const teamMen = (view: SimView): EntityId[] => [...view.unit.values()].filter((u) => u.side === side && u.missileTeam !== undefined).flatMap((u) => u.members);
+  /** M9.3b: site, move and fire the side's missile teams (see the call). */
+  const missileTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, vk: Map<EntityId, { x: number; y: number; tick: number; moving: boolean }>): void => {
+    const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam !== undefined).map(([id]) => id);
+    if (ids.length === 0) return;
+    mem.mt ??= {};
+    const main = objectives[0];
+    for (const id of ids) {
+      const u = view.unit.get(id)!, mt = u.missileTeam!;
+      const l = launcherOf(ground(), view, id);
+      if (!l) continue;
+      const gr = teamRound(ground(), l.def);
+      const lt = view.transform.get(l.carrier);
+      if (!gr || !lt) continue;
+      if (!teamLive(view, id)) continue; // (review fix: no rounds or no able man: no more moves or fire orders)
+      let st = mem.mt[String(id)];
+      if (!st) {
+        // The way the enemy comes: the defender looks out along the expected attack; the attacker at the main objective.
+        // (Review fix: the attacker looks at the ground just beyond the main objective, where the defence's vehicles stand.)
+        const away = main ? atan2(main.y - lt.y, main.x - lt.x) : 0;
+        const enemy = defending && main ? { x: clamp(main.x + cos(front0()) * 700, W), y: clamp(main.y + sin(front0()) * 700, H) } : main ? { x: clamp(main.x + cos(away) * COMMANDER.mtBeyondObjectiveM, W), y: clamp(main.y + sin(away) * COMMANDER.mtBeyondObjectiveM, H) } : { x: W / 2, y: H / 2 };
+        const anchor = defending && main ? { x: lt.x, y: lt.y } : { x: lt.x, y: lt.y };
+        const nearPts = defending ? [enemy] : objectives.filter((o) => o.holder !== side).map((o) => ({ x: o.x, y: o.y }));
+        const posts = siteOverwatch(ground(), anchor, enemy, l.def.sightHeightM, nearPts, l.def.backblastM, defending);
+        st = mem.mt[String(id)] = { posts: posts.map((p) => [p.x, p.y, p.facing]), post: 0, launch: mt.lastLaunchTick, sent: -1e9 };
+        // On its way it does not go to ground at every contact (it would set up short of its post).
+        order(id, { kind: "rules", onContact: "push" });
+      }
+      const busy = mt.guide !== null || view.action.has(l.carrier);
+      // After a launch (the missile's flight over): on to the next post.
+      if (mt.lastLaunchTick !== st.launch && !busy) { st.launch = mt.lastLaunchTick; if (st.posts.length > 1) { st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; } }
+      const p = st.posts[st.post];
+      const moving = u.moving || u.members.some((m) => (view.mover.get(m)?.waypoints.length ?? 0) > 0);
+      if (p && !busy && hypot2(p[0] - lt.x, p[1] - lt.y) > COMMANDER.mtArrivedM && (!moving || st.sent < 0) && tick - st.sent >= COMMANDER.mtResendSeconds * 60) {
+        const d = hypot2(p[0] - lt.x, p[1] - lt.y), k = Math.max(0, d - COMMANDER.sneakM) / Math.max(1, d);
+        const wp = d > COMMANDER.sneakM ? [{ x: lt.x + (p[0] - lt.x) * k, y: lt.y + (p[1] - lt.y) * k, mode: "walk" }, { x: p[0], y: p[1], mode: "sneak" }] : [{ x: p[0], y: p[1], mode: "sneak" }];
+        order(id, { kind: "move", waypoints: wp, facing: p[2] });
+        st.sent = tick;
+        continue;
+      }
+      // Ready with nothing in flight: the enemy vehicle in its range that threatens the own carriers most (nearest
+      // to one of them), else the nearest to the team.
+      if (mt.state !== "ready" || busy || mt.queued !== undefined || vk.size === 0) continue;
+      const hulls = [...view.vehicle.entries()].filter(([, v]) => v.side === side && v.status !== "destroyed" && v.status !== "abandoned").map(([vid]) => view.transform.get(vid)).filter((q) => q !== undefined);
+      let best: { id: EntityId; x: number; y: number; score: number } | null = null;
+      for (const [vid, k] of [...vk.entries()].sort((a, b) => a[0] - b[0])) {
+        const d = hypot2(k.x - lt.x, k.y - lt.y);
+        if (d < gr.g.minRangeM || d > gr.g.maxRangeM) continue;
+        const threat = hulls.reduce((a, q) => Math.min(a, hypot2(q.x - k.x, q.y - k.y)), Infinity);
+        const score = hulls.length > 0 ? threat : d;
+        if (!best || score < best.score) best = { id: vid, x: k.x, y: k.y, score };
+      }
+      if (best) order(id, { kind: "fire", x: clamp(best.x, W), y: clamp(best.y, H), contact: best.id, nature: "at" });
+    }
+  };
+
   const ctl: Controller = {
     side,
     think(view, tick): Order[] {
@@ -323,7 +429,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
-      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id));
+      // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined);
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
@@ -392,12 +499,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         mem.lastAt = tick;
         mem.atShot ??= {}; mem.hunt ??= {};
         // Enemy vehicles its men know (seen or reported recently, not wrecks), the freshest report of each.
-        const vk = new Map<EntityId, { x: number; y: number; tick: number; moving: boolean }>();
-        for (const m of all) for (const c of known(m)) {
-          if (c.cls !== "vehicle" || c.wreck === true || c.kind === "heard" || tick - c.tick > COMMANDER.atContactSeconds * 60) continue;
-          const prev = vk.get(c.target);
-          if (!prev || c.tick > prev.tick) vk.set(c.target, { x: c.x, y: c.y, tick: c.tick, moving: Math.abs(c.vx ?? 0) + Math.abs(c.vy ?? 0) > 1 });
-        }
+        const vk = freshVehicleContacts(all);
         // Hunters whose target is gone, or who have been out long enough, are let go (their squad's next order takes them back).
         for (const [k, h] of Object.entries(mem.hunt)) if (!vk.has(h[0]) || tick - h[1] > COMMANDER.huntSeconds * 60) delete mem.hunt[k];
         if (vk.size > 0) {
@@ -445,6 +547,10 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           }
         }
       }
+      // ---- missile teams (M9.3b): each to an overwatch post (sited once), sneaking the last stretch; set up there
+      // on its own (sim); fired at the enemy vehicle that threatens the own carriers most; after each launch it
+      // moves on to its next post.
+      missileTeams(view, tick, order, freshVehicleContacts([...all, ...teamMen(view)]));
       const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
@@ -986,6 +1092,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       };
       switch (mem.phase) {
         case "start":
+          // M9.3b (A4): mounted, the carriers wait in dead ground until the side's missile team is set up on its
+          // post (or `overwatchWaitSeconds` have passed): it covers their ride in.
+          // (Review fix: only while the team can still be there in time: its walk and set-up within the wait.)
+          if (squads.some((sq) => riders(view, sq).length > 0) && tick < COMMANDER.overwatchWaitSeconds * 60
+            && [...view.unit.entries()].some(([id, u]) => {
+              if (u.side !== side || u.missileTeam === undefined || teamOnPost(view, id)) return false;
+              return tick / 60 + teamEtaS(view, id, tick) <= COMMANDER.overwatchWaitSeconds;
+            })) break;
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
           // Mounted (M7.2): the vehicles drive the squads to their dismount points; the squads ride.
           if (squads.some((sq) => riders(view, sq).length > 0)) {

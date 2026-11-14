@@ -3212,3 +3212,60 @@ Goldens changed (`npm run golden:update`, main goldens only, no-interiors untouc
 fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new
 drill values) everywhere; states also differ wherever there is ordered fire (`suppress`) or a drill. Recorded orders
 unchanged. New tests `sim/test/covering-fire.test.ts`; two drills tests now step past the covering-fire wait.
+
+## 2026-11-14 — Defence siting: defenders pick their own fire positions (overnight AI, pick "defence-siting")
+
+Before, the AI defender lay where the scenario put it: each squad at a fixed offset from the objectives, men 6 m apart
+in a north-south line, a quarter to a half of them in the open, and each man seeing 3-10 % of the ground the attack
+must cross (village). Now the commander, at its first look, gives every man a fire position of his own
+(`ai/src/siting.ts`, called from the defence's start in `commander.ts`); the scenario's start places are unchanged.
+No sim, data or catalog change; values are in `SITING` / `COMMANDER.siteRingSlackM` (game values, **low**).
+- **Candidates**: a 5 m grid within `searchM` = **40 m** of each group's start place (the platoon's own men are a
+  group too), each moved to where the man's own cover search on arrival would leave him (the sim's laid-out move
+  takes the best cover within 4 m: `coverSnapM` mirrors it), outdoors and passable. A group within 15 m of an
+  objective's ring stays inside the ring (the owner pick's rule for the main objective, applied to the second's squad
+  too). **Medium** (the ring rule is from the pick; 40 m from the measured "best within 30 m" headroom).
+- **Approach**: 6 rings 75-325 m out from the main objective, +/-60 deg every 12 deg (about 60 points), around the
+  way from the main objective to the middle of the map edge farthest from the side's start (the commander knows no
+  enemy positions; the old "middle of the map" direction was 30-40 deg off on some farmland seeds). A point counts as
+  seen from prone eye height (`eyeHeightM`) to a crouching man at visibility >= 0.3. **Low.**
+- **Score**: own share + 0.5 x what it adds to the whole defence's view + 0.1 x (1 - exposure), - 0.3 in the open
+  (exposure >= 0.9), never within 3 m of another man's place, - 0.02 per metre short of 5 m, - 0.03 x distance /
+  40 m. Men placed one per group per round (no group takes every good spot). **Low.** Tried: cover weight 0 (more
+  share, x1.95 village, but 4 men in the open in the village and 16 in farmland), union weight 0 / 1.5 (no
+  difference: inside the rings the candidates' views overlap), search 35 m with a 3 m ring margin (x1.75).
+- **Orders**: each man who moves more than 2 m gets a move at a walk with a facing toward the middle of what he
+  sees from there (he lies down there, as every move ends); the rest a posture prone (as before). Done at tick 0;
+  the attacker is minutes away.
+- **Not done**: kneeling where prone is blind (would need a posture order on arrival and is more exposed; prone
+  alone reached the share target in the village); an explicit mutual-support bonus for overlapping sectors (the union
+  term spreads the fields instead, and the overlap is large anyway inside the rings); houses (M7.5e).
+- **Start-up cost**: about 25,000 sight lines once at tick 0, +250-350 ms on the commander's first look in Node
+  (platoon first tick 180-235 -> 450-590 ms). Benchmarks have no AI commander; timing tests unaffected.
+
+Measured, same seeds (`ai-night/siting/fof2.mts`, defenders where they are at 120 s, approach from the attacker's
+real start, 75-350 m, +/-60 deg; s1-5): mean per-man share of the approach seen, village 0.064 -> 0.121 (**x1.90**),
+farmland 0.290 -> 0.462 (**x1.59**); whole defence 0.30 -> 0.40 and 0.69 -> 0.77; men in the open 5.2 -> 0.4 and
+13.2 -> 3.4 per battle. Acceptance targets not met: the whole-defence share in the village (target 0.6): the most
+any set of places inside the main ring can see is 0.18-0.35 (all its 5 m cells together, `maxu.mts`), so 0.6 needs
+men outside the rings or upper windows (M7.5e); farmland x1.59 (target x1.8): the best spot within 30 m of each man
+was only x1.7 there; men in the open on farmland 3.4 (target 0-2: some rings have no cover at all).
+Batches (`bat.mts`, 20 seeds, 1200 s; platoon-vehicles 15 seeds), before -> after: defender man-seconds seeing an
+enemy while one is within 150 m 0.287 -> 0.348 (platoon), 0.278 -> 0.377 (platoon-ru), 0.287 -> 0.434 (mounted);
+nearest comrade < 3 m 6.1 -> 1.8 %, 4.7 -> 1.7 %, 2.8 -> 3.0 % (target < 3 %); defender man-seconds in the open
+31 -> 5 %, 41 -> 14 %, 27 -> 18 %.
+**Balance (main owner question).** Village (platoon): attacker wins **14 -> 6 / 20**, defenders down 15.6 -> 13.2,
+attackers down 15.1 -> 18.1 (exchange attacker/defender down 0.97 -> 1.37), main objective held at the end
+30 -> 70 %. Farmland (platoon-ru): attacker wins 12 -> 12 / 20, exchange 0.93 -> 0.88, main held 40 -> 55 %.
+Mounted (platoon-vehicles, 15 seeds): attacker wins 7 -> 10 / 15, exchange 0.79 -> 0.75, mean length 1066 -> 947 s
+(the mounted battles turn on the first vehicle duels and vary a lot; within noise). The infantry attack was tuned
+tonight against the blind defence; it was NOT re-tuned. Owner question: keep the sited defence and re-tune the
+village attack (recommended), keep it and accept a harder village, or keep the scenario's start places for the AI
+defence.
+Side effect: on village seed 1 the attacker's preparatory high explosive now lands 205 s before its reconnaissance
+starts (was within the fire's delay + 60 s): the defence sees the advance and halts it more often than the call's
+walking-time estimate foresees. `commander.test.ts` allows delay + 90 s now. **Low** (a later pick could add the
+halts to the estimate).
+Goldens changed (`npm run golden:update`): platoon-vehicles-s1 only (the only golden with an AI defender;
+first difference at tick 600, its first checkpoint). Recorded orders of the others unchanged. New test
+`tools/test/siting.test.ts`.

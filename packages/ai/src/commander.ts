@@ -24,8 +24,12 @@ import {
   atan2, backblastBlocked, cos, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
+import { approachPoints, siteDefence, type SitingGroup } from "./siting";
 
 export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+  // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
+  // objective's ring holds it, and its men stay inside the ring.
+  siteRingSlackM: 15,
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
   // long a man waits between shots, how far beyond his weapon's range he goes after a halted vehicle (and where
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
@@ -277,7 +281,26 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       if (defending) {
         if (mem.phase === "start") {
           toAll({ kind: "rules", fire: "free", maxEngageM: COMMANDER.defenceRangeM });
-          toAll({ kind: "posture", posture: "prone" });
+          // Each man to a fire position of his own near his group's place (overnight pick "defence-siting"):
+          // field of fire over the approach, cover, spacing (siting.ts); the rest lie down where they are.
+          const groups: SitingGroup[] = [...topIds.map((id) => view.unit.get(id)!.members), ...squads.map((sq) => members(view, sq))].map((ms) => {
+            const men = ms.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); })
+              .sort((a, b) => a - b).map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; });
+            const cx = men.reduce((a, m) => a + m.x, 0) / Math.max(1, men.length), cy = men.reduce((a, m) => a + m.y, 0) / Math.max(1, men.length);
+            const o = objectives.find((ob) => ob.holder === side && hypot2(ob.x - cx, ob.y - cy) <= ob.radiusM + COMMANDER.siteRingSlackM);
+            return { men, cx, cy, ...(o ? { ring: { x: o.x, y: o.y, r: o.radiusM } } : {}) };
+          }).filter((g) => g.men.length > 0);
+          // The attack is expected from the middle of the map edge farthest from where the side starts.
+          const edges = [[0, H / 2], [W, H / 2], [W / 2, 0], [W / 2, H]] as const;
+          const far = edges.reduce((a, e) => (hypot2(e[0] - sx, e[1] - sy) > hypot2(a[0] - sx, a[1] - sy) ? e : a));
+          const front = atan2(far[1] - main.y, far[0] - main.x);
+          const placed = new Set<EntityId>();
+          for (const p of siteDefence(ground(), groups, approachPoints(ground(), main.x, main.y, front))) {
+            if (!p.move) continue;
+            order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: Number.isNaN(p.facing) ? front : p.facing });
+            placed.add(p.id);
+          }
+          for (const m of all) if (!placed.has(m)) order(m, { kind: "posture", posture: "prone" });
           mem.phase = "hold";
           return out;
         }

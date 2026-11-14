@@ -9,7 +9,10 @@ The app opens a generated battle: a platoon attacks a platoon that holds two obj
 holder's colour; the line under the top bar shows who holds what and the time left, 40 minutes). By default you
 command the German platoon attacking from the west; `?side=red` gives you the Russians, `?attacker=red` makes
 the Russians attack, `?map=farmland` (or woodland, industrial) another map, `?seed=` another battle. The other
-side is commanded by the computer: in defence it lies in its positions and fires at will out to 300 m, pulls
+side is commanded by the computer: in defence each man first walks to a fire position of his own within 40 m of
+his squad's place (the spot that sees most of the ground the attack must cross, in cover, at least 3 m and if it can
+5 m from the next man, the squads at an objective inside its ring), lies down facing what he sees and fires at will
+out to 300 m, pulls
 back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
 attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
 up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground

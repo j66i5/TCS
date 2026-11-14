@@ -80,6 +80,7 @@
     "throwErrorFraction": 0.07,
     "throwErrorMinM": 0.6,
     "throwSeconds": 2.5,
+    "postErrorM": 0.2,
     "launchErrorFraction": 0.05,
     "launchErrorMinM": 1.0,
     "launchSeconds": 4,
@@ -98,6 +99,6 @@
     "reactDelaySeconds": 0.4,
     "sources": [],
     "confidence": "low",
-    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values. Owner requests 2026-11-11: the thrower chooses a flatter or higher throw when the lob would hit a ceiling or wall; several grenades per order are thrown 0.6 s apart; a man within 10 m of a landing grenade drops flat, within 3 m he runs from it first. Angles, power margin, carry and delays are game values. Owner decision 2026-11-11 (after M2.4b): prone throw 15 m and safety distance 8 m, so that prone men can throw."
+    "note": "Owner decision 2026-11-11: a regular soldier in full kit throws about 30 m standing, 20 m crouching, 10-12 m prone, landing within a few metres of the aim point; training level scales range error. Launcher error and preparation times are game values. Owner requests 2026-11-11: the thrower chooses a flatter or higher throw when the lob would hit a ceiling or wall; several grenades per order are thrown 0.6 s apart; a man within 10 m of a landing grenade drops flat, within 3 m he runs from it first. Angles, power margin, carry and delays are game values. Owner decision 2026-11-11 (after M2.4b): prone throw 15 m and safety distance 8 m, so that prone men can throw. A grenade posted into a room from beside its doorway or window (M7.5e house clearing; game value, low) goes in with an aim error of postErrorM 0.2 m (x the skill factor) instead of 0.6 m + 7 % of the distance: at arm's length round the frame (with the plain error many throws struck the frame and fell back beside the thrower)."
   }
 }

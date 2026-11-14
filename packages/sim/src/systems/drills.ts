@@ -9,6 +9,8 @@
  *   withdraw          (order) The same, backwards: one half covers toward the enemy it knows while the other
  *                     runs back a bound; the last leg to the rally point together (a remnant of
  *                     `withdrawTogetherMen` or fewer goes back in one leg, all together).
+ *   clear             (an assault on a building, M7.5e) Bounds as an assault onto a door of the house, then stacks
+ *                     beside it and clears the rooms one by one with grenades (systems/clear.ts).
  *   break and rally   When half a unit's able men panic, it breaks: they run back, away from the enemy they know,
  *                     and do not obey orders or fire. Once nothing has been fired at them for a while and they
  *                     have reached the rally point they rally, shaken but steadier.
@@ -34,6 +36,8 @@ import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, spareMagazines
 import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
+import { beginStack, houseCentre, stepClear } from "./clear";
+import { buildingIndex, windowPlaces } from "./occupy";
 
 const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !== "routed";
 
@@ -65,6 +69,15 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   m.endPosture = "prone";
   m.endHeading = face ? atan2(face.y - leg.goalY, face.x - leg.goalX) : null;
   return true;
+}
+
+/** An assault or a house clearing (M7.5e): bounds forward, fires at the objective. */
+const forward = (d: Drill) => d.kind === "assault" || d.kind === "clear";
+
+/** What a forward drill's covering fire is aimed at: the objective, or the middle of the house being cleared. */
+function aimOf(ctx: SimContext, d: Drill): { x: number; y: number } {
+  if (d.kind === "clear" && d.building !== undefined) { const bi = buildingIndex(ctx, d.building); if (bi >= 0) return houseCentre(ctx, bi); }
+  return { x: d.x, y: d.y };
 }
 
 /** Is he in the middle of throwing a grenade (the drill does not move him off it)? */
@@ -154,7 +167,14 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
   const dist = hypot2(d.x - c.x, d.y - c.y);
   // (A remnant withdrawing, `withdrawTogetherMen` or fewer, goes back in one leg: overnight pick "defence-fallback".)
-  const last = dist <= (d.kind === "assault" ? finalM : boundM) || (d.kind === "withdraw" && all.length <= D.withdrawTogetherMen);
+  const last = dist <= (forward(d) ? finalM : boundM) || (d.kind === "withdraw" && all.length <= D.withdrawTogetherMen);
+  if (last && d.kind === "clear") {
+    // A house: the men stack up beside its door instead (M7.5e), firing at it as they go.
+    const aim = aimOf(ctx, d);
+    beginStack(ctx, state, d, all.filter((m) => !throwing(state, m)), (key) => radio(state, uid, key, events));
+    for (const m of all) if (!throwing(state, m)) fireOnPosition(ctx, state, m, aim, true, true);
+    return;
+  }
   if (last) {
     // The last rush onto the objective (or the last leg back): everyone together, spread around the point.
     d.final = true;
@@ -176,16 +196,17 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     return;
   }
   // A bound: the others stop and fire (covering fire first: the runners' lanes keep out of its lines).
-  const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
+  const at = forward(d) ? aimOf(ctx, d) : enemy;
+  const house = d.kind === "clear" && d.building !== undefined ? buildingIndex(ctx, d.building) : -1;
   cover.forEach((m, i) => {
     // (A runner of the last bound still on his way finishes it, unless the bound timed out; he fires from there.)
     if (!keepRunners || (state.mover.get(m)?.waypoints.length ?? 0) === 0) halt(state, m);
-    if (at) coverFire(ctx, state, m, at, d.kind === "assault", i);
+    if (at) coverFire(ctx, state, m, at, forward(d), i, house);
   });
   // No move without fire (overnight pick "covering-fire"): the runners go once a covering man has fired within
   // `coverFiredS`, or after `coverWaitS` (assault only; a lone man has nobody to cover him). Meanwhile they keep
   // firing from where they are.
-  if (d.kind === "assault" && D.coverWaitS > 0 && cover.length > 0 && movers.length > 0 && !coverFiring(ctx, state, cover)) {
+  if (forward(d) && D.coverWaitS > 0 && cover.length > 0 && movers.length > 0 && !coverFiring(ctx, state, cover)) {
     d.waitFire = true;
     return;
   }
@@ -221,8 +242,8 @@ function runBound(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, bou
   const dist = Math.max(1e-6, hypot2(d.x - c.x, d.y - c.y));
   const ux = (d.x - c.x) / dist, uy = (d.y - c.y) / dist;
   // Never past the start of the last rush (assault) or the rally point (withdraw).
-  const step = Math.max(1, Math.min(boundM, dist - (d.kind === "assault" ? finalM : 0)));
-  const face = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
+  const step = Math.max(1, Math.min(boundM, dist - (forward(d) ? finalM : 0)));
+  const face = forward(d) ? aimOf(ctx, d) : enemy;
   // The covering men's lines of fire: from each to the point he fires at.
   const lines: { x: number; y: number; ux: number; uy: number; len: number }[] = [];
   for (const m of cover) {
@@ -256,7 +277,7 @@ function runBound(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, bou
     sendTo(ctx, state, m, bx, by, face, bi >= 0 && indoorAt(ctx, bx, by) === bi ? t.z : 0);
   }
   // Assault fire (package D): within assaultFireM of the objective the men bounding forward fire as they go.
-  if (d.kind === "assault" && dist <= ctx.catalog.behaviour.soldier.assaultFireM) for (const m of movers) fireOnPosition(ctx, state, m, { x: d.x, y: d.y }, true, true);
+  if (forward(d) && dist <= ctx.catalog.behaviour.soldier.assaultFireM) { const aim = aimOf(ctx, d); for (const m of movers) fireOnPosition(ctx, state, m, aim, true, true); }
 }
 
 /**
@@ -265,7 +286,7 @@ function runBound(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, bou
  * (`suppressShortM`); else the position itself if he can reach it so; else as before (`fireOnPosition`). The `k`th
  * covering man starts his search at the `k`th enemy, so the fire spreads over the position.
  */
-function coverFire(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, k: number): boolean {
+function coverFire(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, k: number, house = -1): boolean {
   const s = state.soldier.req(m);
   const cands = coverTargets(ctx, s, at);
   const postures: Posture[] = isCowering(s) ? ["prone"] : ["prone", "crouching", "standing"];
@@ -275,13 +296,31 @@ function coverFire(ctx: SimContext, state: SimState, m: EntityId, at: { x: numbe
     if (q > pickQ) { pick = c; pickQ = q; }
   }
   const h = assault ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM;
+  const win = !pick && house >= 0 ? windowAim(ctx, state, m, house, postures) : null;
   if (pick) {
     if (assignFireTask(ctx, state, m, pick.x, pick.y, aimHeightAt(ctx, pick))) { const ft = state.fire.req(m); ft.contact = pick.target; ft.aimAuto = true; }
-  } else if (lineFor(ctx, state, m, at.x, at.y, h, postures) > 0) assignFireTask(ctx, state, m, at.x, at.y, h);
+  } else if (win) assignFireTask(ctx, state, m, win.x, win.y, win.h);
+  else if (lineFor(ctx, state, m, at.x, at.y, h, postures) > 0) assignFireTask(ctx, state, m, at.x, at.y, h);
   else { fireOnPosition(ctx, state, m, at, assault); return false; }
   const ft = state.fire.get(m);
   if (ft) ft.suppress = "drill";
   return ft !== undefined;
+}
+
+/**
+ * A house being cleared (M7.5e): the window of house `bi` facing him, nearest first, that he has a line of fire into
+ * (the window place just inside it, at a man's chest height on its floor; at most four tried), or null.
+ */
+function windowAim(ctx: SimContext, state: SimState, m: EntityId, bi: number, postures: Posture[]): { x: number; y: number; h: number } | null {
+  const t = state.transform.req(m);
+  const wins = windowPlaces(ctx, bi)
+    .filter((w) => (t.x - w.x) * w.normalX + (t.y - w.y) * w.normalY > 2)
+    .sort((a, b) => hypot2(a.x - t.x, a.y - t.y) - hypot2(b.x - t.x, b.y - t.y) || a.z - b.z);
+  for (const w of wins.slice(0, 4)) {
+    const h = w.z + 1.2;
+    if (lineFor(ctx, state, m, w.x, w.y, h, postures) > 0) return { x: w.x, y: w.y, h };
+  }
+  return null;
 }
 
 /** The enemies a covering man knows within `drills.coverTargetM` of the position, nearest to it first (a few). */
@@ -385,17 +424,23 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   if (d.phaseTick < 0) { startPhase(ctx, state, uid, d, events); return; }
   const all = d.groups.flat().filter((m) => able(state.soldier.get(m)));
   if (all.length === 0) { u.drill = null; return; }
+  // A house clearing past its bounds (M7.5e): stacking, throwing, going in room by room.
+  if (d.kind === "clear" && d.stage !== undefined) {
+    stepClear(ctx, state, u, d, events, (m, at) => fireOnPosition(ctx, state, m, at, true, true), (key) => radio(state, uid, key, events));
+    return;
+  }
   // Covering men with no shot (no task left: his man went down; no line; a comrade in it) look for another one
   // every `coverRetaskS` (overnight pick "covering-fire"); not a rifleman down to his last magazine.
   if (!d.final && D.coverRetaskS > 0 && state.tick % secondsToTicks(D.coverRetaskS) === 0) {
-    const at = d.kind === "assault" ? { x: d.x, y: d.y } : null;
+    const at = forward(d) ? aimOf(ctx, d) : null;
+    const house = d.kind === "clear" && d.building !== undefined ? buildingIndex(ctx, d.building) : -1;
     if (at) phaseMen(state, d).cover.forEach((m, i) => {
       if (moving(m) || state.action.has(m) || isCowering(state.soldier.req(m))) return;
       const f = state.fire.get(m), w = state.weapon.get(m), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       if (!w || !wd) return;
       if (f && f.lineClear && !friendInLine(ctx, state, m, f.x, f.y)) return;
       if (!wd.sustained && spareMagazines(state.container.get(m), wd.feed.magazine) <= 0) return;
-      if (coverFire(ctx, state, m, at, true, i)) return;
+      if (coverFire(ctx, state, m, at, true, i, house)) return;
       // (No shot from where he lies: a few metres aside, once a bound.)
       if (D.sidestep && !(d.stepped ?? []).includes(m) && sidestep(ctx, state, m, at)) (d.stepped ??= []).push(m);
     });

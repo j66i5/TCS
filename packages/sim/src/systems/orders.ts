@@ -3,6 +3,7 @@
  */
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
+import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
 import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
@@ -83,6 +84,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "withdraw":
       if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      // A house to clear (M7.5e): a building with an interior and a way in.
+      if (o.kind === "assault" && o.building !== undefined && !clearable(ctx, o.building)) return "invalid-params";
       return null;
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
@@ -490,7 +493,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       stopUnit(state, order.target);
       const groups = drillGroups(state, du);
       if (groups.length === 0) return "unable";
-      state.unit.req(du).drill = { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
+      state.unit.req(du).drill = order.kind === "assault" && order.building !== undefined
+        ? startClear(ctx, state, du, order.building, groups)
+        : { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
       break;
     }
     case "callFire": {

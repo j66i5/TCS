@@ -263,7 +263,7 @@ export const ShootingFile = z.object({
     /** How far a soldier of skill 0.5 in full kit throws a hand grenade, by posture, m. */
     throwRangeM: z.object({ standing: Num(1, 100), crouching: Num(1, 100), prone: Num(1, 100) }).strict(), throwElevationDeg: Num(5, 80),
     /** Where it lands: one standard deviation = errorMinM + errorFraction x distance (skill 0.5). */
-    throwErrorFraction: Num(0, 1), throwErrorMinM: Num(0, 10), throwSeconds: Num(0.1, 30),
+    throwErrorFraction: Num(0, 1), throwErrorMinM: Num(0, 10), throwSeconds: Num(0.1, 30), postErrorM: Num(0, 10),
     launchErrorFraction: Num(0, 1), launchErrorMinM: Num(0, 20), launchSeconds: Num(0.1, 60),
     /** A man does not throw or fire at a point nearer than this (his own fragments). */
     minSafeDistanceM: Num(0, 100),
@@ -345,6 +345,7 @@ export const BehaviourFile = withProv({
     breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1), fallBackM: Num(0, 2000),
     reactNeighbourM: Num(0, 1000), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600), withdrawTogetherMen: Num(0, 50),
     suppressShortM: Num(0, 100), coverTargetM: Num(0, 500), laneClearM: Num(0, 50), laneShiftMaxM: Num(0, 100), coverFiredS: Num(0, 60), coverWaitS: Num(0, 600), coverRetaskS: Num(0, 60), sidestep: z.boolean(), sidestepM: z.array(Num(-20, 20)).max(12), coverCandidates: z.number().int().min(1).max(50), suppressIntervalS: Num(0, 60),
+    clearEntryMen: z.number().int().min(1).max(20), clearStackOffM: Num(0, 10), clearStackAsideM: Num(0, 10), clearAfterBurstS: Num(0, 30), clearStackWaitS: Num(0, 600), clearThrowWaitS: Num(0, 600), clearRoomS: Num(1, 600), clearTimeoutS: Num(1, 3600), clearMinMen: z.number().int().min(1).max(20),
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({

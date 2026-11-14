@@ -59,8 +59,11 @@ export type OrderBody =
     /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
   }
-  /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
-  | { kind: "assault"; x: number; y: number }
+  /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
+   *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds
+   *  on a door of that building (x, y: where the unit comes from does not matter, the building does), stack beside
+   *  it, throw a grenade in, and clear the rooms one by one (drill "clear"). */
+  | { kind: "assault"; x: number; y: number; building?: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
   | { kind: "withdraw"; x: number; y: number }
   /** Call mortar fire (M6.5c): high explosive or smoke, this many rounds at (x, y); the unit's leader (or a man

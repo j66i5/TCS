@@ -68,7 +68,7 @@ export const testCatalog: Catalog = {
       fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
       aimHeightByPostureM: { standing: 1.0, crouching: 0.6, prone: 0.2 },
     },
-    grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 15 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 8, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
+    grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 15 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, postErrorM: 0.2, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 8, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
   },
   formations: {
     line: { id: "line", slots: [[0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0]] },
@@ -105,6 +105,7 @@ export const testCatalog: Catalog = {
     drills: {
       stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
       breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10, withdrawTogetherMen: 3, suppressShortM: 15, coverTargetM: 60, laneClearM: 1.5, laneShiftMaxM: 10, coverFiredS: 5, coverWaitS: 10, coverRetaskS: 2, sidestep: true, sidestepM: [2, -2, 4, -4, 6, -6], coverCandidates: 8, suppressIntervalS: 4,
+      clearEntryMen: 3, clearStackOffM: 1, clearStackAsideM: 1.5, clearAfterBurstS: 1, clearStackWaitS: 20, clearThrowWaitS: 15, clearRoomS: 20, clearTimeoutS: 240, clearMinMen: 3,
     },
     surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
     mounting: {

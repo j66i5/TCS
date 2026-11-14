@@ -145,7 +145,7 @@ export function reserveTargetOk(ctx: SimContext, state: SimState, c: { target: E
   while (u !== null) {
     const unit = state.unit.get(u);
     if (!unit) return false;
-    if (unit.drill?.kind === "assault") return true;
+    if (unit.drill?.kind === "assault" || unit.drill?.kind === "clear") return true;
     u = unit.parent;
   }
   return false;

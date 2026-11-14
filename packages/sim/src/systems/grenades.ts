@@ -141,8 +141,8 @@ export function arcLanding(ctx: SimContext, am: AmmoRT, ox: number, oy: number, 
  * The arc for sending `ammoId` from where he stands to (ax, ay), thrown from posture `pose` (a launcher: his own),
  * or null if nothing he can do from here would get it there (a ceiling, a wall, a lintel in the way). Pure.
  */
-function findArc(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, ax: number, ay: number, pose: Posture): { v: number; el: number; az: number; ox: number; oy: number; oz: number } | null {
-  const def = ctx.catalog.ammo[ammoId]!, t = state.transform.req(id);
+function findArc(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, ax: number, ay: number, pose: Posture, from?: { x: number; y: number; z: number }): { v: number; el: number; az: number; ox: number; oy: number; oz: number } | null {
+  const def = ctx.catalog.ammo[ammoId]!, t = from ?? state.transform.req(id);
   const G = ctx.catalog.shooting.grenades;
   const am = ctx.ballistics.ammo[ctx.catalog.ammoIds.indexOf(ammoId)]!;
   const thrown = def.delivery!.method === "thrown";
@@ -195,10 +195,12 @@ function findArc(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
 }
 
 /** Where he throws to and from which posture: (x, y), or as far as he can toward it (package D: rising as needed). */
-function throwPlan(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { tx: number; ty: number; d: number; pose: Posture } {
-  const t = state.transform.req(id);
+function throwPlan(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, from?: { x: number; y: number }, minPose?: Posture): { tx: number; ty: number; d: number; pose: Posture } {
+  const t = from ?? state.transform.req(id);
   let tx = x, ty = y, d = hypot2(x - t.x, y - t.y);
-  const pose = throwPosture(ctx, state, id, d);
+  let pose = throwPosture(ctx, state, id, d);
+  // (M7.5e: a throw through a window or a doorway is made from at least `minPose`: over the sill.)
+  if (minPose !== undefined && POSE_ORDER.indexOf(minPose) > POSE_ORDER.indexOf(pose)) pose = minPose;
   const reach = throwRangeM(ctx, state, id, pose);
   if (d > reach) { tx = t.x + ((x - t.x) * reach) / d; ty = t.y + ((y - t.y) * reach) / d; d = reach; }
   return { tx, ty, d, pose };
@@ -208,14 +210,16 @@ function throwPlan(ctx: SimContext, state: SimState, id: EntityId, x: number, y:
  * Could he get grenade `ammoId` (thrown or launched) to (x, y) from where he is now (package D: a man first looks
  * for a way, instead of finding out with the pin pulled)? Aimed at the point itself, no error; pure.
  */
-export function throwArcExists(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, x: number, y: number): boolean {
-  if (ctx.catalog.ammo[ammoId]?.delivery?.method !== "thrown") return findArc(ctx, state, id, ammoId, x, y, state.soldier.req(id).posture) !== null;
-  const p = throwPlan(ctx, state, id, x, y);
-  return findArc(ctx, state, id, ammoId, p.tx, p.ty, p.pose) !== null;
+export function throwArcExists(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, x: number, y: number, from?: { x: number; y: number; z: number }, minPose?: Posture): boolean {
+  if (ctx.catalog.ammo[ammoId]?.delivery?.method !== "thrown") return findArc(ctx, state, id, ammoId, x, y, state.soldier.req(id).posture, from) !== null;
+  const p = throwPlan(ctx, state, id, x, y, from, minPose);
+  return findArc(ctx, state, id, ammoId, p.tx, p.ty, p.pose, from) !== null;
 }
 
+const POSE_ORDER: readonly Posture[] = ["prone", "crouching", "standing"];
+
 /** Send the grenade. Called when the action completes. */
-function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number): "thrown" | "launched" | "blocked" | null {
+function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string, tx0: number, ty0: number, minPose?: Posture, post = false): "thrown" | "launched" | "blocked" | null {
   const def = ctx.catalog.ammo[ammoId], c = state.container.get(id);
   const s = state.soldier.get(id), t = state.transform.get(id);
   if (!def?.delivery || def.delivery.method === "direct" || !def.explosive || !c || !s || !t) return null;
@@ -224,9 +228,10 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
   const thrown = def.delivery.method === "thrown";
   // He throws from where he is NOW, rising for the throw as far as the distance needs (package D): if the point is
   // out of reach by now, as far as he can toward it.
-  const p = thrown ? throwPlan(ctx, state, id, tx0, ty0) : { tx: tx0, ty: ty0, d: hypot2(tx0 - t.x, ty0 - t.y), pose: s.posture };
+  const p = thrown ? throwPlan(ctx, state, id, tx0, ty0, undefined, minPose) : { tx: tx0, ty: ty0, d: hypot2(tx0 - t.x, ty0 - t.y), pose: s.posture };
   // Where it will really go: an error that grows with distance and shrinks with training.
-  const sd = ((thrown ? G.throwErrorMinM : G.launchErrorMinM) + (thrown ? G.throwErrorFraction : G.launchErrorFraction) * p.d) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5);
+  // (M7.5e: a grenade posted into a room from beside its doorway or window goes in at arm's length: `postErrorM`.)
+  const sd = (thrown && post ? G.postErrorM : (thrown ? G.throwErrorMinM : G.launchErrorMinM) + (thrown ? G.throwErrorFraction : G.launchErrorFraction) * p.d) * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5);
   const ax = p.tx + sd * nextNormal(state.rng, Streams.fire), ay = p.ty + sd * nextNormal(state.rng, Streams.fire);
   t.heading = atan2(ay - t.y, ax - t.x);
   const arc = findArc(ctx, state, id, ammoId, ax, ay, p.pose);
@@ -238,7 +243,7 @@ function release(ctx: SimContext, state: SimState, id: EntityId, ammoId: string,
   return def.delivery.method;
 }
 
-/** Action "grenade": params { ammo, x, y }. Interrupted if the man can no longer use his arms. */
+/** Action "grenade": params { ammo, x, y, pose?, post? (1: posted into a room, M7.5e) }. Interrupted if the man can no longer use his arms. */
 export const grenadeHandler: ActionHandler = {
   check(_ctx, state, actor) {
     const s = state.soldier.get(actor);
@@ -249,7 +254,9 @@ export const grenadeHandler: ActionHandler = {
   },
   complete(ctx, state, actor, a, events) {
     const ammo = String(a.params["ammo"]), x = Number(a.params["x"]), y = Number(a.params["y"]);
-    const method = release(ctx, state, actor, ammo, x, y);
+    // (M7.5e: `pose`, the least posture for the throw: over a window sill.)
+    const pose = a.params["pose"];
+    const method = release(ctx, state, actor, ammo, x, y, pose === "crouching" || pose === "standing" ? pose : undefined, a.params["post"] === 1);
     if (method === "blocked") {
       // He keeps the grenade and says so.
       const ident = state.identity.get(actor);

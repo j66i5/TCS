@@ -251,6 +251,8 @@ export interface ShootingDef {
   grenades: {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
     throwErrorFraction: number; throwErrorMinM: number; throwSeconds: number;
+    /** A grenade posted through a doorway or window from beside it (M7.5e house clearing): its aim error, m (x skill). */
+    postErrorM: number;
     launchErrorFraction: number; launchErrorMinM: number; launchSeconds: number; minSafeDistanceM: number;
     throwAnglesDeg: number[]; throwPowerMargin: number; carrySeconds: number; staggerSeconds: number;
     reactRadiusM: number; runRadiusM: number; reactDelaySeconds: number;
@@ -312,6 +314,14 @@ export interface BehaviourDef {
     coverCandidates: number;
     /** Least time between shots (or bursts) of a man firing into cover short of the point (s): the sustained rate. */
     suppressIntervalS: number;
+    /**
+     * Clearing a house (M7.5e step "clear"): `clearEntryMen` go into each room after the grenade burst (and
+     * `clearAfterBurstS`); the stack waits `clearStackOffM` off the wall from `clearStackAsideM` beside the door, at
+     * most `clearStackWaitS`; a thrower has `clearThrowWaitS` to get to his place and throw; a room takes at most
+     * `clearRoomS`, the whole drill `clearTimeoutS`; it ends below `clearMinMen` able men.
+     */
+    clearEntryMen: number; clearStackOffM: number; clearStackAsideM: number; clearAfterBurstS: number; clearStackWaitS: number;
+    clearThrowWaitS: number; clearRoomS: number; clearTimeoutS: number; clearMinMen: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.

@@ -12,7 +12,7 @@
 import type { DataSet } from "@tcs/data";
 import { approachPoints, siteDefence } from "@tcs/ai";
 import { demoBattle } from "@tcs/scenario";
-import { createSim, detonate, EventSink, exposureAt, heightAt, hypot2, indoorAt, indoorSpots, isAble, isOut, navFor, step, submitOrder, type Order, type Sim } from "@tcs/sim";
+import { createSim, detonate, EventSink, exposureAt, floorAtZ, heightAt, hypot2, indoorAt, indoorSpots, isAble, isOut, navFor, roomAt, step, submitOrder, type Order, type Sim } from "@tcs/sim";
 
 export type HouseDefence = "all in" | "mixed";
 export interface HouseDefendRun {
@@ -304,5 +304,121 @@ export function houseLeaveMarkdown(rows: readonly HouseLeaveRun[]): string {
   }
   const unseen = rows.filter((r) => !r.seenInside).length;
   if (unseen > 0) out.push("", `(${unseen} "enemy" / "flank" runs left out: no man inside knew of the red men within the run.)`);
+  return out.join("\n");
+}
+
+/**
+ * HOUSE LAB, mode `clear` (M7.5e step "clear", plan m7.5e D10): one squad clears a house (an `assault` order with
+ * `building`, the sim's drill "clear"). The same village setting and seeds, three defences:
+ *   - "empty": red clears the two-storey house nearest to it, nobody in it (both sides holding fire): how its
+ *     grenades go (thrown into the room it is clearing, bursting in it), its own losses, the time it takes;
+ *   - "all in": blue holds the two-storey house nearest to it by the player's Occupy and fires at will; red walks
+ *     toward it and at `CLEAR_AT_S` gets the order (the setting of the plan's baseline "clear.mts");
+ *   - "mixed": the same with the AI's mixed defence around that house.
+ * The table: runs, house taken (a red man inside and no able blue man) at the end, men down per side, grenades red
+ * threw into the house (and the share that burst in the room it was clearing), rooms entered / the house's rooms,
+ * the first red man inside (s after the order) and the drill's end ("clear": all rooms entered).
+ */
+export type HouseClearDefence = "empty" | "all in" | "mixed";
+export interface HouseClearRun {
+  seed: number; defence: HouseClearDefence; taken: boolean; redDown: number; blueDown: number;
+  grenades: number; inRoom: number; blocked: number; rooms: number; roomsDone: number; firstInS: number; endS: number; cleared: boolean; ownWounds: number;
+}
+
+const CLEAR_SECONDS = 600, CLEAR_AT_S = 150;
+
+export function houseClearRun(data: DataSet, seed: number, defence: HouseClearDefence): HouseClearRun {
+  const input = demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: CLEAR_SECONDS + 10, mapKind: "village", frontM: 300 });
+  const centre = (side: string) => {
+    const f = input.forces.find((x) => x.side === side)!;
+    return { x: f.placements.reduce((a, p) => a + p.x, 0) / f.placements.length, y: f.placements.reduce((a, p) => a + p.y, 0) / f.placements.length };
+  };
+  const b = centre("blue"), r = centre("red");
+  const near = defence === "empty" ? r : b;
+  let bi = -1, bd = Infinity, hx = 0, hy = 0;
+  input.map.buildings.forEach((bl, i) => {
+    if (!bl.interior || bl.storeys < 2) return;
+    const n = bl.footprint.length / 2;
+    let cx = 0, cy = 0;
+    for (let k = 0; k < n; k++) { cx += bl.footprint[k * 2]! / n; cy += bl.footprint[k * 2 + 1]! / n; }
+    const d = hypot2(cx - near.x, cy - near.y);
+    if (d < bd) { bd = d; bi = i; hx = cx; hy = cy; }
+  });
+  const house = input.map.buildings[bi]!;
+  const sim: Sim = createSim(input);
+  const st = sim.state, ctx = sim.ctx;
+  const tops = (side: string) => [...st.unit.entries()].filter(([, u]) => u.side === side && u.parent === null).map(([id]) => id);
+  const men = (side: string) => [...st.identity.entries()].filter(([, i]) => i.side === side).map(([id]) => id).sort((x, y) => x - y);
+  const blue = men("blue"), red = men("red");
+  const facing = Math.atan2(r.y - hy, r.x - hx);
+  const clamp = (v: number, m: number) => Math.min(Math.max(v, 2), m - 2);
+  const at = defence === "empty" ? 0 : CLEAR_AT_S * 60;
+  if (defence === "empty") for (const side of ["blue", "red"]) for (const id of tops(side)) submitOrder(sim, { tick: 0, issuer: side, target: id, kind: "rules", fire: "hold" });
+  else {
+    for (const id of tops("blue")) submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "rules", fire: "free" });
+    if (defence === "all in") for (const id of tops("blue")) submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "occupy", building: house.id, facing });
+    else for (const o of mixedOrders(sim, blue, hx, hy, facing)) submitOrder(sim, o);
+    const dx = r.x - hx, dy = r.y - hy, dl = hypot2(dx, dy) || 1;
+    for (const id of tops("red")) {
+      submitOrder(sim, { tick: 0, issuer: "red", target: id, kind: "rules", fire: "free" });
+      submitOrder(sim, { tick: 0, issuer: "red", target: id, kind: "move", waypoints: [{ x: clamp(hx + (dx / dl) * 60, input.map.widthM), y: clamp(hy + (dy / dl) * 60, input.map.heightM), mode: "walk" }] });
+    }
+  }
+  const run: HouseClearRun = { seed, defence, taken: false, redDown: 0, blueDown: 0, grenades: 0, inRoom: 0, blocked: 0, rooms: house.interior?.rooms.length ?? 0, roomsDone: 0, firstInS: -1, endS: -1, cleared: false, ownWounds: 0 };
+  const redTop = tops("red")[0]!;
+  /** Each red thrower's target room at his throw (cleared by the burst of his grenade). */
+  const pending = new Map<number, number>();
+  const roomOfPoint = (x: number, y: number, z: number) => house.interior ? roomAt(house, floorAtZ(house, z), x, y) : -1;
+  let started = false;
+  for (let k = 0; k < CLEAR_SECONDS * 60 && !st.ended; k++) {
+    if (k === at) submitOrder(sim, { tick: k, issuer: "red", target: redTop, kind: "assault", x: hx, y: hy, building: house.id });
+    for (const e of step(sim)) {
+      if (e.kind === "grenade.launched" && st.identity.get(e.soldier)?.side === "red" && indoorAt(ctx, e.x, e.y) === bi) {
+        run.grenades++;
+        const d = st.unit.get(redTop)?.drill;
+        pending.set(e.soldier, d?.kind === "clear" && d.rooms && d.room !== undefined ? d.rooms[d.room]! : -1);
+      } else if (e.kind === "explosion" && pending.has(e.owner)) {
+        // ground: ok (the burst's height above the ground, for its floor)
+        const room = indoorAt(ctx, e.x, e.y) === bi ? roomOfPoint(e.x, e.y, e.z - heightAt(ctx.map, e.x, e.y) - 0.05) : -1;
+        if (room >= 0 && room === pending.get(e.owner)) run.inRoom++;
+        pending.delete(e.owner);
+      } else if (e.kind === "radio" && e.side === "red" && e.key === "radio.grenadeBlocked") run.blocked++;
+      else if (e.kind === "radio" && e.side === "red" && e.key === "radio.houseCleared") run.cleared = true;
+      else if (e.kind === "wound" && defence === "empty" && st.identity.get(e.soldier)?.side === "red") run.ownWounds++;
+    }
+    const d = st.unit.get(redTop)?.drill;
+    if (d?.kind === "clear") { started = true; run.roomsDone = Math.max(run.roomsDone, d.room ?? 0); run.rooms = d.rooms?.length ?? run.rooms; }
+    else if (started && run.endS < 0) run.endS = (k - at) / 60;
+    if (run.firstInS < 0 && k % 30 === 0 && red.some((m) => { const t = st.transform.req(m); return isAble(st.soldier.req(m)) && indoorAt(ctx, t.x, t.y) === bi; })) run.firstInS = (k - at) / 60;
+  }
+  if (run.cleared) run.roomsDone = run.rooms;
+  const inside = (ids: number[]) => ids.filter((m) => { const t = st.transform.req(m); return isAble(st.soldier.req(m)) && indoorAt(ctx, t.x, t.y) === bi; }).length;
+  run.taken = inside(red) > 0 && inside(blue) === 0;
+  run.redDown = red.filter((m) => isOut(st.soldier.req(m))).length;
+  run.blueDown = blue.filter((m) => isOut(st.soldier.req(m))).length;
+  return run;
+}
+
+export function houseClearLab(data: DataSet, trials = 12): HouseClearRun[] {
+  const rows: HouseClearRun[] = [];
+  for (const d of ["empty", "all in", "mixed"] as const) for (let seed = 1; seed <= trials; seed++) rows.push(houseClearRun(data, seed, d));
+  return rows;
+}
+
+export function houseClearMarkdown(rows: readonly HouseClearRun[]): string {
+  const sum = (rs: readonly HouseClearRun[], f: (r: HouseClearRun) => number) => rs.reduce((a, r) => a + f(r), 0);
+  const m = (rs: readonly HouseClearRun[], f: (r: HouseClearRun) => number) => (sum(rs, f) / Math.max(1, rs.length)).toFixed(2);
+  const pct = (a: number, b: number) => (b > 0 ? `${Math.round((100 * a) / b)} %` : "–");
+  const med = (xs: number[]) => { const s = xs.filter((x) => x >= 0).sort((a, c) => a - c); return s.length === 0 ? "–" : `${s[Math.floor((s.length - 1) / 2)]!.toFixed(0)} s (${s.length})`; };
+  const out = [
+    `Mode clear: one red squad clears a two-storey house (assault with a building: stack at a door, a grenade into each room, in room by room); ${CLEAR_SECONDS} s per run. empty: the house nearest red, nobody in it, the order at 0 s; all in / mixed: blue holds the house nearest it (Occupy / the AI's mixed defence) and fires at will, red walks toward it and gets the order at ${CLEAR_AT_S} s.`,
+    "",
+    "| defence | runs | taken | house clear | red down | blue down | grenades into it / run | burst in the room being cleared | kept (no throw) / run | rooms entered | first red man in (median, runs) | red wounds (empty: own grenades) / run |",
+    "|---|---:|---:|---:|---:|---:|---:|---|---:|---|---|---:|",
+  ];
+  for (const d of ["empty", "all in", "mixed"] as const) {
+    const rs = rows.filter((r) => r.defence === d);
+    out.push(`| ${d} | ${rs.length} | ${sum(rs, (r) => (r.taken ? 1 : 0))} | ${sum(rs, (r) => (r.cleared ? 1 : 0))} | ${m(rs, (r) => r.redDown)} | ${m(rs, (r) => r.blueDown)} | ${m(rs, (r) => r.grenades)} | ${pct(sum(rs, (r) => r.inRoom), sum(rs, (r) => r.grenades))} | ${m(rs, (r) => r.blocked)} | ${sum(rs, (r) => r.roomsDone)} / ${sum(rs, (r) => r.rooms)} | ${med(rs.map((r) => r.firstInS))} | ${d === "empty" ? m(rs, (r) => r.ownWounds) : "–"} |`);
+  }
   return out.join("\n");
 }

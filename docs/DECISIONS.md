@@ -3543,3 +3543,91 @@ and load mid-leave), `tools/test/house-resite.test.ts` (commander re-sites once 
 `tools/test/lab-house.test.ts` (leave mode). `npm run batch` "buildings" block: houses left by reason.
 Owner questions (for step "polish"): should the player's squads leave on their own (as built: yes, switchable only in
 data)? Should an AI squad that left a house go back into another house when re-sited (as built: no, outdoors)?
+
+## 2026-11-14 — AI uses buildings, step "clear": a squad clears a house room by room, the AI attacker takes the houses on its way (plan m7.5e, step 3)
+
+Owner answer 2026-11-14 (binding): AI attackers clear the houses on their way and hold the ones they take; clearing
+is "suppress the windows, get close, throw a grenade through a window or door, then enter room by room". Before, the
+AI attacker had no house drill (the generic assault spread its men round the objective outdoors) and threw no
+grenade into a house in the clear.mts setting. Values: soldier/drill values in `behaviour.json` `drills.clear*` and
+`shooting.json` `grenades.postErrorM` (game values, **low**); commander values in `COMMANDER.clear` (the AI exception).
+- **D5 Clearing is a drill (sim, `systems/clear.ts`).** `assault` gets an optional `building` (a building id with an
+  interior and a way in; else rejected `invalid-params`): drill kind `"clear"` (added to `Drill.kind`; its own fields
+  `building, stage, stageTick, startTick, entry, rooms, room, thrower, throwAt, ammo, had, tried, aimAt, aside,
+  burstTick, entryMen` are optional plain data; no schema bump). The halves bound up as in any assault onto the point
+  outside the entry door; the covering half fires at the enemy it knows in the house, else (new) at the window of
+  that house facing it that it has a line into (`windowAim`, chest height on its floor); within the last rush they
+  **stack** beside the door (`clearStackOffM` 1 m off the wall, from `clearStackAsideM` 1.5 m beside the opening on
+  both sides, never in front; at most `clearStackWaitS` 20 s); **throw**; **wait** for the burst + `clearAfterBurstS`
+  1 s; **enter** (`clearEntryMen` 3, the nearest, run to `indoorSpots` of that room firing as they go; the others to the
+  rooms already cleared); next room (each at most `clearRoomS` 20 s; an enemy seen in it in the last 2 s is fought
+  first). Done when every room was entered (radio `radio.houseCleared`; `radio.clearing` at the stack), after
+  `clearTimeoutS` 240 s from the stack, or below `clearMinMen` 3. The men stay where they are; what holds the house is
+  the commander's (D9). "In an assault" (surrender rules, reserve fire) includes a clearing. The entry door: the one in
+  front of the fewest windows on other walls (seen least from inside), then the nearest.
+- **D6 Room order:** breadth first over the interior graph from the entry room; the ground floor first, nearer rooms
+  first, a room with an enemy known in it (60 s) first among equals, then by index (`roomOrder`, exported).
+- **D7 Grenade in (deviations).** Throw places: from outside beside the door, beside each ground-floor window of the
+  room, in front of the door; inside **from the doorway** of a room already cleared on the same floor, then a step
+  aside out of the line through it (plan: beside the opening; from beside an inner doorway no arc got through: the
+  frame, measured on the test house). **No throw up or down the stairs** (the arc check ignores floors: a grenade
+  "thrown" up a stairwell came down in the ground-floor room, beside the thrower): the men go up under their own
+  fire. **Aim:** the room's corner farthest from the thrower (0.9 m in), else its middle (aimed at the middle, the
+  burst was 1.7-2.4 m from the thrower with nothing solid between: inner walls do not shield blast; with the far
+  corner 4-5 m). **Posted grenade:** the action takes optional params `pose` (the least posture, over a sill) and
+  `post` (1: aim error `postErrorM` 0.2 m x skill instead of 0.6 m + 7 %; with the plain error a third of the throws
+  hit the frame and fell back beside the thrower). **Clear of the burst:** before the throw the unit's other men
+  within 5 m of the aim point with nothing solid between move to places in the rooms already cleared out of its way.
+  `throwArcExists` takes an optional `from` place and least posture (pure).
+- **D8 Commander picks houses** (`ai/src/commander.ts`, assault and second phase): when an assaulting squad is sent in
+  again, it first gets `assault {building}` for the next house: houses within `ringSlackM` 20 m of the objective's
+  ring or within `corridorM` 25 m of its line to the objective (ahead of it), cleared if an enemy was known in it
+  within `enemySeconds` 60 s (`Memory.houseSeen`), or it lies inside the main objective's ring while an enemy is known
+  in that ring (plan: any house in the ring; with every house in the ring cleared, the commander test with the defence
+  gone took the main objective at 1063 s and not the second by 1500 s: three squads cleared empty houses), nearest
+  along the way first, one squad per house, a failed one left `retrySeconds` 120 s. Its own grenade orders skip a
+  squad that is clearing.
+- **D9 Hold what is taken:** a squad out of its clearing with able men in the house took it (`Memory.taken`); in the
+  main ring (+20 m) it holds it: the defence's siting around the house (`siteDefence`, windows included, 30 m),
+  facing the next objective (else away from where it came from), `Memory.held`; it is not sent on while another
+  squad can assault, and stops holding when it leaves the house (step "leave"). New `Memory` fields are plain data
+  (test).
+
+Measured (same seeds before = ffcc9ae, after = this commit).
+**clear.mts** (village-occupy, red ordered to assault the house at 150 s; the plan's setting), 32 seeds (first 12 in
+brackets): house taken 5 -> 6 / 32 (2 -> 2 / 12; target >= 5/12 **not met**); attackers down 4.81 -> 5.28 (4.50 -> 5.17;
+target <= 4.0 **not met**); exchange 2.52 -> 2.68 (2.35 -> 2.58; target <= 2.5 not met); grenades into the house per
+attempt 0 -> 3.1 (**met**, target >= 2); stacks reached 8 / 32, house clear in 4 of them; first man in never in more
+than half the runs (median target **not met**). The approach decides it: at 150 s red is still 200-320 m out, and
+in 24 of 32 runs the 1:1 firefight across that ground wins or loses it before the door (the same in the baseline);
+where red reached the door it took the house 6 of 8 times, losing 3.1 men against 2.9 for the old rush.
+**House lab** `npm run lab -- house clear 12` (new): empty house: 12 / 12 cleared, every room entered, 4.1 grenades
+per house, **100 %** burst in the room being cleared (target >= 70 %), 0.17 men down (own grenades: 2.4 light wounds
+per clearing); all in / mixed defence (order at 150 s): taken 2 / 12 and 2 / 12.
+**Batches** (`m75e/clr.mts`; platoon and platoon-ru 20 x 1200 s, platoon-vehicles 15):
+
+| | platoon (village) | platoon-ru (farmland) | platoon-vehicles (village) |
+|---|---|---|---|
+| Attacker wins | 5 -> 3 / 20 | 12 -> 10 / 20 | 6 -> 7 / 15 |
+| Clearings started / houses cleared per battle | 0 -> 1.30 / 0.65 | 0 -> 0.25 / 0.15 | 0 -> 1.13 / 0.47 |
+| Attacker man-seconds indoors | 0.5 -> 0.7 % (target >= 5 **not met**) | 0.1 -> 0.1 % | 2.4 -> 2.6 % |
+| Attacker grenades thrown into houses per battle | 0.10 -> 1.20 (target >= 4 **not met**) | 0.25 -> 0.30 | 0.13 -> 1.80 |
+| Wins with an attacker in a house of the main ring at the end | 2 / 5 -> 1 / 3 (target >= 80 % **not met**) | 2 / 12 -> 3 / 10 | 1 / 6 -> 0 / 7 |
+| Defenders down / attackers down | 11.3 / 19.5 -> 11.2 / 19.9 | 14.9 / 14.6 -> 14.3 / 14.4 | 21.1 / 18.9 -> 21.0 / 19.4 |
+
+Seven results flipped (five wins lost, two gained); six of them had one or two clearings, farmland s6 none: the
+clearings cost the attack some tempo, but the margins are within the noise of 15-20 seeds. The clearings start late (the assault phase begins 600-900 s in) and a clear takes
+60-150 s from the stack, so attackers spend little time indoors. **Balance (reported, not re-tuned; owner accepted a
+harder village):** village 5 -> 3 / 20 (above the plan's 1/20 flag), farmland 12 -> 10 / 20, mounted 6 -> 7 / 15.
+Goldens: `npm run golden:update` changed all seven (catalog fingerprint: `behaviour.json`, `shooting.json`,
+`strings.en.json`; first difference at tick 600); `golden/no-interiors` untouched. Tests: `sim/test/clear.test.ts`
+(order and rejection, room order, stack beside the door, a grenade burst in each ground-floor room before anyone goes
+in, every room entered, no grenades still clears, below `clearMinMen` ends, save/load hash mid-clear),
+`tools/test/commander-clear.test.ts` (clear orders on houses near the objective, one squad per house, a held squad not
+sent on, memory plain data, deterministic), `tools/test/lab-house.test.ts` (clear mode); `commander.test.ts`'s assault-tempo check counts a clearing drill as
+an assault drill (its fatigue at the start). The fixture faction is not
+run through a clearing (test catalog factions are faction-free).
+Owner questions (for step "polish"): a Clear button for the player (the order field exists)? Clear every house in
+the ring or only those with a known enemy (as built: every house in the main ring while it is defended)? Should a clearing squad's
+approach from far out (clear.mts: 300 m of bounds) be left to the assault, or should the commander only order it
+from close in (as it does)?

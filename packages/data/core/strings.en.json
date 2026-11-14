@@ -127,6 +127,8 @@
   "radio.houseLeftTrap": "{callsign}: the house is a trap, getting out!",
   "radio.houseLeftEnemy": "{callsign}: enemy in the house, getting out!",
   "radio.houseLeftFlank": "{callsign}: cut off in the house, pulling out!",
+  "radio.clearing": "{callsign}: at the door, clearing the house.",
+  "radio.houseCleared": "{callsign}: house clear.",
   "order.move": "Move",
   "order.assault": "Assault",
   "order.withdraw": "Withdraw",

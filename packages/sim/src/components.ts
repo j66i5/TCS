@@ -279,7 +279,7 @@ export interface Unit {
  * rout: the unit has broken and runs to (x, y), where it rallies.
  */
 export interface Drill {
-  kind: "assault" | "withdraw" | "rout";
+  kind: "assault" | "withdraw" | "rout" | "clear";
   x: number;
   y: number;
   groups: EntityId[][];
@@ -294,7 +294,31 @@ export interface Drill {
   waitFire?: true;
   /** Covering men who moved aside this bound for a line of fire (overnight pick "covering-fire"). */
   stepped?: EntityId[];
+  /** clear (M7.5e): the building's id; (x, y) is the point outside its entry door where the unit stacks up. */
+  building?: number;
+  /** clear: the stage after the bounds (absent while bounding): stacking beside the door, a man getting to his place
+   *  and throwing, waiting for the burst, men going into the room. */
+  stage?: ClearStage;
+  /** clear: since this tick in the stage; since this tick past the bounds (for its time limit). */
+  stageTick?: number; startTick?: number;
+  /** clear: the entry door (index into the building's interior graph nodes). */
+  entry?: number;
+  /** clear: the rooms in the order they are cleared (room indices) and how many are done. */
+  rooms?: number[]; room?: number;
+  /** clear: the man throwing into the next room, his place (x, y, height), the grenade, how many he had, and the
+   *  throw places tried for this room. */
+  thrower?: EntityId; throwAt?: [number, number, number]; ammo?: string; had?: number; tried?: number;
+  /** clear: the point in the room the grenade is aimed at; where the thrower steps aside to after the throw (thrown
+   *  from in line with the opening). */
+  aimAt?: [number, number]; aside?: [number, number, number];
+  /** clear: the tick the grenade bursts (and the men go in after `clearAfterBurstS`). */
+  burstTick?: number;
+  /** clear: the men going into the room now. */
+  entryMen?: EntityId[];
 }
+
+/** The stages of a house clearing after its bounds (M7.5e). */
+export type ClearStage = "stack" | "throw" | "wait" | "enter";
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
 export interface Action {

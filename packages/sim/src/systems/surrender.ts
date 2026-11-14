@@ -64,7 +64,7 @@ function attacking(state: SimState, id: EntityId): boolean {
   const ident = state.identity.req(id);
   if (state.sides.find((x) => x.id === ident.side)?.posture === "attack") return true;
   for (let u: EntityId | null = ident.unit; u !== null; u = state.unit.get(u)?.parent ?? null) {
-    if (state.unit.get(u)?.drill?.kind === "assault") return true;
+    { const k = state.unit.get(u)?.drill?.kind; if (k === "assault" || k === "clear") return true; }
   }
   return false;
 }

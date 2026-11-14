@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|house [defend|leave] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -16,7 +16,7 @@ import { rangeLab, rangeLabMarkdown } from "../labs/range";
 import { armourLab, armourLabMarkdown } from "../labs/armour";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
-import { houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
+import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
 import { loadData } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
@@ -37,7 +37,8 @@ const LABS: Record<string, () => string> = {
   house: () => {
     const mode = process.argv[3] ?? "defend";
     if (mode === "leave") return `# House lab\n\n${houseLeaveMarkdown(houseLeaveLab(loadData(), Number(process.argv[4] ?? 20)))}\n`;
-    if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave)`);
+    if (mode === "clear") return `# House lab\n\n${houseClearMarkdown(houseClearLab(loadData(), Number(process.argv[4] ?? 12)))}\n`;
+    if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,

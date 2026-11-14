@@ -1,7 +1,8 @@
 /** House lab (M7.5e): mode defend (the AI's mixed defence spreads the squad: one burst cannot catch them all) and
- *  mode leave (men leave a house that has become a trap, or that the enemy is inside). */
+ *  mode leave (men leave a house that has become a trap, or that the enemy is inside); mode clear (a squad clears a
+ *  house room by room, its grenades bursting in the room it clears). */
 import { describe, expect, it } from "vitest";
-import { houseDefendLab, houseDefendMarkdown, houseLeaveMarkdown, houseLeaveRun } from "../src/labs/house";
+import { houseClearMarkdown, houseClearRun, houseDefendLab, houseDefendMarkdown, houseLeaveMarkdown, houseLeaveRun } from "../src/labs/house";
 import { loadData } from "../src/scenarios";
 
 const rows = houseDefendLab(loadData(), 3);
@@ -29,5 +30,21 @@ describe("house lab (leave)", () => {
     expect(off.outInTime).toBe(0);
     expect(enemy.seenInside).toBe(true);
     expect(enemy.outInTime).toBe(enemy.inside);
+  });
+});
+
+describe("house lab (clear)", () => {
+  const data = loadData();
+  const runs = [houseClearRun(data, 1, "empty"), houseClearRun(data, 2, "empty")];
+  it("prints the table", () => { console.log(houseClearMarkdown(runs)); });
+  it("an empty house is cleared: every room entered, a grenade into most rooms, bursting in the room being cleared", () => {
+    for (const r of runs) {
+      expect(r.cleared).toBe(true);
+      expect(r.taken).toBe(true);
+      expect(r.roomsDone).toBe(r.rooms);
+      expect(r.grenades).toBeGreaterThanOrEqual(2);
+      expect(r.inRoom / r.grenades).toBeGreaterThanOrEqual(0.7);
+      expect(r.redDown).toBeLessThanOrEqual(1);
+    }
   });
 });

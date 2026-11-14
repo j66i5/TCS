@@ -152,7 +152,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "smoke", "support"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"];
 type Modes = Readonly<Record<string, { class: string; speedFraction?: number }>>;
 
 /** The greyed bar shown while nothing is selected (M7.5a, owner answer 6). */
@@ -196,7 +196,8 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   if (cap.kind === "man") {
     return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
-  const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire"];
+  // (Slice s0-clear: Clear a house — a squad's drill, never a single man's.)
+  const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire"];
   if (cap.hasLauncherRounds) m.push("antitank");
   if (grenades > 0) m.push("grenade");
   if (grenades > 1) m.push("grenades");

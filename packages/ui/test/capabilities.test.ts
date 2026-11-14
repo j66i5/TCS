@@ -35,7 +35,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(cap.canDismount).toBe(true);
     expect(cap.canMount).toBe(false);
     const o = ordersFor(cap, modes);
-    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "smoke", "support"]);
+    expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"]);
     expect(o.dismount && !o.mount && o.posture && o.rules).toBe(true);
     expect(boardingOf(sim.state, cat, uid)).toEqual({ mount: false, dismount: true });
   });
@@ -52,7 +52,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(o.modes).not.toContain("grenade");
     expect(o.modes).not.toContain("grenades");
     for (const sp of s2.state.support) { const c = s2.state.container.get(sp.battery); if (c) c.stacks = []; }
-    expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toEqual(["move", "assault", "withdraw", "occupy", "fire"]);
+    expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire"]);
   });
 
   it("a launcher without rounds does not count (the simulation's own test)", () => {

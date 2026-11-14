@@ -3770,6 +3770,94 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
 
+## 2026-11-14 — Owner answers: M7.5e follow-ups, round A and medical round 1
+- Own squads leave houses on their own as built. Add a **Clear** button (Move tray, beside Occupy). The AI attacker
+  also clears houses with a known enemy **on its approach**, not only in the assault. Overnight and M7.5e values:
+  accepted as built.
+- Rushes: 3-5 s bounds of 15-20 m, in the infantry tactics pass after medical. Russian mounted attack: wait for
+  fire support (M8/M9). Hand smoke grenades: a small step inside medical. Balance batches: 1200 s routinely,
+  2400 s at milestone ends.
+- Medical people: per national practice (DE: one Einsatzersthelfer B per Gruppe plus a Sanitäter in the Zug HQ; RU:
+  one rifleman-medic per platoon; company medics, bearers and ambulances from off the map). Skills per national
+  training. Russian rubber tourniquet and haemostatic powder: about 1.4x time, 0.8x success (an item property).
+  Realistic ambulance delays; those still waiting at the end are settled by an end-of-battle roll.
+- Term: **Verwundetennest** (platoon level); company level Verwundetensammelpunkt. Air evacuation later.
+- Roadmap: tanks, wheeled carriers, Jäger/BTR platoons after M9, before logistics; after M9: logistics (minimum,
+  after measuring ammunition use), then persistent company, then campaign.
+
+## 2026-11-14 — Owner answers: medical rounds 2 and 3 (asked up front)
+- Helpers in contact: the first responder plus at most one comrade per casualty. Triage: a tag on the map and on the
+  card. Wounded list: a sidebar tab. Enemy casualties: only what your men see.
+- Bearers: riflemen tasked by the platoon leader. Under fire: take cover with the casualty, fire only in
+  self-defence, go on when it eases.
+- Ambulances: new Boxer ambulance and BMM vehicles (one data step). Delay 10-15 min plus drive time.
+- Combat vehicles take wounded when going back or idle; the player can order any vehicle. Wounded left at the end:
+  the side holding the ground evacuates; wounded on enemy-held ground are captured and treated.
+- Player orders fire at a recognised protected target: **refused** (his men will not fire). Incidental hits on
+  protected people: a separate list in the after-action review.
+- Recovery for the campaign (not asked, plan default): days from wound severity and treatment.
+
+## 2026-11-14 — M7.5e follow-ups: a Clear button, and the AI attacker clears on its approach (slice s0-clear)
+Owner answers (binding, "M7.5e follow-ups, round A"): a **Clear** button for the player in the Move tray beside
+Occupy; the AI attacker also clears houses with a known enemy **on its approach**, not only in the assault.
+Decided here (software and game values, **low**, the same for every side):
+- **Clear button (ui/app):** order mode `"clear"` in the Move group (`hud.ts`, own icon, `order.clear`, hint
+  `plan.tapClear`); offered to squads only (a single man gets no Clear: the drill needs `clearMinMen`). Tap a house,
+  or drag from the unit onto a house (the assault ghost follows the pointer), sends the existing drill
+  `assault {x, y, building}` (x, y the footprint's middle). A house without a way in (`clearable` false) or a tap off
+  any house sends nothing and puts `plan.cannotClear` / `plan.tapClear` in the radio log. A move dragged onto a
+  house still offers Occupy (unchanged). The debug hook `clearAt` now goes through the same code; the help text
+  (`app.hint`) names it. Screenshots: `--scene buildings` shots 4a (Move tray with Clear) and 4b (Clear on).
+- **On the approach (ai, `COMMANDER.clear.approach*`):** while advancing to the support line, and while an
+  assaulting squad closes in on the objective, a squad first clears a house when (1) an enemy its side placed within
+  `errM` was in it within `enemySeconds`, (2) the house is within `approachM` 150 m of it, ahead of it and short of
+  where it is going, within `approachCorridorM` 60 m of that line, and (3) the enemy **overlooks** the way: a sight
+  line from where he was placed, at window height (`eyeM` 1.5 m + `storeyM` 3 m per floor) of any floor, to the
+  squad's middle or to its destination (`looks`). Advancing, a house of the objective it goes for is left to the
+  assault; closing in, its line runs on to the objective, so a house of the objective's ring on its way counts
+  (this is what "clearing earlier" means in practice: houses on the way in are taken from up to 150 m instead of
+  only once the squad has closed to 60 m). At most `approachMax` 1 such clearing at a time; only a squad with
+  `approachMinMen` 4 able men, not riding, not broken, not holding a house. The usual review (taken / failed /
+  retry) applies (`reviewClearings` now also runs in the advance). A base-of-fire squad in a clear drill gets no
+  per-man fire orders (they would pull its men out of the drill). Where the enemy was placed in each house is derived
+  on each look (`houseSpots`, not saved).
+- **Measured** (scratch script counting drill starts, `radio.houseCleared` and fragment wounds within 20 m and 1/3 s of an own non-mortar burst; 20 seeds x 1200 s, HEAD a6a834a -> this commit, same seeds; attacker side):
+
+| | platoon (village) | platoon-vehicles (village, mounted) |
+|---|---|---|
+| Attacker wins | 5 -> 5 / 20 | 5 -> 5 / 20 |
+| Clearings started (20 battles) | 46 -> 47 | 27 -> 27 |
+| Houses cleared (radio) | 8 -> 8 | 2 -> 2 |
+| Grenades into houses | 32 -> 32 | 16 -> 16 |
+| Own men hit by own grenades (of them by clearing grenades) | 31 (15) -> 31 (15) | 20 (3) -> 20 (3) |
+| Own men put down by own grenades (by clearing grenades) | 5 (5) -> 5 (5) | 10 (1) -> 10 (1) |
+| Attackers down / defenders down per battle | 19.9 / 11.2 -> 19.6 / 11.2 | 20.4 / 20.2 -> 20.4 / 20.2 |
+
+  Four village battles changed (seeds 3, 4, 18, 19: clearings start 5-30 s earlier, one new at 597 s), no mounted
+  one. **The rule rarely fires in these battles:** the defence holds the objectives' rings, so an enemy in a house
+  on the way in is almost always a house of the objective (taken by the assault) or of the second objective, which
+  lies 140-180 m to the side of the base of fire, not on any squad's way (probe over 8 battles). A first version that
+  left out the objective's ring while closing in changed nothing in 40 battles. Not re-tuned. Test:
+  `tools/test/commander-clear.test.ts` ("on the approach": an enemy put at a window of a house on a squad's way and
+  known to its men brings one clear order, the squad not sent on in the same look; none without the enemy).
+  `ui/test/capabilities.test.ts`: squads get Clear, single men do not. Goldens unchanged (`golden:update`: all eight
+  unchanged; `golden/no-interiors` untouched). Perf: commander work every 5 s, not per tick per man; `npm run
+  test:perf` alone passed (the parked-hulls case failed once inside `npm run check` at 1.29x and passed alone, the
+  known noise).
+## 2026-11-14 — Fog of war: enemy men in sight are drawn as figures (owner request)
+
+The owner asked that enemy soldiers his men can see be drawn like his own. Render/app only, no sim change:
+`render/src/fog.ts` `enemyMenInSight(known)` (pure, tested) picks the enemy men whose contact is "seen" within
+`IN_SIGHT_S` = 2 s (the existing solid-diamond / solid-hull test, now shared as `inSightNow`); the renderer draws them
+in the soldier loop exactly as own men (pixel figure with posture, facing, weapon, firing frame, wound and casualty
+states, photo extras; dots at the dot zoom) in the enemy colour, and drops their diamond. Decided without the owner:
+no callsign label, no pinned / panicked / shaken rings and no posture-change ring on enemy men (state of mind is not
+seen); at the symbol zoom they stay solid diamonds (an enemy unit symbol would place unseen men); their muzzle
+flashes and hit puffs show while they are in sight (a flash of a hidden man stays hidden). Heard, reported and lost
+contacts, pins and enemy vehicles unchanged. A killed man drops out of sight at once in the sim, so a dead enemy is
+not drawn as a corpse (left as is: a sim rule). Debug hook `__tcs.enemyInSight()`; screenshots `--scene sight`.
+No golden change (render only).
+
 ## 2026-11-14 — M10.6-data: wheeled ambulance hulls, Boxer ambulance (DE) and BMM (RU) (roadmap-detail slice 12, parallel session)
 Owner answers used (BINDING, medical rounds 2 and 3): new Boxer ambulance and BMM vehicles in one data step. No
 ambulance behaviour yet (slice 13, M10.6a, on the medical main line). Software decisions, made without the owner:

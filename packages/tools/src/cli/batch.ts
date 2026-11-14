@@ -50,7 +50,7 @@ interface Row {
    *  breathing; looked at once a second, with care on or off) and of them died of wounds before the end (preventable
    *  deaths: no new wound in the 30 s before death) or were killed by a new wound; triage tags by training and of
    *  them wrong; drags to cover started and finished. */
-  m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number }>;
+  m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -80,8 +80,8 @@ for (let i = 0; i < runs; i++) {
   const needSince = new Map<number, number>(); // casualty -> tick he first needed care
   const firstCared = new Set<number>();
   const m103b: Row["m103b"] = {
-    blue: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0 },
-    red: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0 },
+    blue: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
+    red: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
   };
   const threatened = new Set<number>(), died = new Set<number>();
   const r = runBattle(input, {
@@ -177,6 +177,12 @@ for (let i = 0; i < runs; i++) {
           if (k && e.phase === "done") k.carriedM += e.distanceM;
           continue;
         }
+        // M10.4b: casualties lifted into and carried out of vehicles (the lead's action completes).
+        if (e.kind === "action.completed" && (e.action === "loadCasualty" || e.action === "unloadCasualty") && simRef) {
+          const k = m103b[sideOfSoldier(simRef, e.actor) ?? ""];
+          if (k) { if (e.action === "loadCasualty") k.loaded++; else k.unloaded++; }
+          continue;
+        }
         if (e.kind === "medical.carer" && e.assigned && simRef) {
           const k = carers[sideOfSoldier(simRef, e.casualty) ?? ""];
           if (k) { if (e.responder) k.responders++; else k.comrades++; }
@@ -264,7 +270,7 @@ const md = [
     const lt = sum((r) => r.m103b[s]?.lifeThreat ?? 0), pd = sum((r) => r.m103b[s]?.preventable ?? 0);
     const skills = ["buddy", "firstResponder", "medic"].map((k) => { const n = sum((r) => r.m103b[s]?.tags[k] ?? 0), w = sum((r) => r.m103b[s]?.wrong[k] ?? 0); return `${k} ${w}/${n}${n > 0 ? ` (${Math.round((100 * w) / n)} %)` : ""}`; }).join(", ");
     const ka = sum((r) => r.m103b[s]?.killedAfter ?? 0);
-    return `${s} life-threatening needs ${lt}, died of wounds before the end (preventable) ${pd} (${lt > 0 ? Math.round((100 * pd) / lt) : 0} %), ${(pd / Math.max(1, rows.length)).toFixed(2)} per battle, killed by a new wound ${ka}; wrong tags ${skills}; drags ${sum((r) => r.m103b[s]?.drags ?? 0)} (finished ${sum((r) => r.m103b[s]?.dragsDone ?? 0)}); carrying parties (M10.4a) ${(() => { const by: Record<string, number> = {}; for (const r of rows) for (const [m, n] of Object.entries(r.m103b[s]?.carries ?? {})) by[m] = (by[m] ?? 0) + n; const e = Object.entries(by).sort(); return e.length > 0 ? e.map(([m, n]) => `${m} ${n}`).join(", ") : "none"; })()}, ${sum((r) => r.m103b[s]?.carriedM ?? 0)} m carried, took cover ${sum((r) => r.m103b[s]?.holds ?? 0)}`;
+    return `${s} life-threatening needs ${lt}, died of wounds before the end (preventable) ${pd} (${lt > 0 ? Math.round((100 * pd) / lt) : 0} %), ${(pd / Math.max(1, rows.length)).toFixed(2)} per battle, killed by a new wound ${ka}; wrong tags ${skills}; drags ${sum((r) => r.m103b[s]?.drags ?? 0)} (finished ${sum((r) => r.m103b[s]?.dragsDone ?? 0)}); carrying parties (M10.4a) ${(() => { const by: Record<string, number> = {}; for (const r of rows) for (const [m, n] of Object.entries(r.m103b[s]?.carries ?? {})) by[m] = (by[m] ?? 0) + n; const e = Object.entries(by).sort(); return e.length > 0 ? e.map(([m, n]) => `${m} ${n}`).join(", ") : "none"; })()}, ${sum((r) => r.m103b[s]?.carriedM ?? 0)} m carried, took cover ${sum((r) => r.m103b[s]?.holds ?? 0)}; into vehicles (M10.4b) ${sum((r) => r.m103b[s]?.loaded ?? 0)}, out ${sum((r) => r.m103b[s]?.unloaded ?? 0)}`;
   }).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",

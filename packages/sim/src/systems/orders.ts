@@ -105,6 +105,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.vehicle !== undefined && state.vehicle.get(o.vehicle)?.side !== o.issuer) return "invalid-params";
       return null;
     case "dismount":
+      if (o.wounded !== undefined && typeof o.wounded !== "boolean") return "invalid-params";
+      return null;
     case "discharge":
       return null;
     case "occupy":

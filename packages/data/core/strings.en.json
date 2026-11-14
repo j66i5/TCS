@@ -510,6 +510,8 @@
   "man.activity.dragging": "dragging a wounded comrade into cover",
   "man.activity.carrying": "carrying a wounded comrade",
   "man.activity.walkingOut": "walking out wounded",
+  "man.activity.loading": "lifting a wounded comrade into the vehicle",
+  "man.activity.unloading": "carrying a wounded comrade out of the vehicle",
   "app.pauseKey": "Pause (Space, key {key})",
   "app.speedKey": "Speed (key {key})",
   "app.contours": "Contours",

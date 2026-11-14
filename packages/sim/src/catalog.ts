@@ -672,6 +672,12 @@ export interface MedicalDef {
    * the carry speeds are for (speed x sqrt(massRefKg / mass), within 0.75-1.15).
    */
   carrying?: { reachM: number; holdSuppression: number; resumeQuietS: number; selfDefenceM: number; massRefKg: number };
+  /**
+   * Casualties into and out of vehicles (M10.4b; absent: no fetching, a lying man takes one seat). fetchM: a mounting
+   * unit carries its wounded who cannot walk from up to this far to an exit; lyingSeats: passenger seats a lying man
+   * takes in a vehicle without an ambulance layout; lyingShock: a casualty lies when unconscious or this shocked.
+   */
+  vehicleLoading?: { fetchM: number; lyingSeats: number; lyingShock: number };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */

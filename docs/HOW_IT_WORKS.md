@@ -373,11 +373,31 @@ carry on with a way for fewer men, or put the casualty down). **Fired on** (a ca
 party takes the casualty into the nearest cover within 15 m hidden from the enemy, lies down there, and goes on
 after 10 s without fire. A party ends when it gets there, or when the casualty dies, is loaded or taken prisoner.
 For now carrying is used by the drag to cover under fire (with two carers beside him it is the two-man drag, and on
-the ground floor a casualty can be dragged into a house); taking casualties back to the Verwundetennest comes with
-it in M10.5. The debug view shows "drag -> id (move)" or "two-man -> id (hold)" for a carrier and "carried" for the
-casualty; the man box says "carrying a wounded comrade". The **carry lab** (`npm run lab -- carry`) measures every
-way on flat ground, a slope, through a house and up stairs against the data; the batch report counts carrying
-parties by way, metres carried and how often they took cover.
+the ground floor a casualty can be dragged into a house) and by men taking a casualty to their vehicle (below);
+taking casualties back to the Verwundetennest comes with it in M10.5. The debug view shows "drag -> id (move)" or
+"two-man -> id (hold)" for a carrier and "carried" for the casualty; the man box says "carrying a wounded comrade".
+On the map a casualty being carried is drawn limp on his back with a dressing, or lying on the litter between its
+four bearers. The **carry lab** (`npm run lab -- carry`) measures every way on flat ground, a slope, through a house
+and up stairs against the data; the batch report counts carrying parties by way, metres carried and how often they
+took cover.
+
+**Into and out of vehicles (M10.4b).** When a squad is ordered into its vehicle (by the player or the AI, for
+example a squad pulling back to its carrier), its wounded who cannot walk come too: those within 150 m of the
+vehicle (`core/medical.json` `vehicleLoading.fetchM`) are carried to the nearest door or ramp by a carrying party of
+up to four of the men still outside, nearest first, one casualty after another; at the ramp two men lift each in
+(the vehicle's `loadCasualtySeconds`, 15 s for a Puma or a BMP-2, 30-40 s for the ambulances). The squad waits for
+them (up to five minutes) and only then reports "mounted". Aboard, a casualty **lies** if he is unconscious or in
+shock, otherwise he **sits**. **Places:** in a carrier every passenger seat takes one man; a man lying takes
+`lyingSeats` of them (1 in the data: he is laid across the floor in the room of his own seat, so a full squad still
+takes its wounded). An ambulance uses its own layouts instead: the Boxer takes 3 lying, or 7 sitting, or 2 lying and
+3 sitting; the BMM 4 lying inside and 2 on the hull, or 7 sitting and 2 on the hull (the two outside places only
+while there are seats for them: 7 men in all). Casualties there is no place for are left where they lie. A
+**dismount with the wounded** (the order's `wounded` flag; the player's button for it comes with the wounded list in
+M10.5) first lets every able man out, then two of them carry each casualty out of the nearest door and lay him down
+close behind it. An ordinary dismount leaves the wounded aboard. The man box says "lifting a wounded comrade into
+the vehicle" or "carrying a wounded comrade out of the vehicle"; the batch report counts casualties into and out of
+vehicles per side. The **bench-medical** benchmark (a third of 270 men down from the start, carried to 30 vehicles)
+must run at 8× real time or more.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

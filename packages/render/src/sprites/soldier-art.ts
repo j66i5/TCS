@@ -16,7 +16,7 @@
 export const SPRITE_M = 1;
 export const ART = 16;
 
-export type FrameId = "stand" | "walk1" | "walk2" | "crouch" | "crouchWalk" | "prone" | "crawl" | "down" | "dead" | "surrender" | "captive";
+export type FrameId = "stand" | "walk1" | "walk2" | "crouch" | "crouchWalk" | "prone" | "crawl" | "down" | "dead" | "surrender" | "captive" | "carried" | "stretcher";
 
 export const FRAMES: Record<FrameId, readonly string[]> = {
   stand: [
@@ -225,6 +225,46 @@ export const FRAMES: Record<FrameId, readonly string[]> = {
     "................",
     "................",
   ],
+  // Carried (M10.4b): a casualty being carried or dragged, limp on his back, head toward the carrier ahead (east),
+  // arms trailing, a field dressing on his chest; no weapon.
+  carried: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "...ss...........",
+    "....uu..........",
+    ".dddduuuuuu.hh..",
+    "ddddduuxxuuhssh.",
+    ".....uuxxuuhssh.",
+    "ddddduuuuuuhhh..",
+    ".dddduuuuuu.....",
+    "....uu..........",
+    "...ss...........",
+    "................",
+    "................",
+    "................",
+  ],
+  // On a stretcher (M10.4b): the litter's two poles end to end (handles past his head and feet), its canvas under
+  // him, a casualty on his back with a field dressing, arms at his sides, strapped in.
+  stretcher: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "gggggggggggggggg",
+    ".lllllllllllll..",
+    ".ldddduuuuu.hhl.",
+    ".ldddduxxuuhsshl",
+    ".ldddduxxuuhsshl",
+    ".ldddduuuuu.hhl.",
+    ".lllllllllllll..",
+    "gggggggggggggggg",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
 };
 
 /** Frames in which he holds his weapon (the others: none, or dropped beside him). */
@@ -235,4 +275,4 @@ export const WOUND_MARKS: Record<"upright" | "lying", readonly [number, number, 
   upright: [[8, 11, "r"], [9, 11, "r"], [6, 5, "x"]],
   lying: [[8, 10, "r"], [9, 10, "r"], [9, 4, "x"]],
 };
-export const LYING: ReadonlySet<FrameId> = new Set(["prone", "crawl", "down", "dead"]);
+export const LYING: ReadonlySet<FrameId> = new Set(["prone", "crawl", "down", "dead", "carried", "stretcher"]);

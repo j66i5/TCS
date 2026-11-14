@@ -276,6 +276,69 @@ async function triageScenes(page: Page, name: string, errors: string[], shots: s
 }
 
 /**
+ * M10.4b carrying to and into vehicles (`--scene medical`): the mounted platoon battle (village), the lead squad gets
+ * out, one of its men is knocked out (debug hook), and the squad is ordered back in: its men carry him to the Puma
+ * (the "carried" frame) and lift him in; the platoon's medic and three men carry another on the folding litter (the
+ * "stretcher" frame), close up in the photo and the flat look; then the squad gets out with its wounded
+ * (`dismount` with `wounded`), who are laid down behind the ramp.
+ */
+async function medicalScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const log: Record<string, unknown> = {};
+  for (const look of ["photo", "flat"] as const) {
+    const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/medical-${seed}-${name}-${look}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+    const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    const close = name === "phone" ? 40 : 56;
+    // The lead squad out of its vehicle; one man knocked out; back in: the others carry him to the ramp.
+    const a = await ev<{ sq: number; down: number; carried: boolean }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom");
+      const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1 && s.unit.get(u.unit).carrier !== undefined);
+      t.select(sq.unit); globalThis.__sq = sq.unit; t.dismount(); t.stepTicks(60 * 25);
+      const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader && s.soldier.get(m).mount === undefined);
+      // The man farthest from the ramp goes down.
+      const v = s.transform.get(u.carrier); men.sort((p, q) => Math.hypot(s.transform.get(q).x - v.x, s.transform.get(q).y - v.y) - Math.hypot(s.transform.get(p).x - v.x, s.transform.get(p).y - v.y));
+      t.hurt(men[0], { zone: "legL", bleedingLps: 0.004, severity: 0.5 }, true); t.stepTicks(60 * 2);
+      t.mount(); let k = 0; while (k++ < 60 * 30 && !s.carry.has(men[0])) t.stepTicks(1);
+      t.stepTicks(60 * 6); const p = s.transform.get(men[0]); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1);
+      return { sq: sq.unit, down: men[0], carried: s.carry.has(men[0]) };`);
+    await settle();
+    await shot("0-carried-to-vehicle");
+    // Lifted in at the ramp (two men, loadCasualty).
+    const loading = await ev<number>(`let k = 0; const busy = () => [...s.action.values()].filter((x) => x.kind === "loadCasualty").length;
+      while (k++ < 60 * 120 && busy() === 0 && s.soldier.get(${a.down}).mount === undefined) t.stepTicks(1);
+      t.stepTicks(60 * 2); const p = s.transform.get(${a.down}); t.select(null); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1); return busy();`);
+    await settle();
+    await shot("1-lifted-in");
+    const b = await ev<{ loading: number; aboard: boolean; lying: boolean }>(`let k = 0; while (k++ < 60 * 150 && s.soldier.get(${a.down}).mount === undefined) t.stepTicks(1);
+      const m = s.soldier.get(${a.down}).mount; return { loading: ${loading}, aboard: m !== undefined, lying: m?.lying === true };`);
+    // The medic (the man with the folding litter) and three men of his platoon carry another on the litter.
+    const c = await ev<{ medic: number | null; ok: boolean }>(`let medic = null;
+      for (const [id, cn] of s.container.entries()) if (s.soldier.has(id) && s.identity.get(id)?.side === "blue" && cn.stacks.some((x) => x.type === "de-litter" && x.count > 0)) { medic = id; break; }
+      if (medic === null) return { medic, ok: false };
+      const mu = s.identity.get(medic).unit; if (s.soldier.get(medic).mount !== undefined) { t.select(mu); t.dismount(); t.stepTicks(60 * 25); }
+      const mp = s.transform.get(medic);
+      const near = [...s.soldier.entries()].filter(([id, x]) => id !== medic && s.identity.get(id)?.side === "blue" && x.mount === undefined && x.physiology.alive && x.captive === null && x.physiology.consciousness >= 0.5)
+        .map(([id]) => id).sort((p, q) => Math.hypot(s.transform.get(p).x - mp.x, s.transform.get(p).y - mp.y) - Math.hypot(s.transform.get(q).x - mp.x, s.transform.get(q).y - mp.y));
+      const casualty = near[0]; t.hurt(casualty, { zone: "legR", severity: 0.4 }, true);
+      const ok = t.carry(casualty, [medic, near[1], near[2], near[3]], mp.x - 40, mp.y, "stretcher");
+      t.stepTicks(60 * 60); const p = s.transform.get(casualty); t.select(null); t.focusScale(p.x, p.y, ${close} * 1.5); t.stepTicks(1);
+      return { medic, ok, phase: s.carry.get(casualty)?.phase ?? null };`);
+    await settle();
+    await shot("2-stretcher");
+    // The squad gets out with its wounded: he is laid down behind the ramp.
+    const d = await ev<{ out: boolean; posture: string }>(`t.select(${a.sq}); t.dismountWounded(); let k = 0;
+      while (k++ < 60 * 120 && s.soldier.get(${a.down}).mount !== undefined) t.stepTicks(1);
+      t.stepTicks(60 * 2); const p = s.transform.get(${a.down}); t.select(null); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1);
+      return { out: s.soldier.get(${a.down}).mount === undefined, posture: s.soldier.get(${a.down}).posture };`);
+    await settle();
+    await shot("3-carried-out");
+    log[look] = { a, b, c, d };
+  }
+  console.log(`${name}: medical scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
  * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
  * Debug, in the photo and the flat look.
@@ -1374,6 +1437,7 @@ try {
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

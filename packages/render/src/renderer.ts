@@ -1426,7 +1426,10 @@ export class BattleRenderer {
     const moving = p !== undefined && (Math.abs(p.x - t.x) > 1e-4 || Math.abs(p.y - t.y) > 1e-4);
     const step = ((state.tick + id * 7) / 12 | 0) & 1;
     let frame: FrameId;
+    // Carried by others (M10.4b): limp in their arms, or on the litter (a walking wounded man walks as usual).
+    const carried = sol?.casualty !== "killed" && state.carry.size > 0 ? state.carry.get(id) : undefined;
     if (sol?.casualty === "killed") frame = "dead";
+    else if (carried && carried.carriers.length > 0) frame = carried.litter ? "stretcher" : "carried";
     else if (sol && sol.casualty !== "none") frame = "down";
     else if (sol?.captive) frame = sol.captive.state === "captured" ? "captive" : "surrender";
     else if (sol?.posture === "prone") frame = moving && step ? "crawl" : "prone";
@@ -1480,7 +1483,7 @@ export class BattleRenderer {
         this.contacts.push(sh); this.rims.push(rim);
         this.contactC.addChild(sh); this.rimC.addChild(rim);
       }
-      const lying = frame === "dead" || frame === "down" || frame === "prone" || frame === "crawl";
+      const lying = frame === "dead" || frame === "down" || frame === "prone" || frame === "crawl" || frame === "carried" || frame === "stretcher";
       const k2 = lying ? 1.35 : 1;
       sh.position.set(x + SHADOW_DIR.dx * size * 0.28, y + SHADOW_DIR.dy * size * 0.28);
       sh.width = size * CONTACT_W * k2; sh.height = size * CONTACT_H * k2;

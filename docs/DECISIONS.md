@@ -4546,3 +4546,48 @@ longer note). The Men list now uses M8's status pictograms and rank insignia; th
 moved into the corner slot M8 left for it, in place of the old tag before the role name. All goldens except
 `no-interiors` regenerated (`npm run golden:update`): both lines change the battles. `npm test` 114 files, 970
 passed, 6 skipped; typecheck, lint and data lint clean.
+
+## 2026-11-14 — M10.4b carrying to and into vehicles (roadmap-detail slice 9; goldens regenerated)
+Owner answers used (binding): bearers under fire take cover with the casualty (round 2, Q-2f, via the carry
+system); ambulances are new Boxer and BMM hulls (Q-4; their layouts are used here); same rules for both sides, the
+player and the AI; faction differences only in data. **Decided without the owner (low, for his review):**
+- **Fetching:** a unit ordered to mount fetches its wounded who cannot walk lying within `vehicleLoading.fetchM`
+  150 m of the nearest exit (was 5 m, `mounting.casualtyLoadM`, which still marks "at the ramp"): a carrying party
+  of up to four of the men still outside, nearest first (the carry system picks the way), takes each to a spot 1.5 m
+  outside the nearest exit; a casualty waiting at the ramp is lifted in before anyone goes for the next; each is
+  fetched once (a party that ends short leaves him). The boarding waits while a casualty is being fetched or lifted
+  (past `completeAfterSeconds`, up to `giveUpSeconds`), and the completion window restarts at each lift so his two
+  lifters still get in (before, a late lift could leave them outside). The two men already lifting a casualty keep
+  at it (a man freed meanwhile no longer restarts the lift). Not with care off (`--no-medical`: 5 m as before).
+- **Lying or sitting:** a casualty lies aboard when unconscious or in shock ≥ `lyingShock` 0.3 (as triage's
+  immediateShock); `SoldierState.mount.lying` (new optional field: no schema bump). **Places:** `placesFit`: an
+  ambulance by its layouts (lying incl. outside places, sitting), any other vehicle with a lying man taking
+  `lyingSeats` passenger seats; never more men than passenger seats (each needs a seat index), so the BMM's two
+  outside places count only within its 7 seats. **lyingSeats = 1** (a man laid across the floor in his own seat's
+  room): with 2 a full Puma squad (6) could not take one of its own lying down, which looked wrong in play; a
+  data value, 2 is tested too. The mount order counts men first, then keeps the casualties there is room for.
+- **Unloading:** `dismount` gains `wounded` (validated boolean): once the able men are out, the two of the unit's
+  men on foot nearest the exit (within `carriersWithinM`) carry each casualty out (`unloadCasualty`, the vehicle's
+  `loadCasualtySeconds`) and lay him prone at half `exitFanMinM` behind the exit nearest his seat; fewer than two:
+  he stays aboard. A plain dismount leaves casualties aboard as before. No player button yet (the Wounded list and
+  the medical orders come in M10.5, slice 11); debug hook `__tcs.dismountWounded()`, and `__tcs.carry(...)`.
+- **Sprites:** frames `carried` (limp on his back, dressing) and `stretcher` (on the litter, poles past head and
+  feet), appended to the frame list (existing atlas cells unchanged), chosen for a man in a carrying party with
+  carriers (litter → stretcher); no launcher drawn on them. `--scene look` run with and without the new frame
+  choice: every image that is stable between two identical runs is byte-identical (flat and classic included);
+  the others differ run to run already (photo tiles, firing frames).
+- **bench-medical** (`tools/src/scenarios.ts`): bench-vehicles with every third man of each squad down (unconscious,
+  bleeding thigh) from the start; all squads mount at once, vehicles wander from 45 s. **Floor 8× (software
+  decision: the SPEC target; measured 17× and 15×** in two runs alone, bench-vehicles 9.7× and 10.5×). Perf test in `perf.test.ts`.
+- **Batches (10 seeds × 1200 s, before → after, parallel runs):** platoon-vehicles blue/red wins 5/5 → 5/5,
+  preventable deaths 23/32 → 23/32 (identical outcomes, different hashes); platoon-ru-vehicles 8/2 → 8/2, red
+  preventable 19 → 19. Casualties into vehicles 0 in every run: the AI commander re-mounts a squad only when it
+  withdraws within 100 m of its carrier (Q24), which did not happen with wounded men in these 20 battles; the
+  machinery is used once the nest and evacuation (slices 11, 13, 14) send casualties to vehicles. No tuning.
+- **Tests:** `tools/test/medical-vehicles.test.ts` (places for the Puma, Boxer and BMM; a fetch from 60 m, lying;
+  capacity leaves the second casualty; unloading with `wounded` after the men; a plain dismount keeps him; the
+  Boxer's layout 2 lying + 3 sitting; save/load mid-fetch). Batch report line "into vehicles (M10.4b) n, out n".
+  `--scene medical` screenshots (photo and flat, phone and desktop).
+- **Goldens regenerated** (`npm run golden:update`, intended: new medical data changes the fingerprint): demo,
+  shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors`
+  untouched.

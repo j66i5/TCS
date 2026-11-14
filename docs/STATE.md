@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.4a carrying as a movement mode, roadmap-detail slice 8). The long session-by-session
+_Last updated: 2026-11-14 (M10.4b carrying to and into vehicles, roadmap-detail slice 9). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -16,9 +16,12 @@ DECISIONS.md under its date._
   treating" on the radio; batch "Triage, care under fire" line with preventable deaths) and 8 (M10.4a: a generic
   `carry` store, state schema 19; seven carry methods from data incl. the four-man litter (Sanitaeter's
   `de-litter`); the leader walks the way, the rest follow his trail; rests, cover under fire, carriers fire only in
-  self-defence; the M10.3b drag is a carrying party now; `npm run lab -- carry`); slices 5 (D1 hand smoke)
-  and 12 (ambulance hulls) came from parallel sessions and are merged.** **Next: slice 9, M10.4b carrying to and
-  into vehicles** (or slice 10, D2, which also only needs 10.3b). Slice 13 needs slice 12 (merged).
+  self-defence; the M10.3b drag is a carrying party now; `npm run lab -- carry`) and 9 (M10.4b: a squad getting in
+  carries its wounded from up to 150 m to the ramp and lifts them in; lying and sitting places, ambulance layouts;
+  `dismount` with `wounded` carries them out; "carried" and "stretcher" sprite frames; `bench-medical` perf case,
+  floor 8×; `--scene medical`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and
+  are merged, and so is M8 (fire support, from main).** **Next: slice 10, D2 battle record and `main.ts` split**
+  (it must come before slice 11). Slice 13 needs slices 11 and 12 (12 merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -92,6 +95,8 @@ grenade" in the Fire tray; units screen themselves on a withdrawal and on a move
 - **After M10.4a** (10 seeds × 1200 s, care on): attacker wins village 2/10, mounted village 3/10, platoon-ru 5/10
   (before the slice 4/10, 5/10, 6/10: noise; carrying is only used for drags to cover so far). `lab -- carry`: every
   method within 10 % of the data on flat, slope, house and stairs.
+- **After M10.4b** (10 seeds × 1200 s, care on; mounted battles only, the others do not mount): see DECISIONS
+  "M10.4b" for the before/after table.
 - **Performance** (this container, `npm run test:perf -- --silent=false` alone, two runs): bench 16× / 19×,
   spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×), bench-combined 3.7× / 3.9× (floor 3×), 20,000
   projectiles 3.8× / 4.3×, render 1.2 ms per frame. The hull-hit variant flakes (known noise). After M10.3a: bench
@@ -130,7 +135,9 @@ grenade" in the Fire tray; units screen themselves on a withdrawal and on a move
 ## What is weak or missing (honest list)
 - **Medical care is only first aid so far:** a man treats himself, a free comrade within 3 m treats him (M10.2), or
   a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b, a carrying party since M10.4a);
-  carrying works (M10.4a) but nobody yet carries casualties back or evacuates them (M10.4b-10.6); carriers' extra
+  carrying works (M10.4a) and squads take their wounded into their vehicles (M10.4b), but nobody yet carries
+  casualties back to a nest or evacuates them (M10.5-10.6); the player has no button yet for "get out with the
+  wounded" (an order flag; the Wounded list in M10.5); carriers' extra
   tiredness from the load is not modelled (the data's rests stand for it). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
   in houses are not dragged): watch in M10.5 (the medic) and M10.8. Only 54-86 % of the
   casualties who live past 2 minutes get any care in 10-seed batches (plan target 70 %): carers are hit on the way,

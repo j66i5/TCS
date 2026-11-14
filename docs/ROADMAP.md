@@ -273,7 +273,11 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    follow his trail; rests after the data's endurance; carriers out of the fight (self-defence within 30 m); a
    party fired on takes cover with the casualty and goes on when quiet; `medical.carried` events; the M10.3b drag
    is now a carrying party (two-man drag with two carers, ground-floor houses too); `npm run lab -- carry`.
-8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
+8. ✅ **M10.4b Carrying to and into vehicles** (slice 9, 2026-11-14) — a squad getting into its vehicle carries its
+   wounded from up to 150 m to the ramp (a carrying party each) and two men lift each in; aboard a casualty lies
+   (unconscious or in shock) or sits; places: passenger seats (`vehicleLoading.lyingSeats`) or an ambulance's layouts;
+   `dismount` with `wounded` carries them out and lays them down behind the ramp; "carried" and "stretcher" sprite
+   frames; `bench-medical` perf case (floor 8×, a software decision); `--scene medical` screenshots.
 9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)
 10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)

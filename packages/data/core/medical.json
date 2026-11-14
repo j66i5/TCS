@@ -692,6 +692,14 @@
     "confidence": "low",
     "note": "M10.4a carrying parties (game values, none published): carriers gather within reachM of the casualty before they set off; a party whose carrier is pinned or at holdSuppression or more takes cover with the casualty (owner M10-2 Q-2f) and goes on after resumeQuietS quiet; carriers fire only at an enemy within selfDefenceM (self-defence, owner); massRefKg: the casualty mass the carry speeds are for (a soldier in kit, about 105 kg: Vine et al. 2023 used 110 kg)."
   },
+  "vehicleLoading": {
+    "fetchM": 150,
+    "lyingSeats": 1,
+    "lyingShock": 0.3,
+    "sources": [],
+    "confidence": "low",
+    "note": "M10.4b casualties into and out of vehicles (game values, none published; search extracts only say a stretcher in an infantry carrier takes the room of several seated men). fetchM: a unit getting into its vehicle carries its wounded who cannot walk from up to this far (to the nearest exit, as a carrying party) before it drives off; lyingSeats: in a vehicle without an ambulance layout a man lying down takes this many passenger seats (1: he is laid across the floor and the bench in the room of his own seat, so a full squad still takes its wounded; with 2, a full Puma squad could not take one of its own lying down — decided without the owner, low); lyingShock: a casualty lies (rather than sits) when he is unconscious or his shock is at this or more (as triage's immediateShock). An ambulance uses its own layouts (lying, sitting and outside places, vehicles.json `ambulance`)."
+  },
   "chain": {
     "firstAidS": 600,
     "role1S": 3600,

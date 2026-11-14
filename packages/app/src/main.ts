@@ -12,7 +12,7 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink, startCarry,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent, type Wound,
   mortarTeams,
 } from "@tcs/sim";
@@ -1066,6 +1066,8 @@ async function main(): Promise<void> {
     /** Get in / get out (M7.2), for the selected unit. */
     mount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "mount" }),
     dismount: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "dismount" }),
+    /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
+    dismountWounded: () => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */
     riders: (crew: EntityId) => ridersIn(sim, crew),
     showRules: () => hud.showRules(),
@@ -1108,6 +1110,9 @@ async function main(): Promise<void> {
       if (unconscious) s.physiology.consciousness = 0;
       refreshStatus(sim.ctx, sim.state, new EventSink(), id);
     },
+    /** M10.4b (screenshots, checks): `carriers` carry `payload` to (x, y) (a carry method by id, else the best). */
+    carry: (payload: EntityId, carriers: EntityId[], x: number, y: number, method?: string) =>
+      startCarry(sim.ctx, sim.state, new EventSink(), payload, carriers, { x, y, z: 0 }, method !== undefined ? { method } : {}) !== null,
     /** The "bar-card" step (screenshots, checks): the man box for a man (null closes), the card's state. */
     inspect: (id: EntityId | null) => { inspected = id; showCard(); },
     card: () => ({ inspected, pace, detailed: document.querySelector(".hud-card.detailed") !== null, rules: overlay.selectedUnit === null ? null : { fire: sim.state.unit.get(overlay.selectedUnit)?.fireRule, maxEngageM: sim.state.unit.get(overlay.selectedUnit)?.maxEngageM } }),

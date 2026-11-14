@@ -111,8 +111,10 @@ export interface SoldierState {
    * where he is and an enemy may fetch him. Absent: he has not set off (or never will).
    */
   handOver?: { to: EntityId | null; x: number; y: number; z: number; tick: number; down?: true; done?: true };
-  /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
-  mount?: { vehicle: EntityId; seat: number };
+  /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. `lying`: a
+   *  casualty lying down (M10.4b): in a vehicle without an ambulance layout he takes `vehicleLoading.lyingSeats`
+   *  passenger places (his seat and room beside it), in an ambulance one of its lying places. */
+  mount?: { vehicle: EntityId; seat: number; lying?: true };
   /**
    * Beaten zone (soldier AI package B): where enemy mortar rounds have been bursting near him (running mean of the
    * bursts of one mission), the last burst's tick, how many, and whether he has already moved out of it. Absent
@@ -591,8 +593,12 @@ export interface Boarding {
   firstTick?: number;
   /** Mount: where the hull stood when the walk to it was planned (re-planned when it has moved). */
   hullX?: number; hullY?: number;
-  /** Mount: wounded men to load (two comrades carry each in, owner Q25). */
+  /** Mount: wounded men to load (two comrades carry each in, owner Q25); M10.4b: those farther than
+   *  `mounting.casualtyLoadM` from an exit are first carried to it by a carrying party. Dismount (M10.4b, an order
+   *  with `wounded`): casualties aboard to carry out once the able men are out. */
   casualties?: EntityId[];
+  /** Mount (M10.4b): casualties a carrying party was sent for (each is fetched once; given up if it ends short). */
+  fetched?: EntityId[];
 }
 
 /** A vehicle (entity with a Transform, a Container and this; no Identity, Mover or SoldierState). */

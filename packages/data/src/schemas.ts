@@ -522,6 +522,8 @@ export const MedicalFile = z.object({
   carry: z.array(CarrySchema).min(1),
   /** Carrying parties (M10.4a): gathering, cover under fire, self-defence, the mass the carry speeds are for. */
   carrying: withProv({ reachM: Num(0.5, 10), holdSuppression: Num(0, 1), resumeQuietS: Num(0, 600), selfDefenceM: Num(0, 300), massRefKg: Num(10, 500) }).optional(),
+  /** Casualties into and out of vehicles (M10.4b): how far a mounting unit fetches its wounded, places a lying man takes. */
+  vehicleLoading: withProv({ fetchM: Num(0, 1000), lyingSeats: z.number().int().min(1).max(6), lyingShock: Num(0, 1) }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),

@@ -19,6 +19,7 @@ import { contactShadow, grainTile, scorchDecal } from "./photo/decals";
 import { shadowOffset } from "./photo/light";
 import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
+import { enemyMenInSight, inSightNow } from "./fog";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
 import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 
@@ -84,7 +85,9 @@ export interface Overlay {
   reveal?: boolean;
   /**
    * Fog of war (M3.4): what the player's side knows of the enemy (from `sideKnowledge`). When given and debug is
-   * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
+   * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead —
+   * except the enemy men in sight now (`enemyMenInSight`, fog.ts): they are drawn as figures (dots when zoomed
+   * out) like own men, without label or rings, with their flashes and hits (owner, 2026-11-14).
    */
   known?: readonly {
     target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number; /** Known to have surrendered (M6.6). */ surrendered?: boolean;
@@ -207,6 +210,9 @@ export class BattleRenderer {
   private shown = new Map<EntityId, string>();
   private shownFor = -1;
   private shownStore: unknown = null;
+  /** Fog of war: the enemy men in sight now, worked out once per `Overlay.known` (see fog.ts). */
+  private inSightOf: unknown = undefined;
+  private inSight = new Set<EntityId>();
   private callsign(uid: EntityId): string { return this.shown.get(uid) ?? ""; }
   /** Uniform tones and vehicle paint (M7.5a), outside the catalog. */
   private appearance: Appearance | null = null;
@@ -523,7 +529,8 @@ export class BattleRenderer {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
       } else if (e.kind === "shot.fired") {
         this.firedAt.set(e.shooter, e.tick);
-        if (!overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide) continue; // fog: an unseen flash
+        // Fog: an enemy's flash only while his man is in sight now (drawn as a figure).
+        if (!overlay.debug && state.identity.get(e.shooter)?.side !== overlay.playerSide && !this.menInSight(overlay).has(e.shooter)) continue;
         if (this.puffs.length >= MAX_PUFFS) this.puffs.shift();
         this.puffs.push({ x: e.x, y: e.y, untilTick: e.tick + FLASH_TICKS, result: "flash" });
       } else if (e.kind === "impact") {
@@ -539,7 +546,7 @@ export class BattleRenderer {
           this.puffs.push({ x: e.x + (k % 2) * 0.4 - 0.2, y: e.y + (k >> 1) * 0.4 - 0.2, untilTick: e.tick + PUFF_TICKS, result: "ricochet" });
         }
       } else if (e.kind === "hit") {
-        if (!overlay.debug && state.identity.get(e.target)?.side !== overlay.playerSide) continue;
+        if (!overlay.debug && state.identity.get(e.target)?.side !== overlay.playerSide && !this.menInSight(overlay).has(e.target)) continue;
         const t = state.transform.get(e.target);
         if (t) { if (this.puffs.length >= MAX_PUFFS) this.puffs.shift(); this.puffs.push({ x: t.x, y: t.y, untilTick: e.tick + PUFF_TICKS, result: e.armour === "stopped" ? "ricochet" : "hit" }); }
       }
@@ -622,7 +629,7 @@ export class BattleRenderer {
     if (lod === LOD_SYMBOLS) {
       this.drawOverview(g, state, alpha, overlay, sideIndex, fog);
       this.drawObjectives(g, overlay, sideIndex, state);
-      if (fog) this.drawKnown(g, overlay, sideIndex);
+      if (fog) this.drawKnown(g, overlay, sideIndex, false);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
       if (overlay.gesture) this.drawGesture(g, overlay.gesture);
       this.flushSprites();
@@ -634,9 +641,12 @@ export class BattleRenderer {
     // Men always at true size (owner, 2026-11-13): below about 8 px the dot level takes over.
     const size = SPRITE_M * c.scale;
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
-    // Soldiers (under fog of war only the player's own; the enemy as his men know him, below).
+    // Soldiers (under fog of war the player's own and the enemy men in sight now; the rest of the enemy as his men
+    // know him, below). An enemy figure has no label and no rings (his state of mind is not seen).
+    const inSight = fog ? this.menInSight(overlay) : null;
     for (const [id, ident] of state.identity.entries()) {
-      if (fog && ident.side !== overlay.playerSide) continue;
+      const foe = fog && ident.side !== overlay.playerSide;
+      if (foe && !inSight!.has(id)) continue;
       if (state.soldier.get(id)?.mount !== undefined) continue; // men aboard are inside their vehicle (drawn with it)
       const p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
@@ -658,6 +668,7 @@ export class BattleRenderer {
         // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
         if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
+        if (foe) continue;
         const bh = sol?.mental.behaviour;
         if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
           g.circle(s.x, s.y, size * 0.42 + 4).stroke({ width: bh === "shaken" ? 1 : 2, color: bh === "panicked" ? 0xff4a3d : 0xffd23d, alpha: bh === "shaken" ? 0.5 : 0.9 });
@@ -691,7 +702,7 @@ export class BattleRenderer {
           if (photo) g.circle(s.x, s.y, pr + 1.5).fill({ color: RIM, alpha: 0.9 });
           g.circle(s.x, s.y, pr).fill({ color: core });
         }
-        if (sol?.postureTo) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
+        if (sol?.postureTo && !foe) g.circle(s.x, s.y, pr + 2).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
         // A prisoner (M6.6): a white flag, a white square once taken; no rings, no facing line.
         if (sol && sol.captive !== null) {
           drawWhiteFlag(g, s.x, s.y, r);
@@ -699,7 +710,7 @@ export class BattleRenderer {
           continue;
         }
         // Under fire (M4.1): a yellow ring when pinned, a red one when panicked, a faint ring when shaken.
-        const bh = sol?.mental.behaviour;
+        const bh = foe ? undefined : sol?.mental.behaviour;
         if (bh === "pinned" || bh === "panicked" || bh === "shaken") {
           g.circle(s.x, s.y, pr + 3.5).stroke({ width: bh === "shaken" ? 1 : 2, color: bh === "panicked" ? 0xff4a3d : 0xffd23d, alpha: bh === "shaken" ? 0.5 : 0.95 });
         }
@@ -708,7 +719,7 @@ export class BattleRenderer {
         const hx = Math.cos(t.heading) * (r + 4), hy = Math.sin(t.heading) * (r + 4);
         g.moveTo(s.x, s.y).lineTo(s.x + hx, s.y + hy).stroke({ width: 2, color: colour });
       }
-      const unit = state.unit.get(ident.unit);
+      const unit = foe ? undefined : state.unit.get(ident.unit);
       if (unit && unit.leader === id) {
         // Debug: the unit's drill (assault / withdraw: which half is running; broken and running back).
         const top = unit.parent === null ? unit : undefined;
@@ -740,7 +751,7 @@ export class BattleRenderer {
       }
     }
     this.drawObjectives(g, overlay, sideIndex, state);
-    if (fog) this.drawKnown(g, overlay, sideIndex);
+    if (fog) this.drawKnown(g, overlay, sideIndex, true);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
     if (overlay.gesture) this.drawGesture(g, overlay.gesture);
     this.flushSprites();
@@ -1057,8 +1068,8 @@ export class BattleRenderer {
   }
 
   /**
-   * The enemy as the player's side knows him (fog of war): a solid diamond where a man is in sight now, a hollow
-   * one where he was last seen or reported, a circle for how far off that may be; a sound is a dashed ring with
+   * The enemy as the player's side knows him (fog of war): a man in sight now as a figure (at the symbol level a
+   * solid diamond), a hollow diamond where he was last seen or reported, a circle for how far off that may be; a sound is a dashed ring with
    * a cross at the guessed place. Old contacts fade out over two minutes.
    */
   /**
@@ -1170,11 +1181,19 @@ export class BattleRenderer {
       return;
     }
     const nose = [...pt(L / 2, -W / 3), ...pt(L / 2, W / 3), ...pt(L / 2 - L * 0.18, 0)];
-    if (k.kind === "seen" && k.ageS < 2) { g.poly(box).fill({ color: colour, alpha: 0.85 }).stroke({ width: 1, color: 0x000000, alpha: 0.6 }); g.poly(nose).fill({ color: 0x10140f, alpha: 0.8 }); }
+    if (inSightNow(k)) { g.poly(box).fill({ color: colour, alpha: 0.85 }).stroke({ width: 1, color: 0x000000, alpha: 0.6 }); g.poly(nose).fill({ color: 0x10140f, alpha: 0.8 }); }
     else { g.poly(box).stroke({ width: 2, color: colour, alpha: fade }); g.poly(nose).stroke({ width: 1, color: colour, alpha: fade }); }
   }
 
-  private drawKnown(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>): void {
+  /** The enemy men in sight now (cached per `Overlay.known`, which the app renews once per tick). */
+  private menInSight(overlay: Overlay): Set<EntityId> {
+    const known = overlay.known ?? null;
+    if (known !== this.inSightOf) { this.inSightOf = known; this.inSight = enemyMenInSight(known); }
+    return this.inSight;
+  }
+
+  /** `figures`: the men in sight now are drawn as figures or dots (not at the symbol level), so get no diamond. */
+  private drawKnown(g: Graphics, overlay: Overlay, sideIndex: Map<string, number>, figures: boolean): void {
     const c = this.camera;
     let enemy = 0;
     for (const [id, i] of sideIndex) if (id !== overlay.playerSide) { enemy = i; break; }
@@ -1187,6 +1206,7 @@ export class BattleRenderer {
       const s = worldToScreen(c, k.x, k.y);
       const fade = Math.max(0.15, 1 - k.ageS / 120);
       if (k.cls === "vehicle") { this.drawKnownVehicle(g, k, s, colour, fade); continue; }
+      if (figures && inSightNow(k)) continue;
       const rr = k.errM * c.scale;
       const diamond = [s.x, s.y - d, s.x + d, s.y, s.x, s.y + d, s.x - d, s.y];
       if (k.kind === "heard") {
@@ -1202,7 +1222,7 @@ export class BattleRenderer {
       }
       if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d);
       if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
-      if (k.kind === "seen" && k.ageS < 2) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
+      if (inSightNow(k)) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
       else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
     }
     // S8: "last seen" pins — a hollow pin standing on the spot (a hull: its hollow outline too), with the age.

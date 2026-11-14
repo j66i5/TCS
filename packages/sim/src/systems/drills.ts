@@ -131,7 +131,7 @@ function doctrine(ctx: SimContext, state: SimState, uid: EntityId, key: string, 
   return v !== undefined && Number.isFinite(v) ? v : fallback;
 }
 
-function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, events: EventSink): void {
+function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, events: EventSink, keepRunners = false): void {
   const D = ctx.catalog.behaviour.drills;
   const boundM = doctrine(ctx, state, uid, "boundM", D.boundM), finalM = doctrine(ctx, state, uid, "finalAssaultM", D.finalM);
   d.phaseTick = state.tick;
@@ -186,7 +186,8 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   }
   const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
   for (const m of cover) {
-    halt(state, m);
+    // (A runner of the last bound still on his way finishes it, unless the bound timed out; he fires from there.)
+    if (!keepRunners || (state.mover.get(m)?.waypoints.length ?? 0) === 0) halt(state, m);
     if (at) fireOnPosition(ctx, state, m, at, d.kind === "assault");
   }
   // Assault fire (package D): within assaultFireM of the objective the men bounding forward fire as they go.
@@ -247,9 +248,20 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   // A mover pinned or panicked on the way has gone down where he is: the others do not wait for him (balance
   // pass 2026-11-13: one pinned man held his whole squad's next rush for the full phase timeout).
   const movers = (d.groups[d.mover] ?? []).filter((m) => able(state.soldier.get(m)) && !isCowering(state.soldier.req(m)));
-  if (!movers.some(moving) || state.tick - d.phaseTick >= secondsToTicks(D.phaseTimeoutSeconds)) {
+  // (Overnight pick "assault-tempo" 2026-11-14: the halves swap once `boundDoneShare` of the runners are down (1 =
+  // all; 2/3 cost the attack lab), or when the last one has trailed the others by `stragglerS`: one slow man held
+  // three rushes in a row to the timeout. He finishes his rush.)
+  const going = movers.filter(moving).length;
+  if (going === 1 && movers.length > 1) d.trailTick ??= state.tick; else delete d.trailTick;
+  const done = movers.length - going >= Math.ceil(D.boundDoneShare * movers.length - 0.01) || (d.trailTick !== undefined && state.tick - d.trailTick >= secondsToTicks(D.stragglerS));
+  const timedOut = state.tick - d.phaseTick >= secondsToTicks(D.phaseTimeoutSeconds);
+  // (Every man left pinned or panicked: nobody can run the next bound; the drill waits instead of starting a new
+  // phase, and a new route search for each man, every half second.)
+  if (!timedOut && movers.length === 0 && all.every((m) => isCowering(state.soldier.req(m)))) return;
+  if (going === 0 || done || timedOut) {
+    delete d.trailTick;
     d.mover = (d.mover + 1) % d.groups.length;
-    startPhase(ctx, state, uid, d, events);
+    startPhase(ctx, state, uid, d, events, !timedOut);
   }
 }
 

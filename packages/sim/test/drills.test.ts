@@ -168,4 +168,39 @@ describe("drills after the review (M4)", () => {
     expect(swapped).toBeGreaterThan(0);
     expect(swapped).toBeLessThan(secondsToTicks(sim.ctx.catalog.behaviour.drills.phaseTimeoutSeconds) / 2);
   });
+
+  for (const share of [1, 0.667]) it(`the halves swap without waiting for a straggler, who finishes his bound (assault-tempo, boundDoneShare ${share})`, () => {
+    const input = setup();
+    const bh = input.catalog.behaviour;
+    input.catalog = { ...input.catalog, behaviour: { ...bh, drills: { ...bh.drills, boundDoneShare: share } } };
+    const sim = createSim(input);
+    const [bid] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
+    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    const d = sim.state.unit.req(bid).drill!;
+    const first = d.mover, runners = d.groups[first]!;
+    expect(runners.length).toBeGreaterThanOrEqual(2);
+    // One runner has a long way to go (a detour): the others do not wait for him.
+    const slow = runners[0]!, mv = sim.state.mover.req(slow), t = sim.state.transform.req(slow);
+    mv.waypoints = [{ x: t.x, y: t.y + 60, mode: "walk" }, { x: t.x + 30, y: t.y + 60, mode: "walk" }];
+    let swapped = -1;
+    for (let k = 0; k < secondsToTicks(40) && swapped < 0; k++) { step(sim); if (sim.state.unit.req(bid).drill?.mover !== first) swapped = k; }
+    expect(swapped).toBeGreaterThan(0);
+    // (Within the bound's time and the straggler allowance, well before the phase timeout.)
+    expect(swapped).toBeLessThan(secondsToTicks(sim.ctx.catalog.behaviour.drills.phaseTimeoutSeconds) * 0.75);
+    // He was not stopped where he stood: he goes on (and lies down at the end of his way).
+    expect(sim.state.mover.req(slow).waypoints.length).toBeGreaterThan(0);
+  });
+
+  it("a unit whose every man is pinned waits in its drill instead of starting a new bound every half second", () => {
+    const sim = createSim(setup());
+    const [bid, blue] = unitOf(sim, "blue");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
+    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    const pin = () => { for (const m of blue.members) { const s = sim.state.soldier.req(m); s.mental.suppression = 1; s.mental.behaviour = "pinned"; } };
+    pin(); step(sim); pin(); step(sim);
+    const phases = new Set<number>();
+    for (let k = 0; k < secondsToTicks(10); k++) { pin(); step(sim); phases.add(sim.state.unit.req(bid).drill?.phaseTick ?? -2); }
+    expect(phases.size).toBe(1);
+  });
 });

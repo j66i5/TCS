@@ -13,8 +13,10 @@ side is commanded by the computer: in defence it lies in its positions and fires
 back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
 attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
 up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground
-on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives, then half
-its squads fire on the defenders man by man while the others run in under the smoke on a flank and assault by
+on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives (called when two thirds of its squads are within the
+mortars' delay of their places at a walk), then half
+its squads fire on the defenders man by man while the others walk in under the smoke on a flank (running only
+when fired on), get their breath back for up to a minute about 60 m out, and assault by
 fire and movement with grenades; then the second objective; past its doctrine's loss limit (30 %) it breaks off
 and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attack work?").
 **Winning:** points for the objectives you hold at the end (main 100, second 50), minus 5 for each of your men
@@ -458,8 +460,11 @@ who comes under fire (suppressed at least 0.1) runs the rest of his way, and wal
 10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
 goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
-spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
-40 s; a runner who is pinned on the way stays down and the others go on without waiting for him. **Withdraw**
+spreading round the point and facing on ("on the objective"). The turn passes as soon as the runners are down, or
+when the last one is still running 10 s after the others: he finishes his rush and fires from where it ends while
+the other half goes. If the runners are pinned the turn passes after
+40 s; a runner who is pinned on the way stays down and the others go on without waiting for him; when every man
+is pinned the squad waits. **Withdraw**
 (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
 the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does

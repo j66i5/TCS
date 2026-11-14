@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { attackLab, attackLabMarkdown } from "../src/labs/attack";
 import { loadData } from "../src/scenarios";
 
-const rows = attackLab(loadData(), 16); // (16: with men aiming low at men lying down (package A) a supported attack on the wall succeeds about 1 in 10)
+const rows = attackLab(loadData(), 20); // (16: with men aiming low at men lying down (package A) a supported attack on the wall succeeds about 1 in 10; 20 since the fire-discipline and assault-tempo picks of 2026-11-14: about 4 in 100, none in the first 16)
 const rate = (f: (r: (typeof rows)[number]) => boolean) => { const rs = rows.filter(f); return rs.filter((r) => r.winner === "attacker").length / rs.length; };
 
 describe("attack lab", () => {

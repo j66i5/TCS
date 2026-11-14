@@ -73,7 +73,9 @@
     "rallyQuietSeconds": 30,
     "rallyStressFactor": 0.6,
     "fallBackM": 100,
-    "reactNeighbourM": 25
+    "reactNeighbourM": 25,
+    "boundDoneShare": 1,
+    "stragglerS": 10
   },
   "surrender": {
     "stepSeconds": 1,

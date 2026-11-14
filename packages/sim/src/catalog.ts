@@ -287,6 +287,10 @@ export interface BehaviourDef {
     /** A moving unit also goes to ground when a unit of its platoon this close (centre to centre) comes under fire
      *  anew; 0 = only the unit fired on (overnight pick 2026-11-14). */
     reactNeighbourM: number;
+    /** A bound ends once this share of its able, non-cowering runners have stopped, or when the last runner
+     *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
+     *  (overnight pick "assault-tempo" 2026-11-14). */
+    boundDoneShare: number; stragglerS: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.

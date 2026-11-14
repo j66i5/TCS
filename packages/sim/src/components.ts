@@ -272,6 +272,9 @@ export interface Drill {
   mover: number;
   phaseTick: number;
   final: boolean;
+  /** A bound with a single runner still on his way (the others down): since this tick (overnight pick
+   *  "assault-tempo"); absent otherwise. */
+  trailTick?: number;
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */

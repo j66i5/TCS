@@ -3111,3 +3111,53 @@ before recon 0.15 -> 0.25, 0.25 -> 0.50, 1.25 -> 1.02 per battle (small numbers)
 fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new behaviour values), the new
 unit fields in the state hash from the first man under fire (tick 600), and the new halts and runs.
 New `sim/test/movement-under-fire.test.ts`.
+
+## 2026-11-14 — Assault tempo: walk up, get breath back, fires on time, no waiting for a straggler (overnight AI, pick "assault-tempo")
+
+Evidence (platoon / platoon-ru, before): the assault element ran ~270 m to its closing point and started its drill
+with mean fatigue 0.35 / 0.31 (up to 0.54 on platoon s1; 40 % winded while bounding on s2); the first HE was called
+5-15 s into some battles because the trigger used the distance along a turned axis (HE call to recon start median
+502 s / 258 s, 18 / 14 of 20 seeds later than the mortars' delay + 60 s); one slow runner held rushes to the 40 s
+timeout. Changes:
+- AI (`commander.ts`): the assault element walks to its closing point, sneaking the last `sneakM` (50 m), and runs
+  only while under fire (`sendOn(..., close)`). **Medium.**
+- AI: at that point, not under fire, it waits before its first assault order until its men's mean fatigue is below
+  `COMMANDER.restFatigue` = **0.35** or `restMaxSeconds` = **60 s** have passed (first objective only).
+  **Low** (both). Owner question: rest up to 60 s / 30 s / none.
+- AI: `closeTimeoutSeconds` 180 -> **300 s** (the walk takes longer; it would otherwise start the drill far out).
+  **Low.**
+- AI: when a squad reaches its closing point and the last smoke is older than half `smokeEverySeconds` (60 s),
+  smoke is called again on the objective's near edge, so it stands while the squad goes in after its rest (HE is
+  already held off by its own men within 90 m). **Low.**
+- AI: the preparatory fires are called when the squad that makes up two thirds of the squads is within the fire's
+  delay + `prepLeadS` = **15 s** of its place at walking speed (catalog `walk` pace), instead of 100 m short along
+  the axis (`prepLeadM` removed). **Medium.**
+- Sim (`drills.ts`): a bound ends when `drills.boundDoneShare` of its able, non-cowering runners have stopped, or
+  when one runner is left on the move `drills.stragglerS` = **10 s** after the others stopped (new optional
+  `Drill.trailTick`); the late runner finishes his rush (he is no longer halted where he stands, except on the
+  40 s timeout) and fires from its end. **Low.**
+- `drills.boundDoneShare` = **1 (all runners)**, not the 2/3 the pick asked for: with 2/3 the attack lab's supported
+  attack on the wall went 4/100 -> 1/100 (base 4/100; with 1: 4/100), and platoon-ru 1200 s attacker wins 10 -> 7 / 20
+  (with 1: 10 / 20); platoon 8 / 20 with either. **Low.** Owner question: all runners down (1) / two thirds (0.667).
+- Sim: a drill whose every man is pinned or panicked now waits (until the phase timeout) instead of starting a new
+  phase, with a route search for each man, every half second (seen 50-120 such 0.5 s phases per battle). **Medium.**
+- Bound length untouched (`boundM`, "15 m rushes" is still an open owner question).
+Measured, same seeds, before -> after (platoon / platoon-ru, 20 seeds, 1200 s): mean fatigue at drill start
+0.35 / 0.31 -> 0.09 / 0.14; winded share while bounding 5.5 / 8.7 % -> 2.3 / 1.3 %; bounding speed 1.89 / 1.81 ->
+2.11 / 2.11 m/s; bound phase median 16.5 / 16.0 -> 16.0 / 15.0 s; phases ended by the timeout 5.4 / 7.6 % ->
+3.3 / 0.1 %; HE call to recon start median 502 / 258 -> 155 / 115 s, seeds over delay + 60 s 18 / 14 -> 4 / 2 of 20
+(the worst 205 s). Attacker wins 6 -> 8 / 20, 10 -> 10 / 20; final rushes 29 -> 22, 25 -> 26; attackers down 245 ->
+213, 205 -> 182; defenders down 209 -> 223, 256 -> 252; mean length 1156 -> 1152 s, 1113 -> 1126 s. 900 s, 10 seeds:
+attacker wins 2 -> 2, 2 -> 2; final rushes 10 -> 4, 7 -> 3 (the slower approach reaches the objective later inside
+the short limit); attackers down 84 -> 47, 75 -> 53; defenders down 81 -> 82, 110 -> 101. Mounted (10 seeds,
+1200 s): platoon-vehicles wins 4 -> 4, platoon-ru-vehicles 1 -> 1, fatigue at drill start 0.31 / 0.52 -> 0.15 / 0.26.
+Acceptance targets not met: the median bound is 13-17.5 s, not <= 9 s (30 m at ~2.2 m/s plus getting up and down
+takes ~15 s; only a shorter bound would get there, which is the owner's open question); the winded share is 18.6 %
+on platoon-ru s2 (a long drill, fatigue builds up rush after rush; pooled 1-2 %); platoon s2 HE call to recon 185 s
+(limit 175 s). Goldens changed (`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1,
+shootout-s1, fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog
+fingerprint (two new drill values) everywhere, and in platoon-vehicles-s1 the AI's new orders and drills.
+New tests in `sim/test/drills.test.ts` and `tools/test/commander.test.ts`.
+The attack lab test (`lab-attack.test.ts`) now runs 20 attacks per case instead of 16: a supported attack on the wall
+succeeds about 4 in 100 both before and after this pick, but none of the first 16 seeds succeeds now (seeds 18, 27, 37
+do), so "support helps" failed on 0 vs 0. **Medium** (test sample only, no behaviour change).

@@ -268,15 +268,15 @@
   }
  ],
  "checkpoints": {
-  "600": "3106a9c33d95b971",
-  "1200": "fb570da1f12e38ee",
-  "1800": "6cd588cc59ded574",
-  "2400": "1c1966bb7d669f7c",
-  "3000": "907a7117f5f57685",
-  "3600": "2ab358b6245c3350",
-  "4200": "d7f1bbd3d2af301d",
-  "4800": "94eb74e4adb7ef23",
-  "5400": "1b0870df279fe0de"
+  "600": "ffa79a9c4c9f8ea5",
+  "1200": "6ba9ec1ecf4f4e12",
+  "1800": "29cadbf3e632358d",
+  "2400": "f6158496fdaa3ca8",
+  "3000": "45df9babcfcbaead",
+  "3600": "d2390c3b819bf28d",
+  "4200": "407c8459dbbb7daf",
+  "4800": "16a2d1616864ed3f",
+  "5400": "581a77c340fdf451"
  },
- "catalogFingerprint": "61dec93c45d3813b"
+ "catalogFingerprint": "b1255315faf89c85"
 }

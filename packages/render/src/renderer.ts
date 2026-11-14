@@ -8,7 +8,6 @@ import { Application, Container, Graphics, Text } from "pixi.js";
 import { DT, floorAtZ, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
-import { buildTerrain } from "./terrain";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
 import { placeLabels, shownCallsigns, type LabelRequest, type Rect } from "./labels";
 import { flatColours, paintRegion } from "./flat/paint";
@@ -23,15 +22,12 @@ import { enemyMenInSight, inSightNow } from "./fog";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
 import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
 
-/** Classic look (`?look=classic`, kept for one milestone): below this many px/m the overview with unit symbols. */
-export const OVERVIEW_SCALE = 0.35;
-
 /**
- * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph), "flat" (M7.5b:
- * the flat pixel map; `?look=pixel` is its old name) or the classic look before them. Pixel soldiers, roofs that
- * fade and the zoom levels belong to both photo and flat (`look !== "classic"`).
+ * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph) or "flat" (M7.5b:
+ * the flat pixel map; `?look=pixel` is its old name). (The classic look before them was deleted after M8, owner
+ * 2026-11-13.)
  */
-export type Look = "photo" | "flat" | "classic";
+export type Look = "photo" | "flat";
 
 /** The flat look's tiles: today's M7.5b map (64 m detail tiles at 4 px/m from the figure zoom, painted here). */
 const FLAT_TILES: TerrainTilesOptions = {
@@ -235,7 +231,7 @@ export class BattleRenderer {
   private roofLayer = new Container();
   /**
    * Photo look (plan "photo", step "polish"): under the men, in screen space — wreck scorch decals, soft contact
-   * shadows of the men, then their dark outer rims. Pools, hidden when unused; empty in the flat and classic looks.
+   * shadows of the men, then their dark outer rims. Pools, hidden when unused; empty in the flat look.
    */
   private shadowLayer = new Container();
   private scorchC = new Container();
@@ -336,11 +332,6 @@ export class BattleRenderer {
     if (this.tiles) { this.tiles.destroy(); this.tiles = null; }
     this.setCatalog(catalog);
     this.map = map;
-    if (this.look === "classic") {
-      this.terrain = buildTerrain(map, catalog.terrain);
-      this.worldLayer.addChild(this.terrain);
-      return;
-    }
     const col = flatColours(map, catalog.terrain, this.appearance);
     const flatBase = paintRegion(map, col, 0, 0, map.widthM, map.heightM, basePpm(map));
     if (this.look === "flat") {
@@ -564,8 +555,8 @@ export class BattleRenderer {
 
   draw(state: SimView, map: MapDef, alpha: number, overlay: Overlay): void {
     const c = this.camera;
-    // Zoom level (M7.5b): the classic look keeps its single overview threshold.
-    const lod: Lod = this.look === "classic" ? (c.scale < OVERVIEW_SCALE ? LOD_SYMBOLS : LOD_DOTS) : lodFor(c.scale, this.lod);
+    // Zoom level (M7.5b).
+    const lod: Lod = lodFor(c.scale, this.lod);
     this.lod = lod;
     if (state.unit.size !== this.shownFor || state.unit !== this.shownStore) { this.shown = shownCallsigns(state.unit.entries()); this.shownFor = state.unit.size; this.shownStore = state.unit; }
     this.drawGround(map, lod);
@@ -642,8 +633,8 @@ export class BattleRenderer {
       this.flushLabels();
       return;
     }
-    // Pixel soldiers from the figure level in (M7.5b); discs at the dot level and in the classic look.
-    const sprites = this.look !== "classic" && lod >= LOD_FIGURE;
+    // Pixel soldiers from the figure level in (M7.5b); discs at the dot level.
+    const sprites = lod >= LOD_FIGURE;
     // Men always at true size (owner, 2026-11-13): below about 8 px the dot level takes over.
     const size = SPRITE_M * c.scale;
     this.drawVehicles(g, state, alpha, overlay, sideIndex, fog);
@@ -1306,7 +1297,7 @@ export class BattleRenderer {
       const sx = (p.x - c.x) * c.scale, sy = (p.y - c.y) * c.scale;
       if (sx < -10 || sy < -10 || sx > W + 10 || sy > H + 10) continue;
       if (p.result === "flash") { // muzzle flash: brief and bright (pixel soldiers show their own, M7.5b)
-        if (this.look !== "classic" && this.lod !== null && this.lod >= LOD_FIGURE) continue;
+        if (this.lod !== null && this.lod >= LOD_FIGURE) continue;
         g.circle(sx, sy, Math.max(2.5, 0.5 * c.scale)).fill({ color: 0xfff2b0, alpha: 0.9 });
         continue;
       }
@@ -1524,7 +1515,7 @@ export class BattleRenderer {
   /** The roof-fade rule (M7.5b): own able men on foot near a building, or zoomed in close. */
   private updateRoofs(state: SimView, overlay: Overlay, lod: Lod): void {
     if (!this.bld) return;
-    this.roofLayer.visible = lod !== LOD_SYMBOLS || this.look !== "classic";
+    this.roofLayer.visible = true;
     let n = 0;
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== overlay.playerSide) continue;

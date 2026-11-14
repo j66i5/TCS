@@ -227,6 +227,8 @@ white flags on the map; the after-action review lists surrendered and captured m
   8. ✅ **M8.6 Interface** (2026-11-14) — fire support pop-up per asset (HE, airburst, smoke, flare greyed until night,
      rounds left, time to effect, danger close), smoke screens by dragging a line, "splash N s", review rows. Planned
      targets by the player wait for a deployment phase; owner play-test open.
+  9. ✅ **Debt slot after M8** (2026-11-14) — `?look=classic` deleted, perf re-baselined, STATE trimmed, low-confidence
+     table (`npm run lint:data -- --table`).
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,

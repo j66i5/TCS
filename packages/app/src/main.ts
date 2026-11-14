@@ -81,8 +81,8 @@ async function main(): Promise<void> {
   const renderer = await BattleRenderer.create(mapRoot);
   renderer.groundFloorLabel = strings.t("ui.floor.ground");
   // The look (plan "photo"): the photo map by default; `?look=flat` (or its old name `pixel`) the M7.5b flat pixel
-  // map; `?look=classic` the look before it. Remembered per browser (a URL parameter wins).
-  const lookOfParam = (v: string | null): Look | null => (v === "photo" ? "photo" : v === "flat" || v === "pixel" ? "flat" : v === "classic" ? "classic" : null);
+  // map. Remembered per browser (a URL parameter wins; a remembered "classic", deleted after M8, falls back to photo).
+  const lookOfParam = (v: string | null): Look | null => (v === "photo" ? "photo" : v === "flat" || v === "pixel" ? "flat" : null);
   let stored: string | null = null;
   try { stored = localStorage.getItem(LOOK_KEY); } catch { /* not remembered */ }
   const look: Look = lookOfParam(params.get("look")) ?? lookOfParam(stored) ?? "photo";
@@ -241,7 +241,7 @@ async function main(): Promise<void> {
   const insets = hud.insets();
   renderer.setHudInsets(insets);
   // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
-  // while it rides), at true scale. The classic look keeps the old start: about 600 m across.
+  // while it rides), at true scale.
   // mounted: ok the start view centres on every own man, aboard or not
   const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
   const leadAt = (() => {
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
     if (n === 0) { const v = sim.state.unit.get(lead.unit)?.vehicle; const t = v === undefined ? undefined : sim.state.transform.get(v); return t ? { x: t.x, y: t.y } : null; }
     return { x: x / n, y: y / n };
   })();
-  if (look !== "classic" && leadAt) {
+  if (leadAt) {
     renderer.focusScale(leadAt.x, leadAt.y, OPENING_SCALE, insets);
     // The opening view's tiles first (photo: painted in workers; shown anyway after 3 s).
     await Promise.race([renderer.primeDetail(), new Promise<void>((r) => setTimeout(r, 3000))]);

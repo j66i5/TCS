@@ -1,7 +1,7 @@
 /**
  * The photo look's units and overlays (plan "photo", step "polish"): the small pictures (contact shadow, scorch,
  * grain) and the vector contour lines are deterministic and within their limits; the grain repeats seamlessly; the photo extras
- * (contact shadows, dark rims, scorch decals) exist only in the photo look, so flat and classic stay as they were.
+ * (contact shadows, dark rims, scorch decals) exist only in the photo look, so flat stays as it was.
  */
 import { describe, expect, it } from "vitest";
 import { createSim, heightAt, step } from "@tcs/sim";
@@ -71,7 +71,7 @@ describe("photo decals", () => {
 });
 
 describe("photo extras only in the photo look", () => {
-  const counts = (look: "photo" | "flat" | "classic") => {
+  const counts = (look: "photo" | "flat") => {
     const input = getScenario("platoon").build(loadData(), 1, 600);
     const sim = createSim(input);
     for (let i = 0; i < 5; i++) step(sim);
@@ -85,12 +85,12 @@ describe("photo extras only in the photo look", () => {
     const p = r as unknown as { contacts: { visible: boolean }[]; rims: unknown[]; figures: { visible: boolean }[] };
     return { figures: p.figures.filter((f) => f.visible).length, contacts: p.contacts.filter((c) => c.visible).length, rims: p.rims.length };
   };
-  it("photo: one contact shadow and one rim per man drawn; flat and classic: none", () => {
-    const ph = counts("photo"), fl = counts("flat"), cl = counts("classic");
+  it("photo: one contact shadow and one rim per man drawn; flat: none", () => {
+    const ph = counts("photo"), fl = counts("flat");
     expect(ph.figures).toBeGreaterThan(0);
     expect(ph.contacts).toBe(ph.figures);
     expect(ph.rims).toBeGreaterThanOrEqual(ph.figures);
-    expect(fl.contacts + fl.rims + cl.contacts + cl.rims).toBe(0);
+    expect(fl.contacts + fl.rims).toBe(0);
     expect(fl.figures).toBe(ph.figures);
   });
 });

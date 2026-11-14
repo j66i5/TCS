@@ -30,47 +30,19 @@ DECISIONS.md under its date._
   after, only the scenarios a slice affects; `npm run check` once at the end of a slice, alone; `npm run test:perf`
   only when a slice adds per-tick per-man work; screenshots only for visible changes.
 
-**M8.6 Interface (2026-11-14, branch `claude/m8-smoke-fires`; DECISIONS "M8.6").** Fire support pop-up with one row
-per asset (own mortars / mortars / artillery: HE, airburst, smoke, flare, rounds, time to effect, DANGER CLOSE), a
-dragged line = smoke screen, "splash N s" on the mission line, fire-support rows in the review. Screenshots
-`--scene firesupport`. Next: slice 29 (debt slot after M8), then drones 34-36 once M9.2 is on main.
+**M8 Indirect fire and smoke — built in a parallel session (branch `claude/m8-smoke-fires`, PRs #42 merged, #50
+open; DECISIONS "M8.1" … "M8.6", plan Phase 3 slices 21-28).** Smoke clouds are volumes (height, build-up, fade,
+drift and plumes in wind; `sim/src/smoke.ts`); the call for fire runs request, processing, shot, flight, splash, with
+the first-round error by location method and planned targets; observers (men, vehicle sights; drone kind reserved)
+correct by skill; on-map mortar teams (DE 120 mm, RU 2B14 / 2B11: set-up, range band, rounds as items, heard and
+seen, slowed by losses and suppression; `platoon-mortars`); off-map PzH 2000 / 2S19 batteries (opt-in: airburst,
+danger close 600 m, illumination as data, abstract counter-battery); the AI lays screens across the line and calls
+the guns beyond danger close; the fire support pop-up per asset with screens by drag and "splash N s". Labs `smoke`,
+`indirect`, `artillery`. Open: M8.5's balance, observer siting and the Russian mounted attack (A4) wait for D4;
+planned targets by the player need a deployment phase; the owner's phone play-test of the pop-up. Debt slot after
+M8 (slice 29): `?look=classic` deleted, perf re-baselined, `docs/research/low-confidence.md` (264 entries).
+Next on that branch: drones (slices 34-36) once M9.2 is on main.
 
-**M8.5 part 1 (2026-11-14, same branch; DECISIONS "M8.5 ... part 1").** The AI lays its screens as lines across
-the line of sight (upwind of the wind), calls the guns beyond danger close (airburst on men in the open), and the
-defender's mortars start with three planned targets. Balance and A4 wait for D4. Scenario `platoon-artillery`.
-
-**M8.4 Off-map artillery (2026-11-14, same branch; DECISIONS "M8.4").** Each faction has an off-map battery
-(`doctrine.json` `artillery`: PzH 2000 / 2S19), called with `callFire` `asset: "artillery"`; opt-in in battles
-(`artillery: true`, `?artillery=1`; not used by the AI yet). Airburst fuses (8 m), danger close 600 m (flag needed),
-illumination flares saved in `state.flares` (no light until M9.1), counter-battery displacement after 3 missions,
-guided rounds refused. `npm run lab -- artillery`. Next: M8.5 AI and balance (needs D4).
-
-**M8.3b On-map mortars: signature and degradation (2026-11-14, same branch; DECISIONS "M8.3b").** A tube firing
-is heard by the enemy out to its `hearingRangeM` (3-4 km) and shows the crew (flash); the rate falls with every
-missing, pinned or shaken man and stops below `crewMin`. Review fixes for M8.3a (landing order, rounds cap, fallen
-gunner, section moves, defender placement). `platoon-mortars` attacker 3 / 20. Next: M8.4 off-map 155 mm (slice 26).
-
-**M8.3a On-map mortars (2026-11-14, same branch; DECISIONS "M8.3a").** Mortar teams carry a tube (item with a
-`mortar` block) and rounds; they set up on `deploy` or after standing still 3 s, pack before a move, and fire the
-side's calls in their range band (rounds leave the crews as fired; out of range with no battery: refused). DE 120 mm,
-RU 2B14 / 2B11 data; `platoon-mortars`, `platoon-ru-mortars`, app `?mortars=1`. Default battles unchanged.
-
-**M8.2b Observers and adjustment (2026-11-14, same branch; DECISIONS "M8.2b").** The caller or any man of his
-platoon who sees a ranging round fall (a crewman through his sight, with its laser) reads it; the best reader's
-skill sets how much error is left (x0.3 x 1.5..0.6) plus his reading error (3 m + 1 % of range, laser 2 m).
-`npm run lab -- indirect`. Attacker wins vs pre-M8: 3 -> 3, 7 -> 7, 4 -> 5, 1 -> 0 (10 seeds). Open: missions skipping
-a recognised Verwundetennest (needs M10.7a from the medical branch). Next: M8.3a on-map mortars.
-
-**M8.2a Call-for-fire chain (2026-11-14, same branch; DECISIONS "M8.2a").** A mission runs request (15 s),
-processing, "shot", flight (DE 16 / RU 14 s) and "splash" (radio and events); the first round's error is the
-battery's 15 m plus the location error (map or eye estimate 5 m + 7 % of range, laser 2 m + 0.5 %); registered and
-planned (`rules.support[].planned`) points fire for effect at once. No UI / AI use yet (M8.5, M8.6).
-
-**M8.1 Smoke volume v2 (2026-11-14, parallel session, branch `claude/m8-smoke-fires`; DECISIONS "M8.1").** Smoke
-clouds are volumes: capsule plumes with a top (mortar 15 m, vehicle grenades 8 m, burning hull 30 m), built up over
-10 s, fading over their last 20 s, drifting with the wind (none in the scenarios yet) while the round burns at its
-place (`sim/src/smoke.ts`); sight lines above the top pass. `callFire` takes `x2, y2` for a screen along a line (no
-UI yet). `npm run lab -- smoke`, `--scene plumes`. Batches within noise.
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
 grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook

@@ -4377,3 +4377,18 @@ Owner: "include that surrendering soldiers will move toward the forces they surr
   phone, without a manual, you call adjusted HE, a smoke screen and artillery") is for the owner.
 - Screenshots `npm run screenshot -- --scene firesupport` (now with `&artillery=1`: steps 9-12 drag a screen, its
   pop-up, the splash countdown, the screen laid). No sim behaviour change (goldens unchanged); no batches needed.
+
+## 2026-11-14 — Debt slot after M8 (slice 29): classic look deleted, perf re-baseline, STATE trim, low-confidence table
+
+- **`?look=classic` deleted** (owner decision 2026-11-13: kept for one milestone): `render/src/terrain.ts` (the vector
+  terrain) and every `look === "classic"` branch are gone; `Look` is "photo" | "flat"; a remembered "classic" in the
+  browser falls back to photo; `--scene look` shoots flat and photo pairs.
+- **Perf re-baseline** (alone, this container): bench 19x; spotting bench 12.2x (11.2x with 30 smoke clouds);
+  bench-vehicles 10.4x (floor 8x); 20,000 projectiles 4.6x, bench-combined 3.9-4.2x (floor 3x); village sight with
+  interiors x1.05; render 0.5-1.4 ms per frame; photo L2 tiles median 13-16 ms. The two relative-cost checks
+  (hull hits, bench-combined against the same load parked) measured +0.3 to +25 % and +6 to +26 % on the same build
+  (higher when the other timing files ran first in the same process): their bounds go from 25 % to 35 %, as the
+  parked-hulls check before them. Floors unchanged.
+- **STATE trim:** the M8 paragraphs folded into one (11 KB).
+- **Low-confidence table:** `npm run lint:data -- --table` writes `docs/research/low-confidence.md` (264 entries in 27
+  files today, the fixture left out; the plan counted 182 before M10 and M8 data).

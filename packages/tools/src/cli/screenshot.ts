@@ -271,7 +271,7 @@ async function ambulanceScenes(page: Page, name: string, errors: string[], shots
 }
 
 /**
- * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
+ * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish") and the flat pixel look (`&look=flat`) —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
  * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
@@ -284,7 +284,7 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
   };
   const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
-  for (const lk of ["classic", "flat", "photo"]) {
+  for (const lk of ["flat", "photo"]) {
     const q = `&map=village&look=${lk}`;
     await open(q);
     await shot(`0-opening-${lk}`);

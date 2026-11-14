@@ -18,7 +18,7 @@ planned (`rules.support[].planned`) points fire for effect at once. No UI / AI u
 clouds are volumes: capsule plumes with a top (mortar 15 m, vehicle grenades 8 m, burning hull 30 m), built up over
 10 s, fading over their last 20 s, drifting with the wind (none in the scenarios yet) while the round burns at its
 place (`sim/src/smoke.ts`); sight lines above the top pass. `callFire` takes `x2, y2` for a screen along a line (no
-UI yet). `npm run lab -- smoke`, `--scene smoke`. Batches within noise.
+UI yet). `npm run lab -- smoke`, `--scene plumes`. Batches within noise.
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
 grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook

@@ -26,12 +26,12 @@ import { HELP_SECTIONS } from "./mapfeel";
 import { createSupportPopup, type SupportOffer } from "./support";
 
 /** (Step fire-support, S11: one "support" mode for mortar fire; HE or smoke is picked in a pop-up at the point.) */
-export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "support";
+export type OrderMode = "move" | "assault" | "withdraw" | "occupy" | "fire" | "antitank" | "grenade" | "grenades" | "smoke" | "support";
 /** The two order groups of the slim bar (S4): Move and its variants, Fire and the weapons. */
 export type OrderGroup = "move" | "fire";
-export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", support: "fire" };
-const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", support: "support" };
-const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", support: "order.support" };
+export const GROUP_OF: Readonly<Record<OrderMode, OrderGroup>> = { move: "move", assault: "move", withdraw: "move", occupy: "move", fire: "fire", antitank: "fire", grenade: "fire", grenades: "fire", smoke: "fire", support: "fire" };
+const MODE_ICON: Readonly<Record<OrderMode, string>> = { move: "move", assault: "assault", withdraw: "withdraw", occupy: "occupy", fire: "fire", antitank: "antitank", grenade: "grenade", grenades: "grenades", smoke: "smoke", support: "support" };
+const MODE_KEY: Readonly<Record<OrderMode, string>> = { move: "order.move", assault: "order.assault", withdraw: "order.withdraw", occupy: "order.occupy", fire: "order.fire", antitank: "order.antitank", grenade: "order.grenade", grenades: "order.grenades", smoke: "order.smoke", support: "order.support" };
 export interface UnitRules { fire: "free" | "return" | "hold"; maxEngageM: number; onContact: "ground" | "push" | "back"; ammo: "conserve" | "normal" | "max"; /** Anti-tank weapons on their own (M7.4a). */ at: "vehicles" | "vehiclesAndPositions" | "hold" }
 
 export interface HudCallbacks {
@@ -337,12 +337,12 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       g.main.classList.toggle("locked", mine && locked === m);
       g.main.title = `${s.t(MODE_KEY[shown])}${mine && locked === m ? ` · ${s.t("order.lockedHint")}` : shown !== "move" ? ` · ${s.t("order.lockHint")}` : ""}`;
     }
-    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "support" ? "plan.support" : "plan.tapTarget");
+    hint.textContent = s.t(m === "move" ? "plan.tapPoints" : m === "assault" || m === "withdraw" ? "plan.tapPoint" : m === "occupy" ? "plan.tapBuilding" : m === "support" ? "plan.support" : m === "smoke" ? "plan.tapSmoke" : "plan.tapTarget");
   };
   const moveG = group("move", "move"), fireG = group("fire", "fire");
   for (const m of ["move", "assault", "withdraw", "occupy"] as const) trayMode(moveG, m);
   const postureBtns = (["standing", "crouching", "prone"] as const).map((p) => trayAction(moveG, p, `order.posture.${p}`, "posture", () => cb.onPosture(p)));
-  for (const m of ["fire", "antitank", "grenade", "grenades", "support"] as const) trayMode(fireG, m);
+  for (const m of ["fire", "antitank", "grenade", "grenades", "smoke", "support"] as const) trayMode(fireG, m);
   let natures: (Nature | null)[] = [null, "ap", "he", "mg"];
   let nature = 0;
   const natureBtn = trayAction(fireG, "nature", "order.nature.auto", "nature", () => undefined);

@@ -50,7 +50,8 @@ export interface AmmoRT {
   penCapV: number;
   massKg: number;
   tracer: boolean;
-  /** Carries an explosive filling: never "spent", does not wound by striking, bursts by fuse. */
+  /** Carries an explosive filling, or is a hand smoke grenade (D1): never "spent", does not wound by striking,
+   *  bursts (smoke: starts to smoke) by fuse. */
   explosive: boolean;
   /** A fragment of a burst: may strike the man who threw the grenade; wounds by the fragment rules. */
   fragment: boolean;
@@ -429,14 +430,15 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     const a = catalog.ammo[id]!;
     const area = (PI * a.diameterM * a.diameterM) / 4;
     return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
-      explosive: a.explosive !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125, burstOnBody: a.explosive?.burstOnBody === true,
+      explosive: a.explosive !== undefined || a.smoke !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125, burstOnBody: a.explosive?.burstOnBody === true,
       shaped: a.kind === "shaped-charge" || a.kind === "tandem-shaped-charge",
       thrust: a.propulsion && a.propulsion.burnSeconds > 0 ? a.propulsion.accelMps2 : 0,
       ignTicks: Math.round((a.propulsion?.ignitionSeconds ?? 0) * tickHz),
       burnEndTicks: Math.round(((a.propulsion?.ignitionSeconds ?? 0) + (a.propulsion?.burnSeconds ?? 0)) * tickHz),
       selfDestructTicks: a.explosive?.selfDestructSeconds !== undefined ? Math.round(a.explosive.selfDestructSeconds * tickHz) : 0,
       guided: a.guided !== undefined,
-      fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz)) : 0,
+      fuseTicks: a.explosive?.fuseSeconds !== undefined ? Math.max(1, Math.round(a.explosive.fuseSeconds * tickHz))
+        : a.smoke !== undefined ? Math.max(1, Math.round(a.smoke.fuseSeconds * tickHz)) : 0,
       armTicks: Math.round((a.explosive?.armingSeconds ?? 0) * tickHz),
       minSpeed2: Math.max(b.minSpeedMps * b.minSpeedMps, a.kind === "fragment" ? (2 * catalog.wounds.wounding.fragment.minEnergyJ) / a.projectileMassKg : 0) };
   });

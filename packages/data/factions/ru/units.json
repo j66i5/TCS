@@ -152,6 +152,10 @@
               "count": 2
             },
             {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
               "item": "ru-radio",
               "count": 1
             },
@@ -198,6 +202,10 @@
             {
               "item": "ru-rgd5",
               "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
             },
             {
               "item": "ru-helmet",
@@ -249,6 +257,10 @@
             },
             {
               "item": "ru-rgd5",
+              "count": 1
+            },
+            {
+              "item": "ru-rdg2",
               "count": 1
             },
             {
@@ -305,6 +317,10 @@
               "count": 2
             },
             {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -355,6 +371,10 @@
             {
               "item": "ru-rgd5",
               "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
             },
             {
               "item": "ru-helmet",
@@ -414,6 +434,10 @@
               "count": 2
             },
             {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
               "item": "ru-helmet",
               "count": 1
             },
@@ -451,7 +475,7 @@
         "https://www.battleorder.org/rus-bmp-platoon"
       ],
       "confidence": "low",
-      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
+      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man)."
     },
     {
       "id": "motor-rifle-platoon",
@@ -471,6 +495,10 @@
             {
               "item": "ru-rgd5",
               "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
             },
             {
               "item": "ru-radio",
@@ -521,7 +549,7 @@
         "https://www.battleorder.org/rus-bmp-platoon"
       ],
       "confidence": "low",
-      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios).",
+      "note": "Dismounted motor-rifle platoon (M6): the platoon commander and three squads, no separate headquarters (post-2008 structure per the cited analysis, search extract only). Owner to correct. M7.2 (owner Q2): three BMP-2 with fixed three-man crews; each squad (its leader included) rides in the back of its own BMP-2, the platoon commander in the back of the first. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man).",
       "carriage": [
         {
           "crew": 3,

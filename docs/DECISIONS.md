@@ -3802,3 +3802,35 @@ ambulance behaviour yet (slice 13, M10.6a, on the medical main line). Software d
   fuel per km (2.0 / 0.7 L), no driver: no move.
 - **No batches:** neither hull is in any battle scenario; the state at tick 600 of the demo golden is identical
   apart from the catalog fingerprint. Golden update (fingerprint only), `golden/no-interiors` untouched.
+
+## 2026-11-14 — D1: hand smoke grenades (roadmap-detail slice 5, parallel session)
+Owner answer used (BINDING, round A): hand smoke grenades as a small step inside medical. Software decisions:
+- **Data:** `de-dm45` (Granate, Hand, DM45, 800 g; Rheinmetall/Bundeswehr extracts; burn time not found: cloud is a
+  game value, low) and `ru-rdg2` (RDG-2, 500 g, 60-90 s of smoke, screen about 30 x 5-8 m; medium), xf `xf-puff`.
+  Every man of the German and Russian squads and platoon HQs carries one (game value: the issue per man is not in
+  the sources); crews and the demo teams carry none. Ammo block `smoke { fuseSeconds, radiusM, seconds }` (no
+  explosive; the loader accepts a thrown munition with a smoke block). Abstraction: a round cloud of 10 m radius (about
+  the published screen's area, no wind drift), 60 s (DM45) / 75 s (RDG-2), smoking 2 s after the throw.
+- **Sim:** the throw is the existing grenade action; when the fuse runs the grenade lays a cloud in `state.smoke`
+  (the existing concealment) and emits `smoke.grenade`. Nobody runs from a landed smoke grenade; the thrower does not
+  dive; a smoke throw is not broken off by moving (it is lobbed on the move). A fragmentation grenade order never
+  takes a smoke grenade; the `grenade` order takes `smoke: true` for smoke only. The runtime flag "explosive" in the
+  projectile engine now also covers smoke grenades (bounce, rest, fuse; no wounds). Expenditure counts `handSmoke`
+  apart from `grenades`; the buildings tally and house lab count only fragmentation grenades.
+- **Player:** a "Smoke grenade" button in the Fire tray (squads and single men with one): tap a point, one man
+  throws there; radio "smoke!".
+- **Own use (behaviour.smoke, same for every side, player and AI):** a unit ordered to withdraw (the break-contact
+  drill), or ordered to move within 10 s of coming under fire (a crossing under fire), throws one smoke grenade 15 m
+  toward the nearest enemy its men know (seen or reported within 30 s, 40-400 m away), at most once a minute;
+  radio "smoke out!". Hook for the medical line: `screenCasualty(ctx, state, events, helper, casualty, threat?)`
+  (systems/smoke.ts, exported from @tcs/sim) screens a drag between the casualty and the enemy; nothing calls it yet
+  (M10.3b's drag will).
+- **Lab (`npm run lab -- smoke`) and acceptance reading:** "blocks sight across 20 m for 45 s" is read as a cloud
+  20 m across whose middle cuts a line of sight to a tenth or less (exp(-0.15 x 20) = 0.05) for at least 45 s:
+  DM45 53 s, RDG-2 68 s; the band cut to a tenth is 12.5 m wide; one item used, none on a fragmentation order,
+  nobody hurt.
+- **Batches (10 seeds x 1200 s, main -> now):** platoon: attacker wins 3 -> 3, casualties blue 19.9 -> 18.0, red
+  12.9 -> 12.7, hand smoke 7.5 (attacker) / 0.8 per battle; platoon-ru: 7 -> 5 Russian wins, casualties 15.6/12.9 ->
+  14.1/12.2, smoke 0.4 / 4.9; platoon-vehicles: 4 -> 5 German wins, casualties 19.4/22.5 -> 17.7/21.4, smoke 5.6 /
+  1.0. Within noise of 10 seeds; the attacker throws most (moves under fire). No per-tick work (only on orders):
+  no perf run. Golden update (loads and data), `golden/no-interiors` untouched. Screens: `--scene smoke`.

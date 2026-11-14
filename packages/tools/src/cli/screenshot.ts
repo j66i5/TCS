@@ -211,6 +211,38 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
+ * D1 hand smoke (`--scene smoke`): the platoon battle on foot (village), a squad selected, the Fire tray open with
+ * the Smoke button; Smoke chosen and a tap 20 m ahead of the squad (the order the app sends is checked); 12 s on,
+ * the cloud.
+ */
+async function smokeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/smoke-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const zoom = name === "phone" ? 5 : 7;
+  await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2); return null;`);
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("0-fire-tray-smoke");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="smoke"]');
+  await page.waitForTimeout(300);
+  const mode = await ev<string>("return t.controls().mode;");
+  // Tap 20 m toward the map's middle from the squad's centre.
+  const tap = await ev<{ x: number; y: number }>(`const c = t.controls().centre, W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM; const dx = W / 2 - c.x, dy = H / 2 - c.y, d = Math.hypot(dx, dy) || 1;
+    return t.toScreen(c.x + dx / d * 20, c.y + dy / d * 20);`);
+  await page.mouse.move(tap.x, tap.y); await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(300);
+  const order = await ev<unknown>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  await ev("t.stepTicks(60 * 12); return null;");
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await shot("1-smoke-cloud");
+  const info = await ev<unknown>("return { clouds: s.smoke.length, tick: s.tick };");
+  console.log(`${name}: smoke scene mode ${mode}, order ${JSON.stringify(order)}, ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
  * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
  * Debug, in the photo and the flat look.
@@ -1202,6 +1234,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }

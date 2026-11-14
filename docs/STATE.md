@@ -3,6 +3,11 @@
 _Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
+RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
+grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook
+`screenCasualty` for the medical line's drag (not called yet). `npm run lab -- smoke`, `--scene smoke`.
+
 **Wheeled ambulance hulls (2026-11-14, roadmap-detail slice 12 "M10.6-data", parallel session; DECISIONS "M10.6-data").**
 Boxer ambulance (`de-boxer-san`, crew `boxer-san-besatzung`) and BMM (`ru-bmm`, crew `bmm-ekipazh`): the first
 German and Russian wheeled vehicles, unarmed, with patient layouts (`ambulance` block) and a red cross
@@ -469,6 +474,8 @@ buildings.
 
 ## Open questions for the owner
 
+- D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
+  (15 m, once a minute, on withdrawals and moves under fire).
 - M10.6-data (low confidence, for review): Boxer ambulance and BMM armour, components, gear bands, reverse speeds,
   steering, ramp and loading times, extinguishers, signatures; the medic's rank and load.
 - **New data (2026-11-13), for review:** the 9M113M Konkurs-M and 9P135M (`ru` ammunition/weapons/items/vehicles;

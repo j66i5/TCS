@@ -272,6 +272,8 @@ export interface Unit {
   /** The house this unit last tried and failed to send anyone out of (M7.5e review): it looks again after
    *  `soldier.houseLeaveRetryS`. Absent: none. */
   leaveTry?: { building: number; tick: number };
+  /** Tick of the unit's last hand smoke screen (D1, systems/smoke.ts). Absent: none yet. */
+  smokeTick?: number;
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }

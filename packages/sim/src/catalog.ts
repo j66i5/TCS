@@ -209,6 +209,8 @@ export interface AmmoDef {
   behindArmour?: { spallCount: number; spallConeDeg: number; spallEnergyJ: number };
   /** Smoke (M7.3): a multispectral cloud blinds thermal sights too. */
   multispectral?: boolean;
+  /** Hand smoke grenade (D1): starts to smoke `fuseSeconds` after release, a cloud of `radiusM` for `seconds`. */
+  smoke?: { fuseSeconds: number; radiusM: number; seconds: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
 }
@@ -343,6 +345,13 @@ export interface BehaviourDef {
    * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
    * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
    */
+  /**
+   * Hand smoke screens (D1, M10): a unit with a smoke grenade throws one to screen itself, `screenM` from its
+   * thrower toward the nearest enemy it knows (seen within `knownWithinS`, `enemyMinM`-`enemyMaxM` away), at most
+   * once in `cooldownS`: when it withdraws (`onWithdraw`, the break-contact drill) and when it moves off under fire
+   * (`onMoveUnderFire`: fired on within `underFireS`). The medical line calls `screenCasualty` for a drag.
+   */
+  smoke: { screenM: number; enemyMinM: number; enemyMaxM: number; knownWithinS: number; cooldownS: number; onWithdraw: boolean; onMoveUnderFire: boolean; underFireS: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;

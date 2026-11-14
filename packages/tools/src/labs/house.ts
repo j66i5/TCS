@@ -373,7 +373,7 @@ export function houseClearRun(data: DataSet, seed: number, defence: HouseClearDe
   for (let k = 0; k < CLEAR_SECONDS * 60 && !st.ended; k++) {
     if (k === at) submitOrder(sim, { tick: k, issuer: "red", target: redTop, kind: "assault", x: hx, y: hy, building: house.id });
     for (const e of step(sim)) {
-      if (e.kind === "grenade.launched" && st.identity.get(e.soldier)?.side === "red" && indoorAt(ctx, e.x, e.y) === bi) {
+      if (e.kind === "grenade.launched" && ctx.catalog.ammo[e.ammo]?.smoke === undefined && st.identity.get(e.soldier)?.side === "red" && indoorAt(ctx, e.x, e.y) === bi) {
         run.grenades++;
         const d = st.unit.get(redTop)?.drill;
         pending.set(e.soldier, d?.kind === "clear" && d.rooms && d.room !== undefined ? d.rooms[d.room]! : -1);

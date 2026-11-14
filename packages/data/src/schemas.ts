@@ -187,6 +187,9 @@ export const AmmoSchema = withProv({
   behindArmour: z.object({ spallCount: z.number().int().min(0).max(200), spallConeDeg: Num(0, 90), spallEnergyJ: Num(0, 100000) }).strict().optional(),
   /** Smoke rounds (M7.3): a multispectral cloud also blinds thermal sights (default false). */
   multispectral: z.boolean().optional(),
+  /** Hand smoke grenades (D1, M10): `fuseSeconds` after release the grenade starts to smoke where it lies, a cloud
+   *  of `radiusM` (growing over spotting.smokeBuildSeconds) for `seconds`. No explosive: it never wounds. */
+  smoke: z.object({ fuseSeconds: Num(0.1, 30), radiusM: Num(1, 100), seconds: Num(1, 1200) }).strict().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
@@ -401,6 +404,11 @@ export const BehaviourFile = withProv({
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
+  }).strict(),
+  /** Hand smoke screens (D1, M10): the same for every side. See BehaviourDef.smoke. */
+  smoke: z.object({
+    screenM: Num(1, 100), enemyMinM: Num(0, 2000), enemyMaxM: Num(0, 5000), knownWithinS: Num(0, 600), cooldownS: Num(0, 3600),
+    onWithdraw: z.boolean(), onMoveUnderFire: z.boolean(), underFireS: Num(0, 600),
   }).strict(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;

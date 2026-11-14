@@ -254,6 +254,12 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
   launcher itself is an item in `items.json` (category `launcher`) that the man must carry.
 - `npm run lab -- fragmentation` shows the effect by distance; add the new munition to the list in
   `packages/tools/src/labs/fragmentation.ts` to see it there.
+- A hand smoke grenade (D1) has `"kind": "smoke"`, no `explosive`, `"delivery": { "method": "thrown" }` and
+  `"smoke": { "fuseSeconds": 2, "radiusM": 10, "seconds": 60 }`: after the fuse it smokes where it lies, a cloud of
+  that radius (growing over `spotting.smokeBuildSeconds`) for that long; it never wounds. Men carry it in their
+  `load` like any grenade. A fragmentation grenade order never takes it; the player's "Smoke grenade" order and the
+  units' own screens (`core/behaviour.json` `smoke`: on a withdrawal, on a move under fire) do.
+  `npm run lab -- smoke` measures the cloud (add the munition to the list in `packages/tools/src/labs/smoke.ts`).
 
 Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` and `roofThicknessM`.
 

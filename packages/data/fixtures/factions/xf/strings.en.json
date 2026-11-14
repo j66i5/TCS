@@ -25,5 +25,6 @@
   "vehicle.xf.wagon": "Wagon",
   "item.xf-charm": "Charm",
   "item.xf-shingle": "Shingle",
-  "vehicle.xf.litter-cart": "Litter cart"
+  "vehicle.xf.litter-cart": "Litter cart",
+  "ammo.xf-puff": "Test puff"
 }

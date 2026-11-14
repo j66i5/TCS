@@ -152,6 +152,10 @@
               "count": 3
             },
             {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
               "item": "de-radio",
               "count": 1
             },
@@ -198,6 +202,10 @@
             {
               "item": "de-dm51",
               "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
             },
             {
               "item": "de-helmet",
@@ -257,6 +265,10 @@
               "count": 2
             },
             {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -299,6 +311,10 @@
             {
               "item": "de-dm51",
               "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
             },
             {
               "item": "de-helmet",
@@ -353,6 +369,10 @@
               "count": 2
             },
             {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -402,6 +422,10 @@
               "count": 3
             },
             {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
               "item": "de-helmet",
               "count": 1
             },
@@ -440,7 +464,7 @@
         "https://de.wikipedia.org/wiki/Puma_(Sch%C3%BCtzenpanzer)"
       ],
       "confidence": "low",
-      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4)."
+      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man)."
     },
     {
       "id": "pzgren-zug",
@@ -460,6 +484,10 @@
             {
               "item": "de-dm51",
               "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
             },
             {
               "item": "de-radio",
@@ -508,6 +536,10 @@
             {
               "item": "de-dm51",
               "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
             },
             {
               "item": "de-radio",
@@ -559,7 +591,7 @@
         "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe"
       ],
       "confidence": "low",
-      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios).",
+      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man).",
       "carriage": [
         {
           "crew": 3,

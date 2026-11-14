@@ -92,5 +92,6 @@
   "item.de-puma-extinguisher": "Puma fire-suppression charge",
   "item.de-boxer-diesel": "Boxer fuel",
   "item.de-boxer-extinguisher": "Boxer fire-extinguisher charge",
-  "role.de.sankfz-sanitaeter": "Ambulance medic"
+  "role.de.sankfz-sanitaeter": "Ambulance medic",
+  "ammo.de-dm45": "DM45 smoke hand grenade"
 }

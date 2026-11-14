@@ -18,6 +18,7 @@ import { requestPosture } from "./body";
 import { buildingIndex, occupyBuilding, windowPlaces } from "./occupy";
 import { aimHeightAt, assignFireTask } from "./fire";
 import { grenadeOption, throwArcExists, type GrenadeOption } from "./grenades";
+import { screenOnOrder } from "./smoke";
 import { orderLauncherShot } from "./launcher";
 import { startAction } from "../actions";
 import { noteVehicleOrder, vehicleHalt, vehicleMove, vehicleOrder, type OrderResult } from "./drive";
@@ -90,6 +91,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
       if (o.count !== undefined && !(Number.isInteger(o.count) && o.count >= 1 && o.count <= 50)) return "invalid-params";
+      if (o.smoke !== undefined && typeof o.smoke !== "boolean") return "invalid-params";
       return null;
     case "mount":
       // An own vehicle, if one is named.
@@ -183,10 +185,11 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
   for (const p of due) {
     const res = applyOrder(ctx, state, p.order, events);
+    if (res === true) screenAfterOrder(ctx, state, p.order, events);
     const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
     if (ou !== undefined) { const mark = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.orderTick = state.tick; x.children.forEach(mark); }; mark(ou); }
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
-    radioFromTarget(state, p.order.target, res === true ? `radio.ack.${p.order.kind}` : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
+    radioFromTarget(state, p.order.target, res === true ? (p.order.kind === "grenade" && p.order.smoke === true ? "radio.ack.smoke" : `radio.ack.${p.order.kind}`) : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
   }
 }
@@ -197,8 +200,15 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
  */
 export function applyOrderNow(ctx: SimContext, state: SimState, order: Order, events: EventSink): void {
   const res = applyOrder(ctx, state, order, events, true);
+  if (res === true) screenAfterOrder(ctx, state, order, events);
   if (res !== true) radioFromTarget(state, order.target, res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
   if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: order.target });
+}
+
+/** Hand smoke (D1): a unit withdrawing, or moving off under fire, screens itself (systems/smoke.ts). */
+function screenAfterOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): void {
+  if ((order.kind !== "withdraw" && order.kind !== "move") || !state.unit.has(order.target)) return;
+  screenOnOrder(ctx, state, events, order.target, order.kind);
 }
 
 /** All soldiers in a unit and its sub-units, ascending ID. */
@@ -532,7 +542,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       const able: { id: EntityId; opt: GrenadeOption }[] = [];
       let blocked = 0;
       for (const s of soldiers) {
-        const opt = grenadeOption(ctx, state, s, order.x, order.y);
+        const opt = grenadeOption(ctx, state, s, order.x, order.y, order.smoke === true);
         // (A man who has no way to get it there from where he is — a wall, a roof — is not picked, package D.)
         if (opt && !throwArcExists(ctx, state, s, opt.ammo, order.x, order.y)) { blocked++; continue; }
         if (opt) able.push({ id: s, opt });

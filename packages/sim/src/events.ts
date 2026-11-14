@@ -57,6 +57,8 @@ export type SimEvent =
   | { kind: "action.interrupted"; tick: number; actor: EntityId; action: string; reason: string }
   | { kind: "battle.ended"; tick: number; reason: BattleEndReason; /** The side that lost by breaking or being wiped out. */ loser?: SideId }
   | { kind: "support.smoke"; tick: number; x: number; y: number; radiusM: number; side: SideId }
+  /** A hand smoke grenade starts to smoke (D1). */
+  | { kind: "smoke.grenade"; tick: number; x: number; y: number; radiusM: number; ammo: DefId; owner: EntityId }
   /** A ranging round of a fire mission has landed (step fire-support): where (x, y), the point called (tx, ty), how
    *  far off it fell (m), whether the man who called it saw it fall (then the next rounds come closer), ranging
    *  rounds still to come. */

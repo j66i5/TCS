@@ -50,6 +50,8 @@ export interface UnitCapabilities {
   /** Hand grenades and rifle grenades (with their launcher) among the able men. */
   handGrenades: number;
   rifleGrenades: number;
+  /** Hand smoke grenades among the able men (D1). */
+  smokeGrenades: number;
   /** Mortar rounds the side can still call (HE, smoke). */
   supportHe: number;
   supportSmoke: number;
@@ -61,7 +63,7 @@ export interface UnitCapabilities {
   natures: Nature[];
 }
 
-const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
+const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
 
 /** All soldiers of a unit and its sub-units. */
 export function unitSoldierIds(view: SimView, unit: EntityId): EntityId[] {
@@ -138,6 +140,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       const d = catalog.ammo[st.type]?.delivery;
       if (!d) continue;
       if (d.method === "direct") { if (d.launcher !== undefined && countIn(view, m, d.launcher) > 0) out.hasLauncherRounds = true; continue; }
+      if (catalog.ammo[st.type]?.smoke !== undefined && d.method === "thrown") { out.smokeGrenades += st.count; continue; }
       if (!catalog.ammo[st.type]?.explosive) continue;
       if (d.method === "thrown") out.handGrenades += st.count;
       else if (d.launcher !== undefined && countIn(view, m, d.launcher) > 0) out.rifleGrenades += st.count;
@@ -149,7 +152,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "support"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire", "antitank", "grenade", "grenades", "smoke", "support"];
 type Modes = Readonly<Record<string, { class: string; speedFraction?: number }>>;
 
 /** The greyed bar shown while nothing is selected (M7.5a, owner answer 6). */
@@ -191,12 +194,14 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;
   if (cap.kind === "man") {
-    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+    return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
   const m: OrderMode[] = ["move", "assault", "withdraw", "occupy", "fire"];
   if (cap.hasLauncherRounds) m.push("antitank");
   if (grenades > 0) m.push("grenade");
   if (grenades > 1) m.push("grenades");
+  // (D1: a hand smoke screen, thrown by one man.)
+  if (cap.smokeGrenades > 0) m.push("smoke");
   // (Step fire-support: one Fire support button; the pop-up offers what is left of HE and smoke.)
   if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
   return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };

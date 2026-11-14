@@ -14,7 +14,7 @@ import { patchNavGrids } from "../navctx";
 import { deriveWrecks } from "../hulls";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import type { EntityId } from "../ids";
+import { secondsToTicks, type EntityId } from "../ids";
 import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
@@ -55,7 +55,14 @@ function storeyBand(map: SimContext["map"], id: number, rel: number): [number, n
 
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
-  const ex = ctx.catalog.ammo[ammoId]?.explosive;
+  const def = ctx.catalog.ammo[ammoId];
+  // A hand smoke grenade (D1): its fuse has run, it smokes where it lies (no blast, no fragments).
+  if (def?.smoke) {
+    state.smoke.push({ x, y, radiusM: def.smoke.radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(def.smoke.seconds) });
+    events.emit({ kind: "smoke.grenade", tick: state.tick, x, y, radiusM: def.smoke.radiusM, ammo: ammoId, owner });
+    return;
+  }
+  const ex = def?.explosive;
   if (!ex) return;
   const bal = ctx.catalog.ballistics, BL = bal.blast, map = ctx.map;
   const cube = pow(ex.fillingKg, 1 / 3);

@@ -93,17 +93,25 @@ function boxBlur(a: Float32Array, w: number, h: number, r: number): Float32Array
   return o;
 }
 
-/** Darken `buf` (W x H words; global pixel gx0, gy0 at `ppm`) by the shadow grid, read bilinearly. */
-export function applyShadows(g: ShadowGrid, buf: Uint32Array, W: number, H: number, gx0: number, gy0: number, ppm: number): void {
-  const s = g.s, nw = g.nw, px = 1 / ppm;
+/**
+ * Darken `buf` (W x H words; global pixel gx0, gy0 at `ppm`) by the shadow grid, read bilinearly, combined by maximum
+ * with `extra` (per pixel, 0..1: buildings, walls, fences; step "built"). Either may be null.
+ */
+export function applyShadows(g: ShadowGrid | null, buf: Uint32Array, W: number, H: number, gx0: number, gy0: number, ppm: number, extra: Float32Array | null = null): void {
+  if (!g && !extra) return;
+  const s = g?.s, nw = g?.nw ?? 0, px = 1 / ppm, nx0 = g?.nx0 ?? 0, ny0 = g?.ny0 ?? 0;
   for (let j = 0; j < H; j++) {
-    const y = (gy0 + j + 0.5) * px - g.ny0, jj = Math.floor(y), ty = y - jj;
+    const y = (gy0 + j + 0.5) * px - ny0, jj = Math.floor(y), ty = y - jj;
     for (let i = 0; i < W; i++) {
-      const x = (gx0 + i + 0.5) * px - g.nx0, ii = Math.floor(x), tx = x - ii, o = jj * nw + ii;
-      const a = s[o]!, b = s[o + 1]!, c = s[o + nw]!, d = s[o + nw + 1]!;
-      if (a + b + c + d < 0.004) continue;
-      const v = a + (b - a) * tx + (c - a + (d - c - b + a) * tx) * ty;
-      const p = j * W + i, w = buf[p]!, k = 1 - v, kb = k * (1 + 0.05 * v);
+      const p = j * W + i;
+      let v = extra ? extra[p]! : 0;
+      if (s) {
+        const x = (gx0 + i + 0.5) * px - nx0, ii = Math.floor(x), tx = x - ii, o = jj * nw + ii;
+        const a = s[o]!, b = s[o + 1]!, c = s[o + nw]!, d = s[o + nw + 1]!;
+        if (a + b + c + d >= 0.004) { const gv = a + (b - a) * tx + (c - a + (d - c - b + a) * tx) * ty; if (gv > v) v = gv; }
+      }
+      if (v < 0.001) continue;
+      const w = buf[p]!, k = 1 - v, kb = k * (1 + 0.05 * v);
       const r = (w & 255) * k + 0.5 | 0, gg = ((w >>> 8) & 255) * k + 0.5 | 0, bb = ((w >>> 16) & 255) * kb + 0.5 | 0;
       buf[p] = (0xff000000 | ((bb > 255 ? 255 : bb) << 16) | (gg << 8) | r) >>> 0;
     }

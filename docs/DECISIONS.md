@@ -2908,3 +2908,39 @@ Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and des
 8. L3 (8 px/m) was already wired in step "ground"; the screenshot tool's desktop shots of `--scene photo` now report
    8 cores so they show it; the scene also shoots a hedge and a wood edge at the figure zoom.
 9. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo map, step "built": roads, water, bridges, walls, building shadows, roofs (plan photo)
+1. **Roads** (`render/src/photo/lines.ts`): per picture a padded line grid holds e = distance - half-width (min) and
+   the winning segment. Where two roads both cover a pixel the WIDER one wins (plain min-e let a 3 m track's centre
+   cut a notch into a 6 m road's edge at crossings); ends are round caps. Edge wobble +-0.18 m paved / +-0.4 m tracks,
+   ~1 px alpha ramp, 1.5 m dusty verge at ~30 %, at least 2.4 px wide. Asphalt darkened to `#474745` in the photo
+   palette: at 1 px/m the old `#504f4d` was only 9 % from ploughed ground after the grade (minimum-width test).
+2. **Water:** streams by centre-line distance, ponds by polygon distance with a 1.5 m shallow rim outside the polygon
+   (the sim's wading ring), mud bank 1.4 m, depth graded over 6 m, sheen and band-limited ripples, no outline; at least
+   2 px. Water stays the only bluish ground (test: its blue-minus-red above every other ground pixel).
+3. **Bridges** are detected, not stored: a road pixel within 0.8 m of water is deck (the maps have no bridge object).
+   Deck x1.06, a 0.4 m kerb lit (x1.35) on the sun side and shaded (x0.62) on the other, dark water under the deck
+   edges, and the deck's shadow (2 m high) on the water toward the east-south-east.
+4. **Walls** keep the ladder's light colour; texture and the shaded face carry the "hard line with shadow" (blocks
+   +-10 %, shaded face x0.84), cast shadow 0.48 swept along the sun, ambient 0.22 over 1 m. Fences only from 2.5 px/m,
+   area-true thin lines (alpha scales with width in px), posts from 4 px/m. Embankments hillshaded (+-16 % by side).
+5. **Shadows** of buildings (footprint + its sun-swept copy, convex hull, 0.5, 0.9 m soft edge; height = storeys plus
+   2.2 m of pitched roof), walls and fences go into one per-pixel buffer, max-combined with the crowns' shadow grid in
+   `applyShadows` (one pass, no double darkening). They are terrain, so they stay when the roof fades.
+6. **Roofs** (`render/src/photo/roof.ts`): one generic painter, every pixel belongs to the face of its nearest wall
+   (hipped; for a convex footprint this is the straight skeleton), gabled = only the two long walls carry faces;
+   flat = gravel, parapet with its inner shadow, vents. Eaves overhang 0.3 m (covers the floor plan's square wall
+   corners, which poked out of a footprint-sized roof). Face light 0.56 + 0.52 max(0, n . sun), pitch 37 deg,
+   courses 0.35 m band-limited, ridge cap, eave line, moss, tone per building, saturation cap 0.45, premultiplied.
+7. **Roof atlas** at 8 px/m, lowered per map (to 7, 6, 5 or 4) until it fits 900 000 px (~3.6 MB); flat roofs at
+   half that (plain gravel). Shelf-packed tallest first, 2 px gutters, linear + mipmaps. The largest village of seeds
+   1-4 lands at 6 px/m, 3.8 MB, 62 ms in Node; industrial 2.5 MB, 36 ms. **Painted on the main thread at map load,
+   not in the worker** (deviation from the plan): it is under the plan's 150 ms budget in Node and runs once behind
+   the loading screen; moving it into the photo worker is left for later if phones show a hitch.
+8. In `buildings.ts` the photo look draws one Sprite per building (same fade rule, `roofShown`, upper floors;
+   test: sprite alpha and visibility equal the vector roof's every frame) plus a light dashed eave line for 18 frames
+   (0.3 s) when a roof starts to fade. Floors stay vector, in the lighter photo `floors` palette (lighter than any
+   roof). New optional `photo.roofs` / `photo.floors` in appearance.json (outside the fingerprint).
+9. The photo painter no longer calls any flat feature code (`paintFeatures` is flat-only again; flat output
+   unchanged, hash test).
+10. No golden, catalog or sim change.

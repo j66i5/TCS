@@ -23,6 +23,8 @@ export interface Appearance {
 
 export interface PhotoPalette {
   surfaces: Record<string, number>; vegetation: Record<string, number>; obstacles: Record<string, number>;
+  /** Roof and floor colours by building kind (step "built"); absent kinds fall back to `map`. */
+  roofs: Record<string, number>; floors: Record<string, number>;
   grade?: { desaturate: number; contrast: number; warm: number; grain: number };
 }
 
@@ -53,7 +55,7 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
     factions[fid] = a ? factionLook(a) : NEUTRAL_LOOK;
   }
   const ph = data.appearance?.photo;
-  const photo: PhotoPalette | undefined = ph ? { surfaces: hexRec(ph.surfaces ?? {}), vegetation: hexRec(ph.vegetation ?? {}), obstacles: hexRec(ph.obstacles ?? {}), ...(ph.grade ? { grade: { ...ph.grade } } : {}) } : undefined;
+  const photo: PhotoPalette | undefined = ph ? { surfaces: hexRec(ph.surfaces ?? {}), vegetation: hexRec(ph.vegetation ?? {}), obstacles: hexRec(ph.obstacles ?? {}), roofs: hexRec(ph.roofs ?? {}), floors: hexRec(ph.floors ?? {}), ...(ph.grade ? { grade: { ...ph.grade } } : {}) } : undefined;
   return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}) };
 }
 

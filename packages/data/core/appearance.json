@@ -19,13 +19,24 @@
   "photo": {
     "surfaces": {
       "grass": "#68774f", "meadow": "#6c754d", "ploughed": "#6e5a49", "stubble": "#8d8360", "forest-floor": "#57573d",
-      "dirt-track": "#a79578", "gravel": "#9d988d", "asphalt": "#595856", "concrete": "#b5b2aa", "yard": "#968b78",
+      "dirt-track": "#a79578", "gravel": "#9d988d", "asphalt": "#474745", "concrete": "#b5b2aa", "yard": "#968b78",
       "garden": "#5a6f47", "floor": "#7f746c", "mud": "#605143", "water-shallow": "#32484f", "water-deep": "#25363e"
     },
     "vegetation": {
       "crops": "#888657", "tall-grass": "#6f764e", "scrub": "#4d573b", "woodland": "#33422c", "orchard": "#4b583c", "treeline": "#3e4c33"
     },
-    "obstacles": { "hedge": "#3f4c33", "stone-wall": "#b8b2a5", "concrete-wall": "#b9b6b0" },
+    "obstacles": {
+      "hedge": "#3f4c33", "stone-wall": "#b8b2a5", "concrete-wall": "#b9b6b0", "brick-wall": "#9a7a68",
+      "wooden-fence": "#6b5a44", "wire-fence": "#8a8c88", "embankment": "#7f7759"
+    },
+    "roofs": {
+      "house": "#8a5a4a", "farmhouse": "#80584a", "barn": "#6f6556", "shed": "#66635c", "church": "#62666b",
+      "apartment-block": "#77756f", "warehouse": "#80837f", "office": "#6d6f6e"
+    },
+    "floors": {
+      "house": "#b4a48e", "farmhouse": "#ae9e88", "barn": "#a49880", "shed": "#a0978a", "church": "#b8b4ac",
+      "apartment-block": "#b0ada6", "warehouse": "#a8a8a2", "office": "#b0aea8"
+    },
     "grade": { "desaturate": 0.28, "contrast": 0.06, "warm": 0.02, "grain": 0.03 },
     "ladder": "Luminance ladder, darkest first, each class at least 1.15x the one before: deep water < wood canopy < hedge/treeline < scrub/orchard < plough < grass/meadow < crops/stubble < tracks/gravel < walls/concrete (test: render photo.test.ts).",
     "note": "Original photo-map palette (plan photo, docs/ASSETS.md): quieter than the flat palette (HSV saturation <= 0.40), set by luminance class. Presentation only, outside the catalog."

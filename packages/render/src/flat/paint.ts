@@ -177,9 +177,9 @@ function paintFlatGround(out: Uint32Array, W: number, H: number, map: MapDef, co
 
 /**
  * Everything on the ground but buildings, into `out` (W x H words over the rectangle x0, y0, w, h at `ppm`): tree
- * crowns with shadows, water, roads, walls, hedges, fences. `outlines` false (the photo look's provisional features,
- * step "ground"): no dark rims round crowns, water, roads and walls. `vegetation` false (the photo look from step
- * "vegetation", which paints its own crowns and hedges): no tree crowns, bushes or hedges.
+ * crowns with shadows, water, roads, walls, hedges, fences. `outlines` false: no dark rims round crowns, water, roads
+ * and walls; `vegetation` false: no tree crowns, bushes or hedges (both were the photo look's provisional passes in its
+ * steps "ground" and "vegetation"; since step "built" the photo look paints all of these itself, `photo/lines.ts`).
  */
 export function paintFeatures(out: Uint32Array, W: number, H: number, map: MapDef, col: FlatColours, x0: number, y0: number, w: number, h: number, ppm: number, outlines: boolean, vegetation = true): void {
   const C = map.cols, R = map.rows, cs = map.cellSizeM, px = 1 / ppm;

@@ -152,7 +152,9 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
       await page.screenshot({ path: p }); shots.push(p);
     }
     // Vegetation at the figure zoom (step "vegetation"): a hedge and a wood's east edge near the middle of the map.
-    for (const what of ["hedge", "woodedge"] as const) {
+    // Step "built": a road junction, a bridge (road over a stream) and a wall corner near the middle of the map.
+    // And the buildings nearest the middle with their roofs (figure zoom) and with the roofs faded (close zoom).
+    for (const what of ["hedge", "woodedge", "junction", "bridge", "wall", "houses", "houses-close"] as const) {
       const ok = await page.evaluate(new Function(`const t = globalThis.__tcs, m = t.sim.ctx.map, cx = m.widthM / 2, cy = m.heightM / 2;
         let bx = -1, by = -1, bd = Infinity;
         if (${JSON.stringify(what)} === "hedge") {
@@ -160,6 +162,18 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
             const x = (o.points[k] + o.points[k + 2]) / 2, y = (o.points[k + 1] + o.points[k + 3]) / 2, d = Math.hypot(x - cx, y - cy);
             if (d < bd) { bd = d; bx = x; by = y; }
           }
+        } else if (${JSON.stringify(what)}.startsWith("houses")) {
+          for (const b of m.buildings) { const f = b.footprint; let x = 0, y = 0; for (let k = 0; k < f.length; k += 2) { x += f[k] / (f.length / 2); y += f[k + 1] / (f.length / 2); }
+            const d = Math.hypot(x - cx, y - cy) + (b.interior ? 0 : 30); if (d < bd) { bd = d; bx = x; by = y; } }
+        } else if (${JSON.stringify(what)} === "junction" || ${JSON.stringify(what)} === "bridge" || ${JSON.stringify(what)} === "wall") {
+          const pd = (p, x, y) => { let b = Infinity; for (let k = 0; k + 3 < p.length; k += 2) { const ax = p[k], ay = p[k + 1], ex = p[k + 2] - ax, ey = p[k + 3] - ay, L2 = ex * ex + ey * ey || 1e-9;
+            const u = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / L2)); b = Math.min(b, Math.hypot(x - ax - u * ex, y - ay - u * ey)); } return b; };
+          const cand = [];
+          if (${JSON.stringify(what)} === "junction") { for (const r of m.roads) for (const e of [0, r.points.length - 2]) if (m.roads.some((q) => q !== r && pd(q.points, r.points[e], r.points[e + 1]) < 1)) cand.push([r.points[e], r.points[e + 1]]); }
+          else if (${JSON.stringify(what)} === "bridge") { for (const r of m.roads) for (const w of m.water) if (w.kind === "stream") for (let k = 0; k < r.points.length; k += 2) if (pd(w.points, r.points[k], r.points[k + 1]) < 0.6) cand.push([r.points[k], r.points[k + 1]]);
+            for (const r of m.roads) for (const w of m.water) if (w.kind === "stream") for (let k = 0; k + 3 < r.points.length; k += 2) for (let f = 0; f <= 1; f += 0.02) { const x = r.points[k] + (r.points[k + 2] - r.points[k]) * f, y = r.points[k + 1] + (r.points[k + 3] - r.points[k + 1]) * f; if (pd(w.points, x, y) < 0.8) cand.push([x, y]); } }
+          else for (const o of m.obstacles) if (o.kind.endsWith("-wall")) for (let k = 2; k + 3 < o.points.length; k += 2) cand.push([o.points[k], o.points[k + 1]]);
+          for (const [x, y] of cand) { const d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; bx = x; by = y; } }
         } else {
           const w = m.vegetationPalette.indexOf("woodland") + 1;
           for (let k = 0; k < m.cols * m.rows - 1; k++) if (w > 0 && m.vegetation[k] === w && m.vegetation[k + 1] === 0 && m.vegetation[k + 2] === 0 && m.vegetation[k + 3] === 0 && m.surface[k + 2] === m.surface[k + 3]) {
@@ -168,7 +182,7 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
           }
         }
         if (bx < 0) return false;
-        t.focusScale(bx, by, ${name === "phone" ? 7 : 9}); t.stepTicks(1); return true;`) as () => boolean);
+        t.focusScale(bx, by, ${JSON.stringify(what)} === "houses-close" ? 18 : ${name === "phone" ? 7 : 9}); t.stepTicks(1); return true;`) as () => boolean);
       if (!ok) continue;
       await settle();
       const p = `${outDir}/photo-${seed}-${name}-${map}-${what}-${lk}.png`;

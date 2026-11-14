@@ -4,11 +4,18 @@
  * building whose alpha follows the roof-fade rule: a roof fades away when zoomed in close, or when one of the
  * player's own able men (not riding in a vehicle) is inside the building or within `ROOF_NEAR_M` of its walls.
  * Original drawings (docs/ASSETS.md).
+ *
+ * Photo look (plan "photo" step "built"): the roofs are sprites cut from a per-map roof atlas painted by
+ * `photo/roof.ts` (hipped, gabled or flat, lit by the sun), one Sprite per building with the same fade rule; their
+ * ground shadows are part of the terrain picture, so they stay when the roof fades. When a roof starts to fade, a light
+ * dashed eave line shows for 0.3 s, so the player sees which building opened. Floors stay crisp vector drawings (they
+ * are game information: the walls are the cover), in the photo palette's lighter floor colours.
  */
-import { Container, Graphics } from "pixi.js";
+import { BufferImageSource, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { buildInteriorGraph, type Building, type MapDef } from "@tcs/sim";
 import type { Appearance } from "@tcs/data";
 import { shade } from "./terrain-flat";
+import { buildRoofAtlas, type RoofAtlas } from "./photo/roof";
 
 export const ROOF_NEAR_M = 8;
 const BUCKET_M = 32;
@@ -141,6 +148,8 @@ function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: 
 }
 
 const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
+/** Photo: frames the eave line shows when a roof starts to fade (0.3 s at 60 frames a second). */
+export const EAVE_FLASH_FRAMES = 18;
 
 /** Floors and roofs of a map's buildings. Children are in world metres. */
 export class BuildingLayers {
@@ -148,7 +157,13 @@ export class BuildingLayers {
   /** Upper floors (M7.5d): one Graphics per building and floor, built when first shown, over the ground floors. */
   readonly upper = new Container();
   readonly roofs = new Container();
-  private roofG: Graphics[] = [];
+  private roofG: (Graphics | Sprite)[] = [];
+  /** Photo: the roof atlas pages, the eave flash line and its frames left per building. */
+  private roofSources: BufferImageSource[] = [];
+  private readonly eaves = new Graphics();
+  private flash: Uint8Array;
+  private flashing = false;
+  readonly atlas: RoofAtlas | null = null;
   private upperG = new Map<number, Graphics>();
   private shownFloor = 0;
   private readonly map: MapDef;
@@ -158,19 +173,34 @@ export class BuildingLayers {
   private target: Uint8Array;
   readonly index: BuildingIndex;
 
-  constructor(map: MapDef, app: Appearance | null) {
+  constructor(map: MapDef, app: Appearance | null, readonly photo = false) {
     this.index = buildingIndex(map);
     this.alpha = new Float32Array(map.buildings.length).fill(1);
     this.target = new Uint8Array(map.buildings.length).fill(1);
+    this.flash = new Uint8Array(map.buildings.length);
     const outline = app?.map.outline ?? 0x1d2419;
     this.map = map;
     this.outline = outline;
-    this.floorColour = (b) => app?.map.floors[b.kind] ?? 0x9a8a72;
+    this.floorColour = (b) => (photo ? app?.photo?.floors[b.kind] : undefined) ?? app?.map.floors[b.kind] ?? 0x9a8a72;
     const f = this.floors;
+    if (photo) {
+      // One atlas for the map's roofs; a Sprite per building cut from it.
+      const atlas = buildRoofAtlas(map.buildings, (b) => app?.photo?.roofs[b.kind] ?? app?.map.roofs[b.kind] ?? hexN(b.roofColour));
+      this.atlas = atlas;
+      this.roofSources = atlas.pages.map((p) => new BufferImageSource({ resource: p.data, width: p.w, height: p.h, format: "rgba8unorm", alphaMode: "premultiplied-alpha", scaleMode: "linear", autoGenerateMipmaps: true }));
+      for (const it of atlas.items) {
+        const s = new Sprite(new Texture({ source: this.roofSources[it.page]!, frame: new Rectangle(it.px, it.py, it.pw, it.ph) }));
+        s.position.set(it.x, it.y); s.width = it.wM; s.height = it.hM;
+        this.roofG.push(s);
+        this.roofs.addChild(s);
+      }
+      this.roofs.addChild(this.eaves);
+    }
     for (const b of map.buildings) {
       const fp = b.footprint, n = fp.length / 2;
-      const floor = app?.map.floors[b.kind] ?? 0x9a8a72;
+      const floor = this.floorColour(b);
       drawPlan(f, b, 0, floor, outline);
+      if (photo) continue;
       // Roof: a hard shadow, flat colour, the ridge with one half a shade darker, tile rows, a dark outline.
       const g = new Graphics();
       const h = b.storeys * b.storeyHeightM, off = Math.min(5, 0.22 * h + 0.5);
@@ -220,8 +250,11 @@ export class BuildingLayers {
     return -1;
   }
 
-  /** Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). */
-  update(men: ArrayLike<number>, nMen: number, close: boolean): void {
+  /**
+   * Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). `pxPerM`: the
+   * zoom (screen px per metre), for the photo look's eave flash line (1 px wide).
+   */
+  update(men: ArrayLike<number>, nMen: number, close: boolean, pxPerM = 10): void {
     roofShown(this.index, men, nMen, close, this.target);
     // Upper floors (M7.5d): the floor switched to, where the roof is lifted (a building with an interior).
     for (const g of this.upperG.values()) g.visible = false;
@@ -245,17 +278,50 @@ export class BuildingLayers {
       const want = this.target[i]!, a = this.alpha[i]!;
       if (a === want) continue;
       const na = want > a ? Math.min(1, a + 0.125) : Math.max(0, a - 0.125);
+      if (this.photo && a === 1 && want === 0) { this.flash[i] = EAVE_FLASH_FRAMES; this.flashing = true; }
       this.alpha[i] = na;
       const g = this.roofG[i]!;
       g.alpha = na;
       g.visible = na > 0;
     }
+    if (this.flashing) this.drawEaves(pxPerM);
   }
+
+  /** Photo: the light dashed eave line of roofs that just started to fade (0.3 s), 1 px wide on screen. */
+  private drawEaves(pxPerM: number): void {
+    const g = this.eaves;
+    g.clear();
+    let any = false;
+    const px = 1 / Math.max(0.01, pxPerM), dash = 5 * px, gap = 4 * px;
+    for (let i = 0; i < this.flash.length; i++) {
+      const fr = this.flash[i]!;
+      if (fr === 0) continue;
+      this.flash[i] = fr - 1;
+      any = true;
+      const fp = this.map.buildings[i]!.footprint, n = fp.length / 2;
+      for (let k = 0; k < n; k++) {
+        const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
+        const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
+        for (let s = 0; s < L; s += dash + gap) g.moveTo(ax + ux * s, ay + uy * s).lineTo(ax + ux * Math.min(L, s + dash), ay + uy * Math.min(L, s + dash));
+      }
+      g.stroke({ width: px, color: 0xeee8d8, alpha: Math.min(1, fr / 6) });
+    }
+    this.flashing = any;
+  }
+
+  /** Frames of eave flash left for building i (tests). */
+  eaveFlash(i: number): number { return this.flash[i] ?? 0; }
+
+  /** The roof display object of building i (tests). */
+  roofObject(i: number): Graphics | Sprite | undefined { return this.roofG[i]; }
 
   /** The roof's current alpha (tests, screenshots). */
   roofAlpha(i: number): number { return this.alpha[i] ?? 1; }
 
-  destroy(): void { this.floors.destroy(); this.upper.destroy({ children: true }); this.roofs.destroy({ children: true }); }
+  destroy(): void {
+    this.floors.destroy(); this.upper.destroy({ children: true }); this.roofs.destroy({ children: true, texture: true });
+    for (const s of this.roofSources) s.destroy();
+  }
 }
 
 /**

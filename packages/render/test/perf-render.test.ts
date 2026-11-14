@@ -113,7 +113,7 @@ describe("render cost (M7.5b look)", () => {
     const overlay = { playerSide: "blue", selectedUnit: null, debug: true };
     r.camera = { x: input.map.widthM / 2 - 80, y: input.map.heightM / 2 - 50, scale: 8 };
     const best = time(r, () => r.draw(sim.state, input.map, 0.5, overlay));
-    console.log(`render (M7.5b): ${input.map.buildings.length} buildings with roofs, ${sim.state.identity.size} men, figure zoom: ${best.toFixed(2)} ms per frame (target 4 ms)`);
+    console.log(`render (M7.5b; photo look: roof sprites): ${input.map.buildings.length} buildings with roofs, ${sim.state.identity.size} men, figure zoom: ${best.toFixed(2)} ms per frame (target 4 ms)`);
     expect(input.map.buildings.length).toBeGreaterThan(20);
     expect(best).toBeLessThan(4);
   });

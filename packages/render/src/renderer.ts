@@ -298,7 +298,7 @@ export class BattleRenderer {
   setBuildings(map: MapDef): void {
     if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.bld.upper.parent?.removeChild(this.bld.upper); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
     this.map = map;
-    this.bld = new BuildingLayers(map, this.appearance);
+    this.bld = new BuildingLayers(map, this.appearance, this.look === "photo");
     if (this.terrain) this.terrain.addChild(this.bld.floors, this.bld.upper); else this.worldLayer.addChild(this.bld.floors, this.bld.upper);
     this.roofLayer.addChild(this.bld.roofs);
   }
@@ -1356,7 +1356,7 @@ export class BattleRenderer {
       if (2 * n + 2 > this.roofMen.length) { const b = new Float64Array(this.roofMen.length * 2); b.set(this.roofMen); this.roofMen = b; }
       this.roofMen[2 * n] = t.x; this.roofMen[2 * n + 1] = t.y; n++;
     }
-    this.bld.update(this.roofMen, n, lod === LOD_CLOSE);
+    this.bld.update(this.roofMen, n, lod === LOD_CLOSE, this.camera.scale);
   }
 
   private drawGround(map: MapDef, lod: Lod = LOD_DOTS): void {

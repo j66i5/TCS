@@ -15,6 +15,7 @@ import type { FlatColours } from "../flat/paint";
 import { fbm as fbmImp, hash2, smoothstep as smoothstepImp, vnoise as vnoiseImp } from "./noise";
 import { hillshade as hillshadeImp } from "./light";
 import { buildStamps, prepareVegetation, type Stamp, type VegPrep } from "./crowns";
+import { prepareLines, type LinePrep } from "./lines";
 
 /** Ground textures of the photo painter. */
 export const Tex = { Grass: 0, Plough: 1, Rows: 2, Meadow: 3, Garden: 4, Forest: 5, Worn: 6, Hard: 7 } as const;
@@ -48,6 +49,8 @@ export interface PhotoPrep {
   grade: PhotoGrade;
   /** Trees, hedges, orchards, scrub (step "vegetation"). */
   veg: VegPrep;
+  /** Roads, water, walls, fences, embankments, building shadows (step "built"). */
+  lines: LinePrep;
   /** Crown stamps per ppm, built on first use (at most about 10 ms each). */
   stamps: Map<number, Stamp[]>;
 }
@@ -193,6 +196,6 @@ export function preparePhoto(map: MapDef, col: FlatColours, grade: PhotoGrade = 
     cols: C, rows: R, cs, widthM: map.widthM, heightM: map.heightM,
     field, r, g, b, tex, edge, fcos, fsin, macro, mcols, mrows,
     grass: rgb(grassC), straw: [0xb4, 0xa8, 0x7c], grade,
-    veg: prepareVegetation(map, col), stamps: new Map(),
+    veg: prepareVegetation(map, col), lines: prepareLines(map, col, rgb(grassC)), stamps: new Map(),
   };
 }

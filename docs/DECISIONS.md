@@ -3016,3 +3016,16 @@ Independent review of the four photo steps; rendering only (no sim, golden or ca
 10. `docs/plans/photo.md` indexes the plan references cited in code; `terrain-flat.ts` header fixed (re-exports only).
 11. New `render/test/terrain-tiles.test.ts`: level choice, budget cap, prime ahead of strips, placeholder freed, no
     holes, eviction, worker-failure fallback, device tier, blur apron.
+
+## 2026-11-14 — The app no longer marks the AI commander's orders as player orders (overnight AI, pick "app-ai-orders")
+
+Bug fix, **high confidence**. `main.ts` sent the AI commander's orders through the player's `issue()`, which set
+`player: true` (and the floor-on-screen rule), so every AI vehicle move or halt set `playerHold` (`drive.ts`
+`noteVehicleOrder`) and `armour.ts` skipped the "panicked commander" and "enemy man within `atThreatM`" reverse-out
+reasons for the AI's hulls: the app played a different AI from headless, batch and golden runs. Now the player's
+gestures and `__tcs` hooks go through `issue()` = new pure `ui/src/player-order.ts` `playerOrder()` (player flag +
+floor on screen), and the AI's orders through `issueAi()` (logged and submitted unchanged). The app's AI hulls now
+reverse out on panic and close infantry as they do in batch runs. Measured (AI orders through the old path vs the new,
+600 s): playerHold vehicle-seconds on AI hulls platoon-ru-vehicles seeds 1/2/3 3594/3594/918 -> 0/0/0,
+platoon-vehicles seed 1 4792 -> 0; outcomes unchanged in those seeds. No sim, data or golden change.
+New `ui/test/player-order.test.ts`.

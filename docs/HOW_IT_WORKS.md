@@ -585,7 +585,7 @@ away about 60 m — in reverse if the danger is in front, so its front armour an
 about 15 seconds. If it backed off because of enemies close by or a panicking commander (not because it was hit),
 it then drives back to where it stood and rejoins the fight, unless something new drives it off again. A vehicle
 you have given a move or halt order to holds that order against enemies close by and a panicking commander: only a
-penetration or lost weapons make it back off. The radio says "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
+penetration or lost weapons make it back off. This holds only for orders you give: the computer opponent's vehicles still back off from a panicking commander and close enemy men, in the game exactly as in test runs (fixed 14 November: the game had marked the computer's orders as yours). The radio says "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
 select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
 it from one of their own side's vehicles, abandoned ones included, if it carries what their weapon uses — never from
 an enemy vehicle (owner's choice, 2026-11-13).

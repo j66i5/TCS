@@ -16,7 +16,7 @@ import {
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
-import { createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
+import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
   ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
@@ -318,21 +318,20 @@ async function main(): Promise<void> {
     const set = ordersFor(cls, input.catalog.movementModes);
     return { tick: o.tick, issuer: o.issuer, target: o.target, kind: "move", waypoints: o.waypoints.map((w) => ({ x: w.x, y: w.y, ...paceToWaypoint(w.mode, set) })), ...(o.facing !== undefined ? { facing: o.facing } : {}) };
   };
-  const issue = (order: Order) => {
-    // The player's own order (a vehicle holds a move or halt against close enemy men, owner 2026-11-13).
-    order = { ...order, player: true };
-    // A move into a building goes to the floor on screen (M7.5d floor switch).
-    if (order.kind === "move" && order.floor === undefined && floorState.shown > 0) {
-      const last = order.waypoints[order.waypoints.length - 1];
-      const bi = last ? indoorAt(sim.ctx, last.x, last.y) : -1;
-      if (bi >= 0) order = { ...order, floor: Math.min(floorState.shown, input.map.buildings[bi]!.storeys - 1) };
-    }
+  /** Logs an order and sends it to the sim; the last move sent to a unit is kept (its marker can be dragged, S10). */
+  const send = (order: Order) => {
     orderLog.push(order);
     submitOrder(sim, order);
-    // The last move sent to a unit (its marker can be dragged, S10); any other movement order ends it.
     if (order.issuer !== playerSide) { /* the AI's orders */ } else if (order.kind === "move") activeMoves.set(order.target, order);
     else if (order.kind === "halt" || order.kind === "assault" || order.kind === "withdraw" || order.kind === "occupy" || order.kind === "mount" || order.kind === "dismount") activeMoves.delete(order.target);
   };
+  /** The player's gestures and debug hooks: marked as the player's, moves into a building go to the floor on screen. */
+  const issue = (order: Order) => send(playerOrder(order, floorState.shown, (x, y) => {
+    const bi = indoorAt(sim.ctx, x, y);
+    return bi >= 0 ? input.map.buildings[bi]!.storeys - 1 : -1;
+  }));
+  /** The AI commander's orders go to the sim unchanged, as in headless, batch and golden runs. */
+  const issueAi = (order: Order) => send(order);
 
   // ---- order gestures on the map (the "controls" step, owner choices S1, S2, S9, S10, S12)
   type MoveOrder = Extract<Order, { kind: "move" }>;
@@ -973,7 +972,7 @@ async function main(): Promise<void> {
   let knownTick = -1;
   let sightAt = -1, sightFor: EntityId | null = null, sightReal = -1e9;
   const stepOnce = () => {
-    for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) issue(o);
+    for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) issueAi(o);
     renderer.capturePrevious(sim.state);
     handleEvents(step(sim));
   };

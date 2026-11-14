@@ -3,6 +3,8 @@
 _Last updated: 2026-11-14 (photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**App AI orders fix (2026-11-14, overnight AI pick "app-ai-orders").** The app sent the AI commander's orders through the player's `issue()` (marking them `player: true`), so AI hulls held moves against panic and close enemy men in the app but not in headless runs. Now `issue()` (gestures, `__tcs` hooks, via `ui` `playerOrder()`) and `issueAi()` (unchanged orders) are split; no sim or golden change.
+
 **Photo map look (owner goal 2026-11-14: "more like Firefight, a low resolution shot of the real world, not so
 blocky"; plan `photo`, four steps; DECISIONS.md "Photo map, step ...").** The map is now painted like a soft
 low-resolution aerial photo, all original procedural art (`render/src/photo/`, pure; ASSETS.md): soft warped field

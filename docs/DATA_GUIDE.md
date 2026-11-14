@@ -204,6 +204,32 @@ out, worst-case bleeding in litres per second), `wounding` (knock-down seconds, 
 `effects` (when a man can no longer walk or use his rifle). After a change run `npm run lab -- casualty` and
 compare the table.
 
+## Medical data (M10.1)
+
+`core/medical.json`: `physiology` (rates of the "medical" body model: tension pneumothorax chance, onset and
+time to death; head injury chance and lucid interval; fracture chance; burn fluid loss; fluids; hypothermia;
+the tourniquet clock), `levels` (the skill each medical job treats with), `interventions` (one entry per
+treatment: what it treats, whether it is allowed under fire, seconds and success by skill — `self`, `buddy`,
+`firstResponder`, `medic`; a skill not listed cannot do it — the items it uses up by **tag**, and its effect),
+`carry` (ways of moving a casualty), `chain` (the 10-1-2 time targets), `protection` (recognising protected
+people, breach chances) and `triage`. Research comes from search extracts only, so nothing in medical data may
+claim `"high"` confidence (the data lint refuses it). After a change run `npm run lab -- casualty`.
+
+Medical items carry `"medical": { "tags": [...], "timeFactor": 1, "successFactor": 1 }`: an intervention uses
+any item with its tag, and the factors make a worse item slower and less reliable (the Russian rubber tourniquet:
+1.4 and 0.8). A red cross armband is an item with `"emblem": true`. A role with a medical job has
+`"medical": { "level": "firstResponder" | "medic" | "stretcherBearer" | "ambulanceCrew", "interventions": [...] }`;
+list `interventions` only when the national training is narrower than the level. A man's medical kit is counted
+items in his load (the bag itself is an item for its empty mass).
+
+`care` (M10.2) says how first aid is given: `stepS` (how often each wounded man is looked at), `buddyReachM` (a
+comrade this close treats a man who cannot treat himself), `maxAttempts` (tries of one intervention on one wound),
+`painTreatAt`, `skillRef` / `skillK` (a man's own medical skill moves the chance: × (1 + skillK × (skill −
+skillRef))), `underFireSuppression` / `underFireSeconds` (what counts as under fire), `junctionalZones` (where a large
+bleed needs packing) and `order` — the interventions in MARCH order; the first one the casualty needs and the helper
+can do is done. Every id in `order` must be an intervention (the loader checks). After a change run
+`npm run lab -- treatment`.
+
 ## Change how fire frightens men
 
 `core/behaviour.json` (M4): `suppression` (near-miss radius, suppression per round and the energy it is scaled

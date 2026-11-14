@@ -6,7 +6,10 @@
       "leader": true,
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture."
+      "note": "Made-up test fixture.",
+      "medical": {
+        "level": "firstResponder"
+      }
     },
     {
       "id": "porter",

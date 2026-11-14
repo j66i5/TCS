@@ -73,6 +73,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!mode) { m.speedMps = 0; continue; }
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }
+    // Stopping his own massive bleeding (M10.2): he stays where he is until it is done.
+    if (s && s.wounds.length > 0 && state.action.get(id)?.params["hold"] === 1) { m.speedMps = 0; continue; }
     // Pinned or panicked (M4.1): he lies flat where he is; his way is kept for when he gets up again.
     // (A low crawl to cover is what he does pinned, package B: that leg he crawls. Out of a house that has become a
     // trap he runs, pinned or not: M7.5e.)

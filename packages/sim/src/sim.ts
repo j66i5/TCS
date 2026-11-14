@@ -24,6 +24,7 @@ import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
+import { medicalSystem } from "./systems/medical";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -51,13 +52,14 @@ export function createContext(input: BattleInput): SimContext {
   if (!comms) throw new Error(`unknown comms model '${input.rules.commsModel}'`);
   const problems = validateMap(input.map, input.catalog.terrain);
   if (problems.length > 0) throw new Error(`map '${input.map.id}' does not fit the data: ${problems.slice(0, 5).join("; ")}`);
+  if (input.rules.physiologyModel === "medical" && !input.catalog.medical) throw new Error("the 'medical' physiology model needs core/medical.json in the data");
   const mapIndex = buildMapIndex(input.map);
   return {
     catalog: input.catalog, map: input.map, mapIndex, mapFingerprint: mapFingerprint(input.map), nav: {},
     ballistics: buildBallistics(input.map, input.catalog, mapIndex, TICK_HZ), dropTables: {},
     rules: input.rules, comms,
     physiology: PHYSIOLOGY_MODELS[input.rules.physiologyModel] ?? null,
-    physiologyParams: { ...input.catalog.wounds.physiology, ...input.rules.physiologyParams },
+    physiologyParams: { ...input.catalog.wounds.physiology, ...input.catalog.medical?.physiology, ...input.rules.physiologyParams },
     breaches: [], navStamps: [], navStampKey: "",
   };
 }
@@ -133,6 +135,8 @@ export function step(sim: Sim): SimEvent[] {
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
   surrenderSystem(ctx, state, events);
+  // Self-aid and buddy aid (M10.2): before decisions, so a man who starts treating is not given something else.
+  medicalSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);

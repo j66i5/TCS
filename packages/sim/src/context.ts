@@ -27,6 +27,9 @@ export interface BattleRules {
   victory?: VictoryRules;
   /** Mortar rounds each side may call (M6.5c); the kind of fire is the faction's `fireSupport`. */
   support?: { side: SideId; he: number; smoke: number }[];
+  /** Care of the wounded (M10.2 on): false switches it off (`--no-medical`, comparison batches). Default on
+   *  whenever the data has core/medical.json. */
+  medicalCare?: boolean;
 }
 
 /** An area worth holding (M6). */

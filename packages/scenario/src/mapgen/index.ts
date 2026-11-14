@@ -26,7 +26,35 @@ export interface MapGenOptions {
   interiors?: boolean;
 }
 
+/**
+ * Optional cache of generated maps (M10.0, test speed). Tools install one in their test setup so tests that build
+ * the same scenario map again (in one file or across files) do not regenerate it. A cache must hand out a map
+ * equal to what the generator gives (a fresh copy each time: callers may change their map), so results never
+ * depend on it. The app and the batch tools run without one.
+ */
+export interface MapCache {
+  get(terrain: TerrainCatalog, key: string): MapDef | undefined;
+  set(terrain: TerrainCatalog, key: string, map: MapDef): void;
+}
+let mapCache: MapCache | null = null;
+/** Install (or with `null` remove) the map cache. Returns the previous one. */
+export function setMapCache(cache: MapCache | null): MapCache | null {
+  const old = mapCache;
+  mapCache = cache;
+  return old;
+}
+
 export function generateMap(terrain: TerrainCatalog, o: MapGenOptions): MapDef {
+  if (mapCache === null) return generate(terrain, o);
+  const key = `${o.kind}|${o.seed >>> 0}|${o.widthM ?? 2000}|${o.heightM ?? 2000}|${o.cellSizeM ?? 4}|${o.interiors ?? true}|v${MAPGEN_VERSION}`;
+  const hit = mapCache.get(terrain, key);
+  if (hit !== undefined) return hit;
+  const map = generate(terrain, o);
+  mapCache.set(terrain, key, map);
+  return map;
+}
+
+function generate(terrain: TerrainCatalog, o: MapGenOptions): MapDef {
   const w = o.widthM ?? 2000, h = o.heightM ?? 2000, cell = o.cellSizeM ?? 4;
   if (cell < 2 || cell > 5) throw new Error("cell size must be 2..5 m (SPEC 6.1)");
   const b = new MapBuilder(w, h, cell, terrain, createRng(o.seed), "grass");

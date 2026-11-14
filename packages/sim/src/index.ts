@@ -32,6 +32,8 @@ export { battleScore, type BattleScore, type SideScore } from "./systems/objecti
 export { secondsToEffect, smokeTransmission, supportLeft } from "./systems/support";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";
 export { takeOutOfFight } from "./systems/wounds";
+export * from "./medical";
+export { careEnabled, medicalSystem, startTreatment, treatedNow, underFireForCare } from "./systems/medical";
 export { driveSurface, followRoute, fuelLitres, planVehicleRoute, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";
 export * from "./hulls";
 export { unitArrived } from "./systems/movement";

@@ -468,6 +468,70 @@ export const WoundsFile = z.object({
 }).strict();
 export type WoundsT = z.infer<typeof WoundsFile>;
 
+// ---------- medical (core/medical.json, M10.1): physiology of the medical model, treatments, carrying ----------
+export const CARE_SKILLS = ["self", "buddy", "firstResponder", "medic"] as const;
+export const MEDICAL_LEVELS = ["firstResponder", "medic", "stretcherBearer", "ambulanceCrew"] as const;
+const CareSkill = z.enum(CARE_SKILLS);
+const BySkill = (lo: number, hi: number) => z.object({
+  self: Num(lo, hi).optional(), buddy: Num(lo, hi).optional(), firstResponder: Num(lo, hi).optional(), medic: Num(lo, hi).optional(),
+}).strict();
+/** The conditions a treatment can address (keys the medical system knows; M10.2). */
+export const TREATS = [
+  "limb-bleed", "compressible-bleed", "junctional-bleed", "airway", "open-chest", "tension", "access", "volume", "pain",
+  "cold", "fracture", "tourniquet",
+] as const;
+export const InterventionSchema = withProv({
+  id: Id, nameKey: z.string(), treats: z.enum(TREATS),
+  /** Allowed under effective fire (TCCC care under fire). */
+  underFire: z.boolean(),
+  timeS: BySkill(1, 7200), success: BySkill(0, 1),
+  stressFactor: Num(0, 1), selfFactor: Num(0, 1), underFireTimeFactor: Num(1, 5),
+  consumes: z.array(z.object({ tag: Id, count: z.number().int().min(1).max(10) }).strict()),
+  effect: z.object({
+    bleedFactor: Num(0, 1).optional(), painAdd: Num(0, 1).optional(), painRelief: Num(0, 1).optional(), tourniquet: z.boolean().optional(),
+    airwayFactor: Num(0, 1).optional(), breathingFactor: Num(0, 1).optional(), decompress: z.boolean().optional(), access: z.boolean().optional(),
+    fluidL: Num(0, 5).optional(), warms: z.boolean().optional(), splints: z.boolean().optional(),
+  }).strict(),
+});
+export const CarrySchema = withProv({
+  id: Id, nameKey: z.string(), carriers: z.number().int().min(0).max(8), speedMps: Num(0.1, 3), enduranceM: Num(1, 5000),
+  restS: Num(0, 3600), setupS: Num(0, 600), upright: z.boolean(),
+});
+export const MedicalFile = z.object({
+  /** Rates of the "medical" physiology model (flat numbers, merged into the physiology parameters). */
+  physiology: withProv({
+    tensionChance: Num(0, 1), tensionOnsetMinS: Num(0, 36000), tensionOnsetMaxS: Num(0, 36000), tensionDeathS: Num(10, 36000),
+    headChance: Num(0, 1), headMinSeverity: Num(0, 1), headOnsetMinS: Num(0, 36000), headOnsetMaxS: Num(0, 36000),
+    fractureChance: Num(0, 1), fractureMinSeverity: Num(0, 1),
+    burnFluidLps: Num(0, 0.01), fluidLps: Num(0, 0.1), fluidVolumeFactor: Num(0, 1),
+    hypoC: Num(25, 37), hypoClotFactor: Num(1, 10), hypoDeathLossPerC: Num(0, 0.2), coldOutC: Num(15, 37), coldDeathC: Num(10, 37),
+    coolPerS: Num(0, 0.1), rainCoolK: Num(0, 10), windCoolK: Num(0, 10), shelteredCoolFactor: Num(0, 1), warmedCoolFactor: Num(0, 1),
+    ischaemiaSafeS: Num(0, 360000), ischaemiaMidS: Num(0, 360000), ischaemiaMidChance: Num(0, 1), ischaemiaLateS: Num(0, 360000), ischaemiaLateChance: Num(0, 1),
+  }),
+  /** What each medical job treats with. */
+  levels: withProv({
+    firstResponder: z.object({ skill: CareSkill }).strict(), medic: z.object({ skill: CareSkill }).strict(),
+    stretcherBearer: z.object({ skill: CareSkill }).strict(), ambulanceCrew: z.object({ skill: CareSkill }).strict(),
+  }),
+  interventions: z.array(InterventionSchema).min(1),
+  carry: z.array(CarrySchema).min(1),
+  chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
+  protection: withProv({
+    recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),
+    obscuredFactor: Num(0, 1), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
+    medicFiredLosesProtectionS: Num(0, 3600),
+  }),
+  triage: withProv({ errorChance: BySkill(0, 1), underFireAdd: Num(0, 1) }),
+  /** How care is given (M10.2): cadence, buddy reach, attempts, thresholds, the MARCH order of interventions. */
+  care: withProv({
+    stepS: Num(0.1, 60), buddyReachM: Num(0.5, 20), maxAttempts: z.number().int().min(1).max(10), painTreatAt: Num(0, 1),
+    skillRef: Num(0, 1), skillK: Num(0, 2), underFireSuppression: Num(0, 1), underFireSeconds: Num(0, 600),
+    junctionalZones: z.array(z.enum(["head", "neck", "chest", "abdomen", "pelvis", "armL", "armR", "legL", "legR"])),
+    order: z.array(Id).min(1),
+  }),
+}).strict();
+export type MedicalT = z.infer<typeof MedicalFile>;
+
 // ---------- formations (core/formations.json) ----------
 export const FormationSchema = withProv({
   id: Id, nameKey: z.string(),
@@ -572,7 +636,12 @@ export const RankSchema = withProv({
 }).strict();
 export const RanksFile = z.object({ ranks: z.array(RankSchema).min(1) }).strict();
 
-export const RoleSchema = withProv({ id: Id, nameKey: z.string(), leader: z.boolean().optional() });
+export const RoleSchema = withProv({
+  id: Id, nameKey: z.string(), leader: z.boolean().optional(),
+  /** Medical job (M10.1): the level, and the interventions (core/medical.json ids) this role is trained for when
+   *  national training is narrower than the level (owner Q-1b); absent: everything the level's skill can do. */
+  medical: z.object({ level: z.enum(MEDICAL_LEVELS), interventions: z.array(Id).optional() }).strict().optional(),
+});
 export const RolesFile = z.object({ roles: z.array(RoleSchema).min(1) }).strict();
 
 export const NamesFile = withProv({
@@ -605,6 +674,11 @@ export const ItemSchema = withProv({
     /** Protection in mm of mild steel equivalent (compared with the bullet's penetration at impact). */
     protectionSteelMm: z.number().min(0).max(200),
   }).strict()).optional(),
+  /** Medical supplies (M10.1): tags matched by core/medical.json `consumes`; slower / less reliable than the
+   *  reference item by these factors (e.g. a rubber tourniquet against the CAT). */
+  medical: z.object({ tags: z.array(Id).min(1), timeFactor: Num(0.2, 5).default(1), successFactor: Num(0, 2).default(1) }).strict().optional(),
+  /** A protective emblem worn by medical personnel (red cross armband). */
+  emblem: z.literal(true).optional(),
 });
 export const ItemsFile = z.object({ items: z.array(ItemSchema) }).strict();
 

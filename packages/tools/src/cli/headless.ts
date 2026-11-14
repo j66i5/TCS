@@ -1,6 +1,6 @@
 /**
  * Headless runner: runs one battle as fast as possible and prints the result.
- *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events]
+ *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical]
  */
 import { readFileSync } from "node:fs";
 import { environmentAt, parseTimeOfDay, runBattle, stripInteriors, type Order, type SimEvent } from "@tcs/sim";
@@ -18,6 +18,7 @@ const input = sc.build(data, seed, seconds);
 // `--time HH:MM [--moon 0..1]` (M9.1): the battle at that local time, the light following the clock.
 if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(args["moon"] ?? 0.5));
 if (args["no-interiors"] !== undefined) input.map = stripInteriors(input.map); // M7.5c: the map as before interiors
+if (args["no-medical"] !== undefined) input.rules.medicalCare = false; // M10.2: no care of the wounded
 if (args["orders"]) input.orders = JSON.parse(readFileSync(args["orders"], "utf8")) as Order[];
 const controllers = args["no-ai"] ? [] : (sc.controllers?.(input) ?? []);
 const printEvents = args["events"] === "true";

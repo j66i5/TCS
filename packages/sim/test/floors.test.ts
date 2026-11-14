@@ -1,7 +1,7 @@
 /** Upper floors (M7.5d): stairs, heights, moving upstairs, firing and seeing from upper windows, Occupy, saves. */
 import { describe, expect, it } from "vitest";
 import {
-  aimHeightAt, buildInteriorGraph, createSim, detonate, syncTerrainDamage, deserializeState, floorOf, hashState, indoorAt, indoorSpots, lineBlocked, navFor, occupyPlaces, routeBetween, serializeState, sight, standZ, step, submitOrder,
+  aimHeightAt, buildInteriorGraph, createSim, detonate, syncTerrainDamage, deserializeState, floorOf, hashState, indoorAt, indoorSpots, lineBlocked, navFor, occupyPlaces, routeBetween, windowPlaces, serializeState, sight, standZ, step, submitOrder,
   stripInteriors, surrender, type Building, type MapDef, type Sim, type SimEvent,
 } from "../src/index";
 import { EventSink } from "../src/events";
@@ -290,5 +290,53 @@ describe("floors: occupy and spreading", () => {
     // Men's places a little apart.
     const f = indoorSpots(sim.ctx, 0, 109, 85, 6);
     for (let i = 0; i < f.length; i++) for (let j = i + 1; j < f.length; j++) expect(Math.hypot(f[i]!.x - f[j]!.x, f[i]!.y - f[j]!.y)).toBeGreaterThan(0.79);
+  });
+});
+
+describe("floors: occupy one window (M7.5e defend, D1)", () => {
+  it("a one-man occupy with `window` sends him to exactly that window, at the given pace, kneeling or standing by the sill", () => {
+    const sim = simWith();
+    const wins = windowPlaces(sim.ctx, 0);
+    expect(wins.length).toBe(3);
+    const man = blueMen(sim).sort((a, b) => a - b)[0]!;
+    submitOrder(sim, { tick: 0, issuer: "blue", target: man, kind: "occupy", building: 1, windowIndex: 2, mode: "walk" });
+    for (let k = 0; k < 60 * 30 && sim.state.mover.req(man).waypoints.length === 0; k++) step(sim);
+    expect(sim.state.mover.req(man).waypoints[0]!.mode).toBe("walk");
+    run(sim, 60 * 90);
+    const t = sim.state.transform.req(man), w = wins[2]!;
+    expect(Math.hypot(t.x - w.x, t.y - w.y)).toBeLessThan(0.05);
+    expect(t.z).toBe(w.z);
+    expect(t.heading).toBeCloseTo(w.heading, 9);
+    expect(sim.state.soldier.req(man).homePosture).toBe(w.posture);
+  });
+
+  it("several men with `window`: the first at that window, the others at other places", () => {
+    const sim = simWith();
+    const w = windowPlaces(sim.ctx, 0)[1]!;
+    submitOrder(sim, { tick: 0, issuer: "blue", target: blueUnit(sim), kind: "occupy", building: 1, windowIndex: 1 });
+    run(sim, 60 * 90);
+    const men = blueMen(sim).sort((a, b) => a - b).map((id) => sim.state.transform.req(id));
+    expect(Math.hypot(men[0]!.x - w.x, men[0]!.y - w.y)).toBeLessThan(0.05);
+    for (const t of men.slice(1)) expect(t.z !== w.z || Math.hypot(t.x - w.x, t.y - w.y) >= 1.1).toBe(true);
+  });
+
+  it("a window index out of range, not a whole number, or a pace that is not on foot is rejected", () => {
+    for (const bad of [{ windowIndex: 3 }, { windowIndex: -1 }, { windowIndex: 0.5 }, { windowIndex: 0, mode: "nope" }]) {
+      const sim = simWith();
+      submitOrder(sim, { tick: 0, issuer: "blue", target: blueMen(sim)[0]!, kind: "occupy", building: 1, ...bad });
+      expect(step(sim).some((e) => e.kind === "order.rejected" && e.reason === "invalid-params")).toBe(true);
+    }
+  });
+
+  it("save and load on the way to the window: same hash, same run after", () => {
+    const sim = simWith();
+    submitOrder(sim, { tick: 0, issuer: "blue", target: blueMen(sim)[0]!, kind: "occupy", building: 1, windowIndex: 0, mode: "walk" });
+    run(sim, 60 * 4);
+    const back = deserializeState(JSON.parse(JSON.stringify(serializeState(sim.state))));
+    expect(hashState(back)).toBe(hashState(sim.state));
+    const copy = simWith();
+    copy.state = back;
+    run(sim, 60 * 20); run(copy, 60 * 20);
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 });

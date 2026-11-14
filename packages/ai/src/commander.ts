@@ -413,7 +413,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const placed = new Set<EntityId>();
           for (const p of siteDefence(ground(), groups, approachPoints(ground(), main.x, main.y, front))) {
             if (!p.move) continue;
-            order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: Number.isNaN(p.facing) ? front : p.facing });
+            // (M7.5e: a window place is one man's occupy order, at a walk.)
+            if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "walk" });
+            else order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: Number.isNaN(p.facing) ? front : p.facing });
             placed.add(p.id);
           }
           for (const m of all) if (!placed.has(m)) order(m, { kind: "posture", posture: "prone" });
@@ -455,7 +457,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const o = objectives[r[2]] ?? main;
           const e = enemyCentre(r[0], r[1], men.map((m) => m.id));
           const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
-          for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM)) {
+          for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
             if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
             else order(p.id, { kind: "posture", posture: "prone" });
           }

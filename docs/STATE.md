@@ -1,7 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (M7.5e AI uses buildings, step defend; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
+
+**AI uses buildings, step "defend" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 1 of 4).** The AI
+defender now holds houses with a mixed spread: its siting takes window places (upper floors where they see as much
+as the ground floor) beside outdoor spots, at most 60 % of a squad inside, 2+ outside, 2 per room, 4 per house, men
+outside 8 m clear of an occupied house's walls, one man watching its back (`ai/src/siting.ts`); a window is a
+one-man `occupy {building, windowIndex, mode}` (new optional order fields). Defender man-seconds indoors 0.5 -> 36 %
+(village), 1.6 -> 27 % (mounted), 0.3 -> 16 % (farmland); upstairs 9 / 6 / 4 %; wounds per 100 man-minutes inside
+9 vs outside 20 (village). Attacker wins 5 -> 4 / 20 (village), 7 -> 4 / 15 (mounted), 13 -> 12 / 20 (farmland),
+not re-tuned. Not met: max within 10 m <= 5 on every seed (worst 6-7). Batch "buildings" block, `npm run lab --
+house defend`. Next steps: leave, clear, polish. See DECISIONS.md.
 
 **Defence fall-back (2026-11-14, overnight AI pick "defence-fallback").** An AI defending squad below half strength falls back only under a close threat (known enemy within 150 m, its objective contested, or enemies on two sides), each to a rally point of its own 80-150 m behind it, away from the enemy its men know, in cover and seeing its objective (`COMMANDER.fallback`); there each man takes a fire position (siting, 20 m); a squad holding there counts toward the counter-attack. Sim: a withdrawal of 3 able men or fewer goes back in one leg (`drills.withdrawTogetherMen`, player orders too). Rally in cover 23 -> 95 %, on the bearing away from the enemy 27 -> 98 %; casualties per man withdrawn 0.56 -> 0.41 (platoon-ru; target 0.28 not met); outcomes within noise. See DECISIONS.md.
 

@@ -3385,3 +3385,74 @@ the recorded orders changed in platoon-vehicles-s1). no-interiors goldens untouc
 - Ducking between shots: **everyone ducks**, defenders behind walls included (as built).
 - Assault rest: **up to 60 s** (as built).
 - Next: **M7.5e AI uses buildings**.
+
+## 2026-11-14 — AI uses buildings, step "defend": the defence holds houses with a mixed spread (plan m7.5e, step 1)
+
+Owner answers 2026-11-14 (binding, plan `docs/plans/m7.5e-ai-buildings.md`): defenders hold houses; the squad is a
+**mix**, part inside at windows (upper floors where useful), part outside covering the approach and the back, a few
+men per room at most. Before, the AI defender never went into a house (`siteDefence` dropped every indoor
+candidate). Values in `SITING` (the established AI exception), game values, **low** unless said.
+- **D1 Occupy one window (sim, orders).** `occupy` gets two optional fields: `windowIndex` (an index into the
+  building's `windowPlaces`, a pure function of the map) sends the first man to exactly that window, any others to
+  the next places not at it; `mode` (a foot movement mode, default run) is the pace. Rejected: an index out of range
+  or not a whole number, a pace that is not on foot. The man's facing and posture come from the window place (as
+  every Occupy); his `homePosture` is that posture on arrival. The player's Occupy is unchanged. (Plan named the
+  field `window`; renamed because the sim's purity test bans that word as the DOM global.) **High** (plumbing).
+- **D2 Houses in the siting.** `siteDefence` takes the window places of every house within `searchM` 40 m of a
+  group's place as candidates beside the outdoor spots, inside the group's ring or within `windowRingSlackM` **10 m**
+  of it (a house on the ring's edge is part of the position: with the ring alone the platoon had 3-6 window places
+  of 19 men, with 10 m 6-9). Each is scored like an outdoor spot but seen from its own height (`standZ` + the eye of
+  the posture that clears the sill), its cover term `windowCoverW` **0.4** (outdoors `coverW` x (1 - exposure), at
+  most 0.1): 0.15 chose no window on seed 1 (village windows see 0.1-0.27 of the approach against 0.2-0.4 outdoors),
+  0.3 gave 22 % / 19 % of man-seconds indoors (platoon / mounted, 4 seeds), 0.4 with the 10 m slack 35 % / 24 %.
+  Caps: at most `insideShare` 0.6 of a group inside and at least `outsideMin` 2 men outside; `roomMax` 2 per room,
+  `houseMax` 4 per house; upper windows only where they see at least `upperGain` **1.0** x the best ground window of
+  the same wall (plan 1.2; 1.0 lets the upper floor win ties, upstairs man-seconds 2.8 -> 6.1 % on 4 seeds),
+  `upperMax` 2 per house and at most half (rounded up) of a group's men inside upstairs. No man outside within
+  `wallClearM` 8 m of the walls of an occupied house, and no house taken with an outdoor man already that close (one
+  shell on the house catches nobody outside). **The back:** the group's next man after one takes a house goes to the
+  best covered spot 8-23 m from its walls on its far side from the approach (`backM` 15, `backBehindW`), facing away
+  from the approach; his spot is not scored for view (no sight lines worked out). Rally re-siting after a fall-back
+  stays outdoors (`{ windows: false }`; step "leave" decides re-entry).
+- **Orders.** A window place is a one-man `occupy {building, windowIndex, mode: "walk"}`; the rest as before.
+- **Interiors off:** no window places; the result equals the outdoor-only siting (test).
+- **Start-up:** the defender's first look +30 ms (676 -> 706 ms platoon, 858 -> 877 mounted, 4 runs in parallel).
+- Tools: `npm run batch` reports a "buildings" block (`tools/src/buildings.ts`: indoors / upstairs man-seconds per
+  side, wounds per 100 man-minutes inside / outside, grenades at houses, HE on houses, the defence's spread at
+  239 s); `npm run lab -- house defend [trials]` (`tools/src/labs/house.ts`).
+
+Measured (scratch `m75e/base.mts`, `defend.mts`; same seeds before (e0f2cba) and after; platoon and
+platoon-ru 20 x 1200 s, platoon-vehicles 15, village-occupy 20 x 300 s; spread at 239 s on 10 seeds):
+
+| | platoon (village, RU defends) | platoon-ru (farmland, DE) | platoon-vehicles (village) |
+|---|---|---|---|
+| Defender man-seconds indoors | 0.5 -> **35.9 %** (target 25-60) | 0.3 -> 16.1 % (reported) | 1.6 -> **26.8 %** |
+| Upstairs | 0 -> **9.2 %** (target >= 5) | 0 -> 3.9 % | 0 -> **6.3 %** |
+| Defender wounds / 100 man-min inside vs outside | 31.9 / 21.3 -> **8.9 / 20.2** | 49.9 / 25.1 -> 15.0 / 32.1 | 11.9 / 44.4 -> 10.2 / 42.2 |
+| Units with men inside, 2+ outside at 239 s | 24 / 24 | 13 / 13 | 19 / 22 (3 had lost men by then) |
+| Most in a room / house at 239 s | 2 / 4 | 2 / 4 | 2 / 3 |
+| Within 10 m of a defender: max (worst seed) / mean | 5.9 (7) / 3.21 -> 4.5 (6) / 2.46 | 5.4 (7) / 3.55 -> 5.4 (7) / 3.28 | 4.1 (6) / 2.09 -> 3.5 (5) / 1.95 |
+| Approach seen by the whole defence (each man's own eye, at 239 s) | 0.53 -> 0.64 | 0.72 -> 0.79 | 0.52 -> 0.54 |
+| Attacker wins | 5 -> 4 / 20 | 13 -> 12 / 20 | 7 -> 4 / 15 |
+| Defenders down / attackers down | 12.9 / 18.4 -> 11.2 / 19.8 | 15.5 / 13.7 -> 15.2 / 14.5 | 22.7 / 14.7 -> 21.2 / 19.7 |
+| Main objective held at the end | 15 -> 16 / 20 | 11 -> 12 / 20 | 13 -> 12 / 15 |
+
+Targets met: indoors, upstairs, 2+ outside (all but three squads that had lost men by 239 s), room and house caps,
+mean clustering not above the baseline, inside safer than outside. **Not met:** "max within 10 m <= 5 on every
+seed" (worst 6 / 7 / 5; the baseline's 7 / 7 / 6; the crowds are outdoors and form during the fight, the caps hold).
+The whole-defence share is measured here from each man's own eye at 239 s (the plan's 0.40 was the prone-eye
+measure of DECISIONS "Defence siting", not repeated); it rose on every map. village-occupy unchanged (its own
+controllers). House lab (10 seeds, red fires at will and calls 4 HE on the house at 150 s): all in / mixed, blue
+down 0.4 / 0.6 of 6, wounds inside / outside 1.8 / 0 and 1.7 / 1.9, most within 10 m at 140 s 5.9 / 2.4, HE in or
+on the house 0.2 / 0 (the mortar rarely hits the house itself: against this fire the house alone protects slightly
+better; the spread guards against the burst that does land, and step "leave" adds the way out).
+**Balance (reported, not re-tuned; owner accepted a harder village):** village attacker wins 5 -> 4 / 20, mounted
+7 -> 4 / 15 (attackers down 14.7 -> 19.7), farmland 13 -> 12 / 20. The mounted village attack is now the hardest; the
+attacker clears no houses yet (step "clear").
+Goldens: `npm run golden:update` changed platoon-vehicles-s1 only (the only golden with an AI defender; first
+difference at tick 600); no data or catalog change. Tests: `sim/test/floors.test.ts` (window order: exact place,
+pace, sill posture, several men, rejections, save/load hash mid-route), `tools/test/siting.test.ts` (window places
+on three village seeds, caps, upper rule, back watcher, wall clearance, deterministic, interiors off),
+`tools/test/lab-house.test.ts`. `mounted-invariants.test.ts`: men out by 180 s on platoon-ru-vehicles s2 must be
+> 20 (was > 30): with the German defence at windows two BMPs are lost with men aboard in the first minute (22 men get
+out, 31 before); the invariants are still checked on every man aboard.

@@ -14,7 +14,7 @@ import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
-import { buildingIndex, occupyBuilding } from "./occupy";
+import { buildingIndex, occupyBuilding, windowPlaces } from "./occupy";
 import { aimHeightAt, assignFireTask } from "./fire";
 import { grenadeOption, throwArcExists, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
@@ -99,6 +99,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (buildingIndex(ctx, o.building) < 0) return "invalid-params";
       if (o.floor !== undefined && !(Number.isInteger(o.floor) && o.floor >= 0 && o.floor < 64)) return "invalid-params";
       if (o.facing !== undefined && !Number.isFinite(o.facing)) return "invalid-params";
+      if (o.windowIndex !== undefined && !(Number.isInteger(o.windowIndex) && o.windowIndex >= 0 && o.windowIndex < windowPlaces(ctx, buildingIndex(ctx, o.building)).length)) return "invalid-params";
+      if (o.mode !== undefined && ctx.catalog.movementModes[o.mode]?.class !== "foot") return "invalid-params";
       return null;
   }
 }
@@ -420,7 +422,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // Occupy a building (M7.5d): every man to a window place (or one inside), no formation.
       endFire(state, order.target, soldiers, "moved", events);
       const bi = buildingIndex(ctx, order.building);
-      if (occupyBuilding(ctx, state, soldiers, bi, order.floor, order.facing) === 0) return false;
+      if (occupyBuilding(ctx, state, soldiers, bi, order.floor, order.facing, order.windowIndex, order.mode) === 0) return false;
       if (isUnit) { const u = state.unit.req(order.target); u.moving = true; u.moveTick = state.tick; }
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;

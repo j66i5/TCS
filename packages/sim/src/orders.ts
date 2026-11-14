@@ -74,8 +74,10 @@ export type OrderBody =
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor
-   *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first. */
-  | { kind: "occupy"; building: number; floor?: number; facing?: number };
+   *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first.
+   *  M7.5e: `windowIndex` (an index into the building's window places, `windowPlaces`) sends the first man to exactly
+   *  that window (any others take the next places); `mode` is the pace there (a foot movement mode; default run). */
+  | { kind: "occupy"; building: number; floor?: number; facing?: number; windowIndex?: number; mode?: DefId };
 
 export type OrderKind = OrderBody["kind"];
 

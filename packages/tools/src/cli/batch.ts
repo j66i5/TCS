@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { runBattle, stripInteriors, tallyExpenditure, type Expenditure, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
+import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
 
 const args = parseArgs(process.argv.slice(2));
 const name = args["scenario"] ?? "demo";
@@ -33,6 +34,8 @@ interface Row {
   /** Mortar fire (step fire-support) per calling side: HE bursts, of them ranging rounds, enemy men wounded in a
    *  tick with one of its bursts (fragments or blast), and of them put out of action. */
   mortar: Record<string, { bursts: number; ranging: number; enemyWounded: number; enemyDown: number }>;
+  /** M7.5e: how the men used the houses (tools/src/buildings.ts). */
+  buildings: BuildingsTally;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -53,16 +56,19 @@ for (let i = 0; i < runs; i++) {
   const sideOfSoldier = (sim: Sim, id: number) => sim.state.identity.get(id)?.side;
   let simRef: Sim | null = null;
   let pending: Parameters<typeof tallyExpenditure>[1] = [];
+  const houses = buildingsTally(input);
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
     onTick: (sim) => {
       simRef = sim;
+      houses.onTick(sim);
       if (sideOfUnit.size === 0) for (const [id, u] of sim.state.unit.entries()) sideOfUnit.set(id, u.side);
       if (sideOfVehicle.size === 0) for (const [id, v] of sim.state.vehicle.entries()) sideOfVehicle.set(id, v.side);
       if (pending.length > 0) { tallyExpenditure(exp, pending, sim.state, input.catalog); pending = []; }
     },
     onEvents: (ev) => {
       pending = ev;
+      houses.onEvents(ev);
       // Mortar bursts this tick (by the side of the man who called them), then the enemy men hurt in the same tick.
       let burstSide: string | undefined;
       for (const e of ev) {
@@ -107,7 +113,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: firstDismount,
-    crews, missiles, mortar,
+    crews, missiles, mortar, buildings: houses.tally,
     spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
@@ -144,6 +150,7 @@ const md = [
   `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
+  ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",

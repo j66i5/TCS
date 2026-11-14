@@ -24,7 +24,7 @@
     },
     "device": "#363b25",
     "small": {
-      "belowPx": 40,
+      "belowPx": 70,
       "device": "#262a19",
       "outline": "#b5bc95"
     },

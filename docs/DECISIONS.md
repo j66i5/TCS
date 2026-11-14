@@ -3757,3 +3757,15 @@ platoon-vehicles (village, mounted) 7 -> 4 / 21.0 -> 21.2 / 19.4 -> 20.3 (within
 mounted attack clears fewer houses, 1.13 -> 0.40); village-occupy (600 s) unchanged (attackers down 1.80, defenders
 0.95, defenders indoors 94.8 %). Not re-tuned (owner accepted a harder village). Goldens: `npm run golden:update`
 changed all eight (catalog fingerprint: `behaviour.json`); `golden/no-interiors` untouched.
+
+## 2026-11-14 — Owner answers for the medical system (M10, pulled forward to right after M7.5e)
+Request: "implement medical (wounded retreat to / are carried to Verwundetensammelnester, then transported further back, etc.) include medical jobs. Both sides try to adhere to the laws of war, but aren't guaranteed to do so / might misidentify."
+1. Chain: FULL — self-aid -> buddy aid -> squad first responder -> platoon medic -> Verwundetennest (casualty collection point) -> armoured ambulance -> aid station off map.
+2. Numbers: research defaults from public sources (TCCC, Bundeswehr, Russian manuals where findable; confidence medium at most, web pages cannot be opened, only search extracts), owner reviews a table afterwards.
+3. Evacuation from the Verwundetennest: BOTH — red-cross armoured ambulances requested, drive on with a delay, load and drive off; and combat vehicles may take wounded on their way back.
+4. Player control: automatic, player can order (order a casualty's evacuation, move the Verwundetennest, call an ambulance).
+5. Breaches: mostly honest mistakes (red cross not seen at range, in smoke, under stress); rare deliberate breaches by panicked, vengeful or poorly disciplined men, more likely after own losses. Same rules for both sides; differences only from unit data, never faction literals.
+6. Protected (if recognised): marked medics and ambulances while not fighting; wounded out of action, helpless men and men surrendering; the marked Verwundetennest and men in it; carrying parties (often spared, model as protected-if-recognised).
+7. Breaches shown in the after-action review (both sides, with circumstances), not live.
+8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
+Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.

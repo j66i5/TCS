@@ -24,6 +24,10 @@ export interface IntentLine {
    *  ranging rounds fell so far, oldest first (only those someone of the side saw: review fix). */
   phase?: "called" | "ranging" | "effect";
   falls?: { x: number; y: number; seen: boolean }[];
+  /** M8.6: seconds until the next round of the mission lands, once it has been fired ("splash in N s"). */
+  splashS?: number;
+  /** M8.6: a smoke screen's line (its ends). */
+  screen?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /** Where a ranging round fell (from a `support.ranging` event of the side): the point called, the fall, seen. */
@@ -107,7 +111,13 @@ export function intentLines(view: SimView, side: string, selected: EntityId | nu
     const all = falls.filter((r) => r.tx === f.x && r.ty === f.y);
     const mine = all.filter((r) => r.seen).map((r) => ({ x: r.x, y: r.y, seen: true }));
     const phase = f.volley !== undefined ? "effect" : all.length > 0 ? "ranging" : "called";
-    out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u), phase, ...(mine.length > 0 ? { falls: mine } : {}) });
+    // M8.6: a round in the air: the off-map battery's "shot" for the coming fall, or an on-map tube's round flying.
+    let land = -1;
+    if (f.flying && f.flying.length > 0) { land = Infinity; for (const r of f.flying) land = Math.min(land, r.tick); }
+    else if (f.shotFor !== undefined && f.shotFor === f.nextTick && f.nextTick > view.tick) land = f.nextTick;
+    const splashS = land > view.tick ? Math.ceil((land - view.tick) / 60) : undefined;
+    const screen = f.lx !== undefined && f.ly !== undefined ? { x0: f.x - f.lx, y0: f.y - f.ly, x1: f.x + f.lx, y1: f.y + f.ly } : undefined;
+    out.push({ x0: from.x, y0: from.y, x1: f.x, y1: f.y, kind: "fire", selected: u !== undefined && sel(u), phase, ...(mine.length > 0 ? { falls: mine } : {}), ...(splashS !== undefined ? { splashS } : {}), ...(screen ? { screen } : {}) });
   }
   for (const p of [...view.inbox, ...view.pendingOrders]) {
     const o = p.order;

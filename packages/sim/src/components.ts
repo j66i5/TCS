@@ -625,6 +625,24 @@ export interface Boarding {
   fetched?: EntityId[];
 }
 
+/**
+ * A reconnaissance quadcopter in the air (M9.4a): an entity with a Transform (z: height above the ground), a
+ * Container (its airframe and the battery in it, rule 9) and this. `unit`: the unit it belongs to (its operator's);
+ * `operator`: the man flying it now (null: nobody, it hovers and, after a while, comes home on its own). `mode`:
+ * climbing after the launch, flying to `goal`, hovering there, coming home to land. `home`: where it lands when no
+ * operator is left. `seen`: what its cameras have in view (as a man's), `rep`: when each was last passed on.
+ */
+export interface DroneState {
+  side: SideId; unit: EntityId; item: DefId; operator: EntityId | null;
+  mode: "climb" | "fly" | "hover" | "home";
+  goal: { x: number; y: number } | null; altGoal: number; homeX: number; homeY: number;
+  /** Tick since when it has had no operator (absent: it has one). */
+  aloneSince?: number;
+  /** It has called "battery low" (coming home). */
+  low?: true;
+  seen: { target: EntityId; firstTick: number; lastTick: number; rep?: number }[];
+}
+
 /** A vehicle (entity with a Transform, a Container and this; no Identity, Mover or SoldierState). */
 export interface VehicleState {
   def: DefId; vehicleId: string;

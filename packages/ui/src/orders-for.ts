@@ -160,6 +160,11 @@ export function noOrders(): OrderSet {
   return { none: true, modes: ["move", "assault", "fire", "grenade"], halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: false, dismount: false, discharge: false, nature: false };
 }
 
+/** The bar for a reconnaissance quadcopter (M9.4a): Move (a tap sends it there) and Halt (home to land). */
+export function droneOrders(): OrderSet {
+  return { modes: ["move"], halt: true, ceaseFire: false, posture: false, rules: false, paces: ["walk"], mount: false, dismount: false, discharge: false, nature: false };
+}
+
 /** The bar for a vehicle of this class: move and fire; its class's paces (drive first) and reverse. */
 function vehicleOrders(vehicleClass: "tracked" | "wheeled", modes: Modes, boarding: BoardingChoice): OrderSet {
   const paces = Object.entries(modes).filter(([, m]) => m.class === vehicleClass).sort((a, b) => (a[1].speedFraction ?? 0) - (b[1].speedFraction ?? 0) || (a[0] < b[0] ? -1 : 1)).map(([id]) => id);

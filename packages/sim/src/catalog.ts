@@ -23,6 +23,16 @@ export interface CrewServedDef {
   sightHeightM: number; backblastM: number; launchLoudM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number;
 }
 
+/** A reconnaissance quadcopter (M9.4a): its battery item (charge in Wh) and draw (W), speeds, heights above the
+ *  ground, how long launching takes, how far from its operator it can be flown, its cameras (sensor kinds in
+ *  core/spotting.json, looking down) and the radius on the ground they search around the point below it, how far
+ *  it is heard and the area it shows (both for M9.4b). */
+export interface DroneDef {
+  battery: DefId; powerW: number; reserveShare: number; cruiseMps: number; climbMps: number;
+  altitudeM: number; minAltitudeM: number; maxAltitudeM: number; launchSeconds: number; controlRangeM: number;
+  sensors: string[]; footprintM: number; noiseM: number; areaM2: number;
+}
+
 export interface ItemTypeDef {
   id: DefId;
   /** Mass of one item, kg (for a magazine: the empty magazine). */
@@ -45,6 +55,8 @@ export interface ItemTypeDef {
   mortar?: MortarDef;
   /** M9.3b: a crew-served weapon worked by a team on foot (see the data schema). */
   crewServed?: CrewServedDef;
+  /** M9.4a: a reconnaissance quadcopter (the airframe; see the data schema). */
+  drone?: DroneDef;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
   tracerItem?: DefId;
   tracerEvery?: number;
@@ -525,6 +537,9 @@ export interface SpottingDef {
   launchFlashFactor: number; launchFlashSeconds: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
   sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number; thermal?: boolean; arcDeg?: number }>;
+  /** Drone cameras (M9.4a): a man's size seen from above by posture; the extra error of a drone's report (m); the
+   *  search factor; what a tree canopy over a man leaves of him to the day and the thermal camera. */
+  drone?: { postureSize: Record<"standing" | "crouching" | "prone", number>; feedErrorM: number; searchFactor: number; canopyAboveM: number; canopyDay: number; canopyThermal: number };
   /** Thermal signatures (M9.2): relative to what the eye sees. */
   thermal: { man: number; vehicleCold: number; vehicleHot: number; vehicleFiring: number; vehicleBurning: number; hotSeconds: number; vegetationExponent: number };
   /** Vehicles as targets and contacts (M7.3). */

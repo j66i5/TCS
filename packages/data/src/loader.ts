@@ -307,6 +307,13 @@ function loadFaction(
       if (mo.minRangeM >= mo.maxRangeM) errors.push({ file: f("items.json"), path: `items[${i}].mortar.minRangeM`, message: "minimum range must be below the maximum", severity: "error" });
       if (mo.crewMin > mo.crew) errors.push({ file: f("items.json"), path: `items[${i}].mortar.crewMin`, message: "crewMin must not exceed crew", severity: "error" });
     }
+    // A quadcopter (M9.4a): its battery is an item of this faction with a charge (Wh); heights in order.
+    const dr = it.drone;
+    if (dr) {
+      const b = itemsF.items.find((x) => x.id === dr.battery);
+      if (!b || b.chargeCapacity === undefined) errors.push({ file: f("items.json"), path: `items[${i}].drone.battery`, message: `'${dr.battery}' is not an item with a charge of this faction`, severity: "error" });
+      if (!(dr.minAltitudeM <= dr.altitudeM && dr.altitudeM <= dr.maxAltitudeM)) errors.push({ file: f("items.json"), path: `items[${i}].drone.altitudeM`, message: "minAltitudeM <= altitudeM <= maxAltitudeM", severity: "error" });
+    }
   });
   // A crew-served missile post (M9.3b): its weapon is this faction's, its round a container of a guided missile the
   // weapon gives a launch velocity for; at most as few men as its crew.
@@ -396,6 +403,7 @@ function loadFaction(
   });
   itemsF.items.forEach((it, i) => {
     if (it.sensor !== undefined && data.spotting && !data.spotting.sensors[it.sensor]) errors.push({ file: f("items.json"), path: `items[${i}].sensor`, message: `unknown sensor kind '${it.sensor}' (core/spotting.json sensors)`, severity: "error" });
+    for (const [j, k] of (it.drone?.sensors ?? []).entries()) if (data.spotting && !data.spotting.sensors[k]) errors.push({ file: f("items.json"), path: `items[${i}].drone.sensors[${j}]`, message: `unknown sensor kind '${k}' (core/spotting.json sensors)`, severity: "error" });
   });
   if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
     errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });

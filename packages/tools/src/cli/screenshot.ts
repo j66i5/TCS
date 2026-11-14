@@ -398,7 +398,7 @@ async function ambulanceScenes(page: Page, name: string, errors: string[], shots
 }
 
 /**
- * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
+ * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish") and the flat pixel look (`&look=flat`) —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
  * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
@@ -411,7 +411,7 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
   };
   const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
-  for (const lk of ["classic", "flat", "photo"]) {
+  for (const lk of ["flat", "photo"]) {
     const q = `&map=village&look=${lk}`;
     await open(q);
     await shot(`0-opening-${lk}`);
@@ -1134,6 +1134,52 @@ async function sightScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
+ * The drone (`--scene drone`, M9.4a): the platoon battle on foot (village). The platoon's drone tile selected (Move
+ * means fly), a tap 550 m toward the enemy: the Funker launches it; up and out, its cameras' footprint drawn, the
+ * tile showing its battery; the enemy it finds reaches the platoon over the radio; Halt brings it home to land.
+ */
+async function droneScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 20000 }).catch(() => undefined); await page.waitForTimeout(300); const p = `${outDir}/drone-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const state = () => ev<{ drones: { mode: string; z: number; seen: number; x: number; y: number }[]; tile: string | null; known: number; selected: boolean; orders: string[] }>(`
+    const d = [...s.drone.entries()].map(([id, d]) => ({ mode: d.mode, z: Math.round(s.transform.get(id).z), seen: d.seen.length, x: Math.round(s.transform.get(id).x), y: Math.round(s.transform.get(id).y) }));
+    const tile = document.querySelector('.hud-tile[data-drone="1"]');
+    let known = 0; for (const [id, i] of s.identity.entries()) if (i.side === "blue") known = Math.max(known, s.soldier.get(id).contacts.length);
+    return { drones: d, tile: tile ? tile.textContent : null, known, selected: tile ? tile.classList.contains("selected") : false, orders: t.orderLog.filter((o) => o.issuer === "blue").map((o) => o.kind + (o.op ? ":" + o.op : "")) };`);
+  const log: Record<string, unknown> = {};
+  await ev("t.setSpeed(0); t.stepTicks(1);");
+  await page.click('.hud-tile[data-drone="1"]');
+  // A point 550 m from the platoon headquarters toward the enemy.
+  const at = await ev<{ x: number; y: number; sx: number; sy: number }>(`
+    let ex = 0, ey = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === "red") { const p = s.transform.get(id); ex += p.x; ey += p.y; n++; }
+    ex /= n; ey /= n;
+    const top = t.units().find((u) => u.depth === 0); const hq = s.unit.get(top.unit).members.map((m) => s.transform.get(m));
+    const c = { x: hq.reduce((a, p) => a + p.x, 0) / hq.length, y: hq.reduce((a, p) => a + p.y, 0) / hq.length };
+    const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy); const p = { x: c.x + dx / d * 550, y: c.y + dy / d * 550 };
+    t.focus((p.x + c.x) / 2, (p.y + c.y) / 2, 760); t.stepTicks(1);
+    const q = t.toScreen(p.x, p.y); return { x: p.x, y: p.y, sx: q.x, sy: q.y };`);
+  log["selected"] = await state();
+  await shot("0-tile-selected");
+  await page.mouse.move(at.sx, at.sy); await page.mouse.down(); await page.mouse.up();
+  await ev("t.stepTicks(60 * 50);");
+  log["launching"] = await state();
+  await shot("1-launching");
+  await ev("t.stepTicks(60 * 70);");
+  log["up"] = await state();
+  await shot("2-up");
+  await ev("t.stepTicks(60 * 40); const d = [...s.drone.keys()][0]; if (d !== undefined) { const p = s.transform.get(d); t.focus(p.x, p.y, 700); } t.stepTicks(1);");
+  log["seen"] = await state();
+  await shot("3-enemy-found");
+  await page.click('[data-order="halt"]');
+  await ev("t.stepTicks(60 * 120);");
+  log["home"] = await state();
+  await shot("4-home");
+  console.log(`${name}: drone scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * The "fire-support" step (`--scene firesupport`; owner choice S11 with ranging shots): the platoon battle on foot
  * (village). The lead squad selected; the Fire tray open with its one Fire support item; a point 250 m toward the
  * enemy held (the amber crosshair joined to the leader), let go: the pop-up offers HE and smoke with the rounds
@@ -1143,7 +1189,7 @@ async function sightScenes(page: Page, name: string, errors: string[], shots: st
  */
 async function fireSupportScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/firesupport-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
-  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&artillery=1`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
   type P = { x: number; y: number };
   const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
@@ -1216,6 +1262,34 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
   const n1 = await ev<number>("return t.orderLog.length;");
   await page.keyboard.press("Escape");
   log["escClosed"] = { popup: (await sup()).popup, sentNothing: (await ev<number>("return t.orderLog.length;")) === n1 };
+  // M8.6: a held press dragged into a line offers a smoke screen along it; picked, its mission shows the line and
+  // the splash countdown once a round is in the air.
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await page.click('.hud-tray[data-tray="fire"] [data-order="support"]');
+  const l0 = await ev<P>("const c = t.controls().centre, p = globalThis.__pt; globalThis.__l0 = { x: (c.x + 2 * p.x) / 3 - 40, y: (c.y + 2 * p.y) / 3 - 70 }; globalThis.__l1 = { x: globalThis.__l0.x + 30, y: globalThis.__l0.y + 140 }; return t.toScreen(globalThis.__l0.x, globalThis.__l0.y);");
+  const l1 = await ev<P>("return t.toScreen(globalThis.__l1.x, globalThis.__l1.y);");
+  await page.mouse.move(l0.x, l0.y); await page.mouse.down();
+  await page.mouse.move(l1.x, l1.y, { steps: 10 });
+  await page.waitForTimeout(500);
+  await shot("9-screen-dragged");
+  await page.mouse.up();
+  log["screenPopup"] = await ev<object>("return { popup: t.support().popup, title: document.querySelector('.hud-support-head span')?.textContent, buttons: [...document.querySelectorAll('.hud-support [data-ammo]')].map((b) => b.dataset.asset + ':' + b.dataset.ammo + (b.disabled ? '(off)' : '')) };");
+  await shot("10-screen-popup");
+  const nScreen = await ev<number>("return t.orderLog.length;");
+  await page.click('.hud-support [data-asset="mortar"][data-ammo="smoke"]');
+  log["screenOrder"] = await lastOrder();
+  log["screenSent"] = (await ev<number>("return t.orderLog.length;")) - nScreen;
+  // On until a round of it is in the air: the countdown label by the target.
+  let splash = false;
+  for (let k = 0; k < 200 && !splash; k++) {
+    await ev("t.stepTicks(30);");
+    splash = await ev<boolean>("return s.fireMissions.some((m) => m.side === 'blue' && m.lx !== undefined && m.shotFor === m.nextTick && m.nextTick > s.tick);");
+  }
+  log["splashShown"] = splash;
+  await ev("t.stepTicks(5);");
+  await shot("11-screen-splash");
+  await ev("t.stepTicks(60 * 40);");
+  await shot("12-screen-laid");
   if (phone) log["phone"] = true;
   console.log(`${name}: firesupport scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
@@ -1497,6 +1571,7 @@ try {
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "sight") { await sightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "drone") { await droneScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "plumes") { await plumeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "review") {
       // (Its own page at device pixel ratio 2.)
@@ -1620,7 +1695,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -117,5 +117,7 @@
   "item.ru-9p151": "9P151 Metis-M launch post",
   "role.ru.ptur-commander": "Missile team commander",
   "role.ru.ptur-operator": "Missile operator",
-  "role.ru.ptur-loader": "Missile team loader"
+  "role.ru.ptur-loader": "Missile team loader",
+  "item.ru-quadcopter": "Reconnaissance quadcopter (Mavic class)",
+  "item.ru-drone-battery": "Drone battery"
 }

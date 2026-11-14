@@ -1,6 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
+import { droneOrder, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { leaveCarry } from "./carry";
 import { startSetup } from "./mortars";
@@ -110,6 +111,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "discharge":
       return null;
+    case "drone":
+      if (o.op !== "fly" && o.op !== "home") return "invalid-params";
+      if (o.op === "fly" && (o.x === undefined || o.y === undefined)) return "invalid-params";
+      if (o.x !== undefined && (!Number.isFinite(o.x) || o.x < 0 || o.x > ctx.map.widthM)) return "invalid-params";
+      if (o.y !== undefined && (!Number.isFinite(o.y) || o.y < 0 || o.y > ctx.map.heightM)) return "invalid-params";
+      if (o.altM !== undefined && !(o.altM >= 0 && o.altM <= 5000)) return "invalid-params";
+      return null;
     case "occupy":
       if (buildingIndex(ctx, o.building) < 0) return "invalid-params";
       if (o.floor !== undefined && !(Number.isInteger(o.floor) && o.floor >= 0 && o.floor < 64)) return "invalid-params";
@@ -137,6 +145,8 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
       return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
     case "deploy":
       return crewServedTeamsUnder(state, o.target).length > 0; // (M9.3b: missile teams too)
+    case "drone":
+      return hasDrone(ctx, state, o.target);
     default:
       return true;
   }
@@ -459,6 +469,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
     }
+    case "drone":
+      // A reconnaissance quadcopter (M9.4a): launch it, send it, bring it home.
+      return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
     case "deploy": {
       // Stop and set up each mortar team (M8.3a; M9.3b: and missile team): the men's moves end where they are.
       let ok = false;

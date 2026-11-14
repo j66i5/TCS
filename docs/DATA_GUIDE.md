@@ -336,6 +336,26 @@ calls, `doctrine.json` `fireSupport`) stays as it is; a side with mortar teams c
 Check with `npm run lint:data`, `npx vitest run packages/tools/test/mortars.test.ts` and
 `npx vitest run packages/tools/test/mortars-signature.test.ts`, and a batch of `platoon-mortars`.
 
+## Add a reconnaissance drone (M9.4a)
+
+A quadcopter is an **airframe item** with a `drone` block and a **battery item** with a charge in Wh, both carried by
+the man who flies it (a platoon's HQ member: put them in his `load`). No code: the `drone` order, the sidebar tile and
+the cameras read the data.
+
+```json
+{ "id": "xf-quad", "nameKey": "item.xf-quad", "category": "drone", "massKg": 1.2,
+  "drone": { "battery": "xf-quad-battery", "powerW": 120, "reserveShare": 0.15, "cruiseMps": 10, "climbMps": 4,
+             "altitudeM": 100, "minAltitudeM": 20, "maxAltitudeM": 400, "launchSeconds": 45, "controlRangeM": 2000,
+             "sensors": ["drone-day", "drone-thermal"], "footprintM": 250, "noiseM": 100, "areaM2": 0.15 } }
+{ "id": "xf-quad-battery", "nameKey": "item.xf-quad-battery", "category": "battery", "massKg": 0.4,
+  "chargeCapacity": 70, "chargeMassKg": 0 }
+```
+
+`sensors` are kinds in `core/spotting.json` `sensors` (add a new camera there); `footprintM` is the radius on the
+ground its cameras search; `noiseM` and `areaM2` are for being heard and seen (M9.4b). The loader checks the battery
+item (it must have a charge) and the heights (min <= usual <= max). How a man looks from above and what a tree canopy
+leaves of him are in `core/spotting.json` `drone`.
+
 ## Night and light (M9.1)
 
 `core/spotting.json` `night`: `sun` is a table of `[hour, light]` points (local time 0-24, light 0..1, interpolated);

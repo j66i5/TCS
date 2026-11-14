@@ -517,6 +517,51 @@
         "relaySeconds": 3,
         "aimSeconds": 2
       }
+    },
+    {
+      "id": "ru-quadcopter",
+      "nameKey": "item.ru-quadcopter",
+      "category": "drone",
+      "massKg": 0.92,
+      "drone": {
+        "battery": "ru-drone-battery",
+        "powerW": 115,
+        "reserveShare": 0.15,
+        "cruiseMps": 12,
+        "climbMps": 5,
+        "altitudeM": 100,
+        "minAltitudeM": 20,
+        "maxAltitudeM": 500,
+        "launchSeconds": 45,
+        "controlRangeM": 3000,
+        "sensors": [
+          "drone-day",
+          "drone-thermal"
+        ],
+        "footprintM": 300,
+        "noiseM": 100,
+        "areaM2": 0.12
+      },
+      "sources": [
+        "https://www.digitalcameraworld.com/reviews/dji-mavic-3t-enterprise-thermal-review",
+        "https://www.cliftoncameras.co.uk/uploads/specifications/DJI%20Mavic%203%20Thermal%20Specifications.pdf"
+      ],
+      "confidence": "medium",
+      "note": "M9.4a (owner M9 round: one quadcopter at the platoon HQ): a commercial Mavic 3T class quadcopter, widely reported in Russian units (search extracts: 920 g, up to 45 min flight, 38 min hover, 21 m/s top speed, 640 x 512 thermal camera). Its operator is an added man in the platoon HQ (low). Control range kept to 3 km in the game (radio link over terrain; jamming M14). Cruise speed, noise and camera values are game values."
+    },
+    {
+      "id": "ru-drone-battery",
+      "nameKey": "item.ru-drone-battery",
+      "category": "battery",
+      "massKg": 0.335,
+      "chargeCapacity": 77,
+      "chargeMassKg": 0,
+      "sources": [
+        "https://www.digitalcameraworld.com/reviews/dji-mavic-3t-enterprise-thermal-review",
+        "https://www.cliftoncameras.co.uk/uploads/specifications/DJI%20Mavic%203%20Thermal%20Specifications.pdf"
+      ],
+      "confidence": "medium",
+      "note": "M9.4a: the quadcopter's flight battery; charge in Wh (Mavic 3 class: 77 Wh; DE a game value). Three per drone (game value, low)."
     }
   ]
 }

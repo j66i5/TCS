@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, Carry, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
+import type { Action, Carry, ContactReport, DroneState, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { SmokeCloud } from "./smoke";
 import type { DefId, EntityId, SideId } from "./ids";
@@ -166,9 +166,11 @@ export interface SimState {
   vehicle: Store<VehicleState>;
   /** Carrying parties (M10.4a), keyed by the payload carried. */
   carry: Store<Carry>;
+  /** Reconnaissance quadcopters in the air (M9.4a). */
+  drone: Store<DroneState>;
 }
 
-const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry"] as const;
+const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry", "drone"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
 export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
@@ -204,6 +206,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     fire: new Store(),
     vehicle: new Store(),
     carry: new Store(),
+    drone: new Store(),
   };
 }
 
@@ -332,6 +335,7 @@ export function deserializeState(data: SerializedState): SimState {
     fire: st("fire") as Store<FireTask>,
     vehicle: st("vehicle") as Store<VehicleState>,
     carry: st("carry") as Store<Carry>,
+    drone: st("drone") as Store<DroneState>,
   };
 }
 

@@ -20,6 +20,8 @@ export interface SideExpenditure {
   /** Per vehicle (its roster id): cannon rounds by ammunition id, coaxial rounds, smoke salvos, guided missiles by
    *  ammunition id (owner 2026-11-13). */
   vehicles: Record<string, { cannon: Record<string, number>; coax: number; smoke: number; missiles: Record<string, number> }>;
+  /** M8.6: fire support rounds landed, by "asset:kind" ("mortar:he", "artillery:illum" ...). Absent: none. */
+  support?: Record<string, number>;
 }
 
 export type Expenditure = Record<string, SideExpenditure>;
@@ -45,6 +47,10 @@ export function tallyExpenditure(out: Expenditure, events: readonly SimEvent[], 
       if (catalog.weapons[e.weapon]?.type === "autocannon") v.cannon[e.ammo] = (v.cannon[e.ammo] ?? 0) + 1;
       else if (catalog.ammo[e.ammo]?.guided !== undefined) v.missiles[e.ammo] = (v.missiles[e.ammo] ?? 0) + 1;
       else v.coax++;
+    } else if (e.kind === "support.round") {
+      const sp = (side(e.side).support ??= {});
+      const k = `${e.asset}:${e.ammo}`;
+      sp[k] = (sp[k] ?? 0) + 1;
     } else if (e.kind === "grenade.launched") {
       const sd = sideOf(e.soldier);
       if (sd === undefined) continue;

@@ -224,8 +224,15 @@ white flags on the map; the after-action review lists surrendered and captured m
      guided rounds refused; `lab -- artillery`.
   7. 🔶 **M8.5 AI and balance**, part 1 (2026-11-14) — screens across the line upwind, artillery beyond danger close
      with airburst, planned fires for the defender. Balance, observers by view and A4 wait for D4.
+  8. ✅ **M8.6 Interface** (2026-11-14) — fire support pop-up per asset (HE, airburst, smoke, flare greyed until night,
+     rounds left, time to effect, danger close), smoke screens by dragging a line, "splash N s", review rows. Planned
+     targets by the player wait for a deployment phase; owner play-test open.
+  9. ✅ **Debt slot after M8** (2026-11-14) — `?look=classic` deleted, perf re-baselined, STATE trimmed, low-confidence
+     table (`npm run lint:data -- --table`).
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
-  drone-adjusted fire. ⬜
+  drone-adjusted fire. 🔶
+  - ✅ **M9.4a Reconnaissance quadcopter** (2026-11-14) — one per platoon HQ: item and entity, battery, busy
+    operator, day and thermal cameras, feed over the radio, sidebar tile (Move = fly). `lab -- drone`, `bench-drones`.
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
   before logistics). ⬜
 

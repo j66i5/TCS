@@ -3922,3 +3922,38 @@ Owner answer used (BINDING, round A): hand smoke grenades as a small step inside
   14.1/12.2, smoke 0.4 / 4.9; platoon-vehicles: 4 -> 5 German wins, casualties 19.4/22.5 -> 17.7/21.4, smoke 5.6 /
   1.0. Within noise of 10 seeds; the attacker throws most (moves under fire). No per-tick work (only on orders):
   no perf run. Golden update (loads and data), `golden/no-interiors` untouched. Screens: `--scene smoke`.
+
+## 2026-11-14 — M9.1 Night and light (roadmap-detail slice 30, parallel session)
+Coordinator task (owner's parallel sessions). The owner round M9 (roadmap-detail Phase 4) is not answered yet; this
+slice needs only one of its answers and takes the recommended one, for the owner to confirm: **night look on the
+phone (a) a darkened map with fires and flashes lit**. Night-vision goggle numbers (screen 3) stay as they are
+(M9.2). Software decisions:
+- **Light from the clock:** a sun table by local time and a full moon's light in `core/spotting.json` `night` (game
+  values, low: equinox at about 50 degrees north, local solar time; full daylight 7:00-17:00, twilight to 19:15 and
+  from 4:45, a full moon 0.12, the light floor 0.05 stays). `sim/src/light.ts` (`lightAt`, `environmentAt`,
+  `parseTimeOfDay`; table interpolation only, no transcendental maths). A battle follows the clock only when its
+  environment has the new optional `sky { moon }`; then the light is set at the start and once a second. Without a
+  sky (every scenario, golden, batch and the app's default) nothing changes: **the daylight goldens' states are
+  identical to main at every checkpoint apart from the catalog fingerprint** (checked by hashing the serialized
+  state without the fingerprint in both trees); golden update for the fingerprint only. One table for every date;
+  seasons and latitude can come with the campaign (M13).
+- **Flashes and tracers at night:** a man firing at night is lit by his muzzle flash to `flashLight` 0.8 for every
+  observer (the flash is a light, so goggles and thermal gain nothing from it); a vehicle's gun flash likewise
+  (`vehicleFlashLight` 0.8; the first version multiplied the vehicle's signature, which let thermal crews see firing
+  hulls 16 times better at night than by day — found by the review, fixed); a man firing from a belt with tracer
+  rounds shows up to 3 times more in full darkness (`tracerContrast`). All zero or one in full daylight. Hearing is
+  unchanged by light.
+- **Night look (owner default (a)):** the map, roofs and shadows are tinted toward a dark blue, the men's figures
+  less (readable); symbols, hulls, labels, tracers and flashes keep their colours; muzzle flashes get a halo (and are
+  drawn at every zoom at night: the figure's own flash is dark), bursts and burning hulls light the ground round
+  them. At light 1 the tint is white and nothing is added (flat and classic unchanged). The status line shows the
+  local time when the battle has a sky.
+- **Options:** app `?time=HH:MM&moon=0..1` (default moon 0.5; a bad moon value is a half moon), headless and batch
+  `--time HH:MM --moon x`; screenshot scene `--scene night`; `npm run lab -- night` (the light table and the spotting
+  lab's cases at noon, dusk, full-moon night and moonless night, eyes and goggles).
+- **Lab (20-40 seeds, observer with the G36 optic):** a man standing still at 300 m: noon 97 % within 30 s, moonless
+  night 23 % (50 % within 120 s), with goggles 67 %; at 100 m moonless 53 %, full moon 83 %; a man firing at 600 m:
+  seen within 30 s at every light (median 3-4 s).
+- **Night batches (10 seeds x 1200 s, 23:00, half moon; day figures from the D1 batches):** platoon: attacker wins 2
+  (day 3) of 10, casualties 19.5 / 10.9 (day 18.0 / 12.7); platoon-vehicles 5 (day 5), 18.5 / 20.3 (day 17.7 /
+  21.4). No AI change for the night (M9.6). Speed: platoon 159x, platoon-vehicles 96x real time.

@@ -314,6 +314,15 @@ export const SpottingFile = withProv({
     rainK: Num(0, 1), downwind: Num(0.5, 2), upwind: Num(0.1, 2),
   }).strict(),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
+  /** Night and light (M9.1). `sun`: ambient light 0..1 by local time, [hour, light] points (rising hours, 0 to 24),
+   *  interpolated; `moonFullLight`: the light of a full moon (scaled by the moon's illumination). At night a man's
+   *  muzzle flash lights him for observers as at least `flashLight`, a vehicle's gun flash lights it as at least
+   *  `vehicleFlashLight`, and a man firing tracers (a belt with tracer rounds) shows
+   *  `tracerContrast` times more in full darkness (scaled by the darkness). */
+  night: z.object({
+    sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
+    moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
+  }).strict(),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
   contacts: z.object({
     seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),

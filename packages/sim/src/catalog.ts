@@ -489,6 +489,8 @@ export interface SpottingDef {
     engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
   };
   skillSlope: number; stressK: number; lightFloor: number;
+  /** Night and light (M9.1): sun table [hour, light], full-moon light, the muzzle flash's light, tracers. */
+  night: { sun: [number, number][]; moonFullLight: number; flashLight: number; vehicleFlashLight: number; tracerContrast: number };
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
   contacts: {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;

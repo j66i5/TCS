@@ -3,6 +3,13 @@
 _Last updated: 2026-11-14 (M7.5e follow-ups, slice s0-clear: a Clear button, the AI clears on its approach; before: M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**Night and light (2026-11-14, roadmap-detail slice 30 "M9.1", parallel session; DECISIONS "M9.1").** Light follows
+the clock in a battle with a sky (`?time=HH:MM&moon=`, tools `--time`): sun and moon table in `core/spotting.json`
+`night`; muzzle flashes and gun flashes light the shooter at night, tracers show him more; the night look tints the
+map and men, flashes, bursts and fires stay lit. Daylight battles unchanged (states identical to main). Owner M9
+round still open: the night look took default (a). `npm run lab -- night`, `--scene night`. Next on this line: M9.2
+sensor physics (thermal, goggle numbers).
+
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
 grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook
@@ -480,6 +487,9 @@ buildings.
 - (Answered at the M6 review, 2026-11-12: fog of war stays "what your men have reported"; medical after vehicles.)
 
 ## Open questions for the owner
+
+- M9 owner round (roadmap-detail Phase 4) is open; M9.1 took the night look (a) darkened map with fires and flashes
+  lit. Low-confidence M9.1 values: the sun table (one date), full-moon light 0.12, flash light 0.8, tracers x3.
 
 - D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
   (15 m, once a minute, on withdrawals and moves under fire).

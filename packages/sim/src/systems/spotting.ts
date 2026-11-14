@@ -74,6 +74,8 @@ const VEHICLE_SCAN_EVERY = 4;
 
 interface VehTarget {
   id: EntityId; side: string; x: number; y: number; gz: number; heading: number; turret: number; def: VehicleDef; motion: number; c: number; s: number;
+  /** The light its gun flash gives it at night (M9.1): 0 by day or when it is not firing. */
+  flash: number;
 }
 
 export function spottingSystem(ctx: SimContext, state: SimState, events: EventSink): void {
@@ -125,7 +127,8 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       if (d2 > maxR2 || d2 > fogR2) continue;
       const dist = sqrt(d2);
       let sensor = 0;
-      for (const sn of sensors) if (sn) { const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight); if (f > sensor) sensor = f; }
+      // (M9.1: a muzzle flash at night lights him up to `flash` for every sensor; 0 by day and when not firing.)
+      for (const sn of sensors) if (sn) { const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, tg.flash); if (f > sensor) sensor = f; }
       const idx = os.seen.findIndex((e) => e.target === tg.id);
       const look = angleBetween(ot.heading, atan2(dy, dx));
       const view = look <= front ? 1 : look <= side ? D.sideFactor : D.rearFactor;
@@ -170,9 +173,9 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     if (state.vehicle.size > 0 && (oid + Math.floor(tick / every)) % VEHICLE_SCAN_EVERY === 0) {
       vtargets ??= vehicleTargets(ctx, state);
       const look = { x: ot.x, y: ot.y, z: ez, own: -1 };
-      scanVehicles(ctx, state, events, oid, oi.side, os.seen, look, (dist, bearing) => {
+      scanVehicles(ctx, state, events, oid, oi.side, os.seen, look, (dist, bearing, flash) => {
         let sensor = 0;
-        for (const sn of sensors) if (sn) { const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight); if (f > sensor) sensor = f; }
+        for (const sn of sensors) if (sn) { const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight, flash); if (f > sensor) sensor = f; }
         const lk = angleBetween(ot.heading, bearing);
         return sensor * (lk <= front ? 1 : lk <= side ? D.sideFactor : D.rearFactor);
       }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM)); // a man's eyes reach as far for a hull as for a man
@@ -188,11 +191,18 @@ function menSeen(state: SimState, seen: readonly { target: EntityId }[]): number
   return n;
 }
 
-interface SoldierTarget { id: EntityId; side: string; x: number; y: number; z: number; size: number; motion: number; firing: boolean; moving: boolean; vegTopZ: number }
+interface SoldierTarget {
+  id: EntityId; side: string; x: number; y: number; z: number; size: number; motion: number; firing: boolean; moving: boolean; vegTopZ: number;
+  /** The light his muzzle flash gives him at night (M9.1): 0 by day or when he is not firing. */
+  flash: number;
+}
 
 /** Every man who can be seen this scan (not aboard a vehicle), ID order. */
 function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
   const D = ctx.catalog.spotting, map = ctx.map, tick = state.tick, B = ctx.ballistics;
+  // Night (M9.1): how dark it is (0 in full daylight: nothing below changes then).
+  const dark = 1 - Math.min(1, Math.max(0, state.environment.light));
+  const N = D.night;
   // (Rows are reused from tick to tick: no allocation per man per tick, M7.3.)
   const targets = TARGETS;
   let n = 0;
@@ -209,10 +219,17 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     const v = cell >= 0 && cell < map.vegetation.length ? map.vegetation[cell]! : 0;
     const vegTopZ = v > 0 ? g + B.vegHeightM[v - 1]! : -Infinity;
     let r = targets[n];
-    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0 }; targets[n] = r; }
+    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0 }; targets[n] = r; }
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
+    r.flash = 0;
+    if (firing && dark > 0) {
+      // At night (M9.1): the flash lights him; tracers from his belt point back to him.
+      r.flash = N.flashLight;
+      const mag = state.weapon.get(tid)?.magazine;
+      if (mag && ctx.catalog.items[mag.item]?.tracerItem !== undefined) r.motion *= 1 + (N.tracerContrast - 1) * dark;
+    }
     n++;
   }
   targets.length = n;
@@ -229,7 +246,7 @@ function vehicleSeeable(v: VehicleState | undefined): boolean {
 
 /** Every vehicle that can be seen this scan, ID order. */
 function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
-  const D = ctx.catalog.spotting, tick = state.tick;
+  const D = ctx.catalog.spotting, tick = state.tick, light = state.environment.light;
   const out: VehTarget[] = [];
   for (const [vid, v] of state.vehicle.entries()) {
     if (!vehicleSeeable(v)) continue;
@@ -237,9 +254,12 @@ function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
     if (!def || !t) continue;
     const firing = canFight(v) && v.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= secondsToTicks(D.firingWithinSeconds)));
     const moving = Math.abs(v.drive.speed) > D.vehicles.movingAboveMps;
+    // Night (M9.1): a gun flash lights the hull for every observer up to vehicleFlashLight (a night sight or
+    // thermal no better); 0 by day.
+    const flash = firing && light < 1 ? D.night.vehicleFlashLight : 0;
     out.push({
       id: vid, side: v.side, x: t.x, y: t.y, gz: heightAt(ctx.map, t.x, t.y), heading: t.heading, turret: t.heading + (v.stations[0]?.azimuth ?? 0), def, // ground: ok (a vehicle)
-      motion: (firing ? def.signature.firingFactor : 1) * (moving ? def.signature.movingFactor : 1), c: cos(t.heading), s: sin(t.heading),
+      motion: (firing ? def.signature.firingFactor : 1) * (moving ? def.signature.movingFactor : 1), c: cos(t.heading), s: sin(t.heading), flash,
     });
   }
   return out;
@@ -253,7 +273,7 @@ function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
 function scanVehicles(
   ctx: SimContext, state: SimState, events: EventSink, oid: EntityId, side: string, seen: { target: EntityId; firstTick: number; lastTick: number }[],
   eye: { x: number; y: number; z: number; own: EntityId },
-  sensorAt: (dist: number, bearing: number) => number, smokeAt: (dist: number, bearing: number, conv: number, ms: number) => number,
+  sensorAt: (dist: number, bearing: number, flash: number) => number, smokeAt: (dist: number, bearing: number, conv: number, ms: number, flash: number) => number,
   own: number, vts: readonly VehTarget[], scanS: number, rangeCap = Infinity,
 ): void {
   const D = ctx.catalog.spotting, V = D.vehicles, tick = state.tick;
@@ -266,7 +286,7 @@ function scanVehicles(
     if (d2 > cap * cap) continue;
     const dist = sqrt(d2);
     const bearing = atan2(dy, dx);
-    const sensor = sensorAt(dist, bearing);
+    const sensor = sensorAt(dist, bearing, tg.flash);
     if (sensor <= 0) continue;
     const { size, turretShare } = vehicleSize(D, tg.def, bearing - tg.heading, bearing - tg.turret);
     const idx = seen.findIndex((e) => e.target === tg.id);
@@ -298,7 +318,7 @@ function scanVehicles(
       const build = secondsToTicks(D.smokeBuildSeconds);
       const conv = smokeTransmission(state, D.smokeExtinctionPerM, eye.x, eye.y, tg.x, tg.y, build, "conventional");
       const ms = smokeTransmission(state, D.smokeExtinctionPerM, eye.x, eye.y, tg.x, tg.y, build, "multispectral");
-      vis *= smokeAt(dist, bearing, conv, ms);
+      vis *= smokeAt(dist, bearing, conv, ms, tg.flash);
     }
     if (vis < D.minVisibility) vis = 0;
     if (u >= 1 - exp(-rate * vis * scanS)) continue;
@@ -343,14 +363,14 @@ function crewScan(
     return { def: k, sn, range, rainK: 1 - (1 - (k.rainFactor ?? 1)) * rain };
   });
   // Best sensor toward a bearing at a distance, without smoke (ra) and through smoke (with conv/ms).
-  const sensorAt = (dist: number, bearing: number, conv = 1, ms = 1): number => {
+  const sensorAt = (dist: number, bearing: number, conv = 1, ms = 1, flash = 0): number => {
     let best = 0;
     for (const k of kinds) {
       if (dist > k.range) continue;
       const lookDir = k.sn.follows === "station" ? turretAz : t.heading;
       const off = angleBetween(lookDir, bearing);
       const view = off <= k.sn.arcRad / 2 ? 1 : off <= PI / 2 ? k.sn.sideFactor : k.sn.rearFactor;
-      const f = (dist >= k.def.fromM ? k.def.factor : 1) * Math.max(D.lightFloor, light, k.def.nightLight) * k.rainK * view * throughSmoke(k.def.smokeFactor ?? 0, conv, ms);
+      const f = (dist >= k.def.fromM ? k.def.factor : 1) * Math.max(D.lightFloor, light, k.def.nightLight, flash) * k.rainK * view * throughSmoke(k.def.smokeFactor ?? 0, conv, ms);
       if (f > best) best = f;
     }
     return best;
@@ -362,7 +382,7 @@ function crewScan(
     const dx = tg.x - ex, dy = tg.y - ey, d2 = dx * dx + dy * dy;
     if (d2 > maxR * maxR) continue;
     const dist = sqrt(d2), bearing = atan2(dy, dx);
-    const sensor = sensorAt(dist, bearing);
+    const sensor = sensorAt(dist, bearing, 1, 1, tg.flash);
     if (sensor <= 0) continue;
     const idx = os.seen.findIndex((e) => e.target === tg.id);
     let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, dist), D.rangeExponent) * tg.size * tg.motion * own * sensor;
@@ -395,7 +415,7 @@ function crewScan(
       const build = secondsToTicks(D.smokeBuildSeconds);
       const conv = smokeTransmission(state, D.smokeExtinctionPerM, ex, ey, tg.x, tg.y, build, "conventional");
       const ms = smokeTransmission(state, D.smokeExtinctionPerM, ex, ey, tg.x, tg.y, build, "multispectral");
-      vv *= sensorAt(dist, bearing, conv, ms) / sensor;
+      vv *= sensorAt(dist, bearing, conv, ms, tg.flash) / sensor;
     }
     if (vv < D.minVisibility) vv = 0;
     if (u >= 1 - exp(-rate * vv * scanS)) continue;
@@ -407,7 +427,7 @@ function crewScan(
   }
   // Vehicles.
   scanVehicles(ctx, state, events, oid, side, os.seen, { x: ex, y: ey, z: ez, own: os.mount!.vehicle },
-    (dist, bearing) => sensorAt(dist, bearing),
-    (dist, bearing, conv, ms) => { const b = sensorAt(dist, bearing); return b > 0 ? sensorAt(dist, bearing, conv, ms) / b : 0; },
+    (dist, bearing, flash) => sensorAt(dist, bearing, 1, 1, flash),
+    (dist, bearing, conv, ms, flash) => { const b = sensorAt(dist, bearing, 1, 1, flash); return b > 0 ? sensorAt(dist, bearing, conv, ms, flash) / b : 0; },
     own, vts, scanS, maxR);
 }

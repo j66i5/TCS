@@ -263,6 +263,15 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
 
 Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` and `roofThicknessM`.
 
+## Night and light (M9.1)
+
+`core/spotting.json` `night`: `sun` is a table of `[hour, light]` points (local time 0-24, light 0..1, interpolated);
+`moonFullLight` the light of a full moon (scaled by the battle's `moon`); `flashLight` the light a man's muzzle
+flash gives him at night for every observer; `vehicleFlashLight` the same for a firing vehicle; `tracerContrast` how much more a man firing tracers shows in full darkness. Sensors keep
+their `nightLight` (the light they see by at least: goggles 0.5, thermal 1). A battle follows the clock only with
+`environment.sky` (`environmentAt(catalog, seconds, moon)`; app `?time=`, tools `--time`). Check with
+`npm run lab -- night`.
+
 ## Add a vehicle
 
 Vehicle types live in `factions/<id>/vehicles.json` (optional file; M7). Units are SI except where the field name

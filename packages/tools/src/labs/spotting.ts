@@ -7,7 +7,7 @@
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  createSim, DEFAULT_COMMS, flatMap, step, submitOrder, type BattleInput, type Catalog, type MapDef, type Posture, type SoldierRecord,
+  createSim, DEFAULT_COMMS, environmentAt, flatMap, step, submitOrder, type BattleInput, type Catalog, type MapDef, type Posture, type SoldierRecord,
 } from "@tcs/sim";
 
 export interface SpotCase {
@@ -26,6 +26,11 @@ export interface SpotCase {
   /** First seed (so that two rows do not share their random draws). */
   seedBase?: number;
   maxSeconds?: number;
+  /** Night and light (M9.1): local time (s since midnight) and moon (0..1); absent = daylight as before. */
+  timeOfDay?: number;
+  moon?: number;
+  /** The observer wears night-vision goggles (his faction's item with `sensor: "night"`). */
+  nvg?: boolean;
 }
 export interface SpotRow extends SpotCase { runs: number; spotted: number; medianS: number | null; within10: number; within30: number }
 
@@ -44,9 +49,11 @@ export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
     }
     const ox = 20, ty = 100, tx = 20 + c.rangeM;
     const obs = man("obs", c.ironSights ? "ru-ak74m" : "de-g36", c.ironSights ? "ru-ak74-mag" : "de-g36-mag", catalog);
+    if (c.nvg) obs.load.push({ type: "de-nvg", count: 1 });
     const tgt = man("tgt", "ru-ak74m", "ru-ak74-mag", catalog);
     const input: BattleInput = {
       map, catalog, seed, orders: [],
+      ...(c.timeOfDay !== undefined ? { environment: environmentAt(catalog, c.timeOfDay, c.moon ?? 0.5) } : {}),
       rules: { timeLimitSeconds: max + 10, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "none", physiologyParams: {}, objectives: [] },
       forces: [
         { side: "blue", faction: "de", units: [{ key: "o", callsign: "O", echelon: "team", leaderIndex: 0, subunits: [], members: [obs] }], placements: [{ personId: "obs", x: ox, y: ty, heading: c.away ? Math.PI : 0 }] },

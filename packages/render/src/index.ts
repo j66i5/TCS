@@ -5,5 +5,8 @@ export * from "./labels";
 export * from "./lod";
 export * from "./buildings";
 export * from "./terrain-flat";
+export { TerrainTiles, SyncSource, WorkerSource, photoBasePpm, type TerrainLevel, type TerrainTilesOptions, type TileSource } from "./terrain-tiles";
+export * from "./tile-queue";
+export * from "./photo/paint";
 export * from "./sprites/atlas";
 export * from "./sprites/soldier-art";

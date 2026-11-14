@@ -2839,3 +2839,180 @@ Choices made here without the owner (low confidence):
    and card; centring and following use the map area above the card and log (`viewInsets`).
 9. German role names with umlauts (strings only; outside the catalog fingerprint).
 Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and desktop).
+
+## 2026-11-13 — Photo map, step "ground": pyramid, worker, photo ground painter, look switch (plan photo)
+1. **Looks:** `Look = "photo" | "flat" | "classic"`; photo is the default; `?look=flat` (alias `?look=pixel`) is
+   the M7.5b map, unchanged byte for byte (test keeps hashes of the pre-split painter); `?look=classic` as before.
+   The choice is remembered in localStorage `tcs.ui.look` (try/catch; a URL parameter wins). Pixel soldiers, roof
+   fade and zoom bands are keyed on `look !== "classic"`.
+2. **Pure painters:** `render/src/flat/paint.ts` (flat, split out of `terrain-flat.ts`) and `render/src/photo/*`
+   import no Pixi or DOM and use no random or clock (architecture test), so they run in a worker and in Node.
+3. **Pyramid:** one `TerrainTiles` (`terrain-tiles.ts`) for both looks. Photo: L0 whole map (1 px/m, 0.75 above
+   1600 m) painted in 4 strips over the flat picture shown at once; L1 128 m @ 2 px/m from 2 screen px/m; L2 64 m @ 4
+   from 4.5; L3 32 m @ 8 from 11, only when `hardwareConcurrency > 4` and device memory > 2 GB (unknown counts as
+   8 on a fine pointer); linear sampling with mipmaps; 150 ms fade-in; coarser tiles stay below missing ones; one LRU
+   over all levels with a byte budget (16 MB phones, 24 MB desktop). Flat keeps nearest sampling, L0 + 64 m tiles
+   at 4 px/m from the figure band, painted here one per frame.
+4. **Worker:** 1 worker (≤ 4 cores) or 2; Vite `new Worker(new URL("./photo/worker.ts", import.meta.url))`.
+   `TileQueue` (pure, unit-tested with a fake worker): centre first, queued tiles that leave the view are dropped,
+   ≤ 4 in flight, ≤ 2 uploads a frame. No `Worker` (Node, tests) or a worker that fails to load: the same painter
+   runs on the main thread. The CPU copy of a tile is kept (Pixi re-uploads it after a context loss), so the byte
+   budget counts it. `prime()` is async; the opening waits for the opening view's tiles at most 3 s.
+   `__tcs.tilesPending()` and `__tcs.terrainLevel()` for the screenshot tool.
+5. **Ground painter:** fields = 4-connected parts of equal flat `cellKey`; per field a ±6 % tint and ±2.5 % warm
+   shift; furrows along the longer grid direction of the field (a principal axis put tramlines on a slant across big irregular fields), ±4° jitter.
+   Field edges: the field with the largest bilinear weight of the 4 cells round the domain-warped point wins
+   (stair steps become curves), blended over ~1.2 m. A 2 m macro grid holds warp, tone, hue, dry patches, hillshade
+   and furrow phase (slow channels on an 8 m grid to keep `prep` under 100 ms). The headland strip of the plan was
+   dropped: its turned furrows made a herringbone at every field edge. The clump octave is a contrast-stretched
+   two-octave value noise, not ridged noise (ridged gave a maze of thin lines). Periodic patterns use a smoothstep-
+   of-triangle wave (no `Math.sin`), all band-limited.
+6. **Grade:** desaturation 0.28 (not 0.22: with 0.22 the village's mean ground saturation was 0.33, above the 0.30
+   cap); the warm lift is multiplicative (an additive blue cut pushed dark woods over the cap); hard per-pixel
+   saturation cap 0.40; contrast +6 %; grain ±3 % from the lattice keyed to the global pixel.
+7. **Photo palette:** `appearance.json` `photo` block (surfaces, vegetation, obstacles, grade, ladder note), set
+   by luminance class so the ladder deep water < wood < hedge < scrub/orchard < plough < grass < crops < tracks <
+   walls holds at ≥ 1.15× (test). Outside the catalog fingerprint: no golden update, no sim change.
+8. **Provisional features:** roads, water, crowns, hedges, walls, fences are the flat feature passes without
+   outlines until steps "vegetation" and "built" replace them.
+9. **Overdraw:** detail tiles are never shown shrunk (each level starts where it is at least its own size), so only
+   the whole-map picture gets mipmaps; under a complete detail level the whole map is not drawn (photo only).
+   Phone proxy here (Playwright, software GL, dpr 2, 10 s pan and zoom over the village): photo p95 frame about
+   1.3-1.5x flat, both far above 50 ms because the container has no GPU; the plan's +10 % check needs a real phone.
+10. No golden, catalog or sim change: the appearance `photo` block is outside the fingerprint (`npm run check` green
+    with the golden tests untouched).
+
+## 2026-11-13 — Photo map, step "vegetation": crowns, hedges, orchards, scrub, cast shadows (plan photo)
+1. **Crowns on demand:** no crown list is stored. A picture's crowns are generated from world lattices hashed by
+   lattice index (woods 4/sqrt(3) m, one big crown per 4 m below 2 px/m; scrub 60 % of the fine lattice; orchards a
+   7 m grid) and from each hedge's index and step, within 16 m of the picture. Draw order = height (1/8 m), y, x
+   (1/16 m), then a hashed id: a function of the crown alone, so tiles join byte for byte (tests at 2/4/8 px/m across
+   a wood edge and a hedge) and the list is the same after a map file round trip. Saves prep time and worker memory
+   (a 2 km woodland has about 350 000 crowns).
+2. **Woods follow the ground's warped field edges** (the same 2 m macro warp), so canopy and forest floor agree.
+3. **Stamps:** a crown is a central dome plus 5-8 foliage clumps (their union gives the lumpy outline and dark
+   creases), 0.3 m leaf bumps and speckle (band-limited), shade 0.52 + 0.62 max(0, n . sun) (the plan's 0.45 + 0.7
+   left near-black pixels), 8 radii x 4 variants per ppm, built once per worker and ppm (<= 10 ms at 8 px/m). Each
+   crown carries a small contact shadow (0.25, offset 0.4 r east-south-east) onto whatever was drawn before it
+   (lower crowns, ground), instead of crown-on-crown cast shadows.
+4. **Cast shadows** on a 1 m world node grid per picture: shadow where a sun-ward sample within 6 m stands tall enough
+   (0.3 L..L of its shadow length L = min(6, 0.6 h)), 0.45; at most 0.2 on ground under a crown (the forest floor
+   is already shaded); ambient 0.18 within about 2 m of any canopy; two 3 x 3 blurs; max-combined, not stacked.
+5. **Hedges:** crowns r 1.2-1.8 m (the plan's 1.0-1.5 read thin at the figure band), at least 1.3 px; 8 % hedgerow
+   trees. The flat painter's hedge band and tree crowns are off in the photo look (`paintFeatures(..., vegetation=false)`;
+   flat output unchanged, hash test).
+6. **Lanes:** crowns dropped within half-width + 0.75 r of a road (plan: 0.6 r; 0.6 left tracks half covered) and
+   + 0.9 r of a stream (streams under the canopy disappeared at 1 px/m).
+7. **Aerial haze** in the grade (5 % toward a pale neutral): shaded canopy never goes black and the saturation cap
+   holds on dark pixels; it lifts the whole picture a little (all photo tests still pass).
+8. L3 (8 px/m) was already wired in step "ground"; the screenshot tool's desktop shots of `--scene photo` now report
+   8 cores so they show it; the scene also shoots a hedge and a wood edge at the figure zoom.
+9. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo map, step "built": roads, water, bridges, walls, building shadows, roofs (plan photo)
+1. **Roads** (`render/src/photo/lines.ts`): per picture a padded line grid holds e = distance - half-width (min) and
+   the winning segment. Where two roads both cover a pixel the WIDER one wins (plain min-e let a 3 m track's centre
+   cut a notch into a 6 m road's edge at crossings); ends are round caps. Edge wobble +-0.18 m paved / +-0.4 m tracks,
+   ~1 px alpha ramp, 1.5 m dusty verge at ~30 %, at least 2.4 px wide. Asphalt darkened to `#474745` in the photo
+   palette: at 1 px/m the old `#504f4d` was only 9 % from ploughed ground after the grade (minimum-width test).
+2. **Water:** streams by centre-line distance, ponds by polygon distance with a 1.5 m shallow rim outside the polygon
+   (the sim's wading ring), mud bank 1.4 m, depth graded over 6 m, sheen and band-limited ripples, no outline; at least
+   2 px. Water stays the only bluish ground (test: its blue-minus-red above every other ground pixel).
+3. **Bridges** are detected, not stored: a road pixel within 0.8 m of water is deck (the maps have no bridge object).
+   Deck x1.06, a 0.4 m kerb lit (x1.35) on the sun side and shaded (x0.62) on the other, dark water under the deck
+   edges, and the deck's shadow (2 m high) on the water toward the east-south-east.
+4. **Walls** keep the ladder's light colour; texture and the shaded face carry the "hard line with shadow" (blocks
+   +-10 %, shaded face x0.84), cast shadow 0.48 swept along the sun, ambient 0.22 over 1 m. Fences only from 2.5 px/m,
+   area-true thin lines (alpha scales with width in px), posts from 4 px/m. Embankments hillshaded (+-16 % by side).
+5. **Shadows** of buildings (footprint + its sun-swept copy, convex hull, 0.5, 0.9 m soft edge; height = storeys plus
+   2.2 m of pitched roof), walls and fences go into one per-pixel buffer, max-combined with the crowns' shadow grid in
+   `applyShadows` (one pass, no double darkening). They are terrain, so they stay when the roof fades.
+6. **Roofs** (`render/src/photo/roof.ts`): one generic painter, every pixel belongs to the face of its nearest wall
+   (hipped; for a convex footprint this is the straight skeleton), gabled = only the two long walls carry faces;
+   flat = gravel, parapet with its inner shadow, vents. Eaves overhang 0.3 m (covers the floor plan's square wall
+   corners, which poked out of a footprint-sized roof). Face light 0.56 + 0.52 max(0, n . sun), pitch 37 deg,
+   courses 0.35 m band-limited, ridge cap, eave line, moss, tone per building, saturation cap 0.45, premultiplied.
+7. **Roof atlas** at 8 px/m, lowered per map (to 7, 6, 5 or 4) until it fits 900 000 px (~3.6 MB); flat roofs at
+   half that (plain gravel). Shelf-packed tallest first, 2 px gutters, linear + mipmaps. The largest village of seeds
+   1-4 lands at 6 px/m, 3.8 MB, 62 ms in Node; industrial 2.5 MB, 36 ms. **Painted on the main thread at map load,
+   not in the worker** (deviation from the plan): it is under the plan's 150 ms budget in Node and runs once behind
+   the loading screen; moving it into the photo worker is left for later if phones show a hitch.
+8. In `buildings.ts` the photo look draws one Sprite per building (same fade rule, `roofShown`, upper floors;
+   test: sprite alpha and visibility equal the vector roof's every frame) plus a light dashed eave line for 18 frames
+   (0.3 s) when a roof starts to fade. Floors stay vector, in the lighter photo `floors` palette (lighter than any
+   roof). New optional `photo.roofs` / `photo.floors` in appearance.json (outside the fingerprint).
+9. The photo painter no longer calls any flat feature code (`paintFeatures` is flat-only again; flat output
+   unchanged, hash test).
+10. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo map, step "polish": units on the map, overlays, contours, defaults, docs (plan photo)
+1. **Photo is the default look** (since step "ground"); `?look=flat`, its old name `?look=pixel` and
+   `?look=classic` stay; the choice is remembered in localStorage `tcs.ui.look`, a URL parameter wins.
+2. **One sun** for everything (west-north-west, about 40 degrees up, `photo/light.ts`): the men's contact shadows and
+   the hulls' shadows added here fall the same way as the trees', walls' and buildings'.
+3. **Worker painting and the L3 gate** (summary of steps "ground"/"vegetation"): tiles paint in 1 worker on <= 4
+   cores, else 2; 8 px/m tiles only with > 4 cores and > 2 GB (or a desktop pointer); phones stop at 4 px/m.
+4. **Amplitude caps** kept as in step "ground" (blotches +-5 %, per-field tint +-6 %, saturation <= 0.40):
+   readability beats photo realism; the palette pass on this step's screenshots found nothing to change in the
+   `appearance.json` photo block (ladder and saturation tests still pass unchanged).
+5. **Photo-only unit extras** (all keyed on `look === "photo"`, so flat and classic draw exactly as before; checked:
+   the flat and classic `--scene look` shots are byte-identical to the ones before the step except for bullets in
+   flight and the clock): per man at the figure/close zoom a soft contact shadow (16 px pre-blurred disc, 1.4 x 1.1 m,
+   0.28 m down-sun, alpha 0.5; 1.35x for men lying; smaller ones hid under the figure on the screenshots) and a dark rim (the side-colour outline sprite again, scaled up
+   by about 1.2 px, tinted #121410, alpha 0.8); at the dots zoom a 1.5 px dark rim and a 15 % lighter core. Both are
+   sprite pools in a `shadowLayer` under the men (one more sprite pair per man: +-0.1 ms for 270 men close up in the
+   render-cost test, within its noise).
+6. **Hulls** cast their outline 0.6 m down-sun at alpha 0.35. **Wrecks and craters** get a ragged scorch decal
+   (radial falloff, fbm edge, soot patches, alpha <= 0.5; 8 m across under a wreck, about 5x the crater radius for a
+   crater) instead of the flat dark disc the craters had: the flat disc read as a hole cut in the photo.
+7. **Labels** get a 4 px stroke (2 px each side) in the photo look (3 before). **Overlay lines** (unit routes, move
+   lines, the selected route, fire mission lines and rings, vehicle routes, objective rings, planned legs, order
+   markers) are drawn over a dark line 2 px wider (`inked`), alpha 0.3 + 0.3 x the line's alpha. LOS lines and the
+   ranging crosses already had one. Dashes were already >= 6 px except the ranging trail (4/4), left as it is.
+8. **Symbols zoom veil:** a light warm-grey veil (alpha 0.15) over the map below 1.2 px/m. The "woods 5 % darker
+   there" idea was dropped: the woods already read on the screenshots.
+9. **Close-zoom grain:** one world-anchored TilingSprite, 256 px of neutral grain over 16 m (repeat, mipmaps),
+   inside the terrain under the floors; fades in from 12 px/m to alpha 0.55 at 24 px/m. No paint cost.
+10. **Contours** in the photo look: ink alpha 0.25 minor / 0.45 major (flat keeps 0.28 / 0.55) and a light halo
+   on the north-west side of the ink. First tried at alpha 0.22: on dark woods the halo alone showed and read like
+   footpaths; 0.12 keeps it a hint. Close contour tiles of the top-bar toggle unchanged.
+11. **The sight tint** (`setSightOverlay`) is shown only with Debug on, so it was left as a colour wash (no
+   multiply variant; not judged on screenshots).
+12. **Zoom thresholds** (`lod.ts` bands and the tile levels' minPx) unchanged: no smear or shimmer seen on the
+   step's screenshots at the band edges.
+13. `--scene look` now shoots photo / flat / classic triples; `--scene photo` adds men on foot per map (dots,
+   close selected and unselected, far).
+14. Phone pan proxy (Playwright, 390x844 at dpr 2, 4x CPU throttle, 10 s pan, SwiftShader software WebGL in the
+   container): every frame of both looks is > 50 ms here (flat p50 ~100-117 ms), so the "no frame > 50 ms" budget
+   cannot be judged in this container; photo p95 200 ms vs flat 133-150 ms on all five maps, the same as before this
+   step (village before: 200 vs 133-150). Not met; left for a real-phone check.
+15. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo look: review fixes (plan photo)
+
+Independent review of the four photo steps; rendering only (no sim, golden or catalog change).
+1. The opening prime's tiles go ahead of the whole-map L0 strips (priority 2e9 lower), so a phone's single worker
+   paints the opening view first instead of hitting the 3 s cap in `main.ts`.
+2. Device tier: a device without a fine pointer is a phone whatever cores and `deviceMemory` it reports (mid-range
+   Android was "strong"): one worker, 20 MB budget, levels chosen by CSS px per metre (L3 from 7 CSS px/m), so every
+   phone, iPhones included, gets 8 px/m tiles at the opening zoom instead of a 4 px/m smear. Desktop: strong with more
+   than 4 cores and more than 2 GB (unknown counts as 8), 40 MB; else 28 MB.
+3. Budgets count each tile twice (GPU texture plus the CPU copy Pixi keeps); a level is used only where its tiles over
+   the view fit three quarters of the budget (zoomed out on a big desktop screen every L1 tile was kept, far over the
+   budget); `evict()` no longer sorts when nothing can go. The flat placeholder under the strips is destroyed (texture
+   and buffer) once the last strip is in.
+4. Blur apron: the macro grid reads clamp at x, y < 0 (row 0 was about 17 % darker, column 0 took the far right's
+   values).
+5. Contours in the photo look are vector lines (marching squares over the heights, `photo/contours.ts`), one pixel
+   wide, with a light line one screen pixel to the north-west; the 1 px/m raster and its dotted halo showed as stair
+   steps in the dots band. The flat look keeps its raster.
+6. Roads: where roads meet, the wider one wins the colour but the edge distance is the union's, so a wide road's round
+   end cap no longer draws a pale worn rim across the narrower road; dirt-track ruts use the track's own centre line.
+7. Eave flash: each building's dashed line is built once (dashes in metres, a one-pixel line) and cached; per frame
+   only its alpha changes (it was re-tessellated each frame, 20-55 ms a frame on a throttled phone).
+8. Floors in the photo look are softened: walls a dark shade of the floor instead of black ink, a soft shade inside
+   the walls, fainter floorboards. They stay vector drawings (game information: walls are cover).
+9. `lint:data` checks `photo.roofs` and `photo.floors` keys against the building kinds.
+10. `docs/plans/photo.md` indexes the plan references cited in code; `terrain-flat.ts` header fixed (re-exports only).
+11. New `render/test/terrain-tiles.test.ts`: level choice, budget cap, prime ahead of strips, placeholder freed, no
+    holes, eviction, worker-failure fallback, device tier, blur apron.

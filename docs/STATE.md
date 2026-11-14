@@ -1,6 +1,24 @@
 # State — handover note
 
-_Last updated: 2026-11-13 (Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+
+
+**Photo map look (owner goal 2026-11-14: "more like Firefight, a low resolution shot of the real world, not so
+blocky"; plan `photo`, four steps; DECISIONS.md "Photo map, step ...").** The map is now painted like a soft
+low-resolution aerial photo, all original procedural art (`render/src/photo/`, pure; ASSETS.md): soft warped field
+edges, furrows, crop rows, tree crowns lit from the west-north-west with soft shadows, hedges as crown rows, worn
+roads and tracks, water with banks, bridges, walls with shadows, sun-lit hipped/gabled/flat roofs from a roof atlas.
+Tiles paint in a worker (2/4/8 px/m by zoom; phones, i.e. no fine pointer, choose levels by CSS px, one worker,
+smaller budget); the opening view's tiles paint before the whole-map strips; the flat picture shows until the photo
+lands and is then freed. The
+"polish" step added (photo only): contact shadows and dark rims on men, rimmed dots, hull shadows, scorch decals for
+wrecks and craters, thicker label strokes, dark under-strokes on overlay lines, a symbols-zoom veil, close-zoom
+grain, fainter contours (vector lines with a light north-west line since the review fixes). Default look is photo; `?look=flat|pixel|classic`, remembered in
+`tcs.ui.look`. Rendering only: no sim, golden or catalog change. Screenshots `npm run screenshot -- --scene photo
+[--map woodland]` and `--scene look` (photo/flat/classic triples). Open: the throttled phone-pan budget (p95 within
+flat +10 %, no frame > 50 ms) is not met in the container (SwiftShader: every frame > 50 ms for both looks; photo
+p95 200 ms vs flat 133-150 ms): needs a real phone; roads keep slight stair steps at some angles; roof atlas paints on
+the main thread (62 ms in Node for the largest village); the owner's poll on the default look is still to be asked.
 
 **Firefight-inspired controls (owner choices 2026-11-13, step "controls": S1, S2, S9, S10, S12; DECISIONS.md
 "Controls step").** Drag from the selected unit and let go: the move goes at once with the current pace (Assault /

@@ -102,6 +102,30 @@ describe("render cost (M7.5b look)", () => {
     expect(best).toBeLessThan(4);
   });
 
+  it("photo look (step polish): contact shadows and dark rims on about 270 pixel soldiers cost little over flat", () => {
+    const sc = getScenario("bench-vehicles");
+    const input = sc.build(loadData(), 1, 600);
+    const sim = createSim(input);
+    for (let i = 0; i < 30; i++) step(sim);
+    for (const [, s] of sim.state.soldier.entries()) delete (s as { mount?: unknown }).mount;
+    const men = [...sim.state.soldier.keys()];
+    const per = Math.ceil(Math.sqrt(men.length));
+    men.forEach((id, k) => { const t = sim.state.transform.get(id)!; t.x = 1000 + (k % per) * 2; t.y = 1000 + Math.floor(k / per) * 2; t.heading = k * 0.4; });
+    const overlay = { playerSide: "blue", selectedUnit: null, debug: true };
+    const run = (look: "photo" | "flat") => {
+      const r = BattleRenderer.headless(1280, 800);
+      r.setLook(look);
+      r.setCatalog(input.catalog);
+      r.camera = { x: 1000 - 20, y: 1000 - 10, scale: 20 };
+      return time(r, () => r.draw(sim.state, input.map, 0.5, overlay));
+    };
+    // Interleaved, best of two each (the difference is small against timing noise).
+    const flat = Math.min(run("flat"), run("flat")), photo = Math.min(run("photo"), run("photo"));
+    console.log(`render (photo polish): ${men.length} soldiers close up: flat ${flat.toFixed(2)} ms, photo with shadows and rims ${photo.toFixed(2)} ms (+${(photo - flat).toFixed(2)}; plan <= 0.3, target 4 ms)`);
+    expect(photo).toBeLessThan(4);
+    expect(photo - flat).toBeLessThan(0.8);
+  });
+
   it("roofs: the village platoon battle at the figure zoom, the roof-fade rule over every building each frame", () => {
     const sc = getScenario("platoon");
     const input = sc.build(loadData(), 1, 600);
@@ -113,7 +137,7 @@ describe("render cost (M7.5b look)", () => {
     const overlay = { playerSide: "blue", selectedUnit: null, debug: true };
     r.camera = { x: input.map.widthM / 2 - 80, y: input.map.heightM / 2 - 50, scale: 8 };
     const best = time(r, () => r.draw(sim.state, input.map, 0.5, overlay));
-    console.log(`render (M7.5b): ${input.map.buildings.length} buildings with roofs, ${sim.state.identity.size} men, figure zoom: ${best.toFixed(2)} ms per frame (target 4 ms)`);
+    console.log(`render (M7.5b; photo look: roof sprites): ${input.map.buildings.length} buildings with roofs, ${sim.state.identity.size} men, figure zoom: ${best.toFixed(2)} ms per frame (target 4 ms)`);
     expect(input.map.buildings.length).toBeGreaterThan(20);
     expect(best).toBeLessThan(4);
   });

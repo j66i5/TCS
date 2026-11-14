@@ -28,6 +28,7 @@ interface Page {
   waitForTimeout(ms: number): Promise<void>;
   screenshot(o: { path: string }): Promise<unknown>;
   close(): Promise<void>;
+  addInitScript(f: () => void): Promise<void>;
   mouse: { move(x: number, y: number, o?: { steps?: number }): Promise<void>; down(o?: { button?: "left" | "right" }): Promise<void>; up(o?: { button?: "left" | "right" }): Promise<void> };
   keyboard: { press(key: string): Promise<void>; down(key: string): Promise<void>; up(key: string): Promise<void> };
   click(selector: string, o?: { clickCount?: number; delay?: number }): Promise<void>;
@@ -121,7 +122,96 @@ async function uiScenes(page: Page, name: string, errors: string[], shots: strin
 }
 
 /**
- * M7.5b look (`--scene look`): the pixel look against the classic one (`&look=classic`) where a pair helps —
+ * The photo map (`--scene photo`, plan "photo" step "ground"): photo against flat at four zooms — far (the whole
+ * map), middle (dots), the figure zoom and close up — on the village, farmland, woodland, industrial and flat maps
+ * (`--map` picks one). Each shot waits until the terrain tiles are painted and uploaded (`__tcs.tilesPending()`).
+ */
+async function photoScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const maps = args["map"] ? [mapKind] : ["village", "farmland", "woodland", "industrial", "flat"];
+  // The container has 4 cores; the desktop shots stand for a desktop with more (the 8 px/m level, step "vegetation").
+  if (name === "desktop") await page.addInitScript(new Function("Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });") as () => void);
+  const settle = async () => {
+    await page.waitForFunction(new Function("const t = globalThis.__tcs; return t.tilesPending() === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400); // the fade-in
+  };
+  const info: string[] = [];
+  for (const map of maps) for (const lk of ["photo", "flat"]) {
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${map}&look=${lk}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
+    const t0 = Date.now();
+    await settle();
+    info.push(`${map}/${lk} opening settled ${Date.now() - t0} ms, level ${await page.evaluate(new Function("return globalThis.__tcs.terrainLevel()") as () => number)}`);
+    for (const [label, sc] of [["far", 0.01], ["mid", 2.2], ["figure", name === "phone" ? 7 : 9], ["close", 18]] as const) {
+      await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; let x = 0, y = 0, n = 0;
+        for (const [id, i] of s.identity.entries()) if (i.side === "blue") { const p = s.transform.get(id); x += p.x; y += p.y; n++; }
+        const m = t.sim.ctx.map; x /= n; y /= n; x = (x * 2 + m.widthM / 2) / 3; y = (y * 2 + m.heightM / 2) / 3;
+        t.focusScale(x, y, ${sc}); t.stepTicks(1);`) as () => void);
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-${label}-${lk}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+    // Vegetation at the figure zoom (step "vegetation"): a hedge and a wood's east edge near the middle of the map.
+    // Step "built": a road junction, a bridge (road over a stream) and a wall corner near the middle of the map.
+    // And the buildings nearest the middle with their roofs (figure zoom) and with the roofs faded (close zoom).
+    for (const what of ["hedge", "woodedge", "junction", "bridge", "wall", "houses", "houses-close"] as const) {
+      const ok = await page.evaluate(new Function(`const t = globalThis.__tcs, m = t.sim.ctx.map, cx = m.widthM / 2, cy = m.heightM / 2;
+        let bx = -1, by = -1, bd = Infinity;
+        if (${JSON.stringify(what)} === "hedge") {
+          for (const o of m.obstacles) if (o.kind === "hedge") for (let k = 0; k + 3 < o.points.length; k += 2) {
+            const x = (o.points[k] + o.points[k + 2]) / 2, y = (o.points[k + 1] + o.points[k + 3]) / 2, d = Math.hypot(x - cx, y - cy);
+            if (d < bd) { bd = d; bx = x; by = y; }
+          }
+        } else if (${JSON.stringify(what)}.startsWith("houses")) {
+          for (const b of m.buildings) { const f = b.footprint; let x = 0, y = 0; for (let k = 0; k < f.length; k += 2) { x += f[k] / (f.length / 2); y += f[k + 1] / (f.length / 2); }
+            const d = Math.hypot(x - cx, y - cy) + (b.interior ? 0 : 30); if (d < bd) { bd = d; bx = x; by = y; } }
+        } else if (${JSON.stringify(what)} === "junction" || ${JSON.stringify(what)} === "bridge" || ${JSON.stringify(what)} === "wall") {
+          const pd = (p, x, y) => { let b = Infinity; for (let k = 0; k + 3 < p.length; k += 2) { const ax = p[k], ay = p[k + 1], ex = p[k + 2] - ax, ey = p[k + 3] - ay, L2 = ex * ex + ey * ey || 1e-9;
+            const u = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / L2)); b = Math.min(b, Math.hypot(x - ax - u * ex, y - ay - u * ey)); } return b; };
+          const cand = [];
+          if (${JSON.stringify(what)} === "junction") { for (const r of m.roads) for (const e of [0, r.points.length - 2]) if (m.roads.some((q) => q !== r && pd(q.points, r.points[e], r.points[e + 1]) < 1)) cand.push([r.points[e], r.points[e + 1]]); }
+          else if (${JSON.stringify(what)} === "bridge") { for (const r of m.roads) for (const w of m.water) if (w.kind === "stream") for (let k = 0; k < r.points.length; k += 2) if (pd(w.points, r.points[k], r.points[k + 1]) < 0.6) cand.push([r.points[k], r.points[k + 1]]);
+            for (const r of m.roads) for (const w of m.water) if (w.kind === "stream") for (let k = 0; k + 3 < r.points.length; k += 2) for (let f = 0; f <= 1; f += 0.02) { const x = r.points[k] + (r.points[k + 2] - r.points[k]) * f, y = r.points[k + 1] + (r.points[k + 3] - r.points[k + 1]) * f; if (pd(w.points, x, y) < 0.8) cand.push([x, y]); } }
+          else for (const o of m.obstacles) if (o.kind.endsWith("-wall")) for (let k = 2; k + 3 < o.points.length; k += 2) cand.push([o.points[k], o.points[k + 1]]);
+          for (const [x, y] of cand) { const d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; bx = x; by = y; } }
+        } else {
+          const w = m.vegetationPalette.indexOf("woodland") + 1;
+          for (let k = 0; k < m.cols * m.rows - 1; k++) if (w > 0 && m.vegetation[k] === w && m.vegetation[k + 1] === 0 && m.vegetation[k + 2] === 0 && m.vegetation[k + 3] === 0 && m.surface[k + 2] === m.surface[k + 3]) {
+            const x = (k % m.cols + 1) * m.cellSizeM, y = (Math.floor(k / m.cols) + 0.5) * m.cellSizeM, d = Math.hypot(x - cx, y - cy);
+            if (d < bd) { bd = d; bx = x; by = y; }
+          }
+        }
+        if (bx < 0) return false;
+        t.focusScale(bx, by, ${JSON.stringify(what)} === "houses-close" ? 18 : ${name === "phone" ? 7 : 9}); t.stepTicks(1); return true;`) as () => boolean);
+      if (!ok) continue;
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-${what}-${lk}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+  }
+  // Step "polish": men on foot on each map in the photo look — the lead squad selected and ordered 80 m on (its route
+  // line), at the dots zoom and close up (contact shadows, rims, labels, overlays), and the far view (symbols, veil).
+  for (const map of maps) {
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${map}&vehicles=0&look=photo`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0); t.stepTicks(1);
+      const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
+      let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
+      const m = t.sim.ctx.map; const dx = x < m.widthM / 2 ? 80 : -80; t.tap(x + dx, y + 20); t.stepTicks(60 * 20);
+      const lead = s.unit.get(sq.unit).leader, p = s.transform.get(lead ?? s.unit.get(sq.unit).members[0]);
+      globalThis.__sq = { x: p.x, y: p.y };`) as () => void);
+    for (const [label, sc, sel] of [["dots", 3, true], ["close", name === "phone" ? 16 : 20, true], ["close-unselected", name === "phone" ? 16 : 20, false], ["far", 0.01, true]] as const) {
+      await page.evaluate(new Function(`const t = globalThis.__tcs, q = globalThis.__sq; ${sel ? "" : "t.select(null);"} t.focusScale(q.x, q.y, ${sc}); t.stepTicks(1);`) as () => void);
+      await settle();
+      const p = `${outDir}/photo-${seed}-${name}-${map}-units-${label}.png`;
+      await page.screenshot({ path: p }); shots.push(p);
+    }
+  }
+  console.log(`${name}: photo scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
  * faded when zoomed in close, and faded beside the men; the village and the farmland at the middle distance.
@@ -134,8 +224,8 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function("const t = globalThis.__tcs; t.setSpeed(0); t.stepTicks(1);") as () => void);
   };
   const centre = `const own = (side) => { let x = 0, y = 0, n = 0; for (const [id, i] of s.identity.entries()) if (i.side === side) { const p = s.transform.get(id); x += p.x; y += p.y; n++; } return { x: x / n, y: y / n }; };`;
-  for (const lk of ["classic", "pixel"]) {
-    const q = `&map=village${lk === "classic" ? "&look=classic" : ""}`;
+  for (const lk of ["classic", "flat", "photo"]) {
+    const q = `&map=village&look=${lk}`;
     await open(q);
     await shot(`0-opening-${lk}`);
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 2.5); t.stepTicks(1);`) as () => void);
@@ -143,7 +233,7 @@ async function lookScenes(page: Page, name: string, errors: string[], shots: str
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${centre} const c = own("blue"); t.focusScale(c.x, c.y, 0.01); t.stepTicks(1);`) as () => void);
     await shot(`2-far-${lk}`);
     // A squad on foot firing, close up: the platoon battle on foot, the first squad fires east.
-    await open(`&map=village&vehicles=0${lk === "classic" ? "&look=classic" : ""}`);
+    await open(`&map=village&vehicles=0&look=${lk}`);
     await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state;
       const sq = t.units().find((u) => u.kind === "infantry"); t.select(sq.unit);
       let x = 0, y = 0, n = 0; for (const m of s.unit.get(sq.unit).members) { const p = s.transform.get(m); x += p.x; y += p.y; n++; } x /= n; y /= n;
@@ -986,6 +1076,7 @@ try {
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "photo") { await photoScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1114,7 +1205,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -794,6 +794,17 @@ export const CoreAppearanceFile = z.object({
   roofs: z.record(Id, LookColour),
   floors: z.record(Id, LookColour),
   outline: LookColour,
+  /** The photo map (plan "photo"): its own, quieter colours (falling back to the ones above) and its grade. */
+  photo: z.object({
+    surfaces: z.record(Id, LookColour).optional(),
+    vegetation: z.record(Id, LookColour).optional(),
+    obstacles: z.record(Id, LookColour).optional(),
+    roofs: z.record(Id, LookColour).optional(),
+    floors: z.record(Id, LookColour).optional(),
+    grade: z.object({ desaturate: z.number().min(0).max(1), contrast: z.number().min(-0.5).max(0.5), warm: z.number().min(-0.2).max(0.2), grain: z.number().min(0).max(0.2) }).strict().optional(),
+    ladder: z.string().optional(),
+    note: z.string().optional(),
+  }).strict().optional(),
   note: z.string().optional(),
 }).strict();
 export type FactionAppearanceT = z.infer<typeof FactionAppearanceFile>;

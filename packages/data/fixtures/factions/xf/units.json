@@ -148,6 +148,31 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M7.2): two porter gangs, each riding its own cart."
+    },
+    {
+      "id": "wagon-crew",
+      "echelon": "vehicle",
+      "callsign": "Wagon {n}",
+      "leaderIndex": 1,
+      "vehicle": "xf-wagon",
+      "members": [
+        {
+          "role": "slinger",
+          "rank": "private",
+          "seat": "slinger",
+          "load": []
+        },
+        {
+          "role": "carter",
+          "rank": "boss",
+          "seat": "carter",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3a): the wagon crew (its beam-riding dart)."
     }
   ]
 }

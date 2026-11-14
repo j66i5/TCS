@@ -559,6 +559,11 @@ export interface MissileGuide {
   checkTick: number;
   /** His aim point now (world; the target's aim point, or the point ordered), without his error. */
   ax: number; ay: number; az: number;
+  /** M9.3a: how it is guided ("command-wire" when absent; "command-beam"; "fire-and-forget-..."): fire-and-forget
+   *  needs no gunner after the launch, its seeker keeps (ax, ay, az) at the last point it saw. */
+  kind?: string;
+  /** M9.3a: the target's crew noticed the launch; at this tick it fires its smoke toward the launcher. */
+  warnTick?: number;
 }
 
 export interface StationState {
@@ -619,6 +624,8 @@ export interface VehicleState {
   fire: { startTick: number; nextCheckTick: number; intensity: number; nextExtTick: number } | null;
   smokeReadyTick: number;
   pendingSmokeTick: number;
+  /** Last tick it moved (M9.2: a hull halted longer than thermal.hotSeconds has cooled). Absent: not since the start. */
+  movedTick?: number;
   crewReaction: "continue" | "reverseOut" | "bailOut" | null; reactionTick: number;
   reactionWhy: string[];
   lastHitTick: number; lastPenTick: number; hitsThisTick: number;

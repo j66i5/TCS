@@ -8,6 +8,7 @@
  * 3. Terrain damage: a crater, and a hole in any nearby wall thin enough to be blown through. Both are stored
  *    in the battle state (they save, replay and can be carried into a campaign).
  */
+import { onRoof } from "../mount";
 import { addSmoke } from "../smoke";
 import { suppressByBurst } from "./morale";
 import { applyBreaches, lineBlocked } from "../ballistics";
@@ -74,7 +75,7 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
 
   // ---- blast
   for (const [id, s] of state.soldier.entries()) {
-    if (!s.physiology.alive || s.mount !== undefined) continue; // men aboard are behind armour (M7)
+    if (!s.physiology.alive || (s.mount !== undefined && !onRoof(state, id))) continue; // men aboard are behind armour (M7; not one out on the roof, M9.3a)
     const t = state.transform.get(id);
     if (!t) continue;
     const dx = t.x - x, dy = t.y - y;

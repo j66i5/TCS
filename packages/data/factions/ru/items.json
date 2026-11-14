@@ -387,6 +387,29 @@
       "note": "Game value: one charge of the vehicle's fire extinguishing system."
     },
     {
+      "id": "ru-thermal-sight",
+      "nameKey": "item.ru-thermal-sight",
+      "category": "kit",
+      "massKg": 1,
+      "sensor": "thermal",
+      "batteryHours": 6,
+      "sources": [
+        "https://www.wikiwand.com/en/articles/Ratnik_(program)"
+      ],
+      "confidence": "low",
+      "note": "Thermal weapon sight (M9.2): Ratnik lists 1PN140/1PN141 night and thermal sights, and its night-vision parts have very limited distribution (search extracts). Research default, low (owner round M9 screen 3 (a)): one per platoon, with the platoon commander. Mass and battery life are game values."
+    },
+    {
+      "id": "ru-thermal-blanket",
+      "nameKey": "item.ru-thermal-blanket",
+      "category": "kit",
+      "massKg": 0.8,
+      "thermalCover": 0.25,
+      "sources": [],
+      "confidence": "low",
+      "note": "Thermal (multispectral) camouflage cape (M9.2): a still man under it shows a quarter of his heat to a thermal sight. Game values; not issued to anyone by default."
+    },
+    {
       "id": "ru-2b14-mortar",
       "nameKey": "item.ru-2b14-mortar",
       "category": "crew-served",

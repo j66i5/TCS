@@ -2,6 +2,7 @@
  * The simulation loop. Fixed timestep (60 Hz). No wall-clock time, no Math.random, no DOM, no Node.
  * The app calls `step` as often as real time requires; the headless tools call it as fast as they can.
  */
+import { lightAt } from "./light";
 import { initMortars, mortarSystem } from "./systems/mortars";
 import { actionSystem } from "./actions";
 import type { BattleInput } from "./battle";
@@ -152,6 +153,9 @@ export function step(sim: Sim): SimEvent[] {
 
   state.environment.timeOfDaySeconds += 1 / TICK_HZ;
   state.tick++;
+  // Night and light (M9.1): with a sky, the light follows the clock, once a second.
+  const sky = state.environment.sky;
+  if (sky !== undefined && state.tick % TICK_HZ === 0) state.environment.light = lightAt(ctx.catalog, state.environment.timeOfDaySeconds, sky.moon);
 
   if (state.ended) return events.events;
   if (state.tick >= secondsToTicks(ctx.rules.timeLimitSeconds)) {

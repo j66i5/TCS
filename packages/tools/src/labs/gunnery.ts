@@ -19,8 +19,8 @@ interface Layout {
 }
 
 /** A one-vehicle-a-side battle on a flat 2400 x 1200 m field, laid out as asked. */
-export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string], mapWidthM = 2400): BattleInput {
-  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}) });
+export function duel(data: DataSet, factions: [string, string], lay: Layout, squadTemplates?: [string, string], mapWidthM = 2400, crewTemplates?: [string, string]): BattleInput {
+  const input = vehicleBattle(data, { seed: 3, factions, vehiclesPerPlatoon: 1, mapWidthM, mapHeightM: 1200, timeLimitSeconds: 3600, ...(squadTemplates ? { squadTemplates } : {}), ...(crewTemplates ? { crewTemplates } : {}) });
   input.forces.forEach((f, s) => {
     const p = s === 0 ? lay.blue : lay.red;
     for (const vp of f.vehiclePlacements ?? []) { vp.x = p.x; vp.y = p.y; vp.heading = p.heading; }

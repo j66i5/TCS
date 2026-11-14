@@ -5,12 +5,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { careNeed, lifeThreatNeed, runBattle, stripInteriors, tallyExpenditure, type Expenditure, type Sim } from "@tcs/sim";
+import { careNeed, environmentAt, lifeThreatNeed, parseTimeOfDay, runBattle, stripInteriors, tallyExpenditure, type Expenditure, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
 
 const args = parseArgs(process.argv.slice(2));
+const timeOfDay = parseTimeOfDay(args["time"]);
 const name = args["scenario"] ?? "demo";
 const runs = Number(args["runs"] ?? 100);
 const seconds = Number(args["seconds"] ?? 120);
@@ -57,6 +58,8 @@ const t0 = performance.now();
 for (let i = 0; i < runs; i++) {
   const seed = firstSeed + i;
   const input = sc.build(data, seed, seconds);
+  // `--time HH:MM [--moon 0..1]` (M9.1): the battle at that local time, the light following the clock.
+  if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(args["moon"] ?? 0.5));
   if (noInteriors) input.map = stripInteriors(input.map);
   if (noMedical) input.rules.medicalCare = false;
   const s0 = performance.now();
@@ -242,6 +245,7 @@ const md = [
   `- Building interiors: ${noInteriors ? "off (--no-interiors)" : "on"}`,
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
+  ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
   `- Speed: ${((runs * seconds) / (totalMs / 1000)).toFixed(0)}x real time`,
   `- Distinct final states: ${uniqueHashes} of ${runs}`,

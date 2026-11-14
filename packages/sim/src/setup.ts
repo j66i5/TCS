@@ -2,6 +2,7 @@
  * Builds the initial SimState from a BattleInput. Also the inverse: extracting roster records
  * from a state at the end of a battle.
  */
+import { lightAt } from "./light";
 import type { BattleInput, ForceInput, Placement, SoldierRecord, UnitInput, VehicleRecord } from "./battle";
 import type { DriveState, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
@@ -16,7 +17,8 @@ import { defaultEnvironment } from "./environment";
 
 export function buildInitialState(input: BattleInput): SimState {
   const state = createState(input.seed, input.catalog.fingerprint);
-  state.environment = input.environment ? { ...input.environment } : defaultEnvironment();
+  state.environment = input.environment ? { ...input.environment, ...(input.environment.sky ? { sky: { ...input.environment.sky } } : {}) } : defaultEnvironment();
+  if (state.environment.sky) state.environment.light = lightAt(input.catalog, state.environment.timeOfDaySeconds, state.environment.sky.moon);
   for (const force of input.forces) {
     if (state.sides.some((s) => s.id === force.side)) throw new Error(`duplicate side '${force.side}'`);
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);

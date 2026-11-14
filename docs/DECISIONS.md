@@ -3769,3 +3769,18 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 7. Breaches shown in the after-action review (both sides, with circumstances), not live.
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
+
+## 2026-11-14 — Owner answers: M7.5e follow-ups, round A and medical round 1
+- Own squads leave houses on their own as built. Add a **Clear** button (Move tray, beside Occupy). The AI attacker
+  also clears houses with a known enemy **on its approach**, not only in the assault. Overnight and M7.5e values:
+  accepted as built.
+- Rushes: 3-5 s bounds of 15-20 m, in the infantry tactics pass after medical. Russian mounted attack: wait for
+  fire support (M8/M9). Hand smoke grenades: a small step inside medical. Balance batches: 1200 s routinely,
+  2400 s at milestone ends.
+- Medical people: per national practice (DE: one Einsatzersthelfer B per Gruppe plus a Sanitäter in the Zug HQ; RU:
+  one rifleman-medic per platoon; company medics, bearers and ambulances from off the map). Skills per national
+  training. Russian rubber tourniquet and haemostatic powder: about 1.4x time, 0.8x success (an item property).
+  Realistic ambulance delays; those still waiting at the end are settled by an end-of-battle roll.
+- Term: **Verwundetennest** (platoon level); company level Verwundetensammelpunkt. Air evacuation later.
+- Roadmap: tanks, wheeled carriers, Jäger/BTR platoons after M9, before logistics; after M9: logistics (minimum,
+  after measuring ammunition use), then persistent company, then campaign.

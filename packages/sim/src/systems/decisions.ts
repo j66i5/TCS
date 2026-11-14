@@ -645,9 +645,9 @@ function stepAside(ctx: SimContext, state: SimState, id: EntityId): void {
   const { grid, search } = navFor(ctx, "foot");
   const taken = placesTaken(state, id);
   const cands: { x: number; y: number; score: number }[] = [];
-  for (const r of [2, 3]) {
+  S.stepAsideM.forEach((r, ring) => {
     for (let k = 0; k < 8; k++) {
-      const a = (k * PI) / 4 + (r === 3 ? PI / 8 : 0);
+      const a = (k * PI) / 4 + (ring % 2 === 1 ? PI / 8 : 0);
       const ux = cos(a), uy = sin(a);
       const x = me.x + ux * r, y = me.y + uy * r;
       if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
@@ -656,7 +656,7 @@ function stepAside(ctx: SimContext, state: SimState, id: EntityId): void {
       const toward = ux * tx + uy * ty; // sideways first; toward the enemy last
       cands.push({ x, y, score: r + Math.abs(toward) * 2 + (toward > 0.5 ? 4 : 0) + (placeFree(taken, x, y, 2 * S.overlapM) ? 0 : 10) });
     }
-  }
+  });
   cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
   for (const c of cands.slice(0, 3)) {
     const leg = routeBetween(ctx, search, me.x, me.y, c.x, c.y, { maxExpansions: 400, snapCells: 1 }); // (outdoors only: he is not indoors)

@@ -306,6 +306,10 @@ export interface BehaviourDef {
     coverRetaskS: number;
     /** A covering man with no shot from where he lies dashes a few metres aside for one (once a bound). */
     sidestep: boolean;
+    /** The sideways steps he tries for it, m, in order (+ left, - right of his line to the position; review fixes). */
+    sidestepM: number[];
+    /** How many of the enemies nearest the position a covering man tries for a line of fire. */
+    coverCandidates: number;
     /** Least time between shots (or bursts) of a man firing into cover short of the point (s): the sustained rate. */
     suppressIntervalS: number;
   };
@@ -405,7 +409,10 @@ export interface BehaviourDef {
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
-    friendBeyondM: number; overlapM: number; overlapCheckSeconds: number; duckAboveIntervalS: number; duckHoldS: number;
+    friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
+    /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
+    stepAsideM: number[];
+    duckAboveIntervalS: number; duckHoldS: number;
     /** Movement under fire (overnight pick 2026-11-14): a man on a leg in one of hurryModes whose suppression is at
      *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
      *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */

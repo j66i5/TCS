@@ -4,7 +4,7 @@
  * and keep out of its lines.
  */
 import { describe, expect, it } from "vitest";
-import { createSim, lineOfFireTo, secondsToTicks, step, submitOrder, type BattleInput, type Sim, type SimEvent } from "../src/index";
+import { createSim, hashState, lineOfFireTo, loadSim, saveSim, secondsToTicks, step, submitOrder, type BattleInput, type Sim, type SimEvent } from "../src/index";
 import { armedInput } from "./helpers";
 
 const unitOf = (sim: Sim, side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side)!;
@@ -69,12 +69,17 @@ describe("covering fire (overnight pick covering-fire)", () => {
     for (let k = 0; k < secondsToTicks(5) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
     const d = sim.state.unit.req(bid).drill!;
     expect(d.waitFire).toBe(true);
+    // (Review fixes: a save while the drill waits for fire comes back the same, and goes on the same.)
+    const copy = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
     const runners = d.groups[d.mover]!;
     const t0 = sim.state.tick, wait = secondsToTicks(sim.ctx.catalog.behaviour.drills.coverWaitS);
     let went = -1;
     for (let k = 0; k < wait + secondsToTicks(2) && went < 0; k++) { step(sim); if (runners.some((m) => (sim.state.mover.get(m)?.waypoints.length ?? 0) > 0)) went = sim.state.tick - t0; }
     expect(went).toBeGreaterThanOrEqual(wait - secondsToTicks(1));
     expect(sim.state.unit.req(bid).drill!.waitFire).toBeUndefined();
+    while (copy.state.tick < sim.state.tick) step(copy);
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 
   /** Bounds (up to `bounds`) of an assault with the enemy in sight; how many runners' bound ends lie in a covering man's cone. */
@@ -90,7 +95,7 @@ describe("covering fire (overnight pick covering-fire)", () => {
     const [bid] = unitOf(sim, "blue");
     run(sim, 8); // they see each other
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
-    let checked = 0, inCone = 0, firedFirst = 0, lastPhase = -1;
+    let checked = 0, inCone = 0, firedFirst = 0, lastPhase = -1, copy: Sim | null = null;
     const sinCone = Math.sin((sim.ctx.catalog.shooting.fire.safetyConeDeg * Math.PI) / 180);
     for (let k = 0; k < secondsToTicks(120) && checked < bounds; k++) {
       step(sim);
@@ -100,6 +105,11 @@ describe("covering fire (overnight pick covering-fire)", () => {
       if (runners.length === 0) continue;
       lastPhase = d.phaseTick;
       checked++;
+      // (Review fixes: saved in the middle of a bound, with the covering men's fire tasks set, it goes on the same.)
+      if (copy === null && laneShiftMaxM > 0) {
+        expect(d.groups.flat().some((m) => sim.state.fire.get(m)?.suppress !== undefined)).toBe(true);
+        copy = loadSim(input, JSON.parse(JSON.stringify(saveSim(sim))));
+      }
       // They went after a covering man had fired.
       const cover = d.groups.filter((_, i) => i !== d.mover).flat();
       if (cover.some((m) => sim.state.tick - sim.state.weapon.req(m).lastShotTick <= secondsToTicks(sim.ctx.catalog.behaviour.drills.coverFiredS + 1))) firedFirst++;
@@ -115,6 +125,7 @@ describe("covering fire (overnight pick covering-fire)", () => {
         }
       }
     }
+    if (copy !== null) { while (copy.state.tick < sim.state.tick) step(copy); expect(hashState(copy.state)).toBe(hashState(sim.state)); }
     return { checked, inCone, firedFirst };
   }
 

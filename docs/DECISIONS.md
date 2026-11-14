@@ -3335,3 +3335,47 @@ recorded orders changed only in platoon-vehicles-s1 (the only golden with an AI 
 untouched. New tests: `tools/test/fallback.test.ts` (holds at 300 m, falls back at 120 m to a covered point behind it
 within 30 deg, men placed at the rally point, memory plain data); `sim/test/drills.test.ts` (a remnant goes back in
 one leg; the bounding test now runs with the rule off).
+
+## 2026-11-14 — Soldier and squad AI: review fixes (overnight, decided without the owner)
+
+An independent review of tonight's five picks found these; each is fixed unless marked skipped.
+- **Fire discipline: two floors no longer block each other (high; bug).** `friendInLine` ignored height, and the
+  window places of an occupied house's two floors share x, y, so the man on the other floor was always "in the line"
+  (at the new elbow zone) and both held their fire all battle. A comrade more than 1 m above or below the shooter
+  is now never in his line (as `stepAside` already did). village-occupy, 20 seeds, 300 s: blue small arms 15 per
+  battle (HEAD) -> 54 (base before fire discipline: 58); seeds 1-6 blue shots 20/1/5/5/0/35 -> 132/41/104/88/3/35.
+- **Dead, unconscious and captured comrades (medium; low confidence on the middle rule).** The dead and prisoners
+  never block fire. A man lying hit (incapacitated, alive) still counts, but only between the muzzle (from 0.5 m) and
+  the point, as before fire discipline — not at the elbow or in a burst's beaten zone past the point. Reason: before,
+  a killed man at a rifleman's elbow, or killed attackers lying behind the objective, held fire for good. Owner
+  question: should a wounded man lying in front of the muzzle block fire (recommended, as now), or only the able?
+- **Ducked for a comrade: the same beaten-zone rule as the shot (medium).** The re-check of a man ducked because of
+  a comrade used its own `friendBeyond()` (60 m past the point for any burst-band, auto-capable weapon), ignoring
+  trickle fire and the last-magazine reserve (single aimed shots: 5 m). Both checks now use one `shotMode()`.
+- **Behaviour numbers into data (low).** `drills.sidestepM` [2, -2, 4, -4, 6, -6], `drills.coverCandidates` 8 and
+  `soldier.stepAsideM` [2, 3] (behaviour.json; same values, so the result is unchanged; the second ring is turned
+  half a step as before). The friend-in-line geometry (muzzle 0.4 m out, body reach 0.7 m, another floor at > 1 m)
+  stays in code as named constants: geometry, not behaviour. Not moved (skipped): the step-aside score weights and
+  route limit, `SITING` and `COMMANDER.fallback` (the AI's established exception: COMMANDER is code).
+- **Rally facing (low; bug).** A man at a rally point whose spot sees none of the view points faced the rear
+  (`toward + PI`); he now faces `toward`, the enemy's way (as the start-of-battle siting does with `front`).
+- **Attack-lab acceptance test (low).** Back to 16 trials, and "support helps" now also asserts the defence loses more
+  men (share of defenders down) with support, so the property no longer rests on a seed or two. Measured over 50
+  trials: supported attack on the wall wins 14/50 (13/50 before these fixes), defence losses 12 % vs 4 %; the
+  unsupported attack 0/50. The DECISIONS figure "about 4 in 100" was with the lab's 20-trial seed set; with 50 trials
+  it was 13/50 already at HEAD, so the supported attack is not "almost never successful".
+- **Save/load coverage (low).** New hash checks: fire-discipline (saved while a man is ducked, duck and duckTick set,
+  continued 10 s), covering-fire (saved while a drill waits for fire, and mid-bound with covering men's `suppress`
+  fire tasks), fallback (saveGame/loadGame after the squad rallied, commander and sim continued 30 s, memory and
+  state hash equal). New friend-in-line tests: another floor; dead and lying-hit comrades.
+- **Skipped: defence siting freeze (~0.4 s on the defender's first think).** A cache cannot help the first call, and
+  spreading the work over several ticks changes when the defenders get their orders (behaviour and golden change) for
+  a one-off hitch at the start. Owner question: accept the hitch (recommended for now), or spread siting over the
+  first few seconds?
+- **Skipped: Russian mounted attack loses 20/20.** Not caused tonight (same at base); STATE task #9.
+
+Batch after the fixes (20 seeds): village-occupy 300 s: casualties blue 0.95, red 1.75; small arms blue 54, red 38.
+platoon 1200 s: attacker (blue) wins 5/20 (7/20 after the fall-back pick: noise at 20 seeds), casualties blue 18.45,
+red 12.95. Goldens changed (`npm run golden:update`): all seven regenerated (catalog fingerprint, behaviour.json);
+behaviour changed where comrades shared x, y on two floors or lay dead or hit nearby (village-occupy-s1 most;
+the recorded orders changed in platoon-vehicles-s1). no-interiors goldens untouched.

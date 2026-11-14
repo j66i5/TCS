@@ -290,7 +290,7 @@ function coverTargets(ctx: SimContext, s: SoldierState, at: { x: number; y: numb
   return s.contacts
     .filter((c) => !c.surrendered && !c.down && c.cls !== "vehicle" && hypot2(c.x - at.x, c.y - at.y) <= D.coverTargetM)
     .sort((a, b) => hypot2(a.x - at.x, a.y - at.y) - hypot2(b.x - at.x, b.y - at.y) || a.target - b.target)
-    .slice(0, COVER_CANDIDATES);
+    .slice(0, D.coverCandidates);
 }
 
 /**
@@ -317,7 +317,7 @@ function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number
   const side = state.identity.req(m).side, grid = navFor(ctx, "foot").grid, minM = ctx.catalog.behaviour.soldier.minSpacingM;
   const cands = coverTargets(ctx, s, at);
   const postures: Posture[] = ["prone", "crouching"];
-  for (const off of SIDESTEP_M) {
+  for (const off of ctx.catalog.behaviour.drills.sidestepM) {
     const x = t.x + px * off, y = t.y + py * off;
     if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1 || navCostAt(grid, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
     let crowded = false;
@@ -339,12 +339,6 @@ function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number
   }
   return false;
 }
-
-/** Sideways steps a covering man with no shot tries, m (left and right of his line to the position). */
-const SIDESTEP_M = [2, -2, 4, -4, 6, -6];
-
-/** How many of the nearest enemies to the position a covering man tries for a line of fire. */
-const COVER_CANDIDATES = 8;
 
 /**
  * Each man fires at an enemy he knows near the position `at` (the nearest to it), else at the point itself: the fire

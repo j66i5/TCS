@@ -85,6 +85,8 @@
     "coverWaitS": 10,
     "coverRetaskS": 2,
     "sidestep": true,
+    "sidestepM": [2, -2, 4, -4, 6, -6],
+    "coverCandidates": 8,
     "suppressIntervalS": 4
   },
   "surrender": {
@@ -197,6 +199,7 @@
     "assaultFireAimFactor": 3,
     "friendBeyondM": 60,
     "overlapM": 1,
+    "stepAsideM": [2, 3],
     "overlapCheckSeconds": 1,
     "duckAboveIntervalS": 3,
     "duckHoldS": 1,

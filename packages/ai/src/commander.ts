@@ -456,7 +456,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const e = enemyCentre(r[0], r[1], men.map((m) => m.id));
           const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
           for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM)) {
-            if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward + PI : p.facing });
+            if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
             else order(p.id, { kind: "posture", posture: "prone" });
           }
         }

@@ -76,6 +76,9 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
 
 /** A wall or the ground this close to the point fired at does not count as blocking: it is the target. */
 const LINE_OF_FIRE_ALLOWANCE_M = 5;
+/** Geometry of the friend-in-line check (not behaviour): the muzzle sits this far out in front of him, a man's body
+ * this far from where he stands (more lying down), and a man more than this far above or below is on another floor. */
+const MUZZLE_OUT_M = 0.4, BODY_REACH_M = 0.7, FLOOR_APART_M = 1;
 
 /**
  * The line from his muzzle (in posture `p`) to a point: 2 clear of ground, walls and roofs (except within the last
@@ -192,7 +195,8 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
 export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }): boolean {
   const side = state.identity.get(id)?.side;
   if (side === undefined) return false;
-  const me = from ?? state.transform.req(id);
+  const self = state.transform.req(id);
+  const me = from ?? self;
   const dx = tx - me.x, dy = ty - me.y;
   const range = hypot2(dx, dy);
   if (range < 1e-6) return false;
@@ -200,12 +204,19 @@ export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx:
   const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180);
   for (const [other, ident] of state.identity.entries()) {
     // (Men aboard a vehicle never block a comrade's fire: they are behind armour, M7.)
-    if (ident.side !== side || other === id || isMounted(state.soldier.get(other))) continue;
+    const os = state.soldier.get(other);
+    if (ident.side !== side || other === id || isMounted(os)) continue;
+    // (Review fixes 2026-11-14: the dead and prisoners never block his fire; a man lying hit counts only between
+    // the muzzle and the point, as before fire discipline, not at the elbow or in the beaten zone past the point.)
+    if (os !== undefined && (!os.physiology.alive || os.captive !== null)) continue;
     const o = state.transform.req(other);
+    // (A man on another floor is not in the line: the window places of two floors share x, y. Review fixes.)
+    if (Math.abs(o.z - self.z) > FLOOR_APART_M) continue;
     // (A man lying down is long: his body reaches about a metre from where he is.)
-    const reach = state.soldier.get(other)?.posture === "prone" ? Math.max(0.7, ctx.ballistics.bodyReachM) : 0.7;
+    const reach = os?.posture === "prone" ? Math.max(BODY_REACH_M, ctx.ballistics.bodyReachM) : BODY_REACH_M;
     const along = (o.x - me.x) * ux + (o.y - me.y) * uy;
-    if (along <= 0.4 - reach || along >= range + beyondM) continue;
+    if (along <= MUZZLE_OUT_M - reach || along >= range + beyondM) continue;
+    if (os !== undefined && os.casualty !== "none" && (along <= 0.5 || along >= range + LINE_OF_FIRE_ALLOWANCE_M)) continue;
     const across = Math.abs((o.x - me.x) * -uy + (o.y - me.y) * ux);
     if (across < reach + Math.max(0, along) * sinCone) return true;
   }
@@ -240,13 +251,21 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
 
 const POSTURE_RANK: Record<Posture, number> = { prone: 0, crouching: 1, standing: 2 };
 
-/** How far past the point he fires at a comrade still counts as in his line (see the burst check below). */
-function friendBeyond(ctx: SimContext, state: SimState, id: EntityId, task: FireTask, wd: WeaponDef): number {
+/**
+ * How he fires at this point now (band, trickle, last-magazine reserve) and how far past it a comrade still counts
+ * as in his line: a burst's beaten zone (`friendBeyondM`), a single shot's point. One rule for the shot and for the
+ * re-check of a man ducked for a comrade (review fixes 2026-11-14).
+ */
+function shotMode(ctx: SimContext, state: SimState, id: EntityId, task: FireTask, wd: WeaponDef, trickle: boolean, reserve: boolean) {
+  const F = ctx.catalog.shooting.fire;
   const me = state.transform.req(id);
   const range = hypot2(task.x - me.x, task.y - me.y);
-  const band = ctx.catalog.shooting.fire.bands.find((b) => range <= b.maxRangeM);
-  const burst = wd.sustained !== undefined || (band?.mode === "burst" && (wd.fireModes.includes("auto") || wd.fireModes.includes("burst")));
-  return burst ? ctx.catalog.behaviour.soldier.friendBeyondM : LINE_OF_FIRE_ALLOWANCE_M;
+  const band = F.bands.find((b) => range <= b.maxRangeM) ?? F.bands[F.bands.length - 1]!;
+  const canBurst = wd.fireModes.includes("auto") || wd.fireModes.includes("burst");
+  // A machine gun fires bursts at every range (also on the slow rate: the same bursts, further apart).
+  const mode = wd.sustained ? "burst" : trickle || reserve ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
+  const beyond = wd.sustained || mode === "burst" ? ctx.catalog.behaviour.soldier.friendBeyondM : LINE_OF_FIRE_ALLOWANCE_M;
+  return { band, mode, beyond, range };
 }
 
 /**
@@ -354,7 +373,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (moving || POSTURE_RANK[s.posture] >= POSTURE_RANK[task.duck.up]) delete task.duck;
       else if (w.nextShotTick - tick <= task.duck.riseTicks) {
         // (Down because a comrade was in his line: he stays down while that comrade is still there.)
-        if (task.duck.friend === true && friendInLine(ctx, state, id, task.x, task.y, friendBeyond(ctx, state, id, task, wd))) { w.nextShotTick = tick + TICK_HZ / 2 + task.duck.riseTicks; continue; }
+        if (task.duck.friend === true && friendInLine(ctx, state, id, task.x, task.y, shotMode(ctx, state, id, task, wd, since > fullTicks, reserve).beyond)) { w.nextShotTick = tick + TICK_HZ / 2 + task.duck.riseTicks; continue; }
         requestPosture(ctx, state, id, task.duck.up);
         task.duckTick = tick;
         delete task.duck;
@@ -407,17 +426,11 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       }
     }
     if (!task.lineClear) continue;
-    const me = state.transform.req(id);
-    const range = hypot2(task.x - me.x, task.y - me.y);
     const trickle = since > fullTicks;
-    const band = F.bands.find((b) => range <= b.maxRangeM) ?? F.bands[F.bands.length - 1]!;
-    const canBurst = wd.fireModes.includes("auto") || wd.fireModes.includes("burst");
-    // A machine gun fires bursts at every range (also on the slow rate: the same bursts, further apart).
-    const mode = wd.sustained ? "burst" : trickle || reserve ? "aimed" : band.mode === "burst" && !canBurst ? "rapid" : band.mode;
+    const { band, mode, beyond, range } = shotMode(ctx, state, id, task, wd, trickle, reserve);
     if (w.burstLeft <= 0) {
       // (A burst, or a machine gun's: its beaten zone, friendBeyondM past the point, counts too; a single shot: a
       // man at the point itself.)
-      const beyond = wd.sustained || mode === "burst" ? S.friendBeyondM : LINE_OF_FIRE_ALLOWANCE_M;
       if (friendInLine(ctx, state, id, task.x, task.y, beyond)) {
         w.nextShotTick = tick + TICK_HZ / 2;
         // (Fire discipline: held by a comrade in his line for a while, he does not wait for him raised up.)

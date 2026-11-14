@@ -104,7 +104,7 @@ export const testCatalog: Catalog = {
     },
     drills: {
       stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
-      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10, withdrawTogetherMen: 3, suppressShortM: 15, coverTargetM: 60, laneClearM: 1.5, laneShiftMaxM: 10, coverFiredS: 5, coverWaitS: 10, coverRetaskS: 2, sidestep: true, suppressIntervalS: 4,
+      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10, withdrawTogetherMen: 3, suppressShortM: 15, coverTargetM: 60, laneClearM: 1.5, laneShiftMaxM: 10, coverFiredS: 5, coverWaitS: 10, coverRetaskS: 2, sidestep: true, sidestepM: [2, -2, 4, -4, 6, -6], coverCandidates: 8, suppressIntervalS: 4,
     },
     surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
     mounting: {
@@ -120,7 +120,7 @@ export const testCatalog: Catalog = {
       crawlMode: "crawl", crawlSearchM: 8, crawlSearchFarM: 15, crawlRetrySeconds: 10, minSpacingM: 5, beatenNoticeM: 60, beatenRadiusM: 35, beatenMemorySeconds: 90, beatenMoveM: 40, beatenHouseM: 30, beatenOpenExposure: 0.9,
       riseBelowSuppression: 0.05, lookEverySeconds: 4, faceEnemy: true, rearWatchMinMen: 3, atMoveM: 30, atMoveMinRangeM: 40, atMoveRetrySeconds: 20, atContactSeconds: 20,
       grenadeEverySeconds: 20, grenadeClearM: 10, grenadeContactSeconds: 30, assaultFireM: 50, assaultFireAimFactor: 3,
-      friendBeyondM: 60, overlapM: 1, overlapCheckSeconds: 1, duckAboveIntervalS: 3, duckHoldS: 1,
+      friendBeyondM: 60, overlapM: 1, stepAsideM: [2, 3], overlapCheckSeconds: 1, duckAboveIntervalS: 3, duckHoldS: 1,
       hurryModes: ["walk", "sneak"], hurryMode: "run", hurryFiredOnSeconds: 0, hurryQuietSeconds: 10 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
   },

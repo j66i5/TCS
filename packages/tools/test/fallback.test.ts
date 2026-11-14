@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { COMMANDER, commanderController, seenShare } from "@tcs/ai";
 import { buildScenario } from "@tcs/scenario";
-import { createSim, exposureAt, hypot2, indoorAt, navFor, type BattleInput, type EntityId, type Order, type SimState } from "@tcs/sim";
+import { createSim, exposureAt, hashState, hypot2, indoorAt, loadGame, navFor, saveGame, step as simStep, submitOrder, type BattleInput, type EntityId, type Order, type SimState } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -87,5 +87,19 @@ describe("defence fall-back", () => {
     const mem = ctrl.saveState!() as { rally?: Record<string, number[]>; rallied?: number[] };
     expect(JSON.parse(JSON.stringify(mem))).toEqual(mem);
     expect(mem.rallied).toContain(sq);
+  });
+
+  it("saved after the squad has rallied and loaded, the battle and the commander go on exactly the same (review fixes)", () => {
+    const save = JSON.parse(JSON.stringify(saveGame(sim, [ctrl]))) as ReturnType<typeof saveGame>;
+    const ctrl2 = commanderController(def, input);
+    const copy = loadGame(input, save, [ctrl2]);
+    expect(ctrl2.saveState!()).toEqual(ctrl.saveState!());
+    // (The commander's clock ran ahead of the sim's in the tests above: both go on from the same offset.)
+    const t0 = 2 * step + Math.ceil((COMMANDER.fallback.drillStartSeconds * 60) / step) * step + 2 * step;
+    for (let k = 0; k < 30 * 60; k++) {
+      for (const [c, s] of [[ctrl, sim], [ctrl2, copy]] as const) { for (const o of c.think(s.state, t0 + s.state.tick)) submitOrder(s, { ...o, tick: s.state.tick }); simStep(s); }
+    }
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
+    expect(JSON.stringify(ctrl2.saveState!())).toBe(JSON.stringify(ctrl.saveState!()));
   });
 });

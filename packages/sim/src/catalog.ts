@@ -350,6 +350,12 @@ export interface BehaviourDef {
    * assault (owner: attackers are less likely to give up).
    * fetchWithinM / fetchQuietSeconds / fetchTimeoutSeconds: one fit enemy this close who saw the surrender
    * walks over when his unit has not been fired upon for this long, and gives the errand up after this long.
+   * Walking over to give himself up (owner 2026-11-14): walkToEnemyM: a surrendered man who can walk walks to the
+   * nearest fit enemy he knows of within this distance (0 = off: he stays where he is); walkSeenFactor: an enemy
+   * who has seen him give up counts as this fraction of his distance (preferred); handOverM: he stops this far
+   * short of that man (below captureM, so the capture follows); walkSpeedFactor: his pace against an ordinary
+   * walk; walkReplanM: his way is planned afresh when that man has moved this far; walkTimeoutSeconds: after this
+   * long he stops and waits (an enemy fetches him as before).
    */
   /**
    * Hand smoke screens (D1, M10): a unit with a smoke grenade throws one to screen itself, `screenM` from its
@@ -361,6 +367,7 @@ export interface BehaviourDef {
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
+    walkToEnemyM: number; walkSeenFactor: number; handOverM: number; walkSpeedFactor: number; walkReplanM: number; walkTimeoutSeconds: number;
   };
   /**
    * Getting in and out of vehicles (M7.2). boardReachM: a man this close to an exit can board; approachReplanM:

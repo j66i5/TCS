@@ -578,9 +578,14 @@ A man who is wounded and can no longer fight gives himself up when an enemy he k
 and no fit comrade is within about 30 m. A panicked or fleeing man gives up when an enemy he knows of is within
 about 30 m, comrades or not. Attackers are tougher: a man of the attacking side, or of a squad in the middle of an assault, does not give up when he panics (he runs back instead), and a wounded attacker gives up only when an enemy is within about 25 m. From then on he is out of the fight: he takes no orders, does not fire and does
 not use the radio; a white flag shows over him. The enemy stops shooting at him once they have SEEN him give
-up (until then he can still be hit, and shells and grenades aimed at the area can still hit him). An enemy who
-comes within a few metres takes him prisoner (a white square); when it is quiet, one enemy nearby who saw it
-walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
+up (until then he can still be hit, and shells and grenades aimed at the area can still hit him). A man who can
+still walk then walks over to give himself up: upright, hands up, slowly (never running), to the nearest enemy
+within about 80 m whom he knew of or who can see him (preferring one who has seen him give up), and stops about
+2.5 m short of him. If that man moves away, falls or gets into a vehicle, he turns to another; when fire passes
+close he lies down and waits until it has passed; after about 90 seconds he stops and waits where he is. An enemy
+who comes within a few metres takes him prisoner (a white square) and, if he has nothing else to do, turns to
+cover him. A man who cannot walk (or has stopped walking) stays where he is: when it is quiet, one enemy nearby
+who saw it walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
 ## Vehicles and riding in them (M7)

@@ -4211,4 +4211,49 @@ recognised protected target is refused) belongs to the protection slices 15-16, 
   1.5 m from his carer and the chest seal done in cover, save/load mid-drag), `ui/test/card.test.ts` "triage".
 - **Goldens regenerated** (`npm run golden:update`, intended: casualties now go to cover and care goes on there; the
   data fingerprint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
+## 2026-11-14 — Surrendered men walk over to give themselves up (owner request; goldens regenerated)
+Owner: "include that surrendering soldiers will move toward the forces they surrender to and hand themselves over".
+**All details below decided without the owner: confidence low, for his review.** Values in `core/behaviour.json`
+`surrender` (same for every side; `walkToEnemyM: 0` switches it off and restores the old rule exactly).
+- **Who walks:** a surrendered man who is conscious and can walk (`impair.canWalk`: no leg wound of 0.45 or more,
+  no broken leg). One who cannot walk stays where he is, as before (an enemy fetches him when it is quiet).
+- **To whom:** the nearest fit enemy on foot within `walkToEnemyM` 80 m whom he knew of when he gave up (his own
+  seen/reported contacts — a prisoner's contacts no longer update) or who sees him now (an enemy with a fresh "seen"
+  contact on him: who sees him, he can see). An enemy who has seen him give up counts at `walkSeenFactor` 0.5 of his
+  distance (preferred). He walks to where he sees that man (clear line), else to where he last knew him. No such
+  man: toward the nearest enemy he knew of at all (heard, or one now down). None: he stays (old rule).
+- **How:** upright, hands up (the surrendered frame and white flag, also while moving — no new sprite), on foot nav
+  through `routeBetween` (stairs included), at the walk pace × `walkSpeedFactor` 0.6 (≈0.8 m/s), never turned into a
+  run by the movement-under-fire rule. He stops `handOverM` 2.5 m short of the man (inside `captureM` 3 m), so the
+  existing capture takes him there; the captor, if idle (no way, no fire task), turns to face him (covers him).
+- **Retarget:** checked once a second; the man moving `walkReplanM` 4 m or more, falling, panicking or getting into a
+  vehicle: a new way, to another man if need be.
+- **Under fire:** suppression ≥ `decisions.seekCoverSuppression` (0.1): he lies down, his way cleared, and waits;
+  when it has faded he gets up and goes on (existing suppression; he does not set off under fire either).
+- **Timeout:** after `walkTimeoutSeconds` 90 s (or when he can no longer walk, or no route) the walk is over
+  (`handOver.done`): he waits where he is and the old fetch rule applies. While he walks no enemy is sent to fetch him.
+- **His weapon:** there is no ground/item container for a dropped weapon (weapons are a `WeaponState`, not counted
+  items), so nothing is transferred: his weapon stays on him but can never fire (a prisoner is never `isAble`) and is
+  drawn as gone (the surrendered frame is unarmed). A real dropped-weapon item can come with a ground-cache mechanism.
+- **Enemies:** unchanged — those who have seen him give up hold their fire; those who have not may still shoot (a
+  man walking upright is easier to hit: one of the three walkers in the batch below was shot by an enemy who had
+  not seen it, then taken).
+- **Events/strings:** new event `surrender.walk {soldier, side, to}` when he sets off; timeline key
+  `timeline.surrender.walk`. No radio message (a prisoner has no radio; prisoners taken are not radioed today).
+- **State:** new optional `SoldierState.handOver {to, x, y, z, tick, down?, done?}` (plain data, no schema bump;
+  removed when he is taken). Save/load mid-walk hash test in `surrender.test.ts`.
+- **Measured** (headless, 900 s, `--events`; platoon and platoon-ru seeds 1-15, village-occupy seeds 1-5): village-
+  occupy had no surrender. Before (walk off): 9 surrenders, 3 taken prisoner. After: 5 surrenders (battles diverge
+  after the first), 3 walked over (2 could not walk: leg wounds), all 3 walkers taken (after 14 s, 41 s and 84 s;
+  the 84 s one shot on the way by an enemy who had not seen him give up), 4 taken in all.
+- **Tests changed:** the M6.6 tests about the enemy fetching a prisoner now switch the walk off (`walkToEnemyM: 0`)
+  or break his leg (floors: prisoner upstairs); new tests for the walk, a man who cannot walk, fire, retarget,
+  timeout, both sides, stairs, save/load.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data, so the catalog fingerprint changes every
+  checkpoint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
   `golden/no-interiors` untouched.
+
+## 2026-11-14 — Merge of origin/main (surrendered men walk over) into the medical branch; goldens regenerated
+The surrender walk (PR #47) and medical slices 2-7 both changed movement.ts (both kept: drag speed cap and the
+hands-up pace) and the goldens. Goldens regenerated with `npm run golden:update` after the merge (intended: the two
+changes together); `golden/no-interiors` untouched.

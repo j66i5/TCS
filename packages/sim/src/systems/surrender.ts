@@ -9,9 +9,22 @@
  *   effect     He stops fighting for good (`captive`; `isAble` is false from then on): no orders, no fire, no
  *              radio; the lead passes on. Enemies hold their fire once THEY have seen it (contacts.ts sets the
  *              flag on their own contact) — until then he can still be shot.
- *   capture    A fit enemy within `captureM` with a clear line to him takes him prisoner (checked every tick).
- *              When it is quiet, ONE fit enemy within `fetchWithinM` who has seen the surrender walks over to
- *              take him and then returns to where he stood (`takePrisoner` intent; any order ends the errand).
+ *   walk over  (owner 2026-11-14) A surrendered man who can walk (conscious, `impair.canWalk`) walks over to give
+ *              himself up: upright, hands up, at `walkSpeedFactor` of a walk, never hurried into a run, to a point
+ *              `handOverM` short of the nearest fit enemy on foot within `walkToEnemyM` whom he knew of when he
+ *              gave up (his own contacts, seen or reported: a prisoner sees nothing new) or who sees him now (a
+ *              fresh "seen" contact on him: who sees him, he can see); a man who has seen him give up counts at
+ *              `walkSeenFactor` of his distance. He walks to where he sees that man, else to where he last knew
+ *              him. Else (no such man) toward the nearest enemy he knew of at all. That man moving `walkReplanM` or more, falling
+ *              or getting into a vehicle: he plans afresh (another man if need be). Fire close to him
+ *              (suppression from `decisions.seekCoverSuppression`): he lies down and waits until it fades.
+ *              After `walkTimeoutSeconds`, or if he can no longer walk, the walk is over (`handOver.done`) and he
+ *              waits where he is. His weapon stays behind in effect: a prisoner never fires (`isAble` false); no
+ *              ground container exists to drop it into (logged in DECISIONS.md).
+ *   capture    A fit enemy within `captureM` with a clear line to him takes him prisoner (checked every tick); he
+ *              stops there, and the captor, if idle, turns to face him.
+ *              When it is quiet and he is not walking over, ONE fit enemy within `fetchWithinM` who has seen the
+ *              surrender walks over to take him and then returns to where he stood (`takePrisoner` intent; any order ends the errand).
  *   attackers  A man of the attacking side (SideState.posture) or of a unit in an assault does not give up when
  *              panicked or routed (he runs back), and when downed only with an enemy within `attackerDownedEnemyM`.
  *   cost       Like a casualty: `isOut` (objectives.ts score, commander losses). No stress to comrades (owner);
@@ -25,7 +38,7 @@ import type { SimContext } from "../context";
 import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
-import { isAble, isFit } from "../impair";
+import { isAble, isConscious, isFit } from "../impair";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 
 import { navFor } from "../navctx";
@@ -33,6 +46,8 @@ import type { SimState } from "../state";
 import { standZ } from "../terrain";
 import { hasCarer } from "./medical";
 import { takeOutOfFight } from "./wounds";
+import { requestPosture } from "./body";
+import { atan2, hypot2 } from "../math";
 
 /** The owner's "can no longer fight": a conscious wounded man who cannot fight (whether or not he can walk). */
 export function isDowned(s: SoldierState): boolean {
@@ -153,6 +168,97 @@ function quiet(ctx: SimContext, state: SimState, id: EntityId): boolean {
   return state.tick - top.underFireTick >= q && state.tick - own.orderTick >= q;
 }
 
+/**
+ * Whom he walks to: the nearest fit enemy on foot within `walkToEnemyM` whom he knew of when he gave up (his own
+ * contact, seen or reported) or who sees him now (that man's own contact: who sees him, he can see), a man who has
+ * seen him give up counting at `walkSeenFactor` of his distance; where he sees him, else where he last knew him.
+ * Else the nearest enemy he knew of at all (heard, or a man now down): toward him, `to` null. null: nobody.
+ */
+function handOverTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): { to: EntityId | null; x: number; y: number; z: number } | null {
+  const R = ctx.catalog.behaviour.surrender, lost = secondsToTicks(ctx.catalog.behaviour.decisions.contactLostSeconds);
+  const me = state.transform.req(id), side = state.identity.req(id).side, since = s.captive!.tick - lost;
+  const r2 = R.walkToEnemyM * R.walkToEnemyM, f2 = R.walkSeenFactor * R.walkSeenFactor;
+  let best: EntityId | null = null, bestS = Infinity, bx = 0, by = 0, bz = 0, bSees = false;
+  // mounted: ok men aboard are skipped (nobody aboard takes a prisoner)
+  for (const [m, ms] of state.soldier.entries()) {
+    if (state.identity.get(m)?.side === side || !isFit(ms) || isMounted(ms)) continue;
+    const mine = s.contacts.find((c) => c.target === m);
+    const knew = mine !== undefined && mine.kind !== "heard" && mine.surrendered !== true && mine.down !== true && mine.tick >= since;
+    const theirs = ms.contacts.find((k) => k.target === id);
+    const sees = theirs !== undefined && theirs.kind === "seen" && state.tick - theirs.tick <= lost;
+    if (!knew && !sees) continue;
+    const t = state.transform.req(m);
+    const x = sees ? t.x : mine!.x, y = sees ? t.y : mine!.y;
+    const d2 = (x - me.x) * (x - me.x) + (y - me.y) * (y - me.y);
+    if (d2 > r2) continue;
+    const sc = theirs?.surrendered === true ? d2 * f2 : d2;
+    if (sc < bestS) { bestS = sc; best = m; bx = x; by = y; bz = sees ? t.z : mine!.z ?? 0; bSees = sees; }
+  }
+  if (best !== null) {
+    if (!bSees) {
+      // Where he sees him now, else where he last knew him.
+      const t = state.transform.req(best), es = state.soldier.req(best);
+      const ez = standZ(ctx.map, me) + eyeHeightM(ctx, s.posture), tz = standZ(ctx.map, t) + TARGET_POINT_M[es.posture];
+      if (sight(ctx, me.x, me.y, ez, t.x, t.y, tz).blockedBy === null) { bx = t.x; by = t.y; bz = t.z; }
+    }
+    return { to: best, x: bx, y: by, z: bz };
+  }
+  let fall: { to: null; x: number; y: number; z: number } | null = null, fallD = r2;
+  for (const c of s.contacts) {
+    if (c.surrendered === true || c.cls === "vehicle" || c.tick < since) continue;
+    const d2 = (c.x - me.x) * (c.x - me.x) + (c.y - me.y) * (c.y - me.y);
+    if (d2 <= fallD) { fallD = d2; fall = { to: null, x: c.x, y: c.y, z: c.z ?? 0 }; }
+  }
+  return fall;
+}
+
+/** Walk him (a surrendered man) over to give himself up; called every `stepSeconds` (header "walk over"). */
+function walkOver(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): void {
+  const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions;
+  const h = s.handOver;
+  if (h?.done) return;
+  const m = state.mover.get(id);
+  if (!m) return;
+  // He can no longer walk, or has walked long enough: he waits where he is.
+  if (!isConscious(s) || !s.impair.canWalk || (h && state.tick - h.tick > secondsToTicks(R.walkTimeoutSeconds))) {
+    if (h) { h.done = true; halt(state, id); }
+    return;
+  }
+  // Fire close to him: down, and wait for it to pass (he does not set off under fire either).
+  if (s.mental.suppression >= D.seekCoverSuppression) {
+    if (h) { h.down = true; halt(state, id); requestPosture(ctx, state, id, "prone"); }
+    return;
+  }
+  const goal = handOverTarget(ctx, state, id, s);
+  if (goal === null) {
+    if (h) { h.done = true; halt(state, id); }
+    return;
+  }
+  const t = state.transform.req(id);
+  const dx = t.x - goal.x, dy = t.y - goal.y, d2 = dx * dx + dy * dy, near = R.handOverM + 0.5;
+  // There: he stands and waits to be taken.
+  if (d2 <= near * near) {
+    if (h) { delete h.down; h.x = t.x; h.y = t.y; h.z = t.z; }
+    halt(state, id);
+    if (s.posture !== "standing") requestPosture(ctx, state, id, "standing");
+    return;
+  }
+  // `handOverM` short of him, on the line from him.
+  const L = Math.max(1e-6, hypot2(dx, dy));
+  const gx = goal.x + (dx / L) * R.handOverM, gy = goal.y + (dy / L) * R.handOverM;
+  const moving = m.waypoints.length > 0;
+  if (h && !h.down && moving && h.to === goal.to && (h.x - gx) * (h.x - gx) + (h.y - gy) * (h.y - gy) < R.walkReplanM * R.walkReplanM) return;
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz: goal.z });
+  if (!leg) { if (h && !moving) h.done = true; return; }
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk", posture: "standing" as const });
+  m.formation = null; m.endPosture = "standing"; m.endHeading = null;
+  if (h) { h.to = goal.to; h.x = gx; h.y = gy; h.z = goal.z; delete h.down; }
+  else {
+    s.handOver = { to: goal.to, x: gx, y: gy, z: goal.z, tick: state.tick };
+    events.emit({ kind: "surrender.walk", tick: state.tick, soldier: id, side: state.identity.req(id).side, to: goal.to });
+  }
+}
+
 export function surrenderSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions;
   const every = Math.max(1, secondsToTicks(R.stepSeconds));
@@ -186,11 +292,21 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
         const by = captor(ctx, state, id);
         if (by !== null) {
           s.captive.state = "captured";
+          // He stops where he is; his captor, if idle, turns to cover him.
+          if (s.handOver) { delete s.handOver; halt(state, id); }
+          const bm = state.mover.get(by);
+          if ((bm?.waypoints.length ?? 0) === 0 && !state.fire.has(by)) {
+            const bt = state.transform.req(by), p = state.transform.req(id);
+            bt.heading = atan2(p.y - bt.y, p.x - bt.x);
+          }
           events.emit({ kind: "captured", tick: state.tick, soldier: id, side: state.identity.req(id).side, by });
           continue;
         }
-        // Nobody close yet: when quiet, one fit enemy who has seen it walks over.
-        if (R.fetchWithinM > 0 && step(id) && !walkers.has(id)) {
+        // Nobody close yet: if he can, he walks over to give himself up (owner 2026-11-14).
+        if (R.walkToEnemyM > 0 && step(id)) walkOver(ctx, state, events, id, s);
+        // When quiet, one fit enemy who has seen it walks over (to a man who is not on his way).
+        const walking = s.handOver !== undefined && s.handOver.done !== true;
+        if (R.fetchWithinM > 0 && step(id) && !walkers.has(id) && !walking) {
           const p = state.transform.req(id), side = state.identity.req(id).side, r2 = R.fetchWithinM * R.fetchWithinM;
           const seen = secondsToTicks(D.seenWithinSeconds);
           let best: EntityId | null = null, bestD = Infinity;

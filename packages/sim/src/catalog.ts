@@ -614,6 +614,12 @@ export interface InterventionDef {
   };
 }
 
+/** A way of carrying a casualty (core/medical.json `carry`, M10.4). */
+export interface CarryMethodDef {
+  carriers: number; speedMps: number; enduranceM: number; restS: number; setupS: number; upright: boolean;
+  casualtyWalks?: boolean; needsTag?: DefId;
+}
+
 /** The medical data (core/medical.json, M10.1) without provenance. */
 export interface MedicalDef {
   /** Rates of the "medical" physiology model; merged into the physiology parameters. */
@@ -621,8 +627,19 @@ export interface MedicalDef {
   /** What each medical job may do: the skill it treats with. */
   levels: Record<MedicalLevel, { skill: CareSkill }>;
   interventions: Record<DefId, InterventionDef>;
-  /** Ways of moving a casualty (M10.4): carriers needed, speed, distance before a rest. */
-  carry: Record<DefId, { carriers: number; speedMps: number; enduranceM: number; restS: number; setupS: number; upright: boolean }>;
+  /**
+   * Ways of moving a casualty (M10.4): carriers needed, speed on level open ground, distance before a rest and its
+   * length, set-up time, upright (exposed) or not; `casualtyWalks`: he walks himself (walking wounded, supported);
+   * `needsTag`: an item a carrier must have (a litter).
+   */
+  carry: Record<DefId, CarryMethodDef>;
+  /**
+   * Carrying parties (M10.4a; absent: code defaults). reachM: carriers gather this close before they set off;
+   * holdSuppression: a carrier pinned or this suppressed makes the party take cover with the casualty, going on after
+   * resumeQuietS without fire; selfDefenceM: carriers fire only at an enemy this close; massRefKg: the payload mass
+   * the carry speeds are for (speed x sqrt(massRefKg / mass), within 0.75-1.15).
+   */
+  carrying?: { reachM: number; holdSuppression: number; resumeQuietS: number; selfDefenceM: number; massRefKg: number };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */

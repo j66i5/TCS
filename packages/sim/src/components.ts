@@ -158,6 +158,45 @@ export interface SoldierState {
    * on his way or beside him, or he needs nothing.
    */
   careWait?: "nobody" | "unwilling" | "too-exposed" | "no-kit";
+  /**
+   * The payload of the carrying party he belongs to (M10.4a; the `carry` store is keyed by it): a carrier, or a
+   * walking wounded man in his own party. While set he leaves the fight (fires only in self-defence), and his unit's
+   * orders and drills pass him by. Absent: not carrying.
+   */
+  carrying?: EntityId;
+}
+
+/**
+ * A carrying party (M10.4a, SPEC 9.1 "carrying as a movement mode"): `carriers` move the payload (the store's key: a
+ * casualty now, supplies in M11) with a carry method of core/medical.json. carriers[0] leads and walks the route;
+ * the others and the payload follow on his trail (newest point first). Empty `carriers`: a walking wounded man who
+ * walks himself (he is his own leader). Phases: gather (carriers come to him), setup (a litter is unfolded), move,
+ * rest (endurance used up), cover (under fire, to the nearest hidden spot), hold (lying there until it is quiet).
+ */
+export interface Carry {
+  method: DefId;
+  carriers: EntityId[];
+  phase: "gather" | "setup" | "move" | "rest" | "cover" | "hold";
+  phaseTick: number;
+  startTick: number;
+  /** Where he is taken (his floor's height z). */
+  dest: { x: number; y: number; z: number };
+  /** "cover": a drag to the nearest hidden spot under fire (M10.3b): no rests, no holds; "move": anywhere else. */
+  purpose: "cover" | "move";
+  /** The payload's mass (body and load, kg) and the speed it is carried at on level open ground (m/s). */
+  massKg: number;
+  speedMps: number;
+  /** The leader's recent positions, newest first: x, y, z, x, y, z, ... */
+  trail: number[];
+  /** Metres carried since the last rest, and in all. */
+  sinceRestM: number;
+  totalM: number;
+  /** Last tick the party was under fire (hold: it goes on after `carrying.resumeQuietS` without). */
+  fireTick?: number;
+  /** Given up at this tick if not there yet (a drag to cover). Absent: no limit. */
+  untilTick?: number;
+  /** The litter (stretcher) used: its item type and the carrier holding it (the item stays in his container). */
+  litter?: { type: DefId; from: EntityId };
 }
 
 /** A triage tag (M10.3b). */

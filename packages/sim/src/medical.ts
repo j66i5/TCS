@@ -8,7 +8,7 @@
  * (systems/medical.ts) performs it. Everything here is generic: training levels, items and numbers are data
  * (core/medical.json, roles.json `medical`, items' `medical` tags); no faction appears in code.
  */
-import type { CareSkill, Catalog, InterventionDef, MedicalDef } from "./catalog";
+import type { CareSkill, CarryMethodDef, Catalog, InterventionDef, MedicalDef } from "./catalog";
 import type { SoldierState } from "./components";
 import type { DefId, EntityId } from "./ids";
 import { secondsToTicks } from "./ids";
@@ -287,4 +287,39 @@ export function lifeThreatNeed(catalog: Catalog, state: SimState, casualty: Enti
     if (def && M.triage.immediateTreats.includes(def.treats) && woundNeeding(M, def, s.wounds, s.physiology, conscious, params)) return true;
   }
   return false;
+}
+
+/**
+ * The way to carry a casualty (M10.4a; pure): of the data's carry methods those `carriers` men can do (enough of
+ * them; a litter among them if it needs one), with the casualty walking himself when he can (`walks`: awake, legs
+ * that carry him; `move`: his own pace factor from his wounds) or lying when he cannot, and under fire only methods
+ * that keep everyone low. The fastest (a walking method at the casualty's own pace), then the one that lasts
+ * longest before a rest, then the one needing fewer carriers, then by id. Null: none possible.
+ */
+export function chooseCarryMethod(catalog: Catalog, carriers: number, walks: boolean, move: number, underFire: boolean, hasLitter: boolean): DefId | null {
+  const C = catalog.medical?.carry;
+  if (!C) return null;
+  let best: DefId | null = null, bestV = -1, bestE = -1, bestN = Infinity;
+  for (const id of Object.keys(C).sort()) {
+    const d = C[id]!;
+    if (d.carriers > carriers || (d.casualtyWalks === true) !== walks) continue;
+    if (d.needsTag !== undefined && !hasLitter) continue;
+    if (underFire && d.upright && !d.casualtyWalks) continue;
+    const v = d.carriers === 0 ? d.speedMps * move : d.speedMps;
+    if (v > bestV + 1e-9 || (Math.abs(v - bestV) <= 1e-9 && (d.enduranceM > bestE || (d.enduranceM === bestE && d.carriers < bestN)))) {
+      best = id; bestV = v; bestE = d.enduranceM; bestN = d.carriers;
+    }
+  }
+  return best;
+}
+
+/** Where the payload and the other carriers go on the leader's trail (m behind him), by method (M10.4a). */
+export function carryLayout(def: CarryMethodDef): { payloadM: number; followersM: number[] } {
+  if (def.carriers === 0) return { payloadM: 0, followersM: [] };
+  if (def.carriers === 1) return { payloadM: def.upright ? (def.casualtyWalks ? 0.5 : 0) : 0.9, followersM: [] };
+  if (def.carriers === 2) return def.upright ? { payloadM: 0.6, followersM: [1.2] } : { payloadM: 0.9, followersM: [0.4] };
+  // A litter: two carriers at the head, two at the foot, the casualty between them.
+  const out: number[] = [];
+  for (let i = 1; i < def.carriers; i++) out.push(i < def.carriers / 2 ? 0.3 * i : 1.9 + 0.3 * (i - Math.ceil(def.carriers / 2)));
+  return { payloadM: 1.1, followersM: out };
 }

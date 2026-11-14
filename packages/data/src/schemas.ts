@@ -488,6 +488,10 @@ export const InterventionSchema = withProv({
 export const CarrySchema = withProv({
   id: Id, nameKey: z.string(), carriers: z.number().int().min(0).max(8), speedMps: Num(0.1, 3), enduranceM: Num(1, 5000),
   restS: Num(0, 3600), setupS: Num(0, 600), upright: z.boolean(),
+  /** The casualty walks himself (M10.4a: walking wounded, supported). */
+  casualtyWalks: z.boolean().optional(),
+  /** An item one of the carriers must have (its `medical.tags`), e.g. a litter (M10.4a). */
+  needsTag: Id.optional(),
 });
 export const MedicalFile = z.object({
   /** Rates of the "medical" physiology model (flat numbers, merged into the physiology parameters). */
@@ -507,6 +511,8 @@ export const MedicalFile = z.object({
   }),
   interventions: z.array(InterventionSchema).min(1),
   carry: z.array(CarrySchema).min(1),
+  /** Carrying parties (M10.4a): gathering, cover under fire, self-defence, the mass the carry speeds are for. */
+  carrying: withProv({ reachM: Num(0.5, 10), holdSuppression: Num(0, 1), resumeQuietS: Num(0, 600), selfDefenceM: Num(0, 300), massRefKg: Num(10, 500) }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),

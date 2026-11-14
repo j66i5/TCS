@@ -5,7 +5,7 @@
  * `hashState` hashes the canonical serialisation: equal hash <=> equal state. Used for the determinism
  * test, golden replays, saves and battle results.
  */
-import type { Action, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
+import type { Action, Carry, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
@@ -57,15 +57,18 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 18;
+export const STATE_SCHEMA_VERSION = 19;
 
 /**
  * Older schemas this build can still load, each with its migration to the next (M10.1 onwards).
  * 17 -> 18 (M10.1 medical physiology): new optional fields only (wound conditions, core temperature, fluids,
  * the "conditions" RNG stream created on first use), so a schema-17 save is already a valid schema-18 state.
+ * 18 -> 19 (M10.4a carrying): a new store, `carry` (carrying parties), empty in an older save; `SoldierState.carrying`
+ * is a new optional field.
  */
 const MIGRATIONS: Record<number, (d: SerializedState) => SerializedState> = {
   17: (d) => ({ ...d, schema: 18 }),
+  18: (d) => ({ ...d, schema: 19, stores: { ...d.stores, carry: d.stores.carry ?? [] } }),
 };
 
 /** Bring a save up to the current schema, or throw if it is too old or too new. */
@@ -130,9 +133,11 @@ export interface SimState {
   fire: Store<FireTask>;
   /** Vehicles (M7). */
   vehicle: Store<VehicleState>;
+  /** Carrying parties (M10.4a), keyed by the payload carried. */
+  carry: Store<Carry>;
 }
 
-const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle"] as const;
+const STORE_KEYS = ["identity", "transform", "mover", "soldier", "unit", "container", "action", "weapon", "fire", "vehicle", "carry"] as const;
 type StoreKey = (typeof STORE_KEYS)[number];
 
 export function createState(seed: number, catalogFingerprint = "", mapFingerprint = ""): SimState {
@@ -166,6 +171,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     weapon: new Store(),
     fire: new Store(),
     vehicle: new Store(),
+    carry: new Store(),
   };
 }
 
@@ -289,6 +295,7 @@ export function deserializeState(data: SerializedState): SimState {
     weapon: st("weapon") as Store<WeaponState>,
     fire: st("fire") as Store<FireTask>,
     vehicle: st("vehicle") as Store<VehicleState>,
+    carry: st("carry") as Store<Carry>,
   };
 }
 

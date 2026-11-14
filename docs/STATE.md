@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.3b triage, care under fire, "Medic!", roadmap-detail slice 7). The long session-by-session
+_Last updated: 2026-11-14 (M10.4a carrying as a movement mode, roadmap-detail slice 8). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -13,9 +13,12 @@ DECISIONS.md under its date._
   one willing comrade, `care` intent, doctrine `casualtyCarePriority`, `medical.carer` events, batch "Carers"
   line) and 7 (M10.3b: triage tags T1-T3 by the man who treats, sometimes wrong; the tag on the map and the card;
   under fire a casualty is got into cover — he walks or is dragged — and care goes on there; "Medic!" and "Man down,
-  treating" on the radio; batch "Triage, care under fire" line with preventable deaths); slices 5 (D1 hand smoke)
-  and 12 (ambulance hulls) came from parallel sessions and are merged.** **Next: slice 8, M10.4a carrying as a
-  movement mode.** Slice 13 needs slice 12 (merged).
+  treating" on the radio; batch "Triage, care under fire" line with preventable deaths) and 8 (M10.4a: a generic
+  `carry` store, state schema 19; seven carry methods from data incl. the four-man litter (Sanitaeter's
+  `de-litter`); the leader walks the way, the rest follow his trail; rests, cover under fire, carriers fire only in
+  self-defence; the M10.3b drag is a carrying party now; `npm run lab -- carry`); slices 5 (D1 hand smoke)
+  and 12 (ambulance hulls) came from parallel sessions and are merged.** **Next: slice 9, M10.4b carrying to and
+  into vehicles** (or slice 10, D2, which also only needs 10.3b). Slice 13 needs slice 12 (merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -46,6 +49,9 @@ DECISIONS.md under its date._
   platoon-ru 2.5/1.6 → 1.3/1.0 (−32 % overall; the plan's −40 % met for the German side on foot and the Russian
   attack, not for the Russian defenders). Attacker wins with care: village 4/10, mounted village 5/10, platoon-ru
   6/10.
+- **After M10.4a** (10 seeds × 1200 s, care on): attacker wins village 2/10, mounted village 3/10, platoon-ru 5/10
+  (before the slice 4/10, 5/10, 6/10: noise; carrying is only used for drags to cover so far). `lab -- carry`: every
+  method within 10 % of the data on flat, slope, house and stairs.
 - **Performance** (this container, `npm run test:perf -- --silent=false` alone, two runs): bench 16× / 19×,
   spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×), bench-combined 3.7× / 3.9× (floor 3×), 20,000
   projectiles 3.8× / 4.3×, render 1.2 ms per frame. The hull-hit variant flakes (known noise). After M10.3a: bench
@@ -83,8 +89,9 @@ DECISIONS.md under its date._
 
 ## What is weak or missing (honest list)
 - **Medical care is only first aid so far:** a man treats himself, a free comrade within 3 m treats him (M10.2), or
-  a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b); nobody carries or evacuates
-  him yet (M10.4-10.6). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
+  a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b, a carrying party since M10.4a);
+  carrying works (M10.4a) but nobody yet carries casualties back or evacuates them (M10.4b-10.6); carriers' extra
+  tiredness from the load is not modelled (the data's rests stand for it). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
   in houses are not dragged): watch in M10.5 (the medic) and M10.8. Only 54-86 % of the
   casualties who live past 2 minutes get any care in 10-seed batches (plan target 70 %): carers are hit on the way,
   and under fire few are willing; tuning waits for M10.8. Wound values

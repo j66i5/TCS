@@ -80,9 +80,15 @@ describe("unit card snapshots (S6)", () => {
     delete sim.state.soldier.req(by).mount;
     sim.state.action.set(by, { kind: "treat", startTick: 0, durationTicks: 60, params: { casualty: id } });
     expect(activityOf(sim.state, by).key).toBe("treating");
-    sim.state.action.set(by, { kind: "drag", startTick: 0, durationTicks: 60, params: { casualty: id } });
-    expect(activityOf(sim.state, by).key).toBe("dragging");
     sim.state.action.delete(by);
+    const party = { method: "drag", carriers: [by], phase: "move" as const, phaseTick: 0, startTick: 0, dest: { x: 0, y: 0, z: 0 }, purpose: "cover" as const, massKg: 100, speedMps: 0.7, trail: [], sinceRestM: 0, totalM: 0 };
+    sim.state.carry.set(id, party);
+    sim.state.soldier.req(by).carrying = id;
+    expect(activityOf(sim.state, by).key).toBe("dragging");
+    sim.state.carry.set(id, { ...party, method: "fireman", purpose: "move" });
+    expect(activityOf(sim.state, by).key).toBe("carrying");
+    sim.state.carry.delete(id);
+    delete sim.state.soldier.req(by).carrying;
     sim.state.soldier.req(by).intent = { kind: "care", tick: 0, target: id };
     expect(activityOf(sim.state, by).key).toBe("care");
     // No tag shown for a prisoner or a dead man.

@@ -40,7 +40,7 @@ import { beginStack, houseCentre, stepClear } from "./clear";
 import { buildingIndex, windowPlaces } from "./occupy";
 
 // (A man gone to a wounded comrade, M10.3a, is out of his unit's drills until he comes back.)
-const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !== "routed" && s!.intent?.kind !== "care";
+const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !== "routed" && s!.intent?.kind !== "care" && s!.carrying === undefined;
 
 function radio(state: SimState, uid: EntityId, key: string, events: EventSink): void {
   const u = state.unit.req(uid);

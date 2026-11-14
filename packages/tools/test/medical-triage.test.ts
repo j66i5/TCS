@@ -132,7 +132,7 @@ describe("triage, care under fire, Medic! (M10.3b)", () => {
     // He is never more than a step and a half from the man dragging him.
     for (let k = 0; k < 60 * 60; k++) {
       b.run(1 / 60);
-      if (![...b.sim.state.action.entries()].some(([, x]) => x.kind === "drag")) break;
+      if (b.sim.state.carry.size === 0) break;
       const p = b.sim.state.transform.req(c), q = b.sim.state.transform.req(m);
       expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeLessThanOrEqual(1.5);
     }
@@ -151,9 +151,9 @@ describe("triage, care under fire, Medic! (M10.3b)", () => {
     a.underFire(true);
     for (let k = 0; k < 120; k++) {
       a.run(1);
-      if ([...a.sim.state.action.entries()].some(([, x]) => x.kind === "drag")) break;
+      if (a.sim.state.carry.size > 0) break;
     }
-    expect([...a.sim.state.action.entries()].some(([, x]) => x.kind === "drag")).toBe(true);
+    expect(a.sim.state.carry.size > 0).toBe(true);
     a.underFire(false);
     const saved = JSON.parse(JSON.stringify(saveSim(a.sim))) as SerializedState;
     const again = loadSim(a.input, saved);

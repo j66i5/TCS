@@ -457,7 +457,7 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   for (const g of men) {
     if (g === id) continue;
     const gs = state.soldier.get(g);
-    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care") continue;
+    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care" || gs.carrying !== undefined) continue;
     const n = spareCount(state.container.get(g), type);
     const gw = state.weapon.get(g), own = gw ? ctx.catalog.weapons[gw.weapon]?.feed.magazine === type : false;
     if (n <= (own ? D.keepSpare : 0)) continue;
@@ -602,10 +602,29 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
   return true;
 }
 
-/** Errands that take a man right up to a comrade on purpose. */
+/** Errands that take a man right up to a comrade on purpose (carrying parties too, M10.4a). */
 function closeErrand(s: SoldierState): boolean {
   const k = s.intent?.kind;
-  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner";
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner" || s.carrying !== undefined;
+}
+
+/**
+ * A carrier's fire (M10.4a, owner M10-2 Q-2f: fire only in self-defence): while his party is still (gathering,
+ * setting up, resting, lying in cover) and he is not pinned, at the nearest threat he sees within
+ * `carrying.selfDefenceM`; otherwise none.
+ */
+function carrierSelfDefence(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): void {
+  const cr = state.carry.get(s.carrying!), cur = state.fire.get(id);
+  const m = state.mover.get(id);
+  const still = cr !== undefined && cr.phase !== "move" && cr.phase !== "cover" && (!m || m.waypoints.length === 0);
+  const R = ctx.catalog.medical?.carrying?.selfDefenceM ?? 30;
+  const pick = still && !isCowering(s) && s.impair.canFight ? pickTarget(ctx, state, id, s, R, false) : null;
+  if (!pick) { if (cur) state.fire.delete(id); return; }
+  if (cur?.contact === pick.target) return;
+  if (assignFireTask(ctx, state, id, pick.x, pick.y, aimHeightAt(ctx, pick))) {
+    const ft = state.fire.get(id)!;
+    ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
+  }
 }
 
 /**
@@ -719,6 +738,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     }
     // On his way to take a prisoner (systems/surrender.ts runs that errand): nothing else of his own meanwhile.
     if (s.intent?.kind === "takePrisoner") continue;
+    // Carrying a casualty (M10.4a; or walking out himself): out of the fight, firing only in self-defence.
+    if (s.carrying !== undefined) { carrierSelfDefence(ctx, state, id, s); continue; }
     // Gone to a wounded comrade (systems/medical.ts, M10.3a): he has left the fight and does not fire.
     if (s.intent?.kind === "care") continue;
     const m = state.mover.get(id);

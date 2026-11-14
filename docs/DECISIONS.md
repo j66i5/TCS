@@ -4257,3 +4257,66 @@ Owner: "include that surrendering soldiers will move toward the forces they surr
 The surrender walk (PR #47) and medical slices 2-7 both changed movement.ts (both kept: drag speed cap and the
 hands-up pace) and the goldens. Goldens regenerated with `npm run golden:update` after the merge (intended: the two
 changes together); `golden/no-interiors` untouched.
+
+## 2026-11-14 — M10.4a carrying as a movement mode (roadmap-detail slice 8; goldens regenerated)
+Owner answers used (binding): bearers under fire take cover with the casualty, fire only in self-defence and go on
+when it eases (round 2, Q-2f); same rules for both sides, the player and the AI; faction differences only in data.
+Built:
+- **Generic `carry` store** (`Carry` in components.ts, keyed by the payload: any entity with mass, so M11 can carry
+  supplies the same way; **state schema 19**, migration 18 → 19 adds the empty store; new optional
+  `SoldierState.carrying`). systems/carry.ts: `startCarry` / `endCarry` / `leaveCarry`, `carrySystem` right after
+  movement. carriers[0] leads and walks the way (`routeBetween` with heights: doors and stairs); the payload and
+  the other carriers are placed on his trail at fixed distances (`carryLayout`: drag 0.9 m behind, fireman on him,
+  two-man 0.6 / 1.2 m, litter: two at the head, casualty 1.1 m, two at the foot). **Software decision:** followers
+  are placed on the trail each tick (not steered), which keeps everyone on walkable ground in doorways and on stairs
+  and the casualty within 1.5 m of a carrier by construction; side-by-side positions are not drawn (sprites M10.4b).
+- **Speed** (movement.ts): the leader's pace is the method's speed × sqrt(`carrying.massRefKg` 105 / payload mass),
+  kept within 0.75-1.15, in place of the pace and posture factors; ground, slope, stairs, fatigue and wounds as for
+  any walker; his own load not again (it is in the data's speed). The M10.3b drag-speed cap is gone.
+- **Method choice** (pure `chooseCarryMethod`, medical.ts): methods the men at hand can do (enough carriers; a
+  litter item, tag `litter`, among them for the stretcher); the casualty walks himself when he can (`casualtyWalks`
+  methods: walking, supported — data flag); under fire only low methods (the drags); then fastest (walking at the
+  casualty's own pace), longest before a rest, fewer carriers. A carrier lost (hit, panicking, aboard, ordered away)
+  → the rest re-choose for fewer men or put him down ("carriers-lost").
+- **Phases:** gather (carriers within `carrying.reachM` 2 m; give up after 120 s), setup (`setupS`: 45 s for the
+  litter, 5 s fireman / two-man), move, rest (`restS` after `enduranceM`), cover / hold under fire (a carrier pinned
+  or suppression ≥ `carrying.holdSuppression` 0.3: to the nearest spot hidden from the enemy within
+  `care.dragSearchM` by a way ≤ `care.dragMaxM`, or hold where he is if hidden already; all lie down; on after
+  `carrying.resumeQuietS` 10 s without fire). Drags to cover (purpose "cover") have no rests or holds and a time
+  limit (way / speed × 3 + 20 s, as before).
+- **Carriers out of the fight:** decisions skip them except self-defence (a seen enemy within
+  `carrying.selfDefenceM` 30 m while the party is still); unit orders and drills pass them by; an order to one alone
+  takes him out of the party; ammunition bringers, launcher loaders and step-aside spacing leave them alone. A
+  casualty being carried gets no care until he is put down; a carried man counts as having help (no surrender).
+- **The M10.3b drag is now a carrying party** (the `drag` action is gone): with a second carer of the casualty
+  beside the first it is the two-man drag (1.0 m/s); since carrying handles houses, a casualty on a ground floor can
+  be dragged (also into a house); upper floors still not. `medical.dragged` events kept (batch line), plus
+  `medical.carried` (start, hold, resume, rest, done with the reason).
+- **Data** (add-data-entry; low): `core/medical.json` `carrying` block (reachM, holdSuppression, resumeQuietS,
+  selfDefenceM, massRefKg — game values), `carry` gains `casualtyWalks` (walking, supported) and `needsTag`
+  ("litter" for the stretcher). Items `de-litter` (folding litter, 6.5 kg; research: the medic's kit lists a litter)
+  issued to the German Sanitaeter, and `ru-litter` (7 kg; for the off-map bearers, not issued). Card activity
+  "carrying a wounded comrade" / "walking out wounded"; debug line "<method> -> id (phase)", "carried".
+- **Not yet used for anything but the drag to cover:** carrying casualties back (bearers, the Verwundetennest) is
+  M10.5 (slice 11); into vehicles M10.4b. **Not done:** carriers' extra exertion from the load (fatigue grows as a
+  walker's; the data's endurance and rests stand for it).
+- **Lab** (`npm run lab -- carry`; 7 methods × flat 30 m, 10 % slope 30 m, a house through two doors, its stairs to
+  the room above): every row within 10 % of data speed × mass factor × the course factor (a lone walker's speed
+  there over flat): flat and house −2 % to 0 %, slope −1 % to −2.5 %, stairs −5.5 % to −7.4 %; casualty to nearest
+  carrier at most 1.36 m (setting up); litter set-up 45 s; over 150 m: drag 3 rests (0.49 m/s mean), fireman and
+  two-man drag 1, two-man 1, stretcher 0 (1.00 m/s).
+- **Batches (10 seeds × 1200 s, before → after; parallel runs, care on):** platoon attacker wins 4/10 → 2/10,
+  casualties blue/red 17.8/12.7 → 18.8/11.8; platoon-vehicles 5/10 → 3/10, 16.5/24.4 → 16.3/22.8; platoon-ru (RU
+  attacks) red wins 6/10 → 5/10, 17.1/12.1 → 16.4/12.3. Preventable deaths blue/red: platoon 15/24 → 24/16,
+  platoon-ru 15/11 → 17/11, platoon-vehicles 20/31 → 21/31 (all cells 116 → 120). Drags per 10 battles 8-16 per
+  side, as before. All within the noise of 10 seeds (battles diverge from the first drag); carrying is not yet used
+  for longer moves, so no effect was expected. No tuning (M10.8).
+- **Perf:** the per-man cost is one field check in movement and decisions; `carrySystem` returns at once with no
+  parties. Timing tests run inside `npm run check`.
+- **Tests:** `tools/test/medical-carry.test.ts` (lab bands, method choice, a four-man litter with set-up and the
+  litter conserved, cover under fire behind a wall and going on, unit orders pass carriers by and an order to one
+  leaves a fireman's carry, save/load mid-carry, a schema-18 save loads); `medical-triage` and `ui/card` tests moved
+  from the `drag` action to the carry store.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data and the drag as a carrying party): demo,
+  shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors`
+  untouched.

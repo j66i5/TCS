@@ -345,14 +345,39 @@ him. **Under fire** a carer beside a casualty first puts a tourniquet on if one 
 under fire); then, if the casualty lies where the enemy can see him, he gets him into cover: the nearest spot within
 15 m hidden from the enemy (by a way of at most 30 m), not toward the enemy. A casualty who can still walk goes there
 himself (pinning does not hold him: he is told to go); one who cannot is **dragged** there by the carer, crouched, at
-0.7 m/s (the drag in `core/medical.json` `carry`, from a published drag test), the casualty at his heels, and a
+0.7 m/s (the drag in `core/medical.json` `carry`, from a published drag test; a carrying party since M10.4a, below),
+the casualty at his heels, and a
 comrade of the squad throws a smoke grenade to screen it if he has one. Lying in that cover, care goes on: from then
 on only the carer's own suppression counts as "under fire" (his squad being shot at elsewhere no longer stops him),
-so the dressing, the chest seal or the line can be done. The debug view adds "drag -> id", the tag ("T1"), "(in
+so the dressing, the chest seal or the line can be done. The debug view adds "drag -> id (move)", the tag ("T1"), "(in
 cover)", and why nobody comes to a casualty: "waits: nobody" (no one in reach), "waits: too exposed" (men in reach,
 none willing to go under fire), "waits: unwilling", "waits: no kit". The batch report's "Triage, care under fire"
 line counts life-threatening needs, deaths of wounds after one (preventable deaths), wrong tags by training and
 drags.
+
+**Carrying (M10.4a).** Moving a casualty is a **carrying party**: one or more men and the man they carry, moving
+together as one. Each way of carrying is a line in `core/medical.json` `carry`: **walking wounded** (he walks
+himself, 0.9 m/s), **supported** (an arm over a comrade's shoulder, 0.6 m/s), the **drag** (one man, crouched,
+0.7 m/s, from a published drag test), the **two-man drag** (1.0 m/s), the **fireman's carry** (one man, upright,
+1.0 m/s), the **two-man carry** (1.0 m/s) and the **four-man litter** (1.0 m/s, 45 s to unfold it and get him on;
+only with a litter: the German Sanitaeter carries a folding one). The party takes the fastest way the men at hand
+can do — under fire only the low ones (the drags), and a man who can still walk walks — then the one that lasts
+longest. The first carrier leads and walks the way (through doors and up stairs like anyone), and the others and
+the casualty follow on his trail, so the casualty is never more than a step and a half from a carrier. The speed is
+the data's speed for a casualty of about 105 kg (a soldier in kit), a little faster for a lighter load and slower
+for a heavier one, and ground, slopes, stairs, tiredness and wounds slow a party as they slow any man. After a
+stretch (40 m for a drag, 80 m for a fireman's carry, 300 m for a litter) the party rests (30-60 s). **Carriers
+leave the fight:** they do not fire except in self-defence at an enemy within 30 m while the party is still, and
+their squad's orders and drills pass them by (an order to one of them alone takes him out of the party; the others
+carry on with a way for fewer men, or put the casualty down). **Fired on** (a carrier pinned or suppressed), the
+party takes the casualty into the nearest cover within 15 m hidden from the enemy, lies down there, and goes on
+after 10 s without fire. A party ends when it gets there, or when the casualty dies, is loaded or taken prisoner.
+For now carrying is used by the drag to cover under fire (with two carers beside him it is the two-man drag, and on
+the ground floor a casualty can be dragged into a house); taking casualties back to the Verwundetennest comes with
+it in M10.5. The debug view shows "drag -> id (move)" or "two-man -> id (hold)" for a carrier and "carried" for the
+casualty; the man box says "carrying a wounded comrade". The **carry lab** (`npm run lab -- carry`) measures every
+way on flat ground, a slope, through a house and up stairs against the data; the batch report counts carrying
+parties by way, metres carried and how often they took cover.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

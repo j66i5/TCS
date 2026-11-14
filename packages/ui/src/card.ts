@@ -114,7 +114,12 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   // Care (M10.2-M10.3b): treating himself or a comrade, dragging one into cover, on his way to one.
   const act = view.action.get(id);
   if (act?.kind === "treat") return { key: Number(act.params["casualty"]) === id ? "selfAid" : "treating" };
-  if (act?.kind === "drag") return { key: "dragging" };
+  // Carrying (M10.4a): a drag into cover, any other carry, or walking out wounded.
+  if (s.carrying !== undefined && s.carrying !== id) {
+    const c = view.carry.get(s.carrying);
+    return { key: c?.purpose === "cover" ? "dragging" : "carrying" };
+  }
+  if (s.carrying === id) return { key: "walkingOut" };
   if (s.intent?.kind === "care") return { key: "care" };
   const b = s.mental.behaviour;
   if (b === "panicked" || b === "routed") return { key: b };

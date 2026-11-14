@@ -469,6 +469,20 @@
       "note": "The Sanitaeter's bag, empty; contents as the first responder's bag plus an IO set, ketamine and more dressings (bundeswehr.de 'Erster am Verwundeten: der Medic', search extract; quantities a proposal)."
     },
     {
+      "id": "de-litter",
+      "nameKey": "item.de-litter",
+      "category": "medical",
+      "massKg": 6.5,
+      "medical": {
+        "tags": [
+          "litter"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Folding litter (faltbare Trage) carried by the Sanitaeter (research 2026-11-14: bundeswehr.de 'Erster am Verwundeten: der Medic', search extract, lists a litter in the medic's kit). Mass a game value (folding NATO-pattern litters weigh about 6-7 kg). Used by a four-man stretcher carry (M10.4a); not used up."
+    },
+    {
       "id": "de-armband",
       "nameKey": "item.de-armband",
       "category": "medical",

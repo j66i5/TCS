@@ -485,6 +485,8 @@
   "man.activity.treating": "treating a wounded comrade",
   "man.activity.selfAid": "treating his own wound",
   "man.activity.dragging": "dragging a wounded comrade into cover",
+  "man.activity.carrying": "carrying a wounded comrade",
+  "man.activity.walkingOut": "walking out wounded",
   "app.pauseKey": "Pause (Space, key {key})",
   "app.speedKey": "Speed (key {key})",
   "app.contours": "Contours",

@@ -21,9 +21,10 @@
  * TRIAGE, CARE UNDER FIRE, "MEDIC!" (M10.3b). The man who treats a casualty (a comrade, first responder or medic) tags
  * him T1/T2/T3 at his first treatment, sometimes wrongly (core/medical.json `triage`); a man of higher training, or
  * anyone once the tag is old, tags him again. A carer beside a casualty who cannot move himself and lies in the
- * enemy's view, with nothing he may do under fire (a tourniquet first), drags him to the nearest hidden spot (the
- * "drag" action: the carry data's drag speed; a comrade throws smoke to screen it); lying there, care is judged under
- * fire on the helper's own suppression only. The casualty's unit calls "Medic!" on the radio for an urgent casualty,
+ * enemy's view, with nothing he may do under fire (a tourniquet first), drags him to the nearest hidden spot (since
+ * M10.4a a carrying party, systems/carry.ts: the drag, or the two-man drag with a second carer beside him; a comrade
+ * throws smoke to screen it); lying there, care is judged under fire on the helper's own suppression only. A man
+ * being carried gets no care until he is put down. The casualty's unit calls "Medic!" on the radio for an urgent casualty,
  * and "Man down, treating" when a comrade starts on him (each at most once per `care.radioCooldownS` per unit).
  */
 import { registerActionHandler, startAction } from "../actions";
@@ -33,16 +34,16 @@ import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, isConscious } from "../impair";
 import { removeItems } from "../items";
-import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
+import { routeBetween, routeWaypoints } from "../interior-nav";
 import { applyCareEffect, careNeed, isResponder, nextIntervention, SKILL_RANK, triageTag, trueTriage, type CareItem, type CarePlan } from "../medical";
 import type { CareSkill } from "../catalog";
-import { atan2, cos, hypot2, PI, sin } from "../math";
+import { hypot2 } from "../math";
 import { isMounted } from "../mount";
 import { navFor } from "../navctx";
 import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
-import { requestPosture } from "./body";
-import { coveredFrom, threatOf, unitThreat } from "./decisions";
+import { casualtyThreat, coverSpotNear, startCarry } from "./carry";
+import { coveredFrom } from "./decisions";
 import { screenCasualty } from "./smoke";
 import { refreshStatus } from "./wounds";
 
@@ -218,120 +219,54 @@ registerActionHandler("treat", {
 /** How often a carer under fire looks for a spot to drag his casualty to (s). */
 const DRAG_LOOK_S = 4;
 
-/** Behind the dragging man: where the casualty lies while he is dragged (m behind the helper's back). */
-const DRAG_BEHIND_M = 0.9;
-
-/**
- * The one-man drag (M10.3b): the helper backs to (gx, gy), crouched, at the carry data's drag speed (movement.ts caps
- * him), the casualty at his heels. Ends when he is there (the casualty then lies sheltered); interrupted when either
- * dies or is taken aboard or prisoner, or the helper can no longer drag or is sent elsewhere.
- */
-registerActionHandler("drag", {
-  check(_ctx, state, actor, a) {
-    const c = Number(a.params["casualty"]);
-    const cs = state.soldier.get(c), ps = state.soldier.get(actor);
-    if (!cs || !cs.physiology.alive) return "casualty-dead";
-    if (!ps || !isAble(ps) || !ps.impair.canWalk || !ps.impair.canUseArms) return "unable";
-    if (isMounted(ps) || isMounted(cs) || cs.captive !== null) return "gone";
-    const m = state.mover.get(actor), t = state.transform.req(actor);
-    const gx = Number(a.params["gx"]), gy = Number(a.params["gy"]);
-    if (!m || (m.waypoints.length === 0 && Math.abs(t.x - gx) + Math.abs(t.y - gy) > 2)) return "stopped";
-    // The casualty at his heels.
-    const ct = state.transform.req(c);
-    ct.x = t.x - cos(t.heading) * DRAG_BEHIND_M; ct.y = t.y - sin(t.heading) * DRAG_BEHIND_M; ct.z = t.z; ct.heading = t.heading;
-    const cm = state.mover.get(c);
-    if (cm && cm.waypoints.length > 0) { cm.waypoints = []; cm.speedMps = 0; }
-    return null;
-  },
-  done(_ctx, state, actor, a) {
-    const t = state.transform.req(actor);
-    return (state.mover.get(actor)?.waypoints.length ?? 0) === 0 && Math.abs(t.x - Number(a.params["gx"])) + Math.abs(t.y - Number(a.params["gy"])) <= 2;
-  },
-  complete(ctx, state, actor, a, events) {
-    const c = Number(a.params["casualty"]);
-    const cs = state.soldier.get(c), ct = state.transform.get(c), t = state.transform.req(actor);
-    // (Out of time short of the spot: no shelter; the carer looks again.)
-    if (!cs || !ct || Math.abs(t.x - Number(a.params["gx"])) + Math.abs(t.y - Number(a.params["gy"])) > 2) return;
-    cs.sheltered = { x: ct.x, y: ct.y };
-    requestPosture(ctx, state, actor, "prone");
-    events.emit({ kind: "medical.dragged", tick: state.tick, casualty: c, by: actor, done: true, distanceM: Number(a.params["m"]) });
-  },
-});
-
-/** The enemy a helper hides a casualty from: the nearest he knows, else where the rounds came from, else his unit's. */
-function dragThreat(state: SimState, helper: EntityId, c: EntityId): { x: number; y: number; z: number } | null {
-  const hs = state.soldier.req(helper);
-  const t = threatOf(state, helper, hs);
-  if (t) return t;
-  const ff = state.soldier.get(c)?.fireFrom ?? hs.fireFrom, ct = state.transform.req(c);
-  if (ff && state.tick - ff.tick <= secondsToTicks(30)) return { x: ct.x + ff.dx * 150, y: ct.y + ff.dy * 150, z: 0 };
-  const uid = state.identity.get(helper)?.unit;
-  return uid !== undefined ? unitThreat(state, helper, uid) : null;
-}
-
 /**
  * Care under fire (M10.3b; TCCC: move the casualty to cover). `helper` is beside casualty `c`; the nearest spot within
- * `care.dragSearchM` hidden (lying) from the enemy, not toward him, by a way at most `care.dragMaxM` long: a casualty
- * who can still walk goes there himself (the helper follows him), one who cannot is dragged there by the helper. A
- * casualty already hidden where he lies is marked sheltered. True if he is sheltered now or on his way to cover.
+ * `care.dragSearchM` hidden (lying) from the enemy, not toward him, by a way at most `care.dragMaxM` long (systems/
+ * carry.ts `coverSpotNear`; on the ground floor, into a house too since M10.4a): a casualty who can still walk goes
+ * there himself (the helper follows him), one who cannot is dragged there — a carrying party (M10.4a) with the
+ * helper, and a second carer of his beside him if there is one (the two-man drag). A casualty already hidden where
+ * he lies is marked sheltered. True if he is sheltered now or on his way to cover.
  */
 function tryDrag(ctx: SimContext, state: SimState, events: EventSink, helper: EntityId, c: EntityId): boolean {
-  const M = ctx.catalog.medical!, C = M.care, drag = M.carry["drag"];
+  const M = ctx.catalog.medical!, C = M.care;
   const cs = state.soldier.req(c), ct = state.transform.req(c), cm = state.mover.get(c);
-  if (!drag || isSheltered(state, c) || ct.z !== 0 || indoorAt(ctx, ct.x, ct.y) >= 0) return false;
+  if (isSheltered(state, c) || state.carry.has(c) || ct.z > 0.5) return false;
   const walks = isConscious(cs) && cs.impair.canWalk && state.tick >= cs.stunnedUntilTick;
   // Already on his way to the cover he was sent to.
   const end = cm?.waypoints[cm.waypoints.length - 1];
   if (walks && end && cs.sheltered && Math.abs(end.x - cs.sheltered.x) + Math.abs(end.y - cs.sheltered.y) < 1) return true;
-  const threat = dragThreat(state, helper, c);
+  const threat = casualtyThreat(state, helper, c);
   if (!threat) return false;
   const lie = ctx.catalog.body.postures.prone.heightM * 0.6;
   if (coveredFrom(ctx, ct.x, ct.y, threat.x, threat.y, lie, 0, threat.z)) { cs.sheltered = { x: ct.x, y: ct.y }; return true; }
-  const tl = hypot2(threat.x - ct.x, threat.y - ct.y) || 1, tx = (threat.x - ct.x) / tl, ty = (threat.y - ct.y) / tl;
-  const { grid, search } = navFor(ctx, "foot");
-  const cands: { x: number; y: number; r: number }[] = [];
-  for (let ring = 1; ring <= 3 && cands.length === 0; ring++) {
-    const r = (C.dragSearchM * ring) / 3;
-    for (let k = 0; k < 12; k++) {
-      const ang = (k * PI) / 6 + (ring % 2) * (PI / 12);
-      const ux = cos(ang), uy = sin(ang);
-      if (ux * tx + uy * ty > 0.3) continue; // not toward the enemy
-      const x = ct.x + ux * r, y = ct.y + uy * r;
-      if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
-      const i = Math.floor(y / grid.cellM) * grid.cols + Math.floor(x / grid.cellM);
-      if (grid.cost[i]! <= 0 || grid.wall[i] === 1 || indoorAt(ctx, x, y) >= 0) continue;
-      if (!coveredFrom(ctx, x, y, threat.x, threat.y, lie, 0, threat.z)) continue;
-      cands.push({ x, y, r });
-    }
-  }
-  cands.sort((p, q) => p.r - q.r || p.x - q.x || p.y - q.y);
-  for (const cnd of cands.slice(0, 3)) {
-    // (Outdoors only: he is not dragged into or out of a house.)
-    const leg = routeBetween(ctx, search, ct.x, ct.y, cnd.x, cnd.y, { maxExpansions: 1500, snapCells: 1 });
-    if (!leg || leg.cost > C.dragMaxM) continue;
-    const face = atan2(threat.y - cnd.y, threat.x - cnd.x);
-    if (walks) {
-      if (!cm) return false;
-      // He goes himself, crouched; the helper follows him (his errand's way goes after the casualty).
-      // (A flight pinning does not hold, like men leaving a house that has become a trap: he is told to go now.)
-      cm.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" }).map((w) => ({ ...w, posture: "crouching" as const, bolt: true as const }));
-      cm.formation = null; cm.endPosture = "prone"; cm.endHeading = face;
-      cs.sheltered = { x: cnd.x, y: cnd.y };
-      return true;
-    }
-    const m = state.mover.get(helper);
-    if (!m) return false;
-    // He takes the casualty by the vest and pulls him along the way, the casualty at his heels.
-    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" }).map((w) => ({ ...w, posture: "crouching" as const, bolt: true as const }));
-    m.formation = null; m.endPosture = "prone"; m.endHeading = face;
-    const ticks = secondsToTicks((leg.cost / Math.max(0.1, drag.speedMps)) * 3 + 20);
-    startAction(state, events, helper, "drag", ticks, { casualty: c, gx: cnd.x, gy: cnd.y, m: Math.round(leg.cost) });
-    events.emit({ kind: "medical.dragged", tick: state.tick, casualty: c, by: helper, done: false, distanceM: Math.round(leg.cost) });
-    // A comrade of his unit screens the drag with smoke if he has a grenade (D1 hook; the helper's hands are full).
-    screenCasualty(ctx, state, events, helper, c, { x: threat.x, y: threat.y });
+  const spot = coverSpotNear(ctx, ct.x, ct.y, ct.z, threat, C.dragSearchM, C.dragMaxM);
+  if (!spot) return false;
+  if (walks) {
+    if (!cm) return false;
+    // He goes himself, crouched; the helper follows him (his errand's way goes after the casualty).
+    // (A flight pinning does not hold, like men leaving a house that has become a trap: he is told to go now.)
+    cm.waypoints = routeWaypoints(spot.leg, { x: 0, y: 0, mode: "run" }).map((w) => ({ ...w, posture: "crouching" as const, bolt: true as const }));
+    cm.formation = null; cm.endPosture = "prone"; cm.endHeading = spot.face;
+    cs.sheltered = { x: spot.x, y: spot.y };
     return true;
   }
-  return false;
+  // He takes the casualty by the vest and pulls him along the way (with a second carer of his beside him, both).
+  const men = [helper];
+  const ht = state.transform.req(helper);
+  // mounted: ok a man aboard has no care intent here (released by stepCarers)
+  for (const [m, ms] of state.soldier.entries()) {
+    if (m === helper || ms.intent?.kind !== "care" || ms.intent.target !== c || ms.carrying !== undefined || state.action.has(m)) continue;
+    const t = state.transform.req(m);
+    if (hypot2(t.x - ht.x, t.y - ht.y) <= C.buddyReachM) { men.push(m); break; }
+  }
+  const drag = M.carry["drag"];
+  const limitS = (spot.leg.cost / Math.max(0.1, drag?.speedMps ?? 0.7)) * 3 + 20;
+  const party = startCarry(ctx, state, events, c, men, { x: spot.x, y: spot.y, z: 0 }, { purpose: "cover", underFire: true, limitS });
+  if (!party) return false;
+  events.emit({ kind: "medical.dragged", tick: state.tick, casualty: c, by: helper, done: false, distanceM: Math.round(spot.leg.cost) });
+  // A comrade of his unit screens the drag with smoke if he has a grenade (D1 hook; the helper's hands are full).
+  screenCasualty(ctx, state, events, helper, c, { x: threat.x, y: threat.y });
+  return true;
 }
 
 /** A carer's errand ends: he goes back to where he stood (unless he cannot), with a `medical.carer` event. */
@@ -382,7 +317,7 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
   carers.sort((a, b) => Number(state.soldier.req(b).intent!.responder === true) - Number(state.soldier.req(a).intent!.responder === true) || a - b);
   for (const id of carers) {
     const s = state.soldier.req(id), it = s.intent!, c = it.target ?? -1, cs = state.soldier.get(c);
-    const act = state.action.get(id)?.kind, treating = act === "treat" || act === "drag";
+    const treating = state.action.get(id)?.kind === "treat" || s.carrying !== undefined;
     if (!isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") { releaseCarer(ctx, state, events, id, "unable", false); continue; }
     if (!cs || !cs.physiology.alive || isMounted(cs) || cs.captive !== null) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
     if (state.tick - it.tick > secondsToTicks(K.timeoutS) && !treating) { releaseCarer(ctx, state, events, id, "gave-up", true); continue; }
@@ -396,7 +331,7 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
     if (near(id, c)) {
       const m = state.mover.get(id);
       if (m && m.waypoints.length > 0) { m.waypoints = []; m.speedMps = 0; }
-      if (busy.has(c) || state.action.has(id)) continue;
+      if (busy.has(c) || state.action.has(id) || state.carry.has(c)) continue; // (being carried: care when he is put down)
       const fire = underFireForCare(ctx, state, id, c);
       const plan = nextIntervention(ctx.catalog, state, id, c, fire, params);
       if (plan) { startTreatment(ctx, state, events, id, c, plan, fire); busy.set(c, id); continue; }
@@ -472,7 +407,7 @@ export function hasCarer(state: SimState, c: EntityId): boolean {
   // mounted: ok boarding clears a carer's intent
   for (const [, s] of state.soldier.entries()) if (s.intent?.kind === "care" && s.intent.target === c) return true;
   for (const [, a] of state.action.entries()) if (a.kind === "treat" && Number(a.params["casualty"]) === c) return true;
-  return false;
+  return state.carry.has(c);
 }
 
 /** Self-aid, buddy aid and carers, every `care.stepS`. */
@@ -494,6 +429,7 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
   const waiting: EntityId[] = [];
   for (const [id, s] of state.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive || isMounted(s)) continue;
+    if (state.carry.has(id)) continue; // being carried (M10.4a): cared for when he is put down
     busy ??= treatedNow(state);
     if (busy.has(id)) { waiting.push(id); continue; }
     // Self-aid first: a massive bleed at once, wherever he is; anything else once he has halted.

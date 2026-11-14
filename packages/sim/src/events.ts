@@ -52,6 +52,11 @@ export type SimEvent =
   /** A one-man drag to cover (M10.3b): started (`done` false, with the distance) or ended (`done` true; `reason`
    *  when it was cut short). */
   | { kind: "medical.dragged"; tick: number; casualty: EntityId; by: EntityId; done: boolean; distanceM: number; reason?: string }
+  /**
+   * A carrying party (M10.4a): `phase` start (set off, with the way's length), hold (took cover under fire), resume,
+   * rest, done (with `reason`: arrived, dead, gone, carriers-lost, no-way, gave-up, ordered) and the metres carried.
+   */
+  | { kind: "medical.carried"; tick: number; payload: EntityId; by: EntityId; method: DefId; carriers: number; phase: "start" | "hold" | "resume" | "rest" | "done"; distanceM: number; reason?: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

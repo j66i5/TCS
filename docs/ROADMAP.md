@@ -247,7 +247,12 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    and on the card; under fire a carer gets a casualty into cover (he walks there himself, or is dragged at 0.7 m/s
    with a smoke screen; `medical.dragged`), and care goes on there; "Medic!" and "Man down, treating" on the
    radio; debug reasons why nobody comes; batch "Triage, care under fire" line (preventable deaths).
-7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
+7. ✅ **M10.4a Carrying as a movement mode** (slice 8, 2026-11-14) — a generic `carry` store (payload = any entity
+   with mass; state schema 19): walking wounded, supported, drag, two-man drag, fireman's carry, two-man carry,
+   four-man litter (set-up 45 s, needs a litter item); the leader walks the way (`routeBetween`, stairs), the rest
+   follow his trail; rests after the data's endurance; carriers out of the fight (self-defence within 30 m); a
+   party fired on takes cover with the casualty and goes on when quiet; `medical.carried` events; the M10.3b drag
+   is now a carrying party (two-man drag with two carers, ground-floor houses too); `npm run lab -- carry`.
 8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
 9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)
 10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)

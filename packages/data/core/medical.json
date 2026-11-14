@@ -592,6 +592,7 @@
       "restS": 0,
       "setupS": 0,
       "upright": true,
+      "casualtyWalks": true,
       "sources": [],
       "confidence": "low",
       "note": "Walking wounded, unaided: about 60 % of a walk (leg wounds slow him further through the wound effects). Game value."
@@ -605,6 +606,7 @@
       "restS": 30,
       "setupS": 0,
       "upright": true,
+      "casualtyWalks": true,
       "sources": [],
       "confidence": "low",
       "note": "Arm over a comrade's shoulder. Game values."
@@ -674,11 +676,22 @@
       "restS": 60,
       "setupS": 45,
       "upright": true,
+      "needsTag": "litter",
       "sources": [],
       "confidence": "low",
       "note": "Four-man litter: 4.8 km/h on a treadmill (1.33 m/s), proposed 1.0 m/s over ground; continuous carry up to about 5 minutes with harness (stretcher studies, search extracts); 30-60 s to unfold and load. Game values."
     }
   ],
+  "carrying": {
+    "reachM": 2,
+    "holdSuppression": 0.3,
+    "resumeQuietS": 10,
+    "selfDefenceM": 30,
+    "massRefKg": 105,
+    "sources": [],
+    "confidence": "low",
+    "note": "M10.4a carrying parties (game values, none published): carriers gather within reachM of the casualty before they set off; a party whose carrier is pinned or at holdSuppression or more takes cover with the casualty (owner M10-2 Q-2f) and goes on after resumeQuietS quiet; carriers fire only at an enemy within selfDefenceM (self-defence, owner); massRefKg: the casualty mass the carry speeds are for (a soldier in kit, about 105 kg: Vine et al. 2023 used 110 kg)."
+  },
   "chain": {
     "firstAidS": 600,
     "role1S": 3600,

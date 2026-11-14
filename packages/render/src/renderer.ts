@@ -1655,8 +1655,12 @@ export function careLine(state: SimView, id: EntityId): string {
   const s = state.soldier.get(id);
   // M10.3a: gone to a casualty ("carer -> id", "first responder -> id").
   if (a?.kind !== "treat" && s?.intent?.kind === "care") out += ` ${s.intent.responder === true ? "responder" : "carer"} -> ${String(s.intent.target)}`;
-  // M10.3b: dragging a casualty, his triage tag, why nobody comes to him.
-  if (a?.kind === "drag") out += ` drag -> ${String(a.params["casualty"])}`;
+  // M10.3b / M10.4a: carrying a casualty (method, phase), his triage tag, why nobody comes to him.
+  if (s?.carrying !== undefined) {
+    const c = state.carry.get(s.carrying);
+    out += s.carrying === id ? ` walking out (${c?.phase ?? "?"})` : ` ${c?.method ?? "carry"} -> ${String(s.carrying)} (${c?.phase ?? "?"})`;
+  }
+  if (state.carry.has(id) && s?.carrying !== id) out += " carried";
   if (s?.triage && s.physiology.alive) out += ` T${s.triage.cat}`;
   if (s?.careWait && s.physiology.alive) out += ` waits: ${s.careWait.replace("-", " ")}`;
   if (s?.sheltered && s.physiology.alive) out += " (in cover)";

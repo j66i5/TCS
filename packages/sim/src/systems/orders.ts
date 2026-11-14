@@ -2,6 +2,7 @@
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
 import { callFire } from "./support";
+import { leaveCarry } from "./carry";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
@@ -274,17 +275,21 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "discharge") return vehicleRes ?? "unable";
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
   // Men of a broken unit, running back, do not listen (M4.3). Men aboard vehicles ride (M7).
-  // A man gone to a wounded comrade (M10.3a) stays with him: orders to his unit pass him by (an order to him alone
-  // ends the errand, below).
+  // A man gone to a wounded comrade (M10.3a) stays with him, and a man carrying one (M10.4a) carries on: orders to
+  // his unit pass him by (an order to him alone ends the errand, below).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
-    && !(isUnit && state.soldier.get(s)!.intent?.kind === "care"));
+    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined)));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
   // (An anti-tank shot, M7.4a, is like a grenade: one man acts, the drill goes on.)
   const keepsDrill = order.kind === "rules" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
   if (!keepsDrill) {
-    for (const m of soldiers) { const ms = state.soldier.get(m); if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care") ms.intent = null; }
+    for (const m of soldiers) {
+      const ms = state.soldier.get(m);
+      if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care") ms.intent = null;
+      if (ms?.carrying !== undefined) leaveCarry(state, m); // an order to him alone takes him out of his carrying party
+    }
   }
   if (!keepsDrill) {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;

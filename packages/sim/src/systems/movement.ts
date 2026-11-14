@@ -38,7 +38,6 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   const hurryFiredOn = secondsToTicks(SB.hurryFiredOnSeconds), hurryQuiet = secondsToTicks(SB.hurryQuietSeconds), tick = state.tick;
   const handOverPace = ctx.catalog.behaviour.surrender.walkSpeedFactor;
   const levelK = exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
-  const dragMps = ctx.catalog.medical?.carry["drag"]?.speedMps ?? 0.7;
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
   // mounted: ok a man aboard has no waypoints
@@ -99,8 +98,12 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     const dist = hypot2(dx, dy);
     // Speed = mode speed x posture x slope x load x fatigue / ground cost (all factors from data).
     const k = navCostAt(navFor(ctx, mode.class).grid, t.x, t.y);
-    let speed = mode.speedMps / (k > 0 ? k : 1);
-    speed *= B.postures[posture].speedFactor / B.postures[mode.posture].speedFactor;
+    // Leading a carrying party (M10.4a): the carry speed (with the payload's mass) in place of the pace and posture;
+    // ground, slope, stairs, fatigue and wounds as for any walker, his own load not again (it is in the data's speed).
+    const cr = s?.carrying !== undefined ? state.carry.get(s.carrying) : undefined;
+    const carryLead = cr !== undefined && (cr.phase === "move" || cr.phase === "cover") && (cr.carriers[0] ?? s!.carrying) === id;
+    let speed = (carryLead ? cr!.speedMps : mode.speedMps) / (k > 0 ? k : 1);
+    if (!carryLead) speed *= B.postures[posture].speedFactor / B.postures[mode.posture].speedFactor;
     // Height (M7.5d): a leg with a height climbs or descends evenly (stairs); a leg without one keeps his height
     // indoors and brings him to the ground outdoors (a route planned without heights from a floor above).
     let zTo = wp.z;
@@ -119,14 +122,12 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       speed *= exp(-B.movement.slopeK * Math.abs(g + B.movement.slopeOffset)) / levelK;
     }
     if (s) {
-      const load = tickLoadKg(ctx, state, id);
+      const load = carryLead ? 0 : tickLoadKg(ctx, state, id);
       speed *= clamp(1 - B.movement.loadSpeedPerKg * Math.max(0, load - B.movement.loadFreeKg), B.movement.minLoadSpeedFactor, 1);
       speed *= 1 - B.movement.fatigueSpeedPenalty * s.physical.fatigue;
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
       speed *= s.impair.move; // wounds: a leg wound, blood loss
-      // Dragging a casualty (M10.3b; only legs with their own posture are looked at): the carry data's drag speed.
-      if (wp.posture !== undefined && state.action.get(id)?.kind === "drag") speed = Math.min(speed, dragMps);
       if (s.captive !== null) speed *= handOverPace; // hands up, slowly (surrender.ts)
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his

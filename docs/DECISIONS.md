@@ -4819,6 +4819,14 @@ battle; a locked fire-and-forget missile flies on to the last point seen (alread
   every spot in the attacker's half at the post's sight height; a shot needs the Pumas to come forward. Defender's
   team (platoon-vehicles, seeds 1-5, 600 s): set up in 5 of 5 (from 18 s in 3), no shot within 600 s (before: set up
   in 3, one hit at 588 s). Goldens regenerated (`golden:update`; `no-interiors` untouched).
+- **Batches (10 seeds x 1200 s; main -> branch with review fixes):** platoon-vehicles German wins 7 -> 6 (casualties
+  blue 16.0 -> 18.2, red 23.7 -> 25.9; Russian missiles fired 0.6 -> 0.6 per battle, the team's included);
+  platoon-ru-vehicles German wins 8 -> 10, Russian 2 -> 0 (Russian casualties 26.4 -> 32.3, the team's three men
+  counted; first Russian dismount 32 -> 36 s, so the carriers' hold no longer costs time). The A4 target (Russian wins
+  above 1 in 10) is not met: the Pumas defend from a reverse slope that no post in the attacker's half can see, so the
+  team sets up but has nothing to shoot. Decided (no owner): keep the team as it is — a missile team that cannot see
+  hulls behind a crest is the real limit — and leave closer, bolder posts or a forward overwatch move for tuning with
+  the owner (open question in STATE). n = 10 is within noise for 2 -> 0.
 ## 2026-11-14 — Merge of origin/main (M9 night, sensors, guided missiles; PR #44) into the medical branch; goldens regenerated
 Conflicts kept both sides: the app's sim imports (environment and time of day next to carrying), the DE and RU
 string tables (litters next to thermal sights, blankets and MELLS), the batch tool's imports, the lab list (carry

@@ -309,11 +309,14 @@ function loadFaction(
     }
   });
   // Fire support (M6.5c): its rounds must be ammunition of this faction (HE with an explosive, a smoke round).
-  const fs = doctrine?.fireSupport;
-  if (fs) {
+  // (M8.4: the artillery battery the same; an illumination round must be one, with its flare.)
+  for (const key of ["fireSupport", "artillery"] as const) {
+    const fs = doctrine?.[key];
+    if (!fs) continue;
     const he = ammoF.ammunition.find((a) => a.id === fs.heAmmo);
-    if (!he || !he.explosive) errors.push({ file: f("doctrine.json"), path: "fireSupport.heAmmo", message: `'${fs.heAmmo}' is not an explosive ammunition of this faction`, severity: "error" });
-    if (!ammoF.ammunition.some((a) => a.id === fs.smokeAmmo && a.kind === "smoke")) errors.push({ file: f("doctrine.json"), path: "fireSupport.smokeAmmo", message: `'${fs.smokeAmmo}' is not a smoke ammunition of this faction`, severity: "error" });
+    if (!he || !he.explosive) errors.push({ file: f("doctrine.json"), path: `${key}.heAmmo`, message: `'${fs.heAmmo}' is not an explosive ammunition of this faction`, severity: "error" });
+    if (!ammoF.ammunition.some((a) => a.id === fs.smokeAmmo && a.kind === "smoke")) errors.push({ file: f("doctrine.json"), path: `${key}.smokeAmmo`, message: `'${fs.smokeAmmo}' is not a smoke ammunition of this faction`, severity: "error" });
+    if (fs.illumAmmo !== undefined && !ammoF.ammunition.some((a) => a.id === fs.illumAmmo && a.kind === "illumination" && a.illum !== undefined)) errors.push({ file: f("doctrine.json"), path: `${key}.illumAmmo`, message: `'${fs.illumAmmo}' is not an illumination ammunition (with an illum block) of this faction`, severity: "error" });
   }
   // Every kind of ammunition is also a counted item (SPEC 4.3 rule 9): one round = one item of cartridge mass.
   const roundItems: ItemTT[] = ammoF.ammunition.map((a) => ({

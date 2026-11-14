@@ -41,7 +41,13 @@ export interface ScenarioDef {
   /** On-map mortars (M8.3a): each side gets its faction's mortar section (manifest `mortarTemplate`) behind its own
    *  line instead of the off-map allotment (a side whose faction has none keeps the allotment). */
   mortars?: boolean;
+  /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
+   *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
+  artillery?: boolean;
 }
+
+/** Artillery rounds each side may call with `artillery` (M8.4; game values). */
+export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
 
 /** Mortar rounds each side may call (game values). */
 export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
@@ -180,6 +186,11 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const att = side === def.attacker;
     return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)) };
   });
+  if (def.artillery === true) {
+    SIDES.forEach((side, s) => {
+      if (catalog.factions[def.factions[s]!]?.artillery) rules.support!.push({ side, ...SCENARIO_ARTILLERY, asset: "artillery" });
+    });
+  }
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }
 

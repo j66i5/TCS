@@ -30,6 +30,12 @@ DECISIONS.md under its date._
   after, only the scenarios a slice affects; `npm run check` once at the end of a slice, alone; `npm run test:perf`
   only when a slice adds per-tick per-man work; screenshots only for visible changes.
 
+**M8.4 Off-map artillery (2026-11-14, same branch; DECISIONS "M8.4").** Each faction has an off-map battery
+(`doctrine.json` `artillery`: PzH 2000 / 2S19), called with `callFire` `asset: "artillery"`; opt-in in battles
+(`artillery: true`, `?artillery=1`; not used by the AI yet). Airburst fuses (8 m), danger close 600 m (flag needed),
+illumination flares saved in `state.flares` (no light until M9.1), counter-battery displacement after 3 missions,
+guided rounds refused. `npm run lab -- artillery`. Next: M8.5 AI and balance (needs D4).
+
 **M8.3b On-map mortars: signature and degradation (2026-11-14, same branch; DECISIONS "M8.3b").** A tube firing
 is heard by the enemy out to its `hearingRangeM` (3-4 km) and shows the crew (flash); the rate falls with every
 missing, pinned or shaken man and stops below `crewMin`. Review fixes for M8.3a (landing order, rounds cap, fallen

@@ -228,6 +228,8 @@ export interface AmmoDef {
   multispectral?: boolean;
   /** Hand smoke grenade (D1): starts to smoke `fuseSeconds` after release, a cloud of `radiusM` for `seconds`. */
   smoke?: { fuseSeconds: number; radiusM: number; seconds: number; topM?: number };
+  /** M8.4 illumination round: the flare (light from M9.1). */
+  illum?: { candela: number; burnSeconds: number; heightM: number; descentMps: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
 }
@@ -559,19 +561,8 @@ export interface QualityDef {
   skills: Record<string, { mean: number; sd: number }>;
 }
 
-export interface FactionDef {
-  id: DefId;
-  /** Roles with medical training (M10.1), by role id: the level and, if the national training is narrower than
-   *  the level's, the interventions the role is trained for (Q-1b: skills per national training). */
-  medicalRoles?: Record<DefId, { level: MedicalLevel; interventions?: DefId[] }>;
-  /** Key into the string table for the faction's display name. */
-  nameKey: string;
-  /** Doctrine profile values (data-driven behaviour weights; SPEC 6.6). */
-  doctrine: Record<string, number>;
-  /** Formation used when an order names none. */
-  defaultFormation: DefId;
-  /** Mortar fire the platoon can call (M6.5c); none if absent. */
-  fireSupport?: {
+/** An off-map fire support asset (M6.5c mortars, M8.4 artillery). */
+export type FireSupportDef = {
     heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number;
     /** M8.1: smoke cloud height (m) and burn time at its place (s). */
     smokeTopM?: number; smokeBurnSeconds?: number;
@@ -587,7 +578,27 @@ export interface FactionDef {
     locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number } };
     /** Observer adjustment (M8.2b): reading error of a fall by eye (base + per metre) or laser; skill factor range. */
     adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number };
+    /** M8.4: illumination round; airburst height over the target (m; absent: none); danger close (m); counter-battery
+     *  displacement after so many missions (abstract model). */
+    illumAmmo?: DefId; airburstHeightM?: number; dangerCloseM?: number;
+    counterBattery?: { missionsBeforeMove: number; moveSeconds: number };
   };
+
+export interface FactionDef {
+  id: DefId;
+  /** Roles with medical training (M10.1), by role id: the level and, if the national training is narrower than
+   *  the level's, the interventions the role is trained for (Q-1b: skills per national training). */
+  medicalRoles?: Record<DefId, { level: MedicalLevel; interventions?: DefId[] }>;
+  /** Key into the string table for the faction's display name. */
+  nameKey: string;
+  /** Doctrine profile values (data-driven behaviour weights; SPEC 6.6). */
+  doctrine: Record<string, number>;
+  /** Formation used when an order names none. */
+  defaultFormation: DefId;
+  /** Mortar fire the platoon can call (M6.5c); none if absent. */
+  fireSupport?: FireSupportDef;
+  /** M8.4: the off-map artillery battery (155 / 152 mm), the same fields. */
+  artillery?: FireSupportDef;
   /** Where the AI gets its men out of their vehicles (M7.2, owner Q22: per side, from doctrine research): this far
    *  short of the objective, at a point out of sight of the enemy if there is one. Absent: no doctrine given. */
   dismountM?: number;

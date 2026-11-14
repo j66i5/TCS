@@ -69,8 +69,10 @@ export type OrderBody =
   /** Call mortar fire (M6.5c): high explosive or smoke, this many rounds at (x, y); the unit's leader (or a man
    *  who can still use the radio) passes it on; the side's allotment pays for it.
    *  M8.1: smoke along a line: `x2, y2` the line's other end; the rounds for effect land spread evenly from (x, y)
-   *  to (x2, y2) (a screen; ranging aims at the line's middle). */
-  | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke"; rounds: number; x2?: number; y2?: number }
+   *  to (x2, y2) (a screen; ranging aims at the line's middle).
+   *  M8.4: `asset` "artillery" for the off-map battery (default: the mortars); `ammo` "illum" for illumination; `fuse`
+   *  "airburst" for high explosive bursting over the target; `dangerClose` to fire this close to own men. */
+  | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke" | "illum"; rounds: number; x2?: number; y2?: number; asset?: "mortar" | "artillery"; fuse?: "airburst"; dangerClose?: boolean }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
   | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number; /** Hand smoke grenades only (D1): a screen at the point. */ smoke?: boolean }
   /** Get in (M7.2): the men on foot walk to the vehicle and board it; to a parent, each unit under it boards its

@@ -193,6 +193,9 @@ export const AmmoSchema = withProv({
     /** M8.1 volume: the cloud's height (m); it burns `seconds` at its place (a plume in wind) and lingers over the
      *  spotting fade after. */
     topM: Num(0.5, 100).optional() }).strict().optional(),
+  /** Illumination rounds (M8.4, `kind: "illumination"`): a flare of `candela` burns `burnSeconds` under a parachute
+   *  from `heightM` above the ground, sinking at `descentMps`. Saved in the state; the light it gives comes in M9.1. */
+  illum: z.object({ candela: Num(0, 1e8), burnSeconds: Num(1, 600), heightM: Num(1, 2000), descentMps: Num(0, 50) }).strict().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
@@ -857,14 +860,8 @@ export const DOCTRINE_KEYS = [
   "boundM",
   "finalAssaultM",
 ] as const;
-export const DoctrineFile = withProv({
-  /** Formation used when an order does not name one (core/formations.json). */
-  defaultFormation: Id,
-  values: z.object(Object.fromEntries(DOCTRINE_KEYS.map((k) => [k, z.number().min(0).max(100)])) as Record<(typeof DOCTRINE_KEYS)[number], z.ZodNumber>).strict(),
-  /** The fire support a platoon can call (M6.5c): its mortar rounds, how long until the first lands, the spread
-   *  of the fall of shot (one standard deviation, m), the time between rounds, and the smoke screen one round
-   *  lays (radius, how long it lasts). Optional: a faction without it calls no fire. */
-  fireSupport: z.object({
+/** An off-map fire support asset (M6.5c mortars; M8.4 artillery). */
+const FireSupportAsset = z.object({
     heAmmo: Id, smokeAmmo: Id, delaySeconds: Num(0, 1200), dispersionM: Num(0, 500), intervalSeconds: Num(0.5, 120),
     smokeRadiusM: Num(1, 200), smokeSeconds: Num(1, 1800),
     /** M8.1: a smoke round's cloud height (m) and how long the round burns at its place, feeding the plume (s). */
@@ -894,7 +891,25 @@ export const DoctrineFile = withProv({
      *  `readBaseM` + `readPerM` x his distance to it by eye, `laserReadM` with a laser; correction share and reading
      *  error x a skill factor from `skillWorst` (skill 0) to `skillBest` (skill 1). Absent: the correction alone. */
     adjust: z.object({ readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5) }).strict().optional(),
-  }).strict().optional(),
+
+    /** M8.4: illumination round (absent: none); airburst height of a proximity or time fuse over the target (m;
+     *  absent: no airburst); danger close (m): a call this close to own men needs `dangerClose` in the order;
+     *  counter-battery (abstract, owner M8 screen 2 (a)): after `missionsBeforeMove` missions the battery displaces
+     *  for `moveSeconds` and takes no calls meanwhile. */
+    illumAmmo: Id.optional(), airburstHeightM: Num(1, 50).optional(), dangerCloseM: Num(0, 5000).optional(),
+    counterBattery: z.object({ missionsBeforeMove: z.number().int().min(1).max(100), moveSeconds: Num(0, 7200) }).strict().optional(),
+  }).strict();
+
+export const DoctrineFile = withProv({
+  /** Formation used when an order does not name one (core/formations.json). */
+  defaultFormation: Id,
+  values: z.object(Object.fromEntries(DOCTRINE_KEYS.map((k) => [k, z.number().min(0).max(100)])) as Record<(typeof DOCTRINE_KEYS)[number], z.ZodNumber>).strict(),
+  /** The fire support a platoon can call (M6.5c): its mortar rounds, how long until the first lands, the spread
+   *  of the fall of shot (one standard deviation, m), the time between rounds, and the smoke screen one round
+   *  lays (radius, how long it lasts). Optional: a faction without it calls no fire. */
+  fireSupport: FireSupportAsset.optional(),
+  /** M8.4: the off-map artillery battery (155 mm / 152 mm) a platoon can call, the same fields. */
+  artillery: FireSupportAsset.optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
   dismount: withProv({

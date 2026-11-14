@@ -30,11 +30,11 @@
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
-import { canReport } from "../impair";
+import { canReport, isAble } from "../impair";
 import { sqrt } from "../math";
 import { addSmoke } from "../smoke";
 import { nextNormal, Streams } from "../rng";
-import { newEntity, type FireMission, type LocationMethod, type SimState, type SimView, type SupportSection } from "../state";
+import { newEntity, type FireAmmo, type FireMission, type LocationMethod, type SimState, type SimView, type SupportSection } from "../state";
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
 import { heightAt } from "../terrain";
 import type { FactionDef } from "../catalog";
@@ -50,14 +50,19 @@ export function initSupport(ctx: SimContext, state: SimState): void {
   state.support = [];
   for (const s of ctx.rules.support ?? []) {
     const faction = state.sides.find((x) => x.id === s.side)?.faction;
-    const fs = faction ? ctx.catalog.factions[faction]?.fireSupport : undefined;
+    const art = s.asset === "artillery";
+    const fd = faction ? ctx.catalog.factions[faction] : undefined;
+    const fs = art ? fd?.artillery : fd?.fireSupport;
     if (!fs) continue;
     const battery = newEntity(state);
     const c = emptyContainer();
     if (s.he > 0) addItems(c, fs.heAmmo, s.he);
     if (s.smoke > 0) addItems(c, fs.smokeAmmo, s.smoke);
+    if ((s.illum ?? 0) > 0 && fs.illumAmmo !== undefined) addItems(c, fs.illumAmmo, s.illum!);
     state.container.set(battery, c);
     const sec: SupportSection = { side: s.side, battery, heType: fs.heAmmo, smokeType: fs.smokeAmmo };
+    if (art) sec.asset = "artillery";
+    if (fs.illumAmmo !== undefined) sec.illumType = fs.illumAmmo;
     // Planned targets (M8.2a): registered before the battle, with what is left of the battery's error after an
     // observed adjustment there.
     if (s.planned && s.planned.length > 0) {
@@ -72,15 +77,15 @@ export function initSupport(ctx: SimContext, state: SimState): void {
 }
 
 /** Rounds the side may still call: its off-map section's container, and (M8.3a) its mortar teams' loads. */
-export function supportLeft(state: SimView, side: SideId, ammo: "he" | "smoke", catalog?: SimContext["catalog"]): number {
+export function supportLeft(state: SimView, side: SideId, ammo: FireAmmo, catalog?: SimContext["catalog"], asset: "mortar" | "artillery" = "mortar"): number {
   let n = 0;
-  const s = state.support.find((x) => x.side === side);
+  const s = sectionOf(state, side, asset);
   const c = s ? state.container.get(s.battery) : undefined;
   if (s && c) {
-    const type = ammo === "he" ? s.heType : s.smokeType;
+    const type = ammo === "he" ? s.heType : ammo === "smoke" ? s.smokeType : s.illumType;
     for (const st of c.stacks) if (st.type === type) n += st.count;
   }
-  if (catalog) {
+  if (catalog && asset === "mortar" && ammo !== "illum") {
     for (const team of mortarTeams(state, side)) {
       const u = state.unit.get(team);
       if (!u) continue;
@@ -96,6 +101,37 @@ export function supportLeft(state: SimView, side: SideId, ammo: "he" | "smoke", 
 
 /** The fire support of a caller's faction (absent: none). */
 type FireSupportDef = NonNullable<FactionDef["fireSupport"]>;
+
+/** A side's off-map section of an asset (M8.4: mortars or the artillery battery). */
+export function sectionOf<T extends { side: SideId; asset?: "artillery" }>(state: { support: readonly T[] }, side: SideId, asset: "mortar" | "artillery"): T | undefined {
+  return state.support.find((x) => x.side === side && (x.asset === "artillery") === (asset === "artillery"));
+}
+
+/** The fire support asset of a faction (M8.4). */
+export function assetDef(ctx: SimContext, faction: string, asset: "mortar" | "artillery" | undefined): FireSupportDef | undefined {
+  const f = ctx.catalog.factions[faction];
+  return asset === "artillery" ? f?.artillery : f?.fireSupport;
+}
+
+/**
+ * Counter-battery (M8.4, owner M8 screen 2 (a), abstract): a battery that has fired `missionsBeforeMove` missions
+ * displaces for `moveSeconds` and takes no calls meanwhile. A model of real counter-fire with losses can replace it.
+ */
+export interface CounterBatteryModel {
+  /** Can the section take a call now? */
+  available(fs: FireSupportDef, sec: SupportSection, tick: number): boolean;
+  /** A mission was started: what it does to the section (it may set it moving after the mission's rounds). */
+  afterMission(fs: FireSupportDef, sec: SupportSection, tick: number, missionTicks: number): void;
+}
+export const DISPLACE_MODEL: CounterBatteryModel = {
+  available: (_fs, sec, tick) => sec.movingUntil === undefined || tick >= sec.movingUntil,
+  afterMission: (fs, sec, tick, missionTicks) => {
+    const cb = fs.counterBattery;
+    if (!cb) return;
+    sec.missions = (sec.missions ?? 0) + 1;
+    if (sec.missions >= cb.missionsBeforeMove) { sec.missions = 0; sec.movingUntil = tick + missionTicks + secondsToTicks(cb.moveSeconds); }
+  },
+};
 
 /** Seconds from the call reaching the section to the first volley for effect at a point not yet ranged on. */
 export function secondsToEffect(fs: FireSupportDef): number {
@@ -138,30 +174,40 @@ function onMapTubes(ctx: SimContext, state: SimState, side: SideId, x: number, y
 
 /** Start a fire mission (from a delivered `callFire` order). False if nobody can call or nothing is left; "range"
  *  (M8.3a) if the side's only mortars are on the map and none reaches the point. */
-export function callFire(ctx: SimContext, state: SimState, events: EventSink, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number, line?: { x2: number; y2: number }): boolean | "range" {
+export function callFire(ctx: SimContext, state: SimState, events: EventSink, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: FireAmmo, rounds: number, line?: { x2: number; y2: number }, opts: { asset?: "artillery"; fuse?: "airburst"; dangerClose?: boolean } = {}): boolean | "range" | "dangerClose" | "moving" | "guided" | "noFuse" {
   // A screen (M8.1): ranging and registration at the line's middle, the rounds for effect along it.
   let lx = 0, ly = 0;
   if (line && ammo === "smoke") { lx = (line.x2 - x) / 2; ly = (line.y2 - y) / 2; x += lx; y += ly; }
   const caller = callers.find((m) => canReport(state.soldier.get(m)));
   const faction = caller !== undefined ? state.identity.get(caller)?.faction : undefined;
-  const fs = faction ? ctx.catalog.factions[faction]?.fireSupport : undefined;
+  const fs = faction ? assetDef(ctx, faction, opts.asset) : undefined;
   if (caller === undefined || !fs) return false;
-  const sec = state.support.find((s) => s.side === side);
+  // Danger close (M8.4): a call this close to own men must say so.
+  if (fs.dangerCloseM !== undefined && !opts.dangerClose && ownMenWithin(state, side, x - lx, y - ly, x + lx, y + ly, fs.dangerCloseM)) return "dangerClose";
+  if (opts.fuse === "airburst" && fs.airburstHeightM === undefined) return "noFuse";
+  const sec = sectionOf(state, side, opts.asset ?? "mortar");
   const c = sec ? state.container.get(sec.battery) : undefined;
-  // On-map mortars first (M8.3a): the teams that reach the point (both ends of a screen).
-  const om = onMapTubes(ctx, state, side, x - lx, y - ly, ammo, x + lx, y + ly);
-  if (om.ok.length > 0) return callOnMap(ctx, state, events, fs, side, caller, om.ok, x, y, lx, ly, ammo, rounds);
-  const type = sec ? (ammo === "he" ? sec.heType : sec.smokeType) : "";
-  if (!sec || !c || countItems(c, type) <= 0) return om.outOfRange > 0 ? "range" : false;
-  // Ranging first, unless the section has already ranged on a point this close (its error there is known).
+  // On-map mortars first (M8.3a): the teams that reach the point (both ends of a screen); not for illumination.
+  const om = opts.asset !== "artillery" && ammo !== "illum" ? onMapTubes(ctx, state, side, x - lx, y - ly, ammo, x + lx, y + ly) : { ok: [], outOfRange: 0 };
+  if (om.ok.length > 0) return callOnMap(ctx, state, events, fs, side, caller, om.ok, x, y, lx, ly, ammo as "he" | "smoke", rounds, opts);
+  const type = sec ? (ammo === "he" ? sec.heType : ammo === "smoke" ? sec.smokeType : sec.illumType ?? "") : "";
+  if (!sec || !c || type === "" || countItems(c, type) <= 0) return om.outOfRange > 0 ? "range" : false;
+  // A guided round (reserved, SPEC 6.8): refused until M9.
+  if ((ctx.catalog.ammo[type]?.guidance ?? "unguided") !== "unguided") return "guided";
+  if (!DISPLACE_MODEL.available(fs, sec, state.tick)) return "moving";
+  // Ranging first, unless the section has already ranged on a point this close (its error there is known);
+  // illumination needs none (M8.4).
   const r2 = fs.registeredM * fs.registeredM;
   const reg = sec.registered?.find((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) <= r2);
-  const ranging = reg ? 0 : fs.rangingRounds;
+  const ranging = reg || ammo === "illum" ? 0 : fs.rangingRounds;
   // The rounds leave the section's stock now (they are fired as the mission runs): the ranging rounds on top of
   // those asked for while there are enough; short, the ranging rounds go first, one always left for effect.
   const n = removeItems(c, type, Math.min(rounds + ranging, countItems(c, type))).reduce((a, st) => a + st.count, 0);
   if (n <= 0) return false;
   const m: FireMission = { side, caller, x, y, ammo, left: n, nextTick: state.tick + secondsToTicks(fs.delaySeconds) };
+  if (opts.asset === "artillery") m.asset = "artillery";
+  if (opts.fuse === "airburst") m.fuse = "airburst";
+  if (opts.dangerClose) m.dangerClose = true;
   const rg = Math.min(ranging, n - 1);
   if (rg > 0) m.ranging = rg;
   if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
@@ -180,7 +226,8 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
     }
   }
   state.fireMissions.push(m);
-  events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS: fs.delaySeconds });
+  DISPLACE_MODEL.afterMission(fs, sec, state.tick, secondsToTicks(secondsToEffect(fs) + Math.ceil(n / Math.max(1, fs.tubes)) * fs.intervalSeconds));
+  events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS: fs.delaySeconds, ...(m.asset ? { asset: m.asset } : {}), ...(m.dangerClose ? { dangerClose: true } : {}) });
   radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : "radio.fireCall", { s: Math.round(fs.delaySeconds) });
   return true;
 }
@@ -188,7 +235,7 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
 /** A registered or planned point near (x, y) (the side's fire direction keeps one list), or undefined. */
 function registeredNear(state: SimState, fs: FireSupportDef, side: SideId, x: number, y: number) {
   const r2 = fs.registeredM * fs.registeredM;
-  return state.support.find((s) => s.side === side)?.registered?.find((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) <= r2);
+  return sectionOf(state, side, "mortar")?.registered?.find((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) <= r2);
 }
 
 /** Seconds of flight of a round from this tube to (x, y). */
@@ -197,7 +244,7 @@ export function flightSecondsOf(tube: Tube, x: number, y: number): number {
 }
 
 /** Start an on-map mission (M8.3a) with these tubes. Rounds stay with the crews until fired. */
-function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, side: SideId, caller: EntityId, tubes: Tube[], x: number, y: number, lx: number, ly: number, ammo: "he" | "smoke", rounds: number): true {
+function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, side: SideId, caller: EntityId, tubes: Tube[], x: number, y: number, lx: number, ly: number, ammo: "he" | "smoke", rounds: number, opts: { fuse?: "airburst"; dangerClose?: boolean } = {}): true {
   const reg = registeredNear(state, fs, side, x, y);
   const ranging = reg ? 0 : fs.rangingRounds;
   const ph = missionPhases(fs);
@@ -212,6 +259,8 @@ function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
     side, caller, x, y, ammo, left: n, nextTick: state.tick + secondsToTicks(ph.requestS + proc),
     tubes: tubes.map((t) => t.team), tubeNext: tubes.map(() => 0), flying: [],
   };
+  if (opts.fuse === "airburst") m.fuse = "airburst";
+  if (opts.dangerClose) m.dangerClose = true;
   if (rg > 0) m.ranging = rg;
   if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
   let sd = 0;
@@ -244,19 +293,19 @@ export function crewRate(ctx: SimContext, state: SimView, tube: Tube): number {
 }
 
 /** Can this team's tube fire a round of the mission's kind now: set up, enough crew at it, a round left. */
-function tubeCanFire(ctx: SimContext, state: SimState, tube: Tube | null, ammo: "he" | "smoke"): boolean {
+function tubeCanFire(ctx: SimContext, state: SimState, tube: Tube | null, ammo: FireAmmo): boolean {
   const ms = tube ? state.unit.get(tube.team)?.mortar : undefined;
   if (!tube || ms?.state !== "ready") return false;
   if (crewRate(ctx, state, tube) <= 0) return false;
-  return teamRounds(state, tube.team, ammo === "he" ? tube.def.he : tube.def.smoke) > 0;
+  return ammo !== "illum" && teamRounds(state, tube.team, ammo === "he" ? tube.def.he : tube.def.smoke) > 0;
 }
 
 /** Could it fire later (it is still setting up, with crew and rounds)? */
-function tubeMayFire(state: SimState, tube: Tube | null, ammo: "he" | "smoke"): boolean {
+function tubeMayFire(state: SimState, tube: Tube | null, ammo: FireAmmo): boolean {
   const ms = tube ? state.unit.get(tube.team)?.mortar : undefined;
   if (!tube || !ms || ms.state === "packed") return false;
   if (crewAt(state, tube).length < tube.def.crewMin) return false;
-  return teamRounds(state, tube.team, ammo === "he" ? tube.def.he : tube.def.smoke) > 0;
+  return ammo !== "illum" && teamRounds(state, tube.team, ammo === "he" ? tube.def.he : tube.def.smoke) > 0;
 }
 
 /** One round leaves an on-map tube (rule 9: out of the crew's loads now): where it will fall, when. */
@@ -367,11 +416,38 @@ function stepOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
 }
 const ON_MAP_CORRECTION_MIN_S = 4;
 
+/** Is any able man of the side within `r` of the segment (x0, y0)-(x1, y1) (a point when both ends are equal)? */
+function ownMenWithin(state: SimState, side: SideId, x0: number, y0: number, x1: number, y1: number, r: number): boolean {
+  const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy, r2 = r * r;
+  // mounted: ok men aboard vehicles are own men too (danger close counts them)
+  for (const [id, s] of state.soldier.entries()) {
+    if (state.identity.get(id)?.side !== side || !isAble(s)) continue;
+    const t = state.transform.get(id);
+    if (!t) continue;
+    const k = L2 > 0 ? Math.min(1, Math.max(0, ((t.x - x0) * dx + (t.y - y0) * dy) / L2)) : 0;
+    const ex = t.x - (x0 + k * dx), ey = t.y - (y0 + k * dy);
+    if (ex * ex + ey * ey <= r2) return true;
+  }
+  return false;
+}
+
 /** One mortar round lands at (x, y): high explosive bursts, smoke lays its cloud. `heAmmo`: an on-map tube's round. */
 function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: FireSupportDef, m: FireMission, x: number, y: number, heAmmo = fs.heAmmo): void {
+  if (m.ammo === "illum") {
+    // A flare (M8.4): ejected over the point, it sinks under its parachute while it burns (no light until M9.1).
+    const type = sectionOf(state, m.side, m.asset ?? "mortar")?.illumType ?? fs.illumAmmo;
+    const il = type !== undefined ? ctx.catalog.ammo[type]?.illum : undefined;
+    if (il) {
+      (state.flares ?? (state.flares = [])).push({ x, y, z: heightAt(ctx.map, x, y) + il.heightM, startTick: state.tick, untilTick: state.tick + secondsToTicks(il.burnSeconds), descentMps: il.descentMps, candela: il.candela, side: m.side }); // ground: ok (a flare over the ground)
+      events.emit({ kind: "support.illum", tick: state.tick, x, y, side: m.side, burnS: il.burnSeconds });
+    }
+    return;
+  }
   if (m.ammo === "he") {
     const idx = ammoIndexOf(ctx.catalog, heAmmo);
-    if (idx >= 0) detonate(ctx, state, events, x, y, heightAt(ctx.map, x, y) + 0.05, idx, m.caller); // ground: ok (a mortar bomb on the ground)
+    // (M8.4: an airburst fuse sets it off `airburstHeightM` over the ground.)
+    const z = heightAt(ctx.map, x, y) + (m.fuse === "airburst" && fs.airburstHeightM !== undefined ? fs.airburstHeightM : 0.05); // ground: ok (a bomb on or over the ground)
+    if (idx >= 0) detonate(ctx, state, events, x, y, z, idx, m.caller);
     // The enemy near it remember the mission's beaten zone (soldier AI package B).
     noteBeatenZone(ctx, state, x, y, m.side);
   } else {
@@ -389,7 +465,7 @@ function radio(state: SimState, events: EventSink, m: FireMission, key: string, 
 /** Remember the point a mission has ranged on, with the error left there (one entry per point, a few per side). */
 const REGISTERED_MAX = 6;
 function register(state: SimState, fs: FireSupportDef, m: FireMission): void {
-  const sec = state.support.find((s) => s.side === m.side);
+  const sec = sectionOf(state, m.side, m.asset ?? "mortar");
   if (!sec) return;
   const list = sec.registered ?? (sec.registered = []);
   const r2 = fs.registeredM * fs.registeredM;
@@ -401,12 +477,13 @@ function register(state: SimState, fs: FireSupportDef, m: FireMission): void {
 
 export function supportSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.smoke.length > 0) state.smoke = state.smoke.filter((c) => c.untilTick > state.tick);
+  if (state.flares !== undefined && state.flares.length > 0) state.flares = state.flares.filter((f) => f.untilTick > state.tick);
   if (state.fireMissions.length === 0) return;
   const W = ctx.map.widthM, H = ctx.map.heightM;
   for (const m of state.fireMissions) {
     if (m.left <= 0 && (m.flying?.length ?? 0) === 0) continue;
     const faction = state.identity.get(m.caller)?.faction ?? "";
-    const fs = ctx.catalog.factions[faction]?.fireSupport;
+    const fs = assetDef(ctx, faction, m.asset);
     if (!fs) { m.left = 0; m.flying = []; continue; }
     if (m.tubes !== undefined) { stepOnMap(ctx, state, events, fs, m); continue; }
     // "Shot" and "splash" (M8.2a) for each ranging round and the first volley for effect.

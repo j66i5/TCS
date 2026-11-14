@@ -28,6 +28,9 @@ import {
  */
 export interface SupportSection {
   side: SideId; battery: EntityId; heType: DefId; smokeType: DefId;
+  /** M8.4: the artillery battery (absent: the mortar section); its illumination round; missions since it last moved
+   *  and when it is set up again after displacing (counter-battery, abstract). */
+  asset?: "artillery"; illumType?: DefId; missions?: number; movingUntil?: number;
   registered?: { x: number; y: number; ex: number; ey: number; /** M8.2a: set before the battle. */ planned?: true }[];
 }
 
@@ -37,8 +40,18 @@ export interface SupportSection {
  * error (`ex`, `ey`, m), which the caller corrects when he sees where it fell; then the battery fires for effect
  * in volleys (`volley` = rounds of the current volley fired).
  */
+/** A parachute flare (M8.4): where it was ejected (x, y, z), when, how long it burns and how fast it sinks; its
+ *  light (candela) is for M9.1. */
+export interface Flare { x: number; y: number; z: number; startTick: number; untilTick: number; descentMps: number; candela: number; side: SideId }
+
+/** A fire mission's round kind (M8.4: illumination). */
+export type FireAmmo = "he" | "smoke" | "illum";
+
 export interface FireMission {
-  side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke"; left: number; nextTick: number;
+  side: SideId; caller: EntityId; x: number; y: number; ammo: FireAmmo; left: number; nextTick: number;
+  /** M8.4: fired by the artillery battery (absent: the mortars); high explosive with an airburst fuse; called danger
+   *  close. */
+  asset?: "artillery"; fuse?: "airburst"; dangerClose?: true;
   ranging?: number; ex?: number; ey?: number; volley?: number;
   /** Review fixes: true once someone of the side saw one of its ranging rounds fall (only then is the point
    *  remembered as registered: an unobserved one would keep the full aiming error for later missions). */
@@ -127,6 +140,8 @@ export interface SimState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: SupportSection[];
   fireMissions: FireMission[];
+  /** M8.4: illumination flares in the air (saved; they give no light until M9.1). */
+  flares?: Flare[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: SmokeCloud[];
   ended: { tick: number; reason: BattleEndReason } | null;
@@ -170,6 +185,7 @@ export function createState(seed: number, catalogFingerprint = "", mapFingerprin
     endLoser: null,
     support: [],
     fireMissions: [],
+    flares: [],
     smoke: [],
     ended: null,
     identity: new Store(),
@@ -212,6 +228,8 @@ export interface SerializedState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: SupportSection[];
   fireMissions: FireMission[];
+  /** M8.4: illumination flares in the air (saved; they give no light until M9.1). */
+  flares?: Flare[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: SmokeCloud[];
   ended: SimState["ended"];
@@ -245,6 +263,7 @@ export function serializeState(s: SimState): SerializedState {
       endLoser: s.endLoser,
       support: s.support,
       fireMissions: s.fireMissions,
+      flares: s.flares ?? [],
       smoke: s.smoke,
       ended: s.ended,
       stores,
@@ -289,6 +308,7 @@ export function deserializeState(data: SerializedState): SimState {
     endLoser: d.endLoser,
     support: d.support,
     fireMissions: d.fireMissions,
+    flares: d.flares ?? [],
     smoke: d.smoke,
     ended: d.ended,
     catalogFingerprint: d.catalogFingerprint,

@@ -17,6 +17,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     }
     if (Object.keys(medRoles).length > 0) factions[fid]!.medicalRoles = medRoles;
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
+    if (pack.doctrine.artillery) factions[fid]!.artillery = { ...pack.doctrine.artillery };
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
       if (pack.doctrine.dismount.afterward !== undefined) factions[fid]!.afterDismount = { kind: pack.doctrine.dismount.afterward, followM: pack.doctrine.dismount.followM ?? 150 };

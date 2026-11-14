@@ -4258,3 +4258,37 @@ village battle of seed 1 takes longer to reach its first assault (recon at 590 s
 order at 925 s). `commander.test.ts` now runs its battle to 1200 s (was 900 s) and `commander-clear.test.ts` uses seed
 2 (seed 1 no longer reaches a house to clear in 1200 s). Same assertions; no sim change. Goldens regenerated
 (fingerprint).
+
+## 2026-11-14 — M8.4 Off-map 155 / 152 mm, airburst, illumination as data, reserved interfaces (slice 26; decided without the owner, owner to review)
+
+M8 owner round answered here (owner to review): screen 1 artillery in the platoon battle **(b) only when the battle
+asks for it** (`ScenarioDef.artillery`, app `?artillery=1`; the AI commander does not call it until M8.5); screen 2
+counter-battery **(a) abstract** (the battery moves after a few missions), illumination **(a) rounds and data now, the
+light in M9**, airburst **(a) where a public source shows the fuse** (multi-option / proximity fuzes are standard for
+155 mm and 152 mm; none given to the mortars); screen 3 white phosphorus **(a) generic smoke** (unchanged), Russian
+type **(a) 2S19 Msta-S**.
+- **Data** (`doctrine.json` `artillery`, the same shape as `fireSupport`; game values unless noted): PzH 2000 (155 mm,
+  4 guns; up to 10 rounds a minute, about 30 km with DM121: KNDS / Wikipedia extracts), 2S19 Msta-S (152 mm, 6 guns;
+  7-10 rounds a minute: Canadian Army Journal / Defense Magazine extracts); first round after 150 / 180 s (request 20
+  s, flight 40 s), ranging rounds 45 s apart, battery error 25 / 35 m, dispersion 45 / 55 m, volleys every 12 / 15 s,
+  smoke cloud 60 m radius, 25 m high, 90 s burn. Rounds: `de-155-he` (43.5 kg; filling 10 kg, 3,500 fragments: low),
+  `ru-152-he` (3OF45 43.56 kg, FAS extract; 7.6 kg, 3,000 fragments: low), heavier fragments, smoke and illumination
+  shells; illumination bombs for both mortars. Illumination (`illum` block on the round): 155/152 mm about 1,000,000
+  cd, 120 s, sinking 4.5 m/s (M485A2 class: FAS / Yugoimport extracts, medium), ejected 600 m up (game value).
+- **Airburst:** `callFire` `fuse: "airburst"` (high explosive only) bursts `airburstHeightM` 8 m over the ground; an
+  asset without it refuses (`radio.noAirburst`). Lab `npm run lab -- artillery`: prone men in the open at 10 m take
+  3.6x (155 mm) / 2.8x (152 mm) the fragment wounds of an impact burst; men lying under a house's roof take about the
+  same as from an impact on the roof (x1.1 / x1.1: a 6 cm wooden roof stops few heavy fragments either way); at 25 m a
+  155 mm shell wounds standing men about 2x as often as a 120 mm bomb.
+- **Danger close:** `dangerCloseM` 600 m for the artillery (US practice; not reached in search, low): a call within it
+  of any able own man is refused (`radio.fireDangerClose`) unless it says `dangerClose: true`. The mortars have none
+  in the data yet (600 m for them would refuse most of today's AI calls: owner to review with M8.5).
+- **Illumination** (`ammo: "illum"`, no ranging): a `Flare` in `state.flares` (x, y, height, start, end, sink rate,
+  candela, side; saved) and `support.illum`; the light is unchanged until M9.1.
+- **Counter-battery** (`CounterBatteryModel`, implementation `DISPLACE_MODEL`): after `missionsBeforeMove` 3 missions
+  the battery is moving for `moveSeconds` 600 s after its rounds; calls meanwhile: `radio.batteryMoving`.
+- **Guided rounds:** a round whose `guidance` is not "unguided" is refused (`radio.guidedNotYet`) until M9.
+- Sim: `SupportSection.asset`, per-asset `supportLeft(..., asset)`, `FireMission.asset / fuse / dangerClose`,
+  `FireAmmo` "he" | "smoke" | "illum". Default battles unchanged (see the batch line below). Goldens regenerated.
+- Batches (10 x 1200 s, merged head -> M8.4): `platoon` 3 / 19.6 / 13.8 and `platoon-ru` 6 (red) / 15.9 / 12.9, identical
+  (attacker wins / blue down / red down).

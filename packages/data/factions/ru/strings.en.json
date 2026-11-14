@@ -102,5 +102,10 @@
   "role.ru.mortar-loader": "Mortar loader",
   "ammo.ru-120-he": "120 mm HE bomb",
   "ammo.ru-120-fragment": "120 mm bomb fragment",
-  "ammo.ru-120-smoke": "120 mm smoke bomb"
+  "ammo.ru-120-smoke": "120 mm smoke bomb",
+  "ammo.ru-152-he": "152 mm HE-FRAG shell",
+  "ammo.ru-152-fragment": "152 mm shell fragment",
+  "ammo.ru-152-smoke": "152 mm smoke shell",
+  "ammo.ru-152-illum": "152 mm illumination shell",
+  "ammo.ru-82-illum": "82 mm illumination bomb"
 }

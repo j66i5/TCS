@@ -81,7 +81,9 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return null;
     case "callFire":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
-      if (o.ammo !== "he" && o.ammo !== "smoke") return "invalid-params";
+      if (o.ammo !== "he" && o.ammo !== "smoke" && o.ammo !== "illum") return "invalid-params";
+      if (o.asset !== undefined && o.asset !== "mortar" && o.asset !== "artillery") return "invalid-params";
+      if (o.fuse !== undefined && (o.fuse !== "airburst" || o.ammo !== "he")) return "invalid-params";
       if ((o.x2 === undefined) !== (o.y2 === undefined)) return "invalid-params";
       if (o.x2 !== undefined && (o.ammo !== "smoke" || !Number.isFinite(o.x2) || !Number.isFinite(o.y2!) || o.x2 < 0 || o.y2! < 0 || o.x2 > ctx.map.widthM || o.y2! > ctx.map.heightM)) return "invalid-params";
       return Number.isInteger(o.rounds) && o.rounds >= 1 && o.rounds <= 24 ? null : "invalid-params";
@@ -534,8 +536,13 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // mounted: ok a call for fire goes over the radio from inside a vehicle as well
       const all = isUnit ? unitSoldiers(state, order.target).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
       const callers = isUnit && u && u.leader !== null && all.includes(u.leader) ? [u.leader, ...all] : all;
-      const cf = callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined);
+      const cf = callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined,
+        { ...(order.asset === "artillery" ? { asset: "artillery" as const } : {}), ...(order.fuse ? { fuse: order.fuse } : {}), ...(order.dangerClose ? { dangerClose: true } : {}) });
       if (cf === "range") return { unable: "radio.fireOutOfRange" };
+      if (cf === "dangerClose") return { unable: "radio.fireDangerClose" };
+      if (cf === "moving") return { unable: "radio.batteryMoving" };
+      if (cf === "guided") return { unable: "radio.guidedNotYet" };
+      if (cf === "noFuse") return { unable: "radio.noAirburst" };
       if (!cf) return "unable";
       break;
     }

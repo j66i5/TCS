@@ -219,6 +219,9 @@ white flags on the map; the after-action review lists surrendered and captured m
   5. ✅ **M8.3b On-map mortars: signature and degradation** (2026-11-14) — the enemy hears (3-4 km) and sees the
      tubes fire; a hit or suppressed crew fires slower and stops below its minimum crew; DATA_GUIDE "Add a mortar";
      review fixes for M8.3a.
+  6. ✅ **M8.4 Off-map 155 mm, airburst, flares as data, reserved interfaces** (2026-11-14) — PzH 2000 and 2S19
+     batteries (opt-in), airburst, danger close, illumination flares saved without light, abstract counter-battery,
+     guided rounds refused; `lab -- artillery`.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,

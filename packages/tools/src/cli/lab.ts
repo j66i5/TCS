@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|treatment|smoke [seeds]|indirect [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|treatment|smoke [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -19,6 +19,7 @@ import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
+import { artilleryLab, artilleryLabMarkdown } from "../labs/artillery";
 import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
 import { loadData } from "../scenarios";
 
@@ -44,6 +45,7 @@ const LABS: Record<string, () => string> = {
     if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
+  artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,

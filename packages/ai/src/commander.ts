@@ -9,7 +9,8 @@
  *   men pulls back once the enemy is close (within `fallback.threatM`, its objective assaulted, or enemies on two
  *   sides) to a covered rally point of its own behind it that still sees its objective, and holds there; if the main
  *   objective is lost while two squads are still fit (a squad holding its rally point counts as the second), or one
- *   nearly whole, the strongest counterattacks it.
+ *   nearly whole, the strongest counterattacks it. A squad whose men left a house on their own (a trap, the enemy
+ *   inside, cut off: sim systems/house.ts, M7.5e) takes fire positions outdoors around where they went.
  * Attack: the platoon moves up to a support line about `supportM` from the main objective, on an axis turned away
  *   from the other objective's garrison (blinded with smoke), each squad to a place with a field of fire (going
  *   to ground on contact, then moving on to it), and looks for the enemy there (up to `reconSeconds`) while the
@@ -23,15 +24,27 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
   // objective's ring holds it, and its men stay inside the ring.
   siteRingSlackM: 15,
+  // Clearing houses (M7.5e step "clear", D8/D9; game values, low): during the assault each assaulting squad takes the
+  // houses on its way in first, one `assault {building}` each (sim drill "clear"): those within `ringSlackM` of the
+  // objective's ring and those within `corridorM` of its line from where it is to the objective, ahead of it; a house
+  // is cleared if an enemy was known in it within `enemySeconds`, or it lies inside the main objective's ring while an
+  // enemy is known in that ring (within `enemySeconds`), the nearest along the way first; one that failed is left for `retrySeconds`. A squad that took a house within `ringSlackM` of the main
+  // objective's ring holds it (the defence's siting around it within `holdSiteM`, windows included, facing the next
+  // objective or away from where the attack came from) and is not sent on unless it is the only squad left to assault.
+  // Review fixes (2026-11-14): only an enemy placed within `errM` (a sight, a close report; not a far sound) marks a
+  // house; a squad is sent only to houses within `reachM` of it; a house with an enemy known in it within `stillS` of
+  // the drill's end is not taken (left for `retrySeconds`); a taken house is cleared again once an enemy is known in
+  // it after it was taken; it is taken with at least `takenMen` able men of the squad inside (fewer if it has fewer).
+  clear: { ringSlackM: 20, corridorM: 25, enemySeconds: 60, retrySeconds: 120, holdSiteM: 30, pendingSeconds: 20, errM: 10, reachM: 200, stillS: 15, takenMen: 2 },
   // Falling back (overnight pick "defence-fallback", game values, low confidence): a squad below half strength
   // pulls back only when a known enemy is within `threatM` of it, its objective is contested while it is within
   // `assaultSlackM` of the ring, or enemies are known within `flankM` on two sides (bearings spread `flankDeg`).
@@ -99,6 +112,12 @@ interface Memory {
   /** Defence (overnight pick "defence-fallback"): the way the attack is expected (rad); each squad's rally point
    *  [x, y, objective index, tick ordered]; squads seen in their withdraw drill; squads rallied and placed. */
   front?: number; rally?: Record<string, [number, number, number, number]>; rallySeen?: number[]; rallied?: number[];
+  /** M7.5e step "leave": per squad, the tick of the house leaving it has been re-sited after. */
+  houseLeft?: Record<string, number>;
+  /** M7.5e step "clear": per squad, the house (building id) it was sent to clear and when; houses taken (ids); per
+   *  squad, the house in the main ring it holds; per house, when its clearing last failed and when an enemy was last
+   *  known in it. */
+  clearing?: Record<string, [number, number]>; taken?: number[]; takenAt?: Record<string, number>; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
 }
 
 /**
@@ -413,7 +432,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const placed = new Set<EntityId>();
           for (const p of siteDefence(ground(), groups, approachPoints(ground(), main.x, main.y, front))) {
             if (!p.move) continue;
-            order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: Number.isNaN(p.facing) ? front : p.facing });
+            // (M7.5e: a window place is one man's occupy order, at a walk.)
+            if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "walk" });
+            else order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "walk" }], facing: Number.isNaN(p.facing) ? front : p.facing });
             placed.add(p.id);
           }
           for (const m of all) if (!placed.has(m)) order(m, { kind: "posture", posture: "prone" });
@@ -455,9 +476,28 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const o = objectives[r[2]] ?? main;
           const e = enemyCentre(r[0], r[1], men.map((m) => m.id));
           const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
-          for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM)) {
+          for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
             if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
             else order(p.id, { kind: "posture", posture: "prone" });
+          }
+        }
+        // Out of a house (M7.5e step "leave": a trap, the enemy inside, cut off): once its men are out and halted (or
+        // `houseResiteSeconds` on), each takes a fire position of his own around where they went, outdoors
+        // (`rallySiteM`), facing its objective and the way the enemy comes, as after a rally.
+        for (const sq of squads) {
+          const u = view.unit.get(sq), lh = u?.leftHouse;
+          if (!u || !lh || u.drill || (mem.houseLeft ??= {})[String(sq)] === lh.tick) continue;
+          const men = members(view, sq).filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); })
+            .sort((a, b) => a - b).map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; });
+          if (men.length === 0) { mem.houseLeft[String(sq)] = lh.tick; continue; }
+          if (tick - lh.tick < COMMANDER.houseResiteSeconds * 60 && men.some((m) => (view.mover.get(m.id)?.waypoints.length ?? 0) > 0)) continue;
+          mem.houseLeft[String(sq)] = lh.tick;
+          const cx = men.reduce((a, m) => a + m.x, 0) / men.length, cy = men.reduce((a, m) => a + m.y, 0) / men.length;
+          const o = objectives[ownObjective(cx, cy)] ?? main;
+          const e = enemyCentre(cx, cy, men.map((m) => m.id));
+          const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
+          for (const p of siteDefence(ground(), [{ men, cx, cy }], rallyView(o, toward), F.rallySiteM, { windows: false })) {
+            if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
           }
         }
         // Mortars on attackers its men have seen out in the open (not near its own men).
@@ -670,6 +710,87 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         }
         mem.flank = best;
         return best;
+      };
+      // ---- houses (M7.5e step "clear", D8/D9; values COMMANDER.clear)
+      const CL = COMMANDER.clear;
+      /** Where an enemy was known in each house lately (the houses' ids), from what its men know. */
+      const noteHouses = () => {
+        const ctx = ground();
+        if (!mapHasInteriors(ctx)) return;
+        mem.houseSeen ??= {};
+        for (const m of all) for (const c of knownMen(m)) {
+          if (tick - c.tick > CL.enemySeconds * 60 || contactErrorM(ctx, c, tick) > CL.errM) continue;
+          const bi = indoorAt(ctx, c.x, c.y);
+          if (bi < 0) continue;
+          const k = String(ctx.map.buildings[bi]!.id);
+          if ((mem.houseSeen[k] ?? -1e9) < c.tick) mem.houseSeen[k] = c.tick;
+        }
+      };
+      const houseMid = (bi: number) => { const fp = input.map.buildings[bi]!.footprint, n = fp.length / 2; let x = 0, y = 0; for (let k = 0; k < n; k++) { x += fp[k * 2]! / n; y += fp[k * 2 + 1]! / n; } return { x, y }; };
+      const inMainRing = (bi: number) => { const h = houseMid(bi); return hypot2(h.x - main.x, h.y - main.y) <= main.radiusM + CL.ringSlackM; };
+      /** The next house squad `sq` clears on its way to the objective (index in map.buildings), or -1. */
+      const nextHouse = (sq: EntityId): number => {
+        const c = centre(sq);
+        if (!c) return -1;
+        const ctx = ground();
+        const dl = hypot2(tgt.x - c.x, tgt.y - c.y) || 1, vx = (tgt.x - c.x) / dl, vy = (tgt.y - c.y) / dl;
+        const busy = new Set(Object.entries(mem.clearing ?? {}).filter(([k]) => k !== String(sq)).map(([, v]) => v[0]));
+        const ringDefended = all.some((m) => knownMen(m).some((c) => tick - c.tick <= CL.enemySeconds * 60 && hypot2(c.x - tgt.x, c.y - tgt.y) <= tgt.radiusM));
+        let best = -1, bestAlong = Infinity;
+        input.map.buildings.forEach((b, bi) => {
+          // (A house taken is cleared again once an enemy is known in it after it was taken.)
+          const retaken = (mem.houseSeen?.[String(b.id)] ?? -1e9) > (mem.takenAt?.[String(b.id)] ?? -1e9);
+          if (!b.interior || ((mem.taken ?? []).includes(b.id) && !retaken) || busy.has(b.id) || tick - (mem.clearFailed?.[String(b.id)] ?? -1e9) < CL.retrySeconds * 60) return;
+          const h = houseMid(bi), dT = hypot2(h.x - tgt.x, h.y - tgt.y);
+          if (hypot2(h.x - c.x, h.y - c.y) > CL.reachM) return;
+          const along = (h.x - c.x) * vx + (h.y - c.y) * vy, across = Math.abs(-(h.x - c.x) * vy + (h.y - c.y) * vx);
+          const near = dT <= tgt.radiusM + CL.ringSlackM, onWay = along > -10 && along < dl && across <= CL.corridorM;
+          if (!near && !onWay) return;
+          const enemy = tick - (mem.houseSeen?.[String(b.id)] ?? -1e9) <= CL.enemySeconds * 60;
+          // (A house in the ring with no enemy known in it: only on the main objective while enemies are known in its
+          // ring; the second, or an objective nobody defends any more, is taken quickly.)
+          if (!enemy && (dT > tgt.radiusM || mem.phase === "second" || !ringDefended)) return;
+          if (along >= bestAlong || !clearable(ctx, b.id)) return;
+          best = bi; bestAlong = along;
+        });
+        return best;
+      };
+      /** A squad that took a house in the main ring holds it: the defence's siting around it, windows included. */
+      const holdHouse = (sq: EntityId, bi: number) => {
+        const men = members(view, sq).filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); })
+          .sort((a, b) => a - b).map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; });
+        if (men.length === 0) return;
+        const h = houseMid(bi);
+        const next = objectives.find((o, i) => i !== 0 && !holds(i));
+        const toward = next ? atan2(next.y - h.y, next.x - h.x) : atan2(h.y - sy, h.x - sx);
+        for (const p of siteDefence(ground(), [{ men, cx: h.x, cy: h.y }], approachPoints(ground(), h.x, h.y, toward), CL.holdSiteM)) {
+          if (!p.move) continue;
+          if (p.building !== undefined) order(p.id, { kind: "occupy", building: p.building, windowIndex: p.windowIndex, mode: "run" });
+          else order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward : p.facing });
+        }
+      };
+      /** How the clearings went: a squad out of its drill with men in the house took it (and holds it if it lies in
+       *  the main ring); without: the house is left for a while. */
+      const reviewClearings = () => {
+        const ctx = ground();
+        // (A squad that left the house it held, step "leave": it no longer holds it.)
+        for (const [k, bid] of Object.entries(mem.held ?? {})) if (view.unit.get(Number(k))?.leftHouse?.building === bid) delete mem.held![k];
+        for (const [k, [bid, t0]] of Object.entries(mem.clearing ?? {})) {
+          const sq = Number(k), u = view.unit.get(sq);
+          if (u?.drill?.kind === "clear" && u.drill.building === bid) continue;
+          if (u && !u.drill && tick - t0 < CL.pendingSeconds * 60) continue;
+          delete mem.clearing![k];
+          const bi = buildingIndexOf(ctx, bid);
+          const ables = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && view.transform.has(m));
+          const inside = bi >= 0 ? ables.filter((m) => { const t = view.transform.get(m)!; return indoorAt(ctx, t.x, t.y) === bi; }).length : 0;
+          // (Taken: men of the squad inside, and no enemy known in it lately — a drill that ran out of time or men
+          // with the enemy still upstairs did not take it.)
+          const still = tick - (mem.houseSeen?.[String(bid)] ?? -1e9) <= CL.stillS * 60;
+          if (inside < Math.min(CL.takenMen, ables.length) || inside === 0 || still) { (mem.clearFailed ??= {})[String(bid)] = tick; continue; }
+          if (!(mem.taken ??= []).includes(bid)) mem.taken.push(bid);
+          (mem.takenAt ??= {})[String(bid)] = tick;
+          if (inMainRing(bi) && mem.held?.[k] === undefined) { (mem.held ??= {})[k] = bid; holdHouse(sq, bi); }
+        }
       };
       const advance = (sq: EntityId, i: number) => {
         const p = placeOf(i);
@@ -887,7 +1008,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // its near edge to blind them while the assault goes in; repeated while rounds last.
           // (Its own men near the point now, or squads assaulting toward it — they will be there when the rounds land.)
           const ownNear = (px: number, py: number, r: number) => all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - px, ft.y - py) < r; })
-            || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && d.kind === "assault" && hypot2(d.x - px, d.y - py) < 150; });
+            || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && (d.kind === "assault" || d.kind === "clear") && hypot2(d.x - px, d.y - py) < 150; });
           if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
@@ -904,7 +1025,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // Half the squads fire (at least one), the others assault (M6.5b).
           const nBase = live.length > 1 ? Math.max(1, Math.floor(live.length / 2)) : 0;
           const bases = ranked.slice(0, nBase);
-          const assaulters = live.length > 1 ? live.filter((sq) => !bases.includes(sq)) : [ranked[0]!];
+          const assaulters0 = live.length > 1 ? live.filter((sq) => !bases.includes(sq)) : [ranked[0]!];
+          // (M7.5e: houses on the way in; a squad holding a house in the main ring stays there unless it is the only
+          // one left to assault.)
+          noteHouses();
+          reviewClearings();
+          const free = assaulters0.filter((sq) => mem.held?.[String(sq)] === undefined);
+          const assaulters = free.length > 0 ? free : assaulters0;
+          for (const sq of assaulters) if (mem.held?.[String(sq)] !== undefined) delete mem.held![String(sq)];
           if (bases.length > 0 && tick - mem.lastFire >= COMMANDER.refireSeconds * 60) {
             // Distribution of fire (balance pass 2026-11-13): each man of the base of fire at another enemy its men
             // know near the objective, at the full rate; fire lifts off an enemy its own men are close to (they
@@ -952,6 +1080,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           mem.lastGrenade ??= {};
           for (const sq of assaulters) {
             if (tick - (mem.lastGrenade[String(sq)] ?? -1e9) < COMMANDER.grenadeEverySeconds * 60) continue;
+            // (A squad clearing a house throws its own, room by room.)
+            if (view.unit.get(sq)?.drill?.kind === "clear") continue;
             const reach = mem.closed?.includes(sq) === true ? COMMANDER.launcherReachM : COMMANDER.grenadeRangeM;
             const men = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
             let hit: { x: number; y: number } | null = null, hitD = Infinity;
@@ -1003,7 +1133,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             if (!mem.closed!.includes(sq)) return;
             if (u && !u.drill && !u.broken && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq)) {
               const off = (i - (assaulters.length - 1) / 2) * 20;
-              order(sq, { kind: "assault", x: clamp(tgt.x - uy * off, W), y: clamp(tgt.y + ux * off, H) });
+              const hb = nextHouse(sq);
+              if (hb >= 0) {
+                const h = houseMid(hb), bid = input.map.buildings[hb]!.id;
+                order(sq, { kind: "assault", x: clamp(h.x, W), y: clamp(h.y, H), building: bid });
+                (mem.clearing ??= {})[String(sq)] = [bid, tick];
+              } else order(sq, { kind: "assault", x: clamp(tgt.x - uy * off, W), y: clamp(tgt.y + ux * off, H) });
               mem.lastAssault[String(sq)] = tick;
             }
           });

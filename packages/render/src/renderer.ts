@@ -80,6 +80,8 @@ export interface Overlay {
   selectedUnit: EntityId | null;
   /** Debug drawing: entity IDs, all sides' waypoints — and the enemy as he really is (no fog of war). */
   debug: boolean;
+  /** Screenshots (M7.5e): the enemy as he really is, without Debug's other drawing. */
+  reveal?: boolean;
   /**
    * Fog of war (M3.4): what the player's side knows of the enemy (from `sideKnowledge`). When given and debug is
    * off, enemy soldiers, their muzzle flashes and hits on them are not drawn; these contacts are drawn instead.
@@ -613,7 +615,7 @@ export class BattleRenderer {
     }
 
     // Fog of war is on whenever Debug is off (the app supplies what the side knows).
-    const fog = !overlay.debug;
+    const fog = !overlay.debug && overlay.reveal !== true;
     this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): symbols instead of men and hulls (M7.5a: a vehicle symbol per vehicle — near ones
     // stacked into one — and an infantry symbol only for a unit with men on foot).

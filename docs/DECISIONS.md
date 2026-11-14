@@ -3379,3 +3379,381 @@ platoon 1200 s: attacker (blue) wins 5/20 (7/20 after the fall-back pick: noise 
 red 12.95. Goldens changed (`npm run golden:update`): all seven regenerated (catalog fingerprint, behaviour.json);
 behaviour changed where comrades shared x, y on two floors or lay dead or hit nearby (village-occupy-s1 most;
 the recorded orders changed in platoon-vehicles-s1). no-interiors goldens untouched.
+
+## 2026-11-14 — Owner answers on the overnight AI work
+- Village balance: **accept a harder village** (sited defence kept, attack not re-tuned).
+- Ducking between shots: **everyone ducks**, defenders behind walls included (as built).
+- Assault rest: **up to 60 s** (as built).
+- Next: **M7.5e AI uses buildings**.
+
+## 2026-11-14 — AI uses buildings, step "defend": the defence holds houses with a mixed spread (plan m7.5e, step 1)
+
+Owner answers 2026-11-14 (binding, plan `docs/plans/m7.5e-ai-buildings.md`): defenders hold houses; the squad is a
+**mix**, part inside at windows (upper floors where useful), part outside covering the approach and the back, a few
+men per room at most. Before, the AI defender never went into a house (`siteDefence` dropped every indoor
+candidate). Values in `SITING` (the established AI exception), game values, **low** unless said.
+- **D1 Occupy one window (sim, orders).** `occupy` gets two optional fields: `windowIndex` (an index into the
+  building's `windowPlaces`, a pure function of the map) sends the first man to exactly that window, any others to
+  the next places not at it; `mode` (a foot movement mode, default run) is the pace. Rejected: an index out of range
+  or not a whole number, a pace that is not on foot. The man's facing and posture come from the window place (as
+  every Occupy); his `homePosture` is that posture on arrival. The player's Occupy is unchanged. (Plan named the
+  field `window`; renamed because the sim's purity test bans that word as the DOM global.) **High** (plumbing).
+- **D2 Houses in the siting.** `siteDefence` takes the window places of every house within `searchM` 40 m of a
+  group's place as candidates beside the outdoor spots, inside the group's ring or within `windowRingSlackM` **10 m**
+  of it (a house on the ring's edge is part of the position: with the ring alone the platoon had 3-6 window places
+  of 19 men, with 10 m 6-9). Each is scored like an outdoor spot but seen from its own height (`standZ` + the eye of
+  the posture that clears the sill), its cover term `windowCoverW` **0.4** (outdoors `coverW` x (1 - exposure), at
+  most 0.1): 0.15 chose no window on seed 1 (village windows see 0.1-0.27 of the approach against 0.2-0.4 outdoors),
+  0.3 gave 22 % / 19 % of man-seconds indoors (platoon / mounted, 4 seeds), 0.4 with the 10 m slack 35 % / 24 %.
+  Caps: at most `insideShare` 0.6 of a group inside and at least `outsideMin` 2 men outside; `roomMax` 2 per room,
+  `houseMax` 4 per house; upper windows only where they see at least `upperGain` **1.0** x the best ground window of
+  the same wall (plan 1.2; 1.0 lets the upper floor win ties, upstairs man-seconds 2.8 -> 6.1 % on 4 seeds),
+  `upperMax` 2 per house and at most half (rounded up) of a group's men inside upstairs. No man outside within
+  `wallClearM` 8 m of the walls of an occupied house, and no house taken with an outdoor man already that close (one
+  shell on the house catches nobody outside). **The back:** the group's next man after one takes a house goes to the
+  best covered spot 8-23 m from its walls on its far side from the approach (`backM` 15, `backBehindW`), facing away
+  from the approach; his spot is not scored for view (no sight lines worked out). Rally re-siting after a fall-back
+  stays outdoors (`{ windows: false }`; step "leave" decides re-entry).
+- **Orders.** A window place is a one-man `occupy {building, windowIndex, mode: "walk"}`; the rest as before.
+- **Interiors off:** no window places; the result equals the outdoor-only siting (test).
+- **Start-up:** the defender's first look +30 ms (676 -> 706 ms platoon, 858 -> 877 mounted, 4 runs in parallel).
+- Tools: `npm run batch` reports a "buildings" block (`tools/src/buildings.ts`: indoors / upstairs man-seconds per
+  side, wounds per 100 man-minutes inside / outside, grenades at houses, HE on houses, the defence's spread at
+  239 s); `npm run lab -- house defend [trials]` (`tools/src/labs/house.ts`).
+
+Measured (scratch `m75e/base.mts`, `defend.mts`; same seeds before (e0f2cba) and after; platoon and
+platoon-ru 20 x 1200 s, platoon-vehicles 15, village-occupy 20 x 300 s; spread at 239 s on 10 seeds):
+
+| | platoon (village, RU defends) | platoon-ru (farmland, DE) | platoon-vehicles (village) |
+|---|---|---|---|
+| Defender man-seconds indoors | 0.5 -> **35.9 %** (target 25-60) | 0.3 -> 16.1 % (reported) | 1.6 -> **26.8 %** |
+| Upstairs | 0 -> **9.2 %** (target >= 5) | 0 -> 3.9 % | 0 -> **6.3 %** |
+| Defender wounds / 100 man-min inside vs outside | 31.9 / 21.3 -> **8.9 / 20.2** | 49.9 / 25.1 -> 15.0 / 32.1 | 11.9 / 44.4 -> 10.2 / 42.2 |
+| Units with men inside, 2+ outside at 239 s | 24 / 24 | 13 / 13 | 19 / 22 (3 had lost men by then) |
+| Most in a room / house at 239 s | 2 / 4 | 2 / 4 | 2 / 3 |
+| Within 10 m of a defender: max (worst seed) / mean | 5.9 (7) / 3.21 -> 4.5 (6) / 2.46 | 5.4 (7) / 3.55 -> 5.4 (7) / 3.28 | 4.1 (6) / 2.09 -> 3.5 (5) / 1.95 |
+| Approach seen by the whole defence (each man's own eye, at 239 s) | 0.53 -> 0.64 | 0.72 -> 0.79 | 0.52 -> 0.54 |
+| Attacker wins | 5 -> 4 / 20 | 13 -> 12 / 20 | 7 -> 4 / 15 |
+| Defenders down / attackers down | 12.9 / 18.4 -> 11.2 / 19.8 | 15.5 / 13.7 -> 15.2 / 14.5 | 22.7 / 14.7 -> 21.2 / 19.7 |
+| Main objective held at the end | 15 -> 16 / 20 | 11 -> 12 / 20 | 13 -> 12 / 15 |
+
+Targets met: indoors, upstairs, 2+ outside (all but three squads that had lost men by 239 s), room and house caps,
+mean clustering not above the baseline, inside safer than outside. **Not met:** "max within 10 m <= 5 on every
+seed" (worst 6 / 7 / 5; the baseline's 7 / 7 / 6; the crowds are outdoors and form during the fight, the caps hold).
+The whole-defence share is measured here from each man's own eye at 239 s (the plan's 0.40 was the prone-eye
+measure of DECISIONS "Defence siting", not repeated); it rose on every map. village-occupy unchanged (its own
+controllers). House lab (10 seeds, red fires at will and calls 4 HE on the house at 150 s): all in / mixed, blue
+down 0.4 / 0.6 of 6, wounds inside / outside 1.8 / 0 and 1.7 / 1.9, most within 10 m at 140 s 5.9 / 2.4, HE in or
+on the house 0.2 / 0 (the mortar rarely hits the house itself: against this fire the house alone protects slightly
+better; the spread guards against the burst that does land, and step "leave" adds the way out).
+**Balance (reported, not re-tuned; owner accepted a harder village):** village attacker wins 5 -> 4 / 20, mounted
+7 -> 4 / 15 (attackers down 14.7 -> 19.7), farmland 13 -> 12 / 20. The mounted village attack is now the hardest; the
+attacker clears no houses yet (step "clear").
+Goldens: `npm run golden:update` changed platoon-vehicles-s1 only (the only golden with an AI defender; first
+difference at tick 600); no data or catalog change. Tests: `sim/test/floors.test.ts` (window order: exact place,
+pace, sill posture, several men, rejections, save/load hash mid-route), `tools/test/siting.test.ts` (window places
+on three village seeds, caps, upper rule, back watcher, wall clearance, deterministic, interiors off),
+`tools/test/lab-house.test.ts`. `mounted-invariants.test.ts`: men out by 180 s on platoon-ru-vehicles s2 must be
+> 20 (was > 30): with the German defence at windows two BMPs are lost with men aboard in the first minute (22 men get
+out, 31 before); the invariants are still checked on every man aboard.
+
+## 2026-11-14 — AI uses buildings, step "leave": men leave a house that has become a trap, that the enemy is in, or that is cut off (plan m7.5e, step 2)
+
+Owner answer 2026-11-14 (binding): men leave a house when it becomes a trap (grenades or HE land in or on it), when
+the enemy gets inside, or when it is cut off from behind (outflanked). Before, a man indoors never left on his own
+(`leaveBeatenZone` and `seekCover` kept him in: "its walls are his cover"). Values in `behaviour.json`
+`soldier.house*` (game values, **low**), commander values in `COMMANDER`.
+- **D3 Soldier behaviour in the sim** (`sim/systems/house.ts`), checked in each man's decision step before the
+  pinned branch, for every side and for the player's squads too (an Occupy is not a promise to die in a burning
+  house; owner question below); not while his unit is in a drill (an assault or withdrawal moves him). Decided by
+  one man, it sends every man of his unit in that house, or on his way into it; men of other units decide on their own.
+  `soldier.houseLeave` false = off (today's behaviour; lab and test).
+- **D4 Danger without events.** `detonate` marks `SoldierState.houseDanger {building, n, tick}` on the able men of
+  the other sides inside the building a burst is in or on (inside its walls, or within `houseBurstNearM` **1 m**
+  outside them). **Trap:** n >= `houseTrapBursts` **2** with no more than `houseTrapSeconds` **30 s** between one
+  burst and the next; a burst with at least `houseHeavyKg` **0.3 kg** of filling (a mortar bomb, a rocket) counts
+  `houseHeavyCount` **2**, a hand grenade, a 40 mm grenade or a 30 mm round 1. Own side's bursts do not count (the
+  clearing step throws into the next room).
+- **The enemy inside:** an enemy **seen** (plan: seen or heard; a sound gives too vague a place to say "in this
+  house") by him or a man of his unit in the last `houseEnemySeconds` **5 s** inside his house. A man with that
+  enemy in his own room within `houseFightM` **4 m** stays and fights; he follows his unit out when he can.
+- **Cut off (deviation from the plan):** an enemy known in the last `houseFlankSeconds` **10 s** within
+  `houseFlankM` **150 m** of the house, more than `houseFlankDeg` **120 deg** off **another enemy his unit remembers
+  (any distance): enemies on two sides**. The plan measured it against the unit's front (the mean facing of its
+  windows): with the player's all-round Occupy the mean is near zero (no front: never cut off), and with the AI's
+  window men a defence attacked from a side its windows do not face left at once though every enemy was on one
+  side (platoon s2 at 375 s: all enemies west, windows east).
+- **Only well-located contacts** count for the enemy inside and cut off: position error now within
+  `houseContactErrM` **25 m** or a quarter of its distance. Before this filter, "heard" vehicle contacts with
+  105-125 m of error placed an enemy 14 m from the house and caused most "cut off" calls in the mounted battle
+  (cut-off leaves per battle 0.93 -> 0.27 mounted, 0.80 -> 0.15 village).
+- **Leaving:** the way out is the one of 24 bearings farthest from every threat (the enemies known within 150 m;
+  a trap with none known: the way the windows face); each man runs (`houseLeaveMode` run; a `bolt` waypoint flag:
+  pinning does not hold him, a pinned man would otherwise lie in the burning house) to a covered spot outdoors
+  (best cover within 8 m of points `houseLeaveM` **25-50 m** from the house within `houseLeaveDeg` **60 deg** of the
+  way out, exposure < 0.9 preferred, `minSpacingM` apart), by `routeBetween` from his floor; lies down there facing
+  the nearest threat bearing; his `homePosture` becomes prone. `Unit.leftHouse {building, tick, reason}`; radio
+  `radio.houseLeftTrap` / `radio.houseLeftEnemy` / `radio.houseLeftFlank` (separate keys instead of one key with a
+  reason parameter: a parameter cannot be translated). His unit's own rules keep out of that house for
+  `houseReenterSeconds` **120 s** (the beaten-zone rule's house); orders may send it back.
+- **Commander:** a defending squad whose men left a house re-sites once they are out and halted (or after
+  `COMMANDER.houseResiteSeconds` 30 s): outdoor siting within `rallySiteM` 20 m of where they went, as after a
+  rally (`Memory.houseLeft`, plain data). It does not go back into houses (step "clear"/"polish" may revisit).
+- New state is optional plain data (`houseDanger`, `leftHouse`, `Waypoint.bolt`, `Memory.houseLeft`); save/load
+  hash test mid-leave. No schema bump.
+
+Measured (scratch `m75e/leave.mts` = `base.mts` + leave counts; same seeds as the step "defend" figures (e78138e):
+platoon and platoon-ru 20 x 1200 s, platoon-vehicles 15, village-occupy 20 x 300 s):
+
+| | platoon (village, RU defends) | platoon-ru (farmland, DE) | platoon-vehicles (village) |
+|---|---|---|---|
+| Defender man-seconds indoors | 35.9 -> **33.9 %** (>= 20) | 16.1 -> 14.7 % | 26.8 -> **19.0 %** |
+| Upstairs | 9.2 -> 8.8 % | 3.9 -> 3.8 % | 6.3 -> 3.8 % |
+| Defender wounds / 100 man-min inside vs outside | 8.9 / 20.2 -> **6.9 / 25.2** | 15.0 / 32.1 -> **10.7 / 31.2** | 10.2 / 42.2 -> 11.7 / 45.4 |
+| Defenders down inside / outside per battle | 3.70 / 9.50 -> 2.45 / 11.40 | 1.50 / 18.45 -> 0.85 / 18.10 | 2.20 / 26.67 -> 1.40 / 27.00 |
+| Houses left per battle (trap / enemy / cut off) | 0.45 / 0 / 0.15 | 0.65 / 0 / 0.05 | 0.80 / 0 / 0.27 |
+| Attacker wins | 4 -> 5 / 20 | 12 -> 12 / 20 | 4 -> 6 / 15 |
+| Defenders down / attackers down | 11.2 / 19.8 -> 11.3 / 19.5 | 15.2 / 14.5 -> 14.9 / 14.6 | 21.2 / 19.7 -> 21.1 / 18.9 |
+| Main objective held at the end | 16 -> 15 / 20 | 12 -> 11 / 20 | 12 -> 11 / 15 |
+
+village-occupy: identical (89.9 % of defender man-seconds indoors, no leave call: nothing bursts on its house). No
+leave by the attackers but 0-0.07 per battle (no attacker clears houses yet). "Enemy inside" never fired in the
+batches: no attacker gets into a defended house yet (step "clear").
+House lab `npm run lab -- house leave 20` (`tools/src/labs/house.ts`; the squad in the two-storey house nearest it,
+the trigger at 90 s, rule on vs off, same seeds; enemy / cut-off runs counted from when a man inside knows of it,
+runs where none does left out):
+
+| trigger | runs | out in time (target >= 80 %) | in cover | within 60 deg of away (target >= 80 %) | blue down, on / off |
+|---|---:|---|---|---|---|
+| trap (2 grenades inside, then 4 mortar bombs through the roof 20-35 s later), within 20 s of the 2nd grenade | 20 | **90 %** | 92 % | 96 % | **0.25 / 2.25** (-89 %, target -30 %) |
+| enemy (a red man put in a ground-floor room), within 15 s | 16 | **81 %** | 94 % | 100 % | 0 / 0 |
+| cut off (AI mixed defence; 2 red men behind, red opening fire), within 20 s | 13 | **91 %** | 97 % | 94 % | 2.38 / 1.85 |
+
+Leaving under fire costs men (cut off: 2.38 vs 1.85 down staying put in the lab; outdoor wounds per 100 man-minutes
+up in the village batches); inside, the men who stay are safer (inside wound rate down on the village and farmland).
+**Not met:** "defender wounds per 100 man-min inside not worse than step 1" in the mounted battle (10.2 -> 11.7: 1.4
+men down inside per battle against 2.2, on fewer man-minutes inside; noise-level), and its indoors share is 19 %
+(the plan's >= 20 % names the village platoon battle: 33.9 %). **Balance (reported, not re-tuned):** village
+attacker wins 4 -> 5 / 20, mounted 4 -> 6 / 15, farmland 12 -> 12 / 20.
+Goldens: `npm run golden:update` changed all seven (catalog fingerprint: `behaviour.json`, `strings.en.json`; first
+difference at tick 600); `golden/no-interiors` untouched. Tests: `sim/test/house-leave.test.ts` (trap, one burst /
+own bursts / bursts 30 s apart / switch off, heavy rounds count double, no trigger stays, enemy inside with the man in
+his room fighting, cut off, only his unit goes, no re-entry by own rules for 120 s, an order sends it back in, save
+and load mid-leave), `tools/test/house-resite.test.ts` (commander re-sites once its men are out, once),
+`tools/test/lab-house.test.ts` (leave mode). `npm run batch` "buildings" block: houses left by reason.
+Owner questions (for step "polish"): should the player's squads leave on their own (as built: yes, switchable only in
+data)? Should an AI squad that left a house go back into another house when re-sited (as built: no, outdoors)?
+
+## 2026-11-14 — AI uses buildings, step "clear": a squad clears a house room by room, the AI attacker takes the houses on its way (plan m7.5e, step 3)
+
+Owner answer 2026-11-14 (binding): AI attackers clear the houses on their way and hold the ones they take; clearing
+is "suppress the windows, get close, throw a grenade through a window or door, then enter room by room". Before, the
+AI attacker had no house drill (the generic assault spread its men round the objective outdoors) and threw no
+grenade into a house in the clear.mts setting. Values: soldier/drill values in `behaviour.json` `drills.clear*` and
+`shooting.json` `grenades.postErrorM` (game values, **low**); commander values in `COMMANDER.clear` (the AI exception).
+- **D5 Clearing is a drill (sim, `systems/clear.ts`).** `assault` gets an optional `building` (a building id with an
+  interior and a way in; else rejected `invalid-params`): drill kind `"clear"` (added to `Drill.kind`; its own fields
+  `building, stage, stageTick, startTick, entry, rooms, room, thrower, throwAt, ammo, had, tried, aimAt, aside,
+  burstTick, entryMen` are optional plain data; no schema bump). The halves bound up as in any assault onto the point
+  outside the entry door; the covering half fires at the enemy it knows in the house, else (new) at the window of
+  that house facing it that it has a line into (`windowAim`, chest height on its floor); within the last rush they
+  **stack** beside the door (`clearStackOffM` 1 m off the wall, from `clearStackAsideM` 1.5 m beside the opening on
+  both sides, never in front; at most `clearStackWaitS` 20 s); **throw**; **wait** for the burst + `clearAfterBurstS`
+  1 s; **enter** (`clearEntryMen` 3, the nearest, run to `indoorSpots` of that room firing as they go; the others to the
+  rooms already cleared); next room (each at most `clearRoomS` 20 s; an enemy seen in it in the last 2 s is fought
+  first). Done when every room was entered (radio `radio.houseCleared`; `radio.clearing` at the stack), after
+  `clearTimeoutS` 240 s from the stack, or below `clearMinMen` 3. The men stay where they are; what holds the house is
+  the commander's (D9). "In an assault" (surrender rules, reserve fire) includes a clearing. The entry door: the one in
+  front of the fewest windows on other walls (seen least from inside), then the nearest.
+- **D6 Room order:** breadth first over the interior graph from the entry room; the ground floor first, nearer rooms
+  first, a room with an enemy known in it (60 s) first among equals, then by index (`roomOrder`, exported).
+- **D7 Grenade in (deviations).** Throw places: from outside beside the door, beside each ground-floor window of the
+  room, in front of the door; inside **from the doorway** of a room already cleared on the same floor, then a step
+  aside out of the line through it (plan: beside the opening; from beside an inner doorway no arc got through: the
+  frame, measured on the test house). **No throw up or down the stairs** (the arc check ignores floors: a grenade
+  "thrown" up a stairwell came down in the ground-floor room, beside the thrower): the men go up under their own
+  fire. **Aim:** the room's corner farthest from the thrower (0.9 m in), else its middle (aimed at the middle, the
+  burst was 1.7-2.4 m from the thrower with nothing solid between: inner walls do not shield blast; with the far
+  corner 4-5 m). **Posted grenade:** the action takes optional params `pose` (the least posture, over a sill) and
+  `post` (1: aim error `postErrorM` 0.2 m x skill instead of 0.6 m + 7 %; with the plain error a third of the throws
+  hit the frame and fell back beside the thrower). **Clear of the burst:** before the throw the unit's other men
+  within 5 m of the aim point with nothing solid between move to places in the rooms already cleared out of its way.
+  `throwArcExists` takes an optional `from` place and least posture (pure).
+- **D8 Commander picks houses** (`ai/src/commander.ts`, assault and second phase): when an assaulting squad is sent in
+  again, it first gets `assault {building}` for the next house: houses within `ringSlackM` 20 m of the objective's
+  ring or within `corridorM` 25 m of its line to the objective (ahead of it), cleared if an enemy was known in it
+  within `enemySeconds` 60 s (`Memory.houseSeen`), or it lies inside the main objective's ring while an enemy is known
+  in that ring (plan: any house in the ring; with every house in the ring cleared, the commander test with the defence
+  gone took the main objective at 1063 s and not the second by 1500 s: three squads cleared empty houses), nearest
+  along the way first, one squad per house, a failed one left `retrySeconds` 120 s. Its own grenade orders skip a
+  squad that is clearing.
+- **D9 Hold what is taken:** a squad out of its clearing with able men in the house took it (`Memory.taken`); in the
+  main ring (+20 m) it holds it: the defence's siting around the house (`siteDefence`, windows included, 30 m),
+  facing the next objective (else away from where it came from), `Memory.held`; it is not sent on while another
+  squad can assault, and stops holding when it leaves the house (step "leave"). New `Memory` fields are plain data
+  (test).
+
+Measured (same seeds before = ffcc9ae, after = this commit).
+**clear.mts** (village-occupy, red ordered to assault the house at 150 s; the plan's setting), 32 seeds (first 12 in
+brackets): house taken 5 -> 6 / 32 (2 -> 2 / 12; target >= 5/12 **not met**); attackers down 4.81 -> 5.28 (4.50 -> 5.17;
+target <= 4.0 **not met**); exchange 2.52 -> 2.68 (2.35 -> 2.58; target <= 2.5 not met); grenades into the house per
+attempt 0 -> 3.1 (**met**, target >= 2); stacks reached 8 / 32, house clear in 4 of them; first man in never in more
+than half the runs (median target **not met**). The approach decides it: at 150 s red is still 200-320 m out, and
+in 24 of 32 runs the 1:1 firefight across that ground wins or loses it before the door (the same in the baseline);
+where red reached the door it took the house 6 of 8 times, losing 3.1 men against 2.9 for the old rush.
+**House lab** `npm run lab -- house clear 12` (new): empty house: 12 / 12 cleared, every room entered, 4.1 grenades
+per house, **100 %** burst in the room being cleared (target >= 70 %), 0.17 men down (own grenades: 2.4 light wounds
+per clearing); all in / mixed defence (order at 150 s): taken 2 / 12 and 2 / 12.
+**Batches** (`m75e/clr.mts`; platoon and platoon-ru 20 x 1200 s, platoon-vehicles 15):
+
+| | platoon (village) | platoon-ru (farmland) | platoon-vehicles (village) |
+|---|---|---|---|
+| Attacker wins | 5 -> 3 / 20 | 12 -> 10 / 20 | 6 -> 7 / 15 |
+| Clearings started / houses cleared per battle | 0 -> 1.30 / 0.65 | 0 -> 0.25 / 0.15 | 0 -> 1.13 / 0.47 |
+| Attacker man-seconds indoors | 0.5 -> 0.7 % (target >= 5 **not met**) | 0.1 -> 0.1 % | 2.4 -> 2.6 % |
+| Attacker grenades thrown into houses per battle | 0.10 -> 1.20 (target >= 4 **not met**) | 0.25 -> 0.30 | 0.13 -> 1.80 |
+| Wins with an attacker in a house of the main ring at the end | 2 / 5 -> 1 / 3 (target >= 80 % **not met**) | 2 / 12 -> 3 / 10 | 1 / 6 -> 0 / 7 |
+| Defenders down / attackers down | 11.3 / 19.5 -> 11.2 / 19.9 | 14.9 / 14.6 -> 14.3 / 14.4 | 21.1 / 18.9 -> 21.0 / 19.4 |
+
+Seven results flipped (five wins lost, two gained); six of them had one or two clearings, farmland s6 none: the
+clearings cost the attack some tempo, but the margins are within the noise of 15-20 seeds. The clearings start late (the assault phase begins 600-900 s in) and a clear takes
+60-150 s from the stack, so attackers spend little time indoors. **Balance (reported, not re-tuned; owner accepted a
+harder village):** village 5 -> 3 / 20 (above the plan's 1/20 flag), farmland 12 -> 10 / 20, mounted 6 -> 7 / 15.
+Goldens: `npm run golden:update` changed all seven (catalog fingerprint: `behaviour.json`, `shooting.json`,
+`strings.en.json`; first difference at tick 600); `golden/no-interiors` untouched. Tests: `sim/test/clear.test.ts`
+(order and rejection, room order, stack beside the door, a grenade burst in each ground-floor room before anyone goes
+in, every room entered, no grenades still clears, below `clearMinMen` ends, save/load hash mid-clear),
+`tools/test/commander-clear.test.ts` (clear orders on houses near the objective, one squad per house, a held squad not
+sent on, memory plain data, deterministic), `tools/test/lab-house.test.ts` (clear mode); `commander.test.ts`'s assault-tempo check counts a clearing drill as
+an assault drill (its fatigue at the start). The fixture faction is not
+run through a clearing (test catalog factions are faction-free).
+Owner questions (for step "polish"): a Clear button for the player (the order field exists)? Clear every house in
+the ring or only those with a known enemy (as built: every house in the main ring while it is defended)? Should a clearing squad's
+approach from far out (clear.mts: 300 m of bounds) be left to the assault, or should the commander only order it
+from close in (as it does)?
+
+## 2026-11-14 — AI uses buildings, step "polish": balance report, scenario `house-clear`, screenshots, docs (plan m7.5e, step 4)
+
+No sim or data change in this step (catalog fingerprint unchanged; the seven goldens unchanged; `golden/no-interiors`
+untouched). **M7.5e is complete.**
+- **Scenario `house-clear`** (`tools/src/scenarios.ts`, golden `house-clear-s1`, 180 s): the demo squads on the
+  village; blue (one squad) starts 15 m behind the two-storey house nearest the map's middle, which is the only
+  objective (30 m ring); red attacks from 200 m with mortar support (12 HE, 4 smoke); both under the AI commander
+  (each side's squads put under a platoon with no men of its own, as the commander commands platoons' squads).
+  **Deviation: two attacking squads, not one.** With one, the commander's casualty tolerance (0.3: two men down)
+  ended every attack before the door (6 seeds at 150, 200 and 300 m: no stack reached). With two, 16 seeds x 900 s:
+  attacker wins 3 / 16, a stack at the door in 3, the house cleared in 2; defender man-seconds indoors 28 %, upstairs
+  18 %; 8 trap leaves; men down 2.9 / 6 defenders, 5.6 / 12 attackers. Test `scenario-house-clear.test.ts`.
+- **Screenshots** `npm run screenshot -- --scene buildings [--seed 3]` (new): the platoon battle on foot, the enemy
+  drawn as he is (new app hook `reveal`, `Overlay.reveal`: fog off without Debug's grid, off by default), at 150 s:
+  the AI defenders at windows, an upper floor (seed 3; seed 1 has nobody upstairs by 300 s, the shot is then
+  skipped), the house from further out (men outside, floor badges); the player's mortar on that house until its men
+  leave (seed 1: a trap; the caller cannot see the falls from 700 m, so on other seeds the bombs may stay off it);
+  then the lead squad clears the nearest empty house (new app hook `clearAt`: `assault` with the building): closing
+  on the door, stacked beside it, going in, house clear. Looked at (phone and desktop): men at windows on the walls,
+  the trapped squad leaving by the side away from the attack, the stack against the wall beside the door, men in
+  the rooms at the end. UI only.
+- **Docs:** HOW_IT_WORKS "The AI in houses", ARCHITECTURE 16l3, ROADMAP M7.5e ✅, the plan's progress line, STATE.
+
+**Balance report** (plan baseline dbdb479 against this step, which behaves as 1d1ad73; the same 20 seeds x 1200 s per
+scenario; `m75e/clr.mts`; "per battle" means over the 20). Not re-tuned (owner: harder village accepted).
+
+| | platoon (village, DE attacks) | platoon-ru (farmland, RU attacks) | platoon-vehicles (village) | platoon-ru-vehicles (farmland) |
+|---|---|---|---|---|
+| Attacker wins | 5 -> 3 / 20 | 13 -> 10 / 20 | 8 -> 8 / 20 | 1 -> 1 / 20 |
+| Defenders down / start | 13.8 -> 11.4 / 19 | 15.8 -> 15.3 / 20 | 21.4 -> 20.2 / 28 | 7.3 -> 8.9 / 32 |
+| Attackers down / start | 19.2 -> 19.9 / 40 | 13.7 -> 14.4 / 38 | 16.3 -> 19.4 / 64 | 26.1 -> 27.2 / 56 |
+| Objectives held by the attacker at the end (of 2) | 0.25 -> 0.15 | 0.50 -> 0.35 | 0.25 -> 0.40 | 0 -> 0 |
+| Defender man-seconds indoors / upstairs | 0.5 / 0 -> 34.4 / 8.8 % | 0.3 / 0 -> 15.0 / 3.9 % | 1.3 / 0 -> 22.3 / 5.7 % | 0.2 / 0 -> 8.1 / 3.0 % |
+| Attacker man-seconds indoors | 0.6 -> 0.7 % | 0.2 -> 0.1 % | 1.5 -> 2.3 % | 0.1 -> 0.0 % |
+| Defender wounds per 100 man-minutes, inside / outside | 31.9 / 21.3 -> 5.8 / 17.4 | 49.9 / 25.1 -> 11.0 / 29.8 | 10.9 / 43.8 -> 8.8 / 42.2 | 0 / 7.0 -> 2.4 / 11.5 |
+| Attacker grenades into houses per battle | 0.45 -> 1.20 | 0 -> 0.30 | 0.25 -> 1.55 | 0 -> 0 |
+| Mortar bombs on houses per battle | 1.65 -> 2.50 | 2.00 -> 2.15 | 2.55 -> 2.55 | 0.35 -> 0.35 |
+| Attacker wins with an attacker in a house of the main ring at the end | 2 / 5 -> 1 / 3 | 3 / 13 -> 3 / 10 | 1 / 8 -> 0 / 8 | 0 / 1 -> 0 / 1 |
+| Defender house leaves (20 battles): trap / enemy inside / cut off | 9 / 0 / 2 | 13 / 0 / 1 | 14 / 1 / 3 | 10 / 0 / 0 |
+| Clearings started / houses cleared per battle | 0 -> 1.30 / 0.65 | 0 -> 0.25 / 0.15 | 0 -> 0.95 / 0.40 | 0 -> 0 |
+
+(Inside wound rates in the baseline rest on one or two men per battle who ran in under fire: noise.) The defence
+goes inside as planned and its men inside are wounded 3-4 times less often than those outside; the attack wins less
+on the village on foot (5 -> 3, above the plan's 1 / 20 flag) and on farmland (13 -> 10); mounted unchanged. The
+attacker's clearings start late (the assault phase begins 600-900 s in), so it spends little time indoors and rarely
+ends a won battle inside a house of the ring. The 4-5 seed swings are within the noise of 20 seeds (a 95 % interval
+on 5 / 20 is about 2-11).
+
+Targets of earlier steps still not met (see their entries): max within 10 m <= 5 on every seed (step defend, worst
+6-7); clear.mts taken >= 5 / 12, attackers down <= 4.0, exchange <= 2.5, first man in by 300 s; attacker indoors
+>= 5 %, grenades into houses >= 4 per village battle, >= 80 % of wins holding a house in the ring (step clear).
+
+Not done: `house-clear` and `--scene buildings` are not yet in CLAUDE.md's command list (the plan lists them there;
+left to the owner's session, as CLAUDE.md is the owner's instructions file).
+
+**Owner questions (M7.5e):**
+1. Player squads leave a house on their own (trap, enemy inside, cut off), as built (`soldier.houseLeave`: false
+   turns it off for everyone)? Or only the AI's?
+2. A Clear button for the player (the order already takes a building)?
+3. The AI attacker clears every house in the objective's ring while it is defended, and those with a known enemy on
+   its way in. Keep, or only houses with a known enemy?
+4. Clearings start late (only in the assault phase, from close in). Should the commander clear houses earlier, on its
+   approach?
+5. Caps and distances: at most 60 % of a squad inside, 2 per room, 4 per house, men outside 8 m from the walls, no
+   re-entry for 120 s after leaving. Keep?
+6. Balance: village attack on foot 5 -> 3 / 20, farmland 13 -> 10 / 20 (mounted unchanged). Accept, or a tuning
+   step for the attack (not done: owner said harder village accepted)?
+
+## 2026-11-14 — M7.5e review fixes
+
+An independent review of M7.5e (spec, behaviour and code lenses) found 20 issues. Fixed in this commit (game values
+**low**, the same for every side; new soldier/drill values in `behaviour.json`, commander values in `COMMANDER.clear`):
+- **Save/load (hard rule 4):** `markHouseDanger`/`burstBuilding` read `ctx.hasInteriors` directly, which is set
+  lazily by the first `indoorAt`; on a freshly loaded game the first burst before any `indoorAt` was dropped (no trap
+  count). New `mapHasInteriors(ctx)` (interior-nav) is the only way to read it; test: a burst right after a load
+  counts as in the unbroken run (same hash).
+- **Own grenades (behaviour):** a clearing grenade is aimed at least `drills.clearThrowMinM` 4 m from the throw place
+  and the thrower's step aside (a small room: no throw from there; the old fallback to a 2.8 m corridor's middle put
+  the burst 2 m from the thrower), and never within `clearShieldM` 3.5 m of a man of the unit staying in a cleared
+  room; before the throw, men within `clearOfM` 6 m (was 5) of the aim move away, and within 3.5 m a partition or door
+  jamb no longer counts as cover. Platoon (20 x 1200 s) clearing grenades 28 -> 28, own men wounded by them 22 -> 18
+  (now mostly light: 1-5 fragments at 5-11 m), own men put down 8 -> 4, an enemy put down near one 0 -> 1;
+  platoon-vehicles (15) 22 -> 9 grenades, 12 -> 3 wounded, 2 -> 1 down. **Not solved:** one burst in 37 still landed in
+  a cleared room among the men (a bounce from the frame); light wounds through doorways at 5-10 m remain.
+- **Upstairs throws:** the arc planner aimed at the ground under an upper floor, so no arc into an upstairs room was
+  ever found. `findArc` now lands a throw along an upper floor of the same house on that floor (`arcLanding` takes the
+  floor height; its last stretch is tested down to just above the slab). Test: the test house's upstairs room gets
+  its grenade (clear.test.ts, also a direct arc test).
+- **Vague houses (commander):** only an enemy placed within `COMMANDER.clear.errM` 10 m (a sight or close report, not a
+  far sound) marks a house; a squad is sent only to houses within `reachM` 200 m of it (was: up to 490 m, mostly
+  empty). Clearings per platoon battle 1.30 -> 0.50, houses cleared 0.65 -> 0.25, but grenades into houses 1.20 -> 1.40
+  and wins ending with an attacker in a house of the main ring 1 / 3 -> 2 / 4.
+- **Taken houses:** a clearing that ended (timeout, too few men) with an enemy known in the house within `stillS` 15 s
+  is not taken (left for `retrySeconds`); a house is taken only with `takenMen` 2 able men of the squad inside; a
+  taken house is cleared again once an enemy is known in it after it was taken (`Memory.takenAt`, plain data).
+- **HE near a clearing:** the commander's own-men check before calling mortars counts squads in a `clear` drill as
+  it did `assault` drills.
+- **Clear drill:** the stack goes on only with a man within `clearStackNearM` 8 m of the door (none after twice
+  `clearStackWaitS`: the drill ends); a room with nobody able to go in is retried every 2 s and the drill ends after
+  `clearRoomS` — no more rooms "passed" by an empty team; `radio.houseCleared` only with a man of the unit inside. A
+  man given his own order leaves the drill as its thrower and entry man too (`dropFromDrill`).
+- **Leaving:** an order after leaving no longer switches the rule off for that house: it is looked at afresh, a trap
+  needing a burst after the order (test: re-occupied, two new bursts, they leave again). Outflanked needs two
+  enemies, each where the unit last knew it (one man known behind the house earlier and in front now is not; test).
+  A unit that could send nobody out does not report leaving and looks again after `soldier.houseLeaveRetryS` 5 s
+  (`Unit.leaveTry`, plain data). A man bolting out is no longer stopped by a pinned crawl once past the door.
+- **Values to data:** `drills.clearOfM, clearShieldM, clearThrowMinM, clearAimInM (0.9), clearStackRankM (1.2),
+  clearThrowAsideM (0.6), clearEntrySeenW (15), clearEntrySeenM (40), clearKnownS (60), clearMoveAwayM (12),
+  clearStackNearM`; `soldier.houseLeaveCoverM (8), houseLeaveTries (6), houseLeaveCost ([3, 20]), houseFrontMin
+  (0.3), houseLeaveRetryS`.
+- **Fixture faction:** `tools/test/fixture-faction.test.ts` — an xf band clears a one-storey house with its own thrown
+  `xf-bomb` and reports it clear.
+- **Docs:** ROADMAP and the plan no longer mark M7.5e complete: the attacker's step-3 battle targets are not met (see
+  the clear and polish entries); built, for the owner to accept.
+
+Skipped: the `house-clear` scenario / golden that rarely exercises a clearing (low; the golden is 180 s by design of
+the golden suite, a longer one would lengthen `npm test`; the scenario stays a defence-siting check — left for the
+owner's answer on clearing earlier, question 4).
+
+Balance (20 seeds x 1200 s, mounted 15; head e8da60e -> this commit; attacker wins / defenders down / attackers down):
+platoon (village) 3 -> 4 / 11.2 -> 11.4 / 19.9 -> 19.9; platoon-ru (farmland) 10 -> 11 / 14.3 -> 14.4 / 14.4 -> 14.6;
+platoon-vehicles (village, mounted) 7 -> 4 / 21.0 -> 21.2 / 19.4 -> 20.3 (within the noise of 15 seeds, but lower: the
+mounted attack clears fewer houses, 1.13 -> 0.40); village-occupy (600 s) unchanged (attackers down 1.80, defenders
+0.95, defenders indoors 94.8 %). Not re-tuned (owner accepted a harder village). Goldens: `npm run golden:update`
+changed all eight (catalog fingerprint: `behaviour.json`); `golden/no-interiors` untouched.

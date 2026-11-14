@@ -27,7 +27,8 @@ describe("AI commander (M6.3)", () => {
   const r = runBattle(input, { controllers: watched, onTick: (sim) => {
     if (sim.state.tick % 30 !== 0) return;
     for (const [uid, u] of sim.state.unit.entries()) {
-      if (u.drill?.kind !== "assault") { inDrill.delete(uid); continue; }
+      // (A house clearing, M7.5e, is the assault's drill too.)
+      if (u.drill?.kind !== "assault" && u.drill?.kind !== "clear") { inDrill.delete(uid); continue; }
       if (inDrill.has(uid)) continue;
       inDrill.add(uid);
       const f = u.drill.groups.flat().map((m) => sim.state.soldier.get(m)).filter((x) => x !== undefined && x.physiology.alive && x.casualty === "none").map((x) => x!.physical.fatigue);

@@ -251,6 +251,8 @@ export interface ShootingDef {
   grenades: {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
     throwErrorFraction: number; throwErrorMinM: number; throwSeconds: number;
+    /** A grenade posted through a doorway or window from beside it (M7.5e house clearing): its aim error, m (x skill). */
+    postErrorM: number;
     launchErrorFraction: number; launchErrorMinM: number; launchSeconds: number; minSafeDistanceM: number;
     throwAnglesDeg: number[]; throwPowerMargin: number; carrySeconds: number; staggerSeconds: number;
     reactRadiusM: number; runRadiusM: number; reactDelaySeconds: number;
@@ -312,6 +314,24 @@ export interface BehaviourDef {
     coverCandidates: number;
     /** Least time between shots (or bursts) of a man firing into cover short of the point (s): the sustained rate. */
     suppressIntervalS: number;
+    /**
+     * Clearing a house (M7.5e step "clear"): `clearEntryMen` go into each room after the grenade burst (and
+     * `clearAfterBurstS`); the stack waits `clearStackOffM` off the wall from `clearStackAsideM` beside the door, at
+     * most `clearStackWaitS`; a thrower has `clearThrowWaitS` to get to his place and throw; a room takes at most
+     * `clearRoomS`, the whole drill `clearTimeoutS`; it ends below `clearMinMen` able men.
+     */
+    clearEntryMen: number; clearStackOffM: number; clearStackAsideM: number; clearAfterBurstS: number; clearStackWaitS: number;
+    clearThrowWaitS: number; clearRoomS: number; clearTimeoutS: number; clearMinMen: number;
+    /**
+     * Review fixes: a grenade is aimed at least `clearThrowMinM` from the throw place and the thrower's step aside,
+     * not within `clearShieldM` of a man of the unit staying in a cleared room; men within `clearOfM` of the aim
+     * with no wall between (within `clearShieldM`: walls do not count) move away, at most `clearMoveAwayM`; aims
+     * `clearAimInM` in from a corner; stack ranks `clearStackRankM` apart; throw places `clearThrowAsideM` beside an
+     * opening; entry door: distance + `clearEntrySeenW` per window within `clearEntrySeenM` looking onto it; enemies
+     * known within `clearKnownS` order the rooms; the stack goes on only with a man within `clearStackNearM` of the door.
+     */
+    clearOfM: number; clearShieldM: number; clearThrowMinM: number; clearAimInM: number; clearStackRankM: number; clearThrowAsideM: number;
+    clearEntrySeenW: number; clearEntrySeenM: number; clearKnownS: number; clearMoveAwayM: number; clearStackNearM: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.
@@ -417,6 +437,25 @@ export interface BehaviourDef {
      *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
      *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
     hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
+    /**
+     * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).
+     * A trap: enemy bursts in or on his house (inside its walls, or within houseBurstNearM outside them) add up to
+     * houseTrapBursts within houseTrapSeconds; a burst of at least houseHeavyKg of filling counts houseHeavyCount.
+     * The enemy inside: an enemy he or a man of his unit has seen in the last houseEnemySeconds inside his
+     * house (one in his own room within houseFightM is fought, not fled from). Outflanked: an enemy known (any
+     * kind, in the last houseFlankSeconds) within houseFlankM of the house, more than houseFlankDeg off another enemy
+     * his unit remembers (at any distance): enemies on two sides. Then every man of his unit in that house runs (houseLeaveMode,
+     * pinning does not hold him) to a covered spot outdoors houseLeaveM[0]..[1] from the house, within houseLeaveDeg
+     * of straight away from the threat; his unit keeps out of that house for houseReenterSeconds (its own rules).
+     * Only contacts located within houseContactErrM (or a quarter of their distance) count (a sound is vague).
+     */
+    houseLeave: boolean; houseTrapBursts: number; houseTrapSeconds: number; houseHeavyKg: number; houseHeavyCount: number; houseBurstNearM: number;
+    houseEnemySeconds: number; houseFightM: number; houseFlankM: number; houseFlankDeg: number; houseFlankSeconds: number;
+    houseLeaveM: [number, number]; houseLeaveDeg: number; houseLeaveMode: string; houseReenterSeconds: number; houseContactErrM: number;
+    /** The spot out: best cover within houseLeaveCoverM; houseLeaveTries spots per man; a route dearer than
+     *  houseLeaveCost[0] x distance + houseLeaveCost[1] refused; a unit faces one way when its window normals' mean is
+     *  at least houseFrontMin long; a unit that could send nobody out looks again after houseLeaveRetryS. */
+    houseLeaveCoverM: number; houseLeaveTries: number; houseLeaveCost: [number, number]; houseFrontMin: number; houseLeaveRetryS: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

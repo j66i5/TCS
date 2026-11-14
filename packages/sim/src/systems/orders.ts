@@ -2,7 +2,8 @@
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
 import { callFire } from "./support";
-import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
+import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
+import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
 import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
@@ -14,7 +15,7 @@ import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
-import { buildingIndex, occupyBuilding } from "./occupy";
+import { buildingIndex, occupyBuilding, windowPlaces } from "./occupy";
 import { aimHeightAt, assignFireTask } from "./fire";
 import { grenadeOption, throwArcExists, type GrenadeOption } from "./grenades";
 import { orderLauncherShot } from "./launcher";
@@ -83,6 +84,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
     case "withdraw":
       if (!state.unit.has(o.target)) return "invalid-params"; // a drill is for a unit, not one man
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      // A house to clear (M7.5e): a building with an interior and a way in.
+      if (o.kind === "assault" && o.building !== undefined && !clearable(ctx, o.building)) return "invalid-params";
       return null;
     case "grenade":
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
@@ -99,6 +102,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (buildingIndex(ctx, o.building) < 0) return "invalid-params";
       if (o.floor !== undefined && !(Number.isInteger(o.floor) && o.floor >= 0 && o.floor < 64)) return "invalid-params";
       if (o.facing !== undefined && !Number.isFinite(o.facing)) return "invalid-params";
+      if (o.windowIndex !== undefined && !(Number.isInteger(o.windowIndex) && o.windowIndex >= 0 && o.windowIndex < windowPlaces(ctx, buildingIndex(ctx, o.building)).length)) return "invalid-params";
+      if (o.mode !== undefined && ctx.catalog.movementModes[o.mode]?.class !== "foot") return "invalid-params";
       return null;
   }
 }
@@ -273,7 +278,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     if (isUnit) clearDrills(state, ou);
     releaseFromParentDrills(state, ou, soldiers);
     // (An order to one man takes him out of his own unit's drill too.)
-    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") d.groups = d.groups.map((g) => g.filter((m) => m !== order.target)); }
+    if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
   const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
@@ -420,7 +425,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // Occupy a building (M7.5d): every man to a window place (or one inside), no formation.
       endFire(state, order.target, soldiers, "moved", events);
       const bi = buildingIndex(ctx, order.building);
-      if (occupyBuilding(ctx, state, soldiers, bi, order.floor, order.facing) === 0) return false;
+      if (occupyBuilding(ctx, state, soldiers, bi, order.floor, order.facing, order.windowIndex, order.mode) === 0) return false;
       if (isUnit) { const u = state.unit.req(order.target); u.moving = true; u.moveTick = state.tick; }
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
@@ -488,7 +493,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       stopUnit(state, order.target);
       const groups = drillGroups(state, du);
       if (groups.length === 0) return "unable";
-      state.unit.req(du).drill = { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
+      state.unit.req(du).drill = order.kind === "assault" && order.building !== undefined
+        ? startClear(ctx, state, du, order.building, groups)
+        : { kind: order.kind, x: order.x, y: order.y, groups, mover: 0, phaseTick: -1, final: false };
       break;
     }
     case "callFire": {

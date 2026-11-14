@@ -593,6 +593,8 @@ async function main(): Promise<void> {
   // ---- floor switch (M7.5d): follows the selected unit's floor; shown when it is indoors or a house is opened up.
   let floorState: FloorFollow = { shown: 0, unit: null, unitFloor: null, manual: false };
   let floorPick: number | null = null;
+  /** Screenshots (M7.5e): draw the enemy as he is, without Debug's grid and sight overlays. */
+  let revealAll = false;
   const floorSwitch = createFloorSwitch(hudRoot, strings.t("ui.floor"), strings.t("ui.floor.ground"), (f) => { floorPick = f; });
   const updateFloors = () => {
     const uid = overlay.selectedUnit;
@@ -990,7 +992,10 @@ async function main(): Promise<void> {
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
     /** M7.5d: occupy the building at (x, y) with the selected unit; the floor switch; the floor shown. */
     occupyAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue(occupyOrder(sel(), bi)); },
+    /** M7.5e screenshots: clear the building at (x, y) with the selected unit (`assault` with its building; no button yet). */
+    clearAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "assault", x, y, building: input.map.buildings[bi]!.id }); },
     setFloor: (f: number) => { floorPick = f; },
+    reveal: (on: boolean) => { revealAll = on; overlay.reveal = on; },
     floorShown: () => floorState.shown,
     fireAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "fire", x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
@@ -1253,7 +1258,7 @@ async function main(): Promise<void> {
     }
     // Fog of war: the enemy is drawn only as the player's side knows him (Debug shows him as he is).
     // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
-    if (overlay.debug) { overlay.known = null; knownTick = -1; }
+    if (overlay.debug || revealAll) { overlay.known = null; knownTick = -1; }
     // mounted: ok sideKnowledge never lists men aboard
     else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
     // S8: "last seen" pins (Debug shows the enemy as he is: no pins); S7: one line per own unit on the move.

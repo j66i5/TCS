@@ -527,6 +527,28 @@ orders (a man with no arc is not picked; nobody: `radio.grenadeBlocked`). A gren
 `soldier.assaultFireM` of the objective, and the last rush, get contact fire tasks the fire system carries out while
 they move (from the posture they move in), with `aimErrorMrad` x `assaultFireAimFactor`.
 
+## 16l3. AI uses buildings (M7.5e, plan `docs/plans/m7.5e-ai-buildings.md`)
+**Defence (AI, `ai/src/siting.ts`):** `siteDefence` takes the window places (`windowPlaces`) of houses within 40 m
+of a group as candidates beside outdoor spots, each seen from its own height (`standZ` + the sill posture's eye) with
+a wall cover term; caps (`SITING`): 60 % of a group inside, 2+ outside, 2 per room, 4 per house, outside men 8 m
+clear of an occupied house, an upper window only if it sees 1.2x the best ground window, one man watching the back.
+A window place is ordered as `occupy {building, windowIndex, mode}` (optional order fields).
+**Leaving (sim, `systems/house.ts`, every side; `soldier.houseLeave`):** in each man's decision step (not in a
+drill): a trap (`SoldierState.houseDanger {building, n, tick}`, marked by `detonate` for enemy bursts in or on the
+house), an enemy seen inside, or the house cut off; the unit runs out to covered spots away from the threats and
+`Unit.leftHouse {building, tick, reason}` keeps its rules out for 120 s; radio `radio.houseLeft*`.
+**Clearing (sim, `systems/clear.ts`):** `assault {x, y, building}` starts drill kind `"clear"` (optional `Drill`
+fields: `building, stage, stageTick, startTick, entry, rooms, room, thrower, throwAt, ...`): bounds onto the entry
+door, stack beside it, a posted grenade (`grenades.postErrorM`, `throwArcExists` with `from`), the burst, three men in,
+room by room (`roomOrder`: breadth first, ground floor first); values `drills.clear*`; radio `radio.clearing`,
+`radio.houseCleared`.
+**Commander (`ai/src/commander.ts`, `COMMANDER.clear`):** an assaulting squad first gets `assault {building}` for the
+next house on its way in or by the objective with a known enemy (any in the main ring while it is defended);
+`Memory.clearing/taken/held/houseSeen` are plain data; a squad that took a house in the main ring holds it with the
+defence's siting. A squad that left a house is re-sited outdoors.
+Tools: batch "buildings" block, `npm run lab -- house defend|leave|clear`, scenario `house-clear` (golden
+`house-clear-s1`), `npm run screenshot -- --scene buildings` (app hooks `clearAt`, `reveal`).
+
 ## 16m. Squad drills (SPEC 8, M4.3) — `sim/src/systems/drills.ts`
 Runs after decisions, every `drills.stepSeconds`. `Unit.drill` holds a bounding drill (assault / withdraw:
 two groups of soldier IDs, the group moving now, its start tick, the final rush) or a rout (rally point);

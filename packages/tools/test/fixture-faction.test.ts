@@ -49,6 +49,38 @@ describe("fixture faction 'xf'", () => {
     void countItems;
   });
 
+  it("clears a house: its own thrown bomb goes in, and every room is entered (M7.5e)", () => {
+    const input = demoBattle(data!, { seed: 3, factions: ["xf", "de"], templates: ["porter-band", "demo-team"], timeLimitSeconds: 600 });
+    // (A 12 x 10 m house, a door west into a hall, two rooms east through doorways.)
+    const west = [100, 80, 106, 80, 106, 90, 100, 90], ne = [106, 80, 112, 80, 112, 85, 106, 85], se = [106, 85, 112, 85, 112, 90, 106, 90];
+    input.map = { ...flatMap("xf-house", 300, 200), buildings: [{
+      id: 7, kind: "house", footprint: [100, 80, 112, 80, 112, 90, 100, 90], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColour: "#8c4a3b",
+      openings: [{ wall: 3, offsetM: 3, widthM: 1.0, kind: "door", sillM: 0, headM: 2.1 }],
+      interior: {
+        rooms: [{ id: 0, floor: 0, poly: west, kind: "hall" }, { id: 1, floor: 0, poly: ne, kind: "room" }, { id: 2, floor: 0, poly: se, kind: "room" }],
+        walls: [
+          { id: 0, floor: 0, ax: 106, ay: 80, bx: 106, by: 90, thicknessM: 0.12, material: "brick", doors: [{ offsetM: 2.5, widthM: 0.9, headM: 2 }, { offsetM: 7.5, widthM: 0.9, headM: 2 }] },
+          { id: 1, floor: 0, ax: 106, ay: 85, bx: 112, by: 85, thicknessM: 0.12, material: "brick", doors: [] },
+        ],
+        stairs: [],
+      },
+    }] };
+    const xf = input.forces.find((f) => f.faction === "xf")!, other = input.forces.find((f) => f.faction !== "xf")!;
+    xf.placements = xf.units.flatMap(allMembers).map((m, i): Placement => ({ personId: m.personId, x: 80, y: 78 + i * 2.5, heading: 0 }));
+    other.placements = other.units.flatMap(allMembers).map((m, i): Placement => ({ personId: m.personId, x: 280, y: 180 - i * 3, heading: Math.PI }));
+    // (Every xf man carries a bomb here: the team's one would be spent on the first room.)
+    for (const m of xf.units.flatMap(allMembers)) if (!m.load.some((l) => l.type === "xf-bomb")) m.load = [...m.load, { type: "xf-bomb", count: 1 }];
+    const sim = createSim(input);
+    const top = (side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side && u.parent === null)![0];
+    for (const side of [xf.side, other.side]) submitOrder(sim, { tick: 0, issuer: side, target: top(side), kind: "rules", fire: "hold" });
+    submitOrder(sim, { tick: 0, issuer: xf.side, target: top(xf.side), kind: "assault", x: 106, y: 85, building: 7 });
+    const ev: SimEvent[] = [];
+    for (let k = 0; k < 60 * 300 && !ev.some((e) => e.kind === "radio" && e.key === "radio.houseCleared"); k++) ev.push(...step(sim));
+    const thrown = ev.filter((e) => e.kind === "grenade.launched");
+    expect(thrown.length).toBeGreaterThanOrEqual(1);
+    expect(ev.some((e) => e.kind === "radio" && e.key === "radio.houseCleared")).toBe(true);
+  });
+
   it("uses its own radio phrasing through the string table, with fallback to core", () => {
     const s = new Strings(data!);
     expect(s.t("radio.ack.move", { callsign: "Gang 1" }, "xf")).toBe("Gang 1 goes.");

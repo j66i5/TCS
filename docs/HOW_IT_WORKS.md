@@ -927,7 +927,35 @@ shields a man upstairs from a grenade bursting below him), whom he can take pris
 - `npm run lab -- sight` has rows for an observer at a first-floor window: he sees over a 2 m hedge, but a man
   lying right behind a wall stays hidden.
 
-The AI does not yet use buildings on purpose (M7.5e, for the owner to decide).
+## The AI in houses (M7.5e)
+Both sides now use houses on purpose (owner, 2026-11-14).
+- **Holding a house:** when the AI defends, it places each man where he sees most of the way the enemy will come.
+  Windows of the houses near his post are among those places, looked at from the window's own height (a window
+  upstairs sees over hedges and walls). It never puts the whole squad inside: at most about 6 men in 10 go in, at
+  least 2 stay out, at most 2 share a room and 4 a house, the men outside keep 8 m from the walls of a house in use
+  (one shell must not catch them all) and one of them watches the house's back. A window upstairs is taken only if
+  it sees clearly more than the ground floor. The order the AI gives is the player's Occupy, for one man at one
+  window.
+- **Leaving a house:** a house can become a trap. Men leave it on their own (every side, the player's squads too)
+  when two grenades or bombs have burst in or on it within half a minute (a mortar bomb counts twice), when an
+  enemy has been seen inside (a man who has that enemy in his own room fights him instead), or when the enemy is
+  on two sides of it. The whole squad in that house runs out, by the side away from the enemy, to cover 25–50 m off,
+  says so on the radio and does not go back into that house for two minutes.
+- **Clearing a house:** the AI attacker clears the houses on its way in and the ones in the objective's ring while
+  they are defended. The squad bounds up to the door as in any assault, its covering half firing at the windows
+  facing it; the men stack against the wall beside the door (never in front of it); one posts a grenade into the
+  room behind it (aimed at the far corner); after the burst three men go in, then the next room the same way, from
+  the doorway, ground floor first, then up the stairs (no grenade up a stairwell). A squad that took a house in the
+  objective's ring stays in it and holds it as a defender would. The player has no Clear button yet (the order
+  exists: `assault` with a building).
+- **Measuring:** `npm run batch` prints a "buildings" block (time indoors and upstairs, wounds inside and outside,
+  grenades into houses, bombs on houses); `npm run lab -- house defend|leave|clear`; the scenario `house-clear`
+  (one squad holding a house, two attacking it, both under the AI); `npm run screenshot -- --scene buildings`
+  (`--seed 3` to see men upstairs).
+- **What it changed:** in the village the defenders spend about a third of their time indoors (before: almost
+  none) and are wounded about a third as often there as outside; the attack on the village wins less often (5 → 3
+  in 20 battles; the owner accepted a harder village). The attacker's clearings start late (the assault comes 10–15
+  minutes in), so few houses are actually cleared in a battle.
 
 ## Does an attack work?
 

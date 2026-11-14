@@ -1055,6 +1055,107 @@ async function reviewScenes(page: Page, name: string, errors: string[], shots: s
   console.log(`${name}: review scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
+/**
+ * M7.5e buildings (`--scene buildings`): the platoon battle on foot on the village (the player attacks, the AI
+ * defends), the enemy drawn as he is (`reveal`). After 150 s: the AI's defenders at windows of the house with most of
+ * them in it (ground floor; the floor switch on 1 when men are upstairs), the house from further out (the men outside
+ * covering the approach and its back); mortar bombs on that house until its men leave (a trap) and running out; then
+ * the lead squad clears the nearest empty house with a way in (`clearAt`): closing on the door, stacked beside it,
+ * the first men going in after the grenade, and the house clear. Seed 1 shows the trap (its bombs land on the
+ * house; the caller cannot see the falls from 700 m, so elsewhere they may not); seed 3 men upstairs by 150 s (the
+ * upper-floor shot is skipped when nobody is upstairs by 300 s).
+ */
+async function buildingScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => {
+    await page.waitForTimeout(300);
+    await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 30000 });
+    const p = `${outDir}/buildings-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const zoom = name === "phone" ? 18 : 24;
+  const helpers = `const t = globalThis.__tcs, s = t.sim.state, ctx = t.sim.ctx, map = ctx.map;
+    const inside = (b, x, y) => { let c = false; const f = b.footprint, n = f.length / 2; for (let a = 0, e = n - 1; a < n; e = a++) { const ax = f[2*a], ay = f[2*a+1], ex = f[2*e], ey = f[2*e+1]; if ((ay > y) !== (ey > y) && x < ((ex - ax) * (y - ay)) / (ey - ay) + ax) c = !c; } return c; };
+    const centre = (b) => { const f = b.footprint, n = f.length / 2; let x = 0, y = 0; for (let k = 0; k < n; k++) { x += f[2*k] / n; y += f[2*k+1] / n; } return { x, y }; };
+    const able = (id) => { const q = s.soldier.get(id); return q !== undefined && q.physiology.alive && q.physiology.consciousness >= 0.5 && q.captive === null && q.mount === undefined; };
+    const mySide = s.unit.get(t.units()[0].unit).side;
+    const enemy = [...s.identity.entries()].filter(([, i]) => i.side !== mySide).map(([id]) => id);
+    const inHouse = (bi) => enemy.filter((m) => able(m) && inside(map.buildings[bi], s.transform.get(m).x, s.transform.get(m).y));`;
+  const info: Record<string, unknown> = {};
+  info["defence"] = await page.evaluate(new Function(`${helpers} t.setSpeed(0); t.reveal(true);
+    for (let k = 0; k < 30; k++) t.stepTicks(60 * 5);
+    // The house with men upstairs if any, else the one with most men in it.
+    const upIn = (i) => inHouse(i).filter((m) => s.transform.get(m).z > 1.5).length; // (z: his height above the ground)
+    let best = -1, bn = 0, bs = 0;
+    map.buildings.forEach((b, i) => { if (!b.interior) return; const n = inHouse(i).length; const sc = n + 10 * (n > 0 ? upIn(i) : 0); if (sc > bs) { bs = sc; bn = n; best = i; } });
+    if (best < 0) return { house: -1 };
+    const c = centre(map.buildings[best]), up = upIn(best);
+    globalThis.__b = { i: best, x: c.x, y: c.y, up };
+    t.setFloor(0); t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2);
+    return { house: best, kind: map.buildings[best].kind, storeys: map.buildings[best].storeys, inside: bn, up, tick: s.tick };`) as () => object);
+  const b = await page.evaluate(new Function("return globalThis.__b ?? null") as () => { i: number; up: number } | null);
+  if (b === null) { console.log(`${name}: buildings scene: no enemy in a house at 150 s`); return; }
+  await shot("0-defenders-at-windows");
+  // An upper floor: the house with most men upstairs (looked for every 10 s up to 300 s), the floor switch on 1.
+  info["upper"] = await page.evaluate(new Function(`${helpers}
+    const upIn = (i) => inHouse(i).filter((m) => s.transform.get(m).z > 1.5).length; // (z: his height above the ground)
+    let ub = -1, un = 0;
+    for (let k = 0; k < 16 && ub < 0; k++) {
+      map.buildings.forEach((b, i) => { if (!b.interior || b.storeys < 2 || inHouse(i).length === 0) return; const n = upIn(i); if (n > un) { un = n; ub = i; } });
+      if (ub < 0) t.stepTicks(60 * 10);
+    }
+    if (ub < 0) return null;
+    const c = centre(map.buildings[ub]); globalThis.__u = { i: ub, x: c.x, y: c.y };
+    t.setFloor(1); t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2);
+    return { house: ub, up: un, tick: s.tick };`) as () => object | null);
+  if (info["upper"] !== null) await shot("1-upper-floor");
+  await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__b; t.setFloor(0); t.focusScale(h.x, h.y, ${zoom * 0.4}); t.stepTicks(2);`) as () => void);
+  await shot("2-inside-and-outside");
+  info["trap"] = await page.evaluate(new Function(`${helpers} const h = globalThis.__b;
+    t.select(t.units().find((u) => u.kind === "infantry").unit);
+    const unitsIn = new Set(inHouse(h.i).map((m) => s.identity.get(m).unit));
+    t.callFire(h.x, h.y, "he");
+    let left = null;
+    for (let k = 0; k < 80 && left === null; k++) { if (k === 40) t.callFire(h.x, h.y, "he"); t.stepTicks(60 * 3); for (const u of unitsIn) { const lh = s.unit.get(u)?.leftHouse; if (lh && lh.building === map.buildings[h.i].id) left = { unit: u, reason: lh.reason, tick: lh.tick }; } }
+    if (left) t.stepTicks(60 * 4);
+    t.setFloor(0); t.focusScale(h.x, h.y, ${zoom * 0.8}); t.stepTicks(2);
+    return { left, stillIn: inHouse(h.i).length, tick: s.tick };`) as () => object);
+  await shot("3-leaving-a-trap");
+  info["clear"] = await page.evaluate(new Function(`${helpers} const own = new Set(t.units().map((u) => u.unit));
+    const sq = t.units().find((u) => u.kind === "infantry" && u.depth === 1).unit; t.select(sq);
+    const men = s.unit.get(sq).members.filter(able);
+    let x = 0, y = 0; for (const m of men) { const p = s.transform.get(m); x += p.x / men.length; y += p.y / men.length; }
+    let best = -1, bd = Infinity;
+    map.buildings.forEach((b, i) => { if (!b.interior || (b.kind !== "house" && b.kind !== "farmhouse") || !b.openings.some((o) => o.kind === "door") || inHouse(i).length > 0) return; const c = centre(b); const d = Math.hypot(c.x - x, c.y - y); if (d < bd) { bd = d; best = i; } });
+    const c = centre(map.buildings[best]); globalThis.__c = { i: best, x: c.x, y: c.y, sq };
+    t.clearAt(c.x, c.y);
+    for (let k = 0; k < 60 && s.unit.get(sq).drill?.kind !== "clear"; k++) t.stepTicks(30);
+    const stage = () => s.unit.get(sq).drill?.stage;
+    let k = 0; for (; k < 120 && stage() === undefined && s.unit.get(sq).drill; k++) t.stepTicks(60 * 3);
+    const d = s.unit.get(sq).drill; if (d) globalThis.__c.door = { x: d.x, y: d.y };
+    const f = globalThis.__c.door ?? c; t.focusScale((f.x + c.x) / 2, (f.y + c.y) / 2, ${zoom}); t.stepTicks(1);
+    return { house: best, dist: Math.round(bd), stage: stage() ?? null, drill: s.unit.get(sq).drill?.kind ?? null, tick: s.tick };`) as () => object);
+  await shot("4-closing-on-the-door");
+  info["throw"] = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, h = globalThis.__c;
+    const stage = () => s.unit.get(h.sq).drill?.stage;
+    for (let k = 0; k < 40 && stage() !== undefined && stage() !== "enter"; k++) t.stepTicks(30);
+    t.stepTicks(90); const f = h.door ?? h; t.focusScale((f.x + h.x) / 2, (f.y + h.y) / 2, ${zoom}); t.stepTicks(1);
+    return { stage: stage() ?? null, room: s.unit.get(h.sq).drill?.room ?? null, tick: s.tick };`) as () => object);
+  await shot("5-stacked-beside-the-door");
+  info["enter"] = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, h = globalThis.__c;
+    const stage = () => s.unit.get(h.sq).drill?.stage;
+    for (let k = 0; k < 240 && s.unit.get(h.sq).drill?.kind === "clear" && stage() !== "enter"; k++) t.stepTicks(30);
+    t.stepTicks(200); t.focusScale(h.x, h.y, ${zoom}); t.stepTicks(1);
+    return { stage: stage() ?? null, room: s.unit.get(h.sq).drill?.room ?? null, tick: s.tick };`) as () => object);
+  await shot("6-going-in");
+  info["done"] = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state, h = globalThis.__c;
+    for (let k = 0; k < 100 && s.unit.get(h.sq).drill?.kind === "clear"; k++) t.stepTicks(60 * 3);
+    t.stepTicks(60 * 2); t.focusScale(h.x, h.y, ${zoom}); t.stepTicks(1);
+    return { drill: s.unit.get(h.sq).drill?.kind ?? null, tick: s.tick };`) as () => object);
+  await shot("7-house-clear");
+  console.log(`${name}: buildings scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
 async function waitForServer(): Promise<void> {
   for (let i = 0; i < 50; i++) {
     try { const r = await fetch(`http://localhost:${port}/`); if (r.ok) return; } catch { /* not yet */ }
@@ -1078,6 +1179,7 @@ try {
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "photo") { await photoScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "interiors") { await interiorScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "buildings") { await buildingScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "floors") { await floorScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "controls") { await controlScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "card") { await cardScenes(page, name, errors, shots); await page.close(); continue; }

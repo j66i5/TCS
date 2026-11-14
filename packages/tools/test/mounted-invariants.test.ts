@@ -60,7 +60,9 @@ describe("mounted-man invariants at run time (M7.2)", () => {
       }
       expect(rode).toBe(true);
       expect(maxAboard).toBeGreaterThan(40);
-      expect(gotOut).toBeGreaterThan(30);
+      // (M7.5e defend: with the German defence at windows, platoon-ru-vehicles s2 loses two BMPs with men aboard in
+      // the first minute; 22 men get out by 180 s, 31 before. Still plenty to check the invariants on.)
+      expect(gotOut).toBeGreaterThan(20);
     });
   }
 

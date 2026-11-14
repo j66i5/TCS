@@ -80,4 +80,5 @@ export const GOLDEN_SPECS: { name: string; description: string; scenario: string
   { name: "fixture-cart-s3", description: "Fixture wheeled carts vs Pumas on a flat field, seed 3, 90 s (M7.1c)", scenario: "vehicles-fixture", seed: 3, seconds: 90 },
   { name: "platoon-vehicles-s1", description: "Platoon battle with vehicles: the Germans ride in and get out, AI v AI, seed 1, 150 s (M7.2)", scenario: "platoon-vehicles", seed: 1, seconds: 150 },
   { name: "village-occupy-s1", description: "A German squad occupies a two-storey house (window places on both floors, stairs) and fires on a Russian squad advancing on it, seed 1, 180 s (M7.5d)", scenario: "village-occupy", seed: 1, seconds: 180 },
+  { name: "house-clear-s1", description: "A German squad sited by the AI commander around a two-storey house (windows and men outside) against two Russian squads attacking it under the AI commander with mortars, seed 1, 180 s (M7.5e)", scenario: "house-clear", seed: 1, seconds: 180 },
 ];

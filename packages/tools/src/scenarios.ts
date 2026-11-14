@@ -1,8 +1,8 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
-import { buildScenario, demoBattle, vehicleBattle } from "@tcs/scenario";
+import { allMembers, buildScenario, demoBattle, freeSpot, vehicleBattle } from "@tcs/scenario";
 import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
-import type { BattleInput, Controller } from "@tcs/sim";
+import { hypot2, PI, type BattleInput, type Controller } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 
 export function loadData(includeFixtures = false): DataSet {
@@ -75,7 +75,58 @@ function occupyControllers(input: BattleInput): Controller[] {
   ];
 }
 
+/**
+ * M7.5e house-clear (plan m7.5e step polish): the demo squads on the village, both sides under the AI commander.
+ * Blue (one squad) holds the two-storey house nearest the map's middle (the objective, 30 m ring) and starts 15 m
+ * behind it; its commander sites it around the house (window places and men outside). Red (two squads under one
+ * platoon, with 12 mortar bombs and 4 smoke) starts `HOUSE_CLEAR_FRONT_M` east of the house and attacks: its
+ * commander orders the house cleared once it assaults. The commander commands platoons' squads, so each side's
+ * squads are put under a platoon with no men of its own.
+ */
+const HOUSE_CLEAR_FRONT_M = 200;
+function houseClearBattle(data: DataSet, seed: number, seconds: number): BattleInput {
+  const input = demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village", unitsPerSide: 2 });
+  const W = input.map.widthM, H = input.map.heightM;
+  let best = -1, bd = Infinity, hx = 0, hy = 0;
+  input.map.buildings.forEach((bl, i) => {
+    if (!bl.interior || bl.storeys < 2) return;
+    const n = bl.footprint.length / 2;
+    let cx = 0, cy = 0;
+    for (let k = 0; k < n; k++) { cx += bl.footprint[k * 2]! / n; cy += bl.footprint[k * 2 + 1]! / n; }
+    const d = hypot2(cx - W / 2, cy - H / 2);
+    if (cx + HOUSE_CLEAR_FRONT_M < W - 20 && d < bd) { bd = d; best = i; hx = cx; hy = cy; }
+  });
+  if (best < 0) throw new Error("house-clear: no two-storey house with an interior on this map");
+  // The house's half-width along x (blue starts 15 m behind its west wall).
+  const fp = input.map.buildings[best]!.footprint;
+  let minX = Infinity;
+  for (let k = 0; k < fp.length; k += 2) minX = Math.min(minX, fp[k]!);
+  for (const f of input.forces) {
+    const units = f.side === "blue" ? f.units.slice(0, 1) : f.units;
+    f.units = [{ key: `${f.side}-p`, callsign: `${f.side}-p`, echelon: "platoon", leaderIndex: -1, members: [], subunits: units }];
+    f.placements = [];
+    units.forEach((u, ui) => {
+      const men = allMembers(u);
+      const x = f.side === "blue" ? minX - 15 : hx + HOUSE_CLEAR_FRONT_M;
+      const y = f.side === "blue" ? hy : hy + (ui - (units.length - 1) / 2) * 70;
+      men.forEach((m, mi) => {
+        const p = freeSpot(input.map, input.catalog, x, y + (mi - (men.length - 1) / 2) * 6);
+        f.placements.push({ personId: m.personId, x: p.x, y: p.y, heading: f.side === "blue" ? 0 : PI });
+      });
+    });
+  }
+  input.rules.objectives = [{ id: "main", nameKey: "objective.main", x: hx, y: hy, radiusM: 30, points: 100, holder: "blue" }];
+  input.rules.victory = { casualtyPoints: 5, endOnDefeat: true };
+  input.rules.support = [{ side: "red", he: 12, smoke: 4 }];
+  return input;
+}
+
 export const SCENARIOS: Record<string, NamedScenario> = {
+  "house-clear": {
+    description: "M7.5e: on the village, a German squad holds a two-storey house (the objective) sited by the AI commander (some men at windows, the rest outside); two Russian squads with mortar support attack it from 200 m under the AI commander, which orders the house cleared (stack at the door, grenade in, room by room).",
+    build: houseClearBattle,
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
   "village-occupy": {
     description: "M7.5d: the demo squads on the village; the German squad occupies the nearest two-storey house (Occupy: window places across both floors, facing the enemy) and fires at will; the Russian squad advances to 60 m short of it.",
     build: (data, seed, seconds) => demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: seconds, mapKind: "village", frontM: 300 }),

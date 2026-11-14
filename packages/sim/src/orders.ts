@@ -25,6 +25,8 @@ export interface Waypoint {
   /** Height above the ground at this point, m (M7.5d: a floor of a building, or a step on its stairs); the man
    *  climbs or descends evenly along the leg. Absent: his height does not change (outdoors: 0). */
   z?: number;
+  /** A flight that pinning does not hold (M7.5e: men leaving a house that has become a trap). */
+  bolt?: true;
 }
 
 /** Order bodies. M0 implements move and halt; the rest of SPEC 6.6's list arrives in M5. */
@@ -57,8 +59,11 @@ export type OrderBody =
     /** Anti-tank weapons on their own (M7.4a, SPEC 6.6): at vehicles only, also at positions, or only on order. */
     at?: "vehicles" | "vehiclesAndPositions" | "hold";
   }
-  /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs. */
-  | { kind: "assault"; x: number; y: number }
+  /** Fire and movement onto (x, y) (M4.3): two halves of the unit bound in turn, one firing while the other runs.
+   *  M7.5e: `building` (a building's id, with an interior) makes it a house clearing: the halves close in by bounds
+   *  on a door of that building (x, y: where the unit comes from does not matter, the building does), stack beside
+   *  it, throw a grenade in, and clear the rooms one by one (drill "clear"). */
+  | { kind: "assault"; x: number; y: number; building?: number }
   /** Break contact back to (x, y) (M4.3): the halves bound back in turn, one covering toward the enemy. */
   | { kind: "withdraw"; x: number; y: number }
   /** Call mortar fire (M6.5c): high explosive or smoke, this many rounds at (x, y); the unit's leader (or a man
@@ -74,8 +79,10 @@ export type OrderBody =
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor
-   *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first. */
-  | { kind: "occupy"; building: number; floor?: number; facing?: number };
+   *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first.
+   *  M7.5e: `windowIndex` (an index into the building's window places, `windowPlaces`) sends the first man to exactly
+   *  that window (any others take the next places); `mode` is the pace there (a foot movement mode; default run). */
+  | { kind: "occupy"; building: number; floor?: number; facing?: number; windowIndex?: number; mode?: DefId };
 
 export type OrderKind = OrderBody["kind"];
 

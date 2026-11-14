@@ -175,8 +175,12 @@ white flags on the map; the after-action review lists surrendered and captured m
   zoomed in, original pixel soldiers, flat pixel map, contours only far, roofs that fade; **M7.5c interiors ✅**
   2026-11-13: rooms, inner walls, doorways, stairs and upper windows in every building, sight/bullets/blast with
   inner walls and floors, squads ordered into, out of and between rooms; **M7.5d upper floors ✅** 2026-11-13:
-  stairs, heights, floor switch, Occupy order, men at true size close in. **M7.5 complete**; M7.5e "AI uses
-  buildings" waits for the owner)
+  stairs, heights, floor switch, Occupy order, men at true size close in. **M7.5 complete**; **M7.5e AI uses
+  buildings — built, partly met (owner to accept)** 2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`: the AI
+  defence holds houses with a mixed spread, men leave a house that is a trap, has the enemy inside or is cut off;
+  the AI attacker can clear a house room by room and hold what it takes (shown in the lab and in some battles), but
+  the plan's step-3 battle targets for the attacker (houses taken, time indoors, grenades into houses, holding a
+  house of the main ring at the end) are not met — see DECISIONS.md; scenario `house-clear`, `--scene buildings`)
   - The order bar is always visible (no unit needs to be selected first) and can be dragged to where the
     player wants it.
   - A sidebar lists every unit of the player's side; tapping an entry selects the unit.

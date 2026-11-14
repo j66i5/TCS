@@ -54,6 +54,11 @@ export function indoorAt(ctx: SimContext, x: number, y: number): number {
   return ctx.map.buildings[ri]?.interior ? ri : -1;
 }
 
+/** Has the map any building with an interior? (Set lazily on the context: never read `ctx.hasInteriors` directly.) */
+export function mapHasInteriors(ctx: SimContext): boolean {
+  return ctx.hasInteriors ??= anyInterior(ctx);
+}
+
 function anyInterior(ctx: SimContext): boolean {
   for (const b of ctx.map.buildings) if (b.interior) return true;
   return false;

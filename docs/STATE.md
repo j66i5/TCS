@@ -1,7 +1,57 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
+_Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
+
+**M7.5e review fixes (2026-11-14, DECISIONS "M7.5e review fixes").** Fixed: a house burst lost after a load;
+clearing grenades aimed too close to the thrower or his comrades (own men down 8 -> 4 per 20 platoon battles); no
+grenade ever into an upstairs room; the commander sending squads to empty houses placed by far sounds (up to 490 m);
+houses wrongly kept as "taken"; mortars called on a house being cleared; a cleared radio call with nobody inside;
+the leave rule switched off by any order; "outflanked" from one enemy. ROADMAP no longer marks M7.5e complete (the
+attacker's battle targets are not met). Balance: attacker wins village 3 -> 4 / 20, farmland 10 -> 11 / 20, mounted
+7 -> 4 / 15.
+
+**AI uses buildings, step "polish" — M7.5e built (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 4 of
+4).** No sim or data change. New scenario `house-clear` (one German squad holds a house sited by the AI, two Russian
+squads attack it with mortars, both AI; two squads, not the plan's one: one squad always broke off before the door)
+and golden `house-clear-s1`; `npm run screenshot -- --scene buildings [--seed 3]` (app hooks `reveal`, `clearAt`);
+HOW_IT_WORKS "The AI in houses", ARCHITECTURE 16l3. Balance (20 seeds x 1200 s, plan baseline dbdb479 -> now):
+attacker wins village 5 -> 3, farmland 13 -> 10, mounted village 8 -> 8, mounted farmland 1 -> 1; defenders indoors
+34 / 15 / 22 / 8 %, wounded inside 3-4 times less often than outside; clearings 1.3 per village battle, houses
+cleared 0.65. Six owner questions in DECISIONS.md (player squads leaving on their own, a Clear button, which houses,
+clearing earlier, caps, balance). Open: `house-clear` and `--scene buildings` not yet in CLAUDE.md's command list.
+Next: owner answers on M7.5e; then the next milestone in ROADMAP.
+
+**AI uses buildings, step "clear" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 3 of 4).** `assault`
+takes an optional `building`: sim drill "clear" (`systems/clear.ts`): bounds onto a door (covering fire at the enemy
+in the house, else its windows), stack beside the door, a posted grenade into each room (`grenades.postErrorM`; aimed
+at the far corner; from inside the doorway, then a step aside; none up the stairs), 3 men in after the burst, room by
+room breadth first; `radio.clearing` / `radio.houseCleared`. The AI attacker clears the houses on its way in and near
+the objective, and holds a taken house in the main ring (`COMMANDER.clear`, `Memory.clearing/taken/held`). Lab
+`npm run lab -- house clear`: empty house 12/12 cleared, 100 % of grenades burst in the room being cleared. Not met:
+clear.mts taken 2 -> 2 / 12 (the 300 m approach decides it), attacker indoors 0.7 % (target 5), grenades into houses
+1.2 per village battle (target 4). Attacker wins 5 -> 3 / 20 village, 12 -> 10 farmland, 6 -> 7 / 15 mounted (not
+re-tuned).
+
+**AI uses buildings, step "leave" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 2 of 4).** Men leave a
+house on their own (sim `systems/house.ts`, every side, player squads too; `soldier.houseLeave`): a trap (2 enemy
+bursts in or on it within 30 s, a mortar bomb counting 2: `detonate` marks `houseDanger`), an enemy seen inside
+(a man with him in his own room within 4 m fights), or cut off (an enemy within 150 m more than 120 deg off another
+enemy the unit knows); only well-located contacts count. The unit runs out (pinning does not hold it) to covered
+spots 25-50 m away on the side away from the threats, `Unit.leftHouse` keeps its own rules out for 120 s, radio
+`radio.houseLeft*`; the AI defence re-sites such a squad outdoors. Lab `npm run lab -- house leave`: out in time
+90 / 81 / 91 % (trap / enemy / cut off), trap casualties 2.25 -> 0.25. Batches: indoors 36 -> 34 % (village), 27 ->
+19 % (mounted); attacker wins 4 -> 5 / 20, 4 -> 6 / 15, 12 -> 12 / 20 (not re-tuned). Next steps: clear, polish.
+
+**AI uses buildings, step "defend" (2026-11-14, plan `docs/plans/m7.5e-ai-buildings.md`, step 1 of 4).** The AI
+defender now holds houses with a mixed spread: its siting takes window places (upper floors where they see as much
+as the ground floor) beside outdoor spots, at most 60 % of a squad inside, 2+ outside, 2 per room, 4 per house, men
+outside 8 m clear of an occupied house's walls, one man watching its back (`ai/src/siting.ts`); a window is a
+one-man `occupy {building, windowIndex, mode}` (new optional order fields). Defender man-seconds indoors 0.5 -> 36 %
+(village), 1.6 -> 27 % (mounted), 0.3 -> 16 % (farmland); upstairs 9 / 6 / 4 %; wounds per 100 man-minutes inside
+9 vs outside 20 (village). Attacker wins 5 -> 4 / 20 (village), 7 -> 4 / 15 (mounted), 13 -> 12 / 20 (farmland),
+not re-tuned. Not met: max within 10 m <= 5 on every seed (worst 6-7). Batch "buildings" block, `npm run lab --
+house defend`. Next steps: leave, clear, polish. See DECISIONS.md.
 
 **Defence fall-back (2026-11-14, overnight AI pick "defence-fallback").** An AI defending squad below half strength falls back only under a close threat (known enemy within 150 m, its objective contested, or enemies on two sides), each to a rally point of its own 80-150 m behind it, away from the enemy its men know, in cover and seeing its objective (`COMMANDER.fallback`); there each man takes a fire position (siting, 20 m); a squad holding there counts toward the counter-attack. Sim: a withdrawal of 3 able men or fewer goes back in one leg (`drills.withdrawTogetherMen`, player orders too). Rally in cover 23 -> 95 %, on the bearing away from the enemy 27 -> 98 %; casualties per man withdrawn 0.56 -> 0.41 (platoon-ru; target 0.28 not met); outcomes within noise. See DECISIONS.md.
 

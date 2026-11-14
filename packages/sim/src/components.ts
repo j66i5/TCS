@@ -114,6 +114,12 @@ export interface SoldierState {
     ox?: number; oy?: number; gx?: number; gy?: number;
   };
   /**
+   * Danger to the house he is in (M7.5e step "leave"): enemy bursts in or on building `building` (its id), counted
+   * (a heavy round counts more) while no more than `soldier.houseTrapSeconds` pass between one and the next, and the
+   * last one's tick. Absent until one bursts on a house he is in.
+   */
+  houseDanger?: { building: number; n: number; tick: number };
+  /**
    * The posture of his fire position (soldier AI package C): where his last move, occupy or posture order left him
    * (kneeling or standing at a window, lying in the open). When the shooting near him has died down he takes it
    * again. Absent: none yet.
@@ -204,6 +210,9 @@ export interface ContactReport {
   contact: Omit<Contact, "reportedTick">;
 }
 
+/** Why a unit left a house (M7.5e): grenades or HE on it, the enemy inside, cut off from behind. */
+export type HouseLeaveReason = "trap" | "enemy" | "flank";
+
 export interface Unit {
   callsign: string;
   side: SideId;
@@ -255,6 +264,14 @@ export interface Unit {
   carrier?: EntityId;
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
+  /**
+   * The house this unit last left on its own (M7.5e step "leave"): the building's id, when, and why. Its own rules
+   * keep it out of that house for `soldier.houseReenterSeconds`. Absent: none.
+   */
+  leftHouse?: { building: number; tick: number; reason: HouseLeaveReason };
+  /** The house this unit last tried and failed to send anyone out of (M7.5e review): it looks again after
+   *  `soldier.houseLeaveRetryS`. Absent: none. */
+  leaveTry?: { building: number; tick: number };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }
@@ -265,7 +282,7 @@ export interface Unit {
  * rout: the unit has broken and runs to (x, y), where it rallies.
  */
 export interface Drill {
-  kind: "assault" | "withdraw" | "rout";
+  kind: "assault" | "withdraw" | "rout" | "clear";
   x: number;
   y: number;
   groups: EntityId[][];
@@ -280,7 +297,31 @@ export interface Drill {
   waitFire?: true;
   /** Covering men who moved aside this bound for a line of fire (overnight pick "covering-fire"). */
   stepped?: EntityId[];
+  /** clear (M7.5e): the building's id; (x, y) is the point outside its entry door where the unit stacks up. */
+  building?: number;
+  /** clear: the stage after the bounds (absent while bounding): stacking beside the door, a man getting to his place
+   *  and throwing, waiting for the burst, men going into the room. */
+  stage?: ClearStage;
+  /** clear: since this tick in the stage; since this tick past the bounds (for its time limit). */
+  stageTick?: number; startTick?: number;
+  /** clear: the entry door (index into the building's interior graph nodes). */
+  entry?: number;
+  /** clear: the rooms in the order they are cleared (room indices) and how many are done. */
+  rooms?: number[]; room?: number;
+  /** clear: the man throwing into the next room, his place (x, y, height), the grenade, how many he had, and the
+   *  throw places tried for this room. */
+  thrower?: EntityId; throwAt?: [number, number, number]; ammo?: string; had?: number; tried?: number;
+  /** clear: the point in the room the grenade is aimed at; where the thrower steps aside to after the throw (thrown
+   *  from in line with the opening). */
+  aimAt?: [number, number]; aside?: [number, number, number];
+  /** clear: the tick the grenade bursts (and the men go in after `clearAfterBurstS`). */
+  burstTick?: number;
+  /** clear: the men going into the room now. */
+  entryMen?: EntityId[];
 }
+
+/** The stages of a house clearing after its bounds (M7.5e). */
+export type ClearStage = "stack" | "throw" | "wait" | "enter";
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
 export interface Action {

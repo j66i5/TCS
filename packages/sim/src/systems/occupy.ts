@@ -103,8 +103,14 @@ function centre(fp: readonly number[]): [number, number] {
 }
 
 /** Send the men to their places in building `bi` (ascending id order is the caller's). Returns how many go. */
-export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: readonly EntityId[], bi: number, floor: number | undefined, facing: number | undefined): number {
-  const places = occupyPlaces(ctx, bi, soldiers.length, floor, facing);
+export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: readonly EntityId[], bi: number, floor: number | undefined, facing: number | undefined, windowIndex?: number, mode: string = "run"): number {
+  let places = occupyPlaces(ctx, bi, soldiers.length + (windowIndex === undefined ? 0 : 1), floor, facing);
+  if (windowIndex !== undefined) {
+    // M7.5e: the first man to exactly that window; the others to the next places not at it.
+    const w = windowPlaces(ctx, bi)[windowIndex];
+    if (!w) return 0;
+    places = [w, ...places.filter((q) => q.z !== w.z || hypot2(q.x - w.x, q.y - w.y) >= 1.2)].slice(0, soldiers.length);
+  }
   if (places.length === 0) return 0;
   const { search } = navFor(ctx, "foot");
   let sent = 0;
@@ -114,7 +120,7 @@ export function occupyBuilding(ctx: SimContext, state: SimState, soldiers: reado
     if (!t || !m) return;
     const leg = routeBetween(ctx, search, t.x, t.y, p.x, p.y, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz: p.z });
     if (!leg) return;
-    m.waypoints = routeWaypoints<Waypoint>(leg, { x: 0, y: 0, mode: "run" });
+    m.waypoints = routeWaypoints<Waypoint>(leg, { x: 0, y: 0, mode });
     // A man already in his place: just turn and take the posture.
     m.formation = null;
     m.slotLagM = 0;

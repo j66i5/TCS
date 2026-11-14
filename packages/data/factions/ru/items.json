@@ -342,6 +342,20 @@
       "note": "Rescue blanket (rifleman-medic's bag; proposal). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
     },
     {
+      "id": "ru-litter",
+      "nameKey": "item.ru-litter",
+      "category": "medical",
+      "massKg": 7,
+      "medical": {
+        "tags": [
+          "litter"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Stretcher (носилки санитарные) of the stretcher bearers (санитары-носильщики, research 2026-11-14 studfile.net extract on medical support in battle). Not issued to anyone on the map yet: bearers come from off the map (owner Q-1c). Mass a game value. Not used up."
+    },
+    {
       "id": "ru-fr-bag",
       "nameKey": "item.ru-fr-bag",
       "category": "medical",

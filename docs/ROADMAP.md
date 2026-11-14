@@ -257,10 +257,27 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    free comrade within 3 m; `TreatmentRecord` on the wound and `medical.treated` events; `rules.medicalCare` and
    `--no-medical`; `npm run lab -- treatment`; debug overlay line.
 4. ✅ **D1 Hand smoke grenades** (slice 5, parallel session, merged 2026-11-14; owner: a small step inside medical)
-5. ⬜ **M10.3a Who helps: carers and first responders** (slice 6)
-6. ⬜ **M10.3b Triage, care under fire, "Medic!"** (slice 7)
-7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
-8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
+5. ✅ **M10.3a Who helps: carers and first responders** (slice 6, 2026-11-14) — a casualty beyond buddy reach gets
+   a carer who leaves the fight (`care` intent): the first responder or medic for urgent casualties, a willing
+   comrade (doctrine `casualtyCarePriority`, behaviour, morale, suppression, squad, exposure), at most the first
+   responder plus one comrade (owner Q-2a); leaders stay; unit orders and drills pass carers by; no surrender with
+   a carer; `medical.carer` events; batch "Carers" line.
+6. ✅ **M10.3b Triage, care under fire, "Medic!"** (slice 7, 2026-11-14) — the treating soldier tags a casualty
+   T1/T2/T3 (`medical.triaged`), sometimes wrongly at the data's rates by training; the tag on the map (own men)
+   and on the card; under fire a carer gets a casualty into cover (he walks there himself, or is dragged at 0.7 m/s
+   with a smoke screen; `medical.dragged`), and care goes on there; "Medic!" and "Man down, treating" on the
+   radio; debug reasons why nobody comes; batch "Triage, care under fire" line (preventable deaths).
+7. ✅ **M10.4a Carrying as a movement mode** (slice 8, 2026-11-14) — a generic `carry` store (payload = any entity
+   with mass; state schema 19): walking wounded, supported, drag, two-man drag, fireman's carry, two-man carry,
+   four-man litter (set-up 45 s, needs a litter item); the leader walks the way (`routeBetween`, stairs), the rest
+   follow his trail; rests after the data's endurance; carriers out of the fight (self-defence within 30 m); a
+   party fired on takes cover with the casualty and goes on when quiet; `medical.carried` events; the M10.3b drag
+   is now a carrying party (two-man drag with two carers, ground-floor houses too); `npm run lab -- carry`.
+8. ✅ **M10.4b Carrying to and into vehicles** (slice 9, 2026-11-14) — a squad getting into its vehicle carries its
+   wounded from up to 150 m to the ramp (a carrying party each) and two men lift each in; aboard a casualty lies
+   (unconscious or in shock) or sits; places: passenger seats (`vehicleLoading.lyingSeats`) or an ambulance's layouts;
+   `dismount` with `wounded` carries them out and lays them down behind the ramp; "carried" and "stretcher" sprite
+   frames; `bench-medical` perf case (floor 8×, a software decision); `--scene medical` screenshots.
 9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)
 10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)

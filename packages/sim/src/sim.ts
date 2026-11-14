@@ -40,6 +40,7 @@ import {
   deserializeState, hashState, serializeState, type SerializedState, type SimState,
 } from "./state";
 import { movementSystem } from "./systems/movement";
+import { carrySystem } from "./systems/carry";
 import { vehicleDriveSystem, vehicleSyncSystem } from "./systems/drive";
 import { physiologySystem, postureSystem } from "./systems/body";
 import { enqueueOrder, deliverOrders, receiveOrders } from "./systems/orders";
@@ -114,6 +115,8 @@ export function step(sim: Sim): SimEvent[] {
   vehicleDriveSystem(ctx, state, events);
   vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
+  // Carrying parties (M10.4a): the payload and the other carriers follow the leader's trail; phases, rests, cover.
+  carrySystem(ctx, state, events);
   physiologySystem(ctx, state);
   // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
   turretSystem(ctx, state);

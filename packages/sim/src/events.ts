@@ -43,6 +43,20 @@ export type SimEvent =
   /** A treatment was finished (M10.2): who treated whom, which intervention (core/medical.json id) on which wound,
    *  with what training (`skill`: self, buddy, firstResponder, medic), and whether it worked. */
   | { kind: "medical.treated"; tick: number; casualty: EntityId; by: EntityId; intervention: DefId; wound: number; success: boolean; skill: string }
+  /** M10.3a: a man leaves the fight to go to a casualty (`assigned`), or goes back (`reason`: done, handed over to a
+   *  first responder, nothing he can do, gave up, unable, casualty dead or gone). */
+  | { kind: "medical.carer"; tick: number; casualty: EntityId; by: EntityId; responder: boolean; assigned: boolean; reason?: string }
+  /** A casualty was triaged (M10.3b): the tag given (`cat`, 1 = T1 immediate .. 3 = T3 minimal), the true category
+   *  at that moment (`actual`; differs when the tag is wrong), by whom, with what training, under fire or not. */
+  | { kind: "medical.triaged"; tick: number; casualty: EntityId; by: EntityId; cat: number; actual: number; skill: string; underFire: boolean }
+  /** A one-man drag to cover (M10.3b): started (`done` false, with the distance) or ended (`done` true; `reason`
+   *  when it was cut short). */
+  | { kind: "medical.dragged"; tick: number; casualty: EntityId; by: EntityId; done: boolean; distanceM: number; reason?: string }
+  /**
+   * A carrying party (M10.4a): `phase` start (set off, with the way's length), hold (took cover under fire), resume,
+   * rest, done (with `reason`: arrived, dead, gone, carriers-lost, no-way, gave-up, ordered) and the metres carried.
+   */
+  | { kind: "medical.carried"; tick: number; payload: EntityId; by: EntityId; method: DefId; carriers: number; phase: "start" | "hold" | "resume" | "rest" | "done"; distanceM: number; reason?: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

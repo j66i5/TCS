@@ -1,11 +1,12 @@
 /**
  * The photo look's units and overlays (plan "photo", step "polish"): the small pictures (contact shadow, scorch,
- * grain, contour halo) are deterministic and within their limits; the grain repeats seamlessly; the photo extras
+ * grain) and the vector contour lines are deterministic and within their limits; the grain repeats seamlessly; the photo extras
  * (contact shadows, dark rims, scorch decals) exist only in the photo look, so flat and classic stay as they were.
  */
 import { describe, expect, it } from "vitest";
-import { createSim, step } from "@tcs/sim";
-import { contactShadow, contourHalo, grainTile, scorchDecal } from "../src/photo/decals";
+import { createSim, heightAt, step } from "@tcs/sim";
+import { contactShadow, grainTile, scorchDecal } from "../src/photo/decals";
+import { CONTOUR_INTERVAL_M, contourSegments } from "../src/photo/contours";
 import { BattleRenderer } from "../src/renderer";
 import { getScenario, loadData } from "../../tools/src/scenarios";
 
@@ -52,17 +53,20 @@ describe("photo decals", () => {
     expect(same(big.subarray(0, n * 4), g.subarray(0, n * 4))).toBe(true);
   });
 
-  it("contour halo: only empty pixels to the north-west of ink, ink untouched", () => {
-    const W = 8, H = 8, img = new Uint8Array(W * H * 4);
-    for (let j = 0; j < H; j++) { const o = (j * W + 4) * 4; img[o] = 20; img[o + 1] = 15; img[o + 2] = 10; img[o + 3] = 80; } // a vertical line at x = 4
-    const before = img.slice();
-    contourHalo(img, W, H);
-    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
-      const o = (j * W + i) * 4;
-      if (i === 4) expect(img.subarray(o, o + 4)).toEqual(before.subarray(o, o + 4));
-      else if (i === 3 && j < H - 1) expect(img[o + 3]).toBeGreaterThan(0);
-      else expect(img[o + 3]).toBe(0);
+  it("vector contours: every segment end lies on its 2.5 m level, majors every 10 m, deterministic", () => {
+    const map = getScenario("platoon").build(loadData(), 1, 600).map;
+    const seg = contourSegments(map);
+    expect(seg.minor.length + seg.major.length).toBeGreaterThan(0);
+    for (const [arr, major] of [[seg.minor, false], [seg.major, true]] as const) {
+      for (let k = 0; k < arr.length; k += 2) {
+        const h = heightAt(map, arr[k]!, arr[k + 1]!), L = Math.round(h / CONTOUR_INTERVAL_M) * CONTOUR_INTERVAL_M;
+        // Linear crossing on a 2 m step of a bilinear surface: within a few centimetres of the level.
+        expect(Math.abs(h - L)).toBeLessThan(0.08);
+        expect(Math.round(L / CONTOUR_INTERVAL_M) % 4 === 0).toBe(major);
+      }
     }
+    const again = contourSegments(map);
+    expect(Array.from(again.minor)).toEqual(Array.from(seg.minor));
   });
 });
 

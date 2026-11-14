@@ -2987,3 +2987,32 @@ Screenshots `npm run screenshot -- --scene review` (pixel ratio 2, phone and des
    cannot be judged in this container; photo p95 200 ms vs flat 133-150 ms on all five maps, the same as before this
    step (village before: 200 vs 133-150). Not met; left for a real-phone check.
 15. No golden, catalog or sim change.
+
+## 2026-11-14 — Photo look: review fixes (plan photo)
+
+Independent review of the four photo steps; rendering only (no sim, golden or catalog change).
+1. The opening prime's tiles go ahead of the whole-map L0 strips (priority 2e9 lower), so a phone's single worker
+   paints the opening view first instead of hitting the 3 s cap in `main.ts`.
+2. Device tier: a device without a fine pointer is a phone whatever cores and `deviceMemory` it reports (mid-range
+   Android was "strong"): one worker, 20 MB budget, levels chosen by CSS px per metre (L3 from 7 CSS px/m), so every
+   phone, iPhones included, gets 8 px/m tiles at the opening zoom instead of a 4 px/m smear. Desktop: strong with more
+   than 4 cores and more than 2 GB (unknown counts as 8), 40 MB; else 28 MB.
+3. Budgets count each tile twice (GPU texture plus the CPU copy Pixi keeps); a level is used only where its tiles over
+   the view fit three quarters of the budget (zoomed out on a big desktop screen every L1 tile was kept, far over the
+   budget); `evict()` no longer sorts when nothing can go. The flat placeholder under the strips is destroyed (texture
+   and buffer) once the last strip is in.
+4. Blur apron: the macro grid reads clamp at x, y < 0 (row 0 was about 17 % darker, column 0 took the far right's
+   values).
+5. Contours in the photo look are vector lines (marching squares over the heights, `photo/contours.ts`), one pixel
+   wide, with a light line one screen pixel to the north-west; the 1 px/m raster and its dotted halo showed as stair
+   steps in the dots band. The flat look keeps its raster.
+6. Roads: where roads meet, the wider one wins the colour but the edge distance is the union's, so a wide road's round
+   end cap no longer draws a pale worn rim across the narrower road; dirt-track ruts use the track's own centre line.
+7. Eave flash: each building's dashed line is built once (dashes in metres, a one-pixel line) and cached; per frame
+   only its alpha changes (it was re-tessellated each frame, 20-55 ms a frame on a throttled phone).
+8. Floors in the photo look are softened: walls a dark shade of the floor instead of black ink, a soft shade inside
+   the walls, fainter floorboards. They stay vector drawings (game information: walls are cover).
+9. `lint:data` checks `photo.roofs` and `photo.floors` keys against the building kinds.
+10. `docs/plans/photo.md` indexes the plan references cited in code; `terrain-flat.ts` header fixed (re-exports only).
+11. New `render/test/terrain-tiles.test.ts`: level choice, budget cap, prime ahead of strips, placeholder freed, no
+    holes, eviction, worker-failure fallback, device tier, blur apron.

@@ -154,7 +154,7 @@ export function preparePhoto(map: MapDef, col: FlatColours, grade: PhotoGrade = 
     if (k >= C && edge[k - C]! > d) { edge[k - C] = d; q[qt++] = k - C; }
     if (k + C < N && edge[k + C]! > d) { edge[k + C] = d; q[qt++] = k + C; }
   }
-  // ---- macro grid (2 m), one node beyond the map each side
+  // ---- macro grid (2 m) from x = y = 0, one node beyond the right and bottom edges (readers clamp below 0)
   const mcols = Math.ceil(map.widthM / MACRO_M) + 2, mrows = Math.ceil(map.heightM / MACRO_M) + 2;
   const macro = new Float32Array(mcols * mrows * MACRO_CH);
   const fbm = fbmImp, vnoise = vnoiseImp, smoothstep = smoothstepImp, hillshade = hillshadeImp, height = heightAt; // locals: hot loop

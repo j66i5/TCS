@@ -8,10 +8,12 @@ blocky"; plan `photo`, four steps; DECISIONS.md "Photo map, step ...").** The ma
 low-resolution aerial photo, all original procedural art (`render/src/photo/`, pure; ASSETS.md): soft warped field
 edges, furrows, crop rows, tree crowns lit from the west-north-west with soft shadows, hedges as crown rows, worn
 roads and tracks, water with banks, bridges, walls with shadows, sun-lit hipped/gabled/flat roofs from a roof atlas.
-Tiles paint in a worker (2/4/8 px/m by zoom; phones stop at 4); the flat picture shows until the photo lands. The
+Tiles paint in a worker (2/4/8 px/m by zoom; phones, i.e. no fine pointer, choose levels by CSS px, one worker,
+smaller budget); the opening view's tiles paint before the whole-map strips; the flat picture shows until the photo
+lands and is then freed. The
 "polish" step added (photo only): contact shadows and dark rims on men, rimmed dots, hull shadows, scorch decals for
 wrecks and craters, thicker label strokes, dark under-strokes on overlay lines, a symbols-zoom veil, close-zoom
-grain, fainter contours with a light halo. Default look is photo; `?look=flat|pixel|classic`, remembered in
+grain, fainter contours (vector lines with a light north-west line since the review fixes). Default look is photo; `?look=flat|pixel|classic`, remembered in
 `tcs.ui.look`. Rendering only: no sim, golden or catalog change. Screenshots `npm run screenshot -- --scene photo
 [--map woodland]` and `--scene look` (photo/flat/classic triples). Open: the throttled phone-pan budget (p95 within
 flat +10 %, no frame > 50 ms) is not met in the container (SwiftShader: every frame > 50 ms for both looks; photo

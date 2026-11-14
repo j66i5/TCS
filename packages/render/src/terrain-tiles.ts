@@ -4,17 +4,21 @@
  *   painted in four horizontal strips that replace it as they land;
  * - detail levels of 256 px tiles (flat: 64 m at 4 px/m from the figure zoom; photo: 128 m at 2, 64 m at 4 and, on
  *   capable devices, 32 m at 8 px/m, chosen by screen pixels per metre);
- * - the contour layer (zoomed out) and the close contour tiles of the top-bar toggle (S14).
+ * - the contour layer (zoomed out: a 1 px/m raster in the flat look, one-pixel vector lines in the photo look) and the
+ *   close contour tiles of the top-bar toggle (S14).
  * Tiles are painted by a `TileSource`: in plain JavaScript on this thread (flat; tests) or in workers (photo). A
  * `TileQueue` keeps the order (centre first), the cancels and the upload cap. One least-recently-used cache over all
- * levels with a byte budget. The coarser picture stays below a missing tile, so there are no holes.
+ * levels with a byte budget that counts each tile twice (the GPU texture and the CPU copy Pixi keeps for a context
+ * loss); a level is used only where its tiles over the view fit three quarters of that budget. The coarser picture
+ * stays below a missing tile, so there are no holes. The flat placeholder under the photo strips is destroyed once
+ * the last strip is in.
  */
-import { BufferImageSource, Container, Sprite, Texture } from "pixi.js";
+import { BufferImageSource, Container, Graphics, Sprite, Texture } from "pixi.js";
 import type { MapDef } from "@tcs/sim";
 import { CLOSE_CONTOUR_SCALE, CONTOUR_CLOSE_INK, CONTOUR_INK, TILE_CACHE, TILE_M, TILE_PPM, paintContours } from "./flat/paint";
 import { TileQueue, type TileJob } from "./tile-queue";
 import type { PhotoInit } from "./photo/paint";
-import { contourHalo } from "./photo/decals";
+import { contourSegments } from "./photo/contours";
 import type { PhotoReply, PhotoRequest } from "./photo/worker";
 
 export interface TerrainLevel { tileM: number; ppm: number; /** Shown from this many screen px per metre (x device ratio). */ minPx: number }
@@ -28,8 +32,10 @@ export interface TerrainTilesOptions {
   budgetBytes: number;
   /** New tiles fade in over this many frames (0: at once). */
   fadeFrames: number;
-  /** Device pixel ratio the canvas renders at (at most 2). */
+  /** Device pixels per CSS pixel the levels are chosen by (the canvas's ratio; 1 on phones: CSS px). */
   dpr: number;
+  /** The canvas's real device pixel ratio (vector contours' one-pixel offset; default `dpr`). */
+  pixelRatio?: number;
   /** Finest detail level used (phones stop at L2). */
   maxLevel: number;
   /** Choose the detail level by the renderer's zoom band ("detail" flag; the flat look) or by screen px per m. */
@@ -39,9 +45,10 @@ export interface TerrainTilesOptions {
   stripPpm: number;
   maxInFlight: number;
   maxUploads: number;
-  /** Whole-map contour ink alphas (minor, major; default the flat look's) and a light north-west halo (photo). */
+  /** Whole-map contour ink alphas (minor, major; default the flat look's). */
   contourAlphas?: [number, number];
-  contourHalo?: boolean;
+  /** Contours as one-pixel vector lines with a light line one pixel to the north-west (photo), not a raster. */
+  vectorContours?: boolean;
 }
 
 /** Paints queued tiles. */
@@ -113,16 +120,21 @@ const texOf = (data: Uint8Array, width: number, height: number, mode: "nearest" 
 
 /** Base resolution for a map: about 1 px/m, at most 2048 px a side. */
 export const basePpm = (map: MapDef) => Math.min(1, 2048 / Math.max(map.widthM, map.heightM));
-/** The photo L0 resolution: 1 px/m, 0.75 above 1600 m (plan decision 5), at most 2048 px a side. */
+/** The photo L0 resolution: 1 px/m, 0.75 above 1600 m (plan "photo" decision 5), at most 2048 px a side. */
 export const photoBasePpm = (map: MapDef) => Math.min(Math.max(map.widthM, map.heightM) > 1600 ? 0.75 : 1, 2048 / Math.max(map.widthM, map.heightM));
 
 interface Tile { sprite: Sprite; used: number; level: number; bytes: number }
 type View = { x: number; y: number; w: number; h: number };
 
+/** Bytes a tile costs against the budget: its texture and the CPU copy kept for a context loss. */
+const tileCost = (W: number, H: number) => W * H * 4 * 2;
+
 export class TerrainTiles {
   readonly root = new Container();
-  readonly base: Sprite;
-  readonly contours: Sprite;
+  /** The whole-map placeholder (flat picture); null once the photo strips replaced it (destroyed). */
+  private base: Sprite | null;
+  readonly contours: Container;
+  private contourLift: Container | null = null;
   private strips = new Container();
   private levelLayers: Container[] = [];
   private cache = new Map<string, Tile>();
@@ -143,9 +155,26 @@ export class TerrainTiles {
     const W = Math.round(map.widthM * this.ppm), H = Math.round(map.heightM * this.ppm);
     this.base = new Sprite(texOf(base, W, H, o.sampling, o.mipmaps));
     this.base.width = map.widthM; this.base.height = map.heightM;
-    const ink = paintContours(map, this.ppm, 0, 0, map.widthM, map.heightM, CONTOUR_INK, o.contourAlphas);
-    this.contours = new Sprite(texOf(o.contourHalo ? contourHalo(ink, W, H) : ink, W, H, "linear"));
-    this.contours.width = map.widthM; this.contours.height = map.heightM;
+    if (o.vectorContours) {
+      // Review fix: the raster contours, enlarged 2-7x in the dots band, showed as stair steps with a dotted halo.
+      const seg = contourSegments(map), [aMinor, aMajor] = o.contourAlphas ?? [0.28, 0.55];
+      const lines = (light: boolean) => {
+        const g = new Graphics();
+        const put = (a: Float32Array) => { for (let k = 0; k + 3 < a.length; k += 4) g.moveTo(a[k]!, a[k + 1]!).lineTo(a[k + 2]!, a[k + 3]!); };
+        const ink = light ? 0xf2ecd8 : (CONTOUR_INK[0] << 16) | (CONTOUR_INK[1] << 8) | CONTOUR_INK[2];
+        put(seg.minor); if (seg.minor.length) g.stroke({ width: 1, color: ink, alpha: light ? 0.1 : aMinor, pixelLine: true });
+        put(seg.major); if (seg.major.length) g.stroke({ width: 1, color: ink, alpha: light ? 0.14 : aMajor, pixelLine: true });
+        return g;
+      };
+      this.contours = new Container();
+      // The light line sits one screen pixel to the north-west of the ink (moved in update), so contours read on dark ground.
+      this.contourLift = lines(true);
+      this.contours.addChild(this.contourLift, lines(false));
+    } else {
+      const sp = new Sprite(texOf(paintContours(map, this.ppm, 0, 0, map.widthM, map.heightM, CONTOUR_INK, o.contourAlphas), W, H, "linear"));
+      sp.width = map.widthM; sp.height = map.heightM;
+      this.contours = sp;
+    }
     for (let i = 0; i < o.levels.length; i++) this.levelLayers.push(new Container());
     this.root.addChild(this.base, this.strips, ...this.levelLayers, this.contours, this.ctiles);
     this.q = q ?? new TileQueue(o.maxInFlight, o.maxUploads);
@@ -172,12 +201,30 @@ export class TerrainTiles {
     return out;
   }
 
-  /** The detail level for a zoom: by band (flat) or by screen px per metre (photo). */
-  levelFor(scale: number, detail: boolean): number {
+  /** Whether the whole-map placeholder is still held (tests). */
+  get placeholderHeld(): boolean { return this.base !== null; }
+  /** Detail-tile bytes counted against the budget (tests). */
+  get budgetUsed(): number { return this.bytes; }
+  /** Detail tiles held, all levels (tests). */
+  get tilesHeld(): number { let n = 0; for (const t of this.cache.values()) if (t.level >= 1) n++; return n; }
+
+  /**
+   * The detail level for a zoom: by band (flat) or by screen px per metre (photo). With a view, a level is used only
+   * where its tiles over the view fit three quarters of the budget (review fix: zoomed out on a big desktop screen
+   * every visible tile was kept, far over the budget); a coarser one is used instead.
+   */
+  levelFor(scale: number, detail: boolean, view?: View): number {
     if (this.o.byBand) return detail ? Math.min(1, this.o.levels.length) : 0;
     const px = scale * this.o.dpr;
     let lv = 0;
     for (let i = 0; i < this.o.levels.length && i < this.o.maxLevel; i++) if (px >= this.o.levels[i]!.minPx) lv = i + 1;
+    if (view) {
+      while (lv >= 1) {
+        const L = this.o.levels[lv - 1]!, r = this.tileRange(view, L), side = Math.round(L.tileM * L.ppm);
+        if ((r.tx1 - r.tx0 + 1) * (r.ty1 - r.ty0 + 1) * tileCost(side, side) <= 0.75 * this.o.budgetBytes) break;
+        lv--;
+      }
+    }
     return lv;
   }
 
@@ -204,15 +251,16 @@ export class TerrainTiles {
   update(view: View, scale: number, detail: boolean, contours: boolean, closeContours = false): void {
     this.frame++;
     if (this.source?.failed()) { this.source.destroy(); this.source = new SyncSource(this.paint); }
-    if (this.o.sampling === "nearest") {
+    if (this.o.sampling === "nearest" && this.base) {
       const mode = scale >= this.ppm ? "nearest" : "linear";
       if (this.base.texture.source.scaleMode !== mode) this.base.texture.source.scaleMode = mode;
     }
     const close = closeContours && scale >= CLOSE_CONTOUR_SCALE;
     this.contours.visible = contours && !close;
+    if (this.contourLift && this.contours.visible) { const d = -1 / (scale * (this.o.pixelRatio ?? this.o.dpr)); this.contourLift.position.set(d, d); }
     this.ctiles.visible = close;
     if (close) this.updateContourTiles(view);
-    const lv = this.levelFor(scale, detail);
+    const lv = this.levelFor(scale, detail, view);
     this.level = lv;
     // Wanted: the strips not yet in, and the missing tiles of this level over the view.
     const jobs: TileJob[] = [];
@@ -237,7 +285,14 @@ export class TerrainTiles {
     // The whole map is not drawn under a complete detail level (less overdraw; photo only, flat stays as it was).
     const covered = lv >= 1 && !missing && !this.o.byBand;
     this.strips.visible = !covered;
-    this.base.visible = !covered && (this.o.strips === 0 || this.stripsLeft > 0);
+    if (this.base) {
+      if (this.o.strips > 0 && this.stripsLeft === 0) {
+        // Review fix: the placeholder (and its CPU copy) was only hidden, kept in GPU and CPU memory for good.
+        this.base.parent?.removeChild(this.base);
+        this.base.destroy({ texture: true, textureSource: true });
+        this.base = null;
+      } else this.base.visible = !covered;
+    }
     // Coarser tiles stay under a level that is not complete yet.
     if (missing) {
       for (let l = lv - 1; l >= 1; l--) {
@@ -261,7 +316,7 @@ export class TerrainTiles {
     if (this.cache.has(job.key)) return;
     const s = new Sprite(texOf(data, W, H, job.level === 0 ? "linear" : this.o.sampling, this.o.mipmaps && job.level === 0));
     s.position.set(job.x0, job.y0); s.width = job.w; s.height = job.h;
-    const bytes = W * H * 4;
+    const bytes = tileCost(W, H);
     if (job.level === 0) {
       this.strips.addChild(s);
       this.stripsLeft--;
@@ -285,10 +340,13 @@ export class TerrainTiles {
     });
   }
 
-  /** Over budget: drop the least recently used detail tiles not shown this frame. */
+  /** Over budget: drop the least recently used detail tiles not shown this frame (no sort when none can go). */
   private evict(): void {
     if (this.bytes <= this.o.budgetBytes) return;
-    const old = [...this.cache.entries()].filter(([, t]) => t.level >= 1 && t.used < this.frame).sort((a, b) => a[1].used - b[1].used);
+    const old: [string, Tile][] = [];
+    for (const e of this.cache) if (e[1].level >= 1 && e[1].used < this.frame) old.push(e);
+    if (old.length === 0) return;
+    old.sort((a, b) => a[1].used - b[1].used);
     for (const [k, t] of old) {
       if (this.bytes <= this.o.budgetBytes) break;
       t.sprite.parent?.removeChild(t.sprite);
@@ -303,11 +361,13 @@ export class TerrainTiles {
    * when it returns. Workers: resolves when they have all been painted (the next frame uploads them all).
    */
   prime(view: View, scale: number, detail: boolean): Promise<void> {
-    const lv = this.levelFor(scale, detail);
+    const lv = this.levelFor(scale, detail, view);
     if (lv < 1) return Promise.resolve();
     const r = this.tileRange(view, this.o.levels[lv - 1]!), cx = view.x + view.w / 2, cy = view.y + view.h / 2;
     const jobs: TileJob[] = [];
-    for (let ty = r.ty0; ty <= r.ty1; ty++) for (let tx = r.tx0; tx <= r.tx1; tx++) if (!this.cache.has(`${lv}:${tx},${ty}`)) jobs.push(this.job(lv, tx, ty, cx, cy));
+    // Review fix: ahead of everything else, the whole-map strips included (they went first, so a phone's single
+    // worker reached the opening view only after the 3 s cap).
+    for (let ty = r.ty0; ty <= r.ty1; ty++) for (let tx = r.tx0; tx <= r.tx1; tx++) if (!this.cache.has(`${lv}:${tx},${ty}`)) { const j = this.job(lv, tx, ty, cx, cy); j.prio -= 2e9; jobs.push(j); }
     if (this.source instanceof SyncSource) {
       for (const j of jobs) { this.upload(j, this.paint(j)); this.cache.get(j.key)!.sprite.alpha = 1; }
       this.fading = this.fading.filter((s) => s.alpha < 1);

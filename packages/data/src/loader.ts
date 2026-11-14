@@ -194,10 +194,11 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
         for (const k of Object.keys(ap[group])) if (!known2[k]) errors.push({ file: "core/appearance.json", path: `${group}.${k}`, message: `unknown id '${k}' (known: ${known(known2)})`, severity: "error" });
       };
       check("surfaces", terrain.surfaces); check("vegetation", terrain.vegetation); check("roofs", terrain.buildings); check("floors", terrain.buildings);
-      const ph = ap.photo, checkPh = (group: "surfaces" | "vegetation" | "obstacles", known2: Record<string, unknown>) => {
+      const ph = ap.photo, checkPh = (group: "surfaces" | "vegetation" | "obstacles" | "roofs" | "floors", known2: Record<string, unknown>) => {
         for (const k of Object.keys(ph?.[group] ?? {})) if (!known2[k]) errors.push({ file: "core/appearance.json", path: `photo.${group}.${k}`, message: `unknown id '${k}' (known: ${known(known2)})`, severity: "error" });
       };
       checkPh("surfaces", terrain.surfaces); checkPh("vegetation", terrain.vegetation); checkPh("obstacles", terrain.obstacles);
+      checkPh("roofs", terrain.buildings); checkPh("floors", terrain.buildings);
       data.appearance = ap;
     }
   }

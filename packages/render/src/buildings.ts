@@ -8,8 +8,10 @@
  * Photo look (plan "photo" step "built"): the roofs are sprites cut from a per-map roof atlas painted by
  * `photo/roof.ts` (hipped, gabled or flat, lit by the sun), one Sprite per building with the same fade rule; their
  * ground shadows are part of the terrain picture, so they stay when the roof fades. When a roof starts to fade, a light
- * dashed eave line shows for 0.3 s, so the player sees which building opened. Floors stay crisp vector drawings (they
- * are game information: the walls are the cover), in the photo palette's lighter floor colours.
+ * dashed eave line shows for 0.3 s, so the player sees which building opened (drawn once per building in metres and
+ * cached; only its alpha changes per frame). Floors stay vector drawings (they are game information: the walls are the
+ * cover), but softened for the photo: the photo palette's lighter floor colours, walls a dark shade of the floor
+ * rather than black ink, a soft shade along the walls inside, fainter floorboards.
  */
 import { BufferImageSource, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { buildInteriorGraph, type Building, type MapDef } from "@tcs/sim";
@@ -75,7 +77,7 @@ const hexN = (c: string) => parseInt(c.slice(1), 16);
  * (thinner than the outer ones) with their doorway gaps and a light threshold, and the stairs hatched with their
  * steps (the flight up from this floor, and the head of the flight from the floor below).
  */
-function drawInterior(f: Graphics, b: Building, floor: number, outline: number, fl = 0): void {
+function drawInterior(f: Graphics, b: Building, floor: number, outline: number, fl = 0, soft = false): void {
   const it = b.interior!;
   for (const r of it.rooms) {
     if (r.floor !== fl || r.kind === "room") continue;
@@ -100,7 +102,7 @@ function drawInterior(f: Graphics, b: Building, floor: number, outline: number, 
     const piece = (a: number, c: number) => { if (c > a) f.moveTo(w.ax + ux * a, w.ay + uy * a).lineTo(w.ax + ux * c, w.ay + uy * c); };
     for (const d of doors) { piece(s0, d.offsetM - d.widthM / 2); s0 = d.offsetM + d.widthM / 2; }
     piece(s0, L);
-    f.stroke({ width: Math.max(0.15, w.thicknessM), color: outline, cap: "square" });
+    f.stroke({ width: Math.max(0.15, w.thicknessM), color: outline, cap: "square", ...(soft ? { alpha: 0.85 } : {}) });
     for (const d of doors) {
       const a = d.offsetM - d.widthM / 2, c = d.offsetM + d.widthM / 2;
       f.moveTo(w.ax + ux * a, w.ay + uy * a).lineTo(w.ax + ux * c, w.ay + uy * c).stroke({ width: 0.08, color: shade(floor, 1.25) });
@@ -109,9 +111,14 @@ function drawInterior(f: Graphics, b: Building, floor: number, outline: number, 
 }
 /** A building's plan on floor `fl` (M7.5d; the ground floor as in M7.5b/c): floor, outer walls with that floor's
  *  doors and windows, and the interior of that floor. */
-function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: number): void {
+function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: number, soft = false): void {
   const fp = b.footprint, n = fp.length / 2;
   f.poly(fp).fill({ color: floor });
+  // Photo: a soft shade along the walls inside (two bands), as light falls in a roofless room seen from above.
+  if (soft) {
+    f.poly(fp).stroke({ width: 1.4, color: shade(floor, 0.62), alpha: 0.14, alignment: 1 });
+    f.poly(fp).stroke({ width: 0.7, color: shade(floor, 0.62), alpha: 0.16, alignment: 1 });
+  }
   // Floorboards / tiles: faint lines every 1 m along the long side.
   if (n === 4) {
     const e0 = Math.hypot(fp[2]! - fp[0]!, fp[3]! - fp[1]!), e1 = Math.hypot(fp[6]! - fp[0]!, fp[7]! - fp[1]!);
@@ -119,7 +126,7 @@ function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: 
       ? [(fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0, (fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1]
       : [(fp[6]! - fp[0]!) / e1, (fp[7]! - fp[1]!) / e1, e1, (fp[2]! - fp[0]!) / e0, (fp[3]! - fp[1]!) / e0, e0];
     for (let s = 1; s < M; s += 1) f.moveTo(fp[0]! + vx * s, fp[1]! + vy * s).lineTo(fp[0]! + vx * s + ux * L, fp[1]! + vy * s + uy * L);
-    f.stroke({ width: 0.06, color: shade(floor, 0.82) });
+    f.stroke({ width: 0.06, color: shade(floor, 0.82), alpha: soft ? 0.45 : 1 });
   }
   // Outer walls, drawn inside the footprint, with gaps for doors and glass in the windows.
   let cx = 0, cy = 0;
@@ -137,15 +144,18 @@ function drawPlan(f: Graphics, b: Building, fl: number, floor: number, outline: 
     const piece = (s0: number, s1: number) => { if (s1 > s0) f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy); };
     for (const o of ops) { piece(s, o.offsetM - o.widthM / 2); s = o.offsetM + o.widthM / 2; }
     piece(s, L);
-    f.stroke({ width: t, color: outline, cap: "square" });
+    f.stroke({ width: t, color: outline, cap: "square", ...(soft ? { alpha: 0.92 } : {}) });
     for (const o of ops) {
       if (o.kind !== "window") continue;
       const s0 = o.offsetM - o.widthM / 2, s1 = o.offsetM + o.widthM / 2;
       f.moveTo(ax + ux * s0 + ox, ay + uy * s0 + oy).lineTo(ax + ux * s1 + ox, ay + uy * s1 + oy).stroke({ width: t * 0.6, color: 0xa9cbd6 });
     }
   }
-  if (b.interior) drawInterior(f, b, floor, outline, fl);
+  if (b.interior) drawInterior(f, b, floor, outline, fl, soft);
 }
+
+/** Photo: the wall colour of a floor plan, a dark warm shade of its floor rather than the flat look's black ink. */
+const softWall = (floor: number) => shade(floor, 0.36);
 
 const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
 /** Photo: frames the eave line shows when a roof starts to fade (0.3 s at 60 frames a second). */
@@ -158,9 +168,10 @@ export class BuildingLayers {
   readonly upper = new Container();
   readonly roofs = new Container();
   private roofG: (Graphics | Sprite)[] = [];
-  /** Photo: the roof atlas pages, the eave flash line and its frames left per building. */
+  /** Photo: the roof atlas pages, the eave flash lines (one cached Graphics per building) and frames left per building. */
   private roofSources: BufferImageSource[] = [];
-  private readonly eaves = new Graphics();
+  private readonly eaves = new Container();
+  private eaveG = new Map<number, Graphics>();
   private flash: Uint8Array;
   private flashing = false;
   readonly atlas: RoofAtlas | null = null;
@@ -199,7 +210,7 @@ export class BuildingLayers {
     for (const b of map.buildings) {
       const fp = b.footprint, n = fp.length / 2;
       const floor = this.floorColour(b);
-      drawPlan(f, b, 0, floor, outline);
+      drawPlan(f, b, 0, floor, photo ? softWall(floor) : outline, photo);
       if (photo) continue;
       // Roof: a hard shadow, flat colour, the ridge with one half a shade darker, tile rows, a dark outline.
       const g = new Graphics();
@@ -251,10 +262,10 @@ export class BuildingLayers {
   }
 
   /**
-   * Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). `pxPerM`: the
-   * zoom (screen px per metre), for the photo look's eave flash line (1 px wide).
+   * Per frame: the roof-fade rule, then each roof's alpha a step towards its target (about 8 frames). (`_pxPerM`, the
+   * zoom, is no longer needed: the eave line is a one-pixel line in any zoom.)
    */
-  update(men: ArrayLike<number>, nMen: number, close: boolean, pxPerM = 10): void {
+  update(men: ArrayLike<number>, nMen: number, close: boolean, _pxPerM = 10): void {
     roofShown(this.index, men, nMen, close, this.target);
     // Upper floors (M7.5d): the floor switched to, where the roof is lifted (a building with an interior).
     for (const g of this.upperG.values()) g.visible = false;
@@ -267,7 +278,8 @@ export class BuildingLayers {
         let g = this.upperG.get(key);
         if (!g) {
           g = new Graphics();
-          drawPlan(g, b, fl, shade(this.floorColour(b), 1.04), this.outline);
+          const floor = shade(this.floorColour(b), 1.04);
+          drawPlan(g, b, fl, floor, this.photo ? softWall(floor) : this.outline, this.photo);
           this.upperG.set(key, g);
           this.upper.addChild(g);
         }
@@ -284,30 +296,44 @@ export class BuildingLayers {
       g.alpha = na;
       g.visible = na > 0;
     }
-    if (this.flashing) this.drawEaves(pxPerM);
+    if (this.flashing) this.flashEaves();
   }
 
-  /** Photo: the light dashed eave line of roofs that just started to fade (0.3 s), 1 px wide on screen. */
-  private drawEaves(pxPerM: number): void {
-    const g = this.eaves;
-    g.clear();
+  /**
+   * Photo: the light dashed eave line of roofs that just started to fade (0.3 s). Review fix: each building's line is
+   * built once (dashes in metres, a one-pixel line at any zoom) and kept; per frame only its alpha changes (it was
+   * cleared and re-tessellated every frame, 20-55 ms a frame on a phone when a whole village opened at once).
+   */
+  private flashEaves(): void {
     let any = false;
-    const px = 1 / Math.max(0.01, pxPerM), dash = 5 * px, gap = 4 * px;
     for (let i = 0; i < this.flash.length; i++) {
       const fr = this.flash[i]!;
-      if (fr === 0) continue;
+      const g = this.eaveG.get(i);
+      if (fr === 0) { if (g) g.visible = false; continue; }
       this.flash[i] = fr - 1;
       any = true;
-      const fp = this.map.buildings[i]!.footprint, n = fp.length / 2;
-      for (let k = 0; k < n; k++) {
-        const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
-        const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
-        for (let s = 0; s < L; s += dash + gap) g.moveTo(ax + ux * s, ay + uy * s).lineTo(ax + ux * Math.min(L, s + dash), ay + uy * Math.min(L, s + dash));
-      }
-      g.stroke({ width: px, color: 0xeee8d8, alpha: Math.min(1, fr / 6) });
+      const e = g ?? this.eaveLine(i);
+      e.visible = fr > 1;
+      e.alpha = Math.min(1, fr / 6) * 0.8;
     }
     this.flashing = any;
   }
+
+  private eaveLine(i: number): Graphics {
+    const g = new Graphics(), fp = this.map.buildings[i]!.footprint, n = fp.length / 2, dash = 0.35, gap = 0.25;
+    for (let k = 0; k < n; k++) {
+      const ax = fp[2 * k]!, ay = fp[2 * k + 1]!, bx = fp[(2 * k + 2) % fp.length]!, by = fp[(2 * k + 3) % fp.length]!;
+      const L = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / L, uy = (by - ay) / L;
+      for (let s = 0; s < L; s += dash + gap) g.moveTo(ax + ux * s, ay + uy * s).lineTo(ax + ux * Math.min(L, s + dash), ay + uy * Math.min(L, s + dash));
+    }
+    g.stroke({ width: 1, color: 0xeee8d8, pixelLine: true });
+    this.eaveG.set(i, g);
+    this.eaves.addChild(g);
+    return g;
+  }
+
+  /** Eave lines built so far (tests: built once per building, not per frame). */
+  eaveLines(): number { return this.eaveG.size; }
 
   /** Frames of eave flash left for building i (tests). */
   eaveFlash(i: number): number { return this.flash[i] ?? 0; }

@@ -262,6 +262,11 @@ describe("photo roof sprites follow the roof-fade rule", () => {
     expect(p2.eaveFlash(1)).toBe(0);
     for (let f = 0; f < EAVE_FLASH_FRAMES; f++) p2.update([55, 54], 1, false, 12);
     expect(p2.eaveFlash(0)).toBe(0);
+    // The line is built once and kept (only its alpha changes per frame), also when the roof opens again.
+    expect(p2.eaveLines()).toBe(1);
+    for (let f = 0; f < 10; f++) p2.update([], 0, false, 12);
+    for (let f = 0; f < EAVE_FLASH_FRAMES; f++) p2.update([55, 54], 1, false, 12);
+    expect(p2.eaveLines()).toBe(1);
     expect(flat.eaveFlash(0)).toBe(0);
     photo.destroy(); flat.destroy(); p2.destroy();
   });

@@ -200,12 +200,15 @@ function rasterSegs(segs: Float32Array, stride: number, n: number, hwMin: number
         const dx = x - ax - u * ex, dy = y - ay - u * ey, d = Math.sqrt(dx * dx + dy * dy), v = d - hw, k = j * s.LW + i;
         const cur = e[k]!;
         if (win) {
-          // Roads: where two cover the pixel the wider wins (no narrow track drawn across a main road's edge).
+          // Roads: where two cover the pixel the wider wins its colour (no narrow track drawn across a main road's
+          // edge), but the edge distance stays that of the union (review fix: a wide road's round end cap drew a
+          // pale worn rim across the narrower road it ends on).
           const w0 = win[k]!;
           if (w0 >= 0 && cur < 0.5 && v < 0.5) {
             const h0 = segs[w0 * stride + 4]!;
             const hr = segs[o + 4]!;
-            if (hr > h0 + 0.01 || (Math.abs(hr - h0) <= 0.01 && v < cur)) { e[k] = v; win[k] = q; }
+            if (hr > h0 + 0.01 || (Math.abs(hr - h0) <= 0.01 && v < cur)) win[k] = q;
+            if (v < cur) e[k] = v;
             continue;
           }
           if (v < cur) { e[k] = v; win[k] = q; }
@@ -328,7 +331,7 @@ export function paintRoads(lp: LinePrep, s: LineScratch, buf: Uint32Array, W: nu
       const x = (s.lgx0 + i + 0.5) * px;
       const wobA = kind === RK.Paved ? 0.18 : 0.4;
       const e = e0 + wobA * (0.7 * vnoise(x / 2.1, y / 2.1, 101) + 0.3 * vnoise(x / 0.7, y / 0.7, 103));
-      const a = clamp01(0.5 - e * ppm), d = e0 + hw; // distance from the centre line
+      const a = clamp01(0.5 - e * ppm);
       const p = (j - P) * W + (i - P), w = buf[p]!;
       let r = w & 255, g = (w >>> 8) & 255, b = (w >>> 16) & 255;
       const deck = s.we[k]! < DECK_REACH;
@@ -350,7 +353,12 @@ export function paintRoads(lp: LinePrep, s: LineScratch, buf: Uint32Array, W: nu
         } else if (kind === RK.Gravel) {
           f += 0.1 * bGrit * (hash2(Math.floor(x * 4), Math.floor(y * 4), 113) - 0.5);
         } else {
-          // Dirt track: two ruts, a lighter crown, a grassy centre strip on wider tracks.
+          // Dirt track: two ruts, a lighter crown, a grassy centre strip on wider tracks. Distance from this
+          // track's own centre line (the edge distance is the union's where roads meet).
+          const ax = seg[o]!, ay = seg[o + 1]!, ex = seg[o + 2]! - ax, ey = seg[o + 3]! - ay;
+          let u = ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1e-12);
+          u = u < 0 ? 0 : u > 1 ? 1 : u;
+          const ddx = x - ax - u * ex, ddy = y - ay - u * ey, d = Math.sqrt(ddx * ddx + ddy * ddy);
           const rut = Math.abs(d - 0.55 * hw);
           if (rut < 0.3) f *= 1 - 0.14 * bRut * (1 - rut / 0.3) * (0.7 + 0.3 * vnoise(x / 1.5, y / 1.5, 115));
           else if (d < 0.4 * hw) f *= 1.04;

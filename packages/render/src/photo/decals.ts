@@ -3,7 +3,6 @@
  * - `contactShadow`: a soft round shadow under a man (tinted and stretched by the renderer);
  * - `scorchDecal`: the burnt ground round a wreck (radial falloff, ragged edge, soot patches);
  * - `grainTile`: neutral fine grain for close zoom (lighter and darker specks, world-anchored, repeats seamlessly);
- * - `contourHalo`: a faint light line on the north-west side of contour ink, so contours read on dark ground.
  * All RGBA, premultiplied alpha. Deterministic (hash noise), pure: no Pixi, no DOM, no `Math.random`, no clock.
  */
 import { fbm, hash2, smoothstep } from "./noise";
@@ -51,20 +50,4 @@ export function grainTile(size = 256, amp = 0.1): Uint8Array {
     out[o] = out[o + 1] = out[o + 2] = Math.round(w * a); out[o + 3] = Math.round(255 * a);
   }
   return out;
-}
-
-/**
- * A faint light halo beside contour ink (plan decision 13): every empty pixel whose south-east neighbour is ink gets
- * `ink` at `alpha` (premultiplied), so a contour line has a lit north-west edge and reads on dark ground. In place.
- */
-export function contourHalo(img: Uint8Array, W: number, H: number, ink: readonly number[] = [0xf2, 0xec, 0xd8], alpha = 0.12): Uint8Array {
-  const r = Math.round(ink[0]! * alpha), g = Math.round(ink[1]! * alpha), b = Math.round(ink[2]! * alpha), a = Math.round(255 * alpha);
-  for (let j = 0; j < H - 1; j++) for (let i = 0; i < W - 1; i++) {
-    const o = (j * W + i) * 4;
-    if (img[o + 3] !== 0) continue;
-    const q = ((j + 1) * W + i + 1) * 4;
-    if (img[q + 3] === 0) continue; // (rows below are not changed yet: only ink counts)
-    img[o] = r; img[o + 1] = g; img[o + 2] = b; img[o + 3] = a;
-  }
-  return img;
 }

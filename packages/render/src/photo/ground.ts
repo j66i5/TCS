@@ -38,11 +38,12 @@ export function paintGround(p: PhotoPrep, out: Uint32Array, W: number, H: number
   const fid = [0, 0, 0, 0], fw = [0, 0, 0, 0], fk = [0, 0, 0, 0];
   for (let j = 0; j < H; j++) {
     const y = (gy0 + j + 0.5) * px;
-    const my = y * iM, mj = Math.floor(my), ty = my - mj;
+    // (The blur apron reaches half a pixel outside the map: clamped to the first macro node, never a negative index.)
+    const my = y > 0 ? y * iM : 0, mj = Math.floor(my), ty = my - mj;
     for (let i = 0; i < W; i++) {
       const x = (gx0 + i + 0.5) * px;
       // ---- macro grid, bilinear
-      const mx = x * iM, mi = Math.floor(mx), tx = mx - mi;
+      const mx = x > 0 ? x * iM : 0, mi = Math.floor(mx), tx = mx - mi;
       const o00 = (mj * mc + mi) * MCH, o10 = o00 + MCH, o01 = o00 + mc * MCH, o11 = o01 + MCH;
       const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
       let wx = macro[o00 + M_WX]! * w00 + macro[o10 + M_WX]! * w10 + macro[o01 + M_WX]! * w01 + macro[o11 + M_WX]! * w11;

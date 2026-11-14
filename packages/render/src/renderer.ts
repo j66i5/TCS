@@ -38,13 +38,33 @@ const FLAT_TILES: TerrainTilesOptions = {
   dpr: 1, maxLevel: 1, byBand: true, strips: 0, stripPpm: 1, maxInFlight: 1, maxUploads: 1,
 };
 
-/** What this device can afford (plan "photo" decision 5): phones stop at 4 px/m and keep a smaller cache. */
-function deviceTier(): { strong: boolean; workers: number } {
+/**
+ * What this device can afford (plan "photo" decision 5, review fix). A phone or tablet (no fine pointer) is never the
+ * strong tier, whatever cores and memory it reports (mid-range Android reports 8 cores and 4-8 GB): one worker, the
+ * small budget, and levels chosen by CSS px per metre rather than device px, so it paints fewer, coarser tiles while
+ * zoomed out, but its 8 px/m tiles start at the opening zoom (they started at 11 device px/m and were cut off on
+ * phones, which left the figure and close zooms a smear on every iPhone). Desktop: strong with > 4 cores and > 2 GB
+ * (unknown memory counts as 8).
+ */
+export function deviceTier(): { phone: boolean; strong: boolean; workers: number } {
   const nav = (globalThis as { navigator?: { hardwareConcurrency?: number; deviceMemory?: number } }).navigator;
   const cores = nav?.hardwareConcurrency ?? 4;
   const fine = typeof globalThis.matchMedia === "function" && globalThis.matchMedia("(pointer: fine)").matches;
-  const mem = nav?.deviceMemory ?? (fine ? 8 : 0);
-  return { strong: cores > 4 && mem > 2, workers: cores <= 4 ? 1 : 2 };
+  if (!fine) return { phone: true, strong: false, workers: 1 };
+  const mem = nav?.deviceMemory ?? 8;
+  return { phone: false, strong: cores > 4 && mem > 2, workers: cores <= 4 ? 1 : 2 };
+}
+
+/** The photo look's tile options for a device tier (budgets count the GPU texture and the CPU copy of each tile). */
+export function photoTileOptions(map: MapDef, tier: { phone: boolean; strong: boolean }, dpr: number): TerrainTilesOptions {
+  return {
+    levels: tier.phone
+      ? [{ tileM: 128, ppm: 2, minPx: 2 }, { tileM: 64, ppm: 4, minPx: 3.5 }, { tileM: 32, ppm: 8, minPx: 7 }]
+      : [{ tileM: 128, ppm: 2, minPx: 2 }, { tileM: 64, ppm: 4, minPx: 4.5 }, { tileM: 32, ppm: 8, minPx: 11 }],
+    sampling: "linear", mipmaps: true, budgetBytes: (tier.strong ? 40 : tier.phone ? 20 : 28) * 1024 * 1024, fadeFrames: 9,
+    dpr: tier.phone ? 1 : dpr, pixelRatio: dpr, maxLevel: tier.strong || tier.phone ? 3 : 2, byBand: false, strips: 4, stripPpm: photoBasePpm(map),
+    maxInFlight: 4, maxUploads: 2, contourAlphas: [0.3, 0.5], vectorContours: true,
+  };
 }
 /** Ticks a man shows his firing frame after a shot. */
 const FIRE_FRAME_TICKS = 6;
@@ -318,12 +338,7 @@ export class BattleRenderer {
       const init = photoInit(map, catalog.terrain, this.appearance);
       let painter: PhotoPainter | null = null;
       const tier = deviceTier();
-      const o: TerrainTilesOptions = {
-        levels: [{ tileM: 128, ppm: 2, minPx: 2 }, { tileM: 64, ppm: 4, minPx: 4.5 }, { tileM: 32, ppm: 8, minPx: 11 }],
-        sampling: "linear", mipmaps: true, budgetBytes: (tier.strong ? 24 : 16) * 1024 * 1024, fadeFrames: 9,
-        dpr: this.app.renderer.resolution || 1, maxLevel: tier.strong ? 3 : 2, byBand: false, strips: 4, stripPpm: photoBasePpm(map),
-        maxInFlight: 4, maxUploads: 2, contourAlphas: [0.25, 0.45], contourHalo: true,
-      };
+      const o = photoTileOptions(map, tier, this.app.renderer.resolution || 1);
       const q = new TileQueue(o.maxInFlight, o.maxUploads);
       let source: WorkerSource | null = null;
       if (typeof Worker !== "undefined") {

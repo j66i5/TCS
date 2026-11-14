@@ -52,5 +52,10 @@ describe("appearance (M7.5a)", () => {
     expect(r.data).toBeNull();
     expect(r.errors.some((e) => e.file === "factions/ru/appearance.json")).toBe(true);
     expect(r.errors.some((e) => e.file === "core/appearance.json" && e.path === "roofs.castle")).toBe(true);
+    // Review fix: the photo palette's roofs and floors are checked too (a typo fell back to the flat colour quietly).
+    const core = files["core/appearance.json"] as { photo: Record<string, unknown> };
+    const r2 = loadDataSet({ ...files, "core/appearance.json": { ...core, photo: { ...core.photo, roofs: { "farm-house": "#000000" }, floors: { castle: "#000000" } } } });
+    expect(r2.errors.some((e) => e.path === "photo.roofs.farm-house")).toBe(true);
+    expect(r2.errors.some((e) => e.path === "photo.floors.castle")).toBe(true);
   });
 });

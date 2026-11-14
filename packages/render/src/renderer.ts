@@ -1003,13 +1003,25 @@ export class BattleRenderer {
   /**
    * Reconnaissance quadcopters (M9.4a): a small four-rotor symbol at its place (a fixed size on screen), its height
    * beside it, a thin line down to its operator and, for the drone selected, the ground its cameras search. Under fog
-   * of war only the player's own (an enemy drone is seen and heard from M9.4b).
+   * of war the player's own, and an enemy one his men have in sight (M9.4b).
    */
   private drawDrones(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     if (state.drone.size === 0) return;
     const c = this.camera;
+    // (M9.4b: an enemy drone while one of the player's men has it in sight.)
+    let spotted: Set<EntityId> | null = null;
     for (const [id, d] of state.drone.entries()) {
-      if (fog && d.side !== overlay.playerSide) continue;
+      if (fog && d.side !== overlay.playerSide) {
+        if (spotted === null) {
+          spotted = new Set();
+          // mounted: ok a crewman's sightings count too
+          for (const [m, s] of state.soldier.entries()) {
+            if (s.seen.length === 0 || state.identity.get(m)?.side !== overlay.playerSide) continue;
+            for (const e of s.seen) if (state.tick - e.lastTick <= 120 && state.drone.has(e.target)) spotted.add(e.target);
+          }
+        }
+        if (!spotted.has(id)) continue;
+      }
       const t = state.transform.get(id);
       if (!t) continue;
       const p = this.pos(state, id, alpha);

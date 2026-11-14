@@ -117,6 +117,16 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     if (!me) continue;
     for (const e of s.seen) {
       if (e.lastTick !== tick) continue;
+      if (state.drone.size > 0 && state.drone.has(e.target)) {
+        // A drone overhead is no contact (M9.4b); a new one is called out on the radio (his unit, now and then).
+        const top = e.firstTick === tick ? topUnit(state, id) : null, u = top === null ? undefined : state.unit.get(top);
+        if (u && tick - u.lastCallTick >= secondsToTicks(K.callEverySeconds) && canReport(s)) {
+          u.lastCallTick = tick;
+          const ident = state.identity.req(id);
+          events.emit({ kind: "radio", tick, side: ident.side, from: id, key: "radio.droneOverhead", params: { callsign: state.unit.get(ident.unit)?.callsign ?? u.callsign } });
+        }
+        continue;
+      }
       const t = state.transform.get(e.target);
       if (!t) continue;
       const range = sqrt((t.x - me.x) * (t.x - me.x) + (t.y - me.y) * (t.y - me.y));

@@ -62,5 +62,6 @@ recommended option first — never as a typed list in the chat.
 - Photo-only unit extras (contact shadows, rims, hull shadows, scorch, under-strokes, veil, grain) are keyed on `look === "photo"` in `renderer.ts`: flat must stay byte-identical (compare `--scene look` shots).
 - Night (M9.1): `light` follows the clock only when `environment.sky` is set (`environmentAt`); without it (every golden) nothing changes. The renderer tints map, roofs and men by `state.environment.light`; at light 1 nothing night-related is drawn.
 - Sensors (M9.2): a sensor kind may be `thermal` (sees heat: per-target `heat` in spotting.ts, vegetation thinned as visibility^exponent) and have `arcDeg` (a man's sight/goggle helps only within it). `SENSOR_HEAT` in spotting.ts is set by each sensor function: read it right after the call.
+- Drones (M9.4): an enemy drone a man sees lives in his `seen`, never in his contacts; men look for drones every fourth scan, so "sees it" windows use `DRONE_SEEN_S` (6 s). A drone's operator is busy with the open-ended action `flyDrone`.
 - HUD z-order: sidebar 1, dock 2, panels above, review 5, errors 6.
 - The Stop hook (`.claude/hooks/stop-check.sh`) blocks ending the session on red checks; escape hatch documented in the script.

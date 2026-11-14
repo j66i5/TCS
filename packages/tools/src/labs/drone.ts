@@ -100,9 +100,75 @@ export function droneEndurance(cat: Catalog): { item: string; capacityWh: number
   return { item: "de-quadcopter", capacityWh: cat.items[def.battery]!.chargeCapacity!, powerW: def.powerW, upMinutes: up !== null && down !== null ? (down - up) / 3600 : NaN, recovered };
 }
 
-export function droneLab(data: DataSet, seeds = 20): { rows: DroneRow[]; endurance: ReturnType<typeof droneEndurance> } {
+/** Counter-drone (M9.4b): Russian men free to fire, the German drone hovering `altM` up and `offsetM` short of them. */
+export interface CounterCase { name: string; men: number; mg: boolean; altM: number; offsetM: number }
+export interface CounterRow extends CounterCase { runs: number; seen60: number; down: number; medianDownS: number | null; roundsPerRun: number }
+
+export const COUNTER_CASES: CounterCase[] = [
+  { name: "one rifleman", men: 1, mg: false, altM: 50, offsetM: 0 },
+  { name: "one rifleman", men: 1, mg: false, altM: 100, offsetM: 0 },
+  { name: "one rifleman", men: 1, mg: false, altM: 150, offsetM: 0 },
+  { name: "one machine gunner (PKP)", men: 1, mg: true, altM: 100, offsetM: 0 },
+  { name: "four riflemen", men: 4, mg: false, altM: 100, offsetM: 0 },
+  { name: "four riflemen", men: 4, mg: false, altM: 120, offsetM: 150 },
+  { name: "four riflemen", men: 4, mg: false, altM: 120, offsetM: 220 },
+];
+const COUNTER_S = 180;
+
+export function counterCase(cat: Catalog, c: CounterCase, seeds: number, seedBase: number): CounterRow {
+  let seen60 = 0, rounds = 0;
+  const downs: number[] = [];
+  for (let seed = seedBase + 1; seed <= seedBase + seeds; seed++) {
+    const input = droneLabBattle(cat, { name: c.name, altM: c.altM, posture: "standing" }, seed, 600);
+    const red = input.forces[1]!;
+    const tm = red.units[0]!.members[0]!;
+    if (c.mg) { tm.weapon = "ru-pkp"; tm.load = [{ type: "ru-pkp-belt", count: 3, charge: cat.items["ru-pkp-belt"]?.chargeCapacity ?? 100 }]; }
+    for (let k = 1; k < c.men; k++) {
+      red.units[0]!.members.push({ ...tm, personId: `tgt${k}`, load: tm.load.map((x) => ({ ...x })) });
+      red.placements.push({ personId: `tgt${k}`, x: 400 + 6 * k, y: 200 + (k % 2 ? 5 : -5), heading: Math.PI });
+    }
+    const sim = createSim(input);
+    const ids = [...sim.state.identity.entries()];
+    const op = ids.find(([, i]) => i.side === "blue")![0];
+    const reds = new Set(ids.filter(([, i]) => i.side === "red").map(([id]) => id));
+    const tm0 = [...reds][0]!;
+    const ru = [...sim.state.unit.keys()].find((u) => sim.state.unit.get(u)!.side === "red")!;
+    // (Free to fire, but not at the German operator 340 m off: only the drone is in this.)
+    submitOrder(sim, { tick: 0, issuer: "red", target: ru, kind: "rules", fire: "free", maxEngageM: 200 });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 400 - c.offsetM, y: 200, altM: c.altM });
+    // (The German holds his fire: only the drone is in this.)
+    submitOrder(sim, { tick: 0, issuer: "blue", target: [...sim.state.unit.keys()].find((u) => sim.state.unit.get(u)!.side === "blue")!, kind: "rules", fire: "hold" });
+    let over: number | null = null, seenAt: number | null = null, down: number | null = null;
+    for (let k = 0; k < 600 * 60 && down === null; k++) {
+      const ev = step(sim);
+      // (The clock starts when it comes within 250 m of the men, or hovers, whichever is first.)
+      if (over === null) for (const [did, d] of sim.state.drone.entries()) {
+        const t = sim.state.transform.req(did), m = sim.state.transform.req(tm0);
+        if (d.mode === "hover" || Math.hypot(t.x - m.x, t.y - m.y, t.z) <= 250) over = sim.state.tick;
+      }
+      for (const e of ev) {
+        if (over === null) continue;
+        if (e.kind === "spotted" && reds.has(e.observer) && sim.state.drone.has(e.target) && seenAt === null) seenAt = e.tick;
+        if (e.kind === "shot.fired" && reds.has(e.shooter)) { const ft = sim.state.fire.get(e.shooter); if (ft?.contact !== undefined && sim.state.drone.has(ft.contact)) rounds++; }
+        if (e.kind === "drone.lost" && e.reason === "shot") down = (e.tick - over) / 60;
+      }
+      // (Already in sight when it got there: seen at once.)
+      if (over !== null && seenAt === null && [...reds].some((m) => sim.state.soldier.get(m)!.seen.some((x) => sim.state.drone.has(x.target)))) seenAt = sim.state.tick;
+      if (over !== null && sim.state.tick - over > COUNTER_S * 60) break;
+    }
+    if (over !== null && seenAt !== null && seenAt - over <= 60 * 60) seen60++;
+    if (down !== null) downs.push(down);
+  }
+  downs.sort((a, b) => a - b);
+  return { ...c, runs: seeds, seen60, down: downs.length, medianDownS: downs.length * 2 > seeds ? downs[Math.floor(seeds / 2)]! : null, roundsPerRun: Math.round(rounds / seeds) };
+}
+
+export function droneLab(data: DataSet, seeds = 20): { rows: DroneRow[]; endurance: ReturnType<typeof droneEndurance>; counter: CounterRow[] } {
   const cat = buildCatalog(data, ["de", "ru"]);
-  return { rows: DRONE_CASES.map((c, i) => droneCase(cat, c, seeds, 11000 + 100 * i)), endurance: droneEndurance(cat) };
+  return {
+    rows: DRONE_CASES.map((c, i) => droneCase(cat, c, seeds, 11000 + 100 * i)), endurance: droneEndurance(cat),
+    counter: COUNTER_CASES.map((c, i) => counterCase(cat, c, seeds, 13000 + 100 * i)),
+  };
 }
 
 export function droneLabMarkdown(r: ReturnType<typeof droneLab>): string {
@@ -112,5 +178,8 @@ export function droneLabMarkdown(r: ReturnType<typeof droneLab>): string {
   for (const x of r.rows) out.push(`| ${x.name} | ${x.altM} | ${x.night ? "night, no moon" : "noon"} | ${pct(x.spotted, x.runs)} | ${x.medianS === null ? "–" : x.medianS.toFixed(1)} | ${pct(x.within10, x.runs)} | ${pct(x.within60, x.runs)} |`);
   const e = r.endurance;
   out.push("", `Battery: ${e.item}, ${e.capacityWh} Wh at ${e.powerW} W: up ${e.upMinutes.toFixed(1)} min from launch to landing on a low battery (${e.recovered ? "recovered by its operator" : "lost"}).`);
+  out.push("", "## Counter-drone (M9.4b)", "", `Russian men free to fire; the German drone (de-quadcopter, 0.25 m^2) flying to hover at the height given and this far short of them; from the moment it comes within 250 m of them (or hovers), ${COUNTER_S} s.`, "",
+    "| who fires | height m | short of them m | seen within 60 s | shot down | median s to down | rounds at it per run |", "|---|---:|---:|---:|---:|---:|---:|");
+  for (const x of r.counter) out.push(`| ${x.name} | ${x.altM} | ${x.offsetM} | ${pct(x.seen60, x.runs)} | ${pct(x.down, x.runs)} | ${x.medianDownS === null ? "–" : x.medianDownS.toFixed(0)} | ${x.roundsPerRun} |`);
   return out.join("\n");
 }

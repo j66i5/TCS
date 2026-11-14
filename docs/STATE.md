@@ -55,7 +55,9 @@ M8 (slice 29): `?look=classic` deleted, perf re-baselined, `docs/research/low-co
 platoon HQ (DE Funker, RU commander): launched by the `drone` order into an entity with its own battery, a busy
 operator, cameras that search the ground below, a feed over the radio with the usual delay, a sidebar tile where
 Move means fly and Halt brings it home. `npm run lab -- drone`, `--scene drone`, scenario `bench-drones`. The AI
-does not fly it yet. Next: M9.4b counter-drone and AI use, M9.5 drone-observed fire.
+AI keeps its drones up 220 m short of the enemy at 120 m (M9.4b); men see and hear enemy drones (in `seen`, not
+contacts), call them out and fire at those within 200 m (abstract hit box, `droneHitChance`). Next: M9.5
+drone-observed fire.
 
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke

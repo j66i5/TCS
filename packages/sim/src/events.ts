@@ -99,7 +99,7 @@ export type SimEvent =
    *  battery, or nobody there when it came home). */
   | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId }
   | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
-  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" }
+  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot" }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
   | { kind: "mortar.packed"; tick: number; unit: EntityId }

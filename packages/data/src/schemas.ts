@@ -344,6 +344,10 @@ export const SpottingFile = withProv({
     /** The camera searches its whole footprint (a rate factor); a man under a canopy higher than canopyAboveM over him
      *  shows canopyDay of himself to a day camera, canopyThermal to a thermal one. */
     searchFactor: Num(0, 1), canopyAboveM: Num(0, 50), canopyDay: Num(0, 1), canopyThermal: Num(0, 1),
+    /** M9.4b, a drone as a target: contrast against the sky, how far it is seen, how much harder men look for one
+     *  they hear, how far they engage one, the share of its movement during a bullet's flight a shooter gets wrong,
+     *  the highest chance one round hits it, the extra aim error firing up at it (mrad), the share of hits that down it. */
+    targetContrast: Num(0, 20), seenMaxM: Num(0, 5000), heardLookFactor: Num(1, 20), engageM: Num(0, 2000), leadErrorShare: Num(0, 2), maxHitChance: Num(0, 1), aerialAimMrad: Num(0, 100), killShare: Num(0, 1),
   }).strict().optional(),
   thermal: z.object({
     man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),

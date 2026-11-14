@@ -529,7 +529,9 @@ export interface SpottingDef {
   sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number; thermal?: boolean; arcDeg?: number }>;
   /** Drone cameras (M9.4a): a man's size seen from above by posture; the extra error of a drone's report (m); the
    *  search factor; what a tree canopy over a man leaves of him to the day and the thermal camera. */
-  drone?: { postureSize: Record<"standing" | "crouching" | "prone", number>; feedErrorM: number; searchFactor: number; canopyAboveM: number; canopyDay: number; canopyThermal: number };
+  drone?: { postureSize: Record<"standing" | "crouching" | "prone", number>; feedErrorM: number; searchFactor: number; canopyAboveM: number; canopyDay: number; canopyThermal: number;
+    /** M9.4b: a drone as a target and shot at. */
+    targetContrast: number; seenMaxM: number; heardLookFactor: number; engageM: number; leadErrorShare: number; maxHitChance: number; aerialAimMrad: number; killShare: number };
   /** Thermal signatures (M9.2): relative to what the eye sees. */
   thermal: { man: number; vehicleCold: number; vehicleHot: number; vehicleFiring: number; vehicleBurning: number; hotSeconds: number; vegetationExponent: number };
   /** Vehicles as targets and contacts (M7.3). */

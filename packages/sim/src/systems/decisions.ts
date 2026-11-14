@@ -17,6 +17,7 @@
  * Every man decides once per `decisions.stepSeconds`, staggered by ID; values are data (core/behaviour.json).
  * Casualty care (dragging, first aid) comes with the medical system.
  */
+import { DRONE_SEEN_S } from "./drones";
 import { startAction } from "../actions";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
@@ -85,6 +86,22 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     const score = targetScore(ctx, state, c, me, rangeM);
     if (score === null || (reserve && !reserveTargetOk(ctx, state, c, me))) continue;
     if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score }; }
+  }
+  return best;
+}
+
+/** The nearest enemy drone he sees now within `drone.engageM` (slant), if any (M9.4b). */
+function droneTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): { target: EntityId; x: number; y: number; z: number } | null {
+  const DR = ctx.catalog.spotting.drone, me = state.transform.req(id);
+  if (!DR || DR.engageM <= 0) return null;
+  const within = secondsToTicks(DRONE_SEEN_S);
+  let best: { target: EntityId; x: number; y: number; z: number } | null = null, bestD = DR.engageM;
+  for (const e of s.seen) {
+    if (state.tick - e.lastTick > within || !state.drone.has(e.target)) continue;
+    const t = state.transform.get(e.target);
+    if (!t) continue;
+    const d = hypot2(hypot2(t.x - me.x, t.y - me.y), t.z);
+    if (d <= bestD) { bestD = d; best = { target: e.target, x: t.x, y: t.y, z: t.z }; }
   }
   return best;
 }
@@ -824,6 +841,14 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
           const ft = state.fire.get(id)!;
           ft.contact = pick.target; ft.self = true; ft.aimAuto = true;
           s.intent = { kind: "engage", tick: state.tick, target: pick.target } satisfies Intent;
+        }
+      }
+      // No enemy on the ground to fire at: an enemy drone he sees close overhead (M9.4b).
+      if (!pick && !reserve && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
+        const dr = droneTarget(ctx, state, id, s);
+        if (dr && assignFireTask(ctx, state, id, dr.x, dr.y, dr.z)) {
+          const ft = state.fire.get(id)!;
+          ft.contact = dr.target; ft.self = true;
         }
       }
     }

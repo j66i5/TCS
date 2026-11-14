@@ -30,7 +30,7 @@ export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } fro
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
-export { airborneDroneOf, droneChargeWh, droneDefOf, FLY_ACTION, hasDrone } from "./systems/drones";
+export { airborneDroneOf, droneChargeWh, droneDefOf, droneHitChance, droneInSight, FLY_ACTION, hasDrone } from "./systems/drones";
 export { AUTO_DEPLOY_S, crewAt, isMortarUnit, mortarTeams, teamRounds, tubeOf, tubeRangeM, tubeReaches, type Tube } from "./systems/mortars";
 export { fireOptions, type FireOption } from "./systems/support";
 export { crewRate, flightSecondsOf, firstRoundErrorM, missionPhases, secondsToEffect, supportLeft } from "./systems/support";

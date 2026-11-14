@@ -28,7 +28,9 @@ import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { addItems, emptyContainer, removeItems, type Container } from "../items";
-import { atan2, sqrt } from "../math";
+import { atan2, exp, PI, sqrt } from "../math";
+import { nextFloat, Streams } from "../rng";
+import { heightAt } from "../terrain";
 import { newEntity, type SimState } from "../state";
 import { isCowering } from "./morale";
 
@@ -196,7 +198,7 @@ function flying(state: SimState, m: EntityId, id: EntityId): boolean {
 }
 
 /** Take a drone off the map: recovered into `into`'s load, or lost. */
-function endDrone(state: SimState, events: EventSink, id: EntityId, d: DroneState, into: EntityId | null, reason: "battery" | "noOperator" | null): void {
+function endDrone(state: SimState, events: EventSink, id: EntityId, d: DroneState, into: EntityId | null, reason: "battery" | "noOperator" | "shot" | null): void {
   const box = state.container.get(id);
   if (into !== null && box) {
     const dest = state.container.get(into);
@@ -211,7 +213,7 @@ function endDrone(state: SimState, events: EventSink, id: EntityId, d: DroneStat
     radio(state, events, into, "radio.droneLanded");
   } else {
     events.emit({ kind: "drone.lost", tick: state.tick, drone: id, side: d.side, reason: reason ?? "noOperator" });
-    const lead = state.unit.get(d.unit)?.members.find((m) => isAble(state.soldier.get(m)));
+    const lead = d.operator ?? state.unit.get(d.unit)?.members.find((m) => isAble(state.soldier.get(m)));
     if (lead !== undefined) radio(state, events, lead, "radio.droneLost");
   }
 }
@@ -253,6 +255,12 @@ export function droneSystem(ctx: SimContext, state: SimState, events: EventSink)
   for (const [id, d] of state.drone.toEntries()) {
     const def = droneDefOf(ctx, d.item), t = state.transform.get(id);
     if (!def || !t) continue;
+    // Hit (M9.4b): it falls when the round that hit it gets there.
+    if (d.hitTick !== undefined && tick >= d.hitTick) {
+      if (d.hitBy !== undefined && isAble(state.soldier.get(d.hitBy))) radio(state, events, d.hitBy, "radio.droneDown");
+      endDrone(state, events, id, d, null, "shot");
+      continue;
+    }
     keepOperator(state, events, id, d);
     // Its operator stands still while he flies it.
     if (d.operator !== null) {
@@ -317,4 +325,52 @@ function landHome(state: SimState, events: EventSink, id: EntityId, d: DroneStat
     }
   }
   endDrone(state, events, id, d, into, into === null ? "noOperator" : null);
+}
+
+/**
+ * Hit boxes (M9.4b; the hook for M14's attack drones): the chance that one round aimed at (ax, ay, az) hits drone
+ * `id`, fired from (fx, fy, fz) with a total spread of `spreadRad` (aim and the weapon's dispersion, one standard
+ * deviation; `aerialAimMrad` is added for firing up at it) at muzzle velocity `v0`. Its area over the spread at
+ * that range (a round normal spread), less the
+ * shooter's misjudged lead on a drone that moves (`leadErrorShare` of its travel during the flight) and the distance
+ * between where he aims and where it is; at most `maxHitChance`.
+ */
+export function droneHitChance(ctx: SimContext, state: SimState, id: EntityId, fx: number, fy: number, fz: number, ax: number, ay: number, az: number, spreadRad: number, v0: number): number {
+  const d = state.drone.get(id), t = state.transform.get(id), DR = ctx.catalog.spotting.drone;
+  const def = d ? droneDefOf(ctx, d.item) : undefined;
+  if (!d || !t || !def || !DR || v0 <= 0) return 0;
+  const tz = heightAt(ctx.map, t.x, t.y) + t.z; // ground: ok (a drone flies its height over the ground)
+  const dx = t.x - fx, dy = t.y - fy, dz = tz - fz, slant = sqrt(dx * dx + dy * dy + dz * dz);
+  const moving = d.mode === "fly" || d.mode === "home" ? def.cruiseMps : d.mode === "climb" ? def.climbMps : 0;
+  const lead = moving * (slant / v0) * DR.leadErrorShare;
+  const aim = DR.aerialAimMrad / 1000;
+  const spread2 = spreadRad * spreadRad + aim * aim;
+  const sigma2 = spread2 * slant * slant + lead * lead + 0.01;
+  const ox = ax - t.x, oy = ay - t.y, oz = az - tz, off2 = ox * ox + oy * oy + oz * oz;
+  return Math.min(DR.maxHitChance, def.areaM2 / (2 * PI * sigma2)) * exp(-off2 / (2 * sigma2));
+}
+
+/** A round fired at drone `id` (M9.4b): one draw against its hit chance x `killShare` (not every hit downs it); such
+ *  a hit brings it down when the round gets there (`droneSystem`). */
+export function shootAtDrone(ctx: SimContext, state: SimState, id: EntityId, by: EntityId, fx: number, fy: number, fz: number, ax: number, ay: number, az: number, spreadRad: number, v0: number): void {
+  const p = droneHitChance(ctx, state, id, fx, fy, fz, ax, ay, az, spreadRad, v0) * (ctx.catalog.spotting.drone?.killShare ?? 1);
+  const u = nextFloat(state.rng, Streams.fire);
+  const d = state.drone.get(id), t = state.transform.get(id);
+  if (!d || !t || u >= p || d.hitTick !== undefined) return;
+  const slant = sqrt((t.x - fx) * (t.x - fx) + (t.y - fy) * (t.y - fy) + (az - fz) * (az - fz));
+  d.hitTick = state.tick + Math.max(1, Math.round((slant / v0) * TICK_HZ));
+  d.hitBy = by;
+}
+
+/** How recently a man must have seen an enemy drone to fire at it (s): men look for drones every fourth scan, as for
+ *  vehicles, so the window is wider than for men (M9.4b). */
+export const DRONE_SEEN_S = 6;
+
+/** Where a man sees an enemy drone now (M9.4b): its place and height above the ground, if it is in his `seen` within
+ *  `withinTicks`. */
+export function droneInSight(state: SimState, man: EntityId, id: EntityId, withinTicks: number): { x: number; y: number; z: number } | null {
+  const s = state.soldier.get(man), t = state.transform.get(id);
+  if (!s || !t || !state.drone.has(id)) return null;
+  const e = s.seen.find((x) => x.target === id);
+  return e && state.tick - e.lastTick <= withinTicks ? { x: t.x, y: t.y, z: t.z } : null;
 }

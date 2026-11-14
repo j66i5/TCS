@@ -56,7 +56,7 @@ export function composeFrame(k: Omit<FrameKey, "facing">): Uint8Array {
       if (k.firing) { put(b + 1, row, "x"); put(b + 2, row, "f"); put(b + 3, row, "f"); put(b + 1, row - 1, "f"); put(b + 1, row + 1, "f"); }
     }
   }
-  if (k.launcher && k.frame !== "down" && k.frame !== "dead") {
+  if (k.launcher && k.frame !== "down" && k.frame !== "dead" && k.frame !== "carried" && k.frame !== "stretcher") {
     // A tube slung across the pack.
     let x0 = CELL, y0 = CELL, x1 = -1, y1 = -1;
     for (let y = 0; y < CELL; y++) for (let x = 0; x < CELL; x++) if (g[y * CELL + x] === L.g) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }

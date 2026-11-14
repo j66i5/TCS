@@ -10,6 +10,8 @@ import { getScenario, loadData } from "../src/scenarios";
 
 /** Minimum headless speed, multiples of real time. SPEC target: >= 8x on a laptop. */
 export const PERF_FLOOR_X_REALTIME = 8;
+/** bench-medical (M10.4b): floor a software decision: the SPEC target (8x), about half its measured speed (17x). */
+export const BENCH_MEDICAL_FLOOR_X = 8;
 
 describe("performance floor", () => {
   it(`benchmark scenario runs at >= ${PERF_FLOOR_X_REALTIME}x real time headless`, () => {
@@ -100,5 +102,23 @@ describe("performance floor", () => {
     console.log(`bench-drones: ${sim.state.drone.size} drones up, ${speed.toFixed(1)}x real time`);
     expect(sim.state.drone.size).toBeGreaterThanOrEqual(12);
     expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
+  });
+
+  // M10.4b (roadmap-detail slice 9): the medical load on top of bench-vehicles: a third of the men down from the
+  // start, carried to the vehicles and loaded. Floor BENCH_MEDICAL_FLOOR_X: a software decision (DECISIONS.md).
+  it(`bench-medical (bench-vehicles with a third of the men down, carried in) runs at >= ${BENCH_MEDICAL_FLOOR_X}x real time`, () => {
+    const sc = getScenario("bench-medical");
+    const data = loadData();
+    const seconds = 60;
+    const input = sc.build(data, 1, seconds);
+    runBattle(sc.build(data, 2, 10), { controllers: sc.controllers!(input) });
+    const t0 = performance.now();
+    const r = runBattle(input, { controllers: sc.controllers!(input) });
+    const wall = (performance.now() - t0) / 1000;
+    const speed = seconds / wall;
+    const soldiers = r.sides.reduce((n, s) => n + s.soldiersStart, 0);
+    console.log(`bench-medical: 30 vehicles + ${soldiers} soldiers (a third down), ${seconds} s game time in ${wall.toFixed(3)} s wall = ${speed.toFixed(1)}x real time`);
+    expect(soldiers).toBeGreaterThanOrEqual(250);
+    expect(speed).toBeGreaterThanOrEqual(BENCH_MEDICAL_FLOOR_X);
   });
 });

@@ -26,7 +26,8 @@ describe("scripted shoot-out of the two squads (M2 demonstration)", () => {
   const shots = events.filter((e): e is Extract<SimEvent, { kind: "shot.fired" }> => e.kind === "shot.fired");
 
   it("both squads fire several hundred rounds; machine guns, rifles and the marksman rifle all take part", () => {
-    for (const s of ["blue", "red"]) expect(shots.filter((e) => sideOf(e.shooter) === s).length).toBeGreaterThan(250);
+    // (Since M10.3a men leave the fight to treat a wounded comrade: one side fired 210 on seed 1, so 200.)
+    for (const s of ["blue", "red"]) expect(shots.filter((e) => sideOf(e.shooter) === s).length).toBeGreaterThan(200);
     const byWeapon = new Map<string, number>();
     for (const e of shots) byWeapon.set(e.weapon, (byWeapon.get(e.weapon) ?? 0) + 1);
     console.log([...byWeapon.entries()].sort().map(([w, n]) => `${w} ${n}`).join(", "));

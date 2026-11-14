@@ -4251,6 +4251,121 @@ success (item data), same rules for both sides and the player. Built:
   trap leaves with a bad leg wound limps out a few seconds after the 20 s limit → all but one out in time. Care is
   not involved in either (no treatment in the house run).
 
+## 2026-11-14 — M10.3a who helps: carers and first responders (roadmap-detail slice 6; goldens regenerated)
+Owner answers used (binding): helpers in contact = the first responder plus at most one comrade per casualty
+(Q-2a); DE one Einsatzersthelfer B per Gruppe plus a Sanitäter in the Zug HQ, RU one rifleman-medic per platoon
+(Q-1c); same rules for both sides, the player and the AI; faction differences only in data. Built:
+- **Profiler pass first** (STATE: bench-vehicles once 8.8×): `--cpu-prof` of headless bench-vehicles, 120 s: path
+  finding 19 %, movement 10 %, the sim step 5 %, body load 4 % (already cached per tick), garbage collection 4 %,
+  vehicle driving 3 %; medical not visible. Nothing changed (no cheap hot spot).
+- **Carers** (systems/medical.ts, once a second, same system as self-aid and buddy aid): a casualty who needs care
+  (pure `careNeed`: any intervention in `care.order` needed, whoever does it; urgent when it is one of
+  `carers.urgentTreats`: bleeds, airway, open chest, tension, shock) and whom nobody beside him treats gets a carer,
+  a new `care` intent (target, where he stood, `responder`): urgent → the nearest first responder or medic of his
+  side within 150 m (his own squad's counted at half the distance) plus the nearest willing comrade within 40 m;
+  otherwise a willing comrade, or a free first responder if no comrade goes. Cap: one responder and
+  `comradesPerCasualty` (1) comrades per casualty, in contact or not (simplest; more helpers are of no use until
+  carrying in M10.4). A carer is chosen only if he can do something for him (`nextIntervention` without fire).
+- **Willingness** (game values, low): doctrine `casualtyCarePriority` (new key, 0.5 for DE, RU and xf: no source for
+  a national difference) × behaviourK (steady/cautious 1, shaken 0.5, pinned 0.3, else 0) × morale × (1 −
+  suppression) × 0.6 for another squad × 0.6 when the casualty is under fire × 2 for first responders and medics;
+  willing at 0.25. Leaders (of their own unit) never go. Men on the move, busy, evading or on another errand are not
+  picked; a man firing is (he stops).
+- **The errand:** he runs to a point 1.2 m from the casualty (`routeBetween`, prone on arrival), treats with the
+  treat action of M10.2 (under fire only a tourniquet; otherwise he waits beside him), and goes back (walking, to
+  where he stood) when nothing more is needed, when there is nothing he can do even out of fire, after 300 s, or
+  when the casualty dies, is captured or is loaded; a comrade hands over when a first responder is beside the
+  casualty. `medical.carer` events (assigned / back, with the reason). **Software decisions:** a carer does not fire
+  (decisions skip him), unit orders and drills pass him by (`able` in drills, the order's soldier list), an order to
+  him alone ends the errand; a mount order to his unit still takes him aboard (he leaves the casualty; vehicles
+  taking wounded come in M10.4b/M10.6b); ammunition carriers are not picked from carers. A downed man with a carer
+  on the way or beside him (or anyone treating him) does not give up (the plan says "beside"; "on the way" is the
+  software choice: he knows help is coming). New intent kind and optional field: no schema bump.
+- **Batch line "Carers"** (`npm run batch`): carers sent per side, men who needed care (looked at once a second),
+  treated, died untreated within 2 min, median seconds from first needing care to the first treatment, most
+  comrades on one casualty at once.
+- **Batches (10 seeds × 1200 s; `--no-medical` → care on):** platoon (DE attacks the village) attacker wins 1/10 →
+  0/10, casualties blue/red 19.8/10.5 → 21.5/10.7, blue small arms 1457 → 1001 rounds; platoon-vehicles 7/10 → 6/10,
+  16.9/23.2 → 15.3/23.2, blue small arms 976 → 733; platoon-ru (care on only): RU attacker wins 6/10, casualties
+  15.6/12.8. Carers per battle (casualty's side, blue/red): platoon comrades 7.8/8.7, first responders 6.1/2.0;
+  platoon-vehicles 10.2/7.6, 5.2/1.2; platoon-ru 14.8/7.6, 4.9/1.6. Median time to first treatment 67-157 s (target
+  ≤ 3 min: met in every cell). Treated of those who needed care: 44-77 %; of those who did not die within 2 min
+  untreated: platoon 61 % / 86 %, platoon-vehicles 69 % / 65 %, platoon-ru 54 % / 61 % (target 70 %: **met in one
+  cell of six**; a run through platoon-ru seed 1 shows the misses are carers hit or panicking on the way, and men
+  lying where nobody is willing to go under fire). Most comrades on one casualty: 1 everywhere (the cap holds). Fire
+  volume of the side with carers drops by about a quarter to a third (men leave the fight), win rates within the
+  noise of 10 seeds. No tuning now (M10.8, owner review of the numbers after playing).
+- **Perf** (`npm run test:perf` alone, twice): bench 19× / 17×, spotting 10.8× / 8.9×, bench-vehicles 10.6× / 8.4×,
+  bench-combined 4.0× / 4.0×, 20,000 projectiles 4.9× / 4.7×; all floors held (the second run was slower across the
+  board, machine noise).
+- **Tests:** `tools/test/medical-carers.test.ts` (need and urgency, a comrade runs over and treats and goes back,
+  the first responder from 80 m plus one comrade and the cap, leaders stay, a pinned man does not go, a calm man of
+  another team does, unit orders pass a carer by and an order to him ends it, care off, save/load on the way). The
+  M10.2 test "not by one 5 m away" now expects that man to walk over first.
+- **Goldens regenerated** (`npm run golden:update`, intended: carers change every battle with wounded, and the data
+  fingerprint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
+  `golden/no-interiors` untouched. Debug overlay: "carer -> id" / "responder -> id". No other visible change, so no
+  screenshots. Q-7 (orders to fire at a recognised protected target refused) belongs to the protection slice, not
+  this one.
+- **One test loosened (software decision):** `shootout.test.ts` "several hundred rounds" per side > 250 → > 200 (one
+  side fired 210 on seed 1: men now leave the fight to treat a comrade, the effect this slice is meant to have).
+
+## 2026-11-14 — M10.3b triage, care under fire, "Medic!" (roadmap-detail slice 7; goldens regenerated)
+Owner answers used (binding): triage shown as a tag on the map and on the card (Q-2b); enemy casualties only as
+far as your men see them (Q-2d: tags are drawn for own men only); helpers in contact the first responder plus at
+most one comrade (Q-2a, unchanged); same rules for both sides, the player and the AI. Q-7 (an order to fire at a
+recognised protected target is refused) belongs to the protection slices 15-16, not this one. Built:
+- **Triage** (pure `trueTriage` / `triageTag` in medical.ts; `SoldierState.triage`; `medical.triaged` event with the
+  tag and the true category): the man who starts treating a comrade (not himself) tags him T1 immediate (needs one
+  of `triage.immediateTreats`: massive bleeding, airway, breathing; or shock ≥ 0.3; or barely conscious), T2 delayed
+  (cannot walk, or needs other care) or T3 minimal. Wrong one category off (T1 and T3 only to T2) with the data's
+  chance by training (comrade 0.25, first responder 0.15, medic 0.10, +0.10 under fire; game values, low), two draws
+  from the `medical` stream. A first responder or medic beside him tags him again on arrival; anyone treating him
+  tags him again when the tag is 300 s old. **Software decisions:** the NATO / Bundeswehr categories I-III; T4
+  "expectant" left out (a mass-casualty category a platoon does not assign); the "Medic!" call and re-triage by a
+  responder happen whether or not he treats.
+- **Care under fire** (systems/medical.ts `tryDrag`, the `drag` action; TCCC: return fire, move the casualty to
+  cover, a tourniquet): a carer beside a casualty under fire with nothing he may do there (the tourniquet comes
+  first) looks every 4 s for the nearest spot within 15 m (`care.dragSearchM`) hidden from the enemy (lying),
+  not toward him, reachable by a way of at most 30 m (`care.dragMaxM`). A casualty who can walk is sent there himself
+  (pinning does not hold him, as with a house that has become a trap); one who cannot is dragged there by the carer, crouched, at the
+  carry data's drag speed (0.7 m/s, Vine et al. 2023, medium; movement.ts caps a dragging man's pace), the casualty
+  0.9 m behind him; a comrade of his squad throws a smoke grenade to screen it (the D1 `screenCasualty` hook; the
+  dragger's hands are full). On arrival the casualty is `sheltered` there: while he lies there, "under fire" for his
+  care is the helper's own suppression only (his squad fired on elsewhere no longer counts), so tactical field care
+  goes on. A casualty already hidden where he lies is marked sheltered at once. `medical.dragged` events (start with
+  the distance, end). The actions system gained an optional `done` hook (a drag ends when it has arrived). Indoors
+  and on upper floors nobody is dragged (the house is cover; carrying in houses is M10.4a).
+- **Radio:** "Medic! Man down!" (`radio.medic`) for an urgent casualty, by himself if he can speak, else the first man
+  of his squad who can (once per casualty); "Man down, treating" (`radio.treating`) with the first tag. Each key at
+  most once per 15 s per squad (`care.radioCooldownS`; `Unit.medRadio`).
+- **Interface:** the tag on the map (a small square, red / yellow / green, T1 with a white centre; own men only; all
+  three looks), in the card row (a "T1" chip before the role) and in the man box ("Triage: T1 immediate, tagged by
+  the Panzergrenadier (first responder)"); the man box's "Now" line shows treating, dragging, going to a comrade,
+  treating his own wound. Debug line: "drag -> id", "T1", "(in cover)", and why nobody comes ("waits: nobody /
+  unwilling / too exposed / no kit"; `SoldierState.careWait`). Debug hook `__tcs.hurt(id, wound, unconscious)`;
+  screenshots `npm run screenshot -- --scene triage`; `--port` for the screenshot server (a second session on the
+  same machine used port 4317 at the same time).
+- **New optional state fields only (no schema bump):** `SoldierState.triage`, `medicCalledTick`, `sheltered`,
+  `careWait`; `Unit.medRadio`. Data: `triage` gains `immediateTreats`, `immediateShock`, `immediateConsciousness`,
+  `retriageS`; `care` gains `dragSearchM`, `dragMaxM`, `radioCooldownS` (game values, low).
+- **Batches (10 seeds × 1200 s; `--no-medical` → care on).** New batch line "Triage, care under fire": men with a
+  life-threatening need care can answer (looked at once a second), of them died of wounds before the end
+  (preventable: no new wound in the 30 s before death) or killed by a new wound; wrong tags by training; drags.
+  Preventable deaths per battle, blue/red: platoon 3.8/2.6 → 1.4/2.6; platoon-vehicles 2.9/3.4 → 2.0/3.1; platoon-ru
+  2.5/1.6 → 1.3/1.0. Both sides together 16.8 → 11.4 per 10-battle set each (−32 %; as a share of life-threatening
+  needs 43 % → 29 %). **Target "40 % or more lower" met for the German side in two of three cells (−63 %, −48 %; −31 %
+  mounted) and for the Russian attack (−38 %), not overall**: the Russian defenders (one rifleman-medic per platoon,
+  men in houses where nobody is dragged) gain little (0 % and −9 %). Re-tuning waits for M10.8 (owner review of the
+  numbers after playing). Wrong tags (all cells): comrade 61/249 (24 %), first responder 21/135 (16 %), medic 1/35
+  (3 %): within the data's range given the counts (more under fire). Drags per battle: 0-1.6 (most casualties under
+  fire can walk and go themselves, or lie hidden already). Attacker wins (care on): platoon 4/10 (no care 1/10),
+  platoon-vehicles 5/10 (7/10), platoon-ru 6/10 (4/10); within the noise of 10 seeds.
+- **Tests:** `tools/test/medical-triage.test.ts` (true categories, error rates per level from stratified draws,
+  tagging and the radio calls, a first responder re-tags, the drag behind a wall with the casualty never more than
+  1.5 m from his carer and the chest seal done in cover, save/load mid-drag), `ui/test/card.test.ts` "triage".
+- **Goldens regenerated** (`npm run golden:update`, intended: casualties now go to cover and care goes on there; the
+  data fingerprint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
 ## 2026-11-14 — Merge of medical part 1 (#45) into the M8 branch: two AI tests moved to other runs
 
 After merging M10 part 1 (first aid) with M8 (smoke v2, call-for-fire chain, observers), each passing alone, the
@@ -4392,6 +4507,127 @@ Owner: "include that surrendering soldiers will move toward the forces they surr
 - **STATE trim:** the M8 paragraphs folded into one (11 KB).
 - **Low-confidence table:** `npm run lint:data -- --table` writes `docs/research/low-confidence.md` (264 entries in 27
   files today, the fixture left out; the plan counted 182 before M10 and M8 data).
+## 2026-11-14 — Merge of origin/main (surrendered men walk over) into the medical branch; goldens regenerated
+The surrender walk (PR #47) and medical slices 2-7 both changed movement.ts (both kept: drag speed cap and the
+hands-up pace) and the goldens. Goldens regenerated with `npm run golden:update` after the merge (intended: the two
+changes together); `golden/no-interiors` untouched.
+
+## 2026-11-14 — M10.4a carrying as a movement mode (roadmap-detail slice 8; goldens regenerated)
+Owner answers used (binding): bearers under fire take cover with the casualty, fire only in self-defence and go on
+when it eases (round 2, Q-2f); same rules for both sides, the player and the AI; faction differences only in data.
+Built:
+- **Generic `carry` store** (`Carry` in components.ts, keyed by the payload: any entity with mass, so M11 can carry
+  supplies the same way; **state schema 19**, migration 18 → 19 adds the empty store; new optional
+  `SoldierState.carrying`). systems/carry.ts: `startCarry` / `endCarry` / `leaveCarry`, `carrySystem` right after
+  movement. carriers[0] leads and walks the way (`routeBetween` with heights: doors and stairs); the payload and
+  the other carriers are placed on his trail at fixed distances (`carryLayout`: drag 0.9 m behind, fireman on him,
+  two-man 0.6 / 1.2 m, litter: two at the head, casualty 1.1 m, two at the foot). **Software decision:** followers
+  are placed on the trail each tick (not steered), which keeps everyone on walkable ground in doorways and on stairs
+  and the casualty within 1.5 m of a carrier by construction; side-by-side positions are not drawn (sprites M10.4b).
+- **Speed** (movement.ts): the leader's pace is the method's speed × sqrt(`carrying.massRefKg` 105 / payload mass),
+  kept within 0.75-1.15, in place of the pace and posture factors; ground, slope, stairs, fatigue and wounds as for
+  any walker; his own load not again (it is in the data's speed). The M10.3b drag-speed cap is gone.
+- **Method choice** (pure `chooseCarryMethod`, medical.ts): methods the men at hand can do (enough carriers; a
+  litter item, tag `litter`, among them for the stretcher); the casualty walks himself when he can (`casualtyWalks`
+  methods: walking, supported — data flag); under fire only low methods (the drags); then fastest (walking at the
+  casualty's own pace), longest before a rest, fewer carriers. A carrier lost (hit, panicking, aboard, ordered away)
+  → the rest re-choose for fewer men or put him down ("carriers-lost").
+- **Phases:** gather (carriers within `carrying.reachM` 2 m; give up after 120 s), setup (`setupS`: 45 s for the
+  litter, 5 s fireman / two-man), move, rest (`restS` after `enduranceM`), cover / hold under fire (a carrier pinned
+  or suppression ≥ `carrying.holdSuppression` 0.3: to the nearest spot hidden from the enemy within
+  `care.dragSearchM` by a way ≤ `care.dragMaxM`, or hold where he is if hidden already; all lie down; on after
+  `carrying.resumeQuietS` 10 s without fire). Drags to cover (purpose "cover") have no rests or holds and a time
+  limit (way / speed × 3 + 20 s, as before).
+- **Carriers out of the fight:** decisions skip them except self-defence (a seen enemy within
+  `carrying.selfDefenceM` 30 m while the party is still); unit orders and drills pass them by; an order to one alone
+  takes him out of the party; ammunition bringers, launcher loaders and step-aside spacing leave them alone. A
+  casualty being carried gets no care until he is put down; a carried man counts as having help (no surrender).
+- **The M10.3b drag is now a carrying party** (the `drag` action is gone): with a second carer of the casualty
+  beside the first it is the two-man drag (1.0 m/s); since carrying handles houses, a casualty on a ground floor can
+  be dragged (also into a house); upper floors still not. `medical.dragged` events kept (batch line), plus
+  `medical.carried` (start, hold, resume, rest, done with the reason).
+- **Data** (add-data-entry; low): `core/medical.json` `carrying` block (reachM, holdSuppression, resumeQuietS,
+  selfDefenceM, massRefKg — game values), `carry` gains `casualtyWalks` (walking, supported) and `needsTag`
+  ("litter" for the stretcher). Items `de-litter` (folding litter, 6.5 kg; research: the medic's kit lists a litter)
+  issued to the German Sanitaeter, and `ru-litter` (7 kg; for the off-map bearers, not issued). Card activity
+  "carrying a wounded comrade" / "walking out wounded"; debug line "<method> -> id (phase)", "carried".
+- **Not yet used for anything but the drag to cover:** carrying casualties back (bearers, the Verwundetennest) is
+  M10.5 (slice 11); into vehicles M10.4b. **Not done:** carriers' extra exertion from the load (fatigue grows as a
+  walker's; the data's endurance and rests stand for it).
+- **Lab** (`npm run lab -- carry`; 7 methods × flat 30 m, 10 % slope 30 m, a house through two doors, its stairs to
+  the room above): every row within 10 % of data speed × mass factor × the course factor (a lone walker's speed
+  there over flat): flat and house −2 % to 0 %, slope −1 % to −2.5 %, stairs −5.5 % to −7.4 %; casualty to nearest
+  carrier at most 1.36 m (setting up); litter set-up 45 s; over 150 m: drag 3 rests (0.49 m/s mean), fireman and
+  two-man drag 1, two-man 1, stretcher 0 (1.00 m/s).
+- **Batches (10 seeds × 1200 s, before → after; parallel runs, care on):** platoon attacker wins 4/10 → 2/10,
+  casualties blue/red 17.8/12.7 → 18.8/11.8; platoon-vehicles 5/10 → 3/10, 16.5/24.4 → 16.3/22.8; platoon-ru (RU
+  attacks) red wins 6/10 → 5/10, 17.1/12.1 → 16.4/12.3. Preventable deaths blue/red: platoon 15/24 → 24/16,
+  platoon-ru 15/11 → 17/11, platoon-vehicles 20/31 → 21/31 (all cells 116 → 120). Drags per 10 battles 8-16 per
+  side, as before. All within the noise of 10 seeds (battles diverge from the first drag); carrying is not yet used
+  for longer moves, so no effect was expected. No tuning (M10.8).
+- **Perf:** the per-man cost is one field check in movement and decisions; `carrySystem` returns at once with no
+  parties. Timing tests run inside `npm run check`.
+- **Tests:** `tools/test/medical-carry.test.ts` (lab bands, method choice, a four-man litter with set-up and the
+  litter conserved, cover under fire behind a wall and going on, unit orders pass carriers by and an order to one
+  leaves a fireman's carry, save/load mid-carry, a schema-18 save loads); `medical-triage` and `ui/card` tests moved
+  from the `drag` action to the carry store.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data and the drag as a carrying party): demo,
+  shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors`
+  untouched.
+
+## 2026-11-14 — Merge of origin/main (M8 smoke v2, fire chain, mortars, artillery; rank insignia) into the medical line; goldens regenerated
+Conflicts resolved by keeping both sides: `Unit.medRadio` and `Unit.mortar`; the carry and mortar imports in orders;
+both labs lists; DECISIONS, strings and doctrine notes (the M10.3a `casualtyCarePriority` sentence appended to M8's
+longer note). The Men list now uses M8's status pictograms and rank insignia; the medical triage tag (T1/T2/T3)
+moved into the corner slot M8 left for it, in place of the old tag before the role name. All goldens except
+`no-interiors` regenerated (`npm run golden:update`): both lines change the battles. `npm test` 114 files, 970
+passed, 6 skipped; typecheck, lint and data lint clean.
+
+## 2026-11-14 — M10.4b carrying to and into vehicles (roadmap-detail slice 9; goldens regenerated)
+Owner answers used (binding): bearers under fire take cover with the casualty (round 2, Q-2f, via the carry
+system); ambulances are new Boxer and BMM hulls (Q-4; their layouts are used here); same rules for both sides, the
+player and the AI; faction differences only in data. **Decided without the owner (low, for his review):**
+- **Fetching:** a unit ordered to mount fetches its wounded who cannot walk lying within `vehicleLoading.fetchM`
+  150 m of the nearest exit (was 5 m, `mounting.casualtyLoadM`, which still marks "at the ramp"): a carrying party
+  of up to four of the men still outside, nearest first (the carry system picks the way), takes each to a spot 1.5 m
+  outside the nearest exit; a casualty waiting at the ramp is lifted in before anyone goes for the next; each is
+  fetched once (a party that ends short leaves him). The boarding waits while a casualty is being fetched or lifted
+  (past `completeAfterSeconds`, up to `giveUpSeconds`), and the completion window restarts at each lift so his two
+  lifters still get in (before, a late lift could leave them outside). The two men already lifting a casualty keep
+  at it (a man freed meanwhile no longer restarts the lift). Not with care off (`--no-medical`: 5 m as before).
+- **Lying or sitting:** a casualty lies aboard when unconscious or in shock ≥ `lyingShock` 0.3 (as triage's
+  immediateShock); `SoldierState.mount.lying` (new optional field: no schema bump). **Places:** `placesFit`: an
+  ambulance by its layouts (lying incl. outside places, sitting), any other vehicle with a lying man taking
+  `lyingSeats` passenger seats; never more men than passenger seats (each needs a seat index), so the BMM's two
+  outside places count only within its 7 seats. **lyingSeats = 1** (a man laid across the floor in his own seat's
+  room): with 2 a full Puma squad (6) could not take one of its own lying down, which looked wrong in play; a
+  data value, 2 is tested too. The mount order counts men first, then keeps the casualties there is room for.
+- **Unloading:** `dismount` gains `wounded` (validated boolean): once the able men are out, the two of the unit's
+  men on foot nearest the exit (within `carriersWithinM`) carry each casualty out (`unloadCasualty`, the vehicle's
+  `loadCasualtySeconds`) and lay him prone at half `exitFanMinM` behind the exit nearest his seat; fewer than two:
+  he stays aboard. A plain dismount leaves casualties aboard as before. No player button yet (the Wounded list and
+  the medical orders come in M10.5, slice 11); debug hook `__tcs.dismountWounded()`, and `__tcs.carry(...)`.
+- **Sprites:** frames `carried` (limp on his back, dressing) and `stretcher` (on the litter, poles past head and
+  feet), appended to the frame list (existing atlas cells unchanged), chosen for a man in a carrying party with
+  carriers (litter → stretcher); no launcher drawn on them. `--scene look` run with and without the new frame
+  choice: every image that is stable between two identical runs is byte-identical (flat and classic included);
+  the others differ run to run already (photo tiles, firing frames).
+- **bench-medical** (`tools/src/scenarios.ts`): bench-vehicles with every third man of each squad down (unconscious,
+  bleeding thigh) from the start; all squads mount at once, vehicles wander from 45 s. **Floor 8× (software
+  decision: the SPEC target; measured 17× and 15×** in two runs alone, bench-vehicles 9.7× and 10.5×). Perf test in `perf.test.ts`.
+- **Batches (10 seeds × 1200 s, before → after, parallel runs):** platoon-vehicles blue/red wins 5/5 → 5/5,
+  preventable deaths 23/32 → 23/32 (identical outcomes, different hashes); platoon-ru-vehicles 8/2 → 8/2, red
+  preventable 19 → 19. Casualties into vehicles 0 in every run: the AI commander re-mounts a squad only when it
+  withdraws within 100 m of its carrier (Q24), which did not happen with wounded men in these 20 battles; the
+  machinery is used once the nest and evacuation (slices 11, 13, 14) send casualties to vehicles. No tuning.
+- **Tests:** `tools/test/medical-vehicles.test.ts` (places for the Puma, Boxer and BMM; a fetch from 60 m, lying;
+  capacity leaves the second casualty; unloading with `wounded` after the men; a plain dismount keeps him; the
+  Boxer's layout 2 lying + 3 sitting; save/load mid-fetch). Batch report line "into vehicles (M10.4b) n, out n".
+  `--scene medical` screenshots (photo and flat, phone and desktop).
+- **Goldens regenerated** (`npm run golden:update`, intended: new medical data changes the fingerprint): demo,
+  shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors`
+  untouched.
+
 ## 2026-11-14 — M9.1 Night and light (roadmap-detail slice 30, parallel session)
 Coordinator task (owner's parallel sessions). The owner round M9 (roadmap-detail Phase 4) is not answered yet; this
 slice needs only one of its answers and takes the recommended one, for the owner to confirm: **night look on the
@@ -4552,3 +4788,8 @@ usual delay**. Software and domain decisions (owner to review):
 - **Batches (10 seeds x 1200 s, before -> after; the AI does not fly yet, only the load changed):** platoon blue
   wins 1 -> 2 (casualties 19.1/12.6 -> 19.3/12.3); platoon-ru German wins 5 -> 6 of 10 (RU attacker 5 -> 4). Noise.
   Golden update (data, the new store).
+## 2026-11-14 — Merge of origin/main (M9 night, sensors, guided missiles; PR #44) into the medical branch; goldens regenerated
+Conflicts kept both sides: the app's sim imports (environment and time of day next to carrying), the DE and RU
+string tables (litters next to thermal sights, blankets and MELLS), the batch tool's imports, the lab list (carry
+next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm run golden:update` after the merge
+(intended: the two branches' changes together); `golden/no-interiors` untouched. `npm test` green (118 files).

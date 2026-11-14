@@ -671,6 +671,12 @@ export interface InterventionDef {
   };
 }
 
+/** A way of carrying a casualty (core/medical.json `carry`, M10.4). */
+export interface CarryMethodDef {
+  carriers: number; speedMps: number; enduranceM: number; restS: number; setupS: number; upright: boolean;
+  casualtyWalks?: boolean; needsTag?: DefId;
+}
+
 /** The medical data (core/medical.json, M10.1) without provenance. */
 export interface MedicalDef {
   /** Rates of the "medical" physiology model; merged into the physiology parameters. */
@@ -678,8 +684,25 @@ export interface MedicalDef {
   /** What each medical job may do: the skill it treats with. */
   levels: Record<MedicalLevel, { skill: CareSkill }>;
   interventions: Record<DefId, InterventionDef>;
-  /** Ways of moving a casualty (M10.4): carriers needed, speed, distance before a rest. */
-  carry: Record<DefId, { carriers: number; speedMps: number; enduranceM: number; restS: number; setupS: number; upright: boolean }>;
+  /**
+   * Ways of moving a casualty (M10.4): carriers needed, speed on level open ground, distance before a rest and its
+   * length, set-up time, upright (exposed) or not; `casualtyWalks`: he walks himself (walking wounded, supported);
+   * `needsTag`: an item a carrier must have (a litter).
+   */
+  carry: Record<DefId, CarryMethodDef>;
+  /**
+   * Carrying parties (M10.4a; absent: code defaults). reachM: carriers gather this close before they set off;
+   * holdSuppression: a carrier pinned or this suppressed makes the party take cover with the casualty, going on after
+   * resumeQuietS without fire; selfDefenceM: carriers fire only at an enemy this close; massRefKg: the payload mass
+   * the carry speeds are for (speed x sqrt(massRefKg / mass), within 0.75-1.15).
+   */
+  carrying?: { reachM: number; holdSuppression: number; resumeQuietS: number; selfDefenceM: number; massRefKg: number };
+  /**
+   * Casualties into and out of vehicles (M10.4b; absent: no fetching, a lying man takes one seat). fetchM: a mounting
+   * unit carries its wounded who cannot walk from up to this far to an exit; lyingSeats: passenger seats a lying man
+   * takes in a vehicle without an ambulance layout; lyingShock: a casualty lies when unconscious or this shocked.
+   */
+  vehicleLoading?: { fetchM: number; lyingSeats: number; lyingShock: number };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */
@@ -688,19 +711,40 @@ export interface MedicalDef {
     obscuredFactor: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
     medicFiredLosesProtectionS: number;
   };
-  /** Triage (M10.3): chance of a wrong category by skill, more under fire. */
-  triage: { errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number };
+  /**
+   * Triage (M10.3b): chance of a wrong category by skill, more under fire (`underFireAdd`); a casualty is truly T1
+   * when he needs one of `immediateTreats`, or his shock is at `immediateShock` or more, or his consciousness is
+   * below `immediateConsciousness`; a tag `retriageS` old is renewed by the next man who treats him.
+   */
+  triage: {
+    errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number; immediateTreats: string[]; immediateShock: number;
+    immediateConsciousness: number; retriageS: number;
+  };
   /**
    * How care is given (M10.2). stepS: how often each wounded man is looked at; buddyReachM: a comrade this close
    * treats a man who cannot treat himself; maxAttempts: tries of one intervention on one wound; painTreatAt: pain
    * treated at this or more (once); skillRef / skillK: success x (1 + skillK x (medical skill - skillRef)); under
    * fire = own suppression >= underFireSuppression or his unit fired on within underFireSeconds; junctionalZones:
    * where a large bleed needs packing; order: the interventions in MARCH order (the first one needed and possible
-   * is done).
+   * is done). M10.3b: dragSearchM / dragMaxM: a casualty in the enemy's view is dragged to a hidden spot this close (by
+   * a way at most this long); radioCooldownS: a unit calls "Medic!" or "Man down, treating" at most this often.
    */
   care: {
     stepS: number; buddyReachM: number; maxAttempts: number; painTreatAt: number; skillRef: number; skillK: number;
     underFireSuppression: number; underFireSeconds: number; junctionalZones: BodyZone[]; order: DefId[];
+    dragSearchM: number; dragMaxM: number; radioCooldownS: number;
+  };
+  /**
+   * Who goes to a casualty beyond buddy reach (M10.3a; absent: only self-aid and buddy aid). comradeReachM /
+   * responderReachM: how far a comrade / a first responder or medic comes; urgentTreats: needs that make a casualty
+   * look urgent (a first responder is sent); willingness = doctrine casualtyCarePriority x behaviourK[behaviour] x
+   * morale x (1 - suppressionK x suppression) x otherUnitK (other squad) x exposedK (casualty under fire) x
+   * responderK (first responders, medics), willing at willingAt; comradesPerCasualty: the cap besides the first
+   * responder (owner Q-2a); timeoutS: a carer gives up after this.
+   */
+  carers?: {
+    comradeReachM: number; responderReachM: number; urgentTreats: string[]; willingAt: number; behaviourK: Record<string, number>;
+    suppressionK: number; otherUnitK: number; exposedK: number; responderK: number; comradesPerCasualty: number; timeoutS: number;
   };
 }
 

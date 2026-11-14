@@ -111,8 +111,10 @@ export interface SoldierState {
    * where he is and an enemy may fetch him. Absent: he has not set off (or never will).
    */
   handOver?: { to: EntityId | null; x: number; y: number; z: number; tick: number; down?: true; done?: true };
-  /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
-  mount?: { vehicle: EntityId; seat: number };
+  /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. `lying`: a
+   *  casualty lying down (M10.4b): in a vehicle without an ambulance layout he takes `vehicleLoading.lyingSeats`
+   *  passenger places (his seat and room beside it), in an ambulance one of its lying places. */
+  mount?: { vehicle: EntityId; seat: number; lying?: true };
   /**
    * Beaten zone (soldier AI package B): where enemy mortar rounds have been bursting near him (running mean of the
    * bursts of one mission), the last burst's tick, how many, and whether he has already moved out of it. Absent
@@ -142,7 +144,67 @@ export interface SoldierState {
   fireFrom?: { dx: number; dy: number; tick: number };
   /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
   grenadeTick?: number;
+  /**
+   * His triage tag (M10.3b), set by the man who treats him: category 1 immediate (T1), 2 delayed (T2), 3 minimal
+   * (T3); who tagged him, when, with what training. It may be wrong (core/medical.json `triage`). Absent: not triaged.
+   */
+  triage?: Triage;
+  /** "Medic!" has been called for him (M10.3b; the tick). Absent: not yet. */
+  medicCalledTick?: number;
+  /**
+   * Dragged into cover here (M10.3b): while he lies within a metre of this spot, care for him is judged under fire on
+   * the helper's own suppression only (the unit being fired on no longer counts). Absent: not dragged.
+   */
+  sheltered?: { x: number; y: number };
+  /**
+   * Why no carer is coming to him (M10.3b, for the debug overlay): nobody in reach, men in reach but none willing
+   * (`too-exposed`: he lies under fire), or the one willing has no kit or training for what he needs. Absent: a carer is
+   * on his way or beside him, or he needs nothing.
+   */
+  careWait?: "nobody" | "unwilling" | "too-exposed" | "no-kit";
+  /**
+   * The payload of the carrying party he belongs to (M10.4a; the `carry` store is keyed by it): a carrier, or a
+   * walking wounded man in his own party. While set he leaves the fight (fires only in self-defence), and his unit's
+   * orders and drills pass him by. Absent: not carrying.
+   */
+  carrying?: EntityId;
 }
+
+/**
+ * A carrying party (M10.4a, SPEC 9.1 "carrying as a movement mode"): `carriers` move the payload (the store's key: a
+ * casualty now, supplies in M11) with a carry method of core/medical.json. carriers[0] leads and walks the route;
+ * the others and the payload follow on his trail (newest point first). Empty `carriers`: a walking wounded man who
+ * walks himself (he is his own leader). Phases: gather (carriers come to him), setup (a litter is unfolded), move,
+ * rest (endurance used up), cover (under fire, to the nearest hidden spot), hold (lying there until it is quiet).
+ */
+export interface Carry {
+  method: DefId;
+  carriers: EntityId[];
+  phase: "gather" | "setup" | "move" | "rest" | "cover" | "hold";
+  phaseTick: number;
+  startTick: number;
+  /** Where he is taken (his floor's height z). */
+  dest: { x: number; y: number; z: number };
+  /** "cover": a drag to the nearest hidden spot under fire (M10.3b): no rests, no holds; "move": anywhere else. */
+  purpose: "cover" | "move";
+  /** The payload's mass (body and load, kg) and the speed it is carried at on level open ground (m/s). */
+  massKg: number;
+  speedMps: number;
+  /** The leader's recent positions, newest first: x, y, z, x, y, z, ... */
+  trail: number[];
+  /** Metres carried since the last rest, and in all. */
+  sinceRestM: number;
+  totalM: number;
+  /** Last tick the party was under fire (hold: it goes on after `carrying.resumeQuietS` without). */
+  fireTick?: number;
+  /** Given up at this tick if not there yet (a drag to cover). Absent: no limit. */
+  untilTick?: number;
+  /** The litter (stretcher) used: its item type and the carrier holding it (the item stays in his container). */
+  litter?: { type: DefId; from: EntityId };
+}
+
+/** A triage tag (M10.3b). */
+export interface Triage { cat: 1 | 2 | 3; by: EntityId; tick: number; skill: "buddy" | "firstResponder" | "medic" }
 
 export type CommLink = "voice" | "radio" | "none";
 
@@ -162,17 +224,22 @@ export interface CommState {
  * A soldier's own decision (M4.2): firing at an enemy, going to cover, bringing or waiting for ammunition.
  * takePrisoner (M6.6, set and carried out by systems/surrender.ts): he walks over to the surrendered enemy
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
+ * care (M10.3a, set and carried out by systems/medical.ts): he has left the fight to go to the wounded comrade
+ * `target` and treat him; (x, y, z) is where he stood, to which he returns when done. `responder`: he went as the
+ * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care";
   tick: number;
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;
   x?: number;
   y?: number;
-  /** takePrisoner: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
+  /** takePrisoner, care: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
   z?: number;
+  /** care: he went as the first responder or medic (M10.3a). */
+  responder?: true;
 }
 
 export interface Contact {
@@ -284,6 +351,9 @@ export interface Unit {
   leaveTry?: { building: number; tick: number };
   /** Tick of the unit's last hand smoke screen (D1, systems/smoke.ts). Absent: none yet. */
   smokeTick?: number;
+  /** Tick of the unit's last medical radio call of each kind, by string key ("radio.medic", "radio.treating"; M10.3b).
+   *  Absent: none yet. */
+  medRadio?: Record<string, number>;
   /** M8.3a: a mortar team (its men carry a tube): packed, setting up (ready at `readyTick`) or ready; `stillTick`:
    *  when it last moved (it sets up on its own after standing still a moment). Absent: not a mortar team. */
   mortar?: { state: "packed" | "setting" | "ready"; readyTick: number; stillTick: number };
@@ -528,8 +598,12 @@ export interface Boarding {
   firstTick?: number;
   /** Mount: where the hull stood when the walk to it was planned (re-planned when it has moved). */
   hullX?: number; hullY?: number;
-  /** Mount: wounded men to load (two comrades carry each in, owner Q25). */
+  /** Mount: wounded men to load (two comrades carry each in, owner Q25); M10.4b: those farther than
+   *  `mounting.casualtyLoadM` from an exit are first carried to it by a carrying party. Dismount (M10.4b, an order
+   *  with `wounded`): casualties aboard to carry out once the able men are out. */
   casualties?: EntityId[];
+  /** Mount (M10.4b): casualties a carrying party was sent for (each is fetched once; given up if it ends short). */
+  fetched?: EntityId[];
 }
 
 /**

@@ -8,14 +8,20 @@
  *              man and every such casualty is in, or a while after the first man got in.
  *   dismount   The vehicle holds; once it has stopped the ramp opens and the passengers get out one at a time per
  *              exit, landing a few metres behind it, crouching, facing away from the hull. Wounded men stay
- *              aboard (they are unloaded with the medical system, M10). An order given to a squad aboard is carried
- *              out once it is out (`then`, Q12).
+ *              aboard, unless the order says `wounded`: then two of the unit's men carry each casualty out through
+ *              an exit and lay him down behind it (M10.4b). An order given to a squad aboard is carried out once it
+ *              is out (`then`, Q12).
  *   seat swap  A crewman takes over the seat of a fallen driver or gunner after `seatSwapSeconds` (Q13, recommended
  *              option, decided without the owner); the casualty stays aboard in the seat he left.
  *
+ * Casualties (M10.4b, SPEC 9.1): a unit getting in fetches its wounded who cannot walk from up to
+ * `vehicleLoading.fetchM` away: a carrying party (systems/carry.ts) takes each to the nearest exit, then two men load
+ * him. Aboard, a casualty sits or lies (`liesAboard`: unconscious or in shock); places are the vehicle's passenger
+ * seats, a man lying taking `vehicleLoading.lyingSeats` of them, or an ambulance's own layouts (`placesFit`).
+ *
  * Boarding is state on the unit (`Unit.boarding`), not a drill; a new order replaces it (`clearDrills`). The
  * seats and `SoldierState.mount` are written only here and by the battle setup. Values: core/behaviour.json
- * `mounting` and the vehicle's `ramp` block.
+ * `mounting`, core/medical.json `vehicleLoading` and the vehicle's `ramp` and `ambulance` blocks.
  */
 import { registerActionHandler, startAction } from "../actions";
 import type { VehicleDef } from "../catalog";
@@ -25,7 +31,7 @@ import { routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { transferItems } from "../items";
-import { isAble, isCaptive } from "../impair";
+import { isAble, isCaptive, isConscious } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 import { nearestPassable } from "../nav";
 import { navFor } from "../navctx";
@@ -34,6 +40,7 @@ import { seatWorld } from "../setup";
 import type { SimState } from "../state";
 import type { OrderResult } from "./drive";
 import { applyOrderNow, radioFromTarget } from "./orders";
+import { startCarry } from "./carry";
 
 const HALTED_MPS = 0.3;
 
@@ -76,10 +83,47 @@ function usable(v: VehicleState | undefined): v is VehicleState {
   return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned" && v.fire === null;
 }
 
-function freePassengerSeats(v: VehicleState, def: VehicleDef): number {
-  let n = 0;
-  for (let i = 0; i < def.seats.length; i++) if (def.seats[i]!.station === "passenger" && v.seats[i] === null) n++;
-  return n;
+// ---------------------------------------------------------------- places (M10.4b)
+
+/** Vehicle loading values (core/medical.json `vehicleLoading`); without them nobody is fetched and lying takes a seat. */
+export function loadingParams(ctx: SimContext): { fetchM: number; lyingSeats: number; lyingShock: number } {
+  return ctx.catalog.medical?.vehicleLoading ?? { fetchM: 0, lyingSeats: 1, lyingShock: 2 };
+}
+
+/** Does this casualty travel lying down (unconscious, or in shock at `lyingShock`)? Everyone else sits. */
+export function liesAboard(ctx: SimContext, s: SoldierState): boolean {
+  return !isConscious(s) || s.physiology.shock >= loadingParams(ctx).lyingShock;
+}
+
+/** The men in a vehicle's passenger seats: lying and sitting (the dead included: they take their places). */
+export function placesUsed(state: SimState, v: VehicleState, def: VehicleDef): { lying: number; sitting: number } {
+  let lying = 0, sitting = 0;
+  for (let i = 0; i < def.seats.length; i++) {
+    const o = v.seats[i];
+    if (o === null || o === undefined || def.seats[i]!.station !== "passenger") continue;
+    if (state.soldier.get(o)?.mount?.lying) lying++; else sitting++;
+  }
+  return { lying, sitting };
+}
+
+/**
+ * Can the vehicle hold `lying` men lying and `sitting` men sitting in its passenger places? An ambulance: one of its
+ * layouts holds them (lying places inside or outside on the hull); any other vehicle: a man lying takes
+ * `lyingSeats` passenger seats. Never more men than passenger seats (each man has a seat index).
+ */
+export function placesFit(ctx: SimContext, def: VehicleDef, lying: number, sitting: number): boolean {
+  let seats = 0;
+  for (const q of def.seats) if (q.station === "passenger") seats++;
+  if (lying + sitting > seats) return false;
+  const amb = def.ambulance;
+  if (amb) return amb.layouts.some((l) => lying <= l.lying + l.lyingOutside && sitting <= l.sitting);
+  return lying * loadingParams(ctx).lyingSeats + sitting <= seats;
+}
+
+/** Room for `more` men sitting on top of those aboard (and a free seat for each). */
+function roomFor(ctx: SimContext, state: SimState, v: VehicleState, def: VehicleDef, moreLying: number, moreSitting: number): boolean {
+  const u = placesUsed(state, v, def);
+  return placesFit(ctx, def, u.lying + moreLying, u.sitting + moreSitting);
 }
 
 /** Men already on their way into this vehicle (other units' mount queues). */
@@ -142,7 +186,7 @@ registerActionHandler("mount", {
     if (!walker(s) || s!.mount !== undefined) return "unable";
     if (!halted(v)) return "moving";
     const def = ctx.catalog.vehicles[v.def];
-    if (!def || freePassengerSeats(v, def) === 0) return "no-seat";
+    if (!def || firstFreePassengerSeat(v, def) < 0 || !roomFor(ctx, state, v, def, 0, 1)) return "no-seat";
     return null;
   },
   complete(ctx, state, actor, a, events) {
@@ -169,7 +213,7 @@ registerActionHandler("dismount", {
 /**
  * A man aboard leaves his seat through exit `exit` and lands outside (dismount, M7.2; bailing out, M7.4a).
  */
-export function getOut(ctx: SimContext, state: SimState, actor: EntityId, vid: EntityId, exit: number, events: EventSink): void {
+export function getOut(ctx: SimContext, state: SimState, actor: EntityId, vid: EntityId, exit: number, events: EventSink, laidDown = false): void {
   {
     const v = state.vehicle.req(vid), def = ctx.catalog.vehicles[v.def]!;
     const s = state.soldier.req(actor), seat = s.mount!.seat;
@@ -183,7 +227,8 @@ export function getOut(ctx: SimContext, state: SimState, actor: EntityId, vid: E
     const outA = t.heading + atan2(ex[1], ex[0]);
     const n = Math.max(1, def.seats.length);
     const spread = ((seat % 3) - 1) * (PI / 4) + (seat / n - 0.5) * 0.3;
-    const dist = M.exitFanMinM + ((seat * 7) % 5) / 4 * (M.exitFanMaxM - M.exitFanMinM);
+    // (A casualty carried out is laid down close behind the exit, about half the nearest landing distance.)
+    const dist = laidDown ? M.exitFanMinM * 0.5 : M.exitFanMinM + ((seat * 7) % 5) / 4 * (M.exitFanMaxM - M.exitFanMinM);
     let px = e.x + cos(outA + spread) * dist, py = e.y + sin(outA + spread) * dist;
     px = Math.min(Math.max(px, 1), ctx.map.widthM - 1); py = Math.min(Math.max(py, 1), ctx.map.heightM - 1);
     const grid = navFor(ctx, "foot").grid;
@@ -191,10 +236,12 @@ export function getOut(ctx: SimContext, state: SimState, actor: EntityId, vid: E
     if (cell >= 0) { px = ((cell % grid.cols) + 0.5) * grid.cellM; py = (Math.floor(cell / grid.cols) + 0.5) * grid.cellM; }
     const mt = state.transform.req(actor);
     mt.x = px; mt.y = py; mt.z = 0; mt.heading = t.heading + PI;
-    s.posture = "crouching"; s.postureTo = null;
+    // A casualty carried out (M10.4b) is laid down; a man getting out crouches.
+    const posture = laidDown ? "prone" : "crouching";
+    s.posture = posture; s.postureTo = null;
     halt(state, actor);
     events.emit({ kind: "soldier.dismounted", tick: state.tick, soldier: actor, vehicle: vid, seat });
-    events.emit({ kind: "posture.changed", tick: state.tick, soldier: actor, posture: "crouching" });
+    events.emit({ kind: "posture.changed", tick: state.tick, soldier: actor, posture });
   }
 }
 
@@ -212,7 +259,8 @@ registerActionHandler("loadCasualty", {
     if (!carriable(cs) || cs!.mount !== undefined) return "no-casualty";
     if (!halted(v)) return "moving";
     const def = ctx.catalog.vehicles[v.def];
-    if (!def || freePassengerSeats(v, def) === 0) return "no-seat";
+    const lies = liesAboard(ctx, cs!);
+    if (!def || firstFreePassengerSeat(v, def) < 0 || !roomFor(ctx, state, v, def, lies ? 1 : 0, lies ? 0 : 1)) return "no-seat";
     const ta = state.transform.req(actor), tc = state.transform.req(c);
     if (hypot2(ta.x - tc.x, ta.y - tc.y) > 3) return "out-of-reach";
     return null;
@@ -220,8 +268,39 @@ registerActionHandler("loadCasualty", {
   complete(ctx, state, actor, a, events) {
     if (a.params["role"] !== "lead") return;
     const vid = Number(a.params["vehicle"]), v = state.vehicle.req(vid), def = ctx.catalog.vehicles[v.def]!;
-    const seat = firstFreePassengerSeat(v, def);
-    if (seat >= 0) seatIn(state, def, vid, seat, Number(a.params["casualty"]), events);
+    const seat = firstFreePassengerSeat(v, def), c = Number(a.params["casualty"]);
+    if (seat < 0) return;
+    const lies = liesAboard(ctx, state.soldier.req(c));
+    seatIn(state, def, vid, seat, c, events);
+    if (lies) state.soldier.req(c).mount!.lying = true;
+  },
+});
+
+/**
+ * Two men carry a casualty out of a halted vehicle through an exit and lay him down behind it (M10.4b; a dismount
+ * order with `wounded`). As loading: the lead's action does it, the helper's keeps him busy meanwhile.
+ * params: { vehicle, casualty, other, role, exit }
+ */
+registerActionHandler("unloadCasualty", {
+  check(ctx, state, actor, a) {
+    const vid = Number(a.params["vehicle"]), v = state.vehicle.get(vid);
+    const c = Number(a.params["casualty"]), other = Number(a.params["other"]);
+    if (!v || v.status === "destroyed" || v.fire !== null) return "no-vehicle";
+    const sa = state.soldier.get(actor), so = state.soldier.get(other);
+    if (!walker(sa) || !walker(so) || sa!.mount !== undefined || so!.mount !== undefined) return "unable";
+    if (state.soldier.get(c)?.mount?.vehicle !== vid) return "no-casualty";
+    if (Math.abs(v.drive.speed) >= HALTED_MPS) return "moving";
+    const def = ctx.catalog.vehicles[v.def];
+    if (!def) return "no-vehicle";
+    const t = state.transform.req(vid), ta = state.transform.req(actor);
+    if (nearestExit(def, t.x, t.y, t.heading, ta.x, ta.y).d > ctx.catalog.behaviour.mounting.boardReachM + 0.5) return "out-of-reach";
+    return null;
+  },
+  complete(ctx, state, actor, a, events) {
+    if (a.params["role"] !== "lead") return;
+    const vid = Number(a.params["vehicle"]), c = Number(a.params["casualty"]);
+    if (state.soldier.get(c)?.mount?.vehicle !== vid) return;
+    getOut(ctx, state, c, vid, Number(a.params["exit"]), events, true);
   },
 });
 
@@ -374,18 +453,30 @@ function setBoarding(state: SimState, uid: EntityId, b: Boarding): void {
   u.moving = false;
 }
 
-/** Start getting a unit's men out (and an order to carry out afterwards). Returns whether anyone gets out. */
-function startDismount(state: SimState, uid: EntityId, men: EntityId[], then: OrderBody | null, thenTarget: EntityId | undefined): boolean {
-  if (men.length === 0) return false;
-  const first = state.soldier.req(men[0]!).mount!.vehicle;
+/** Casualties of a unit aboard (alive, cannot get out on their own): carried out on a dismount with `wounded`. */
+function woundedAboard(state: SimState, uid: EntityId): EntityId[] {
+  const u = state.unit.get(uid);
+  if (!u || u.vehicle !== undefined) return [];
+  return u.members.filter((m) => { const s = state.soldier.get(m); return s?.mount !== undefined && carriable(s); }).sort((a, b) => a - b);
+}
+
+/**
+ * Start getting a unit's men out (and an order to carry out afterwards); `wounded`: casualties aboard its men then
+ * carry out (M10.4b). Returns whether anyone gets out.
+ */
+function startDismount(state: SimState, uid: EntityId, men: EntityId[], then: OrderBody | null, thenTarget: EntityId | undefined, wounded: EntityId[] = []): boolean {
+  if (men.length === 0 && wounded.length === 0) return false;
+  const first = state.soldier.req((men[0] ?? wounded[0])!).mount!.vehicle;
   const u = state.unit.req(uid);
   if (u.boarding?.kind === "dismount") {
     // A man or an order added to a dismount already under way.
     u.boarding.queue = [...new Set([...u.boarding.queue, ...men])].sort((a, b) => a - b);
+    if (wounded.length > 0) u.boarding.casualties = [...new Set([...(u.boarding.casualties ?? []), ...wounded])].sort((a, b) => a - b);
     if (then) { u.boarding.then = then; if (thenTarget !== undefined) u.boarding.thenTarget = thenTarget; else delete u.boarding.thenTarget; }
     return true;
   }
   const b: Boarding = { kind: "dismount", vehicle: first, startTick: state.tick, queue: [...men].sort((a, b) => a - b), then, rampOpenTick: -1 };
+  if (wounded.length > 0) b.casualties = [...wounded];
   if (thenTarget !== undefined) b.thenTarget = thenTarget;
   setBoarding(state, uid, b);
   return true;
@@ -448,7 +539,7 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
       return startDismount(state, uid, [order.target], null, undefined) ? true : "unable";
     }
     let any = false;
-    for (const u of footUnits(state, order.target)) any = startDismount(state, u, ridersOf(state, u), null, undefined) || any;
+    for (const u of footUnits(state, order.target)) any = startDismount(state, u, ridersOf(state, u), null, undefined, order.wounded ? woundedAboard(state, u) : []) || any;
     return any ? true : "unable";
   }
   // ---- mount
@@ -483,25 +574,34 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
     const u = state.unit.req(g.uid);
     const prev = u.boarding?.kind === "mount" && u.boarding.vehicle === g.vid ? u.boarding : undefined;
     const men = prev ? [...new Set([...prev.queue, ...g.men])].sort((a, b) => a - b) : g.men;
-    // Fewer free seats than men to get in: unable (no partial mount, plan §6 default).
-    if (freePassengerSeats(v, def) - reserved(state, g.vid, g.uid) < men.length) {
+    // Fewer free places than men to get in: unable (no partial mount, plan §6 default).
+    if (!roomFor(ctx, state, v, def, 0, reserved(state, g.vid, g.uid) + men.length)) {
       if (res !== true) res = { unable: "radio.noSeats" };
       if (groups.length > 1) radioFromTarget(state, g.uid, "radio.noSeats", events);
       continue;
     }
     const t = state.transform.req(g.vid);
-    // Wounded men of the unit lying near an exit are carried in (Q25); a single man boards alone.
+    // Wounded men of the unit lying near an exit are carried in (Q25); M10.4b: from up to `fetchM` away, carried
+    // to the exit first. Only as many as there are places for once the able men are in. A single man boards alone.
     const M = ctx.catalog.behaviour.mounting;
+    const reach = Math.max(M.casualtyLoadM, ctx.rules.medicalCare !== false ? loadingParams(ctx).fetchM : 0); // (not with care off)
+    const used = placesUsed(state, v, def);
+    let lying = used.lying, sitting = used.sitting + reserved(state, g.vid, g.uid) + men.length;
     const casualties = !isUnit ? [] : u.members.filter((m) => {
       const s = state.soldier.get(m);
-      if (!carriable(s) || s!.mount !== undefined) return false;
+      if (!carriable(s) || s!.mount !== undefined || prev?.casualties?.includes(m)) return false;
       const mt = state.transform.req(m);
-      return nearestExit(def, t.x, t.y, t.heading, mt.x, mt.y).d <= M.casualtyLoadM;
+      if (nearestExit(def, t.x, t.y, t.heading, mt.x, mt.y).d > reach) return false;
+      const lies = liesAboard(ctx, s!);
+      if (!placesFit(ctx, def, lying + (lies ? 1 : 0), sitting + (lies ? 0 : 1))) return false;
+      if (lies) lying++; else sitting++;
+      return true;
     }).sort((a, b) => a - b);
     for (const m of men) { state.fire.delete(m); const s = state.soldier.req(m); if (s.intent?.kind !== "takePrisoner") s.intent = null; }
     setBoarding(state, g.uid, {
       kind: "mount", vehicle: g.vid, startTick: state.tick, queue: men, then: null, rampOpenTick: prev?.rampOpenTick ?? -1,
       firstTick: prev?.firstTick ?? -1, casualties: [...new Set([...(prev?.casualties ?? []), ...casualties])].sort((a, b) => a - b),
+      ...(prev?.fetched ? { fetched: prev.fetched } : {}),
     });
     res = true;
   }
@@ -554,6 +654,49 @@ function finish(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, events
   }
 }
 
+/** Is (p) within `r` of an exit of the vehicle at (t)? */
+function nearExit(def: VehicleDef, t: { x: number; y: number; heading: number }, p: { x: number; y: number }, r: number): boolean {
+  return nearestExit(def, t.x, t.y, t.heading, p.x, p.y).d <= r;
+}
+
+/**
+ * M10.4b: the boarding unit's casualties lying farther than `casualtyLoadM` from an exit are carried to the nearest
+ * exit, each by a carrying party of up to four of the men still outside (nearest first; the method is the carry
+ * system's choice). Each is fetched once: one whose party ended short of the exit is left where he is. True while a
+ * party is under way (the boarding then waits for it, up to `giveUpSeconds`).
+ */
+function fetchCasualties(ctx: SimContext, state: SimState, events: EventSink, b: Boarding, v: VehicleState, def: VehicleDef): boolean {
+  const M = ctx.catalog.behaviour.mounting;
+  const cs = b.casualties ?? [];
+  if (cs.length === 0) return false;
+  const t = state.transform.req(b.vehicle);
+  let under = false;
+  // One waiting at the exit is lifted in first (by the same men, perhaps) before anyone goes for the next.
+  const waiting = cs.some((c) => !state.carry.has(c) && nearExit(def, t, state.transform.req(c), M.casualtyLoadM));
+  for (const c of [...cs]) {
+    if (state.carry.has(c)) { under = true; continue; }
+    const ct = state.transform.req(c);
+    const ex = nearestExit(def, t.x, t.y, t.heading, ct.x, ct.y);
+    if (ex.d <= M.casualtyLoadM) continue;
+    if (b.fetched?.includes(c)) { b.casualties = b.casualties!.filter((m) => m !== c); continue; }
+    if (waiting) continue;
+    // Up to four of the men still outside and free (not busy, not carrying), nearest to him first.
+    const free = b.queue.filter((m) => !state.action.has(m) && state.soldier.req(m).carrying === undefined)
+      .map((m) => { const mt = state.transform.req(m); return { m, d: hypot2(mt.x - ct.x, mt.y - ct.y) }; })
+      .sort((p, q) => p.d - q.d || p.m - q.m).slice(0, 4).map((p) => p.m);
+    if (free.length === 0) continue;
+    b.fetched = [...(b.fetched ?? []), c].sort((p, q) => p - q);
+    // To a spot just outside the exit, away from the hull, on ground a man can stand on.
+    const ox = ex.x - t.x, oy = ex.y - t.y, ol = hypot2(ox, oy) || 1;
+    let dx = ex.x + (ox / ol) * 1.5, dy = ex.y + (oy / ol) * 1.5;
+    const grid = navFor(ctx, "foot").grid;
+    const cell = nearestPassable(grid, Math.min(Math.max(dx, 1), ctx.map.widthM - 1), Math.min(Math.max(dy, 1), ctx.map.heightM - 1), 6);
+    if (cell >= 0) { dx = ((cell % grid.cols) + 0.5) * grid.cellM; dy = (Math.floor(cell / grid.cols) + 0.5) * grid.cellM; }
+    if (startCarry(ctx, state, events, c, free, { x: dx, y: dy, z: 0 }, { purpose: "move" })) under = true;
+  }
+  return under;
+}
+
 function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, events: EventSink): void {
   const b = u.boarding!, M = ctx.catalog.behaviour.mounting;
   const v = state.vehicle.get(b.vehicle);
@@ -566,18 +709,25 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   const stopped = halted(v);
   if (stopped) v.drive.holdForDismount = true;
   const tick = state.tick;
+  // M10.4b: a casualty farther from an exit is carried to it first; one carried there in vain is left.
+  // (A fetched casualty is waited for until he is in: past `completeAfterSeconds`, up to `giveUpSeconds`.)
+  const fetching = fetchCasualties(ctx, state, events, b, v, def) || (b.casualties ?? []).some((c) => b.fetched?.includes(c));
   const done = b.queue.length === 0 && b.casualties.length === 0;
-  const late = ((b.firstTick ?? -1) >= 0 && tick - b.firstTick! >= secondsToTicks(M.completeAfterSeconds)) || tick - b.startTick >= secondsToTicks(M.giveUpSeconds);
-  if (done || late || freePassengerSeats(v, def) === 0) { finish(ctx, state, uid, u, events); return; }
+  const late = ((b.firstTick ?? -1) >= 0 && tick - b.firstTick! >= secondsToTicks(M.completeAfterSeconds) && !fetching) || tick - b.startTick >= secondsToTicks(M.giveUpSeconds);
+  if (done || late || firstFreePassengerSeat(v, def) < 0) { finish(ctx, state, uid, u, events); return; }
   // The walk to the vehicle is planned again when the hull has moved.
   const moved = !(hypot2(t.x - (b.hullX ?? Number.NaN), t.y - (b.hullY ?? Number.NaN)) <= M.approachReplanM);
   if (moved) { b.hullX = t.x; b.hullY = t.y; }
   // Wounded men near an exit: the two lowest-ID able men within reach carry each in, one at a time (Q25).
   const carriers = new Set<EntityId>();
-  const cas = b.casualties[0];
+  const cas = b.casualties.find((c) => !state.carry.has(c) && nearExit(def, t, state.transform.req(c), M.casualtyLoadM));
   if (cas !== undefined) {
     const ct = state.transform.req(cas);
-    const near = b.queue.filter((m) => { const mt = state.transform.req(m); return hypot2(mt.x - ct.x, mt.y - ct.y) <= M.carriersWithinM; });
+    const within = b.queue.filter((m) => { const mt = state.transform.req(m); return hypot2(mt.x - ct.x, mt.y - ct.y) <= M.carriersWithinM; });
+    // (Men still carrying another casualty to the exit come to him afterwards.)
+    // The two already lifting him keep at it (a man freed meanwhile does not take over).
+    const lifting = (m: EntityId) => { const a = state.action.get(m); return a?.kind === "loadCasualty" && Number(a.params["casualty"]) === cas; };
+    const near = within.filter((m) => state.soldier.req(m).carrying === undefined).sort((m, n) => Number(lifting(n)) - Number(lifting(m)) || m - n);
     if (near.length >= 2) {
       const [p, q] = [near[0]!, near[1]!];
       carriers.add(p); carriers.add(q);
@@ -589,7 +739,8 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
           const dur = secondsToTicks(def.ramp.loadCasualtySeconds);
           startAction(state, events, p, "loadCasualty", dur, { vehicle: b.vehicle, casualty: cas, other: q, role: "lead" });
           startAction(state, events, q, "loadCasualty", dur, { vehicle: b.vehicle, casualty: cas, other: p, role: "helper" });
-          if ((b.firstTick ?? -1) < 0) b.firstTick = tick;
+          // (The time left to finish counts from the last casualty lifted in: his two carriers still get in.)
+          b.firstTick = tick;
         } else {
           for (const [m, at] of [[p, atP], [q, atQ]] as const) {
             const w = state.mover.get(m)?.waypoints;
@@ -598,7 +749,7 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
           }
         }
       }
-    } else {
+    } else if (within.length < 2) {
       // Nobody to carry him (fewer than two able men near): he stays where he is.
       b.casualties = b.casualties.filter((m) => m !== cas);
     }
@@ -606,7 +757,7 @@ function stepMount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   // Able men: to the nearest exit, then in, one at a time per exit, lowest ID first.
   const busy = busyExits(state, b.vehicle, b.queue);
   for (const m of b.queue) {
-    if (carriers.has(m) || state.action.has(m)) continue;
+    if (carriers.has(m) || state.action.has(m) || state.soldier.req(m).carrying !== undefined) continue;
     const mt = state.transform.req(m);
     const ex = nearestExit(def, t.x, t.y, t.heading, mt.x, mt.y);
     if (ex.d <= M.boardReachM) {
@@ -628,7 +779,11 @@ function stepDismount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, 
   const b = u.boarding!, M = ctx.catalog.behaviour.mounting;
   // Still to get out: able men still aboard (a man hit meanwhile stays aboard).
   b.queue = b.queue.filter((m) => { const s = state.soldier.get(m); return walker(s) && s!.mount !== undefined; });
-  if (b.queue.length === 0 || state.tick - b.startTick >= secondsToTicks(M.giveUpSeconds)) { finish(ctx, state, uid, u, events); return; }
+  if (b.casualties) b.casualties = b.casualties.filter((m) => { const s = state.soldier.get(m); return s?.mount !== undefined && carriable(s); });
+  const left = b.queue.length + (b.casualties?.length ?? 0);
+  if (left === 0 || state.tick - b.startTick >= secondsToTicks(M.giveUpSeconds)) { finish(ctx, state, uid, u, events); return; }
+  // The able men are out: carry out the wounded (M10.4b).
+  if (b.queue.length === 0) { stepUnload(ctx, state, uid, b, events); return; }
   // Vehicle by vehicle (a unit spread over two hulls gets out of both).
   const vehicles = [...new Set(b.queue.map((m) => state.soldier.req(m).mount!.vehicle))].sort((a, b2) => a - b2);
   for (const vid of vehicles) {
@@ -649,6 +804,50 @@ function stepDismount(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, 
       busy.add(best);
       startAction(state, events, m, "dismount", secondsToTicks(def.ramp.dismountSecondsPerMan), { vehicle: vid, exit: best });
     }
+  }
+}
+
+/**
+ * M10.4b: the first casualty still aboard is carried out by the two of the unit's men on foot nearest his vehicle's
+ * exit (within `carriersWithinM`, not carrying anyone else): they go to the exit nearest his seat, then take
+ * `loadCasualtySeconds` to get him out. With fewer than two such men he stays aboard.
+ */
+function stepUnload(ctx: SimContext, state: SimState, uid: EntityId, b: Boarding, events: EventSink): void {
+  const M = ctx.catalog.behaviour.mounting;
+  const cas = b.casualties![0]!;
+  const vid = state.soldier.req(cas).mount!.vehicle, v = state.vehicle.get(vid);
+  const def = v ? ctx.catalog.vehicles[v.def] : undefined;
+  if (!v || !def || v.status === "destroyed" || v.fire !== null) { b.casualties = b.casualties!.slice(1); return; }
+  v.drive.holdForDismount = true;
+  // Being carried out already.
+  for (const m of state.unit.req(uid).members) { const a = state.action.get(m); if (a?.kind === "unloadCasualty" && Number(a.params["casualty"]) === cas) return; }
+  // The exit nearest his seat.
+  const seat = def.seats[state.soldier.req(cas).mount!.seat]!;
+  let k = 0, kd = Infinity;
+  def.ramp.exits.forEach((e, i) => { const d = hypot2(e[0] - seat.pos[0], e[1] - seat.pos[1]); if (d < kd) { kd = d; k = i; } });
+  const t = state.transform.req(vid), ex = exitWorld(def, k, t.x, t.y, t.heading);
+  const men = state.unit.req(uid).members.filter((m) => {
+    const s = state.soldier.get(m);
+    if (!walker(s) || s!.mount !== undefined || s!.carrying !== undefined || s!.captive !== null) return false;
+    const mt = state.transform.req(m);
+    return hypot2(mt.x - ex.x, mt.y - ex.y) <= M.carriersWithinM;
+  }).map((m) => { const mt = state.transform.req(m); return { m, d: hypot2(mt.x - ex.x, mt.y - ex.y) }; })
+    .sort((p, q) => p.d - q.d || p.m - q.m).slice(0, 2);
+  if (men.length < 2) { b.casualties = b.casualties!.slice(1); return; }
+  const [p, q] = [men[0]!.m, men[1]!.m];
+  const atP = men[0]!.d <= M.boardReachM, atQ = men[1]!.d <= M.boardReachM;
+  if (atP && atQ && Math.abs(v.drive.speed) < HALTED_MPS && ensureRamp(b, def, state.tick)) {
+    const dur = secondsToTicks(def.ramp.loadCasualtySeconds);
+    halt(state, p); halt(state, q);
+    startAction(state, events, p, "unloadCasualty", dur, { vehicle: vid, casualty: cas, other: q, role: "lead", exit: k });
+    startAction(state, events, q, "unloadCasualty", dur, { vehicle: vid, casualty: cas, other: p, role: "helper", exit: k });
+    return;
+  }
+  for (const [m, at] of [[p, atP], [q, atQ]] as const) {
+    if (at || state.action.has(m)) continue;
+    const w = state.mover.get(m)?.waypoints;
+    const goal = w && w.length > 0 ? w[w.length - 1]! : null;
+    if (!goal || hypot2(goal.x - ex.x, goal.y - ex.y) > 1.5) runTo(ctx, state, m, ex.x, ex.y);
   }
 }
 
@@ -704,7 +903,7 @@ export function boardingSystem(ctx: SimContext, state: SimState, events: EventSi
   for (const [, u] of state.unit.entries()) {
     const b = u.boarding;
     if (!b) continue;
-    if (b.kind === "dismount") for (const m of b.queue) { const mv = state.soldier.get(m)?.mount?.vehicle; if (mv !== undefined) holding.add(mv); }
+    if (b.kind === "dismount") for (const m of [...b.queue, ...(b.casualties ?? [])]) { const mv = state.soldier.get(m)?.mount?.vehicle; if (mv !== undefined) holding.add(mv); }
     else if (state.vehicle.get(b.vehicle)?.drive.holdForDismount) holding.add(b.vehicle);
   }
   for (const [vid, v] of state.vehicle.entries()) if (v.drive.holdForDismount && !holding.has(vid)) v.drive.holdForDismount = false;

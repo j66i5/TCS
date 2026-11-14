@@ -210,8 +210,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-man-role, .hud-man-weapon { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-man-weapon { color: var(--muted); }
 .hud-man-mark { display: flex; position: relative; width: 20px; height: 20px; }
-/* (The medical line's triage tag goes in this corner slot; not built yet.) */
+/* The man's triage tag (M10.3b) in this corner slot: T1 red, T2 yellow, T3 green, as on the map. */
 .hud-man-tag { position: absolute; right: -3px; bottom: -3px; }
+.hud-triage { display: inline-block; padding: 0 2px; border-radius: 3px; font-size: 9px; font-weight: 700; line-height: 11px; color: #111; }
+.hud-triage.t1 { background: #ff4a3d; color: #fff; }
+.hud-triage.t2 { background: #ffd23d; }
+.hud-triage.t3 { background: #8fd36a; }
 .hud-man-rank { display: flex; align-items: center; justify-content: center; height: 30px; }
 .hud-picto, .hud-insignia { display: block; flex: none; }
 .hud-man.ss-down .hud-man-role, .hud-man.ss-dead .hud-man-role, .hud-man.ss-surrendered .hud-man-role, .hud-man.ss-captured .hud-man-role,

@@ -1,7 +1,8 @@
 /**
  * Visual self-check: builds the app, serves it, opens it in headless Chromium (phone and desktop
  * viewports), issues an order, advances the simulation and saves screenshots to screenshots/.
- *   npm run screenshot [-- --scale 2]
+ *   npm run screenshot [-- --scale 2] [--port 4318]
+ * (`--port`: another port for the preview server, when a second session takes screenshots on the same machine.)
  *
  * Uses the pre-installed Playwright (not a project dependency).
  */
@@ -16,7 +17,7 @@ const args = parseArgs(process.argv.slice(2));
 const scale = Number(args["scale"] ?? 1);
 const seed = Number(args["seed"] ?? 1);
 const mapKind = args["map"] ?? "village";
-const port = 4317;
+const port = Number(args["port"] ?? 4317);
 
 // Minimal structural types: Playwright is pre-installed globally, not a dependency, so no type package.
 interface Page {
@@ -271,6 +272,101 @@ async function smokeScenes(page: Page, name: string, errors: string[], shots: st
   await shot("1-smoke-cloud");
   const info = await ev<unknown>("return { clouds: s.smoke.length, tick: s.tick };");
   console.log(`${name}: smoke scene mode ${mode}, order ${JSON.stringify(order)}, ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.3b triage (`--scene triage`): the platoon battle on foot (village), the lead squad selected with its detailed
+ * card. Two of its men are hurt through the debug hook (one bleeding from the leg and knocked out, one with a broken
+ * leg); 90 s on, their comrades have treated and tagged them: the tags close up (figures), the man box of the first,
+ * and the tags at the dot zoom. Debug on for the care lines.
+ */
+async function triageScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/triage-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const close = name === "phone" ? 12 : 18;
+  const info = await ev<{ hurt: number[] }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); globalThis.__sq = sq.unit; const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader);
+    t.hurt(men[1], { zone: "legL", bleedingLps: 0.006, severity: 0.5 }, true);
+    t.hurt(men[3], { zone: "legR", severity: 0.35, fracture: true });
+    t.stepTicks(60 * 90); const p = s.transform.get(men[1]); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1); return { hurt: [men[1], men[3]] };`);
+  if (!(await ev<boolean>("return t.card().detailed;"))) await page.click('[data-card="detail"]');
+  await settle();
+  await shot("0-tags-close-card");
+  await ev(`t.inspect(${info.hurt[0]}); t.stepTicks(1);`);
+  await shot("1-man-box-triage");
+  await ev(`t.inspect(null); t.setDebug(true); t.stepTicks(1);`);
+  await shot("2-debug-care-lines");
+  await ev(`t.setDebug(false); const p = s.transform.get(${info.hurt[0]}); t.focusScale(p.x, p.y, 3); t.stepTicks(1);`);
+  await settle();
+  await shot("3-tags-dot-zoom");
+  const tags = await ev<unknown>(`return [${info.hurt.join(",")}].map((id) => ({ id, triage: s.soldier.get(id).triage ?? null, alive: s.soldier.get(id).physiology.alive }));`);
+  console.log(`${name}: triage scene ${JSON.stringify(tags)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.4b carrying to and into vehicles (`--scene medical`): the mounted platoon battle (village), the lead squad gets
+ * out, one of its men is knocked out (debug hook), and the squad is ordered back in: its men carry him to the Puma
+ * (the "carried" frame) and lift him in; the platoon's medic and three men carry another on the folding litter (the
+ * "stretcher" frame), close up in the photo and the flat look; then the squad gets out with its wounded
+ * (`dismount` with `wounded`), who are laid down behind the ramp.
+ */
+async function medicalScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const log: Record<string, unknown> = {};
+  for (const look of ["photo", "flat"] as const) {
+    const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/medical-${seed}-${name}-${look}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&look=${look}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+    const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    const close = name === "phone" ? 40 : 56;
+    // The lead squad out of its vehicle; one man knocked out; back in: the others carry him to the ramp.
+    const a = await ev<{ sq: number; down: number; carried: boolean }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom");
+      const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1 && s.unit.get(u.unit).carrier !== undefined);
+      t.select(sq.unit); globalThis.__sq = sq.unit; t.dismount(); t.stepTicks(60 * 25);
+      const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader && s.soldier.get(m).mount === undefined);
+      // The man farthest from the ramp goes down.
+      const v = s.transform.get(u.carrier); men.sort((p, q) => Math.hypot(s.transform.get(q).x - v.x, s.transform.get(q).y - v.y) - Math.hypot(s.transform.get(p).x - v.x, s.transform.get(p).y - v.y));
+      t.hurt(men[0], { zone: "legL", bleedingLps: 0.004, severity: 0.5 }, true); t.stepTicks(60 * 2);
+      t.mount(); let k = 0; while (k++ < 60 * 30 && !s.carry.has(men[0])) t.stepTicks(1);
+      t.stepTicks(60 * 6); const p = s.transform.get(men[0]); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1);
+      return { sq: sq.unit, down: men[0], carried: s.carry.has(men[0]) };`);
+    await settle();
+    await shot("0-carried-to-vehicle");
+    // Lifted in at the ramp (two men, loadCasualty).
+    const loading = await ev<number>(`let k = 0; const busy = () => [...s.action.values()].filter((x) => x.kind === "loadCasualty").length;
+      while (k++ < 60 * 120 && busy() === 0 && s.soldier.get(${a.down}).mount === undefined) t.stepTicks(1);
+      t.stepTicks(60 * 2); const p = s.transform.get(${a.down}); t.select(null); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1); return busy();`);
+    await settle();
+    await shot("1-lifted-in");
+    const b = await ev<{ loading: number; aboard: boolean; lying: boolean }>(`let k = 0; while (k++ < 60 * 150 && s.soldier.get(${a.down}).mount === undefined) t.stepTicks(1);
+      const m = s.soldier.get(${a.down}).mount; return { loading: ${loading}, aboard: m !== undefined, lying: m?.lying === true };`);
+    // The medic (the man with the folding litter) and three men of his platoon carry another on the litter.
+    const c = await ev<{ medic: number | null; ok: boolean }>(`let medic = null;
+      for (const [id, cn] of s.container.entries()) if (s.soldier.has(id) && s.identity.get(id)?.side === "blue" && cn.stacks.some((x) => x.type === "de-litter" && x.count > 0)) { medic = id; break; }
+      if (medic === null) return { medic, ok: false };
+      const mu = s.identity.get(medic).unit; if (s.soldier.get(medic).mount !== undefined) { t.select(mu); t.dismount(); t.stepTicks(60 * 25); }
+      const mp = s.transform.get(medic);
+      const near = [...s.soldier.entries()].filter(([id, x]) => id !== medic && s.identity.get(id)?.side === "blue" && x.mount === undefined && x.physiology.alive && x.captive === null && x.physiology.consciousness >= 0.5)
+        .map(([id]) => id).sort((p, q) => Math.hypot(s.transform.get(p).x - mp.x, s.transform.get(p).y - mp.y) - Math.hypot(s.transform.get(q).x - mp.x, s.transform.get(q).y - mp.y));
+      const casualty = near[0]; t.hurt(casualty, { zone: "legR", severity: 0.4 }, true);
+      const ok = t.carry(casualty, [medic, near[1], near[2], near[3]], mp.x - 40, mp.y, "stretcher");
+      t.stepTicks(60 * 60); const p = s.transform.get(casualty); t.select(null); t.focusScale(p.x, p.y, ${close} * 1.5); t.stepTicks(1);
+      return { medic, ok, phase: s.carry.get(casualty)?.phase ?? null };`);
+    await settle();
+    await shot("2-stretcher");
+    // The squad gets out with its wounded: he is laid down behind the ramp.
+    const d = await ev<{ out: boolean; posture: string }>(`t.select(${a.sq}); t.dismountWounded(); let k = 0;
+      while (k++ < 60 * 120 && s.soldier.get(${a.down}).mount !== undefined) t.stepTicks(1);
+      t.stepTicks(60 * 2); const p = s.transform.get(${a.down}); t.select(null); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1);
+      return { out: s.soldier.get(${a.down}).mount === undefined, posture: s.soldier.get(${a.down}).posture };`);
+    await settle();
+    await shot("3-carried-out");
+    log[look] = { a, b, c, d };
+  }
+  console.log(`${name}: medical scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -1445,7 +1541,9 @@ try {
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "night") { await nightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

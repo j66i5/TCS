@@ -532,6 +532,10 @@ export const InterventionSchema = withProv({
 export const CarrySchema = withProv({
   id: Id, nameKey: z.string(), carriers: z.number().int().min(0).max(8), speedMps: Num(0.1, 3), enduranceM: Num(1, 5000),
   restS: Num(0, 3600), setupS: Num(0, 600), upright: z.boolean(),
+  /** The casualty walks himself (M10.4a: walking wounded, supported). */
+  casualtyWalks: z.boolean().optional(),
+  /** An item one of the carriers must have (its `medical.tags`), e.g. a litter (M10.4a). */
+  needsTag: Id.optional(),
 });
 export const MedicalFile = z.object({
   /** Rates of the "medical" physiology model (flat numbers, merged into the physiology parameters). */
@@ -551,20 +555,35 @@ export const MedicalFile = z.object({
   }),
   interventions: z.array(InterventionSchema).min(1),
   carry: z.array(CarrySchema).min(1),
+  /** Carrying parties (M10.4a): gathering, cover under fire, self-defence, the mass the carry speeds are for. */
+  carrying: withProv({ reachM: Num(0.5, 10), holdSuppression: Num(0, 1), resumeQuietS: Num(0, 600), selfDefenceM: Num(0, 300), massRefKg: Num(10, 500) }).optional(),
+  /** Casualties into and out of vehicles (M10.4b): how far a mounting unit fetches its wounded, places a lying man takes. */
+  vehicleLoading: withProv({ fetchM: Num(0, 1000), lyingSeats: z.number().int().min(1).max(6), lyingShock: Num(0, 1) }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),
     obscuredFactor: Num(0, 1), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
     medicFiredLosesProtectionS: Num(0, 3600),
   }),
-  triage: withProv({ errorChance: BySkill(0, 1), underFireAdd: Num(0, 1) }),
+  /** Triage (M10.3b): error chances by training, what makes a casualty T1, when he is tagged again. */
+  triage: withProv({
+    errorChance: BySkill(0, 1), underFireAdd: Num(0, 1), immediateTreats: z.array(z.string()), immediateShock: Num(0, 1),
+    immediateConsciousness: Num(0, 1), retriageS: Num(0, 36000),
+  }),
   /** How care is given (M10.2): cadence, buddy reach, attempts, thresholds, the MARCH order of interventions. */
   care: withProv({
     stepS: Num(0.1, 60), buddyReachM: Num(0.5, 20), maxAttempts: z.number().int().min(1).max(10), painTreatAt: Num(0, 1),
     skillRef: Num(0, 1), skillK: Num(0, 2), underFireSuppression: Num(0, 1), underFireSeconds: Num(0, 600),
     junctionalZones: z.array(z.enum(["head", "neck", "chest", "abdomen", "pelvis", "armL", "armR", "legL", "legR"])),
     order: z.array(Id).min(1),
+    dragSearchM: Num(0, 100), dragMaxM: Num(0, 200), radioCooldownS: Num(0, 600),
   }),
+  /** Who goes to a casualty further away (M10.3a): reach, what looks urgent, willingness, the cap, the timeout. */
+  carers: withProv({
+    comradeReachM: Num(0, 1000), responderReachM: Num(0, 2000), urgentTreats: z.array(z.string()),
+    willingAt: Num(0, 10), behaviourK: z.record(z.string(), Num(0, 2)), suppressionK: Num(0, 5), otherUnitK: Num(0, 1),
+    exposedK: Num(0, 1), responderK: Num(0, 10), comradesPerCasualty: z.number().int().min(0).max(4), timeoutS: Num(1, 3600),
+  }).optional(),
 }).strict();
 export type MedicalT = z.infer<typeof MedicalFile>;
 
@@ -911,6 +930,8 @@ export const DOCTRINE_KEYS = [
   /** Fire and movement (M4.4): length of one bound, m, and the last stretch rushed together, m. */
   "boundM",
   "finalAssaultM",
+  /** M10.3a: how readily a man leaves the fight to go to a wounded comrade (willingness factor, 0..1). */
+  "casualtyCarePriority",
 ] as const;
 /** An off-map fire support asset (M6.5c mortars; M8.4 artillery). */
 const FireSupportAsset = z.object({

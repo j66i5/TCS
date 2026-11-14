@@ -685,6 +685,12 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.suppression < D.underFireSuppression || !isAble(s)) continue;
     const u = state.identity.get(id)?.unit;
     const top = u !== undefined ? topUnit(state, u) : undefined;
+    // His own unit remembers it too, for its own men alone: only the squad fired on reacts to contact (drills.ts).
+    const own = u !== undefined ? state.unit.get(u) : undefined;
+    if (own) {
+      if (state.tick - (own.ownFireTick ?? -1e9) > secondsToTicks(D.underFireMemorySeconds)) own.ownContactTick = state.tick;
+      own.ownFireTick = state.tick;
+    }
     if (top) {
       // A new spell under fire (after a quiet spell): the drills react to it (M4.3).
       if (state.tick - top.underFireTick > secondsToTicks(D.underFireMemorySeconds)) top.contactTick = state.tick;

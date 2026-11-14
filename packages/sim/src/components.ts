@@ -44,6 +44,9 @@ export interface Mover {
   slotLagM: number;
   /** On reaching the last waypoint: take this posture and face this way (halt drill). */
   endPosture: Posture | null;
+  /** Under fire on a walk or sneak leg he runs (`soldier.hurryMode`) until this tick; renewed while the fire lasts,
+   *  dropped when his way ends. Optional (absent = his legs' own paces). */
+  hurryUntilTick?: number;
   endHeading: number | null;
 }
 
@@ -234,6 +237,11 @@ export interface Unit {
   /** When the unit's current spell under fire began (fire after a quiet spell), and its last move order (M4.3). */
   contactTick: number;
   moveTick: number;
+  /** The same two for this unit's own men only (not its sub-units): a man of THIS unit under fire, and the start
+   *  of its own spell under fire. React to contact goes by these, so only the squad fired on goes to ground.
+   *  Optional (absent = never). */
+  ownFireTick?: number;
+  ownContactTick?: number;
   /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */

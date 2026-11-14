@@ -5,7 +5,7 @@
 import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { DT } from "../ids";
+import { DT, secondsToTicks } from "../ids";
 import { atan2, clamp, cos, exp, hypot2, sin } from "../math";
 
 /** Distance a follower may be ahead of or behind his formation slot before adjusting speed, m. */
@@ -32,6 +32,10 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   const B = ctx.catalog.body;
   clearTickLoads(); // (loads summed from here to the physiology step: body.ts)
   // Tobler's function on level ground (the normaliser below; the same value for every man).
+  // Movement under fire (overnight pick 2026-11-14): walk and sneak legs become runs (locals for the loop).
+  const SB = ctx.catalog.behaviour.soldier;
+  const hurryModes = SB.hurryModes, hurryMode = SB.hurryMode, hurrySupp = ctx.catalog.behaviour.decisions.seekCoverSuppression;
+  const hurryFiredOn = secondsToTicks(SB.hurryFiredOnSeconds), hurryQuiet = secondsToTicks(SB.hurryQuietSeconds), tick = state.tick;
   const levelK = exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
@@ -51,12 +55,21 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!wp) {
       m.speedMps = 0;
       m.mode = null;
+      if (m.hurryUntilTick !== undefined) delete m.hurryUntilTick;
       continue;
     }
     const t = state.transform.req(id);
-    const mode = footModeOrUndefined(ctx.catalog, wp.mode);
     const s = state.soldier.get(id);
-    m.mode = wp.mode;
+    // Under fire (his suppression, or his own unit fired on just now) a man on a walk or sneak leg runs for the
+    // rest of his way, until a quiet spell: nobody walks on into fire.
+    let modeId = wp.mode;
+    if (s && hurryModes.includes(modeId)) {
+      const uid = state.identity.get(id)?.unit, own = uid !== undefined ? state.unit.get(uid)?.ownFireTick : undefined;
+      if (s.mental.suppression >= hurrySupp || (own !== undefined && tick - own <= hurryFiredOn)) m.hurryUntilTick = tick + hurryQuiet;
+      if (m.hurryUntilTick !== undefined && tick < m.hurryUntilTick) modeId = hurryMode;
+    }
+    const mode = footModeOrUndefined(ctx.catalog, modeId);
+    m.mode = modeId;
     if (!mode) { m.speedMps = 0; continue; }
     // Knocked down (a round stopped by his armour): he lies where he fell until it passes.
     if (s && state.tick < s.stunnedUntilTick) { m.speedMps = 0; continue; }

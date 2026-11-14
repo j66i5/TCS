@@ -295,6 +295,50 @@ function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean
   return false;
 }
 
+/**
+ * The men on foot carrying this unit's move into `out`: its own men, and the men on their way (with waypoints) of
+ * sub-units without a move or drill of their own (a move given to the whole platoon); returns when they last came
+ * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`). A halted squad under
+ * the platoon is not part of its headquarters' move.
+ */
+function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false): number {
+  const u = state.unit.get(uid);
+  if (!u) return -1e9;
+  const n0 = out.length;
+  for (const m of u.members) if (state.soldier.get(m)?.mount === undefined && (!sub || (state.mover.get(m)?.waypoints.length ?? 0) > 0)) out.push(m);
+  let t = out.length > n0 || !sub ? (u.ownContactTick ?? -1e9) : -1e9;
+  if (u.vehicle !== undefined && u.contactTick > t) t = u.contactTick;
+  for (const c of u.children) {
+    const cu = state.unit.get(c);
+    if (!cu || cu.moving || cu.drill) continue;
+    const ct = moveGroup(state, c, out, true);
+    if (ct > t) t = ct;
+  }
+  return t;
+}
+
+/** Has a unit of the same top unit, outside this move, come under fire anew with its men within `rangeM`? */
+function neighbourInContact(state: SimState, uid: EntityId, group: EntityId[], fresh: (t: number) => boolean, rangeM: number): boolean {
+  if (rangeM <= 0) return false;
+  const mine = group.filter((m) => able(state.soldier.get(m)));
+  if (mine.length === 0) return false;
+  let c: { x: number; y: number } | null = null;
+  const inGroup = new Set(group);
+  const stack: EntityId[] = [topOf(state, uid)];
+  while (stack.length > 0) {
+    const wid = stack.pop()!, w = state.unit.get(wid);
+    if (!w) continue;
+    for (let i = w.children.length - 1; i >= 0; i--) stack.push(w.children[i]!);
+    if (wid === uid || !fresh(w.ownContactTick ?? -1e9)) continue;
+    const theirs = w.members.filter((m) => !inGroup.has(m) && able(state.soldier.get(m)) && state.soldier.get(m)!.mount === undefined);
+    if (theirs.length === 0) continue;
+    c ??= centroid(state, mine);
+    const o = centroid(state, theirs);
+    if (hypot2(o.x - c.x, o.y - c.y) <= rangeM) return true;
+  }
+  return false;
+}
+
 export function drillSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills;
   if (state.tick % Math.max(1, secondsToTicks(D.stepSeconds)) !== 0) return;
@@ -307,13 +351,15 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
       // In a broken unit, a man who panics later runs too.
       if (u.broken && u.drill?.kind === "rout") for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
     }
-    // ---- react to contact: on the move, fired upon anew since the move began
-    if (D.reactToContact && u.moving && !u.drill && !u.broken) {
-      const top = state.unit.req(topOf(state, uid));
-      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds) && !enteringHouse(ctx, state, uid)) {
+    // ---- react to contact: on the move, fired upon anew since the move began; only the men carrying this move
+    // (its own, and sub-units without a move of their own) or a unit of the platoon close by (reactNeighbourM)
+    if (D.reactToContact && u.moving && !u.drill && !u.broken && u.onContact !== "push") {
+      const group: EntityId[] = [];
+      const fresh = (t: number) => t > u.moveTick && state.tick - t <= secondsToTicks(2 * D.stepSeconds);
+      if ((fresh(moveGroup(state, uid, group)) || neighbourInContact(state, uid, group, fresh, D.reactNeighbourM)) && !enteringHouse(ctx, state, uid)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
-        for (const m of footSoldiers(state, uid)) {
+        for (const m of group) {
           const s = state.soldier.get(m);
           if (!able(s)) continue;
           const w = state.mover.get(m)?.waypoints;

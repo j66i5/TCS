@@ -343,6 +343,7 @@ export const BehaviourFile = withProv({
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
     breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1), fallBackM: Num(0, 2000),
+    reactNeighbourM: Num(0, 1000),
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({
@@ -384,6 +385,7 @@ export const BehaviourFile = withProv({
     atMoveM: Num(0, 200), atMoveMinRangeM: Num(0, 1000), atMoveRetrySeconds: Num(0, 600), atContactSeconds: Num(0, 600),
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
+    hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
   }),
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({

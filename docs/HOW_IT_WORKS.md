@@ -451,7 +451,11 @@ line; he rises again just in time for the next shot, so his rate of fire is the 
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
-and fire back under their fire rule; the radio says "contact! Taking cover." **Assault** (order, with a point):
+and fire back under their fire rule; the radio says "contact! Taking cover." Only the unit whose own men are fired
+on does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
+goes on (a move given to the whole platoon still stops it all). **Moving under fire.** A man on a walk or sneak leg
+who comes under fire (suppressed at least 0.1) runs the rest of his way, and walks again only after
+10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
 goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
 spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after

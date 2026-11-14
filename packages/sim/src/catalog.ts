@@ -284,6 +284,9 @@ export interface BehaviourDef {
   drills: {
     stepSeconds: number; reactToContact: boolean; boundM: number; finalM: number; phaseTimeoutSeconds: number; spreadM: number;
     breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number; fallBackM: number;
+    /** A moving unit also goes to ground when a unit of its platoon this close (centre to centre) comes under fire
+     *  anew; 0 = only the unit fired on (overnight pick 2026-11-14). */
+    reactNeighbourM: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.
@@ -382,6 +385,10 @@ export interface BehaviourDef {
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number; duckAboveIntervalS: number; duckHoldS: number;
+    /** Movement under fire (overnight pick 2026-11-14): a man on a leg in one of hurryModes whose suppression is at
+     *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
+     *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
+    hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

@@ -430,7 +430,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         return ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : null;
       };
       /** Under fire now: one of its men is being suppressed. */
-      const underFire = (sq: EntityId) => members(view, sq).some((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mental.suppression >= COMMANDER.underFireSuppression; });
+      const suppressed = (m: EntityId) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mental.suppression >= COMMANDER.underFireSuppression; };
+      const underFire = (sq: EntityId) => members(view, sq).some(suppressed);
+      const hqUnderFire = () => hq.some(suppressed);
       /** Halted, not in a drill, getting in or out, broken or mostly pinned: free to be sent on. */
       const idle = (sq: EntityId) => {
         const u = view.unit.get(sq);
@@ -489,7 +491,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const ms = members(view, sq).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
         const here = ms.length > 0 ? { x: ms.reduce((a, b) => a + b.x, 0) / ms.length, y: ms.reduce((a, b) => a + b.y, 0) / ms.length } : { x: sx, y: sy };
         const ahead = hypot2(q.x - tgt.x, q.y - tgt.y) < hypot2(here.x - tgt.x, here.y - tgt.y);
-        order(sq, { kind: "move", waypoints: ahead ? [{ x: q.x, y: q.y, mode: "walk" }, { x: p.x, y: p.y, mode: "sneak" }] : [{ x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
+        // Under fire it runs the open stretch (overnight pick 2026-11-14: nobody walks on into fire).
+        order(sq, { kind: "move", waypoints: ahead ? [{ x: q.x, y: q.y, mode: underFire(sq) ? "run" : "walk" }, { x: p.x, y: p.y, mode: "sneak" }] : [{ x: p.x, y: p.y, mode: "sneak" }], facing: atan2(uy, ux) });
       };
       // ---- vehicles after the dismount (M7.3, plan §12): fire free; German overwatch (they stay where they dropped
       // the squads), Russian following (each about followM behind its squad); support by fire on the objective.
@@ -609,7 +612,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // Walk most of the way, sneak the last stretch to the support line (M6.5b); routes keep to cover as
           // the faction's doctrine prefers (systems/orders.ts).
           squads.forEach((sq, i) => advance(sq, i));
-          for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
+          for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
           mem.phase = "advance"; mem.phaseTick = tick;
           break;
         case "ride": {
@@ -639,7 +642,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
           const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
           if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNow || late || (hqV !== undefined && atThreat(hqV)))) {
-            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: "walk" }] });
+            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
             mem.out.push(-1);
           }
           if (squads.every((sq) => mem.out!.includes(sq))) { mem.phase = "advance"; mem.phaseTick = tick; }

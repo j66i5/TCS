@@ -3068,3 +3068,46 @@ only, no-interiors untouched): demo-s1, shootout-s1, fixture-s7, vehicles-s1, fi
 village-occupy-s1 — all from tick 600, because men now duck between shots, step apart and hold fire for comrades.
 Owner questions: is 60 m of beaten zone right, should ducking be off for defenders behind walls (it makes attacks
 on a wall harder), and is 1 m the right "on top of each other" distance.
+
+## 2026-11-14 — Movement under fire: only the squad fired on goes to ground, nobody walks on into fire (overnight AI, pick "movement-under-fire")
+
+Evidence: the react-to-contact halt (drills.ts) fired on the platoon's `contactTick`, which any man of the platoon
+under fire set, so 71 % of the attackers' contactReact halts were units with no man under fire (the commander's
+resume retries were used up by stray fire); a unit moving because its headquarters men had been given a move halted
+every man of the platoon. Men walked upright on while seen and suppressed (60 / 112 / 129 man-seconds in 20 platoon,
+20 platoon-ru, 10 platoon-vehicles battles). Changes:
+- New optional `Unit.ownFireTick` / `ownContactTick` (decisions.ts): a man under fire (`underFireSuppression`) stamps
+  his OWN unit (not its parents); the top unit's `underFireTick` / `contactTick` are unchanged (return-fire rule,
+  surrender, gunnery, the AI). No schema bump (optional fields). **Medium.**
+- React to contact (drills.ts) goes by the "move group": the unit's own men plus the men on their way of sub-units
+  with no move of their own (a move given to the whole platoon still halts it all when any of its men is fired on);
+  only that group is halted (no longer squads with moves of their own). A crew unit also counts hits on its own hull.
+  **Medium.**
+- `drills.reactNeighbourM` = **25 m** (centre to centre): a moving unit also goes down when another unit of its
+  platoon this close comes under fire anew. **Low.** Measured: 50 m (the suggested value) left 60-69 % of halts with a
+  man under fire (squads on the support line stand 20-40 m apart, so 50 m is nearly the old platoon-wide halt); 25 m
+  82-86 %; 0 m 86-91 %. Outcomes did not differ between the three. Owner question: 25 m / 0 (only the squad fired on)
+  / 50 m.
+- Soldier: a man on a leg in `soldier.hurryModes` (walk, sneak) whose suppression reaches
+  `decisions.seekCoverSuppression` (0.1) takes `hurryMode` (run) for the rest of his way, until
+  `hurryQuietSeconds` = **10 s** pass without it (`Mover.hurryUntilTick`, optional, dropped when his way ends).
+  It applies to player orders too (his own reaction). **Low.** Owner question: all orders / AI orders only / off.
+- `soldier.hurryFiredOnSeconds` = **0 (off)**: the suggested whole-unit trigger (every man of a unit with a man under
+  fire in the last 3 s runs) cost the German mounted attack (platoon-vehicles) 17/40 -> 10/40 wins; turned off it
+  for the defenders alone changed nothing, for the attackers alone gave 3/20, sneak legs left alone still 4/20; with
+  only the man's own suppression it is 14/40. **Low.** Owner question: off / 3 s.
+- AI commander: the advance's walk leg (`advance`) and the headquarters' walks to the support line run when the
+  squad (or a headquarters man) is under fire, like `sendOn` already did. The crews' following moves (`walk` = slow
+  drive) are left as they are (vehicles, not men walking). **Medium.**
+Measured, same seeds, before -> after (1200 s; platoon and platoon-ru 20 seeds, platoon-vehicles 40):
+contactReact halts whose unit had a man suppressed >= 0.05: 33 / 38 / 24 % -> 82 / 86 / 83 %; halts per battle
+8.5 / 10.9 / 10.1 -> 6.2 / 6.7 / 6.0. Man-seconds walking upright while seen and suppressed >= 0.1: 60 / 112 / 260 ->
+0 / 0 / 1. Hits on steady men on walk legs 23 / 33 / 46 -> 22 / 24 / 23: every one left is on a man not yet
+suppressed (the first rounds of a burst), which no reaction can prevent. Attacker wins 7 -> 6 / 20, 10 -> 10 / 20,
+17 -> 14 / 40 (noise); attackers down 17.6 -> 18.2, 17.3 -> 16.5, 16.8 -> 17.4; defenders down 13.2 -> 12.8,
+14.8 -> 15.6, 18.2 -> 18.4. Advance phase (start to recon) 495 -> 524 s, 448 -> 457 s, 264 -> 258 s; attackers down
+before recon 0.15 -> 0.25, 0.25 -> 0.50, 1.25 -> 1.02 per battle (small numbers). Goldens changed
+(`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1, shootout-s1, fixture-s7, vehicles-s1,
+fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new behaviour values), the new
+unit fields in the state hash from the first man under fire (tick 600), and the new halts and runs.
+New `sim/test/movement-under-fire.test.ts`.

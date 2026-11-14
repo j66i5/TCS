@@ -5025,3 +5025,12 @@ goldens unchanged):
   player's halt on the AI battle after two minutes; with the AI's drones flying, platoon-ru-vehicles seed 1 now ends
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
   half of the test now runs on a fresh battle (same intent).
+
+## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
+The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
+the bail-out keeps running while the crew's reaction is "bailOut", which it stays after the hull is abandoned, so a
+man who becomes able and can walk gets out on the next tick (new test in components.test.ts: unconscious when his
+crew bails out, revived, out within two seconds). The case seen in the seed-1 battle was a commander who regained his
+feet in the battle's last tick (the wound system runs after the damage system). The test excuse for men in abandoned
+or destroyed hulls in scenario-mounted.test.ts is removed; the excuse for a squad that got back in to withdraw (Q24)
+stays. No sim change; goldens unchanged.

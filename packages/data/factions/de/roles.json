@@ -148,6 +148,15 @@
       ],
       "confidence": "low",
       "note": "Sanitaeter (medic) of the medical service attached to the combat company, here one with the Zug headquarters (owner Q-1c); armed for self-defence, wears the red cross armband (owner answers 6 and 8)."
+    },
+    {
+      "id": "sankfz-sanitaeter",
+      "nameKey": "role.de.sankfz-sanitaeter",
+      "sources": [
+        "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf"
+      ],
+      "confidence": "medium",
+      "note": "The medic in the Boxer ambulance's patient compartment (crew of three: driver, commander or doctor, medic; ARTEC brochure, search extract). Medical skills come with the medical line (M10)."
     }
   ]
 }

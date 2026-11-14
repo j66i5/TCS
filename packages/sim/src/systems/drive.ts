@@ -70,7 +70,8 @@ function driveFactors(v: VehicleState, def: VehicleDef): DriveFactors {
   FACT.engine = compCondition(v, def, "engine") < 0.5 ? 0.5 : 1;
   FACT.trackL = 1; FACT.trackR = 1;
   for (let k = 0; k < comps.length; k++) {
-    if (comps[k]!.kind !== "track") continue;
+    // Tracks, or a wheeled hull's running gear on each side ("wheels", M10.6-data): the same per-side condition.
+    if (comps[k]!.kind !== "track" && comps[k]!.kind !== "wheels") continue;
     const c = Math.max(0.05, v.comp[k] ?? 1), right = comps[k]!.box.r[0] + comps[k]!.box.r[1] > 0;
     if (right) FACT.trackR = Math.min(FACT.trackR, c); else FACT.trackL = Math.min(FACT.trackL, c);
   }
@@ -209,8 +210,11 @@ export function driveDynamicsInPlace(def: VehicleDef, d: DriveState, cmd: DriveC
     const want = clamp(atan(wb * kappa), -st.maxSteerRad, st.maxSteerRad);
     d.steer += clamp(want - d.steer, -st.steerRateRadS * dt, st.steerRateRadS * dt);
     const v0 = d.speed;
-    const eng = shifting ? 0 : P0 / Math.max(Math.abs(v0), lower, 1);
-    d.speed = element(v0, vT, m, eng, D.brakeMps2 * m, surf.traction * normal, grade, surf.rolling * normal, dt);
+    // Damaged wheels (M10.6-data): run-flat tyres and many axles keep the hull going on the worse side's
+    // condition, at reduced pull and grip (0.4 at a wrecked side, which also immobilises it: armour.ts `mobile`).
+    const wf = Math.min(f.trackL, f.trackR), wheel = wf >= 1 ? 1 : 0.4 + 0.6 * wf;
+    const eng = shifting ? 0 : (P0 * wheel) / Math.max(Math.abs(v0), lower, 1);
+    d.speed = element(v0, vT, m, eng, D.brakeMps2 * m, surf.traction * wheel * normal, grade, surf.rolling * normal, dt);
     const fF = OUT[0]!, b = OUT[1]!;
     let w = (d.speed * tan(d.steer)) / wb;
     const latCap = st.maxLatAccelMps2 / Math.max(Math.abs(d.speed), 0.5);

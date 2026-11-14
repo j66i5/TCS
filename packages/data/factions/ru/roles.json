@@ -122,6 +122,15 @@
       ],
       "confidence": "low",
       "note": "Strelok-sanitar (rifleman-medic): one per motor-rifle platoon in the BMP platoon organisation of about 2000 (battleorder.org, search extract), here a rifleman of the first squad who keeps his rifle and GP-25 (no extra man: the BMP has seven passenger seats). Owner Q-1b: dressings and tourniquets (national training). Current staffing not found."
+    },
+    {
+      "id": "sanitar-bmm",
+      "nameKey": "role.ru.sanitar-bmm",
+      "sources": [
+        "https://en.valka.cz/topic/view/41396"
+      ],
+      "confidence": "low",
+      "note": "The medic (sanitar) in the BMM's medical compartment (crew of three; search extracts). Medical skills come with the medical line (M10)."
     }
   ]
 }

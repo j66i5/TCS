@@ -109,6 +109,38 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-puff",
+      "nameKey": "ammo.xf-puff",
+      "calibre": "hand-smoke",
+      "kind": "smoke",
+      "projectileMassKg": 0.5,
+      "cartridgeMassKg": 0.5,
+      "diameterM": 0.06,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "smoke": {
+        "fuseSeconds": 1,
+        "radiusM": 8,
+        "seconds": 40
+      },
+      "delivery": {
+        "method": "thrown"
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (D1): a smoke puff."
     }
   ]
 }

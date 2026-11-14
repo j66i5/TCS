@@ -27,5 +27,7 @@
   "item.xf-shingle": "Shingle",
   "item.xf-strap": "Strap",
   "item.xf-poultice": "Poultice",
-  "item.xf-sash": "Sash"
+  "item.xf-sash": "Sash",
+  "vehicle.xf.litter-cart": "Litter cart",
+  "ammo.xf-puff": "Test puff"
 }

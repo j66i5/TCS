@@ -24,6 +24,7 @@ export { spottingSystem } from "./systems/spotting";
 export { contactErrorM, contactSystem } from "./systems/contacts";
 export * from "./knowledge";
 export { arcLanding, arcRangeM, grenadeOption, throwArcExists, throwRangeM } from "./systems/grenades";
+export { hasSmokeGrenade, screenCasualty, throwScreen } from "./systems/smoke";
 export { atRuleOf, aimSolution, backblastBlocked, launcherRound, orderLauncherShot, type AtRule } from "./systems/launcher";
 export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } from "./systems/armour";
 export { flightStep, type FlightState } from "./flight";

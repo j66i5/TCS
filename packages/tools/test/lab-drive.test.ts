@@ -1,6 +1,6 @@
 /** Drive lab (M7.1b): the bands of docs/plans/m7-vehicles.md §4, driven by orders to the crew unit only. */
 import { describe, expect, it } from "vitest";
-import { driveLab, driveLabMarkdown, SURFACES } from "../src/labs/drive";
+import { driveLab, driveLabMarkdown, SURFACES, WHEELED } from "../src/labs/drive";
 import { loadData } from "../src/scenarios";
 
 const rows = driveLab(loadData(true));
@@ -49,6 +49,34 @@ describe("drive lab", () => {
   });
   it("climbs a 20 % slope, burns fuel, and does not move without a driver", () => {
     for (const v of ["de-puma", "ru-bmp2"]) {
+      expect(val(v, "top speed up a 20 % slope")).toBeGreaterThan(1);
+      expect(val(v, "fuel for 1000 m at full pace")).toBeGreaterThan(0.2);
+      expect(val(v, "fuel for 1000 m at full pace")).toBeLessThan(5);
+      expect(val(v, "moved in 30 s with the driver dead")).toBe(0);
+    }
+  });
+  it("wheeled ambulances (M10.6-data): Boxer 0-50 in 8-16 s, BMM 10-18 s; top and reverse speed within 5 %; braking 12-25 m", () => {
+    expect(val("de-boxer-san", "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(8);
+    expect(val("de-boxer-san", "0-50 km/h on asphalt")).toBeLessThanOrEqual(16);
+    expect(val("ru-bmm", "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(10);
+    expect(val("ru-bmm", "0-50 km/h on asphalt")).toBeLessThanOrEqual(18);
+    expect(Math.abs(val("de-boxer-san", "top speed") / 100 - 1)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(val("ru-bmm", "top speed") / 80 - 1)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(val("de-boxer-san", "reverse top speed") / 20 - 1)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(val("ru-bmm", "reverse top speed") / 15 - 1)).toBeLessThanOrEqual(0.05);
+    for (const v of WHEELED) {
+      expect(val(v, "braking from 50 km/h")).toBeGreaterThanOrEqual(12);
+      expect(val(v, "braking from 50 km/h")).toBeLessThanOrEqual(25);
+    }
+  });
+  it("wheeled ambulances: no pivot (90 degrees from a standstill in 3-10 s), turning circle 20-30 m, ground order, slope, fuel, no driver", () => {
+    for (const v of WHEELED) {
+      expect(val(v, "turn 90 deg from a standstill")).toBeGreaterThanOrEqual(3);
+      expect(val(v, "turn 90 deg from a standstill")).toBeLessThanOrEqual(10);
+      expect(val(v, "turning circle (diameter)")).toBeGreaterThanOrEqual(20);
+      expect(val(v, "turning circle (diameter)")).toBeLessThanOrEqual(30);
+      for (let i = 1; i < SURFACES.length; i++) expect(val(v, `300 m on ${SURFACES[i]}, dry`)).toBeGreaterThan(val(v, `300 m on ${SURFACES[i - 1]}, dry`));
+      for (const s of SURFACES) expect(val(v, `300 m on ${s}, rain`)).toBeGreaterThan(val(v, `300 m on ${s}, dry`));
       expect(val(v, "top speed up a 20 % slope")).toBeGreaterThan(1);
       expect(val(v, "fuel for 1000 m at full pace")).toBeGreaterThan(0.2);
       expect(val(v, "fuel for 1000 m at full pace")).toBeLessThan(5);

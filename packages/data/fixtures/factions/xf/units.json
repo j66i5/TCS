@@ -30,6 +30,10 @@
             {
               "item": "xf-poultice",
               "count": 2
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"
@@ -46,6 +50,10 @@
             {
               "item": "xf-crate",
               "count": 1
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"
@@ -58,6 +66,10 @@
               "item": "xf-mag",
               "count": 2,
               "charge": 7
+            },
+            {
+              "item": "xf-puff",
+              "count": 1
             }
           ],
           "weapon": "xf-blaster"
@@ -66,7 +78,7 @@
       "subunits": [],
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture."
+      "note": "Made-up test fixture. D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man)."
     },
     {
       "id": "porter-band",

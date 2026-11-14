@@ -40,6 +40,10 @@ DECISIONS.md under its date._
 - **Test time:** `npm test` 201 s → 160 s (shared map cache, `isolate: false` for sim and data, two redundant
   re-runs trimmed; the plan's 120 s is not met: long battle tests). `npm run test:quick` (sim, data, render, ui;
   514 tests) 29 s: use it while working, `npm run check` alone at the end of a slice (5 min 55 s, green).
+- **Merged from the parallel sessions (2026-11-14):** slice 5 D1 hand smoke grenades (DM45, RDG-2, one per squad
+  man, "Smoke grenade" in the Fire tray, `npm run lab -- smoke`, `--scene smoke`, hook `screenCasualty` for the
+  medical drag) and slice 12 M10.6-data wheeled ambulance hulls (Boxer ambulance `de-boxer-san`, BMM `ru-bmm`,
+  xf `xf-litter-cart`; `--scene ambulances`; no ambulance behaviour yet: slice 13).
 
 ## What works (short; details in HOW_IT_WORKS.md and ARCHITECTURE.md)
 - **Foundations:** deterministic 60 Hz sim with named RNG streams, serialisable state and hash, orders through a
@@ -91,3 +95,7 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 - Data reviews whenever convenient (lists in the earlier STATE, `docs/history/STATE-until-2026-11-14.md`, "Open
   questions"): Konkurs-M values, vehicle data of M7.1b-M7.4b, behaviour game values, squad tables, ranks and names.
 - After M10.8: the medical numbers table (keep, adjust named values, or faster care for gameplay).
+- D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
+  (15 m, once a minute, on withdrawals and moves under fire).
+- M10.6-data (low confidence, for review): Boxer ambulance and BMM armour, components, gear bands, reverse speeds,
+  steering, ramp and loading times, extinguishers, signatures; the medic's rank and load.

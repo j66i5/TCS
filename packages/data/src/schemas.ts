@@ -306,6 +306,9 @@ export const SpottingFile = withProv({
   postureSize: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 2) }).strict(),
   stillBelowMps: Num(0, 5), movingFactor: Num(1, 50), runningAboveMps: Num(0, 20), runningFactor: Num(1, 50), movingVisibilityFloor: Num(0, 1),
   firingWithinSeconds: Num(0, 60), firingFactor: Num(1, 500), firingVisibilityFloor: Num(0, 1),
+  /** M9.3b: a man who launched a guided missile from the ground shows this much more (on top of the firing factor:
+   *  the launch's flash, dust and smoke) for this long. */
+  launchFlashFactor: Num(1, 50).default(1), launchFlashSeconds: Num(0, 60).default(0),
   frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
   /** Sensors by kind (weapon sight kinds and item `sensor` kinds): detection factor beyond fromM, and the light
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
@@ -678,6 +681,8 @@ export const FactionManifest = withProv({
   platoonTemplate: Id.optional(),
   /** On-map mortar section generated battles add with `mortars` (M8.3a). */
   mortarTemplate: Id.optional(),
+  /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
+  missileTeamTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -736,6 +741,17 @@ export const ItemSchema = withProv({
     calibre: z.string(), he: Id, smoke: Id, minRangeM: Num(0, 20000), maxRangeM: Num(1, 20000), setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
     roundSeconds: Num(0.5, 120), crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), aimErrorM: Num(0, 500),
     dispersionPerKmM: Num(0, 200), processingSeconds: Num(0, 600), flightBaseSeconds: Num(0, 120), flightPerKmSeconds: Num(0, 60), hearingRangeM: Num(0, 20000),
+  }).strict().optional(),
+  /** M9.3b: a crew-served weapon on a tripod worked by a team on foot (its carrier is the gunner). `kind "missile"`:
+   *  a guided missile launch post: the weapon (weapons.json: its launch velocity per round), the round item (a
+   *  counted container whose `chargeItem` is the guided ammunition), seconds to set up and to pack, crew (and the
+   *  fewest who can still fire), the sight's height above the ground, the danger zone behind (m), how far the
+   *  launch is heard (m), the traverse either side of the laid heading before a re-lay (deg) and its time, and the
+   *  seconds to lay on a target. */
+  crewServed: z.object({
+    kind: z.literal("missile"), weapon: Id, round: Id, setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+    crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), sightHeightM: Num(0, 5), backblastM: Num(0, 200),
+    launchLoudM: Num(0, 20000), traverseDeg: Num(1, 180), relaySeconds: Num(0, 60), aimSeconds: Num(0, 60),
   }).strict().optional(),
   /** M9.4a: a reconnaissance quadcopter (the airframe item; its operator carries it and its batteries): the battery
    *  item (charge = Wh) and the power it draws (W), the share of a battery kept to fly home on, cruise and climb

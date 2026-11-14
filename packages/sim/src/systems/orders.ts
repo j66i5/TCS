@@ -5,6 +5,7 @@ import { droneOrder, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { leaveCarry } from "./carry";
 import { startSetup } from "./mortars";
+import { teamOrderShot } from "./missile-team";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
 import { freeSpotNear, placeFree, placesTaken } from "./decisions";
@@ -143,7 +144,7 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
     case "discharge":
       return crew || (state.unit.has(o.target) && vehicleChildren(state, o.target).length > 0);
     case "deploy":
-      return mortarTeamsUnder(state, o.target).length > 0;
+      return crewServedTeamsUnder(state, o.target).length > 0; // (M9.3b: missile teams too)
     case "drone":
       return hasDrone(ctx, state, o.target);
     default:
@@ -472,9 +473,9 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // A reconnaissance quadcopter (M9.4a): launch it, send it, bring it home.
       return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
     case "deploy": {
-      // Stop and set up each mortar team (M8.3a): the men's moves end where they are.
+      // Stop and set up each mortar team (M8.3a; M9.3b: and missile team): the men's moves end where they are.
       let ok = false;
-      for (const team of mortarTeamsUnder(state, order.target)) {
+      for (const team of crewServedTeamsUnder(state, order.target)) {
         const tu = state.unit.get(team)!;
         for (const s of tu.members) { const m = state.mover.get(s); if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; } }
         stopUnit(state, team);
@@ -494,6 +495,17 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       if (order.nature === "at") {
         // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
         const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
+        // M9.3b: missile teams at or under the unit fire their post (setting it up first if packed).
+        const teams = crewServedTeamsUnder(state, order.target).filter((u) => state.unit.get(u)?.missileTeam !== undefined);
+        if (teams.length > 0) {
+          const stop = (team: EntityId): void => {
+            const tu = state.unit.get(team)!;
+            for (const s of tu.members) { const m = state.mover.get(s); if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; } }
+            stopUnit(state, team);
+          };
+          const setup = (team: EntityId): boolean => startSetup(ctx, state, events, team);
+          if (teamOrderShot(ctx, state, teams, order.x, order.y, named, stop, setup)) return true;
+        }
         return orderLauncherShot(ctx, state, events, soldiers, order.x, order.y, named) ? true : "unable";
       }
       // Stop where they are and open fire; each man keeps his posture (order a posture first if wanted).
@@ -829,13 +841,13 @@ function markUnitMoving(state: SimState, soldier: EntityId): void {
 
 export { radioFromTarget };
 
-/** The mortar teams at or under a unit (M8.3a), ascending id. */
-function mortarTeamsUnder(state: SimState, uid: EntityId): EntityId[] {
+/** The crew-served teams (mortar teams, M8.3a; missile teams, M9.3b) at or under a unit, ascending id. */
+function crewServedTeamsUnder(state: SimState, uid: EntityId): EntityId[] {
   const out: EntityId[] = [];
   const walk = (u: EntityId) => {
     const unit = state.unit.get(u);
     if (!unit) return;
-    if (unit.mortar !== undefined) out.push(u);
+    if (unit.mortar !== undefined || unit.missileTeam !== undefined) out.push(u);
     for (const c of unit.children) walk(c);
   };
   walk(uid);

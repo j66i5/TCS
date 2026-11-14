@@ -24,11 +24,12 @@ describe("playerOrder", () => {
 
   it("AI vehicle orders sent unchanged never set playerHold; a player's move still does", () => {
     const sc = getScenario("platoon-ru-vehicles");
-    const input = sc.build(loadData(), 1, 120);
+    const input = sc.build(loadData(), 1, 240);
     const sim = createSim(input);
     const ai = sc.controllers!(input);
     let aiVehicleOrders = 0, held = 0;
-    for (let k = 0; k < 60 * 60; k++) {
+    // (M9.3b: the carriers first wait up to 90 s in dead ground for the missile team: two minutes are looked at.)
+    for (let k = 0; k < 120 * 60; k++) {
       for (const c of ai) for (const o of c.think(sim.state, sim.state.tick)) {
         if ((o.kind === "move" || o.kind === "halt") && sim.state.unit.get(o.target)?.vehicle !== undefined) aiVehicleOrders++;
         submitOrder(sim, o); // the app's AI path (issueAi): the order as the controller gave it

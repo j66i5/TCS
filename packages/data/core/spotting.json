@@ -18,6 +18,8 @@
   "firingWithinSeconds": 2,
   "firingFactor": 15,
   "firingVisibilityFloor": 0.5,
+  "launchFlashFactor": 3,
+  "launchFlashSeconds": 3,
   "frontHalfAngleDeg": 60,
   "sideHalfAngleDeg": 110,
   "sideFactor": 0.3,

@@ -44,6 +44,12 @@ function findContact(list: Contact[], target: EntityId): number {
   return -(lo + 1);
 }
 
+/** Put a contact into a man's list from outside the contact system (M9.3b: a crew that saw a missile launched at
+ *  it marks the launcher); the same rules as everything he learns. */
+export function learnContact(ctx: SimContext, list: Contact[], c: Omit<Contact, "reportedTick">, now: number): boolean {
+  return learn(ctx, list, c, -1e9, now);
+}
+
 /**
  * Put a contact into a man's list (sorted by target), or update it if the news is better: what he sees beats
  * everything; otherwise the one that is more certain NOW (its uncertainty plus how far the man may have moved

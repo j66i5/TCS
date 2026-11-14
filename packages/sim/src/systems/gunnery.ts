@@ -723,11 +723,7 @@ function fireMissile(
   // (Own men on the way are no bar: the missile flies along the gunner's sight line, above their heads.)
   if (!task.lineClear || tick < w.nextShotTick) return;
   const v0 = ctx.catalog.weapons[wdef.weapon]?.ammo[gr.ammo] ?? 50;
-  // (M9.3a: a top-attack missile leaves pointing up, to climb above its target.)
-  const loft = gr.g.topAttack ? (gr.g.topAttack.launchElevationDeg * PI) / 180 : 0;
-  const a0 = atan2(task.y - my, task.x - mx), e0 = atan2(tz - mz, range) + loft;
-  const ce = cos(e0);
-  launchProjectile(ctx, state, gr.ammo, mx, my, mz, v0 * cos(a0) * ce, v0 * sin(a0) * ce, v0 * sin(e0), op);
+  const a0 = launchGuided(ctx, state, gr, v0, mx, my, mz, task.x, task.y, tz, op);
   events.emit({ kind: "shot.fired", tick, shooter: op, x: mx, y: my, z: mz, dirX: cos(a0), dirY: sin(a0), weapon: wdef.weapon, ammo: gr.ammo, vehicle: vid });
   feed.rounds--;
   w.lastShotTick = tick;
@@ -740,8 +736,29 @@ function fireMissile(
   if (tv >= 0 && launchNoticed(ctx, state, tv, vid, kind)) st.guide.warnTick = tick + Math.max(1, secondsToTicks(ctx.catalog.behaviour.crew.launchReactionSeconds));
 }
 
-/** Does the crew of vehicle `tv` notice a missile launched at it from vehicle `from` (M9.3a)? */
-function launchNoticed(ctx: SimContext, state: SimState, tv: EntityId, from: EntityId, kind: string | undefined): boolean {
+/**
+ * Launch a guided missile (shared by vehicle stations and teams on foot, M9.3b): from (mx, my, mz) toward the point
+ * (tx, ty, tz) at the launcher's velocity `v0` (a top-attack missile pointing up, to climb above its target); it is
+ * guided from the next tick (missiles.ts). Returns its launch bearing.
+ */
+export function launchGuided(
+  ctx: SimContext, state: SimState, gr: { ammo: string; g: NonNullable<AmmoDef["guided"]> }, v0: number,
+  mx: number, my: number, mz: number, tx: number, ty: number, tz: number, owner: EntityId,
+): number {
+  const range = hypot2(tx - mx, ty - my);
+  // (M9.3a: a top-attack missile leaves pointing up, to climb above its target.)
+  const loft = gr.g.topAttack ? (gr.g.topAttack.launchElevationDeg * PI) / 180 : 0;
+  const a0 = atan2(ty - my, tx - mx), e0 = atan2(tz - mz, range) + loft;
+  const ce = cos(e0);
+  launchProjectile(ctx, state, gr.ammo, mx, my, mz, v0 * cos(a0) * ce, v0 * sin(a0) * ce, v0 * sin(e0), owner);
+  return a0;
+}
+
+/**
+ * Does the crew of vehicle `tv` notice a missile launched at it from `from` (M9.3a): a vehicle, or (M9.3b) the
+ * gunner of a team on foot — an able crewman who saw him lately (the crew's `seen` lists hold men and hulls alike)?
+ */
+export function launchNoticed(ctx: SimContext, state: SimState, tv: EntityId, from: EntityId, kind: string | undefined): boolean {
   const v = state.vehicle.get(tv), def = v ? ctx.catalog.vehicles[v.def] : undefined;
   if (!v || !def || !def.dischargers || v.unit === null || v.status === "destroyed" || v.status === "abandoned") return false;
   if (def.laserWarner === true && kind === "command-beam") return true;

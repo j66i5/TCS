@@ -191,8 +191,9 @@ for (let i = 0; i < runs; i++) {
           if (k) { if (e.responder) k.responders++; else k.comrades++; }
           continue;
         }
-        if (e.kind === "missile.ended") { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m[e.result]++; continue; }
-        if (e.kind === "shot.fired" && e.vehicle !== undefined && input.catalog.ammo[e.ammo]?.guided !== undefined) { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m.fired++; continue; }
+        // (M9.3b: a missile from a team on foot counts for its gunner's side.)
+        if (e.kind === "missile.ended") { const sd = e.vehicle !== undefined ? sideOfVehicle.get(e.vehicle) : simRef ? sideOfSoldier(simRef, e.gunner) : undefined; const m = missiles[sd ?? ""]; if (m) m[e.result]++; continue; }
+        if (e.kind === "shot.fired" && input.catalog.ammo[e.ammo]?.guided !== undefined) { const sd = e.vehicle !== undefined ? sideOfVehicle.get(e.vehicle) : simRef ? sideOfSoldier(simRef, e.shooter) : undefined; const m = missiles[sd ?? ""]; if (m) m.fired++; continue; }
         if (e.kind === "vehicle.hit" && e.result === "penetrated") {
           const am = input.catalog.ammo[e.ammo];
           const vs = sideOfVehicle.get(e.vehicle);

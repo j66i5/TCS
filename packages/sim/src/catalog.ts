@@ -17,6 +17,12 @@ export interface MortarDef {
   flightBaseSeconds: number; flightPerKmSeconds: number; hearingRangeM: number;
 }
 
+/** A crew-served weapon worked by a team on foot (M9.3b; see the data schema): a guided missile launch post. */
+export interface CrewServedDef {
+  kind: "missile"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
+  sightHeightM: number; backblastM: number; launchLoudM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number;
+}
+
 /** A reconnaissance quadcopter (M9.4a): its battery item (charge in Wh) and draw (W), speeds, heights above the
  *  ground, how long launching takes, how far from its operator it can be flown, its cameras (sensor kinds in
  *  core/spotting.json, looking down) and the radius on the ground they search around the point below it, how far
@@ -47,6 +53,8 @@ export interface ItemTypeDef {
   rangefinder?: boolean;
   /** M8.3a: a crew-served mortar tube (see the data schema). */
   mortar?: MortarDef;
+  /** M9.3b: a crew-served weapon worked by a team on foot (see the data schema). */
+  crewServed?: CrewServedDef;
   /** M9.4a: a reconnaissance quadcopter (the airframe; see the data schema). */
   drone?: DroneDef;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
@@ -525,6 +533,8 @@ export interface SpottingDef {
   postureSize: Record<"standing" | "crouching" | "prone", number>;
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
+  /** M9.3b: a ground missile launch shows its gunner this much more for this long. */
+  launchFlashFactor: number; launchFlashSeconds: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
   sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number; thermal?: boolean; arcDeg?: number }>;
   /** Drone cameras (M9.4a): a man's size seen from above by posture; the extra error of a drone's report (m); the

@@ -14,7 +14,7 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink, startCarry,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent, type Wound,
-  mortarTeams, fireOptions, airborneDroneOf,
+  mortarTeams, launcherOf, teamRounds, fireOptions, airborneDroneOf,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}) });
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}) });
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
@@ -324,7 +324,14 @@ async function main(): Promise<void> {
     if (uid === null || !tile) { inspected = null; hud.setCard(null); hud.showMan(null); hud.setInspected(null); return; }
     const men = unitMenRows(sim.state, input.catalog, uid);
     if (inspected !== null && !men.some((r) => r.id === inspected)) inspected = null;
-    const state = tile.kind === "vehicle" ? strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : strings.t(`side.state.${tile.state}`);
+    let state = tile.kind === "vehicle" ? strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : strings.t(`side.state.${tile.state}`);
+    // A missile team (M9.3b): its launch post packed, setting up, ready (missiles left) or guiding one.
+    const mt = sim.state.unit.get(uid)?.missileTeam;
+    if (mt) {
+      const l = launcherOf(sim.ctx, sim.state, uid);
+      const rounds = l ? teamRounds(sim.state, uid, l.def.round) : 0;
+      state += ` · ${strings.t("card.teamRow")}: ${strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
+    }
     // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
     hud.setCard({ callsign: shownCallsigns(sim.state.unit.entries()).get(uid) ?? tile.callsign, fit: tile.fit, total: tile.total, state, men });
     hud.setInspected(inspected);

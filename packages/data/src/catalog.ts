@@ -90,6 +90,7 @@ export function medicalCatalog(m: MedicalT): MedicalDef {
     protection: noProv(m.protection) as MedicalDef["protection"],
     triage: noProv(m.triage) as MedicalDef["triage"],
     care: noProv(m.care) as MedicalDef["care"],
+    ...(m.carers ? { carers: noProv(m.carers) as NonNullable<MedicalDef["carers"]> } : {}),
   };
 }
 

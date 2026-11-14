@@ -520,6 +520,12 @@ export const MedicalFile = z.object({
     junctionalZones: z.array(z.enum(["head", "neck", "chest", "abdomen", "pelvis", "armL", "armR", "legL", "legR"])),
     order: z.array(Id).min(1),
   }),
+  /** Who goes to a casualty further away (M10.3a): reach, what looks urgent, willingness, the cap, the timeout. */
+  carers: withProv({
+    comradeReachM: Num(0, 1000), responderReachM: Num(0, 2000), urgentTreats: z.array(z.string()),
+    willingAt: Num(0, 10), behaviourK: z.record(z.string(), Num(0, 2)), suppressionK: Num(0, 5), otherUnitK: Num(0, 1),
+    exposedK: Num(0, 1), responderK: Num(0, 10), comradesPerCasualty: z.number().int().min(0).max(4), timeoutS: Num(1, 3600),
+  }).optional(),
 }).strict();
 export type MedicalT = z.infer<typeof MedicalFile>;
 
@@ -834,6 +840,8 @@ export const DOCTRINE_KEYS = [
   /** Fire and movement (M4.4): length of one bound, m, and the last stretch rushed together, m. */
   "boundM",
   "finalAssaultM",
+  /** M10.3a: how readily a man leaves the fight to go to a wounded comrade (willingness factor, 0..1). */
+  "casualtyCarePriority",
 ] as const;
 export const DoctrineFile = withProv({
   /** Formation used when an order does not name one (core/formations.json). */

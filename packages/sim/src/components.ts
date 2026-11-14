@@ -152,17 +152,22 @@ export interface CommState {
  * A soldier's own decision (M4.2): firing at an enemy, going to cover, bringing or waiting for ammunition.
  * takePrisoner (M6.6, set and carried out by systems/surrender.ts): he walks over to the surrendered enemy
  * `target` and takes him prisoner; (x, y) is where he stood, to which he then returns.
+ * care (M10.3a, set and carried out by systems/medical.ts): he has left the fight to go to the wounded comrade
+ * `target` and treat him; (x, y, z) is where he stood, to which he returns when done. `responder`: he went as the
+ * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care";
   tick: number;
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
   item?: DefId;
   x?: number;
   y?: number;
-  /** takePrisoner: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
+  /** takePrisoner, care: his height above the ground at (x, y) (his floor; absent = the ground, M7.5 review fix). */
   z?: number;
+  /** care: he went as the first responder or medic (M10.3a). */
+  responder?: true;
 }
 
 export interface Contact {

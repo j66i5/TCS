@@ -1629,12 +1629,15 @@ export function drawFloorBadge(g: Graphics, x: number, y: number, floor: number,
 
 /**
  * Debug overlay (M10.2): what care a man is giving or has had — "treat <intervention> -> <casualty id>" while he
- * treats, and the interventions that worked on him (ids, in order).
+ * treats, "carer -> <id>" / "responder -> <id>" on his way to a casualty (M10.3a), and the interventions that worked
+ * on him (ids, in order).
  */
 export function careLine(state: SimView, id: EntityId): string {
   const a = state.action.get(id);
   let out = a?.kind === "treat" ? ` treat ${String(a.params["intervention"])}${Number(a.params["casualty"]) === id ? " (self)" : ` -> ${String(a.params["casualty"])}`}` : "";
   const s = state.soldier.get(id);
+  // M10.3a: gone to a casualty ("carer -> id", "first responder -> id").
+  if (a?.kind !== "treat" && s?.intent?.kind === "care") out += ` ${s.intent.responder === true ? "responder" : "carer"} -> ${String(s.intent.target)}`;
   const done = s ? s.wounds.flatMap((w) => w.treatments.filter((t) => t.success).map((t) => t.intervention)) : [];
   if (done.length > 0) out += ` care: ${done.join(",")}`;
   return out;

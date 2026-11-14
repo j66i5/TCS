@@ -309,10 +309,26 @@ the helper's — and works with the data's chance (a comrade's tourniquet 75 %, 
 the time and the item; each intervention is tried at most three times on a wound. It is broken off when the
 helper is ordered to move, comes under fire (anything but a tourniquet), is hit, or the casualty dies. Every
 attempt is written on the wound (who, what, which items, whether it worked) and sent as a `medical.treated` event.
-In the debug view each man's line shows what he is treating and what care has worked on him. Who walks over to a
-casualty further away (carers, first responders, the medic) comes in M10.3a. `npm run lab -- treatment` checks the
-odds and times against the data (300 trials each) and shows that self-applied tourniquets cut the deaths from a
-limb bleed at 10 minutes from 23 % to about 1 %.
+In the debug view each man's line shows what he is treating and what care has worked on him. `npm run lab --
+treatment` checks the odds and times against the data (300 trials each) and shows that self-applied tourniquets
+cut the deaths from a limb bleed at 10 minutes from 23 % to about 1 %.
+
+**Who helps: carers and first responders (M10.3a).** A casualty who needs care that nobody beside him gives gets a
+carer, who leaves the fight and runs over to him. If he looks urgent — a bleed too large to stop by itself, a
+blocked airway, a chest wound, shock — the first responder comes (his own squad's first, else the nearest one of
+his side within 150 m: the German Einsatzersthelfer B of each Gruppe and the Sanitäter of the Zug HQ, the Russian
+platoon's rifleman-medic), and with him the nearest willing comrade within 40 m; any other casualty gets a willing
+comrade, or a free first responder if no comrade will go. Never more than the first responder plus one comrade
+per casualty (the owner's rule for men leaving the fight in contact). Squad and platoon leaders stay with their
+men. Whether a comrade is willing depends on his side's doctrine (`casualtyCarePriority`, the same 0.5 for every
+side for now), how he is (steady or cautious: yes; shaken: half as ready; pinned: hardly; panicked: never), his
+morale, how hard he is being shot at, whether the casualty is from his own squad (a man from another squad is
+less ready) and whether the casualty lies under fire; a first responder is twice as ready (it is his job). A carer
+does not fire, his unit's orders and drills pass him by (an order to him alone ends the errand), and he treats
+with the same treat action as buddy aid once he is beside the casualty. A comrade goes back when the first
+responder arrives; any carer goes back to where he stood when there is nothing more he can do, after 5 minutes, or
+when the casualty dies. A downed man with a carer on the way or beside him does not give up. All the numbers are
+game values in `core/medical.json` `carers` (low confidence). Debug view: "carer -> id" or "responder -> id".
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

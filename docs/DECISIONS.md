@@ -4095,3 +4095,62 @@ success (item data), same rules for both sides and the player. Built:
   seed may sit just above; 20-seed means 0.09 / 0.14 when it was built); `lab-house.test.ts` "leave": one man the
   trap leaves with a bad leg wound limps out a few seconds after the 20 s limit → all but one out in time. Care is
   not involved in either (no treatment in the house run).
+
+## 2026-11-14 — M10.3a who helps: carers and first responders (roadmap-detail slice 6; goldens regenerated)
+Owner answers used (binding): helpers in contact = the first responder plus at most one comrade per casualty
+(Q-2a); DE one Einsatzersthelfer B per Gruppe plus a Sanitäter in the Zug HQ, RU one rifleman-medic per platoon
+(Q-1c); same rules for both sides, the player and the AI; faction differences only in data. Built:
+- **Profiler pass first** (STATE: bench-vehicles once 8.8×): `--cpu-prof` of headless bench-vehicles, 120 s: path
+  finding 19 %, movement 10 %, the sim step 5 %, body load 4 % (already cached per tick), garbage collection 4 %,
+  vehicle driving 3 %; medical not visible. Nothing changed (no cheap hot spot).
+- **Carers** (systems/medical.ts, once a second, same system as self-aid and buddy aid): a casualty who needs care
+  (pure `careNeed`: any intervention in `care.order` needed, whoever does it; urgent when it is one of
+  `carers.urgentTreats`: bleeds, airway, open chest, tension, shock) and whom nobody beside him treats gets a carer,
+  a new `care` intent (target, where he stood, `responder`): urgent → the nearest first responder or medic of his
+  side within 150 m (his own squad's counted at half the distance) plus the nearest willing comrade within 40 m;
+  otherwise a willing comrade, or a free first responder if no comrade goes. Cap: one responder and
+  `comradesPerCasualty` (1) comrades per casualty, in contact or not (simplest; more helpers are of no use until
+  carrying in M10.4). A carer is chosen only if he can do something for him (`nextIntervention` without fire).
+- **Willingness** (game values, low): doctrine `casualtyCarePriority` (new key, 0.5 for DE, RU and xf: no source for
+  a national difference) × behaviourK (steady/cautious 1, shaken 0.5, pinned 0.3, else 0) × morale × (1 −
+  suppression) × 0.6 for another squad × 0.6 when the casualty is under fire × 2 for first responders and medics;
+  willing at 0.25. Leaders (of their own unit) never go. Men on the move, busy, evading or on another errand are not
+  picked; a man firing is (he stops).
+- **The errand:** he runs to a point 1.2 m from the casualty (`routeBetween`, prone on arrival), treats with the
+  treat action of M10.2 (under fire only a tourniquet; otherwise he waits beside him), and goes back (walking, to
+  where he stood) when nothing more is needed, when there is nothing he can do even out of fire, after 300 s, or
+  when the casualty dies, is captured or is loaded; a comrade hands over when a first responder is beside the
+  casualty. `medical.carer` events (assigned / back, with the reason). **Software decisions:** a carer does not fire
+  (decisions skip him), unit orders and drills pass him by (`able` in drills, the order's soldier list), an order to
+  him alone ends the errand; a mount order to his unit still takes him aboard (he leaves the casualty; vehicles
+  taking wounded come in M10.4b/M10.6b); ammunition carriers are not picked from carers. A downed man with a carer
+  on the way or beside him (or anyone treating him) does not give up (the plan says "beside"; "on the way" is the
+  software choice: he knows help is coming). New intent kind and optional field: no schema bump.
+- **Batch line "Carers"** (`npm run batch`): carers sent per side, men who needed care (looked at once a second),
+  treated, died untreated within 2 min, median seconds from first needing care to the first treatment, most
+  comrades on one casualty at once.
+- **Batches (10 seeds × 1200 s; `--no-medical` → care on):** platoon (DE attacks the village) attacker wins 1/10 →
+  0/10, casualties blue/red 19.8/10.5 → 21.5/10.7, blue small arms 1457 → 1001 rounds; platoon-vehicles 7/10 → 6/10,
+  16.9/23.2 → 15.3/23.2, blue small arms 976 → 733; platoon-ru (care on only): RU attacker wins 6/10, casualties
+  15.6/12.8. Carers per battle (casualty's side, blue/red): platoon comrades 7.8/8.7, first responders 6.1/2.0;
+  platoon-vehicles 10.2/7.6, 5.2/1.2; platoon-ru 14.8/7.6, 4.9/1.6. Median time to first treatment 67-157 s (target
+  ≤ 3 min: met in every cell). Treated of those who needed care: 44-77 %; of those who did not die within 2 min
+  untreated: platoon 61 % / 86 %, platoon-vehicles 69 % / 65 %, platoon-ru 54 % / 61 % (target 70 %: **met in one
+  cell of six**; a run through platoon-ru seed 1 shows the misses are carers hit or panicking on the way, and men
+  lying where nobody is willing to go under fire). Most comrades on one casualty: 1 everywhere (the cap holds). Fire
+  volume of the side with carers drops by about a quarter to a third (men leave the fight), win rates within the
+  noise of 10 seeds. No tuning now (M10.8, owner review of the numbers after playing).
+- **Perf** (`npm run test:perf` alone, twice): bench 19× / 17×, spotting 10.8× / 8.9×, bench-vehicles 10.6× / 8.4×,
+  bench-combined 4.0× / 4.0×, 20,000 projectiles 4.9× / 4.7×; all floors held (the second run was slower across the
+  board, machine noise).
+- **Tests:** `tools/test/medical-carers.test.ts` (need and urgency, a comrade runs over and treats and goes back,
+  the first responder from 80 m plus one comrade and the cap, leaders stay, a pinned man does not go, a calm man of
+  another team does, unit orders pass a carer by and an order to him ends it, care off, save/load on the way). The
+  M10.2 test "not by one 5 m away" now expects that man to walk over first.
+- **Goldens regenerated** (`npm run golden:update`, intended: carers change every battle with wounded, and the data
+  fingerprint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
+  `golden/no-interiors` untouched. Debug overlay: "carer -> id" / "responder -> id". No other visible change, so no
+  screenshots. Q-7 (orders to fire at a recognised protected target refused) belongs to the protection slice, not
+  this one.
+- **One test loosened (software decision):** `shootout.test.ts` "several hundred rounds" per side > 250 → > 200 (one
+  side fired 210 on seed 1: men now leave the fight to treat a comrade, the effect this slice is meant to have).

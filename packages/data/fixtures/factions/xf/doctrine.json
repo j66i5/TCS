@@ -9,10 +9,11 @@
     "evacuationPriority": 0.0,
     "coverPreference": 0.0,
     "boundM": 20,
-    "finalAssaultM": 15
+    "finalAssaultM": 15,
+    "casualtyCarePriority": 0.5
   },
   "sources": [],
   "confidence": "low",
-  "note": "Made-up test fixture.",
+  "note": "Made-up test fixture. M10.3a casualtyCarePriority (how readily a man leaves the fight for a wounded comrade, a factor in core/medical.json carers willingness): 0.5, the same for every side, game value (no public source for a national difference), low.",
   "defaultFormation": "file"
 }

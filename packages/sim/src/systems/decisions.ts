@@ -457,7 +457,7 @@ function shareAmmo(ctx: SimContext, state: SimState, events: EventSink, id: Enti
   for (const g of men) {
     if (g === id) continue;
     const gs = state.soldier.get(g);
-    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo") continue;
+    if (!gs || !isAble(gs) || isCowering(gs) || state.action.has(g) || gs.intent?.kind === "bringAmmo" || gs.intent?.kind === "care") continue;
     const n = spareCount(state.container.get(g), type);
     const gw = state.weapon.get(g), own = gw ? ctx.catalog.weapons[gw.weapon]?.feed.magazine === type : false;
     if (n <= (own ? D.keepSpare : 0)) continue;
@@ -719,6 +719,8 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     }
     // On his way to take a prisoner (systems/surrender.ts runs that errand): nothing else of his own meanwhile.
     if (s.intent?.kind === "takePrisoner") continue;
+    // Gone to a wounded comrade (systems/medical.ts, M10.3a): he has left the fight and does not fire.
+    if (s.intent?.kind === "care") continue;
     const m = state.mover.get(id);
     const halted = !m || m.waypoints.length === 0;
     const task = state.fire.get(id);

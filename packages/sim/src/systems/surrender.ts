@@ -31,6 +31,7 @@ import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
+import { hasCarer } from "./medical";
 import { takeOutOfFight } from "./wounds";
 
 /** The owner's "can no longer fight": a conscious wounded man who cannot fight (whether or not he can walk). */
@@ -79,7 +80,8 @@ function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState
   if (att && !downed && !R.attackerPanicGivesUp) return null;
   const d2 = nearestKnownEnemy2(ctx, state, id, s);
   const downedM = att ? R.attackerDownedEnemyM : R.downedEnemyM;
-  if (downed && downedM > 0 && d2 <= downedM * downedM) {
+  // A comrade on his way to treat him, or treating him (M10.3a): help is at hand, he does not give up.
+  if (downed && downedM > 0 && d2 <= downedM * downedM && !hasCarer(state, id)) {
     const me = state.transform.req(id), side = state.identity.req(id).side, r2 = R.comradeNearM * R.comradeNearM;
     let comrade = false;
     // mounted: ok a comrade aboard a vehicle close by still counts as help at hand

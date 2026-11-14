@@ -638,6 +638,18 @@ export interface MedicalDef {
     stepS: number; buddyReachM: number; maxAttempts: number; painTreatAt: number; skillRef: number; skillK: number;
     underFireSuppression: number; underFireSeconds: number; junctionalZones: BodyZone[]; order: DefId[];
   };
+  /**
+   * Who goes to a casualty beyond buddy reach (M10.3a; absent: only self-aid and buddy aid). comradeReachM /
+   * responderReachM: how far a comrade / a first responder or medic comes; urgentTreats: needs that make a casualty
+   * look urgent (a first responder is sent); willingness = doctrine casualtyCarePriority x behaviourK[behaviour] x
+   * morale x (1 - suppressionK x suppression) x otherUnitK (other squad) x exposedK (casualty under fire) x
+   * responderK (first responders, medics), willing at willingAt; comradesPerCasualty: the cap besides the first
+   * responder (owner Q-2a); timeoutS: a carer gives up after this.
+   */
+  carers?: {
+    comradeReachM: number; responderReachM: number; urgentTreats: string[]; willingAt: number; behaviourK: Record<string, number>;
+    suppressionK: number; otherUnitK: number; exposedK: number; responderK: number; comradesPerCasualty: number; timeoutS: number;
+  };
 }
 
 export interface Catalog {

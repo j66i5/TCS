@@ -237,7 +237,11 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    free comrade within 3 m; `TreatmentRecord` on the wound and `medical.treated` events; `rules.medicalCare` and
    `--no-medical`; `npm run lab -- treatment`; debug overlay line.
 4. ✅ **D1 Hand smoke grenades** (slice 5, parallel session, merged 2026-11-14; owner: a small step inside medical)
-5. ⬜ **M10.3a Who helps: carers and first responders** (slice 6)
+5. ✅ **M10.3a Who helps: carers and first responders** (slice 6, 2026-11-14) — a casualty beyond buddy reach gets
+   a carer who leaves the fight (`care` intent): the first responder or medic for urgent casualties, a willing
+   comrade (doctrine `casualtyCarePriority`, behaviour, morale, suppression, squad, exposure), at most the first
+   responder plus one comrade (owner Q-2a); leaders stay; unit orders and drills pass carers by; no surrender with
+   a carer; `medical.carer` events; batch "Carers" line.
 6. ⬜ **M10.3b Triage, care under fire, "Medic!"** (slice 7)
 7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
 8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)

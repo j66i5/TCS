@@ -210,3 +210,30 @@ export function applyCareEffect(def: InterventionDef, w: Wound, p: Physiology): 
   if (e.warms === true) p.warmed = true;
   if (e.splints === true) w.splinted = true;
 }
+
+/**
+ * What a casualty needs, whoever treats him (M10.3a): null if nothing in `care.order` is needed now; `urgent` when
+ * one of the needs is in `carers.urgentTreats` (he looks T1: massive bleeding, airway, breathing, shock). Training
+ * and kit are not asked here (the carer's own `nextIntervention` is).
+ */
+export function careNeed(catalog: Catalog, state: SimState, casualty: EntityId, params: Readonly<Record<string, number>>): { urgent: boolean } | null {
+  const M = catalog.medical, s = state.soldier.get(casualty);
+  if (!M || !s || !s.physiology.alive || s.wounds.length === 0) return null;
+  const urgentTreats = M.carers?.urgentTreats ?? [];
+  const conscious = s.physiology.consciousness >= 0.5;
+  let need = false;
+  for (const id of M.care.order) {
+    const def = M.interventions[id];
+    if (!def || !woundNeeding(M, def, s.wounds, s.physiology, conscious, params)) continue;
+    if (urgentTreats.includes(def.treats)) return { urgent: true };
+    need = true;
+  }
+  return need ? { urgent: false } : null;
+}
+
+/** Is this man a first responder or a medic by his role (data: `medicalRoles`)? He answers urgent casualties. */
+export function isResponder(catalog: Catalog, state: SimState, id: EntityId): boolean {
+  const ident = state.identity.get(id);
+  const lvl = ident ? catalog.factions[ident.faction]?.medicalRoles?.[ident.role]?.level : undefined;
+  return lvl === "firstResponder" || lvl === "medic";
+}

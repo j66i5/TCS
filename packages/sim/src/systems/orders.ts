@@ -274,14 +274,17 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "discharge") return vehicleRes ?? "unable";
   // Only men who are alive and conscious carry out orders; casualties stay where they fell.
   // Men of a broken unit, running back, do not listen (M4.3). Men aboard vehicles ride (M7).
-  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined);
+  // A man gone to a wounded comrade (M10.3a) stays with him: orders to his unit pass him by (an order to him alone
+  // ends the errand, below).
+  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
+    && !(isUnit && state.soldier.get(s)!.intent?.kind === "care"));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
   // (An anti-tank shot, M7.4a, is like a grenade: one man acts, the drill goes on.)
   const keepsDrill = order.kind === "rules" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
   if (!keepsDrill) {
-    for (const m of soldiers) { const ms = state.soldier.get(m); if (ms?.intent?.kind === "takePrisoner") ms.intent = null; }
+    for (const m of soldiers) { const ms = state.soldier.get(m); if (ms?.intent?.kind === "takePrisoner" || ms?.intent?.kind === "care") ms.intent = null; }
   }
   if (!keepsDrill) {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;

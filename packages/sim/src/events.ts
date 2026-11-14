@@ -43,6 +43,9 @@ export type SimEvent =
   /** A treatment was finished (M10.2): who treated whom, which intervention (core/medical.json id) on which wound,
    *  with what training (`skill`: self, buddy, firstResponder, medic), and whether it worked. */
   | { kind: "medical.treated"; tick: number; casualty: EntityId; by: EntityId; intervention: DefId; wound: number; success: boolean; skill: string }
+  /** M10.3a: a man leaves the fight to go to a casualty (`assigned`), or goes back (`reason`: done, handed over to a
+   *  first responder, nothing he can do, gave up, unable, casualty dead or gone). */
+  | { kind: "medical.carer"; tick: number; casualty: EntityId; by: EntityId; responder: boolean; assigned: boolean; reason?: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

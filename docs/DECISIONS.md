@@ -4799,6 +4799,26 @@ battle; a locked fire-and-forget missile flies on to the last point seen (alread
   (fingerprint-blanked hashes checked identical, list above); `no-interiors` untouched.
 - **Left for later (plan):** perf and batches (step 17, coordinator), German MELLS ground team, Kornet, tripod
   sprite and Deploy/Pack buttons, firing from rooms, suppression breaking the guide, LOS-rate feed-forward.
+- **Review fixes (adversarial review):** (1) a man carrying a casualty or waiting on one (intent "care") is no
+  gunner (`gunnerFit`) and no crewman of a missile team (`crewAt(..., free)`), and a post carrier so busy makes the
+  team count as moving (packs, no auto set-up); (2) the attacker's team starts in dead ground like its vehicles
+  (`deadGroundStarts` with a home point, men's height, 30 m clear of the hulls, hidden only if every sight line is
+  blocked or visibility < 0.001 — thermal sights see men through thin cover), else beside the vehicles' start;
+  (3) "setting" turns "ready" only if the post carrier is able and `crewMin` free men are still at the post, else
+  packed again (mortars unchanged: platoon-mortars / platoon-ru-mortars state hashes identical before and after);
+  (4) a guiding gunner's own fire task ends at the launch and `fireSystem` skips guiding men (no fire, reload or
+  ducking); (5) `teamOrderShot` stops every team that takes the shot and skips teams without an able, free carrier
+  or `crewMin` free men (the order then falls through to "unable"); (6) overwatch candidates include the team's spot
+  and rings 50-150 m (at most 200 candidates), each losing 0.1 (defence 0.02) per minute of walk at 0.9 m/s; the
+  attacker's target ground is 100 m beyond the main objective (where the defence's vehicles stand); the A4 hold
+  lasts only while the team's estimated arrival (walk, last 50 m sneaking at 0.45 m/s, packing, 3 s still, set-up)
+  still falls within the 90 s; (7) the AI gives a team with no rounds or no able man no more moves or fire orders;
+  (8) the move-wait test asserts the flight did not end "lost" / `missile.lost.moved`. Tests for 1, 3, 5, 7 added.
+  Probe (platoon-ru-vehicles, seeds 1-8, 1200 s): the Russian team is set up in 6 of 8 battles (before: none in the
+  review's probe) but fires in none — the German Pumas stay on the reverse slope behind the objective, hidden from
+  every spot in the attacker's half at the post's sight height; a shot needs the Pumas to come forward. Defender's
+  team (platoon-vehicles, seeds 1-5, 600 s): set up in 5 of 5 (from 18 s in 3), no shot within 600 s (before: set up
+  in 3, one hit at 588 s). Goldens regenerated (`golden:update`; `no-interiors` untouched).
 ## 2026-11-14 — Merge of origin/main (M9 night, sensors, guided missiles; PR #44) into the medical branch; goldens regenerated
 Conflicts kept both sides: the app's sim imports (environment and time of day next to carrying), the DE and RU
 string tables (litters next to thermal sights, blankets and MELLS), the batch tool's imports, the lab list (carry

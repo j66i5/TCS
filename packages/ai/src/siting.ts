@@ -306,12 +306,14 @@ export function seenShare(ctx: SimContext, x: number, y: number, pts: readonly {
  * share of target points (rings `targetRingsM` from the enemy's area, `targetArcDeg` either side of the way to the
  * anchor) between `targetRangeM` of it that its sight (`sightZ` above the ground) sees a hull's middle
  * (visibility >= `seenVisibility`), plus `coverW` x its cover; never within `nearM` of an enemy place (an objective
- * the enemy holds; for the defence, the enemy's expected area). Returns the best post and up to two alternates
+ * the enemy holds; for the defence, the enemy's expected area); review fix: the anchor itself and short rings are
+ * candidates too, and each loses `perMinuteW` per minute of walk to it (at `walkMps`; the defence, whose enemy
+ * takes minutes to come, `perMinuteDefenceW`). Returns the best post and up to two alternates
  * `altM` from it and from each other (the next posts it moves to after a launch), each facing the enemy's area.
  * Pure function of its inputs: deterministic.
  */
 export const OVERWATCH = {
-  ringsM: [200, 300, 400, 500, 600, 700, 800], stepM: 50, maxCands: 160,
+  ringsM: [0, 50, 100, 150, 200, 300, 400, 500, 600, 700, 800], stepM: 50, maxCands: 200, walkMps: 0.9, perMinuteW: 0.1, perMinuteDefenceW: 0.02,
   targetRingsM: [0, 200, 400], targetArcDeg: 45, targetArcStepDeg: 15, targetRangeM: [600, 1900], hullZ: 1.5, seenVisibility: 0.3,
   coverW: 0.2, nearM: 450, altM: [60, 150],
 } as const;
@@ -320,7 +322,7 @@ export interface OverwatchPost { x: number; y: number; facing: number }
 
 export function siteOverwatch(
   ctx: SimContext, anchor: { x: number; y: number }, enemy: { x: number; y: number }, sightZ: number,
-  near: readonly { x: number; y: number }[], backM: number,
+  near: readonly { x: number; y: number }[], backM: number, defending = false,
 ): OverwatchPost[] {
   const O = OVERWATCH, map = ctx.map, W = map.widthM, H = map.heightM;
   const { grid } = navFor(ctx, "foot");
@@ -335,7 +337,7 @@ export function siteOverwatch(
   }
   const cands: { x: number; y: number }[] = [];
   for (const r of O.ringsM) {
-    const n = Math.max(8, Math.round((2 * PI * r) / O.stepM));
+    const n = r === 0 ? 1 : Math.max(8, Math.round((2 * PI * r) / O.stepM));
     for (let k = 0; k < n; k++) {
       const b = (2 * PI * k) / n, x = anchor.x + cos(b) * r, y = anchor.y + sin(b) * r;
       if (x < 10 || y < 10 || x > W - 10 || y > H - 10) continue;
@@ -360,7 +362,8 @@ export function siteOverwatch(
     }
     if (m === 0) continue;
     if (near.some((p) => hypot2(p.x - c.x, p.y - c.y) < O.nearM)) continue;
-    scored.push({ x: c.x, y: c.y, score: n / targets.length + O.coverW * (1 - exposureAt(grid, c.x, c.y)) });
+    const walkMin = hypot2(c.x - anchor.x, c.y - anchor.y) / O.walkMps / 60;
+    scored.push({ x: c.x, y: c.y, score: n / targets.length + O.coverW * (1 - exposureAt(grid, c.x, c.y)) - (defending ? O.perMinuteDefenceW : O.perMinuteW) * walkMin });
   }
   scored.sort((a, b) => b.score - a.score || a.x - b.x || a.y - b.y);
   const out: OverwatchPost[] = [];

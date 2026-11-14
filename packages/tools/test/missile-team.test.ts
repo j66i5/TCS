@@ -104,12 +104,76 @@ describe("missile teams (M9.3b)", () => {
     const g = sim.state.unit.req(team).missileTeam!.guide!;
     const x0 = sim.state.transform.req(g.gunner).x;
     submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: team, kind: "move", waypoints: [{ x: 150, y: 600, mode: "run" }] });
-    let endTick = -1;
+    let endTick = -1, ended: Extract<SimEvent, { kind: "missile.ended" }> | undefined;
     for (let k = 0; k < 15 * TICK_HZ && endTick < 0; k++) {
-      for (const e of step(sim)) if (e.kind === "missile.ended") endTick = e.tick;
-      if (endTick < 0) expect(Math.abs(sim.state.transform.req(g.gunner).x - x0)).toBeLessThan(1);
+      for (const e of step(sim)) if (e.kind === "missile.ended") { endTick = e.tick; ended = e; }
+      // (Checked on the tick the flight ends too: the gunner has not left the post while it flew.)
+      expect(Math.abs(sim.state.transform.req(g.gunner).x - x0)).toBeLessThan(1);
     }
     expect(endTick).toBeGreaterThan(0);
+    // Review fix: the flight ended by itself (hit or miss), not because the move pulled the gunner away.
+    expect(ended?.result).not.toBe("lost");
+    expect(ended?.reason).not.toBe("missile.lost.moved");
+  });
+
+  it("a gunner carrying a casualty (or waiting on one) does not work the post: the team packs and does not fire", () => {
+    const { sim, team, puma } = readyTeam(1000, 10);
+    const gunner = launcherOf(sim.ctx, sim.state, team)!.carrier;
+    sim.state.soldier.req(gunner).carrying = 99999; // (a payload; only "carrying something" matters here)
+    fireAt(sim, team, puma);
+    const ev = run(sim, 8);
+    expect(ev.some((e) => e.kind === "missileTeam.packed" && e.unit === team)).toBe(true);
+    expect(ev.some((e) => e.kind === "shot.fired" && e.vehicle === undefined && sim.ctx.catalog.ammo[e.ammo]?.guided !== undefined)).toBe(false);
+    expect(sim.state.unit.req(team).missileTeam!.state).toBe("packed");
+  });
+
+  it("a team whose crew falls while it sets up is not reported ready (crew checked again when laid)", () => {
+    const { input } = teamSetup(data, 1000, 11);
+    const sim = createSim(input);
+    holdAll(sim);
+    const team = teamOf(sim);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: team, kind: "deploy" });
+    const ev0 = run(sim, 5);
+    expect(ev0.some((e) => e.kind === "missileTeam.setup" && e.unit === team)).toBe(true);
+    for (const m of sim.state.unit.req(team).members) { const p = sim.state.soldier.req(m).physiology; p.alive = false; p.consciousness = 0; }
+    const ev = run(sim, 20);
+    expect(ev.some((e) => e.kind === "missileTeam.ready" && e.unit === team)).toBe(false);
+    expect(sim.state.unit.req(team).missileTeam!.state).toBe("packed");
+    // An order to fire now finds no team able to: it is not acknowledged, no shot waits.
+    fireAt(sim, team, pumaOf(sim));
+    const ev2 = run(sim, 5);
+    expect(ev2.some((e) => e.kind === "order.delivered" && e.target === team && e.orderKind === "fire")).toBe(true);
+    expect(ev2.some((e) => e.kind === "radio" && e.key === "radio.ack.fire")).toBe(false);
+    expect(sim.state.unit.req(team).missileTeam!.queued).toBeUndefined();
+  });
+
+  it("a fire order delivered just after a move stops the team and fires (the move does not drop the shot)", () => {
+    const { sim, team, puma } = readyTeam(1000, 12);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: team, kind: "move", waypoints: [{ x: 150, y: 600, mode: "walk" }] });
+    fireAt(sim, team, puma);
+    step(sim);
+    // Both orders arrive on the same tick, the move first, between two of the team-state checks.
+    let at = sim.state.tick + 1;
+    while (at % 30 === 0 || at % 30 === 29) at++;
+    for (const p of sim.state.pendingOrders) p.deliverTick = at;
+    const ev = run(sim, 15);
+    expect(ev.some((e) => e.kind === "missileTeam.packed" && e.unit === team)).toBe(false);
+    expect(ev.some((e) => e.kind === "shot.fired" && e.vehicle === undefined && sim.ctx.catalog.ammo[e.ammo]?.guided !== undefined)).toBe(true);
+  });
+
+  it("the AI gives a team with no rounds left no orders (no moves, no fire)", () => {
+    const sc = getScenario("platoon-ru-vehicles");
+    const ordersToTeam = (empty: boolean): number => {
+      const input = sc.build(data, 1, 30);
+      if (empty) for (const f of input.forces) for (const u of f.units) {
+        const post = u.members.flatMap((m) => m.load).map((l) => input.catalog.items[l.type]?.crewServed).find((c) => c !== undefined);
+        if (post) for (const m of u.members) m.load = m.load.filter((l) => l.type !== post.round);
+      }
+      const team = teamOf(createSim(input));
+      return runBattle(input, { controllers: sc.controllers!(input) }).orders.filter((o) => o.target === team).length;
+    };
+    expect(ordersToTeam(false)).toBeGreaterThan(0);
+    expect(ordersToTeam(true)).toBe(0);
   });
 
   it("does not fire with a comrade in the danger zone behind the post", () => {

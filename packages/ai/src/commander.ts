@@ -24,7 +24,7 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, launcherOf, teamRound, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
@@ -70,8 +70,10 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
   // Missile teams (M9.3b, game values, low): at its post within `mtArrivedM`; a move to it sent again after
   // `mtResendSeconds` if the team stopped short; the attacker's carriers wait in dead ground for its team to be ready,
-  // at most `overwatchWaitSeconds`.
-  mtArrivedM: 15, mtResendSeconds: 60, overwatchWaitSeconds: 90,
+  // at most `overwatchWaitSeconds`, and only while the team can still be set up on its post within that time (its
+  // walk at `mtWalkMps` (the last `sneakM` at `mtSneakMps`), packing and set-up; review fix). The attacker's team sites its post on the ground
+  // `mtBeyondObjectiveM` beyond the main objective (where the defence's vehicles stand).
+  mtArrivedM: 15, mtResendSeconds: 60, overwatchWaitSeconds: 90, mtWalkMps: 0.9, mtSneakMps: 0.45, mtBeyondObjectiveM: 100,
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
   // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
@@ -343,6 +345,23 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     const l = launcherOf(ground(), view, id), lt = l ? view.transform.get(l.carrier) : undefined;
     return mt?.state === "ready" && (!p || (lt !== undefined && hypot2(p[0] - lt.x, p[1] - lt.y) <= COMMANDER.mtArrivedM));
   };
+  /** Can this missile team still fight: rounds left and an able man (review fix)? */
+  const teamLive = (view: SimView, id: EntityId): boolean => {
+    const u = view.unit.get(id), l = launcherOf(ground(), view, id);
+    return u !== undefined && l !== null && teamRounds(view, id, l.def.round) > 0 && u.members.some((m) => able(view.soldier.get(m) as SoldierState | undefined));
+  };
+  /** When this missile team will be set up on its post, s from now (Infinity: not sited, or cannot fight; review fix). */
+  const teamEtaS = (view: SimView, id: EntityId, tick: number): number => {
+    if (!teamLive(view, id)) return Infinity;
+    if (teamOnPost(view, id)) return 0;
+    const mt = view.unit.get(id)!.missileTeam!, st = mem.mt?.[String(id)], p = st?.posts[st.post];
+    const l = launcherOf(ground(), view, id)!, lt = view.transform.get(l.carrier);
+    if (!p || !lt) return Infinity;
+    const d = hypot2(p[0] - lt.x, p[1] - lt.y);
+    if (d <= COMMANDER.mtArrivedM) return mt.state === "setting" ? Math.max(0, mt.readyTick - tick) / 60 : AUTO_DEPLOY_S + l.def.setupSeconds;
+    const sneak = Math.min(d, COMMANDER.sneakM); // (the last stretch sneaking, as the move is ordered)
+    return (mt.state === "packed" ? 0 : l.def.packSeconds) + (d - sneak) / COMMANDER.mtWalkMps + sneak / COMMANDER.mtSneakMps + AUTO_DEPLOY_S + l.def.setupSeconds;
+  };
   /** The men of the side's missile teams (M9.3b). */
   const teamMen = (view: SimView): EntityId[] => [...view.unit.values()].filter((u) => u.side === side && u.missileTeam !== undefined).flatMap((u) => u.members);
   /** M9.3b: site, move and fire the side's missile teams (see the call). */
@@ -358,13 +377,16 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const gr = teamRound(ground(), l.def);
       const lt = view.transform.get(l.carrier);
       if (!gr || !lt) continue;
+      if (!teamLive(view, id)) continue; // (review fix: no rounds or no able man: no more moves or fire orders)
       let st = mem.mt[String(id)];
       if (!st) {
         // The way the enemy comes: the defender looks out along the expected attack; the attacker at the main objective.
-        const enemy = defending && main ? { x: clamp(main.x + cos(front0()) * 700, W), y: clamp(main.y + sin(front0()) * 700, H) } : main ? { x: main.x, y: main.y } : { x: W / 2, y: H / 2 };
+        // (Review fix: the attacker looks at the ground just beyond the main objective, where the defence's vehicles stand.)
+        const away = main ? atan2(main.y - lt.y, main.x - lt.x) : 0;
+        const enemy = defending && main ? { x: clamp(main.x + cos(front0()) * 700, W), y: clamp(main.y + sin(front0()) * 700, H) } : main ? { x: clamp(main.x + cos(away) * COMMANDER.mtBeyondObjectiveM, W), y: clamp(main.y + sin(away) * COMMANDER.mtBeyondObjectiveM, H) } : { x: W / 2, y: H / 2 };
         const anchor = defending && main ? { x: lt.x, y: lt.y } : { x: lt.x, y: lt.y };
         const nearPts = defending ? [enemy] : objectives.filter((o) => o.holder !== side).map((o) => ({ x: o.x, y: o.y }));
-        const posts = siteOverwatch(ground(), anchor, enemy, l.def.sightHeightM, nearPts, l.def.backblastM);
+        const posts = siteOverwatch(ground(), anchor, enemy, l.def.sightHeightM, nearPts, l.def.backblastM, defending);
         st = mem.mt[String(id)] = { posts: posts.map((p) => [p.x, p.y, p.facing]), post: 0, launch: mt.lastLaunchTick, sent: -1e9 };
         // On its way it does not go to ground at every contact (it would set up short of its post).
         order(id, { kind: "rules", onContact: "push" });
@@ -1071,8 +1093,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         case "start":
           // M9.3b (A4): mounted, the carriers wait in dead ground until the side's missile team is set up on its
           // post (or `overwatchWaitSeconds` have passed): it covers their ride in.
+          // (Review fix: only while the team can still be there in time: its walk and set-up within the wait.)
           if (squads.some((sq) => riders(view, sq).length > 0) && tick < COMMANDER.overwatchWaitSeconds * 60
-            && [...view.unit.entries()].some(([id, u]) => u.side === side && u.missileTeam !== undefined && !teamOnPost(view, id) && u.members.some((m) => able(view.soldier.get(m) as SoldierState | undefined)))) break;
+            && [...view.unit.entries()].some(([id, u]) => {
+              if (u.side !== side || u.missileTeam === undefined || teamOnPost(view, id)) return false;
+              return tick / 60 + teamEtaS(view, id, tick) <= COMMANDER.overwatchWaitSeconds;
+            })) break;
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
           // Mounted (M7.2): the vehicles drive the squads to their dismount points; the squads ride.
           if (squads.some((sq) => riders(view, sq).length > 0)) {

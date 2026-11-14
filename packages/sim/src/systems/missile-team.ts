@@ -34,7 +34,7 @@ import { heightAt, standZ } from "../terrain";
 import { learnContact } from "./contacts";
 import { launchGuided, launchNoticed, missileAimPoint, missileSees } from "./gunnery";
 import { atRuleOf, backblastBlocked } from "./launcher";
-import { crewAt, launcherOf, takeRound, teamRounds, type Launcher } from "./mortars";
+import { busyWithCasualty, crewAt, launcherOf, takeRound, teamRounds, type Launcher } from "./mortars";
 
 /** The gunner's action that ends in a launch. */
 export const TEAM_FIRE_ACTION = "fireTeamMissile";
@@ -59,11 +59,13 @@ export function teamRound(ctx: SimContext, def: CrewServedDef): { ammo: string; 
   return ammo !== undefined && g ? { ammo, g } : null;
 }
 
-/** Can the gunner work the post now: able, arms usable, on foot, not stunned, panicked or routed, not walking. */
+/** Can the gunner work the post now: able, arms usable, on foot, not stunned, panicked or routed, not walking, not
+ *  carrying a casualty or waiting on one. */
 function gunnerFit(state: SimState, id: EntityId): boolean {
   const s = state.soldier.get(id);
   if (!s || !isAble(s) || !s.impair.canUseArms || s.mount !== undefined || state.tick < s.stunnedUntilTick || s.evade !== null) return false;
   if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") return false;
+  if (busyWithCasualty(s)) return false; // (review fix: a carrier has left the fight, carry.ts)
   return (state.mover.get(id)?.waypoints.length ?? 0) === 0;
 }
 
@@ -104,7 +106,7 @@ export function missileTeamSystem(ctx: SimContext, state: SimState, events: Even
     const l = launcherOf(ctx, state, uid);
     if (!l || state.action.has(l.carrier) || !gunnerFit(state, l.carrier)) continue;
     const gr = teamRound(ctx, l.def);
-    if (!gr || teamRounds(state, uid, l.def.round) <= 0 || crewAt(state, l).length < l.def.crewMin) continue;
+    if (!gr || teamRounds(state, uid, l.def.round) <= 0 || crewAt(state, l, true).length < l.def.crewMin) continue;
     let pick: { target: EntityId; x: number; y: number } | null;
     const ordered = mt.queued !== undefined;
     if (mt.queued) {
@@ -178,13 +180,19 @@ function teamRadio(state: SimState, events: EventSink, uid: EntityId, key: strin
  * Order (M9.3b): fire the teams' missiles at (x, y) or at the named enemy vehicle. Each team that can (a launch post,
  * rounds, enough crew) stops, sets up if packed, and fires once ready. Returns false if none can.
  */
-export function teamOrderShot(ctx: SimContext, state: SimState, teams: readonly EntityId[], x: number, y: number, contact: EntityId | undefined, setup: (team: EntityId) => boolean): boolean {
+export function teamOrderShot(ctx: SimContext, state: SimState, teams: readonly EntityId[], x: number, y: number, contact: EntityId | undefined, stop: (team: EntityId) => void, setup: (team: EntityId) => boolean): boolean {
   let any = false;
   for (const uid of teams) {
     const u = state.unit.get(uid), mt = u?.missileTeam;
     const l = launcherOf(ctx, state, uid);
     if (!u || !mt || !l || teamRounds(state, uid, l.def.round) <= 0 || !teamRound(ctx, l.def)) continue;
+    // Review fix: a team without enough free men at the post, or whose post carrier cannot work it, is unable
+    // (the order falls through to "unable").
+    const cs = state.soldier.get(l.carrier);
+    if (!isAble(cs) || busyWithCasualty(cs!) || crewAt(state, l, true).length < l.def.crewMin) continue;
     const target = contact !== undefined && state.vehicle.has(contact) ? contact : -1;
+    // Every team that takes the shot stops (a move given just before would otherwise pack it and drop the shot).
+    stop(uid);
     mt.queued = { x, y, target };
     if (mt.state === "packed" && !setup(uid)) { delete mt.queued; continue; }
     any = true;
@@ -232,6 +240,7 @@ function launchFromPost(ctx: SimContext, state: SimState, events: EventSink, gun
   delete mt.queued;
   const s = state.soldier.req(gunner);
   s.launchTick = tick;
+  state.fire.delete(gunner); // (review fix: his own fire task ends; he guides)
   const w = state.weapon.get(gunner);
   if (w) w.lastShotTick = tick;
   // Launch warning (as from a vehicle, M9.3a): a crew that has the gunner in sight fires its smoke toward him a

@@ -87,8 +87,9 @@ export function mortarTeams(state: SimView, side: SideId): EntityId[] {
   return out;
 }
 
-/** The able men of a team at its tube who can work it (not panicked, routed or aboard a vehicle), ascending id. */
-export function crewAt(state: SimView, tube: { team: EntityId; x: number; y: number }): EntityId[] {
+/** The able men of a team at its tube who can work it (not panicked, routed or aboard a vehicle), ascending id.
+ *  `free` (missile teams, review fix): also not carrying a casualty or waiting on one (intent "care"). */
+export function crewAt(state: SimView, tube: { team: EntityId; x: number; y: number }, free = false): EntityId[] {
   const u = state.unit.get(tube.team);
   if (!u) return [];
   const out: EntityId[] = [];
@@ -97,10 +98,16 @@ export function crewAt(state: SimView, tube: { team: EntityId; x: number; y: num
     const s = state.soldier.get(m), t = state.transform.get(m);
     if (!s || !t || !isAble(s) || !s.impair.canUseArms || s.mount !== undefined) continue;
     if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") continue;
+    if (free && busyWithCasualty(s)) continue;
     if ((t.x - tube.x) * (t.x - tube.x) + (t.y - tube.y) * (t.y - tube.y) > r2) continue;
     out.push(m);
   }
   return out;
+}
+
+/** Is this man carrying a casualty or waiting on one (intent "care")? He has left the fight (carry.ts). */
+export function busyWithCasualty(s: { carrying?: unknown; intent?: { kind: string } | null }): boolean {
+  return s.carrying !== undefined || s.intent?.kind === "care";
 }
 
 /** Rounds of `type` the team's men hold (counted items, rule 9). */
@@ -166,7 +173,8 @@ function startTeamSetup(ctx: SimContext, state: SimState, events: EventSink, tea
   const l = launcherOf(ctx, state, team);
   if (!mt || !l) return false;
   if (mt.state !== "packed") return true;
-  const crew = crewAt(state, l).length;
+  if (!isAble(state.soldier.get(l.carrier)) || busyWithCasualty(state.soldier.req(l.carrier))) return false;
+  const crew = crewAt(state, l, true).length;
   if (crew < l.def.crewMin) return false;
   mt.state = "setting";
   mt.readyTick = state.tick + secondsToTicks(l.def.setupSeconds * Math.max(1, l.def.crew / crew));
@@ -219,7 +227,10 @@ export function mortarSystem(ctx: SimContext, state: SimState, events: EventSink
 function missileTeamState(ctx: SimContext, state: SimState, events: EventSink, id: EntityId): void {
   const u = state.unit.get(id)!, mt = u.missileTeam!;
   passCarried(ctx, state, id, pickCrewServed);
-  if (u.moving || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0)) {
+  // Review fix: a post carrier who is carrying a casualty (or waiting on one) has left the fight: the post moves
+  // with him, so the team counts as moving (packs, does not set up on its own).
+  const lc = launcherOf(ctx, state, id), cs = lc ? state.soldier.get(lc.carrier) : undefined;
+  if (u.moving || (cs !== undefined && busyWithCasualty(cs)) || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0)) {
     if (mt.guide) return; // (packing waits for the missile)
     if (mt.state !== "packed") {
       const l = launcherOf(ctx, state, id);
@@ -236,6 +247,12 @@ function missileTeamState(ctx: SimContext, state: SimState, events: EventSink, i
   if (mt.state === "packed") {
     if (state.tick - mt.stillTick >= secondsToTicks(AUTO_DEPLOY_S)) startTeamSetup(ctx, state, events, id);
   } else if (mt.state === "setting" && state.tick >= mt.readyTick) {
+    // Review fix: the crew is checked again when the post is laid; too few able men left: packed again.
+    if (!lc || !isAble(cs) || crewAt(state, lc, true).length < lc.def.crewMin) {
+      mt.state = "packed"; mt.readyTick = -1;
+      events.emit({ kind: "missileTeam.packed", tick: state.tick, unit: id });
+      return;
+    }
     mt.state = "ready";
     events.emit({ kind: "missileTeam.ready", tick: state.tick, unit: id });
     const lead = u.leader ?? u.members[0];

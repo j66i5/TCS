@@ -485,13 +485,13 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // M9.3b: missile teams at or under the unit fire their post (setting it up first if packed).
         const teams = crewServedTeamsUnder(state, order.target).filter((u) => state.unit.get(u)?.missileTeam !== undefined);
         if (teams.length > 0) {
-          const setup = (team: EntityId): boolean => {
+          const stop = (team: EntityId): void => {
             const tu = state.unit.get(team)!;
             for (const s of tu.members) { const m = state.mover.get(s); if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; } }
             stopUnit(state, team);
-            return startSetup(ctx, state, events, team);
           };
-          if (teamOrderShot(ctx, state, teams, order.x, order.y, named, setup)) return true;
+          const setup = (team: EntityId): boolean => startSetup(ctx, state, events, team);
+          if (teamOrderShot(ctx, state, teams, order.x, order.y, named, stop, setup)) return true;
         }
         return orderLauncherShot(ctx, state, events, soldiers, order.x, order.y, named) ? true : "unable";
       }

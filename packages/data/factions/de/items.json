@@ -569,6 +569,51 @@
         "flightPerKmSeconds": 6,
         "hearingRangeM": 4000
       }
+    },
+    {
+      "id": "de-quadcopter",
+      "nameKey": "item.de-quadcopter",
+      "category": "drone",
+      "massKg": 1.6,
+      "drone": {
+        "battery": "de-drone-battery",
+        "powerW": 150,
+        "reserveShare": 0.15,
+        "cruiseMps": 10,
+        "climbMps": 3,
+        "altitudeM": 80,
+        "minAltitudeM": 20,
+        "maxAltitudeM": 300,
+        "launchSeconds": 60,
+        "controlRangeM": 1000,
+        "sensors": [
+          "drone-day",
+          "drone-thermal"
+        ],
+        "footprintM": 250,
+        "noiseM": 120,
+        "areaM2": 0.25
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/luftsysteme-bundeswehr/drohne-mikado",
+        "https://digit.site36.net/2022/06/27/vertical-take-off-german-military-buys-modernised-reconnaissance-drones/"
+      ],
+      "confidence": "low",
+      "note": "M9.4a (owner M9 round: one quadcopter at the platoon HQ): a MIKADO / AirRobot class quadcopter (search extracts: small electric quadcopter for day and night reconnaissance in close and built-up terrain, about 1,000 m range, carried by one soldier; the 2022 replacement folds and its backpack system weighs 15 kg). Which platoons have one is not public; mass, speeds, endurance (about 30 min) and camera values are game values."
+    },
+    {
+      "id": "de-drone-battery",
+      "nameKey": "item.de-drone-battery",
+      "category": "battery",
+      "massKg": 0.6,
+      "chargeCapacity": 75,
+      "chargeMassKg": 0,
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/luftsysteme-bundeswehr/drohne-mikado",
+        "https://digit.site36.net/2022/06/27/vertical-take-off-german-military-buys-modernised-reconnaissance-drones/"
+      ],
+      "confidence": "low",
+      "note": "M9.4a: the quadcopter's flight battery; charge in Wh (Mavic 3 class: 77 Wh; DE a game value). Three per drone (game value, low)."
     }
   ]
 }

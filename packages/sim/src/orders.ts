@@ -83,6 +83,10 @@ export type OrderBody =
   /** Set up a crew-served weapon where the men stand (M8.3a, SPEC 6.6 "deploy crew-served weapon"): a mortar team,
    *  or a section of them; the men stop. */
   | { kind: "deploy" }
+  /** A reconnaissance quadcopter (M9.4a): "fly" sends the unit's drone to (x, y) (its operator launches it first if
+   *  it is not up; `altM`: its height above the ground), "home" brings it back to land with its operator. The
+   *  target: the unit whose men carry it (a platoon: its headquarters) or one of them. */
+  | { kind: "drone"; op: "fly" | "home"; x?: number; y?: number; altM?: number }
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor

@@ -23,7 +23,7 @@
 import { smokePhysics, smokeTransmission } from "../smoke";
 import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
-import type { EventSink } from "../events";
+import type { EventSink, SimEvent } from "../events";
 import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
 import { eyeHeightM, sight, TARGET_POINT_M } from "../los";
@@ -32,7 +32,7 @@ import { nextFloat, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt, standZ } from "../terrain";
 import type { SpottingDef, VehicleDef } from "../catalog";
-import type { VehicleState } from "../components";
+import type { DroneState, VehicleState } from "../components";
 
 import { canFight } from "./gunnery";
 import { compCondition, onRoof } from "../mount";
@@ -210,6 +210,97 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM)); // a man's eyes reach as far for a hull as for a man
     }
   }
+  // Drones' cameras (M9.4a): each drone once per scan time, staggered by its ID.
+  if (state.drone.size > 0) {
+    for (const [did, d] of state.drone.entries()) {
+      if ((tick + did) % every !== 0) continue;
+      if (d.seen.length > 0) d.seen = d.seen.filter((e) => tick - e.lastTick <= forget && (state.soldier.get(e.target)?.physiology.alive === true || vehicleSeeable(state.vehicle.get(e.target))));
+      if (d.operator === null) continue; // nobody watches the picture
+      targets ??= soldierTargets(ctx, state);
+      vtargets ??= state.vehicle.size > 0 ? vehicleTargets(ctx, state) : [];
+      droneScan(ctx, state, events, did, d, targets, vtargets, scanS);
+    }
+  }
+}
+
+/** New men a drone's operator picks out of the picture per scan, at most (a cost bound). */
+const DRONE_LOOKS = 3;
+
+/**
+ * A drone's scan (M9.4a): its cameras look down on the ground within `footprintM` around the point below it; the
+ * operator's skill and stress stand for the observer's. A man shows his size from above (any posture about the same);
+ * light, heat, vegetation, roofs and smoke as for any sensor. What it sees goes into the drone's own `seen`.
+ */
+function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: EntityId, d: DroneState, targets: readonly SoldierTarget[], vts: readonly VehTarget[], scanS: number): void {
+  const D = ctx.catalog.spotting, tick = state.tick, t = state.transform.get(did), def = ctx.catalog.items[d.item]?.drone;
+  if (!t || !def || d.operator === null || t.z <= 0) return;
+  const os = state.soldier.get(d.operator);
+  if (!os) return;
+  const ex = t.x, ey = t.y, ez = heightAt(ctx.map, t.x, t.y) + t.z; // ground: ok (a drone flies its height over the ground)
+  const skill = os.skills["observation"] ?? os.skills["marksmanship"] ?? 0.5;
+  const own = Math.max(0.2, 1 + D.skillSlope * (skill - 0.5)) * Math.max(0, 1 - D.stressK * Math.max(os.mental.stress, os.mental.suppression));
+  const light = state.environment.light, rain = state.environment.rain, fog = state.environment.visibilityM;
+  const kinds = def.sensors.map((k) => D.sensors[k]).filter((k) => k !== undefined);
+  const fp2 = def.footprintM * def.footprintM, DR = D.drone, search = DR?.searchFactor ?? 1;
+  // Best camera at a slant range, without smoke (conv = ms = 1) or through it.
+  const sensorAt = (slant: number, conv = 1, ms = 1, flash = 0, heat = 1): number => {
+    let best = 0;
+    SENSOR_HEAT = 0;
+    for (const k of kinds) {
+      if (slant > Math.min(k.maxRangeM ?? D.maxRangeM, Math.max(fog, k.fogFloorM ?? 0))) continue;
+      const f = (slant >= k.fromM ? k.factor : 1) * Math.max(D.lightFloor, light, k.nightLight, flash) * (1 - (1 - (k.rainFactor ?? 1)) * rain) * throughSmoke(k.smokeFactor ?? 0, conv, ms) * (k.thermal === true ? heat : 1);
+      if (f > best) best = f;
+      if (k.thermal === true && f > SENSOR_HEAT) SENSOR_HEAT = f;
+    }
+    return best;
+  };
+  let looks = 0;
+  for (const tg of targets) {
+    if (tg.side === d.side) continue;
+    const dx = tg.x - ex, dy = tg.y - ey, d2 = dx * dx + dy * dy;
+    if (d2 > fp2) continue;
+    const dz = ez - tg.z, slant = sqrt(d2 + dz * dz);
+    const sensor = sensorAt(slant, 1, 1, tg.flash, tg.heat);
+    const heat = SENSOR_HEAT;
+    if (sensor <= 0) continue;
+    const idx = d.seen.findIndex((e) => e.target === tg.id);
+    let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, slant), D.rangeExponent) * tg.top * tg.motion * own * sensor * search;
+    if (idx >= 0) rate *= D.keepRateFactor;
+    const u = nextFloat(state.rng, Streams.spotting);
+    if (u >= 1 - exp(-rate * scanS)) continue;
+    if (idx < 0) { if (looks >= DRONE_LOOKS) continue; looks++; }
+    // Under a tree canopy: the crowns hide most of him from above (heat comes through better).
+    const under = DR !== undefined && tg.vegTopZ - tg.z > DR.canopyAboveM;
+    const sg = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.z);
+    if (sg.blockedBy !== null) continue;
+    let vis = heatThrough(sg.visibility, sensor, heat, D.thermal.vegetationExponent);
+    if (under) vis *= heat >= sensor ? DR.canopyThermal : DR.canopyDay;
+    if ((tg.firing || tg.moving) && tg.vegTopZ > tg.z && !under) {
+      const top = sight(ctx, ex, ey, ez, tg.x, tg.y, tg.vegTopZ + 0.1);
+      if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
+    }
+    if (state.smoke.length > 0) {
+      const SP = smokePhysics(ctx.catalog);
+      const conv = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "conventional");
+      const ms = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "multispectral");
+      vis *= sensorAt(slant, conv, ms, tg.flash, tg.heat) / sensor;
+    }
+    if (vis < D.minVisibility) vis = 0;
+    if (u >= 1 - exp(-rate * vis * scanS)) continue;
+    if (idx >= 0) { d.seen[idx]!.lastTick = tick; continue; }
+    d.seen.push({ target: tg.id, firstTick: tick, lastTick: tick });
+    d.seen.sort((a, b) => a.target - b.target);
+    events.emit({ kind: "spotted", tick, observer: did, target: tg.id, side: d.side, rangeM: slant, drone: true });
+  }
+  if (vts.length === 0) return;
+  // Vehicles: the same cameras (a hull from above shows at least its side area; the geometry is the side view's).
+  const slantOf = (dist: number) => sqrt(dist * dist + t.z * t.z);
+  scanVehicles(ctx, state, events, did, d.side, d.seen, { x: ex, y: ey, z: ez, own: -1 },
+    (dist, _b, flash, heat) => sensorAt(slantOf(dist), 1, 1, flash, heat),
+    (dist, _b, conv, ms, flash, heat) => { const b = sensorAt(slantOf(dist), 1, 1, flash, heat); return b > 0 ? sensorAt(slantOf(dist), conv, ms, flash, heat) / b : 0; },
+    own * search, vts, scanS, def.footprintM);
+  // (scanVehicles emits plain "spotted" events: those of this drone, this tick, are flagged as a camera's.)
+  for (const e of events.events as SimEvent[]) if (e.kind === "spotted" && e.observer === did && e.tick === tick) e.drone = true;
 }
 
 /** Men (not vehicles) in a `seen` list. */
@@ -226,6 +317,8 @@ interface SoldierTarget {
   flash: number;
   /** His heat as a thermal sight sees it, relative to what the eye sees (M9.2; a blanket hides most of it). */
   heat: number;
+  /** His size seen from above (M9.4a: a drone's camera), as `size`. */
+  top: number;
 }
 
 /** Every man who can be seen this scan (not aboard a vehicle), ID order. */
@@ -252,9 +345,9 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     const v = cell >= 0 && cell < map.vegetation.length ? map.vegetation[cell]! : 0;
     const vegTopZ = v > 0 ? g + B.vegHeightM[v - 1]! : -Infinity;
     let r = targets[n];
-    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, heat: 1 }; targets[n] = r; }
+    if (!r) { r = { id: 0, side: "", x: 0, y: 0, z: 0, size: 0, motion: 0, firing: false, moving: false, vegTopZ: 0, flash: 0, heat: 1, top: 0 }; targets[n] = r; }
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
-    r.size = D.postureSize[ts.posture]; r.moving = moving; r.firing = firing;
+    r.size = D.postureSize[ts.posture]; r.top = D.drone?.postureSize[ts.posture] ?? r.size; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
     r.flash = 0;
     // Heat (M9.2): a man as by eye; still and not firing under a thermal blanket, its share.

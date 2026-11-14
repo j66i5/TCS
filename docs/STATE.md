@@ -41,7 +41,11 @@ the guns beyond danger close; the fire support pop-up per asset with screens by 
 `indirect`, `artillery`. Open: M8.5's balance, observer siting and the Russian mounted attack (A4) wait for D4;
 planned targets by the player need a deployment phase; the owner's phone play-test of the pop-up. Debt slot after
 M8 (slice 29): `?look=classic` deleted, perf re-baselined, `docs/research/low-confidence.md` (264 entries).
-Next on that branch: drones (slices 34-36) once M9.2 is on main.
+**Drones (2026-11-14, roadmap-detail slice 34 "M9.4a", same branch; DECISIONS "M9.4a").** One quadcopter at each
+platoon HQ (DE Funker, RU commander): launched by the `drone` order into an entity with its own battery, a busy
+operator, cameras that search the ground below, a feed over the radio with the usual delay, a sidebar tile where
+Move means fly and Halt brings it home. `npm run lab -- drone`, `--scene drone`, scenario `bench-drones`. The AI
+does not fly it yet. Next: M9.4b counter-drone and AI use, M9.5 drone-observed fire.
 
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke

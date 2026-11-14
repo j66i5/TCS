@@ -2,7 +2,7 @@
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
 import { allMembers, buildScenario, demoBattle, freeSpot, vehicleBattle } from "@tcs/scenario";
 import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
-import { hypot2, PI, type BattleInput, type Controller } from "@tcs/sim";
+import { hypot2, PI, type BattleInput, type Controller, type Order } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
 
 export function loadData(includeFixtures = false): DataSet {
@@ -216,6 +216,25 @@ export const SCENARIOS: Record<string, NamedScenario> = {
       vehicleWanderController("red", input.seed * 2 + 2, input.map, 60),
     ],
   },
+  "bench-drones": {
+    description: "Benchmark (M9.4a): the bench battle (304 men moving) with a quadcopter at every fifth team (8 per side, 16 in the air), each sent to a new point every 90 s.",
+    build: (data, seed, seconds) => {
+      const input = demoBattle(data, { seed, factions: ["de", "ru"], templates: ["demo-team", "demo-team"], unitsPerSide: 38, mapKind: "farmland", timeLimitSeconds: seconds });
+      for (const f of input.forces) {
+        const pre = f.faction === "de" ? "de" : "ru";
+        f.units.forEach((u, k) => {
+          const cap = input.catalog.items[`${pre}-drone-battery`]?.chargeCapacity;
+          if (k % 5 !== 0 || cap === undefined || !u.members[0]) return;
+          u.members[0].load.push({ type: `${pre}-quadcopter`, count: 1 }, { type: `${pre}-drone-battery`, count: 2, charge: cap });
+        });
+      }
+      return input;
+    },
+    controllers: (input) => [
+      both(wanderController("blue", input.seed * 2 + 1, input.map, 60), droneWander("blue", input.seed * 2 + 11, input.map, 90)),
+      both(wanderController("red", input.seed * 2 + 2, input.map, 60), droneWander("red", input.seed * 2 + 12, input.map, 90)),
+    ],
+  },
   bench: {
     description: "Benchmark: 38 four-man teams per side (304 soldiers; the old placeholder team, kept so the benchmark stays comparable) on a generated 2 x 2 km farmland map, all moving.",
     build: (data, seed, seconds) =>
@@ -227,6 +246,32 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     ],
   },
 };
+
+/** Two controllers of one side as one (their orders together; the first one's state saved). */
+function both(a: Controller, b: Controller): Controller {
+  return { side: a.side, think: (view, tick) => [...a.think(view, tick), ...b.think(view, tick)] };
+}
+
+/** Benchmarks (M9.4a): every `intervalSeconds`, each top unit of the side whose men carry a quadcopter (or have it
+ *  up) sends it to a random point in the middle of the map. */
+function droneWander(side: string, seed: number, map: { widthM: number; heightM: number }, intervalSeconds: number): Controller {
+  let r = (seed * 2654435761) >>> 0;
+  const rand = () => { r = (Math.imul(r, 1664525) + 1013904223) >>> 0; return r / 4294967296; };
+  const every = Math.round(intervalSeconds * 60);
+  return {
+    side,
+    think(view, tick) {
+      if (tick % every !== 0) return [];
+      const out: Order[] = [];
+      for (const [id, u] of view.unit.entries()) {
+        if (u.side !== side || u.parent !== null) continue;
+        const has = [...view.drone.values()].some((d) => d.unit === id) || u.members.some((m) => view.container.get(m)?.stacks.some((st) => st.type.endsWith("-quadcopter") && st.count > 0));
+        if (has) out.push({ tick, issuer: side, target: id, kind: "drone", op: "fly", x: map.widthM * (0.3 + 0.4 * rand()), y: map.heightM * (0.2 + 0.6 * rand()) });
+      }
+      return out;
+    },
+  };
+}
 
 /** A controller that first sets every platoon of its side to fire at will (benchmarks), then does what `c` does. */
 function freeFire(c: Controller): Controller {

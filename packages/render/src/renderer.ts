@@ -75,6 +75,8 @@ export interface Overlay {
   /** Side whose own units are fully shown (waypoints etc.). */
   playerSide: string;
   selectedUnit: EntityId | null;
+  /** M9.4a: the unit whose drone is selected (its sidebar tile): its cameras' footprint and goal are drawn. */
+  selectedDrone?: EntityId | null;
   /** Debug drawing: entity IDs, all sides' waypoints — and the enemy as he really is (no fog of war). */
   debug: boolean;
   /** Screenshots (M7.5e): the enemy as he really is, without Debug's other drawing. */
@@ -227,6 +229,8 @@ export class BattleRenderer {
   private smokePhys: SmokePhysics | null = null;
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
+  /** M9.4a: each quadcopter item's camera footprint radius (m). */
+  private droneFootprint: Record<string, number> = {};
   /** M7.5b: the look, the zoom level shown last, the flat map, building floors and roofs, the soldier sprites. */
   private look: Look = "photo";
   private lod: Lod | null = null;
@@ -414,6 +418,8 @@ export class BattleRenderer {
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
     this.vehicleDefs = catalog.vehicles;
+    this.droneFootprint = {};
+    for (const [k, it] of Object.entries(catalog.items)) if (it.drone) this.droneFootprint[k] = it.drone.footprintM;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
   }
@@ -633,6 +639,7 @@ export class BattleRenderer {
     // stacked into one — and an infantry symbol only for a unit with men on foot).
     if (lod === LOD_SYMBOLS) {
       this.drawOverview(g, state, alpha, overlay, sideIndex, fog);
+      this.drawDrones(g, state, alpha, overlay, sideIndex, fog);
       this.drawObjectives(g, overlay, sideIndex, state);
       if (fog) this.drawKnown(g, overlay, sideIndex, false);
       if (overlay.plan) this.drawPlan(g, overlay.plan);
@@ -755,6 +762,7 @@ export class BattleRenderer {
         this.force(`${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}${careLine(state, id)}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
+    this.drawDrones(g, state, alpha, overlay, sideIndex, fog);
     this.drawObjectives(g, overlay, sideIndex, state);
     if (fog) this.drawKnown(g, overlay, sideIndex, true);
     if (overlay.plan) this.drawPlan(g, overlay.plan);
@@ -990,6 +998,42 @@ export class BattleRenderer {
    * heading, the turret and barrel; side colour; a ring when its unit is selected; its route (reverse legs orange);
    * the callsign when zoomed in. Under fog of war only the player's own (enemy vehicles come with contacts, M7.3).
    */
+  /**
+   * Reconnaissance quadcopters (M9.4a): a small four-rotor symbol at its place (a fixed size on screen), its height
+   * beside it, a thin line down to its operator and, for the drone selected, the ground its cameras search. Under fog
+   * of war only the player's own (an enemy drone is seen and heard from M9.4b).
+   */
+  private drawDrones(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
+    if (state.drone.size === 0) return;
+    const c = this.camera;
+    for (const [id, d] of state.drone.entries()) {
+      if (fog && d.side !== overlay.playerSide) continue;
+      const t = state.transform.get(id);
+      if (!t) continue;
+      const p = this.pos(state, id, alpha);
+      const s = worldToScreen(c, p.x, p.y);
+      const colour = SIDE_COLOURS[(sideIndex.get(d.side) ?? 0) % SIDE_COLOURS.length]!;
+      const mine = d.side === overlay.playerSide;
+      if (mine && overlay.selectedDrone === d.unit) {
+        const fp = (this.droneFootprint[d.item] ?? 0) * c.scale;
+        if (fp > 6) g.circle(s.x, s.y, fp).fill({ color: colour, alpha: 0.06 }).stroke({ width: 1, color: colour, alpha: 0.5 });
+        if (d.goal && d.mode !== "home") { const q = worldToScreen(c, d.goal.x, d.goal.y); g.moveTo(s.x, s.y).lineTo(q.x, q.y).stroke({ width: 1, color: colour, alpha: 0.6 }); }
+      }
+      if (mine && d.operator !== null) {
+        const ot = state.transform.get(d.operator);
+        if (ot) { const q = worldToScreen(c, ot.x, ot.y); g.moveTo(s.x, s.y).lineTo(q.x, q.y).stroke({ width: 1, color: colour, alpha: 0.25 }); }
+      }
+      // Four rotors on an X (7 px arms), a dark rim so it reads on any ground.
+      const a = 7;
+      for (const [dx, dy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+        g.moveTo(s.x, s.y).lineTo(s.x + dx * a, s.y + dy * a).stroke({ width: 3, color: 0x10140f, alpha: 0.8 });
+        g.moveTo(s.x, s.y).lineTo(s.x + dx * a, s.y + dy * a).stroke({ width: 1.5, color: colour });
+        g.circle(s.x + dx * a, s.y + dy * a, 3).fill({ color: 0x10140f, alpha: 0.6 }).stroke({ width: 1.2, color: colour });
+      }
+      this.force(`${Math.round(t.z)} m`, s.x + a + 5, s.y - 4, 0xffffff);
+    }
+  }
+
   private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {

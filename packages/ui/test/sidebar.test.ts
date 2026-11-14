@@ -9,10 +9,15 @@ describe("unitTiles", () => {
   const cat = sim.ctx.catalog;
   it("one tile per own unit: each platoon then its squads and vehicles, with men fit and a state", () => {
     const h = simHash(sim);
-    const tiles = unitTiles(sim.state, "blue", cat);
+    const all0 = unitTiles(sim.state, "blue", cat);
     expect(simHash(sim)).toBe(h);
     const own = [...sim.state.unit.values()].filter((u) => u.side === "blue");
+    // (M9.4a: each platoon's quadcopter has its own tile right under the platoon's.)
+    const tiles = all0.filter((t) => t.kind !== "drone");
     expect(tiles.length).toBe(own.length);
+    const drones = all0.filter((t) => t.kind === "drone");
+    expect(drones.length).toBe(own.filter((u) => u.parent === null).length);
+    for (const d of drones) { expect(all0[all0.indexOf(d) - 1]!.unit).toBe(d.unit); expect(d.droneUp).toBe(false); expect(d.dronePct).toBe(100); }
     expect(tiles.every((t) => sim.state.unit.get(t.unit)!.side === "blue")).toBe(true);
     expect(tiles[0]!.depth).toBe(0);
     expect(tiles[0]!.kind).toBe("hq");
@@ -25,7 +30,7 @@ describe("unitTiles", () => {
     expect(veh.passengers).toBe(6);
     expect(veh.vehicleStatus).toBe("ok");
     // The platoon's tile counts every man of the platoon.
-    const all = tiles.filter((t) => t.depth === 1 && t.parent === tiles[0]!.callsign && t.kind !== "vehicle").reduce((n, t) => n + t.total, 0);
+    const all = tiles.filter((t) => t.depth === 1 && t.parent === tiles[0]!.callsign && t.kind !== "vehicle" && t.kind !== "drone").reduce((n, t) => n + t.total, 0);
     expect(tiles[0]!.total).toBeGreaterThanOrEqual(all);
   });
   it("men out of the fight count against the fit; a unit with nobody fit is lost", () => {

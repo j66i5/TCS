@@ -2,6 +2,7 @@
  * The simulation loop. Fixed timestep (60 Hz). No wall-clock time, no Math.random, no DOM, no Node.
  * The app calls `step` as often as real time requires; the headless tools call it as fast as they can.
  */
+import { droneSystem } from "./systems/drones";
 import { lightAt } from "./light";
 import { initMortars, mortarSystem } from "./systems/mortars";
 import { actionSystem } from "./actions";
@@ -113,6 +114,7 @@ export function step(sim: Sim): SimEvent[] {
   vehicleDriveSystem(ctx, state, events);
   vehicleSyncSystem(ctx, state);
   movementSystem(ctx, state, events);
+  droneSystem(ctx, state, events);
   physiologySystem(ctx, state);
   // Vehicle gunnery (M7.3; each returns at once without vehicles): lay the turrets, then fire.
   turretSystem(ctx, state);

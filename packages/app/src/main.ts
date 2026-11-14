@@ -14,13 +14,13 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
-  mortarTeams, fireOptions,
+  mortarTeams, fireOptions, airborneDroneOf,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
   centreOf, facingHandleAt, inPlacePoint, losPreview, shapeOf, turnFormation, modeAfterOrder, onUnitAt, retargetMove, type Eye, type LosLine,
   manDetail, repaceMove, unitMenRows,
-  ageLabel, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
+  ageLabel, droneOrders, cycleUnit, easeToward, intentLines, isPanKey, keyAction, LastSeenBook, linesShown, panVector, PAN_PX_PER_S, RangingBook, type KeyAction } from "@tcs/ui";
 import { loadBundledData } from "./data";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -157,7 +157,12 @@ async function main(): Promise<void> {
     },
     onSpeed: (v) => { speed = v; },
     onOrderMode: (m) => { orderMode = m; gesture = null; if (plan && plan.kind !== m) endPlan(); },
-    onHalt: () => { endPlan(); gesture = null; if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" }); },
+    onHalt: () => {
+      endPlan(); gesture = null;
+      if (overlay.selectedUnit === null) return;
+      // (M9.4a: the drone selected: Halt brings it home to land.)
+      issue(droneMode() ? { tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "drone", op: "home" } : { tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "halt" });
+    },
     onMount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "mount" }); },
     onDismount: () => { endPlan(); if (overlay.selectedUnit !== null) issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "dismount" }); },
     // Vehicles (M7.3): smoke screen now; the gun and round of the next fire order.
@@ -211,11 +216,17 @@ async function main(): Promise<void> {
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
     // unselects (as before). A press held on a tile follows the unit; the badge (or any pan) stops following.
-    onSelectUnit: (u) => {
+    onSelectUnit: (u, drone) => {
       endPlan(); gesture = null;
-      if (overlay.selectedUnit === u && centredOn(u)) { overlay.selectedUnit = null; stopFollow(); }
+      // (M9.4a: the unit's drone tile selects its drone: Move means fly, Halt brings it home.)
+      const same = overlay.selectedUnit === u && (drone === true) === droneMode();
+      if (same && (drone === true ? droneCentred(u) : centredOn(u))) { overlay.selectedUnit = null; overlay.selectedDrone = null; stopFollow(); }
       // (The card first: centring keeps the unit clear of it.)
-      else { overlay.selectedUnit = u; showCard(); centreOn(u); if (following !== null && following !== u) stopFollow(); }
+      else {
+        overlay.selectedUnit = u; overlay.selectedDrone = drone === true ? u : null; showCard();
+        if (drone === true) centreOnDrone(u); else centreOn(u);
+        if (following !== null && following !== u) stopFollow();
+      }
       syncOrders(); refreshTiles();
     },
     onFollowUnit: (u) => { endPlan(); gesture = null; overlay.selectedUnit = u; startFollow(u); syncOrders(); refreshTiles(); },
@@ -286,11 +297,12 @@ async function main(): Promise<void> {
   let ordersKey = "";
   const syncOrders = () => {
     const cap = unitCapabilities(sim.state, input.catalog, overlay.selectedUnit);
-    const key = `${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
+    const key = `${droneMode() ? "drone|" : ""}${overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
     if (ordersShownFor === overlay.selectedUnit && key === ordersKey) return;
     const changedUnit = ordersShownFor !== undefined && ordersShownFor !== overlay.selectedUnit;
     ordersShownFor = overlay.selectedUnit; ordersKey = key;
-    const set = ordersFor(cap, input.catalog.movementModes);
+    // (M9.4a: the drone: Move (fly there) and Halt (home) only.)
+    const set = droneMode() ? droneOrders() : ordersFor(cap, input.catalog.movementModes);
     hud.setOrders(set);
     // The order mode on show must be one the unit has (a squad without grenades: back to Move); a new unit
     // starts with Move.
@@ -302,7 +314,7 @@ async function main(): Promise<void> {
   let tilesAt = -1e9;
   const refreshTiles = () => {
     const tiles = unitTiles(sim.state, playerSide, input.catalog);
-    hud.setTiles(tiles, overlay.selectedUnit);
+    hud.setTiles(tiles, overlay.selectedUnit, droneMode());
     showCard(tiles);
   };
   /** The selected unit's card (S3, S6) and the open man's box: refreshed with the tiles and on every selection. */
@@ -500,6 +512,11 @@ async function main(): Promise<void> {
     const ins = viewInsets();
     return screenToWorld(renderer.camera, ins.left + (renderer.app.screen.width - ins.left - ins.right) / 2, ins.top + (renderer.app.screen.height - ins.top - ins.bottom) / 2);
   };
+  /** M9.4a: the selected unit's drone is selected (its tile), not the unit. */
+  const droneMode = () => overlay.selectedDrone !== undefined && overlay.selectedDrone !== null && overlay.selectedDrone === overlay.selectedUnit;
+  const droneAt = (uid: EntityId) => { const id = airborneDroneOf(sim.state, uid); return id === null ? null : sim.state.transform.get(id) ?? null; };
+  const centreOnDrone = (uid: EntityId) => { const p = droneAt(uid); if (!p) { centreOn(uid); return; } renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); void renderer.primeDetail(); };
+  const droneCentred = (uid: EntityId) => { const p = droneAt(uid); if (!p) return centredOn(uid); const v = viewCentre(); return Math.hypot(p.x - v.x, p.y - v.y) * renderer.camera.scale <= 24; };
   const centreOn = (uid: EntityId) => { const p = centreOf(placesOf(uid)); if (p) { renderer.focusScale(p.x, p.y, renderer.camera.scale, viewInsets()); void renderer.primeDetail(); } };
   /** Review fix: the selected unit kept clear of the card when it grows (Men opened): centred if it went under it. */
   const keepSelectedClear = () => {
@@ -672,7 +689,7 @@ async function main(): Promise<void> {
     // without moving: there). The ghost marker follows the mouse; back on the unit: nothing is sent.
     onRightStart: (w) => {
       const uid = overlay.selectedUnit;
-      if (uid === null || !sim.state.unit.has(uid) || plan) return false;
+      if (uid === null || !sim.state.unit.has(uid) || plan || droneMode()) return false;
       hud.offerContext(null);
       const from = centreOf(placesOf(uid));
       if (!from) return false;
@@ -702,11 +719,17 @@ async function main(): Promise<void> {
         const his = sim.state.identity.req(hit).unit;
         if (his === overlay.selectedUnit) inspected = inspected === hit ? null : hit;
         else { overlay.selectedUnit = his; inspected = null; }
-        refreshTiles();
+        overlay.selectedDrone = null;
+        syncOrders(); refreshTiles();
         return;
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
+      if (droneMode()) {
+        // The drone (M9.4a): a tap sends it there (launched first if it is on the ground).
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "drone", op: "fly", x: w.x, y: w.y });
+        return;
+      }
       if (orderMode === "grenade" || orderMode === "grenades" || orderMode === "smoke") {
         // "All grenades": every man who can reach the point throws or fires, a moment apart. "Smoke" (D1): one man
         // throws a hand smoke grenade there.
@@ -752,7 +775,7 @@ async function main(): Promise<void> {
         return dragHandle !== null;
       }
       const uid = overlay.selectedUnit;
-      if (uid === null || !sim.state.unit.has(uid)) return false;
+      if (uid === null || !sim.state.unit.has(uid) || droneMode()) return false;
       if (orderMode === "fire" || orderMode === "antitank") {
         if (!inMap(w)) return false;
         const on = onSelected(w);
@@ -867,7 +890,7 @@ async function main(): Promise<void> {
       case "speed": hud.setSpeed(SPEEDS[a.index] ?? 1); return;
       case "cancel": escape(); return;
       case "cycle": {
-        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost").map((t) => t.unit);
+        const order = unitTiles(sim.state, playerSide, input.catalog).filter((t) => t.state !== "lost" && t.kind !== "drone").map((t) => t.unit);
         const next = cycleUnit(order, overlay.selectedUnit, a.dir);
         if (next !== null) selectAndCentre(next);
         return;

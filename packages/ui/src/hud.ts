@@ -65,7 +65,8 @@ export interface HudCallbacks {
   onSave(): void;
   onLoad(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
-  onSelectUnit(unit: EntityId): void;
+  /** `drone` (M9.4a): the unit's drone tile was tapped. */
+  onSelectUnit(unit: EntityId, drone?: boolean): void;
   /** S5: a press held on a unit's tile (the camera follows it); the "following" badge tapped (stop). */
   onFollowUnit?(unit: EntityId): void;
   onStopFollow?(): void;
@@ -114,7 +115,7 @@ export interface Hud {
    *  null or a set with `none`: nothing selected, every button greyed (M7.5a). */
   setOrders(set: OrderSet | null): void;
   /** The unit sidebar's tiles and the selected unit (M7.5a; the app refreshes them a few times a second). */
-  setTiles(tiles: readonly UnitTile[], selected: EntityId | null): void;
+  setTiles(tiles: readonly UnitTile[], selected: EntityId | null, drone?: boolean): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
   insets(): Insets;
   /** Review fix: how far up from the screen's bottom edge the radio log and the unit card reach (px; 0: none). */
@@ -465,7 +466,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const toggleRules = () => { if (current?.none || !current?.rules) return; panel.hidden = !panel.hidden; card.setRulesButton(true, !panel.hidden); hint.hidden = true; };
   dock.append(orders, plan, moreMenu);
   // ---- unit sidebar (M7.5a)
-  const sidebar = createSidebar(s, cb.sideColour, (u) => cb.onSelectUnit(u), () => layout(), (u) => cb.onFollowUnit?.(u));
+  const sidebar = createSidebar(s, cb.sideColour, (u, d) => cb.onSelectUnit(u, d), () => layout(), (u) => cb.onFollowUnit?.(u));
   // Where the dragged bar would dock (a strip along that edge while the grip is held).
   const preview = el("div", "hud-dock-preview");
   preview.hidden = true;
@@ -701,7 +702,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       score.hidden = parts.length === 0;
       if (was !== score.hidden) layout();
     },
-    setTiles(tiles, selected) { sidebar.update(tiles, selected); },
+    setTiles(tiles, selected, drone) { sidebar.update(tiles, selected, drone); },
     insets: () => ({ ...free }),
     bottomCover: () => {
       if (bottom.hidden || bottom.childElementCount === 0) return 0;

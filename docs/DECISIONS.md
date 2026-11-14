@@ -4506,3 +4506,49 @@ locked fire-and-forget missile against smoke flies on to the last point seen. So
   15.9/22.9), platoon-ru-vehicles 9 -> 9 German wins (identical): the Pumas fire MELLS at nothing in these battles —
   their 30 mm gets through a BMP-2, and the crew chooses the missile only beyond `missileBeyondM` (1000 m) or when its
   rounds would not penetrate. MELLS will matter against tanks (M7.6) and at long range. Golden update.
+
+## 2026-11-14 — M9.4a Reconnaissance quadcopter (roadmap-detail slice 34, parallel session; owner to review)
+Owner answers used (M9 round, binding): **one quadcopter at the platoon HQ**; its feed goes **over the radio with the
+usual delay**. Software and domain decisions (owner to review):
+- **Who carries it:** the DE Zug's Funker (the drone and three batteries); in the RU platoon the commander himself
+  (the platoon has no separate HQ, and the first BMP-2 is full with its squad and the commander, so there is no seat
+  for an added operator). Both low.
+- **Data (search extracts; DE low, RU medium):** `de-quadcopter` (MIKADO / AirRobot class: about 1 km control range,
+  1.6 kg, 75 Wh at 150 W ≈ 30 min, cruise 10 m/s, 80 m usual height, launch 60 s); `ru-quadcopter` (Mavic 3T class:
+  920 g, 77 Wh at 115 W ≈ 40 min, 12 m/s, 100 m, launch 45 s, control range kept to 3 km). Batteries are counted
+  items with a charge in Wh (rule 9). Two camera sensor kinds in core/spotting.json: `drone-day` (factor 1.6, to
+  700 m) and `drone-thermal` (1.3, to 500 m, smoke x0.5, rain x0.85).
+- **Item becomes entity:** `drone` order (op "fly" with a point and an optional height, op "home") to the unit (a
+  platoon: its HQ members) or to the man. "fly" when it is not up: the carrier launches it (action `launchDrone`); the
+  airframe and his fullest battery move into the drone entity's own container; the drone has a Transform (z = height
+  above the ground) and a `DroneState` in the new `drone` store (saved, hashed). Landing puts both back into his load,
+  the battery with what charge is left.
+- **Busy operator:** while it is up he holds the action `flyDrone` (open-ended): every system that leaves a man with
+  an action alone leaves him alone (no firing, throwing, picking up), and he stands still (his moves are held). If
+  another action replaces it (taking cover, treatment) the drone hovers until he picks the controller up again; if he
+  is hit or boards, another able man of the unit within 30 m takes it over; nobody for 30 s: it comes home on its own
+  and, with nobody within 30 m when it lands, it is lost.
+- **Flight:** straight lines at cruise speed and its height over the ground; it stops and hovers at its control range
+  from the operator. Battery: drains at `powerW`; when the charge left is what flying home and down takes plus
+  `reserveShare` (15 %) of a battery, it comes home ("battery low"); empty, it falls and is lost.
+- **Cameras:** once per scan time, staggered by its ID, the drone searches the ground within `footprintM` (DE 250 m,
+  RU 300 m) around the point under it; rate as for a man with the slant range, a man's size seen from above
+  (`drone.postureSize`: about the same in any posture), the operator's observation skill and stress, a search factor
+  0.4 (it searches a wide area, it does not stare at one man), light, heat, vegetation, roofs and smoke as any sensor.
+  A man under a tree canopy (vegetation more than 3 m over him) shows 5 % of himself to the day camera and 20 % to the
+  thermal one (game values, low). It needs an operator (nobody watching the picture: no sighting).
+- **Feed:** what the cameras have in view the operator knows at once ("reported", the sighting's error at the slant
+  range + `feedErrorM` 5 m); he passes it to every man of his top unit through the comms model (voice nearby, radio
+  with the usual delay), each enemy at most every `reportEverySeconds`, and calls new ones out ("drone has enemy").
+  The AI's side knowledge reads the contacts as before, so the AI profits once it flies the drone (M9.4b).
+- **Interface:** a drone tile under its platoon in the sidebar (battery %, in the air or not); with it selected the
+  bar shows Move and Halt only: a tap sends the drone there (launching it first), Halt brings it home. The map draws
+  own drones (rotor symbol, height, a line to the operator; the selected one's footprint and goal). Enemy drones are
+  not drawn until M9.4b (seen and heard).
+- **Lab** (`npm run lab -- drone`, 20 seeds, timed from the man entering the footprint): standing in the open at
+  100 m height median 17 s (100 % within 60 s); prone in crops 16 s; prone in woodland by day 15 % within 60 s; the
+  same at night (thermal) 70 %; under a thermal blanket at night 85 %. A DE battery keeps it up about 25 min.
+- **Perf:** `bench-drones` (bench with 16 drones up): about 21-22x real time against 23-24x for bench; test added.
+- **Batches (10 seeds x 1200 s, before -> after; the AI does not fly yet, only the load changed):** platoon blue
+  wins 1 -> 2 (casualties 19.1/12.6 -> 19.3/12.3); platoon-ru German wins 5 -> 6 of 10 (RU attacker 5 -> 4). Noise.
+  Golden update (data, the new store).

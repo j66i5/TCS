@@ -619,5 +619,14 @@
   "score.light": "Local time; light {pct} % of daylight",
   "radio.launchWarning": "{callsign}: missile launch! Smoke!",
   "radio.reloadOutside": "{callsign}: reloading the launcher, man on the roof.",
-  "missile.lost.range": "missile lost: out of the beam's range"
+  "missile.lost.range": "missile lost: out of the beam's range",
+  "radio.droneUp": "{callsign}: drone up.",
+  "radio.droneLow": "{callsign}: drone battery low, bringing it home.",
+  "radio.droneLanded": "{callsign}: drone down and recovered.",
+  "radio.droneLost": "{callsign}: we have lost the drone.",
+  "radio.contactDrone": "{callsign}: drone has enemy, {range} m, bearing {bearing}.",
+  "radio.ack.drone": "{callsign}: drone, wilco.",
+  "side.drone": "Drone",
+  "side.droneUp": "in the air, battery {pct} %",
+  "side.droneReady": "on the ground, battery {pct} %"
 }

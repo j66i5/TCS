@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.4b carrying to and into vehicles, roadmap-detail slice 9). The long session-by-session
+_Last updated: 2026-11-14 (D2 battle record and `main.ts` split, roadmap-detail slice 10). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -20,8 +20,11 @@ DECISIONS.md under its date._
   carries its wounded from up to 150 m to the ramp and lifts them in; lying and sitting places, ambulance layouts;
   `dismount` with `wounded` carries them out; "carried" and "stretcher" sprite frames; `bench-medical` perf case,
   floor 8×; `--scene medical`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and
-  are merged, and so is M8 (fire support, from main).** **Next: slice 10, D2 battle record and `main.ts` split**
-  (it must come before slice 11). Slice 13 needs slices 11 and 12 (12 merged).
+  are merged, and so is M8 (fire support, from main). Slice 10 (D2) is done: one battle record folded from the
+  events (`sim/src/record.ts`) feeds the review, the save and the batch report; the review has Battle, Medical and
+  Conduct tabs (the last two empty until M10.8); `app/src/main.ts` is cut to about 330 lines, the rest in modules
+  beside it (`app.ts` holds the shared app state).** **Next: slice 11, M10.5 Verwundetennest and platoon medic.**
+  Slice 13 needs slices 11 and 12 (12 merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -157,7 +160,6 @@ sensor physics (thermal, goggle numbers).
 - Leftovers from the UI work for D3: vehicle gun and ammunition on the card, the phone's unit list overlapping the
   card, a release-time "no line of fire" warning, drag ghosts piling up, casualties hard to read in the pixel look;
   the roof atlas paints on the main thread.
-- `main.ts` in the app is long (cut in D2, slice 10).
 
 ## Live build
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.

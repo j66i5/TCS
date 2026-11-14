@@ -30,7 +30,10 @@ and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attac
 down; a side that breaks or has nobody left loses at once. **Save** keeps the battle in the browser; **Load**
 brings it back exactly. At the end the **after-action review** shows the result and why, both casualty lists
 (who, where wounded), a timeline (men falling, objectives changing hands, units breaking) and, on the
-battlefield, a **heat map** (dots where shots came from, crosses where men fell).
+battlefield, a **heat map** (dots where shots came from, crosses where men fell). The review has three tabs: the
+battle, **Medical** and **Conduct**; the last two say "not recorded here yet" until the end of the medical work
+(M10.8) fills them. Everything in the review comes from one **battle record**, folded from the battle's events as
+they happen (`packages/sim/src/record.ts`); the batch report reads the same record, so the two cannot disagree.
 `?scenario=demo` opens the old one-squad sandbox.
 
 **Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
@@ -1151,7 +1154,7 @@ his own side now, whichever platoon he belongs to.
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
 
 1. **Tap → order.** The UI (`packages/ui/src/input.ts`) turns your finger position into map metres. The app
-   (`packages/app/src/main.ts`) creates the order
+   (`packages/app/src/controls.ts`, which sends it through `orders.ts`) creates the order
    `{ tick: 61, issuer: "blue", target: <team>, kind: "move", waypoints: [{ x: 200, y: 90, mode: "walk" }] }`
    and submits it.
 2. **Inbox.** The order waits in the simulation's inbox until its tick (`systems/orders.ts`).

@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { careNeed, environmentAt, lifeThreatNeed, parseTimeOfDay, runBattle, stripInteriors, tallyExpenditure, type Expenditure, type Sim } from "@tcs/sim";
+import { careNeed, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
@@ -63,38 +63,25 @@ for (let i = 0; i < runs; i++) {
   if (noInteriors) input.map = stripInteriors(input.map);
   if (noMedical) input.rules.medicalCare = false;
   const s0 = performance.now();
-  // Each side's first dismount (M7.2), from the event stream.
-  const firstDismount: Record<string, number | null> = { blue: null, red: null };
-  const sideOfUnit = new Map<number, string>();
-  const sideOfVehicle = new Map<number, string>();
-  const crews: Row["crews"] = { blue: { reversedOut: 0, fires: 0, firesOut: 0 }, red: { reversedOut: 0, fires: 0, firesOut: 0 } };
-  const missiles: Row["missiles"] = { blue: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 }, red: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 } };
-  const exp: Expenditure = {};
-  const mortar: Row["mortar"] = { blue: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 }, red: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 } };
-  const mortarHe = new Set(Object.values(input.catalog.factions).map((f) => f.fireSupport?.heAmmo).filter((x): x is string => x !== undefined));
+  // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
+  // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
+  const rec = newBattleRecord([...new Set(input.forces.map((f) => f.side))]);
+  let pending: SimEvent[] = [];
   const sideOfSoldier = (sim: Sim, id: number) => sim.state.identity.get(id)?.side;
-  let simRef: Sim | null = null;
-  let pending: Parameters<typeof tallyExpenditure>[1] = [];
+  const treated = (id: number) => rec.firstTreated[String(id)];
   const houses = buildingsTally(input);
-  const care: Row["care"] = { blue: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 }, red: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 } };
-  const cared = new Set<number>();
-  const carers: Row["carers"] = { blue: { comrades: 0, responders: 0, needed: 0, cared: 0, firstCareS: [], maxComrades: 0, diedFast: 0 }, red: { comrades: 0, responders: 0, needed: 0, cared: 0, firstCareS: [], maxComrades: 0, diedFast: 0 } };
+  const carers: Record<string, { needed: number; firstCareS: number[]; maxComrades: number; diedFast: number }> = { blue: { needed: 0, firstCareS: [], maxComrades: 0, diedFast: 0 }, red: { needed: 0, firstCareS: [], maxComrades: 0, diedFast: 0 } };
   const gone = new Set<number>();
-  const needSince = new Map<number, number>(); // casualty -> tick he first needed care
-  const firstCared = new Set<number>();
-  const m103b: Row["m103b"] = {
-    blue: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
-    red: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
-  };
+  const needSince = new Map<number, { tick: number; side: string }>(); // casualty -> tick he first needed care, his side
+  const m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number }> = { blue: { lifeThreat: 0, preventable: 0, killedAfter: 0 }, red: { lifeThreat: 0, preventable: 0, killedAfter: 0 } };
   const threatened = new Set<number>(), died = new Set<number>();
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
+    onEvents: (ev) => { pending = ev; houses.onEvents(ev); },
     onTick: (sim) => {
-      simRef = sim;
       houses.onTick(sim);
-      if (sideOfUnit.size === 0) for (const [id, u] of sim.state.unit.entries()) sideOfUnit.set(id, u.side);
-      if (sideOfVehicle.size === 0) for (const [id, v] of sim.state.vehicle.entries()) sideOfVehicle.set(id, v.side);
-      if (pending.length > 0) { tallyExpenditure(exp, pending, sim.state, input.catalog); pending = []; }
+      recordEvents(rec, pending, sim.state, input.catalog);
+      pending = [];
       // Life-threatening needs care can answer, and deaths after one (M10.3b), once a second, care on or off.
       if (sim.state.tick % 60 === 0) {
         for (const [id, s] of sim.state.soldier.entries()) {
@@ -117,101 +104,27 @@ for (let i = 0; i < runs; i++) {
         const per = new Map<number, number>();
         for (const [id, s] of sim.state.soldier.entries()) {
           if (s.intent?.kind === "care" && s.intent.responder !== true && s.intent.target !== undefined) per.set(s.intent.target, (per.get(s.intent.target) ?? 0) + 1);
-          if (!s.physiology.alive && needSince.has(id) && !firstCared.has(id) && !gone.has(id)) {
+          if (!s.physiology.alive && needSince.has(id) && treated(id) === undefined && !gone.has(id)) {
             gone.add(id);
             const k = carers[sideOfSoldier(sim, id) ?? ""];
-            if (k && sim.state.tick - needSince.get(id)! < 120 * 60) k.diedFast++;
+            if (k && sim.state.tick - needSince.get(id)!.tick < 120 * 60) k.diedFast++;
           }
-          if (s.wounds.length === 0 || !s.physiology.alive || needSince.has(id) || firstCared.has(id)) continue;
+          if (s.wounds.length === 0 || !s.physiology.alive || needSince.has(id) || treated(id) !== undefined) continue;
           if (careNeed(input.catalog, sim.state, id, sim.ctx.physiologyParams) === null) continue;
-          needSince.set(id, sim.state.tick);
-          const c = carers[sideOfSoldier(sim, id) ?? ""];
+          const side = sideOfSoldier(sim, id) ?? "";
+          needSince.set(id, { tick: sim.state.tick, side });
+          const c = carers[side];
           if (c) c.needed++;
         }
         for (const [c, n] of per) { const k = carers[sideOfSoldier(sim, c) ?? ""]; if (k) k.maxComrades = Math.max(k.maxComrades, n); }
       }
     },
-    onEvents: (ev) => {
-      pending = ev;
-      houses.onEvents(ev);
-      // Mortar bursts this tick (by the side of the man who called them), then the enemy men hurt in the same tick.
-      let burstSide: string | undefined;
-      for (const e of ev) {
-        if (e.kind === "explosion" && mortarHe.has(e.ammo) && simRef) { burstSide = sideOfSoldier(simRef, e.owner); const m = mortar[burstSide ?? ""]; if (m) m.bursts++; }
-        else if ((e as { kind: string }).kind === "support.ranging") { const m = mortar[(e as unknown as { side: string }).side]; if (m) m.ranging++; }
-      }
-      if (burstSide !== undefined && simRef) {
-        const hurt = new Set<number>();
-        for (const e of ev) {
-          if (e.kind === "wound" && (e.mechanism === "fragment" || e.mechanism === "blast") && sideOfSoldier(simRef, e.soldier) !== burstSide && !hurt.has(e.soldier)) { hurt.add(e.soldier); mortar[burstSide]!.enemyWounded++; }
-          else if (e.kind === "casualty" && sideOfSoldier(simRef, e.soldier) !== burstSide) mortar[burstSide]!.enemyDown++;
-        }
-      }
-      for (const e of ev) {
-        if (e.kind === "medical.treated" && simRef) {
-          const c = care[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (c) {
-            if (e.by === e.casualty) c.self++; else c.buddy++;
-            if (e.success) c.worked++;
-            if (e.success && e.intervention === "tourniquet") c.tourniquets++;
-            if (!cared.has(e.casualty)) { cared.add(e.casualty); c.men++; }
-          }
-          if (!firstCared.has(e.casualty)) {
-            firstCared.add(e.casualty);
-            const k = carers[sideOfSoldier(simRef, e.casualty) ?? ""], since = needSince.get(e.casualty);
-            if (k && since !== undefined) { k.cared++; k.firstCareS.push((e.tick - since) / 60); }
-          }
-          continue;
-        }
-        if (e.kind === "medical.triaged" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { k.tags[e.skill] = (k.tags[e.skill] ?? 0) + 1; if (e.cat !== e.actual) k.wrong[e.skill] = (k.wrong[e.skill] ?? 0) + 1; }
-          continue;
-        }
-        if (e.kind === "medical.dragged" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { if (e.done) k.dragsDone++; else k.drags++; }
-          continue;
-        }
-        if (e.kind === "medical.carried" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.payload) ?? ""];
-          if (k && e.phase === "start") k.carries[e.method] = (k.carries[e.method] ?? 0) + 1;
-          if (k && e.phase === "hold") k.holds++;
-          if (k && e.phase === "done") k.carriedM += e.distanceM;
-          continue;
-        }
-        // M10.4b: casualties lifted into and carried out of vehicles (the lead's action completes).
-        if (e.kind === "action.completed" && (e.action === "loadCasualty" || e.action === "unloadCasualty") && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.actor) ?? ""];
-          if (k) { if (e.action === "loadCasualty") k.loaded++; else k.unloaded++; }
-          continue;
-        }
-        if (e.kind === "medical.carer" && e.assigned && simRef) {
-          const k = carers[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { if (e.responder) k.responders++; else k.comrades++; }
-          continue;
-        }
-        if (e.kind === "missile.ended") { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m[e.result]++; continue; }
-        if (e.kind === "shot.fired" && e.vehicle !== undefined && input.catalog.ammo[e.ammo]?.guided !== undefined) { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m.fired++; continue; }
-        if (e.kind === "vehicle.hit" && e.result === "penetrated") {
-          const am = input.catalog.ammo[e.ammo];
-          const vs = sideOfVehicle.get(e.vehicle);
-          const m = missiles[vs === "blue" ? "red" : vs === "red" ? "blue" : ""];
-          if (m && am?.guided !== undefined) m.penetrated++;
-          else if (m && am?.delivery?.method === "direct") m.rocketPenetrated++;
-          continue;
-        }
-        if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
-          const c = crews[sideOfVehicle.get(e.vehicle) ?? ""];
-          if (c) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") c.reversedOut++; else if (e.kind === "vehicle.fire") c.fires++; else if (e.kind === "vehicle.extinguished") c.firesOut++; }
-          continue;
-        }
-        if (e.kind !== "unit.dismounted") continue;
-        const side = sideOfUnit.get(e.unit);
-        if (side !== undefined && firstDismount[side] === null) firstDismount[side] = e.tick / 60;
-      }
-    },
   });
+  finishRecord(rec, r);
+  // Seconds from first needing care to the first treatment, per treated man (by his side).
+  for (const [id, since] of needSince) { const t = treated(id), k = carers[since.side]; if (k && t !== undefined) k.firstCareS.push((t - since.tick) / 60); }
+  const sd = (side: string) => rec.sides[side] ?? newSideRecord();
+  const perSide = <T>(f: (x: SideRecord, side: string) => T): Record<string, T> => Object.fromEntries(["blue", "red"].map((x) => [x, f(sd(x), x)]));
   rows.push({
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
@@ -220,9 +133,12 @@ for (let i = 0; i < runs; i++) {
     winner: r.winner, scores: Object.fromEntries(r.scores.map((s) => [s.side, s.score])),
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
-    firstDismountS: firstDismount,
-    crews, missiles, mortar, buildings: houses.tally, care, carers, m103b,
-    spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
+    firstDismountS: perSide((x) => (x.firstDismountTick === null ? null : x.firstDismountTick / 60)),
+    crews: perSide((x) => x.crews), missiles: perSide((x) => x.missiles), mortar: perSide((x) => x.mortar), buildings: houses.tally,
+    care: perSide((x) => x.care),
+    carers: perSide((x, side) => ({ comrades: x.carers.comrades, responders: x.carers.responders, needed: carers[side]!.needed, cared: carers[side]!.firstCareS.length, firstCareS: carers[side]!.firstCareS, maxComrades: carers[side]!.maxComrades, diedFast: carers[side]!.diedFast })),
+    m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
+    spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, handSmoke: e.handSmoke, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
     })),

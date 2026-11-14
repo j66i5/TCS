@@ -1538,6 +1538,7 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    if (args["scene"] === "aar") { await page.close(); continue; } // D2: only the platoon battle's review (below)
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "night") { await nightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1698,6 +1699,14 @@ try {
     await page.waitForTimeout(500);
     const q2 = `${outDir}/platoon-${seed}-${name}-2-heat-map.png`;
     await page.screenshot({ path: q2 }); shots.push(q2);
+    // D2: the review's Medical and Conduct tabs (a short note until M10.8 fills them), the heat map off again.
+    await page.evaluate(new Function("const b = [...document.querySelectorAll('.hud-aar button')][0]; if (b) b.click();") as () => void);
+    for (const tab of ["medical", "conduct"]) {
+      await page.evaluate(new Function(`globalThis.__tcs.reviewTab(${JSON.stringify(tab)});`) as () => void);
+      await page.waitForTimeout(300);
+      const q3 = `${outDir}/platoon-${seed}-${name}-3-review-${tab}.png`;
+      await page.screenshot({ path: q3 }); shots.push(q3);
+    }
     console.log(`${name}: platoon battle, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }

@@ -69,3 +69,4 @@ export { canFight, gunneryAllowed, muzzleWorld, stationOperator } from "./system
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";
+export * from "./record";

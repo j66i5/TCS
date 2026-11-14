@@ -4793,3 +4793,38 @@ Conflicts kept both sides: the app's sim imports (environment and time of day ne
 string tables (litters next to thermal sights, blankets and MELLS), the batch tool's imports, the lab list (carry
 next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm run golden:update` after the merge
 (intended: the two branches' changes together); `golden/no-interiors` untouched. `npm test` green (118 files).
+
+## 2026-11-14 — D2 Battle record and `main.ts` split (roadmap-detail slice 10)
+- **One battle record from the events** (`sim/src/record.ts`, software decision): rule 5 says readers consume events;
+  the app's review and the batch tool each had their own fold of the same events. Now `newBattleRecord` /
+  `recordEvents(rec, events, view, catalog)` / `finishRecord(rec, result)` build one plain-JSON record: the timeline
+  as string-table keys with raw values (side, family name, callsign, objective, status, end reason, vehicle), the heat
+  map, ammunition (`tallyExpenditure`), and per side the counts the batch reports (first dismount, crews, missiles,
+  mortar, care, carers, triage tags and wrong tags, drags, carrying parties, metres carried, cover taken, loaded and
+  unloaded casualties) plus each casualty's first treatment tick. It lives in `sim` (pure, no text) so the app and the
+  tools share it. It is a **fold**, not `battleRecord(events, result)` over the whole stream as the plan wrote: the
+  timeline reads names and sides from the state of the tick (as the review always did), and keeping every event of a
+  40-minute battle would cost far more memory than the record.
+- **The batch keeps** what events cannot tell (who needs care and life-threatening needs, looked at once a second; the
+  comrades on one casualty at once) and reads everything else from the record. Check: the old and the new batch tool
+  give **identical rows** on platoon-vehicles, platoon-ru-vehicles and bench-combined (5 seeds x 600 s each, every
+  field but wall time); speed unchanged (9x / 83x / 52x against 9x / 80x / 51x).
+- **App save:** the record goes into the save (`record` field, `RECORD_VERSION` 1). A save from before D2 (its record
+  held text) loads with a fresh record: the review then starts at the load. Sim state, schema and goldens unchanged.
+- **The review in tabs** (`ui/src/aar.ts`): Battle (as before), Medical and Conduct, the last two with a short note
+  until M10.8 fills them; `__tcs.reviewTab(t)` and `__tcs.record()` for screenshots and checks;
+  `npm run screenshot -- --scene aar` (the platoon battle's review, heat map, both new tabs, phone and desktop).
+- **`main.ts` split:** 1,521 → 334 lines. The app's shared state is one `App` object (`app/src/app.ts`); the modules
+  beside `main.ts`: `orders.ts` (plans, the order for a gesture or tap, the order log), `units.ts` (read-only questions
+  about the player's units), `camera.ts` (centring, follow), `panels.ts` (order bar, sidebar, card, rules, score line),
+  `controls.ts` (map gestures), `keys.ts`, `view.ts` (floor switch, last-seen pins, debug sight), `review.ts` (the
+  review's words from the record), `save.ts`, `hooks.ts` (`window.__tcs`), `sprite-sheet.ts`. Behaviour unchanged
+  (controls, card, map-feel, fire-support and medical screenshot scenes run with the same results and no page errors).
+- **Test:** `tools/test/battle-record.test.ts`: the app's own loop and `runBattle` (the batch's way) give the same
+  record on 5 seeds of the shootout (240 s, with casualties and care), folding leaves the final hash unchanged, the
+  record is deterministic and round-trips as JSON, another version is not read back.
+- **Main moved on during the slice** (M8.6 fire support interface, M8 debt slot deleting the classic look, M9.4a
+  drone; PR #50): fast-forwarded onto it (no merge commit) and its `main.ts` changes ported into the new modules
+  (drone selection and orders in `units.ts` / `camera.ts` / `panels.ts` / `controls.ts`, the smoke-screen drag and
+  per-asset pop-up in `orders.ts` / `controls.ts`, fire support rounds in `review.ts`, the classic look gone from
+  `main.ts`). The drone, fire-support, controls and review screenshot scenes run with no page errors. No golden change.

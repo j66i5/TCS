@@ -51,6 +51,9 @@ export type SimEvent =
   | { kind: "behaviour.changed"; tick: number; soldier: EntityId; from: Behaviour; to: Behaviour }
   /** A man has given up (M6.6). `side` is his own. */
   | { kind: "surrendered"; tick: number; soldier: EntityId; side: SideId; reason: SurrenderReason }
+  /** A surrendered man sets off, hands up, to give himself up to the enemy soldier `to` (null: toward where he
+   *  knows the enemy is). `side` is his own. */
+  | { kind: "surrender.walk"; tick: number; soldier: EntityId; side: SideId; to: EntityId | null }
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
   | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }

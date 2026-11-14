@@ -364,6 +364,7 @@ export const BehaviourFile = withProv({
   surrender: z.object({
     stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
+    walkToEnemyM: Num(0, 500), walkSeenFactor: Num(0.05, 1), handOverM: Num(0, 50), walkSpeedFactor: Num(0.1, 1), walkReplanM: Num(0.5, 100), walkTimeoutSeconds: Num(1, 3600),
   }).strict(),
   /** Getting in and out of vehicles (M7.2): the same for every side. */
   mounting: z.object({

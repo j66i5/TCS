@@ -952,7 +952,7 @@ async function main(): Promise<void> {
           heatFalls.push(t.x, t.y, sideIdx(id.side));
           timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t("timeline.casualty", { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier), status: strings.t(`status.${e.status}`) }) });
         }
-      } else if (e.kind === "surrendered" || e.kind === "captured") {
+      } else if (e.kind === "surrendered" || e.kind === "captured" || e.kind === "surrender.walk") {
         const id = sim.state.identity.get(e.soldier);
         if (id) timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t(`timeline.${e.kind}`, { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier) }) });
       } else if (e.kind === "objective.changed" && e.holder !== null) {

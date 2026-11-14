@@ -213,6 +213,7 @@
   "timeline.ended": "Battle over: {reason}",
   "timeline.surrendered": "{side}: {name} ({callsign}) surrendered",
   "timeline.captured": "{side}: {name} ({callsign}) taken prisoner",
+  "timeline.surrender.walk": "{side}: {name} ({callsign}) walks over to the enemy, hands up",
   "score.line": "{objective}: {holder}{contested}",
   "score.contested": " (contested)",
   "score.nobody": "nobody",

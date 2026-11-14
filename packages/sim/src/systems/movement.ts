@@ -36,6 +36,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   const SB = ctx.catalog.behaviour.soldier;
   const hurryModes = SB.hurryModes, hurryMode = SB.hurryMode, hurrySupp = ctx.catalog.behaviour.decisions.seekCoverSuppression;
   const hurryFiredOn = secondsToTicks(SB.hurryFiredOnSeconds), hurryQuiet = secondsToTicks(SB.hurryQuietSeconds), tick = state.tick;
+  const handOverPace = ctx.catalog.behaviour.surrender.walkSpeedFactor;
   const levelK = exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
@@ -65,7 +66,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
     // Under fire (his suppression, or his own unit fired on just now) a man on a walk or sneak leg runs for the
     // rest of his way, until a quiet spell: nobody walks on into fire.
     let modeId = wp.mode;
-    if (s && hurryModes.includes(modeId)) {
+    // (A man walking over to give himself up never hurries: surrender.ts puts him down under fire instead.)
+    if (s && s.captive === null && hurryModes.includes(modeId)) {
       const uid = state.identity.get(id)?.unit, own = uid !== undefined ? state.unit.get(uid)?.ownFireTick : undefined;
       if (s.mental.suppression >= hurrySupp || (own !== undefined && tick - own <= hurryFiredOn)) m.hurryUntilTick = tick + hurryQuiet;
       if (m.hurryUntilTick !== undefined && tick < m.hurryUntilTick) modeId = hurryMode;
@@ -124,6 +126,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
       speed *= s.impair.move; // wounds: a leg wound, blood loss
+      if (s.captive !== null) speed *= handOverPace; // hands up, slowly (surrender.ts)
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
     // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.
@@ -220,8 +223,9 @@ const HULL: Obb = { x: 0, y: 0, c: 1, s: 0, hl: 0, hw: 0 };
 function slideOffHulls(ctx: SimContext, state: SimState): void {
   const G = ctx.ballistics.vehicles;
   for (const [id, s] of state.soldier.entries()) {
-    // (A man down is left where he lies: a hull passes over him, it does not shove him along.)
-    if (s.mount !== undefined || !isAble(s)) continue;
+    // (A man down is left where he lies: a hull passes over him, it does not shove him along. A prisoner walking
+    // over to give himself up is pushed out like any man on his feet.)
+    if (s.mount !== undefined || (!isAble(s) && (s.handOver === undefined || s.casualty !== "none"))) continue;
     const t = state.transform.get(id);
     if (!t) continue;
     for (let j = 0; j < G.n; j++) {

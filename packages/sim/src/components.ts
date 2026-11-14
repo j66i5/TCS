@@ -103,6 +103,14 @@ export interface SoldierState {
    * a prisoner can also be incapacitated or killed.
    */
   captive: Captive | null;
+  /**
+   * Walking over to give himself up (systems/surrender.ts, owner 2026-11-14): a surrendered man who can walk walks,
+   * hands up, toward `to` (an enemy he knows of; null: toward the nearest enemy he knows of only by a sound or an
+   * unfit man) and stops at (x, y, z), a few metres short. `tick`: when he set off. `down`: he has gone down under
+   * fire and waits for it to pass. `done`: the walk is over (he could not go on, or ran out of time): he waits
+   * where he is and an enemy may fetch him. Absent: he has not set off (or never will).
+   */
+  handOver?: { to: EntityId | null; x: number; y: number; z: number; tick: number; down?: true; done?: true };
   /** Aboard a vehicle (M7): which one and which seat (index into its seats). Absent when not mounted. */
   mount?: { vehicle: EntityId; seat: number };
   /**

@@ -215,6 +215,9 @@ white flags on the map; the after-action review lists surrendered and captured m
   4. ✅ **M8.3a On-map mortars: crews and firing** (2026-11-14) — tubes as items (DE 120 mm, RU 2B14 and 2B11),
      teams and sections, deploy and set-up, packing, range band, rounds taken from the crews as fired; scenarios
      `platoon-mortars`, `platoon-ru-mortars`. Carriers not modelled yet.
+  5. ✅ **M8.3b On-map mortars: signature and degradation** (2026-11-14) — the enemy hears (3-4 km) and sees the
+     tubes fire; a hit or suppressed crew fires slower and stops below its minimum crew; DATA_GUIDE "Add a mortar";
+     review fixes for M8.3a.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 

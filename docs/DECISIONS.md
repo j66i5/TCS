@@ -4050,3 +4050,31 @@ app `?mortars=1`).
   and after (3 / 18.0 / 12.8 and 6 (red) / 15.3 / 12.6). New: `platoon-mortars` (German 120 mm attacking, Russian
   82 mm defending) 4 / 20.5 / 15.3 (blue mortar: 24 HE, enemy wounded 8.3); `platoon-ru-mortars` 4 (red) / 17.6 /
   18.5. Speed 101-111x. Goldens regenerated (fingerprint only).
+
+## 2026-11-14 — M8.3b On-map mortars: signature and degradation; review fixes for M8.3a (slice 25; decided without the owner, owner to review)
+
+- **Signature:** every round a tube fires emits `shot.fired` from the man carrying the tube with `indirect: true`
+  and `loudM` = the tube's `hearingRangeM` (120 mm 4 km, 2B14 3 km; game values, low; rifles stay 1,500 m): the enemy's
+  contacts hear it (heard contact, bearing and range guess as any shot; `radio.contactHeard`), and the carrier's
+  weapon `lastShotTick` makes him "firing" for the enemy's spotting (the flash). An indirect shot is no flat line of
+  fire: incoming-fire checks (infantry and vehicles) skip it; expenditure does not count it as small arms.
+- **Degradation:** a tube's rate = (sum over its `crew` places of the man's fire-rate factor: steady 1, shaken 0.7,
+  pinned 0.35, empty or stunned 0) / crew: two of four men fire at half the rate, a crew all pinned at about a third;
+  below `crewMin` able men (not panicked) within 20 m it stops (a mission whose tubes can never fire ends). Set-up
+  already took longer short-handed (M8.3a).
+- **DATA_GUIDE** "Add a mortar (on the map, M8.3)".
+- **Review fixes for M8.3a** (independent review, 8 findings, all confirmed by two skeptics each): rounds in flight
+  land at their own tick (they were held behind the first-fired round when tubes stood at different ranges); an
+  on-map mission takes no more rounds than the crews hold and keeps one for effect (a screen asked with more rounds
+  than held covered only half its line); "fire for effect" and the shot/splash calls go with the first effect round
+  that actually leaves; a fallen gunner's tube passes to the nearest able crewman (`transferItems`; the corpse was
+  "firing" and the team could not set up again after moving); any team member walking (a move to the section or one
+  man) packs the team; a defending section placed at least its minimum range + 50 m behind the main objective where
+  the map allows, and a side whose section still cannot reach it keeps its off-map allotment.
+- **Tests:** `mortars-signature.test.ts` (heard beyond rifle range with the right bearing, called out, no flat line;
+  the flash; full crew at its rate, pinned below half, two of four men half rate, below crewMin nothing);
+  `mortars.test.ts` review cases.
+- **Batches** (x 1200 s; attacker wins / blue down / red down): `platoon-mortars` 20 seeds: slice 24 5 / 20, first
+  slice-25 try 1 / 20, with the review fixes 3 / 20 / 19.1 / 12.75 (the defenders now hear the attacker's 120 mm
+  tubes at about 1.1 km and are alerted earlier; likely the cost, unproven); `platoon-ru-mortars` 10 seeds: 4 -> 6
+  (red) / 17.1 / 19.9. Default battles unaffected (no on-map tubes). Balance with on-map mortars is M8.5's job.

@@ -41,7 +41,7 @@ export type SimEvent =
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
   | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
-  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
+  | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }

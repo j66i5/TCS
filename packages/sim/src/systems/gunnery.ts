@@ -917,7 +917,7 @@ export function vehicleIncomingSystem(ctx: SimContext, state: SimState, events: 
       continue;
     }
     let side: string | undefined;
-    if (e.kind === "shot.fired") side = state.identity.get(e.shooter)?.side;
+    if (e.kind === "shot.fired") { if (e.indirect) continue; side = state.identity.get(e.shooter)?.side; } // (M8.3b: a mortar)
     else if (e.kind === "impact" && e.owner > 0) side = state.identity.get(e.owner)?.side;
     else continue;
     if (side === undefined) continue;

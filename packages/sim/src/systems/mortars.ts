@@ -17,7 +17,7 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { isAble } from "../impair";
-import { countItems, removeItems } from "../items";
+import { countItems, removeItems, transferItems } from "../items";
 import { sqrt } from "../math";
 import type { MortarDef } from "../catalog";
 import type { SimState, SimView } from "../state";
@@ -143,7 +143,10 @@ export function mortarSystem(ctx: SimContext, state: SimState, events: EventSink
   for (const [id, u] of state.unit.entries()) {
     const ms = u.mortar;
     if (!ms) continue;
-    if (u.moving) {
+    // A fallen gunner (review fix): an able man of the team near him takes the tube over (one generic transfer).
+    passTube(ctx, state, id);
+    // Moving: any man of the team walking (a move given to the team, its section or one man).
+    if (u.moving || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0)) {
       if (ms.state !== "packed") {
         // Packing up before the move: the men wait for it (their move resumes after `packSeconds`).
         const tube = tubeOf(ctx, state, id);
@@ -164,4 +167,22 @@ export function mortarSystem(ctx: SimContext, state: SimState, events: EventSink
       if (lead !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: lead, key: "radio.mortarReady", params: { callsign: u.callsign } });
     }
   }
+}
+
+/** If the man carrying the tube is no longer able, the nearest able man of the team within `CREW_RADIUS_M` of it
+ *  takes it over (counted item, `transferItems`): the tube is worked, seen and heard where a living crewman is. */
+function passTube(ctx: SimContext, state: SimState, team: EntityId): void {
+  const tube = tubeOf(ctx, state, team);
+  if (!tube || isAble(state.soldier.get(tube.carrier))) return;
+  const u = state.unit.get(team);
+  if (!u) return;
+  let best = -1, bestD = CREW_RADIUS_M * CREW_RADIUS_M;
+  for (const m of u.members) {
+    if (m === tube.carrier) continue;
+    const s = state.soldier.get(m), t = state.transform.get(m);
+    if (!s || !t || !isAble(s) || s.mount !== undefined) continue;
+    const d = (t.x - tube.x) * (t.x - tube.x) + (t.y - tube.y) * (t.y - tube.y);
+    if (d < bestD) { bestD = d; best = m; }
+  }
+  if (best >= 0) transferItems(ctx.catalog, state.container, { from: tube.carrier, to: best, type: tube.item, count: 1 });
 }

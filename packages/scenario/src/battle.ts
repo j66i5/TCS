@@ -135,7 +135,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     if (mt) {
       const sec = buildForceWithVehicles(data, { faction, template: mt, seed: def.seed * 37 + s * 11, keyPrefix: `${side}-m`, number: 1 }).unit;
       units.push(sec);
-      const bx = side === defender ? Math.min(Math.max(mainP.x + dx * 250, 20), W - 20) : side === "blue" ? W * 0.02 : W * 0.98;
+      // (Review fix: at least the tube's minimum range + 50 m from the main objective where the map allows; a
+      // section that still cannot reach it leaves the side its off-map allotment as well.)
+      let minR = 0;
+      for (const m of allMembers(sec)) for (const l of m.load) minR = Math.max(minR, catalog.items[l.type]?.mortar?.minRangeM ?? 0);
+      const back = Math.max(250, minR + 50);
+      const bx = side === defender ? Math.min(Math.max(mainP.x + dx * back, 20), W - 20) : side === "blue" ? W * 0.02 : W * 0.98;
       const teams = sec.subunits.length > 0 ? sec.subunits : [sec];
       teams.forEach((tm, ti) => {
         const ms = allMembers(tm);
@@ -144,7 +149,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
           placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
         });
       });
-      mortarSides.add(side);
+      if (hypot2(bx - mainP.x, H / 2 - mainP.y) >= minR) mortarSides.add(side);
     }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }

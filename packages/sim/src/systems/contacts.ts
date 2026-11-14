@@ -169,6 +169,9 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     // One sound per shooter per tick is enough (a burst is one sound).
     // (A cannon or coaxial machine gun is heard as its vehicle, M7.3.)
     const shooters = [...new Set(shots.map((e) => e.vehicle ?? e.shooter))].sort((a, b) => a - b);
+    // How far each is heard (M8.3b: a mortar further than rifles; the loudest of its shots this tick).
+    const loud = new Map<EntityId, number>();
+    for (const e of shots) if (e.loudM !== undefined) { const k = e.vehicle ?? e.shooter; loud.set(k, Math.max(loud.get(k) ?? 0, e.loudM)); }
     // Everyone who can hear, once per tick (ID order).
     const L: { id: EntityId; side: string; x: number; y: number; s: SoldierState }[] = [];
     for (const [id, s] of state.soldier.entries()) {
@@ -183,7 +186,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
         if (l.side === side) continue;
         const id = l.id, s = l.s, me = l;
         const dx = st.x - me.x, dy = st.y - me.y, d2 = dx * dx + dy * dy;
-        if (d2 > hear2) continue;
+        const lm = loud.get(shooter);
+        if (d2 > (lm !== undefined ? Math.max(hear2, lm * lm) : hear2)) continue;
         const i = findContact(s.contacts, shooter);
         const range = sqrt(d2);
         // Heard him moments ago, or knows where he is better than a sound could tell: nothing new.

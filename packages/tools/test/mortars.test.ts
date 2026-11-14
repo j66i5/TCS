@@ -120,4 +120,84 @@ describe("on-map mortars (M8.3a)", () => {
     expect(isMortarUnit(sim.state, sim.state.unit.get(t)!.parent!)).toBe(true);
     expect(isMortarUnit(sim.state, top(sim, "red") as EntityId)).toBe(false);
   });
+
+  // ---- review fixes (M8.3b commit)
+
+  it("rounds from tubes at different ranges each land after their own flight (not held behind the first in the list)", () => {
+    const input = battle("de", "moerser-gruppe", "blue", 300);
+    const sim = createSim(input);
+    // The second team 1,200 m further back than the first.
+    const [, t2] = teams(sim, "blue");
+    for (const m of sim.state.unit.get(t2!)!.members) { const t = sim.state.transform.get(m)!; t.x = 40 + (t.x - 300); }
+    run(sim, 125);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: top(sim, "blue"), kind: "callFire", x: 1700, y: 200, ammo: "he", rounds: 6 });
+    const ev = run(sim, 220);
+    const fired = ev.filter((e): e is Extract<SimEvent, { kind: "mortar.fired" }> => e.kind === "mortar.fired");
+    const bursts = ev.filter((e) => e.kind === "explosion" && e.ammo === "de-120-he").map((e) => e.tick).sort((a, b) => a - b);
+    expect(new Set(fired.map((e) => e.unit)).size).toBe(2);
+    const due = fired.map((f) => f.tick + Math.round(f.flightS * 60)).sort((a, b) => a - b);
+    expect(bursts).toHaveLength(due.length);
+    for (let i = 0; i < due.length; i++) expect(Math.abs(bursts[i]! - due[i]!)).toBeLessThanOrEqual(31);
+  });
+
+  it("a screen asked for with more rounds than the crews hold is spread over the whole line with what they have", () => {
+    const sim = createSim(battle("de", "moerser-gruppe", "blue", 300));
+    run(sim, 125);
+    // 8 smoke rounds held (2 tubes x 4); 12 asked: 2 ranging + 6 for effect, end to end.
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: top(sim, "blue"), kind: "callFire", x: 1500, y: 60, x2: 1500, y2: 340, ammo: "smoke", rounds: 12 });
+    const ev = run(sim, 220);
+    const effect = ev.filter((e): e is Extract<SimEvent, { kind: "mortar.fired" }> => e.kind === "mortar.fired").slice(2);
+    expect(effect).toHaveLength(6);
+    const ys = effect.map((e) => e.ty);
+    expect(Math.min(...ys)).toBeLessThan(120);
+    expect(Math.max(...ys)).toBeGreaterThan(280);
+  });
+
+  it("a fallen gunner's tube passes to a living crewman, who fires it (and is the one heard)", () => {
+    const sim = createSim(battle("de", "moerser-gruppe", "blue", 300));
+    run(sim, 125);
+    const t1 = teams(sim, "blue")[0]!;
+    const g0 = tubeOf(sim.ctx, sim.state, t1)!.carrier;
+    sim.state.soldier.get(g0)!.physiology.consciousness = 0;
+    run(sim, 1);
+    const g1 = tubeOf(sim.ctx, sim.state, t1)!.carrier;
+    expect(g1).not.toBe(g0);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: top(sim, "blue"), kind: "callFire", x: 1500, y: 200, ammo: "he", rounds: 4 });
+    const ev = run(sim, 160);
+    const shots = ev.filter((e): e is Extract<SimEvent, { kind: "shot.fired" }> => e.kind === "shot.fired" && e.indirect === true);
+    expect(shots.length).toBeGreaterThan(0);
+    expect(shots.some((e) => e.shooter === g0)).toBe(false);
+  });
+
+  it("a move given to the section packs its teams too (their men wait), and they do not set up while walking", () => {
+    const sim = createSim(battle("ru", "minomyotny-vzvod-82", "red", 1700));
+    run(sim, 70);
+    const [t1] = teams(sim, "red");
+    const secId = sim.state.unit.get(t1!)!.parent!;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: secId, kind: "move", waypoints: [{ x: 1200, y: 200, mode: "walk" }] });
+    run(sim, 3);
+    expect(sim.state.unit.get(t1!)!.mortar!.state).toBe("packed");
+    const states = new Set<string>();
+    for (let k = 0; k < 60; k++) { run(sim, 1); if (sim.state.unit.get(t1!)!.members.some((m) => (sim.state.mover.get(m)?.waypoints.length ?? 0) > 0)) states.add(sim.state.unit.get(t1!)!.mortar!.state); }
+    expect([...states]).toEqual(["packed"]);
+  });
+
+  it("each side's section reaches its main objective from where it stands, or the side keeps its off-map rounds", async () => {
+    const { getScenario } = await import("../src/scenarios");
+    for (const name of ["platoon-mortars", "platoon-ru-mortars"]) for (let seed = 1; seed <= 4; seed++) {
+      const input = getScenario(name).build(data, seed, 600);
+      const sim = createSim(input);
+      const obj = input.rules.objectives![0]!;
+      for (const side of ["blue", "red"]) {
+        const ts = teams(sim, side);
+        expect(ts.length).toBeGreaterThan(0);
+        const tube = tubeOf(sim.ctx, sim.state, ts[0]!)!;
+        const reaches = Math.hypot(tube.x - obj.x, tube.y - obj.y) >= tube.def.minRangeM;
+        const keeps = (input.rules.support ?? []).some((s) => s.side === side);
+        expect(reaches || keeps).toBe(true);
+      }
+    }
+  });
+
 });
+

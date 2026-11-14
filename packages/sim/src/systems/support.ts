@@ -38,11 +38,12 @@ import { newEntity, type FireMission, type LocationMethod, type SimState, type S
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
 import { heightAt } from "../terrain";
 import type { FactionDef } from "../catalog";
+import type { SoldierState } from "../components";
 import { ammoIndexOf } from "../projectiles";
 import { detonate } from "./explosions";
 import { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM } from "./observers";
 import { crewAt, mortarTeams, takeRound, teamRounds, tubeOf, tubeRangeM, tubeReaches, type Tube } from "./mortars";
-import { noteBeatenZone } from "./morale";
+import { fireRateFactor, noteBeatenZone } from "./morale";
 
 /** Give each side with an allotment its mortar section: an entity whose container holds the rounds. */
 export function initSupport(ctx: SimContext, state: SimState): void {
@@ -200,14 +201,19 @@ function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
   const reg = registeredNear(state, fs, side, x, y);
   const ranging = reg ? 0 : fs.rangingRounds;
   const ph = missionPhases(fs);
+  // As the battery: no more rounds than the crews hold, the ranging rounds on top while there are enough, one
+  // always left for effect.
+  let held = 0;
+  for (const t of tubes) held += teamRounds(state, t.team, ammo === "he" ? t.def.he : t.def.smoke);
+  const n = Math.min(rounds + ranging, held), rg = Math.min(ranging, n - 1);
   let proc = 0, own = 0;
   for (const t of tubes) { proc = Math.max(proc, t.def.processingSeconds); own = Math.max(own, t.def.aimErrorM); }
   const m: FireMission = {
-    side, caller, x, y, ammo, left: rounds + ranging, nextTick: state.tick + secondsToTicks(ph.requestS + proc),
+    side, caller, x, y, ammo, left: n, nextTick: state.tick + secondsToTicks(ph.requestS + proc),
     tubes: tubes.map((t) => t.team), tubeNext: tubes.map(() => 0), flying: [],
   };
-  if (ranging > 0) m.ranging = ranging;
-  if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = rounds; m.fired = 0; }
+  if (rg > 0) m.ranging = rg;
+  if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
   let sd = 0;
   if (reg) { m.ex = reg.ex; m.ey = reg.ey; m.method = "registered"; } else {
     const t = state.transform.get(caller);
@@ -224,11 +230,24 @@ function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
   return true;
 }
 
+/**
+ * How fast the crew works its tube (M8.3b): each of the `crew` places counts with the man in it — his fire-rate
+ * factor (steady 1, shaken 0.7, pinned 0.35; morale.ts) — an empty place counts 0. A full steady crew fires at
+ * `roundSeconds`, two of four at half the rate, a crew all pinned at about a third; below `crewMin` it stops.
+ */
+export function crewRate(ctx: SimContext, state: SimView, tube: Tube): number {
+  const crew = crewAt(state, tube);
+  if (crew.length < tube.def.crewMin) return 0;
+  let sum = 0;
+  for (const m of crew.slice(0, tube.def.crew)) { const s = state.soldier.get(m); if (s && state.tick >= s.stunnedUntilTick) sum += fireRateFactor(ctx, s as SoldierState); }
+  return sum / tube.def.crew;
+}
+
 /** Can this team's tube fire a round of the mission's kind now: set up, enough crew at it, a round left. */
-function tubeCanFire(state: SimState, tube: Tube | null, ammo: "he" | "smoke"): boolean {
+function tubeCanFire(ctx: SimContext, state: SimState, tube: Tube | null, ammo: "he" | "smoke"): boolean {
   const ms = tube ? state.unit.get(tube.team)?.mortar : undefined;
   if (!tube || ms?.state !== "ready") return false;
-  if (crewAt(state, tube).length < tube.def.crewMin) return false;
+  if (crewRate(ctx, state, tube) <= 0) return false;
   return teamRounds(state, tube.team, ammo === "he" ? tube.def.he : tube.def.smoke) > 0;
 }
 
@@ -258,6 +277,12 @@ function fireTube(ctx: SimContext, state: SimState, events: EventSink, m: FireMi
   const land = state.tick + Math.max(1, secondsToTicks(flightS));
   (m.flying ?? (m.flying = [])).push({ tick: land, x, y, ammo: type, ranging, ...(announce ? { announce: true as const } : {}) });
   events.emit({ kind: "mortar.fired", tick: state.tick, side: m.side, unit: tube.team, gunner: tube.carrier, x: tube.x, y: tube.y, tx: ax, ty: ay, ammo: type, flightS: Math.round(flightS) });
+  // Its signature (M8.3b): the flash shows the crew (the carrier counts as firing for the enemy's spotting) and the
+  // report carries `hearingRangeM` (contacts: the enemy hears the tube and guesses where it is).
+  const ws = state.weapon.get(tube.carrier);
+  if (ws) ws.lastShotTick = state.tick;
+  const tz = heightAt(ctx.map, tube.x, tube.y) + 1; // ground: ok (the tube's muzzle on its baseplate)
+  events.emit({ kind: "shot.fired", tick: state.tick, shooter: tube.carrier, x: tube.x, y: tube.y, z: tz, dirX: 0, dirY: 0, weapon: tube.item, ammo: type, indirect: true, loudM: tube.def.hearingRangeM });
   if (announce) {
     events.emit({ kind: "support.shot", tick: state.tick, side: m.side, caller: m.caller, x: m.x, y: m.y, flightS: Math.round(flightS) });
     radio(state, events, m, "radio.fireShot", { s: Math.round(flightS) });
@@ -294,7 +319,9 @@ function stepOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
       radio(state, events, m, "radio.fireSplash");
     }
   }
-  if (fl.length > 0 && fl[0]!.tick <= tick) {
+  // (Each round lands at its own tick: tubes at different ranges fly different times, so `flying` is not in
+  // landing order.)
+  if (fl.some((f) => f.tick <= tick)) {
     const due = fl.filter((f) => f.tick <= tick);
     m.flying = fl.filter((f) => f.tick > tick);
     for (const f of due) {
@@ -313,25 +340,28 @@ function stepOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
   const tubes = (m.tubes ?? []).map((team) => tubeOf(ctx, state, team));
   if ((m.ranging ?? 0) > 0) {
     // One ranging round at a time, from the first tube that can fire.
-    const i = tubes.findIndex((t) => tubeCanFire(state, t, m.ammo));
+    const i = tubes.findIndex((t) => tubeCanFire(ctx, state, t, m.ammo));
     if (i < 0) { if (!tubes.some((t) => tubeMayFire(state, t, m.ammo))) m.left = 0; return; }
     if (fireTube(ctx, state, events, m, tubes[i]!, true, true)) { m.ranging = m.ranging! - 1; m.left--; m.wait = true; }
     return;
   }
-  // Fire for effect: every tube at its own rate.
-  const first = m.volley === undefined;
-  if (first) { m.volley = 0; if (m.ex !== undefined) radio(state, events, m, "radio.fireForEffect"); }
+  // Fire for effect: every tube at its own rate; "fire for effect" and the shot/splash calls with the first round
+  // that leaves (not before: the tubes may still be setting up).
   let any = false;
   const next = m.tubeNext ?? (m.tubeNext = tubes.map(() => 0));
   for (let i = 0; i < tubes.length && m.left > 0; i++) {
     const t = tubes[i]!;
-    if (!tubeCanFire(state, t, m.ammo)) { if (tubeMayFire(state, t, m.ammo)) any = true; continue; }
+    if (!tubeCanFire(ctx, state, t, m.ammo)) { if (tubeMayFire(state, t, m.ammo)) any = true; continue; }
     any = true;
     if (tick < next[i]!) continue;
-    if (!fireTube(ctx, state, events, m, t!, false, first && m.volley === 0)) continue;
+    const first = m.volley === undefined;
+    if (!fireTube(ctx, state, events, m, t!, false, first)) continue;
+    if (first) { m.volley = 0; if (m.ex !== undefined) radio(state, events, m, "radio.fireForEffect"); }
     m.volley!++;
     m.left--;
-    next[i] = tick + Math.max(1, secondsToTicks(t!.def.roundSeconds));
+    // The crew's rate (M8.3b): fewer men, or men pinned or shaken, fire slower.
+    const rate = crewRate(ctx, state, t!);
+    next[i] = tick + Math.max(1, secondsToTicks(t!.def.roundSeconds / Math.max(rate, 0.05)));
   }
   if (!any) m.left = 0;
 }

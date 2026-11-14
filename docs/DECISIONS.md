@@ -4292,3 +4292,25 @@ type **(a) 2S19 Msta-S**.
   `FireAmmo` "he" | "smoke" | "illum". Default battles unchanged (see the batch line below). Goldens regenerated.
 - Batches (10 x 1200 s, merged head -> M8.4): `platoon` 3 / 19.6 / 13.8 and `platoon-ru` 6 (red) / 15.9 / 12.9, identical
   (attacker wins / blue down / red down).
+
+## 2026-11-14 — M8.5 AI and fire support, part 1: screens, artillery, planned fires (slice 27 without its balance part; owner to review)
+
+The plan makes M8.5 depend on D4 (infantry tactics pass 2, after M10), not built yet: built here are the AI's uses of
+the new fire support; the balance re-tune and the Russian mounted attack revisit (A4) wait for D4.
+- **Screens across the line:** the attacker's smoke between the objective and its assault position (prep fires and
+  the re-lay as squads go in) is now a screen along a line (`callFire` x2/y2) square to the line from the objective,
+  `COMMANDER.screenHalfM` 50 m either side, `screenRounds` 4 (was 3 rounds on a point), laid upwind by the wind over
+  `screenLeadS` 20 s so it drifts onto the line. Smoke blinding the objective itself stays on a point.
+- **Artillery:** every HE call (defence, prep fires, assault) goes to the side's artillery when it has rounds, the
+  battery is not moving and no own man is within its danger-close distance + `dangerCloseMarginM` 50 m; airburst when
+  at least half the men it knows within 60 m of the point are outdoors; never with the danger-close flag. Else the
+  mortars as before. On the 1,200 m battle map almost every target is danger close: in `platoon-artillery` the guns
+  were never called (outcome identical to `platoon`); on a 2,400 m map they are (test).
+- **Planned fires:** generated battles give the defender's mortars three planned targets (150 and 300 m in front of
+  the main objective toward the attacker, 150 m in front of the second): registered before the battle, so a call
+  there fires for effect at once.
+- **Not built (needs D4 or M8.6):** AI choice of observers by view (siting), the observing overlay, the agreed win
+  band and A4.
+- **Batches** (10 x 1200 s, M8.4 -> this; attacker wins / blue down / red down): platoon 3 -> 2 / 19.6 -> 19.9 / 13.8
+  -> 12.9; platoon-ru 6 -> 5 (red) / 15.9 -> 15.3 / 12.9 -> 13.9; platoon-vehicles 5 -> 5 and platoon-ru-vehicles 1 ->
+  1 (red), identical; platoon-artillery = platoon. Within noise. Goldens regenerated.

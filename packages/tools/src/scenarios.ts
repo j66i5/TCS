@@ -174,6 +174,11 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, mortars: true }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
+  "platoon-artillery": {
+    description: "M8.4/M8.5: the platoon battle on foot (village; Germany attacks) with each side's off-map 155 / 152 mm allotment as well as its mortars; the AI calls the guns beyond danger close (airburst on men in the open).",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, artillery: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
   "platoon-vehicles": {
     description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a).",
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true }),

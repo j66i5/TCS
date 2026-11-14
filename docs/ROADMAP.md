@@ -222,6 +222,8 @@ white flags on the map; the after-action review lists surrendered and captured m
   6. ✅ **M8.4 Off-map 155 mm, airburst, flares as data, reserved interfaces** (2026-11-14) — PzH 2000 and 2S19
      batteries (opt-in), airburst, danger close, illumination flares saved without light, abstract counter-battery,
      guided rounds refused; `lab -- artillery`.
+  7. 🔶 **M8.5 AI and balance**, part 1 (2026-11-14) — screens across the line upwind, artillery beyond danger close
+     with airburst, planned fires for the defender. Balance, observers by view and A4 wait for D4.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,

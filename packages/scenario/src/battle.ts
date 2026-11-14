@@ -170,6 +170,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     return force;
   };
   const forces: ForceInput[] = [];
+  const clampX = (x: number) => Math.min(Math.max(x, 10), W - 10);
   const mortarSides = new Set<string>();
   const dIdx = SIDES.indexOf(defender), aIdx = SIDES.indexOf(def.attacker);
   forces[dIdx] = buildSide(defender, dIdx);
@@ -184,7 +185,12 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const s = SIDES.indexOf(side);
     const k = catalog.factions[def.factions[s]!]?.fireSupport?.roundsFactor ?? 1;
     const att = side === def.attacker;
-    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)) };
+    // Planned fires (M8.5): the defender's mortars registered before the battle on the ground in front of its
+    // objectives, where the attack must cross (150 and 300 m before the main one, 150 m before the second).
+    const planned = att ? [] : [
+      { x: clampX(mainP.x - dx * 150), y: mainP.y }, { x: clampX(mainP.x - dx * 300), y: mainP.y }, { x: clampX(secondP.x - dx * 150), y: secondP.y },
+    ];
+    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)), ...(planned.length > 0 ? { planned } : {}) };
   });
   if (def.artillery === true) {
     SIDES.forEach((side, s) => {

@@ -263,6 +263,8 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
  */
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink, afterDismount = false): OrderResult {
   const isUnit = state.unit.has(order.target);
+  // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
+  if (order.kind === "drone") return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
   // Getting in and out (M7.2): replaces a drill or a boarding under way, like any order.
   if (order.kind === "mount" || order.kind === "dismount") {
     if (isUnit) clearDrills(state, order.target);
@@ -469,9 +471,6 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       else { markUnitMoving(state, order.target); const mu = state.unit.get(state.identity.req(order.target).unit); if (mu) mu.moveTick = state.tick; }
       break;
     }
-    case "drone":
-      // A reconnaissance quadcopter (M9.4a): launch it, send it, bring it home.
-      return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
     case "deploy": {
       // Stop and set up each mortar team (M8.3a; M9.3b: and missile team): the men's moves end where they are.
       let ok = false;

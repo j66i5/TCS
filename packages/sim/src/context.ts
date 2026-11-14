@@ -28,6 +28,8 @@ export interface BattleRules {
   /** Mortar rounds each side may call (M6.5c); the kind of fire is the faction's `fireSupport`. */
   /** M8.2a: `planned` targets set in deployment: points the side's mortars have registered on before the battle
    *  (a mission within `registeredM` of one fires for effect at once, with the small error left there). */
+  /** M9.5: sides with an off-map fixed-wing reconnaissance drone overhead (it locates targets and watches falls). */
+  airRecon?: SideId[];
   support?: { side: SideId; he: number; smoke: number; planned?: { x: number; y: number }[]; /** M8.4: illumination rounds; the artillery battery (default: the mortars). */ illum?: number; asset?: "mortar" | "artillery" }[];
   /** Care of the wounded (M10.2 on): false switches it off (`--no-medical`, comparison batches). Default on
    *  whenever the data has core/medical.json. */

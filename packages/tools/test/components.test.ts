@@ -277,6 +277,22 @@ describe("crew reactions (M7.4b, plan §8, C21; owner 2026-11-13: armour does no
     expect(ev.some((e) => e.kind === "order.rejected")).toBe(false);
     expect(sim.state.transform.req(men[0]!).y - y0).toBeGreaterThan(40);
   });
+  it("a man who could not move when his crew bailed out gets out of the abandoned hull once he can (review of M9.4b)", () => {
+    const { sim, red } = field();
+    const v = sim.state.vehicle.req(red);
+    const man = v.seats.find((m) => m !== null)!;
+    const s = sim.state.soldier.req(man);
+    const shock = s.physiology.shock;
+    s.physiology.consciousness = 0;
+    run(sim, 1);
+    v.crewReaction = "bailOut"; v.reactionTick = sim.state.tick - 100000; v.reactionWhy = ["reaction.crewOut"];
+    run(sim, 1);
+    expect(v.status).toBe("abandoned");
+    expect(s.mount?.vehicle).toBe(red); // he stayed in his seat
+    s.physiology.consciousness = 1; s.physiology.shock = shock;
+    run(sim, 2);
+    expect(s.mount).toBeUndefined();
+  });
 });
 
 describe("cross-loading from an abandoned hull (M7.4b, plan C6; own side only, owner 2026-11-13)", () => {

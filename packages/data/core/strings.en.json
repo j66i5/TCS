@@ -654,5 +654,9 @@
   "radio.ack.drone": "{callsign}: drone, wilco.",
   "side.drone": "Drone",
   "side.droneUp": "in the air, battery {pct} %",
-  "side.droneReady": "on the ground, battery {pct} %"
+  "side.droneReady": "on the ground, battery {pct} %",
+  "radio.droneOverhead": "{callsign}: enemy drone overhead!",
+  "radio.droneDown": "{callsign}: drone shot down.",
+  "radio.fireCallDrone": "{callsign}: mortars have it, target fixed by the drone, first round in {s} s.",
+  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s."
 }

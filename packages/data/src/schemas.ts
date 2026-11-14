@@ -347,6 +347,10 @@ export const SpottingFile = withProv({
     /** The camera searches its whole footprint (a rate factor); a man under a canopy higher than canopyAboveM over him
      *  shows canopyDay of himself to a day camera, canopyThermal to a thermal one. */
     searchFactor: Num(0, 1), canopyAboveM: Num(0, 50), canopyDay: Num(0, 1), canopyThermal: Num(0, 1),
+    /** M9.4b, a drone as a target: contrast against the sky, how far it is seen, how much harder men look for one
+     *  they hear, how far they engage one, the share of its movement during a bullet's flight a shooter gets wrong,
+     *  the highest chance one round hits it, the extra aim error firing up at it (mrad), the share of hits that down it. */
+    targetContrast: Num(0, 20), seenMaxM: Num(0, 5000), heardLookFactor: Num(1, 20), engageM: Num(0, 2000), leadErrorShare: Num(0, 2), maxHitChance: Num(0, 1), aerialAimMrad: Num(0, 100), killShare: Num(0, 1),
   }).strict().optional(),
   thermal: z.object({
     man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),
@@ -975,11 +979,19 @@ const FireSupportAsset = z.object({
     locationError: z.object({
       estimate: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
       laser: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+      /** M9.5: located by a drone's camera (`perM` x the drone's slant range to the point) and by an off-map
+       *  fixed-wing reconnaissance drone (rules.airRecon). Absent: those methods are not used. */
+      drone: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict().optional(),
+      air: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict().optional(),
     }).strict().optional(),
     /** Adjustment by the observer (M8.2b): his reading error of a fall (m, one standard deviation per axis):
      *  `readBaseM` + `readPerM` x his distance to it by eye, `laserReadM` with a laser; correction share and reading
      *  error x a skill factor from `skillWorst` (skill 0) to `skillBest` (skill 1). Absent: the correction alone. */
-    adjust: z.object({ readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5) }).strict().optional(),
+    adjust: z.object({
+      readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5),
+      /** M9.5: the reading error of a fall seen through a drone's camera, and by the off-map reconnaissance drone (m). */
+      droneReadM: Num(0, 100).optional(), airReadM: Num(0, 100).optional(),
+    }).strict().optional(),
 
     /** M8.4: illumination round (absent: none); airburst height of a proximity or time fuse over the target (m;
      *  absent: no airburst); danger close (m): a call this close to own men needs `dangerClose` in the order;

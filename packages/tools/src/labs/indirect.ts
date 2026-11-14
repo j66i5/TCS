@@ -12,7 +12,37 @@ import type { DataSet } from "@tcs/data";
 
 export interface AdjustRow { faction: string; observer: string; skill: number; distM: number; miss: number[] }
 export interface MissionRow { faction: string; distM: number; seeds: number; seenShare: number; firstMiss: number; effectMiss: number }
-export interface IndirectLab { adjust: AdjustRow[]; missions: MissionRow[] }
+export interface MethodRow { faction: string; method: string; distM: number; miss: number[] }
+export interface IndirectLab { adjust: AdjustRow[]; missions: MissionRow[]; methods: MethodRow[] }
+
+/**
+ * M9.5, by location method: the first round's error and the miss after one and two seen ranging rounds, the caller
+ * `distM` from the point, an average observer reading the falls the same way he located it (by eye at his distance;
+ * a laser; the drone's camera hovering 100 m up 100 m off the point; the off-map reconnaissance drone).
+ */
+function methodRows(data: DataSet, trials: number): MethodRow[] {
+  const out: MethodRow[] = [];
+  const cat = demoBattle(data, { seed: 1, factions: ["de", "ru"] }).catalog;
+  const droneSlant = Math.hypot(100, 100);
+  for (const faction of ["de", "ru"]) {
+    const fs = cat.factions[faction]!.fireSupport!;
+    for (const method of ["estimate", "laser", "drone", "air"] as const) for (const distM of [300, 600, 1000]) {
+      if ((method === "drone" || method === "air") && !fs.locationError?.[method]) continue;
+      const rng = createRng(29);
+      const miss = [0, 0, 0];
+      const sd0 = firstRoundErrorM(fs, method, method === "drone" ? droneSlant : method === "air" ? 0 : distM);
+      const kind = method === "drone" ? "drone" as const : method === "air" ? "air" as const : "man" as const;
+      const c = Math.min(1, fs.rangingCorrection * adjustSkillFactor(fs, 0.5)), read = readErrorM(fs, { skill: 0.5, laser: method === "laser", kind }, distM);
+      for (let k = 0; k < trials; k++) {
+        let ex = sd0 * nextNormal(rng, "lab"), ey = sd0 * nextNormal(rng, "lab");
+        miss[0]! += Math.hypot(ex, ey);
+        for (let r = 1; r <= 2; r++) { ex = ex * c + read * nextNormal(rng, "lab"); ey = ey * c + read * nextNormal(rng, "lab"); miss[r]! += Math.hypot(ex, ey); }
+      }
+      out.push({ faction, method, distM, miss: miss.map((m) => m / trials) });
+    }
+  }
+  return out;
+}
 
 function adjustRows(data: DataSet, trials: number): AdjustRow[] {
   const out: AdjustRow[] = [];
@@ -65,7 +95,7 @@ function missionRows(data: DataSet, seeds: number): MissionRow[] {
 }
 
 export function indirectLab(data: DataSet, seeds = 12, trials = 4000): IndirectLab {
-  return { adjust: adjustRows(data, trials), missions: missionRows(data, seeds) };
+  return { adjust: adjustRows(data, trials), missions: missionRows(data, seeds), methods: methodRows(data, trials) };
 }
 
 export function indirectLabMarkdown(lab: IndirectLab): string {
@@ -77,5 +107,8 @@ export function indirectLabMarkdown(lab: IndirectLab): string {
     "", "## Missions: a squad leader calls HE on the open demo ground", "",
     "| faction | point ahead (m) | missions | ranging rounds seen | first-round aim miss (m) | effect aim miss (m) |", "|---|---:|---:|---:|---:|---:|",
     ...lab.missions.map((r) => `| ${r.faction} | ${r.distM} | ${r.seeds} | ${(r.seenShare * 100).toFixed(0)} % | ${f(r.firstMiss)} | ${f(r.effectMiss)} |`),
+    "", "## By location method (M9.5): mean miss (m), an average observer reading the falls the same way", "",
+    "| faction | method | caller to the point (m) | first round | after 1 | after 2 |", "|---|---|---:|---:|---:|---:|",
+    ...lab.methods.map((r) => `| ${r.faction} | ${r.method} | ${r.distM} | ${r.miss.map(f).join(" | ")} |`),
   ].join("\n");
 }

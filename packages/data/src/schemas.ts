@@ -554,6 +554,8 @@ export const FactionManifest = withProv({
   demoTemplate: Id.optional(),
   /** Platoon used by generated battles (M6). */
   platoonTemplate: Id.optional(),
+  /** On-map mortar section generated battles add with `mortars` (M8.3a). */
+  mortarTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -594,6 +596,16 @@ export const ItemSchema = withProv({
   sensor: z.string().optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
+  /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
+   *  in the crew's loads), minimum and maximum range (m), seconds to set up and to pack, seconds per round at the
+   *  sustained rate with a full crew, crew (and the fewest who can still fire), the first round's aim error (m per
+   *  axis, as the off-map battery's `rangingErrorM`), dispersion (m per axis per km of range), seconds the crew
+   *  takes to compute and lay a mission, the flight (base + per km), how far the enemy hears it (m). */
+  mortar: z.object({
+    calibre: z.string(), he: Id, smoke: Id, minRangeM: Num(0, 20000), maxRangeM: Num(1, 20000), setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+    roundSeconds: Num(0.5, 120), crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), aimErrorM: Num(0, 500),
+    dispersionPerKmM: Num(0, 200), processingSeconds: Num(0, 600), flightBaseSeconds: Num(0, 120), flightPerKmSeconds: Num(0, 60), hearingRangeM: Num(0, 20000),
+  }).strict().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */

@@ -212,6 +212,9 @@ white flags on the map; the after-action review lists surrendered and captured m
   3. ✅ **M8.2b Observers and adjustment** (2026-11-14) — observers for men and vehicle sights (drone kind reserved),
      adjustment converging with observer skill, `lab -- indirect`. Skipping a recognised Verwundetennest waits for
      M10.7a (medical branch).
+  4. ✅ **M8.3a On-map mortars: crews and firing** (2026-11-14) — tubes as items (DE 120 mm, RU 2B14 and 2B11),
+     teams and sections, deploy and set-up, packing, range band, rounds taken from the crews as fired; scenarios
+     `platoon-mortars`, `platoon-ru-mortars`. Carriers not modelled yet.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 

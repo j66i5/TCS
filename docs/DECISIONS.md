@@ -4013,3 +4013,40 @@ Owner answer used (BINDING, round A): hand smoke grenades as a small step inside
   RDG-2 73 s; band 12.5 m; nobody hurt) and the volume tables (a new height row: a man at a second-floor window
   sees over a hand smoke cloud, one at a first-floor window does not). PR #43's `--scene smoke` keeps its name; the
   M8.1 plume screenshots are now `--scene plumes`. Goldens regenerated.
+
+## 2026-11-14 — M8.3a On-map mortars: crews and firing (slice 24; decided without the owner, owner to review)
+
+M8 owner round, screen 1 "Mortars", answered here (owner to review): **(a) on the map, plus artillery off the map**.
+The off-map battery stays (M6.5c); generated battles keep it by default (goldens' battles and the default batches
+are unchanged); on-map sections come with `mortars: true` (tools scenarios `platoon-mortars`, `platoon-ru-mortars`;
+app `?mortars=1`).
+- **Data** (research defaults, search extracts only): German 120 mm mortar (Tampella; over 6 km, 160 kg, a round
+  almost 14 kg, carried by the Wolf or fired from the M113: Bundeswehr/ESUT extracts) `de-m120-mortar`, low; Russian
+  82 mm 2B14 Podnos (crew 4, 80-85 m to 4,270 m, up to 24 rounds a minute) `ru-2b14-mortar`, medium; 120 mm 2B11 of
+  the 2S12 Sani (480 m to 7,100 m, 10 a minute normal, 15 maximum, crew 5, GAZ-66-based 2F510 truck) `ru-2b11-mortar`,
+  medium, with new `ru-120-he/-fragment/-smoke` rounds (low). The tube is an **item** with a `mortar` block (not a
+  weapon: no direct-fire path touches it); set-up 60-120 s, packing 30-60 s, sustained 4-8 s per round, crewMin 2,
+  aim error 15 m, dispersion 8-10 m per km, processing 25-30 s, flight 8-10 s + 6 s per km: game values, low.
+  **Carriers are not modelled** (no Wolf/M113/truck hull yet): a section starts at its position; the data notes name
+  the carriers. Teams `moerser-trupp` (4 men, 12 HE + 4 smoke), `raschet-2b14` (4 men, 24 HE + 6 smoke),
+  `raschet-2b11` (5 men, 15 HE + 4 smoke); sections of two (`moerser-gruppe`, `minomyotny-vzvod-82`,
+  `batareya-2s12`); manifest `mortarTemplate` (DE 120 mm, RU 82 mm).
+- **Sim** (`systems/mortars.ts`, support.ts): a team (its men carry a tube) is packed / setting up / ready; it sets up
+  on the new `deploy` order (SPEC 6.6) or on its own after standing still 3 s (player and AI alike, so no new button
+  is needed yet); a move packs it first (`Mover.holdUntilTick`). A call for fire goes to the side's set-up (or
+  setting-up) teams that reach the point (and both ends of a screen) with rounds of the kind; else the off-map
+  battery; with neither and a team out of range: `radio.fireOutOfRange`. Rounds stay with the crews until the tube
+  fires (rule 9: one round out of a load per shot; `supportLeft` counts them); rounds in flight are kept in the
+  mission (`FireMission.flying`). Ranging and adjustment as M8.2a/b (first error from the tube's `aimErrorM`); one
+  ranging round at a time, then every tube at its own rate. Events `mortar.setup/ready/packed/fired`; radio
+  `radio.mortarReady`, `radio.ack.deploy`. The AI commander leaves a mortar section alone (`isMortarUnit`); its calls
+  are routed to the tubes as to the battery.
+- **Not done:** registration of points by on-map missions only works through the off-map section's list (a side
+  without one does not remember ranged points); no UI button for `deploy` (auto set-up); vehicles carrying tubes.
+- **Tests** `tools/test/mortars.test.ts`: set-up time, deploy order accepted (rifle squad: not applicable), a
+  mission fires 6 + 2 ranging rounds from both tubes and exactly that many rounds leave the crews' loads, out of range
+  (inside the 500 m minimum, beyond a shortened maximum) refused with nothing fired, packing before a move.
+- **Batches** (10 x 1200 s; attacker wins / blue down / red down): default `platoon` and `platoon-ru` identical before
+  and after (3 / 18.0 / 12.8 and 6 (red) / 15.3 / 12.6). New: `platoon-mortars` (German 120 mm attacking, Russian
+  82 mm defending) 4 / 20.5 / 15.3 (blue mortar: 24 HE, enemy wounded 8.3); `platoon-ru-mortars` 4 (red) / 17.6 /
+  18.5. Speed 101-111x. Goldens regenerated (fingerprint only).

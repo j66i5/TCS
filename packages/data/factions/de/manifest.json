@@ -9,5 +9,6 @@
     "https://www.bundeswehr.de/de/organisation/heer"
   ],
   "confidence": "high",
-  "platoonTemplate": "pzgren-zug"
+  "platoonTemplate": "pzgren-zug",
+  "mortarTemplate": "moerser-gruppe"
 }

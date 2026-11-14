@@ -725,6 +725,430 @@
       ],
       "confidence": "low",
       "note": "BMM crew (M10.6-data): commander, driver-mechanic and a medic (crew of three, search extracts). Ranks and loads are game values. Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names."
+    },
+    {
+      "id": "raschet-2b14",
+      "echelon": "team",
+      "callsign": "Minomyot {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "mortar-commander",
+          "rank": "serzhant",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-82-smoke",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "role": "mortar-gunner",
+          "rank": "yefreytor",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-2b14-mortar",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "mortar-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-82-he",
+              "count": 12
+            }
+          ]
+        },
+        {
+          "role": "mortar-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-82-he",
+              "count": 12
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B14_Podnos"
+      ],
+      "confidence": "low",
+      "note": "M8.3a: one 82 mm 2B14 and its crew of four (Wikipedia, search extract): commander with the radio and the smoke rounds, gunner with the tube, two loaders with twelve HE rounds each (24 HE + 6 smoke at the tube: game values, low)."
+    },
+    {
+      "id": "raschet-2b11",
+      "echelon": "team",
+      "callsign": "Sani {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "mortar-commander",
+          "rank": "serzhant",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-120-smoke",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "role": "mortar-gunner",
+          "rank": "yefreytor",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-2b11-mortar",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "mortar-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-120-he",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "role": "mortar-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-120-he",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "role": "mortar-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-120-he",
+              "count": 5
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://en.wikipedia.org/wiki/2S12_Sani"
+      ],
+      "confidence": "low",
+      "note": "M8.3a: one 120 mm 2B11 (2S12 Sani) and its crew of five (Rostec: crew 5): commander with the radio and smoke rounds, gunner with the tube, three loaders with five HE rounds each (15 HE + 4 smoke at the tube; the truck's load is not modelled: game values, low)."
+    },
+    {
+      "id": "minomyotny-vzvod-82",
+      "echelon": "section",
+      "callsign": "Minomyoty {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "raschet-2b14",
+        "raschet-2b14"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "M8.3a: two 2B14 crews (a company mortar section; game organisation, low)."
+    },
+    {
+      "id": "batareya-2s12",
+      "echelon": "section",
+      "callsign": "Sani {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "raschet-2b11",
+        "raschet-2b11"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "M8.3a: two 2S12 Sani crews (a battalion mortar platoon in part; game organisation, low)."
     }
   ]
 }

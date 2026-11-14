@@ -9,6 +9,13 @@
  */
 import type { DefId } from "./ids";
 
+/** An on-map mortar tube (M8.3a): rounds, range band, set-up and packing, rate, crew, accuracy, timing, signature. */
+export interface MortarDef {
+  calibre: string; he: DefId; smoke: DefId; minRangeM: number; maxRangeM: number; setupSeconds: number; packSeconds: number;
+  roundSeconds: number; crew: number; crewMin: number; aimErrorM: number; dispersionPerKmM: number; processingSeconds: number;
+  flightBaseSeconds: number; flightPerKmSeconds: number; hearingRangeM: number;
+}
+
 export interface ItemTypeDef {
   id: DefId;
   /** Mass of one item, kg (for a magazine: the empty magazine). */
@@ -25,6 +32,8 @@ export interface ItemTypeDef {
   sensor?: string;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
   rangefinder?: boolean;
+  /** M8.3a: a crew-served mortar tube (see the data schema). */
+  mortar?: MortarDef;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
   tracerItem?: DefId;
   tracerEvery?: number;

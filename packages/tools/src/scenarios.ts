@@ -164,6 +164,16 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
+  "platoon-mortars": {
+    description: "M8.3a: the platoon battle on foot (village; Germany attacks) with on-map mortars instead of the off-map allotment: a German 120 mm section (two tubes) at the attacker's map edge, a Russian 82 mm 2B14 section (two tubes) 250 m behind the defence; they set up on their own and fire the commanders' calls.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, mortars: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "platoon-ru-mortars": {
+    description: "M8.3a: the same with the sides swapped on farmland (Russia attacks), on-map mortars on both sides.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, mortars: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
   "platoon-vehicles": {
     description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a).",
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true }),

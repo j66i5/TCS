@@ -87,5 +87,13 @@
   "item.ru-bmm-diesel": "BMM fuel",
   "item.ru-bmm-extinguisher": "BMM fire-extinguisher charge",
   "role.ru.sanitar-bmm": "Ambulance medic",
-  "ammo.ru-rdg2": "RDG-2 smoke hand grenade"
+  "ammo.ru-rdg2": "RDG-2 smoke hand grenade",
+  "item.ru-2b14-mortar": "82 mm mortar 2B14",
+  "item.ru-2b11-mortar": "120 mm mortar 2B11",
+  "role.ru.mortar-commander": "Mortar commander",
+  "role.ru.mortar-gunner": "Mortar gunner",
+  "role.ru.mortar-loader": "Mortar loader",
+  "ammo.ru-120-he": "120 mm HE bomb",
+  "ammo.ru-120-fragment": "120 mm bomb fragment",
+  "ammo.ru-120-smoke": "120 mm smoke bomb"
 }

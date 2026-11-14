@@ -78,6 +78,9 @@ export type OrderBody =
   | { kind: "mount"; vehicle?: EntityId }
   /** Get out (M7.2): the unit's men aboard get out behind their vehicle; to a vehicle's crew: all its passengers. */
   | { kind: "dismount" }
+  /** Set up a crew-served weapon where the men stand (M8.3a, SPEC 6.6 "deploy crew-served weapon"): a mortar team,
+   *  or a section of them; the men stop. */
+  | { kind: "deploy" }
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor

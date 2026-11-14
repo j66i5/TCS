@@ -3,6 +3,11 @@
 _Last updated: 2026-11-14 (M7.5e follow-ups, slice s0-clear: a Clear button, the AI clears on its approach; before: M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**M8.3a On-map mortars (2026-11-14, same branch; DECISIONS "M8.3a").** Mortar teams carry a tube (item with a
+`mortar` block) and rounds; they set up on `deploy` or after standing still 3 s, pack before a move, and fire the
+side's calls in their range band (rounds leave the crews as fired; out of range with no battery: refused). DE 120 mm,
+RU 2B14 / 2B11 data; `platoon-mortars`, `platoon-ru-mortars`, app `?mortars=1`. Default battles unchanged.
+
 **M8.2b Observers and adjustment (2026-11-14, same branch; DECISIONS "M8.2b").** The caller or any man of his
 platoon who sees a ranging round fall (a crewman through his sight, with its laser) reads it; the best reader's
 skill sets how much error is left (x0.3 x 1.5..0.6) plus his reading error (3 m + 1 % of range, laser 2 m).

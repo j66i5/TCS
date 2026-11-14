@@ -93,5 +93,9 @@
   "item.de-boxer-diesel": "Boxer fuel",
   "item.de-boxer-extinguisher": "Boxer fire-extinguisher charge",
   "role.de.sankfz-sanitaeter": "Ambulance medic",
-  "ammo.de-dm45": "DM45 smoke hand grenade"
+  "ammo.de-dm45": "DM45 smoke hand grenade",
+  "item.de-m120-mortar": "120 mm mortar",
+  "role.de.mortar-leader": "Mortar team leader",
+  "role.de.mortar-gunner": "Mortar gunner",
+  "role.de.mortar-loader": "Mortar loader"
 }

@@ -50,6 +50,11 @@ export interface FireMission {
    *  ranged on or planned before); the round landing at the tick in `shotFor` / `splashFor` has had its "shot" /
    *  "splash" call. */
   method?: LocationMethod; shotFor?: number; splashFor?: number;
+  /** M8.3a on-map: the mortar teams firing it (with each tube's next round tick), the rounds in flight (where and
+   *  when they fall, which round, a ranging round, one with "shot"/"splash" calls), and a ranging round awaited. */
+  tubes?: EntityId[]; tubeNext?: number[];
+  flying?: { tick: number; x: number; y: number; ammo: DefId; ranging: boolean; announce?: true; splashed?: true }[];
+  wait?: true;
 }
 
 /** How the caller located the target (M8.2a). */

@@ -541,6 +541,66 @@
       ],
       "confidence": "low",
       "note": "Granate, Hand, DM45, 800 g (Rheinmetall, Bundeswehr; search extracts only): the Bundeswehr's smoke hand grenade since the mid-1990s; its pyrotechnic charge forms a smoke wall. Burn time and cloud size are not in the extracts: game values (a cloud of 10 m radius for 60 s, smoking 2 s after the throw), set like the Russian RDG-2's published 60-90 s."
+    },
+    {
+      "id": "de-spike-lr",
+      "nameKey": "ammo.de-spike-lr",
+      "calibre": "152mm-atgm",
+      "kind": "tandem-shaped-charge",
+      "projectileMassKg": 13,
+      "cartridgeMassKg": 13,
+      "diameterM": 0.152,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 875,
+        "atVelocityMps": 170
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "fire-and-forget-top-attack",
+      "explosive": {
+        "fillingKg": 1.5,
+        "fragmentCount": 150,
+        "fragmentAmmo": "de-dm51-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.8,
+        "selfDestructSeconds": 32
+      },
+      "guided": {
+        "cruiseMps": 170,
+        "accelMps2": 40,
+        "turnRateDegS": 60,
+        "minRangeM": 200,
+        "maxRangeM": 4000,
+        "trackErrorMrad": 0,
+        "trackTauS": 1,
+        "lookaheadS": 0,
+        "lostKickMrad": 0,
+        "topAttack": {
+          "climbM": 80,
+          "diveAtM": 160,
+          "launchElevationDeg": 12
+        },
+        "seekerSmokeFactor": 0.5
+      },
+      "behindArmour": {
+        "spallCount": 25,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 300
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Spike_(missile)",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma"
+      ],
+      "confidence": "low",
+      "note": "Spike LR as fired from the Puma's MELLS launcher (M9.3a): range up to 4000 m, fire-and-forget with a dual (CCD and infrared) seeker, lock before launch, a lofted top-attack path, tandem shaped charge about 700 mm RHA behind reactive armour (700 x 1.25 = 875 mm mild-steel equivalent), missile about 13 kg (search extracts only, pages not opened). Owner (M9 round): a locked fire-and-forget missile flies on to the last point its seeker saw when smoke hides the target. Game values (low): 170 m/s after a soft launch at 30 m/s and 40 m/s2, climbs to 80 m above the target and dives on it from 160 m out (it strikes the roof), turns up to 60 deg/s (the dive), its seeker keeps half its view through ordinary smoke (none through multispectral), arms after 0.8 s, destroys itself after 32 s. The fibre-optic link (operator updates in flight) is not modelled."
     }
   ]
 }

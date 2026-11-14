@@ -210,7 +210,9 @@ export interface AmmoDef {
   /** Rocket motor (M7.4a). */
   propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
   /** Wire-guided (SACLOS) missiles (owner 2026-11-13; full guided weapons M9). */
-  guided?: { cruiseMps: number; accelMps2: number; turnRateDegS: number; minRangeM: number; maxRangeM: number; trackErrorMrad: number; trackTauS: number; lookaheadS: number; lostKickMrad: number };
+  guided?: { cruiseMps: number; accelMps2: number; turnRateDegS: number; minRangeM: number; maxRangeM: number; trackErrorMrad: number; trackTauS: number; lookaheadS: number; lostKickMrad: number;
+    /** M9.3a: top attack (climb above the aim point, dive within diveAtM) and the seeker through smoke. */
+    topAttack?: { climbM: number; diveAtM: number; launchElevationDeg: number }; seekerSmokeFactor?: number };
   /** Kinetic rounds against armour (M7.4a): ricochet threshold factor (default 1). */
   ricochetFactor?: number;
   /** Fragments thrown inside a hull it penetrates (M7.4a, owner Q11). */
@@ -233,6 +235,8 @@ export interface WeaponDef {
   cyclicRpm: number;
   dispersionMrad: number;
   reloadSeconds: number;
+  /** M9.3a: a vehicle launcher reloaded from outside by a crewman on the roof (exposed). */
+  reloadOutside?: boolean;
   setupSeconds: number;
   jamProbability: number;
   sights: { kind: string; magnification: number }[];
@@ -474,7 +478,7 @@ export interface BehaviourDef {
      *  at least houseFrontMin long; a unit that could send nobody out looks again after houseLeaveRetryS. */
     houseLeaveCoverM: number; houseLeaveTries: number; houseLeaveCost: [number, number]; houseFrontMin: number; houseLeaveRetryS: number;
   };
-  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
+  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number; launchReactionSeconds: number };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -732,6 +736,8 @@ export interface VehicleDef {
   dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
   /** How it is seen and heard (M7.3; defaults when the data gives none). */
   signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
+  /** M9.3a: a laser warning receiver (notices a beam-riding missile aimed at it). */
+  laserWarner?: boolean;
   /** An ambulance (M10.6-data): patient layouts (alternatives) and the protective emblem. Behaviour: M10.6a. */
   ambulance?: { layouts: { lying: number; sitting: number; lyingOutside: number }[]; marked: boolean };
 }

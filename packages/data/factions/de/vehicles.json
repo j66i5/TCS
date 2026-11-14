@@ -354,6 +354,28 @@
               "switchSeconds": 0,
               "engageRangeM": 800,
               "feedKind": "belt"
+            },
+            {
+              "weapon": "de-mells-launcher",
+              "coax": false,
+              "muzzle": [
+                0.3,
+                1.35,
+                3.0
+              ],
+              "feeds": [
+                {
+                  "item": "de-mells-round",
+                  "ready": {
+                    "count": 2,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 4000,
+              "feedKind": "single",
+              "roundLoadSeconds": 1
             }
           ],
           "sources": [],
@@ -400,6 +422,11 @@
         {
           "item": "de-puma-extinguisher",
           "count": 2
+        },
+        {
+          "item": "de-mells-round",
+          "count": 2,
+          "charge": 1
         }
       ],
       "sources": [
@@ -407,7 +434,7 @@
         "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
       ],
       "confidence": "medium",
-      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value).",
+      "note": "Schuetzenpanzer Puma: 3 crew (commander, gunner, driver in the hull) and 6 dismounts (published). Armour, components and signature come with M7.3/M7.4. M7.2: stowed rifle magazines and machine-gun belts for the squad (game values, low): the men refill from a halted vehicle. M7.3: gun, coaxial machine gun, 30 mm and coax stowage (game split of the published totals), 16 smoke grenades, seat sights (commander panoramic day and thermal, gunner day and thermal following the turret). The driver (buttoned up, owner Q5) drives and does not search for the enemy (game value). M9.3a: MELLS (Spike LR) on the turret, two ready and two more stowed (low), reloaded from outside by a crewman on the roof; a laser warning receiver (low: part of the Puma's protection suite in search extracts).",
       "dischargers": {
         "item": "de-76mm-smoke",
         "perSalvo": 4,
@@ -828,7 +855,8 @@
         "sources": [],
         "confidence": "low",
         "note": "Game values: the Puma has an automatic fire suppression system (search extracts); its charges, the delay and the chance to put a fire out are not published."
-      }
+      },
+      "laserWarner": true
     },
     {
       "id": "de-boxer-san",

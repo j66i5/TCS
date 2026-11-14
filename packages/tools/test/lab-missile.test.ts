@@ -85,7 +85,7 @@ describe("guided missile (owner 2026-11-13)", () => {
     let saved: ReturnType<typeof saveSim> | null = null;
     const ends: string[] = [];
     for (let i = 0; i < 30 * TICK_HZ; i++) {
-      for (const e of step(sim)) if (e.kind === "missile.ended") ends.push(`${e.tick}:${e.result}`);
+      for (const e of step(sim)) if (e.kind === "missile.ended" && e.vehicle === shooter) ends.push(`${e.tick}:${e.result}`);
       if (saved === null && sim.state.vehicle.req(shooter).stations[0]!.guide && sim.state.tick % 60 === 0 && sim.state.projectiles.count > 0) {
         const g = sim.state.vehicle.req(shooter).stations[0]!.guide!;
         if (sim.state.tick - g.launchTick > 3 * TICK_HZ) saved = JSON.parse(JSON.stringify(saveSim(sim))) as ReturnType<typeof saveSim>;
@@ -95,7 +95,7 @@ describe("guided missile (owner 2026-11-13)", () => {
     expect(ends).toHaveLength(1);
     const copy = loadSim(input, saved!);
     const ends2: string[] = [];
-    while (copy.state.tick < sim.state.tick) for (const e of step(copy)) if (e.kind === "missile.ended") ends2.push(`${e.tick}:${e.result}`);
+    while (copy.state.tick < sim.state.tick) for (const e of step(copy)) if (e.kind === "missile.ended" && e.vehicle === shooter) ends2.push(`${e.tick}:${e.result}`);
     expect(ends2).toEqual(ends);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });

@@ -49,7 +49,7 @@ const LABS: Record<string, () => string> = {
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
-  missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
+  missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(true), Number(process.argv[3] ?? 20)))}\n`,
 };
 const name = process.argv[2] ?? "movement";
 const lab = LABS[name];

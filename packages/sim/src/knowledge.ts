@@ -9,6 +9,8 @@ import type { EntityId } from "./ids";
 import type { SimView } from "./state";
 import { contactErrorM } from "./systems/contacts";
 import { isAble } from "./impair";
+import { onRoof } from "./mount";
+import type { SimState } from "./state";
 
 export interface KnownEnemy {
   target: EntityId;
@@ -44,7 +46,7 @@ export function sideKnowledge(ctx: SimContext, state: SimView, side: string): Kn
       if (!b || err < b.err) best.set(c.target, { c, err });
     }
   }
-  return [...best.entries()].filter(([target]) => state.soldier.get(target)?.mount === undefined).sort((a, b) => a[0] - b[0]).map(([target, { c, err }]) => ({
+  return [...best.entries()].filter(([target]) => state.soldier.get(target)?.mount === undefined || onRoof(state as SimState, target)).sort((a, b) => a[0] - b[0]).map(([target, { c, err }]) => ({
     target, x: c.x, y: c.y, errM: err, kind: c.kind, ageS: (state.tick - c.tick) / 60, surrendered: flagged.has(target),
     ...(c.cls !== undefined ? { cls: c.cls } : {}), ...(types.has(target) ? { vtype: types.get(target)! } : {}), ...(c.heading !== undefined ? { heading: c.heading } : {}),
   }));

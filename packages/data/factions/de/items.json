@@ -525,6 +525,20 @@
       "sources": [],
       "confidence": "low",
       "note": "Thermal (multispectral) camouflage blanket (M9.2): a still man under it shows a quarter of his heat to a thermal sight. Game values; not issued to anyone by default (no public per-squad issue found)."
+    },
+    {
+      "id": "de-mells-round",
+      "nameKey": "item.de-mells-round",
+      "category": "missile",
+      "massKg": 13,
+      "chargeCapacity": 1,
+      "chargeMassKg": 13,
+      "chargeItem": "de-spike-lr",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Spike_(missile)"
+      ],
+      "confidence": "low",
+      "note": "One Spike LR missile in its canister for MELLS (M9.3a). Canister mass is a game value."
     }
   ]
 }

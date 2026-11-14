@@ -91,7 +91,7 @@ describe("fixture faction 'xf'", () => {
 
   it("catalog contains only the factions taking part", () => {
     const c = buildCatalog(data!, ["xf"]);
-    expect(Object.keys(c.items).sort()).toEqual(["xf-bolt", "xf-bolt-rack", "xf-bomb", "xf-charm", "xf-cool-cloak", "xf-crate", "xf-hay", "xf-heat-eye", "xf-mag", "xf-poultice", "xf-puff", "xf-round", "xf-sash", "xf-shard", "xf-shingle", "xf-strap", "xf-vest"]);
+    expect(Object.keys(c.items).sort()).toEqual(["xf-bolt", "xf-bolt-rack", "xf-bomb", "xf-charm", "xf-cool-cloak", "xf-crate", "xf-dart", "xf-dart-tube", "xf-hay", "xf-heat-eye", "xf-mag", "xf-poultice", "xf-puff", "xf-round", "xf-sash", "xf-shard", "xf-shingle", "xf-strap", "xf-vest"]);
     expect(Object.keys(c.vehicles)).toEqual(["xf-cart", "xf-litter-cart", "xf-wagon"]);
   });
 

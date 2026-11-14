@@ -141,6 +141,52 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (D1): a smoke puff."
+    },
+    {
+      "id": "xf-dart",
+      "nameKey": "ammo.xf-dart",
+      "calibre": "xf-dart",
+      "kind": "shaped-charge",
+      "projectileMassKg": 10,
+      "cartridgeMassKg": 10,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 600,
+        "atVelocityMps": 200
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "command-beam",
+      "explosive": {
+        "fillingKg": 1,
+        "fragmentCount": 100,
+        "fragmentAmmo": "xf-shard",
+        "fragmentVelocityMps": [
+          800,
+          1200
+        ],
+        "armingSeconds": 0.5,
+        "selfDestructSeconds": 20
+      },
+      "guided": {
+        "cruiseMps": 200,
+        "accelMps2": 80,
+        "turnRateDegS": 15,
+        "minRangeM": 100,
+        "maxRangeM": 3000,
+        "trackErrorMrad": 0.2,
+        "trackTauS": 1,
+        "lookaheadS": 0.4,
+        "lostKickMrad": 60
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3a): a beam-riding missile."
     }
   ]
 }

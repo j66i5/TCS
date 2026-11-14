@@ -20,7 +20,7 @@ import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
 import { addItems, removeItems } from "../items";
 import { atan, atan2, clamp, cos, hypot2, PI, sin, sqrt, tan, wrapAngle } from "../math";
-import { compCondition, hasDriver } from "../mount";
+import { compCondition, hasDriver, onRoof } from "../mount";
 import type { SimState } from "../state";
 import type { Order, Waypoint } from "../orders";
 import { findPath, type NavStamp } from "../nav";
@@ -716,6 +716,8 @@ export function vehicleSyncSystem(ctx: SimContext, state: SimState): void {
       if (!mt) continue;
       const [x, y, z] = seatWorld(def, i, t.x, t.y, t.heading);
       mt.x = x; mt.y = y; mt.z = z; mt.heading = t.heading;
+      // (M9.3a: out on the roof reloading: standing on the hull top over his seat.)
+      if (state.action.size > 0 && onRoof(state, sid)) mt.z = def.body.hull.u[1];
     }
   }
   rebuildVehicleGrid(ctx, state);

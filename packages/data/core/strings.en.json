@@ -576,5 +576,8 @@
   "aar.exp.handSmoke": "smoke grenades: {n}",
   "radio.ack.smoke": "{callsign}: smoke!",
   "score.localTime": "{time}",
-  "score.light": "Local time; light {pct} % of daylight"
+  "score.light": "Local time; light {pct} % of daylight",
+  "radio.launchWarning": "{callsign}: missile launch! Smoke!",
+  "radio.reloadOutside": "{callsign}: reloading the launcher, man on the roof.",
+  "missile.lost.range": "missile lost: out of the beam's range"
 }

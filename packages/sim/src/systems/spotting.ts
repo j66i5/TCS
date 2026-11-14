@@ -35,7 +35,7 @@ import type { SpottingDef, VehicleDef } from "../catalog";
 import type { VehicleState } from "../components";
 
 import { canFight } from "./gunnery";
-import { compCondition } from "../mount";
+import { compCondition, onRoof } from "../mount";
 
 /** How big an angle (radians, 0..PI) lies between heading `h` and bearing `b`. */
 function angleBetween(h: number, b: number): number {
@@ -238,7 +238,9 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
   const targets = TARGETS;
   let n = 0;
   for (const [tid, ts] of state.soldier.entries()) {
-    if (!ts.physiology.alive || ts.mount !== undefined) continue; // a man aboard is never a target (M7)
+    // A man aboard is never a target (M7), except one out on the roof reloading (M9.3a).
+    const roof = ts.mount !== undefined && onRoof(state, tid);
+    if (!ts.physiology.alive || (ts.mount !== undefined && !roof)) continue;
     const tt = state.transform.get(tid), ti = state.identity.get(tid);
     if (!tt || !ti) continue;
     const speed = state.mover.get(tid)?.speedMps ?? 0;

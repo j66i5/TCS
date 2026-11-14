@@ -220,6 +220,40 @@
       ],
       "confidence": "low",
       "note": "MG5 as the Puma's coaxial machine gun, fed from the hull; rate as the MG5's upper setting; bursts of 6 every 1.5 s (game values)."
+    },
+    {
+      "id": "de-mells-launcher",
+      "nameKey": "weapon.de-mells-launcher",
+      "type": "launcher",
+      "calibre": "152mm-atgm",
+      "massKg": 30,
+      "feed": {
+        "magazine": "de-mells-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 1,
+      "dispersionMrad": 0,
+      "reloadSeconds": 90,
+      "reloadOutside": true,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "de-spike-lr": 30
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/schuetzenpanzer-puma",
+        "https://en.wikipedia.org/wiki/Puma_(German_infantry_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "MELLS (Mehrrollenfaehiges Leichtes Lenkflugkoerpersystem) launcher on the Puma's turret side, two missiles ready (search extracts). Owner (M9 round): two ready, reloaded outside while halted, with a man exposed. Game values (low): 90 s per missile for the man on the roof, the missile leaves at 30 m/s."
     }
   ]
 }

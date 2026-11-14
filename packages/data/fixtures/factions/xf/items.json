@@ -138,6 +138,18 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.2): a thermal blanket."
+    },
+    {
+      "id": "xf-dart-tube",
+      "nameKey": "item.xf-dart-tube",
+      "category": "missile",
+      "massKg": 5,
+      "chargeCapacity": 1,
+      "chargeMassKg": 10,
+      "chargeItem": "xf-dart",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3a)."
     }
   ]
 }

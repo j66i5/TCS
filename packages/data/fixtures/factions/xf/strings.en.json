@@ -31,5 +31,8 @@
   "vehicle.xf.litter-cart": "Litter cart",
   "ammo.xf-puff": "Test puff",
   "item.xf-heat-eye": "Heat eye",
-  "item.xf-cool-cloak": "Cool cloak"
+  "item.xf-cool-cloak": "Cool cloak",
+  "ammo.xf-dart": "Test dart",
+  "item.xf-dart-tube": "Test dart tube",
+  "weapon.xf-dart-rail": "Test dart rail"
 }

@@ -15,6 +15,7 @@
  * place the flag is created — and passes that news on at once; a report carries it, and nothing clears it
  * while the contact lasts. Who may be fired at is decided on this flag, never on the enemy's real state.
  */
+import { onRoof } from "../mount";
 import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -128,9 +129,12 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       // He sees him lying hit (package A).
       const isDown = ts !== undefined && ts.casualty !== "none";
       if (isDown) c.down = true;
-      if (t.z > 0 && ts?.mount === undefined) c.z = t.z;
+      // (M9.3a: a crewman out on his roof counts as a man on foot, standing.)
+      const roof = ts !== undefined && ts.mount !== undefined && onRoof(state, e.target);
+      if (t.z > 0 && (ts?.mount === undefined || roof)) c.z = t.z;
       // A man on foot: the posture he is seen in (what the shooter aims at, package A).
       if (ts !== undefined && ts.mount === undefined) c.posture = ts.posture;
+      else if (roof) c.posture = "standing";
       // A vehicle (M7.3): its heading and movement; its type once within the range it can be told at (owner Q6).
       const veh = state.vehicle.size > 0 ? state.vehicle.get(e.target) : undefined;
       if (veh) {

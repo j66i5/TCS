@@ -179,6 +179,11 @@ export const AmmoSchema = withProv({
   guided: z.object({
     cruiseMps: Num(10, 2000), accelMps2: Num(0, 5000), turnRateDegS: Num(1, 360), minRangeM: Num(0, 2000), maxRangeM: Num(10, 20000),
     trackErrorMrad: Num(0, 20), trackTauS: Num(0.05, 30), lookaheadS: Num(0, 5), lostKickMrad: Num(0, 500),
+    /** M9.3a, guidance "fire-and-forget-top-attack": it climbs `climbM` above the target's aim point and dives on it
+     *  within `diveAtM` (horizontal); `launchElevationDeg` above the sight line at launch. */
+    topAttack: z.object({ climbM: Num(0, 1000), diveAtM: Num(10, 5000), launchElevationDeg: Num(0, 60) }).strict().optional(),
+    /** M9.3a, fire-and-forget: the share of its seeker's view kept through ordinary smoke (multispectral: none). */
+    seekerSmokeFactor: Num(0, 1).optional(),
   }).strict().optional(),
   /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
   ricochetFactor: Num(0, 2).optional(),
@@ -211,7 +216,9 @@ export const WeaponSchema = withProv({
   cyclicRpm: Num(1, 6000),
   /** Mechanical dispersion of weapon and ammunition (one standard deviation), milliradians. */
   dispersionMrad: Num(0, 50),
-  reloadSeconds: Num(0.1, 120), setupSeconds: Num(0, 600),
+  reloadSeconds: Num(0.1, 600), setupSeconds: Num(0, 600),
+  /** M9.3a: a vehicle launcher reloaded from outside by a crewman on the roof (exposed), halted. */
+  reloadOutside: z.boolean().optional(),
   /** Chance of a stoppage per round fired. */
   jamProbability: Num(0, 0.1),
   sights: z.array(z.object({ kind: z.enum(["iron", "reflex", "magnified", "telescopic", "night", "thermal"]), magnification: Num(1, 60) }).strict()).min(1),
@@ -422,6 +429,8 @@ export const BehaviourFile = withProv({
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
+    /** M9.3a: a crew that notices a missile launched at it fires its smoke toward the launcher this long after. */
+    launchReactionSeconds: Num(0, 30),
   }).strict(),
   /** Hand smoke screens (D1, M10): the same for every side. See BehaviourDef.smoke. */
   smoke: z.object({
@@ -838,6 +847,8 @@ export const VehicleSchema = withProv({
     layouts: z.array(z.object({ lying: z.number().int().min(0).max(20), sitting: z.number().int().min(0).max(20), lyingOutside: z.number().int().min(0).max(10).optional() }).strict()).min(1),
     marked: z.boolean(),
   }).optional(),
+  /** M9.3a: a laser warning receiver: the crew notices a beam-riding missile aimed at it. */
+  laserWarner: z.boolean().optional(),
   recovery: z.null().optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();

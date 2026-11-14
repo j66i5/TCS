@@ -59,6 +59,36 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "xf-dart-rail",
+      "nameKey": "weapon.xf-dart-rail",
+      "type": "launcher",
+      "calibre": "xf-dart",
+      "massKg": 20,
+      "feed": {
+        "magazine": "xf-dart-tube"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 1,
+      "dispersionMrad": 0,
+      "reloadSeconds": 20,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "telescopic",
+          "magnification": 8
+        }
+      ],
+      "ammo": {
+        "xf-dart": 60
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3a): the beam-riding launcher on the wagon."
     }
   ]
 }

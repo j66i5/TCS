@@ -367,6 +367,12 @@ export interface BehaviourDef {
    * grenadeContactSeconds, behind cover or in a house, with no man of his side within grenadeClearM of it;
    * assaultFireM / assaultFireAimFactor: within this distance of an assault's objective the men on the move fire
    * as they go, with their aiming error multiplied by this.
+   * Fire discipline (overnight pick 2026-11-14): friendBeyondM: a man firing bursts (a machine gun, or a burst
+   * band) also holds his fire for a comrade in the cone up to this far past the point he fires at (the beaten
+   * zone). overlapM / overlapCheckSeconds: a halted man outdoors this close to a man of his side on his level (the
+   * higher id of the two) steps aside, checked this often. duckAboveIntervalS / duckHoldS: a man raised above his
+   * fire position's posture goes back down while his next shot is at least this far off (or he reloads, or no
+   * posture gives him a line), and keeps each posture at least duckHoldS before changing it again for this.
    */
   soldier: {
     reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
@@ -375,6 +381,7 @@ export interface BehaviourDef {
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
+    friendBeyondM: number; overlapM: number; overlapCheckSeconds: number; duckAboveIntervalS: number; duckHoldS: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

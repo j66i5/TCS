@@ -434,6 +434,20 @@ to get it there are picked. In the last 50 m of an assault the men on the move f
 know near the objective — with three times their aiming error: fire to keep heads down while they close, not
 to hit.
 
+**Fire discipline (2026-11-14).** A man no longer shoots a comrade lying at his elbow: a man of his side right beside
+the muzzle (from a little behind his shoulder; a man lying down is long, so from further back) counts as in his line,
+and he holds his fire. A man firing bursts — a machine gun, or a rifleman on automatic up close — also holds his fire
+for a comrade in his safety cone up to 60 m past the point he fires at (the rounds that miss go on; one gun hit its
+own men 30–45 m beyond its target). Two halted men of a side outdoors who end up within 1 m of each other on the same
+floor (two squads sent to the same fold, a crawl ending where another man lies) no longer stay there: the one with
+the higher number steps 2–3 m aside, sideways to the enemy rather than toward him (checked once a second; men handing
+over ammunition, men indoors and at windows are left alone), and the end points of move orders keep clear of places
+men of other squads of the side have taken. A man who rose above his fire position's posture to fire (to his knees
+to clear a bank, say) goes back down to it between shots when the next one is at least 3 s off and the way down and
+up again fits in, when he changes magazine, when no posture gives him a line of fire, and while a comrade is in his
+line; he rises again just in time for the next shot, so his rate of fire is the same. He keeps each posture at least
+1 s for this. Machine gunners firing bursts and men at windows are left as they are.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover

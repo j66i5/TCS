@@ -3,7 +3,7 @@
  */
 import { callFire } from "./support";
 import { clearDrills, drillGroups, releaseFromParentDrills } from "./drills";
-import { placesTaken } from "./decisions";
+import { freeSpotNear, placeFree, placesTaken } from "./decisions";
 import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
@@ -396,7 +396,18 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           // Only if it is really near on foot (not "15 m away" behind a wall that means a long detour).
           if (leg && leg.cost <= HALT_COVER_RADIUS_M * 2.5) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...last, x: leg.points[i]!, y: leg.points[i + 1]! });
         }
-        const fin = m.waypoints[m.waypoints.length - 1]!;
+        // (Fire discipline, 2026-11-14: never ending on top of a man of his side, of any unit, who is there or going
+        // there: within 2 x soldier.overlapM of such a place he takes the nearest free spot instead.)
+        const OV = ctx.catalog.behaviour.soldier.overlapM;
+        let fin = m.waypoints[m.waypoints.length - 1]!;
+        if (OV > 0 && indoorAt(ctx, fin.x, fin.y) < 0 && !placeFree(placesTaken(state, s), fin.x, fin.y, 2 * OV)) {
+          const p = freeSpotNear(ctx, state, s, fin.x, fin.y);
+          if (p.x !== fin.x || p.y !== fin.y) {
+            const leg = routeBetween(ctx, search, fin.x, fin.y, p.x, p.y, { maxExpansions: 2000, snapCells: 2 });
+            if (leg && leg.cost <= HALT_COVER_RADIUS_M * 2.5) for (let i = 0; i < leg.points.length; i += 2) m.waypoints.push({ ...fin, x: leg.points[i]!, y: leg.points[i + 1]! });
+            fin = m.waypoints[m.waypoints.length - 1]!;
+          }
+        }
         const ox = fin.x - end.x, oy = fin.y - end.y;
         m.endPosture = "prone";
         m.endHeading = laid || s === refId || ox * ox + oy * oy < 4 ? travel : atan2(oy, ox);

@@ -333,6 +333,13 @@ export interface FireTask {
   aimAuto?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */
   onTheMove?: true;
+  /**
+   * Fire discipline (2026-11-14): he went down to `basePosture` between shots; `up` is the posture he fires from,
+   * which he takes again `riseTicks` before his next shot (`friend`: he went down because a comrade was in his
+   * line, and stays down while that comrade is still there). `duckTick`: when he last went down or up for this.
+   */
+  duck?: { up: Posture; riseTicks: number; friend?: true };
+  duckTick?: number;
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

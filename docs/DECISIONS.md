@@ -3029,3 +3029,42 @@ reverse out on panic and close infantry as they do in batch runs. Measured (AI o
 600 s): playerHold vehicle-seconds on AI hulls platoon-ru-vehicles seeds 1/2/3 3594/3594/918 -> 0/0/0,
 platoon-vehicles seed 1 4792 -> 0; outcomes unchanged in those seeds. No sim, data or golden change.
 New `ui/test/player-order.test.ts`.
+
+## 2026-11-14 — Fire discipline: no shooting comrades, no stacking, duck between shots (overnight AI, pick "soldier-fire-discipline")
+
+Evidence (platoon-ru s1, 1500 s): red men halted 0.1-0.4 m apart shot each other (8 hits on live men, 69 rounds into
+a fallen comrade, 2 own men killed); an MG3 hit own men 30-45 m past its aim point; 87-99 % of the man-seconds a man
+spent raised above his fire position's posture had no shot in the last 3 s. Changes (all in `sim`, values in
+`behaviour.json` `soldier`):
+- `friendInLine` (fire.ts) counts a comrade from 0.3 m behind the shoulder (a prone comrade, whose body is long, from
+  further back; was: only beyond 0.5 m while the muzzle is 0.4 m out). **High confidence** (a bug).
+- A man firing bursts (`sustained` gun, or a burst band) also holds for a comrade in the cone up to
+  `friendBeyondM` = **60 m** past the point (the beaten zone). **Low** (game value; 40 m left 6 MG hits 45 m out in
+  20 runs). A single shot keeps the old 5 m allowance.
+- `stepAside` (decisions.ts): a halted man outdoors within `overlapM` = **1 m** of a halted man of his side on his
+  level, the higher id, steps 2-3 m aside (sideways to the enemy first), checked every `overlapCheckSeconds` = 1 s;
+  ammunition hand-overs, taking prisoners, men indoors, routed men and men diving from a grenade are left alone. **Low.**
+- Move orders: an end point within 2 x `overlapM` of a place another man of the side (any unit) has taken goes to
+  `freeSpotNear` (moved from drills.ts to decisions.ts and shared). **Medium.**
+- Duck between shots (fire.ts): a man above `task.basePosture` goes down to it after a shot when the next is at least
+  `duckAboveIntervalS` = **3 s** off and the way down and up plus `duckHoldS` = **1 s** fits in; before a reload; when no
+  posture gives him a line; while a comrade holds his fire (he stays down until that comrade is out of the line). He
+  rises `postureChangeSeconds` before the next shot, so his rate is unchanged (unit test: same shot ticks). Each such
+  change holds at least `duckHoldS` (no see-saw with package C). Machine guns firing bursts, men indoors and men on the
+  move are exempt. `FireTask.duck`/`duckTick` are new optional fields (no schema bump). **Low** (values).
+Measured, same seeds, before -> after. 9-battle set (platoon s1-3, platoon-ru s1-2 1500 s; platoon-vehicles s1-2,
+platoon-ru-vehicles s1-2 1200 s): friendly bullet hits on live men from men on foot 12 -> 3, rounds into fallen
+comrades 69 -> 2; halted same-side pairs under 0.5 m 782 -> 31 pair-seconds, under 1 m 525 -> 12 (what is left:
+ammunition hand-overs, which are deliberate, and 1-2 s while men are still changing posture); man-seconds raised with
+no shot for 3 s 9261 -> 2230 (-76 %), with no line 3508 -> 329, seen by an enemy meanwhile 1788 -> 363; reloads begun
+raised above the fire position 36 -> 3. Batches (platoon, platoon-ru 20 seeds, platoon-vehicles 10 seeds, 1200 s):
+wins red/blue 13/7 -> 13/7, 8/12 -> 10/10, 4/6 -> 6/4 (noise); killed blue/red 10.4/7.5 -> 8.5/7.9, 8.8/8.6 ->
+9.2/8.6, 11.1/18.5 -> 11.8/16.9; friendly bullet hits on live men 97 -> 9 in the 50 runs; enemy bullet hits about the
+same (3519 -> 3503) on fewer shots in platoon-vehicles (14512 -> 9307: MGs holding for men in their beaten zone).
+Suppression lab output identical. Attack lab: the supported attack on the wall succeeded 4/20 -> 1/20 (40-seed probe
+5 -> 2, defenders down 0.63 -> 0.25): the defenders behind the wall now duck between shots too, so the supporting
+squad hits them less; the unsupported attacks fail as before. Goldens changed (`npm run golden:update`, main goldens
+only, no-interiors untouched): demo-s1, shootout-s1, fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1,
+village-occupy-s1 — all from tick 600, because men now duck between shots, step apart and hold fire for comrades.
+Owner questions: is 60 m of beaten zone right, should ducking be off for defenders behind walls (it makes attacks
+on a wall harder), and is 1 m the right "on top of each other" distance.

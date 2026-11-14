@@ -24,12 +24,11 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, hypot2, PI, sin } from "../math";
 
 import { navFor } from "../navctx";
-import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { isCowering } from "./morale";
 import { aimHeightAt, assignFireTask } from "./fire";
-import { placeFree, placesTaken } from "./decisions";
+import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 
@@ -63,25 +62,6 @@ function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: nu
   m.endPosture = "prone";
   m.endHeading = face ? atan2(face.y - leg.goalY, face.x - leg.goalX) : null;
   return true;
-}
-
-/**
- * (x, y), or the nearest point to it on rings of `soldier.minSpacingM` that is that far from every place another
- * man of his side has taken (package B: two squads' last men rallying on the same point no longer lie on top of
- * each other). Indoors (a floor above) it is left as it is.
- */
-function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { x: number; y: number } {
-  const sep = ctx.catalog.behaviour.soldier.minSpacingM;
-  const taken = placesTaken(state, id);
-  if (sep <= 0 || placeFree(taken, x, y, sep)) return { x, y };
-  for (let ring = 1; ring <= 3; ring++) {
-    for (let k = 0; k < 8; k++) {
-      const a = (k * PI) / 4 + (ring % 2) * (PI / 8);
-      const px = Math.min(Math.max(x + cos(a) * ring * sep, 2), ctx.map.widthM - 2), py = Math.min(Math.max(y + sin(a) * ring * sep, 2), ctx.map.heightM - 2);
-      if (navCostAt(navFor(ctx, "foot").grid, px, py) > 0 && placeFree(taken, px, py, sep)) return { x: px, y: py };
-    }
-  }
-  return { x, y };
 }
 
 /** Is he in the middle of throwing a grenade (the drill does not move him off it)? */

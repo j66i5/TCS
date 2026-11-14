@@ -81,7 +81,7 @@ export function buildingsTally(input: BattleInput, spreadAtS = 239): { tally: Bu
       for (const e of ev) {
         if (e.kind === "wound") { const sd = sideOf(e.soldier); if (sd) { if (indoors(e.soldier)) sd.woundsIn++; else sd.woundsOut++; } }
         else if (e.kind === "casualty") { const sd = sideOf(e.soldier); if (sd) { if (indoors(e.soldier)) sd.downIn++; else sd.downOut++; } }
-        else if (e.kind === "grenade.launched") { const sd = sideOf(e.soldier); if (sd) { sd.grenades++; if (indoorAt(sim.ctx, e.x, e.y) >= 0) sd.grenadesAtHouse++; } }
+        else if (e.kind === "grenade.launched" && sim.ctx.catalog.ammo[e.ammo]?.smoke === undefined) { const sd = sideOf(e.soldier); if (sd) { sd.grenades++; if (indoorAt(sim.ctx, e.x, e.y) >= 0) sd.grenadesAtHouse++; } }
         else if (e.kind === "radio" && e.key.startsWith("radio.houseLeft")) {
           const sd = tally.sides[e.side];
           if (sd) { if (e.key === "radio.houseLeftTrap") sd.leftTrap++; else if (e.key === "radio.houseLeftEnemy") sd.leftEnemy++; else sd.leftFlank++; }

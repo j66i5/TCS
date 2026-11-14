@@ -422,7 +422,7 @@ function mobile(v: VehicleState, def: VehicleDef): boolean {
   const comps = def.components ?? [];
   for (let k = 0; k < comps.length; k++) {
     const kd = comps[k]!.kind;
-    if ((kd === "engine" || kd === "track" || kd === "transmission") && (v.comp[k] ?? 1) <= 0) return false;
+    if ((kd === "engine" || kd === "track" || kd === "wheels" || kd === "transmission") && (v.comp[k] ?? 1) <= 0) return false;
   }
   return true;
 }

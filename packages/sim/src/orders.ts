@@ -70,7 +70,7 @@ export type OrderBody =
    *  who can still use the radio) passes it on; the side's allotment pays for it. */
   | { kind: "callFire"; x: number; y: number; ammo: "he" | "smoke"; rounds: number }
   /** Grenades at a point: the best-placed men throw a hand grenade or fire their grenade launcher, a moment apart. */
-  | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number }
+  | { kind: "grenade"; x: number; y: number; /** How many men throw or fire (default 1). */ count?: number; /** Hand smoke grenades only (D1): a screen at the point. */ smoke?: boolean }
   /** Get in (M7.2): the men on foot walk to the vehicle and board it; to a parent, each unit under it boards its
    *  own carrier. `vehicle` (an own vehicle) overrides the carrier. */
   | { kind: "mount"; vehicle?: EntityId }

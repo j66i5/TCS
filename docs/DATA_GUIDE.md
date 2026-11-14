@@ -254,6 +254,12 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
   launcher itself is an item in `items.json` (category `launcher`) that the man must carry.
 - `npm run lab -- fragmentation` shows the effect by distance; add the new munition to the list in
   `packages/tools/src/labs/fragmentation.ts` to see it there.
+- A hand smoke grenade (D1) has `"kind": "smoke"`, no `explosive`, `"delivery": { "method": "thrown" }` and
+  `"smoke": { "fuseSeconds": 2, "radiusM": 10, "seconds": 60 }`: after the fuse it smokes where it lies, a cloud of
+  that radius (growing over `spotting.smokeBuildSeconds`) for that long; it never wounds. Men carry it in their
+  `load` like any grenade. A fragmentation grenade order never takes it; the player's "Smoke grenade" order and the
+  units' own screens (`core/behaviour.json` `smoke`: on a withdrawal, on a move under fire) do.
+  `npm run lab -- smoke` measures the cloud (add the munition to the list in `packages/tools/src/labs/smoke.ts`).
 
 Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` and `roofThicknessM`.
 
@@ -295,7 +301,17 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   full rain); a surface without it cannot be driven on. Obstacles have `vehicle: { tracked, wheeled }`, each
   `null` (goes round) or `{ crossCostCells, capKmh, flattens }`.
 - Paces: a move order to a crew names a vehicle pace or a foot pace (mapped by the foot pace's `vehiclePace`).
-- Check it with `npm run lab -- drive` (acceleration, top speed, braking, pivot, ground and rain, slope, fuel).
+- Check it with `npm run lab -- drive` (acceleration, top speed, braking, pivot, ground and rain, slope, fuel;
+  wheeled hulls: turn 90 degrees from a standstill and the turning circle instead of the pivot).
+- Wheeled hulls (M10.6-data): `body.wheelbaseM` is the effective steering wheelbase of the one-track model (front
+  axle group to rear axle group); turning radius = wheelbase / tan(`maxSteerDeg`). Component kind `wheels`: each
+  side's running gear (box on that side); a damaged side pulls and grips less (0.4 + 0.6 x condition of the worse
+  side), a wrecked side immobilises the hull like a wrecked track.
+- Ambulances (M10.6-data): `ambulance: { layouts: [{ lying, sitting, lyingOutside? }], marked }` lists the patient
+  layouts the hull can take (alternatives), and whether it carries the protective emblem (recognition, M10.7a);
+  the `passenger` seats are the sitting places. A crew template whose vehicle has an `ambulance` block is never
+  picked as the default crew of the vehicles scenario. The painted emblem is appearance data: a faction
+  `appearance.json` may give `markings: { "<vehicle type>": "red-cross" }` (outside the catalog).
 - Armour figures from sources in mm RHA are multiplied by `rhaToMildSteel` (core/ballistics.json, 1.25) to the
   mild-steel scale the simulation uses; the `armour-steel` material has the same resistance.
 

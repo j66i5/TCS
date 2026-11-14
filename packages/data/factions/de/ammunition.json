@@ -506,6 +506,41 @@
       ],
       "confidence": "medium",
       "note": "Panzerfaust 3 round (tube with the DM12 110 mm warhead; search extracts, pages not opened): 12.9 kg, penetration 700 mm RHA (x 1.25 = 875 mm mild-steel equivalent), muzzle about 152 m/s (sources give 149-160), effective range 400 m at a halted target, 300 m moving. The tube is thrown away after firing; the firing unit (2.3 kg) is kept. Game values (low): flying mass 3.9 kg, motor to about 210 m/s, 0.6 kg filling, dispersion 1.5 mrad, 3.5 s to aim, danger zone 10 m behind (it is built to be fired from enclosed spaces, but owner rule Q20 applies to it as to the RPG)."
+    },
+    {
+      "id": "de-dm45",
+      "nameKey": "ammo.de-dm45",
+      "calibre": "hand-smoke",
+      "kind": "smoke",
+      "projectileMassKg": 0.8,
+      "cartridgeMassKg": 0.8,
+      "diameterM": 0.06,
+      "drag": {
+        "a": 0.5,
+        "b": 0,
+        "max": 0.6
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "smoke": {
+        "fuseSeconds": 2,
+        "radiusM": 10,
+        "seconds": 60
+      },
+      "delivery": {
+        "method": "thrown"
+      },
+      "sources": [
+        "https://www.rheinmetall.com/de/media/news-watch/news/2024/05/2024-05-27-nebelhandgranate-dm45",
+        "https://www.bundeswehr.de/de/organisation/ausruestung-baainbw/aktuelles/knapp-millionen-nebelhandgranaten-bundeswehr-5786190"
+      ],
+      "confidence": "low",
+      "note": "Granate, Hand, DM45, 800 g (Rheinmetall, Bundeswehr; search extracts only): the Bundeswehr's smoke hand grenade since the mid-1990s; its pyrotechnic charge forms a smoke wall. Burn time and cloud size are not in the extracts: game values (a cloud of 10 m radius for 60 s, smoking 2 s after the throw), set like the Russian RDG-2's published 60-90 s."
     }
   ]
 }

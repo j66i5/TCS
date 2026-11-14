@@ -281,7 +281,8 @@ function loadFaction(
       if (a.explosive.fragmentVelocityMps[0] > a.explosive.fragmentVelocityMps[1]) errors.push({ ...at("explosive.fragmentVelocityMps"), message: "give the lower speed first" });
     }
     if (a.delivery) {
-      if (!a.explosive) errors.push({ ...at("delivery"), message: "only explosive munitions can be thrown or launched" });
+      if (!a.explosive && !(a.smoke && a.delivery.method === "thrown")) errors.push({ ...at("delivery"), message: "only explosive munitions (or hand smoke grenades) can be thrown or launched" });
+      if (a.explosive && a.smoke) errors.push({ ...at("smoke"), message: "a munition is either explosive or a smoke grenade" });
       if (a.delivery.method === "launched") {
         if (a.delivery.velocityMps === undefined) errors.push({ ...at("delivery.velocityMps"), message: "a launched munition needs its muzzle velocity" });
         if (a.delivery.launcher === undefined || !itemsF.items.some((it) => it.id === a.delivery!.launcher)) errors.push({ ...at("delivery.launcher"), message: `unknown launcher item '${a.delivery.launcher ?? ""}'` });

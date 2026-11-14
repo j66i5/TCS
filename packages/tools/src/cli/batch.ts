@@ -25,7 +25,7 @@ interface Row {
   /** Vehicles (M7.2): lost (destroyed or abandoned) and immobilised per side; game time of each side's first dismount, s (null = none). */
   vehiclesLost: Record<string, number>; vehiclesImmobilised: Record<string, number>; firstDismountS: Record<string, number | null>;
   /** Ammunition expenditure (M7.3, plan C4): rounds by source per side (vehicle rounds credited to the vehicle). */
-  spent: Record<string, { smallArms: number; grenades: number; rockets: number; cannon: number; coax: number; smoke: number }>;
+  spent: Record<string, { smallArms: number; grenades: number; handSmoke: number; rockets: number; cannon: number; coax: number; smoke: number }>;
   /** Crews (M7.4b) per side: times a crew reversed out, fires started, fires its extinguisher put out. */
   crews: Record<string, { reversedOut: number; fires: number; firesOut: number }>;
   /** Guided missiles (owner 2026-11-13) per side: fired, hit their target, lost by the gunner, missed; and enemy
@@ -116,7 +116,7 @@ for (let i = 0; i < runs; i++) {
     crews, missiles, mortar, buildings: houses.tally,
     spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
-      return [side, { smallArms: e.smallArms, grenades: e.grenades, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
+      return [side, { smallArms: e.smallArms, grenades: e.grenades, handSmoke: e.handSmoke, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
     })),
   });
 }
@@ -147,7 +147,7 @@ const md = [
   `- Winners: ${["blue", "red"].map((w) => `${w} ${rows.filter((r) => r.winner === w).length}`).join(", ")}, draw ${rows.filter((r) => r.winner === null).length}; mean score ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.scores[s] ?? 0)).toFixed(1)}`).join(", ")}`,
   "(Winner and score: objectives held at the end minus men down, M6; without objectives every battle is a draw.)",
   `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
-  `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}`).join("; ")}`,
+  `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}, hand smoke ${mean(rows.map((r) => r.spent[s]?.handSmoke ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),

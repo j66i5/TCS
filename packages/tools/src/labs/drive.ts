@@ -6,7 +6,7 @@
 import { buildCatalog, type DataSet } from "@tcs/data";
 import { buildForce } from "@tcs/scenario";
 import {
-  createSim, DEFAULT_COMMS, flatMap, newVehicleRecord, step, submitOrder, ticksToSeconds, wrapAngle,
+  createSim, DEFAULT_COMMS, flatMap, idleDrive, stepDriveDynamics, newVehicleRecord, step, submitOrder, ticksToSeconds, wrapAngle,
   type BattleInput, type EntityId, type MapDef, type Sim, type Waypoint,
 } from "@tcs/sim";
 
@@ -16,6 +16,8 @@ const CREW: Record<string, { faction: string; template: string }> = {
   "de-puma": { faction: "de", template: "puma-besatzung" },
   "ru-bmp2": { faction: "ru", template: "bmp2-ekipazh" },
   "xf-cart": { faction: "xf", template: "cart-crew" },
+  "de-boxer-san": { faction: "de", template: "boxer-san-besatzung" },
+  "ru-bmm": { faction: "ru", template: "bmm-ekipazh" },
 };
 
 interface Ground { surface?: string; grade?: number; rain?: number }
@@ -56,6 +58,9 @@ export function driveBattle(data: DataSet, type: string, g: Ground, opts: { noDr
 
 /** The scripted controller: one order to the crew unit at the current tick. */
 function order(sim: Sim, unit: EntityId, body: { kind: "move"; waypoints: Waypoint[]; facing?: number } | { kind: "halt" }): void {
+  // Wheeled hulls take the wheeled paces (the same share of their own top speed).
+  const wheeled = sim.ctx.catalog.vehicles[sim.state.vehicle.req([...sim.state.vehicle.keys()][0]!).def]?.class === "wheeled";
+  if (wheeled && body.kind === "move") body = { ...body, waypoints: body.waypoints.map((w) => ({ ...w, mode: "w" + w.mode })) };
   submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unit, ...body });
 }
 
@@ -132,18 +137,37 @@ function fuelRun(data: DataSet, type: string): number {
   return l0 - litres() + sim.state.vehicle.req(vid).drive.fuelAccL;
 }
 
+/** Turning circle (diameter, m) at full lock and 3 m/s on dry asphalt-like ground (wheeled hulls; pure dynamics). */
+function turningCircle(data: DataSet, type: string): number {
+  const def = buildCatalog(data, [CREW[type]!.faction]).vehicles[type]!;
+  const surf = { rolling: 0.03, traction: 0.8, lateral: 0.7, capMps: Infinity, sinPitch: 0, cosPitch: 1 };
+  let d = idleDrive(0, 0), x = 0, h = 0, minX = 0, maxX = 0;
+  for (let i = 0; i < 60 * 60; i++) {
+    d = stepDriveDynamics(def, d, { speed: 3, yawRate: 0, curvature: 10 }, surf, 1 / 60, i).drive;
+    h += d.yawRate / 60; x += (Math.cos(h) * d.speed) / 60;
+    if (i > 60 * 15) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+  }
+  return maxX - minX;
+}
+
+export const WHEELED = ["de-boxer-san", "ru-bmm"] as const;
+
 export const SURFACES = ["asphalt", "grass", "ploughed", "mud"] as const;
 
 export function driveLab(data: DataSet): DriveRow[] {
   const rows: DriveRow[] = [];
   const add = (vehicle: string, c: string, value: number, unit: string) => rows.push({ vehicle, case: c, value, unit });
-  for (const type of ["de-puma", "ru-bmp2"]) {
+  for (const type of ["de-puma", "ru-bmp2", ...WHEELED]) {
+    const wheeled = (WHEELED as readonly string[]).includes(type);
     add(type, "0-50 km/h on asphalt", accelTime(data, type, 50), "s");
     add(type, "top speed", topSpeed(data, type, false), "km/h");
     add(type, "reverse top speed", topSpeed(data, type, true), "km/h");
     add(type, "braking from 50 km/h", braking(data, type, 50), "m");
     add(type, "braking from 70 km/h", type === "de-puma" ? braking(data, type, 70) : NaN, "m");
-    add(type, "pivot 90 deg", pivot90(data, type), "s");
+    if (wheeled) {
+      add(type, "turn 90 deg from a standstill", pivot90(data, type), "s");
+      add(type, "turning circle (diameter)", turningCircle(data, type), "m");
+    } else add(type, "pivot 90 deg", pivot90(data, type), "s");
     for (const s of SURFACES) {
       add(type, `300 m on ${s}, dry`, run300(data, type, { surface: s }), "s");
       add(type, `300 m on ${s}, rain`, run300(data, type, { surface: s, rain: 1 }), "s");

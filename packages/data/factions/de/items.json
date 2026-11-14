@@ -265,6 +265,28 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
+    },
+    {
+      "id": "de-boxer-diesel",
+      "nameKey": "item.de-boxer-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 562,
+      "chargeMassKg": 0.84,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Boxer_(armoured_fighting_vehicle)"
+      ],
+      "confidence": "low",
+      "note": "The Boxer's fuel tank (M10.6-data): the charge is litres of diesel (0.84 kg per litre); 562 L as commonly quoted (search extracts). The tank is part of the hull (mass 0)."
+    },
+    {
+      "id": "de-boxer-extinguisher",
+      "nameKey": "item.de-boxer-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system."
     }
   ]
 }

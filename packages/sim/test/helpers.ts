@@ -129,6 +129,7 @@ export const testCatalog: Catalog = {
       houseLeaveM: [25, 50], houseLeaveDeg: 60, houseLeaveMode: "run", houseReenterSeconds: 120, houseContactErrM: 25,
       houseLeaveCoverM: 8, houseLeaveTries: 6, houseLeaveCost: [3, 20], houseFrontMin: 0.3, houseLeaveRetryS: 5 },
     crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
+    smoke: { screenM: 15, enemyMinM: 40, enemyMaxM: 400, knownWithinS: 30, cooldownS: 60, onWithdraw: false, onMoveUnderFire: false, underFireS: 10 },
   },
   spotting: {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,

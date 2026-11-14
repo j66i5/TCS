@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
-    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400 })
+    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}) });
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
@@ -690,9 +690,10 @@ async function main(): Promise<void> {
       }
       if (overlay.selectedUnit === null) return;
       if (w.x < 0 || w.y < 0 || w.x > input.map.widthM || w.y > input.map.heightM) return;
-      if (orderMode === "grenade" || orderMode === "grenades") {
-        // "All grenades": every man who can reach the point throws or fires, a moment apart.
-        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}) });
+      if (orderMode === "grenade" || orderMode === "grenades" || orderMode === "smoke") {
+        // "All grenades": every man who can reach the point throws or fires, a moment apart. "Smoke" (D1): one man
+        // throws a hand smoke grenade there.
+        issue({ tick: sim.state.tick, issuer: playerSide, target: overlay.selectedUnit, kind: "grenade", x: w.x, y: w.y, ...(orderMode === "grenades" ? { count: 50 } : {}), ...(orderMode === "smoke" ? { smoke: true } : {}) });
         oneTapDone();
         return;
       }
@@ -1024,6 +1025,7 @@ async function main(): Promise<void> {
     orderLog,
     stepTicks: (n: number) => { for (let i = 0; i < n; i++) stepOnce(); },
     grenadeAt: (x: number, y: number, count = 1) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, count }),
+    smokeAt: (x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: sel(), kind: "grenade", x, y, smoke: true }),
     /** M7.5d: occupy the building at (x, y) with the selected unit; the floor switch; the floor shown. */
     occupyAt: (x: number, y: number) => { const bi = indoorAt(sim.ctx, x, y); if (bi >= 0) issue(occupyOrder(sel(), bi)); },
     /** Clear the building at (x, y) with the selected unit, as the Clear button does (M7.5e screenshots; slice s0-clear). */
@@ -1197,7 +1199,7 @@ async function main(): Promise<void> {
         const e = exp[sd.id];
         const spent: string[] = [];
         if (e) {
-          spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }));
+          spent.push(strings.t("aar.expenditure"), strings.t("aar.exp.smallArms", { n: e.smallArms }), strings.t("aar.exp.grenades", { n: e.grenades }), ...(e.handSmoke > 0 ? [strings.t("aar.exp.handSmoke", { n: e.handSmoke })] : []));
           for (const [ammo, n] of Object.entries(e.rockets).sort(([a], [b]) => (a < b ? -1 : 1))) spent.push(strings.t("aar.exp.rockets", { ammo: strings.t(`ammo.${ammo}`, {}, sd.faction), n }));
           for (const [vid, v] of Object.entries(e.vehicles).sort(([a], [b]) => (a < b ? -1 : 1))) {
             const call = [...sim.state.vehicle.values()].find((x) => x.vehicleId === vid);
@@ -1436,3 +1438,10 @@ main().catch((e: unknown) => {
   pre.textContent = `Startup failed: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
   document.body.append(pre);
 });
+
+/** `&crew=<blue template>,<red template>` (M10.6-data): the vehicles scenario with other crew templates (data ids),
+ *  e.g. the ambulance crews for `npm run screenshot -- --scene ambulances`. */
+function crewParam(v: string | null): { crewTemplates?: [string, string] } {
+  const parts = (v ?? "").split(",").filter((x) => x.length > 0);
+  return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
+}

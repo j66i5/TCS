@@ -98,9 +98,9 @@ describe("data loader", () => {
     it("loads the Puma, the BMP-2 and the fixture cart", () => {
       const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
-      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma"]);
-      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2"]);
-      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon"]);
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san"]);
+      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm"]);
+      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart"]);
     });
     it("rejects an unknown or non-litre fuel item", () => {
       expect(broken((f) => { puma(f)["fuel"].item = "de-nothing"; })).toContain("vehicles[0].fuel.item: unknown item 'de-nothing'");

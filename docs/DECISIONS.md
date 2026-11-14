@@ -4172,3 +4172,41 @@ screen 3 (a) research defaults, marked low**. Software decisions:
 - Night look: **darkened map** (as built in M9.1). Night-vision goggles: **research defaults, marked low** (as
   taken in M9.2).
 - Programmable airburst was not asked: it stays in **M14** (plan default).
+
+## 2026-11-14 — M9.3a Guided missiles on vehicles (roadmap-detail slice 32, parallel session)
+Owner answers used (M9 round): MELLS on the Puma with 2 ready, reloaded outside while halted with a man exposed; a
+locked fire-and-forget missile against smoke flies on to the last point seen. Software decisions:
+- **Guidance kinds** come from the ammunition's existing `guidance` field: `command-wire` (SACLOS, as before),
+  `command-beam` (beam riding: as the wire but no wire; beyond its range "lost: out of the beam's range"),
+  `fire-and-forget-*` (its own seeker; the gunner is free after the launch: the station's guns fire on, but no second
+  missile from that station until the first ends). New optional `guided.topAttack {climbM, diveAtM,
+  launchElevationDeg}` and `guided.seekerSmokeFactor`. The seeker looks from the missile every
+  `missileSightSeconds`; while it sees the target (smoke thinning its view below `missileSeenFloor` blinds it;
+  ordinary smoke kept at seekerSmokeFactor, multispectral not) the aim point follows the target's roof, else it stays
+  at the last point seen. Top attack: launched 12 degrees up, climbs to 80 m above the aim point, dives on it from
+  160 m out and strikes the roof (lab: top plate at 1000 and 3500 m head-on; side-on it can strike the turret side).
+- **Data (search extracts, low):** `de-spike-lr` (Spike LR via MELLS: 4000 m, tandem 700 mm RHA = 875 mild-steel,
+  13 kg; 170 m/s, 60 deg/s in the dive, seeker x0.5 through ordinary smoke), `de-mells-round`, `de-mells-launcher`
+  (90 s per missile from the roof, `reloadOutside`); the Puma's turret station gets MELLS (2 ready, 2 stowed) and a
+  laser warning receiver (`laserWarner`). Russian Kornet on a vehicle is not in the roster (no BMP-2M/BMP-3): beam
+  riding exists in the code and the xf fixture (`xf-dart` on `xf-wagon`, crew `wagon-crew`); the dismounted
+  Metis-M (owner: company level) is M9.3b.
+- **Launch warning:** a crew notices a missile launched at it when it has a laser warner and the missile rides a beam,
+  or when an able crewman has the launcher in sight; `behaviour.crew.launchReactionSeconds` (1.5 s) later it lays its
+  turret toward the launcher (when it has no target) and fires its dischargers; radio "missile launch! Smoke!".
+  Fire-and-forget is not fooled by it (flies on to the last point); wire and beam are lost when the smoke stands in
+  time (lab: beam at 2500 m warned and lost every time; at 1000 m it arrives first).
+- **The exposed reloader:** an action `reloadOutside` by an able crewman with a hatch (loader, commander, gunner;
+  not the station's operator if another can go), halted, one missile at a time up to the ready count. While it runs
+  he stands on top of the turret (or hull) over his seat and counts as a man in the open for spotting, bullets,
+  blast, contacts and side knowledge (`mount.ts onRoof`), not as a seated body for hull penetration and spall, and
+  works no station; it breaks off if the vehicle moves, burns, is lost, or he is hit. Review fixes: the guns now fire
+  during a fire-and-forget flight (the fire loop still blocked them); the roof man no longer works the turret, is no
+  longer inside his own turret box (z = turret top) nor a seated body for spall; he stands; the beam test asserts a
+  hit at 1000 m and the loss at 2500 m.
+- **Tests changed:** the Puma now offers "Anti-tank" (capabilities test); the missile save/load test counts only the
+  shooter's missiles (the target Puma now fires its own back).
+- **Batches (10 seeds x 1200 s, before -> after):** platoon-vehicles 5 -> 6 German wins (casualties 15.7/22.9 ->
+  15.9/22.9), platoon-ru-vehicles 9 -> 9 German wins (identical): the Pumas fire MELLS at nothing in these battles —
+  their 30 mm gets through a BMP-2, and the crew chooses the missile only beyond `missileBeyondM` (1000 m) or when its
+  rounds would not penetrate. MELLS will matter against tanks (M7.6) and at long range. Golden update.

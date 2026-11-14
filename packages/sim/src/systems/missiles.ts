@@ -257,6 +257,9 @@ function reloadStep(ctx: SimContext, state: SimState, events: EventSink, vid: En
     const man = roofMan(state, v, def, si);
     if (man === null) return;
     startAction(state, events, man, ROOF_ACTION, secondsToTicks(wd.reloadSeconds), { vehicle: vid, station: si, weapon: wi });
+    // He stands up there (every system sees a standing man: spotting, blast, bullets, contacts).
+    const ms = state.soldier.get(man);
+    if (ms && ms.posture !== "standing") { ms.posture = "standing"; ms.postureTo = null; events.emit({ kind: "posture.changed", tick, soldier: man, posture: "standing" }); }
     radioFromTarget(state, v.unit ?? vid, "radio.reloadOutside", events);
     return;
   }

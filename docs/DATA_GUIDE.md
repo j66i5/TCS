@@ -308,6 +308,14 @@ sensor and the best thermal one counts). Items: a
 thermal weapon sight is an item with `"sensor": "thermal"`; a thermal blanket has `thermalCover` (the share of a still
 man's heat it lets through); `batteryHours` is reserved for M11.6. Check with `npm run lab -- thermal`.
 
+## Guided missiles (M9.3a)
+
+A guided round's `guidance` picks its kind: `command-wire` (the gunner guides it by wire to the end of `maxRangeM`),
+`command-beam` (by beam: the same, no wire), `fire-and-forget-direct` / `fire-and-forget-top-attack` (its seeker,
+`guided.seekerSmokeFactor`; top attack adds `guided.topAttack {climbM, diveAtM, launchElevationDeg}`). A vehicle
+launcher weapon with `reloadOutside: true` is reloaded by a crewman on the roof; a vehicle with `laserWarner: true`
+notices beam riders. Check with `npm run lab -- missile`.
+
 ## Add a vehicle
 
 Vehicle types live in `factions/<id>/vehicles.json` (optional file; M7). Units are SI except where the field name

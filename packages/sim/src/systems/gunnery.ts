@@ -37,7 +37,7 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
-import { compCondition, fireTop, occupant } from "../mount";
+import { compCondition, fireTop, occupant, onRoof } from "../mount";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -70,7 +70,8 @@ export function canFight(v: VehicleState): boolean {
 /** The man who works this station now: its operator if able, else the commander if the station allows it. */
 export function stationOperator(state: SimState, v: VehicleState, def: VehicleDef, si: number): EntityId | null {
   const sn = def.stations[si]!;
-  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight; };
+  // (M9.3a: a man out on the roof reloading works no station.)
+  const fit = (id: EntityId | null) => { const s = id === null ? undefined : state.soldier.get(id); return s !== undefined && isAble(s) && s.impair.canFight && !onRoof(state, id!); };
   const op = occupant(v, def, sn.operator);
   if (fit(op)) return op;
   if (sn.commanderOverride) { const c = occupant(v, def, "commander"); if (fit(c)) return c; }
@@ -489,7 +490,8 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
     const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
     for (let si = 0; si < v.stations.length; si++) {
       const st = v.stations[si]!, task = st.task, sn = def.stations[si]!;
-      if (!task || st.guide) continue;
+      // (M9.3a: while a fire-and-forget missile flies the station's guns fire on; no second missile until it ends.)
+      if (!task || (st.guide && !fireAndForget(st.guide.kind))) continue;
       const op = stationOperator(state, v, def, si);
       if (op === null) continue;
       const os = state.soldier.req(op);
@@ -703,6 +705,7 @@ function fireMissile(
     st.task = null;
   };
   if (!feed || feed.rounds <= 0) { nature(); return; }
+  if (st.guide) return; // one missile in flight per station (M9.3a: also while a fire-and-forget one flies)
   if (Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3) || st.laidTick < 0) return;
   if (task.contact !== undefined && crew) { const c = crewContact(ctx, state, crew, task.contact); if (c) { task.x = c.x; task.y = c.y; } }
   const [mx, my, mz] = muzzleWorld(ctx, def, si, wi, x, y, heading, st.azimuth);

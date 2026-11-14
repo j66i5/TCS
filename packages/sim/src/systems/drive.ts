@@ -716,8 +716,8 @@ export function vehicleSyncSystem(ctx: SimContext, state: SimState): void {
       if (!mt) continue;
       const [x, y, z] = seatWorld(def, i, t.x, t.y, t.heading);
       mt.x = x; mt.y = y; mt.z = z; mt.heading = t.heading;
-      // (M9.3a: out on the roof reloading: standing on the hull top over his seat.)
-      if (state.action.size > 0 && onRoof(state, sid)) mt.z = def.body.hull.u[1];
+      // (M9.3a: out on the roof reloading: standing on top of the hull, or of the turret if it has one, over his seat.)
+      if (state.action.size > 0 && onRoof(state, sid)) mt.z = def.body.turret ? Math.max(def.body.hull.u[1], def.body.turret.u[1]) : def.body.hull.u[1];
     }
   }
   rebuildVehicleGrid(ctx, state);

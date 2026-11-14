@@ -47,6 +47,12 @@ DECISIONS.md under its date._
   medical drag) and slice 12 M10.6-data wheeled ambulance hulls (Boxer ambulance `de-boxer-san`, BMM `ru-bmm`,
   xf `xf-litter-cart`; `--scene ambulances`; no ambulance behaviour yet: slice 13).
 
+**Guided missiles on vehicles (2026-11-14, roadmap-detail slice 32 "M9.3a", parallel session; DECISIONS "M9.3a").**
+Guidance kinds wire / beam riding / fire-and-forget (seeker, flies on to the last point seen, top attack); the Puma's
+MELLS Spike LR (2 ready, reloaded from the roof by an exposed crewman); launch warning and smoke; xf beam dart.
+`npm run lab -- missile` has rows per kind. Next on this line: M9.3b dismounted missile teams (Metis-M at company
+level), then the drones.
+
 **Sensor physics (2026-11-14, roadmap-detail slice 31 "M9.2", parallel session; DECISIONS "M9.2").** Thermal
 sensors see heat (men, hot and cooled hulls, firing, burning; heat comes through vegetation better; thermal blankets),
 a man's sight and goggles help only within their arc; thermal weapon sights as items (DE one per Trupp, RU one per

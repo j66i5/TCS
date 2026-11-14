@@ -34,10 +34,14 @@ describe("guided missiles on vehicles (M9.3a)", () => {
     expect(beam.hit).toBe(false);
     expect(beam.lost).toBe(true);
   });
-  it("beam riding (xf fixture): the wagon's dart hits a Puma at 2500 m; the Puma's laser warner makes its crew fire smoke", () => {
-    const r = missileTrial(data, 2500, "side", 2003, false, "beam");
-    expect(r.fired).toBe(true);
-    expect(r.warned).toBe(true);
+  it("beam riding (xf fixture): the wagon's dart hits a Puma at 1000 m before its smoke stands; at 2500 m the Puma's laser warner sets off its smoke and the dart is lost", () => {
+    const near = missileTrial(data, 1000, "side", 2000, false, "beam");
+    expect(near.hit).toBe(true);
+    expect(near.penetrated).toBe(true);
+    const far = missileTrial(data, 2500, "side", 2003, false, "beam");
+    expect(far.fired).toBe(true);
+    expect(far.warned).toBe(true);
+    expect(far.lost).toBe(true);
   });
   it("MELLS holds two: after both are fired a crewman goes out on the roof, is a target while there, and puts on one at a time from stowage", () => {
     const { input, shooter, target } = missileSetup(data, 600, "side", 2200, "f&f");

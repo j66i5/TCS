@@ -58,4 +58,19 @@ describe("appearance (M7.5a)", () => {
     expect(r2.errors.some((e) => e.path === "photo.roofs.farm-house")).toBe(true);
     expect(r2.errors.some((e) => e.path === "photo.floors.castle")).toBe(true);
   });
+  it("rank insignia: every rank of every faction (and so every rank in a unit template) has one; unknown ranks are reported", () => {
+    for (const f of ["de", "ru", "xf"]) {
+      const pack = data.factions[f]!;
+      const ins = pack.appearance!.insignia!;
+      expect(ins, f).toBeDefined();
+      for (const r of Object.keys(pack.ranks)) expect(ins.ranks[r], `${f} ${r}`).toBeDefined();
+      for (const u of Object.values(pack.units)) for (const m of u.members) expect(ins.ranks[m.rank], `${f} ${u.id} ${m.rank}`).toBeDefined();
+      // Researched factions say where it comes from; nothing from search extracts alone is "high".
+      if (f !== "xf") { expect(ins.sources.length).toBeGreaterThan(0); expect(ins.confidence).not.toBe("high"); }
+    }
+    expect(buildAppearance(data, ["de", "ru"]).insignia?.["ru"]?.ranks["serzhant"]).toEqual({ stripes: 3 });
+    const de = files["factions/de/appearance.json"] as { insignia: { ranks: Record<string, unknown> } };
+    const r = loadDataSet({ ...files, "factions/de/appearance.json": { ...de, insignia: { ...de.insignia, ranks: { ...de.insignia.ranks, general: { stars: 4 } } } } });
+    expect(r.errors.some((e) => e.file === "factions/de/appearance.json" && e.path === "insignia.ranks.general")).toBe(true);
+  });
 });

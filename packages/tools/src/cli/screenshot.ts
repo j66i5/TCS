@@ -716,9 +716,10 @@ async function controlScenes(page: Page, name: string, errors: string[], shots: 
  * The "bar-card" step (`--scene card`; owner choices S3, S4, S6): the platoon battle on foot (village), the lead
  * squad selected — the slim order bar (Move, Fire, Halt) and the compact card (pace and fire rows); the Fire tray
  * and the Move tray opened; Run and Ambush chosen on the card (the rules order arrives); a pace chip while moving
- * (the move goes on at the new pace); the detailed card (one row per man); a man's box from his row and from a tap
- * on the map; a move dragged onto a house (Occupy offered, then sent); the squad after a spell under fire; the
- * mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire tray); the bar docked left.
+ * (the move goes on at the new pace); the detailed card (one row per man: status pictogram, rank insignia); a man's
+ * box from his row and from a tap on the map; a move dragged onto a house (Occupy offered, then sent); the squad after
+ * a spell under fire; the mounted battle with a vehicle selected (its paces, the gun and smoke screen in the Fire
+ * tray); the bar docked left; the other side's squad with every status pictogram and its leader's box.
  * Every step checks what the app sent.
  */
 async function cardScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
@@ -813,6 +814,25 @@ async function cardScenes(page: Page, name: string, errors: string[], shots: str
   await page.click('.hud-group[data-group="move"] .hud-caret');
   await shot("10-dock-left-move-tray");
   await ev(`t.dock(innerWidth > innerHeight ? "right" : "bottom");`);
+  // The "insignia" step: the other side's card (its rank insignia), every status pictogram on one squad (states set
+  // by hand on this page only, for the picture), and its leader's box.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&side=red`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  // (The platoon: its headquarters and squads, so there are men enough for every status.)
+  await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.depth === 0 && u.kind !== "vehicle") ?? t.units()[0];
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.inspect(null); t.stepTicks(1);`);
+  if (!(await ev<boolean>("return t.card().detailed;"))) await page.click('[data-card="detail"]');
+  await page.waitForTimeout(400);
+  log["statuses"] = await ev(`const men = [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => Number(b.dataset.man)).slice(1);
+    const wound = (sev, lps) => ({ id: 99, zone: "armL", mechanism: "penetrating", severity: sev, bleedingLps: lps, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    const set = [(m) => { m.mental.behaviour = "shaken"; }, (m) => { m.mental.behaviour = "pinned"; }, (m) => { m.wounds.push(wound(0.1, 0)); }, (m) => { m.wounds.push(wound(0.5, 0.02)); },
+      (m) => { m.casualty = "incapacitated"; }, (m) => { m.casualty = "killed"; m.physiology.alive = false; }, (m) => { m.captive = { state: "surrendered", tick: s.tick }; }, (m) => { m.captive = { state: "captured", tick: s.tick }; }];
+    men.slice(0, set.length).forEach((id, k) => set[k](s.soldier.get(id))); t.inspect(null); return men.length + 1;`);
+  await page.waitForTimeout(600);
+  log["statusRows"] = await ev(`return [...document.querySelectorAll('.hud-card-list .hud-man')].map((b) => b.dataset.status);`);
+  await shot("11-other-side-statuses");
+  await page.click('.hud-card-list .hud-man:nth-child(1)');
+  await shot("12-other-side-leader-box");
   console.log(`${name}: card scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 

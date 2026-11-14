@@ -881,6 +881,51 @@ export type QualityT = z.infer<typeof QualitySchema>;
 // ---- Appearance (M7.5): presentation only. NOT part of the catalog or its fingerprint (plan m7.5 §1.1).
 // Original colour choices (docs/ASSETS.md), not researched facts: no provenance, an optional note.
 const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lower case)");
+/**
+ * Rank insignia (the "insignia" step, owner 2026-11-14): what one rank wears on the field uniform, as devices drawn
+ * in code by the UI (`ui/src/insignia.ts`). Every count is a device of that kind; absent = none (so `{}` is a plain
+ * board, e.g. a private). Faction-neutral: the drawing never knows whose uniform it is.
+ */
+export const InsigniaDeviceSchema = z.object({
+  /** Diagonal stripes (Schrägstreifen). */
+  bars: z.number().int().min(0).max(6).optional(),
+  /** Narrow stripes across the board (lychki), from its collar end. */
+  stripes: z.number().int().min(0).max(4).optional(),
+  /** One wide stripe across the board (galun), at its collar end. */
+  wideStripe: z.boolean().optional(),
+  /** One wide stripe along the board's middle. */
+  longStripe: z.boolean().optional(),
+  /** Braid (Tresse) round the board: "open" leaves its outer end open, "closed" runs all round. */
+  braid: z.enum(["open", "closed"]).optional(),
+  /** Chevrons, point towards the collar. */
+  chevrons: z.number().int().min(0).max(3).optional(),
+  /** A headed chevron (Kopfwinkel: a chevron closed by a bar under its point) above the chevrons. */
+  headChevron: z.boolean().optional(),
+  /** Stars (pips). */
+  stars: z.number().int().min(0).max(4).optional(),
+  /** "column": along the board's middle from its outer end; "pairs": two side by side at the outer end, the rest
+   *  on the middle line above them (Russian officers). Default "column". */
+  starLayout: z.enum(["column", "pairs"]).optional(),
+  /** Oak leaves (staff officers) at the outer end. */
+  oakLeaves: z.boolean().optional(),
+  note: z.string().optional(),
+}).strict();
+/** A faction's rank insignia: how the board looks and, per rank id, its devices. Researched (sources, confidence). */
+export const FactionInsigniaSchema = z.object({
+  /** "slide": a cloth loop over the shoulder strap (square ends); "pogon": a shoulder board with a pointed,
+   *  buttoned collar end; "tab": a small rounded patch. */
+  shape: z.enum(["slide", "pogon", "tab"]),
+  /** The board's cloth, its edge and the devices' colour. */
+  base: LookColour, edge: LookColour, device: LookColour,
+  /** Points of a star: 4 (pip) or 5. */
+  starPoints: z.union([z.literal(4), z.literal(5)]),
+  ranks: z.record(Id, InsigniaDeviceSchema),
+  sources: z.array(z.url()),
+  confidence: Confidence,
+  note: z.string().optional(),
+}).strict();
+export type InsigniaDeviceT = z.infer<typeof InsigniaDeviceSchema>;
+export type FactionInsigniaT = z.infer<typeof FactionInsigniaSchema>;
 /** A faction's look: uniform tones for the pixel figures (M7.5b) and its vehicles' paint. */
 export const FactionAppearanceFile = z.object({
   uniform: z.object({ base: LookColour, dark: LookColour, light: LookColour, helmet: LookColour, skin: LookColour }).strict(),
@@ -888,6 +933,8 @@ export const FactionAppearanceFile = z.object({
   /** Painted emblems by vehicle type (M10.6-data): the red cross on an ambulance's roof and sides. Presentation
    *  only; whether the sim treats the hull as marked is the vehicle's `ambulance.marked` (catalog). */
   markings: z.record(Id, z.enum(["red-cross"])).optional(),
+  /** Rank insignia on the field uniform, shown on the unit card (presentation only). */
+  insignia: FactionInsigniaSchema.optional(),
   note: z.string().optional(),
 }).strict();
 /** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */

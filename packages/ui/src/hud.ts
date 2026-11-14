@@ -13,7 +13,7 @@
  *               (S14) and the "following" badge of the follow camera (S5)
  * All text comes from the string table.
  */
-import type { Strings } from "@tcs/data";
+import type { Insignia, Strings } from "@tcs/data";
 import type { EntityId } from "@tcs/sim";
 import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
@@ -135,6 +135,8 @@ export interface Hud {
   setInspected(id: EntityId | null): void;
   /** Compact or detailed card (remembered on this device). */
   setCardDetailed(on: boolean): void;
+  /** Rank insignia by faction (appearance data) for the card's rows and the man's box. */
+  setInsignia(t: Readonly<Record<string, Insignia>> | undefined): void;
   /** The pace lit on the card (the next move's). */
   pace(): string | null;
   /** S4: a context action offered at a screen point (Occupy after a move dragged onto a house) for a few seconds;
@@ -723,6 +725,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     showMan(d) { manBox.update(d); },
     setInspected(id) { card.setInspected(id); },
     setCardDetailed(on) { card.setDetailed(on); },
+    setInsignia(t) { card.setInsignia(t); manBox.setInsignia(t); },
     pace: () => paces[pace] ?? null,
     offerContext,
     offerSupport: (o) => support.show(o ? { ...o, insets: o.insets ?? free } : null),

@@ -61,14 +61,3 @@ export function icon(name: string, px = 18): string {
 }
 
 export const ICON_NAMES: readonly string[] = Object.keys(P);
-
-/** A man's state as a small filled mark (S6): a dot, a down arrow (pinned), a cross (wounded), an X (down), a flag. */
-export function stateMark(state: "steady" | "shaken" | "pinned" | "wounded" | "down" | "captive", px = 14): string {
-  const body = state === "steady" ? `<circle cx="7" cy="7" r="4.2" fill="currentColor"/>`
-    : state === "shaken" ? `<circle cx="7" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/>`
-    : state === "pinned" ? `<path d="M7 1.5v7M3.5 5.5L7 9l3.5-3.5M2 12.5h10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>`
-    : state === "wounded" ? `<path d="M5 1.5h4v3.5h3.5v4H9v3.5H5V9H1.5V5H5z" fill="currentColor"/>`
-    : state === "down" ? `<path d="M2.5 2.5l9 9M11.5 2.5l-9 9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`
-    : `<path d="M3 13V1.5M3 2h8l-2 2.5 2 2.5H3" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/>`;
-  return `<svg class="hud-mark" viewBox="0 0 14 14" width="${px}" height="${px}" aria-hidden="true">${body}</svg>`;
-}

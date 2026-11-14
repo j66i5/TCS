@@ -5,7 +5,7 @@
  * A faction without an appearance file gets the neutral look (so any new faction pack works at once).
  */
 import type { DataSet } from "./loader";
-import type { CoreAppearanceT, FactionAppearanceT, FactionInsigniaT, InsigniaDeviceT } from "./schemas";
+import type { CoreAppearanceT, FactionAppearanceT, FactionInsigniaT, InsigniaDeviceT, InsigniaElementT } from "./schemas";
 
 export interface FactionLook {
   uniform: { base: number; dark: number; light: number; helmet: number; skin: number };
@@ -25,9 +25,11 @@ export interface Appearance {
   insignia?: Record<string, Insignia>;
 }
 
-/** A faction's rank insignia as the UI draws them: the board and, per rank id, its devices ("#rrggbb" colours). */
+/** A faction's rank insignia as the UI draws them: the board, strap and Litze and, per rank id, its devices (mm on
+ *  the real board, "#rrggbb" colours). */
 export type Insignia = Omit<FactionInsigniaT, "sources" | "confidence" | "note">;
 export type InsigniaDevice = InsigniaDeviceT;
+export type InsigniaElement = InsigniaElementT;
 
 /** A painted emblem a vehicle type carries (M10.6-data). */
 export type VehicleMarking = "red-cross";
@@ -72,7 +74,7 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
   const insignia: Record<string, Insignia> = {};
   for (const fid of Object.keys(factions)) {
     const ins = data.factions[fid]?.appearance?.insignia;
-    if (ins) insignia[fid] = { shape: ins.shape, base: ins.base, edge: ins.edge, device: ins.device, starPoints: ins.starPoints, ranks: ins.ranks };
+    if (ins) insignia[fid] = { board: ins.board, ...(ins.strap ? { strap: ins.strap } : {}), ...(ins.litze ? { litze: ins.litze } : {}), device: ins.device, ranks: ins.ranks };
   }
   return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}), ...(Object.keys(markings).length > 0 ? { markings } : {}), ...(Object.keys(insignia).length > 0 ? { insignia } : {}) };
 }

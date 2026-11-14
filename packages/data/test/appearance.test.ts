@@ -68,9 +68,34 @@ describe("appearance (M7.5a)", () => {
       // Researched factions say where it comes from; nothing from search extracts alone is "high".
       if (f !== "xf") { expect(ins.sources.length).toBeGreaterThan(0); expect(ins.confidence).not.toBe("high"); }
     }
-    expect(buildAppearance(data, ["de", "ru"]).insignia?.["ru"]?.ranks["serzhant"]).toEqual({ stripes: 3 });
+    expect(buildAppearance(data, ["de", "ru"]).insignia?.["ru"]?.ranks["serzhant"]?.elements.map((e) => e.kind)).toEqual(["band", "band", "band"]);
     const de = files["factions/de/appearance.json"] as { insignia: { ranks: Record<string, unknown> } };
-    const r = loadDataSet({ ...files, "factions/de/appearance.json": { ...de, insignia: { ...de.insignia, ranks: { ...de.insignia.ranks, general: { stars: 4 } } } } });
+    const r = loadDataSet({ ...files, "factions/de/appearance.json": { ...de, insignia: { ...de.insignia, ranks: { ...de.insignia.ranks, general: { elements: [] } } } } });
     expect(r.errors.some((e) => e.file === "factions/de/appearance.json" && e.path === "insignia.ranks.general")).toBe(true);
+  });
+  it("rank insignia geometry (insignia-exact): every device lies on its board, as researched", () => {
+    for (const f of ["de", "ru", "xf"]) {
+      const ins = data.factions[f]!.appearance!.insignia!, b = ins.board, L = b.lengthMm;
+      const hw = (y: number) => b.widthBottomMm / 2 + ((b.widthTopMm - b.widthBottomMm) / 2) * (y / L);
+      if (ins.litze) expect(ins.strap, `${f}: a Litze needs a strap`).toBeDefined();
+      for (const [r, d] of Object.entries(ins.ranks)) for (const e of d.elements) {
+        const where = `${f} ${r} ${e.kind}`;
+        if (e.kind === "band") { expect(Math.min(e.y0, e.y1), where).toBeGreaterThanOrEqual(0); expect(Math.max(e.y0, e.y1), where).toBeLessThanOrEqual(L); }
+        if (e.kind === "band" && e.x0 !== undefined) expect(Math.abs(e.x0), where).toBeLessThanOrEqual(hw(e.y0));
+        if (e.kind === "star") { expect(Math.abs(e.x) + e.diameterMm / 2, where).toBeLessThanOrEqual(hw(e.y)); expect(e.y - e.diameterMm / 2, where).toBeGreaterThanOrEqual(0); expect(e.y + e.diameterMm / 2, where).toBeLessThanOrEqual(L); }
+        if (e.kind === "bar") { const t = Math.tan((e.angleDeg * Math.PI) / 180) * (hw(e.y) - e.insetMm); expect(e.y - Math.abs(t), where).toBeGreaterThan(0); expect(e.y + Math.abs(t), where).toBeLessThan(L); }
+        if (e.kind === "chevron") { expect(e.halfSpanMm, where).toBeLessThan(hw(e.y)); expect(e.y + 2 * (e.headMm ?? 0), where).toBeLessThanOrEqual(L); expect(e.y - e.riseMm, where).toBeGreaterThan(0); }
+      }
+    }
+    const de = data.factions["de"]!.appearance!.insignia!, ru = data.factions["ru"]!.appearance!.insignia!;
+    // German slide 90 x 52/60 mm (TL 8455-0009), 4 mm Litze (bundeswehr.de); counts per Anlage 2 BPrDGrUnifAnO.
+    expect([de.board.lengthMm, de.board.widthTopMm, de.board.widthBottomMm, de.litze!.widthMm]).toEqual([90, 52, 60, 4]);
+    expect(de.ranks["schuetze"]!.bare).toBe(true);
+    for (const [r, n] of [["gefreiter", 1], ["obergefreiter", 2], ["hauptgefreiter", 3], ["stabsgefreiter", 4]] as const) expect(de.ranks[r]!.elements.filter((e) => e.kind === "bar")).toHaveLength(n);
+    expect(de.ranks["unteroffizier"]!.elements).toContainEqual(expect.objectContaining({ kind: "braid", open: true }));
+    expect(de.ranks["hauptfeldwebel"]!.elements.some((e) => e.kind === "chevron" && (e.headMm ?? 0) > 0)).toBe(true);
+    // Russian field sleeve: narrow stripes 10 mm, 2 mm apart from 25 mm; stars 13 mm, a pair at +-12.5 mm (Ukaz 293, Prikaz 525).
+    expect(ru.ranks["serzhant"]!.elements).toEqual([25, 37, 49].map((y0) => ({ kind: "band", y0, y1: y0 + 10 })));
+    expect(ru.ranks["leytenant"]!.elements).toEqual([-12.5, 12.5].map((x) => ({ kind: "star", x, y: 25, diameterMm: 13, points: 5 })));
   });
 });

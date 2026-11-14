@@ -11,15 +11,32 @@
     "dark": "#5c5036"
   },
   "insignia": {
-    "shape": "tab",
-    "base": "#555b66",
-    "edge": "#2f333a",
+    "board": {
+      "lengthMm": 60,
+      "widthTopMm": 30,
+      "widthBottomMm": 30,
+      "cornerMm": 8,
+      "colour": "#555b66",
+      "edge": "#2f333a"
+    },
     "device": "#e8d36a",
-    "starPoints": 5,
     "ranks": {
-      "private": {},
+      "private": {
+        "elements": []
+      },
       "boss": {
-        "stripes": 2
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 40,
+            "y1": 44
+          },
+          {
+            "kind": "band",
+            "y0": 47,
+            "y1": 51
+          }
+        ]
       }
     },
     "sources": [],

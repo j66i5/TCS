@@ -17,18 +17,34 @@ describe("rank insignia", () => {
       for (const r of Object.keys(data.factions[f]!.ranks)) {
         const svg = insigniaSvg(ins, r, 26, "Name");
         expect(svg, `${f} ${r}`).toMatch(/^<svg[^>]*class="hud-insignia"[^>]*>.*<\/svg>$/s);
-        expect(svg).toContain(ins.base);
+        expect(svg).toContain(ins.ranks[r]!.bare ? ins.strap!.colour : ins.board.colour);
         expect(svg).toContain('aria-label="Name"');
       }
     }
     const de = app.insignia!["de"]!, ru = app.insignia!["ru"]!;
-    // A private's board is plain; more grade, more devices.
-    expect(insigniaSvg(de, "schuetze")).not.toContain("<g fill");
     const count = (svg: string, tag: string) => svg.split(`<${tag}`).length - 1;
-    expect(count(insigniaSvg(de, "hauptgefreiter"), "path")).toBe(1 + 3);
-    expect(count(insigniaSvg(ru, "serzhant"), "rect")).toBe(3);
+    const devs = (svg: string) => /<g fill="[^"]+">(.*)<\/g>/s.exec(svg)?.[1] ?? "";
+    // The lowest German rank wears no slide: only the strap and its green Litze (Waffenfarbe) show.
+    expect(insigniaSvg(de, "schuetze")).not.toContain(de.board.colour);
+    expect(insigniaSvg(de, "schuetze")).toContain(de.litze!.colour);
+    expect(insigniaSvg(de, "gefreiter")).toContain(de.litze!.colour);
+    expect(insigniaSvg(ru, "ryadovoy")).not.toContain("<g fill");
+    // Devices follow the data: stripes, bars, chevrons, stars.
+    expect(count(devs(insigniaSvg(de, "hauptgefreiter")), "path")).toBe(3);
+    expect(count(devs(insigniaSvg(de, "oberfeldwebel")), "path")).toBe(1 + 2);
+    expect(count(devs(insigniaSvg(ru, "serzhant")), "path")).toBe(3);
     expect(count(insigniaSvg(ru, "starshiy-leytenant"), "polygon")).toBe(3);
     expect(count(insigniaSvg(de, "oberleutnant"), "polygon")).toBe(2);
+    // The viewBox is in millimetres: the drawing keeps the board's real proportions at any size.
+    const vb = (svg: string) => /viewBox="(\S+) (\S+) (\S+) (\S+)"/.exec(svg)!.slice(3).map(Number);
+    const [w, h] = vb(insigniaSvg(ru, "serzhant", 61));
+    expect(w).toBeCloseTo(ru.board.widthTopMm + 2, 5);
+    expect(h).toBeCloseTo(ru.board.lengthMm + 2, 5);
+    expect(insigniaSvg(ru, "serzhant", 61)).toContain(`width="${Math.round((61 * w!) / h! * 10) / 10}"`);
+    const [, hd] = vb(insigniaSvg(de, "feldwebel"));
+    expect(hd).toBeCloseTo(de.board.lengthMm + de.strap!.aboveMm + de.strap!.belowMm + 2, 5);
+    // A cross stripe 25..35 mm from the shoulder end of a 120 mm board: drawn at true size when large (1 mm margin).
+    expect(insigniaSvg(ru, "yefreytor", 488)).toContain("M-25 96L25 96L25 86L-25 86z");
     // No data: nothing drawn (the row keeps its place).
     expect(insigniaSvg(undefined, "schuetze")).toBe("");
     expect(insigniaSvg(de, "nobody")).toBe("");

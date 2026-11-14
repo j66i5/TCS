@@ -406,7 +406,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           // His triage tag (M10.3b) sits in the pictogram cell's corner slot.
           const tag = r.triage ? `<span class="hud-man-tag"><span class="hud-triage t${r.triage}" title="${s.t(`card.triage.${r.triage}`)}">${s.t(`card.triage.short.${r.triage}`)}</span></span>` : "";
           e.b.innerHTML = `<span class="hud-man-mark">${statusPictogram(r.status, 20, statusName)}${tag}</span>`
-            + `<span class="hud-man-rank">${insigniaSvg(insignia?.[r.faction], r.rank, 30, rankName)}</span>`
+            + `<span class="hud-man-rank">${insigniaSvg(insignia?.[r.faction], r.rank, 34, rankName)}</span>`
             + `<span class="hud-man-role">${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`
             + `<span class="hud-man-weapon">${r.weapon ? text(`weapon.${r.weapon}`, r.faction) : ""}</span>`
             + fmtAmmo(a);
@@ -492,7 +492,7 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
         posture: act.posture ? s.t(`card.posture.${act.posture}`) : "",
       });
       const rankName = s.t(`rank.${f}.${d.rank}`, {}, f), statusName = s.t(`card.status.${d.status}`);
-      const ins = insigniaSvg(insignia?.[f], d.rank, 56, rankName);
+      const ins = insigniaSvg(insignia?.[f], d.rank, 64, rankName);
       const html = `<div class="hud-manbox-head">${ins ? `<span class="hud-manbox-rank">${ins}</span>` : ""}<div>`
         + `<div class="hud-manbox-name">${esc(rankName)} ${esc(d.given)} ${esc(d.family)}</div>`
         + `<div class="hud-manbox-status ss-${d.status}">${statusPictogram(d.status, 24, statusName)}<span>${esc(statusName)}</span></div></div></div>`

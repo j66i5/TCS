@@ -14,55 +14,182 @@
     "ru-bmm": "red-cross"
   },
   "insignia": {
-    "shape": "pogon",
-    "base": "#6c7552",
-    "edge": "#939c76",
-    "device": "#20251a",
-    "starPoints": 5,
+    "board": {
+      "lengthMm": 120,
+      "widthTopMm": 50,
+      "widthBottomMm": 50,
+      "cornerMm": 1,
+      "colour": "#6c7552",
+      "edge": "#4b5238"
+    },
+    "device": "#363b25",
     "ranks": {
       "ryadovoy": {
+        "elements": [],
         "note": "no insignia"
       },
       "yefreytor": {
-        "stripes": 1
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 25,
+            "y1": 35
+          }
+        ]
       },
       "mladshiy-serzhant": {
-        "stripes": 2
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 25,
+            "y1": 35
+          },
+          {
+            "kind": "band",
+            "y0": 37,
+            "y1": 47
+          }
+        ]
       },
       "serzhant": {
-        "stripes": 3
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 25,
+            "y1": 35
+          },
+          {
+            "kind": "band",
+            "y0": 37,
+            "y1": 47
+          },
+          {
+            "kind": "band",
+            "y0": 49,
+            "y1": 59
+          }
+        ]
       },
       "starshiy-serzhant": {
-        "wideStripe": true
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 25,
+            "y1": 55
+          }
+        ]
       },
       "starshina": {
-        "longStripe": true
+        "elements": [
+          {
+            "kind": "band",
+            "y0": 0,
+            "y1": 120,
+            "x0": -15,
+            "x1": 15
+          }
+        ],
+        "note": "one wide stripe along the whole board"
       },
       "praporshchik": {
-        "stars": 2,
-        "starLayout": "column"
+        "elements": [
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 50,
+            "diameterMm": 13,
+            "points": 5
+          }
+        ]
       },
       "starshiy-praporshchik": {
-        "stars": 3,
-        "starLayout": "column"
+        "elements": [
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 50,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 75,
+            "diameterMm": 13,
+            "points": 5
+          }
+        ]
       },
       "leytenant": {
-        "stars": 2,
-        "starLayout": "pairs"
+        "elements": [
+          {
+            "kind": "star",
+            "x": -12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          }
+        ]
       },
       "starshiy-leytenant": {
-        "stars": 3,
-        "starLayout": "pairs"
+        "elements": [
+          {
+            "kind": "star",
+            "x": -12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 12.5,
+            "y": 25,
+            "diameterMm": 13,
+            "points": 5
+          },
+          {
+            "kind": "star",
+            "x": 0,
+            "y": 50,
+            "diameterMm": 13,
+            "points": 5
+          }
+        ]
       }
     },
     "sources": [
+      "https://www.garant.ru/products/ipo/prime/doc/97700/",
+      "https://pravo.ppt.ru/prikaz/minoborony/n-525-241779",
       "https://www.consultant.ru/document/cons_doc_LAW_105733/96f53ddc33eadac04c7d569dd094f87053b364d3/",
-      "https://base.garant.ru/55172439/10ed0f917186039eb157d3ba4f962ee5/",
-      "https://forma-odezhda.com/encyclopedia/pogony-i-zvaniya-v-armii-rossii/",
-      "https://journal.sovcombank.ru/zhizn/voinskie-zvaniya-v-armii-rossii"
+      "https://sudact.ru/law/prikaz-ministra-oborony-rf-ot-09102020-n/prilozhenie-n-1/v/tablitsa-3/",
+      "https://zakonbase.ru/content/part/1047722",
+      "https://zakonbase.ru/content/part/489140",
+      "https://legalacts.ru/doc/prikaz-gusp-ot-08122009-n-48-ob/",
+      "https://forma-odezhda.com/encyclopedia/pogony-i-zvaniya-v-armii-rossii/"
     ],
     "confidence": "medium",
-    "note": "Field uniform: subdued shoulder boards (pogony) with stripes and five-pointed stars in protective (dark green) colour and no lumen (field boards have none). Narrow cross stripes: efreytor 1, mladshiy serzhant 2, serzhant 3; starshiy serzhant one wide cross stripe; starshina one wide stripe along the board (sources disagree: some give a wide and a narrow stripe); praporshchik 2 and starshiy praporshchik 3 small stars in a line along the board; leytenant 2 stars side by side, starshiy leytenant those 2 and one above on the middle line. Search extracts only (pages not opened); the 2011 wearing rules quoted are superseded."
+    "note": "Field uniform: the removable rectangular sleeve (pogonchik tipa 'mufta') of the jacket's camouflage cloth, no button, no lumen, no piping; stripes and stars in protective colour (Ukaz 293 field-uniform wording, Prikaz MO 525: 'pogony s'emnye, pryamougol'nye'; the GUSP 48/2009 analogue confirms protective colour for stars and stripes). Medium (official-text extracts): narrow stripes 10 mm, wide 30 mm (Ukaz 531/293); stars 13 mm for junior officers and praporshchiki (Ukaz 293); a pair 'midway between the centre line and the edge' (+-12.5 mm on a 50 mm board); arrangements per rank. Medium-low (one extract each, not reproduced): first stripe 25 mm from the shoulder end on field-jacket boards with 2 mm gaps (Prikaz 525 table 3); first star centre 25 mm from that end, rows 25 mm apart (table 1); starshina's wide stripe running along the board. Low: the board's size (50 x 120 mm, retail), its square ends, the hex colours (camouflage drawn as one olive, devices dark olive). Search extracts only; no page could be opened."
   },
   "note": "Original colour choices (M7.5, docs/ASSETS.md): khaki-brown tones (made browner at the owner's review, 2026-11-13); a brighter protective green paint. Presentation only, outside the catalog."
 }

@@ -882,22 +882,31 @@ Ideas taken from Firefight (only the ideas: the drawings, words and colours are 
 
 ## Rank insignia and status pictures (owner 2026-11-14)
 - **Rank insignia.** Each man's row and his box show his rank as it is worn on the field uniform, drawn by the game
-  itself (no copied pictures). The German side wears the olive **rank slide** over the shoulder strap with black
-  embroidery: nothing for a Schütze, one to four diagonal stripes for Gefreiter, Obergefreiter, Hauptgefreiter and
-  Stabsgefreiter, braid open at the bottom for an Unteroffizier and closed all round for a Stabsunteroffizier, the
-  closed braid with one or two chevrons for Feldwebel and Oberfeldwebel and a "headed" chevron for a Hauptfeldwebel,
-  one or two four-pointed stars for Leutnant and Oberleutnant. The Russian side wears subdued **field shoulder
-  boards** (pogony, pointed and buttoned at the collar end, no officers' stripes on the field version): one, two or
-  three narrow cross stripes for efreytor, mladshiy serzhant and serzhant, one wide one for starshiy serzhant, a wide
-  stripe along the board for starshina, two or three stars in a line for the praporshchiki, two stars side by side
-  for a leytenant and a third above them for a starshiy leytenant. The test faction has a made-up grey tab.
-- **Where it comes from.** Each faction's `appearance.json` describes its insignia as data — the board (slide,
-  shoulder board or tab, its colours) and per rank how many stripes, chevrons, stars and so on — and one drawing
-  routine (`ui/src/insignia.ts`) turns that into a picture for any faction. The descriptions come from public rank
-  tables found by web search (the pages themselves could not be opened here), so they are marked "medium"
-  confidence; the exact shape of a few devices (the headed chevron, the German stars) is drawn from a description.
-  Like the uniform colours they are outside the battle data: changing them never changes a battle or a replay. A
-  test checks that every rank a faction has, and so every rank in its unit templates, has an insignia.
+  itself (no copied pictures) at the real proportions. The German side wears the olive **rank slide**
+  (Aufschiebeschlaufe, 90 mm long, 52 mm wide at the collar end and 60 mm at the shoulder end) on the camouflage
+  shoulder strap, whose buttoned point shows above it; below the slide, at the shoulder seam, a 4 mm **green loop
+  (Litze)** in the Panzergrenadiers' arm-of-service colour. The devices are woven in black: no slide at all for a
+  Schütze (only the strap and its green loop), one to four diagonal stripes for Gefreiter to Stabsgefreiter, a braid
+  open at the bottom for an Unteroffizier and closed all round for a Stabsunteroffizier, the closed braid with one or
+  two chevrons point up for Feldwebel and Oberfeldwebel and a "headed" chevron (legs crossing under a small diamond)
+  for a Hauptfeldwebel, one or two four-pointed stars for Leutnant and Oberleutnant. The Russian side wears the
+  **field sleeve** (a plain rectangle of the jacket's cloth, 50 x 120 mm, no button, no coloured stripe or piping)
+  with stripes and stars in a dark protective colour: one, two or three narrow (10 mm) cross stripes 2 mm apart from
+  25 mm above the shoulder end for efreytor, mladshiy serzhant and serzhant, one wide (30 mm) one for starshiy
+  serzhant, a wide stripe along the whole sleeve for starshina; 13 mm five-pointed stars, the first 25 mm from the
+  shoulder end and the next rows 25 mm apart: two or three in a line for the praporshchiki, two side by side for a
+  leytenant and a third above them for a starshiy leytenant. The test faction has a made-up grey tab.
+- **Where it comes from.** Each faction's `appearance.json` describes its insignia as data, in millimetres on the real
+  board: the board's trapezoid and colours, the strap that shows under it (with its button), the arm-of-service loop
+  (its colour and width) and per rank a list of devices with their positions and sizes. One drawing routine
+  (`ui/src/insignia.ts`) turns that into a picture for any faction. On the small row picture it only helps what
+  would vanish: neighbouring stripes keep about a pixel's gap, stars stay at least about 5 pixels across, the loop at
+  least a pixel thick. The descriptions come from public regulations and rank tables found by web search (the pages
+  themselves could not be opened here): the kind and number of devices, the Russian sizes and the German slide size
+  and loop width are "medium"; the German device sizes and positions, the headed chevron's exact shape and the
+  colours' exact shades are inferred ("low"). Like the uniform colours they are outside the battle data: changing
+  them never changes a battle or a replay. Tests check that every rank a faction has (and so every rank in its unit
+  templates) has an insignia, that every device lies on its board, and the researched counts and sizes.
 - **Status pictures.** The little soldier at the start of a row shows how the man is, by posture and colour, with a
   badge where it helps: standing green (ready), standing yellow with tremble marks (shaken), lying under incoming
   fire, orange (pinned down), in a vehicle hatch, blue (mounted), standing with a red cross badge (lightly wounded),

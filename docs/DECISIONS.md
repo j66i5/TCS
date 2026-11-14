@@ -4162,3 +4162,13 @@ screen 3 (a) research defaults, marked low**. Software decisions:
   within the noise of 10 seeds (the marksman's 0.9 kg sight, crews' thermal view of men in vegetation and of hot
   hulls). Night platoon-vehicles (23:00) 6 German wins. Perf alone: bench-vehicles 12.9x, spotting bench 12.5x
   (floors 8x). Golden update.
+
+## 2026-11-14 — Owner answers: M9 round (binding; relayed by the coordinating session)
+- Order after night and sensors: **missiles (M9.3), then drones (M9.4)**.
+- Russian dismounted missile: **Metis-M at company level**.
+- MELLS on the Puma: **2 ready, reloaded outside while halted, with a man exposed**.
+- A locked fire-and-forget missile against smoke: **flies on to the last point seen**.
+- Drones: **one quadcopter at the platoon HQ**; its feed **over the radio with the usual delay**.
+- Night look: **darkened map** (as built in M9.1). Night-vision goggles: **research defaults, marked low** (as
+  taken in M9.2).
+- Programmable airburst was not asked: it stays in **M14** (plan default).

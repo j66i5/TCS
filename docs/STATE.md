@@ -107,8 +107,7 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
 
 ## Open questions for the owner
 
-- M9 owner round (roadmap-detail Phase 4) is open; M9.1 took the night look (a) darkened map with fires and flashes
-  lit; M9.2 took goggles (a) research defaults. Low-confidence M9.1/M9.2 values: thermal heats, sight arcs, who
+- M9 owner round answered 2026-11-14 (DECISIONS "Owner answers: M9 round"): night look and goggles as built. Low-confidence M9.1/M9.2 values: thermal heats, sight arcs, who
   carries thermal sights (DE marksman per Trupp, RU platoon commander), blankets issued to nobody; M9.1: the sun table (one date), full-moon light 0.12, flash light 0.8, tracers x3.
 - **Pre-interiors goldens:** delete the six skipped files in `packages/tools/golden/no-interiors/` (they have tested
   nothing since 2026-11-13; the plan recommends deleting, and updating the CLAUDE.md note), or keep them?

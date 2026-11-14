@@ -66,3 +66,4 @@ export function vehicleWanderController(side: SideId, seed: number, map: { width
 }
 export * from "./shootout";
 export * from "./commander";
+export * from "./siting";

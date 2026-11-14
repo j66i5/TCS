@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { commanderController } from "@tcs/ai";
 import { buildScenario } from "@tcs/scenario";
-import { continueBattle, createSim, loadGame, runBattle, saveGame, step, submitOrder, type BattleInput } from "@tcs/sim";
+import { continueBattle, createSim, loadGame, runBattle, saveGame, secondsToEffect, step, submitOrder, type BattleInput } from "@tcs/sim";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -11,7 +11,29 @@ const ctrls = (input: BattleInput) => [commanderController("blue", input), comma
 
 describe("AI commander (M6.3)", () => {
   const input = scenario(1, 900);
-  const r = runBattle(input, { controllers: ctrls(input) });
+  // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
+  // calls its first high explosive and when it starts its reconnaissance.)
+  const cs0 = ctrls(input), atk = cs0[0]!;
+  const fatigueAtDrill: number[] = [], inDrill = new Set<number>();
+  let heTick = -1, reconTick = -1;
+  const watched = cs0.map((c) => ({ ...c, think: (v: Parameters<typeof c.think>[0], t: number) => {
+    const o = c.think(v, t);
+    if (c === atk) {
+      if (heTick < 0 && o.some((x) => x.kind === "callFire" && x.ammo === "he")) heTick = t;
+      if (reconTick < 0 && (atk.saveState?.() as { phase: string }).phase === "recon") reconTick = t;
+    }
+    return o;
+  } }));
+  const r = runBattle(input, { controllers: watched, onTick: (sim) => {
+    if (sim.state.tick % 30 !== 0) return;
+    for (const [uid, u] of sim.state.unit.entries()) {
+      if (u.drill?.kind !== "assault") { inDrill.delete(uid); continue; }
+      if (inDrill.has(uid)) continue;
+      inDrill.add(uid);
+      const f = u.drill.groups.flat().map((m) => sim.state.soldier.get(m)).filter((x) => x !== undefined && x.physiology.alive && x.casualty === "none").map((x) => x!.physical.fatigue);
+      if (f.length > 0) fatigueAtDrill.push(f.reduce((x, y) => x + y, 0) / f.length);
+    }
+  } });
 
   it("the attacker moves up, fires on the objective and assaults it; the defender goes down and fires at will", () => {
     const by = (side: string, kind: string) => r.orders.filter((o) => o.issuer === side && o.kind === kind).length;
@@ -33,6 +55,18 @@ describe("AI commander (M6.3)", () => {
     expect(firstFire).toBeGreaterThanOrEqual(0);
     expect(firstAssault).toBeGreaterThan(firstFire);
     expect(blue.some((o) => o.kind === "callFire" && o.ammo === "smoke")).toBe(true);
+  });
+
+  it("the assault element walks up and goes in rested; the fires before it are called to land as it arrives (assault-tempo)", () => {
+    expect(fatigueAtDrill.length).toBeGreaterThan(0);
+    expect(fatigueAtDrill.reduce((x, y) => x + y, 0) / fatigueAtDrill.length).toBeLessThan(0.35);
+    // (Called no earlier than the fire's delay and a minute and a half before the squads are in place: since the
+    // defence picks its own fire positions (overnight pick "defence-siting") it sees the advance and halts it more
+    // often, which the call's walking-time estimate does not foresee; it was a minute before.)
+    const fs = input.catalog.factions["de"]!.fireSupport!;
+    expect(heTick).toBeGreaterThanOrEqual(0);
+    expect(reconTick).toBeGreaterThan(0);
+    expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 90);
   });
 
   it("the same battle twice is the same battle", () => {

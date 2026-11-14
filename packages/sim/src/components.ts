@@ -44,6 +44,9 @@ export interface Mover {
   slotLagM: number;
   /** On reaching the last waypoint: take this posture and face this way (halt drill). */
   endPosture: Posture | null;
+  /** Under fire on a walk or sneak leg he runs (`soldier.hurryMode`) until this tick; renewed while the fire lasts,
+   *  dropped when his way ends. Optional (absent = his legs' own paces). */
+  hurryUntilTick?: number;
   endHeading: number | null;
 }
 
@@ -234,6 +237,11 @@ export interface Unit {
   /** When the unit's current spell under fire began (fire after a quiet spell), and its last move order (M4.3). */
   contactTick: number;
   moveTick: number;
+  /** The same two for this unit's own men only (not its sub-units): a man of THIS unit under fire, and the start
+   *  of its own spell under fire. React to contact goes by these, so only the squad fired on goes to ground.
+   *  Optional (absent = never). */
+  ownFireTick?: number;
+  ownContactTick?: number;
   /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
@@ -264,6 +272,14 @@ export interface Drill {
   mover: number;
   phaseTick: number;
   final: boolean;
+  /** A bound with a single runner still on his way (the others down): since this tick (overnight pick
+   *  "assault-tempo"); absent otherwise. */
+  trailTick?: number;
+  /** The runners of this bound wait for their covering men to open fire (overnight pick "covering-fire"): since
+   *  `phaseTick`; absent once they go. */
+  waitFire?: true;
+  /** Covering men who moved aside this bound for a line of fire (overnight pick "covering-fire"). */
+  stepped?: EntityId[];
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -331,8 +347,23 @@ export interface FireTask {
   basePosture: Posture;
   /** Aim height worked out from his contact (package A): it follows the posture he sees the man in. */
   aimAuto?: true;
+  /**
+   * Covering fire (overnight pick "covering-fire"): a drill's or an order's task, never one he took on his own; his
+   * line may end in cover up to `drills.suppressShortM` short of the point (he fires into it). A drill's covering
+   * fire at a point (no enemy named) is fired at the sustained rate too.
+   */
+  suppress?: "order" | "drill";
+  /** His line reaches only the cover near the point (`suppress`): he fires into it at the sustained rate. */
+  intoCover?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */
   onTheMove?: true;
+  /**
+   * Fire discipline (2026-11-14): he went down to `basePosture` between shots; `up` is the posture he fires from,
+   * which he takes again `riseTicks` before his next shot (`friend`: he went down because a comrade was in his
+   * line, and stays down while that comrade is still there). `duckTick`: when he last went down or up for this.
+   */
+  duck?: { up: Posture; riseTicks: number; friend?: true };
+  duckTick?: number;
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

@@ -538,6 +538,15 @@ has waypoints or after the timeout. Reaction to contact compares the top unit's 
 decisions when fire starts after a quiet spell) with `Unit.moveTick`. Breaking: a top unit where half the able
 men are `panicked` sets them `routed` (morale leaves routed men alone; fire factor 0; decisions skip them) and
 sends them to a rally point away from the mean of their contacts; rally resets them to `cautious`.
+Covering fire (overnight pick "covering-fire", 2026-11-14): `startPhase` gives the covering men their tasks first
+(`coverFire`: a contact within `coverTargetM` with a clear, friend-free line from some posture via
+`fire.lineOfFireTo`, else one into cover, else the objective, else the old `fireOnPosition`), then either sets
+`Drill.waitFire` (assault, nobody covering has fired within `coverFiredS`) or calls `runBound`, which moves each
+runner's bound end out of the covering men's cones. `stepDrill` re-tasks covering men with no shot every
+`coverRetaskS` (and `sidestep`s them once a bound, `Drill.stepped`) and releases a waiting bound when a covering
+man fires or after `coverWaitS` (the bound's clock starts then). Drill and ordered tasks carry `FireTask.suppress`
+("drill" / "order"): the fire system accepts a line blocked within `suppressShortM` of the point (in the far half),
+marks it `intoCover`, and spaces such shots (and a drill's point fire with no contact) at least `suppressIntervalS`.
 
 ## 16n. Orders and interface (SPEC 6.6, M5) — `ui/src/planner.ts`, `ui/src/hud.ts`, `ui/src/input.ts`, `app/src/main.ts`
 The order planner is pure logic in the ui package (no DOM, unit-tested): a `Plan` (kind, route points with a

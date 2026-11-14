@@ -284,6 +284,34 @@ export interface BehaviourDef {
   drills: {
     stepSeconds: number; reactToContact: boolean; boundM: number; finalM: number; phaseTimeoutSeconds: number; spreadM: number;
     breakPanickedFraction: number; rallyDistanceM: number; rallyQuietSeconds: number; rallyStressFactor: number; fallBackM: number;
+    /** A moving unit also goes to ground when a unit of its platoon this close (centre to centre) comes under fire
+     *  anew; 0 = only the unit fired on (overnight pick 2026-11-14). */
+    reactNeighbourM: number;
+    /** A bound ends once this share of its able, non-cowering runners have stopped, or when the last runner
+     *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
+     *  (overnight pick "assault-tempo" 2026-11-14). */
+    boundDoneShare: number; stragglerS: number;
+    /** A withdrawal by this many able men or fewer goes back in one leg, all together (no bounds: nobody is left
+     *  lying alone to cover; overnight pick "defence-fallback" 2026-11-14). 0 = always bound. */
+    withdrawTogetherMen: number;
+    /**
+     * Covering fire (overnight pick "covering-fire" 2026-11-14). A drill's or an order's fire task may end in cover
+     * up to `suppressShortM` short of the point (the rounds go into it); a covering man takes an enemy he knows within
+     * `coverTargetM` of the objective that he can fire at; a runner's bound ends at least `laneClearM` outside the
+     * covering men's safety cones (moved at most `laneShiftMaxM`); and the next bound starts only once a covering man
+     * has fired within `coverFiredS`, or after `coverWaitS` (0 = no wait).
+     */
+    suppressShortM: number; coverTargetM: number; laneClearM: number; laneShiftMaxM: number; coverFiredS: number; coverWaitS: number;
+    /** How often a covering man with no shot looks for another target (s; 0 = only when the bound starts). */
+    coverRetaskS: number;
+    /** A covering man with no shot from where he lies dashes a few metres aside for one (once a bound). */
+    sidestep: boolean;
+    /** The sideways steps he tries for it, m, in order (+ left, - right of his line to the position; review fixes). */
+    sidestepM: number[];
+    /** How many of the enemies nearest the position a covering man tries for a line of fire. */
+    coverCandidates: number;
+    /** Least time between shots (or bursts) of a man firing into cover short of the point (s): the sustained rate. */
+    suppressIntervalS: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.
@@ -367,6 +395,12 @@ export interface BehaviourDef {
    * grenadeContactSeconds, behind cover or in a house, with no man of his side within grenadeClearM of it;
    * assaultFireM / assaultFireAimFactor: within this distance of an assault's objective the men on the move fire
    * as they go, with their aiming error multiplied by this.
+   * Fire discipline (overnight pick 2026-11-14): friendBeyondM: a man firing bursts (a machine gun, or a burst
+   * band) also holds his fire for a comrade in the cone up to this far past the point he fires at (the beaten
+   * zone). overlapM / overlapCheckSeconds: a halted man outdoors this close to a man of his side on his level (the
+   * higher id of the two) steps aside, checked this often. duckAboveIntervalS / duckHoldS: a man raised above his
+   * fire position's posture goes back down while his next shot is at least this far off (or he reloads, or no
+   * posture gives him a line), and keeps each posture at least duckHoldS before changing it again for this.
    */
   soldier: {
     reserveCloseM: number; reserveAssaultM: number; longRangeM: number; longRangeIntervalFactor: number; keepTargetFactor: number; keepTargetSeenSeconds: number;
@@ -375,6 +409,14 @@ export interface BehaviourDef {
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
+    friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
+    /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
+    stepAsideM: number[];
+    duckAboveIntervalS: number; duckHoldS: number;
+    /** Movement under fire (overnight pick 2026-11-14): a man on a leg in one of hurryModes whose suppression is at
+     *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
+     *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
+    hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
   };
   crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }

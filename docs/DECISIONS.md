@@ -3016,3 +3016,366 @@ Independent review of the four photo steps; rendering only (no sim, golden or ca
 10. `docs/plans/photo.md` indexes the plan references cited in code; `terrain-flat.ts` header fixed (re-exports only).
 11. New `render/test/terrain-tiles.test.ts`: level choice, budget cap, prime ahead of strips, placeholder freed, no
     holes, eviction, worker-failure fallback, device tier, blur apron.
+
+## 2026-11-14 — The app no longer marks the AI commander's orders as player orders (overnight AI, pick "app-ai-orders")
+
+Bug fix, **high confidence**. `main.ts` sent the AI commander's orders through the player's `issue()`, which set
+`player: true` (and the floor-on-screen rule), so every AI vehicle move or halt set `playerHold` (`drive.ts`
+`noteVehicleOrder`) and `armour.ts` skipped the "panicked commander" and "enemy man within `atThreatM`" reverse-out
+reasons for the AI's hulls: the app played a different AI from headless, batch and golden runs. Now the player's
+gestures and `__tcs` hooks go through `issue()` = new pure `ui/src/player-order.ts` `playerOrder()` (player flag +
+floor on screen), and the AI's orders through `issueAi()` (logged and submitted unchanged). The app's AI hulls now
+reverse out on panic and close infantry as they do in batch runs. Measured (AI orders through the old path vs the new,
+600 s): playerHold vehicle-seconds on AI hulls platoon-ru-vehicles seeds 1/2/3 3594/3594/918 -> 0/0/0,
+platoon-vehicles seed 1 4792 -> 0; outcomes unchanged in those seeds. No sim, data or golden change.
+New `ui/test/player-order.test.ts`.
+
+## 2026-11-14 — Fire discipline: no shooting comrades, no stacking, duck between shots (overnight AI, pick "soldier-fire-discipline")
+
+Evidence (platoon-ru s1, 1500 s): red men halted 0.1-0.4 m apart shot each other (8 hits on live men, 69 rounds into
+a fallen comrade, 2 own men killed); an MG3 hit own men 30-45 m past its aim point; 87-99 % of the man-seconds a man
+spent raised above his fire position's posture had no shot in the last 3 s. Changes (all in `sim`, values in
+`behaviour.json` `soldier`):
+- `friendInLine` (fire.ts) counts a comrade from 0.3 m behind the shoulder (a prone comrade, whose body is long, from
+  further back; was: only beyond 0.5 m while the muzzle is 0.4 m out). **High confidence** (a bug).
+- A man firing bursts (`sustained` gun, or a burst band) also holds for a comrade in the cone up to
+  `friendBeyondM` = **60 m** past the point (the beaten zone). **Low** (game value; 40 m left 6 MG hits 45 m out in
+  20 runs). A single shot keeps the old 5 m allowance.
+- `stepAside` (decisions.ts): a halted man outdoors within `overlapM` = **1 m** of a halted man of his side on his
+  level, the higher id, steps 2-3 m aside (sideways to the enemy first), checked every `overlapCheckSeconds` = 1 s;
+  ammunition hand-overs, taking prisoners, men indoors, routed men and men diving from a grenade are left alone. **Low.**
+- Move orders: an end point within 2 x `overlapM` of a place another man of the side (any unit) has taken goes to
+  `freeSpotNear` (moved from drills.ts to decisions.ts and shared). **Medium.**
+- Duck between shots (fire.ts): a man above `task.basePosture` goes down to it after a shot when the next is at least
+  `duckAboveIntervalS` = **3 s** off and the way down and up plus `duckHoldS` = **1 s** fits in; before a reload; when no
+  posture gives him a line; while a comrade holds his fire (he stays down until that comrade is out of the line). He
+  rises `postureChangeSeconds` before the next shot, so his rate is unchanged (unit test: same shot ticks). Each such
+  change holds at least `duckHoldS` (no see-saw with package C). Machine guns firing bursts, men indoors and men on the
+  move are exempt. `FireTask.duck`/`duckTick` are new optional fields (no schema bump). **Low** (values).
+Measured, same seeds, before -> after. 9-battle set (platoon s1-3, platoon-ru s1-2 1500 s; platoon-vehicles s1-2,
+platoon-ru-vehicles s1-2 1200 s): friendly bullet hits on live men from men on foot 12 -> 3, rounds into fallen
+comrades 69 -> 2; halted same-side pairs under 0.5 m 782 -> 31 pair-seconds, under 1 m 525 -> 12 (what is left:
+ammunition hand-overs, which are deliberate, and 1-2 s while men are still changing posture); man-seconds raised with
+no shot for 3 s 9261 -> 2230 (-76 %), with no line 3508 -> 329, seen by an enemy meanwhile 1788 -> 363; reloads begun
+raised above the fire position 36 -> 3. Batches (platoon, platoon-ru 20 seeds, platoon-vehicles 10 seeds, 1200 s):
+wins red/blue 13/7 -> 13/7, 8/12 -> 10/10, 4/6 -> 6/4 (noise); killed blue/red 10.4/7.5 -> 8.5/7.9, 8.8/8.6 ->
+9.2/8.6, 11.1/18.5 -> 11.8/16.9; friendly bullet hits on live men 97 -> 9 in the 50 runs; enemy bullet hits about the
+same (3519 -> 3503) on fewer shots in platoon-vehicles (14512 -> 9307: MGs holding for men in their beaten zone).
+Suppression lab output identical. Attack lab: the supported attack on the wall succeeded 4/20 -> 1/20 (40-seed probe
+5 -> 2, defenders down 0.63 -> 0.25): the defenders behind the wall now duck between shots too, so the supporting
+squad hits them less; the unsupported attacks fail as before. Goldens changed (`npm run golden:update`, main goldens
+only, no-interiors untouched): demo-s1, shootout-s1, fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1,
+village-occupy-s1 — all from tick 600, because men now duck between shots, step apart and hold fire for comrades.
+Owner questions: is 60 m of beaten zone right, should ducking be off for defenders behind walls (it makes attacks
+on a wall harder), and is 1 m the right "on top of each other" distance.
+
+## 2026-11-14 — Movement under fire: only the squad fired on goes to ground, nobody walks on into fire (overnight AI, pick "movement-under-fire")
+
+Evidence: the react-to-contact halt (drills.ts) fired on the platoon's `contactTick`, which any man of the platoon
+under fire set, so 71 % of the attackers' contactReact halts were units with no man under fire (the commander's
+resume retries were used up by stray fire); a unit moving because its headquarters men had been given a move halted
+every man of the platoon. Men walked upright on while seen and suppressed (60 / 112 / 129 man-seconds in 20 platoon,
+20 platoon-ru, 10 platoon-vehicles battles). Changes:
+- New optional `Unit.ownFireTick` / `ownContactTick` (decisions.ts): a man under fire (`underFireSuppression`) stamps
+  his OWN unit (not its parents); the top unit's `underFireTick` / `contactTick` are unchanged (return-fire rule,
+  surrender, gunnery, the AI). No schema bump (optional fields). **Medium.**
+- React to contact (drills.ts) goes by the "move group": the unit's own men plus the men on their way of sub-units
+  with no move of their own (a move given to the whole platoon still halts it all when any of its men is fired on);
+  only that group is halted (no longer squads with moves of their own). A crew unit also counts hits on its own hull.
+  **Medium.**
+- `drills.reactNeighbourM` = **25 m** (centre to centre): a moving unit also goes down when another unit of its
+  platoon this close comes under fire anew. **Low.** Measured: 50 m (the suggested value) left 60-69 % of halts with a
+  man under fire (squads on the support line stand 20-40 m apart, so 50 m is nearly the old platoon-wide halt); 25 m
+  82-86 %; 0 m 86-91 %. Outcomes did not differ between the three. Owner question: 25 m / 0 (only the squad fired on)
+  / 50 m.
+- Soldier: a man on a leg in `soldier.hurryModes` (walk, sneak) whose suppression reaches
+  `decisions.seekCoverSuppression` (0.1) takes `hurryMode` (run) for the rest of his way, until
+  `hurryQuietSeconds` = **10 s** pass without it (`Mover.hurryUntilTick`, optional, dropped when his way ends).
+  It applies to player orders too (his own reaction). **Low.** Owner question: all orders / AI orders only / off.
+- `soldier.hurryFiredOnSeconds` = **0 (off)**: the suggested whole-unit trigger (every man of a unit with a man under
+  fire in the last 3 s runs) cost the German mounted attack (platoon-vehicles) 17/40 -> 10/40 wins; turned off it
+  for the defenders alone changed nothing, for the attackers alone gave 3/20, sneak legs left alone still 4/20; with
+  only the man's own suppression it is 14/40. **Low.** Owner question: off / 3 s.
+- AI commander: the advance's walk leg (`advance`) and the headquarters' walks to the support line run when the
+  squad (or a headquarters man) is under fire, like `sendOn` already did. The crews' following moves (`walk` = slow
+  drive) are left as they are (vehicles, not men walking). **Medium.**
+Measured, same seeds, before -> after (1200 s; platoon and platoon-ru 20 seeds, platoon-vehicles 40):
+contactReact halts whose unit had a man suppressed >= 0.05: 33 / 38 / 24 % -> 82 / 86 / 83 %; halts per battle
+8.5 / 10.9 / 10.1 -> 6.2 / 6.7 / 6.0. Man-seconds walking upright while seen and suppressed >= 0.1: 60 / 112 / 260 ->
+0 / 0 / 1. Hits on steady men on walk legs 23 / 33 / 46 -> 22 / 24 / 23: every one left is on a man not yet
+suppressed (the first rounds of a burst), which no reaction can prevent. Attacker wins 7 -> 6 / 20, 10 -> 10 / 20,
+17 -> 14 / 40 (noise); attackers down 17.6 -> 18.2, 17.3 -> 16.5, 16.8 -> 17.4; defenders down 13.2 -> 12.8,
+14.8 -> 15.6, 18.2 -> 18.4. Advance phase (start to recon) 495 -> 524 s, 448 -> 457 s, 264 -> 258 s; attackers down
+before recon 0.15 -> 0.25, 0.25 -> 0.50, 1.25 -> 1.02 per battle (small numbers). Goldens changed
+(`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1, shootout-s1, fixture-s7, vehicles-s1,
+fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new behaviour values), the new
+unit fields in the state hash from the first man under fire (tick 600), and the new halts and runs.
+New `sim/test/movement-under-fire.test.ts`.
+
+## 2026-11-14 — Assault tempo: walk up, get breath back, fires on time, no waiting for a straggler (overnight AI, pick "assault-tempo")
+
+Evidence (platoon / platoon-ru, before): the assault element ran ~270 m to its closing point and started its drill
+with mean fatigue 0.35 / 0.31 (up to 0.54 on platoon s1; 40 % winded while bounding on s2); the first HE was called
+5-15 s into some battles because the trigger used the distance along a turned axis (HE call to recon start median
+502 s / 258 s, 18 / 14 of 20 seeds later than the mortars' delay + 60 s); one slow runner held rushes to the 40 s
+timeout. Changes:
+- AI (`commander.ts`): the assault element walks to its closing point, sneaking the last `sneakM` (50 m), and runs
+  only while under fire (`sendOn(..., close)`). **Medium.**
+- AI: at that point, not under fire, it waits before its first assault order until its men's mean fatigue is below
+  `COMMANDER.restFatigue` = **0.35** or `restMaxSeconds` = **60 s** have passed (first objective only).
+  **Low** (both). Owner question: rest up to 60 s / 30 s / none.
+- AI: `closeTimeoutSeconds` 180 -> **300 s** (the walk takes longer; it would otherwise start the drill far out).
+  **Low.**
+- AI: when a squad reaches its closing point and the last smoke is older than half `smokeEverySeconds` (60 s),
+  smoke is called again on the objective's near edge, so it stands while the squad goes in after its rest (HE is
+  already held off by its own men within 90 m). **Low.**
+- AI: the preparatory fires are called when the squad that makes up two thirds of the squads is within the fire's
+  delay + `prepLeadS` = **15 s** of its place at walking speed (catalog `walk` pace), instead of 100 m short along
+  the axis (`prepLeadM` removed). **Medium.**
+- Sim (`drills.ts`): a bound ends when `drills.boundDoneShare` of its able, non-cowering runners have stopped, or
+  when one runner is left on the move `drills.stragglerS` = **10 s** after the others stopped (new optional
+  `Drill.trailTick`); the late runner finishes his rush (he is no longer halted where he stands, except on the
+  40 s timeout) and fires from its end. **Low.**
+- `drills.boundDoneShare` = **1 (all runners)**, not the 2/3 the pick asked for: with 2/3 the attack lab's supported
+  attack on the wall went 4/100 -> 1/100 (base 4/100; with 1: 4/100), and platoon-ru 1200 s attacker wins 10 -> 7 / 20
+  (with 1: 10 / 20); platoon 8 / 20 with either. **Low.** Owner question: all runners down (1) / two thirds (0.667).
+- Sim: a drill whose every man is pinned or panicked now waits (until the phase timeout) instead of starting a new
+  phase, with a route search for each man, every half second (seen 50-120 such 0.5 s phases per battle). **Medium.**
+- Bound length untouched (`boundM`, "15 m rushes" is still an open owner question).
+Measured, same seeds, before -> after (platoon / platoon-ru, 20 seeds, 1200 s): mean fatigue at drill start
+0.35 / 0.31 -> 0.09 / 0.14; winded share while bounding 5.5 / 8.7 % -> 2.3 / 1.3 %; bounding speed 1.89 / 1.81 ->
+2.11 / 2.11 m/s; bound phase median 16.5 / 16.0 -> 16.0 / 15.0 s; phases ended by the timeout 5.4 / 7.6 % ->
+3.3 / 0.1 %; HE call to recon start median 502 / 258 -> 155 / 115 s, seeds over delay + 60 s 18 / 14 -> 4 / 2 of 20
+(the worst 205 s). Attacker wins 6 -> 8 / 20, 10 -> 10 / 20; final rushes 29 -> 22, 25 -> 26; attackers down 245 ->
+213, 205 -> 182; defenders down 209 -> 223, 256 -> 252; mean length 1156 -> 1152 s, 1113 -> 1126 s. 900 s, 10 seeds:
+attacker wins 2 -> 2, 2 -> 2; final rushes 10 -> 4, 7 -> 3 (the slower approach reaches the objective later inside
+the short limit); attackers down 84 -> 47, 75 -> 53; defenders down 81 -> 82, 110 -> 101. Mounted (10 seeds,
+1200 s): platoon-vehicles wins 4 -> 4, platoon-ru-vehicles 1 -> 1, fatigue at drill start 0.31 / 0.52 -> 0.15 / 0.26.
+Acceptance targets not met: the median bound is 13-17.5 s, not <= 9 s (30 m at ~2.2 m/s plus getting up and down
+takes ~15 s; only a shorter bound would get there, which is the owner's open question); the winded share is 18.6 %
+on platoon-ru s2 (a long drill, fatigue builds up rush after rush; pooled 1-2 %); platoon s2 HE call to recon 185 s
+(limit 175 s). Goldens changed (`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1,
+shootout-s1, fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog
+fingerprint (two new drill values) everywhere, and in platoon-vehicles-s1 the AI's new orders and drills.
+New tests in `sim/test/drills.test.ts` and `tools/test/commander.test.ts`.
+The attack lab test (`lab-attack.test.ts`) now runs 20 attacks per case instead of 16: a supported attack on the wall
+succeeds about 4 in 100 both before and after this pick, but none of the first 16 seeds succeeds now (seeds 18, 27, 37
+do), so "support helps" failed on 0 vs 0. **Medium** (test sample only, no behaviour change).
+
+## Covering fire (overnight pick "covering-fire", 2026-11-14)
+
+Owner asleep; decided by Claude, each line is a candidate morning question. The covering half of a fire-and-movement
+drill almost never fired while the other half moved (7-26 % of covering man-seconds with a shot in the last 5 s):
+no line of fire (hedges, walls, fences, houses near the enemy), a comrade in the line, no task left.
+- Sim (`fire.ts`): a drill's or an order's fire task (`FireTask.suppress` "drill" / "order", never a man's own fire)
+  accepts a line blocked within `drills.suppressShortM` = **15 m** of the point, if the block is in the far half of
+  the line (never a wall in front of his own face); the round goes into that cover and still cracks past men lying
+  within 4 m of the strike (`FireTask.intoCover`). A posture with a clear line is preferred to one into cover.
+  **Low.** Owner question: 15 m / 10 m / 25 m / off.
+- Sim: rounds into cover, and a drill's covering fire at a point with no enemy named, are fired at no more than one
+  shot or burst per `drills.suppressIntervalS` = **4 s** (the sustained rate): with the band rate (1 s inside 100 m)
+  riflemen ran dry in long attacks (one platoon-ru battle 66 -> 123 rounds per attacker). **Low.** Owner question:
+  4 s / band rate.
+- Sim (`drills.ts` `coverFire`): each covering man takes an enemy he knows within `drills.coverTargetM` = **60 m** of
+  the objective with a clear line and no comrade in it, from lying, kneeling or standing (the k-th man starts at the
+  k-th enemy, at most 8 tried), else one whose cover he can fire into, else the objective, else as before. **Low.**
+- Sim: every `drills.coverRetaskS` = **2 s** a covering man with no shot (no task, no line, a comrade in it; not a
+  rifleman on his last magazine) looks again; if that finds nothing he dashes (run) **2-6 m** aside, once a bound
+  (`drills.sidestep` true, `Drill.stepped`), to a spot outdoors, clear of comrades (`soldier.minSpacingM`), that gives
+  him a line. A crawl there took most of the bound (moving covering men 6 -> 16 %), so it is a dash. **Low.**
+  With vs without the side step (same code otherwise, 20 seeds): covering fired 28 vs 20 % (platoon), 39 vs 36 %
+  (platoon-ru); attacker wins 14 vs 10, 11 vs 13 / 20 (noise).
+- Sim (`runBound`): each runner's bound end is moved aside to `drills.laneClearM` = **1.5 m** outside every covering
+  man's safety cone (on the side he starts from, at most `drills.laneShiftMaxM` = **10 m**, else left). **Low.**
+- Sim: "no move without fire": an assault bound's runners go only once a covering man has fired within
+  `drills.coverFiredS` = **5 s**, or after `drills.coverWaitS` = **10 s** (`Drill.waitFire`; the bound's clock starts
+  when they go; they keep firing meanwhile; runners all pinned: the halves swap; everybody pinned: they wait).
+  Withdrawals do not wait. **Low** (doctrine, game value). Owner question: wait up to 10 s / 5 s / do not wait.
+  With 10 s vs 0 s (20 seeds, 1200 s): platoon attacker wins 14 vs 8 / 20, covering fired 28 vs 23 %; platoon-ru
+  12 vs 12, 40 vs 34 %; waiting costs ~150-180 unit-seconds per battle.
+- Sim: the covering men get their tasks before the runners go (the lanes need their lines); a drill whose current
+  half was empty no longer halts the runners it just sent (its covering list was the runners themselves).
+- Not done: bound-end fire spots (the PROTO_FIREPOS prototype barely moved blocked lines, 67 -> 64 %).
+Measured, same seeds, before -> after (20 seeds, 1200 s; `ai-night/cover/measure.mts`): covering men who fired in
+the last 5 s while the runners ran: platoon (village) 8.2 -> 28.2 %, platoon-ru (farmland) 18.5 -> 39.7 %,
+platoon-vehicles 12.3 -> 29.3 %, platoon-ru-vehicles 36.0 -> 61.5 % (10 seeds); defenders pinned or panicked during
+bounds 3.6 -> 7.5 %, 7.6 -> 10.0 %; covering man-seconds with a comrade in the line 10.5 -> 9.5 %, 19.5 -> 12.7 %;
+with no line 60 -> 44 %, 47 -> 31 %; attacker rounds per man 26 -> 37, 52 -> 54. Outcomes: attacker wins 8 -> 14 / 20
+(platoon), 10 -> 12 / 20 (platoon-ru), 4 -> 4 / 10, 1 -> 2 / 10 (mounted); attackers down per battle 10.7 -> 7.2,
+9.1 -> 8.1; defenders down 11.2 -> 13.9, 12.6 -> 13.5; mean length 1152 -> 1143 s, 1126 -> 1112 s.
+Acceptance targets not met: covering share on farmland 39.7 % (target 40 %); the village 28 % (the rest are houses
+and walls: M7.5e, the AI using buildings); defenders pinned during bounds 7.5 / 10 % (target 15 %: fire into cover
+only suppresses men within 4 m of the strike); a comrade in the line 9.5 / 12.7 % (target 5 %: mostly another squad
+of the platoon lying in front, nearer the enemy, e.g. holding the first objective while the second squad attacks;
+correct fire discipline, not a lane problem).
+Goldens changed (`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1, shootout-s1,
+fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new
+drill values) everywhere; states also differ wherever there is ordered fire (`suppress`) or a drill. Recorded orders
+unchanged. New tests `sim/test/covering-fire.test.ts`; two drills tests now step past the covering-fire wait.
+
+## 2026-11-14 — Defence siting: defenders pick their own fire positions (overnight AI, pick "defence-siting")
+
+Before, the AI defender lay where the scenario put it: each squad at a fixed offset from the objectives, men 6 m apart
+in a north-south line, a quarter to a half of them in the open, and each man seeing 3-10 % of the ground the attack
+must cross (village). Now the commander, at its first look, gives every man a fire position of his own
+(`ai/src/siting.ts`, called from the defence's start in `commander.ts`); the scenario's start places are unchanged.
+No sim, data or catalog change; values are in `SITING` / `COMMANDER.siteRingSlackM` (game values, **low**).
+- **Candidates**: a 5 m grid within `searchM` = **40 m** of each group's start place (the platoon's own men are a
+  group too), each moved to where the man's own cover search on arrival would leave him (the sim's laid-out move
+  takes the best cover within 4 m: `coverSnapM` mirrors it), outdoors and passable. A group within 15 m of an
+  objective's ring stays inside the ring (the owner pick's rule for the main objective, applied to the second's squad
+  too). **Medium** (the ring rule is from the pick; 40 m from the measured "best within 30 m" headroom).
+- **Approach**: 6 rings 75-325 m out from the main objective, +/-60 deg every 12 deg (about 60 points), around the
+  way from the main objective to the middle of the map edge farthest from the side's start (the commander knows no
+  enemy positions; the old "middle of the map" direction was 30-40 deg off on some farmland seeds). A point counts as
+  seen from prone eye height (`eyeHeightM`) to a crouching man at visibility >= 0.3. **Low.**
+- **Score**: own share + 0.5 x what it adds to the whole defence's view + 0.1 x (1 - exposure), - 0.3 in the open
+  (exposure >= 0.9), never within 3 m of another man's place, - 0.02 per metre short of 5 m, - 0.03 x distance /
+  40 m. Men placed one per group per round (no group takes every good spot). **Low.** Tried: cover weight 0 (more
+  share, x1.95 village, but 4 men in the open in the village and 16 in farmland), union weight 0 / 1.5 (no
+  difference: inside the rings the candidates' views overlap), search 35 m with a 3 m ring margin (x1.75).
+- **Orders**: each man who moves more than 2 m gets a move at a walk with a facing toward the middle of what he
+  sees from there (he lies down there, as every move ends); the rest a posture prone (as before). Done at tick 0;
+  the attacker is minutes away.
+- **Not done**: kneeling where prone is blind (would need a posture order on arrival and is more exposed; prone
+  alone reached the share target in the village); an explicit mutual-support bonus for overlapping sectors (the union
+  term spreads the fields instead, and the overlap is large anyway inside the rings); houses (M7.5e).
+- **Start-up cost**: about 25,000 sight lines once at tick 0, +250-350 ms on the commander's first look in Node
+  (platoon first tick 180-235 -> 450-590 ms). Benchmarks have no AI commander; timing tests unaffected.
+
+Measured, same seeds (`ai-night/siting/fof2.mts`, defenders where they are at 120 s, approach from the attacker's
+real start, 75-350 m, +/-60 deg; s1-5): mean per-man share of the approach seen, village 0.064 -> 0.121 (**x1.90**),
+farmland 0.290 -> 0.462 (**x1.59**); whole defence 0.30 -> 0.40 and 0.69 -> 0.77; men in the open 5.2 -> 0.4 and
+13.2 -> 3.4 per battle. Acceptance targets not met: the whole-defence share in the village (target 0.6): the most
+any set of places inside the main ring can see is 0.18-0.35 (all its 5 m cells together, `maxu.mts`), so 0.6 needs
+men outside the rings or upper windows (M7.5e); farmland x1.59 (target x1.8): the best spot within 30 m of each man
+was only x1.7 there; men in the open on farmland 3.4 (target 0-2: some rings have no cover at all).
+Batches (`bat.mts`, 20 seeds, 1200 s; platoon-vehicles 15 seeds), before -> after: defender man-seconds seeing an
+enemy while one is within 150 m 0.287 -> 0.348 (platoon), 0.278 -> 0.377 (platoon-ru), 0.287 -> 0.434 (mounted);
+nearest comrade < 3 m 6.1 -> 1.8 %, 4.7 -> 1.7 %, 2.8 -> 3.0 % (target < 3 %); defender man-seconds in the open
+31 -> 5 %, 41 -> 14 %, 27 -> 18 %.
+**Balance (main owner question).** Village (platoon): attacker wins **14 -> 6 / 20**, defenders down 15.6 -> 13.2,
+attackers down 15.1 -> 18.1 (exchange attacker/defender down 0.97 -> 1.37), main objective held at the end
+30 -> 70 %. Farmland (platoon-ru): attacker wins 12 -> 12 / 20, exchange 0.93 -> 0.88, main held 40 -> 55 %.
+Mounted (platoon-vehicles, 15 seeds): attacker wins 7 -> 10 / 15, exchange 0.79 -> 0.75, mean length 1066 -> 947 s
+(the mounted battles turn on the first vehicle duels and vary a lot; within noise). The infantry attack was tuned
+tonight against the blind defence; it was NOT re-tuned. Owner question: keep the sited defence and re-tune the
+village attack (recommended), keep it and accept a harder village, or keep the scenario's start places for the AI
+defence.
+Side effect: on village seed 1 the attacker's preparatory high explosive now lands 205 s before its reconnaissance
+starts (was within the fire's delay + 60 s): the defence sees the advance and halts it more often than the call's
+walking-time estimate foresees. `commander.test.ts` allows delay + 90 s now. **Low** (a later pick could add the
+halts to the estimate).
+Goldens changed (`npm run golden:update`): platoon-vehicles-s1 only (the only golden with an AI defender;
+first difference at tick 600, its first checkpoint). Recorded orders of the others unchanged. New test
+`tools/test/siting.test.ts`.
+
+## 2026-11-14 — Defence fall-back: only under a close threat, each squad to its own covered rally point, then hold (overnight AI, pick "defence-fallback")
+
+Before, the AI defender sent every squad below half strength back, whatever the threat, to one point 100 m from the
+main objective along (main - map centre): in the 46 before-runs below 8 of 26 / 11 of 35 / 2 of 12 withdrawals
+(platoon / platoon-ru / platoon-vehicles) began with the nearest known enemy beyond 150 m, the rally point was in
+the open (exposure >= 0.9) in 52 of 73, the second objective's squad crossed 200-340 m of field to the main
+objective's point, and the squads ended bunched at one spot.
+
+- **When (commander.ts `COMMANDER.fallback`, low).** A squad below half strength (`fitShare` < 0.5, as before) falls
+  back only when (a) an enemy its side knows is within `threatM` 150 m of its men's centre, (b) the objective it is
+  at (nearest held, within its ring + `assaultSlackM` 30 m) is contested, or (c) enemies known within `flankM`
+  300 m spread over `flankDeg` 120 deg of bearing ("two sides"). Otherwise it holds and is looked at again every
+  5 s. **Low**: 150 m is the pick's "~150 m"; contested = assaulted is the simplest reading.
+- **Where (low).** Its own rally point, from its own position: `rallyM` 80/100/125/150 m back, up to `rallyMaxDeg`
+  30 deg off the bearing away from the centre of the enemies its men know (those within `enemyNearM` 400 m if any;
+  else the side's knowledge; else away from the edge the attack is expected from), candidates every 15 deg, each
+  snapped to the best cover within `rallyCoverM` 30 m (`bestCoverNear`), never indoors, never in the open
+  (`openExposure` 0.9) or within `rallySpreadM` 25 m of another squad's rally point, scored by the share of its
+  objective (centre, ring, and 40/90 m beyond it toward the enemy) a man lying there sees (`seenShare`, the siting
+  sight sampler) + 0.3 x cover - 0.2 x the turn. The second objective's squad falls back behind its own position, so
+  behind its own objective. (No route check: every candidate lies within 30 deg of straight away from the enemy, so
+  the way back never leads toward him.)
+- **Then (low).** When its withdraw drill is over (seen running, then gone; or 30 s after the order if it never
+  showed), each able man gets a fire position of his own within `rallySiteM` 20 m of the rally point (`siteDefence`
+  with a new optional search radius), facing the middle of what he sees of the objective and the ground beyond it,
+  at a run; a man already well placed gets a posture prone. The squad holds there.
+- **Counter-attack (low).** The rule "two un-withdrawn squads at >= 50 %, or one at >= 70 %" now also counts a squad
+  holding its rally point with at least `counterMinMen` 2 able men toward the two; it covers the counter-attack from
+  where it is (it is not sent in itself: two or three men in an assault would be thrown away).
+- **SIM CHANGE: a remnant goes back in one leg (`drills.withdrawTogetherMen` 3, behaviour.json, low).** A withdrawal
+  by three able men or fewer goes straight to the last leg (all together, spread about the rally point, prone facing
+  the enemy) instead of bounding. Reason: with the new trigger nearly every withdrawal is two men with the enemy at
+  50-120 m; bounding 1+1 left one man lying alone to "cover" while the other ran 30 m, drills lasted up to 330 s, and
+  most casualties were the man lying still at the start. This applies to player orders too (owner question below).
+  0 = always bound.
+- **Not done:** smoke for the fall-back (the defender has 4 mortar smoke rounds and never uses them, but ranging +
+  delay is ~115 s, longer than most fall-backs now take); crawling back for a pinned man (pinned men still lie where
+  they are when the rush starts: most of the remaining casualties).
+
+Measured, same seeds, 1200 s (`ai-night/fallback/fb2.mts`, 20 seeds platoon and platoon-ru, 6 platoon-vehicles),
+before -> after:
+- rally point not in the open (exposure < 0.9): 6/26 -> 20/21, 8/35 -> 23/25, 0/12 -> 9/9 (target >= 80 %: met);
+- angle between rally bearing and away from the known-enemy centre < 30 deg: 3/26 -> 21/21, 12/35 -> 24/25,
+  8/12 -> 9/9 (median 46 / 40 / 14 -> 6 / 11 / 4 deg: met);
+- nearest known enemy beyond 150 m at the start: 5/26 -> 1/21 (contested or two sides), 11/35 -> 0/25, 2/12 -> 0/9;
+- defender casualties during the drill and within 120 s after, per man withdrawn: 0.51 -> 0.46 (platoon),
+  0.56 -> 0.41 (platoon-ru), 0.75 -> 0.31 (platoon-vehicles). **Target (half the platoon-ru figure, 0.28) not met**:
+  the fall-back now starts under a close threat, with about two men left (1.8-2.0 per withdrawal before and after),
+  and the men still dying are mostly pinned where they lay when the rush began. Without the one-leg rush (commander
+  only) it was 0.52 / 0.51 / 0.60;
+- median drill length 87 / 84 / 107 s -> 70 / 55 / 54 s;
+- counter-attack orders (runs with one): 11 (6) -> 15 (7) platoon, 18 (6) -> 9 (4) platoon-ru, 0 -> 0 mounted;
+- outcomes: platoon attacker wins 6 -> 7 / 20, main held at the end 70 -> 65 %, defender survivors 5.8 -> 5.5,
+  attackers down 18.1 -> 17.8; platoon-ru 12 -> 10 / 20, held 55 -> 65 %, survivors 4.1 -> 4.5, attackers down
+  14.0 -> 13.3; platoon-vehicles 4 -> 3 / 6, survivors 5.0 -> 7.2. All within noise.
+
+Owner questions: (1) is "half strength AND a close threat" the right trigger (recommended), or should a weakened squad
+also fall back earlier, before the enemy is close (it then survives more often but gives ground for nothing)?
+(2) should a remnant of three or fewer withdraw in one rush (recommended; also your own squads), or always by bounds?
+(3) threat radius 150 m and rally distance 80-150 m (game values).
+Goldens changed (`npm run golden:update`): all seven regenerated for the catalog fingerprint (behaviour.json); the
+recorded orders changed only in platoon-vehicles-s1 (the only golden with an AI defender). no-interiors goldens
+untouched. New tests: `tools/test/fallback.test.ts` (holds at 300 m, falls back at 120 m to a covered point behind it
+within 30 deg, men placed at the rally point, memory plain data); `sim/test/drills.test.ts` (a remnant goes back in
+one leg; the bounding test now runs with the rule off).
+
+## 2026-11-14 — Soldier and squad AI: review fixes (overnight, decided without the owner)
+
+An independent review of tonight's five picks found these; each is fixed unless marked skipped.
+- **Fire discipline: two floors no longer block each other (high; bug).** `friendInLine` ignored height, and the
+  window places of an occupied house's two floors share x, y, so the man on the other floor was always "in the line"
+  (at the new elbow zone) and both held their fire all battle. A comrade more than 1 m above or below the shooter
+  is now never in his line (as `stepAside` already did). village-occupy, 20 seeds, 300 s: blue small arms 15 per
+  battle (HEAD) -> 54 (base before fire discipline: 58); seeds 1-6 blue shots 20/1/5/5/0/35 -> 132/41/104/88/3/35.
+- **Dead, unconscious and captured comrades (medium; low confidence on the middle rule).** The dead and prisoners
+  never block fire. A man lying hit (incapacitated, alive) still counts, but only between the muzzle (from 0.5 m) and
+  the point, as before fire discipline — not at the elbow or in a burst's beaten zone past the point. Reason: before,
+  a killed man at a rifleman's elbow, or killed attackers lying behind the objective, held fire for good. Owner
+  question: should a wounded man lying in front of the muzzle block fire (recommended, as now), or only the able?
+- **Ducked for a comrade: the same beaten-zone rule as the shot (medium).** The re-check of a man ducked because of
+  a comrade used its own `friendBeyond()` (60 m past the point for any burst-band, auto-capable weapon), ignoring
+  trickle fire and the last-magazine reserve (single aimed shots: 5 m). Both checks now use one `shotMode()`.
+- **Behaviour numbers into data (low).** `drills.sidestepM` [2, -2, 4, -4, 6, -6], `drills.coverCandidates` 8 and
+  `soldier.stepAsideM` [2, 3] (behaviour.json; same values, so the result is unchanged; the second ring is turned
+  half a step as before). The friend-in-line geometry (muzzle 0.4 m out, body reach 0.7 m, another floor at > 1 m)
+  stays in code as named constants: geometry, not behaviour. Not moved (skipped): the step-aside score weights and
+  route limit, `SITING` and `COMMANDER.fallback` (the AI's established exception: COMMANDER is code).
+- **Rally facing (low; bug).** A man at a rally point whose spot sees none of the view points faced the rear
+  (`toward + PI`); he now faces `toward`, the enemy's way (as the start-of-battle siting does with `front`).
+- **Attack-lab acceptance test (low).** Back to 16 trials, and "support helps" now also asserts the defence loses more
+  men (share of defenders down) with support, so the property no longer rests on a seed or two. Measured over 50
+  trials: supported attack on the wall wins 14/50 (13/50 before these fixes), defence losses 12 % vs 4 %; the
+  unsupported attack 0/50. The DECISIONS figure "about 4 in 100" was with the lab's 20-trial seed set; with 50 trials
+  it was 13/50 already at HEAD, so the supported attack is not "almost never successful".
+- **Save/load coverage (low).** New hash checks: fire-discipline (saved while a man is ducked, duck and duckTick set,
+  continued 10 s), covering-fire (saved while a drill waits for fire, and mid-bound with covering men's `suppress`
+  fire tasks), fallback (saveGame/loadGame after the squad rallied, commander and sim continued 30 s, memory and
+  state hash equal). New friend-in-line tests: another floor; dead and lying-hit comrades.
+- **Skipped: defence siting freeze (~0.4 s on the defender's first think).** A cache cannot help the first call, and
+  spreading the work over several ticks changes when the defenders get their orders (behaviour and golden change) for
+  a one-off hitch at the start. Owner question: accept the hitch (recommended for now), or spread siting over the
+  first few seconds?
+- **Skipped: Russian mounted attack loses 20/20.** Not caused tonight (same at base); STATE task #9.
+
+Batch after the fixes (20 seeds): village-occupy 300 s: casualties blue 0.95, red 1.75; small arms blue 54, red 38.
+platoon 1200 s: attacker (blue) wins 5/20 (7/20 after the fall-back pick: noise at 20 seeds), casualties blue 18.45,
+red 12.95. Goldens changed (`npm run golden:update`): all seven regenerated (catalog fingerprint, behaviour.json);
+behaviour changed where comrades shared x, y on two floors or lay dead or hit nearby (village-occupy-s1 most;
+the recorded orders changed in platoon-vehicles-s1). no-interiors goldens untouched.

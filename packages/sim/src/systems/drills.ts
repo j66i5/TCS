@@ -7,7 +7,8 @@
  *                     a bound toward the objective and goes down while the other fires at it; then they swap.
  *                     Within the last stretch all rush in together and take up positions on the objective.
  *   withdraw          (order) The same, backwards: one half covers toward the enemy it knows while the other
- *                     runs back a bound; the last leg to the rally point together.
+ *                     runs back a bound; the last leg to the rally point together (a remnant of
+ *                     `withdrawTogetherMen` or fewer goes back in one leg, all together).
  *   break and rally   When half a unit's able men panic, it breaks: they run back, away from the enemy they know,
  *                     and do not obey orders or fire. Once nothing has been fired at them for a while and they
  *                     have reached the rally point they rally, shaken but steadier.
@@ -16,6 +17,7 @@
  * will vary them by faction.
  */
 import type { Drill, SoldierState, Unit } from "../components";
+import type { Posture } from "../orders";
 import type { SimContext } from "../context";
 import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
@@ -28,8 +30,8 @@ import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
 import { isCowering } from "./morale";
-import { aimHeightAt, assignFireTask } from "./fire";
-import { placeFree, placesTaken } from "./decisions";
+import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, spareMagazines } from "./fire";
+import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 
@@ -49,39 +51,20 @@ function topOf(state: SimState, uid: EntityId): EntityId {
 }
 
 /**
- * Send a man along a path to (x, y) at a run; he lies down facing `face` at the end. `gz`: the goal's height above
+ * Send a man along a path to (x, y) at a run (or `mode`); he lies down facing `face` at the end. `gz`: the goal's height above
  * the ground (M7.5 review fix: a bound inside the house he is in keeps his floor; elsewhere the ground).
  */
-function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, face: { x: number; y: number } | null, gz = 0): boolean {
+function sendTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, face: { x: number; y: number } | null, gz = 0, mode = "run"): boolean {
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m) return false;
   const gx = Math.min(Math.max(x, 1), ctx.map.widthM - 1), gy = Math.min(Math.max(y, 1), ctx.map.heightM - 1);
   const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 8000, snapCells: 3 }, { sz: t.z, gz });
   if (!leg) return false;
-  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
+  m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode });
   m.formation = null;
   m.endPosture = "prone";
   m.endHeading = face ? atan2(face.y - leg.goalY, face.x - leg.goalX) : null;
   return true;
-}
-
-/**
- * (x, y), or the nearest point to it on rings of `soldier.minSpacingM` that is that far from every place another
- * man of his side has taken (package B: two squads' last men rallying on the same point no longer lie on top of
- * each other). Indoors (a floor above) it is left as it is.
- */
-function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number): { x: number; y: number } {
-  const sep = ctx.catalog.behaviour.soldier.minSpacingM;
-  const taken = placesTaken(state, id);
-  if (sep <= 0 || placeFree(taken, x, y, sep)) return { x, y };
-  for (let ring = 1; ring <= 3; ring++) {
-    for (let k = 0; k < 8; k++) {
-      const a = (k * PI) / 4 + (ring % 2) * (PI / 8);
-      const px = Math.min(Math.max(x + cos(a) * ring * sep, 2), ctx.map.widthM - 2), py = Math.min(Math.max(y + sin(a) * ring * sep, 2), ctx.map.heightM - 2);
-      if (navCostAt(navFor(ctx, "foot").grid, px, py) > 0 && placeFree(taken, px, py, sep)) return { x: px, y: py };
-    }
-  }
-  return { x, y };
 }
 
 /** Is he in the middle of throwing a grenade (the drill does not move him off it)? */
@@ -151,10 +134,12 @@ function doctrine(ctx: SimContext, state: SimState, uid: EntityId, key: string, 
   return v !== undefined && Number.isFinite(v) ? v : fallback;
 }
 
-function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, events: EventSink): void {
+function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, events: EventSink, keepRunners = false): void {
   const D = ctx.catalog.behaviour.drills;
   const boundM = doctrine(ctx, state, uid, "boundM", D.boundM), finalM = doctrine(ctx, state, uid, "finalAssaultM", D.finalM);
   d.phaseTick = state.tick;
+  delete d.waitFire;
+  delete d.stepped;
   let groups = d.groups.map((g) => g.filter((m) => able(state.soldier.get(m))));
   // One half gone (casualties, routed men): the survivors split again and go on bounding.
   if (groups.filter((g) => g.length > 0).length < 2 && groups.flat().length >= 2) {
@@ -163,15 +148,13 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     d.groups = groups.map((g) => [...g]);
     d.mover = d.mover % 2;
   }
-  // A lone man bounds on his own (nobody to cover him).
-  const movers = groups.filter((g) => g.length > 0).length === 1 ? groups.flat() : groups[d.mover] ?? [];
-  const cover = groups.filter((_, i) => i !== d.mover).flat();
-  const all = groups.flat();
+  const { movers, cover, all } = phaseMen(state, d);
   if (all.length === 0) { state.unit.req(uid).drill = null; return; }
   const enemy = knownEnemy(state, all);
   const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
   const dist = hypot2(d.x - c.x, d.y - c.y);
-  const last = dist <= (d.kind === "assault" ? finalM : boundM);
+  // (A remnant withdrawing, `withdrawTogetherMen` or fewer, goes back in one leg: overnight pick "defence-fallback".)
+  const last = dist <= (d.kind === "assault" ? finalM : boundM) || (d.kind === "withdraw" && all.length <= D.withdrawTogetherMen);
   if (last) {
     // The last rush onto the objective (or the last leg back): everyone together, spread around the point.
     d.final = true;
@@ -192,31 +175,175 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
     });
     return;
   }
-  // A bound: the movers run on (each from where he is), the others stop and fire.
+  // A bound: the others stop and fire (covering fire first: the runners' lanes keep out of its lines).
+  const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
+  cover.forEach((m, i) => {
+    // (A runner of the last bound still on his way finishes it, unless the bound timed out; he fires from there.)
+    if (!keepRunners || (state.mover.get(m)?.waypoints.length ?? 0) === 0) halt(state, m);
+    if (at) coverFire(ctx, state, m, at, d.kind === "assault", i);
+  });
+  // No move without fire (overnight pick "covering-fire"): the runners go once a covering man has fired within
+  // `coverFiredS`, or after `coverWaitS` (assault only; a lone man has nobody to cover him). Meanwhile they keep
+  // firing from where they are.
+  if (d.kind === "assault" && D.coverWaitS > 0 && cover.length > 0 && movers.length > 0 && !coverFiring(ctx, state, cover)) {
+    d.waitFire = true;
+    return;
+  }
+  runBound(ctx, state, uid, d, boundM, finalM);
+  void events;
+}
+
+/** The runners and the covering men of the current phase (able men; a lone half runs with nobody covering). */
+function phaseMen(state: SimState, d: Drill): { movers: EntityId[]; cover: EntityId[]; all: EntityId[] } {
+  const groups = d.groups.map((g) => g.filter((m) => able(state.soldier.get(m))));
+  const movers = groups.filter((g) => g.length > 0).length === 1 ? groups.flat() : groups[d.mover] ?? [];
+  const cover = groups.filter((_, i) => i !== d.mover).flat().filter((m) => !movers.includes(m));
+  return { movers, cover, all: groups.flat() };
+}
+
+/** Has a covering man fired within `drills.coverFiredS`? */
+function coverFiring(ctx: SimContext, state: SimState, cover: EntityId[]): boolean {
+  const within = secondsToTicks(ctx.catalog.behaviour.drills.coverFiredS);
+  return cover.some((m) => state.tick - (state.weapon.get(m)?.lastShotTick ?? -1e9) <= within);
+}
+
+/**
+ * The runners of a bound go: each from where he is, a bound toward the objective (or back), the end moved aside
+ * out of the covering men's lines of fire (their safety cone and `drills.laneClearM`, on the side he starts from,
+ * at most `laneShiftMaxM`: overnight pick "covering-fire").
+ */
+function runBound(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, boundM: number, finalM: number): void {
+  const D = ctx.catalog.behaviour.drills;
+  const { movers, cover, all } = phaseMen(state, d);
+  if (all.length === 0) return;
+  const enemy = knownEnemy(state, all);
+  const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
+  const dist = Math.max(1e-6, hypot2(d.x - c.x, d.y - c.y));
   const ux = (d.x - c.x) / dist, uy = (d.y - c.y) / dist;
   // Never past the start of the last rush (assault) or the rally point (withdraw).
   const step = Math.max(1, Math.min(boundM, dist - (d.kind === "assault" ? finalM : 0)));
   const face = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
+  // The covering men's lines of fire: from each to the point he fires at.
+  const lines: { x: number; y: number; ux: number; uy: number; len: number }[] = [];
+  for (const m of cover) {
+    const f = state.fire.get(m);
+    if (!f) continue;
+    const t = state.transform.req(m), len = hypot2(f.x - t.x, f.y - t.y);
+    if (len > 1) lines.push({ x: t.x, y: t.y, ux: (f.x - t.x) / len, uy: (f.y - t.y) / len, len });
+  }
+  const sinCone = sin((ctx.catalog.shooting.fire.safetyConeDeg * PI) / 180), reach = Math.max(0.7, ctx.ballistics.bodyReachM);
   for (const m of movers) {
     if (throwing(state, m)) continue; // he goes with the next bound
     state.fire.delete(m);
     const t = state.transform.req(m);
-    const bx = t.x + ux * step, by = t.y + uy * step, bi = t.z > 0 ? indoorAt(ctx, t.x, t.y) : -1;
+    let bx = t.x + ux * step, by = t.y + uy * step;
+    if (lines.length > 0 && D.laneShiftMaxM > 0) {
+      const x0 = bx, y0 = by;
+      for (let pass = 0; pass < 2; pass++) for (const l of lines) {
+        const along = (bx - l.x) * l.ux + (by - l.y) * l.uy;
+        if (along <= 0 || along >= l.len) continue;
+        const across = -(bx - l.x) * l.uy + (by - l.y) * l.ux, need = reach + along * sinCone + D.laneClearM;
+        if (Math.abs(across) >= need) continue;
+        // (To the side of the line he starts from: he does not cross it.)
+        const from = -(t.x - l.x) * l.uy + (t.y - l.y) * l.ux;
+        const side = from > 0.5 ? 1 : from < -0.5 ? -1 : across >= 0 ? 1 : -1;
+        const shift = side * need - across;
+        bx += -l.uy * shift; by += l.ux * shift;
+      }
+      if (hypot2(bx - x0, by - y0) > D.laneShiftMaxM) { bx = x0; by = y0; }
+    }
+    const bi = t.z > 0 ? indoorAt(ctx, t.x, t.y) : -1;
     sendTo(ctx, state, m, bx, by, face, bi >= 0 && indoorAt(ctx, bx, by) === bi ? t.z : 0);
   }
-  const at = d.kind === "assault" ? { x: d.x, y: d.y } : enemy;
-  for (const m of cover) {
-    halt(state, m);
-    if (at) fireOnPosition(ctx, state, m, at, d.kind === "assault");
-  }
   // Assault fire (package D): within assaultFireM of the objective the men bounding forward fire as they go.
-  if (d.kind === "assault" && dist <= ctx.catalog.behaviour.soldier.assaultFireM) for (const m of movers) fireOnPosition(ctx, state, m, at!, true, true);
-  void events;
+  if (d.kind === "assault" && dist <= ctx.catalog.behaviour.soldier.assaultFireM) for (const m of movers) fireOnPosition(ctx, state, m, { x: d.x, y: d.y }, true, true);
+}
+
+/**
+ * A covering man's fire (overnight pick "covering-fire"): an enemy he knows within `drills.coverTargetM` of the
+ * position `at` that he has a line of fire to (from any posture he may take); else one whose cover he can fire into
+ * (`suppressShortM`); else the position itself if he can reach it so; else as before (`fireOnPosition`). The `k`th
+ * covering man starts his search at the `k`th enemy, so the fire spreads over the position.
+ */
+function coverFire(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, k: number): boolean {
+  const s = state.soldier.req(m);
+  const cands = coverTargets(ctx, s, at);
+  const postures: Posture[] = isCowering(s) ? ["prone"] : ["prone", "crouching", "standing"];
+  let pick: (typeof cands)[number] | null = null, pickQ = 0;
+  for (let j = 0; j < cands.length && pickQ < 2; j++) {
+    const c = cands[(k + j) % cands.length]!, q = lineFor(ctx, state, m, c.x, c.y, aimHeightAt(ctx, c), postures);
+    if (q > pickQ) { pick = c; pickQ = q; }
+  }
+  const h = assault ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM;
+  if (pick) {
+    if (assignFireTask(ctx, state, m, pick.x, pick.y, aimHeightAt(ctx, pick))) { const ft = state.fire.req(m); ft.contact = pick.target; ft.aimAuto = true; }
+  } else if (lineFor(ctx, state, m, at.x, at.y, h, postures) > 0) assignFireTask(ctx, state, m, at.x, at.y, h);
+  else { fireOnPosition(ctx, state, m, at, assault); return false; }
+  const ft = state.fire.get(m);
+  if (ft) ft.suppress = "drill";
+  return ft !== undefined;
+}
+
+/** The enemies a covering man knows within `drills.coverTargetM` of the position, nearest to it first (a few). */
+function coverTargets(ctx: SimContext, s: SoldierState, at: { x: number; y: number }): SoldierState["contacts"] {
+  const D = ctx.catalog.behaviour.drills;
+  return s.contacts
+    .filter((c) => !c.surrendered && !c.down && c.cls !== "vehicle" && hypot2(c.x - at.x, c.y - at.y) <= D.coverTargetM)
+    .sort((a, b) => hypot2(a.x - at.x, a.y - at.y) - hypot2(b.x - at.x, b.y - at.y) || a.target - b.target)
+    .slice(0, D.coverCandidates);
+}
+
+/**
+ * His best line of fire to a point from any of `postures` (2 clear, 1 into cover near it, 0 none), none with a
+ * comrade in it (another squad bounding beside his, a man of his own half); `from`: as if he were there.
+ */
+function lineFor(ctx: SimContext, state: SimState, m: EntityId, x: number, y: number, h: number, postures: Posture[], from?: { x: number; y: number; z: number }): number {
+  if (friendInLine(ctx, state, m, x, y, 0, from)) return 0;
+  let q = 0;
+  for (const p of postures) { q = Math.max(q, lineOfFireTo(ctx, state, m, x, y, h, p, ctx.catalog.behaviour.drills.suppressShortM, from)); if (q === 2) break; }
+  return q;
+}
+
+/**
+ * A covering man with no shot from where he lies dashes a few metres aside to a spot that gives him one (outdoors,
+ * on open ground, clear of comrades; overnight pick "covering-fire"). Once per bound. Returns whether he goes.
+ */
+function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }): boolean {
+  const t = state.transform.req(m), s = state.soldier.req(m);
+  if (t.z > 0 || indoorAt(ctx, t.x, t.y) >= 0) return false;
+  const L = hypot2(at.x - t.x, at.y - t.y);
+  if (L < 1) return false;
+  const px = -(at.y - t.y) / L, py = (at.x - t.x) / L;
+  const side = state.identity.req(m).side, grid = navFor(ctx, "foot").grid, minM = ctx.catalog.behaviour.soldier.minSpacingM;
+  const cands = coverTargets(ctx, s, at);
+  const postures: Posture[] = ["prone", "crouching"];
+  for (const off of ctx.catalog.behaviour.drills.sidestepM) {
+    const x = t.x + px * off, y = t.y + py * off;
+    if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1 || navCostAt(grid, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+    let crowded = false;
+    for (const [o, id] of state.identity.entries()) {
+      // (Men aboard a vehicle take no room on the ground.)
+      if (o === m || id.side !== side || !state.soldier.has(o) || state.soldier.get(o)!.mount !== undefined) continue;
+      const ot = state.transform.req(o);
+      if (hypot2(ot.x - x, ot.y - y) < minM) { crowded = true; break; }
+    }
+    if (crowded) continue;
+    const from = { x, y, z: 0 };
+    const target = cands.find((c) => lineFor(ctx, state, m, c.x, c.y, aimHeightAt(ctx, c), postures, from) > 0);
+    if (!target && (cands.length > 0 || lineFor(ctx, state, m, at.x, at.y, 0.5, postures, from) === 0)) continue;
+    // (A quick dash of a few metres: crawling there took most of the bound.)
+    if (!sendTo(ctx, state, m, x, y, target ?? at, 0, "run")) continue;
+    // (His fire task waits for him there; he fires when he is down again.)
+    if (target && assignFireTask(ctx, state, m, target.x, target.y, aimHeightAt(ctx, target))) { const ft = state.fire.req(m); ft.contact = target.target; ft.aimAuto = true; ft.suppress = "drill"; }
+    return true;
+  }
+  return false;
 }
 
 /**
  * Each man fires at an enemy he knows near the position `at` (the nearest to it), else at the point itself: the fire
  * spreads over the position instead of all striking its middle. `onTheMove`: assault fire while he moves (package D).
+ * (A drill's task: covering fire, `suppress`.)
  */
 function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, onTheMove = false): void {
   const s = state.soldier.req(m);
@@ -229,6 +356,8 @@ function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: 
   if (best) {
     if (assignFireTask(ctx, state, m, best.x, best.y, aimHeightAt(ctx, best))) { const ft = state.fire.req(m); ft.contact = best.target; ft.aimAuto = true; if (onTheMove) ft.onTheMove = true; }
   } else if (assignFireTask(ctx, state, m, at.x, at.y, assault ? 0.5 : ctx.catalog.shooting.fire.aimPointHeightM) && onTheMove) state.fire.req(m).onTheMove = true;
+  const ft = state.fire.get(m);
+  if (ft) ft.suppress = "drill";
 }
 
 function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, events: EventSink): void {
@@ -256,6 +385,38 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   if (d.phaseTick < 0) { startPhase(ctx, state, uid, d, events); return; }
   const all = d.groups.flat().filter((m) => able(state.soldier.get(m)));
   if (all.length === 0) { u.drill = null; return; }
+  // Covering men with no shot (no task left: his man went down; no line; a comrade in it) look for another one
+  // every `coverRetaskS` (overnight pick "covering-fire"); not a rifleman down to his last magazine.
+  if (!d.final && D.coverRetaskS > 0 && state.tick % secondsToTicks(D.coverRetaskS) === 0) {
+    const at = d.kind === "assault" ? { x: d.x, y: d.y } : null;
+    if (at) phaseMen(state, d).cover.forEach((m, i) => {
+      if (moving(m) || state.action.has(m) || isCowering(state.soldier.req(m))) return;
+      const f = state.fire.get(m), w = state.weapon.get(m), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+      if (!w || !wd) return;
+      if (f && f.lineClear && !friendInLine(ctx, state, m, f.x, f.y)) return;
+      if (!wd.sustained && spareMagazines(state.container.get(m), wd.feed.magazine) <= 0) return;
+      if (coverFire(ctx, state, m, at, true, i)) return;
+      // (No shot from where he lies: a few metres aside, once a bound.)
+      if (D.sidestep && !(d.stepped ?? []).includes(m) && sidestep(ctx, state, m, at)) (d.stepped ??= []).push(m);
+    });
+  }
+  if (d.waitFire === true) {
+    // The runners wait for their covering fire (overnight pick "covering-fire"); the bound's time starts when they go.
+    const { movers, cover } = phaseMen(state, d);
+    // (Every runner pinned or panicked: the halves swap, as for a bound whose runners went down; everybody: they wait.)
+    if (movers.length > 0 && movers.every((m) => isCowering(state.soldier.req(m)))) {
+      if (all.every((m) => isCowering(state.soldier.req(m)))) return;
+      d.mover = (d.mover + 1) % d.groups.length;
+      startPhase(ctx, state, uid, d, events, true);
+      return;
+    }
+    if (movers.length === 0 || coverFiring(ctx, state, cover) || state.tick - d.phaseTick >= secondsToTicks(D.coverWaitS)) {
+      delete d.waitFire;
+      d.phaseTick = state.tick;
+      runBound(ctx, state, uid, d, doctrine(ctx, state, uid, "boundM", D.boundM), doctrine(ctx, state, uid, "finalAssaultM", D.finalM));
+    }
+    return;
+  }
   if (d.final) {
     // (Men pinned on the way keep their paths: the drill ends anyway after twice the bound time.)
     if (!all.some(moving) || state.tick - d.phaseTick >= 2 * secondsToTicks(D.phaseTimeoutSeconds)) {
@@ -267,9 +428,20 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   // A mover pinned or panicked on the way has gone down where he is: the others do not wait for him (balance
   // pass 2026-11-13: one pinned man held his whole squad's next rush for the full phase timeout).
   const movers = (d.groups[d.mover] ?? []).filter((m) => able(state.soldier.get(m)) && !isCowering(state.soldier.req(m)));
-  if (!movers.some(moving) || state.tick - d.phaseTick >= secondsToTicks(D.phaseTimeoutSeconds)) {
+  // (Overnight pick "assault-tempo" 2026-11-14: the halves swap once `boundDoneShare` of the runners are down (1 =
+  // all; 2/3 cost the attack lab), or when the last one has trailed the others by `stragglerS`: one slow man held
+  // three rushes in a row to the timeout. He finishes his rush.)
+  const going = movers.filter(moving).length;
+  if (going === 1 && movers.length > 1) d.trailTick ??= state.tick; else delete d.trailTick;
+  const done = movers.length - going >= Math.ceil(D.boundDoneShare * movers.length - 0.01) || (d.trailTick !== undefined && state.tick - d.trailTick >= secondsToTicks(D.stragglerS));
+  const timedOut = state.tick - d.phaseTick >= secondsToTicks(D.phaseTimeoutSeconds);
+  // (Every man left pinned or panicked: nobody can run the next bound; the drill waits instead of starting a new
+  // phase, and a new route search for each man, every half second.)
+  if (!timedOut && movers.length === 0 && all.every((m) => isCowering(state.soldier.req(m)))) return;
+  if (going === 0 || done || timedOut) {
+    delete d.trailTick;
     d.mover = (d.mover + 1) % d.groups.length;
-    startPhase(ctx, state, uid, d, events);
+    startPhase(ctx, state, uid, d, events, !timedOut);
   }
 }
 
@@ -315,6 +487,50 @@ function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean
   return false;
 }
 
+/**
+ * The men on foot carrying this unit's move into `out`: its own men, and the men on their way (with waypoints) of
+ * sub-units without a move or drill of their own (a move given to the whole platoon); returns when they last came
+ * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`). A halted squad under
+ * the platoon is not part of its headquarters' move.
+ */
+function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false): number {
+  const u = state.unit.get(uid);
+  if (!u) return -1e9;
+  const n0 = out.length;
+  for (const m of u.members) if (state.soldier.get(m)?.mount === undefined && (!sub || (state.mover.get(m)?.waypoints.length ?? 0) > 0)) out.push(m);
+  let t = out.length > n0 || !sub ? (u.ownContactTick ?? -1e9) : -1e9;
+  if (u.vehicle !== undefined && u.contactTick > t) t = u.contactTick;
+  for (const c of u.children) {
+    const cu = state.unit.get(c);
+    if (!cu || cu.moving || cu.drill) continue;
+    const ct = moveGroup(state, c, out, true);
+    if (ct > t) t = ct;
+  }
+  return t;
+}
+
+/** Has a unit of the same top unit, outside this move, come under fire anew with its men within `rangeM`? */
+function neighbourInContact(state: SimState, uid: EntityId, group: EntityId[], fresh: (t: number) => boolean, rangeM: number): boolean {
+  if (rangeM <= 0) return false;
+  const mine = group.filter((m) => able(state.soldier.get(m)));
+  if (mine.length === 0) return false;
+  let c: { x: number; y: number } | null = null;
+  const inGroup = new Set(group);
+  const stack: EntityId[] = [topOf(state, uid)];
+  while (stack.length > 0) {
+    const wid = stack.pop()!, w = state.unit.get(wid);
+    if (!w) continue;
+    for (let i = w.children.length - 1; i >= 0; i--) stack.push(w.children[i]!);
+    if (wid === uid || !fresh(w.ownContactTick ?? -1e9)) continue;
+    const theirs = w.members.filter((m) => !inGroup.has(m) && able(state.soldier.get(m)) && state.soldier.get(m)!.mount === undefined);
+    if (theirs.length === 0) continue;
+    c ??= centroid(state, mine);
+    const o = centroid(state, theirs);
+    if (hypot2(o.x - c.x, o.y - c.y) <= rangeM) return true;
+  }
+  return false;
+}
+
 export function drillSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills;
   if (state.tick % Math.max(1, secondsToTicks(D.stepSeconds)) !== 0) return;
@@ -327,13 +543,15 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
       // In a broken unit, a man who panics later runs too.
       if (u.broken && u.drill?.kind === "rout") for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
     }
-    // ---- react to contact: on the move, fired upon anew since the move began
-    if (D.reactToContact && u.moving && !u.drill && !u.broken) {
-      const top = state.unit.req(topOf(state, uid));
-      if (u.onContact !== "push" && top.contactTick > u.moveTick && state.tick - top.contactTick <= secondsToTicks(2 * D.stepSeconds) && !enteringHouse(ctx, state, uid)) {
+    // ---- react to contact: on the move, fired upon anew since the move began; only the men carrying this move
+    // (its own, and sub-units without a move of their own) or a unit of the platoon close by (reactNeighbourM)
+    if (D.reactToContact && u.moving && !u.drill && !u.broken && u.onContact !== "push") {
+      const group: EntityId[] = [];
+      const fresh = (t: number) => t > u.moveTick && state.tick - t <= secondsToTicks(2 * D.stepSeconds);
+      if ((fresh(moveGroup(state, uid, group)) || neighbourInContact(state, uid, group, fresh, D.reactNeighbourM)) && !enteringHouse(ctx, state, uid)) {
         u.moving = false;
         const goals = new Map<EntityId, { x: number; y: number }>();
-        for (const m of footSoldiers(state, uid)) {
+        for (const m of group) {
           const s = state.soldier.get(m);
           if (!able(s)) continue;
           const w = state.mover.get(m)?.waypoints;

@@ -9,12 +9,21 @@ The app opens a generated battle: a platoon attacks a platoon that holds two obj
 holder's colour; the line under the top bar shows who holds what and the time left, 40 minutes). By default you
 command the German platoon attacking from the west; `?side=red` gives you the Russians, `?attacker=red` makes
 the Russians attack, `?map=farmland` (or woodland, industrial) another map, `?seed=` another battle. The other
-side is commanded by the computer: in defence it lies in its positions and fires at will out to 300 m, pulls
-back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
+side is commanded by the computer: in defence each man first walks to a fire position of his own within 40 m of
+his squad's place (the spot that sees most of the ground the attack must cross, in cover, at least 3 m and if it can
+5 m from the next man, the squads at an objective inside its ring), lies down facing what he sees and fires at will
+out to 300 m, pulls
+back a squad that has lost half its men once the enemy is close (a known enemy within 150 m, its objective
+assaulted, or enemies on two sides; until then it holds) to a rally point of its own 80-150 m behind it, away from
+the enemy it knows, in cover and seeing its objective, where each man takes a fire position facing the enemy's way
+(a remnant of three or fewer goes back in one rush, all together, instead of by bounds; yours too), and
+counterattacks a lost objective while it is strong enough (a squad holding its rally point counts toward that); in
 attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
 up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground
-on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives, then half
-its squads fire on the defenders man by man while the others run in under the smoke on a flank and assault by
+on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives (called when two thirds of its squads are within the
+mortars' delay of their places at a walk), then half
+its squads fire on the defenders man by man while the others walk in under the smoke on a flank (running only
+when fired on), get their breath back for up to a minute about 60 m out, and assault by
 fire and movement with grenades; then the second objective; past its doctrine's loss limit (30 %) it breaks off
 and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attack work?").
 **Winning:** points for the objectives you hold at the end (main 100, second 50), minus 5 for each of your men
@@ -434,16 +443,46 @@ to get it there are picked. In the last 50 m of an assault the men on the move f
 know near the objective — with three times their aiming error: fire to keep heads down while they close, not
 to hit.
 
+**Fire discipline (2026-11-14).** A man no longer shoots a comrade lying at his elbow: a man of his side right beside
+the muzzle (from a little behind his shoulder; a man lying down is long, so from further back) counts as in his line,
+and he holds his fire. A man firing bursts — a machine gun, or a rifleman on automatic up close — also holds his fire
+for a comrade in his safety cone up to 60 m past the point he fires at (the rounds that miss go on; one gun hit its
+own men 30–45 m beyond its target). Two halted men of a side outdoors who end up within 1 m of each other on the same
+floor (two squads sent to the same fold, a crawl ending where another man lies) no longer stay there: the one with
+the higher number steps 2–3 m aside, sideways to the enemy rather than toward him (checked once a second; men handing
+over ammunition, men indoors and at windows are left alone), and the end points of move orders keep clear of places
+men of other squads of the side have taken. A man who rose above his fire position's posture to fire (to his knees
+to clear a bank, say) goes back down to it between shots when the next one is at least 3 s off and the way down and
+up again fits in, when he changes magazine, when no posture gives him a line of fire, and while a comrade is in his
+line; he rises again just in time for the next shot, so his rate of fire is the same. He keeps each posture at least
+1 s for this. Machine gunners firing bursts and men at windows are left as they are.
+
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
-and fire back under their fire rule; the radio says "contact! Taking cover." **Assault** (order, with a point):
+and fire back under their fire rule; the radio says "contact! Taking cover." Only the unit whose own men are fired
+on does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
+goes on (a move given to the whole platoon still stops it all). **Moving under fire.** A man on a walk or sneak leg
+who comes under fire (suppressed at least 0.1) runs the rest of his way, and walks again only after
+10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
-goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
-spreading round the point and facing on ("on the objective"). If the runners are pinned the turn passes after
-40 s; a runner who is pinned on the way stays down and the others go on without waiting for him. **Withdraw**
+goes down while the other covers it with fire; then they swap, until the last 25 m, which they rush together,
+spreading round the point and facing on ("on the objective"). **Covering fire:** each covering man takes an enemy
+he knows within 60 m of the point that he can hit from lying, kneeling or standing with no comrade in his line
+(the men share the enemies out); if none, one whose cover (a hedge, wall or house within 15 m of him) he can fire
+into, else the point itself. Rounds into cover are fired at the sustained rate (one every 4 s), as is fire at the
+point when no enemy is known; they still crack past men lying there. A covering man with no shot looks again
+every 2 s and may dash 2-6 m aside, once a turn, to a spot that gives him one. The runners go only once a
+covering man has fired in the last 5 s, or after waiting 10 s ("no move without fire"; they keep firing
+meanwhile), and each ends his rush a little aside, out of the covering men's lines of fire. A fire order you give
+may likewise go into the cover just short of the point. The turn passes as soon as the runners are down, or
+when the last one is still running 10 s after the others: he finishes his rush and fires from where it ends while
+the other half goes. If the runners are pinned the turn passes after
+40 s; a runner who is pinned on the way stays down and the others go on without waiting for him; when every man
+is pinned the squad waits. **Withdraw**
 (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
-the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
+the last 30 m together ("back at the rally point"); a unit of three able men or fewer goes back in one rush, all
+together (with only two men, bounding left one lying alone to cover the other and took minutes). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
 ("rallied"), still uneasy (stress reduced to 60 %).
@@ -585,7 +624,7 @@ away about 60 m — in reverse if the danger is in front, so its front armour an
 about 15 seconds. If it backed off because of enemies close by or a panicking commander (not because it was hit),
 it then drives back to where it stood and rejoins the fight, unless something new drives it off again. A vehicle
 you have given a move or halt order to holds that order against enemies close by and a panicking commander: only a
-penetration or lost weapons make it back off. The radio says "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
+penetration or lost weapons make it back off. This holds only for orders you give: the computer opponent's vehicles still back off from a panicking commander and close enemy men, in the game exactly as in test runs (fixed 14 November: the game had marked the computer's orders as yours). The radio says "under anti-tank fire, reversing out!". A crew that has bailed out is a small squad on foot from then on: you can
 select it and give it orders like any squad (the AI sends it back to the rear). Men who run out of ammunition may take
 it from one of their own side's vehicles, abandoned ones included, if it carries what their weapon uses — never from
 an enemy vehicle (owner's choice, 2026-11-13).

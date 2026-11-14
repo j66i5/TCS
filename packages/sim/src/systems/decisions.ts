@@ -29,7 +29,7 @@ import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin } from "../math";
-import { bestCoverNear, exposureAt, type findPath } from "../nav";
+import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
@@ -148,6 +148,25 @@ export function placesTaken(state: SimState, id: EntityId): { x: number; y: numb
 export function placeFree(taken: readonly { x: number; y: number }[], x: number, y: number, sepM: number): boolean {
   for (const p of taken) if (hypot2(p.x - x, p.y - y) < sepM) return false;
   return true;
+}
+
+/**
+ * (x, y), or the nearest point to it on rings of `sepM` (default `soldier.minSpacingM`) that is that far from every
+ * place another man of his side has taken (package B: two squads' last men rallying on the same point no longer lie
+ * on top of each other; fire discipline 2026-11-14: also the end points of move orders, across units).
+ */
+export function freeSpotNear(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, sepM?: number): { x: number; y: number } {
+  const sep = sepM ?? ctx.catalog.behaviour.soldier.minSpacingM;
+  const taken = placesTaken(state, id);
+  if (sep <= 0 || placeFree(taken, x, y, sep)) return { x, y };
+  for (let ring = 1; ring <= 3; ring++) {
+    for (let k = 0; k < 8; k++) {
+      const a = (k * PI) / 4 + (ring % 2) * (PI / 8);
+      const px = Math.min(Math.max(x + cos(a) * ring * sep, 2), ctx.map.widthM - 2), py = Math.min(Math.max(y + sin(a) * ring * sep, 2), ctx.map.heightM - 2);
+      if (navCostAt(navFor(ctx, "foot").grid, px, py) > 0 && placeFree(taken, px, py, sep)) return { x: px, y: py };
+    }
+  }
+  return { x, y };
 }
 
 /**
@@ -581,6 +600,73 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
   return true;
 }
 
+/** Errands that take a man right up to a comrade on purpose. */
+function closeErrand(s: SoldierState): boolean {
+  const k = s.intent?.kind;
+  return k === "bringAmmo" || k === "fetchAmmo" || k === "takePrisoner";
+}
+
+/**
+ * Not on top of a comrade (fire discipline, 2026-11-14): the last resort when every other spacing rule has failed
+ * (two men from different squads sent to the same fold, a crawl ending where another man lies). A halted man
+ * outdoors within `soldier.overlapM` of a halted man of his side on his level steps 2-3 m aside, sideways to the
+ * enemy he knows rather than toward him, to a spot no other man has taken, in his own posture. Of the two, the
+ * higher id moves (the other stays: deterministic). Men indoors (rooms, window places) are left as they are.
+ */
+function stepAside(ctx: SimContext, state: SimState, id: EntityId): void {
+  const S = ctx.catalog.behaviour.soldier;
+  const s = state.soldier.get(id);
+  if (!s || !isAble(s) || s.mount !== undefined || s.mental.behaviour === "routed" || s.evade !== null) return;
+  if (state.tick < s.stunnedUntilTick || state.action.has(id) || s.postureTo !== null || closeErrand(s)) return;
+  const m = state.mover.get(id);
+  if (!m || m.waypoints.length > 0) return;
+  const me = state.transform.req(id);
+  if (indoorAt(ctx, me.x, me.y) >= 0) return;
+  const side = state.identity.get(id)?.side;
+  let crowded = false;
+  // (Stores are in id order: only men with a lower id.)
+  for (const [o, os] of state.soldier.entries()) {
+    if (o >= id) break;
+    if (os.mount !== undefined || !isAble(os) || closeErrand(os) || state.identity.get(o)?.side !== side) continue;
+    if ((state.mover.get(o)?.waypoints.length ?? 0) > 0) continue;
+    const t = state.transform.req(o);
+    if (Math.abs(t.z - me.z) > 1 || hypot2(t.x - me.x, t.y - me.y) >= S.overlapM) continue;
+    if (indoorAt(ctx, t.x, t.y) >= 0) continue;
+    crowded = true;
+    break;
+  }
+  if (!crowded) return;
+  const posture = s.homePosture ?? s.posture;
+  const mode = Object.entries(ctx.catalog.movementModes).find(([, d]) => d.class === "foot" && d.posture === posture)?.[0];
+  if (mode === undefined) return;
+  const threat = threatOf(state, id, s);
+  const tl = threat ? hypot2(threat.x - me.x, threat.y - me.y) || 1 : 1;
+  const tx = threat ? (threat.x - me.x) / tl : 0, ty = threat ? (threat.y - me.y) / tl : 0;
+  const { grid, search } = navFor(ctx, "foot");
+  const taken = placesTaken(state, id);
+  const cands: { x: number; y: number; score: number }[] = [];
+  S.stepAsideM.forEach((r, ring) => {
+    for (let k = 0; k < 8; k++) {
+      const a = (k * PI) / 4 + (ring % 2 === 1 ? PI / 8 : 0);
+      const ux = cos(a), uy = sin(a);
+      const x = me.x + ux * r, y = me.y + uy * r;
+      if (x < 1 || y < 1 || x > ctx.map.widthM - 1 || y > ctx.map.heightM - 1) continue;
+      const i = Math.floor(y / grid.cellM) * grid.cols + Math.floor(x / grid.cellM);
+      if (grid.cost[i]! <= 0 || grid.wall[i] === 1 || indoorAt(ctx, x, y) >= 0) continue;
+      const toward = ux * tx + uy * ty; // sideways first; toward the enemy last
+      cands.push({ x, y, score: r + Math.abs(toward) * 2 + (toward > 0.5 ? 4 : 0) + (placeFree(taken, x, y, 2 * S.overlapM) ? 0 : 10) });
+    }
+  });
+  cands.sort((p, q) => p.score - q.score || p.x - q.x || p.y - q.y);
+  for (const c of cands.slice(0, 3)) {
+    const leg = routeBetween(ctx, search, me.x, me.y, c.x, c.y, { maxExpansions: 400, snapCells: 1 }); // (outdoors only: he is not indoors)
+    if (!leg || leg.cost > 8) continue;
+    m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode });
+    m.formation = null; m.endPosture = posture; m.endHeading = me.heading;
+    return;
+  }
+}
+
 /** Is his unit, or one above it, carrying out an assault or a withdrawal (a drill moves him on its own)? */
 function inDrill(state: SimState, unitId: EntityId): boolean {
   for (let u: EntityId | null = unitId; u !== null; u = state.unit.get(u)?.parent ?? null) {
@@ -599,6 +685,12 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (s.mental.suppression < D.underFireSuppression || !isAble(s)) continue;
     const u = state.identity.get(id)?.unit;
     const top = u !== undefined ? topUnit(state, u) : undefined;
+    // His own unit remembers it too, for its own men alone: only the squad fired on reacts to contact (drills.ts).
+    const own = u !== undefined ? state.unit.get(u) : undefined;
+    if (own) {
+      if (state.tick - (own.ownFireTick ?? -1e9) > secondsToTicks(D.underFireMemorySeconds)) own.ownContactTick = state.tick;
+      own.ownFireTick = state.tick;
+    }
     if (top) {
       // A new spell under fire (after a quiet spell): the drills react to it (M4.3).
       if (state.tick - top.underFireTick > secondsToTicks(D.underFireMemorySeconds)) top.contactTick = state.tick;
@@ -711,5 +803,10 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
 
     // ---- out of spare magazines or belts: a comrade brings one
     if (state.weapon.get(id)?.lowAmmoReported) shareAmmo(ctx, state, events, id, topId);
+  }
+  // ---- not on top of a comrade (fire discipline): checked about once a second per man
+  if (S.overlapM > 0) {
+    const ovEvery = Math.max(1, secondsToTicks(S.overlapCheckSeconds));
+    for (let id = staggerFirst(state.tick, ovEvery); id < state.nextEntityId; id += ovEvery) stepAside(ctx, state, id);
   }
 }

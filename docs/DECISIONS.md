@@ -4470,3 +4470,96 @@ locked fire-and-forget missile against smoke flies on to the last point seen. So
   15.9/22.9), platoon-ru-vehicles 9 -> 9 German wins (identical): the Pumas fire MELLS at nothing in these battles —
   their 30 mm gets through a BMP-2, and the crew chooses the missile only beyond `missileBeyondM` (1000 m) or when its
   rounds would not penetrate. MELLS will matter against tanks (M7.6) and at long range. Golden update.
+
+## 2026-11-14 — M9.3b Dismounted missile teams (roadmap-detail slice 33, parallel session)
+
+Owner decisions (binding): the Russian dismounted missile is a Metis-M team at company level attached to the platoon
+battle; a locked fire-and-forget missile flies on to the last point seen (already built for vehicles, M9.3a).
+
+- **Data (search extracts, pages not opened: `confidence` at most medium; game values low with notes).**
+  `ru-9m131` (130 mm, 80-2000 m — 1500 m is the Metis-M, 2000 m the Metis-M1, the plan's figure kept; 200 m/s;
+  tandem 800 mm RHA behind ERA = 1000 mm mild-steel; command by wire; **no `delivery` block**, so the shoulder-fired
+  code never treats it as an RPG round), `ru-9p151` weapon (launch velocity 80 m/s), `ru-9m131-round` (tube 2.8 kg +
+  missile 11 kg = 13.8 kg published), `ru-9p151` item with the new `crewServed` block (set-up 15 s, packing 8 s,
+  crew 3, crewMin 1, sight 1.0 m, danger zone 20 m, launch heard 600 m, traverse +-30 deg / re-lay 3 s, aim 2 s),
+  roles `ptur-*`, template `raschet-metis` (commander with radio and a round, operator with the post and a round,
+  loader with two rounds; the real crew is two), manifest `missileTeamTemplate`. Fixture xf: `xf-dart-tripod`
+  (beam-riding `xf-dart` from a tripod) and `dart-team`. Core spotting `launchFlashFactor` 3 / `launchFlashSeconds`
+  3 (schema defaults 1 / 0). Loader check: a `crewServed` post's weapon exists, its round holds a guided missile the
+  weapon gives a velocity for, and that missile has no `delivery`.
+- **Deviation from the plan — sight height 1.0 m, not 0.6 m:** at 0.6 m the farmland's low vegetation around the post
+  thinned every sight line to a vehicle below `missileSeenFloor` (the men saw the hulls, the sight never did), so a
+  team on generated maps never fired. 1.0 m = kneeling behind the raised tripod (game value, low).
+- **Deviation — launch flash in core spotting, not in the `crewServed` block:** spotting reads it per man every scan;
+  a per-man look-up of his post's data there would cost in the hot loop. `SoldierState.launchTick?` (optional,
+  absent until a launch) marks him.
+- **State:** `Unit.missileTeam?` (optional: absent on every existing unit, so saves and hashes of battles without
+  teams are unchanged): state / readyTick / stillTick like a mortar, `heading` (laid bearing), `lastLaunchTick`,
+  `shots`, `relayTick?`, `queued?` (an ordered shot waiting for set-up or a re-lay), `guide: TeamGuide | null`
+  (`MissileGuide` + the sight's place `ox, oy, oz`). No new store.
+- **Crew-served refactor (mortars.ts):** a generic `carriedOf(pick)` behind `tubeOf` / new `launcherOf`, `crewAt` and
+  `takeRound` take any carried record, `passCarried(pick)`, `initMortars` also marks missile teams, `mortarSystem`
+  hands units with `missileTeam` to `missileTeamState` (pack on move — not while a missile flies —, auto-deploy after
+  3 s, ready + radio "launch post laid"); events `missileTeam.setup|ready|packed`. `crewServedTeamsUnder` (renamed
+  from `mortarTeamsUnder`) serves `deploy` and the new team fire. Checked bit-identical: state hashes with the
+  catalog fingerprint blanked, before and after, for platoon-mortars, platoon-ru-mortars, platoon, platoon-vehicles,
+  platoon-ru-vehicles (before the scenarios opted in), demo, shootout, vehicles, village-occupy, house-clear,
+  vehicles-fixture, demo-fixture: identical.
+- **Shared launch (gunnery.ts):** `launchGuided()` extracted from `fireMissile` (same arithmetic), `launchNoticed`
+  exported; a crew's `seen` list holds the gunner's soldier id, so the same test works for a man on foot.
+- **missiles.ts:** `guideStep` split into `guideCore(host)`; the vehicle host keeps its checks in the old order
+  (launcher, gunner, hull struck with its one draw), the team host: origin = stored sight point, lost when the gunner
+  is unable, stunned, panicked/routed, aboard ("missile.lost.gunner"), more than 1 m off the post or the team packed
+  ("missile.lost.moved"); no struck check. `trackSd(moving)`. The vehicle loop runs only with vehicles; a unit loop
+  (ID order, same "missile" stream) guides team missiles and holds the team's moves (`holdUntilTick`) during flight.
+- **systems/missile-team.ts:** every 15 ticks for ready teams with nothing in flight: a queued order first, else its
+  own target — the enemy vehicle its men saw most recently (within `antitank.seenWithinSeconds`) in the range band
+  that the gunner can guide onto (`missileSees` from the post); `atRuleOf` "hold" or the unit's fire rule "hold"
+  stop own fire (deviation: "return" does not, a team on overwatch would otherwise never fire first). Beyond the
+  traverse a re-lay; `backblastBlocked` (new optional radius) for small rooms, a wall behind, a comrade in the cone.
+  Action "fireTeamMissile" (aim 2 s), at its end: the line and danger zone again, one round (`takeRound`, rule 9),
+  `launchGuided` 0.5 m ahead of the sight, `shot.fired {shooter: gunner, loudM}` (no vehicle), guide with origin,
+  `lastShotTick`, `launchTick`, `shots`. A crew that notices the launch smokes at the gunner and its crewmen get a
+  "heard" contact at the post (30 m). A fire "at" order to a team (or a unit above one) goes to `teamOrderShot`
+  first (packed: stop, set up, then fire); a shot it cannot make is dropped with radio "cannot fire the missile".
+  The guiding gunner makes no decisions of his own (decisions.ts) and does not dodge grenades (grenades.ts).
+- **Events:** `missile.ended` is a union: vehicle events unchanged (byte-identical), team events carry `team` and
+  `gunner` instead of `vehicle`/`station`. Batch counts team missiles by the gunner's side; expenditure counts a
+  guided missile without a vehicle under `rockets[ammo]` (result schema unchanged).
+- **Scenario:** `missileTeams?: boolean` (explicit opt-in, as `mortars`): a top-level unit (`${side}-a`), defender's
+  300 m behind its main objective, attacker's 150 m behind its start (clamped to the map) on the flank away from the
+  second objective; not a foot group, never mounted. On in `platoon-vehicles` and `platoon-ru-vehicles` (golden
+  `platoon-vehicles-s1` changes), the app's mounted battle (`?missiles=0` turns it off). New `bench-missile-team`:
+  four teams at the east edge of a **flat** 1600 x 900 m field against two wandering German Puma platoons (deviation:
+  flat, not farmland, so the teams engage reliably; the red BMPs hold fire).
+- **AI:** commander `tops` and `isFootUnit` leave teams out (their men's contacts still feed the vehicle picture);
+  `siteOverwatch` (siting.ts): rings 200-800 m around the team (50 m steps, at most 160 candidates), outdoors,
+  passable, no house in the danger zone, never within 450 m of an enemy place (deviation: a hard exclusion — as a
+  penalty it still sent the attacker's team to a post near the objectives), scored by the share of target points
+  around the enemy's area 600-1900 m away its sight sees + cover; best post + 2 alternates 60-150 m apart, once.
+  The team gets `onContact: push` (it otherwise went to ground short of its post), walks there sneaking the last
+  50 m, sets up on its own; the commander orders its fire at the fresh enemy vehicle nearest its own hulls; after
+  each launch (flight over) it moves to its next post (deviation: no extra `scootRefireSeconds` wait: set-up takes
+  18 s anyway). A4: mounted, the attacker's carriers stay in "start" until the team is ready on its post or 90 s.
+  Memory `mt` (plain JSON). `freshVehicleContacts` shared with the anti-tank block.
+- **Render / UI:** the wire from the stored post; the unit card's state line adds "Post: packed / setting up /
+  ready, n missiles / guiding a missile"; `--scene missile` adds a ground-team shot. No tripod sprite.
+- **Tests:** tools/test/missile-team.test.ts (set-up 3/2/1, pack on move, one round per launch and a hit, range band
+  refusals, losses — knocked down, off the post, packed — and held moves, danger zone, own fire vs hold, save in
+  flight, xf beam team, bench determinism). ui player-order test now looks at 120 s (the carriers wait up to 90 s);
+  fixture item list gains `xf-dart-tripod`.
+- **Lab `npm run lab -- missile-team` (50 trials; warning/survival 10):** set-up 15.4 / 22.9 / 45.4 s with 3 / 2 / 1
+  men. Halted Puma side-on: 100 % hits at 500-1500 m (flight 3.0 / 5.4 / 7.9 s), 94 % at 2000 m (10.4 s; 2 lost at
+  the end of the wire). Crossing at 5.8 m/s: 100 / 100 / 88 % at 500 / 1000 / 1500 m (6 lost unseen); at 2000 m the
+  target leaves the band before the order (0 fired). Crossing at 10-12 m/s: 98 % at 500 m, **0 % at 1000 and
+  1500 m** — the guidance model (steering to a point 0.4 s ahead on the sight line, no line-of-sight-rate
+  feed-forward) lags about 4-5 m behind a hull crossing that fast; it is the M9.3a core shared with the vehicles,
+  left unchanged here (known gap; plan's 8 m/s lies between the two rows). Launch noticed (Puma head-on, crew
+  holding fire): 100 % at 500 m, 30-40 % at 1000-2000 m, the same by day and at 23:00 with no moon (the Puma's
+  thermal sight); its turret laid on the post 1.5 s after the launch when it noticed. Survival 60 s after a miss at
+  800 m with the Puma free to fire: 0.90 men fit of 3 staying, 0.60 moving 60 m aside (running in the open is worse
+  than lying at the post here).
+- **Goldens:** `npm run golden:update`; every golden but `platoon-vehicles-s1` changes only by the catalog fingerprint
+  (fingerprint-blanked hashes checked identical, list above); `no-interiors` untouched.
+- **Left for later (plan):** perf and batches (step 17, coordinator), German MELLS ground team, Kornet, tripod
+  sprite and Deploy/Pack buttons, firing from rooms, suppression breaking the guide, LOS-rate feed-forward.

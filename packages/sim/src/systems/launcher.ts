@@ -80,10 +80,11 @@ function emptyLauncherWants(ctx: SimContext, state: SimState, id: EntityId): str
 }
 
 /**
- * May he fire a launcher from where he stands, toward azimuth `az` (owner Q20 and the danger zone behind)?
+ * May he fire a launcher from where he stands, toward azimuth `az` (owner Q20 and the danger zone behind, `radiusM`
+ * when given, else the round's)?
  * Returns null if so, else the reason (a key).
  */
-export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId, ammo: string, az: number): string | null {
+export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId, ammo: string, az: number, radiusM?: number): string | null {
   const t = state.transform.req(id), s = state.soldier.req(id);
   const AT = ctx.catalog.behaviour.antitank;
   // Inside a house: only a large room or one with a hole blown in it (Q20).
@@ -103,7 +104,8 @@ export function backblastBlocked(ctx: SimContext, state: SimState, id: EntityId,
   const bx = t.x - cos(az) * AT.wallBehindM, by = t.y - sin(az) * AT.wallBehindM;
   if (bx > 0 && by > 0 && bx < ctx.map.widthM && by < ctx.map.heightM && lineBlocked(ctx.ballistics, ctx.map, ctx.mapIndex, t.x, t.y, z, bx, by, z)) return "at.wallBehind";
   // A comrade in the danger zone behind (a 60-degree cone).
-  const R = ctx.catalog.ammo[ammo]?.delivery?.backblastM ?? 0;
+  // (M9.3b: a crew-served post gives its own danger zone; a shoulder-fired round its delivery's.)
+  const R = radiusM ?? ctx.catalog.ammo[ammo]?.delivery?.backblastM ?? 0;
   if (R > 0) {
     const side = state.identity.get(id)?.side;
     const ux = -cos(az), uy = -sin(az);

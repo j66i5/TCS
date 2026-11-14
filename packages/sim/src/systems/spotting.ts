@@ -256,6 +256,8 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
+    // A guided missile launched from his post moments ago (M9.3b): its flash, dust and smoke show him more.
+    if (ts.launchTick !== undefined && tick - ts.launchTick <= secondsToTicks(D.launchFlashSeconds)) r.motion *= D.launchFlashFactor;
     r.flash = 0;
     // Heat (M9.2): a man as by eye; still and not firing under a thermal blanket, its share.
     r.heat = TH.man;

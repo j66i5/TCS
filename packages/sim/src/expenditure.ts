@@ -3,7 +3,7 @@
  * (rule 5: tools and the after-action review read events, never internals). A round fired from a vehicle's
  * station (`shot.fired.vehicle`) is credited to the vehicle — cannon rounds by ammunition, the coaxial machine
  * gun apart — not to the gunner's personal tally; rifles and machine guns on foot are "small arms"; grenades
- * thrown or launched; anti-tank rounds by type (M7.4a); smoke salvos by vehicle; guided missiles by vehicle.
+ * thrown or launched; anti-tank rounds by type (M7.4a; M9.3b: missiles from a team's post among them); smoke salvos by vehicle; guided missiles by vehicle.
  */
 import type { Catalog } from "./catalog";
 import type { SimEvent } from "./events";
@@ -35,7 +35,12 @@ export function tallyExpenditure(out: Expenditure, events: readonly SimEvent[], 
       if (sd === undefined) continue;
       const s = side(sd);
       if (e.indirect) continue; // (an on-map mortar round, M8.3b: counted with the fire missions, not small arms)
-      if (e.vehicle === undefined) { s.smallArms++; continue; }
+      if (e.vehicle === undefined) {
+        // (M9.3b: a guided missile from a team's post is counted with the anti-tank rounds, by ammunition.)
+        if (catalog.ammo[e.ammo]?.guided !== undefined) s.rockets[e.ammo] = (s.rockets[e.ammo] ?? 0) + 1;
+        else s.smallArms++;
+        continue;
+      }
       const v = veh(s, e.vehicle);
       if (catalog.weapons[e.weapon]?.type === "autocannon") v.cannon[e.ammo] = (v.cannon[e.ammo] ?? 0) + 1;
       else if (catalog.ammo[e.ammo]?.guided !== undefined) v.missiles[e.ammo] = (v.missiles[e.ammo] ?? 0) + 1;

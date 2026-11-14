@@ -1714,6 +1714,155 @@
       "sources": [],
       "confidence": "low",
       "note": "M8.3a: two 2S12 Sani crews (a battalion mortar platoon in part; game organisation, low)."
+    },
+    {
+      "id": "raschet-metis",
+      "echelon": "team",
+      "callsign": "PTUR {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "ptur-commander",
+          "rank": "serzhant",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-9m131-round",
+              "count": 1,
+              "charge": 1
+            }
+          ]
+        },
+        {
+          "role": "ptur-operator",
+          "rank": "yefreytor",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-9p151",
+              "count": 1
+            },
+            {
+              "item": "ru-9m131-round",
+              "count": 1,
+              "charge": 1
+            }
+          ]
+        },
+        {
+          "role": "ptur-loader",
+          "rank": "ryadovoy",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-9m131-round",
+              "count": 2,
+              "charge": 1
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://en.wikipedia.org/wiki/9K115-2_Metis-M",
+        "https://en.wikipedia.org/wiki/9K115_Metis",
+        "https://man.fas.org/dod-101/sys/land/row/at-7.htm",
+        "https://en.valka.cz/topic/view/26889",
+        "https://military-review.com/12526491-anti-tank-missile-system-9k115-2-metis-m"
+      ],
+      "confidence": "low",
+      "note": "M9.3b (owner: a Metis-M team at company level attached to the platoon battle): the 9P151 launch post and four 9M131 rounds with a crew of three: commander with the radio and a round, operator with the launch post and a round, loader with two rounds (the real Metis-M crew is two men carrying the post and rounds in packs; the third man and the rounds per man are game values, low). The operator keeps his AK-74M (no pistol in the data)."
     }
   ]
 }

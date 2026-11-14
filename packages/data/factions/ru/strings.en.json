@@ -109,5 +109,12 @@
   "ammo.ru-152-fragment": "152 mm shell fragment",
   "ammo.ru-152-smoke": "152 mm smoke shell",
   "ammo.ru-152-illum": "152 mm illumination shell",
-  "ammo.ru-82-illum": "82 mm illumination bomb"
+  "ammo.ru-82-illum": "82 mm illumination bomb",
+  "ammo.ru-9m131": "9M131 Metis-M missile",
+  "weapon.ru-9p151": "9P151 Metis-M launch post",
+  "item.ru-9m131-round": "9M131 missile in its tube",
+  "item.ru-9p151": "9P151 Metis-M launch post",
+  "role.ru.ptur-commander": "Missile team commander",
+  "role.ru.ptur-operator": "Missile operator",
+  "role.ru.ptur-loader": "Missile team loader"
 }

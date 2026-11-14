@@ -6,6 +6,7 @@
  * leaves the man's load and one projectile enters the world on an arc toward the point given, with an error
  * that depends on distance and training. From there the projectile engine and the fuse do the rest.
  */
+import { isGuiding } from "./missile-team";
 import { interruptAction, registerActionHandler, type ActionHandler } from "../actions";
 import type { EventSink } from "../events";
 import { navCostAt } from "../nav";
@@ -307,6 +308,7 @@ export function grenadeReactionSystem(ctx: SimContext, state: SimState, events: 
       if (!t) continue;
       const d = hypot2(t.x - e.x, t.y - e.y);
       if (d > G.reactRadiusM) continue;
+      if (isGuiding(state, id)) continue; // (M9.3b: a gunner guiding a missile stays at his sight)
       // Already getting away from one: only a nearer threat changes his mind (a second grenade, or the same
       // one rolling toward him); in any case he stays down until the later burst is over.
       const cur = s.evade;

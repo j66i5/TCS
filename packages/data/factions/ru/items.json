@@ -455,6 +455,54 @@
         "flightPerKmSeconds": 6,
         "hearingRangeM": 4000
       }
+    },
+    {
+      "id": "ru-9m131-round",
+      "nameKey": "item.ru-9m131-round",
+      "category": "missile",
+      "massKg": 2.8,
+      "chargeCapacity": 1,
+      "chargeMassKg": 11,
+      "chargeItem": "ru-9m131",
+      "sources": [
+        "https://en.wikipedia.org/wiki/9K115-2_Metis-M",
+        "https://en.wikipedia.org/wiki/9K115_Metis",
+        "https://man.fas.org/dod-101/sys/land/row/at-7.htm",
+        "https://en.valka.cz/topic/view/26889",
+        "https://military-review.com/12526491-anti-tank-missile-system-9k115-2-metis-m"
+      ],
+      "confidence": "medium",
+      "note": "One 9M131 missile in its launch tube (published: 13.8 kg in the tube); the split into an 11 kg missile and a 2.8 kg tube is a game value. Counted item (rule 9): the team takes one out of a man's load at each launch."
+    },
+    {
+      "id": "ru-9p151",
+      "nameKey": "item.ru-9p151",
+      "category": "crew-served",
+      "massKg": 10.2,
+      "sources": [
+        "https://en.wikipedia.org/wiki/9K115-2_Metis-M",
+        "https://en.wikipedia.org/wiki/9K115_Metis",
+        "https://man.fas.org/dod-101/sys/land/row/at-7.htm",
+        "https://en.valka.cz/topic/view/26889",
+        "https://military-review.com/12526491-anti-tank-missile-system-9k115-2-metis-m"
+      ],
+      "confidence": "medium",
+      "note": "9P151 launch post of the 9K115-2 Metis-M (M9.3b): 10.2 kg (search extracts; 9.5 kg for the Metis-M1's 9P151M), carried by the team's gunner. The crewServed block: set-up 15 s, packing 8 s, crew 3 (the real crew is two; the third man of the company's team carries rounds: game organisation), the fewest who can still fire 1, sight 1.0 m above the ground (kneeling behind the raised tripod), danger zone 20 m behind, launch heard out to 600 m, traverse +-30 deg before a 3 s re-lay, 2 s to lay on a target: game values (low).",
+      "crewServed": {
+        "kind": "missile",
+        "weapon": "ru-9p151",
+        "round": "ru-9m131-round",
+        "setupSeconds": 15,
+        "packSeconds": 8,
+        "crew": 3,
+        "crewMin": 1,
+        "sightHeightM": 1.0,
+        "backblastM": 20,
+        "launchLoudM": 600,
+        "traverseDeg": 30,
+        "relaySeconds": 3,
+        "aimSeconds": 2
+      }
     }
   ]
 }

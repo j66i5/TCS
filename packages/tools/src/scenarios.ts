@@ -1,6 +1,6 @@
 /** Named scenarios for the headless tools, tests and benchmarks. */
 import { type DataSet, formatErrors, loadDataSet } from "@tcs/data";
-import { allMembers, buildScenario, demoBattle, freeSpot, vehicleBattle } from "@tcs/scenario";
+import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, vehicleBattle } from "@tcs/scenario";
 import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
 import { hypot2, PI, type BattleInput, type Controller } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
@@ -180,13 +180,13 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles": {
-    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a).",
-    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true }),
+    description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a). M9.3b: the Russian side also has its Metis-M team 300 m behind its position.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles": {
-    description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position.",
-    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true }),
+    description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position. M9.3b: the Russian side's Metis-M team starts 150 m behind its start on a flank and takes up an overwatch post.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   vehicles: {
@@ -208,6 +208,24 @@ export const SCENARIOS: Record<string, NamedScenario> = {
       freeFire(vehicleWanderController("red", input.seed * 2 + 2, input.map, 60)),
     ],
   },
+  "bench-missile-team": {
+    description: "M9.3b: four Russian Metis-M teams at the east edge of a flat, open 1600 x 900 m field against two German platoons of Pumas (four, each with its squad on foot) wandering across the middle; the teams set up and fire on their own (the BMP-2 platoons stand still, holding fire).",
+    build: (data, seed, seconds) => {
+      const input = vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 2, vehiclesPerPlatoon: 2, mapWidthM: 1600, mapHeightM: 900, timeLimitSeconds: seconds });
+      const red = input.forces.find((f) => f.side === "red")!;
+      const tpl = data.factions["ru"]!.manifest.missileTeamTemplate!;
+      for (let k = 0; k < 4; k++) {
+        const team = buildForce(data, { faction: "ru", template: tpl, seed: seed * 43 + k, keyPrefix: `red-a${k + 1}`, number: k + 1 });
+        red.units.push(team);
+        allMembers(team).forEach((m, mi) => {
+          const p = freeSpot(input.map, input.catalog, 1600 * 0.93 + (mi % 2) * 4, 900 * (k + 1) / 5 + mi * 3);
+          red.placements.push({ personId: m.personId, x: p.x, y: p.y, heading: PI });
+        });
+      }
+      return input;
+    },
+    controllers: (input) => [vehicleWanderController("blue", input.seed * 2 + 1, input.map, 60), holdFire("red")],
+  },
   "bench-vehicles": {
     description: "Benchmark (M7.1c): 15 IFVs per side (30), each with its squad on foot (about 300 men in all), on a generated 2 x 2 km farmland map, all moving.",
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 5, vehiclesPerPlatoon: 3, mapKind: "farmland", mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds }),
@@ -227,6 +245,18 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     ],
   },
 };
+
+/** A controller that only sets every unit of its side but the missile teams to hold fire (M9.3b bench). */
+function holdFire(side: "blue" | "red"): Controller {
+  return {
+    side,
+    think(view, tick) {
+      const out: ReturnType<Controller["think"]> = [];
+      if (tick === 0) for (const [id, u] of view.unit.entries()) if (u.side === side && u.parent === null && u.missileTeam === undefined) out.push({ tick, issuer: side, target: id, kind: "rules", fire: "hold" });
+      return out;
+    },
+  };
+}
 
 /** A controller that first sets every platoon of its side to fire at will (benchmarks), then does what `c` does. */
 function freeFire(c: Controller): Controller {

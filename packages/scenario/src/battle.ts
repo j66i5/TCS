@@ -41,6 +41,10 @@ export interface ScenarioDef {
   /** On-map mortars (M8.3a): each side gets its faction's mortar section (manifest `mortarTemplate`) behind its own
    *  line instead of the off-map allotment (a side whose faction has none keeps the allotment). */
   mortars?: boolean;
+  /** Dismounted missile teams (M9.3b; owner: a Metis-M team at company level attached to the platoon battle): each
+   *  side whose faction has a `missileTeamTemplate` gets one team as a unit of its own (not part of a platoon): the
+   *  defender's 300 m behind its main objective, the attacker's 150 m behind its start on a flank. */
+  missileTeams?: boolean;
   /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
    *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
   artillery?: boolean;
@@ -156,6 +160,19 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
         });
       });
       if (hypot2(bx - mainP.x, H / 2 - mainP.y) >= minR) mortarSides.add(side);
+    }
+    // Dismounted missile team (M9.3b): a unit of its own, behind the own line (never mounted, not a foot group).
+    const at = def.missileTeams === true ? pack?.manifest.missileTeamTemplate : undefined;
+    if (at) {
+      const team = buildForceWithVehicles(data, { faction, template: at, seed: def.seed * 41 + s * 13, keyPrefix: `${side}-a`, number: 1 }).unit;
+      units.push(team);
+      const flank = def.seed % 2 === 0 ? -1 : 1; // (the flank away from the second objective)
+      const bx = side === defender ? Math.min(Math.max(mainP.x + dx * 300, 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
+      const by = side === defender ? mainP.y : H / 2 + flank * H * 0.3;
+      allMembers(team).forEach((m, mi) => {
+        const p = freeSpot(map, catalog, bx + (mi % 2) * 4 * (side === "blue" ? -1 : 1), by + (Math.floor(mi / 2) - 0.5) * 4);
+        placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
+      });
     }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }

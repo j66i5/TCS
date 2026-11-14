@@ -308,6 +308,21 @@ function loadFaction(
       if (mo.crewMin > mo.crew) errors.push({ file: f("items.json"), path: `items[${i}].mortar.crewMin`, message: "crewMin must not exceed crew", severity: "error" });
     }
   });
+  // A crew-served missile post (M9.3b): its weapon is this faction's, its round a container of a guided missile the
+  // weapon gives a launch velocity for; at most as few men as its crew.
+  itemsF.items.forEach((it, i) => {
+    const cs = it.crewServed;
+    if (!cs) return;
+    const at = (p: string) => ({ file: f("items.json"), path: `items[${i}].crewServed.${p}`, severity: "error" as const });
+    const w = weaponsF.weapons.find((x) => x.id === cs.weapon);
+    if (!w) errors.push({ ...at("weapon"), message: `unknown weapon '${cs.weapon}'` });
+    const r = itemsF.items.find((x) => x.id === cs.round);
+    const am = r?.chargeItem !== undefined ? ammoF.ammunition.find((a) => a.id === r.chargeItem) : undefined;
+    if (!am || am.guided === undefined) errors.push({ ...at("round"), message: `'${cs.round}' is not a round item holding a guided missile of this faction` });
+    else if (w && w.ammo[am.id] === undefined) errors.push({ ...at("weapon"), message: `weapon '${cs.weapon}' gives no launch velocity for '${am.id}'` });
+    if (am?.delivery !== undefined) errors.push({ ...at("round"), message: "a crew-served missile has no `delivery` (it would be fired as a shoulder-fired round)" });
+    if (cs.crewMin > cs.crew) errors.push({ ...at("crewMin"), message: "crewMin must not exceed crew" });
+  });
   // Fire support (M6.5c): its rounds must be ammunition of this faction (HE with an explosive, a smoke round).
   // (M8.4: the artillery battery the same; an illumination round must be one, with its flare.)
   for (const key of ["fireSupport", "artillery"] as const) {

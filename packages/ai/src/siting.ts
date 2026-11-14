@@ -298,3 +298,81 @@ export function seenShare(ctx: SimContext, x: number, y: number, pts: readonly {
   for (const p of pts) if (sight(ctx, x, y, z0, p.x, p.y, heightAt(map, p.x, p.y) + tz).visibility >= SITING.seenVisibility) n++; // ground: ok (open ground)
   return n / pts.length;
 }
+
+/**
+ * OVERWATCH POST of a dismounted missile team (M9.3b; game values, low confidence). Candidates on rings `ringsM`
+ * around the team's anchor (`stepM` apart along each ring; at most `maxCands`, taken evenly), outdoors, passable,
+ * with no house within the danger zone behind (toward the anchor side away from the enemy); each scored by the
+ * share of target points (rings `targetRingsM` from the enemy's area, `targetArcDeg` either side of the way to the
+ * anchor) between `targetRangeM` of it that its sight (`sightZ` above the ground) sees a hull's middle
+ * (visibility >= `seenVisibility`), plus `coverW` x its cover; never within `nearM` of an enemy place (an objective
+ * the enemy holds; for the defence, the enemy's expected area). Returns the best post and up to two alternates
+ * `altM` from it and from each other (the next posts it moves to after a launch), each facing the enemy's area.
+ * Pure function of its inputs: deterministic.
+ */
+export const OVERWATCH = {
+  ringsM: [200, 300, 400, 500, 600, 700, 800], stepM: 50, maxCands: 160,
+  targetRingsM: [0, 200, 400], targetArcDeg: 45, targetArcStepDeg: 15, targetRangeM: [600, 1900], hullZ: 1.5, seenVisibility: 0.3,
+  coverW: 0.2, nearM: 450, altM: [60, 150],
+} as const;
+
+export interface OverwatchPost { x: number; y: number; facing: number }
+
+export function siteOverwatch(
+  ctx: SimContext, anchor: { x: number; y: number }, enemy: { x: number; y: number }, sightZ: number,
+  near: readonly { x: number; y: number }[], backM: number,
+): OverwatchPost[] {
+  const O = OVERWATCH, map = ctx.map, W = map.widthM, H = map.heightM;
+  const { grid } = navFor(ctx, "foot");
+  // Target points: around the enemy's area, on the side facing the anchor.
+  const toAnchor = atan2(anchor.y - enemy.y, anchor.x - enemy.x);
+  const targets: { x: number; y: number; z: number }[] = [];
+  for (const r of O.targetRingsM) for (let a = -O.targetArcDeg; a <= O.targetArcDeg + 1e-9; a += O.targetArcStepDeg) {
+    const b = toAnchor + (a * PI) / 180, x = enemy.x + cos(b) * r, y = enemy.y + sin(b) * r;
+    if (x < 5 || y < 5 || x > W - 5 || y > H - 5 || indoorAt(ctx, x, y) >= 0) continue;
+    targets.push({ x, y, z: heightAt(map, x, y) + O.hullZ }); // ground: ok (a hull on open ground)
+    if (r === 0) break;
+  }
+  const cands: { x: number; y: number }[] = [];
+  for (const r of O.ringsM) {
+    const n = Math.max(8, Math.round((2 * PI * r) / O.stepM));
+    for (let k = 0; k < n; k++) {
+      const b = (2 * PI * k) / n, x = anchor.x + cos(b) * r, y = anchor.y + sin(b) * r;
+      if (x < 10 || y < 10 || x > W - 10 || y > H - 10) continue;
+      cands.push({ x, y });
+    }
+  }
+  const stride = Math.max(1, Math.ceil(cands.length / O.maxCands));
+  const scored: { x: number; y: number; score: number }[] = [];
+  for (let i = 0; i < cands.length; i += stride) {
+    const c = cands[i]!;
+    if (navCostAt(grid, c.x, c.y) <= 0 || indoorAt(ctx, c.x, c.y) >= 0) continue;
+    // The danger zone behind (away from the enemy) clear of houses.
+    const away = atan2(c.y - enemy.y, c.x - enemy.x);
+    if (indoorAt(ctx, c.x + cos(away) * backM * 0.5, c.y + sin(away) * backM * 0.5) >= 0 || indoorAt(ctx, c.x + cos(away) * backM, c.y + sin(away) * backM) >= 0) continue;
+    const z0 = heightAt(map, c.x, c.y) + sightZ; // ground: ok (a post on open ground)
+    let n = 0, m = 0;
+    for (const t of targets) {
+      const d = hypot2(t.x - c.x, t.y - c.y);
+      if (d < O.targetRangeM[0] || d > O.targetRangeM[1]) continue;
+      m++;
+      if (sight(ctx, c.x, c.y, z0, t.x, t.y, t.z).visibility >= O.seenVisibility) n++;
+    }
+    if (m === 0) continue;
+    if (near.some((p) => hypot2(p.x - c.x, p.y - c.y) < O.nearM)) continue;
+    scored.push({ x: c.x, y: c.y, score: n / targets.length + O.coverW * (1 - exposureAt(grid, c.x, c.y)) });
+  }
+  scored.sort((a, b) => b.score - a.score || a.x - b.x || a.y - b.y);
+  const out: OverwatchPost[] = [];
+  const face = (p: { x: number; y: number }) => atan2(enemy.y - p.y, enemy.x - p.x);
+  const best = scored[0];
+  if (!best) return out;
+  out.push({ x: best.x, y: best.y, facing: face(best) });
+  for (const s of scored) {
+    if (out.length >= 3) break;
+    const d0 = hypot2(s.x - best.x, s.y - best.y);
+    if (d0 < O.altM[0] || d0 > O.altM[1] || out.some((p) => hypot2(p.x - s.x, p.y - s.y) < O.altM[0])) continue;
+    out.push({ x: s.x, y: s.y, facing: face(s) });
+  }
+  return out;
+}

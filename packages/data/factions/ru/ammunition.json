@@ -825,6 +825,63 @@
         "heightM": 400,
         "descentMps": 3.5
       }
+    },
+    {
+      "id": "ru-9m131",
+      "nameKey": "ammo.ru-9m131",
+      "calibre": "130mm-atgm",
+      "kind": "tandem-shaped-charge",
+      "projectileMassKg": 11,
+      "cartridgeMassKg": 11,
+      "diameterM": 0.13,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 1000,
+        "atVelocityMps": 200
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "command-wire",
+      "explosive": {
+        "fillingKg": 1.6,
+        "fragmentCount": 120,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.5,
+        "selfDestructSeconds": 13
+      },
+      "guided": {
+        "cruiseMps": 200,
+        "accelMps2": 80,
+        "turnRateDegS": 14,
+        "minRangeM": 80,
+        "maxRangeM": 2000,
+        "trackErrorMrad": 0.35,
+        "trackTauS": 1.0,
+        "lookaheadS": 0.4,
+        "lostKickMrad": 60
+      },
+      "behindArmour": {
+        "spallCount": 22,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 300
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/9K115-2_Metis-M",
+        "https://en.wikipedia.org/wiki/9K115_Metis",
+        "https://man.fas.org/dod-101/sys/land/row/at-7.htm",
+        "https://en.valka.cz/topic/view/26889",
+        "https://military-review.com/12526491-anti-tank-missile-system-9k115-2-metis-m"
+      ],
+      "confidence": "medium",
+      "note": "9M131 missile of the 9K115-2 Metis-M (M9.3b, owner: the Russian dismounted missile is a Metis-M team at company level); search extracts only, pages not opened. Published: 130 mm, 13.8 kg in its launch tube (13 kg bare round in some sources), range 80-1500 m (Metis-M; the Metis-M1 80-2000 m: 2000 used, owner's plan), semi-automatic command to line of sight by wire, average speed about 200 m/s (FAS gives 287 m/s, 8 s to the maximum range: not used), tandem shaped charge about 800 mm RHA behind reactive armour (Metis-M1 900-980): 800 x 1.25 = 1000 mm mild-steel equivalent. Game values (low): bare missile 11 kg, leaves the tube at 80 m/s and speeds up at 80 m/s2 to 200 m/s, turns at most 14 deg/s, gunner's tracking error 0.35 mrad (skill 0.5; a tripod sight, a little worse than the BMP-2's), filling 1.6 kg, 120 fragments, arms after 0.5 s, destroys itself after 13 s (end of the wire at about 2000 m); guidance lost: thrown off by about 60 mrad. No `delivery` block: it is not a shoulder-fired round (the team's tripod fires it, systems/missile-team.ts)."
     }
   ]
 }

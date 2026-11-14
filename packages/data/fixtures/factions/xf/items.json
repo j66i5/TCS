@@ -150,6 +150,30 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3a)."
+    },
+    {
+      "id": "xf-dart-tripod",
+      "nameKey": "item.xf-dart-tripod",
+      "category": "crew-served",
+      "massKg": 12,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M9.3b): a tripod for the beam-riding dart, worked by a team on foot.",
+      "crewServed": {
+        "kind": "missile",
+        "weapon": "xf-dart-rail",
+        "round": "xf-dart-tube",
+        "setupSeconds": 10,
+        "packSeconds": 5,
+        "crew": 2,
+        "crewMin": 1,
+        "sightHeightM": 0.7,
+        "backblastM": 15,
+        "launchLoudM": 500,
+        "traverseDeg": 40,
+        "relaySeconds": 2,
+        "aimSeconds": 2
+      }
     }
   ]
 }

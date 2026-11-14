@@ -71,7 +71,7 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(cap.hasSmokeDischargers).toBe(true);
     expect(cap.passengers).toBe(6);
     const o = ordersFor(cap, modes);
-    expect(o.modes).toEqual(["move", "fire"]);
+    expect(o.modes).toEqual(["move", "fire", "antitank"]); // (M9.3a: the Puma's MELLS)
     expect(o.discharge && o.nature && o.dismount && !o.mount).toBe(true);
     expect(o.natures).toEqual(["ap", "he", "mg"]);
     expect(o.paces.at(-1)).toBe("reverse");

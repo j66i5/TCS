@@ -12,6 +12,7 @@
  *
  * Randomness comes from the "ballistics" stream. No allocation per projectile; one event per impact.
  */
+import { onRoof } from "../mount";
 import { addSuppression } from "./morale";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -147,11 +148,12 @@ export function projectileSystem(ctx: SimContext, state: SimState, events: Event
       let sc = SG.sides.indexOf(sd);
       if (sc < 0) { sc = SG.sides.length; SG.sides.push(sd); }
       SG.sideOf.set(id, sc);
-      if (s.mount !== undefined) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
+      const roof = s.mount !== undefined && onRoof(state, id); // (M9.3a: out on the roof reloading: a body in the open)
+      if (s.mount !== undefined && !roof) continue; // aboard a vehicle: behind its armour, not a body in the open (M7)
       SG.side[n] = sc; SG.sup[n] = 0; SG.fx[n] = 0; SG.fy[n] = 0;
       SG.id[n] = id; SG.x[n] = t.x; SG.y[n] = t.y; SG.gz[n] = hAt(map, t.x, t.y) + t.z;
       SG.cf[n] = cosine(t.heading); SG.sf[n] = sine(t.heading);
-      SG.posture[n] = s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
+      SG.posture[n] = roof || s.posture === "standing" ? 0 : s.posture === "crouching" ? 1 : 2;
       let c = (t.x * invBm) | 0, r = (t.y * invBm) | 0;
       if (c < 0) c = 0; if (r < 0) r = 0; if (c >= bcols) c = bcols - 1; if (r >= brows) r = brows - 1;
       const home = r * bcols + c;

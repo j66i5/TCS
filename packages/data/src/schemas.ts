@@ -179,6 +179,11 @@ export const AmmoSchema = withProv({
   guided: z.object({
     cruiseMps: Num(10, 2000), accelMps2: Num(0, 5000), turnRateDegS: Num(1, 360), minRangeM: Num(0, 2000), maxRangeM: Num(10, 20000),
     trackErrorMrad: Num(0, 20), trackTauS: Num(0.05, 30), lookaheadS: Num(0, 5), lostKickMrad: Num(0, 500),
+    /** M9.3a, guidance "fire-and-forget-top-attack": it climbs `climbM` above the target's aim point and dives on it
+     *  within `diveAtM` (horizontal); `launchElevationDeg` above the sight line at launch. */
+    topAttack: z.object({ climbM: Num(0, 1000), diveAtM: Num(10, 5000), launchElevationDeg: Num(0, 60) }).strict().optional(),
+    /** M9.3a, fire-and-forget: the share of its seeker's view kept through ordinary smoke (multispectral: none). */
+    seekerSmokeFactor: Num(0, 1).optional(),
   }).strict().optional(),
   /** Kinetic rounds against armour (M7.4a): ricochet below sin(material angle) x this (default 1). */
   ricochetFactor: Num(0, 2).optional(),
@@ -217,7 +222,9 @@ export const WeaponSchema = withProv({
   cyclicRpm: Num(1, 6000),
   /** Mechanical dispersion of weapon and ammunition (one standard deviation), milliradians. */
   dispersionMrad: Num(0, 50),
-  reloadSeconds: Num(0.1, 120), setupSeconds: Num(0, 600),
+  reloadSeconds: Num(0.1, 600), setupSeconds: Num(0, 600),
+  /** M9.3a: a vehicle launcher reloaded from outside by a crewman on the roof (exposed), halted. */
+  reloadOutside: z.boolean().optional(),
   /** Chance of a stoppage per round fired. */
   jamProbability: Num(0, 0.1),
   sights: z.array(z.object({ kind: z.enum(["iron", "reflex", "magnified", "telescopic", "night", "thermal"]), magnification: Num(1, 60) }).strict()).min(1),
@@ -304,6 +311,9 @@ export const SpottingFile = withProv({
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
   sensors: z.record(z.string(), z.object({
     factor: Num(0.1, 10), fromM: Num(0, 5000), nightLight: Num(0, 1),
+    /** M9.2: it sees heat (target signature by `thermal` below; vegetation thins it less), and the half-angle it
+     *  covers from where its holder looks (a man's sight or goggle; absent: everywhere he looks). */
+    thermal: z.boolean().optional(), arcDeg: Num(1, 180).optional(),
     /** M7.3: share of the view kept through a standard (not multispectral) smoke cloud (0 = blinded; default 0). */
     smokeFactor: Num(0, 1).optional(),
     /** M7.3 vehicle sights: range limit (default: maxRangeM), fog floor (it sees at least this far in fog) and
@@ -320,6 +330,21 @@ export const SpottingFile = withProv({
     rainK: Num(0, 1), downwind: Num(0.5, 2), upwind: Num(0.1, 2),
   }).strict(),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
+  /** Night and light (M9.1). `sun`: ambient light 0..1 by local time, [hour, light] points (rising hours, 0 to 24),
+   *  interpolated; `moonFullLight`: the light of a full moon (scaled by the moon's illumination). At night a man's
+   *  muzzle flash lights him for observers as at least `flashLight`, a vehicle's gun flash lights it as at least
+   *  `vehicleFlashLight`, and a man firing tracers (a belt with tracer rounds) shows
+   *  `tracerContrast` times more in full darkness (scaled by the darkness). */
+  /** Thermal signatures (M9.2), relative to what the eye sees: a man; a vehicle halted longer than `hotSeconds`
+   *  (cooled), moving or moved within `hotSeconds` (hot), firing, burning; vegetation lets heat through as visibility^vegetationExponent. */
+  thermal: z.object({
+    man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),
+    hotSeconds: Num(0, 7200), vegetationExponent: Num(0.1, 1),
+  }).strict(),
+  night: z.object({
+    sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
+    moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
+  }).strict(),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
    *  plume is cut this far behind its head. */
@@ -414,6 +439,8 @@ export const BehaviourFile = withProv({
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
+    /** M9.3a: a crew that notices a missile launched at it fires its smoke toward the launcher this long after. */
+    launchReactionSeconds: Num(0, 30),
   }).strict(),
   /** Hand smoke screens (D1, M10): the same for every side. See BehaviourDef.smoke. */
   smoke: z.object({
@@ -667,6 +694,10 @@ export const ItemSchema = withProv({
   chargeItem: Id.optional(),
   /** A sensor the wearer looks through (night-vision goggle ...): a kind in core/spotting.json `sensors`. */
   sensor: z.string().optional(),
+  /** Thermal blanket (M9.2): a man carrying it who is still and not firing shows this share of his heat. */
+  thermalCover: Num(0, 1).optional(),
+  /** Battery life of a powered item, hours (M9.2: reserved, not used yet; batteries are M11.6). */
+  batteryHours: Num(0, 10000).optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
@@ -842,6 +873,8 @@ export const VehicleSchema = withProv({
     layouts: z.array(z.object({ lying: z.number().int().min(0).max(20), sitting: z.number().int().min(0).max(20), lyingOutside: z.number().int().min(0).max(10).optional() }).strict()).min(1),
     marked: z.boolean(),
   }).optional(),
+  /** M9.3a: a laser warning receiver: the crew notices a beam-riding missile aimed at it. */
+  laserWarner: z.boolean().optional(),
   recovery: z.null().optional(),
 });
 export const VehiclesFile = z.object({ vehicles: z.array(VehicleSchema) }).strict();

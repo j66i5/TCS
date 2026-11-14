@@ -128,7 +128,7 @@ export const testCatalog: Catalog = {
       houseEnemySeconds: 5, houseFightM: 4, houseFlankM: 150, houseFlankDeg: 120, houseFlankSeconds: 10,
       houseLeaveM: [25, 50], houseLeaveDeg: 60, houseLeaveMode: "run", houseReenterSeconds: 120, houseContactErrM: 25,
       houseLeaveCoverM: 8, houseLeaveTries: 6, houseLeaveCost: [3, 20], houseFrontMin: 0.3, houseLeaveRetryS: 5 },
-    crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50 },
+    crew: { bailOnFireSeconds: 2, burnSeconds: 120, cookOffCheckSeconds: 5, cookOffChancePerCheck: 0.08, fireSmokeRadiusM: 8, occupantBurnSeverity: [0.7, 1.0], reactionStepSeconds: 1, recentHitSeconds: 3, reverseOutM: 60, reverseHoldSeconds: 15, atThreatM: 50, launchReactionSeconds: 1.5 },
     smoke: { screenM: 15, enemyMinM: 40, enemyMaxM: 400, knownWithinS: 30, cooldownS: 60, onWithdraw: false, onMoveUnderFire: false, underFireS: 10 },
   },
   spotting: {
@@ -137,7 +137,7 @@ export const testCatalog: Catalog = {
     stillBelowMps: 0.2, movingFactor: 4, runningAboveMps: 2.5, runningFactor: 6, movingVisibilityFloor: 0.15,
     firingWithinSeconds: 2, firingFactor: 15, firingVisibilityFloor: 0.5,
     frontHalfAngleDeg: 60, sideHalfAngleDeg: 110, sideFactor: 0.3, rearFactor: 0.05,
-    sensors: { eye: { factor: 1, fromM: 0, nightLight: 0 }, iron: { factor: 1, fromM: 0, nightLight: 0 }, telescopic: { factor: 1.7, fromM: 150, nightLight: 0 } }, skillSlope: 0.8, stressK: 0.5, lightFloor: 0.05,
+    sensors: { eye: { factor: 1, fromM: 0, nightLight: 0 }, iron: { factor: 1, fromM: 0, nightLight: 0 }, telescopic: { factor: 1.7, fromM: 150, nightLight: 0 } }, skillSlope: 0.8, stressK: 0.5, lightFloor: 0.05, thermal: { man: 1, vehicleCold: 0.7, vehicleHot: 1.6, vehicleFiring: 2.5, vehicleBurning: 6, hotSeconds: 600, vegetationExponent: 0.5 }, night: { sun: [[0, 0], [5, 0], [7, 1], [17, 1], [19, 0], [24, 0]], moonFullLight: 0.12, flashLight: 0.8, vehicleFlashLight: 0.8, tracerContrast: 3 },
     minVisibility: 0.002, smokeExtinctionPerM: 0.15, smokeBuildSeconds: 10, keepRateFactor: 200, forgetSeconds: 6, maxTracked: 6,
     contacts: { seenErrorM: 1, seenErrorPerM: 0.01, hearingRangeM: 1500, bearingErrorDeg: 8, rangeErrorFraction: 0.35, heardEverySeconds: 2, forgetSeconds: 120, driftMps: 1, reportEverySeconds: 10, reportedErrorM: 5, voiceDelaySeconds: 1, callEverySeconds: 8 },
     vehicles: { referenceAreaM2: 0.7, targetMaxRangeM: 3000, movingAboveMps: 0.5, maxTracked: 2, driftMps: 6, forgetSeconds: 300, engineEverySeconds: 2, surfaceBase: 0.6, rainK: 0.4, downwind: 1.2, upwind: 0.8 },

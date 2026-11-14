@@ -420,6 +420,28 @@
               "loaderStation": "passenger",
               "roundLoadSeconds": 4,
               "noLoaderFactor": 3
+            },
+            {
+              "weapon": "xf-dart-rail",
+              "coax": false,
+              "muzzle": [
+                0.5,
+                0,
+                1.9
+              ],
+              "feeds": [
+                {
+                  "item": "xf-dart-tube",
+                  "ready": {
+                    "count": 1,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 3000,
+              "feedKind": "single",
+              "roundLoadSeconds": 1
             }
           ],
           "sources": [],
@@ -440,6 +462,11 @@
         {
           "item": "xf-shingle",
           "count": 3
+        },
+        {
+          "item": "xf-dart-tube",
+          "count": 2,
+          "charge": 1
         }
       ],
       "sources": [],

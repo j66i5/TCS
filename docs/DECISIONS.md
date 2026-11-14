@@ -4355,3 +4355,118 @@ Owner: "include that surrendering soldiers will move toward the forces they surr
 - **Goldens regenerated** (`npm run golden:update`, intended: new data, so the catalog fingerprint changes every
   checkpoint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
   `golden/no-interiors` untouched.
+
+## 2026-11-14 — M9.1 Night and light (roadmap-detail slice 30, parallel session)
+Coordinator task (owner's parallel sessions). The owner round M9 (roadmap-detail Phase 4) is not answered yet; this
+slice needs only one of its answers and takes the recommended one, for the owner to confirm: **night look on the
+phone (a) a darkened map with fires and flashes lit**. Night-vision goggle numbers (screen 3) stay as they are
+(M9.2). Software decisions:
+- **Light from the clock:** a sun table by local time and a full moon's light in `core/spotting.json` `night` (game
+  values, low: equinox at about 50 degrees north, local solar time; full daylight 7:00-17:00, twilight to 19:15 and
+  from 4:45, a full moon 0.12, the light floor 0.05 stays). `sim/src/light.ts` (`lightAt`, `environmentAt`,
+  `parseTimeOfDay`; table interpolation only, no transcendental maths). A battle follows the clock only when its
+  environment has the new optional `sky { moon }`; then the light is set at the start and once a second. Without a
+  sky (every scenario, golden, batch and the app's default) nothing changes: **the daylight goldens' states are
+  identical to main at every checkpoint apart from the catalog fingerprint** (checked by hashing the serialized
+  state without the fingerprint in both trees); golden update for the fingerprint only. One table for every date;
+  seasons and latitude can come with the campaign (M13).
+- **Flashes and tracers at night:** a man firing at night is lit by his muzzle flash to `flashLight` 0.8 for every
+  observer (the flash is a light, so goggles and thermal gain nothing from it); a vehicle's gun flash likewise
+  (`vehicleFlashLight` 0.8; the first version multiplied the vehicle's signature, which let thermal crews see firing
+  hulls 16 times better at night than by day — found by the review, fixed); a man firing from a belt with tracer
+  rounds shows up to 3 times more in full darkness (`tracerContrast`). All zero or one in full daylight. Hearing is
+  unchanged by light.
+- **Night look (owner default (a)):** the map, roofs and shadows are tinted toward a dark blue, the men's figures
+  less (readable); symbols, hulls, labels, tracers and flashes keep their colours; muzzle flashes get a halo (and are
+  drawn at every zoom at night: the figure's own flash is dark), bursts and burning hulls light the ground round
+  them. At light 1 the tint is white and nothing is added (flat and classic unchanged). The status line shows the
+  local time when the battle has a sky.
+- **Options:** app `?time=HH:MM&moon=0..1` (default moon 0.5; a bad moon value is a half moon), headless and batch
+  `--time HH:MM --moon x`; screenshot scene `--scene night`; `npm run lab -- night` (the light table and the spotting
+  lab's cases at noon, dusk, full-moon night and moonless night, eyes and goggles).
+- **Lab (20-40 seeds, observer with the G36 optic):** a man standing still at 300 m: noon 97 % within 30 s, moonless
+  night 23 % (50 % within 120 s), with goggles 67 %; at 100 m moonless 53 %, full moon 83 %; a man firing at 600 m:
+  seen within 30 s at every light (median 3-4 s).
+- **Night batches (10 seeds x 1200 s, 23:00, half moon; day figures from the D1 batches):** platoon: attacker wins 2
+  (day 3) of 10, casualties 19.5 / 10.9 (day 18.0 / 12.7); platoon-vehicles 5 (day 5), 18.5 / 20.3 (day 17.7 /
+  21.4). No AI change for the night (M9.6). Speed: platoon 159x, platoon-vehicles 96x real time.
+
+## 2026-11-14 — M9.2 Sensor physics (roadmap-detail slice 31, parallel session)
+Owner round M9 still open (the coordinator asks the owner); recommended defaults taken and logged here: **goggles
+screen 3 (a) research defaults, marked low**. Software decisions:
+- **Sensors:** a sensor kind may be `thermal` (sees heat) and have `arcDeg` (the half-angle a man's sight or goggle
+  covers from where he looks; his eyes cover everything): thermal weapon sight 12 degrees, goggles 20 (a 40-degree
+  field of view); `vehicle-thermal` is thermal. Field of view of vehicle sights was already per seat (M7.3).
+- **Heat (`core/spotting.json` `thermal`, game values, low), relative to what the eye sees:** a man x1; a still man
+  under a thermal blanket its `thermalCover` (0.25); a vehicle moving or moved within 10 minutes x1.6, halted longer
+  x0.8 (cooled; new optional `VehicleState.movedTick`, set by the drive), firing x2.5, burning x6. Through vegetation
+  heat comes as visibility^0.5; the better of the best sensor and the best thermal one counts (review fix: the first
+  version took the thermal path only when the thermal sight was the strongest sensor before vegetation, so a
+  marksman's telescopic sight or a vehicle's day sight listed first hid it). Heat is computed once per target per
+  tick (in the target rows), not per observer-target pair (acceptance).
+- **Data (research defaults, low; search extracts only):** thermal weapon sights `de-thermal-sight` (IdZ-ES
+  optics include a reflex + thermal rifle sight) — one per Schuetzentrupp, with the marksman; `ru-thermal-sight`
+  (Ratnik lists 1PN140/141; night optics of limited distribution) — one per platoon, with the platoon commander.
+  Thermal blankets `de-thermal-blanket` / `ru-thermal-blanket` as items, issued to nobody (no public per-squad issue
+  found). Goggles stay as built: every man of both sides' squads has one (no public per-squad numbers; this is the
+  owner's "research defaults" with the M10.1 itemised loads). `batteryHours` on items: reserved for M11.6.
+  Battlefield surveillance radar stays reserved (SPEC 8). xf: `xf-heat-eye`, `xf-cool-cloak`.
+- **Lab (`npm run lab -- thermal`, 30 seeds):** a man standing still at 300 m on a moonless night: optic 17 % within
+  30 s, with the thermal sight 100 % (as by day); prone in crops at 100 m: optic 0 %, thermal found him in 57-60 %
+  of runs; under a blanket the thermal finds a prone man far less (37 % vs 97 % within 120 s at night); 40 degrees
+  off the sight's arc it does not help; a BMP-2 at 1000 m at night: just driven median 3 s, halted 10 minutes 7 s.
+- **Missile test:** the target Puma's thermal crew now finds the hot BMP-2 at 1000 m and fires back, breaking off the
+  BMP's reload in `lab-missile.test.ts`; the test now holds the target's fire (it is about the missile items).
+- **Batches (10 seeds x 1200 s, main -> now, daylight):** platoon 1 -> 0 attacker wins, casualties 19.0/10.3 ->
+  20.1/12.2; platoon-ru 7 -> 4 Russian wins, 16.6/13.1 -> 14.9/14.4; platoon-vehicles 5 -> 5, 17.9/24.0 -> 15.7/22.9;
+  within the noise of 10 seeds (the marksman's 0.9 kg sight, crews' thermal view of men in vegetation and of hot
+  hulls). Night platoon-vehicles (23:00) 6 German wins. Perf alone: bench-vehicles 12.9x, spotting bench 12.5x
+  (floors 8x). Golden update.
+
+## 2026-11-14 — Owner answers: M9 round (binding; relayed by the coordinating session)
+- Order after night and sensors: **missiles (M9.3), then drones (M9.4)**.
+- Russian dismounted missile: **Metis-M at company level**.
+- MELLS on the Puma: **2 ready, reloaded outside while halted, with a man exposed**.
+- A locked fire-and-forget missile against smoke: **flies on to the last point seen**.
+- Drones: **one quadcopter at the platoon HQ**; its feed **over the radio with the usual delay**.
+- Night look: **darkened map** (as built in M9.1). Night-vision goggles: **research defaults, marked low** (as
+  taken in M9.2).
+- Programmable airburst was not asked: it stays in **M14** (plan default).
+
+## 2026-11-14 — M9.3a Guided missiles on vehicles (roadmap-detail slice 32, parallel session)
+Owner answers used (M9 round): MELLS on the Puma with 2 ready, reloaded outside while halted with a man exposed; a
+locked fire-and-forget missile against smoke flies on to the last point seen. Software decisions:
+- **Guidance kinds** come from the ammunition's existing `guidance` field: `command-wire` (SACLOS, as before),
+  `command-beam` (beam riding: as the wire but no wire; beyond its range "lost: out of the beam's range"),
+  `fire-and-forget-*` (its own seeker; the gunner is free after the launch: the station's guns fire on, but no second
+  missile from that station until the first ends). New optional `guided.topAttack {climbM, diveAtM,
+  launchElevationDeg}` and `guided.seekerSmokeFactor`. The seeker looks from the missile every
+  `missileSightSeconds`; while it sees the target (smoke thinning its view below `missileSeenFloor` blinds it;
+  ordinary smoke kept at seekerSmokeFactor, multispectral not) the aim point follows the target's roof, else it stays
+  at the last point seen. Top attack: launched 12 degrees up, climbs to 80 m above the aim point, dives on it from
+  160 m out and strikes the roof (lab: top plate at 1000 and 3500 m head-on; side-on it can strike the turret side).
+- **Data (search extracts, low):** `de-spike-lr` (Spike LR via MELLS: 4000 m, tandem 700 mm RHA = 875 mild-steel,
+  13 kg; 170 m/s, 60 deg/s in the dive, seeker x0.5 through ordinary smoke), `de-mells-round`, `de-mells-launcher`
+  (90 s per missile from the roof, `reloadOutside`); the Puma's turret station gets MELLS (2 ready, 2 stowed) and a
+  laser warning receiver (`laserWarner`). Russian Kornet on a vehicle is not in the roster (no BMP-2M/BMP-3): beam
+  riding exists in the code and the xf fixture (`xf-dart` on `xf-wagon`, crew `wagon-crew`); the dismounted
+  Metis-M (owner: company level) is M9.3b.
+- **Launch warning:** a crew notices a missile launched at it when it has a laser warner and the missile rides a beam,
+  or when an able crewman has the launcher in sight; `behaviour.crew.launchReactionSeconds` (1.5 s) later it lays its
+  turret toward the launcher (when it has no target) and fires its dischargers; radio "missile launch! Smoke!".
+  Fire-and-forget is not fooled by it (flies on to the last point); wire and beam are lost when the smoke stands in
+  time (lab: beam at 2500 m warned and lost every time; at 1000 m it arrives first).
+- **The exposed reloader:** an action `reloadOutside` by an able crewman with a hatch (loader, commander, gunner;
+  not the station's operator if another can go), halted, one missile at a time up to the ready count. While it runs
+  he stands on top of the turret (or hull) over his seat and counts as a man in the open for spotting, bullets,
+  blast, contacts and side knowledge (`mount.ts onRoof`), not as a seated body for hull penetration and spall, and
+  works no station; it breaks off if the vehicle moves, burns, is lost, or he is hit. Review fixes: the guns now fire
+  during a fire-and-forget flight (the fire loop still blocked them); the roof man no longer works the turret, is no
+  longer inside his own turret box (z = turret top) nor a seated body for spall; he stands; the beam test asserts a
+  hit at 1000 m and the loss at 2500 m.
+- **Tests changed:** the Puma now offers "Anti-tank" (capabilities test); the missile save/load test counts only the
+  shooter's missiles (the target Puma now fires its own back).
+- **Batches (10 seeds x 1200 s, before -> after):** platoon-vehicles 5 -> 6 German wins (casualties 15.7/22.9 ->
+  15.9/22.9), platoon-ru-vehicles 9 -> 9 German wins (identical): the Pumas fire MELLS at nothing in these battles —
+  their 30 mm gets through a BMP-2, and the crew chooses the missile only beyond `missileBeyondM` (1000 m) or when its
+  rounds would not penetrate. MELLS will matter against tanks (M7.6) and at long range. Golden update.

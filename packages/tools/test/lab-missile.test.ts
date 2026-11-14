@@ -41,6 +41,10 @@ describe("guided missile (owner 2026-11-13)", () => {
     expect(launcher()).toBe(1);
     expect(count(sim, shooter, "ru-9m113m-round")).toBe(3);
     const t = sim.state.transform.req(target);
+    // (M9.2: the target Puma's thermal sight finds the hot BMP-2 at 1000 m and would fire back; it holds fire here,
+    // the test is about the missile items.)
+    const tu = sim.state.vehicle.req(target).unit;
+    if (tu !== null) submitOrder(sim, { tick: 0, issuer: "blue", target: tu, kind: "rules", fire: "hold" });
     submitOrder(sim, { tick: 0, issuer: "red", target: v.unit!, kind: "fire", x: t.x, y: t.y, contact: target, nature: "at" });
     let fired = 0, ended = 0, moved = 0;
     run(sim, 10, (e) => {
@@ -81,7 +85,7 @@ describe("guided missile (owner 2026-11-13)", () => {
     let saved: ReturnType<typeof saveSim> | null = null;
     const ends: string[] = [];
     for (let i = 0; i < 30 * TICK_HZ; i++) {
-      for (const e of step(sim)) if (e.kind === "missile.ended") ends.push(`${e.tick}:${e.result}`);
+      for (const e of step(sim)) if (e.kind === "missile.ended" && e.vehicle === shooter) ends.push(`${e.tick}:${e.result}`);
       if (saved === null && sim.state.vehicle.req(shooter).stations[0]!.guide && sim.state.tick % 60 === 0 && sim.state.projectiles.count > 0) {
         const g = sim.state.vehicle.req(shooter).stations[0]!.guide!;
         if (sim.state.tick - g.launchTick > 3 * TICK_HZ) saved = JSON.parse(JSON.stringify(saveSim(sim))) as ReturnType<typeof saveSim>;
@@ -91,7 +95,7 @@ describe("guided missile (owner 2026-11-13)", () => {
     expect(ends).toHaveLength(1);
     const copy = loadSim(input, saved!);
     const ends2: string[] = [];
-    while (copy.state.tick < sim.state.tick) for (const e of step(copy)) if (e.kind === "missile.ended") ends2.push(`${e.tick}:${e.result}`);
+    while (copy.state.tick < sim.state.tick) for (const e of step(copy)) if (e.kind === "missile.ended" && e.vehicle === shooter) ends2.push(`${e.tick}:${e.result}`);
     expect(ends2).toEqual(ends);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });

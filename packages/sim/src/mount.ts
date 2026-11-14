@@ -13,6 +13,14 @@ import { unitSoldiers } from "./systems/orders";
 /** Crew seat order: a crew unit's members take the crew seats in this order unless a placement names a seat. */
 export const CREW_STATION_ORDER: readonly StationKind[] = ["commander", "gunner", "loader", "driver"];
 
+/** The action of a crewman out on his vehicle's roof (M9.3a: reloading a launcher from outside). */
+export const ROOF_ACTION = "reloadOutside";
+
+/** Is this man aboard but out on the roof (M9.3a)? Then he is a target and a body like a man on foot. */
+export function onRoof(state: SimState, id: EntityId): boolean {
+  return state.action.size > 0 && state.action.get(id)?.kind === ROOF_ACTION;
+}
+
 export function isMounted(s: SoldierState | undefined): boolean {
   return s?.mount !== undefined;
 }

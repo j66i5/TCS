@@ -211,6 +211,37 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
+ * M9.1 night (`--scene night`): the platoon battle on foot (village) at noon, at dusk (18:30) and at night (23:00,
+ * half moon), photo look, the lead squad firing 150 m toward the map's middle (flashes, tracers); the night also
+ * close up and in the flat look. The status shows the light.
+ */
+async function nightScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const info: string[] = [];
+  const cases: [string, string, number][] = [["12:00", "photo", 4], ["12:00", "photo", 10], ["18:30", "photo", 4], ["23:00", "photo", 4], ["23:00", "photo", 10], ["23:00", "flat", 4]];
+  for (const [time, look, zoom] of cases) {
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&look=${look}&time=${time}`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+    const r = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
+      const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+      t.select(sq.unit); const c = t.controls().centre, W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM;
+      const dx = W / 2 - c.x, dy = H / 2 - c.y, d = Math.hypot(dx, dy) || 1;
+      t.fireAt(c.x + dx / d * 120, c.y + dy / d * 120); t.stepTicks(60 * 9);
+      const q = t.controls().centre, ahead = ${zoom} >= 8 ? 6 : 40; t.focusScale(q.x + dx / d * ahead, q.y + dy / d * ahead, ${zoom});
+      // (A moment with rounds in the air: flashes and tracers on the picture.)
+      for (let k = 0; k < 600 && s.projectiles.count < 3; k++) t.stepTicks(1);
+      t.stepTicks(1);
+      const u = s.unit.get(sq.unit); const last = Math.max(...u.members.map((m) => s.weapon.get(m)?.lastShotTick ?? -1));
+      return { light: s.environment.light, time: s.environment.timeOfDaySeconds, last, tick: s.tick, proj: s.projectiles.count, post: u.members.map((m) => s.soldier.get(m).posture).join(",") };`) as () => { light: number; time: number; last: number; tick: number; proj: number; post: string });
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/night-${seed}-${name}-${time.replace(":", "")}-${look}-z${zoom}.png`;
+    await page.screenshot({ path: p }); shots.push(p);
+    info.push(`${time} ${look} z${zoom} light ${r.light.toFixed(2)} lastShot ${r.last}/${r.tick} proj ${r.proj} ${r.post}`);
+  }
+  console.log(`${name}: night scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * D1 hand smoke (`--scene smoke`): the platoon battle on foot (village), a squad selected, the Fire tray open with
  * the Smoke button; Smoke chosen and a tap 20 m ahead of the squad (the order the app sends is checked); 12 s on,
  * the cloud.
@@ -1338,6 +1369,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "night") { await nightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1475,7 +1507,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

@@ -37,6 +37,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   const hurryModes = SB.hurryModes, hurryMode = SB.hurryMode, hurrySupp = ctx.catalog.behaviour.decisions.seekCoverSuppression;
   const hurryFiredOn = secondsToTicks(SB.hurryFiredOnSeconds), hurryQuiet = secondsToTicks(SB.hurryQuietSeconds), tick = state.tick;
   const levelK = exp(-B.movement.slopeK * Math.abs(B.movement.slopeOffset));
+  const dragMps = ctx.catalog.medical?.carry["drag"]?.speedMps ?? 0.7;
   // Leaders wait for followers who fell far behind their slots (last tick's lag; deterministic order).
   const worstLag = new Map<EntityId, number>();
   // mounted: ok a man aboard has no waypoints
@@ -122,6 +123,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
       speed *= s.impair.move; // wounds: a leg wound, blood loss
+      // Dragging a casualty (M10.3b; only legs with their own posture are looked at): the carry data's drag speed.
+      if (wp.posture !== undefined && state.action.get(id)?.kind === "drag") speed = Math.min(speed, dragMps);
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
     // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.

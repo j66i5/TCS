@@ -4154,3 +4154,61 @@ Owner answers used (binding): helpers in contact = the first responder plus at m
   this one.
 - **One test loosened (software decision):** `shootout.test.ts` "several hundred rounds" per side > 250 → > 200 (one
   side fired 210 on seed 1: men now leave the fight to treat a comrade, the effect this slice is meant to have).
+
+## 2026-11-14 — M10.3b triage, care under fire, "Medic!" (roadmap-detail slice 7; goldens regenerated)
+Owner answers used (binding): triage shown as a tag on the map and on the card (Q-2b); enemy casualties only as
+far as your men see them (Q-2d: tags are drawn for own men only); helpers in contact the first responder plus at
+most one comrade (Q-2a, unchanged); same rules for both sides, the player and the AI. Q-7 (an order to fire at a
+recognised protected target is refused) belongs to the protection slices 15-16, not this one. Built:
+- **Triage** (pure `trueTriage` / `triageTag` in medical.ts; `SoldierState.triage`; `medical.triaged` event with the
+  tag and the true category): the man who starts treating a comrade (not himself) tags him T1 immediate (needs one
+  of `triage.immediateTreats`: massive bleeding, airway, breathing; or shock ≥ 0.3; or barely conscious), T2 delayed
+  (cannot walk, or needs other care) or T3 minimal. Wrong one category off (T1 and T3 only to T2) with the data's
+  chance by training (comrade 0.25, first responder 0.15, medic 0.10, +0.10 under fire; game values, low), two draws
+  from the `medical` stream. A first responder or medic beside him tags him again on arrival; anyone treating him
+  tags him again when the tag is 300 s old. **Software decisions:** the NATO / Bundeswehr categories I-III; T4
+  "expectant" left out (a mass-casualty category a platoon does not assign); the "Medic!" call and re-triage by a
+  responder happen whether or not he treats.
+- **Care under fire** (systems/medical.ts `tryDrag`, the `drag` action; TCCC: return fire, move the casualty to
+  cover, a tourniquet): a carer beside a casualty under fire with nothing he may do there (the tourniquet comes
+  first) looks every 4 s for the nearest spot within 15 m (`care.dragSearchM`) hidden from the enemy (lying),
+  not toward him, reachable by a way of at most 30 m (`care.dragMaxM`). A casualty who can walk is sent there himself
+  (pinning does not hold him, as with a house that has become a trap); one who cannot is dragged there by the carer, crouched, at the
+  carry data's drag speed (0.7 m/s, Vine et al. 2023, medium; movement.ts caps a dragging man's pace), the casualty
+  0.9 m behind him; a comrade of his squad throws a smoke grenade to screen it (the D1 `screenCasualty` hook; the
+  dragger's hands are full). On arrival the casualty is `sheltered` there: while he lies there, "under fire" for his
+  care is the helper's own suppression only (his squad fired on elsewhere no longer counts), so tactical field care
+  goes on. A casualty already hidden where he lies is marked sheltered at once. `medical.dragged` events (start with
+  the distance, end). The actions system gained an optional `done` hook (a drag ends when it has arrived). Indoors
+  and on upper floors nobody is dragged (the house is cover; carrying in houses is M10.4a).
+- **Radio:** "Medic! Man down!" (`radio.medic`) for an urgent casualty, by himself if he can speak, else the first man
+  of his squad who can (once per casualty); "Man down, treating" (`radio.treating`) with the first tag. Each key at
+  most once per 15 s per squad (`care.radioCooldownS`; `Unit.medRadio`).
+- **Interface:** the tag on the map (a small square, red / yellow / green, T1 with a white centre; own men only; all
+  three looks), in the card row (a "T1" chip before the role) and in the man box ("Triage: T1 immediate, tagged by
+  the Panzergrenadier (first responder)"); the man box's "Now" line shows treating, dragging, going to a comrade,
+  treating his own wound. Debug line: "drag -> id", "T1", "(in cover)", and why nobody comes ("waits: nobody /
+  unwilling / too exposed / no kit"; `SoldierState.careWait`). Debug hook `__tcs.hurt(id, wound, unconscious)`;
+  screenshots `npm run screenshot -- --scene triage`; `--port` for the screenshot server (a second session on the
+  same machine used port 4317 at the same time).
+- **New optional state fields only (no schema bump):** `SoldierState.triage`, `medicCalledTick`, `sheltered`,
+  `careWait`; `Unit.medRadio`. Data: `triage` gains `immediateTreats`, `immediateShock`, `immediateConsciousness`,
+  `retriageS`; `care` gains `dragSearchM`, `dragMaxM`, `radioCooldownS` (game values, low).
+- **Batches (10 seeds × 1200 s; `--no-medical` → care on).** New batch line "Triage, care under fire": men with a
+  life-threatening need care can answer (looked at once a second), of them died of wounds before the end
+  (preventable: no new wound in the 30 s before death) or killed by a new wound; wrong tags by training; drags.
+  Preventable deaths per battle, blue/red: platoon 3.8/2.6 → 1.4/2.6; platoon-vehicles 2.9/3.4 → 2.0/3.1; platoon-ru
+  2.5/1.6 → 1.3/1.0. Both sides together 16.8 → 11.4 per 10-battle set each (−32 %; as a share of life-threatening
+  needs 43 % → 29 %). **Target "40 % or more lower" met for the German side in two of three cells (−63 %, −48 %; −31 %
+  mounted) and for the Russian attack (−38 %), not overall**: the Russian defenders (one rifleman-medic per platoon,
+  men in houses where nobody is dragged) gain little (0 % and −9 %). Re-tuning waits for M10.8 (owner review of the
+  numbers after playing). Wrong tags (all cells): comrade 61/249 (24 %), first responder 21/135 (16 %), medic 1/35
+  (3 %): within the data's range given the counts (more under fire). Drags per battle: 0-1.6 (most casualties under
+  fire can walk and go themselves, or lie hidden already). Attacker wins (care on): platoon 4/10 (no care 1/10),
+  platoon-vehicles 5/10 (7/10), platoon-ru 6/10 (4/10); within the noise of 10 seeds.
+- **Tests:** `tools/test/medical-triage.test.ts` (true categories, error rates per level from stratified draws,
+  tagging and the radio calls, a first responder re-tags, the drag behind a wall with the casualty never more than
+  1.5 m from his carer and the chest seal done in cover, save/load mid-drag), `ui/test/card.test.ts` "triage".
+- **Goldens regenerated** (`npm run golden:update`, intended: casualties now go to cover and care goes on there; the
+  data fingerprint): demo, shootout, fixture, vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear.
+  `golden/no-interiors` untouched.

@@ -132,7 +132,28 @@ export interface SoldierState {
   fireFrom?: { dx: number; dy: number; tick: number };
   /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
   grenadeTick?: number;
+  /**
+   * His triage tag (M10.3b), set by the man who treats him: category 1 immediate (T1), 2 delayed (T2), 3 minimal
+   * (T3); who tagged him, when, with what training. It may be wrong (core/medical.json `triage`). Absent: not triaged.
+   */
+  triage?: Triage;
+  /** "Medic!" has been called for him (M10.3b; the tick). Absent: not yet. */
+  medicCalledTick?: number;
+  /**
+   * Dragged into cover here (M10.3b): while he lies within a metre of this spot, care for him is judged under fire on
+   * the helper's own suppression only (the unit being fired on no longer counts). Absent: not dragged.
+   */
+  sheltered?: { x: number; y: number };
+  /**
+   * Why no carer is coming to him (M10.3b, for the debug overlay): nobody in reach, men in reach but none willing
+   * (`too-exposed`: he lies under fire), or the one willing has no kit or training for what he needs. Absent: a carer is
+   * on his way or beside him, or he needs nothing.
+   */
+  careWait?: "nobody" | "unwilling" | "too-exposed" | "no-kit";
 }
+
+/** A triage tag (M10.3b). */
+export interface Triage { cat: 1 | 2 | 3; by: EntityId; tick: number; skill: "buddy" | "firstResponder" | "medic" }
 
 export type CommLink = "voice" | "radio" | "none";
 
@@ -279,6 +300,9 @@ export interface Unit {
   leaveTry?: { building: number; tick: number };
   /** Tick of the unit's last hand smoke screen (D1, systems/smoke.ts). Absent: none yet. */
   smokeTick?: number;
+  /** Tick of the unit's last medical radio call of each kind, by string key ("radio.medic", "radio.treating"; M10.3b).
+   *  Absent: none yet. */
+  medRadio?: Record<string, number>;
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }

@@ -12,8 +12,8 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
-  type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
+  tallyExpenditure, vehicleItems, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink,
+  type EntityId, type Expenditure, type Order, type Sim, type SimEvent, type Wound,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
@@ -1095,6 +1095,14 @@ async function main(): Promise<void> {
         marker: activeMoveOf(overlay.selectedUnit)?.waypoints.at(-1) ?? null,
         facing: facingHandle(), centre: centreOf(placesOf(overlay.selectedUnit)),
       };
+    },
+    /** M10.3b screenshots: wound a man (a bullet wound with these fields; `unconscious` knocks him out). */
+    hurt: (id: EntityId, w: Partial<Wound>, unconscious = false) => {
+      const s = sim.state.soldier.get(id);
+      if (!s) return;
+      s.wounds.push({ id: s.nextWoundId++, zone: "legL", mechanism: "bullet", severity: 0.4, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: unconscious, tickInflicted: sim.state.tick, treatments: [], ...w });
+      if (unconscious) s.physiology.consciousness = 0;
+      refreshStatus(sim.ctx, sim.state, new EventSink(), id);
     },
     /** The "bar-card" step (screenshots, checks): the man box for a man (null closes), the card's state. */
     inspect: (id: EntityId | null) => { inspected = id; showCard(); },

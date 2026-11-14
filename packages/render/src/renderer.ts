@@ -667,6 +667,7 @@ export class BattleRenderer {
         if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
         // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
         if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
+        if (sol?.triage && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide) drawTriageTag(g, s.x, s.y, sol.triage.cat, size * 0.35);
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         if (foe) continue;
         const bh = sol?.mental.behaviour;
@@ -675,6 +676,7 @@ export class BattleRenderer {
         }
       } else {
         if (selected) g.circle(s.x, s.y, pr + 4).stroke({ width: 2, color: 0xffffff });
+        if (sol?.triage && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide) drawTriageTag(g, s.x, s.y, sol.triage.cat, r);
         // Casualties stay on the map: a dead man is a dark shape outlined in his side's colour; an unconscious
         // man is a pale shape with a red cross. Neither shows a facing line.
         if (sol && sol.casualty !== "none") {
@@ -1569,6 +1571,21 @@ function dashed(g: Graphics, ax: number, ay: number, bx: number, by: number, das
   }
 }
 
+/** Triage tag colours (M10.3b): T1 red, T2 yellow, T3 green (as on the card). */
+const TRIAGE_COLOURS = [0xff4a3d, 0xffd23d, 0x8fd36a] as const;
+
+/**
+ * A triage tag on the map (M10.3b, owner Q-2b): a small square in the category's colour above and to the right of
+ * the man, a dark rim; T1 also has a white centre so it reads without colour. Own men only (Q-2d).
+ */
+export function drawTriageTag(g: Graphics, x: number, y: number, cat: number, r: number): void {
+  const k = Math.max(4, r);
+  const px = x + 0.8 * k, py = y - 2 * k, w = 1.6 * k;
+  g.rect(px - 1, py - 1, w + 2, w + 2).fill({ color: 0x14110f, alpha: 0.85 });
+  g.rect(px, py, w, w).fill({ color: TRIAGE_COLOURS[Math.min(2, Math.max(0, cat - 1))]! });
+  if (cat === 1) g.rect(px + w * 0.35, py + w * 0.35, w * 0.3, w * 0.3).fill({ color: 0xffffff });
+}
+
 function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {
   const k = Math.max(r, 4);
   g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a });
@@ -1638,6 +1655,11 @@ export function careLine(state: SimView, id: EntityId): string {
   const s = state.soldier.get(id);
   // M10.3a: gone to a casualty ("carer -> id", "first responder -> id").
   if (a?.kind !== "treat" && s?.intent?.kind === "care") out += ` ${s.intent.responder === true ? "responder" : "carer"} -> ${String(s.intent.target)}`;
+  // M10.3b: dragging a casualty, his triage tag, why nobody comes to him.
+  if (a?.kind === "drag") out += ` drag -> ${String(a.params["casualty"])}`;
+  if (s?.triage && s.physiology.alive) out += ` T${s.triage.cat}`;
+  if (s?.careWait && s.physiology.alive) out += ` waits: ${s.careWait.replace("-", " ")}`;
+  if (s?.sheltered && s.physiology.alive) out += " (in cover)";
   const done = s ? s.wounds.flatMap((w) => w.treatments.filter((t) => t.success).map((t) => t.intervention)) : [];
   if (done.length > 0) out += ` care: ${done.join(",")}`;
   return out;

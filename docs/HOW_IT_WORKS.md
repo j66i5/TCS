@@ -330,6 +330,30 @@ responder arrives; any carer goes back to where he stood when there is nothing m
 when the casualty dies. A downed man with a carer on the way or beside him does not give up. All the numbers are
 game values in `core/medical.json` `carers` (low confidence). Debug view: "carer -> id" or "responder -> id".
 
+**Triage, care under fire, "Medic!" (M10.3b).** When an urgent casualty needs care, his squad calls "Medic! Man
+down!" on the radio (he himself if he can speak, else a comrade; once for him). The man who starts treating a
+comrade tags him: **T1 immediate** (red: massive bleeding, airway or breathing trouble, deep shock, or barely
+conscious), **T2 delayed** (yellow: cannot walk, or needs other care such as a splint) or **T3 minimal** (green:
+walking wounded) — the NATO categories and the Bundeswehr's Sichtungskategorien I-III; the "expectant" category is
+for mass casualties and is not used by a platoon. A tag can be wrong, one category off: a comrade errs one time in
+four, a first responder about one in seven, a medic one in ten, each one in ten more often under fire (game values).
+The first time a comrade tags him, his squad says "man down, treating" on the radio (each call at most once every
+15 s per squad). A first responder or medic who comes to him tags him again (he looks better), and so does anyone
+treating him once the tag is five minutes old. The tag shows on the map beside the man (a small coloured square, own
+men only: enemy casualties show only what your men see) and on the card: in his row and in his box, with who tagged
+him. **Under fire** a carer beside a casualty first puts a tourniquet on if one is needed (the only treatment allowed
+under fire); then, if the casualty lies where the enemy can see him, he gets him into cover: the nearest spot within
+15 m hidden from the enemy (by a way of at most 30 m), not toward the enemy. A casualty who can still walk goes there
+himself (pinning does not hold him: he is told to go); one who cannot is **dragged** there by the carer, crouched, at
+0.7 m/s (the drag in `core/medical.json` `carry`, from a published drag test), the casualty at his heels, and a
+comrade of the squad throws a smoke grenade to screen it if he has one. Lying in that cover, care goes on: from then
+on only the carer's own suppression counts as "under fire" (his squad being shot at elsewhere no longer stops him),
+so the dressing, the chest seal or the line can be done. The debug view adds "drag -> id", the tag ("T1"), "(in
+cover)", and why nobody comes to a casualty: "waits: nobody" (no one in reach), "waits: too exposed" (men in reach,
+none willing to go under fire), "waits: unwilling", "waits: no kit". The batch report's "Triage, care under fire"
+line counts life-threatening needs, deaths of wounds after one (preventable deaths), wrong tags by training and
+drags.
+
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
 down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what

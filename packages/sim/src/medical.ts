@@ -237,3 +237,54 @@ export function isResponder(catalog: Catalog, state: SimState, id: EntityId): bo
   const lvl = ident ? catalog.factions[ident.faction]?.medicalRoles?.[ident.role]?.level : undefined;
   return lvl === "firstResponder" || lvl === "medic";
 }
+
+/**
+ * His true triage category now (M10.3b; core/medical.json `triage`): 1 immediate (T1) when he needs one of
+ * `immediateTreats`, his shock is at `immediateShock` or more, or he is barely conscious; 2 delayed (T2) when he
+ * cannot walk or needs any other care; 3 minimal (T3) otherwise (walking wounded).
+ */
+export function trueTriage(catalog: Catalog, state: SimState, casualty: EntityId, params: Readonly<Record<string, number>>): 1 | 2 | 3 {
+  const M = catalog.medical, s = state.soldier.get(casualty);
+  if (!M || !s) return 3;
+  const T = M.triage, p = s.physiology;
+  if (p.shock >= T.immediateShock || p.consciousness < T.immediateConsciousness) return 1;
+  const conscious = p.consciousness >= 0.5;
+  let other = false;
+  for (const id of M.care.order) {
+    const def = M.interventions[id];
+    if (!def || !woundNeeding(M, def, s.wounds, p, conscious, params)) continue;
+    if (T.immediateTreats.includes(def.treats)) return 1;
+    other = true;
+  }
+  return other || !s.impair.canWalk ? 2 : 3;
+}
+
+/**
+ * The tag a man gives (M10.3b): the true category, or with chance `errorChance[skill]` (+ `underFireAdd` under fire)
+ * one category off — T1 and T3 can only go to T2; T2 goes to T1 or T3 by `u2`. `u1`, `u2`: draws in [0, 1).
+ */
+export function triageTag(catalog: Catalog, actual: 1 | 2 | 3, skill: CareSkill, underFire: boolean, u1: number, u2: number): 1 | 2 | 3 {
+  const T = catalog.medical!.triage;
+  const err = Math.min(1, (T.errorChance[skill] ?? T.errorChance.buddy ?? 0) + (underFire ? T.underFireAdd : 0));
+  if (u1 >= err) return actual;
+  if (actual !== 2) return 2;
+  return u2 < 0.5 ? 1 : 3;
+}
+
+/** Training levels from lowest to highest (a higher level re-triages a lower one's tag). */
+export const SKILL_RANK: Readonly<Record<CareSkill, number>> = { self: 0, buddy: 1, firstResponder: 2, medic: 3 };
+
+/**
+ * The life-threatening needs he has now that care can answer (M10.3b; the batch counts a death after one of these as
+ * preventable): any of `triage.immediateTreats` (massive bleeding, airway, breathing), whoever treats him.
+ */
+export function lifeThreatNeed(catalog: Catalog, state: SimState, casualty: EntityId, params: Readonly<Record<string, number>>): boolean {
+  const M = catalog.medical, s = state.soldier.get(casualty);
+  if (!M || !s || !s.physiology.alive || s.wounds.length === 0) return false;
+  const conscious = s.physiology.consciousness >= 0.5;
+  for (const id of M.care.order) {
+    const def = M.interventions[id];
+    if (def && M.triage.immediateTreats.includes(def.treats) && woundNeeding(M, def, s.wounds, s.physiology, conscious, params)) return true;
+  }
+  return false;
+}

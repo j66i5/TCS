@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.3a who helps: carers and first responders, roadmap-detail slice 6). The long session-by-session
+_Last updated: 2026-11-14 (M10.3b triage, care under fire, "Medic!", roadmap-detail slice 7). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -11,8 +11,11 @@ DECISIONS.md under its date._
   the generic `treat` action, MARCH order from `care.order`, self-aid, buddy aid within 3 m, `medical.treated`,
   `--no-medical`, `lab -- treatment`) and 6 (M10.3a: carers — the first responder for urgent casualties plus at most
   one willing comrade, `care` intent, doctrine `casualtyCarePriority`, `medical.carer` events, batch "Carers"
-  line); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and are merged.** **Next:
-  slice 7, M10.3b triage, care under fire (the drag), "Medic!".** Slice 13 needs slice 12 (merged).
+  line) and 7 (M10.3b: triage tags T1-T3 by the man who treats, sometimes wrong; the tag on the map and the card;
+  under fire a casualty is got into cover — he walks or is dragged — and care goes on there; "Medic!" and "Man down,
+  treating" on the radio; batch "Triage, care under fire" line with preventable deaths); slices 5 (D1 hand smoke)
+  and 12 (ambulance hulls) came from parallel sessions and are merged.** **Next: slice 8, M10.4a carrying as a
+  movement mode.** Slice 13 needs slice 12 (merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -38,6 +41,11 @@ DECISIONS.md under its date._
   1/20; men with broken legs may be why), mounted village 6/10, platoon-ru 6/10: watch in M10.8.
 - **After M10.3a** (10 seeds × 1200 s, care on): village 0/10, mounted village 6/10, platoon-ru 6/10; median time to
   first treatment 67-157 s; the side with carers fires about a quarter to a third fewer rounds.
+- **After M10.3b** (10 seeds × 1200 s, `--no-medical` → care on): preventable deaths (died of wounds after a
+  life-threatening need) per battle blue/red: platoon 3.8/2.6 → 1.4/2.6, mounted village 2.9/3.4 → 2.0/3.1,
+  platoon-ru 2.5/1.6 → 1.3/1.0 (−32 % overall; the plan's −40 % met for the German side on foot and the Russian
+  attack, not for the Russian defenders). Attacker wins with care: village 4/10, mounted village 5/10, platoon-ru
+  6/10.
 - **Performance** (this container, `npm run test:perf -- --silent=false` alone, two runs): bench 16× / 19×,
   spotting 9.7× / 9.3×, **bench-vehicles 8.8× / 9.6×** (floor 8×), bench-combined 3.7× / 3.9× (floor 3×), 20,000
   projectiles 3.8× / 4.3×, render 1.2 ms per frame. The hull-hit variant flakes (known noise). After M10.3a: bench
@@ -75,7 +83,9 @@ DECISIONS.md under its date._
 
 ## What is weak or missing (honest list)
 - **Medical care is only first aid so far:** a man treats himself, a free comrade within 3 m treats him (M10.2), or
-  a carer runs over (M10.3a); nobody drags, carries or evacuates him yet (M10.3b-10.6). Only 54-86 % of the
+  a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b); nobody carries or evacuates
+  him yet (M10.4-10.6). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
+  in houses are not dragged): watch in M10.5 (the medic) and M10.8. Only 54-86 % of the
   casualties who live past 2 minutes get any care in 10-seed batches (plan target 70 %): carers are hit on the way,
   and under fire few are willing; tuning waits for M10.8. Wound values
   are game values (low) reviewed once by the owner (2026-11-11); the medical numbers (`core/medical.json`, mostly

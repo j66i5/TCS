@@ -717,9 +717,22 @@
       "medic": 0.1
     },
     "underFireAdd": 0.1,
-    "sources": [],
+    "immediateTreats": [
+      "limb-bleed",
+      "junctional-bleed",
+      "compressible-bleed",
+      "airway",
+      "open-chest",
+      "tension"
+    ],
+    "immediateShock": 0.3,
+    "immediateConsciousness": 0.5,
+    "retriageS": 300,
+    "sources": [
+      "https://www.deployedmedicine.com/"
+    ],
     "confidence": "low",
-    "note": "Chance of a wrong triage category (SPEC 9.1: sometimes wrong). Game values."
+    "note": "Triage (M10.3b). Categories as in NATO practice and the Bundeswehr's Sichtungskategorien: T1 immediate (red, SK I), T2 delayed (yellow, SK II), T3 minimal (green, SK III); T4 expectant (blue, SK IV) is a mass-casualty category a platoon does not assign and is left out (search extracts only: medium for the scheme, low for the rest). The true category: T1 when he needs one of immediateTreats (massive bleeding, airway, breathing; MARCH) or his shock is at immediateShock or more or his consciousness below immediateConsciousness; T2 when he cannot walk or needs any other care; T3 otherwise (walking wounded). The man who treats him (a comrade, first responder or medic; not himself) tags him at his first treatment; a man of higher training, or anyone once the tag is retriageS old, tags him again. A tag is wrong (one category off) with errorChance by training, plus underFireAdd under fire (SPEC 9.1: sometimes wrong). The error chances and thresholds are game values."
   },
   "care": {
     "stepS": 1,
@@ -750,25 +763,43 @@
       "pain-oral",
       "splint"
     ],
+    "dragSearchM": 15,
+    "dragMaxM": 30,
+    "radioCooldownS": 15,
     "sources": [
       "https://www.deployedmedicine.com/"
     ],
     "confidence": "low",
-    "note": "How care is given (M10.2, game values unless said). Order: the MARCH sequence of TCCC tactical field care (massive bleeding, airway, respiration, circulation, hypothermia; then pain and splints; deployedmedicine.com, search extracts: medium for the sequence, low for the rest). A man treats himself (self-aid) when he can; otherwise the nearest comrade of his side within buddyReachM (3 m, roadmap plan) does it. Under fire (own suppression at least underFireSuppression, or his unit fired on within underFireSeconds) only interventions marked underFire (the tourniquet; TCCC care under fire). A bleed is life-threatening when it is too large to clot by itself (core/wounds.json clotBelowLps). Each intervention at most maxAttempts times on one wound; success and time also depend on the man's own medical skill: x (1 + skillK x (skill - skillRef)). Pain is treated at painTreatAt or more, once. Junctional bleeds (wound packing): the zones listed. Re-checking and converting a tourniquet come with the medic (M10.5)."
+    "note": "How care is given (M10.2, game values unless said). Order: the MARCH sequence of TCCC tactical field care (massive bleeding, airway, respiration, circulation, hypothermia; then pain and splints; deployedmedicine.com, search extracts: medium for the sequence, low for the rest). A man treats himself (self-aid) when he can; otherwise the nearest comrade of his side within buddyReachM (3 m, roadmap plan) does it. Under fire (own suppression at least underFireSuppression, or his unit fired on within underFireSeconds) only interventions marked underFire (the tourniquet; TCCC care under fire). A bleed is life-threatening when it is too large to clot by itself (core/wounds.json clotBelowLps). Each intervention at most maxAttempts times on one wound; success and time also depend on the man's own medical skill: x (1 + skillK x (skill - skillRef)). Pain is treated at painTreatAt or more, once. Junctional bleeds (wound packing): the zones listed. Re-checking and converting a tourniquet come with the medic (M10.5). Care under fire (M10.3b; TCCC: return fire, move the casualty to cover, a tourniquet): a helper beside a casualty who lies where the enemy can see him sends him to the nearest spot hidden from that enemy within dragSearchM (a way at most dragMaxM long), after a tourniquet if one is needed: a casualty who can walk goes there himself, one who cannot is dragged there (core carry 'drag': speed); a comrade of his unit throws smoke to screen it if he has a grenade. Lying there, care is judged under fire on the helper's own suppression only (the cover is what makes tactical field care possible). The radio calls 'Medic!' and 'Man down, treating' come at most once each per radioCooldownS per unit. Search radius, way and cooldown: game values."
   },
   "carers": {
     "comradeReachM": 40,
     "responderReachM": 150,
-    "urgentTreats": ["limb-bleed", "junctional-bleed", "compressible-bleed", "airway", "open-chest", "tension", "access"],
+    "urgentTreats": [
+      "limb-bleed",
+      "junctional-bleed",
+      "compressible-bleed",
+      "airway",
+      "open-chest",
+      "tension",
+      "access"
+    ],
     "willingAt": 0.25,
-    "behaviourK": { "steady": 1, "cautious": 1, "shaken": 0.5, "pinned": 0.3 },
+    "behaviourK": {
+      "steady": 1,
+      "cautious": 1,
+      "shaken": 0.5,
+      "pinned": 0.3
+    },
     "suppressionK": 1,
     "otherUnitK": 0.6,
     "exposedK": 0.6,
     "responderK": 2,
     "comradesPerCasualty": 1,
     "timeoutS": 300,
-    "sources": ["https://www.deployedmedicine.com/"],
+    "sources": [
+      "https://www.deployedmedicine.com/"
+    ],
     "confidence": "low",
     "note": "Who goes to a casualty further away than buddy reach (M10.3a; game values, no public source for the numbers). A casualty looks urgent (T1) when he needs care for one of urgentTreats (massive bleeding, airway, breathing, shock; MARCH). An urgent casualty gets a first responder or medic of his platoon within responderReachM (his own squad's first; owner Q-1c: one Einsatzersthelfer B per Gruppe, a Sanitaeter in the Zug HQ; one rifleman-medic per Russian platoon) and also a willing comrade; any other casualty a willing comrade, else a free first responder. At most the first responder plus comradesPerCasualty comrade per casualty (owner Q-2a: in contact, the first responder plus at most one comrade). Willingness = doctrine casualtyCarePriority x behaviourK (by his behaviour; others 0) x morale x (1 - suppressionK x suppression) x otherUnitK (not his own squad) x exposedK (the casualty under fire) x responderK (first responders and medics: it is their job); willing at willingAt or more. Squad and platoon leaders do not leave their men. A comrade carer goes back once a first responder is beside the casualty. A carer gives up after timeoutS."
   }

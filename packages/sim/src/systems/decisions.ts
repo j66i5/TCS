@@ -106,14 +106,14 @@ function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: numb
  * Is a man lying at (x, y) (`z` above the ground: his floor, M7.5d) out of sight of an enemy at (tx, ty) (`tz`
  * above the ground)?
  */
-function coveredFrom(ctx: SimContext, x: number, y: number, tx: number, ty: number, heightM: number, z = 0, tz = 0): boolean {
+export function coveredFrom(ctx: SimContext, x: number, y: number, tx: number, ty: number, heightM: number, z = 0, tz = 0): boolean {
   const D = ctx.catalog.behaviour.decisions;
   const r = sight(ctx, tx, ty, standZ(ctx.map, { x: tx, y: ty, z: tz }) + D.threatEyeHeightM, x, y, standZ(ctx.map, { x, y, z }) + heightM);
   return r.blockedBy !== null || r.visibility < 0.1;
 }
 
 /** The threat he takes cover from: the nearest enemy he knows to be firing, else the nearest he knows. */
-function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; y: number; z: number } | null {
+export function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: number; y: number; z: number } | null {
   const me = state.transform.req(id);
   let best: { x: number; y: number; z: number } | null = null, bestD = Infinity;
   for (const c of s.contacts) {
@@ -280,7 +280,7 @@ function crawlOutOfOpen(ctx: SimContext, state: SimState, id: EntityId, s: Soldi
 }
 
 /** The enemy his unit's other men know (the first of them, by ID, who knows one): for a man who knows none himself. */
-function unitThreat(state: SimState, id: EntityId, unitId: EntityId): { x: number; y: number; z: number } | null {
+export function unitThreat(state: SimState, id: EntityId, unitId: EntityId): { x: number; y: number; z: number } | null {
   const u = state.unit.get(unitId);
   if (!u) return null;
   for (const o of u.members) {

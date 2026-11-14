@@ -624,19 +624,28 @@ export interface MedicalDef {
     obscuredFactor: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
     medicFiredLosesProtectionS: number;
   };
-  /** Triage (M10.3): chance of a wrong category by skill, more under fire. */
-  triage: { errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number };
+  /**
+   * Triage (M10.3b): chance of a wrong category by skill, more under fire (`underFireAdd`); a casualty is truly T1
+   * when he needs one of `immediateTreats`, or his shock is at `immediateShock` or more, or his consciousness is
+   * below `immediateConsciousness`; a tag `retriageS` old is renewed by the next man who treats him.
+   */
+  triage: {
+    errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number; immediateTreats: string[]; immediateShock: number;
+    immediateConsciousness: number; retriageS: number;
+  };
   /**
    * How care is given (M10.2). stepS: how often each wounded man is looked at; buddyReachM: a comrade this close
    * treats a man who cannot treat himself; maxAttempts: tries of one intervention on one wound; painTreatAt: pain
    * treated at this or more (once); skillRef / skillK: success x (1 + skillK x (medical skill - skillRef)); under
    * fire = own suppression >= underFireSuppression or his unit fired on within underFireSeconds; junctionalZones:
    * where a large bleed needs packing; order: the interventions in MARCH order (the first one needed and possible
-   * is done).
+   * is done). M10.3b: dragSearchM / dragMaxM: a casualty in the enemy's view is dragged to a hidden spot this close (by
+   * a way at most this long); radioCooldownS: a unit calls "Medic!" or "Man down, treating" at most this often.
    */
   care: {
     stepS: number; buddyReachM: number; maxAttempts: number; painTreatAt: number; skillRef: number; skillK: number;
     underFireSuppression: number; underFireSeconds: number; junctionalZones: BodyZone[]; order: DefId[];
+    dragSearchM: number; dragMaxM: number; radioCooldownS: number;
   };
   /**
    * Who goes to a casualty beyond buddy reach (M10.3a; absent: only self-aid and buddy aid). comradeReachM /

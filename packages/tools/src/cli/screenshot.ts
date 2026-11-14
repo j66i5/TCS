@@ -1,7 +1,8 @@
 /**
  * Visual self-check: builds the app, serves it, opens it in headless Chromium (phone and desktop
  * viewports), issues an order, advances the simulation and saves screenshots to screenshots/.
- *   npm run screenshot [-- --scale 2]
+ *   npm run screenshot [-- --scale 2] [--port 4318]
+ * (`--port`: another port for the preview server, when a second session takes screenshots on the same machine.)
  *
  * Uses the pre-installed Playwright (not a project dependency).
  */
@@ -16,7 +17,7 @@ const args = parseArgs(process.argv.slice(2));
 const scale = Number(args["scale"] ?? 1);
 const seed = Number(args["seed"] ?? 1);
 const mapKind = args["map"] ?? "village";
-const port = 4317;
+const port = Number(args["port"] ?? 4317);
 
 // Minimal structural types: Playwright is pre-installed globally, not a dependency, so no type package.
 interface Page {
@@ -240,6 +241,38 @@ async function smokeScenes(page: Page, name: string, errors: string[], shots: st
   await shot("1-smoke-cloud");
   const info = await ev<unknown>("return { clouds: s.smoke.length, tick: s.tick };");
   console.log(`${name}: smoke scene mode ${mode}, order ${JSON.stringify(order)}, ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.3b triage (`--scene triage`): the platoon battle on foot (village), the lead squad selected with its detailed
+ * card. Two of its men are hurt through the debug hook (one bleeding from the leg and knocked out, one with a broken
+ * leg); 90 s on, their comrades have treated and tagged them: the tags close up (figures), the man box of the first,
+ * and the tags at the dot zoom. Debug on for the care lines.
+ */
+async function triageScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/triage-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const close = name === "phone" ? 12 : 18;
+  const info = await ev<{ hurt: number[] }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); globalThis.__sq = sq.unit; const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader);
+    t.hurt(men[1], { zone: "legL", bleedingLps: 0.006, severity: 0.5 }, true);
+    t.hurt(men[3], { zone: "legR", severity: 0.35, fracture: true });
+    t.stepTicks(60 * 90); const p = s.transform.get(men[1]); t.focusScale(p.x, p.y, ${close}); t.stepTicks(1); return { hurt: [men[1], men[3]] };`);
+  if (!(await ev<boolean>("return t.card().detailed;"))) await page.click('[data-card="detail"]');
+  await settle();
+  await shot("0-tags-close-card");
+  await ev(`t.inspect(${info.hurt[0]}); t.stepTicks(1);`);
+  await shot("1-man-box-triage");
+  await ev(`t.inspect(null); t.setDebug(true); t.stepTicks(1);`);
+  await shot("2-debug-care-lines");
+  await ev(`t.setDebug(false); const p = s.transform.get(${info.hurt[0]}); t.focusScale(p.x, p.y, 3); t.stepTicks(1);`);
+  await settle();
+  await shot("3-tags-dot-zoom");
+  const tags = await ev<unknown>(`return [${info.hurt.join(",")}].map((id) => ({ id, triage: s.soldier.get(id).triage ?? null, alive: s.soldier.get(id).physiology.alive }));`);
+  console.log(`${name}: triage scene ${JSON.stringify(tags)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -1287,6 +1320,7 @@ try {
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }

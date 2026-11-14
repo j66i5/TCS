@@ -208,6 +208,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-man.st-wounded .hud-man-mark { color: #ff6b57; }
 .hud-man.st-down .hud-man-mark, .hud-man.st-captive .hud-man-mark { color: #8a8a8a; }
 .hud-man.st-down, .hud-man.st-captive { opacity: 0.6; }
+/* Triage tag (M10.3b): T1 red, T2 yellow, T3 green, as on the map. */
+.hud-triage { display: inline-block; padding: 0 3px; border-radius: 3px; font-size: 10px; font-weight: 700; line-height: 14px; color: #111; }
+.hud-triage.t1 { background: #ff4a3d; color: #fff; }
+.hud-triage.t2 { background: #ffd23d; }
+.hud-triage.t3 { background: #8fd36a; }
 .hud-ammo { display: inline-flex; gap: 1px; align-items: center; }
 .hud-ammo i { width: 5px; height: 11px; border: 1px solid #7d8a71; border-radius: 1px; background: linear-gradient(to top, #e8d48a var(--f), transparent var(--f)); }
 .hud-ammo b { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: 2px; }

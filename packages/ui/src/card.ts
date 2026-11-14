@@ -33,6 +33,8 @@ export interface ManRow {
   ammo: AmmoState | null;
   state: ManState;
   leader: boolean;
+  /** His triage tag (M10.3b): 1 = T1 immediate .. 3 = T3 minimal; absent: not triaged (or dead, or a prisoner). */
+  triage?: 1 | 2 | 3;
 }
 
 type Man = NonNullable<ReturnType<SimView["soldier"]["get"]>>;
@@ -45,6 +47,11 @@ export function manState(s: Man): ManState {
   if (b === "pinned" || b === "panicked" || b === "routed") return "pinned";
   if (b === "shaken") return "shaken";
   return "steady";
+}
+
+/** His triage tag as shown (M10.3b): only while he is alive and not a prisoner. */
+export function triageOf(s: Man): Man["triage"] | undefined {
+  return s.triage !== undefined && s.physiology.alive && s.captive === null ? s.triage : undefined;
 }
 
 /** His weapon's rounds (null without a weapon that takes magazines or belts). */
@@ -87,7 +94,8 @@ export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId): Ma
   for (const id of cardMen(view, catalog, unit)) {
     const s = view.soldier.get(id), i = view.identity.get(id);
     if (!s || !i) continue;
-    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), leader: leaders.has(id) });
+    const tag = triageOf(s);
+    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), leader: leaders.has(id), ...(tag ? { triage: tag.cat } : {}) });
   }
   return out;
 }
@@ -103,6 +111,11 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (s.casualty === "incapacitated" || !isAble(s)) return { key: "incapacitated" };
   if (s.mount !== undefined) return { key: "aboard" };
   if (s.evade && view.tick >= s.evade.startTick && view.tick < s.evade.untilTick) return { key: "evading" };
+  // Care (M10.2-M10.3b): treating himself or a comrade, dragging one into cover, on his way to one.
+  const act = view.action.get(id);
+  if (act?.kind === "treat") return { key: Number(act.params["casualty"]) === id ? "selfAid" : "treating" };
+  if (act?.kind === "drag") return { key: "dragging" };
+  if (s.intent?.kind === "care") return { key: "care" };
   const b = s.mental.behaviour;
   if (b === "panicked" || b === "routed") return { key: b };
   const intent = s.intent?.kind;
@@ -138,6 +151,8 @@ export interface ManDetail {
   /** Wounds that broke the skin (as in the after-action review), worst first. */
   wounds: { zone: string; severity: number }[];
   activity: Activity;
+  /** His triage tag (M10.3b) and the role of the man who gave it (his faction's role id). */
+  triage?: { cat: 1 | 2 | 3; byRole: string; byFaction: string };
 }
 
 /** Everything the man box shows (S6): a read-only snapshot of one man. */
@@ -152,7 +167,15 @@ export function manDetail(view: SimView, catalog: Catalog, id: EntityId): ManDet
     heartRateBpm: s.physical.heartRateBpm, winded: s.physical.winded,
     wounds: s.wounds.filter((w) => w.mechanism !== "blunt").map((w) => ({ zone: w.zone, severity: w.severity })).sort((a, b) => b.severity - a.severity),
     activity: activityOf(view, id),
+    ...triageDetail(view, s),
   };
+}
+
+function triageDetail(view: SimView, s: Man): Pick<ManDetail, "triage"> {
+  const t = triageOf(s);
+  if (!t) return {};
+  const by = view.identity.get(t.by);
+  return { triage: { cat: t.cat, byRole: by?.role ?? "", byFaction: by?.faction ?? "" } };
 }
 
 // ---- the fire row (S3)
@@ -333,12 +356,12 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           rows.set(r.id, e);
         }
         const a = r.ammo;
-        const key = `${r.state}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}`;
+        const key = `${r.state}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}|${r.triage ?? ""}`;
         if (key !== e.key) {
           e.key = key;
           e.b.className = `hud-man st-${r.state}${r.leader ? " leader" : ""}`;
           e.b.innerHTML = `<span class="hud-man-mark">${stateMark(r.state)}</span>`
-            + `<span class="hud-man-role">${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`
+            + `<span class="hud-man-role">${r.triage ? `<span class="hud-triage t${r.triage}" title="${s.t(`card.triage.${r.triage}`)}">${s.t(`card.triage.short.${r.triage}`)}</span> ` : ""}${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`
             + `<span class="hud-man-weapon">${r.weapon ? text(`weapon.${r.weapon}`, r.faction) : ""}</span>`
             + fmtAmmo(a);
           e.b.title = `${text(`rank.${r.faction}.${r.rank}`, r.faction)} ${r.family} · ${s.t(`card.state.${r.state}`)}`;
@@ -425,7 +448,8 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
         + `<div class="hud-manbox-line"><b>${esc(s.t("card.stateLabel"))}</b> ${esc(s.t(`behaviour.${d.behaviour}`))}${d.winded ? ` · ${esc(s.t("card.winded"))}` : ""} · ${esc(s.t("card.pulse", { bpm: Math.round(d.heartRateBpm) }))}</div>`
         + bar(s.t("card.fatigue"), d.fatigue, true) + bar(s.t("card.suppression"), d.suppression, true)
         + bar(s.t("card.stress"), d.stress, true) + bar(s.t("card.morale"), d.morale, false)
-        + `<div class="hud-manbox-line"><b>${esc(s.t("card.wounds"))}</b> ${d.wounds.length === 0 ? esc(s.t("card.noWounds")) : d.wounds.map((w) => esc(`${s.t(`zone.${w.zone}`)} (${sev(w.severity)})`)).join(", ")}</div>`;
+        + `<div class="hud-manbox-line"><b>${esc(s.t("card.wounds"))}</b> ${d.wounds.length === 0 ? esc(s.t("card.noWounds")) : d.wounds.map((w) => esc(`${s.t(`zone.${w.zone}`)} (${sev(w.severity)})`)).join(", ")}</div>`
+        + (d.triage ? `<div class="hud-manbox-line"><b>${esc(s.t("card.triage"))}</b> <span class="hud-triage t${d.triage.cat}">${esc(s.t(`card.triage.short.${d.triage.cat}`))}</span> ${esc(s.t("card.triage.by", { cat: s.t(`card.triage.${d.triage.cat}`), role: s.t(`role.${d.triage.byFaction}.${d.triage.byRole}`, {}, d.triage.byFaction) }))}</div>` : "");
       if (html !== last) { last = html; body.innerHTML = html; }
     },
   };

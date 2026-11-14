@@ -46,6 +46,12 @@ export type SimEvent =
   /** M10.3a: a man leaves the fight to go to a casualty (`assigned`), or goes back (`reason`: done, handed over to a
    *  first responder, nothing he can do, gave up, unable, casualty dead or gone). */
   | { kind: "medical.carer"; tick: number; casualty: EntityId; by: EntityId; responder: boolean; assigned: boolean; reason?: string }
+  /** A casualty was triaged (M10.3b): the tag given (`cat`, 1 = T1 immediate .. 3 = T3 minimal), the true category
+   *  at that moment (`actual`; differs when the tag is wrong), by whom, with what training, under fire or not. */
+  | { kind: "medical.triaged"; tick: number; casualty: EntityId; by: EntityId; cat: number; actual: number; skill: string; underFire: boolean }
+  /** A one-man drag to cover (M10.3b): started (`done` false, with the distance) or ended (`done` true; `reason`
+   *  when it was cut short). */
+  | { kind: "medical.dragged"; tick: number; casualty: EntityId; by: EntityId; done: boolean; distanceM: number; reason?: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

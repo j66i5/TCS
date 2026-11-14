@@ -15,7 +15,9 @@ import type { SimState } from "./state";
 export interface ActionHandler {
   /** Return a reason string to interrupt, or null to continue. Called every tick. */
   check(ctx: SimContext, state: SimState, actor: EntityId, action: Action): string | null;
-  /** Apply the effect when the duration has elapsed. */
+  /** Optional: finished before its duration has elapsed (a drag that has arrived, M10.3b); then `complete` runs. */
+  done?(ctx: SimContext, state: SimState, actor: EntityId, action: Action): boolean;
+  /** Apply the effect when the duration has elapsed (or `done` says so). */
   complete(ctx: SimContext, state: SimState, actor: EntityId, action: Action, events: EventSink): void;
 }
 
@@ -115,7 +117,7 @@ export function actionSystem(ctx: SimContext, state: SimState, events: EventSink
       interruptAction(state, events, actor, why);
       continue;
     }
-    if (state.tick >= a.startTick + a.durationTicks) {
+    if (state.tick >= a.startTick + a.durationTicks || (h.done !== undefined && h.done(ctx, state, actor, a))) {
       state.action.delete(actor);
       h.complete(ctx, state, actor, a, events);
       events.emit({ kind: "action.completed", tick: state.tick, actor, action: a.kind });

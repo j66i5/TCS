@@ -242,7 +242,11 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    comrade (doctrine `casualtyCarePriority`, behaviour, morale, suppression, squad, exposure), at most the first
    responder plus one comrade (owner Q-2a); leaders stay; unit orders and drills pass carers by; no surrender with
    a carer; `medical.carer` events; batch "Carers" line.
-6. ⬜ **M10.3b Triage, care under fire, "Medic!"** (slice 7)
+6. ✅ **M10.3b Triage, care under fire, "Medic!"** (slice 7, 2026-11-14) — the treating soldier tags a casualty
+   T1/T2/T3 (`medical.triaged`), sometimes wrongly at the data's rates by training; the tag on the map (own men)
+   and on the card; under fire a carer gets a casualty into cover (he walks there himself, or is dragged at 0.7 m/s
+   with a smoke screen; `medical.dragged`), and care goes on there; "Medic!" and "Man down, treating" on the
+   radio; debug reasons why nobody comes; batch "Triage, care under fire" line (preventable deaths).
 7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
 8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
 9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)

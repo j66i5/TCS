@@ -512,13 +512,18 @@ export const MedicalFile = z.object({
     obscuredFactor: Num(0, 1), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
     medicFiredLosesProtectionS: Num(0, 3600),
   }),
-  triage: withProv({ errorChance: BySkill(0, 1), underFireAdd: Num(0, 1) }),
+  /** Triage (M10.3b): error chances by training, what makes a casualty T1, when he is tagged again. */
+  triage: withProv({
+    errorChance: BySkill(0, 1), underFireAdd: Num(0, 1), immediateTreats: z.array(z.string()), immediateShock: Num(0, 1),
+    immediateConsciousness: Num(0, 1), retriageS: Num(0, 36000),
+  }),
   /** How care is given (M10.2): cadence, buddy reach, attempts, thresholds, the MARCH order of interventions. */
   care: withProv({
     stepS: Num(0.1, 60), buddyReachM: Num(0.5, 20), maxAttempts: z.number().int().min(1).max(10), painTreatAt: Num(0, 1),
     skillRef: Num(0, 1), skillK: Num(0, 2), underFireSuppression: Num(0, 1), underFireSeconds: Num(0, 600),
     junctionalZones: z.array(z.enum(["head", "neck", "chest", "abdomen", "pelvis", "armL", "armR", "legL", "legR"])),
     order: z.array(Id).min(1),
+    dragSearchM: Num(0, 100), dragMaxM: Num(0, 200), radioCooldownS: Num(0, 600),
   }),
   /** Who goes to a casualty further away (M10.3a): reach, what looks urgent, willingness, the cap, the timeout. */
   carers: withProv({

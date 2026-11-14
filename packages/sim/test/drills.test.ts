@@ -57,13 +57,29 @@ describe("squad drills (M4.3)", () => {
   });
 
   it("a withdrawal bounds back to the rally point, the halt covering toward the enemy", () => {
-    const sim = createSim(setup());
+    // (Three men would go back together: overnight pick "defence-fallback"; bounding is tested with that off.)
+    const sim = createSim(setup((i) => { i.catalog = { ...i.catalog, behaviour: { ...i.catalog.behaviour, drills: { ...i.catalog.behaviour.drills, withdrawTogetherMen: 0 } } }; }));
     const [bid, blue] = unitOf(sim, "blue");
     run(sim, 8); // they see the enemy
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "withdraw", x: 10, y: 120 });
     const ev = run(sim, 120);
     expect(radioKeys(ev, "blue")).toContain("radio.withdrawn");
     expect(ev.some((e) => e.kind === "shot.fired" && blue.members.includes(e.shooter))).toBe(true);
+    for (const m of blue.members) expect(sim.state.transform.req(m).y).toBeGreaterThan(105);
+  });
+
+  it("a remnant of withdrawTogetherMen or fewer goes back in one leg, all together (overnight pick defence-fallback)", () => {
+    const sim = createSim(setup());
+    const [bid, blue] = unitOf(sim, "blue");
+    expect(blue.members.length).toBeLessThanOrEqual(sim.ctx.catalog.behaviour.drills.withdrawTogetherMen);
+    run(sim, 8);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "withdraw", x: 10, y: 120 });
+    let together = 0;
+    const ev = run(sim, 120, () => {
+      if (blue.members.every((m) => sim.state.soldier.req(m).casualty !== "none" || (sim.state.mover.get(m)?.waypoints.length ?? 0) > 0)) together++;
+    });
+    expect(radioKeys(ev, "blue")).toContain("radio.withdrawn");
+    expect(together).toBeGreaterThan(secondsToTicks(5));
     for (const m of blue.members) expect(sim.state.transform.req(m).y).toBeGreaterThan(105);
   });
 

@@ -343,7 +343,7 @@ export const BehaviourFile = withProv({
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
     breakPanickedFraction: Num(0, 1), rallyDistanceM: Num(0, 2000), rallyQuietSeconds: Num(0, 600), rallyStressFactor: Num(0, 1), fallBackM: Num(0, 2000),
-    reactNeighbourM: Num(0, 1000), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600),
+    reactNeighbourM: Num(0, 1000), boundDoneShare: Num(0, 1), stragglerS: Num(0, 600), withdrawTogetherMen: Num(0, 50),
     suppressShortM: Num(0, 100), coverTargetM: Num(0, 500), laneClearM: Num(0, 50), laneShiftMaxM: Num(0, 100), coverFiredS: Num(0, 60), coverWaitS: Num(0, 600), coverRetaskS: Num(0, 60), sidestep: z.boolean(), suppressIntervalS: Num(0, 60),
   }).strict(),
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */

@@ -3269,3 +3269,69 @@ halts to the estimate).
 Goldens changed (`npm run golden:update`): platoon-vehicles-s1 only (the only golden with an AI defender;
 first difference at tick 600, its first checkpoint). Recorded orders of the others unchanged. New test
 `tools/test/siting.test.ts`.
+
+## 2026-11-14 — Defence fall-back: only under a close threat, each squad to its own covered rally point, then hold (overnight AI, pick "defence-fallback")
+
+Before, the AI defender sent every squad below half strength back, whatever the threat, to one point 100 m from the
+main objective along (main - map centre): in the 46 before-runs below 8 of 26 / 11 of 35 / 2 of 12 withdrawals
+(platoon / platoon-ru / platoon-vehicles) began with the nearest known enemy beyond 150 m, the rally point was in
+the open (exposure >= 0.9) in 52 of 73, the second objective's squad crossed 200-340 m of field to the main
+objective's point, and the squads ended bunched at one spot.
+
+- **When (commander.ts `COMMANDER.fallback`, low).** A squad below half strength (`fitShare` < 0.5, as before) falls
+  back only when (a) an enemy its side knows is within `threatM` 150 m of its men's centre, (b) the objective it is
+  at (nearest held, within its ring + `assaultSlackM` 30 m) is contested, or (c) enemies known within `flankM`
+  300 m spread over `flankDeg` 120 deg of bearing ("two sides"). Otherwise it holds and is looked at again every
+  5 s. **Low**: 150 m is the pick's "~150 m"; contested = assaulted is the simplest reading.
+- **Where (low).** Its own rally point, from its own position: `rallyM` 80/100/125/150 m back, up to `rallyMaxDeg`
+  30 deg off the bearing away from the centre of the enemies its men know (those within `enemyNearM` 400 m if any;
+  else the side's knowledge; else away from the edge the attack is expected from), candidates every 15 deg, each
+  snapped to the best cover within `rallyCoverM` 30 m (`bestCoverNear`), never indoors, never in the open
+  (`openExposure` 0.9) or within `rallySpreadM` 25 m of another squad's rally point, scored by the share of its
+  objective (centre, ring, and 40/90 m beyond it toward the enemy) a man lying there sees (`seenShare`, the siting
+  sight sampler) + 0.3 x cover - 0.2 x the turn. The second objective's squad falls back behind its own position, so
+  behind its own objective. (No route check: every candidate lies within 30 deg of straight away from the enemy, so
+  the way back never leads toward him.)
+- **Then (low).** When its withdraw drill is over (seen running, then gone; or 30 s after the order if it never
+  showed), each able man gets a fire position of his own within `rallySiteM` 20 m of the rally point (`siteDefence`
+  with a new optional search radius), facing the middle of what he sees of the objective and the ground beyond it,
+  at a run; a man already well placed gets a posture prone. The squad holds there.
+- **Counter-attack (low).** The rule "two un-withdrawn squads at >= 50 %, or one at >= 70 %" now also counts a squad
+  holding its rally point with at least `counterMinMen` 2 able men toward the two; it covers the counter-attack from
+  where it is (it is not sent in itself: two or three men in an assault would be thrown away).
+- **SIM CHANGE: a remnant goes back in one leg (`drills.withdrawTogetherMen` 3, behaviour.json, low).** A withdrawal
+  by three able men or fewer goes straight to the last leg (all together, spread about the rally point, prone facing
+  the enemy) instead of bounding. Reason: with the new trigger nearly every withdrawal is two men with the enemy at
+  50-120 m; bounding 1+1 left one man lying alone to "cover" while the other ran 30 m, drills lasted up to 330 s, and
+  most casualties were the man lying still at the start. This applies to player orders too (owner question below).
+  0 = always bound.
+- **Not done:** smoke for the fall-back (the defender has 4 mortar smoke rounds and never uses them, but ranging +
+  delay is ~115 s, longer than most fall-backs now take); crawling back for a pinned man (pinned men still lie where
+  they are when the rush starts: most of the remaining casualties).
+
+Measured, same seeds, 1200 s (`ai-night/fallback/fb2.mts`, 20 seeds platoon and platoon-ru, 6 platoon-vehicles),
+before -> after:
+- rally point not in the open (exposure < 0.9): 6/26 -> 20/21, 8/35 -> 23/25, 0/12 -> 9/9 (target >= 80 %: met);
+- angle between rally bearing and away from the known-enemy centre < 30 deg: 3/26 -> 21/21, 12/35 -> 24/25,
+  8/12 -> 9/9 (median 46 / 40 / 14 -> 6 / 11 / 4 deg: met);
+- nearest known enemy beyond 150 m at the start: 5/26 -> 1/21 (contested or two sides), 11/35 -> 0/25, 2/12 -> 0/9;
+- defender casualties during the drill and within 120 s after, per man withdrawn: 0.51 -> 0.46 (platoon),
+  0.56 -> 0.41 (platoon-ru), 0.75 -> 0.31 (platoon-vehicles). **Target (half the platoon-ru figure, 0.28) not met**:
+  the fall-back now starts under a close threat, with about two men left (1.8-2.0 per withdrawal before and after),
+  and the men still dying are mostly pinned where they lay when the rush began. Without the one-leg rush (commander
+  only) it was 0.52 / 0.51 / 0.60;
+- median drill length 87 / 84 / 107 s -> 70 / 55 / 54 s;
+- counter-attack orders (runs with one): 11 (6) -> 15 (7) platoon, 18 (6) -> 9 (4) platoon-ru, 0 -> 0 mounted;
+- outcomes: platoon attacker wins 6 -> 7 / 20, main held at the end 70 -> 65 %, defender survivors 5.8 -> 5.5,
+  attackers down 18.1 -> 17.8; platoon-ru 12 -> 10 / 20, held 55 -> 65 %, survivors 4.1 -> 4.5, attackers down
+  14.0 -> 13.3; platoon-vehicles 4 -> 3 / 6, survivors 5.0 -> 7.2. All within noise.
+
+Owner questions: (1) is "half strength AND a close threat" the right trigger (recommended), or should a weakened squad
+also fall back earlier, before the enemy is close (it then survives more often but gives ground for nothing)?
+(2) should a remnant of three or fewer withdraw in one rush (recommended; also your own squads), or always by bounds?
+(3) threat radius 150 m and rally distance 80-150 m (game values).
+Goldens changed (`npm run golden:update`): all seven regenerated for the catalog fingerprint (behaviour.json); the
+recorded orders changed only in platoon-vehicles-s1 (the only golden with an AI defender). no-interiors goldens
+untouched. New tests: `tools/test/fallback.test.ts` (holds at 300 m, falls back at 120 m to a covered point behind it
+within 30 deg, men placed at the rally point, memory plain data); `sim/test/drills.test.ts` (a remnant goes back in
+one leg; the bounding test now runs with the rule off).

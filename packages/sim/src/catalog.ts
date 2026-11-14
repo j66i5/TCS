@@ -291,6 +291,9 @@ export interface BehaviourDef {
      *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
      *  (overnight pick "assault-tempo" 2026-11-14). */
     boundDoneShare: number; stragglerS: number;
+    /** A withdrawal by this many able men or fewer goes back in one leg, all together (no bounds: nobody is left
+     *  lying alone to cover; overnight pick "defence-fallback" 2026-11-14). 0 = always bound. */
+    withdrawTogetherMen: number;
     /**
      * Covering fire (overnight pick "covering-fire" 2026-11-14). A drill's or an order's fire task may end in cover
      * up to `suppressShortM` short of the point (the rounds go into it); a covering man takes an enemy he knows within

@@ -13,7 +13,11 @@ side is commanded by the computer: in defence each man first walks to a fire pos
 his squad's place (the spot that sees most of the ground the attack must cross, in cover, at least 3 m and if it can
 5 m from the next man, the squads at an objective inside its ring), lies down facing what he sees and fires at will
 out to 300 m, pulls
-back squads that have lost half their men and counterattacks a lost objective while it is strong enough; in
+back a squad that has lost half its men once the enemy is close (a known enemy within 150 m, its objective
+assaulted, or enemies on two sides; until then it holds) to a rally point of its own 80-150 m behind it, away from
+the enemy it knows, in cover and seeing its objective, where each man takes a fire position facing the enemy's way
+(a remnant of three or fewer goes back in one rush, all together, instead of by bounds; yours too), and
+counterattacks a lost objective while it is strong enough (a squad holding its rally point counts toward that); in
 attack (on foot) it swings its way in away from the second objective, whose defenders it blinds with smoke, moves
 up to places about 330 m out from which its squads can actually fire on the objective (a squad that went to ground
 on the way gets up and goes on after 15 s), calls mortar fire and a smoke screen to land as it arrives (called when two thirds of its squads are within the
@@ -477,7 +481,8 @@ the other half goes. If the runners are pinned the turn passes after
 40 s; a runner who is pinned on the way stays down and the others go on without waiting for him; when every man
 is pinned the squad waits. **Withdraw**
 (order, with a rally point): the same backwards, the halt firing toward the enemy it knows;
-the last 30 m together ("back at the rally point"). **Breaking.** When half a unit's able men have panicked, the
+the last 30 m together ("back at the rally point"); a unit of three able men or fewer goes back in one rush, all
+together (with only two men, bounding left one lying alone to cover the other and took minutes). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
 ("rallied"), still uneasy (stress reduced to 60 %).

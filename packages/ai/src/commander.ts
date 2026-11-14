@@ -6,8 +6,10 @@
  * and decisions; the commander decides what each squad does.
  *
  * Defence: everyone down in his position, fire at will out to `defenceRangeM`; a squad that has lost half its
- *   men pulls back behind the main objective; if the main objective is lost while two squads are still fit (or
- *   one nearly whole), the strongest counterattacks it.
+ *   men pulls back once the enemy is close (within `fallback.threatM`, its objective assaulted, or enemies on two
+ *   sides) to a covered rally point of its own behind it that still sees its objective, and holds there; if the main
+ *   objective is lost while two squads are still fit (a squad holding its rally point counts as the second), or one
+ *   nearly whole, the strongest counterattacks it.
  * Attack: the platoon moves up to a support line about `supportM` from the main objective, on an axis turned away
  *   from the other objective's garrison (blinded with smoke), each squad to a place with a field of fire (going
  *   to ground on contact, then moving on to it), and looks for the enemy there (up to `reconSeconds`) while the
@@ -21,15 +23,27 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, cos, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
-import { approachPoints, siteDefence, type SitingGroup } from "./siting";
+import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, fallBackM: 100, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
+export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
   // objective's ring holds it, and its men stay inside the ring.
   siteRingSlackM: 15,
+  // Falling back (overnight pick "defence-fallback", game values, low confidence): a squad below half strength
+  // pulls back only when a known enemy is within `threatM` of it, its objective is contested while it is within
+  // `assaultSlackM` of the ring, or enemies are known within `flankM` on two sides (bearings spread `flankDeg`).
+  // Its rally point: `rallyM` back (at least `rallyMinM` after the snap), up to `rallyMaxDeg` off the way away from
+  // the enemy within `enemyNearM` (`rallyAsideDeg` tried), snapped to the best cover within `rallyCoverM`, scored by
+  // what it sees of its objective + `coverW` x cover - `offW` x the turn, never in the open (`openExposure`) or
+  // within `rallySpreadM` of another squad's. There each man takes a fire position within `rallySiteM` (siting.ts);
+  // a squad holding there with `counterMinMen` able men counts for the counter-attack. `drillStartSeconds`: an order
+  // whose drill never showed counts as done after this.
+  fallback: { threatM: 150, assaultSlackM: 30, flankM: 300, flankDeg: 120, enemyNearM: 400, rallyM: [100, 80, 125, 150], rallyMinM: 60,
+    rallyAsideDeg: [0, -15, 15, -30, 30], rallyMaxDeg: 30, rallyCoverM: 30, coverW: 0.3, offW: 0.2, openExposure: 0.9, rallySpreadM: 25, rallySiteM: 20,
+    counterMinMen: 2, drillStartSeconds: 30 },
   // Anti-tank tasks (M7.4b): how often the commander looks for a shot, how fresh a vehicle contact must be, how
   // long a man waits between shots, how far beyond his weapon's range he goes after a halted vehicle (and where
   // he stops: this share of the range), how many such hunters a side sends at once and for how long.
@@ -82,6 +96,9 @@ interface Memory {
   axis?: number;
   /** Each squad's support-by-fire place for objective `placesFor` (chosen once from the map: its field of fire). */
   places?: Record<string, [number, number]>; placesFor?: number;
+  /** Defence (overnight pick "defence-fallback"): the way the attack is expected (rad); each squad's rally point
+   *  [x, y, objective index, tick ordered]; squads seen in their withdraw drill; squads rallied and placed. */
+  front?: number; rally?: Record<string, [number, number, number, number]>; rallySeen?: number[]; rallied?: number[];
 }
 
 /**
@@ -166,6 +183,107 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     // ground: ok (the commander's view of open ground)
     const z0 = heightAt(input.map, ox, oy) + 1.7, z1 = heightAt(input.map, x, y) + 2.2;
     return sight(ctx, ox, oy, z0, x, y, z1).blockedBy !== null;
+  };
+
+  // ---- falling back (overnight pick "defence-fallback"; values in COMMANDER.fallback)
+  /** The way the attack is expected (rad, from the main objective): toward the middle of the map edge farthest
+   *  from where the side starts. */
+  const front0 = (): number => {
+    const main = objectives[0]!;
+    const edges = [[0, H / 2], [W, H / 2], [W / 2, 0], [W / 2, H]] as const;
+    const far = edges.reduce((a, e) => (hypot2(e[0] - sx, e[1] - sy) > hypot2(a[0] - sx, a[1] - sy) ? e : a));
+    return atan2(far[1] - main.y, far[0] - main.x);
+  };
+  /** Enemies the side's men know (not down or given up), each once: its freshest report. */
+  const sideContacts = (view: SimView): { x: number; y: number }[] => {
+    const best = new Map<EntityId, { x: number; y: number; tick: number }>();
+    for (const [id, idn] of view.identity.entries()) {
+      if (idn.side !== side) continue;
+      const s = view.soldier.get(id);
+      if (!s || isCaptive(s) || isOut(s)) continue;
+      for (const c of s.contacts) {
+        if (c.surrendered === true || c.down === true) continue;
+        const b = best.get(c.target);
+        if (!b || c.tick > b.tick) best.set(c.target, { x: c.x, y: c.y, tick: c.tick });
+      }
+    }
+    return [...best.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c);
+  };
+  /** The held objective nearest to (x, y) (index; the main one if none is held). */
+  const ownObjective = (x: number, y: number): number => {
+    let bi = 0, bd = Infinity;
+    objectives.forEach((o, i) => { const d = hypot2(o.x - x, o.y - y); if (curView!.objectives[i]?.holder === side && d < bd) { bd = d; bi = i; } });
+    return bi;
+  };
+  /** A close threat to a squad at (cx, cy): a known enemy within `threatM`, its objective under assault (contested
+   *  while it is within `assaultSlackM` of the ring), or enemies known within `flankM` on two sides (their bearings
+   *  spread over `flankDeg` or more). */
+  const fallbackThreat = (cx: number, cy: number): boolean => {
+    const F = COMMANDER.fallback, view = curView!;
+    const cs = sideContacts(view);
+    if (cs.some((c) => hypot2(c.x - cx, c.y - cy) <= F.threatM)) return true;
+    const oi = ownObjective(cx, cy), o = objectives[oi]!;
+    if (view.objectives[oi]?.contested === true && hypot2(o.x - cx, o.y - cy) <= o.radiusM + F.assaultSlackM) return true;
+    const bs = cs.filter((c) => hypot2(c.x - cx, c.y - cy) <= F.flankM).map((c) => atan2(c.y - cy, c.x - cx)).sort((a, b) => a - b);
+    if (bs.length < 2) return false;
+    let gap = bs[0]! + 2 * PI - bs[bs.length - 1]!;
+    for (let i = 1; i < bs.length; i++) gap = Math.max(gap, bs[i]! - bs[i - 1]!);
+    return 2 * PI - gap >= (F.flankDeg * PI) / 180;
+  };
+  /** Where the enemy is, as these men know him (within `enemyNearM` of (x, y) if any are; else the side's
+   *  knowledge); null if nobody knows of any. */
+  const enemyCentre = (x: number, y: number, men: EntityId[]): { x: number; y: number } | null => {
+    const view = curView!;
+    const own: { x: number; y: number }[] = [];
+    for (const m of men) { const s = view.soldier.get(m); if (s) for (const c of s.contacts) if (c.surrendered !== true && c.down !== true) own.push(c); }
+    const pick = (cs: { x: number; y: number }[]) => {
+      const near = cs.filter((c) => hypot2(c.x - x, c.y - y) <= COMMANDER.fallback.enemyNearM);
+      const use = near.length > 0 ? near : cs;
+      return use.length === 0 ? null : { x: use.reduce((a, c) => a + c.x, 0) / use.length, y: use.reduce((a, c) => a + c.y, 0) / use.length };
+    };
+    return pick(own) ?? pick(sideContacts(view));
+  };
+  /** What a squad at its rally point must see: its objective (the centre and the ring) and the ground beyond it
+   *  toward the enemy (`toward`, rad). */
+  const rallyView = (o: ObjectiveDef, toward: number): { x: number; y: number }[] => {
+    const pts = [{ x: o.x, y: o.y }];
+    for (let k = 0; k < 8; k++) pts.push({ x: o.x + cos((k * PI) / 4) * o.radiusM, y: o.y + sin((k * PI) / 4) * o.radiusM });
+    for (const r of [o.radiusM + 40, o.radiusM + 90]) for (const a of [-30, 0, 30]) {
+      const b = toward + (a * PI) / 180;
+      pts.push({ x: o.x + cos(b) * r, y: o.y + sin(b) * r });
+    }
+    return pts.filter((p) => p.x > 2 && p.y > 2 && p.x < W - 2 && p.y < H - 2);
+  };
+  /**
+   * A squad's rally point: `rallyM` back from where it is, away from the enemy its men know (else from the way the
+   * attack is expected), at most `rallyMaxDeg` off that bearing; each candidate snapped to the best cover within
+   * `rallyCoverM`; the one in cover (exposure < `openExposure`) that sees most of its objective, nearest the bearing,
+   * not within `rallySpreadM` of another squad's rally point.
+   */
+  const rallyPoint = (cx: number, cy: number, men: EntityId[], oi: number): { x: number; y: number } => {
+    const F = COMMANDER.fallback, ctx = ground(), foot = navFor(ctx, "foot").grid;
+    const e = enemyCentre(cx, cy, men);
+    const away = e && hypot2(cx - e.x, cy - e.y) > 1 ? atan2(cy - e.y, cx - e.x) : (mem.front ?? front0()) + PI;
+    const o = objectives[oi]!;
+    const pts = rallyView(o, away + PI);
+    const others = Object.values(mem.rally ?? {});
+    let best: { x: number; y: number } | null = null, bestScore = -Infinity;
+    for (const dist of F.rallyM) for (const da of F.rallyAsideDeg) {
+      const b = away + (da * PI) / 180;
+      const x = Math.min(Math.max(cx + cos(b) * dist, 5), W - 5), y = Math.min(Math.max(cy + sin(b) * dist, 5), H - 5);
+      const q = bestCoverNear(foot, x, y, F.rallyCoverM);
+      if (!q || navCostAt(foot, q.x, q.y) <= 0 || indoorAt(ctx, q.x, q.y) >= 0) continue;
+      const qd = hypot2(q.x - cx, q.y - cy);
+      if (qd < F.rallyMinM) continue;
+      let off = Math.abs(atan2(q.y - cy, q.x - cx) - away);
+      if (off > PI) off = 2 * PI - off;
+      if (off > (F.rallyMaxDeg * PI) / 180) continue;
+      const exp = exposureAt(foot, q.x, q.y);
+      const crowd = others.some((r) => hypot2(r[0] - q.x, r[1] - q.y) < F.rallySpreadM);
+      const score = seenShare(ctx, q.x, q.y, pts) + F.coverW * (1 - exp) - (exp >= F.openExposure ? 1 : 0) - (crowd ? 1 : 0) - (F.offW * off * 180) / PI / F.rallyMaxDeg;
+      if (score > bestScore) { bestScore = score; best = q; }
+    }
+    return best ?? { x: Math.min(Math.max(cx + cos(away) * F.rallyM[0]!, 5), W - 5), y: Math.min(Math.max(cy + sin(away) * F.rallyM[0]!, 5), H - 5) };
   };
 
   return {
@@ -291,9 +409,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             return { men, cx, cy, ...(o ? { ring: { x: o.x, y: o.y, r: o.radiusM } } : {}) };
           }).filter((g) => g.men.length > 0);
           // The attack is expected from the middle of the map edge farthest from where the side starts.
-          const edges = [[0, H / 2], [W, H / 2], [W / 2, 0], [W / 2, H]] as const;
-          const far = edges.reduce((a, e) => (hypot2(e[0] - sx, e[1] - sy) > hypot2(a[0] - sx, a[1] - sy) ? e : a));
-          const front = atan2(far[1] - main.y, far[0] - main.x);
+          const front = mem.front = front0();
           const placed = new Set<EntityId>();
           for (const p of siteDefence(ground(), groups, approachPoints(ground(), main.x, main.y, front))) {
             if (!p.move) continue;
@@ -304,12 +420,44 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           mem.phase = "hold";
           return out;
         }
-        // Away from the attack: from the map's middle through the objective.
-        const ax = main.x - W / 2, ay = main.y - H / 2, al = hypot2(ax, ay) || 1;
+        mem.front ??= front0();
+        // Falling back (overnight pick "defence-fallback"): a squad below half strength pulls back only under a
+        // close threat, each to a covered rally point of its own behind its own position, then holds there.
+        const F = COMMANDER.fallback;
         for (const sq of squads) {
-          if (fitShare(sq) < 0.5 && fitShare(sq) > 0 && !mem.pulledBack.includes(sq)) {
-            order(sq, { kind: "withdraw", x: clamp(main.x + (ax / al) * COMMANDER.fallBackM, W), y: clamp(main.y + (ay / al) * COMMANDER.fallBackM, H) });
-            mem.pulledBack.push(sq);
+          const f = fitShare(sq);
+          if (f >= 0.5 || f <= 0 || mem.pulledBack.includes(sq)) continue;
+          const men = members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && view.transform.has(m) && (view.soldier.get(m) as SoldierState).mount === undefined);
+          if (men.length === 0) continue;
+          const cx = men.reduce((a, m) => a + view.transform.get(m)!.x, 0) / men.length, cy = men.reduce((a, m) => a + view.transform.get(m)!.y, 0) / men.length;
+          if (!fallbackThreat(cx, cy)) continue;
+          const oi = ownObjective(cx, cy);
+          const rp = rallyPoint(cx, cy, men, oi);
+          order(sq, { kind: "withdraw", x: rp.x, y: rp.y });
+          mem.pulledBack.push(sq);
+          (mem.rally ??= {})[String(sq)] = [rp.x, rp.y, oi, tick];
+        }
+        // At the rally point (the drill over): each man to a fire position of his own within `rallySiteM`, lying
+        // down facing the objective and the way the enemy comes.
+        for (const sq of mem.pulledBack) {
+          const r = mem.rally?.[String(sq)];
+          if (!r || (mem.rallied ??= []).includes(sq)) continue;
+          const d = view.unit.get(sq)?.drill;
+          if (d) {
+            if (d.kind === "withdraw" && !(mem.rallySeen ??= []).includes(sq)) mem.rallySeen.push(sq);
+            continue;
+          }
+          if (!(mem.rallySeen ?? []).includes(sq) && tick - r[3] < F.drillStartSeconds * 60) continue;
+          mem.rallied.push(sq);
+          const men = members(view, sq).filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined && s!.impair.canWalk && view.transform.has(m); })
+            .sort((a, b) => a - b).map((m) => { const t = view.transform.get(m)!; return { id: m, x: t.x, y: t.y }; });
+          if (men.length === 0) continue;
+          const o = objectives[r[2]] ?? main;
+          const e = enemyCentre(r[0], r[1], men.map((m) => m.id));
+          const toward = e ? atan2(e.y - o.y, e.x - o.x) : mem.front;
+          for (const p of siteDefence(ground(), [{ men, cx: r[0], cy: r[1] }], rallyView(o, toward), F.rallySiteM)) {
+            if (p.move) order(p.id, { kind: "move", waypoints: [{ x: p.x, y: p.y, mode: "run" }], facing: Number.isNaN(p.facing) ? toward + PI : p.facing });
+            else order(p.id, { kind: "posture", posture: "prone" });
           }
         }
         // Mortars on attackers its men have seen out in the open (not near its own men).
@@ -327,8 +475,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         }
         if (!holds(0) && tick - mem.counterTick > 60 * 60) {
           const fit = squads.filter((sq) => !mem.pulledBack.includes(sq) && strength(sq) >= 0.5);
+          // (Overnight pick "defence-fallback": a squad that fell back and holds its rally point with at least
+          // `counterMinMen` able men still counts as the second squad: it covers the counter-attack from there.)
+          const holding = squads.filter((sq) => (mem.rallied ?? []).includes(sq) && !view.unit.get(sq)?.drill
+            && members(view, sq).filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length >= COMMANDER.fallback.counterMinMen);
           const best = [...fit].sort((a, b) => strength(b) - strength(a) || a - b)[0];
-          if (best !== undefined && (fit.length >= 2 || strength(best) >= 0.7)) {
+          if (best !== undefined && (fit.length + holding.length >= 2 || strength(best) >= 0.7)) {
             order(best, { kind: "assault", x: main.x, y: main.y });
             mem.counterTick = tick;
           }

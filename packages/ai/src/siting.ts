@@ -56,8 +56,8 @@ export function approachPoints(ctx: SimContext, ox: number, oy: number, front: n
   return out;
 }
 
-/** Each man's fire position (see the module comment). */
-export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts: readonly { x: number; y: number }[]): SitingPlace[] {
+/** Each man's fire position (see the module comment); `searchM`: how far from the group's place (default `SITING.searchM`). */
+export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts: readonly { x: number; y: number }[], searchM: number = SITING.searchM): SitingPlace[] {
   const S = SITING, map = ctx.map, foot = navFor(ctx, "foot").grid;
   const N = pts.length;
   const eye = eyeHeightM(ctx, "prone"), tz = ctx.catalog.body.postures.crouching.heightM * 0.8;
@@ -88,7 +88,7 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
   };
   const lists = groups.map((g) => {
     const out: NonNullable<ReturnType<typeof candOf>>[] = [];
-    const k = Math.floor(S.searchM / S.gridM);
+    const k = Math.floor(searchM / S.gridM);
     for (let dy = -k; dy <= k; dy++) for (let dx = -k; dx <= k; dx++) {
       if (dx * dx + dy * dy > k * k) continue;
       const x = g.cx + dx * S.gridM, y = g.cy + dy * S.gridM;
@@ -123,7 +123,7 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
         let gain = 0;
         for (let i = 0; i < N; i++) if (c.seen[i] === 1 && union[i] === 0) gain++;
         const score = (c.n + S.gainW * gain) / Math.max(1, N) + S.coverW * (1 - c.exp) - (c.exp >= 0.9 ? S.openPenalty : 0)
-          - (near < S.spacingM ? (S.spacingM - near) * S.spacingPenalty : 0) - (S.distW * hypot2(c.x - m.x, c.y - m.y)) / S.searchM;
+          - (near < S.spacingM ? (S.spacingM - near) * S.spacingPenalty : 0) - (S.distW * hypot2(c.x - m.x, c.y - m.y)) / searchM;
         if (score > bestScore) { bestScore = score; best = c; }
       }
       if (!best) { taken.push({ x: m.x, y: m.y }); result.push({ id: m.id, x: m.x, y: m.y, facing: NaN, move: false }); return; }
@@ -133,4 +133,14 @@ export function siteDefence(ctx: SimContext, groups: readonly SitingGroup[], pts
     });
   }
   return result.sort((a, b) => a.id - b.id);
+}
+
+/** The share of `pts` a man lying at (x, y) sees (visibility >= `seenVisibility` to a crouching man). */
+export function seenShare(ctx: SimContext, x: number, y: number, pts: readonly { x: number; y: number }[]): number {
+  if (pts.length === 0) return 0;
+  const map = ctx.map, tz = ctx.catalog.body.postures.crouching.heightM * 0.8;
+  const z0 = heightAt(map, x, y) + eyeHeightM(ctx, "prone"); // ground: ok (a man lying on open ground)
+  let n = 0;
+  for (const p of pts) if (sight(ctx, x, y, z0, p.x, p.y, heightAt(map, p.x, p.y) + tz).visibility >= SITING.seenVisibility) n++; // ground: ok (open ground)
+  return n / pts.length;
 }

@@ -7,7 +7,8 @@
  *                     a bound toward the objective and goes down while the other fires at it; then they swap.
  *                     Within the last stretch all rush in together and take up positions on the objective.
  *   withdraw          (order) The same, backwards: one half covers toward the enemy it knows while the other
- *                     runs back a bound; the last leg to the rally point together.
+ *                     runs back a bound; the last leg to the rally point together (a remnant of
+ *                     `withdrawTogetherMen` or fewer goes back in one leg, all together).
  *   break and rally   When half a unit's able men panic, it breaks: they run back, away from the enemy they know,
  *                     and do not obey orders or fire. Once nothing has been fired at them for a while and they
  *                     have reached the rally point they rally, shaken but steadier.
@@ -152,7 +153,8 @@ function startPhase(ctx: SimContext, state: SimState, uid: EntityId, d: Drill, e
   const enemy = knownEnemy(state, all);
   const c = movers.length > 0 ? centroid(state, movers) : centroid(state, all);
   const dist = hypot2(d.x - c.x, d.y - c.y);
-  const last = dist <= (d.kind === "assault" ? finalM : boundM);
+  // (A remnant withdrawing, `withdrawTogetherMen` or fewer, goes back in one leg: overnight pick "defence-fallback".)
+  const last = dist <= (d.kind === "assault" ? finalM : boundM) || (d.kind === "withdraw" && all.length <= D.withdrawTogetherMen);
   if (last) {
     // The last rush onto the objective (or the last leg back): everyone together, spread around the point.
     d.final = true;

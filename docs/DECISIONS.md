@@ -3379,3 +3379,9 @@ platoon 1200 s: attacker (blue) wins 5/20 (7/20 after the fall-back pick: noise 
 red 12.95. Goldens changed (`npm run golden:update`): all seven regenerated (catalog fingerprint, behaviour.json);
 behaviour changed where comrades shared x, y on two floors or lay dead or hit nearby (village-occupy-s1 most;
 the recorded orders changed in platoon-vehicles-s1). no-interiors goldens untouched.
+
+## 2026-11-14 — Owner answers on the overnight AI work
+- Village balance: **accept a harder village** (sited defence kept, attack not re-tuned).
+- Ducking between shots: **everyone ducks**, defenders behind walls included (as built).
+- Assault rest: **up to 60 s** (as built).
+- Next: **M7.5e AI uses buildings**.

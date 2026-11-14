@@ -5,6 +5,7 @@ import {
   stripInteriors, surrender, type Building, type MapDef, type Sim, type SimEvent,
 } from "../src/index";
 import { EventSink } from "../src/events";
+import { updateImpairment } from "../src/impair";
 import { armedInput, testCatalog, testInput } from "./helpers";
 
 /** The M7.5c test house (12 x 10 m, two storeys of 2.8 m, two rooms each floor, stairs in the west room). */
@@ -224,6 +225,10 @@ describe("floors: errands to a floor above (review fix M7.5)", () => {
       const u = [...sim.state.unit.entries()].find(([, x]) => x.side === side)![0];
       submitOrder(sim, { tick: 0, issuer: side, target: u, kind: "rules", fire: "hold" });
     }
+    // A broken leg: he cannot walk down to give himself up (owner 2026-11-14), so the enemy comes up for him.
+    const sa = sim.state.soldier.req(a!);
+    sa.wounds.push({ id: sa.nextWoundId++, zone: "legL", mechanism: "bullet", severity: 0.7, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
+    updateImpairment(sim.ctx.catalog, sa);
     surrender(sim.ctx, sim.state, new EventSink(), a!, "wounded");
     // He has seen him give up (kept fresh: the test is about the walk, not about spotting him at the window).
     const know = () => {
@@ -242,6 +247,35 @@ describe("floors: errands to a floor above (review fix M7.5)", () => {
     expect(maxZ).toBeCloseTo(2.8, 9);
     expect(Math.hypot(tr.x - 120, tr.y - 86)).toBeLessThan(1);
     expect(tr.z).toBe(0);
+  });
+
+  it("a prisoner upstairs who can walk comes down the stairs to the enemy and is taken on the ground (owner 2026-11-14)", () => {
+    const sim = simWith(true);
+    const [a] = blueMen(sim);
+    const reds = [...sim.state.soldier.keys()].filter((id) => sim.state.identity.get(id)?.side === "red");
+    const r = reds[0]!;
+    const ta = sim.state.transform.req(a!);
+    ta.x = 109; ta.y = 85; ta.z = 2.8;
+    const tr = sim.state.transform.req(r);
+    tr.x = 120; tr.y = 86;
+    for (const side of ["blue", "red"] as const) {
+      const u = [...sim.state.unit.entries()].find(([, x]) => x.side === side)![0];
+      submitOrder(sim, { tick: 0, issuer: side, target: u, kind: "rules", fire: "hold" });
+    }
+    const sa = sim.state.soldier.req(a!);
+    sa.contacts = [{ target: r, x: tr.x, y: tr.y, errM: 1, kind: "seen", tick: 0, reportedTick: 0 }];
+    surrender(sim.ctx, sim.state, new EventSink(), a!, "panicked");
+    let walked = false, captured = false;
+    for (let k = 0; k < 60 * 120 && !captured; k++) {
+      for (const e of step(sim)) {
+        if (e.kind === "surrender.walk" && e.soldier === a) walked = true;
+        if (e.kind === "captured" && e.soldier === a) captured = true;
+      }
+    }
+    expect(walked).toBe(true);
+    expect(captured).toBe(true);
+    expect(ta.z).toBe(0);
+    expect(Math.hypot(ta.x - tr.x, ta.y - tr.y)).toBeLessThanOrEqual(3);
   });
 });
 

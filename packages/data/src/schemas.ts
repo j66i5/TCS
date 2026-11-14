@@ -194,7 +194,13 @@ export const AmmoSchema = withProv({
   multispectral: z.boolean().optional(),
   /** Hand smoke grenades (D1, M10): `fuseSeconds` after release the grenade starts to smoke where it lies, a cloud
    *  of `radiusM` (growing over spotting.smokeBuildSeconds) for `seconds`. No explosive: it never wounds. */
-  smoke: z.object({ fuseSeconds: Num(0.1, 30), radiusM: Num(1, 100), seconds: Num(1, 1200) }).strict().optional(),
+  smoke: z.object({ fuseSeconds: Num(0.1, 30), radiusM: Num(1, 100), seconds: Num(1, 1200),
+    /** M8.1 volume: the cloud's height (m); it burns `seconds` at its place (a plume in wind) and lingers over the
+     *  spotting fade after. */
+    topM: Num(0.5, 100).optional() }).strict().optional(),
+  /** Illumination rounds (M8.4, `kind: "illumination"`): a flare of `candela` burns `burnSeconds` under a parachute
+   *  from `heightM` above the ground, sinking at `descentMps`. Saved in the state; the light it gives comes in M9.1. */
+  illum: z.object({ candela: Num(0, 1e8), burnSeconds: Num(1, 600), heightM: Num(1, 2000), descentMps: Num(0, 50) }).strict().optional(),
   /** How a soldier sends it on its way without a weapon of its own state: thrown by hand, or fired from a
    *  launcher item he carries (under-barrel or stand-alone grenade launcher). */
   delivery: z.object({
@@ -339,7 +345,10 @@ export const SpottingFile = withProv({
     sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
     moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
   }).strict(),
-  minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+  minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
+  /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
+   *  plume is cut this far behind its head. */
+  smokeFadeSeconds: Num(0, 600).default(0), smokeDriftFactor: Num(0, 2).default(1), smokeStretchMaxM: Num(1, 2000).default(200), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
   contacts: z.object({
     seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),
     heardEverySeconds: Num(0, 60), forgetSeconds: Num(1, 3600), driftMps: Num(0, 20), reportEverySeconds: Num(0, 600), reportedErrorM: Num(0, 500),
@@ -380,6 +389,7 @@ export const BehaviourFile = withProv({
   surrender: z.object({
     stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
+    walkToEnemyM: Num(0, 500), walkSeenFactor: Num(0.05, 1), handOverM: Num(0, 50), walkSpeedFactor: Num(0.1, 1), walkReplanM: Num(0.5, 100), walkTimeoutSeconds: Num(1, 3600),
   }).strict(),
   /** Getting in and out of vehicles (M7.2): the same for every side. */
   mounting: z.object({
@@ -425,7 +435,7 @@ export const BehaviourFile = withProv({
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({
     bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),
-    fireSmokeRadiusM: Num(0, 100), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
+    fireSmokeRadiusM: Num(0, 100), /** M8.1: the burning vehicle's smoke column's height (m). */ fireSmokeTopM: Num(0, 500).default(30), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
@@ -639,6 +649,8 @@ export const FactionManifest = withProv({
   demoTemplate: Id.optional(),
   /** Platoon used by generated battles (M6). */
   platoonTemplate: Id.optional(),
+  /** On-map mortar section generated battles add with `mortars` (M8.3a). */
+  mortarTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -686,6 +698,18 @@ export const ItemSchema = withProv({
   thermalCover: Num(0, 1).optional(),
   /** Battery life of a powered item, hours (M9.2: reserved, not used yet; batteries are M11.6). */
   batteryHours: Num(0, 10000).optional(),
+  /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
+  rangefinder: z.boolean().optional(),
+  /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items
+   *  in the crew's loads), minimum and maximum range (m), seconds to set up and to pack, seconds per round at the
+   *  sustained rate with a full crew, crew (and the fewest who can still fire), the first round's aim error (m per
+   *  axis, as the off-map battery's `rangingErrorM`), dispersion (m per axis per km of range), seconds the crew
+   *  takes to compute and lay a mission, the flight (base + per km), how far the enemy hears it (m). */
+  mortar: z.object({
+    calibre: z.string(), he: Id, smoke: Id, minRangeM: Num(0, 20000), maxRangeM: Num(1, 20000), setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+    roundSeconds: Num(0.5, 120), crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), aimErrorM: Num(0, 500),
+    dispersionPerKmM: Num(0, 200), processingSeconds: Num(0, 600), flightBaseSeconds: Num(0, 120), flightPerKmSeconds: Num(0, 60), hearingRangeM: Num(0, 20000),
+  }).strict().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */
@@ -803,6 +827,8 @@ export const VehicleSchema = withProv({
   dischargers: withProv({
     item: Id, perSalvo: z.number().int().min(1).max(20), salvos: z.number().int().min(1).max(20), arcDeg: Num(1, 360),
     rangeM: Num(1, 200), delaySeconds: Num(0, 30), cloudRadiusM: Num(1, 100), cloudSeconds: Num(1, 1200), component: Id.optional(),
+    /** M8.1: the cloud's height (m); a grenade cloud is a puff (it drifts whole). */
+    cloudTopM: Num(0.5, 200).default(8),
   }).optional(),
   /** Armour (M7.4a): one plate per part and face. Thickness in mm of `material` (resistance per mm from
    *  materials.json, kinetic and shaped); slopeDeg: the plate's lean back from upright (top plates: ignored). */
@@ -868,16 +894,12 @@ export const DOCTRINE_KEYS = [
   "boundM",
   "finalAssaultM",
 ] as const;
-export const DoctrineFile = withProv({
-  /** Formation used when an order does not name one (core/formations.json). */
-  defaultFormation: Id,
-  values: z.object(Object.fromEntries(DOCTRINE_KEYS.map((k) => [k, z.number().min(0).max(100)])) as Record<(typeof DOCTRINE_KEYS)[number], z.ZodNumber>).strict(),
-  /** The fire support a platoon can call (M6.5c): its mortar rounds, how long until the first lands, the spread
-   *  of the fall of shot (one standard deviation, m), the time between rounds, and the smoke screen one round
-   *  lays (radius, how long it lasts). Optional: a faction without it calls no fire. */
-  fireSupport: z.object({
+/** An off-map fire support asset (M6.5c mortars; M8.4 artillery). */
+const FireSupportAsset = z.object({
     heAmmo: Id, smokeAmmo: Id, delaySeconds: Num(0, 1200), dispersionM: Num(0, 500), intervalSeconds: Num(0.5, 120),
     smokeRadiusM: Num(1, 200), smokeSeconds: Num(1, 1800),
+    /** M8.1: a smoke round's cloud height (m) and how long the round burns at its place, feeding the plume (s). */
+    smokeTopM: Num(0.5, 200).default(15), smokeBurnSeconds: Num(0, 1800).default(0),
     /** Scales the rounds a generated battle gives this faction (owner, 2026-11-12: more rounds for the lighter
      *  Russian mortar rather than a heavier one). */
     roundsFactor: Num(0.1, 10).default(1),
@@ -888,7 +910,40 @@ export const DoctrineFile = withProv({
     rangingRounds: z.number().int().min(0).max(5).default(0), rangingErrorM: Num(0, 500).default(0), rangingCorrection: Num(0, 1).default(0.3),
     rangingSeconds: Num(1, 300).default(20), tubes: z.number().int().min(1).max(12).default(1), volleySpreadSeconds: Num(0, 10).default(0.5),
     registeredM: Num(0, 1000).default(0),
-  }).strict().optional(),
+    /** The call-for-fire chain (M8.2a): of `delaySeconds` (the call reaching the section to the first round
+     *  landing), the radio call itself takes `requestSeconds` and the round's flight `flightSeconds`; the rest is
+     *  processing (computing and laying). "Splash" is called `splashSeconds` before a round lands. */
+    requestSeconds: Num(0, 600).default(0), flightSeconds: Num(0, 300).default(0), splashSeconds: Num(0, 60).default(5),
+    /** First-round error by how the target was located (M8.2a): one standard deviation per axis, m, of
+     *  `baseM` + `perM` x the caller's distance to the point, on top of the battery's own `rangingErrorM`
+     *  (absent: the battery's error alone, whatever the method). */
+    locationError: z.object({
+      estimate: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+      laser: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+    }).strict().optional(),
+    /** Adjustment by the observer (M8.2b): his reading error of a fall (m, one standard deviation per axis):
+     *  `readBaseM` + `readPerM` x his distance to it by eye, `laserReadM` with a laser; correction share and reading
+     *  error x a skill factor from `skillWorst` (skill 0) to `skillBest` (skill 1). Absent: the correction alone. */
+    adjust: z.object({ readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5) }).strict().optional(),
+
+    /** M8.4: illumination round (absent: none); airburst height of a proximity or time fuse over the target (m;
+     *  absent: no airburst); danger close (m): a call this close to own men needs `dangerClose` in the order;
+     *  counter-battery (abstract, owner M8 screen 2 (a)): after `missionsBeforeMove` missions the battery displaces
+     *  for `moveSeconds` and takes no calls meanwhile. */
+    illumAmmo: Id.optional(), airburstHeightM: Num(1, 50).optional(), dangerCloseM: Num(0, 5000).optional(),
+    counterBattery: z.object({ missionsBeforeMove: z.number().int().min(1).max(100), moveSeconds: Num(0, 7200) }).strict().optional(),
+  }).strict();
+
+export const DoctrineFile = withProv({
+  /** Formation used when an order does not name one (core/formations.json). */
+  defaultFormation: Id,
+  values: z.object(Object.fromEntries(DOCTRINE_KEYS.map((k) => [k, z.number().min(0).max(100)])) as Record<(typeof DOCTRINE_KEYS)[number], z.ZodNumber>).strict(),
+  /** The fire support a platoon can call (M6.5c): its mortar rounds, how long until the first lands, the spread
+   *  of the fall of shot (one standard deviation, m), the time between rounds, and the smoke screen one round
+   *  lays (radius, how long it lasts). Optional: a faction without it calls no fire. */
+  fireSupport: FireSupportAsset.optional(),
+  /** M8.4: the off-map artillery battery (155 mm / 152 mm) a platoon can call, the same fields. */
+  artillery: FireSupportAsset.optional(),
   /** Where an attacking AI gets its men out of their vehicles (M7.2, owner Q22): this far short of the objective,
    *  out of sight of the enemy where possible. Sourced per faction (docs/research/dismount.md). */
   dismount: withProv({
@@ -913,6 +968,51 @@ export type QualityT = z.infer<typeof QualitySchema>;
 // ---- Appearance (M7.5): presentation only. NOT part of the catalog or its fingerprint (plan m7.5 §1.1).
 // Original colour choices (docs/ASSETS.md), not researched facts: no provenance, an optional note.
 const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lower case)");
+/**
+ * Rank insignia (the "insignia" step, owner 2026-11-14): what one rank wears on the field uniform, as devices drawn
+ * in code by the UI (`ui/src/insignia.ts`). Every count is a device of that kind; absent = none (so `{}` is a plain
+ * board, e.g. a private). Faction-neutral: the drawing never knows whose uniform it is.
+ */
+export const InsigniaDeviceSchema = z.object({
+  /** Diagonal stripes (Schrägstreifen). */
+  bars: z.number().int().min(0).max(6).optional(),
+  /** Narrow stripes across the board (lychki), from its collar end. */
+  stripes: z.number().int().min(0).max(4).optional(),
+  /** One wide stripe across the board (galun), at its collar end. */
+  wideStripe: z.boolean().optional(),
+  /** One wide stripe along the board's middle. */
+  longStripe: z.boolean().optional(),
+  /** Braid (Tresse) round the board: "open" leaves its outer end open, "closed" runs all round. */
+  braid: z.enum(["open", "closed"]).optional(),
+  /** Chevrons, point towards the collar. */
+  chevrons: z.number().int().min(0).max(3).optional(),
+  /** A headed chevron (Kopfwinkel: a chevron closed by a bar under its point) above the chevrons. */
+  headChevron: z.boolean().optional(),
+  /** Stars (pips). */
+  stars: z.number().int().min(0).max(4).optional(),
+  /** "column": along the board's middle from its outer end; "pairs": two side by side at the outer end, the rest
+   *  on the middle line above them (Russian officers). Default "column". */
+  starLayout: z.enum(["column", "pairs"]).optional(),
+  /** Oak leaves (staff officers) at the outer end. */
+  oakLeaves: z.boolean().optional(),
+  note: z.string().optional(),
+}).strict();
+/** A faction's rank insignia: how the board looks and, per rank id, its devices. Researched (sources, confidence). */
+export const FactionInsigniaSchema = z.object({
+  /** "slide": a cloth loop over the shoulder strap (square ends); "pogon": a shoulder board with a pointed,
+   *  buttoned collar end; "tab": a small rounded patch. */
+  shape: z.enum(["slide", "pogon", "tab"]),
+  /** The board's cloth, its edge and the devices' colour. */
+  base: LookColour, edge: LookColour, device: LookColour,
+  /** Points of a star: 4 (pip) or 5. */
+  starPoints: z.union([z.literal(4), z.literal(5)]),
+  ranks: z.record(Id, InsigniaDeviceSchema),
+  sources: z.array(z.url()),
+  confidence: Confidence,
+  note: z.string().optional(),
+}).strict();
+export type InsigniaDeviceT = z.infer<typeof InsigniaDeviceSchema>;
+export type FactionInsigniaT = z.infer<typeof FactionInsigniaSchema>;
 /** A faction's look: uniform tones for the pixel figures (M7.5b) and its vehicles' paint. */
 export const FactionAppearanceFile = z.object({
   uniform: z.object({ base: LookColour, dark: LookColour, light: LookColour, helmet: LookColour, skin: LookColour }).strict(),
@@ -920,6 +1020,8 @@ export const FactionAppearanceFile = z.object({
   /** Painted emblems by vehicle type (M10.6-data): the red cross on an ambulance's roof and sides. Presentation
    *  only; whether the sim treats the hull as marked is the vehicle's `ambulance.marked` (catalog). */
   markings: z.record(Id, z.enum(["red-cross"])).optional(),
+  /** Rank insignia on the field uniform, shown on the unit card (presentation only). */
+  insignia: FactionInsigniaSchema.optional(),
   note: z.string().optional(),
 }).strict();
 /** The flat map palette (M7.5b): one colour per surface, vegetation, roof and floor (keyed by terrain ids). */

@@ -133,7 +133,8 @@
       "smoke": {
         "fuseSeconds": 1,
         "radiusM": 8,
-        "seconds": 40
+        "seconds": 40,
+        "topM": 3
       },
       "delivery": {
         "method": "thrown"

@@ -14,6 +14,7 @@ import {
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
   tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent,
+  mortarTeams,
 } from "@tcs/sim";
 import { BattleRenderer, CELL, FRAMES, LOD_SYMBOLS, OPENING_SCALE, screenToWorld, shownCallsigns, SIDE_COLOURS, VehicleDebug, composeFrame, enemyMenInSight, outlineMask, paletteFor, rotateFrame, worldToScreen, type FrameId, type GestureOverlay, type Look, type Overlay } from "@tcs/render";
 import { playerOrder, createAar, createFloorSwitch, followFloor, unitFloor, type FloorFollow, ordersFor, paceToWaypoint, unitCapabilities, unitTiles, type AarModel, addPoint, attachInput, createHud, dragTo, hitHandle, markerGeometry, newPlan, planToOrder, slotSpan, undoPoint, type Handle, type OrderMode, type Plan, type PlanKind, type UnitRules,
@@ -55,7 +56,7 @@ async function main(): Promise<void> {
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}) });
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}) });
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
@@ -91,7 +92,8 @@ async function main(): Promise<void> {
   try { if (params.get("look")) localStorage.setItem(LOOK_KEY, look); } catch { /* not remembered */ }
   renderer.setLook(look);
   // How the factions look (M7.5a): outside the catalog, so it never touches the battle.
-  renderer.setAppearance(buildAppearance(data, sim.state.sides.map((x) => x.faction)));
+  const appearance = buildAppearance(data, sim.state.sides.map((x) => x.faction));
+  renderer.setAppearance(appearance);
   renderer.setMap(input.map, input.catalog);
   // The battle opens with nothing selected (M7.5a): the order bar is greyed until a unit is picked.
   const overlay: Overlay = { playerSide, selectedUnit: null, debug: false };
@@ -234,6 +236,8 @@ async function main(): Promise<void> {
       sightAt = sim.state.tick;
     },
   });
+  // Rank insignia on the unit card (the "insignia" step): appearance data, outside the catalog.
+  hud.setInsignia(appearance.insignia);
 
   try { if (localStorage.getItem(CONTOURS_KEY) === "1") hud.setContours(true); } catch { /* not remembered */ }
   // Fit the map into the area not covered by the top bar, the order bar and the unit sidebar (M7.5a).
@@ -458,7 +462,7 @@ async function main(): Promise<void> {
     supportAt = at;
     const sc = worldToScreen(renderer.camera, at.x, at.y);
     hud.offerSupport({
-      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      x: sc.x, y: sc.y, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
       pick: (ammo) => {
         supportAt = null;
         if (overlay.selectedUnit !== uid || !sim.state.unit.has(uid)) return;
@@ -954,7 +958,7 @@ async function main(): Promise<void> {
           heatFalls.push(t.x, t.y, sideIdx(id.side));
           timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t("timeline.casualty", { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier), status: strings.t(`status.${e.status}`) }) });
         }
-      } else if (e.kind === "surrendered" || e.kind === "captured") {
+      } else if (e.kind === "surrendered" || e.kind === "captured" || e.kind === "surrender.walk") {
         const id = sim.state.identity.get(e.soldier);
         if (id) timeline.push({ tick: e.tick, colour: sideColour(id.side), text: strings.t(`timeline.${e.kind}`, { side: sideName(id.side), name: id.family, callsign: callsignOf(e.soldier) }) });
       } else if (e.kind === "objective.changed" && e.holder !== null) {
@@ -1114,7 +1118,7 @@ async function main(): Promise<void> {
     offerSupport: (x: number, y: number) => offerSupport({ x, y }),
     /** Step fire-support (screenshots, checks): the pop-up, the point held, the side's missions as their lines show. */
     support: () => ({
-      popup: hud.supportShown(), at: gesture?.kind === "support" ? gesture.at : supportAt, mode: orderMode, he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke"),
+      popup: hud.supportShown(), at: gesture?.kind === "support" ? gesture.at : supportAt, mode: orderMode, he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog),
       missions: (overlay.intents ?? []).filter((l) => l.kind === "fire").map((l) => ({ x: l.x1, y: l.y1, phase: l.phase ?? null, falls: l.falls?.length ?? 0 })),
     }),
     moveUnit: (uid: EntityId, x: number, y: number) => issue({ tick: sim.state.tick, issuer: playerSide, target: uid, kind: "move", waypoints: [{ x, y, mode: "walk" }] }),
@@ -1228,7 +1232,7 @@ async function main(): Promise<void> {
     overlay.objectives = defs.map((o, i) => ({ x: o.x, y: o.y, radiusM: o.radiusM, holder: sim.state.objectives[i]?.holder ?? null, contested: sim.state.objectives[i]?.contested ?? false, label: strings.t(o.nameKey) }));
     if (defs.length === 0) { hud.setScore([]); return; }
     const left = Math.max(0, input.rules.timeLimitSeconds - ticksToSeconds(sim.state.tick));
-    const sup = sim.state.support.some((x) => x.side === playerSide);
+    const sup = sim.state.support.some((x) => x.side === playerSide) || mortarTeams(sim.state, playerSide).length > 0;
     // Compact (M7.5b, parent review): each objective with a marker in its holder's side colour (grey: nobody; the
     // holder's full name as a tooltip), the time left, the mortar rounds left (HE and smoke, named). The time and
     // the rounds come first (review fix: at the end of the line they were cut off on a phone); the objectives'
@@ -1237,7 +1241,7 @@ async function main(): Promise<void> {
       { text: strings.t("score.time", { left: fmtClock(left) }) },
       // Night and light (M9.1): with a sky, the local time and how light it is.
       ...(sim.state.environment.sky ? [{ text: strings.t("score.localTime", { time: localClock(sim.state.environment.timeOfDaySeconds) }), title: strings.t("score.light", { pct: Math.round(sim.state.environment.light * 100) }) }] : []),
-      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he"), smoke: supportLeft(sim.state, playerSide, "smoke") }) }] : []),
+      ...(sup ? [{ text: strings.t("score.supportShort", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }), title: strings.t("score.support", { he: supportLeft(sim.state, playerSide, "he", sim.ctx.catalog), smoke: supportLeft(sim.state, playerSide, "smoke", sim.ctx.catalog) }) }] : []),
       ...defs.map((o, i) => {
         const st = sim.state.objectives[i];
         return { text: strings.t("score.objective", { objective: strings.t(o.nameKey) }) + (st?.contested ? strings.t("score.contestedMark") : ""), colour: st?.holder ? sideColour(st.holder) : "#8a8a8a", title: st?.holder ? sideName(st.holder) : strings.t("score.nobody") };

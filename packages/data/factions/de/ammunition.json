@@ -530,7 +530,8 @@
       "smoke": {
         "fuseSeconds": 2,
         "radiusM": 10,
-        "seconds": 60
+        "seconds": 60,
+        "topM": 4
       },
       "delivery": {
         "method": "thrown"
@@ -601,6 +602,153 @@
       ],
       "confidence": "low",
       "note": "Spike LR as fired from the Puma's MELLS launcher (M9.3a): range up to 4000 m, fire-and-forget with a dual (CCD and infrared) seeker, lock before launch, a lofted top-attack path, tandem shaped charge about 700 mm RHA behind reactive armour (700 x 1.25 = 875 mm mild-steel equivalent), missile about 13 kg (search extracts only, pages not opened). Owner (M9 round): a locked fire-and-forget missile flies on to the last point its seeker saw when smoke hides the target. Game values (low): 170 m/s after a soft launch at 30 m/s and 40 m/s2, climbs to 80 m above the target and dives on it from 160 m out (it strikes the roof), turns up to 60 deg/s (the dive), its seeker keeps half its view through ordinary smoke (none through multispectral), arms after 0.8 s, destroys itself after 32 s. The fibre-optic link (operator updates in flight) is not modelled."
+    },
+    {
+      "id": "de-155-he",
+      "nameKey": "ammo.de-155-he",
+      "calibre": "155mm-howitzer",
+      "kind": "high-explosive",
+      "projectileMassKg": 43.5,
+      "cartridgeMassKg": 43.5,
+      "diameterM": 0.155,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 10.0,
+        "fragmentCount": 3500,
+        "fragmentAmmo": "de-155-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1400
+        ]
+      },
+      "sources": [
+        "https://www.rheinmetall.com/en/products/weapons-and-ammunition/large-calibre-weapons-and-ammunition/cutting-edge-in-modern-artillery-technology"
+      ],
+      "confidence": "low",
+      "note": "155 mm HE shell for the PzH 2000 (DM121 type, M8.4): about 43.5 kg (typical 155 mm HE, the DM121's own mass and filling are not in the search extracts reached); filling 10 kg and 3,500 fragments are game values, low."
+    },
+    {
+      "id": "de-155-fragment",
+      "nameKey": "ammo.de-155-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.005,
+      "cartridgeMassKg": 0.005,
+      "diameterM": 0.005,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 6.0,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Fragment of the heavy artillery shell (M8.4): heavier than a mortar bomb's (game value, low)."
+    },
+    {
+      "id": "de-155-smoke",
+      "nameKey": "ammo.de-155-smoke",
+      "calibre": "155mm-howitzer",
+      "kind": "smoke",
+      "projectileMassKg": 43.0,
+      "cartridgeMassKg": 43.0,
+      "diameterM": 0.155,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm"
+      ],
+      "confidence": "low",
+      "note": "Heavy artillery smoke shell (M8.4): a counted round; its cloud is the faction's artillery smoke (game values, low)."
+    },
+    {
+      "id": "de-155-illum",
+      "nameKey": "ammo.de-155-illum",
+      "calibre": "155mm-howitzer",
+      "kind": "illumination",
+      "projectileMassKg": 43.0,
+      "cartridgeMassKg": 43.0,
+      "diameterM": 0.155,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "sources": [
+        "https://man.fas.org/dod-101/sys/land/m485.htm"
+      ],
+      "confidence": "medium",
+      "note": "Heavy artillery illumination shell (M8.4; M485A2 class): a parachute flare of about 1,000,000 cd burning up to 120 s, sinking 4-5 m/s (FAS / Yugoimport extracts); ejected about 600 m up (game value). Saved in the state; it gives no light until M9.1.",
+      "illum": {
+        "candela": 1000000,
+        "burnSeconds": 120,
+        "heightM": 600,
+        "descentMps": 4.5
+      }
+    },
+    {
+      "id": "de-120-illum",
+      "nameKey": "ammo.de-120-illum",
+      "calibre": "120mm-mortar",
+      "kind": "illumination",
+      "projectileMassKg": 13.0,
+      "cartridgeMassKg": 13.0,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Mortar illumination bomb (M8.4): parachute flare; candela, burn, height and descent are game values in the range of public mortar illumination rounds (none reached). Saved in the state; light from M9.1.",
+      "illum": {
+        "candela": 1000000,
+        "burnSeconds": 60,
+        "heightM": 500,
+        "descentMps": 3.0
+      }
     }
   ]
 }

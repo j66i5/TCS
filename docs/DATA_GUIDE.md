@@ -289,6 +289,53 @@ Two entries in `factions/<id>/ammunition.json`: the munition and one of its frag
 
 Roofs: each building kind in `core/terrain/buildings.json` has `roofMaterial` and `roofThicknessM`.
 
+## Add a mortar (on the map, M8.3)
+
+An on-map mortar is a **tube item** carried by its gunner, **rounds** carried by the crew, a **team** template and,
+for generated battles, a **section** template named in the manifest. Off-map fire support (the battery a platoon
+calls, `doctrine.json` `fireSupport`) stays as it is; a side with mortar teams calls them first.
+
+1. **Rounds** in `factions/<id>/ammunition.json`: an HE round with an `explosive` block (and its fragment entry, as
+   for a grenade above) and a smoke round (`"kind": "smoke"`), both with the tube's `calibre` (e.g.
+   `"120mm-mortar"`). Every ammunition entry is a counted item too (rule 9): the crew carry them in their `load`.
+2. **The tube** in `factions/<id>/items.json` (category `crew-served`):
+
+```json
+{ "id": "xf-tube", "nameKey": "item.xf-tube", "category": "crew-served", "massKg": 42,
+  "mortar": { "calibre": "82mm-mortar", "he": "xf-82-he", "smoke": "xf-82-smoke",
+              "minRangeM": 85, "maxRangeM": 4270, "setupSeconds": 60, "packSeconds": 30, "roundSeconds": 4,
+              "crew": 4, "crewMin": 2, "aimErrorM": 15, "dispersionPerKmM": 10, "processingSeconds": 25,
+              "flightBaseSeconds": 8, "flightPerKmSeconds": 6, "hearingRangeM": 3000 },
+  "sources": ["https://..."], "confidence": "medium", "note": "..." }
+```
+
+   - `minRangeM`/`maxRangeM`: a call outside this band goes to another tube or the off-map battery; with neither
+     it is refused ("out of range").
+   - `setupSeconds` (x crew / men at the tube when short-handed), `packSeconds` (a move waits for it).
+   - `roundSeconds`: seconds per round at the sustained rate with the full `crew`; each missing, pinned (x0.35) or
+     shaken (x0.7) man slows it; below `crewMin` men (able, not panicked, within 20 m) the tube stops.
+   - `aimErrorM` is the tube's own first-round error (as `fireSupport.rangingErrorM` for the battery); the location
+     error and the ranging and adjustment rules come from the faction's `fireSupport` (`locationError`, `adjust`,
+     `rangingRounds`, `rangingCorrection`, `requestSeconds`, `splashSeconds`).
+   - `dispersionPerKmM`: each round's scatter, one standard deviation per axis, per km of range.
+   - `processingSeconds`: the crew computing and laying after the call; then each round flies
+     `flightBaseSeconds + flightPerKmSeconds` x km.
+   - `hearingRangeM`: how far the enemy hears it fire (contacts; rifles 1,500 m); the gunner also counts as firing
+     for the enemy's spotting (the flash).
+   The loader checks that `he` is an explosive and `smoke` a smoke round of this faction, both of the `calibre`.
+3. **Roles** in `roles.json` (e.g. `mortar-leader`, `mortar-gunner`, `mortar-loader`, with strings).
+4. **A team** in `units.json` (one tube): the gunner's `load` holds the tube (`{ "item": "xf-tube", "count": 1 }`),
+   the others the rounds (`{ "item": "xf-82-he", "count": 12 }`, smoke rounds). Any unit whose men carry a tube is a
+   mortar team; a unit with no men of its own whose sub-units are all teams is a mortar section (the AI commander
+   does not manoeuvre it).
+5. **A section** (`"echelon": "section"`, `"leaderIndex": -1`, `"members": []`, `"subunits"`: the teams) and
+   `"mortarTemplate": "<section id>"` in `manifest.json`: generated battles with `mortars: true` (tools scenarios
+   `platoon-mortars`, `platoon-ru-mortars`; app `?mortars=1`) put it behind the side's line instead of the off-map
+   allotment.
+
+Check with `npm run lint:data`, `npx vitest run packages/tools/test/mortars.test.ts` and
+`npx vitest run packages/tools/test/mortars-signature.test.ts`, and a batch of `platoon-mortars`.
+
 ## Night and light (M9.1)
 
 `core/spotting.json` `night`: `sun` is a table of `[hour, light]` points (local time 0-24, light 0..1, interpolated);

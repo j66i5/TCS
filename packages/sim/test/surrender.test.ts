@@ -31,11 +31,13 @@ function downed(sim: Sim, id: number, legs = false): void {
 }
 /** Move a man (test set-up only). */
 function place(sim: Sim, id: number, x: number, y: number): void { const t = sim.state.transform.req(id); t.x = x; t.y = y; }
+/** The old rule only (no walking over to give himself up): for the tests of the enemy fetching him. */
+const noWalk = (i: BattleInput) => { const b = i.catalog.behaviour; i.catalog = { ...i.catalog, behaviour: { ...b, surrender: { ...b.surrender, walkToEnemyM: 0 } } }; };
 const gaveUp = (ev: SimEvent[], id: number) => ev.find((e) => e.kind === "surrendered" && e.soldier === id);
 
 describe("who gives up (M6.6)", () => {
   it("a wounded man who can no longer fight, with no fit comrade near, gives up to an enemy he has seen 40 m off; then he takes no orders, fires nothing and cannot report", () => {
-    const sim = createSim(setup());
+    const sim = createSim(setup(50, noWalk));
     const [bid, blue] = unitOf(sim, "blue");
     const [a, b, c] = blue.members as [number, number, number];
     place(sim, b, 10, 150); place(sim, c, 10, 180); // his comrades far off
@@ -258,8 +260,8 @@ describe("who knows, who holds fire (M6.6)", () => {
 });
 
 describe("prisoners and the score (M6.6)", () => {
-  it("when it is quiet, one enemy who saw it walks over, takes him prisoner and goes back where he stood", () => {
-    const sim = createSim(setup());
+  it("when it is quiet, one enemy who saw it walks over, takes him prisoner and goes back where he stood (a man who does not walk over himself)", () => {
+    const sim = createSim(setup(50, noWalk));
     const [, blue] = unitOf(sim, "blue");
     const [a, b, c] = blue.members as [number, number, number];
     place(sim, b, 10, 150); place(sim, c, 10, 180);
@@ -283,7 +285,7 @@ describe("prisoners and the score (M6.6)", () => {
   it("nobody walks over while his unit is under fire, and none at all with fetchWithinM 0", () => {
     const sim = createSim(setup(50, (i) => {
       const b = i.catalog.behaviour;
-      i.catalog = { ...i.catalog, behaviour: { ...b, surrender: { ...b.surrender, fetchWithinM: 0 } } };
+      i.catalog = { ...i.catalog, behaviour: { ...b, surrender: { ...b.surrender, fetchWithinM: 0, walkToEnemyM: 0 } } };
     }));
     const [, blue] = unitOf(sim, "blue");
     const [a, b, c] = blue.members as [number, number, number];
@@ -293,7 +295,7 @@ describe("prisoners and the score (M6.6)", () => {
     expect(gaveUp(ev, a)).toBeDefined();
     expect(ev.some((e) => e.kind === "captured")).toBe(false);
     // Under fire: no errand either.
-    const sim2 = createSim(setup());
+    const sim2 = createSim(setup(50, noWalk));
     const [, blue2] = unitOf(sim2, "blue");
     const [a2, b2, c2] = blue2.members as [number, number, number];
     place(sim2, b2, 10, 150); place(sim2, c2, 10, 180);
@@ -305,7 +307,7 @@ describe("prisoners and the score (M6.6)", () => {
   });
 
   it("an order to the walker's unit cancels the errand", () => {
-    const sim = createSim(setup());
+    const sim = createSim(setup(50, noWalk));
     const [, blue] = unitOf(sim, "blue");
     const [a, b, c] = blue.members as [number, number, number];
     place(sim, b, 10, 150); place(sim, c, 10, 180);
@@ -374,6 +376,130 @@ describe("prisoners and the score (M6.6)", () => {
     run(sim, 20);
     const copy = loadSim({ ...input, orders: [] }, saveSim(sim));
     run(sim, 40); run(copy, 40);
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
+  });
+});
+
+describe("walking over to give himself up (owner 2026-11-14)", () => {
+  /** Blue a downed (can walk) and alone, red at redX: run until he has set off. */
+  function walking(redX = 50, prep?: (i: BattleInput) => void) {
+    const input = setup(redX, prep);
+    const sim = createSim(input);
+    const [, blue] = unitOf(sim, "blue");
+    const [a, b, c] = blue.members as [number, number, number];
+    place(sim, b, 10, 150); place(sim, c, 10, 180);
+    downed(sim, a);
+    const ev: SimEvent[] = [];
+    for (let k = 0; k < secondsToTicks(10) && sim.state.soldier.req(a).handOver === undefined; k++) ev.push(...step(sim));
+    return { input, sim, a, ev, red: unitOf(sim, "red")[1].members };
+  }
+
+  it("a man who can walk walks over, upright and slowly, to the nearest enemy he knows of, stops short and is taken there by him; nobody comes out to fetch him", () => {
+    const { sim, a, ev, red } = walking();
+    expect(gaveUp(ev, a)).toBeDefined();
+    const set = ev.find((e) => e.kind === "surrender.walk" && e.soldier === a);
+    expect(set).toMatchObject({ side: "blue" });
+    const to = set!.kind === "surrender.walk" ? set!.to : null;
+    expect(red).toContain(to);
+    const starts = new Map(red.map((m) => [m, { ...sim.state.transform.req(m) }]));
+    let fastest = 0, captured: SimEvent | undefined;
+    for (let k = 0; k < secondsToTicks(90) && !captured; k++) {
+      const e = step(sim);
+      captured = e.find((x) => x.kind === "captured" && x.soldier === a);
+      fastest = Math.max(fastest, sim.state.mover.req(a).speedMps);
+      const s = sim.state.soldier.req(a);
+      if (sim.state.mover.req(a).speedMps > 0) expect(s.posture).toBe("standing");
+      expect(sim.state.fire.has(a)).toBe(false);
+    }
+    expect(captured).toBeDefined();
+    expect(fastest).toBeGreaterThan(0.3);
+    expect(fastest).toBeLessThanOrEqual(1.5 * 0.6 + 1e-9); // a walk (1.5 m/s in the test catalog) at walkSpeedFactor, never a run
+    const by = captured!.kind === "captured" ? captured!.by : -1;
+    const at = sim.state.transform.req(a), bt = sim.state.transform.req(by);
+    expect(Math.hypot(at.x - bt.x, at.y - bt.y)).toBeLessThanOrEqual(3);
+    expect(Math.hypot(at.x - 10, at.y - 10)).toBeGreaterThan(25); // he did the walking
+    for (const m of red) expect(Math.hypot(sim.state.transform.req(m).x - starts.get(m)!.x, sim.state.transform.req(m).y - starts.get(m)!.y)).toBeLessThan(2);
+    expect(sim.state.soldier.req(a).handOver).toBeUndefined();
+    expect(sim.state.mover.req(a).waypoints).toHaveLength(0);
+    // Taken: he stays.
+    const here = { ...at };
+    run(sim, 5);
+    expect(Math.hypot(sim.state.transform.req(a).x - here.x, sim.state.transform.req(a).y - here.y)).toBeLessThan(0.01);
+  });
+
+  it("a man who cannot walk stays where he is (the enemy fetches him as before)", () => {
+    const sim = createSim(setup());
+    const [, blue] = unitOf(sim, "blue");
+    const [a, b, c] = blue.members as [number, number, number];
+    place(sim, b, 10, 150); place(sim, c, 10, 180);
+    downed(sim, a, true);
+    expect(sim.state.soldier.req(a).impair.canWalk).toBe(false);
+    const ev = run(sim, 95);
+    expect(gaveUp(ev, a)).toBeDefined();
+    expect(ev.some((e) => e.kind === "surrender.walk")).toBe(false);
+    expect(Math.hypot(sim.state.transform.req(a).x - 10, sim.state.transform.req(a).y - 10)).toBeLessThan(0.01);
+    expect(ev.some((e) => e.kind === "captured" && e.soldier === a)).toBe(true);
+  });
+
+  it("fire close to him puts him down until it has passed; then he goes on", () => {
+    const { sim, a } = walking();
+    run(sim, 2);
+    const s = sim.state.soldier.req(a);
+    s.mental.suppression = 0.6;
+    run(sim, 1.2);
+    expect(s.handOver?.down).toBe(true);
+    expect(sim.state.mover.req(a).waypoints).toHaveLength(0);
+    run(sim, 1.5);
+    expect(s.postureTo === "prone" || s.posture === "prone").toBe(true);
+    let again = false;
+    for (let k = 0; k < secondsToTicks(15) && !again; k++) { step(sim); again = sim.state.mover.req(a).speedMps > 0; }
+    expect(again).toBe(true);
+    expect(s.handOver?.down).toBeUndefined();
+  });
+
+  it("if the man he walks to falls, he turns to another", () => {
+    const { sim, a } = walking();
+    const h = sim.state.soldier.req(a).handOver!;
+    const first = h.to!;
+    const fs = sim.state.soldier.req(first);
+    fs.physiology.consciousness = 0;
+    refreshStatus(sim.ctx, sim.state, new EventSink(), first);
+    run(sim, 2);
+    const now = sim.state.soldier.req(a).handOver;
+    expect(now?.to).not.toBe(first);
+    expect(now?.to).not.toBeNull();
+  });
+
+  it("after walkTimeoutSeconds he stops and waits, and an enemy fetches him", () => {
+    const { sim, a } = walking(50, (i) => { const b = i.catalog.behaviour; i.catalog = { ...i.catalog, behaviour: { ...b, surrender: { ...b.surrender, walkTimeoutSeconds: 3 } } }; });
+    const ev = run(sim, 6);
+    expect(sim.state.soldier.req(a).handOver?.done).toBe(true);
+    expect(sim.state.mover.req(a).waypoints).toHaveLength(0);
+    const more = [...ev, ...run(sim, 90)];
+    expect(more.some((e) => e.kind === "captured" && e.soldier === a)).toBe(true);
+  });
+
+  it("the same for the other side", () => {
+    const sim = createSim(setup());
+    const [, red] = unitOf(sim, "red");
+    const [r1, r2] = red.members as [number, number];
+    place(sim, r2, 190, 190);
+    downed(sim, r1);
+    const ev = run(sim, 60);
+    const w = ev.find((e) => e.kind === "surrender.walk" && e.soldier === r1);
+    expect(w).toMatchObject({ side: "red" });
+    expect(unitOf(sim, "blue")[1].members).toContain(w!.kind === "surrender.walk" ? w!.to : -1);
+    expect(ev.some((e) => e.kind === "captured" && e.soldier === r1)).toBe(true);
+  });
+
+  it("is deterministic across save and load in the middle of the walk", () => {
+    const { input, sim, a } = walking();
+    run(sim, 3);
+    expect(sim.state.mover.req(a).waypoints.length).toBeGreaterThan(0);
+    const copy = loadSim({ ...input, orders: [] }, saveSim(sim));
+    expect(hashState(copy.state)).toBe(hashState(sim.state));
+    expect(copy.state.soldier.req(a).handOver).toEqual(sim.state.soldier.req(a).handOver);
+    run(sim, 30); run(copy, 30);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
 });

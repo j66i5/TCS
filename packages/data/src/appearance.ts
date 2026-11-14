@@ -5,7 +5,7 @@
  * A faction without an appearance file gets the neutral look (so any new faction pack works at once).
  */
 import type { DataSet } from "./loader";
-import type { CoreAppearanceT, FactionAppearanceT } from "./schemas";
+import type { CoreAppearanceT, FactionAppearanceT, FactionInsigniaT, InsigniaDeviceT } from "./schemas";
 
 export interface FactionLook {
   uniform: { base: number; dark: number; light: number; helmet: number; skin: number };
@@ -21,7 +21,13 @@ export interface Appearance {
   photo?: PhotoPalette;
   /** Painted emblems by vehicle type id (M10.6-data), from the factions taking part. */
   markings?: Record<string, VehicleMarking>;
+  /** Rank insignia by faction id (the "insignia" step), for the factions taking part that have them. */
+  insignia?: Record<string, Insignia>;
 }
+
+/** A faction's rank insignia as the UI draws them: the board and, per rank id, its devices ("#rrggbb" colours). */
+export type Insignia = Omit<FactionInsigniaT, "sources" | "confidence" | "note">;
+export type InsigniaDevice = InsigniaDeviceT;
 
 /** A painted emblem a vehicle type carries (M10.6-data). */
 export type VehicleMarking = "red-cross";
@@ -63,7 +69,12 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
   const photo: PhotoPalette | undefined = ph ? { surfaces: hexRec(ph.surfaces ?? {}), vegetation: hexRec(ph.vegetation ?? {}), obstacles: hexRec(ph.obstacles ?? {}), roofs: hexRec(ph.roofs ?? {}), floors: hexRec(ph.floors ?? {}), ...(ph.grade ? { grade: { ...ph.grade } } : {}) } : undefined;
   const markings: Record<string, VehicleMarking> = {};
   for (const fid of Object.keys(factions)) for (const [k, m] of Object.entries(data.factions[fid]?.appearance?.markings ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) markings[k] = m;
-  return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}), ...(Object.keys(markings).length > 0 ? { markings } : {}) };
+  const insignia: Record<string, Insignia> = {};
+  for (const fid of Object.keys(factions)) {
+    const ins = data.factions[fid]?.appearance?.insignia;
+    if (ins) insignia[fid] = { shape: ins.shape, base: ins.base, edge: ins.edge, device: ins.device, starPoints: ins.starPoints, ranks: ins.ranks };
+  }
+  return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}), ...(Object.keys(markings).length > 0 ? { markings } : {}), ...(Object.keys(insignia).length > 0 ? { insignia } : {}) };
 }
 
 /** A faction's look, the neutral one if it has none. */

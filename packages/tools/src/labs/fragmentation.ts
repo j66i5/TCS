@@ -11,7 +11,12 @@ import {
 } from "@tcs/sim";
 
 export type FragCover = "brick wall 2 m" | "brick wall 1 m" | "wooden fence 1.8 m" | "hedge 1.5 m";
-export interface FragCase { ammo: string; targetFaction: string; posture: Posture; distanceM: number; wall?: boolean; cover?: FragCover; seeds?: number }
+export interface FragCase {
+  ammo: string; targetFaction: string; posture: Posture; distanceM: number; wall?: boolean; cover?: FragCover; seeds?: number;
+  /** M8.4: burst height over the ground (default 0.05 m: on impact); `house`: the men are inside a closed one-storey
+   *  brick house (2.8 m, the kind's roof) built round the burst point, the burst over its roof. */
+  burstZ?: number; house?: boolean;
+}
 export interface FragRow extends FragCase {
   men: number;
   /** Men with at least one wound from a fragment or the blast. */
@@ -35,8 +40,12 @@ export function burstCase(catalog: Catalog, c: FragCase): FragRow {
   const perRing = Math.max(4, Math.min(16, Math.floor((2 * Math.PI * c.distanceM) / 1.5)));
   let fragWounds = 0, stopped = 0;
   for (let seed = 1; seed <= (c.seeds ?? 10); seed++) {
-    const map = flatMap("frag", 120, 120, 4);
-    const cx = 60, cy = 60;
+    const map = flatMap("frag", 160, 160, 4);
+    const cx = 80, cy = 80;
+    if (c.house) {
+      const h = c.distanceM + 4;
+      map.buildings.push({ id: 1, kind: "house", footprint: [cx - h, cy - h, cx + h, cy - h, cx + h, cy + h, cx - h, cy + h], storeys: 1, storeyHeightM: 2.8, wallMaterial: "brick", wallThicknessM: 0.3, roofColour: "#8c4a3b", openings: [] });
+    }
     const cover: FragCover | undefined = c.cover ?? (c.wall ? "brick wall 2 m" : undefined);
     if (cover) {
       // The cover runs all round the burst, 1.5 m inside the ring of men.
@@ -61,7 +70,7 @@ export function burstCase(catalog: Catalog, c: FragCase): FragRow {
     const sim = createSim(input);
     for (const [, s] of sim.state.soldier.entries()) s.posture = c.posture;
     const sink = new EventSink();
-    detonate(sim.ctx, sim.state, sink, cx, cy, 0.05, catalog.ammoIds.indexOf(c.ammo), 0);
+    detonate(sim.ctx, sim.state, sink, cx, cy, c.burstZ ?? 0.05, catalog.ammoIds.indexOf(c.ammo), 0);
     const events = [...sink.events];
     for (let t = 0; t < 300; t++) events.push(...step(sim));
     for (const e of events) if (e.kind === "hit" && e.armour === "stopped") stopped++;

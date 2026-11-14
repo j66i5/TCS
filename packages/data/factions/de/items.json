@@ -539,6 +539,36 @@
       ],
       "confidence": "low",
       "note": "One Spike LR missile in its canister for MELLS (M9.3a). Canister mass is a game value."
+    },
+    {
+      "id": "de-m120-mortar",
+      "nameKey": "item.de-m120-mortar",
+      "category": "crew-served",
+      "massKg": 160,
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm",
+        "https://esut.de/2016/09/fachbeitraege/ruestung/10586/moerser-in-der-bundeswehr/"
+      ],
+      "confidence": "low",
+      "note": "Bundeswehr 120 mm mortar (Tampella), M8.3a: range over 6 km (Bundeswehr page, search extract), total mass 160 kg, a round almost 14 kg; carried by the Wolf (G-Wagen) and fired from a baseplate, or from the M113 (search extracts). Minimum range 500 m, set-up 120 s, packing 60 s, a round every 8 s sustained, crew 4 (2 can still fire), first-round aim error 15 m, dispersion 8 m per km, processing 30 s, flight 10 s + 6 s per km and heard out to 4 km are game values (no public source for them found). The carrier is not modelled: the section starts at its position.",
+      "mortar": {
+        "calibre": "120mm-mortar",
+        "he": "de-120-he",
+        "smoke": "de-120-smoke",
+        "minRangeM": 500,
+        "maxRangeM": 6300,
+        "setupSeconds": 120,
+        "packSeconds": 60,
+        "roundSeconds": 8,
+        "crew": 4,
+        "crewMin": 2,
+        "aimErrorM": 15,
+        "dispersionPerKmM": 8,
+        "processingSeconds": 30,
+        "flightBaseSeconds": 10,
+        "flightPerKmSeconds": 6,
+        "hearingRangeM": 4000
+      }
     }
   ]
 }

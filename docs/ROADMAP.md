@@ -203,7 +203,27 @@ white flags on the map; the after-action review lists surrendered and captured m
   bar docks to any of the four edges; the unit sidebar is a slim strip of tiles that expands.
   Acceptance: the owner finds it clearer and better looking on his phone; nothing about how the simulation
   resolves fights changes except where interiors and upper floors add walls, stairs and firing positions.
-- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. ⬜ (after M10)
+- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. 🔶 (built in parallel with M10)
+  Slices from `docs/plans/roadmap-detail.md` Phase 3:
+  1. ✅ **M8.1 Smoke volume v2** (2026-11-14) — cloud height, wind drift and plumes, build-up and fade in data, the
+     renderer drawing the sim's shapes, smoke screen along a line (`callFire` x2/y2), `lab -- smoke`, perf with 30
+     clouds.
+  2. ✅ **M8.2a Call-for-fire chain** (2026-11-14) — request, processing, shot, flight, splash; first-round error
+     by location method (estimate, laser, registered); planned targets in the battle's support rules.
+  3. ✅ **M8.2b Observers and adjustment** (2026-11-14) — observers for men and vehicle sights (drone kind reserved),
+     adjustment converging with observer skill, `lab -- indirect`. Skipping a recognised Verwundetennest waits for
+     M10.7a (medical branch).
+  4. ✅ **M8.3a On-map mortars: crews and firing** (2026-11-14) — tubes as items (DE 120 mm, RU 2B14 and 2B11),
+     teams and sections, deploy and set-up, packing, range band, rounds taken from the crews as fired; scenarios
+     `platoon-mortars`, `platoon-ru-mortars`. Carriers not modelled yet.
+  5. ✅ **M8.3b On-map mortars: signature and degradation** (2026-11-14) — the enemy hears (3-4 km) and sees the
+     tubes fire; a hit or suppressed crew fires slower and stops below its minimum crew; DATA_GUIDE "Add a mortar";
+     review fixes for M8.3a.
+  6. ✅ **M8.4 Off-map 155 mm, airburst, flares as data, reserved interfaces** (2026-11-14) — PzH 2000 and 2S19
+     batteries (opt-in), airburst, danger close, illumination flares saved without light, abstract counter-battery,
+     guided rounds refused; `lab -- artillery`.
+  7. 🔶 **M8.5 AI and balance**, part 1 (2026-11-14) — screens across the line upwind, artillery beyond danger close
+     with airburst, planned fires for the defender. Balance, observers by view and A4 wait for D4.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,

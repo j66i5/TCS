@@ -35,7 +35,7 @@ import type { SimState } from "../state";
 import { skillFactor } from "./fire";
 import { canFight, dischargeSmoke, fireAndForget, guidedRound, missileAimPoint, missileSees, muzzleWorld, stationOperator } from "./gunnery";
 import { radioFromTarget } from "./orders";
-import { smokeTransmission } from "./support";
+import { smokePhysics, smokeTransmission } from "../smoke";
 import { sight } from "../los";
 import { heightAt } from "../terrain";
 
@@ -211,9 +211,9 @@ function seekerSees(ctx: SimContext, state: SimState, gd: NonNullable<AmmoDef["g
   if (r.blockedBy !== null && (1 - r.blockedAt) * range > 5) return false;
   let seen = r.visibility;
   if (state.smoke.length > 0) {
-    const D = ctx.catalog.spotting, build = secondsToTicks(D.smokeBuildSeconds);
-    const conv = smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "conventional");
-    const ms = smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "multispectral");
+    const SP = smokePhysics(ctx.catalog);
+    const conv = smokeTransmission(state, SP, sx, sy, sz, ax, ay, az, "conventional");
+    const ms = smokeTransmission(state, SP, sx, sy, sz, ax, ay, az, "multispectral");
     seen *= ms * (conv + (1 - conv) * (gd.seekerSmokeFactor ?? 0));
   }
   return seen >= (ctx.catalog.behaviour.gunnery.missileSeenFloor ?? 0.2);

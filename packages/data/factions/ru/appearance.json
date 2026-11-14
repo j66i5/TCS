@@ -1,6 +1,68 @@
 {
-  "uniform": { "base": "#7c6847", "dark": "#53432d", "light": "#a08a62", "helmet": "#6a5c40", "skin": "#cfa47c" },
-  "vehicle": { "hull": "#5a6a3c", "dark": "#3a4526" },
-  "markings": { "ru-bmm": "red-cross" },
+  "uniform": {
+    "base": "#7c6847",
+    "dark": "#53432d",
+    "light": "#a08a62",
+    "helmet": "#6a5c40",
+    "skin": "#cfa47c"
+  },
+  "vehicle": {
+    "hull": "#5a6a3c",
+    "dark": "#3a4526"
+  },
+  "markings": {
+    "ru-bmm": "red-cross"
+  },
+  "insignia": {
+    "shape": "pogon",
+    "base": "#6c7552",
+    "edge": "#939c76",
+    "device": "#20251a",
+    "starPoints": 5,
+    "ranks": {
+      "ryadovoy": {
+        "note": "no insignia"
+      },
+      "yefreytor": {
+        "stripes": 1
+      },
+      "mladshiy-serzhant": {
+        "stripes": 2
+      },
+      "serzhant": {
+        "stripes": 3
+      },
+      "starshiy-serzhant": {
+        "wideStripe": true
+      },
+      "starshina": {
+        "longStripe": true
+      },
+      "praporshchik": {
+        "stars": 2,
+        "starLayout": "column"
+      },
+      "starshiy-praporshchik": {
+        "stars": 3,
+        "starLayout": "column"
+      },
+      "leytenant": {
+        "stars": 2,
+        "starLayout": "pairs"
+      },
+      "starshiy-leytenant": {
+        "stars": 3,
+        "starLayout": "pairs"
+      }
+    },
+    "sources": [
+      "https://www.consultant.ru/document/cons_doc_LAW_105733/96f53ddc33eadac04c7d569dd094f87053b364d3/",
+      "https://base.garant.ru/55172439/10ed0f917186039eb157d3ba4f962ee5/",
+      "https://forma-odezhda.com/encyclopedia/pogony-i-zvaniya-v-armii-rossii/",
+      "https://journal.sovcombank.ru/zhizn/voinskie-zvaniya-v-armii-rossii"
+    ],
+    "confidence": "medium",
+    "note": "Field uniform: subdued shoulder boards (pogony) with stripes and five-pointed stars in protective (dark green) colour and no lumen (field boards have none). Narrow cross stripes: efreytor 1, mladshiy serzhant 2, serzhant 3; starshiy serzhant one wide cross stripe; starshina one wide stripe along the board (sources disagree: some give a wide and a narrow stripe); praporshchik 2 and starshiy praporshchik 3 small stars in a line along the board; leytenant 2 stars side by side, starshiy leytenant those 2 and one above on the middle line. Search extracts only (pages not opened); the 2011 wearing rules quoted are superseded."
+  },
   "note": "Original colour choices (M7.5, docs/ASSETS.md): khaki-brown tones (made browner at the owner's review, 2026-11-13); a brighter protective green paint. Presentation only, outside the catalog."
 }

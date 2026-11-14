@@ -3,6 +3,7 @@
  * The app calls `step` as often as real time requires; the headless tools call it as fast as they can.
  */
 import { lightAt } from "./light";
+import { initMortars, mortarSystem } from "./systems/mortars";
 import { actionSystem } from "./actions";
 import type { BattleInput } from "./battle";
 import { COMMS_MODELS } from "./comms";
@@ -74,6 +75,7 @@ export function createSim(input: BattleInput): Sim {
   state.mapFingerprint = ctx.mapFingerprint;
   initObjectives(ctx, state);
   initSupport(ctx, state);
+  initMortars(ctx, state);
   syncTerrainDamage(ctx, state);
   rebuildVehicleGrid(ctx, state);
   return { ctx, state };
@@ -116,6 +118,7 @@ export function step(sim: Sim): SimEvent[] {
   turretSystem(ctx, state);
   fireSystem(ctx, state, events);
   stationFireSystem(ctx, state, events);
+  mortarSystem(ctx, state, events);
   supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
   // Wire-guided missiles (owner 2026-11-13): end, lose or steer each one in flight; reload launchers.

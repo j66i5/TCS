@@ -38,7 +38,16 @@ export interface ScenarioDef {
   /** With vehicles: the attacker's hulls start in dead ground, out of the defenders' sight (owner 2026-11-13;
    *  default true). False: the old line across the attacker's map edge (for comparisons). */
   deadGroundStart?: boolean;
+  /** On-map mortars (M8.3a): each side gets its faction's mortar section (manifest `mortarTemplate`) behind its own
+   *  line instead of the off-map allotment (a side whose faction has none keeps the allotment). */
+  mortars?: boolean;
+  /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
+   *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
+  artillery?: boolean;
 }
+
+/** Artillery rounds each side may call with `artillery` (M8.4; game values). */
+export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
 
 /** Mortar rounds each side may call (game values). */
 export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
@@ -126,6 +135,28 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
         placements.push({ personId: m, x: p.x, y: p.y, heading });
       });
     });
+    // On-map mortars (M8.3a): the section behind the own line (the defender 250 m behind its main objective, the
+    // attacker at its map edge), its two teams 30 m apart across the front, the men 4 m apart.
+    const mt = def.mortars === true ? pack?.manifest.mortarTemplate : undefined;
+    if (mt) {
+      const sec = buildForceWithVehicles(data, { faction, template: mt, seed: def.seed * 37 + s * 11, keyPrefix: `${side}-m`, number: 1 }).unit;
+      units.push(sec);
+      // (Review fix: at least the tube's minimum range + 50 m from the main objective where the map allows; a
+      // section that still cannot reach it leaves the side its off-map allotment as well.)
+      let minR = 0;
+      for (const m of allMembers(sec)) for (const l of m.load) minR = Math.max(minR, catalog.items[l.type]?.mortar?.minRangeM ?? 0);
+      const back = Math.max(250, minR + 50);
+      const bx = side === defender ? Math.min(Math.max(mainP.x + dx * back, 20), W - 20) : side === "blue" ? W * 0.02 : W * 0.98;
+      const teams = sec.subunits.length > 0 ? sec.subunits : [sec];
+      teams.forEach((tm, ti) => {
+        const ms = allMembers(tm);
+        ms.forEach((m, mi) => {
+          const p = freeSpot(map, catalog, bx + (mi % 2) * 4 * (side === "blue" ? -1 : 1), H / 2 + (ti - (teams.length - 1) / 2) * 30 + (Math.floor(mi / 2) - 1) * 4);
+          placements.push({ personId: m.personId, x: p.x, y: p.y, heading });
+        });
+      });
+      if (hypot2(bx - mainP.x, H / 2 - mainP.y) >= minR) mortarSides.add(side);
+    }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
     if (!attacking) {
@@ -139,6 +170,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     return force;
   };
   const forces: ForceInput[] = [];
+  const clampX = (x: number) => Math.min(Math.max(x, 10), W - 10);
+  const mortarSides = new Set<string>();
   const dIdx = SIDES.indexOf(defender), aIdx = SIDES.indexOf(def.attacker);
   forces[dIdx] = buildSide(defender, dIdx);
   forces[aIdx] = buildSide(def.attacker, aIdx);
@@ -148,11 +181,22 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   // Vehicles (M7.4a, owner Q9): an IFV destroyed or abandoned costs 20 points, immobilised 10.
   if (forces.some((f) => (f.vehicles?.length ?? 0) > 0)) rules.victory.vehiclePoints = { lost: SCENARIO_POINTS.vehicleLost, immobilised: SCENARIO_POINTS.vehicleImmobilised };
   // Mortar rounds (owner, M6 review: support fire pulled forward): the attacker more, with smoke.
-  rules.support = SIDES.map((side, s) => {
+  rules.support = SIDES.filter((side) => !mortarSides.has(side)).map((side) => {
+    const s = SIDES.indexOf(side);
     const k = catalog.factions[def.factions[s]!]?.fireSupport?.roundsFactor ?? 1;
     const att = side === def.attacker;
-    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)) };
+    // Planned fires (M8.5): the defender's mortars registered before the battle on the ground in front of its
+    // objectives, where the attack must cross (150 and 300 m before the main one, 150 m before the second).
+    const planned = att ? [] : [
+      { x: clampX(mainP.x - dx * 150), y: mainP.y }, { x: clampX(mainP.x - dx * 300), y: mainP.y }, { x: clampX(secondP.x - dx * 150), y: secondP.y },
+    ];
+    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)), ...(planned.length > 0 ? { planned } : {}) };
   });
+  if (def.artillery === true) {
+    SIDES.forEach((side, s) => {
+      if (catalog.factions[def.factions[s]!]?.artillery) rules.support!.push({ side, ...SCENARIO_ARTILLERY, asset: "artillery" });
+    });
+  }
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }
 

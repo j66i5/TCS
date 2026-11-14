@@ -10,7 +10,9 @@ const scenario = (seed: number, seconds: number): BattleInput => buildScenario(d
 const ctrls = (input: BattleInput) => [commanderController("blue", input), commanderController("red", input)];
 
 describe("AI commander (M6.3)", () => {
-  const input = scenario(1, 900);
+  // (1200 s since the M8 + M10 merge, 2026-11-14: with first aid and the M8 fire chain seed 1's attack reaches its
+  // first assault order at 925 s; the behaviour checked is unchanged.)
+  const input = scenario(1, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;

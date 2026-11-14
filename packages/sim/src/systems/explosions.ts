@@ -9,13 +9,14 @@
  *    in the battle state (they save, replay and can be carried into a campaign).
  */
 import { onRoof } from "../mount";
+import { addSmoke } from "../smoke";
 import { suppressByBurst } from "./morale";
 import { applyBreaches, lineBlocked } from "../ballistics";
 import { patchNavGrids } from "../navctx";
 import { deriveWrecks } from "../hulls";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { secondsToTicks, type EntityId } from "../ids";
+import type { EntityId } from "../ids";
 import { cos, hypot2, PI, pow, sin, sqrt } from "../math";
 import { ammoIndexOf, reserveProjectiles } from "../projectiles";
 import { rngStream, streamFloat, Streams } from "../rng";
@@ -59,7 +60,8 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   const def = ctx.catalog.ammo[ammoId];
   // A hand smoke grenade (D1): its fuse has run, it smokes where it lies (no blast, no fragments).
   if (def?.smoke) {
-    state.smoke.push({ x, y, radiusM: def.smoke.radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(def.smoke.seconds) });
+    // M8.1 volume: a low plume fed while it burns (`seconds`), lingering over the fade after it burns out.
+    addSmoke(ctx, state, x, y, def.smoke.radiusM, def.smoke.seconds + (ctx.catalog.spotting.smokeFadeSeconds ?? 0), def.smoke.topM ?? 4, def.smoke.seconds);
     events.emit({ kind: "smoke.grenade", tick: state.tick, x, y, radiusM: def.smoke.radiusM, ammo: ammoId, owner });
     return;
   }

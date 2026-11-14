@@ -581,7 +581,8 @@
       "smoke": {
         "fuseSeconds": 2,
         "radiusM": 10,
-        "seconds": 75
+        "seconds": 75,
+        "topM": 4
       },
       "delivery": {
         "method": "thrown"
@@ -591,6 +592,239 @@
       ],
       "confidence": "medium",
       "note": "RDG-2 smoke hand grenade: about 500 g, 60-90 s of intensive smoke, a screen up to about 30 m long and 5-8 m wide (search extracts; the RDG-2M about 600 g, 50-70 s, 50 x 10 m). Game abstraction: a round cloud of 10 m radius (about the screen's area, no wind drift) for 75 s, smoking 2 s after the throw (low)."
+    },
+    {
+      "id": "ru-120-he",
+      "nameKey": "ammo.ru-120-he",
+      "calibre": "120mm-mortar-ru",
+      "kind": "high-explosive",
+      "projectileMassKg": 15.9,
+      "cartridgeMassKg": 16.0,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 1.4,
+        "fragmentCount": 1500,
+        "fragmentAmmo": "ru-120-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ]
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B11"
+      ],
+      "confidence": "low",
+      "note": "120 mm OF-843B high-explosive mortar bomb (M8.3a, for the 2B11): about 16 kg (search extracts); filling 1.4 kg and 1,500 fragments are game values in line with the German 120 mm round. A counted round (rule 9)."
+    },
+    {
+      "id": "ru-120-fragment",
+      "nameKey": "ammo.ru-120-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.0015,
+      "cartridgeMassKg": 0.0015,
+      "diameterM": 0.007,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 3.5,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Fragment of the 120 mm mortar bomb (M8.3a): as the 82 mm bomb's (game value)."
+    },
+    {
+      "id": "ru-120-smoke",
+      "nameKey": "ammo.ru-120-smoke",
+      "calibre": "120mm-mortar-ru",
+      "kind": "smoke",
+      "projectileMassKg": 16.0,
+      "cartridgeMassKg": 16.0,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B14_Podnos"
+      ],
+      "confidence": "low",
+      "note": "120 mm smoke mortar bomb (M8.3a, for the 2B11): a counted round; its cloud is the faction's fireSupport smoke (game values)."
+    },
+    {
+      "id": "ru-152-he",
+      "nameKey": "ammo.ru-152-he",
+      "calibre": "152mm-howitzer",
+      "kind": "high-explosive",
+      "projectileMassKg": 43.5,
+      "cartridgeMassKg": 43.5,
+      "diameterM": 0.152,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 7.6,
+        "fragmentCount": 3000,
+        "fragmentAmmo": "ru-152-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1300
+        ]
+      },
+      "sources": [
+        "https://man.fas.org/dod-101/sys/land/row/2s19.htm",
+        "https://koi.legion.wplus.net/guide/army/ar/2s19.shtml"
+      ],
+      "confidence": "low",
+      "note": "152 mm HE-FRAG shell 3OF45 for the 2S19 Msta-S (M8.4): 43.56 kg (FAS, search extract); about 6.9-7.6 kg of explosive (one less reliable guide: 6.86 kg TNT); 7.6 kg and 3,000 fragments are game values, low."
+    },
+    {
+      "id": "ru-152-fragment",
+      "nameKey": "ammo.ru-152-fragment",
+      "calibre": "fragment",
+      "kind": "fragment",
+      "projectileMassKg": 0.005,
+      "cartridgeMassKg": 0.005,
+      "diameterM": 0.005,
+      "drag": {
+        "a": 0.9,
+        "b": 0,
+        "max": 1
+      },
+      "penetration": {
+        "steelMm": 6.0,
+        "atVelocityMps": 1000
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Fragment of the heavy artillery shell (M8.4): heavier than a mortar bomb's (game value, low)."
+    },
+    {
+      "id": "ru-152-smoke",
+      "nameKey": "ammo.ru-152-smoke",
+      "calibre": "152mm-howitzer",
+      "kind": "smoke",
+      "projectileMassKg": 43.0,
+      "cartridgeMassKg": 43.0,
+      "diameterM": 0.152,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "sources": [
+        "https://en.wikipedia.org/wiki/2B14_Podnos"
+      ],
+      "confidence": "low",
+      "note": "Heavy artillery smoke shell (M8.4): a counted round; its cloud is the faction's artillery smoke (game values, low)."
+    },
+    {
+      "id": "ru-152-illum",
+      "nameKey": "ammo.ru-152-illum",
+      "calibre": "152mm-howitzer",
+      "kind": "illumination",
+      "projectileMassKg": 43.0,
+      "cartridgeMassKg": 43.0,
+      "diameterM": 0.152,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "sources": [
+        "https://man.fas.org/dod-101/sys/land/m485.htm"
+      ],
+      "confidence": "medium",
+      "note": "Heavy artillery illumination shell (M8.4; M485A2 class): a parachute flare of about 1,000,000 cd burning up to 120 s, sinking 4-5 m/s (FAS / Yugoimport extracts); ejected about 600 m up (game value). Saved in the state; it gives no light until M9.1.",
+      "illum": {
+        "candela": 1000000,
+        "burnSeconds": 120,
+        "heightM": 600,
+        "descentMps": 4.5
+      }
+    },
+    {
+      "id": "ru-82-illum",
+      "nameKey": "ammo.ru-82-illum",
+      "calibre": "82mm-mortar",
+      "kind": "illumination",
+      "projectileMassKg": 3.4,
+      "cartridgeMassKg": 3.4,
+      "diameterM": 0.082,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "time",
+      "guidance": "unguided",
+      "sources": [],
+      "confidence": "low",
+      "note": "Mortar illumination bomb (M8.4): parachute flare; candela, burn, height and descent are game values in the range of public mortar illumination rounds (none reached). Saved in the state; light from M9.1.",
+      "illum": {
+        "candela": 500000,
+        "burnSeconds": 45,
+        "heightM": 400,
+        "descentMps": 3.5
+      }
     }
   ]
 }

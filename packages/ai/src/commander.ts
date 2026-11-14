@@ -24,7 +24,7 @@
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, type SitingGroup } from "./siting";
@@ -96,7 +96,7 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   //   that point (sneaking the last `sneakM`), running only under fire; there, not under fire, it gets its breath
   //   back until its men's mean fatigue is below `restFatigue` or `restMaxSeconds` have passed (closeTimeoutSeconds
   //   180 -> 300 for the slower pace), and smoke is called when the rest begins, to stand as it goes in.
-  sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 300, closeInM: 60, underFireSuppression: 0.1, prepLeadS: 15, restFatigue: 0.35, restMaxSeconds: 60, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200 } as const;
+  sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 300, closeInM: 60, underFireSuppression: 0.1, prepLeadS: 15, restFatigue: 0.35, restMaxSeconds: 60, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, screenHalfM: 50, screenRounds: 4, screenLeadS: 20, dangerCloseMarginM: 50, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200 } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
 interface Memory {
@@ -157,7 +157,7 @@ function members(view: SimView, uid: EntityId): EntityId[] {
 /** A unit on foot that fights as a squad: not a vehicle crew, nor a crew that bailed out (M7.4b). */
 function isFootUnit(view: SimView, uid: EntityId): boolean {
   const u = view.unit.get(uid);
-  return u !== undefined && u.vehicle === undefined && u.exVehicle === undefined;
+  return u !== undefined && u.vehicle === undefined && u.exVehicle === undefined && u.mortar === undefined;
 }
 
 /** Able men of a unit who are aboard a vehicle (not crew): they ride, and are never ordered to walk. */
@@ -321,7 +321,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const out: Order[] = [];
       const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
       // Every platoon of the side (the attacker may have two): their squads and their own men.
-      const tops = [...view.unit.entries()].filter(([, u]) => u.side === side && u.parent === null);
+      // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id));
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
@@ -344,6 +345,31 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length / ms.length : 0; };
       const all = topIds.flatMap((id) => members(view, id));
+      // M8.5: smoke as a screen across the line from the enemy (fromX, fromY) to (cx, cy), `screenHalfM` either side,
+      // laid upwind by the wind over `screenLeadS` so it drifts onto the line (with no wind: on it).
+      const screen = (cx: number, cy: number, fromX: number, fromY: number) => {
+        const dx = cx - fromX, dy = cy - fromY, d = Math.max(1, hypot2(dx, dy)), px = -dy / d, py = dx / d;
+        const env = view.environment, lead = COMMANDER.screenLeadS;
+        const mx = clamp(cx - env.windX * lead, W), my = clamp(cy - env.windY * lead, H), L = COMMANDER.screenHalfM;
+        order(caller, { kind: "callFire", x: clamp(mx - px * L, W), y: clamp(my - py * L, H), x2: clamp(mx + px * L, W), y2: clamp(my + py * L, H), ammo: "smoke", rounds: COMMANDER.screenRounds });
+      };
+      // M8.5: high explosive by the artillery when the side has it, no own man is within its danger-close distance
+      // and the battery is not moving (airburst on men seen in the open where it has the fuse), else by the mortars.
+      const artDef = input.catalog.factions[force.faction]?.artillery;
+      const heCall = (x: number, y: number, rounds: number) => {
+        const sec = view.support.find((s) => s.side === side && s.asset === "artillery");
+        const left = supportLeft(view, side, "he", input.catalog, "artillery");
+        const dc = artDef?.dangerCloseM ?? 0;
+        const clear = !all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && !isOut(view.soldier.get(f) as SoldierState) && hypot2(ft.x - x, ft.y - y) < dc + COMMANDER.dangerCloseMarginM; });
+        if (artDef && sec && left > 0 && clear && (sec.movingUntil === undefined || tick >= sec.movingUntil)) {
+          let open = 0, n = 0;
+          for (const m of all) for (const c of knownMen(m)) { if (hypot2(c.x - x, c.y - y) > 60) continue; n++; if (indoorAt(ground(), c.x, c.y) === null) open++; }
+          const air = artDef.airburstHeightM !== undefined && n > 0 && open * 2 >= n;
+          order(caller, { kind: "callFire", x, y, ammo: "he", rounds: Math.min(rounds, left), asset: "artillery", ...(air ? { fuse: "airburst" } : {}) });
+          return;
+        }
+        order(caller, { kind: "callFire", x, y, ammo: "he", rounds });
+      };
       // Vehicles (M7.2): the polled state the plan lists (§12): status, arrival, hits since the last look.
       const vehicleOf = (c: EntityId) => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.vehicle.get(vid); };
       const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
@@ -509,7 +535,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           }
         }
         // Mortars on attackers its men have seen out in the open (not near its own men).
-        if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
+        if (supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.defenceHeEverySeconds * 60) {
           let sx2 = 0, sy2 = 0, n = 0;
           for (const m of all) for (const c of knownMen(m)) {
             if (c.kind === "reported" || hypot2(c.x - main.x, c.y - main.y) < 120) continue;
@@ -518,7 +544,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (n >= 3) {
             const px = sx2 / n, py = sy2 / n;
             const nearOwn = all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && hypot2(ft.x - px, ft.y - py) < 100; });
-            if (!nearOwn) { order(caller, { kind: "callFire", x: px, y: py, ammo: "he", rounds: COMMANDER.defenceHeRounds }); mem.lastHe = tick; }
+            if (!nearOwn) { heCall(px, py, COMMANDER.defenceHeRounds); mem.lastHe = tick; }
           }
         }
         if (!holds(0) && tick - mem.counterTick > 60 * 60) {
@@ -934,7 +960,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         if (tick - (mem.lastBlind ?? -1e9) < COMMANDER.smokeEverySeconds * 60) return;
         let any = false;
         objectives.forEach((o, i) => {
-          if (i === mem.target || view.objectives[i]?.holder === side || supportLeft(view, side, "smoke") <= 0) return;
+          if (i === mem.target || view.objectives[i]?.holder === side || supportLeft(view, side, "smoke", input.catalog) <= 0) return;
           order(caller, { kind: "callFire", x: clamp(o.x - ux * COMMANDER.blindAheadM, W), y: clamp(o.y - uy * COMMANDER.blindAheadM, H), ammo: "smoke", rounds: COMMANDER.smokeRounds });
           any = true;
         });
@@ -944,15 +970,15 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
        *  and (balance pass 2026-11-13) smoke between the objective and the assault position, so that the assault
        *  element crosses the open ground under it. Each called once. */
       const prepFires = () => {
-        if (supportLeft(view, side, "he") > 0 && mem.lastHe === undefined) {
+        if (supportLeft(view, side, "he", input.catalog) > 0 && mem.lastHe === undefined) {
           let hx = tgt.x, hy = tgt.y, best = 150;
           for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-          order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) });
+          heCall(hx, hy, Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he", input.catalog) / 4)));
           mem.lastHe = tick;
         }
-        if (supportLeft(view, side, "smoke") > 0 && mem.lastSmoke === undefined) {
+        if (supportLeft(view, side, "smoke", input.catalog) > 0 && mem.lastSmoke === undefined) {
           const sp = assaultPos(chooseFlank()), f = COMMANDER.screenShare;
-          order(caller, { kind: "callFire", x: clamp(tgt.x + (sp.x - tgt.x) * f, W), y: clamp(tgt.y + (sp.y - tgt.y) * f, H), ammo: "smoke", rounds: COMMANDER.smokeRounds });
+          screen(clamp(tgt.x + (sp.x - tgt.x) * f, W), clamp(tgt.y + (sp.y - tgt.y) * f, H), tgt.x, tgt.y);
           mem.lastSmoke = tick;
         }
         blind();
@@ -1091,13 +1117,13 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // (Its own men near the point now, or squads assaulting toward it — they will be there when the rounds land.)
           const ownNear = (px: number, py: number, r: number) => all.some((f) => { const ft = view.transform.get(f); return ft !== undefined && view.soldier.get(f)?.physiology.alive === true && hypot2(ft.x - px, ft.y - py) < r; })
             || squads.some((sq) => { const d = view.unit.get(sq)?.drill; return d !== null && d !== undefined && (d.kind === "assault" || d.kind === "clear") && hypot2(d.x - px, d.y - py) < 150; });
-          if (supportLeft(view, side, "he") > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
+          if (supportLeft(view, side, "he", input.catalog) > 0 && tick - (mem.lastHe ?? -1e9) >= COMMANDER.heEverySeconds * 60) {
             let hx = tgt.x, hy = tgt.y, best = 150;
             for (const m of all) for (const c of knownMen(m)) { const d = hypot2(c.x - tgt.x, c.y - tgt.y); if (d < best) { best = d; hx = c.x; hy = c.y; } }
-            if (!ownNear(hx, hy, 90)) { order(caller, { kind: "callFire", x: hx, y: hy, ammo: "he", rounds: Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he") / 4)) }); mem.lastHe = tick; }
+            if (!ownNear(hx, hy, 90)) { heCall(hx, hy, Math.max(COMMANDER.heRounds, Math.floor(supportLeft(view, side, "he", input.catalog) / 4))); mem.lastHe = tick; }
           }
           if (mem.phase === "assault") blind();
-          if (supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
+          if (supportLeft(view, side, "smoke", input.catalog) > 0 && tick - (mem.lastSmoke ?? -1e9) >= COMMANDER.smokeEverySeconds * 60) {
             // (On the assault position's side of the objective.)
             const ap = assaultPos(chooseFlank()), af = COMMANDER.smokeAheadM / COMMANDER.assaultPositionM;
             const sx3 = clamp(tgt.x + (ap.x - tgt.x) * af, W), sy3 = clamp(tgt.y + (ap.y - tgt.y) * af, H);
@@ -1200,9 +1226,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               mem.closed!.push(sq);
               (mem.closedAt ??= {})[String(sq)] = tick;
               // (Smoke on the near edge again, to stand while it goes in after its rest, if the last is thinning.)
-              if (mem.phase === "assault" && supportLeft(view, side, "smoke") > 0 && tick - (mem.lastSmoke ?? -1e9) >= (COMMANDER.smokeEverySeconds / 2) * 60) {
+              if (mem.phase === "assault" && supportLeft(view, side, "smoke", input.catalog) > 0 && tick - (mem.lastSmoke ?? -1e9) >= (COMMANDER.smokeEverySeconds / 2) * 60) {
                 const ap = assaultPos(flank), af = COMMANDER.smokeAheadM / COMMANDER.assaultPositionM;
-                order(caller, { kind: "callFire", x: clamp(tgt.x + (ap.x - tgt.x) * af, W), y: clamp(tgt.y + (ap.y - tgt.y) * af, H), ammo: "smoke", rounds: COMMANDER.smokeRounds });
+                screen(clamp(tgt.x + (ap.x - tgt.x) * af, W), clamp(tgt.y + (ap.y - tgt.y) * af, H), tgt.x, tgt.y);
                 mem.lastSmoke = tick;
               }
             }

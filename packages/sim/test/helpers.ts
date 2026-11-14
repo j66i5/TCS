@@ -108,7 +108,7 @@ export const testCatalog: Catalog = {
       clearEntryMen: 3, clearStackOffM: 1, clearStackAsideM: 1.5, clearAfterBurstS: 1, clearStackWaitS: 20, clearThrowWaitS: 15, clearRoomS: 20, clearTimeoutS: 240, clearMinMen: 3,
       clearOfM: 6, clearShieldM: 3.5, clearThrowMinM: 4, clearAimInM: 0.9, clearStackRankM: 1.2, clearThrowAsideM: 0.6, clearEntrySeenW: 15, clearEntrySeenM: 40, clearKnownS: 60, clearMoveAwayM: 12, clearStackNearM: 8,
     },
-    surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
+    surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120, walkToEnemyM: 80, walkSeenFactor: 0.5, handOverM: 2.5, walkSpeedFactor: 0.6, walkReplanM: 4, walkTimeoutSeconds: 90 },
     mounting: {
       boardReachM: 2.5, approachReplanM: 3, casualtyLoadM: 5, carriersWithinM: 30, completeAfterSeconds: 60, giveUpSeconds: 300,
       exitFanMinM: 3, exitFanMaxM: 8, remountM: 100, holdDismountM: 100, resupplyRangeM: 30, resupplyReachM: 5, resupplyCount: 3, seatSwapCheckSeconds: 1,

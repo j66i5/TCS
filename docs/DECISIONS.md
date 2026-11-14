@@ -4830,3 +4830,23 @@ next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm 
   who recovers later never leaves): noted for a later slice.
 - **Order handling:** a `drone` order is handled before anything else in `applyOrder` (a drone order to a platoon
   with vehicles had gone down the "get out first" / "split to the vehicles" path).
+
+## 2026-11-14 — M9.5 Drone-observed fire (roadmap-detail slice 36, parallel session; owner to review)
+- **Location methods** gain "drone" and "air". A call takes the method with the smallest first-round error of those
+  available: estimate (always), laser (the caller has one and sees the point), drone (one of his platoon's drones in
+  the air, with an operator who can report, has the point within its camera footprint and in sight: `baseM` + `perM`
+  x the drone's slant range), air (the side has an off-map fixed-wing reconnaissance drone, `rules.airRecon`).
+  Radio: "target fixed by the drone" / "from the air". Registered points stay first, as before.
+- **Observers of the fall:** the platoon's drones in the air join the mission's observers after its men (the feed
+  comes over the platoon net); a drone sees a fall within its footprint and in sight, and reads it with
+  `adjust.droneReadM`; the air asset sees every fall not inside a smoke cloud and reads it with `adjust.airReadM`.
+  The best reader of a fall is chosen as before (`bestObserverOf`).
+- **Data (both factions' mortars and artillery, game values, low; search extracts describe drone-adjusted fire as far
+  faster, no public error figures):** drone location 4 m + 2 % of slant; air 10 m; reading 3 m (drone), 6 m (air).
+- **Off-map fixed-wing reconnaissance:** a battle rule per side (`rules.airRecon`, `ScenarioDef.airRecon`, app
+  `?air=blue` or `?air=blue,red`), no entity and no counter-measures (jamming and air defence are M14).
+- **The AI** benefits on its own: its calls are located the same way when its drone is over the point.
+- **Lab (`lab -- indirect`, "by location method", an average observer):** first-round miss DE at 1000 m: estimate
+  96 m, laser 21 m, drone 21 m, air 23 m; after two seen rounds 20 / 3.4 / 4.6 / 8.5 m.
+- **Batches (10 seeds x 1200 s, before (slice 35) -> after):** platoon German wins 3 -> 4 (18.4/14.1 -> 18.9/13.3);
+  platoon-ru German (defender) wins 1 -> 3 (15.3/10.2 -> 15.2/10.8). Within noise. Golden update (data).

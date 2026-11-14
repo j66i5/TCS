@@ -609,9 +609,9 @@ export type FireSupportDef = {
     /** Call-for-fire chain (M8.2a): of `delaySeconds`, the radio call and the flight (the rest: processing); "splash"
      *  this long before a round lands; first-round error by location method (sd per axis: baseM + perM x range). */
     requestSeconds?: number; flightSeconds?: number; splashSeconds?: number;
-    locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number } };
+    locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number }; /** M9.5 */ drone?: { baseM: number; perM: number }; air?: { baseM: number; perM: number } };
     /** Observer adjustment (M8.2b): reading error of a fall by eye (base + per metre) or laser; skill factor range. */
-    adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number };
+    adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number; /** M9.5 */ droneReadM?: number; airReadM?: number };
     /** M8.4: illumination round; airburst height over the target (m; absent: none); danger close (m); counter-battery
      *  displacement after so many missions (abstract model). */
     illumAmmo?: DefId; airburstHeightM?: number; dangerCloseM?: number;

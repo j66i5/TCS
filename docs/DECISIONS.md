@@ -4829,3 +4829,19 @@ Sources and confidence (search extracts only; every page was blocked by the prox
   medium-low; starshina's long stripe along the full length: medium-low.
 - Ranks not added (Hauptmann, kapitan, Oberstabsgefreiter, Stabsfeldwebel ...): no unit template uses them (the Zug
   is led by a Leutnant, there is no company HQ), and ranks.json is in the catalog (a golden change for nothing seen).
+Review fixes (independent review, same day; all from memory of the real insignia, confidence low, appearance only,
+goldens unchanged):
+- RU small sizes: a new optional `insignia.small {belowPx, device?, outline?}`; the Russian sleeve below 40 px tall (the
+  34 px card row) draws its devices darker (#262a19) with a light 1 px outline (#b5bc95) so stars and stripes read;
+  at 40 px and above (the 64 px man box, the reference sheet) they stay protective colour as woven.
+- DE stars: Leutnant's single star at 42 mm from the shoulder end (was 24), Oberleutnant's pair at 33 and 55 mm (was
+  24 and 44). The four-pointed star is drawn as a faceted pip (inner radius 0.42 of the outer, 17 mm; the half-points
+  facing the upper left lighter) once it is 12 px across; smaller, a plain star.
+- DE Winkel: the group centred about 53 mm above the shoulder end (Feldwebel's point at 58.9 mm, Oberfeldwebel's at
+  63.9 and 53.9; was 71.7 and 61.7 against the collar end), leaving room under it for a Stabsfeldwebel Winkel later.
+- DE Kopfwinkel: same topology (legs crossing under a diamond head), now a 5 mm band like the Winkel (was 4), legs
+  12 mm out and 9 mm down (was 14 and 14), the head 11 mm tall and about 15 mm across, centred on the Winkel group:
+  about as tall as a plain Winkel.
+- DE strap: `strap.widthMm` is now its width at the slide's collar end and it widens with the slide's taper, 52 mm
+  (was a 50 mm parallel strap), so below the slide it is as wide as the slide's shoulder end (60 mm, 61.1 at its
+  bottom) instead of looking pinched.

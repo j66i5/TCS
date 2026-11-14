@@ -74,7 +74,7 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
   const insignia: Record<string, Insignia> = {};
   for (const fid of Object.keys(factions)) {
     const ins = data.factions[fid]?.appearance?.insignia;
-    if (ins) insignia[fid] = { board: ins.board, ...(ins.strap ? { strap: ins.strap } : {}), ...(ins.litze ? { litze: ins.litze } : {}), device: ins.device, ranks: ins.ranks };
+    if (ins) insignia[fid] = { board: ins.board, ...(ins.strap ? { strap: ins.strap } : {}), ...(ins.litze ? { litze: ins.litze } : {}), device: ins.device, ...(ins.small ? { small: ins.small } : {}), ranks: ins.ranks };
   }
   return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}), ...(Object.keys(markings).length > 0 ? { markings } : {}), ...(Object.keys(insignia).length > 0 ? { insignia } : {}) };
 }

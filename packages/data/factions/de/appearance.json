@@ -23,7 +23,7 @@
       "edge": "#4a4b32"
     },
     "strap": {
-      "widthMm": 50,
+      "widthMm": 52,
       "aboveMm": 18,
       "belowMm": 12,
       "buttonMm": 12,
@@ -161,7 +161,7 @@
           },
           {
             "kind": "chevron",
-            "y": 71.7,
+            "y": 58.9,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
@@ -178,14 +178,14 @@
           },
           {
             "kind": "chevron",
-            "y": 71.7,
+            "y": 63.9,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
           },
           {
             "kind": "chevron",
-            "y": 61.7,
+            "y": 53.9,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
@@ -202,21 +202,21 @@
           },
           {
             "kind": "chevron",
-            "y": 61.0,
-            "halfSpanMm": 14.0,
-            "riseMm": 14.0,
-            "widthMm": 4.0,
-            "headMm": 5.6
+            "y": 52.0,
+            "halfSpanMm": 12.0,
+            "riseMm": 9.0,
+            "widthMm": 5.0,
+            "headMm": 5.5
           }
         ],
-        "note": "Kopfwinkel point up; drawn as the Odal-like headed chevron (legs crossing, a small diamond above): shape low confidence"
+        "note": "Kopfwinkel point up; drawn as the Odal-like headed chevron (legs crossing under a diamond head about 11 mm across): shape low confidence"
       },
       "leutnant": {
         "elements": [
           {
             "kind": "star",
             "x": 0,
-            "y": 24,
+            "y": 42,
             "diameterMm": 17,
             "points": 4
           }
@@ -227,14 +227,14 @@
           {
             "kind": "star",
             "x": 0,
-            "y": 24,
+            "y": 33,
             "diameterMm": 17,
             "points": 4
           },
           {
             "kind": "star",
             "x": 0,
-            "y": 44,
+            "y": 55,
             "diameterMm": 17,
             "points": 4
           }
@@ -252,7 +252,7 @@
       "https://www.meinbwshop.de/produkte/bundeswehr-rangschlaufen-gefreiter-ua-olivwei-11612"
     ],
     "confidence": "medium",
-    "note": "Field uniform (Feldanzug, Heer): the olive rank slide (Aufschiebeschlaufe) on the camouflage shoulder strap, devices woven in black (BPrDGrUnifAnO para 5(3): black or white replace silver on the Kampfanzug; TL 8455-0009 Anhang A 'DG Schwarz auf Oliv'). Medium (official-text extracts): device kinds and counts per Anlage 2 (1-4 Schraegstreifen; Tresse open at the bottom / closed; closed Tresse with 1 or 2 Winkel point up or a Kopfwinkel; 1 or 2 stars); the Litze in the Waffenfarbe on the Feldanzug strap, Heer only, 4 mm wide (bundeswehr.de), green (Jaegergruen) for Panzergrenadiere. Medium-low: slide 90 mm long, 52 mm wide at the collar end, 60 mm at the shoulder end (one TL 8455-0009 extract and a shop; not reproduced). Low (inferred, no drawing readable): every device size and position (stripes 5 mm with 3 mm gaps at 35 deg; Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg; stars four-pointed, 17 mm, from 24 mm above the shoulder end), the Kopfwinkel's shape (drawn Odal-like), the stripes' direction, the strap's shape and colour, the Litze's place 3 mm below the slide and its hex colour. Search extracts only; no page could be opened."
+    "note": "Field uniform (Feldanzug, Heer): the olive rank slide (Aufschiebeschlaufe) on the camouflage shoulder strap, devices woven in black (BPrDGrUnifAnO para 5(3): black or white replace silver on the Kampfanzug; TL 8455-0009 Anhang A 'DG Schwarz auf Oliv'). Medium (official-text extracts): device kinds and counts per Anlage 2 (1-4 Schraegstreifen; Tresse open at the bottom / closed; closed Tresse with 1 or 2 Winkel point up or a Kopfwinkel; 1 or 2 stars); the Litze in the Waffenfarbe on the Feldanzug strap, Heer only, 4 mm wide (bundeswehr.de), green (Jaegergruen) for Panzergrenadiere. Medium-low: slide 90 mm long, 52 mm wide at the collar end, 60 mm at the shoulder end (one TL 8455-0009 extract and a shop; not reproduced). Low (inferred, no drawing readable): every device size and position (stripes 5 mm with 3 mm gaps at 35 deg; Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg, the group centred 53 mm above the shoulder end; stars four-pointed faceted pips, 17 mm, inner radius 0.42, one at 42 mm, a pair at 33 and 55 mm), the Kopfwinkel's shape (drawn Odal-like: a 5 mm band, legs crossing under an 11 mm diamond head), the stripes' direction, the strap's shape (as wide as the slide, following its taper) and colour, the Litze's place 3 mm below the slide and its hex colour. Search extracts only; no page could be opened."
   },
   "note": "Original colour choices (M7.5, docs/ASSETS.md): green tones in the spirit of a woodland camouflage (made greener at the owner's review, 2026-11-13); NATO-style green paint. Presentation only, outside the catalog."
 }

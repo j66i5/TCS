@@ -1044,7 +1044,8 @@ export const FactionInsigniaSchema = z.object({
    *  collar end and `widthBottomMm` at the shoulder end, corners rounded by `cornerMm`; its cloth and edge colours. */
   board: z.object({ lengthMm: PosMm, widthTopMm: PosMm, widthBottomMm: PosMm, cornerMm: z.number().min(0).max(40), colour: LookColour, edge: LookColour }).strict(),
   /** The uniform's shoulder strap the board is slid onto, where it shows: `aboveMm` beyond the board's collar end
-   *  (a blunt point with its button, `buttonMm` across; 0 = none) and `belowMm` beyond its shoulder end. Absent: no
+   *  (a blunt point with its button, `buttonMm` across; 0 = none) and `belowMm` beyond its shoulder end. `widthMm`
+   *  is its width at the board's collar end; it widens with the board's taper towards the shoulder. Absent: no
    *  strap is drawn. */
   strap: z.object({ widthMm: PosMm, aboveMm: z.number().min(0).max(100), belowMm: z.number().min(0).max(100), buttonMm: z.number().min(0).max(30), colour: LookColour, edge: LookColour }).strict().optional(),
   /** The arm-of-service loop (Litze) round the strap at the shoulder seam, in the branch colour (Waffenfarbe) of
@@ -1052,6 +1053,9 @@ export const FactionInsigniaSchema = z.object({
   litze: z.object({ colour: LookColour, widthMm: PosMm, gapMm: z.number().min(0).max(50), branch: z.string() }).strict().optional(),
   /** The devices' colour (embroidered or woven). */
   device: LookColour,
+  /** Drawn smaller than `belowPx` tall (a card row): devices in `device` instead (absent: the usual colour) with a
+   *  1 px `outline` round them (absent: none), so low-contrast (protective-colour) devices still read. */
+  small: z.object({ belowPx: PosMm, device: LookColour.optional(), outline: LookColour.optional() }).strict().optional(),
   ranks: z.record(Id, InsigniaDeviceSchema),
   sources: z.array(z.url()),
   confidence: Confidence,

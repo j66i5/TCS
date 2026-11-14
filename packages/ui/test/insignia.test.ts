@@ -23,7 +23,7 @@ describe("rank insignia", () => {
     }
     const de = app.insignia!["de"]!, ru = app.insignia!["ru"]!;
     const count = (svg: string, tag: string) => svg.split(`<${tag}`).length - 1;
-    const devs = (svg: string) => /<g fill="[^"]+">(.*)<\/g>/s.exec(svg)?.[1] ?? "";
+    const devs = (svg: string) => /<g fill="[^"]+"[^>]*>(.*)<\/g>/s.exec(svg)?.[1] ?? "";
     // The lowest German rank wears no slide: only the strap and its green Litze (Waffenfarbe) show.
     expect(insigniaSvg(de, "schuetze")).not.toContain(de.board.colour);
     expect(insigniaSvg(de, "schuetze")).toContain(de.litze!.colour);
@@ -45,6 +45,15 @@ describe("rank insignia", () => {
     expect(hd).toBeCloseTo(de.board.lengthMm + de.strap!.aboveMm + de.strap!.belowMm + 2, 5);
     // A cross stripe 25..35 mm from the shoulder end of a 120 mm board: drawn at true size when large (1 mm margin).
     expect(insigniaSvg(ru, "yefreytor", 488)).toContain("M-25 96L25 96L25 86L-25 86z");
+    // Small (a card row): protective-colour devices darker with a light outline; large: as woven.
+    expect(insigniaSvg(ru, "serzhant", 34)).toContain(`<g fill="${ru.small!.device}" stroke="${ru.small!.outline}"`);
+    expect(insigniaSvg(ru, "serzhant", 64)).toContain(`<g fill="${ru.device}">`);
+    // A large four-pointed star is a faceted pip (lit facets over the star); a small one a plain star.
+    expect(devs(insigniaSvg(de, "leutnant", 400))).toContain('fill-opacity');
+    expect(devs(insigniaSvg(de, "leutnant", 34))).not.toContain('fill-opacity');
+    // The strap is as wide as the slide at its shoulder end (it follows the slide's taper).
+    const [wd] = vb(insigniaSvg(de, "leutnant"));
+    expect(wd).toBeCloseTo(de.strap!.widthMm + (de.board.widthBottomMm - de.board.widthTopMm) * (1 + de.strap!.belowMm / de.board.lengthMm) + 2, 1);
     // No data: nothing drawn (the row keeps its place).
     expect(insigniaSvg(undefined, "schuetze")).toBe("");
     expect(insigniaSvg(de, "nobody")).toBe("");

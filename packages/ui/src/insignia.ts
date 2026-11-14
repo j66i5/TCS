@@ -10,7 +10,8 @@
  * The viewBox is in millimetres (collar end at the top), so the picture keeps the real proportions at any size. Only
  * where a feature would vanish at small sizes does the drawing help it: cross and diagonal stripes keep a gap of
  * about a pixel between them, stars stay at least about 5 px across, the Litze and the board's edge stay at least
- * about a pixel wide.
+ * about a pixel wide, and below the faction's `small.belowPx` low-contrast devices take their small colour and a
+ * light 1 px outline. Four-pointed stars are faceted pips once they are 12 px across.
  */
 import type { Insignia, InsigniaElement } from "@tcs/data";
 
@@ -30,23 +31,33 @@ function roundedPath(pts: readonly P[], r: number): string {
   return `${out.join("")}z`;
 }
 
-/** A star of `points` points centred at (cx, cy) (SVG units), outer radius r, one point up. */
-function star(cx: number, cy: number, r: number, points: number): string {
+/**
+ * A star of `points` points centred at (cx, cy) (SVG units), outer radius r, one point up. `facets`: a pressed pip
+ * (each point a low pyramid): the half-points facing the light (from the upper left) drawn lighter.
+ */
+function star(cx: number, cy: number, r: number, points: number, facets: boolean): string {
   const inner = points === 4 ? r * 0.42 : r * 0.382;
+  const pt = (k: number): P => { const a = -Math.PI / 2 + (k * Math.PI) / points, rr = k % 2 === 0 ? r : inner; return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)]; };
   const pts: string[] = [];
-  for (let k = 0; k < points * 2; k++) {
-    const a = -Math.PI / 2 + (k * Math.PI) / points;
-    const rr = k % 2 === 0 ? r : inner;
-    pts.push(`${f(cx + rr * Math.cos(a))},${f(cy + rr * Math.sin(a))}`);
+  for (let k = 0; k < points * 2; k++) { const p = pt(k); pts.push(`${f(p[0])},${f(p[1])}`); }
+  let lit = "";
+  if (facets) {
+    const light = (-3 * Math.PI) / 4;
+    for (let k = 0; k < points * 2; k++) {
+      const mid = -Math.PI / 2 + ((k + 0.5) * Math.PI) / points; // the facet between point k and k + 1
+      if (Math.cos(mid - light) <= 0) continue;
+      const a = pt(k), b = pt(k + 1);
+      lit += `M${f(cx)} ${f(cy)}L${f(a[0])} ${f(a[1])}L${f(b[0])} ${f(b[1])}z`;
+    }
   }
-  return `<polygon points="${pts.join(" ")}"/>`;
+  return `<polygon points="${pts.join(" ")}"/>${lit ? `<path d="${lit}" fill="#fff" fill-opacity="0.16" stroke="none"/>` : ""}`;
 }
 
 /** The drawing's frame: board-to-SVG mapping and the board's half width at y (mm from its shoulder end). */
-interface Frame { L: number; Y: (y: number) => number; hw: (y: number) => number; sep: number; minStarR: number; colour: string }
+interface Frame { L: number; Y: (y: number) => number; hw: (y: number) => number; sep: number; minStarR: number; px1: number; colour: string }
 
 function element(e: InsigniaElement, fr: Frame): string {
-  const { Y, hw, L, sep, minStarR, colour } = fr;
+  const { Y, hw, L, sep, minStarR, px1, colour } = fr;
   const line = (pts: readonly P[], w: number, closed: boolean) =>
     `<path d="M${pts.map((p) => `${f(p[0])} ${f(Y(p[1]))}`).join("L")}${closed ? "z" : ""}" fill="none" stroke="${colour}" stroke-width="${f(w)}" stroke-linejoin="miter" stroke-miterlimit="10"/>`;
   switch (e.kind) {
@@ -78,15 +89,24 @@ function element(e: InsigniaElement, fr: Frame): string {
       const k = h / r;
       return line([[-s, e.y - r], [0, e.y], [s * k, e.y + h], [0, e.y + 2 * h], [-s * k, e.y + h], [0, e.y], [s, e.y - r]], e.widthMm, false);
     }
-    case "star":
-      return star(e.x, Y(e.y), Math.max(e.diameterMm / 2, minStarR), e.points);
+    case "star": {
+      const r = Math.max(e.diameterMm / 2, minStarR);
+      return star(e.x, Y(e.y), r, e.points, e.points === 4 && r > 6 * px1); // facets only where they show (12 px across)
+    }
   }
 }
 
 /** The drawing's size in millimetres (width, height) for a faction's insignia: board, strap and Litze. */
 export function insigniaSizeMm(ins: Insignia): { w: number; h: number } {
   const b = ins.board, st = ins.strap, m = 1;
-  return { w: Math.max(b.widthTopMm, b.widthBottomMm, st?.widthMm ?? 0) + 2 * m, h: b.lengthMm + (st ? st.aboveMm + st.belowMm : 0) + 2 * m };
+  const sw = st ? Math.max(strapWidthAt(ins, -st.belowMm), strapWidthAt(ins, b.lengthMm + st.aboveMm)) : 0;
+  return { w: Math.max(b.widthTopMm, b.widthBottomMm, sw) + 2 * m, h: b.lengthMm + (st ? st.aboveMm + st.belowMm : 0) + 2 * m };
+}
+
+/** The strap's width at y (mm from the board's shoulder end): `widthMm` at the collar end, widening with the board. */
+function strapWidthAt(ins: Insignia, y: number): number {
+  const b = ins.board;
+  return (ins.strap?.widthMm ?? 0) + (b.widthBottomMm - b.widthTopMm) * (1 - y / b.lengthMm);
 }
 
 /**
@@ -103,20 +123,23 @@ export function insigniaSvg(ins: Insignia | undefined, rank: string, px = 22, ti
   const Y = (y: number) => top - y;
   const hw = (y: number) => b.widthBottomMm / 2 + ((b.widthTopMm - b.widthBottomMm) / 2) * (y / L);
   const px1 = 1 / scale; // one pixel in mm
-  const fr: Frame = { L, Y, hw, sep: Math.max(0, 1.1 * px1 - 2), minStarR: 2.6 * px1, colour: ins.device };
+  const small = ins.small && px < ins.small.belowPx ? ins.small : undefined;
+  const device = small?.device ?? ins.device;
+  const fr: Frame = { L, Y, hw, sep: Math.max(0, 1.1 * px1 - 2), minStarR: 2.6 * px1, px1, colour: device };
   const parts: string[] = [];
   if (st) {
-    const sw = st.widthMm / 2, yb = -st.belowMm, yt = L + st.aboveMm, c = Math.min(sw * 0.6, st.aboveMm);
-    parts.push(`<path d="${roundedPath([[-sw, Y(yb)], [sw, Y(yb)], [sw, Y(yt - c)], [sw - c, Y(yt)], [-(sw - c), Y(yt)], [-sw, Y(yt - c)]], 2)}" fill="${st.colour}" stroke="${st.edge}" stroke-width="${f(Math.max(0.6, 0.8 * px1))}"/>`);
+    const sw = (y: number) => strapWidthAt(ins, y) / 2, yb = -st.belowMm, yt = L + st.aboveMm, c = Math.min(sw(yt) * 0.6, st.aboveMm);
+    parts.push(`<path d="${roundedPath([[-sw(yb), Y(yb)], [sw(yb), Y(yb)], [sw(yt - c), Y(yt - c)], [sw(yt) - c, Y(yt)], [-(sw(yt) - c), Y(yt)], [-sw(yt - c), Y(yt - c)]], 2)}" fill="${st.colour}" stroke="${st.edge}" stroke-width="${f(Math.max(0.6, 0.8 * px1))}"/>`);
     if (st.buttonMm > 0 && st.aboveMm > 0) parts.push(`<circle cx="0" cy="${f(Y(L + Math.max(st.buttonMm / 2 + 1, st.aboveMm / 2)))}" r="${f(st.buttonMm / 2)}" fill="${st.edge}"/>`);
     if (ins.litze) {
       const lw = Math.max(ins.litze.widthMm, 1.4 * px1), yc = -(ins.litze.gapMm + ins.litze.widthMm / 2);
-      parts.push(`<rect x="${f(-sw - 0.8)}" y="${f(Y(yc) - lw / 2)}" width="${f(2 * sw + 1.6)}" height="${f(lw)}" fill="${ins.litze.colour}"/>`);
+      parts.push(`<rect x="${f(-sw(yc) - 0.8)}" y="${f(Y(yc) - lw / 2)}" width="${f(2 * sw(yc) + 1.6)}" height="${f(lw)}" fill="${ins.litze.colour}"/>`);
     }
   }
   if (!d.bare) {
     parts.push(`<path d="${roundedPath([[-hw(0), Y(0)], [hw(0), Y(0)], [hw(L), Y(L)], [-hw(L), Y(L)]], b.cornerMm)}" fill="${b.colour}" stroke="${b.edge}" stroke-width="${f(Math.max(0.6, 0.8 * px1))}"/>`);
-    if (d.elements.length > 0) parts.push(`<g fill="${ins.device}">${d.elements.map((e) => element(e, fr)).join("")}</g>`);
+    const halo = small?.outline ? ` stroke="${small.outline}" stroke-width="${f(1.6 * px1)}" stroke-linejoin="round" paint-order="stroke"` : "";
+    if (d.elements.length > 0) parts.push(`<g fill="${device}"${halo}>${d.elements.map((e) => element(e, fr)).join("")}</g>`);
   }
   const w = Math.round(((px * W) / H) * 10) / 10;
   const name = title.replace(/[&<>"]/g, "");

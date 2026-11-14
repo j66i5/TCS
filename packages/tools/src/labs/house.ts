@@ -127,6 +127,8 @@ export type HouseTrigger = "trap" | "enemy" | "flank";
 export interface HouseLeaveRun {
   seed: number; trigger: HouseTrigger; leave: boolean; inside: number; outInTime: number; fighting: number; seenInside: boolean;
   covered: number; awayOk: number; leavers: number; blueDown: number; reasons: string[];
+  /** Men inside who never got out and could not have walked out (down, or a broken leg: M10.1). */
+  cannotWalk: number;
   /** When the trigger counted from (s; -1: never) and the first man got out (s; -1: none). */
   triggerS: number; firstOutS: number;
 }
@@ -170,7 +172,7 @@ export function houseLeaveRun(data: DataSet, seed: number, trigger: HouseTrigger
   else for (const id of tops("blue")) submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "occupy", building: house.id, facing });
   const blue = men("blue"), red = men("red");
   const rnd = labRng(seed * 7 + (trigger === "trap" ? 1 : trigger === "enemy" ? 2 : 3));
-  const run: HouseLeaveRun = { seed, trigger, leave, inside: 0, outInTime: 0, fighting: 0, seenInside: trigger === "trap", covered: 0, awayOk: 0, leavers: 0, blueDown: 0, reasons: [], triggerS: -1, firstOutS: -1 };
+  const run: HouseLeaveRun = { seed, trigger, leave, inside: 0, outInTime: 0, fighting: 0, seenInside: trigger === "trap", covered: 0, awayOk: 0, leavers: 0, blueDown: 0, reasons: [], triggerS: -1, firstOutS: -1, cannotWalk: 0 };
   // (Each man's own house at the trigger: the mixed defence may hold a neighbouring one.)
   const home = new Map<number, number>();
   const isIn = (id: number) => { const t = st.transform.req(id); const h = indoorAt(ctx, t.x, t.y); return home.has(id) ? h === home.get(id) : h >= 0; };
@@ -263,7 +265,7 @@ export function houseLeaveRun(data: DataSet, seed: number, trigger: HouseTrigger
         const t = st.transform.req(m), e = st.transform.req(red[0]!);
         if (hypot2(t.x - e.x, t.y - e.y) <= 4 && Math.abs(t.z - e.z) < 1) { run.fighting++; run.outInTime++; }
       }
-      if (ot === undefined) continue;
+      if (ot === undefined) { if (!isAble(st.soldier.req(m)) || !st.soldier.req(m).impair.canWalk) run.cannotWalk++; continue; }
       run.leavers++;
       const t = st.transform.req(m);
       if (exposureAt(grid, t.x, t.y) < 0.9) run.covered++;

@@ -17,7 +17,7 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 49,
+   "target": 50,
    "kind": "rules",
    "fire": "return",
    "onContact": "ground"
@@ -25,114 +25,114 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 33,
+   "target": 34,
    "kind": "move",
    "waypoints": [
     {
-     "x": 412.56402197833785,
-     "y": 255.51640000530577,
+     "x": 412.382660425054,
+     "y": 255.82926042417563,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 37,
+   "target": 38,
    "kind": "move",
    "waypoints": [
     {
-     "x": 360.0712834326384,
-     "y": 313.3481594457105,
+     "x": 359.93623059545797,
+     "y": 313.7030195739774,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 41,
+   "target": 42,
    "kind": "move",
    "waypoints": [
     {
-     "x": 257.6232785450599,
-     "y": 369.06535871626505,
+     "x": 257.532857811207,
+     "y": 369.50220632799494,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 45,
+   "target": 46,
    "kind": "move",
    "waypoints": [
     {
-     "x": 315.03212595149455,
-     "y": 431.5491505303403,
+     "x": 314.991702481852,
+     "y": 431.9400247485219,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 73,
+   "target": 75,
    "kind": "move",
    "waypoints": [
     {
-     "x": 402.41413316305676,
-     "y": 495.30167844632564,
+     "x": 402.42471292528984,
+     "y": 495.6225866065194,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 77,
+   "target": 79,
    "kind": "move",
    "waypoints": [
     {
-     "x": 349.9213946173573,
-     "y": 553.1334378867305,
+     "x": 349.9782830956938,
+     "y": 553.4963457563213,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 81,
+   "target": 83,
    "kind": "move",
    "waypoints": [
     {
-     "x": 397.3391887554162,
-     "y": 615.1943176668356,
+     "x": 397.44573917540777,
+     "y": 615.5192496976913,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 85,
+   "target": 87,
    "kind": "move",
    "waypoints": [
     {
-     "x": 404.79276981997174,
-     "y": 675.5635493110607,
+     "x": 404.9476408913977,
+     "y": 675.8824957224341,
      "mode": "run"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 0,
@@ -144,14 +144,14 @@
   {
    "tick": 0,
    "issuer": "blue",
-   "target": 49,
+   "target": 50,
    "kind": "rules",
    "fire": "return"
   },
   {
    "tick": 0,
    "issuer": "red",
-   "target": 92,
+   "target": 94,
    "kind": "rules",
    "fire": "free",
    "maxEngageM": 300
@@ -159,7 +159,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 93,
+   "target": 95,
    "kind": "move",
    "waypoints": [
     {
@@ -173,7 +173,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 95,
+   "target": 97,
    "kind": "occupy",
    "building": 52,
    "windowIndex": 3,
@@ -182,7 +182,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 96,
+   "target": 98,
    "kind": "move",
    "waypoints": [
     {
@@ -196,7 +196,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 97,
+   "target": 99,
    "kind": "occupy",
    "building": 52,
    "windowIndex": 2,
@@ -205,7 +205,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 98,
+   "target": 100,
    "kind": "occupy",
    "building": 57,
    "windowIndex": 3,
@@ -214,7 +214,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 99,
+   "target": 101,
    "kind": "move",
    "waypoints": [
     {
@@ -228,7 +228,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 100,
+   "target": 102,
    "kind": "move",
    "waypoints": [
     {
@@ -242,7 +242,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 102,
+   "target": 104,
    "kind": "occupy",
    "building": 57,
    "windowIndex": 2,
@@ -251,7 +251,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 103,
+   "target": 105,
    "kind": "move",
    "waypoints": [
     {
@@ -265,7 +265,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 104,
+   "target": 106,
    "kind": "occupy",
    "building": 52,
    "windowIndex": 1,
@@ -274,7 +274,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 105,
+   "target": 107,
    "kind": "occupy",
    "building": 57,
    "windowIndex": 4,
@@ -283,7 +283,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 106,
+   "target": 108,
    "kind": "move",
    "waypoints": [
     {
@@ -297,7 +297,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 107,
+   "target": 109,
    "kind": "move",
    "waypoints": [
     {
@@ -311,7 +311,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 111,
+   "target": 113,
    "kind": "occupy",
    "building": 107,
    "windowIndex": 2,
@@ -320,7 +320,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 112,
+   "target": 114,
    "kind": "move",
    "waypoints": [
     {
@@ -334,7 +334,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 113,
+   "target": 115,
    "kind": "move",
    "waypoints": [
     {
@@ -348,7 +348,7 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 114,
+   "target": 116,
    "kind": "move",
    "waypoints": [
     {
@@ -362,21 +362,21 @@
   {
    "tick": 0,
    "issuer": "red",
-   "target": 109,
+   "target": 111,
    "kind": "posture",
    "posture": "prone"
   },
   {
    "tick": 0,
    "issuer": "red",
-   "target": 110,
+   "target": 112,
    "kind": "posture",
    "posture": "prone"
   },
   {
    "tick": 300,
    "issuer": "red",
-   "target": 97,
+   "target": 99,
    "kind": "move",
    "waypoints": [
     {
@@ -389,7 +389,7 @@
   {
    "tick": 300,
    "issuer": "red",
-   "target": 104,
+   "target": 106,
    "kind": "move",
    "waypoints": [
     {
@@ -402,7 +402,7 @@
   {
    "tick": 600,
    "issuer": "red",
-   "target": 97,
+   "target": 99,
    "kind": "move",
    "waypoints": [
     {
@@ -415,7 +415,7 @@
   {
    "tick": 600,
    "issuer": "red",
-   "target": 104,
+   "target": 106,
    "kind": "move",
    "waypoints": [
     {
@@ -428,40 +428,40 @@
   {
    "tick": 1500,
    "issuer": "blue",
-   "target": 52,
+   "target": 54,
    "kind": "move",
    "waypoints": [
     {
-     "x": 422.7134237252859,
-     "y": 488.6542125629839,
+     "x": 422.7186759665195,
+     "y": 488.9588741216349,
      "mode": "walk"
     },
     {
-     "x": 472.6686900671651,
-     "y": 490.7687727328341,
+     "x": 472.6756189211745,
+     "y": 491.03344651741907,
      "mode": "sneak"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 1800,
    "issuer": "blue",
-   "target": 26,
+   "target": 27,
    "kind": "move",
    "waypoints": [
     {
-     "x": 433.76175707858687,
-     "y": 464.09949142601437,
+     "x": 423.7559621644116,
+     "y": 463.98040264430745,
      "mode": "walk"
     },
     {
-     "x": 483.71702342046603,
-     "y": 466.2140515958646,
+     "x": 473.71290511906653,
+     "y": 466.0549750400916,
      "mode": "sneak"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 1800,
@@ -470,8 +470,8 @@
    "kind": "move",
    "waypoints": [
     {
-     "x": 443.6470823384702,
-     "y": 467.0201667770784,
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
      "mode": "walk"
     }
    ]
@@ -483,8 +483,8 @@
    "kind": "move",
    "waypoints": [
     {
-     "x": 443.6470823384702,
-     "y": 467.0201667770784,
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
      "mode": "walk"
     }
    ]
@@ -492,12 +492,12 @@
   {
    "tick": 1800,
    "issuer": "blue",
-   "target": 50,
+   "target": 12,
    "kind": "move",
    "waypoints": [
     {
-     "x": 443.6470823384702,
-     "y": 467.0201667770784,
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
      "mode": "walk"
     }
    ]
@@ -509,8 +509,34 @@
    "kind": "move",
    "waypoints": [
     {
-     "x": 443.6470823384702,
-     "y": 467.0201667770784,
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 1800,
+   "issuer": "blue",
+   "target": 52,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
+     "mode": "walk"
+    }
+   ]
+  },
+  {
+   "tick": 1800,
+   "issuer": "blue",
+   "target": 53,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 443.6350107264844,
+     "y": 467.30807875035384,
      "mode": "walk"
     }
    ]
@@ -518,227 +544,165 @@
   {
    "tick": 2100,
    "issuer": "blue",
-   "target": 12,
+   "target": 13,
    "kind": "move",
    "waypoints": [
     {
-     "x": 427.57691211594147,
-     "y": 373.75709997666183,
+     "x": 427.49019247682315,
+     "y": 374.0579053259285,
      "mode": "walk"
     },
     {
-     "x": 477.53217845782063,
-     "y": 375.87166014651206,
+     "x": 477.4471354314781,
+     "y": 376.1324777217127,
      "mode": "sneak"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
   },
   {
    "tick": 2100,
    "issuer": "blue",
-   "target": 59,
+   "target": 20,
    "kind": "move",
    "waypoints": [
     {
-     "x": 402.5198611715493,
-     "y": 492.8039151292317,
+     "x": 427.2827352372447,
+     "y": 379.05359962139397,
      "mode": "walk"
     },
     {
-     "x": 452.47512751342845,
-     "y": 494.91847529908193,
+     "x": 477.23967819189966,
+     "y": 381.12817201717814,
      "mode": "sneak"
     }
    ],
-   "facing": 0.04230382018050757
+   "facing": 0.04150336201403411
+  },
+  {
+   "tick": 2100,
+   "issuer": "blue",
+   "target": 61,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 402.5284415450791,
+     "y": 493.1247394587867,
+     "mode": "walk"
+    },
+    {
+     "x": 452.48538449973404,
+     "y": 495.19931185457085,
+     "mode": "sneak"
+    }
+   ],
+   "facing": 0.04150336201403411
+  },
+  {
+   "tick": 2100,
+   "issuer": "blue",
+   "target": 68,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 427.3161763284116,
+     "y": 619.2618402828946,
+     "mode": "walk"
+    },
+    {
+     "x": 477.27311928306653,
+     "y": 621.3364126786788,
+     "mode": "sneak"
+    }
+   ],
+   "facing": 0.04150336201403411
+  },
+  {
+   "tick": 2100,
+   "issuer": "red",
+   "target": 99,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 557.3687593003618,
+     "y": 481.65928821940577,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 2100,
+   "issuer": "red",
+   "target": 106,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 557.4909402331405,
+     "y": 486.94547878637513,
+     "mode": "run"
+    }
+   ]
   },
   {
    "tick": 2400,
    "issuer": "blue",
-   "target": 19,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 427.36545609895643,
-     "y": 378.75262661084975,
-     "mode": "walk"
-    },
-    {
-     "x": 477.3207224408356,
-     "y": 380.86718678069997,
-     "mode": "sneak"
-    }
-   ],
-   "facing": 0.04230382018050757
+   "target": 34,
+   "kind": "rules",
+   "fire": "free"
   },
   {
    "tick": 2400,
    "issuer": "blue",
-   "target": 66,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 427.20662055205116,
-     "y": 618.9608170858397,
-     "mode": "walk"
-    },
-    {
-     "x": 477.16188689393033,
-     "y": 621.07537725569,
-     "mode": "sneak"
-    }
-   ],
-   "facing": 0.04230382018050757
+   "target": 38,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 42,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 46,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 75,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 79,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 83,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 2400,
+   "issuer": "blue",
+   "target": 87,
+   "kind": "rules",
+   "fire": "free"
   },
   {
    "tick": 2400,
    "issuer": "red",
-   "target": 97,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 551.4506999004824,
-     "y": 405.9840766324937,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 2400,
-   "issuer": "red",
-   "target": 104,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 551.1777106330904,
-     "y": 406.5340882340003,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 33,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 72.5625,
-     "y": 451.3125,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 15,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 555.446091094447,
-     "y": 364.6224399696687,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 29,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 546.0450751139108,
-     "y": 408.9593870336304,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 37,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 41,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 45,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 73,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 77,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 81,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 85,
-   "kind": "rules",
-   "fire": "free"
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 9,
-   "kind": "callFire",
-   "x": 798.8209240764836,
-   "y": 484.25276800835417,
-   "ammo": "he",
-   "rounds": 6
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 9,
-   "kind": "callFire",
-   "x": 747.9228016410443,
-   "y": 505.279678573727,
-   "ammo": "smoke",
-   "rounds": 3
-  },
-  {
-   "tick": 2700,
-   "issuer": "blue",
-   "target": 9,
-   "kind": "callFire",
-   "x": 682.5314467316242,
-   "y": 413.30708796602994,
-   "ammo": "smoke",
-   "rounds": 3
-  },
-  {
-   "tick": 2700,
-   "issuer": "red",
-   "target": 119,
+   "target": 117,
    "kind": "move",
    "waypoints": [
     {
@@ -749,76 +713,86 @@
    ]
   },
   {
-   "tick": 3000,
+   "tick": 2700,
    "issuer": "blue",
-   "target": 37,
+   "target": 16,
    "kind": "move",
    "waypoints": [
     {
-     "x": 72.5625,
-     "y": 451.3125,
+     "x": 563.5587322300996,
+     "y": 400.15086550462706,
      "mode": "run"
     }
    ]
   },
   {
-   "tick": 3000,
+   "tick": 2700,
    "issuer": "blue",
-   "target": 15,
+   "target": 23,
    "kind": "move",
    "waypoints": [
     {
-     "x": 566.3633104350752,
-     "y": 392.9721932052308,
+     "x": 555.9530257624428,
+     "y": 422.8769973227648,
      "mode": "run"
     }
    ]
   },
   {
-   "tick": 3000,
-   "issuer": "blue",
-   "target": 22,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 562.7692014238835,
-     "y": 402.26848873808626,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 3000,
+   "tick": 2700,
    "issuer": "red",
-   "target": 115,
-   "kind": "move",
-   "waypoints": [
-    {
-     "x": 798.0493187407635,
-     "y": 467.7672359928467,
-     "mode": "run"
-    }
-   ]
-  },
-  {
-   "tick": 3000,
-   "issuer": "red",
-   "target": 92,
+   "target": 94,
    "kind": "callFire",
-   "x": 310.1659522870714,
-   "y": 486.0843552327525,
+   "x": 313.8848478290765,
+   "y": 490.8674152467882,
    "ammo": "he",
    "rounds": 4
   },
   {
-   "tick": 3600,
-   "issuer": "red",
-   "target": 111,
+   "tick": 3000,
+   "issuer": "blue",
+   "target": 34,
    "kind": "move",
    "waypoints": [
     {
-     "x": 686.6644216316861,
-     "y": 458.23829486469896,
+     "x": 72.81818181818181,
+     "y": 451.90909090909093,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 3000,
+   "issuer": "red",
+   "target": 121,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 798.0493187407635,
+     "y": 467.7672359928467,
+     "mode": "run"
+    }
+   ]
+  },
+  {
+   "tick": 3600,
+   "issuer": "red",
+   "target": 113,
+   "kind": "fire",
+   "x": 397.94682028389974,
+   "y": 485.70751411293224,
+   "contact": 5,
+   "nature": "at"
+  },
+  {
+   "tick": 3900,
+   "issuer": "red",
+   "target": 125,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 798.0493187407635,
+     "y": 467.7672359928467,
      "mode": "run"
     }
    ]
@@ -826,61 +800,199 @@
   {
    "tick": 3900,
    "issuer": "red",
-   "target": 123,
+   "target": 113,
    "kind": "move",
    "waypoints": [
     {
-     "x": 798.0493187407635,
-     "y": 467.7672359928467,
+     "x": 582.9929803820297,
+     "y": 403.2472505549429,
      "mode": "run"
     }
    ]
   },
   {
-   "tick": 7500,
+   "tick": 4200,
    "issuer": "blue",
-   "target": 19,
+   "target": 54,
    "kind": "move",
    "waypoints": [
     {
-     "x": 477.3207224408356,
-     "y": 380.86718678069997,
-     "mode": "walk"
+     "x": 472.6756189211745,
+     "y": 491.03344651741907,
+     "mode": "run"
     }
    ],
-   "facing": 0.3014911185327966
+   "facing": -0.0265730962439654
   },
   {
-   "tick": 8700,
+   "tick": 4200,
    "issuer": "blue",
-   "target": 12,
+   "target": 61,
    "kind": "move",
    "waypoints": [
     {
-     "x": 477.53217845782063,
-     "y": 375.87166014651206,
+     "x": 452.48538449973404,
+     "y": 495.19931185457085,
      "mode": "walk"
     }
    ],
-   "facing": 0.3155935010625776
+   "facing": -0.036906976724607556
+  },
+  {
+   "tick": 4500,
+   "issuer": "red",
+   "target": 104,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 793,
+     "y": 473,
+     "mode": "run"
+    }
+   ],
+   "facing": 0.036349665480385575
+  },
+  {
+   "tick": 4500,
+   "issuer": "red",
+   "target": 105,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 813,
+     "y": 487,
+     "mode": "run"
+    }
+   ],
+   "facing": 0.33819724209075214
+  },
+  {
+   "tick": 4800,
+   "issuer": "blue",
+   "target": 9,
+   "kind": "callFire",
+   "x": 810.3798633758145,
+   "y": 474.5876447771181,
+   "ammo": "he",
+   "rounds": 6
+  },
+  {
+   "tick": 4800,
+   "issuer": "blue",
+   "target": 9,
+   "kind": "callFire",
+   "x": 747.9412576846668,
+   "y": 505.3240183315661,
+   "ammo": "smoke",
+   "rounds": 3
+  },
+  {
+   "tick": 4800,
+   "issuer": "blue",
+   "target": 9,
+   "kind": "callFire",
+   "x": 682.531111409069,
+   "y": 413.3150855208431,
+   "ammo": "smoke",
+   "rounds": 3
+  },
+  {
+   "tick": 4800,
+   "issuer": "red",
+   "target": 97,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 783,
+     "y": 493,
+     "mode": "run"
+    }
+   ],
+   "facing": 0.9702861998386785
+  },
+  {
+   "tick": 4800,
+   "issuer": "red",
+   "target": 100,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 795,
+     "y": 473,
+     "mode": "run"
+    }
+   ],
+   "facing": 2.222522346227881
+  },
+  {
+   "tick": 4800,
+   "issuer": "red",
+   "target": 101,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 779,
+     "y": 467,
+     "mode": "run"
+    }
+   ],
+   "facing": 1.9646410507825214
+  },
+  {
+   "tick": 4800,
+   "issuer": "red",
+   "target": 102,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 785,
+     "y": 463,
+     "mode": "run"
+    }
+   ],
+   "facing": 1.8390536248830482
+  },
+  {
+   "tick": 5400,
+   "issuer": "red",
+   "target": 113,
+   "kind": "fire",
+   "x": 360.33271621688374,
+   "y": 313.6792739535558,
+   "contact": 2,
+   "nature": "at"
+  },
+  {
+   "tick": 6600,
+   "issuer": "blue",
+   "target": 68,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 477.27311928306653,
+     "y": 621.3364126786788,
+     "mode": "walk"
+    }
+   ],
+   "facing": -0.4032190619469053
   }
  ],
  "checkpoints": {
-  "600": "0bda0d682b71b6c4",
-  "1200": "1f95e71f281bbc20",
-  "1800": "1f7bea5fb1cd46fe",
-  "2400": "67067352334c30b1",
-  "3000": "4154301adcf7a2fb",
-  "3600": "3d142eef70eb2cc6",
-  "4200": "2c27f579fe9d3c9f",
-  "4800": "629bb8fa3156dd2d",
-  "5400": "bac40729a58a7538",
-  "6000": "5ee398295f3e1b4e",
-  "6600": "bde15daa84926ae3",
-  "7200": "7516741be4876250",
-  "7800": "ad5b0b58a9199e1f",
-  "8400": "239e6c74d5e1f2ba",
-  "9000": "39eec780b1d2a1de"
+  "600": "aca89166a02d27af",
+  "1200": "328747817300e231",
+  "1800": "fae18152b5f793fe",
+  "2400": "2885936d5092df83",
+  "3000": "bc7d55b30e1eb1f9",
+  "3600": "37bc08df35e7ca1e",
+  "4200": "100cce7ba5faacb3",
+  "4800": "701e630767803484",
+  "5400": "98214d7fc835ebe4",
+  "6000": "e596f88f63d4edaf",
+  "6600": "2f3b58a9fc39758c",
+  "7200": "e2c3d5de3d425d4c",
+  "7800": "98a9770e677cce1d",
+  "8400": "9729badf6e7f910f",
+  "9000": "d75937baab8f221a"
  },
- "catalogFingerprint": "d841c0d0d94a41d1"
+ "catalogFingerprint": "d01c5582ffa0bac7"
 }

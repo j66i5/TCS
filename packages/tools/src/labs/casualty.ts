@@ -4,14 +4,16 @@
  * Pairs of one rifleman and one target soldier. Each rifleman (regular, prone) fires at his own target until it
  * has been struck once, then ceases fire (rounds already in the air still arrive). Every round is a real
  * projectile meeting the real body outline, armour and wound rules. Afterwards the lab runs each casualty's
- * physiology forward WITHOUT ANY CARE to 10 and 60 minutes.
+ * physiology forward WITHOUT ANY CARE to 10, 60 and 120 minutes, twice on the same wounds: with the foundations
+ * clock the owner accepted on 2026-11-11 ("simple") and with the medical model (M10.1; tension pneumothorax,
+ * head injury, hypothermia ...). The acceptance check of M10.1: within 3 points of each other at 10 and 60 min.
  *
  * For the owner's review: the mix of killed / incapacitated / wounded, where the rounds strike, what the plate
  * and helmet stop, and how fast untreated men die.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  createSim, DEFAULT_COMMS, flatMap, simplePhysiology, step, submitOrder,
+  createSim, DEFAULT_COMMS, flatMap, medicalPhysiology, simplePhysiology, step, submitOrder, type PhysiologyModel,
   type BattleInput, type Catalog, type EntityId, type Posture, type SoldierRecord,
 } from "@tcs/sim";
 
@@ -43,6 +45,10 @@ export interface CasualtyRow {
   ableCanFight: number;
   dead10min: number;
   dead60min: number;
+  /** The same men with the medical model (M10.1). */
+  medDead10min: number;
+  medDead60min: number;
+  medDead120min: number;
   /** Median minutes until an untreated man who was still conscious passes out (of those who do within 60 min). */
   medianMinutesToCollapse: number | null;
   /** First strike per man, by zone. */
@@ -71,7 +77,7 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
   const labCatalog = { ...catalog, behaviour: { ...catalog.behaviour, soldier: { ...catalog.behaviour.soldier, faceEnemy: false } } };
   const input: BattleInput = {
     map, catalog: labCatalog, seed, orders: [],
-    rules: { timeLimitSeconds: 36000, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "simple", physiologyParams: {}, objectives: [] },
+    rules: { timeLimitSeconds: 36000, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "medical", physiologyParams: {}, objectives: [] },
     forces: [
       { side: "blue", faction: c.shooterFaction, units: [{ key: "s", callsign: "S", echelon: "team", leaderIndex: 0, subunits: [], members: shooters }], placements: shooters.map((m, i) => ({ personId: m.personId, x: 20, y: y(i), heading: 0 })) },
       { side: "red", faction: c.targetFaction, units: [{ key: "t", callsign: "T", echelon: "team", leaderIndex: 0, subunits: [], members: targets }], placements: targets.map((m, i) => ({ personId: m.personId, x: tx, y: y(i), heading: c.facing ? Math.PI : Math.PI / 2 })) },
@@ -120,16 +126,27 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
     if (!s.physiology.alive) row.killedOutright++;
     else if (s.physiology.consciousness < 0.5) row.incapacitated++;
     else { row.woundedAble++; if (s.impair.canFight) row.ableCanFight++; }
-    // The clock, with no care at all.
-    const p = { ...s.physiology }, wounds = s.wounds.map((w) => ({ ...w }));
-    const wasConscious = p.alive && p.consciousness >= 0.5;
+    // The clock, with no care at all: the foundations model, then the medical model on the same wounds.
+    const clock = (model: PhysiologyModel, seconds: number, marks: number[], onCollapse?: (sec: number) => void): boolean[] => {
+      const p = { ...s.physiology }, wounds = s.wounds.map((w) => ({ ...w }));
+      const wasConscious = p.alive && p.consciousness >= 0.5;
+      const deadAt: boolean[] = marks.map(() => false);
+      let collapsed = false;
+      for (let sec = 0; sec < seconds; sec += dt) {
+        if (p.alive) model.step(p, wounds, dt, params);
+        if (onCollapse && wasConscious && !collapsed && (!p.alive || p.consciousness < 0.5)) { collapsed = true; onCollapse(sec); }
+        marks.forEach((m, k) => { if (Math.abs(sec + dt - m) < dt / 2 && !p.alive) deadAt[k] = true; });
+      }
+      return deadAt;
+    };
     let collapsedAt = -1;
-    for (let sec = 0; sec < 3600; sec += dt) {
-      if (p.alive) simplePhysiology.step(p, wounds, dt, params);
-      if (wasConscious && collapsedAt < 0 && (!p.alive || p.consciousness < 0.5)) collapsedAt = sec;
-      if (Math.abs(sec + dt - 600) < dt / 2 && !p.alive) row.dead10min++;
-    }
-    if (!p.alive) row.dead60min++;
+    const [d10, d60] = clock(simplePhysiology, 3600, [600, 3600], (sec) => { collapsedAt = sec; });
+    if (d10) row.dead10min++;
+    if (d60) row.dead60min++;
+    const [m10, m60, m120] = clock(medicalPhysiology, 7200, [600, 3600, 7200]);
+    if (m10) row.medDead10min++;
+    if (m60) row.medDead60min++;
+    if (m120) row.medDead120min++;
     if (collapsedAt >= 0) collapse.push(collapsedAt / 60);
   }
   (row as { _collapse?: number[] })._collapse = [...((row as { _collapse?: number[] })._collapse ?? []), ...collapse];
@@ -138,7 +155,7 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
 export function casualtyCase(catalog: Catalog, c: CasualtyCase): CasualtyRow {
   const row: CasualtyRow = {
     name: c.name, struck: 0, savedByArmour: 0, wounded: 0, killedOutright: 0, incapacitated: 0, woundedAble: 0, ableCanFight: 0,
-    dead10min: 0, dead60min: 0, medianMinutesToCollapse: null, zones: {}, torsoStopped: 0, torsoThrough: 0, torsoUncovered: 0, headStopped: 0, headThrough: 0,
+    dead10min: 0, dead60min: 0, medDead10min: 0, medDead60min: 0, medDead120min: 0, medianMinutesToCollapse: null, zones: {}, torsoStopped: 0, torsoThrough: 0, torsoUncovered: 0, headStopped: 0, headThrough: 0,
   };
   for (let seed = 1; seed <= (c.seeds ?? 10); seed++) runOnce(catalog, c, seed, row);
   const col = ((row as { _collapse?: number[] })._collapse ?? []).sort((a, b) => a - b);
@@ -167,13 +184,14 @@ export function casualtyLabMarkdown(rows: CasualtyRow[]): string {
   const pct = (a: number, b: number) => (b > 0 ? `${Math.round((100 * a) / b)} %` : "–");
   const out: string[] = [
     "Each man is fired at until struck once (rounds already in the air may strike him again). 300 men per row.",
-    "\"Wounded\" = at least one round got through to the body. Deaths at 10 and 60 minutes are with NO care at all.", "",
+    "\"Wounded\" = at least one round got through to the body. Deaths at 10, 60 and 120 minutes are with NO care at all:",
+    "first with the foundations clock the owner accepted on 2026-11-11, then (\"medical\") with the M10.1 medical model on the same wounds.", "",
     "### What happens to men who are struck", "",
-    "| case | struck | saved by armour | wounded | killed outright | unconscious | wounded, conscious | of those: can still fight | dead by 10 min | dead by 60 min | median min to collapse |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    "| case | struck | saved by armour | wounded | killed outright | unconscious | wounded, conscious | of those: can still fight | dead by 10 min | dead by 60 min | medical: dead by 10 min | medical: by 60 min | medical: by 120 min | median min to collapse |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
   ];
   for (const r of rows) {
-    out.push(`| ${r.name} | ${r.struck} | ${pct(r.savedByArmour, r.struck)} | ${r.wounded} | ${pct(r.killedOutright, r.wounded)} | ${pct(r.incapacitated, r.wounded)} | ${pct(r.woundedAble, r.wounded)} | ${pct(r.ableCanFight, r.woundedAble)} | ${pct(r.dead10min, r.wounded)} | ${pct(r.dead60min, r.wounded)} | ${r.medianMinutesToCollapse === null ? "–" : r.medianMinutesToCollapse.toFixed(0)} |`);
+    out.push(`| ${r.name} | ${r.struck} | ${pct(r.savedByArmour, r.struck)} | ${r.wounded} | ${pct(r.killedOutright, r.wounded)} | ${pct(r.incapacitated, r.wounded)} | ${pct(r.woundedAble, r.wounded)} | ${pct(r.ableCanFight, r.woundedAble)} | ${pct(r.dead10min, r.wounded)} | ${pct(r.dead60min, r.wounded)} | ${pct(r.medDead10min, r.wounded)} | ${pct(r.medDead60min, r.wounded)} | ${pct(r.medDead120min, r.wounded)} | ${r.medianMinutesToCollapse === null ? "–" : r.medianMinutesToCollapse.toFixed(0)} |`);
   }
   const zones = ["head", "neck", "chest", "abdomen", "pelvis", "arm", "leg"];
   out.push("", "### Where the first round strikes", "", `| case | ${zones.join(" | ")} |`, `|---|${zones.map(() => "---:").join("|")}|`);

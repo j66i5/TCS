@@ -14,6 +14,7 @@ import {
   AmmunitionFile, BallisticsFile, WeaponsFile, type AmmoT, type BallisticsT, type ItemT as ItemTT, type WeaponT,
   BuildingsFile, MaterialsFile, ObstaclesFile, SurfacesFile, VegetationFile,
   type BuildingKindT, type MaterialT, type ObstacleKindT, type SurfaceT, type VegetationT,
+  MedicalFile, type MedicalT,
   DoctrineFile, FactionManifest, ItemsFile, MovementModesFile, NamesFile, QualitiesFile, RanksFile, RolesFile,
   StringsFile, UnitsFile, VehiclesFile, type VehicleT,
   CoreAppearanceFile, FactionAppearanceFile, type CoreAppearanceT, type FactionAppearanceT,
@@ -58,6 +59,8 @@ export interface TerrainData {
 
 export interface DataSet {
   wounds: WoundsT | null;
+  /** Medical data (M10.1; optional file core/medical.json). */
+  medical?: MedicalT;
   shooting: ShootingT | null;
   spotting: SpottingT | null;
   behaviour: BehaviourT | null;
@@ -172,6 +175,8 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
   const wounds = parse(WoundsFile, "core/wounds.json", files["core/wounds.json"], errors);
   const spotting = parse(SpottingFile, "core/spotting.json", files["core/spotting.json"], errors);
   const behaviour = parse(BehaviourFile, "core/behaviour.json", files["core/behaviour.json"], errors);
+  const medical = files["core/medical.json"] === undefined ? null : parse(MedicalFile, "core/medical.json", files["core/medical.json"], errors);
+  if (medical) checkMedical(medical, strings, errors);
   const data: DataSet = {
     wounds,
     shooting,
@@ -185,6 +190,7 @@ export function loadDataSet(files: Record<string, unknown>): LoadResult {
     qualities: q ? indexById(q.qualities, "core/qualities.json", "qualities", errors) : {},
     strings,
     factions: {},
+    ...(medical ? { medical } : {}),
   };
   // Appearance (M7.5): presentation only, outside the catalog; its keys must name terrain entries.
   if (files["core/appearance.json"] !== undefined) {
@@ -427,6 +433,14 @@ function loadFaction(
   needKey(manifest.nameKey, f("manifest.json"), "nameKey");
   ranksF.ranks.forEach((r, i) => { needKey(r.nameKey, f("ranks.json"), `ranks[${i}].nameKey`); needKey(r.abbrKey, f("ranks.json"), `ranks[${i}].abbrKey`); });
   rolesF.roles.forEach((r, i) => needKey(r.nameKey, f("roles.json"), `roles[${i}].nameKey`));
+  // Medical roles (M10.1): their interventions must be known; a role with a medical job needs core/medical.json.
+  rolesF.roles.forEach((r, i) => {
+    if (!r.medical) return;
+    if (!data.medical) { errors.push({ file: f("roles.json"), path: `roles[${i}].medical`, message: "a medical role needs core/medical.json", severity: "error" }); return; }
+    r.medical.interventions?.forEach((x, j) => {
+      if (!data.medical!.interventions.some((v) => v.id === x)) errors.push({ file: f("roles.json"), path: `roles[${i}].medical.interventions[${j}]`, message: `unknown intervention '${x}' (core/medical.json)`, severity: "error" });
+    });
+  });
   itemsF.items.forEach((r, i) => needKey(r.nameKey, f("items.json"), `items[${i}].nameKey`));
   weaponsF.weapons.forEach((r, i) => needKey(r.nameKey, f("weapons.json"), `weapons[${i}].nameKey`));
   vehiclesF.vehicles.forEach((r, i) => needKey(r.nameKey, f("vehicles.json"), `vehicles[${i}].nameKey`));
@@ -540,6 +554,39 @@ function checkVehicles(
       const seats = v.seats.filter((s) => s.station === "passenger").length;
       if (men > seats) err(`carriage[${k}].carries`, `${men} men to carry but '${v.id}' has ${seats} passenger seats`, "warning");
     });
+  });
+}
+
+/** Cross-checks of core/medical.json (M10.1). */
+function checkMedical(m: MedicalT, strings: StringTables, errors: DataError[]): void {
+  const file = "core/medical.json";
+  const err = (path: string, message: string) => errors.push({ file, path, message, severity: "error" });
+  const P = m.physiology;
+  if (P.tensionOnsetMinS > P.tensionOnsetMaxS) err("physiology.tensionOnsetMinS", "must not exceed tensionOnsetMaxS");
+  if (P.headOnsetMinS > P.headOnsetMaxS) err("physiology.headOnsetMinS", "must not exceed headOnsetMaxS");
+  if (!(P.ischaemiaSafeS < P.ischaemiaMidS && P.ischaemiaMidS < P.ischaemiaLateS)) err("physiology.ischaemiaSafeS", "the tourniquet times must rise: safe < mid < late");
+  if (P.ischaemiaMidChance > P.ischaemiaLateChance) err("physiology.ischaemiaMidChance", "must not exceed ischaemiaLateChance");
+  if (!(P.coldDeathC < P.coldOutC && P.coldOutC < P.hypoC)) err("physiology.hypoC", "the temperatures must fall: hypoC > coldOutC > coldDeathC");
+  const en = strings["en"] ?? {};
+  const seen = new Set<string>();
+  m.interventions.forEach((v, i) => {
+    if (seen.has(v.id)) err(`interventions[${i}].id`, `duplicate id '${v.id}'`);
+    seen.add(v.id);
+    if (en[v.nameKey] === undefined) err(`interventions[${i}].nameKey`, `string key '${v.nameKey}' not found in core/strings.en.json`);
+    for (const k of Object.keys(v.success)) if ((v.timeS as Record<string, number | undefined>)[k] === undefined) err(`interventions[${i}].success.${k}`, `a success chance for '${k}', who has no time for it`);
+  });
+  // The care order (M10.2) names known interventions, each once.
+  const inOrder = new Set<string>();
+  m.care.order.forEach((x, i) => {
+    if (!seen.has(x)) err(`care.order[${i}]`, `unknown intervention '${x}'`);
+    if (inOrder.has(x)) err(`care.order[${i}]`, `'${x}' listed twice`);
+    inOrder.add(x);
+  });
+  const seenC = new Set<string>();
+  m.carry.forEach((c, i) => {
+    if (seenC.has(c.id)) err(`carry[${i}].id`, `duplicate id '${c.id}'`);
+    seenC.add(c.id);
+    if (en[c.nameKey] === undefined) err(`carry[${i}].nameKey`, `string key '${c.nameKey}' not found in core/strings.en.json`);
   });
 }
 

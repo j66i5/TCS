@@ -157,10 +157,10 @@
       "id": "de-ifak",
       "nameKey": "item.de-ifak",
       "category": "kit",
-      "massKg": 0.6,
+      "massKg": 0.19,
       "sources": [],
       "confidence": "low",
-      "note": "Individual first-aid kit (tourniquet, dressings); used by the medical system in M10. Mass is a typical value, not sourced; part of the itemised load that replaces the placeholder."
+      "note": "The pouch of the individual first-aid kit; its contents are counted items since M10.1 (one CAT tourniquet, two field dressings, haemostatic gauze, a rescue blanket, pain tablets: 0.6 kg with the pouch, the old placeholder mass). Official contents not found in search extracts (research 2026-11-14); typical values."
     },
     {
       "id": "de-webbing",
@@ -265,6 +265,220 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the vehicle's fire extinguishing system (M7.4b)."
+    },
+    {
+      "id": "de-tourniquet-cat",
+      "nameKey": "item.de-tourniquet-cat",
+      "category": "medical",
+      "massKg": 0.08,
+      "medical": {
+        "tags": [
+          "tourniquet"
+        ]
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "medium",
+      "note": "Combat Application Tourniquet type: every Bundeswehr soldier on operations carries at least one tourniquet (bundeswehr.de 'T-Tourniquet', search extract). About 80 g. The reference tourniquet (time and success factor 1)."
+    },
+    {
+      "id": "de-pressure-dressing",
+      "nameKey": "item.de-pressure-dressing",
+      "category": "medical",
+      "massKg": 0.1,
+      "medical": {
+        "tags": [
+          "pressure-dressing"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Verbandpaeckchen / emergency (Israeli) pressure bandage. Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-hemostatic-gauze",
+      "nameKey": "item.de-hemostatic-gauze",
+      "category": "medical",
+      "massKg": 0.05,
+      "medical": {
+        "tags": [
+          "hemostatic"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Haemostatic gauze for wound packing (commercial EH-A sets, search extract). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-rescue-blanket",
+      "nameKey": "item.de-rescue-blanket",
+      "category": "medical",
+      "massKg": 0.06,
+      "medical": {
+        "tags": [
+          "blanket"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Rescue blanket against hypothermia. Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-pain-tablets",
+      "nameKey": "item.de-pain-tablets",
+      "category": "medical",
+      "massKg": 0.02,
+      "medical": {
+        "tags": [
+          "pain-oral"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Tablet pack (TCCC style meloxicam and paracetamol). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-chest-seal",
+      "nameKey": "item.de-chest-seal",
+      "category": "medical",
+      "massKg": 0.05,
+      "medical": {
+        "tags": [
+          "chest-seal"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Vented chest seal (first responder and medic bags). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-npa",
+      "nameKey": "item.de-npa",
+      "category": "medical",
+      "massKg": 0.03,
+      "medical": {
+        "tags": [
+          "npa"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Nasopharyngeal airway; Einsatzersthelfer B trains airway care (bundeswehr.de, search extract). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-decompression-needle",
+      "nameKey": "item.de-decompression-needle",
+      "category": "medical",
+      "massKg": 0.03,
+      "medical": {
+        "tags": [
+          "decompression-needle"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Needle for chest decompression (owner Q-1b: Einsatzersthelfer B may relieve the airway / chest). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-iv-set",
+      "nameKey": "item.de-iv-set",
+      "category": "medical",
+      "massKg": 0.15,
+      "medical": {
+        "tags": [
+          "iv-set"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Cannula and giving set; Einsatzersthelfer B trains IV access (bundeswehr.de 'Ausbildung Einsatzersthelfer Bravo', search extract). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-io-set",
+      "nameKey": "item.de-io-set",
+      "category": "medical",
+      "massKg": 0.25,
+      "medical": {
+        "tags": [
+          "io-set"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Intra-osseous access (FAST1 / EZ-IO type), medics only. Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-fluid-500",
+      "nameKey": "item.de-fluid-500",
+      "category": "medical",
+      "massKg": 0.55,
+      "medical": {
+        "tags": [
+          "fluid"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "500 ml crystalloid bag. Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-ketamine",
+      "nameKey": "item.de-ketamine",
+      "category": "medical",
+      "massKg": 0.03,
+      "medical": {
+        "tags": [
+          "ketamine"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Ketamine for pain, medics only (TCCC). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-splint",
+      "nameKey": "item.de-splint",
+      "category": "medical",
+      "massKg": 0.12,
+      "medical": {
+        "tags": [
+          "splint"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "SAM-type splint (about 115 g). Game-value mass (typical commercial item); research 2026-11-14 from search extracts only."
+    },
+    {
+      "id": "de-ehb-bag",
+      "nameKey": "item.de-ehb-bag",
+      "category": "medical",
+      "massKg": 0.6,
+      "sources": [],
+      "confidence": "low",
+      "note": "The Einsatzersthelfer B bag, empty; its contents are counted items in the man's load (two tourniquets, two haemostatic gauzes, four dressings, two chest seals, two nasal airways, a decompression needle, an IV set and two 500 ml bags, pain tablets, two rescue blankets, a splint: about 3 kg). Official contents not found (research 2026-11-14); proposal."
+    },
+    {
+      "id": "de-medic-bag",
+      "nameKey": "item.de-medic-bag",
+      "category": "medical",
+      "massKg": 1.2,
+      "sources": [],
+      "confidence": "low",
+      "note": "The Sanitaeter's bag, empty; contents as the first responder's bag plus an IO set, ketamine and more dressings (bundeswehr.de 'Erster am Verwundeten: der Medic', search extract; quantities a proposal)."
+    },
+    {
+      "id": "de-armband",
+      "nameKey": "item.de-armband",
+      "category": "medical",
+      "massKg": 0.02,
+      "emblem": true,
+      "sources": [
+        "https://www.icrc.org/en/war-and-law/emblems"
+      ],
+      "confidence": "medium",
+      "note": "Red cross armband: marks the wearer as medical personnel (GC I art. 40). Worn by the Sanitaeter (owner answer 6: marked medics are protected while not fighting)."
     },
     {
       "id": "de-boxer-diesel",

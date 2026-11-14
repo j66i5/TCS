@@ -40,6 +40,9 @@ export type SimEvent =
   | { kind: "hit"; tick: number; target: EntityId; zone: BodyZone; armour: "none" | "penetrated" | "stopped"; ammo: DefId; owner: EntityId }
   | { kind: "wound"; tick: number; soldier: EntityId; woundId: number; zone: BodyZone; mechanism: WoundMechanism; severity: number }
   | { kind: "casualty"; tick: number; soldier: EntityId; status: "incapacitated" | "killed" }
+  /** A treatment was finished (M10.2): who treated whom, which intervention (core/medical.json id) on which wound,
+   *  with what training (`skill`: self, buddy, firstResponder, medic), and whether it worked. */
+  | { kind: "medical.treated"; tick: number; casualty: EntityId; by: EntityId; intervention: DefId; wound: number; success: boolean; skill: string }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

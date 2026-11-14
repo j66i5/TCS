@@ -111,6 +111,45 @@
       "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
     },
     {
+      "id": "einsatzersthelfer",
+      "nameKey": "role.de.einsatzersthelfer",
+      "medical": {
+        "level": "firstResponder",
+        "interventions": [
+          "tourniquet",
+          "tourniquet-recheck",
+          "pressure-dressing",
+          "wound-packing",
+          "airway-positioning",
+          "npa",
+          "chest-seal",
+          "needle-decompression",
+          "iv-access",
+          "fluids",
+          "pain-oral",
+          "warming",
+          "splint"
+        ]
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+      ],
+      "confidence": "low",
+      "note": "Einsatzersthelfer B: a soldier of the Gruppe with a two-week course (Koblenz), trains airway relief and IV access (bundeswehr.de, search extracts). One per Gruppe, no extra man (owner Q-1c); skills per national training (owner Q-1b). The official ratio was not found."
+    },
+    {
+      "id": "sanitaeter",
+      "nameKey": "role.de.sanitaeter",
+      "medical": {
+        "level": "medic"
+      },
+      "sources": [
+        "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+      ],
+      "confidence": "low",
+      "note": "Sanitaeter (medic) of the medical service attached to the combat company, here one with the Zug headquarters (owner Q-1c); armed for self-defence, wears the red cross armband (owner answers 6 and 8)."
+    },
+    {
       "id": "sankfz-sanitaeter",
       "nameKey": "role.de.sankfz-sanitaeter",
       "sources": [

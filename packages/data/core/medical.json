@@ -1,0 +1,759 @@
+{
+  "physiology": {
+    "tensionChance": 0.15,
+    "tensionOnsetMinS": 300,
+    "tensionOnsetMaxS": 1800,
+    "tensionDeathS": 600,
+    "headChance": 0.3,
+    "headMinSeverity": 0.15,
+    "headOnsetMinS": 120,
+    "headOnsetMaxS": 1800,
+    "fractureChance": 0.3,
+    "fractureMinSeverity": 0.25,
+    "burnFluidLps": 0.0003,
+    "fluidLps": 0.00083,
+    "fluidVolumeFactor": 0.7,
+    "hypoC": 35,
+    "hypoClotFactor": 2,
+    "hypoDeathLossPerC": 0.03,
+    "coldOutC": 31,
+    "coldDeathC": 28,
+    "coolPerS": 0.00056,
+    "rainCoolK": 1,
+    "windCoolK": 0.5,
+    "shelteredCoolFactor": 0.3,
+    "warmedCoolFactor": 0.2,
+    "ischaemiaSafeS": 7200,
+    "ischaemiaMidS": 21600,
+    "ischaemiaMidChance": 0.5,
+    "ischaemiaLateS": 36000,
+    "ischaemiaLateChance": 0.9,
+    "sources": [
+      "https://pubmed.ncbi.nlm.nih.gov/16531856/"
+    ],
+    "confidence": "low",
+    "note": "The 'medical' physiology model (M10.1), on top of core/wounds.json physiology (owner clock of 2026-11-11, unchanged). Research 2026-11-14 from search extracts only. Tension pneumothorax: 3-4 % of the fatally wounded, 15 of 26 lived long enough to reach a medic (J Trauma 2006, medium); the chance per penetrating chest wound (0.15), onset 5-30 min and death 10 min after onset are game values. Head injury: some conscious head wounds pass out after a lucid interval of 2-30 min (game values). Broken bones: 35 % of limb wounds of severity 0.25 or more (game value). Burns lose plasma (Parkland formula: about 4 ml per kg per % body surface per day; 0.0003 l/s per unit of burn severity, game value). Fluids: 500 ml run in over 10 min, 70 % of it counts as circulating volume (game value). Hypothermia: about twice the mortality, below 32 C core almost always fatal in trauma (Hypothermia Prevention CPG 2012, medium); a man in shock at 15 C air cools about 2 C an hour, wet x2, wind up to x1.5, aboard x0.3, wrapped x0.2 (game values); below 35 C clotting is twice as slow and every degree lowers the lethal blood loss by 3 points; out below 31 C, dead at 28 C. Tourniquet clock: no limb lost within 2 h (Kragh et al., J Trauma 2008, medium); amputation chance rising to 0.5 at 6 h and 0.9 at 10 h (extrapolation, low; owner to review)."
+  },
+  "levels": {
+    "firstResponder": {
+      "skill": "firstResponder"
+    },
+    "medic": {
+      "skill": "medic"
+    },
+    "stretcherBearer": {
+      "skill": "buddy"
+    },
+    "ambulanceCrew": {
+      "skill": "medic"
+    },
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+    ],
+    "confidence": "low",
+    "note": "Medical jobs (owner 2026-11-14): first responder (Einsatzersthelfer B, strelok-sanitar), medic (Sanitaeter), stretcher bearer (riflemen tasked by the platoon leader: buddy-level skill), ambulance crew (medic level). A role may narrow what it is trained for (roles.json medical.interventions; owner Q-1b)."
+  },
+  "interventions": [
+    {
+      "id": "tourniquet",
+      "nameKey": "medical.intervention.tourniquet",
+      "treats": "limb-bleed",
+      "underFire": true,
+      "timeS": {
+        "self": 35,
+        "buddy": 30,
+        "firstResponder": 25,
+        "medic": 20
+      },
+      "success": {
+        "buddy": 0.75,
+        "firstResponder": 0.85,
+        "medic": 0.95
+      },
+      "stressFactor": 0.85,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "tourniquet",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "bleedFactor": 0,
+        "painAdd": 0.2,
+        "tourniquet": true
+      },
+      "sources": [
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8290695/",
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "medium",
+      "note": "Research 2026-11-14 (search extracts only): experienced appliers about 25 s, inexperienced 28-38 s (JSOM 2025); self-application 3-8 s slower and 9-22 % less effective (Am J Transl Res 2021, PMC8290695); IDF field data 22 % failed to occlude, non-medical personnel fail often. Self-aid succeeds at the buddy chance times selfFactor. Care under fire: the only treatment allowed (TCCC), 1.3x slower (game value). Picks within the ranges are game values."
+    },
+    {
+      "id": "tourniquet-recheck",
+      "nameKey": "medical.intervention.tourniquet-recheck",
+      "treats": "tourniquet",
+      "underFire": false,
+      "timeS": {
+        "self": 10,
+        "buddy": 10,
+        "firstResponder": 10,
+        "medic": 10
+      },
+      "success": {
+        "buddy": 0.9,
+        "firstResponder": 0.95,
+        "medic": 0.98
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [],
+      "effect": {
+        "bleedFactor": 0
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Re-check and tighten a tourniquet: tourniquets lose pressure within about 2 minutes of being applied, non-elastic straps especially (JSOM 2020, search extract). Time and success are game values."
+    },
+    {
+      "id": "pressure-dressing",
+      "nameKey": "medical.intervention.pressure-dressing",
+      "treats": "compressible-bleed",
+      "underFire": false,
+      "timeS": {
+        "self": 60,
+        "buddy": 45,
+        "firstResponder": 40,
+        "medic": 35
+      },
+      "success": {
+        "buddy": 0.7,
+        "firstResponder": 0.8,
+        "medic": 0.85
+      },
+      "stressFactor": 0.9,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "pressure-dressing",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "bleedFactor": 0.15
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Emergency (Israeli) bandage, Verbandpaeckchen, IPP-1. No measured time found in search extracts; times, success and the effect (bleeding x0.15) are game values."
+    },
+    {
+      "id": "wound-packing",
+      "nameKey": "medical.intervention.wound-packing",
+      "treats": "junctional-bleed",
+      "underFire": false,
+      "timeS": {
+        "buddy": 300,
+        "firstResponder": 240,
+        "medic": 210
+      },
+      "success": {
+        "buddy": 0.6,
+        "firstResponder": 0.75,
+        "medic": 0.85
+      },
+      "stressFactor": 0.85,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "hemostatic",
+          "count": 1
+        },
+        {
+          "tag": "pressure-dressing",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "bleedFactor": 0.1
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "low",
+      "note": "Pack with haemostatic gauze (up to about 90 s) then hold pressure 3 minutes (JEMS 'Wound packing essentials', TCCC neck-wound guidance; search extracts). About 90 % haemostasis where haemostatic gauze is used (JEMS). Packing time and the success picks are game values."
+    },
+    {
+      "id": "airway-positioning",
+      "nameKey": "medical.intervention.airway-positioning",
+      "treats": "airway",
+      "underFire": false,
+      "timeS": {
+        "self": 10,
+        "buddy": 15,
+        "firstResponder": 15,
+        "medic": 10
+      },
+      "success": {
+        "buddy": 0.9,
+        "firstResponder": 0.95,
+        "medic": 0.95
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [],
+      "effect": {
+        "airwayFactor": 0.5
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Recovery position, sitting up, chin lift. No timing found; game values."
+    },
+    {
+      "id": "npa",
+      "nameKey": "medical.intervention.npa",
+      "treats": "airway",
+      "underFire": false,
+      "timeS": {
+        "firstResponder": 30,
+        "medic": 20
+      },
+      "success": {
+        "firstResponder": 0.85,
+        "medic": 0.9
+      },
+      "stressFactor": 0.95,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "npa",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "airwayFactor": 0.1
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "low",
+      "note": "Nasopharyngeal airway. TCCC skill sheets list the steps, no time; Einsatzersthelfer B trains airway care (bundeswehr.de, search extract). Times and success are game values."
+    },
+    {
+      "id": "chest-seal",
+      "nameKey": "medical.intervention.chest-seal",
+      "treats": "open-chest",
+      "underFire": false,
+      "timeS": {
+        "self": 60,
+        "buddy": 45,
+        "firstResponder": 40,
+        "medic": 30
+      },
+      "success": {
+        "buddy": 0.8,
+        "firstResponder": 0.85,
+        "medic": 0.9
+      },
+      "stressFactor": 0.95,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "chest-seal",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "breathingFactor": 0.3
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "low",
+      "note": "Vented chest seal. TCCC module 8 lists steps, no time. A tension pneumothorax may still develop and then needs decompression. Game values."
+    },
+    {
+      "id": "needle-decompression",
+      "nameKey": "medical.intervention.needle-decompression",
+      "treats": "tension",
+      "underFire": false,
+      "timeS": {
+        "firstResponder": 60,
+        "medic": 45
+      },
+      "success": {
+        "firstResponder": 0.5,
+        "medic": 0.75
+      },
+      "stressFactor": 0.9,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "decompression-needle",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "decompress": true
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "medium",
+      "note": "Failure 58 % in one series (J Trauma Acute Care Surg 2012), 3.2 cm catheters fail up to 65 %, about 80 % success with 5 cm catheters (reviews; search extracts). Einsatzersthelfer B trains airway relief (owner Q-1b: per national training). Times are game values."
+    },
+    {
+      "id": "iv-access",
+      "nameKey": "medical.intervention.iv-access",
+      "treats": "access",
+      "underFire": false,
+      "timeS": {
+        "firstResponder": 120,
+        "medic": 90
+      },
+      "success": {
+        "firstResponder": 0.6,
+        "medic": 0.75
+      },
+      "stressFactor": 0.7,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "iv-set",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "access": true
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "IV versus IO 77 vs 83 s median (Cureus 2025 via ivteam.com); IV first attempt 46 % in hypovolaemic shock against IO 100 % (search extracts). stressFactor here stands for 'in shock'. Picks are game values."
+    },
+    {
+      "id": "io-access",
+      "nameKey": "medical.intervention.io-access",
+      "treats": "access",
+      "underFire": false,
+      "timeS": {
+        "firstResponder": 90,
+        "medic": 60
+      },
+      "success": {
+        "firstResponder": 0.8,
+        "medic": 0.9
+      },
+      "stressFactor": 0.95,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "io-set",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "access": true
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "FAST1 sternal 62-67 s (Hartholt 2010); FAST1 72-73 %, EZ-IO 87 % first-attempt success (field trial; search extracts). Picks are game values."
+    },
+    {
+      "id": "fluids",
+      "nameKey": "medical.intervention.fluids",
+      "treats": "volume",
+      "underFire": false,
+      "timeS": {
+        "firstResponder": 60,
+        "medic": 45
+      },
+      "success": {
+        "firstResponder": 1,
+        "medic": 1
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "fluid",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "fluidL": 0.5
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Hang a 500 ml bag on an access already placed: the time is connecting it; it then runs in over about 10 minutes (physiology fluidLps). TCCC prefers blood, which a platoon does not carry. Game values."
+    },
+    {
+      "id": "pain-oral",
+      "nameKey": "medical.intervention.pain-oral",
+      "treats": "pain",
+      "underFire": false,
+      "timeS": {
+        "self": 10,
+        "buddy": 15,
+        "firstResponder": 15,
+        "medic": 15
+      },
+      "success": {
+        "buddy": 1,
+        "firstResponder": 1,
+        "medic": 1
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "pain-oral",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "painRelief": 0.3
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "TCCC tablet pack (meloxicam and paracetamol), onset reassessed at 15 minutes (Ranger Medic Handbook 2025; search extract). Time and the relief are game values."
+    },
+    {
+      "id": "pain-injector",
+      "nameKey": "medical.intervention.pain-injector",
+      "treats": "pain",
+      "underFire": false,
+      "timeS": {
+        "self": 20,
+        "buddy": 20,
+        "firstResponder": 20,
+        "medic": 20
+      },
+      "success": {
+        "buddy": 1,
+        "firstResponder": 1,
+        "medic": 1
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "pain-injector",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "painRelief": 0.4
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Opioid autoinjector or syringe tube (the Russian kit holds a promedol syringe tube, nordsint.org; fentanyl lozenge in TCCC). Time and relief are game values."
+    },
+    {
+      "id": "pain-ketamine",
+      "nameKey": "medical.intervention.pain-ketamine",
+      "treats": "pain",
+      "underFire": false,
+      "timeS": {
+        "medic": 60
+      },
+      "success": {
+        "medic": 1
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "ketamine",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "painRelief": 0.5
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Ketamine 0.5 mg/kg IM or IN, repeat every 30-60 min (Ranger Medic Handbook 2025, search extract). Medics only. Time and relief are game values."
+    },
+    {
+      "id": "warming",
+      "nameKey": "medical.intervention.warming",
+      "treats": "cold",
+      "underFire": false,
+      "timeS": {
+        "buddy": 90,
+        "firstResponder": 90,
+        "medic": 60
+      },
+      "success": {
+        "buddy": 1,
+        "firstResponder": 1,
+        "medic": 1
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "blanket",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "warms": true
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Rescue blanket or hypothermia prevention kit; hypothermic casualties have about twice the mortality (Hypothermia Prevention CPG 2012, search extract). No time found; game values."
+    },
+    {
+      "id": "splint",
+      "nameKey": "medical.intervention.splint",
+      "treats": "fracture",
+      "underFire": false,
+      "timeS": {
+        "buddy": 180,
+        "firstResponder": 150,
+        "medic": 120
+      },
+      "success": {
+        "buddy": 0.9,
+        "firstResponder": 0.95,
+        "medic": 0.98
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "splint",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "splints": true,
+        "painRelief": 0.2
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "SAM or improvised splint. Nothing found in search extracts; game values."
+    },
+    {
+      "id": "tourniquet-convert",
+      "nameKey": "medical.intervention.tourniquet-convert",
+      "treats": "tourniquet",
+      "underFire": false,
+      "timeS": {
+        "medic": 300
+      },
+      "success": {
+        "medic": 0.8
+      },
+      "stressFactor": 1,
+      "selfFactor": 0.85,
+      "underFireTimeFactor": 1.3,
+      "consumes": [
+        {
+          "tag": "pressure-dressing",
+          "count": 1
+        }
+      ],
+      "effect": {
+        "bleedFactor": 0.15,
+        "tourniquet": false
+      },
+      "sources": [
+        "https://www.deployedmedicine.com/"
+      ],
+      "confidence": "low",
+      "note": "Replace a tourniquet with a pressure dressing (TCCC; medics only, within 2 hours). Game values."
+    }
+  ],
+  "carry": [
+    {
+      "id": "walking",
+      "nameKey": "medical.carry.walking",
+      "carriers": 0,
+      "speedMps": 0.9,
+      "enduranceM": 2000,
+      "restS": 0,
+      "setupS": 0,
+      "upright": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Walking wounded, unaided: about 60 % of a walk (leg wounds slow him further through the wound effects). Game value."
+    },
+    {
+      "id": "supported",
+      "nameKey": "medical.carry.supported",
+      "carriers": 1,
+      "speedMps": 0.6,
+      "enduranceM": 200,
+      "restS": 30,
+      "setupS": 0,
+      "upright": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Arm over a comrade's shoulder. Game values."
+    },
+    {
+      "id": "drag",
+      "nameKey": "medical.carry.drag",
+      "carriers": 1,
+      "speedMps": 0.7,
+      "enduranceM": 40,
+      "restS": 30,
+      "setupS": 0,
+      "upright": false,
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/36913878/"
+      ],
+      "confidence": "medium",
+      "note": "One-man drag by the vest handle: 110 kg over 20 m in about 27 s by fit civilians (0.74 m/s); British Army standard 110 kg 20 m within 35 s (Vine et al., Applied Ergonomics 2023). A soldier in kit is about 105 kg. Endurance and rest are game values."
+    },
+    {
+      "id": "two-man-drag",
+      "nameKey": "medical.carry.two-man-drag",
+      "carriers": 2,
+      "speedMps": 1.0,
+      "enduranceM": 80,
+      "restS": 30,
+      "setupS": 0,
+      "upright": false,
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/36913878/"
+      ],
+      "confidence": "low",
+      "note": "Two-person drag studied by Vine et al. 2023 (times not in the extract). Game values."
+    },
+    {
+      "id": "fireman",
+      "nameKey": "medical.carry.fireman",
+      "carriers": 1,
+      "speedMps": 1.0,
+      "enduranceM": 80,
+      "restS": 30,
+      "setupS": 5,
+      "upright": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Fireman's carry: exposes both men upright (TCCC and US manuals advise a drag under fire). Speed and endurance are game values."
+    },
+    {
+      "id": "two-man",
+      "nameKey": "medical.carry.two-man",
+      "carriers": 2,
+      "speedMps": 1.0,
+      "enduranceM": 120,
+      "restS": 60,
+      "setupS": 5,
+      "upright": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Two-man seat or fore-and-aft carry; two-person hand carry of a litter lasts about 3 minutes to exhaustion (1994 stretcher study, search extract). Game values."
+    },
+    {
+      "id": "stretcher",
+      "nameKey": "medical.carry.stretcher",
+      "carriers": 4,
+      "speedMps": 1.0,
+      "enduranceM": 300,
+      "restS": 60,
+      "setupS": 45,
+      "upright": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Four-man litter: 4.8 km/h on a treadmill (1.33 m/s), proposed 1.0 m/s over ground; continuous carry up to about 5 minutes with harness (stretcher studies, search extracts); 30-60 s to unfold and load. Game values."
+    }
+  ],
+  "chain": {
+    "firstAidS": 600,
+    "role1S": 3600,
+    "surgeryS": 7200,
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+    ],
+    "confidence": "medium",
+    "note": "Bundeswehr 10-1-2 rule: life-saving bleeding control and airway within 10 minutes, a doctor (Role 1) within 60 minutes, surgery within 2 hours (bundeswehr.de 'Rettungskette', search extract)."
+  },
+  "protection": {
+    "recognitionM": {
+      "vehicleEye": 300,
+      "vehicleOptics": 800,
+      "armbandEye": 50,
+      "armbandOptics": 150
+    },
+    "obscuredFactor": 0.3,
+    "breachBase": 0.01,
+    "breachLossesK": 3,
+    "breachLowDisciplineK": 2,
+    "breachPanicK": 2,
+    "medicFiredLosesProtectionS": 120,
+    "sources": [
+      "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule25",
+      "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule29",
+      "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule47"
+    ],
+    "confidence": "low",
+    "note": "Law: medical personnel, transports and men hors de combat are protected while they commit no acts harmful to the enemy (CIHL rules 25, 29, 47; GC I art. 19, 21, 22, 24). The numbers are game values (none published): an emblem on a vehicle recognised to about 300 m by eye and 800 m with optics, an armband to 50 m / 150 m, x0.3 in smoke or at night; a deliberate breach 1 % per decision, x3 after own losses, x2 for poor discipline, x2 when panicked (owner answer 5: from unit quality, stress and losses only, never from faction); a medic who fights loses protection for 120 s after his last shot."
+  },
+  "triage": {
+    "errorChance": {
+      "buddy": 0.25,
+      "firstResponder": 0.15,
+      "medic": 0.1
+    },
+    "underFireAdd": 0.1,
+    "sources": [],
+    "confidence": "low",
+    "note": "Chance of a wrong triage category (SPEC 9.1: sometimes wrong). Game values."
+  },
+  "care": {
+    "stepS": 1,
+    "buddyReachM": 3,
+    "maxAttempts": 3,
+    "painTreatAt": 0.3,
+    "skillRef": 0.2,
+    "skillK": 0.25,
+    "underFireSuppression": 0.1,
+    "underFireSeconds": 5,
+    "junctionalZones": [
+      "neck"
+    ],
+    "order": [
+      "tourniquet",
+      "wound-packing",
+      "pressure-dressing",
+      "npa",
+      "airway-positioning",
+      "chest-seal",
+      "needle-decompression",
+      "io-access",
+      "iv-access",
+      "fluids",
+      "warming",
+      "pain-ketamine",
+      "pain-injector",
+      "pain-oral",
+      "splint"
+    ],
+    "sources": [
+      "https://www.deployedmedicine.com/"
+    ],
+    "confidence": "low",
+    "note": "How care is given (M10.2, game values unless said). Order: the MARCH sequence of TCCC tactical field care (massive bleeding, airway, respiration, circulation, hypothermia; then pain and splints; deployedmedicine.com, search extracts: medium for the sequence, low for the rest). A man treats himself (self-aid) when he can; otherwise the nearest comrade of his side within buddyReachM (3 m, roadmap plan) does it. Under fire (own suppression at least underFireSuppression, or his unit fired on within underFireSeconds) only interventions marked underFire (the tourniquet; TCCC care under fire). A bleed is life-threatening when it is too large to clot by itself (core/wounds.json clotBelowLps). Each intervention at most maxAttempts times on one wound; success and time also depend on the man's own medical skill: x (1 + skillK x (skill - skillRef)). Pain is treated at painTreatAt or more, once. Junctional bleeds (wound packing): the zones listed. Re-checking and converting a tourniquet come with the medic (M10.5)."
+  }
+}

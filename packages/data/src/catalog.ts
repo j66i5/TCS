@@ -1,6 +1,6 @@
 /** Turns a validated DataSet into the Catalog the simulation runs with. */
-import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type ItemTypeDef, type MovementModeDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
-import type { VehicleT } from "./schemas";
+import { canonicalJson, hashText, PI, type BodyDef, type Catalog, type FactionDef, type ItemTypeDef, type MedicalDef, type MovementModeDef, type TerrainCatalog, type VehicleDef } from "@tcs/sim";
+import type { MedicalT, VehicleT } from "./schemas";
 import type { DataSet } from "./loader";
 
 /** Build a catalog containing the given factions (and all core data). */
@@ -11,6 +11,11 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     const pack = data.factions[fid];
     if (!pack) throw new Error(`faction '${fid}' is not loaded (loaded: ${Object.keys(data.factions).join(", ")})`);
     factions[fid] = { id: fid, nameKey: pack.manifest.nameKey, doctrine: { ...pack.doctrine.values }, defaultFormation: pack.doctrine.defaultFormation };
+    const medRoles: NonNullable<FactionDef["medicalRoles"]> = {};
+    for (const r of Object.values(pack.roles).sort((a, b) => (a.id < b.id ? -1 : 1))) {
+      if (r.medical) medRoles[r.id] = { level: r.medical.level, ...(r.medical.interventions ? { interventions: [...r.medical.interventions] } : {}) };
+    }
+    if (Object.keys(medRoles).length > 0) factions[fid]!.medicalRoles = medRoles;
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
@@ -26,6 +31,8 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.armour !== undefined) d.armour = it.armour.map((a) => ({ ...a }));
       if (it.tracerItem !== undefined && it.tracerEvery !== undefined) { d.tracerItem = it.tracerItem; d.tracerEvery = it.tracerEvery; }
+      if (it.medical !== undefined) d.medical = { tags: [...it.medical.tags], timeFactor: it.medical.timeFactor, successFactor: it.medical.successFactor };
+      if (it.emblem === true) d.emblem = true;
       items[it.id] = d;
     }
   }
@@ -64,8 +71,28 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
   const behaviour = noProv(data.behaviour) as Catalog["behaviour"];
   const formations: Catalog["formations"] = {};
   for (const f of Object.values(data.formations)) formations[f.id] = { id: f.id, slots: f.slots.map(([a, b]) => [a, b] as [number, number]) };
-  const body = { items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
+  const medical = data.medical ? medicalCatalog(data.medical) : undefined;
+  const body = { ...(medical ? { medical } : {}), items, movementModes, qualities, factions, terrain: terrainCatalog(data), body: bodyCatalog(data), formations, ballistics, shooting, wounds, spotting, behaviour, ammo, ammoIds, weapons, vehicles };
   return { fingerprint: hashText(canonicalJson(body)), ...body };
+}
+
+/** The medical data (M10.1) without provenance; lists become records keyed by id (sorted). */
+export function medicalCatalog(m: MedicalT): MedicalDef {
+  const byId = <T extends { id: string }>(list: T[]) => {
+    const out: Record<string, unknown> = {};
+    for (const x of [...list].sort((a, b) => (a.id < b.id ? -1 : 1))) out[x.id] = noProv(x);
+    return out;
+  };
+  return {
+    physiology: noProv(m.physiology) as MedicalDef["physiology"],
+    levels: noProv(m.levels) as MedicalDef["levels"],
+    interventions: byId(m.interventions) as MedicalDef["interventions"],
+    carry: byId(m.carry) as MedicalDef["carry"],
+    chain: noProv(m.chain) as MedicalDef["chain"],
+    protection: noProv(m.protection) as MedicalDef["protection"],
+    triage: noProv(m.triage) as MedicalDef["triage"],
+    care: noProv(m.care) as MedicalDef["care"],
+  };
 }
 
 /** Provenance keys: kept in the data set, never in the catalog (the simulation must not see them). */

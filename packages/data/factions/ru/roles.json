@@ -103,6 +103,27 @@
       "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
     },
     {
+      "id": "strelok-sanitar",
+      "nameKey": "role.ru.strelok-sanitar",
+      "medical": {
+        "level": "firstResponder",
+        "interventions": [
+          "tourniquet",
+          "tourniquet-recheck",
+          "pressure-dressing",
+          "wound-packing",
+          "airway-positioning",
+          "pain-injector",
+          "warming"
+        ]
+      },
+      "sources": [
+        "https://www.battleorder.org/"
+      ],
+      "confidence": "low",
+      "note": "Strelok-sanitar (rifleman-medic): one per motor-rifle platoon in the BMP platoon organisation of about 2000 (battleorder.org, search extract), here a rifleman of the first squad who keeps his rifle and GP-25 (no extra man: the BMP has seven passenger seats). Owner Q-1b: dressings and tourniquets (national training). Current staffing not found."
+    },
+    {
       "id": "sanitar-bmm",
       "nameKey": "role.ru.sanitar-bmm",
       "sources": [

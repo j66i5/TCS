@@ -29,6 +29,9 @@ export interface BattleRules {
   /** M8.2a: `planned` targets set in deployment: points the side's mortars have registered on before the battle
    *  (a mission within `registeredM` of one fires for effect at once, with the small error left there). */
   support?: { side: SideId; he: number; smoke: number; planned?: { x: number; y: number }[] }[];
+  /** Care of the wounded (M10.2 on): false switches it off (`--no-medical`, comparison batches). Default on
+   *  whenever the data has core/medical.json. */
+  medicalCare?: boolean;
 }
 
 /** An area worth holding (M6). */

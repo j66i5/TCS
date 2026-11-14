@@ -73,7 +73,27 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 17;
+export const STATE_SCHEMA_VERSION = 18;
+
+/**
+ * Older schemas this build can still load, each with its migration to the next (M10.1 onwards).
+ * 17 -> 18 (M10.1 medical physiology): new optional fields only (wound conditions, core temperature, fluids,
+ * the "conditions" RNG stream created on first use), so a schema-17 save is already a valid schema-18 state.
+ */
+const MIGRATIONS: Record<number, (d: SerializedState) => SerializedState> = {
+  17: (d) => ({ ...d, schema: 18 }),
+};
+
+/** Bring a save up to the current schema, or throw if it is too old or too new. */
+export function migrateState(data: SerializedState): SerializedState {
+  let d = data;
+  while (d.schema !== STATE_SCHEMA_VERSION) {
+    const m = MIGRATIONS[d.schema];
+    if (!m) throw new Error(`save has state schema ${data.schema}, this build expects ${STATE_SCHEMA_VERSION}`);
+    d = m(d);
+  }
+  return d;
+}
 
 export interface SideState {
   id: SideId;
@@ -253,10 +273,7 @@ export function toPlain(value: unknown, path: string): unknown {
 }
 
 export function deserializeState(data: SerializedState): SimState {
-  if (data.schema !== STATE_SCHEMA_VERSION) {
-    throw new Error(`save has state schema ${data.schema}, this build expects ${STATE_SCHEMA_VERSION}`);
-  }
-  const d = toPlain(data, "save") as SerializedState;
+  const d = toPlain(migrateState(data), "save") as SerializedState;
   const st = (k: StoreKey) => Store.fromEntries(d.stores[k] ?? []);
   return {
     tick: d.tick,

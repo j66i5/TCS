@@ -23,7 +23,7 @@ import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { canReport } from "../impair";
 import { sqrt } from "../math";
-import type { SmokeCloud } from "../smoke";
+import { addSmoke } from "../smoke";
 import { nextNormal, Streams } from "../rng";
 import { newEntity, type FireMission, type LocationMethod, type SimState, type SimView, type SupportSection } from "../state";
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
@@ -248,9 +248,3 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
   state.fireMissions = state.fireMissions.filter((m) => m.left > 0);
 }
 
-/** Lay a smoke cloud at (x, y) on the ground (M8.1: its ground height, top, burn time at its place). */
-export function addSmoke(ctx: SimContext, state: SimState, x: number, y: number, radiusM: number, seconds: number, topM: number, burnS: number, multispectral = false): void {
-  const c: SmokeCloud = { x, y, radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(seconds), gz: heightAt(ctx.map, x, y), topM, burnS }; // ground: ok (a cloud on the ground)
-  if (multispectral) c.multispectral = true;
-  state.smoke.push(c);
-}

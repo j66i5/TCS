@@ -30,10 +30,12 @@ export interface VehicleBattleOptions {
   timeLimitSeconds?: number;
 }
 
-/** The first crew template (one with a vehicle) of a faction, by id order. */
+/** The first crew template of a fighting vehicle (not an ambulance) of a faction, by id order. */
 export function crewTemplateOf(data: DataSet, faction: string): string {
   const pack = data.factions[faction];
-  const ids = pack ? Object.keys(pack.units).sort().filter((id) => pack.units[id]!.vehicle !== undefined) : [];
+  // (M10.6-data: a fighting vehicle's crew, not an ambulance's: ambulances come from off the map, M10.6a.)
+  const fighting = (id: string) => { const v = pack!.units[id]!.vehicle; return v !== undefined && pack!.vehicles[v]?.ambulance === undefined; };
+  const ids = pack ? Object.keys(pack.units).sort().filter(fighting) : [];
   if (ids.length === 0) throw new Error(`faction '${faction}' has no vehicle crew template`);
   return ids[0]!;
 }

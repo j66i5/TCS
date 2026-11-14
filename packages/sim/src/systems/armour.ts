@@ -27,7 +27,7 @@
  * Randomness: the "armour" stream (created on first use: vehicle-free battles never draw from it). No
  * allocation on the stopped-round path; one event per hit (small arms stay aggregated per vehicle and tick).
  */
-import { addSmoke } from "./support";
+import { addSmoke } from "../smoke";
 import type { VehicleComponent, VehicleDef } from "../catalog";
 import type { VehicleState } from "../components";
 import type { SimContext } from "../context";
@@ -423,7 +423,7 @@ function mobile(v: VehicleState, def: VehicleDef): boolean {
   const comps = def.components ?? [];
   for (let k = 0; k < comps.length; k++) {
     const kd = comps[k]!.kind;
-    if ((kd === "engine" || kd === "track" || kd === "transmission") && (v.comp[k] ?? 1) <= 0) return false;
+    if ((kd === "engine" || kd === "track" || kd === "wheels" || kd === "transmission") && (v.comp[k] ?? 1) <= 0) return false;
   }
   return true;
 }

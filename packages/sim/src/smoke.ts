@@ -15,7 +15,10 @@
  * queries (spatial culling by bounding box), the renderer draws the same shapes (rule 5: shapes, not internals).
  */
 import type { Catalog } from "./catalog";
-import type { SimView } from "./state";
+import type { SimContext } from "./context";
+import { secondsToTicks } from "./ids";
+import { heightAt } from "./terrain";
+import type { SimState, SimView } from "./state";
 import { exp, sqrt } from "./math";
 
 /** A smoke cloud as stored in the state (plain data). `gz`, `topM`, `burnS` absent: an old cloud (before M8.1),
@@ -166,4 +169,11 @@ export function smokeTransmission(state: SimView, P: SmokePhysics, x0: number, y
     metres += (hi - lo) * (L2 <= 1e-12 ? r : L) * dens;
   }
   return metres > 0 ? exp(-P.k * metres) : 1;
+}
+
+/** Lay a smoke cloud at (x, y) on the ground (M8.1: its ground height, top, burn time at its place). */
+export function addSmoke(ctx: SimContext, state: SimState, x: number, y: number, radiusM: number, seconds: number, topM: number, burnS: number, multispectral = false): void {
+  const c: SmokeCloud = { x, y, radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(seconds), gz: heightAt(ctx.map, x, y), topM, burnS }; 
+  if (multispectral) c.multispectral = true;
+  state.smoke.push(c);
 }

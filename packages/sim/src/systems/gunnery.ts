@@ -47,7 +47,7 @@ import { launchProjectile } from "./ballistics";
 import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
 import { smokePhysics, smokeTransmission } from "../smoke";
-import { addSmoke } from "./support";
+import { addSmoke } from "../smoke";
 
 export type Nature = "ap" | "he" | "mg" | "atgm";
 

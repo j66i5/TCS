@@ -10,6 +10,7 @@ import { attackLab, attackLabMarkdown } from "../labs/attack";
 import { coverLab, coverLabMarkdown } from "../labs/cover";
 import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { driveLab, driveLabMarkdown } from "../labs/drive";
+import { handSmokeLab, handSmokeLabMarkdown, smokeLab, smokeLabMarkdown } from "../labs/smoke";
 import { mountLab, mountLabMarkdown } from "../labs/mount";
 import { gunneryLab, gunneryLabMarkdown } from "../labs/gunnery";
 import { rangeLab, rangeLabMarkdown } from "../labs/range";
@@ -17,7 +18,6 @@ import { armourLab, armourLabMarkdown } from "../labs/armour";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
-import { smokeLab, smokeLabMarkdown } from "../labs/smoke";
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
 import { loadData } from "../scenarios";
 
@@ -44,7 +44,7 @@ const LABS: Record<string, () => string> = {
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
   indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
-  smoke: () => `# Smoke lab\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
+  smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
 };
 const name = process.argv[2] ?? "movement";

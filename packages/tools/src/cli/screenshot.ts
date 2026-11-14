@@ -211,6 +211,66 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
+ * D1 hand smoke (`--scene smoke`): the platoon battle on foot (village), a squad selected, the Fire tray open with
+ * the Smoke button; Smoke chosen and a tap 20 m ahead of the squad (the order the app sends is checked); 12 s on,
+ * the cloud.
+ */
+async function smokeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/smoke-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const zoom = name === "phone" ? 5 : 7;
+  await ev(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    t.select(sq.unit); const c = t.controls().centre; t.focusScale(c.x, c.y, ${zoom}); t.stepTicks(2); return null;`);
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await page.click('.hud-group[data-group="fire"] .hud-caret');
+  await shot("0-fire-tray-smoke");
+  await page.click('.hud-tray[data-tray="fire"] [data-order="smoke"]');
+  await page.waitForTimeout(300);
+  const mode = await ev<string>("return t.controls().mode;");
+  // Tap 20 m toward the map's middle from the squad's centre.
+  const tap = await ev<{ x: number; y: number }>(`const c = t.controls().centre, W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM; const dx = W / 2 - c.x, dy = H / 2 - c.y, d = Math.hypot(dx, dy) || 1;
+    return t.toScreen(c.x + dx / d * 20, c.y + dy / d * 20);`);
+  await page.mouse.move(tap.x, tap.y); await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(300);
+  const order = await ev<unknown>("const o = t.orderLog.filter((x) => x.issuer === 'blue').at(-1); return o ? JSON.parse(JSON.stringify(o)) : null;");
+  await ev("t.stepTicks(60 * 12); return null;");
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await shot("1-smoke-cloud");
+  const info = await ev<unknown>("return { clouds: s.smoke.length, tick: s.tick };");
+  console.log(`${name}: smoke scene mode ${mode}, order ${JSON.stringify(order)}, ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
+ * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
+ * Debug, in the photo and the flat look.
+ */
+async function ambulanceScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const map = args["map"] ?? "farmland";
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}&look=${look}&crew=boxer-san-besatzung,bmm-ekipazh`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid] = t.vehicles()[0]; const p = s.transform.get(vid); t.focus(p.x, p.y, 40); t.stepTicks(1);`) as () => void);
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p0 = `${outDir}/ambulances-${seed}-${name}-${look}-0-boxer.png`;
+    await page.screenshot({ path: p0 }); shots.push(p0);
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setDebug(true); const s = t.sim.state;
+      let red = null; for (const [id, v] of s.vehicle.entries()) if (v.side === "red") { red = id; break; }
+      const p = s.transform.get(red); t.focus(p.x, p.y, 40); t.stepTicks(1);`) as () => void);
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p1 = `${outDir}/ambulances-${seed}-${name}-${look}-1-bmm.png`;
+    await page.screenshot({ path: p1 }); shots.push(p1);
+  }
+  const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; return { tick: s.tick, vehicles: [...s.vehicle.values()].map((v) => v.def) };") as () => object);
+  console.log(`${name}: ambulances scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
@@ -999,11 +1059,11 @@ async function fireSupportScenes(page: Page, name: string, errors: string[], sho
 }
 
 /**
- * Smoke volume v2 (`--scene smoke`, M8.1): the platoon battle on foot with a 4 m/s wind toward the east-south-east;
+ * Smoke volume v2 (`--scene plumes`, M8.1): the platoon battle on foot with a 4 m/s wind toward the east-south-east;
  * a six-round mortar screen laid north-south in front of the blue platoon (plumes fed by the burning rounds) and
  * two vehicle-grenade puffs; shots at 5 s (building up), 30 s (plumes stretched downwind) and 140 s (fading).
  */
-async function smokeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+async function plumeScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "farmland"}&vehicles=0`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
   const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
@@ -1025,9 +1085,9 @@ async function smokeScenes(page: Page, name: string, errors: string[], shots: st
     await ev(`const now = s.tick; t.stepTicks(Math.max(0, ${at} * 60 - (now - (globalThis.__t0 ?? (globalThis.__t0 = now - 1)))));`);
     await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 30000 }).catch(() => undefined);
     await page.waitForTimeout(300);
-    const p = `${outDir}/smoke-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+    const p = `${outDir}/plumes-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
   }
-  console.log(`${name}: smoke scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  console.log(`${name}: plumes scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -1258,6 +1318,8 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1270,7 +1332,7 @@ try {
     if (args["scene"] === "mapfeel") { await mapfeelScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "sight") { await sightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "firesupport") { await fireSupportScenes(page, name, errors, shots); await page.close(); continue; }
-    if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "plumes") { await plumeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "review") {
       // (Its own page at device pixel ratio 2.)
       await page.close();
@@ -1393,7 +1455,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

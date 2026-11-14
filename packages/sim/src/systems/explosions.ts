@@ -8,6 +8,7 @@
  * 3. Terrain damage: a crater, and a hole in any nearby wall thin enough to be blown through. Both are stored
  *    in the battle state (they save, replay and can be carried into a campaign).
  */
+import { addSmoke } from "../smoke";
 import { suppressByBurst } from "./morale";
 import { applyBreaches, lineBlocked } from "../ballistics";
 import { patchNavGrids } from "../navctx";
@@ -55,7 +56,15 @@ function storeyBand(map: SimContext["map"], id: number, rel: number): [number, n
 
 export function detonate(ctx: SimContext, state: SimState, events: EventSink, x: number, y: number, z: number, ammoIdx: number, owner: EntityId): void {
   const ammoId = ctx.catalog.ammoIds[ammoIdx]!;
-  const ex = ctx.catalog.ammo[ammoId]?.explosive;
+  const def = ctx.catalog.ammo[ammoId];
+  // A hand smoke grenade (D1): its fuse has run, it smokes where it lies (no blast, no fragments).
+  if (def?.smoke) {
+    // M8.1 volume: a low plume fed while it burns (`seconds`), lingering over the fade after it burns out.
+    addSmoke(ctx, state, x, y, def.smoke.radiusM, def.smoke.seconds + (ctx.catalog.spotting.smokeFadeSeconds ?? 0), def.smoke.topM ?? 4, def.smoke.seconds);
+    events.emit({ kind: "smoke.grenade", tick: state.tick, x, y, radiusM: def.smoke.radiusM, ammo: ammoId, owner });
+    return;
+  }
+  const ex = def?.explosive;
   if (!ex) return;
   const bal = ctx.catalog.ballistics, BL = bal.blast, map = ctx.map;
   const cube = pow(ex.fillingKg, 1 / 3);

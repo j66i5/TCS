@@ -1,5 +1,5 @@
 /**
- * SMOKE LAB (M8.1, smoke volume v2). Three tables:
+ * SMOKE LAB. Hand smoke grenades (D1, below) and smoke volume v2 (M8.1). The volume part has three tables:
  * - **Height:** an observer on the ground, upstairs and higher looks at a man across a cloud: the view through it
  *   against whether his line clears the cloud's top (geometry, no randomness).
  * - **Drift:** a mortar smoke round in a steady wind: how far the cloud's head has gone after 30 s, and whether
@@ -9,9 +9,96 @@
  *   120 m: the view kept (mean, and the share below spotting's `minVisibility`, i.e. a spotting check that cannot
  *   succeed).
  */
+import { buildCatalog, type DataSet } from "@tcs/data";
 import { demoBattle } from "@tcs/scenario";
-import { addSmoke, createSim, heightAt, smokePhysics, smokeShapes, smokeTransmission, step, submitOrder, type BattleInput, type Sim } from "@tcs/sim";
-import type { DataSet } from "@tcs/data";
+import {
+  addSmoke, countItems, createSim, DEFAULT_COMMS, flatMap, heightAt, smokePhysics, smokeShapes, smokeTransmission, step, submitOrder, ticksToSeconds,
+  type BattleInput, type Sim, type SoldierRecord,
+} from "@tcs/sim";
+
+// ---- Hand smoke grenades (D1, PR #43; on the M8.1 volumes since the merge)
+
+/**
+ * SMOKE LAB (D1 hand smoke grenades, roadmap-detail slice 5): one man on open flat ground is ordered to throw a smoke
+ * grenade (`grenade` order with `smoke: true`) at a point 20 m ahead. Measured from the state: whether it was thrown
+ * (one item fewer, nothing else), when it starts to smoke, the cloud's size, and how long a line of sight across
+ * the cloud is cut — through its middle (the cloud 20 m across) and the width of the band in which sight is cut to a
+ * tenth or less, at 15, 30, 45 and 60 s after the throw. Also: a fragmentation grenade order never takes a smoke
+ * grenade, and the smoke never wounds.
+ */
+export interface HandSmokeRow { ammo: string; case: string; value: number; unit: string }
+
+/** Cut to a tenth or less: what "blocks sight" means here. */
+export const BLOCKED = 0.1;
+
+function oneManLab(data: DataSet, faction: string, ammo: string) {
+  const catalog = buildCatalog(data, [faction]);
+  const map = flatMap("smoke-lab", 300, 300, 4, "grass");
+  const man: SoldierRecord = {
+    personId: "m#1", given: "Lab", family: "m1", rank: "r", role: "rifleman", skills: { marksmanship: 0.5 }, fatigue: 0, stress: 0, wounds: [],
+    load: [{ type: ammo, count: 2 }], status: "fit",
+  };
+  const input: BattleInput = {
+    map, catalog, seed: 1, orders: [],
+    environment: { timeOfDaySeconds: 12 * 3600, light: 1, windX: 0, windY: 0, rain: 0, visibilityM: 5000, temperatureC: 15 },
+    rules: { timeLimitSeconds: 3600, commsModel: "simple", comms: { ...DEFAULT_COMMS, orderDelaySeconds: 0, orderDelayJitterSeconds: 0 }, physiologyModel: "none", physiologyParams: {}, objectives: [] },
+    forces: [{ side: "blue", faction, units: [{ key: "t", callsign: "T", echelon: "team", leaderIndex: 0, subunits: [], members: [man] }], placements: [{ personId: "m#1", x: 100, y: 150, heading: 0 }] }],
+  };
+  const sim = createSim(input);
+  const unit = [...sim.state.unit.keys()][0]!;
+  const sid = [...sim.state.soldier.keys()][0]!;
+  return { sim, unit, sid };
+}
+
+export function handSmokeLab(data: DataSet, cases: { faction: string; ammo: string }[] = [{ faction: "de", ammo: "de-dm45" }, { faction: "ru", ammo: "ru-rdg2" }]): HandSmokeRow[] {
+  const rows: HandSmokeRow[] = [];
+  for (const c of cases) {
+    const add = (k: string, value: number, unit: string) => rows.push({ ammo: c.ammo, case: k, value, unit });
+    const { sim, unit, sid } = oneManLab(data, c.faction, c.ammo);
+    const P = smokePhysics(sim.ctx.catalog), gz = heightAt(sim.ctx.map, 120, 150);
+    // A fragmentation grenade order: nobody takes the smoke grenade for it.
+    submitOrder(sim, { tick: 0, issuer: "blue", target: unit, kind: "grenade", x: 120, y: 150 });
+    for (let i = 0; i < 60 * 3; i++) step(sim);
+    add("thrown on a fragmentation grenade order", 2 - countItems(sim.state.container.req(sid), c.ammo), "");
+    const t0 = sim.state.tick;
+    submitOrder(sim, { tick: t0, issuer: "blue", target: unit, kind: "grenade", x: 120, y: 150, smoke: true });
+    let startTick = -1;
+    const at: Record<number, { mid: number; width: number }> = {};
+    let blockedS = 0;
+    for (let i = 0; i < 60 * 150; i++) {
+      step(sim);
+      const cl = sim.state.smoke[0];
+      if (cl && startTick < 0) startTick = sim.state.tick;
+      if (!cl) continue;
+      // A line of sight across the cloud, square to the throw: observer 100 m to the south, target 100 m north.
+      const mid = smokeTransmission(sim.state, P, cl.x, cl.y - 100, gz + 1.6, cl.x, cl.y + 100, gz + 1.2);
+      if (mid <= BLOCKED) blockedS += 1 / 60;
+      const s = Math.round(ticksToSeconds(sim.state.tick - t0));
+      if ((s === 15 || s === 30 || s === 45 || s === 60) && at[s] === undefined) {
+        let width = 0;
+        for (let o = -20; o <= 20; o += 0.5) if (smokeTransmission(sim.state, P, cl.x + o, cl.y - 100, gz + 1.6, cl.x + o, cl.y + 100, gz + 1.2) <= BLOCKED) width += 0.5;
+        at[s] = { mid, width };
+      }
+    }
+    add("smoke grenades used", 2 - countItems(sim.state.container.req(sid), c.ammo), "");
+    add("smoke from the order", startTick < 0 ? Infinity : ticksToSeconds(startTick - t0), "s");
+    add("cloud across", (sim.ctx.catalog.ammo[c.ammo]?.smoke?.radiusM ?? 0) * 2, "m");
+    add("line through the middle cut to a tenth", blockedS, "s");
+    for (const s of [15, 30, 45, 60]) {
+      add(`view left through the middle at ${s} s`, at[s]?.mid ?? 1, "");
+      add(`band cut to a tenth at ${s} s`, at[s]?.width ?? 0, "m");
+    }
+    add("men wounded", sim.state.soldier.req(sid).wounds.length, "");
+  }
+  return rows;
+}
+
+export function handSmokeLabMarkdown(rows: HandSmokeRow[]): string {
+  const f = (v: number) => (Number.isFinite(v) ? (Math.abs(v) < 1 && v !== 0 ? v.toFixed(3) : v.toFixed(1)) : "-");
+  return ["| grenade | case | value |", "|---|---|---|", ...rows.map((r) => `| ${r.ammo} | ${r.case} | ${f(r.value)} ${r.unit} |`)].join("\n");
+}
+
+// ---- Smoke volumes (M8.1)
 
 export interface SmokeHeightRow { observer: string; eyeZ: number; cloudTopM: number; clearsTop: boolean; view: number }
 export interface SmokeDriftRow { windMps: number; bearingDeg: number; headM: number; upwindM: number }
@@ -29,7 +116,7 @@ const tickTo = (sim: Sim, ticks: number) => { for (let k = 0; k < ticks; k++) st
  *  each looks 150 m across a cloud standing 60 m in front of him at a standing man (1.2 m aim point). */
 function heightRows(data: DataSet): SmokeHeightRow[] {
   const out: SmokeHeightRow[] = [];
-  for (const top of [8, 15]) {
+  for (const top of [4, 8, 15]) { // hand smoke grenade, vehicle grenades, mortar smoke
     const sim = flatSim(data);
     // Fully built (born long ago), not fading.
     addSmoke(sim.ctx, sim.state, 160, 200, 20, 100000, top, 0);

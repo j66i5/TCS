@@ -83,5 +83,9 @@
   "item.ru-bmp2-extinguisher": "BMP-2 fire-extinguisher charge",
   "weapon.ru-9p135m": "9P135M launcher",
   "ammo.ru-9m113m": "9M113M Konkurs-M missile",
-  "item.ru-9m113m-round": "9M113M missile (tube)"
+  "item.ru-9m113m-round": "9M113M missile (tube)",
+  "item.ru-bmm-diesel": "BMM fuel",
+  "item.ru-bmm-extinguisher": "BMM fire-extinguisher charge",
+  "role.ru.sanitar-bmm": "Ambulance medic",
+  "ammo.ru-rdg2": "RDG-2 smoke hand grenade"
 }

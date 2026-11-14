@@ -101,6 +101,15 @@
       "sources": [],
       "confidence": "low",
       "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "sanitar-bmm",
+      "nameKey": "role.ru.sanitar-bmm",
+      "sources": [
+        "https://en.valka.cz/topic/view/41396"
+      ],
+      "confidence": "low",
+      "note": "The medic (sanitar) in the BMM's medical compartment (crew of three; search extracts). Medical skills come with the medical line (M10)."
     }
   ]
 }

@@ -89,5 +89,8 @@
   "item.de-mg5-coax-belt": "coaxial MG5 belt (500)",
   "ammo.de-pzf3-dm12": "Panzerfaust 3 round (DM12)",
   "item.de-pzf3-firing-unit": "Panzerfaust 3 firing unit",
-  "item.de-puma-extinguisher": "Puma fire-suppression charge"
+  "item.de-puma-extinguisher": "Puma fire-suppression charge",
+  "item.de-boxer-diesel": "Boxer fuel",
+  "item.de-boxer-extinguisher": "Boxer fire-extinguisher charge",
+  "role.de.sankfz-sanitaeter": "Ambulance medic"
 }

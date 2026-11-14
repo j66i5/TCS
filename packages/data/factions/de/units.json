@@ -661,6 +661,84 @@
       "sources": [],
       "confidence": "low",
       "note": "Puma crew (M7): commander, gunner, driver. Ranks are typical, not sourced; personal weapons come with mounting and dismounting (M7.2). M7.2: each crewman carries a G36 with three magazines, helmet and vest (game value, low; crews' personal weapons are not in the public sources read)."
+    },
+    {
+      "id": "boxer-san-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Sanka {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-san",
+      "subunits": [],
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "sankfz-sanitaeter",
+          "rank": "hauptgefreiter",
+          "seat": "med",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "obergefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "sources": [
+        "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf"
+      ],
+      "confidence": "low",
+      "note": "Boxer ambulance crew (M10.6-data): commander, driver and a medic (ARTEC brochure, search extract). Ranks and the rifles' loads are game values (medics are armed for self-defence, owner answer 8). Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names."
     }
   ]
 }

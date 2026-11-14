@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   const input = scenario === "demo"
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
-    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400 })
+    ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...crewParam(params.get("crew")) })
     : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: Number(params.get("limit") ?? 2400) || 2400, ...(withVehicles ? { vehicles: true } : {}) });
   const ai = scenario === "demo" ? [wanderController(enemySide, seed + 1000, input.map, 30)]
     : scenario === "vehicles" ? [vehicleWanderController(enemySide, seed + 1000, input.map, 60)]
@@ -1400,3 +1400,10 @@ main().catch((e: unknown) => {
   pre.textContent = `Startup failed: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`;
   document.body.append(pre);
 });
+
+/** `&crew=<blue template>,<red template>` (M10.6-data): the vehicles scenario with other crew templates (data ids),
+ *  e.g. the ambulance crews for `npm run screenshot -- --scene ambulances`. */
+function crewParam(v: string | null): { crewTemplates?: [string, string] } {
+  const parts = (v ?? "").split(",").filter((x) => x.length > 0);
+  return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
+}

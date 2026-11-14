@@ -211,6 +211,34 @@ async function photoScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
+ * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
+ * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
+ * Debug, in the photo and the flat look.
+ */
+async function ambulanceScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const map = args["map"] ?? "farmland";
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}&look=${look}&crew=boxer-san-besatzung,bmm-ekipazh`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid] = t.vehicles()[0]; const p = s.transform.get(vid); t.focus(p.x, p.y, 40); t.stepTicks(1);`) as () => void);
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p0 = `${outDir}/ambulances-${seed}-${name}-${look}-0-boxer.png`;
+    await page.screenshot({ path: p0 }); shots.push(p0);
+    await page.evaluate(new Function(`const t = globalThis.__tcs; t.setDebug(true); const s = t.sim.state;
+      let red = null; for (const [id, v] of s.vehicle.entries()) if (v.side === "red") { red = id; break; }
+      const p = s.transform.get(red); t.focus(p.x, p.y, 40); t.stepTicks(1);`) as () => void);
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p1 = `${outDir}/ambulances-${seed}-${name}-${look}-1-bmm.png`;
+    await page.screenshot({ path: p1 }); shots.push(p1);
+  }
+  const info = await page.evaluate(new Function("const t = globalThis.__tcs, s = t.sim.state; return { tick: s.tick, vehicles: [...s.vehicle.values()].map((v) => v.def) };") as () => object);
+  console.log(`${name}: ambulances scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M7.5b look (`--scene look`): the photo look (`&look=photo`, step "polish"), the flat pixel look (`&look=flat`) and the classic one (`&look=classic`) where a set helps —
  * the opening view (zoomed in on the lead squad), the middle distance (dots), the far view (symbols, the map
  * fitted to the free area), a squad firing close up; wounded, down, dead and surrendered men close up; a roof shown,
@@ -1174,6 +1202,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

@@ -3769,3 +3769,36 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 7. Breaches shown in the after-action review (both sides, with circumstances), not live.
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
+
+## 2026-11-14 — M10.6-data: wheeled ambulance hulls, Boxer ambulance (DE) and BMM (RU) (roadmap-detail slice 12, parallel session)
+Owner answers used (BINDING, medical rounds 2 and 3): new Boxer ambulance and BMM vehicles in one data step. No
+ambulance behaviour yet (slice 13, M10.6a, on the medical main line). Software decisions, made without the owner:
+- **Data (add-data-entry, search extracts only, so medium at most):** `de-boxer-san` (Boxer 8x8 ambulance: 7.93 x
+  2.99 x 2.94 m, 35 t, MTU V8 530 kW, 100 km/h, 562 L; crew of three; 7 sitting or 3 lying or 2 lying + 3 sitting)
+  and `ru-bmm` (BMM on the BTR-80: 7.65 x 2.90 m, 13.6 t, 191 kW, 80 km/h, 290 L; crew of three; 4 lying inside + 2
+  outside, or 7 sitting inside + 2 lying outside = 9). Armour, components, gears, reverse speeds, steering, ramp
+  times, extinguishers and signatures are game values (low). Neither carries a weapon station (the crews' rifles
+  only). Crews `boxer-san-besatzung` ("Sanka {n}") and `bmm-ekipazh` with new roles `sankfz-sanitaeter` /
+  `sanitar-bmm`; they are in no platoon (ambulances come from off the map, M10.6a). xf fixture: `xf-litter-cart`.
+- **Schema:** optional vehicle block `ambulance { layouts: [{ lying, sitting, lyingOutside? }], marked }` (catalog:
+  `VehicleDef.ambulance`, `lyingOutside` defaults to 0). The layouts are alternatives; the `passenger` seats are the
+  sitting places; lying places are not seats (how stretchers are loaded is M10.6a's). `marked` is in the catalog so
+  that recognition (M10.7a) can use it; the painted emblem itself is appearance data (`markings` in a faction's
+  `appearance.json`, outside the fingerprint).
+- **The medic's seat** is a crew seat of the existing generic kind `loader` (no weapon uses it; like a loader he
+  takes over the driving if the driver falls). A dedicated station kind can come with M10.6a if needed. The crew
+  templates list their men in crew-seat order (commander, medic, driver) so that the drive lab, which seats crews
+  without placements, seats them as the template names.
+- **Wheeled-hull code:** new component kind `wheels` (each side's running gear). The drive factors treat it as a
+  track; the wheeled dynamics pull and grip with 0.4 + 0.6 x the worse side's condition (run-flat tyres, many
+  axles); a wrecked side immobilises the hull (armour `mobile`). Hulls without components (the xf carts) are
+  unchanged.
+- **Vehicles scenario:** `crewTemplateOf` skips crews of ambulances (else `bmm-ekipazh` would sort before
+  `bmp2-ekipazh`). App option `&crew=<blue template>,<red template>` for the vehicles scenario; screenshot scene
+  `--scene ambulances` (wheels a side and the red cross on the roof, photo and flat; looked at: fine).
+- **Drive lab bands (software decision):** 0-50 km/h Boxer 8-16 s (12.6), BMM 10-18 s (13.9); top and reverse
+  speed within 5 % of the data; braking from 50 km/h 12-25 m (14.6 / 15.7); no pivot: 90 degrees from a standstill
+  3-10 s (5.6 / 6.0), turning circle 20-30 m (24.6 / 24.1); ground and rain order, 20 % slope (16.4 / 9.6 km/h),
+  fuel per km (2.0 / 0.7 L), no driver: no move.
+- **No batches:** neither hull is in any battle scenario; the state at tick 600 of the demo golden is identical
+  apart from the catalog fingerprint. Golden update (fingerprint only), `golden/no-interiors` untouched.

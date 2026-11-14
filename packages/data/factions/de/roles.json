@@ -109,6 +109,15 @@
       "sources": [],
       "confidence": "low",
       "note": "Vehicle crew role (M7); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "sankfz-sanitaeter",
+      "nameKey": "role.de.sankfz-sanitaeter",
+      "sources": [
+        "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf"
+      ],
+      "confidence": "medium",
+      "note": "The medic in the Boxer ambulance's patient compartment (crew of three: driver, commander or doctor, medic; ARTEC brochure, search extract). Medical skills come with the medical line (M10)."
     }
   ]
 }

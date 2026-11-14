@@ -19,7 +19,12 @@ export interface Appearance {
   map: { surfaces: Record<string, number>; vegetation: Record<string, number>; roofs: Record<string, number>; floors: Record<string, number>; outline: number };
   /** Photo map palette and grade (plan "photo"); absent: the photo map uses `map` and its default grade. */
   photo?: PhotoPalette;
+  /** Painted emblems by vehicle type id (M10.6-data), from the factions taking part. */
+  markings?: Record<string, VehicleMarking>;
 }
+
+/** A painted emblem a vehicle type carries (M10.6-data). */
+export type VehicleMarking = "red-cross";
 
 export interface PhotoPalette {
   surfaces: Record<string, number>; vegetation: Record<string, number>; obstacles: Record<string, number>;
@@ -56,7 +61,9 @@ export function buildAppearance(data: DataSet, factionIds: readonly string[]): A
   }
   const ph = data.appearance?.photo;
   const photo: PhotoPalette | undefined = ph ? { surfaces: hexRec(ph.surfaces ?? {}), vegetation: hexRec(ph.vegetation ?? {}), obstacles: hexRec(ph.obstacles ?? {}), roofs: hexRec(ph.roofs ?? {}), floors: hexRec(ph.floors ?? {}), ...(ph.grade ? { grade: { ...ph.grade } } : {}) } : undefined;
-  return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}) };
+  const markings: Record<string, VehicleMarking> = {};
+  for (const fid of Object.keys(factions)) for (const [k, m] of Object.entries(data.factions[fid]?.appearance?.markings ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) markings[k] = m;
+  return { factions, map: mapPalette(data.appearance), ...(photo ? { photo } : {}), ...(Object.keys(markings).length > 0 ? { markings } : {}) };
 }
 
 /** A faction's look, the neutral one if it has none. */

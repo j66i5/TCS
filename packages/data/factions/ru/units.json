@@ -619,6 +619,84 @@
       "sources": [],
       "confidence": "low",
       "note": "BMP-2 crew (M7; owner 2026-11-12: a fixed three-man crew; squad leaders ride in the back). Ranks are typical, not sourced; personal weapons come with M7.2. M7.2: each crewman carries an AK-74M with three magazines, helmet and vest (game value, low)."
+    },
+    {
+      "id": "bmm-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "BMM {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-bmm",
+      "subunits": [],
+      "members": [
+        {
+          "role": "komandir-mashiny",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "sanitar-bmm",
+          "rank": "yefreytor",
+          "seat": "med",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "sources": [
+        "https://en.valka.cz/topic/view/41396"
+      ],
+      "confidence": "low",
+      "note": "BMM crew (M10.6-data): commander, driver-mechanic and a medic (crew of three, search extracts). Ranks and loads are game values. Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names."
     }
   ]
 }

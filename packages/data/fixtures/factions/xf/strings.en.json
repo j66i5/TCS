@@ -24,5 +24,6 @@
   "radio.ack.mount": "{callsign} climbs on.",
   "vehicle.xf.wagon": "Wagon",
   "item.xf-charm": "Charm",
-  "item.xf-shingle": "Shingle"
+  "item.xf-shingle": "Shingle",
+  "vehicle.xf.litter-cart": "Litter cart"
 }

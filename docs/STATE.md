@@ -3,6 +3,12 @@
 _Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**Wheeled ambulance hulls (2026-11-14, roadmap-detail slice 12 "M10.6-data", parallel session; DECISIONS "M10.6-data").**
+Boxer ambulance (`de-boxer-san`, crew `boxer-san-besatzung`) and BMM (`ru-bmm`, crew `bmm-ekipazh`): the first
+German and Russian wheeled vehicles, unarmed, with patient layouts (`ambulance` block) and a red cross
+(appearance `markings`); xf `xf-litter-cart`. Component kind `wheels`. Drive lab rows for both (bands in the test).
+No ambulance behaviour yet (slice 13 on the medical line). Screens: `npm run screenshot -- --scene ambulances`.
+
 **M7.5e review fixes (2026-11-14, DECISIONS "M7.5e review fixes").** Fixed: a house burst lost after a load;
 clearing grenades aimed too close to the thrower or his comrades (own men down 8 -> 4 per 20 platoon battles); no
 grenade ever into an upstairs room; the commander sending squads to empty houses placed by far sounds (up to 490 m);
@@ -462,6 +468,9 @@ buildings.
 - (Answered at the M6 review, 2026-11-12: fog of war stays "what your men have reported"; medical after vehicles.)
 
 ## Open questions for the owner
+
+- M10.6-data (low confidence, for review): Boxer ambulance and BMM armour, components, gear bands, reverse speeds,
+  steering, ramp and loading times, extinguishers, signatures; the medic's rank and load.
 - **New data (2026-11-13), for review:** the 9M113M Konkurs-M and 9P135M (`ru` ammunition/weapons/items/vehicles;
   medium from search extracts: range, speed, penetration 750 mm RHA, mass, four carried; low game values: launch
   speed, acceleration, turn rate, tracking error, reload 40 s, filling, fragments, self-destruct), `core/behaviour.json`

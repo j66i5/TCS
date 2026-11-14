@@ -1008,10 +1008,27 @@ export class BattleRenderer {
         g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1], p.x + SHADOW_DIR.dx * HULL_SHADOW_M * k, p.y + SHADOW_DIR.dy * HULL_SHADOW_M * k)).fill({ color: 0x000000, alpha: 0.35 });
       }
       g.poly(box(h.f[0], h.f[1], h.r[0], h.r[1])).fill({ color: wreck ? 0x1a1714 : look.dark, alpha: 0.95 }).stroke({ width: 2, color: colour });
-      // Tracks along both sides, and the nose (a wedge at the front).
+      // Tracks along both sides (a wheeled hull: four wheels a side), and the nose (a wedge at the front).
       const tw = (h.r[1] - h.r[0]) * 0.18;
-      g.poly(box(h.f[0], h.f[1], h.r[0], h.r[0] + tw)).fill({ color: 0x111111, alpha: 0.8 });
-      g.poly(box(h.f[0], h.f[1], h.r[1] - tw, h.r[1])).fill({ color: 0x111111, alpha: 0.8 });
+      if (def.class === "wheeled") {
+        const n = 4, span = (h.f[1] - h.f[0]) * 0.8, f0 = h.f[0] + (h.f[1] - h.f[0]) * 0.1, wl = span / n * 0.62;
+        for (let q = 0; q < n; q++) {
+          const fc = f0 + (span / n) * (q + 0.5);
+          g.poly(box(fc - wl / 2, fc + wl / 2, h.r[0] - tw * 0.25, h.r[0] + tw * 0.75)).fill({ color: 0x111111, alpha: 0.85 });
+          g.poly(box(fc - wl / 2, fc + wl / 2, h.r[1] - tw * 0.75, h.r[1] + tw * 0.25)).fill({ color: 0x111111, alpha: 0.85 });
+        }
+      } else {
+        g.poly(box(h.f[0], h.f[1], h.r[0], h.r[0] + tw)).fill({ color: 0x111111, alpha: 0.8 });
+        g.poly(box(h.f[0], h.f[1], h.r[1] - tw, h.r[1])).fill({ color: 0x111111, alpha: 0.8 });
+      }
+      // A painted emblem (M10.6-data, appearance data): the red cross on a white square on the roof.
+      if (!wreck && this.appearance?.markings?.[v.def] === "red-cross") {
+        const half = Math.min(h.f[1] - h.f[0], h.r[1] - h.r[0]) * 0.28, fc = (h.f[0] + h.f[1]) / 2 - (h.f[1] - h.f[0]) * 0.12, rc = (h.r[0] + h.r[1]) / 2;
+        g.poly(box(fc - half, fc + half, rc - half, rc + half)).fill({ color: 0xf2f2ee });
+        const arm = half * 0.28;
+        g.poly(box(fc - half * 0.8, fc + half * 0.8, rc - arm, rc + arm)).fill({ color: 0xd2232a });
+        g.poly(box(fc - arm, fc + arm, rc - half * 0.8, rc + half * 0.8)).fill({ color: 0xd2232a });
+      }
       const n1 = at(h.f[1], h.r[0] + tw), n2 = at(h.f[1], h.r[1] - tw), n3 = at(h.f[1] - (h.f[1] - h.f[0]) * 0.18, 0);
       g.poly([n1.x, n1.y, n2.x, n2.y, n3.x, n3.y]).fill({ color: colour, alpha: 0.9 });
       const tr = def.body.turret;

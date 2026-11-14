@@ -258,6 +258,28 @@
       ],
       "confidence": "medium",
       "note": "One 9M113M missile in its launch container (tube): the launcher holds one, the BMP-2 carries four in all (published: four rounds, reloaded through the gunner's hatch). Container mass (about 10 kg empty) is a game value."
+    },
+    {
+      "id": "ru-bmm-diesel",
+      "nameKey": "item.ru-bmm-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 290,
+      "chargeMassKg": 0.84,
+      "sources": [
+        "https://en.wikipedia.org/wiki/BTR-80"
+      ],
+      "confidence": "low",
+      "note": "The BMM's fuel tank (M10.6-data): the charge is litres of diesel (0.84 kg per litre); 290 L as quoted for the BTR-80 (search extracts). The tank is part of the hull (mass 0)."
+    },
+    {
+      "id": "ru-bmm-extinguisher",
+      "nameKey": "item.ru-bmm-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of the vehicle's fire extinguishing system."
     }
   ]
 }

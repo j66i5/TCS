@@ -498,6 +498,234 @@
         "confidence": "low",
         "note": "Made-up test fixture."
       }
+    },
+    {
+      "id": "xf-litter-cart",
+      "nameKey": "vehicle.xf.litter-cart",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 5,
+        "widthM": 2.2,
+        "heightM": 2,
+        "groundClearanceM": 0.5,
+        "hull": {
+          "f": [
+            -2.5,
+            2.5
+          ],
+          "r": [
+            -1.1,
+            1.1
+          ],
+          "u": [
+            0.5,
+            1.6
+          ]
+        },
+        "wheelbaseM": 3.2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "mass": {
+        "kg": 3000,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "drive": {
+        "powerKw": 60,
+        "efficiency": 0.8,
+        "topSpeedKmh": 40,
+        "reverseTopSpeedKmh": 10,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 40
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 10
+          }
+        ],
+        "shiftSeconds": 0.3,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 35,
+          "steerRateDegS": 60,
+          "maxLatAccelMps2": 4
+        },
+        "idleKw": 3,
+        "litresPerKwh": 0.3,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "fuel": {
+        "item": "xf-hay",
+        "capacityL": 100
+      },
+      "seats": [
+        {
+          "id": "carter",
+          "station": "driver",
+          "pos": [
+            1.8,
+            0,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "slinger",
+          "station": "gunner",
+          "pos": [
+            0,
+            0,
+            1.6
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "bench1",
+          "station": "passenger",
+          "pos": [
+            -1,
+            0.5,
+            1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench2",
+          "station": "passenger",
+          "pos": [
+            -1,
+            -0.5,
+            1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench3",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            0.5,
+            1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "bench4",
+          "station": "passenger",
+          "pos": [
+            -1.8,
+            -0.5,
+            1
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -2.8,
+            0
+          ]
+        ],
+        "openSeconds": 0,
+        "mountSecondsPerMan": 1,
+        "dismountSecondsPerMan": 1,
+        "bailOutSeconds": 2,
+        "seatSwapSeconds": 5,
+        "loadCasualtySeconds": 10,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "stations": [],
+      "stowed": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M10.6-data): an unarmed, marked ambulance cart with wheel components, for the tests only.",
+      "components": {
+        "parts": [
+          {
+            "id": "axle-l",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2,
+                2
+              ],
+              "r": [
+                -1.1,
+                -0.8
+              ],
+              "u": [
+                0,
+                0.8
+              ]
+            },
+            "external": true,
+            "toughnessMm": 5,
+            "absorbMm": 2
+          },
+          {
+            "id": "axle-r",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2,
+                2
+              ],
+              "r": [
+                0.8,
+                1.1
+              ],
+              "u": [
+                0,
+                0.8
+              ]
+            },
+            "external": true,
+            "toughnessMm": 5,
+            "absorbMm": 2
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      },
+      "ambulance": {
+        "layouts": [
+          {
+            "lying": 1,
+            "sitting": 0
+          },
+          {
+            "lying": 0,
+            "sitting": 2
+          }
+        ],
+        "marked": true,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture."
+      }
     }
   ]
 }

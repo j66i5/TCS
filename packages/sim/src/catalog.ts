@@ -646,11 +646,13 @@ export interface VehicleDef {
   dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
   /** How it is seen and heard (M7.3; defaults when the data gives none). */
   signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
+  /** An ambulance (M10.6-data): patient layouts (alternatives) and the protective emblem. Behaviour: M10.6a. */
+  ambulance?: { layouts: { lying: number; sitting: number; lyingOutside: number }[]; marked: boolean };
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
 /** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
-export type ComponentKind = "engine" | "transmission" | "track" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
+export type ComponentKind = "engine" | "transmission" | "track" | "wheels" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
 export interface VehicleComponent {
   id: string; kind: ComponentKind; part: "hull" | "turret";
   box: { f: [number, number]; r: [number, number]; u: [number, number] };

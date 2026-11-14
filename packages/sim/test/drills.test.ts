@@ -155,7 +155,8 @@ describe("drills after the review (M4)", () => {
     const [bid] = unitOf(sim, "blue");
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
     // Wait for the first bound to start, then pin one of its runners for good.
-    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    // (Until the runners go: they wait up to drills.coverWaitS for covering fire, and nobody is there to fire at.)
+    for (let k = 0; k < secondsToTicks(20) && ((sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0 || sim.state.unit.req(bid).drill?.waitFire === true); k++) step(sim);
     const d = sim.state.unit.req(bid).drill!;
     const first = d.mover, pinned = d.groups[first]![0]!;
     let swapped = -1;
@@ -176,7 +177,8 @@ describe("drills after the review (M4)", () => {
     const sim = createSim(input);
     const [bid] = unitOf(sim, "blue");
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
-    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    // (Until the runners go: they wait up to drills.coverWaitS for covering fire, and nobody is there to fire at.)
+    for (let k = 0; k < secondsToTicks(20) && ((sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0 || sim.state.unit.req(bid).drill?.waitFire === true); k++) step(sim);
     const d = sim.state.unit.req(bid).drill!;
     const first = d.mover, runners = d.groups[first]!;
     expect(runners.length).toBeGreaterThanOrEqual(2);
@@ -196,7 +198,7 @@ describe("drills after the review (M4)", () => {
     const sim = createSim(setup());
     const [bid, blue] = unitOf(sim, "blue");
     submitOrder(sim, { tick: 0, issuer: "blue", target: bid, kind: "assault", x: 100, y: 15 });
-    for (let k = 0; k < secondsToTicks(10) && (sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0; k++) step(sim);
+    for (let k = 0; k < secondsToTicks(20) && ((sim.state.unit.req(bid).drill?.phaseTick ?? -1) < 0 || sim.state.unit.req(bid).drill?.waitFire === true); k++) step(sim);
     const pin = () => { for (const m of blue.members) { const s = sim.state.soldier.req(m); s.mental.suppression = 1; s.mental.behaviour = "pinned"; } };
     pin(); step(sim); pin(); step(sim);
     const phases = new Set<number>();

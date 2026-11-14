@@ -3161,3 +3161,54 @@ New tests in `sim/test/drills.test.ts` and `tools/test/commander.test.ts`.
 The attack lab test (`lab-attack.test.ts`) now runs 20 attacks per case instead of 16: a supported attack on the wall
 succeeds about 4 in 100 both before and after this pick, but none of the first 16 seeds succeeds now (seeds 18, 27, 37
 do), so "support helps" failed on 0 vs 0. **Medium** (test sample only, no behaviour change).
+
+## Covering fire (overnight pick "covering-fire", 2026-11-14)
+
+Owner asleep; decided by Claude, each line is a candidate morning question. The covering half of a fire-and-movement
+drill almost never fired while the other half moved (7-26 % of covering man-seconds with a shot in the last 5 s):
+no line of fire (hedges, walls, fences, houses near the enemy), a comrade in the line, no task left.
+- Sim (`fire.ts`): a drill's or an order's fire task (`FireTask.suppress` "drill" / "order", never a man's own fire)
+  accepts a line blocked within `drills.suppressShortM` = **15 m** of the point, if the block is in the far half of
+  the line (never a wall in front of his own face); the round goes into that cover and still cracks past men lying
+  within 4 m of the strike (`FireTask.intoCover`). A posture with a clear line is preferred to one into cover.
+  **Low.** Owner question: 15 m / 10 m / 25 m / off.
+- Sim: rounds into cover, and a drill's covering fire at a point with no enemy named, are fired at no more than one
+  shot or burst per `drills.suppressIntervalS` = **4 s** (the sustained rate): with the band rate (1 s inside 100 m)
+  riflemen ran dry in long attacks (one platoon-ru battle 66 -> 123 rounds per attacker). **Low.** Owner question:
+  4 s / band rate.
+- Sim (`drills.ts` `coverFire`): each covering man takes an enemy he knows within `drills.coverTargetM` = **60 m** of
+  the objective with a clear line and no comrade in it, from lying, kneeling or standing (the k-th man starts at the
+  k-th enemy, at most 8 tried), else one whose cover he can fire into, else the objective, else as before. **Low.**
+- Sim: every `drills.coverRetaskS` = **2 s** a covering man with no shot (no task, no line, a comrade in it; not a
+  rifleman on his last magazine) looks again; if that finds nothing he dashes (run) **2-6 m** aside, once a bound
+  (`drills.sidestep` true, `Drill.stepped`), to a spot outdoors, clear of comrades (`soldier.minSpacingM`), that gives
+  him a line. A crawl there took most of the bound (moving covering men 6 -> 16 %), so it is a dash. **Low.**
+  With vs without the side step (same code otherwise, 20 seeds): covering fired 28 vs 20 % (platoon), 39 vs 36 %
+  (platoon-ru); attacker wins 14 vs 10, 11 vs 13 / 20 (noise).
+- Sim (`runBound`): each runner's bound end is moved aside to `drills.laneClearM` = **1.5 m** outside every covering
+  man's safety cone (on the side he starts from, at most `drills.laneShiftMaxM` = **10 m**, else left). **Low.**
+- Sim: "no move without fire": an assault bound's runners go only once a covering man has fired within
+  `drills.coverFiredS` = **5 s**, or after `drills.coverWaitS` = **10 s** (`Drill.waitFire`; the bound's clock starts
+  when they go; they keep firing meanwhile; runners all pinned: the halves swap; everybody pinned: they wait).
+  Withdrawals do not wait. **Low** (doctrine, game value). Owner question: wait up to 10 s / 5 s / do not wait.
+  With 10 s vs 0 s (20 seeds, 1200 s): platoon attacker wins 14 vs 8 / 20, covering fired 28 vs 23 %; platoon-ru
+  12 vs 12, 40 vs 34 %; waiting costs ~150-180 unit-seconds per battle.
+- Sim: the covering men get their tasks before the runners go (the lanes need their lines); a drill whose current
+  half was empty no longer halts the runners it just sent (its covering list was the runners themselves).
+- Not done: bound-end fire spots (the PROTO_FIREPOS prototype barely moved blocked lines, 67 -> 64 %).
+Measured, same seeds, before -> after (20 seeds, 1200 s; `ai-night/cover/measure.mts`): covering men who fired in
+the last 5 s while the runners ran: platoon (village) 8.2 -> 28.2 %, platoon-ru (farmland) 18.5 -> 39.7 %,
+platoon-vehicles 12.3 -> 29.3 %, platoon-ru-vehicles 36.0 -> 61.5 % (10 seeds); defenders pinned or panicked during
+bounds 3.6 -> 7.5 %, 7.6 -> 10.0 %; covering man-seconds with a comrade in the line 10.5 -> 9.5 %, 19.5 -> 12.7 %;
+with no line 60 -> 44 %, 47 -> 31 %; attacker rounds per man 26 -> 37, 52 -> 54. Outcomes: attacker wins 8 -> 14 / 20
+(platoon), 10 -> 12 / 20 (platoon-ru), 4 -> 4 / 10, 1 -> 2 / 10 (mounted); attackers down per battle 10.7 -> 7.2,
+9.1 -> 8.1; defenders down 11.2 -> 13.9, 12.6 -> 13.5; mean length 1152 -> 1143 s, 1126 -> 1112 s.
+Acceptance targets not met: covering share on farmland 39.7 % (target 40 %); the village 28 % (the rest are houses
+and walls: M7.5e, the AI using buildings); defenders pinned during bounds 7.5 / 10 % (target 15 %: fire into cover
+only suppresses men within 4 m of the strike); a comrade in the line 9.5 / 12.7 % (target 5 %: mostly another squad
+of the platoon lying in front, nearer the enemy, e.g. holding the first objective while the second squad attacks;
+correct fire discipline, not a lane problem).
+Goldens changed (`npm run golden:update`, main goldens only, no-interiors untouched): demo-s1, shootout-s1,
+fixture-s7, vehicles-s1, fixture-cart-s3, platoon-vehicles-s1, village-occupy-s1 — the catalog fingerprint (new
+drill values) everywhere; states also differ wherever there is ordered fire (`suppress`) or a drill. Recorded orders
+unchanged. New tests `sim/test/covering-fire.test.ts`; two drills tests now step past the covering-fire wait.

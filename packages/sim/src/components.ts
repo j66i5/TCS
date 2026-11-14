@@ -275,6 +275,11 @@ export interface Drill {
   /** A bound with a single runner still on his way (the others down): since this tick (overnight pick
    *  "assault-tempo"); absent otherwise. */
   trailTick?: number;
+  /** The runners of this bound wait for their covering men to open fire (overnight pick "covering-fire"): since
+   *  `phaseTick`; absent once they go. */
+  waitFire?: true;
+  /** Covering men who moved aside this bound for a line of fire (overnight pick "covering-fire"). */
+  stepped?: EntityId[];
 }
 
 /** An action with duration that can be interrupted (SPEC 9.1 foundation requirement). */
@@ -342,6 +347,14 @@ export interface FireTask {
   basePosture: Posture;
   /** Aim height worked out from his contact (package A): it follows the posture he sees the man in. */
   aimAuto?: true;
+  /**
+   * Covering fire (overnight pick "covering-fire"): a drill's or an order's task, never one he took on his own; his
+   * line may end in cover up to `drills.suppressShortM` short of the point (he fires into it). A drill's covering
+   * fire at a point (no enemy named) is fired at the sustained rate too.
+   */
+  suppress?: "order" | "drill";
+  /** His line reaches only the cover near the point (`suppress`): he fires into it at the sustained rate. */
+  intoCover?: true;
   /** Assault fire (package D): he fires while moving (with a heavy aiming penalty), from the posture he moves in. */
   onTheMove?: true;
   /**

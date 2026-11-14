@@ -459,8 +459,16 @@ goes on (a move given to the whole platoon still stops it all). **Moving under f
 who comes under fire (suppressed at least 0.1) runs the rest of his way, and walks again only after
 10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):
 the unit splits into two halves (its two teams, else every other man). One half runs 30 m toward the point and
-goes down while the other fires at the point; then they swap, until the last 25 m, which they rush together,
-spreading round the point and facing on ("on the objective"). The turn passes as soon as the runners are down, or
+goes down while the other covers it with fire; then they swap, until the last 25 m, which they rush together,
+spreading round the point and facing on ("on the objective"). **Covering fire:** each covering man takes an enemy
+he knows within 60 m of the point that he can hit from lying, kneeling or standing with no comrade in his line
+(the men share the enemies out); if none, one whose cover (a hedge, wall or house within 15 m of him) he can fire
+into, else the point itself. Rounds into cover are fired at the sustained rate (one every 4 s), as is fire at the
+point when no enemy is known; they still crack past men lying there. A covering man with no shot looks again
+every 2 s and may dash 2-6 m aside, once a turn, to a spot that gives him one. The runners go only once a
+covering man has fired in the last 5 s, or after waiting 10 s ("no move without fire"; they keep firing
+meanwhile), and each ends his rush a little aside, out of the covering men's lines of fire. A fire order you give
+may likewise go into the cover just short of the point. The turn passes as soon as the runners are down, or
 when the last one is still running 10 s after the others: he finishes his rush and fires from where it ends while
 the other half goes. If the runners are pinned the turn passes after
 40 s; a runner who is pinned on the way stays down and the others go on without waiting for him; when every man

@@ -214,7 +214,12 @@ lost, an own wound; damping by experience and a leader nearby; how fast it fades
 as being under fire and for how long, cover search radius and how often, ammunition sharing range, spare kept,
 hand-over time), `drills` (reaction to contact on or off, bound length, the last stretch rushed together,
 how long a bound may take, spread on the objective, the share of panicked men that breaks a unit, how far it
-runs and how long it must be quiet to rally, stress after rallying). After a change run `npm run lab -- suppression` and compare the table.
+runs and how long it must be quiet to rally, stress after rallying; covering fire, overnight pick 2026-11-14: how far
+short of the point a drill's or an order's rounds may go into cover `suppressShortM` and how often they are fired
+there `suppressIntervalS`, how far round the objective a covering man looks for an enemy he can hit
+`coverTargetM`, how often a man with no shot looks again `coverRetaskS` and whether he moves aside for one
+`sidestep`, how far runners keep out of covering lines `laneClearM` / `laneShiftMaxM`, and "no move without fire"
+`coverFiredS` / `coverWaitS`, 0 = off). After a change run `npm run lab -- suppression` and compare the table.
 Men aboard a vehicle (owner 2026-11-13): `stress.fromOwnVehiclePenetrated` and `stress.fromOwnVehicleStruck` (a
 cannon round, heavy bullet or burst that does not get through) are their only blows from outside besides a
 comrade or leader falling inside the same vehicle. `gunnery.missile*` (owner 2026-11-13): the range beyond which a

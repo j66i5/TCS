@@ -104,7 +104,7 @@ export const testCatalog: Catalog = {
     },
     drills: {
       stepSeconds: 0.5, reactToContact: true, boundM: 30, finalM: 25, phaseTimeoutSeconds: 40, spreadM: 4,
-      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10,
+      breakPanickedFraction: 0.5, rallyDistanceM: 150, rallyQuietSeconds: 30, rallyStressFactor: 0.6, fallBackM: 100, reactNeighbourM: 25, boundDoneShare: 1, stragglerS: 10, suppressShortM: 15, coverTargetM: 60, laneClearM: 1.5, laneShiftMaxM: 10, coverFiredS: 5, coverWaitS: 10, coverRetaskS: 2, sidestep: true, suppressIntervalS: 4,
     },
     surrender: { stepSeconds: 1, downedEnemyM: 50, comradeNearM: 30, caughtEnemyM: 30, attackerDownedEnemyM: 25, attackerPanicGivesUp: false, captureM: 3, fetchWithinM: 50, fetchQuietSeconds: 10, fetchTimeoutSeconds: 120 },
     mounting: {

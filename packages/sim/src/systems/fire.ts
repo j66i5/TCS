@@ -78,19 +78,32 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
 const LINE_OF_FIRE_ALLOWANCE_M = 5;
 
 /**
- * Is the line from his muzzle (in posture `p`) to the point he is told to fire at free of ground, walls and
- * roofs, except within the last few metres before the point?
+ * The line from his muzzle (in posture `p`) to a point: 2 clear of ground, walls and roofs (except within the last
+ * few metres before the point, which is what he fires at); 1 blocked only by cover within `shortM` before the point,
+ * and in the far half of the line (covering fire, overnight pick "covering-fire": his rounds go into the cover the
+ * enemy is behind, and still crack past the men there; never a wall in front of his own face); 0 blocked.
  */
-export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, task: FireTask, p: Posture): boolean {
-  const t = state.transform.req(id);
-  const a0 = atan2(task.y - t.y, task.x - t.x);
+export function lineOfFireTo(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number, p: Posture, shortM = 0, from?: { x: number; y: number; z: number }): 0 | 1 | 2 {
+  const t = from ?? state.transform.req(id);
+  const a0 = atan2(y - t.y, x - t.x);
   const mx = t.x + cos(a0) * 0.4, my = t.y + sin(a0) * 0.4;
   const mz = standZ(ctx.map, t, mx, my) + ctx.catalog.body.postures[p].muzzleHeightM;
-  const tz = heightAt(ctx.map, task.x, task.y) + task.heightM; // ground: ok (a point fired at; a man's floor is in heightM)
-  const r = sight(ctx, mx, my, mz, task.x, task.y, tz);
+  const tz = heightAt(ctx.map, x, y) + heightM; // ground: ok (a point fired at; a man's floor is in heightM)
+  const r = sight(ctx, mx, my, mz, x, y, tz);
+  if (r.blockedBy === null) return 2;
   // (Within the last few metres before the point, a wall or the ground is what he is firing at.)
-  const range = hypot2(task.x - mx, task.y - my);
-  return r.blockedBy === null || (1 - r.blockedAt) * range <= LINE_OF_FIRE_ALLOWANCE_M;
+  const range = hypot2(x - mx, y - my), short = (1 - r.blockedAt) * range;
+  if (short <= LINE_OF_FIRE_ALLOWANCE_M) return 2;
+  return short <= shortM && r.blockedAt >= 0.5 ? 1 : 0;
+}
+
+/**
+ * Is the line from his muzzle (in posture `p`) to the point he is told to fire at free of ground, walls and
+ * roofs, except within the last few metres before the point? (A drill's or an order's task, `suppress`, also
+ * accepts cover up to `drills.suppressShortM` short of the point: see `lineOfFireTo`.)
+ */
+export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, task: FireTask, p: Posture): boolean {
+  return lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, task.suppress !== undefined ? ctx.catalog.behaviour.drills.suppressShortM : 0) > 0;
 }
 
 /** Give a soldier a fire task (from a fire order). */
@@ -174,12 +187,12 @@ function topUnit(state: SimState, soldier: EntityId): EntityId | null {
  * platoons fired through each other.) Fire discipline (2026-11-14): a man beside him counts too (from 0.3 m
  * behind his shoulder, more for a man lying down, whose body is long: the muzzle is 0.4 m out, so a comrade lying at
  * his elbow was shot), and the caller may look `beyondM` past the point fired at (a burst's beaten zone: rounds
- * that miss go on).
+ * that miss go on). `from`: as if he were there (a covering man looking for a spot with a clear line).
  */
-export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0): boolean {
+export function friendInLine(ctx: SimContext, state: SimState, id: EntityId, tx: number, ty: number, beyondM = 0, from?: { x: number; y: number }): boolean {
   const side = state.identity.get(id)?.side;
   if (side === undefined) return false;
-  const me = state.transform.req(id);
+  const me = from ?? state.transform.req(id);
   const dx = tx - me.x, dy = ty - me.y;
   const range = hypot2(dx, dy);
   if (range < 1e-6) return false;
@@ -367,7 +380,15 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       const order: Posture[] = ["prone", "crouching", "standing"];
       // A pinned man does not raise himself to clear a bank: he fires from where he lies or not at all.
       const from = isCowering(s) ? ["prone" as Posture] : moving ? [s.posture] : order.slice(order.indexOf(task.basePosture));
-      const ok = from.find((p) => lineOfFireClear(ctx, state, id, task, p));
+      // (Covering fire, `suppress`: a posture with a clear line first, else one that reaches the cover near the point.)
+      const shortM = task.suppress !== undefined ? ctx.catalog.behaviour.drills.suppressShortM : 0;
+      let ok: Posture | undefined, short: Posture | undefined;
+      for (const p of from) {
+        const q = lineOfFireTo(ctx, state, id, task.x, task.y, task.heightM, p, shortM);
+        if (q === 2) { ok = p; break; }
+        if (q === 1) short ??= p;
+      }
+      if (ok === undefined && short !== undefined) { ok = short; task.intoCover = true; } else delete task.intoCover;
       task.lineClear = ok !== undefined;
       task.linePosture = ok ?? s.posture;
       if (ok !== undefined && ok !== s.posture) { requestPosture(ctx, state, id, ok); continue; }
@@ -415,7 +436,11 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       w.nextShotTick = tick + burstCadence(wd.cyclicRpm);
     } else {
       w.burstLeft = 0;
-      const interval = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
+      // (Into the cover near the point, covering fire: at the sustained rate, `drills.suppressIntervalS`.)
+      const interval0 = trickle ? F.trickleIntervalS : wd.sustained ? wd.sustained.intervalS : band.intervalS;
+      // (A drill's covering fire at a point, no enemy named, likewise: before, riflemen ran dry in a long attack.)
+      const sustained = task.intoCover === true || (task.suppress === "drill" && task.contact === undefined);
+      const interval = sustained ? Math.max(interval0, ctx.catalog.behaviour.drills.suppressIntervalS) : interval0;
       // +-15 % so men do not fire in step.
       // Ammunition discipline of his unit (M5): conserve stretches the pause, maximum shortens it.
       const rule = state.unit.get(state.identity.req(id).unit)?.ammoRule ?? "normal";

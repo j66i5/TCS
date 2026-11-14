@@ -462,6 +462,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           const ft = state.fire.get(s);
           if (ft && named !== undefined) { ft.contact = named; if (order.heightM === undefined) ft.aimAuto = true; else delete ft.aimAuto; }
           else if (ft) delete ft.aimAuto;
+          // (Ordered fire is covering fire: it may go into the cover the enemy is behind, overnight pick "covering-fire".)
+          if (ft) ft.suppress = "order";
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;

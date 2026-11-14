@@ -291,6 +291,20 @@ export interface BehaviourDef {
      *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
      *  (overnight pick "assault-tempo" 2026-11-14). */
     boundDoneShare: number; stragglerS: number;
+    /**
+     * Covering fire (overnight pick "covering-fire" 2026-11-14). A drill's or an order's fire task may end in cover
+     * up to `suppressShortM` short of the point (the rounds go into it); a covering man takes an enemy he knows within
+     * `coverTargetM` of the objective that he can fire at; a runner's bound ends at least `laneClearM` outside the
+     * covering men's safety cones (moved at most `laneShiftMaxM`); and the next bound starts only once a covering man
+     * has fired within `coverFiredS`, or after `coverWaitS` (0 = no wait).
+     */
+    suppressShortM: number; coverTargetM: number; laneClearM: number; laneShiftMaxM: number; coverFiredS: number; coverWaitS: number;
+    /** How often a covering man with no shot looks for another target (s; 0 = only when the bound starts). */
+    coverRetaskS: number;
+    /** A covering man with no shot from where he lies dashes a few metres aside for one (once a bound). */
+    sidestep: boolean;
+    /** Least time between shots (or bursts) of a man firing into cover short of the point (s): the sustained rate. */
+    suppressIntervalS: number;
   };
   /**
    * Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off.

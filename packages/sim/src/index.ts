@@ -15,7 +15,7 @@ export * from "./projectiles";
 export * from "./ballistics";
 export * from "./los";
 export { launchProjectile } from "./systems/ballistics";
-export { aimErrorMrad, aimHeightAt, friendInLine, skillFactor } from "./systems/fire";
+export { aimErrorMrad, aimHeightAt, friendInLine, lineOfFireTo, skillFactor } from "./systems/fire";
 export { buildingIndex, occupyPlaces, windowPlaces, type WindowPlace } from "./systems/occupy";
 export { resolveBodyHit, refreshStatus, applyBlast } from "./systems/wounds";
 export { detonate, syncTerrainDamage } from "./systems/explosions";

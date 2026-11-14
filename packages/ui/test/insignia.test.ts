@@ -47,7 +47,7 @@ describe("rank insignia", () => {
     expect(insigniaSvg(ru, "yefreytor", 488)).toContain("M-25 96L25 96L25 86L-25 86z");
     // Small (a card row): protective-colour devices darker with a light outline; large: as woven.
     expect(insigniaSvg(ru, "serzhant", 34)).toContain(`<g fill="${ru.small!.device}" stroke="${ru.small!.outline}"`);
-    expect(insigniaSvg(ru, "serzhant", 64)).toContain(`<g fill="${ru.device}">`);
+    expect(insigniaSvg(ru, "serzhant", 80)).toContain(`<g fill="${ru.device}">`);
     // A large four-pointed star is a faceted pip (lit facets over the star); a small one a plain star.
     expect(devs(insigniaSvg(de, "leutnant", 400))).toContain('fill-opacity');
     expect(devs(insigniaSvg(de, "leutnant", 34))).not.toContain('fill-opacity');

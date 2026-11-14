@@ -328,6 +328,9 @@ export interface BehaviourDef {
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
     ammoIntervalFactor: Record<AmmoRule, number>;
+    /** Night fire discipline (M9.6): while `environment.light` is below `belowLight` and his platoon has not been fired
+     *  on lately, a man opens fire on his own only out to `engageRangeM` (by weapon, as the day ranges). Absent: none. */
+    night?: { belowLight: number; engageRangeM: { rifle: number; magnified: number; sustained: number } };
   };
   /** Squad drills (M4.3). */
   drills: {

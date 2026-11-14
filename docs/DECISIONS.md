@@ -3631,3 +3631,71 @@ Owner questions (for step "polish"): a Clear button for the player (the order fi
 the ring or only those with a known enemy (as built: every house in the main ring while it is defended)? Should a clearing squad's
 approach from far out (clear.mts: 300 m of bounds) be left to the assault, or should the commander only order it
 from close in (as it does)?
+
+## 2026-11-14 — AI uses buildings, step "polish": balance report, scenario `house-clear`, screenshots, docs (plan m7.5e, step 4)
+
+No sim or data change in this step (catalog fingerprint unchanged; the seven goldens unchanged; `golden/no-interiors`
+untouched). **M7.5e is complete.**
+- **Scenario `house-clear`** (`tools/src/scenarios.ts`, golden `house-clear-s1`, 180 s): the demo squads on the
+  village; blue (one squad) starts 15 m behind the two-storey house nearest the map's middle, which is the only
+  objective (30 m ring); red attacks from 200 m with mortar support (12 HE, 4 smoke); both under the AI commander
+  (each side's squads put under a platoon with no men of its own, as the commander commands platoons' squads).
+  **Deviation: two attacking squads, not one.** With one, the commander's casualty tolerance (0.3: two men down)
+  ended every attack before the door (6 seeds at 150, 200 and 300 m: no stack reached). With two, 16 seeds x 900 s:
+  attacker wins 3 / 16, a stack at the door in 3, the house cleared in 2; defender man-seconds indoors 28 %, upstairs
+  18 %; 8 trap leaves; men down 2.9 / 6 defenders, 5.6 / 12 attackers. Test `scenario-house-clear.test.ts`.
+- **Screenshots** `npm run screenshot -- --scene buildings [--seed 3]` (new): the platoon battle on foot, the enemy
+  drawn as he is (new app hook `reveal`, `Overlay.reveal`: fog off without Debug's grid, off by default), at 150 s:
+  the AI defenders at windows, an upper floor (seed 3; seed 1 has nobody upstairs by 300 s, the shot is then
+  skipped), the house from further out (men outside, floor badges); the player's mortar on that house until its men
+  leave (seed 1: a trap; the caller cannot see the falls from 700 m, so on other seeds the bombs may stay off it);
+  then the lead squad clears the nearest empty house (new app hook `clearAt`: `assault` with the building): closing
+  on the door, stacked beside it, going in, house clear. Looked at (phone and desktop): men at windows on the walls,
+  the trapped squad leaving by the side away from the attack, the stack against the wall beside the door, men in
+  the rooms at the end. UI only.
+- **Docs:** HOW_IT_WORKS "The AI in houses", ARCHITECTURE 16l3, ROADMAP M7.5e ✅, the plan's progress line, STATE.
+
+**Balance report** (plan baseline dbdb479 against this step, which behaves as 1d1ad73; the same 20 seeds x 1200 s per
+scenario; `m75e/clr.mts`; "per battle" means over the 20). Not re-tuned (owner: harder village accepted).
+
+| | platoon (village, DE attacks) | platoon-ru (farmland, RU attacks) | platoon-vehicles (village) | platoon-ru-vehicles (farmland) |
+|---|---|---|---|---|
+| Attacker wins | 5 -> 3 / 20 | 13 -> 10 / 20 | 8 -> 8 / 20 | 1 -> 1 / 20 |
+| Defenders down / start | 13.8 -> 11.4 / 19 | 15.8 -> 15.3 / 20 | 21.4 -> 20.2 / 28 | 7.3 -> 8.9 / 32 |
+| Attackers down / start | 19.2 -> 19.9 / 40 | 13.7 -> 14.4 / 38 | 16.3 -> 19.4 / 64 | 26.1 -> 27.2 / 56 |
+| Objectives held by the attacker at the end (of 2) | 0.25 -> 0.15 | 0.50 -> 0.35 | 0.25 -> 0.40 | 0 -> 0 |
+| Defender man-seconds indoors / upstairs | 0.5 / 0 -> 34.4 / 8.8 % | 0.3 / 0 -> 15.0 / 3.9 % | 1.3 / 0 -> 22.3 / 5.7 % | 0.2 / 0 -> 8.1 / 3.0 % |
+| Attacker man-seconds indoors | 0.6 -> 0.7 % | 0.2 -> 0.1 % | 1.5 -> 2.3 % | 0.1 -> 0.0 % |
+| Defender wounds per 100 man-minutes, inside / outside | 31.9 / 21.3 -> 5.8 / 17.4 | 49.9 / 25.1 -> 11.0 / 29.8 | 10.9 / 43.8 -> 8.8 / 42.2 | 0 / 7.0 -> 2.4 / 11.5 |
+| Attacker grenades into houses per battle | 0.45 -> 1.20 | 0 -> 0.30 | 0.25 -> 1.55 | 0 -> 0 |
+| Mortar bombs on houses per battle | 1.65 -> 2.50 | 2.00 -> 2.15 | 2.55 -> 2.55 | 0.35 -> 0.35 |
+| Attacker wins with an attacker in a house of the main ring at the end | 2 / 5 -> 1 / 3 | 3 / 13 -> 3 / 10 | 1 / 8 -> 0 / 8 | 0 / 1 -> 0 / 1 |
+| Defender house leaves (20 battles): trap / enemy inside / cut off | 9 / 0 / 2 | 13 / 0 / 1 | 14 / 1 / 3 | 10 / 0 / 0 |
+| Clearings started / houses cleared per battle | 0 -> 1.30 / 0.65 | 0 -> 0.25 / 0.15 | 0 -> 0.95 / 0.40 | 0 -> 0 |
+
+(Inside wound rates in the baseline rest on one or two men per battle who ran in under fire: noise.) The defence
+goes inside as planned and its men inside are wounded 3-4 times less often than those outside; the attack wins less
+on the village on foot (5 -> 3, above the plan's 1 / 20 flag) and on farmland (13 -> 10); mounted unchanged. The
+attacker's clearings start late (the assault phase begins 600-900 s in), so it spends little time indoors and rarely
+ends a won battle inside a house of the ring. The 4-5 seed swings are within the noise of 20 seeds (a 95 % interval
+on 5 / 20 is about 2-11).
+
+Targets of earlier steps still not met (see their entries): max within 10 m <= 5 on every seed (step defend, worst
+6-7); clear.mts taken >= 5 / 12, attackers down <= 4.0, exchange <= 2.5, first man in by 300 s; attacker indoors
+>= 5 %, grenades into houses >= 4 per village battle, >= 80 % of wins holding a house in the ring (step clear).
+
+Not done: `house-clear` and `--scene buildings` are not yet in CLAUDE.md's command list (the plan lists them there;
+left to the owner's session, as CLAUDE.md is the owner's instructions file).
+
+**Owner questions (M7.5e):**
+1. Player squads leave a house on their own (trap, enemy inside, cut off), as built (`soldier.houseLeave`: false
+   turns it off for everyone)? Or only the AI's?
+2. A Clear button for the player (the order already takes a building)?
+3. The AI attacker clears every house in the objective's ring while it is defended, and those with a known enemy on
+   its way in. Keep, or only houses with a known enemy?
+4. Clearings start late (only in the assault phase, from close in). Should the commander clear houses earlier, on its
+   approach?
+5. Caps and distances: at most 60 % of a squad inside, 2 per room, 4 per house, men outside 8 m from the walls, no
+   re-entry for 120 s after leaving. Keep?
+6. Balance: village attack on foot 5 -> 3 / 20, farmland 13 -> 10 / 20 (mounted unchanged). Accept, or a tuning
+   step for the attack (not done: owner said harder village accepted)?

@@ -1,0 +1,188 @@
+{
+ "name": "house-clear-s1",
+ "description": "A German squad sited by the AI commander around a two-storey house (windows and men outside) against two Russian squads attacking it under the AI commander with mortars, seed 1, 180 s (M7.5e)",
+ "scenario": "house-clear",
+ "seed": 1,
+ "seconds": 180,
+ "checkpointEverySeconds": 10,
+ "orders": [
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 1,
+   "kind": "rules",
+   "fire": "free",
+   "maxEngageM": 300
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 3,
+   "kind": "occupy",
+   "building": 110,
+   "windowIndex": 10,
+   "mode": "walk"
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 4,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 963,
+     "y": 1015,
+     "mode": "walk"
+    }
+   ],
+   "facing": 3.1186043994645223
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 5,
+   "kind": "occupy",
+   "building": 110,
+   "windowIndex": 5,
+   "mode": "walk"
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 6,
+   "kind": "occupy",
+   "building": 44,
+   "windowIndex": 0,
+   "mode": "walk"
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 7,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 963,
+     "y": 1041,
+     "mode": "walk"
+    }
+   ],
+   "facing": 2.930333154509397
+  },
+  {
+   "tick": 0,
+   "issuer": "blue",
+   "target": 8,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 983,
+     "y": 1005,
+     "mode": "walk"
+    }
+   ],
+   "facing": 0.06981925920309015
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 9,
+   "kind": "rules",
+   "fire": "return",
+   "onContact": "ground"
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 10,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 1317.25,
+     "y": 1050.745,
+     "mode": "sneak"
+    }
+   ],
+   "facing": 3.1415926535897927
+  },
+  {
+   "tick": 0,
+   "issuer": "red",
+   "target": 17,
+   "kind": "move",
+   "waypoints": [
+    {
+     "x": 1317.25,
+     "y": 990.7449999999998,
+     "mode": "sneak"
+    }
+   ],
+   "facing": 3.1415926535897927
+  },
+  {
+   "tick": 300,
+   "issuer": "red",
+   "target": 9,
+   "kind": "callFire",
+   "x": 987.25,
+   "y": 1020.745,
+   "ammo": "he",
+   "rounds": 6
+  },
+  {
+   "tick": 300,
+   "issuer": "red",
+   "target": 9,
+   "kind": "callFire",
+   "x": 1047.25,
+   "y": 1020.7449999999999,
+   "ammo": "smoke",
+   "rounds": 3
+  },
+  {
+   "tick": 300,
+   "issuer": "red",
+   "target": 9,
+   "kind": "rules",
+   "fire": "free"
+  },
+  {
+   "tick": 8400,
+   "issuer": "red",
+   "target": 9,
+   "kind": "callFire",
+   "x": 987.25,
+   "y": 1020.745,
+   "ammo": "he",
+   "rounds": 6
+  },
+  {
+   "tick": 8400,
+   "issuer": "red",
+   "target": 10,
+   "kind": "rules",
+   "ammo": "max"
+  }
+ ],
+ "checkpoints": {
+  "600": "eab3d596393c6ee4",
+  "1200": "2292b05bb068d49c",
+  "1800": "6154ce668c873239",
+  "2400": "a0ada9ac5800b0c6",
+  "3000": "9e51fee849e27666",
+  "3600": "82632fbeb37249e5",
+  "4200": "d8ced2e2167c3c1b",
+  "4800": "b0e456c9ef3707a8",
+  "5400": "5a097751009ad96b",
+  "6000": "7ca9440195bd8f65",
+  "6600": "c36c19c5f42e483b",
+  "7200": "0909eb9c08beca6f",
+  "7800": "c3450de5b4203104",
+  "8400": "32339def3a72c853",
+  "9000": "30af02847d2b5cec",
+  "9600": "4a8c0fc2ce434135",
+  "10200": "53449e6277bb80a0",
+  "10800": "52c7054b639b9e83"
+ },
+ "catalogFingerprint": "f70f236ab78a9b8f"
+}

@@ -457,7 +457,7 @@ export interface BehaviourDef {
      *  at least houseFrontMin long; a unit that could send nobody out looks again after houseLeaveRetryS. */
     houseLeaveCoverM: number; houseLeaveTries: number; houseLeaveCost: [number, number]; houseFrontMin: number; houseLeaveRetryS: number;
   };
-  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
+  crew: { bailOnFireSeconds: number; burnSeconds: number; cookOffCheckSeconds: number; cookOffChancePerCheck: number; fireSmokeRadiusM: number; fireSmokeTopM?: number; occupantBurnSeverity: [number, number]; reactionStepSeconds: number; recentHitSeconds: number; reverseOutM: number; reverseHoldSeconds: number; atThreatM: number };
 }
 
 /** Standing fire rule of a unit: fire at any enemy seen, only once fired upon, or not at all without orders. */
@@ -480,7 +480,9 @@ export interface SpottingDef {
     engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
   };
   skillSlope: number; stressK: number; lightFloor: number;
-  minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+  minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number;
+  /** Smoke v2 (M8.1): fade at the end of a cloud's life (s), share of the wind it drifts with, longest plume (m). */
+  smokeFadeSeconds?: number; smokeDriftFactor?: number; smokeStretchMaxM?: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
   contacts: {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
     heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
@@ -542,6 +544,8 @@ export interface FactionDef {
   /** Mortar fire the platoon can call (M6.5c); none if absent. */
   fireSupport?: {
     heAmmo: DefId; smokeAmmo: DefId; delaySeconds: number; dispersionM: number; intervalSeconds: number; smokeRadiusM: number; smokeSeconds: number; roundsFactor: number;
+    /** M8.1: smoke cloud height (m) and burn time at its place (s). */
+    smokeTopM?: number; smokeBurnSeconds?: number;
     /** Ranging (step fire-support): rounds fired one at a time before the battery fires for effect; the aiming
      *  error of the first (one standard deviation per axis, m); the share of the error left after the caller saw
      *  where a round fell; seconds from one ranging round to the next (and to the first volley); tubes in the
@@ -643,7 +647,7 @@ export interface VehicleDef {
   /** Components a penetrating round can damage (M7.4a). Index = `VehicleState.comp`. */
   components?: VehicleComponent[];
   /** Smoke dischargers (M7.3). */
-  dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number };
+  dischargers?: { item: DefId; perSalvo: number; salvos: number; arcRad: number; rangeM: number; delaySeconds: number; cloudRadiusM: number; cloudSeconds: number; cloudTopM?: number };
   /** How it is seen and heard (M7.3; defaults when the data gives none). */
   signature: { sizeFactor: number; movingFactor: number; firingFactor: number; identifyM: number; noiseIdleM: number; noiseMovingM: number; aimPoints: [number, number, number][] };
 }

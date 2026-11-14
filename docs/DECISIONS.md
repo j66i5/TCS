@@ -3769,3 +3769,33 @@ Request: "implement medical (wounded retreat to / are carried to Verwundetensamm
 7. Breaches shown in the after-action review (both sides, with circumstances), not live.
 8. Medics armed for self-defence; fire only to defend themselves and the wounded; lose protection if they fight otherwise.
 Medical jobs: medics (Sanitäter), first responders (Einsatzersthelfer), stretcher bearers, ambulance crews, as roles in the units / data.
+
+## 2026-11-14 — M8.1 Smoke volume v2: height, wind drift and plumes, fade, screen along a line (slice 21; decided without the owner, owner to review)
+
+The owner was not reachable (parallel cloud session); the M8 owner round (roadmap-detail Phase 3, screen 2 "Smoke")
+is answered here with option **(a) height, wind drift and screen lines**, owner to review.
+- **Model** (`sim/src/smoke.ts`): a cloud is a capsule in plan (tail to head, radius r) standing from the ground where
+  it rose up to a top. Radius and top grow from 30 % to full over `spotting.smokeBuildSeconds` 10 s; density fades to
+  nothing over the last `smokeFadeSeconds` 20 s (was: full until it vanished; the renderer already faded over 20 s,
+  now it draws the sim's own shapes). Wind (`environment.windX/windY`, m/s; **y is south**, the map's y) carries the
+  head with `smokeDriftFactor` 1 x the wind; the tail stays on the burning round for `burnS`, then follows; a plume
+  is cut at `smokeStretchMaxM` 200 m. Never upwind of the round. Only the part of a sight line below the top counts.
+- **Values** (game values, low): mortar smoke top `fireSupport.smokeTopM` 15 m, burn `smokeBurnSeconds` DE 60 s / RU
+  40 s (red phosphorus / HC fillings burn a minute or more; search extracts only); vehicle grenades `cloudTopM` 8 m, a
+  puff; burning vehicle `crew.fireSmokeTopM` 30 m, fed while it burns. Shapes are cached per tick and culled by
+  bounding box (`smokeTransmission(state, physics, x0, y0, z0, x1, y1, z1, only)` now takes heights).
+- **Screen along a line:** `callFire` takes optional `x2, y2` (smoke only): ranging at the line's middle, the rounds
+  for effect spread evenly end to end. No UI yet (M8.6 "smoke along a line"); the AI does not use it yet (M8.5).
+- **Wind:** all scenarios still have no wind (unchanged); the `Environment` comment said y north — fixed to south
+  (code, the ballistics and sound tests always used south).
+- **Lab** `npm run lab -- smoke [seeds]`: a man sees over a cloud only when his line clears its top (ground, upstairs,
+  roof, hill rows); drift at 4 m/s 120 m in 30 s, 0 m upwind at every bearing; a 6-round screen across 150 m blocks
+  98 % (DE) / 93 % (RU) of spotting checks across its middle 120 m without wind, 100 % with 3 m/s along it.
+- **Perf:** new perf test, the full-load spotting bench with 30 clouds (plumes, heights): 11.2x (without 12.5x; floor
+  8x); bench-vehicles 11.0x.
+- Batches (10 seeds x 1200 s, origin/main -> slice 21; attacker wins / blue down / red down): platoon 3 -> 2 /
+  19.9 -> 18.8 / 12.9 -> 11.9; platoon-ru 3 -> 4 (red attacks: 7 -> 6) / 15.6 -> 15.8 / 12.9 -> 12.4; platoon-vehicles
+  4 -> 3 (+1 draw) / 19.4 -> 19.2 / 22.5 -> 22.5; platoon-ru-vehicles 1 -> 1 (red) / 11.0 -> 10.8 / 25.8 -> 26.2. Within
+  noise. Goldens regenerated (catalog fingerprint and fading smoke); `golden/no-interiors` untouched.
+- Screenshots `npm run screenshot -- --scene smoke` (a six-round screen and two grenade puffs in 4 m/s wind at 5, 30
+  and 140 s).

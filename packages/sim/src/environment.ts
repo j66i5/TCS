@@ -8,7 +8,7 @@ export interface Environment {
   timeOfDaySeconds: number;
   /** Ambient light 0 (dark) .. 1 (full daylight). Derived from time of day + weather later. */
   light: number;
-  /** Wind vector, m/s (x east, y north). */
+  /** Wind vector, m/s, the way the air moves (x east, y south: the map's y grows southward). */
   windX: number;
   windY: number;
   /** Rain intensity 0..1. */

@@ -311,7 +311,10 @@ export const SpottingFile = withProv({
     rainK: Num(0, 1), downwind: Num(0.5, 2), upwind: Num(0.1, 2),
   }).strict(),
   skillSlope: Num(0, 5), stressK: Num(0, 1), lightFloor: Num(0, 1),
-  minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+  minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
+  /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
+   *  plume is cut this far behind its head. */
+  smokeFadeSeconds: Num(0, 600).default(0), smokeDriftFactor: Num(0, 2).default(1), smokeStretchMaxM: Num(1, 2000).default(200), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
   contacts: z.object({
     seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),
     heardEverySeconds: Num(0, 60), forgetSeconds: Num(1, 3600), driftMps: Num(0, 20), reportEverySeconds: Num(0, 600), reportedErrorM: Num(0, 500),
@@ -397,7 +400,7 @@ export const BehaviourFile = withProv({
   /** Crews of damaged vehicles (M7.4a, owner Q14/Q15). See BehaviourDef.crew. */
   crew: z.object({
     bailOnFireSeconds: Num(0, 120), burnSeconds: Num(1, 3600), cookOffCheckSeconds: Num(0.1, 120), cookOffChancePerCheck: Num(0, 1),
-    fireSmokeRadiusM: Num(0, 100), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
+    fireSmokeRadiusM: Num(0, 100), /** M8.1: the burning vehicle's smoke column's height (m). */ fireSmokeTopM: Num(0, 500).default(30), occupantBurnSeverity: z.tuple([Num(0, 1), Num(0, 1)]),
     /** Crew reactions (M7.4b): how often a crew thinks; a hit this recent counts; a crew reversing out goes this
      *  far back and keeps to it this long; enemy men this close (fire rule not "free") make it back off. */
     reactionStepSeconds: Num(0.1, 30), recentHitSeconds: Num(0.1, 60), reverseOutM: Num(5, 500), reverseHoldSeconds: Num(1, 600), atThreatM: Num(0, 2000),
@@ -690,6 +693,8 @@ export const VehicleSchema = withProv({
   dischargers: withProv({
     item: Id, perSalvo: z.number().int().min(1).max(20), salvos: z.number().int().min(1).max(20), arcDeg: Num(1, 360),
     rangeM: Num(1, 200), delaySeconds: Num(0, 30), cloudRadiusM: Num(1, 100), cloudSeconds: Num(1, 1200), component: Id.optional(),
+    /** M8.1: the cloud's height (m); a grenade cloud is a puff (it drifts whole). */
+    cloudTopM: Num(0.5, 200).default(8),
   }).optional(),
   /** Armour (M7.4a): one plate per part and face. Thickness in mm of `material` (resistance per mm from
    *  materials.json, kinetic and shaped); slopeDeg: the plate's lean back from upright (top plates: ignored). */
@@ -756,6 +761,8 @@ export const DoctrineFile = withProv({
   fireSupport: z.object({
     heAmmo: Id, smokeAmmo: Id, delaySeconds: Num(0, 1200), dispersionM: Num(0, 500), intervalSeconds: Num(0.5, 120),
     smokeRadiusM: Num(1, 200), smokeSeconds: Num(1, 1800),
+    /** M8.1: a smoke round's cloud height (m) and how long the round burns at its place, feeding the plume (s). */
+    smokeTopM: Num(0.5, 200).default(15), smokeBurnSeconds: Num(0, 1800).default(0),
     /** Scales the rounds a generated battle gives this faction (owner, 2026-11-12: more rounds for the lighter
      *  Russian mortar rather than a heavier one). */
     roundsFactor: Num(0.1, 10).default(1),

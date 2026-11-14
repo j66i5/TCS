@@ -3,6 +3,12 @@
 _Last updated: 2026-11-14 (M7.5e review fixes: save/load house bursts, own clearing grenades, upstairs throws, vague houses, taken houses, leave rule; M7.5e AI uses buildings built — attacker targets partly met, for the owner to accept: steps defend, leave, clear and polish; before: photo map look, plan "photo": ground, vegetation, built, polish; before: Firefight-inspired UI review fixes: DPR-2 camera bug, LOS preview leaks, last-seen pins, unobserved ranging no longer registered, phone touch fixes; before: fire-support step: one Fire support button with an HE / smoke pop-up, ranging rounds before the battery's salvo; before: map-feel step: unit lines, last-seen pins, tile centre/follow, keyboard and help card, contour toggle; before: bar-card step: slim order bar, unit card, men and the man's box; before: controls step: drag to move, LOS preview, facing handle, mode lock; before: individual soldier AI, owner packages A–D; before: BMP-2 missile, dead-ground start, stress aboard; infantry attack balance pass; armour no longer backs out of every fight)._
 
 
+**M8.1 Smoke volume v2 (2026-11-14, parallel session, branch `claude/m8-smoke-fires`; DECISIONS "M8.1").** Smoke
+clouds are volumes: capsule plumes with a top (mortar 15 m, vehicle grenades 8 m, burning hull 30 m), built up over
+10 s, fading over their last 20 s, drifting with the wind (none in the scenarios yet) while the round burns at its
+place (`sim/src/smoke.ts`); sight lines above the top pass. `callFire` takes `x2, y2` for a screen along a line (no
+UI yet). `npm run lab -- smoke`, `--scene smoke`. Batches within noise.
+
 **M7.5e review fixes (2026-11-14, DECISIONS "M7.5e review fixes").** Fixed: a house burst lost after a load;
 clearing grenades aimed too close to the thrower or his comrades (own men down 8 -> 4 per 20 platoon battles); no
 grenade ever into an upstairs room; the commander sending squads to empty houses placed by far sounds (up to 490 m);

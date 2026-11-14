@@ -7,6 +7,7 @@
  */
 import type { Action, ContactReport, FireTask, Identity, Mover, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
+import type { SmokeCloud } from "./smoke";
 import type { DefId, EntityId, SideId } from "./ids";
 import type { Container } from "./items";
 import type { InboxOrder, PendingOrder } from "./orders";
@@ -42,6 +43,9 @@ export interface FireMission {
   /** Review fixes: true once someone of the side saw one of its ranging rounds fall (only then is the point
    *  remembered as registered: an unobserved one would keep the full aiming error for later missions). */
   observed?: boolean;
+  /** M8.1 screen: the rounds for effect land along a line through (x, y) from (x - lx, y - ly) to (x + lx, y + ly),
+   *  evenly: `effect` rounds in all, `fired` of them down. */
+  lx?: number; ly?: number; effect?: number; fired?: number;
 }
 
 export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
@@ -92,7 +96,7 @@ export interface SimState {
   support: SupportSection[];
   fireMissions: FireMission[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
+  smoke: SmokeCloud[];
   ended: { tick: number; reason: BattleEndReason } | null;
   terrain: TerrainState;
   /** Bullets, fragments and shells in flight (typed arrays; see projectiles.ts). */
@@ -177,7 +181,7 @@ export interface SerializedState {
   support: SupportSection[];
   fireMissions: FireMission[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
-  smoke: { x: number; y: number; radiusM: number; startTick: number; untilTick: number; multispectral?: true }[];
+  smoke: SmokeCloud[];
   ended: SimState["ended"];
   terrain: TerrainState;
   projectiles: SerializedProjectiles;

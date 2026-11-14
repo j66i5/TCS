@@ -200,7 +200,11 @@ white flags on the map; the after-action review lists surrendered and captured m
   bar docks to any of the four edges; the unit sidebar is a slim strip of tiles that expands.
   Acceptance: the owner finds it clearer and better looking on his phone; nothing about how the simulation
   resolves fights changes except where interiors and upper floors add walls, stairs and firing positions.
-- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. ⬜
+- **M8 Indirect fire and smoke** — mortars, artillery process, smoke as concealment volume. 🔶
+  Slices from `docs/plans/roadmap-detail.md` Phase 3:
+  1. ✅ **M8.1 Smoke volume v2** (2026-11-14) — cloud height, wind drift and plumes, build-up and fade in data, the
+     renderer drawing the sim's shapes, smoke screen along a line (`callFire` x2/y2), `lab -- smoke`, perf with 30
+     clouds.
 - **M9 Modern layer one** — sensors and night, guided anti-tank weapons, reconnaissance drones,
   drone-adjusted fire. ⬜
 

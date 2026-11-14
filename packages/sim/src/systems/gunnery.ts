@@ -46,7 +46,8 @@ import { burstCadence, launchShot, pickRound } from "./shot";
 import { launchProjectile } from "./ballistics";
 import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
-import { smokeTransmission } from "./support";
+import { smokePhysics, smokeTransmission } from "../smoke";
+import { addSmoke } from "./support";
 
 export type Nature = "ap" | "he" | "mg" | "atgm";
 
@@ -626,9 +627,8 @@ export function missileSees(ctx: SimContext, state: SimState, vid: EntityId, tar
   if (r.blockedBy !== null && (1 - r.blockedAt) * range > MISSILE_END_ALLOWANCE_M) return false;
   let seen = r.visibility;
   if (state.smoke.length > 0) {
-    const D = ctx.catalog.spotting, build = secondsToTicks(D.smokeBuildSeconds);
     // (A day sight keeps only what smoke of either kind lets through: spotting's throughSmoke with factor 0.)
-    seen *= smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "conventional") * smokeTransmission(state, D.smokeExtinctionPerM, sx, sy, ax, ay, build, "multispectral");
+    seen *= smokeTransmission(state, smokePhysics(ctx.catalog), sx, sy, sz, ax, ay, az);
   }
   return seen >= (ctx.catalog.behaviour.gunnery.missileSeenFloor ?? 0.2);
 }
@@ -767,7 +767,7 @@ function smokeScreen(ctx: SimContext, state: SimState, events: EventSink, vid: E
   for (let k = 0; k < D.perSalvo; k++) {
     const a = az + (D.perSalvo === 1 ? 0 : D.arcRad * (k / (D.perSalvo - 1) - 0.5));
     const x = Math.min(Math.max(t.x + cos(a) * D.rangeM, 1), ctx.map.widthM - 1), y = Math.min(Math.max(t.y + sin(a) * D.rangeM, 1), ctx.map.heightM - 1);
-    state.smoke.push({ x, y, radiusM: D.cloudRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(D.cloudSeconds), ...(ms ? { multispectral: true as const } : {}) });
+    addSmoke(ctx, state, x, y, D.cloudRadiusM, D.cloudSeconds, D.cloudTopM ?? 8, 0, ms);
     sx += x; sy += y;
   }
   events.emit({ kind: "vehicle.smoke", tick: state.tick, vehicle: vid, x: sx / D.perSalvo, y: sy / D.perSalvo });

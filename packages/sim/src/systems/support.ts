@@ -22,7 +22,8 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { canReport } from "../impair";
-import { exp, sqrt } from "../math";
+import { sqrt } from "../math";
+import { smokePhysics, smokeTransmission, type SmokeCloud } from "../smoke";
 import { nextNormal, Streams } from "../rng";
 import { newEntity, type FireMission, type SimState, type SimView } from "../state";
 import { addItems, countItems, emptyContainer, removeItems } from "../items";
@@ -69,7 +70,10 @@ export function secondsToEffect(fs: FireSupportDef): number {
 }
 
 /** Start a fire mission (from a delivered `callFire` order). False if nobody can call or nothing is left. */
-export function callFire(ctx: SimContext, state: SimState, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number): boolean {
+export function callFire(ctx: SimContext, state: SimState, side: SideId, callers: readonly EntityId[], x: number, y: number, ammo: "he" | "smoke", rounds: number, line?: { x2: number; y2: number }): boolean {
+  // A screen (M8.1): ranging and registration at the line's middle, the rounds for effect along it.
+  let lx = 0, ly = 0;
+  if (line && ammo === "smoke") { lx = (line.x2 - x) / 2; ly = (line.y2 - y) / 2; x += lx; y += ly; }
   const caller = callers.find((m) => canReport(state.soldier.get(m)));
   const faction = caller !== undefined ? state.identity.get(caller)?.faction : undefined;
   const fs = faction ? ctx.catalog.factions[faction]?.fireSupport : undefined;
@@ -88,6 +92,7 @@ export function callFire(ctx: SimContext, state: SimState, side: SideId, callers
   const m: FireMission = { side, caller, x, y, ammo, left: n, nextTick: state.tick + secondsToTicks(fs.delaySeconds) };
   const rg = Math.min(ranging, n - 1);
   if (rg > 0) m.ranging = rg;
+  if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
   if (reg) { m.ex = reg.ex; m.ey = reg.ey; } else if (fs.rangingErrorM > 0) {
     m.ex = fs.rangingErrorM * nextNormal(state.rng, Streams.support);
     m.ey = fs.rangingErrorM * nextNormal(state.rng, Streams.support);
@@ -108,10 +113,7 @@ function burstSeen(ctx: SimContext, state: SimState, caller: EntityId, x: number
   const tz = heightAt(ctx.map, x, y) + BURST_SEEN_Z_M; // ground: ok (a burst on the ground, not a man)
   const v = s.mount !== undefined ? s.mount.vehicle : -1;
   let vis = sight(ctx, t.x, t.y, ez, x, y, tz, v).visibility;
-  if (vis > 0 && state.smoke.length > 0) {
-    const D = ctx.catalog.spotting;
-    vis *= smokeTransmission(state, D.smokeExtinctionPerM, t.x, t.y, x, y, secondsToTicks(D.smokeBuildSeconds));
-  }
+  if (vis > 0 && state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), t.x, t.y, ez, x, y, tz);
   return vis >= BURST_SEEN_VIS;
 }
 
@@ -142,7 +144,7 @@ function landRound(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
     // The enemy near it remember the mission's beaten zone (soldier AI package B).
     noteBeatenZone(ctx, state, x, y, m.side);
   } else {
-    state.smoke.push({ x, y, radiusM: fs.smokeRadiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(fs.smokeSeconds) });
+    addSmoke(ctx, state, x, y, fs.smokeRadiusM, fs.smokeSeconds, fs.smokeTopM ?? 15, fs.smokeBurnSeconds ?? 0);
     events.emit({ kind: "support.smoke", tick: state.tick, x, y, radiusM: fs.smokeRadiusM, side: m.side });
   }
 }
@@ -175,7 +177,13 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
     const faction = state.identity.get(m.caller)?.faction ?? "";
     const fs = ctx.catalog.factions[faction]?.fireSupport;
     if (!fs) { m.left = 0; continue; }
-    const ax = m.x + (m.ex ?? 0), ay = m.y + (m.ey ?? 0);
+    let ax = m.x + (m.ex ?? 0), ay = m.y + (m.ey ?? 0);
+    // A screen's round for effect: its place along the line (evenly, end to end).
+    if (m.effect !== undefined && (m.ranging ?? 0) <= 0) {
+      const k = m.fired ?? 0, f = m.effect > 1 ? (2 * k) / (m.effect - 1) - 1 : 0;
+      ax += (m.lx ?? 0) * f; ay += (m.ly ?? 0) * f;
+      m.fired = k + 1;
+    }
     const x = Math.min(Math.max(ax + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), W - 1);
     const y = Math.min(Math.max(ay + fs.dispersionM * nextNormal(state.rng, Streams.support), 1), H - 1);
     // (A ranging round: seen or not before its own smoke is in the way.)
@@ -208,28 +216,9 @@ export function supportSystem(ctx: SimContext, state: SimState, events: EventSin
   state.fireMissions = state.fireMissions.filter((m) => m.left > 0);
 }
 
-/**
- * How much of the view survives the smoke along a line (1 = none in the way): exp(-k x metres of smoke). A
- * cloud grows to its full size over `buildTicks` (data: spotting.smokeBuildSeconds).
- */
-export function smokeTransmission(state: SimView, k: number, x0: number, y0: number, x1: number, y1: number, buildTicks = 600, only: "all" | "conventional" | "multispectral" = "all"): number {
-  if (state.smoke.length === 0 || k <= 0) return 1;
-  const dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
-  let metres = 0;
-  for (const c of state.smoke) {
-    // (M7.3: thermal sights see through ordinary smoke in part, not through a multispectral cloud.)
-    if (only !== "all" && (c.multispectral === true) !== (only === "multispectral")) continue;
-    const grow = buildTicks > 0 ? Math.min(1, (state.tick - c.startTick) / buildTicks) : 1;
-    const r = c.radiusM * (0.3 + 0.7 * grow);
-    // Chord of the segment through the circle.
-    const fx = x0 - c.x, fy = y0 - c.y;
-    const b = fx * dx + fy * dy, cc = fx * fx + fy * fy - r * r;
-    if (L2 <= 1e-9) { if (cc <= 0) metres += r; continue; }
-    const disc = b * b - L2 * cc;
-    if (disc <= 0) continue;
-    const s = sqrt(disc);
-    const t0 = Math.max(0, (-b - s) / L2), t1 = Math.min(1, (-b + s) / L2);
-    if (t1 > t0) metres += (t1 - t0) * sqrt(L2);
-  }
-  return metres > 0 ? exp(-k * metres) : 1;
+/** Lay a smoke cloud at (x, y) on the ground (M8.1: its ground height, top, burn time at its place). */
+export function addSmoke(ctx: SimContext, state: SimState, x: number, y: number, radiusM: number, seconds: number, topM: number, burnS: number, multispectral = false): void {
+  const c: SmokeCloud = { x, y, radiusM, startTick: state.tick, untilTick: state.tick + secondsToTicks(seconds), gz: heightAt(ctx.map, x, y), topM, burnS }; // ground: ok (a cloud on the ground)
+  if (multispectral) c.multispectral = true;
+  state.smoke.push(c);
 }

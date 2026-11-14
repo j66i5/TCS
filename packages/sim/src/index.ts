@@ -28,7 +28,8 @@ export { atRuleOf, aimSolution, backblastBlocked, launcherRound, orderLauncherSh
 export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } from "./systems/armour";
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
-export { secondsToEffect, smokeTransmission, supportLeft } from "./systems/support";
+export { addSmoke, secondsToEffect, supportLeft } from "./systems/support";
+export { smokePhysics, smokeShapes, smokeTransmission, type SmokeCloud, type SmokePhysics, type SmokeShape } from "./smoke";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";
 export { takeOutOfFight } from "./systems/wounds";
 export { driveSurface, followRoute, fuelLitres, planVehicleRoute, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";

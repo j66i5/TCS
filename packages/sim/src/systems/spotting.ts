@@ -20,7 +20,7 @@
  * the turret, its range, fog floor and rain factor); passengers do not observe. Smoke: each sensor keeps its
  * `smokeFactor` of the view through ordinary smoke (thermal half, owner Q7), none through a multispectral cloud.
  */
-import { smokeTransmission } from "./support";
+import { smokePhysics, smokeTransmission } from "../smoke";
 import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -156,7 +156,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
         if (top.blockedBy === null) vis = Math.max(vis, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
       }
       // Smoke (M6.5c) between them hides him.
-      if (state.smoke.length > 0) vis *= smokeTransmission(state, D.smokeExtinctionPerM, ot.x, ot.y, tg.x, tg.y, secondsToTicks(D.smokeBuildSeconds));
+      if (state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), ot.x, ot.y, ez, tg.x, tg.y, tg.z);
       if (vis < D.minVisibility) vis = 0;
       if (u >= 1 - exp(-rate * vis * scanS)) continue;
       if (idx >= 0) { os.seen[idx]!.lastTick = tick; continue; }
@@ -295,9 +295,9 @@ function scanVehicles(
     }
     if (vis <= 0) continue;
     if (state.smoke.length > 0) {
-      const build = secondsToTicks(D.smokeBuildSeconds);
-      const conv = smokeTransmission(state, D.smokeExtinctionPerM, eye.x, eye.y, tg.x, tg.y, build, "conventional");
-      const ms = smokeTransmission(state, D.smokeExtinctionPerM, eye.x, eye.y, tg.x, tg.y, build, "multispectral");
+      const SP = smokePhysics(ctx.catalog), tz = tg.gz + tg.def.signature.aimPoints[0]![2];
+      const conv = smokeTransmission(state, SP, eye.x, eye.y, eye.z, tg.x, tg.y, tz, "conventional");
+      const ms = smokeTransmission(state, SP, eye.x, eye.y, eye.z, tg.x, tg.y, tz, "multispectral");
       vis *= smokeAt(dist, bearing, conv, ms);
     }
     if (vis < D.minVisibility) vis = 0;
@@ -392,9 +392,9 @@ function crewScan(
       if (top.blockedBy === null) vv = Math.max(vv, (tg.firing ? D.firingVisibilityFloor : D.movingVisibilityFloor) * top.visibility);
     }
     if (state.smoke.length > 0) {
-      const build = secondsToTicks(D.smokeBuildSeconds);
-      const conv = smokeTransmission(state, D.smokeExtinctionPerM, ex, ey, tg.x, tg.y, build, "conventional");
-      const ms = smokeTransmission(state, D.smokeExtinctionPerM, ex, ey, tg.x, tg.y, build, "multispectral");
+      const SP = smokePhysics(ctx.catalog);
+      const conv = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "conventional");
+      const ms = smokeTransmission(state, SP, ex, ey, ez, tg.x, tg.y, tg.z, "multispectral");
       vv *= sensorAt(dist, bearing, conv, ms) / sensor;
     }
     if (vv < D.minVisibility) vv = 0;

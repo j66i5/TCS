@@ -63,6 +63,13 @@ export interface Wound {
   fracture?: true;
   /** Seconds a tourniquet has been on this limb (absent: none). The limb is at risk after the safe time. */
   tourniquetS?: number;
+  // ---- care (M10.2); absent = untreated ----
+  /** The airway problem of this wound is eased (positioned, nasal airway): its oxygen loss times this. */
+  airwayK?: number;
+  /** The breathing problem of this wound is eased (chest seal): its oxygen loss times this. */
+  breathingK?: number;
+  /** The broken bone under this wound is splinted. */
+  splinted?: true;
 }
 
 export interface Physiology {
@@ -84,6 +91,8 @@ export interface Physiology {
   fluidL?: number;
   /** Wrapped against the cold (rescue blanket, M10.2): cools far slower. */
   warmed?: true;
+  /** A line in (IV or IO, M10.2): fluids can be given. */
+  access?: true;
 }
 
 /** What the surroundings do to a casualty (the medical model's optional argument; SPEC 9.1 hypothermia). */
@@ -137,7 +146,7 @@ export const simplePhysiology: PhysiologyModel = {
   id: "simple",
   step(p, wounds, dt, k) {
     if (!p.alive) return;
-    let bleed = 0, breathing = false, airway = false, knockedOut = false;
+    let bleed = 0, breathing = 0, airway = 0, knockedOut = false;
     for (const w of wounds) {
       if (w.bleedingLps > 0) {
         if (w.bleedingLps < k["clotBelowLps"]!) {
@@ -146,14 +155,15 @@ export const simplePhysiology: PhysiologyModel = {
         }
         bleed += w.bleedingLps;
       }
-      if (w.breathing) breathing = true;
-      if (w.airway) airway = true;
+      // (Care, M10.2, eases a wound's airway or breathing problem: `airwayK`, `breathingK`; absent = 1.)
+      if (w.breathing) breathing = Math.max(breathing, w.breathingK ?? 1);
+      if (w.airway) airway = Math.max(airway, w.airwayK ?? 1);
       if (w.consciousness) knockedOut = true;
     }
     const v0 = k["bloodVolumeL"]!;
     p.bloodVolumeL = Math.max(0, p.bloodVolumeL - bleed * dt);
     const loss = 1 - p.bloodVolumeL / v0;
-    p.respiratory = clamp01(p.respiratory + ((breathing ? k["breathingShockPerS"]! : 0) + (airway ? k["airwayShockPerS"]! : 0)) * dt);
+    p.respiratory = clamp01(p.respiratory + (breathing * k["breathingShockPerS"]! + airway * k["airwayShockPerS"]!) * dt);
     const dead = k["deathLossFraction"]!, start = k["shockStartFraction"]!, out = k["unconsciousLossFraction"]!;
     p.shock = Math.max(clamp01((loss - start) / (dead - start)), p.respiratory);
     let c = knockedOut ? 0 : 1;
@@ -205,7 +215,7 @@ export const medicalPhysiology: PhysiologyModel = {
     let t = p.coreTempC ?? 37;
     const cold = t < k["hypoC"]!;
     const clotTau = k["clotTauS"]! * (cold ? k["hypoClotFactor"]! : 1);
-    let bleed = 0, breathing = false, airway = false, knockedOut = false, tension = false, burn = 0;
+    let bleed = 0, breathing = 0, airway = 0, knockedOut = false, tension = false, burn = 0;
     for (const w of wounds) {
       if (w.bleedingLps > 0) {
         if (w.bleedingLps < k["clotBelowLps"]!) {
@@ -225,8 +235,8 @@ export const medicalPhysiology: PhysiologyModel = {
       if (w.tourniquetS !== undefined) w.tourniquetS += dt;
       if (w.tension) tension = true;
       if (w.mechanism === "burn") burn += w.severity;
-      if (w.breathing) breathing = true;
-      if (w.airway) airway = true;
+      if (w.breathing) breathing = Math.max(breathing, w.breathingK ?? 1);
+      if (w.airway) airway = Math.max(airway, w.airwayK ?? 1);
       if (w.consciousness) knockedOut = true;
     }
     let vol = p.bloodVolumeL - (bleed + k["burnFluidLps"]! * burn) * dt;
@@ -238,7 +248,7 @@ export const medicalPhysiology: PhysiologyModel = {
     }
     p.bloodVolumeL = Math.max(0, vol);
     const loss = 1 - p.bloodVolumeL / v0;
-    p.respiratory = clamp01(p.respiratory + ((breathing ? k["breathingShockPerS"]! : 0) + (airway ? k["airwayShockPerS"]! : 0) + (tension ? 1 / k["tensionDeathS"]! : 0)) * dt);
+    p.respiratory = clamp01(p.respiratory + (breathing * k["breathingShockPerS"]! + airway * k["airwayShockPerS"]! + (tension ? 1 / k["tensionDeathS"]! : 0)) * dt);
     const start = k["shockStartFraction"]!, out = k["unconsciousLossFraction"]!;
     // Cold blood: he dies of a smaller loss (the "lethal triad" of bleeding, cold and poor clotting).
     const dead = k["deathLossFraction"]! - (cold ? k["hypoDeathLossPerC"]! * (k["hypoC"]! - t) : 0);

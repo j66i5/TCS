@@ -222,6 +222,14 @@ any item with its tag, and the factors make a worse item slower and less reliabl
 list `interventions` only when the national training is narrower than the level. A man's medical kit is counted
 items in his load (the bag itself is an item for its empty mass).
 
+`care` (M10.2) says how first aid is given: `stepS` (how often each wounded man is looked at), `buddyReachM` (a
+comrade this close treats a man who cannot treat himself), `maxAttempts` (tries of one intervention on one wound),
+`painTreatAt`, `skillRef` / `skillK` (a man's own medical skill moves the chance: × (1 + skillK × (skill −
+skillRef))), `underFireSuppression` / `underFireSeconds` (what counts as under fire), `junctionalZones` (where a large
+bleed needs packing) and `order` — the interventions in MARCH order; the first one the casualty needs and the helper
+can do is done. Every id in `order` must be an intervention (the loader checks). After a change run
+`npm run lab -- treatment`.
+
 ## Change how fire frightens men
 
 `core/behaviour.json` (M4): `suppression` (near-miss radius, suppression per round and the energy it is scaled

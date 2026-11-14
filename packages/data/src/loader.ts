@@ -566,6 +566,13 @@ function checkMedical(m: MedicalT, strings: StringTables, errors: DataError[]): 
     if (en[v.nameKey] === undefined) err(`interventions[${i}].nameKey`, `string key '${v.nameKey}' not found in core/strings.en.json`);
     for (const k of Object.keys(v.success)) if ((v.timeS as Record<string, number | undefined>)[k] === undefined) err(`interventions[${i}].success.${k}`, `a success chance for '${k}', who has no time for it`);
   });
+  // The care order (M10.2) names known interventions, each once.
+  const inOrder = new Set<string>();
+  m.care.order.forEach((x, i) => {
+    if (!seen.has(x)) err(`care.order[${i}]`, `unknown intervention '${x}'`);
+    if (inOrder.has(x)) err(`care.order[${i}]`, `'${x}' listed twice`);
+    inOrder.add(x);
+  });
   const seenC = new Set<string>();
   m.carry.forEach((c, i) => {
     if (seenC.has(c.id)) err(`carry[${i}].id`, `duplicate id '${c.id}'`);

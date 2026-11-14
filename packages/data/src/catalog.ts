@@ -89,6 +89,7 @@ export function medicalCatalog(m: MedicalT): MedicalDef {
     chain: noProv(m.chain) as MedicalDef["chain"],
     protection: noProv(m.protection) as MedicalDef["protection"],
     triage: noProv(m.triage) as MedicalDef["triage"],
+    care: noProv(m.care) as MedicalDef["care"],
   };
 }
 

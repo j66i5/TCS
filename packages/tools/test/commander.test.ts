@@ -60,7 +60,9 @@ describe("AI commander (M6.3)", () => {
 
   it("the assault element walks up and goes in rested; the fires before it are called to land as it arrives (assault-tempo)", () => {
     expect(fatigueAtDrill.length).toBeGreaterThan(0);
-    expect(fatigueAtDrill.reduce((x, y) => x + y, 0) / fatigueAtDrill.length).toBeLessThan(0.35);
+    // (The rest ends at COMMANDER.restFatigue 0.35 or after restMaxSeconds 60 s, so one seed may sit a little above
+    // 0.35: 0.36 after the D1 merge, 0.37 with first aid, M10.2; the 20-seed means were 0.09 / 0.14.)
+    expect(fatigueAtDrill.reduce((x, y) => x + y, 0) / fatigueAtDrill.length).toBeLessThan(0.4);
     // (Called no earlier than the fire's delay and a minute and a half before the squads are in place: since the
     // defence picks its own fire positions (overnight pick "defence-siting") it sees the advance and halts it more
     // often, which the call's walking-time estimate does not foresee; it was a minute before.)

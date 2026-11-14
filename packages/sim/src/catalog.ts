@@ -8,6 +8,7 @@
  * confidence, notes) which the loader keeps out of the sim.
  */
 import type { DefId } from "./ids";
+import type { BodyZone } from "./wounds";
 
 export interface ItemTypeDef {
   id: DefId;
@@ -625,6 +626,18 @@ export interface MedicalDef {
   };
   /** Triage (M10.3): chance of a wrong category by skill, more under fire. */
   triage: { errorChance: Partial<Record<CareSkill, number>>; underFireAdd: number };
+  /**
+   * How care is given (M10.2). stepS: how often each wounded man is looked at; buddyReachM: a comrade this close
+   * treats a man who cannot treat himself; maxAttempts: tries of one intervention on one wound; painTreatAt: pain
+   * treated at this or more (once); skillRef / skillK: success x (1 + skillK x (medical skill - skillRef)); under
+   * fire = own suppression >= underFireSuppression or his unit fired on within underFireSeconds; junctionalZones:
+   * where a large bleed needs packing; order: the interventions in MARCH order (the first one needed and possible
+   * is done).
+   */
+  care: {
+    stepS: number; buddyReachM: number; maxAttempts: number; painTreatAt: number; skillRef: number; skillK: number;
+    underFireSuppression: number; underFireSeconds: number; junctionalZones: BodyZone[]; order: DefId[];
+  };
 }
 
 export interface Catalog {

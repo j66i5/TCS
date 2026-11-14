@@ -205,6 +205,8 @@ registered per kind (generic, not per faction). Interrupts emit `action.interrup
 interface Wound { id; zone: BodyZone; mechanism; severity; bleedingLps; compressible;
                   airway; breathing; consciousness; tickInflicted; source?; treatments: TreatmentRecord[];
                   tensionInS?; tension?; headInS?; fracture?; tourniquetS? }          // M10.1, optional
+                  // M10.2, optional: airwayK?; breathingK? (care eases the oxygen loss); splinted?
+                  // Physiology M10.2, optional: access? (a line in, fluids can run)
 interface Physiology { bloodVolumeL; shock; consciousness; pain; respiratory; alive; coreTempC?; fluidL?; warmed? }
 interface PhysiologyEnv { temperatureC; rain; windMps; sheltered }                    // M10.1
 interface PhysiologyModel {
@@ -829,7 +831,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 4.3.7 | SI units inside the sim | all sim types | ✅ by convention | review |
 | 4.3.8 | No faction in code; fixture faction runs a battle | data, scenario | ✅ | `tools/test/fixture-faction.test.ts`, `architecture.test.ts` |
 | 4.3.9 | Counted items in containers, generic transfer | items.ts | ✅ | `sim/test/items.test.ts` |
-| 4.3.10 | Wounds are records; casualties persist as entities | wounds.ts, components.ts | 🟡 records and persistence ✅ (M2.3); treatment log filled from M10.2, flipped to ✅ in M10.8 | `sim/test/wounds.test.ts` (record, dead man stays an entity), `tools/test/lab-casualty.test.ts` |
+| 4.3.10 | Wounds are records; casualties persist as entities | wounds.ts, components.ts | 🟡 records and persistence ✅ (M2.3); treatment log filled since M10.2 (`TreatmentRecord` per intervention, with the items used), flipped to ✅ in M10.8 | `sim/test/wounds.test.ts` (record, dead man stays an entity), `tools/test/lab-casualty.test.ts` |
 | 4.3.11 | Battle is a function; roster in/out | battle.ts, run.ts, setup.ts | ✅ | `fixture-faction.test.ts` (forcesOut), determinism.test.ts |
 | 4.3.12 | Player text through string table | strings.ts, events carry keys | ✅ | `fixture-faction.test.ts` (radio phrasing) |
 | 4.4 | Performance floor (headless ≥ 8× real time on benchmark) | perf.test.ts, perf-projectiles.test.ts, perf-sight.test.ts | ✅ soldiers (`bench`), `bench-vehicles` and spotting ≥ 8×; 🟡 with 20,000 projectiles about 4× here, floor 3× (baseline of 2026-11-14 in DECISIONS "M10.0 kick-off") | `tools/test/perf.test.ts`, `tools/test/perf-projectiles.test.ts`, `tools/test/perf-sight.test.ts` |
@@ -837,7 +839,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Actions with duration that can be interrupted | actions.ts | ✅ | `sim/test/orders.test.ts` "actions with duration" |
 | 9.1 | Skills per soldier | SoldierState.skills, force builder | ✅ | `fixture-faction.test.ts` |
 | 9.1 | Carrying as a movement mode involving several soldiers | generic `carry` store (payload = any entity with mass) | ⬜ reserved M10.4a | `lab -- carry` (M10.4a) |
-| 9.1 | Event entries for every medical event | events.ts (`medical.*` keys) | ⬜ reserved: `medical.treated` M10.2, `medical.triaged` M10.3b, `medical.carried` M10.4a, `medical.evacuated` M10.6a | guard test per slice (M10.2-10.6) |
+| 9.1 | Event entries for every medical event | events.ts (`medical.*` keys) | 🟡 `medical.treated` ✅ (M10.2); reserved: `medical.triaged` M10.3b, `medical.carried` M10.4a, `medical.evacuated` M10.6a | `tools/test/medical-care.test.ts` (every treatment emits one; guard test per later slice) |
 | 9.2 | Containers on any entity (crates, depots, vehicles) | items.ts | ✅ | `sim/test/items.test.ts` |
 | 9.2 | Weapons consume specific item types; no free ammunition | fire.ts, actions.ts (reload), setup.ts | ✅ | `sim/test/fire.test.ts` "every round comes out of a magazine", "empty magazine is changed ... and kept"; `data/test/loader.test.ts` |
 | 9.2 | Vehicles have fuel and component states | components.ts (`VehicleState`), setup.ts, systems/drive.ts, systems/armour.ts | ✅ fuel M7.1b; components with immobilised/disarmed/fire M7.4a; full component table, extinguisher M7.4b | `sim/test/roster.test.ts` "forcesOut returns the vehicle record with fuel = in - burnt"; `tools/test/armour.test.ts`; `tools/test/components.test.ts` "component effects" |
@@ -866,9 +868,9 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 6.2/4.4 | Pathfinding per movement class; spatial hashing for neighbourhood queries | nav.ts, spatial.ts | ✅ | `sim/test/nav.test.ts`, `tools/test/nav-maps.test.ts` |
 | 6.1 | Generated maps identical on every device (part of battle input) | scenario/mapgen | ✅ | `mapgen.test.ts` "deterministic", `architecture.test.ts` scenario purity, ESLint |
 | 9.1 | Medical data with sources and confidence; medical roles and an emblem item | `core/medical.json` (`Catalog.medical`), roles `medical.level` (`FactionDef.medicalRoles`), items `medical.tags` / `emblem` | ✅ (M10.1): data lint refuses "high" confidence in medical data | `tools/test/medical-physiology.test.ts` "medical data", data lint, `lab -- casualty` "dead by 120 min" |
-| 9.1 | Interventions as interruptible actions consuming counted items | generic `treat` action, `TreatmentRecord` | ⬜ reserved M10.2 | `lab -- treatment`; items conserved; save/load mid-action |
-| 9.1 | `medical` RNG stream created on first use; battles without care never draw from it | rng.ts | ⬜ reserved M10.2 | goldens unchanged where nobody is treated |
-| 9.1 | `--no-medical` rules switch for A/B batches | BattleRules | ⬜ reserved M10.3a | batch A/B |
+| 9.1 | Interventions as interruptible actions consuming counted items | generic `treat` action (systems/medical.ts), pure `nextIntervention` / `planIntervention` (medical.ts), `TreatmentRecord` on the wound | ✅ (M10.2): MARCH order from data, training per role, the casualty's kit first, interrupted by a move, fire, a wound, missing kit | `tools/test/medical-care.test.ts` (order, training, items conserved, interrupt, save/load mid-action), `lab -- treatment` (300 trials per cell within 3 standard errors) |
+| 9.1 | `medical` RNG stream created on first use; battles without care never draw from it | rng.ts | ✅ (M10.2): drawn only when a treatment ends | `tools/test/medical-care.test.ts` "care switched off does nothing" |
+| 9.1 | `--no-medical` rules switch for A/B batches | BattleRules `medicalCare` | ✅ (M10.2; pulled forward from M10.3a): `npm run batch|headless -- --no-medical` | batch A/B (DECISIONS M10.2) |
 | 9.1/9.2 | Rear points with a `kind` (medical, later supply) | generic rear-point store | ⬜ reserved M10.5 (reused by M11) | — |
 | 9.1/9.2 | Off-map vehicles that arrive and leave mid-battle | `VehicleState.offMap` | ⬜ reserved M10.6a (reused by M11, M13) | `lab -- medevac`; men and items conserved |
 | 9.3 | Roster status "evacuated", `recoveryDays`, `diedOfWoundsTick` | battle.ts `SoldierRecord` | ⬜ reserved M10.6b | roster round trip |

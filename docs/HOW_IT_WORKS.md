@@ -290,7 +290,29 @@ rescue blanket or a pain syringe); in each German Gruppe one man is an Einsatzer
 responder bag, the Zug headquarters has a Sanitäter with a medic bag and a red cross armband, and the first
 Russian squad has the platoon's rifleman-medic. The Russian rubber tourniquet and haemostatic powder are slower
 and less reliable than the German ones (item data). All numbers are in `core/medical.json` with their sources;
-nothing there is better than "medium". **Nobody treats anyone yet** — that comes in M10.2.
+nothing there is better than "medium".
+
+**First aid: self-aid and buddy aid (M10.2).** Once a second every wounded man is looked at. If he is awake and can
+use his arms he treats himself; if he cannot (unconscious, both arms useless) or cannot do what he needs (a
+rescue blanket, a splint), the nearest comrade of his side within 3 m who is free — not firing, not on the move,
+not busy, not panicked — does it. What comes next follows the MARCH order of tactical combat casualty care:
+massive bleeding (a tourniquet on a limb, packing on the neck, a dressing elsewhere; only bleeds too large to stop
+by themselves count), the airway, the chest (a seal; a needle for a tension pneumothorax, which only first
+responders and medics may do), circulation (a line and fluids, also first responders and medics), keeping him
+warm, then pain relief and a splint. The first thing he needs that the helper is trained for and has the items
+for is done. Under fire (his own suppression, or his unit fired on in the last 5 s) only a tourniquet. A man who
+stops his own massive bleeding stays where he is until the tourniquet is on; anything else waits until he halts.
+A treatment takes the data's time for that training (a German soldier puts on his own CAT in 35 s, a comrade in
+30 s, a first responder in 25 s; under fire 1.3 × as long), uses up the items — the casualty's own kit first, then
+the helper's — and works with the data's chance (a comrade's tourniquet 75 %, his own 64 %, a first responder's
+85 %, less under stress; the Russian rubber tourniquet 1.4 × as slow and 0.8 × as reliable). A failed attempt costs
+the time and the item; each intervention is tried at most three times on a wound. It is broken off when the
+helper is ordered to move, comes under fire (anything but a tourniquet), is hit, or the casualty dies. Every
+attempt is written on the wound (who, what, which items, whether it worked) and sent as a `medical.treated` event.
+In the debug view each man's line shows what he is treating and what care has worked on him. Who walks over to a
+casualty further away (carers, first responders, the medic) comes in M10.3a. `npm run lab -- treatment` checks the
+odds and times against the data (300 trials each) and shows that self-applied tourniquets cut the deaths from a
+limb bleed at 10 minutes from 23 % to about 1 %.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

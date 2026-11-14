@@ -188,6 +188,8 @@ function addWound(ctx: SimContext, state: SimState, events: EventSink, target: E
   // Pain is at least that of the worst wound, and every further wound adds to it (many small wounds overwhelm).
   s.physiology.pain = Math.min(1, Math.max(w.severity, s.physiology.pain + ctx.catalog.wounds.effects.painPerWoundK * w.severity));
   events.emit({ kind: "wound", tick: state.tick, soldier: target, woundId: wound.id, zone: w.zone, mechanism: w.mechanism, severity: w.severity });
+  // A man hit while treating someone (or himself) breaks off (M10.2); his own care is looked at afresh.
+  if (state.action.get(target)?.kind === "treat") interruptAction(state, events, target, "wounded");
   updateImpairment(ctx.catalog, s);
 }
 

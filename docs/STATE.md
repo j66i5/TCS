@@ -1,15 +1,17 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.1 medical data and the new physiology, roadmap-detail slice 3). The long session-by-session
+_Last updated: 2026-11-14 (M10.2 interventions, self-aid and buddy aid, roadmap-detail slice 4). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
 - **Current milestone: M10 Medical** (SPEC 9.1, pulled forward by the owner), plan `docs/plans/roadmap-detail.md`
-  Phase 1, slices 2-17; ROADMAP lists them. **Done: slices 2 (M10.0) and 3 (M10.1: `core/medical.json`, kits
-  as counted items, medical roles, the "medical" physiology model as the default, state schema 18).** **Next: slice
-  4, M10.2 interventions; self-aid and buddy aid.** Slice 5 (D1 hand smoke grenades) and slice 12 (Boxer ambulance / BMM hulls) are built on their
-  own branches by other sessions and merged into `main`; slice 13 needs slice 12 merged first.
+  Phase 1, slices 2-17; ROADMAP lists them. **Done: slices 2 (M10.0), 3 (M10.1: `core/medical.json`, kits
+  as counted items, medical roles, the "medical" physiology model as the default, state schema 18) and 4 (M10.2:
+  the generic `treat` action, MARCH order from `care.order`, self-aid, buddy aid within 3 m, `medical.treated`,
+  `--no-medical`, `lab -- treatment`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel
+  sessions and are merged.** **Next: slice 6, M10.3a who helps (carers and first responders); it starts with a
+  profiler pass if bench-vehicles measured below 9×.** Slice 13 needs slice 12 (merged).
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -68,10 +70,10 @@ DECISIONS.md under its date._
   looks too), after-action review, save and load; phone layout.
 
 ## What is weak or missing (honest list)
-- **No medical care yet:** a wounded man is never treated, carried or evacuated (M10, now: the data, the kits,
-  the medical jobs and the untreated course are in since M10.1; treatment comes in M10.2). Wound values are game
-  values (low) reviewed once by the owner (2026-11-11); the medical numbers (`core/medical.json`, mostly low, a few
-  medium) wait for his review after M10.8.
+- **Medical care is only first aid so far:** a man treats himself, or a free comrade within 3 m treats him
+  (M10.2); nobody walks over to a casualty further away (M10.3a), carries or evacuates him (M10.4-10.6). Wound values
+  are game values (low) reviewed once by the owner (2026-11-11); the medical numbers (`core/medical.json`, mostly
+  low, a few medium) wait for his review after M10.8.
 - **Attacks rarely win in villages** (5/20) and the Russian mounted attack never does (0/10): accepted for now;
   re-tuning only in the named balance slices (M10.8, D4, M8.5, M9.6).
 - **Performance headroom is small:** bench-vehicles sits close to its 8× floor; every medical slice marked [perf]

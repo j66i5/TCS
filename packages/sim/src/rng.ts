@@ -44,6 +44,8 @@ export const Streams = {
    *  bones), rolled when the wound is made. Its own stream so the hits themselves draw exactly as with the simple
    *  model; created on first use (the simple model never draws). Care itself (M10.2) draws from "medical". */
   conditions: "conditions",
+  /** Care (M10.2): whether a treatment works. Created on first use (a battle where nobody is treated never draws). */
+  medical: "medical",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

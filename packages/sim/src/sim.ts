@@ -23,6 +23,7 @@ import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
+import { medicalSystem } from "./systems/medical";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -133,6 +134,8 @@ export function step(sim: Sim): SimEvent[] {
   contactSystem(ctx, state, events);
   // Surrender (M6.6): after contacts (what he knows is fresh), before any decision, drill or objective check.
   surrenderSystem(ctx, state, events);
+  // Self-aid and buddy aid (M10.2): before decisions, so a man who starts treating is not given something else.
+  medicalSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);

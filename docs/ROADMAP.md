@@ -231,15 +231,19 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    Sanitäter in the Zug HQ, a rifleman-medic in the first Russian squad); the "medical" physiology model (tension
    pneumothorax, head injury, hypothermia, fluids, burns, tourniquet clock, broken bones) as the default; state
    schema 18. Nobody treats anyone yet.
-3. ⬜ **M10.2 Interventions; self-aid and buddy aid** (slice 4)
-4. ⬜ **D1 Hand smoke grenades** (slice 5; owner: a small step inside medical)
+3. ✅ **M10.2 Interventions; self-aid and buddy aid** (slice 4, 2026-11-14) — the generic `treat` action (time,
+   items from the casualty's kit first, chance from training, stress, item and own skill; interruptible); the next
+   intervention in MARCH order (`care.order`); under fire only the tourniquet; self-aid and buddy aid by the nearest
+   free comrade within 3 m; `TreatmentRecord` on the wound and `medical.treated` events; `rules.medicalCare` and
+   `--no-medical`; `npm run lab -- treatment`; debug overlay line.
+4. ✅ **D1 Hand smoke grenades** (slice 5, parallel session, merged 2026-11-14; owner: a small step inside medical)
 5. ⬜ **M10.3a Who helps: carers and first responders** (slice 6)
 6. ⬜ **M10.3b Triage, care under fire, "Medic!"** (slice 7)
 7. ⬜ **M10.4a Carrying as a movement mode** (slice 8)
 8. ⬜ **M10.4b Carrying to and into vehicles** (slice 9)
 9. ⬜ **D2 Battle record and `main.ts` split** (slice 10)
 10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)
-11. ⬜ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12)
+11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)
 12. ⬜ **M10.6a Off-map vehicles and ambulance runs** (slice 13)
 13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)
 14. ⬜ **M10.7a Recognition and respect** (slice 15)

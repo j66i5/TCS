@@ -17,6 +17,8 @@ const seconds = Number(args["seconds"] ?? 120);
 const firstSeed = Number(args["seed"] ?? 1);
 /** `--no-interiors`: the maps without building interiors, exactly as before M7.5c (comparison batches). */
 const noInteriors = args["no-interiors"] !== undefined;
+/** `--no-medical` (M10.2): care of the wounded switched off (`rules.medicalCare: false`), for comparison batches. */
+const noMedical = args["no-medical"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -36,6 +38,9 @@ interface Row {
   mortar: Record<string, { bursts: number; ranging: number; enemyWounded: number; enemyDown: number }>;
   /** M7.5e: how the men used the houses (tools/src/buildings.ts). */
   buildings: BuildingsTally;
+  /** Care (M10.2) per side of the casualty: treatments finished (self-aid, by a comrade) and of them worked; men
+   *  who had at least one; tourniquets that worked. */
+  care: Record<string, { self: number; buddy: number; worked: number; men: number; tourniquets: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -43,6 +48,7 @@ for (let i = 0; i < runs; i++) {
   const seed = firstSeed + i;
   const input = sc.build(data, seed, seconds);
   if (noInteriors) input.map = stripInteriors(input.map);
+  if (noMedical) input.rules.medicalCare = false;
   const s0 = performance.now();
   // Each side's first dismount (M7.2), from the event stream.
   const firstDismount: Record<string, number | null> = { blue: null, red: null };
@@ -57,6 +63,8 @@ for (let i = 0; i < runs; i++) {
   let simRef: Sim | null = null;
   let pending: Parameters<typeof tallyExpenditure>[1] = [];
   const houses = buildingsTally(input);
+  const care: Row["care"] = { blue: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 }, red: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 } };
+  const cared = new Set<number>();
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
     onTick: (sim) => {
@@ -83,6 +91,16 @@ for (let i = 0; i < runs; i++) {
         }
       }
       for (const e of ev) {
+        if (e.kind === "medical.treated" && simRef) {
+          const c = care[sideOfSoldier(simRef, e.casualty) ?? ""];
+          if (c) {
+            if (e.by === e.casualty) c.self++; else c.buddy++;
+            if (e.success) c.worked++;
+            if (e.success && e.intervention === "tourniquet") c.tourniquets++;
+            if (!cared.has(e.casualty)) { cared.add(e.casualty); c.men++; }
+          }
+          continue;
+        }
         if (e.kind === "missile.ended") { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m[e.result]++; continue; }
         if (e.kind === "shot.fired" && e.vehicle !== undefined && input.catalog.ammo[e.ammo]?.guided !== undefined) { const m = missiles[sideOfVehicle.get(e.vehicle) ?? ""]; if (m) m.fired++; continue; }
         if (e.kind === "vehicle.hit" && e.result === "penetrated") {
@@ -113,7 +131,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: firstDismount,
-    crews, missiles, mortar, buildings: houses.tally,
+    crews, missiles, mortar, buildings: houses.tally, care,
     spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, handSmoke: e.handSmoke, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
@@ -135,6 +153,7 @@ const md = [
   `${sc.description}`,
   "",
   `- Building interiors: ${noInteriors ? "off (--no-interiors)" : "on"}`,
+  `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
   `- Speed: ${((runs * seconds) / (totalMs / 1000)).toFixed(0)}x real time`,
@@ -151,6 +170,7 @@ const md = [
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),
+  `- Care per battle (M10.2, by the casualty's side): ${["blue", "red"].map((s) => `${s} self-aid ${mean(rows.map((r) => r.care[s]?.self ?? 0)).toFixed(1)}, by a comrade ${mean(rows.map((r) => r.care[s]?.buddy ?? 0)).toFixed(1)}, worked ${mean(rows.map((r) => r.care[s]?.worked ?? 0)).toFixed(1)}, men treated ${mean(rows.map((r) => r.care[s]?.men ?? 0)).toFixed(1)}, tourniquets on ${mean(rows.map((r) => r.care[s]?.tourniquets ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",
@@ -158,7 +178,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 20).join("\n"));

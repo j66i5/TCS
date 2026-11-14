@@ -78,6 +78,46 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M7.4b)."
+    },
+    {
+      "id": "xf-strap",
+      "nameKey": "item.xf-strap",
+      "category": "remedy",
+      "massKg": 0.1,
+      "medical": {
+        "tags": [
+          "tourniquet"
+        ],
+        "timeFactor": 1.2
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture: a binding strap (a tourniquet in the medical data)."
+    },
+    {
+      "id": "xf-poultice",
+      "nameKey": "item.xf-poultice",
+      "category": "remedy",
+      "massKg": 0.2,
+      "medical": {
+        "tags": [
+          "pressure-dressing",
+          "hemostatic"
+        ]
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture: a poultice that serves as a dressing or for packing."
+    },
+    {
+      "id": "xf-sash",
+      "nameKey": "item.xf-sash",
+      "category": "remedy",
+      "massKg": 0.05,
+      "emblem": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture: a protective sash (an emblem)."
     }
   ]
 }

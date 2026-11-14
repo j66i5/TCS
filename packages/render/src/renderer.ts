@@ -747,7 +747,7 @@ export class BattleRenderer {
       }
       if (overlay.debug && sol && c.scale > 1.5) { // only when zoomed in enough to read
         // Debug: id, fatigue and heart rate per man.
-        this.force(`${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}`, s.x + r + 2, s.y + 2, 0xffffff);
+        this.force(`${id} f${sol.physical.fatigue.toFixed(2)} ${Math.round(sol.physical.heartRateBpm)}bpm s${sol.mental.suppression.toFixed(2)}/${sol.mental.stress.toFixed(2)}${sol.intent ? ` ${sol.intent.kind}` : ""}${sol.wounds.length > 0 ? ` w${sol.wounds.length} blood ${sol.physiology.bloodVolumeL.toFixed(1)}l` : ""}${careLine(state, id)}`, s.x + r + 2, s.y + 2, 0xffffff);
       }
     }
     this.drawObjectives(g, overlay, sideIndex, state);
@@ -1625,4 +1625,17 @@ export function drawFloorBadge(g: Graphics, x: number, y: number, floor: number,
     for (let k = 0; k < 15; k++) if (gl[k] === "1") g.rect(x + (1 + c * 4 + (k % 3)) * px, y - h + (1 + Math.floor(k / 3)) * px, px, px);
   }
   g.fill({ color: 0xe8e4d8 });
+}
+
+/**
+ * Debug overlay (M10.2): what care a man is giving or has had — "treat <intervention> -> <casualty id>" while he
+ * treats, and the interventions that worked on him (ids, in order).
+ */
+export function careLine(state: SimView, id: EntityId): string {
+  const a = state.action.get(id);
+  let out = a?.kind === "treat" ? ` treat ${String(a.params["intervention"])}${Number(a.params["casualty"]) === id ? " (self)" : ` -> ${String(a.params["casualty"])}`}` : "";
+  const s = state.soldier.get(id);
+  const done = s ? s.wounds.flatMap((w) => w.treatments.filter((t) => t.success).map((t) => t.intervention)) : [];
+  if (done.length > 0) out += ` care: ${done.join(",")}`;
+  return out;
 }

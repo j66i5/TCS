@@ -17,6 +17,7 @@
     "typecheck": "node packages/tools/scripts/typecheck.mjs",
     "lint": "eslint .",
     "test": "vitest run --exclude \"**/perf*.test.ts\"",
+    "test:quick": "vitest run --project pure --project view --exclude \"**/perf*.test.ts\"",
     "test:determinism": "vitest run packages/tools/test/determinism.test.ts",
     "test:perf": "vitest run packages/tools/test/perf.test.ts packages/tools/test/perf-projectiles.test.ts packages/tools/test/perf-sight.test.ts packages/render/test/perf-render.test.ts packages/render/test/perf-photo.test.ts --no-file-parallelism",
     "check": "npm run typecheck && npm run lint && npm run test && npm run test:perf && npm run lint:data",

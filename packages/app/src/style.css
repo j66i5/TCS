@@ -156,6 +156,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-ambulance-call { flex: 0 0 auto; min-height: 34px; border-radius: 6px; border: 1px solid #c9473d; background: #4a2420; color: var(--text); font-size: 13px; font-weight: 600; }
 .hud-wounded.st-evacuated { opacity: 0.6; }
 .hud-wounded-none { color: var(--muted); font-size: 13px; padding: 6px; }
+.hud-wounded-legend { color: var(--muted); font-size: 11px; padding: 2px 6px 4px; line-height: 1.3; }
+.hud-wounded-group { color: var(--muted); font-size: 12px; font-weight: 600; padding: 8px 6px 2px; border-top: 1px solid rgba(255, 255, 255, 0.12); margin-top: 4px; }
 /* Hidden means hidden, whatever display the class sets. */
 [hidden] { display: none !important; }
 @media (max-width: 700px) {
@@ -187,6 +189,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-aar-head { font-weight: 700; margin: 6px 0 2px; }
 .hud-aar-sub { font-weight: 600; margin-top: 4px; }
 .hud-aar-row { font-size: 13px; color: var(--text); }
+.hud-aar-indent { padding-left: 14px; font-size: 12px; color: var(--muted); }
 .hud-aar-tabs { margin-top: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 4px; }
 .hud-aar-empty { color: var(--muted, #9aa08f); font-style: italic; margin-top: 4px; }
 /* Floor switch (M7.5d): a column of floor buttons at the right of the free area, top floor first. */

@@ -272,6 +272,11 @@ export interface SoldierState {
    */
   evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" };
   /**
+   * What his roster record brought into this battle when it had been settled after an earlier one (review fix, rule
+   * 11): how many of his wounds were already there (not handed over again) and the recovery days he still had.
+   */
+  rosterIn?: { wounds: number; recoveryDays: number };
+  /**
    * What happens to him after the battle (M10.6b, settled when he is handed over to Role 1 — evacuated — or at the
    * battle's end): when he reaches Role 1 (`role1Tick`, battle ticks; or the captor's aid post, `by` "captor"), the days
    * until he is fit again (`recoveryDays`), and, if he dies of his wounds, when (`diedOfWoundsTick`, battle ticks, may

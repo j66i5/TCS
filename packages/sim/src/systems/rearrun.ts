@@ -62,7 +62,8 @@ function squadBusy(state: SimState, vid: EntityId): boolean {
 
 /** A casualty to take back: alive, wounded, and out of the fight or needing evacuation. */
 function casualty(s: SoldierState | undefined): s is SoldierState {
-  return s !== undefined && s.physiology.alive && s.wounds.length > 0 && s.captive === null && (!isAble(s) || needsEvacuation(s));
+  // (Review fix: not a man already handed over at the aid post: he would start a new run every minute.)
+  return s !== undefined && s.physiology.alive && s.wounds.length > 0 && s.captive === null && s.evacuated === undefined && (!isAble(s) || needsEvacuation(s));
 }
 
 /** Wounded passengers aboard (lying or sitting: not the crew's stations). */

@@ -53,7 +53,7 @@ function walker(s: SoldierState | undefined): boolean {
 
 /** Alive, not a prisoner, but cannot walk: a man who must be carried in (Q25). */
 function carriable(s: SoldierState | undefined): boolean {
-  return s !== undefined && s.physiology.alive && !isCaptive(s) && !walker(s) && s.mental.behaviour !== "routed";
+  return s !== undefined && s.physiology.alive && !isCaptive(s) && s.evacuated === undefined && !walker(s) && s.mental.behaviour !== "routed";
 }
 
 /** Where exit `k` of a vehicle is in the world. */

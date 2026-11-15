@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import {
-  createSim, DEFAULT_COMMS, flatMap, onlyProtectedAt, protectionNow, PROT_MARKED, refusesFireAt, spared, step, submitOrder, TICK_HZ,
+  createSim, DEFAULT_COMMS, flatMap, onlyProtectedAt, protectionNow, PROT_CARRYING, PROT_MARKED, refusesFireAt, spared, step, submitOrder, TICK_HZ,
   type BattleInput, type Catalog, type Contact, type EntityId, type Order, type Sim, type SimEvent, type SoldierRecord,
 } from "@tcs/sim";
 import { duel } from "../src/labs/gunnery";
@@ -103,6 +103,41 @@ describe("recognition and respect (M10.7a)", () => {
     expect(radio.filter((k) => k === "radio.refuseProtected").length).toBe(2);
     expect(shots).toBe(0);
     expect(sim.state.fire.has(obs)).toBe(false);
+  });
+
+  it("review fix: a grenade order at a recognised medic is refused too, and a refused order changes nothing", () => {
+    const { sim, obs, tgt } = pair(22, true);
+    const unit = sim.state.identity.req(obs).unit;
+    sim.state.unit.req(unit).fireRule = "hold";
+    sim.state.container.req(obs).stacks.push({ type: "de-dm51", count: 2 });
+    run(sim, 20);
+    expect(sim.state.soldier.req(obs).contacts.find((k) => k.target === tgt)?.marked).toBe(true);
+    // A drill under way (a withdrawal far to the rear) must survive the refused orders.
+    const drill = { kind: "withdraw" as const, x: 2, y: 100, groups: [[obs]], mover: 0, phaseTick: sim.state.tick + 1e6, final: false };
+    sim.state.unit.req(unit).drill = drill;
+    const radio: string[] = [];
+    const tp = sim.state.transform.req(tgt);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unit, kind: "grenade", x: tp.x, y: tp.y } as Order);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: obs, kind: "fire", x: tp.x, y: tp.y, contact: tgt } as Order);
+    let thrown = 0;
+    for (let i = 0; i < 3; i++) for (const e of step(sim)) {
+      if (e.kind === "radio" && e.side === "blue") radio.push(e.key);
+      if (e.kind === "action.started" && e.actor === obs && e.action === "grenade") thrown++;
+    }
+    expect(radio.filter((k) => k === "radio.refuseProtected").length).toBe(2);
+    expect(thrown).toBe(0);
+    expect(sim.state.action.get(obs)?.kind).not.toBe("grenade");
+    expect(sim.state.unit.req(unit).drill?.kind).toBe("withdraw");
+  });
+
+  it("review fix: bearers are a carrying party only once they bear the casualty, not while walking up to him", () => {
+    const { sim, obs, tgt } = pair(100, false);
+    const payload = obs; // (any entity: the carry store is keyed by the payload)
+    sim.state.soldier.req(tgt).carrying = payload;
+    sim.state.carry.set(payload, { phase: "gather" } as never);
+    expect(protectionNow(catalog, sim.state, tgt) & PROT_CARRYING).toBe(0);
+    sim.state.carry.set(payload, { phase: "move" } as never);
+    expect(protectionNow(catalog, sim.state, tgt) & PROT_CARRYING).toBe(PROT_CARRYING);
   });
 
   it("an area target with a fighting enemy beside the medic is not refused (only protected people there is)", () => {

@@ -500,7 +500,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
       // given up (M6.6: the commander does not fire, shell or throw at him), nor one they recognise as protected
       // (M10.7a: a medic, an ambulance, bearers, men at the Verwundetennest).
-      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => !spared(c)); };
+      // (Review fix: what one of its men recognises the commander knows over the radio. He orders no fire at an enemy
+      // any of them spares: a squad that has not recognised the bearers would fire as ordered, one that has would
+      // refuse, again and again.)
+      const sideSpared = new Set<EntityId>();
+      for (const id of topIds) for (const m of members(view, id)) { const s = view.soldier.get(m); if (s !== undefined && !isCaptive(s)) for (const c of s.contacts) if (spared(c)) sideSpared.add(c.target); }
+      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => !spared(c) && !sideSpared.has(c.target)); };
       // Men only (M7.3): no mortar, grenade or rifle base of fire at a vehicle contact (plan §12).
       const knownMen = (m: EntityId) => known(m).filter((c) => c.cls !== "vehicle");
       // Fire is called through the first platoon that still has a man who can use the radio.
@@ -1589,6 +1594,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
                   const [id, p] = list[(k + j) % list.length]!;
                   if (fireLine(mt.x, mt.y, p.x, p.y, 0.9) > 0) { order(m, { kind: "fire", x: p.x, y: p.y, contact: id }); k += j + 1; done = true; }
                 }
+                // (Not where all he knows there is protected people: he would refuse, Q-7.)
+                const spareM = input.catalog.medical?.protection.aimSpareM;
+                if (!done && spareM !== undefined && onlyProtectedAt(view.soldier.get(m)?.contacts ?? [], aim.x, aim.y, spareM)) done = true;
                 if (!done && clear(aim.x, aim.y) && fireLine(mt.x, mt.y, aim.x, aim.y, 0.5) > 0) order(m, { kind: "fire", x: aim.x, y: aim.y, heightM: 0.5 });
               }
             });

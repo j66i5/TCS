@@ -141,7 +141,7 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
   // mounted: ok the wounded aboard a hull are settled where it stands
   for (const [id, ident] of state.identity.entries()) {
     const s = state.soldier.get(id);
-    if (!s || !s.physiology.alive || s.wounds.length === 0 || s.aftercare !== undefined || s.evacuated !== undefined) continue;
+    if (!s || !s.physiology.alive || !hasBattleWound(s) || s.aftercare !== undefined || s.evacuated !== undefined) continue;
     if (isAssetUnit(state, ident.unit)) continue;
     const side = ident.side;
     if (s.captive !== null) {
@@ -171,6 +171,15 @@ export function settleBattle(ctx: SimContext, state: SimState, events: EventSink
       events.emit({ kind: "medical.settled", tick: state.tick, casualty: id, side, outcome: "captured", holder });
     }
   }
+}
+
+/**
+ * Has he a wound of this battle that needs seeing to (review fix)? A bruise under body armour (`blunt`) does not, and
+ * wounds his roster record brought in were settled in their own battle.
+ */
+export function hasBattleWound(s: Pick<SoldierState, "wounds" | "rosterIn">): boolean {
+  for (let i = s.rosterIn?.wounds ?? 0; i < s.wounds.length; i++) if (s.wounds[i]!.mechanism !== "blunt") return true;
+  return false;
 }
 
 /** Is this man counted as having died of his wounds after the battle (M10.6b)? */

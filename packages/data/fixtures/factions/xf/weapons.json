@@ -89,6 +89,37 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3a): the beam-riding launcher on the wagon."
+    },
+    {
+      "id": "xf-bombard",
+      "nameKey": "weapon.xf-bombard",
+      "type": "tank-gun",
+      "calibre": "xf-bombard",
+      "massKg": 1500,
+      "feed": {
+        "magazine": "xf-ram-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 10,
+      "dispersionMrad": 0.3,
+      "reloadSeconds": 5,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "telescopic",
+          "magnification": 8
+        }
+      ],
+      "ammo": {
+        "xf-ram": 1200,
+        "xf-pot": 700
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a): the tortoise's main gun."
     }
   ]
 }

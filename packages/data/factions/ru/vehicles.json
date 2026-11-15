@@ -1363,6 +1363,1744 @@
       ],
       "confidence": "medium",
       "note": "BMM armoured medical vehicle on the BTR-80 (M10.6-data): the first Russian wheeled vehicle. Crew of three: driver, commander and a medic (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places inside. No weapon station (the BTR-80 turret is removed). Ambulance behaviour comes with M10.6a."
+    },
+    {
+      "id": "ru-t90m",
+      "nameKey": "vehicle.ru.t90m",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.9,
+        "widthM": 3.78,
+        "heightM": 2.22,
+        "groundClearanceM": 0.47,
+        "hull": {
+          "f": [
+            -3.45,
+            3.45
+          ],
+          "r": [
+            -1.89,
+            1.89
+          ],
+          "u": [
+            0.47,
+            1.6
+          ]
+        },
+        "turret": {
+          "pivotF": 0.2,
+          "f": [
+            -2.0,
+            1.4
+          ],
+          "r": [
+            -1.6,
+            1.6
+          ],
+          "u": [
+            1.6,
+            2.22
+          ],
+          "barrelM": 4.58,
+          "trunnionU": 1.9
+        },
+        "trackContactM": 4.27,
+        "trackGaugeM": 2.79,
+        "sources": [
+          "https://armsnet.duckdns.org/equipment/d84b3b7f-7bc7-4806-f0c5-08de6e3c1543",
+          "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364",
+          "https://defensemagazine.com/article/T-90m-is-and-remains-the-most-modern-russian-mbt-deployed-in-ukraine"
+        ],
+        "confidence": "medium",
+        "note": "9.63 x 3.78 x 2.2 m with the gun forward (ArmsNet; War Thunder 9.6 x 3.8 x 2.2): the hull 6.9 m long (not found: game value from the T-72 family), the gun 4.58 m past the turret front; boxes, clearance and track figures are game values."
+      },
+      "mass": {
+        "kg": 48000,
+        "sources": [
+          "https://wardatalab.pages.dev/equipment/cmmo5bsad005iou0z1aczhv6r",
+          "https://armyrecognition.com/w96k"
+        ],
+        "confidence": "low",
+        "note": "46.5-48 t in the sources (wardatalab 46.5, Army Recognition about 48): 48 t used (low)."
+      },
+      "drive": {
+        "powerKw": 843,
+        "efficiency": 0.75,
+        "topSpeedKmh": 60,
+        "reverseTopSpeedKmh": 4.8,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 7
+          },
+          {
+            "toKmh": 13
+          },
+          {
+            "toKmh": 19
+          },
+          {
+            "toKmh": 27
+          },
+          {
+            "toKmh": 36
+          },
+          {
+            "toKmh": 48
+          },
+          {
+            "toKmh": 60
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 4.8
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 20,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.6
+        },
+        "idleKw": 50,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.army-technology.com/projects/t-72b3m-main-battle-tank/",
+          "https://defensemagazine.com/article/T-90m-is-and-remains-the-most-modern-russian-mbt-deployed-in-ukraine",
+          "https://armyrecognition.com/w96k"
+        ],
+        "confidence": "medium",
+        "note": "V-92S2F, 1130 hp (843 kW) and 60 km/h (published, medium; 60-70 in some sources). Reverse: one gear, 4.8 km/h (the T-90 family's slow reverse, from memory, low). Gear bands, efficiency, braking, idle power and fuel use are game values (low). A turn on one track is modelled as a slow pivot at 20 deg/s (game value)."
+      },
+      "fuel": {
+        "item": "ru-t90m-diesel",
+        "capacityL": 1200
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.4,
+            0.6,
+            1.7
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.0,
+                0.5,
+                2.6
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.0,
+                0.5,
+                2.6
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.4,
+            -0.6,
+            1.7
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.8,
+                -0.8,
+                2.35
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.8,
+                -0.8,
+                2.35
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            0,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.1399999999999997
+          ],
+          [
+            0.5,
+            -2.1399999999999997
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 6,
+        "dismountSecondsPerMan": 4,
+        "bailOutSeconds": 10,
+        "seatSwapSeconds": 30,
+        "loadCasualtySeconds": 60,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M7.6a): no ramp; the crew gets in and out through the hatches (bailing out of the low, cramped turret slower than from a Leopard)."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 40,
+          "elevateDegS": 10,
+          "elevationDeg": [
+            -6,
+            14
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.2,
+          "movingMradPerMps": 0.1,
+          "layToleranceMrad": 0.6,
+          "rangefinder": true,
+          "readyRefillInBattle": true,
+          "refillSeconds": 240,
+          "weapons": [
+            {
+              "weapon": "ru-2a46m5",
+              "coax": false,
+              "muzzle": [
+                5.98,
+                0,
+                1.9
+              ],
+              "feeds": [
+                {
+                  "item": "ru-125-3bm60-round",
+                  "ready": {
+                    "count": 12,
+                    "charge": 1
+                  }
+                },
+                {
+                  "item": "ru-125-3of26-round",
+                  "ready": {
+                    "count": 9,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 3000,
+              "feedKind": "autoloader",
+              "roundLoadSeconds": 7,
+              "startLoaded": true
+            },
+            {
+              "weapon": "ru-2a46m5-gl",
+              "coax": false,
+              "muzzle": [
+                5.98,
+                0,
+                1.9
+              ],
+              "feeds": [
+                {
+                  "item": "ru-9m119m-round",
+                  "ready": {
+                    "count": 1,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 5000,
+              "feedKind": "autoloader",
+              "roundLoadSeconds": 7,
+              "missileBeyondM": 2500
+            },
+            {
+              "weapon": "ru-pkt",
+              "coax": true,
+              "muzzle": [
+                1.3,
+                0.4,
+                1.95
+              ],
+              "feeds": [
+                {
+                  "item": "ru-pkt-belt",
+                  "ready": {
+                    "count": 1,
+                    "charge": 250
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [
+            "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-90m-model-2017-mbt-main-battle-tank-technical-data-sheet",
+            "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364",
+            "https://wiki.warthunder.com/T-90M",
+            "https://www.wionews.com/photos/how-the-autoloader-works-on-russia-s-t-90m-tank-1767349279484",
+            "https://www.fair.org.ua/en/t-90m-suchasnyi-rosiiskyi-tank-z-innovatsiinym-zakhystom-ta-vohnevoiu-potuzhnistiu/"
+          ],
+          "confidence": "low",
+          "note": "Two-plane stabilised turret with the Kalina fire control and Sosna-U thermal sight with laser rangefinder (published, medium). The carousel's 22 rounds (ready: 12 3BM60, 9 3OF26 and one 9M119M, game split); 10 3BM60, 8 3OF26 and 3 missiles more in the hull and bustle (43 in all). The autoloader takes 7 s a round (published 7 s / about 7 a minute in combat, low); a round is in the breech at the start. The missile is fired through the gun (separate weapon entry: its own count), chosen against vehicles beyond 2500 m (game value). Traverse, elevation 10 deg/s, -6 to +14 degrees, errors and tolerance are game values. Refilling the carousel from the hull racks, halted: 240 s (game value)."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "ru-125-3bm60-round",
+          "count": 10,
+          "charge": 1
+        },
+        {
+          "item": "ru-125-3of26-round",
+          "count": 8,
+          "charge": 1
+        },
+        {
+          "item": "ru-9m119m-round",
+          "count": 3,
+          "charge": 1
+        },
+        {
+          "item": "ru-pkt-belt",
+          "count": 7,
+          "charge": 250
+        },
+        {
+          "item": "ru-81mm-smoke",
+          "count": 12
+        },
+        {
+          "item": "ru-tank-extinguisher",
+          "count": 2
+        },
+        {
+          "item": "ru-relikt-turret-front",
+          "count": 26
+        },
+        {
+          "item": "ru-relikt-turret-side",
+          "count": 10
+        },
+        {
+          "item": "ru-relikt-hull-front",
+          "count": 20
+        },
+        {
+          "item": "ru-relikt-hull-side",
+          "count": 12
+        }
+      ],
+      "dischargers": {
+        "item": "ru-81mm-smoke",
+        "perSalvo": 6,
+        "salvos": 2,
+        "arcDeg": 90,
+        "rangeM": 30,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364"
+        ],
+        "confidence": "low",
+        "note": "902B 81 mm smoke launchers, twelve (published for the T-90M; not found for the T-72B3M): two salvos of six. Range, delay and cloud are game values as the BMP-2's."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-cast",
+            "thicknessMm": 480,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 80,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite-cast",
+            "thicknessMm": 550,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "composite-cast",
+            "thicknessMm": 200,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 70,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          }
+        ],
+        "tiles": [
+          {
+            "part": "turret",
+            "face": "front",
+            "item": "ru-relikt-turret-front",
+            "coverage": 0.85
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "item": "ru-relikt-turret-side",
+            "coverage": 0.5
+          },
+          {
+            "part": "hull",
+            "face": "front",
+            "item": "ru-relikt-hull-front",
+            "coverage": 0.75
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "item": "ru-relikt-hull-side",
+            "coverage": 0.6
+          }
+        ],
+        "sources": [
+          "https://www.fair.org.ua/en/?p=25498",
+          "https://forum.warthunder.com/t/question-on-armour-protection-the-upper-front-plate-of-t-90m-breakthrough-3/56925",
+          "https://www.janes.com/osint-insights/defence-and-national-security-analysis/russian-armoured-vehicles-at-victory-day-parade",
+          "https://www.deagel.com/armies/t-72/a000770",
+          "https://www.fair.org.ua/en/t-90m-suchasnyi-rosiiskyi-tank-z-innovatsiinym-zakhystom-ta-vohnevoiu-potuzhnistiu/",
+          "https://nationalinterest.org/blog/buzz/russias-t-90m-tank-crucial-armor-upgrade-or-waste-rubles-207287",
+          "https://www.academia.edu/145585481/"
+        ],
+        "confidence": "low",
+        "note": "Game values from public estimates only (armour is classified; FAIR's 1100-1200 KE / 1900 CE with Relikt is taken as optimistic): line-of-sight equivalents at 0 degrees, one plate per face, with Relikt tiles as counted items. Base without tiles: turret front about 550 mm RHA against long rods / 650 against jets (550 mm cast-with-filler: 687 / 814 mm mild steel), hull front 480 mm (600 / 710), turret side 200 mm (250 / 296), hull side 80 mm steel, rear 40 / 70 mm, roof 20 / 40 mm. Relikt coverage of a hit and tiles fitted per face (turret front 0.85 of 26, turret side 0.5 of 10, hull front 0.75 of 20, hull side 0.6 of 12) are game values (counts not public; Janes notes a line of seven on the lower glacis). Not modelled: slat and net screens, roof cages (M14.5), a weaker lower glacis or mantlet."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -1.5
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                0.55,
+                1.5
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -2.8
+              ],
+              "r": [
+                -1.6,
+                1.6
+              ],
+              "u": [
+                0.55,
+                1.3
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                -1.8,
+                -1.4
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                1.4,
+                1.8
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.8,
+                1.4
+              ],
+              "r": [
+                -0.3,
+                0.3
+              ],
+              "u": [
+                1.75,
+                2.1
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "ammo-carousel",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.8,
+                1.2
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                0.5,
+                0.85
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.5,
+            "cookOffChance": 0.45
+          },
+          {
+            "id": "ammo-hull",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.0
+              ],
+              "r": [
+                -1.6,
+                -0.6
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.4,
+            "cookOffChance": 0.5
+          },
+          {
+            "id": "ammo-bustle",
+            "kind": "ammo",
+            "part": "turret",
+            "box": {
+              "f": [
+                -2.0,
+                -1.4
+              ],
+              "r": [
+                -0.6,
+                0.6
+              ],
+              "u": [
+                1.7,
+                2.15
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.1
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.3
+              ],
+              "r": [
+                0.6,
+                1.7
+              ],
+              "u": [
+                0.6,
+                1.5
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.3
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.6,
+                0.6
+              ],
+              "r": [
+                -0.6,
+                0.6
+              ],
+              "u": [
+                1.6,
+                1.8
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.3
+              ],
+              "r": [
+                0.3,
+                0.8
+              ],
+              "u": [
+                1.8,
+                2.1
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.7,
+                1.3
+              ],
+              "r": [
+                0.4,
+                0.65
+              ],
+              "u": [
+                1.8,
+                2.05
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                -1.0,
+                -0.6
+              ],
+              "u": [
+                2.1,
+                2.35
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.2,
+                -0.7
+              ],
+              "r": [
+                0.5,
+                1.0
+              ],
+              "u": [
+                1.7,
+                2.1
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.5
+              ],
+              "r": [
+                -1.5,
+                1.5
+              ],
+              "u": [
+                2.0,
+                2.22
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0,
+                1.4
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                0.9
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-90m-model-2017-mbt-main-battle-tank-technical-data-sheet",
+          "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364"
+        ],
+        "confidence": "low",
+        "note": "Game values: the carousel under the turret (a penetration often blows it up: cook-off 0.45), more rounds in the bustle (behind a partition: 0.1) and in the hull racks beside the driver (0.5); fuel front right; engine and transmission at the rear."
+      },
+      "extinguisher": {
+        "item": "ru-tank-extinguisher",
+        "chance": 0.5,
+        "delaySeconds": 1.5,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: automatic fire suppression (charges, delay and chance are not published)."
+      },
+      "signature": {
+        "sizeFactor": 0.95,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 2000,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.1
+          ],
+          [
+            0.2,
+            0,
+            1.95
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a low hull and turret (size 0.95); type known within 2 km."
+      },
+      "laserWarner": true,
+      "sources": [
+        "https://armyrecognition.com/w96k",
+        "https://wardatalab.pages.dev/equipment/cmmo5bsad005iou0z1aczhv6r",
+        "https://defensemagazine.com/article/T-90m-is-and-remains-the-most-modern-russian-mbt-deployed-in-ukraine",
+        "https://www.fair.org.ua/en/t-90m-suchasnyi-rosiiskyi-tank-z-innovatsiinym-zakhystom-ta-vohnevoiu-potuzhnistiu/",
+        "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-90m-model-2017-mbt-main-battle-tank-technical-data-sheet"
+      ],
+      "confidence": "medium",
+      "note": "T-90M Proryv main battle tank (M7.6a): 3 crew (driver front centre, gunner turret left, commander turret right), carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, 43 rounds in all (40 in another source), Sosna-U and PK-PAN thermal sights, Relikt, 2A46M-5, Refleks-M. Game values (low): armour, tiles, components, stowage split, reload 7 s, signature. Laser warner (low: a Shtora-type warning set reported)."
+    },
+    {
+      "id": "ru-t72b3m",
+      "nameKey": "vehicle.ru.t72b3m",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.9,
+        "widthM": 3.59,
+        "heightM": 2.22,
+        "groundClearanceM": 0.47,
+        "hull": {
+          "f": [
+            -3.45,
+            3.45
+          ],
+          "r": [
+            -1.795,
+            1.795
+          ],
+          "u": [
+            0.47,
+            1.6
+          ]
+        },
+        "turret": {
+          "pivotF": 0.2,
+          "f": [
+            -1.4,
+            1.4
+          ],
+          "r": [
+            -1.6,
+            1.6
+          ],
+          "u": [
+            1.6,
+            2.22
+          ],
+          "barrelM": 4.48,
+          "trunnionU": 1.9
+        },
+        "trackContactM": 4.27,
+        "trackGaugeM": 2.79,
+        "sources": [
+          "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3-russia-uk",
+          "https://www.armyrecognition.com/9cy8"
+        ],
+        "confidence": "medium",
+        "note": "About 9.53 x 3.59 x 2.22 m with the gun forward (T-72B3 sheet; no B3M figures found): hull as the T-90M's (game value), narrower; the gun 4.48 m past the turret front."
+      },
+      "mass": {
+        "kg": 46000,
+        "sources": [
+          "https://www.armyrecognition.com/9cy8",
+          "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364"
+        ],
+        "confidence": "low",
+        "note": "45-47 t in the sources: 46 t used (low)."
+      },
+      "drive": {
+        "powerKw": 843,
+        "efficiency": 0.75,
+        "topSpeedKmh": 60,
+        "reverseTopSpeedKmh": 4.2,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 7
+          },
+          {
+            "toKmh": 13
+          },
+          {
+            "toKmh": 19
+          },
+          {
+            "toKmh": 27
+          },
+          {
+            "toKmh": 36
+          },
+          {
+            "toKmh": 48
+          },
+          {
+            "toKmh": 60
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 4.2
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 20,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.6
+        },
+        "idleKw": 50,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://www.army-technology.com/projects/t-72b3m-main-battle-tank/",
+          "https://defensemagazine.com/article/T-90m-is-and-remains-the-most-modern-russian-mbt-deployed-in-ukraine",
+          "https://armyrecognition.com/w96k"
+        ],
+        "confidence": "medium",
+        "note": "V-92S2F, 1130 hp (843 kW) and 60 km/h (published, medium; some T-72B3 pages 70). Reverse: one gear, 4.2 km/h (from memory, low). Other drive values as the T-90M's (game values)."
+      },
+      "fuel": {
+        "item": "ru-t72b3m-diesel",
+        "capacityL": 1200
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.4,
+            0.6,
+            1.7
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.0,
+                0.5,
+                2.6
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "lrf": true
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.4,
+            -0.6,
+            1.7
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                0.8,
+                -0.8,
+                2.35
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.8,
+                -0.8,
+                2.35
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.6,
+            0,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.045
+          ],
+          [
+            0.5,
+            -2.045
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 6,
+        "dismountSecondsPerMan": 4,
+        "bailOutSeconds": 10,
+        "seatSwapSeconds": 30,
+        "loadCasualtySeconds": 60,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M7.6a): no ramp; the crew gets in and out through the hatches (bailing out of the low, cramped turret slower than from a Leopard)."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 40,
+          "elevateDegS": 10,
+          "elevationDeg": [
+            -6,
+            14
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.2,
+          "movingMradPerMps": 0.1,
+          "layToleranceMrad": 0.6,
+          "rangefinder": true,
+          "readyRefillInBattle": true,
+          "refillSeconds": 240,
+          "weapons": [
+            {
+              "weapon": "ru-2a46m5",
+              "coax": false,
+              "muzzle": [
+                5.880000000000001,
+                0,
+                1.9
+              ],
+              "feeds": [
+                {
+                  "item": "ru-125-3bm42-round",
+                  "ready": {
+                    "count": 12,
+                    "charge": 1
+                  }
+                },
+                {
+                  "item": "ru-125-3of26-round",
+                  "ready": {
+                    "count": 9,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 3000,
+              "feedKind": "autoloader",
+              "roundLoadSeconds": 7.5,
+              "startLoaded": true
+            },
+            {
+              "weapon": "ru-2a46m5-gl",
+              "coax": false,
+              "muzzle": [
+                5.880000000000001,
+                0,
+                1.9
+              ],
+              "feeds": [
+                {
+                  "item": "ru-9m119m-round",
+                  "ready": {
+                    "count": 1,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 5000,
+              "feedKind": "autoloader",
+              "roundLoadSeconds": 7.5,
+              "missileBeyondM": 2500
+            },
+            {
+              "weapon": "ru-pkt",
+              "coax": true,
+              "muzzle": [
+                1.3,
+                0.4,
+                1.95
+              ],
+              "feeds": [
+                {
+                  "item": "ru-pkt-belt",
+                  "ready": {
+                    "count": 1,
+                    "charge": 250
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [
+            "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3m-t-72b4-main-battle-tank-technical-data-sheet-specifications-pictures-video-12003163",
+            "https://forum.warthunder.com/t/why-does-the-t-72b3-have-a-reload-rate-of-7-1/96843?page=16",
+            "https://www.armyrecognition.com/9cy8"
+          ],
+          "confidence": "low",
+          "note": "Two-plane stabilised turret with Sosna-U (thermal, laser rangefinder, published; one source says 1PN96MT-02 on the B3 family). The carousel's 22 rounds (ready: 12 3BM42, 9 3OF26 and one 9M119M, game split); 8 3BM42, 7 3OF26 and 3 missiles more (40 in all, low). The autoloader takes 7.5 s a round (low: 'likely about 8 s'); a round is in the breech at the start. The commander has a day sight only. Other values as the T-90M's (game values)."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "ru-125-3bm42-round",
+          "count": 8,
+          "charge": 1
+        },
+        {
+          "item": "ru-125-3of26-round",
+          "count": 7,
+          "charge": 1
+        },
+        {
+          "item": "ru-9m119m-round",
+          "count": 3,
+          "charge": 1
+        },
+        {
+          "item": "ru-pkt-belt",
+          "count": 7,
+          "charge": 250
+        },
+        {
+          "item": "ru-81mm-smoke",
+          "count": 12
+        },
+        {
+          "item": "ru-tank-extinguisher",
+          "count": 2
+        },
+        {
+          "item": "ru-kontakt5-turret-front",
+          "count": 26
+        },
+        {
+          "item": "ru-kontakt5-turret-side",
+          "count": 6
+        },
+        {
+          "item": "ru-relikt-hull-front",
+          "count": 18
+        },
+        {
+          "item": "ru-relikt-hull-side",
+          "count": 12
+        }
+      ],
+      "dischargers": {
+        "item": "ru-81mm-smoke",
+        "perSalvo": 6,
+        "salvos": 2,
+        "arcDeg": 90,
+        "rangeM": 30,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364"
+        ],
+        "confidence": "low",
+        "note": "902B 81 mm smoke launchers, twelve (published for the T-90M; not found for the T-72B3M): two salvos of six. Range, delay and cloud are game values as the BMP-2's."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-cast",
+            "thicknessMm": 420,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 80,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite-cast",
+            "thicknessMm": 430,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "composite-cast",
+            "thicknessMm": 180,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 60,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          }
+        ],
+        "tiles": [
+          {
+            "part": "turret",
+            "face": "front",
+            "item": "ru-kontakt5-turret-front",
+            "coverage": 0.85
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "item": "ru-kontakt5-turret-side",
+            "coverage": 0.5
+          },
+          {
+            "part": "hull",
+            "face": "front",
+            "item": "ru-relikt-hull-front",
+            "coverage": 0.75
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "item": "ru-relikt-hull-side",
+            "coverage": 0.6
+          }
+        ],
+        "sources": [
+          "https://www.deagel.com/armies/t-72/a000770",
+          "https://www.janes.com/osint-insights/defence-and-national-security-analysis/russian-armoured-vehicles-at-victory-day-parade",
+          "https://www1.ru/en/news/2025/09/20/modifikacii-tanka-t-72b3m-obrazca-2025-goda-stali-osnashhat-dz-relikt-na-lbu-basni.amp.html",
+          "https://en.wikipedia.org/wiki/Kontakt-5",
+          "https://forum.warthunder.com/t/comprehensive-technical-review-bm-oplot-duplet-nozh-dynamic-protection-system-and-modeling-deficiencies/270613/3",
+          "https://www.armyrecognition.com/9cy8"
+        ],
+        "confidence": "low",
+        "note": "Game values from public estimates only: line-of-sight equivalents at 0 degrees, one plate per face. Base without tiles: turret front about 430 mm RHA against long rods (published T-72B estimates about 410 KE / 500 CE: 430 mm cast-with-filler, 537 / 636 mm mild steel), hull front 420 mm (525 / 622), turret side 180 mm (225 / 266), hull side 80 mm steel, rear 40 / 60 mm, roof 20 / 40 mm. Tiles (Janes, medium for the layout): Kontakt-5 on the turret (front 0.85 of 26, side 0.5 of 6), Relikt on the upper glacis (0.75 of 18) and the side skirts (0.6 of 12); Relikt on the turret front only from the 2025 model. Coverage and counts are game values."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -1.5
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                0.55,
+                1.5
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                -2.8
+              ],
+              "r": [
+                -1.6,
+                1.6
+              ],
+              "u": [
+                0.55,
+                1.3
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                -1.8,
+                -1.4
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.4,
+                3.4
+              ],
+              "r": [
+                1.4,
+                1.8
+              ],
+              "u": [
+                0.47,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.8,
+                1.4
+              ],
+              "r": [
+                -0.3,
+                0.3
+              ],
+              "u": [
+                1.75,
+                2.1
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "ammo-carousel",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                -0.8,
+                1.2
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                0.5,
+                0.85
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.5,
+            "cookOffChance": 0.45
+          },
+          {
+            "id": "ammo-hull",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.0
+              ],
+              "r": [
+                -1.6,
+                -0.6
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.4,
+            "cookOffChance": 0.6
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.5,
+                3.3
+              ],
+              "r": [
+                0.6,
+                1.7
+              ],
+              "u": [
+                0.6,
+                1.5
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.3
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.6,
+                0.6
+              ],
+              "r": [
+                -0.6,
+                0.6
+              ],
+              "u": [
+                1.6,
+                1.8
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.3
+              ],
+              "r": [
+                0.3,
+                0.8
+              ],
+              "u": [
+                1.8,
+                2.1
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.7,
+                1.3
+              ],
+              "r": [
+                0.4,
+                0.65
+              ],
+              "u": [
+                1.8,
+                2.05
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.5,
+                1.0
+              ],
+              "r": [
+                -1.0,
+                -0.6
+              ],
+              "u": [
+                2.1,
+                2.35
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.2,
+                -0.7
+              ],
+              "r": [
+                0.5,
+                1.0
+              ],
+              "u": [
+                1.7,
+                2.1
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.5
+              ],
+              "r": [
+                -1.5,
+                1.5
+              ],
+              "u": [
+                2.0,
+                2.22
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0,
+                1.4
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.5,
+                0.9
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3m-t-72b4-main-battle-tank-technical-data-sheet-specifications-pictures-video-12003163"
+        ],
+        "confidence": "low",
+        "note": "Game values: the carousel under the turret (cook-off 0.45) and the loose rounds in the hull (0.6, no bustle rack); fuel front right; engine and transmission at the rear."
+      },
+      "extinguisher": {
+        "item": "ru-tank-extinguisher",
+        "chance": 0.5,
+        "delaySeconds": 1.5,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: automatic fire suppression (charges, delay and chance are not published)."
+      },
+      "signature": {
+        "sizeFactor": 0.95,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 2000,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.1
+          ],
+          [
+            0.2,
+            0,
+            1.95
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: a low hull and turret (size 0.95); type known within 2 km."
+      },
+      "sources": [
+        "https://www.armyrecognition.com/9cy8",
+        "https://armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/t-72b3m-t-72b4-main-battle-tank-technical-data-sheet-specifications-pictures-video-12003163",
+        "https://www.army-technology.com/projects/t-72b3m-main-battle-tank/",
+        "https://defense-update.com/?p=155195"
+      ],
+      "confidence": "medium",
+      "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack."
     }
   ]
 }

@@ -1874,6 +1874,162 @@
       ],
       "confidence": "low",
       "note": "M9.3b (owner: a Metis-M team at company level attached to the platoon battle): the 9P151 launch post and four 9M131 rounds with a crew of three: commander with the radio and a round, operator with the launch post and a round, loader with two rounds (the real Metis-M crew is two men carrying the post and rounds in packs; the third man and the rounds per man are game values, low). The operator keeps his AK-74M (no pistol in the data)."
+    },
+    {
+      "id": "t72b3m-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "Tank {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-t72b3m",
+      "members": [
+        {
+          "role": "komandir-tanka",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "navodchik-operator",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.armyrecognition.com/9cy8"
+      ],
+      "confidence": "low",
+      "note": "T-72B3M crew (M7.6a): commander, gunner, driver (published: three). Ranks are typical, not sourced; each carries an AK-74M with two magazines, helmet and vest (game value)."
+    },
+    {
+      "id": "t90m-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "Tank {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-t90m",
+      "members": [
+        {
+          "role": "komandir-tanka",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "navodchik-operator",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://armyrecognition.com/w96k"
+      ],
+      "confidence": "low",
+      "note": "T-90M crew (M7.6a): commander, gunner, driver (published: three). Ranks are typical, not sourced; each carries an AK-74M with two magazines, helmet and vest (game value)."
     }
   ]
 }

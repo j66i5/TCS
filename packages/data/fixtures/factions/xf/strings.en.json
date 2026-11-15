@@ -35,5 +35,14 @@
   "ammo.xf-dart": "Test dart",
   "item.xf-dart-tube": "Test dart tube",
   "weapon.xf-dart-rail": "Test dart rail",
-  "item.xf-dart-tripod": "Test dart tripod"
+  "item.xf-dart-tripod": "Test dart tripod",
+  "vehicle.xf.tortoise": "Tortoise",
+  "weapon.xf-bombard": "Test bombard",
+  "ammo.xf-ram": "Test ram",
+  "ammo.xf-pot": "Test pot",
+  "item.xf-ram-round": "Test ram round",
+  "item.xf-pot-round": "Test pot round",
+  "item.xf-scale": "Scale",
+  "item.xf-scale-hull": "Hull scale",
+  "role.xf.stoker": "Stoker"
 }

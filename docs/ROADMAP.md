@@ -238,7 +238,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M9.5 Drone-observed fire** (2026-11-14) — location methods "drone" and "air" (off-map fixed-wing
     reconnaissance, `?air=`), drones read the falls; `lab -- indirect` rows by location method.
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
-  before logistics). ⬜
+  before logistics). 🔶
+  - ✅ **M7.6a Main battle tanks: data and labs** (2026-11-14) — Leopard 2A7V, T-90M, T-72B3M; reactive tiles as
+    counted items, `tank-gun`, Refleks-M through the gun; armour, anti-tank, gunnery, drive and missile lab rows;
+    `--scene tanks`. Next: M7.6b tanks in battle.
 
 ## Stage C — depth
 

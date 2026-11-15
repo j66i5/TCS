@@ -12,11 +12,12 @@
 import type { Catalog } from "./catalog";
 import type { BattleEndReason, SimEvent } from "./events";
 import { tallyExpenditure, type Expenditure } from "./expenditure";
-import type { EntityId } from "./ids";
+import { ticksToSeconds, type EntityId } from "./ids";
 import type { SimView } from "./state";
+import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 3;
+export const RECORD_VERSION = 4;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -73,6 +74,10 @@ export interface SideRecord {
   nest: { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number };
   /** Re-triage (M10.5): tags given again where the last tag was wrong, and of them now right. */
   retriage: { wrongRetagged: number; corrected: number };
+  /** Ambulance runs (M10.6a): called (by the player), came onto the map, reached the nest, men taken aboard, gone
+   *  off the map; seconds from each call to its arrival at the nest; men evacuated and seconds from each one's first
+   *  wound to his leaving the map. */
+  amb: { called: number; ordered: number; cancelled: number; entered: number; arrived: number; loaded: number; away: number; callToArriveS: number[]; evacuated: number; woundToEvacS: number[] };
   /** Men down (owner request 2026-11-15): men checked by a comrade, of them found dead, dead men dragged to cover
    *  before anyone knew, identity tags recovered (items taken), casualties who crawled to cover, prisoners treated by
    *  the side holding them (counted for the prisoner's side), surrendered men who crawled out of the fire. */
@@ -87,6 +92,8 @@ export interface BattleRecord {
   heatFalls: number[];
   /** Ammunition used per side (M7.3). */
   exp: Expenditure;
+  /** M9.6: drones, enemies found (by drone), fire missions by location method, missiles, light (review.ts). */
+  review: ReviewTally;
   sides: Record<string, SideRecord>;
   /** Casualty id -> tick of his first finished treatment (the Medical tab and the batch's time to first care). */
   firstTreated: Record<string, number>;
@@ -94,6 +101,9 @@ export interface BattleRecord {
   lastTag: Record<string, [number, number]>;
   /** Casualty id -> tick he first reached a Verwundetennest (M10.5). */
   atNest: Record<string, number>;
+  /** Ambulance id -> tick of its current call (M10.6a; the time to its arrival). Casualty id -> tick he was evacuated. */
+  ambCall: Record<string, number>;
+  evacuated: Record<string, number>;
   /** Filled by `finishRecord`. */
   end: { tick: number; reason: BattleEndReason; winner: string | null; loser: string | null } | null;
 }
@@ -112,13 +122,14 @@ export function newSideRecord(): SideRecord {
     tags: {}, wrongTags: {},
     drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0,
     nest: { sited: 0, moved: 0, tasked: 0, walks: 0, arrived: 0, returned: 0 }, retriage: { wrongRetagged: 0, corrected: 0 },
+    amb: { called: 0, ordered: 0, cancelled: 0, entered: 0, arrived: 0, loaded: 0, away: 0, callToArriveS: [], evacuated: 0, woundToEvacS: [] },
     down: { checked: 0, checkedDead: 0, deadDragged: 0, tags: 0, tagMen: 0, crawled: 0, prisonersTreated: 0, surrenderCrawled: 0 },
   };
 }
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -129,6 +140,7 @@ export function readRecord(x: unknown): BattleRecord | null {
 
 /** Fold one tick's events into the record; `view` is the state after that tick. */
 export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], view: SimView, catalog: Catalog): void {
+  tallyReview(rec.review, events, view); // (M9.6; it samples the light on quiet ticks too)
   if (events.length === 0) return;
   tallyExpenditure(rec.exp, events, view, catalog);
   const sideIdx = (side: string) => Math.max(0, view.sides.findIndex((x) => x.id === side));
@@ -175,6 +187,10 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       }
       case "objective.changed":
         if (e.holder !== null) rec.timeline.push({ tick: e.tick, side: e.holder, key: "timeline.objective", objective: e.objective });
+        break;
+      case "drone.lost":
+        // (M9.6: a drone shot down or lost.)
+        rec.timeline.push({ tick: e.tick, side: e.side, key: e.reason === "shot" ? "aar.drone.shotDown" : "aar.drone.lost" });
         break;
       case "radio":
         if (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken") {
@@ -226,6 +242,24 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         if (r) { if (e.phase === "tasked") r.nest.tasked++; else if (e.phase === "walks") r.nest.walks++; else if (e.phase === "returned") r.nest.returned++; }
         const k = String(e.casualty);
         if (e.phase === "arrived" && rec.atNest[k] === undefined) { rec.atNest[k] = e.tick; if (r) r.nest.arrived++; }
+        break;
+      }
+      case "medical.ambulance": {
+        const r = side(e.side);
+        if (!r) break;
+        const k = String(e.vehicle);
+        if (e.phase === "called") { r.amb.called++; if (e.ordered) r.amb.ordered++; rec.ambCall[k] = e.tick; }
+        else if (e.phase === "entered") r.amb.entered++;
+        else if (e.phase === "arrived") { r.amb.arrived++; const c = rec.ambCall[k]; if (c !== undefined) r.amb.callToArriveS.push(Math.round(ticksToSeconds(e.tick - c))); }
+        else if (e.phase === "loaded") r.amb.loaded++;
+        else if (e.phase === "away") r.amb.away++;
+        else if (e.phase === "cancelled") r.amb.cancelled++;
+        break;
+      }
+      case "medical.evacuated": {
+        const r = side(e.side);
+        if (r) { r.amb.evacuated++; r.amb.woundToEvacS.push(Math.round(ticksToSeconds(e.tick - e.woundedTick))); }
+        rec.evacuated[String(e.casualty)] = e.tick;
         break;
       }
       case "medical.carer":

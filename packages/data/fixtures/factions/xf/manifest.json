@@ -10,5 +10,9 @@
   "note": "Made-up test fixture.",
   "platoonTemplate": "cart-band",
   "missileTeamTemplate": "dart-team",
-  "tankSectionTemplate": "tortoise-pair"
+  "tankSectionTemplate": "tortoise-pair",
+  "ambulance": {
+    "template": "litter-crew",
+    "count": 1
+  }
 }

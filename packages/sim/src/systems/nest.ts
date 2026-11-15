@@ -32,6 +32,7 @@ import { indoorAt } from "../interior-nav";
 import { careNeed, isResponder, needsEvacuation, nextIntervention, SKILL_RANK } from "../medical";
 import { hypot2 } from "../math";
 import { isMounted } from "../mount";
+import { assetServing } from "../offmap";
 import { navCostAt, nearestPassable } from "../nav";
 import { navFor } from "../navctx";
 import { newEntity, type SimState } from "../state";
@@ -42,7 +43,7 @@ import { assignCarer, careEnabled, releaseCarer, treatedNow, underFireForCare } 
 /** Eight directions for the search rings around the nest's ideal spot. */
 const DIRS: readonly (readonly [number, number])[] = [[1, 0], [0.7071, 0.7071], [0, 1], [-0.7071, 0.7071], [-1, 0], [-0.7071, -0.7071], [0, -1], [0.7071, -0.7071]];
 
-function topOf(state: SimState, uid: EntityId): EntityId {
+export function topOf(state: SimState, uid: EntityId): EntityId {
   let u = uid;
   for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p;
   return u;
@@ -237,7 +238,8 @@ function stepPlatoon(ctx: SimContext, state: SimState, events: EventSink, top: E
       if (reason === null) for (const c of s.contacts) if (!c.down && !c.surrendered && (c.x - p.x) * (c.x - p.x) + (c.y - p.y) * (c.y - p.y) <= r2) { reason = "threatened"; break; }
     }
     if (reason === null && n > 0 && hypot2(cx / n - p.x, cy / n - p.y) > N.driftM && wounded.every((c) => state.soldier.req(c).atNest === undefined)) {
-      let enRoute = false;
+      // (Not while bearers or an ambulance, M10.6a, are on their way to it.)
+      let enRoute = assetServing(state, pid) !== null;
       for (const [, c] of state.carry.entries()) if (c.point === pid) { enRoute = true; break; }
       if (!enRoute) reason = "drift";
     }

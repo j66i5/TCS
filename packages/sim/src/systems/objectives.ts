@@ -11,6 +11,7 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { TICK_HZ, type EntityId, type SideId } from "../ids";
 import { isAble, isOut } from "../impair";
+import { isAssetUnit } from "../offmap";
 import type { SimState, SimView } from "../state";
 
 export interface SideScore {
@@ -55,10 +56,11 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   if (!V?.endOnDefeat || state.ended) return;
   const defeated: { side: SideId; reason: "side-eliminated" | "side-broken" }[] = [];
   for (const sd of state.sides) {
-    const tops = [...state.unit.entries()].filter(([, u]) => u.side === sd.id && u.parent === null);
+    // (M10.6a: an off-map asset's crew is not of the force: it neither breaks nor keeps a side in the field.)
+    const tops = [...state.unit.entries()].filter(([, u]) => u.side === sd.id && u.parent === null && u.asset === undefined);
     // Nobody standing: all down, or the last of them running (they have left the field).
     // mounted: ok a side with men only aboard vehicles is not wiped out
-    const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && standing(state, id));
+    const anyStanding = [...state.identity.entries()].some(([id, i]) => i.side === sd.id && !isAssetUnit(state, i.unit) && standing(state, id));
     const allBroken = tops.length > 0 && tops.every(([, u]) => u.broken);
     if (!anyStanding || allBroken) defeated.push({ side: sd.id, reason: !anyStanding ? "side-eliminated" : "side-broken" });
   }
@@ -80,12 +82,13 @@ export function battleScore(ctx: SimContext, state: SimView): BattleScore {
     let down = 0;
     // Men lost: killed, incapacitated, surrendered or captured (M6.6), each counted once.
     // mounted: ok losses count every man
-    for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && isOut(state.soldier.req(id))) down++;
+    for (const [id, ident] of state.identity.entries()) if (ident.side === sd.id && !isAssetUnit(state, ident.unit) && isOut(state.soldier.req(id))) down++;
     const out: SideScore = { side: sd.id, objectivePoints: pts, menDown: down, score: pts - (V?.casualtyPoints ?? 0) * down };
     if (V?.vehiclePoints) {
       let lost = 0, immob = 0;
       for (const [, v] of state.vehicle.entries()) {
-        if (v.side !== sd.id) continue;
+        // (Off-map assets, M10.6a, are not of the force: an ambulance costs no points.)
+        if (v.side !== sd.id || v.offMap !== undefined) continue;
         if (v.status === "destroyed" || v.status === "abandoned") lost++;
         else if (v.status === "immobilised") immob++;
       }

@@ -5457,6 +5457,83 @@ Acceptance (plan step 8), reported as it stands after the one tuning pass:
   RU + T-72B3M red wins 6 (5), men down 24.4 / 22.8, Pumas lost 2.40 (by T-72B3M 23), BMP-2 1.10, T-72B3M 0.40 (by
   Puma 4), tiles 0.0, 81x; both sides blue wins 8 (8), men down 17.0 / 32.7, Pumas 1.00 (by T-72B3M 9), BMP-2 2.60,
   T-72B3M 1.80 (by Leopard 9, Puma 8, foot 1), Leopards 0.00, tiles red 1.0, 51x.
+## 2026-11-15 — M10.6a off-map vehicles and ambulance runs (roadmap-detail slice 13; goldens regenerated)
+Owner answers used (binding): the full chain to an aid station off the map; automatic, the player can call an
+ambulance (answer 4); new Boxer ambulance and BMM hulls (Q-4, slice 12); delay 10-15 min plus the drive (Q-6); same
+rules for both sides, faction differences only in data. Software decisions, not asked (owner to review after playing,
+M10.8):
+- **Off-map entity state (SPEC 9.1 foundation note, ARCHITECTURE row):** an off-map asset is an ordinary vehicle
+  entity with its crew unit, in the stores from tick 0, carrying `VehicleState.offMap` (`OffMapAsset`: phase ready /
+  called / inbound / loading / outbound / away / lost, rear point, entry, goal, the casualty being loaded). It is
+  created after every force (`ForceInput.offMap` lists which vehicles), so the battle's own entities keep the ids they
+  have without assets. Off the map (ready, called, away) it stands at `OFF_MAP_PARK` (-10 km, -10 km) with its men
+  aboard; every loop over the vehicle store tests `isOffMap` first (new architecture test, 30 loops gated), and its
+  men are aboard, so the existing mount gates pass them by. Its crew (`Unit.asset = "ambulance"`) is ordered by
+  nobody (AI top units, the sidebar, the AI drone's own-men centre and the app's start view skip it) and is outside
+  the side's strength, `SideResult` counts, the score and the defeat check; an off-map hull is not among the side's
+  vehicles in the result or the score. Rejected: a separate store of records materialised on arrival (removing
+  soldiers mid-battle would break "casualties remain entities" and every reference to them). No state schema bump:
+  the new fields are optional. Note: with assets in the battle, entities created later (drones, rear points) get
+  higher ids, and a drone's scan stagger follows its id, so a battle with drones diverges from the same battle
+  without assets after the first drone flies (noise, not a systematic change: checked by comparing event streams).
+- **Data:** `core/medical.json` `evacuation` (delay 600-900 s: owner Q-6, medium; the rest game values, low: pace
+  "walk" for the whole run — at "run", 70 % of top speed, hulls ran into hedges at route corners in the lab — stand
+  15 m short of the nest, stop where the way first comes within 65 m of it or where the ground holds it up within
+  80 m, the crew fetches each man on a litter at 1.0 m/s each way plus 20 s plus the hull's `loadCasualtySeconds`,
+  waits 120 s for more on the way, leaves at most 600 s after arriving, off the map within 20 m of its entry, route
+  retries every 30 s, an automatic call at 1 man waiting). Faction manifests `ambulance { template, count }`: DE two
+  `boxer-san-besatzung`, RU two `bmm-ekipazh` (game values, low; search extracts: "company: Sanitätstrupp +
+  protected ambulance on request", "battalion: MPB + BMM on request"); xf one `litter-crew` (new fixture template for
+  `xf-litter-cart`). Data lint: the template must crew an ambulance.
+- **The run (`systems/evacuation.ts`, at 1 Hz after the nest system, only with care on):** a nest with a man waiting
+  (alive, on foot, not carried) and no ambulance on its way calls the side's next waiting hull (lowest id); the delay
+  is drawn from the "medical" stream; the radio says "ambulance requested, about N min" (the player's own call is
+  answered by the order's acknowledgement). Entry: the edge behind the nest (away from the mean of the enemy contacts
+  the platoon holds, else the nearest edge), 10 m in, a wheeled cell in the nest's region (else the nearest such cell
+  along the edges). When it is due and nobody waits at the nest or is on the way there, the call is **stood down**
+  (the man went back to duty — a batch showed a walking wounded man returning 10 s after the call, which cost one of
+  two ambulances for nothing). It drives to its stand spot (re-routed when the nest moves), halts, loads T1 first
+  (by the tag) whoever its layouts still fit (`placesFit`, lying when unconscious or in shock ≥ 0.3), waits for a
+  treatment on him to end; leaves when full, or 120 s after the last man came aboard with no carrying party on the
+  way to the nest, at most 600 s after arriving; with men aboard it also leaves when the nest moves away. Leaving: it
+  backs 25 m away from the men (a wheeled hull turns wide; facing the nest, its look-ahead for men in its way stopped
+  it at the men lying there), turns, drives to its entry point and goes off the map: every living wounded man aboard
+  is **evacuated** (`SoldierState.evacuated`, `medical.evacuated` with his first wound's tick); held up on the way
+  back for 600 s (a 2400 s battle had one stopped for good by a prone rifleman in its way: a man lying down does not
+  step aside for a hull, an old vehicle rule) it leaves the map from where it is (another way off, not simulated); his physiology no
+  longer runs (the aid station's outcome is M10.6b), roster status "evacuated" (counted under `wounded`, plus
+  `SideResult.evacuated`). One run per hull. Stranded on the map (no driver, immobilised, crew bailing out): "lost",
+  an ordinary hull. An empty nest no longer drifts after its platoon while an ambulance is called to it.
+- **Player:** order `callAmbulance` (to a unit or man: his platoon's nest, sited now if none) — refused with
+  "an ambulance is already on its way", "no ambulance left to send" or "no way in"; orders to an asset's crew are
+  refused. The Wounded tab shows each run (on its way with the minutes to the edge, driving to the nest, there with
+  so many aboard, leaving, gone back, stranded) and a **Call ambulance (n left)** button for the selected platoon
+  (none selected: the first). Evacuated men stay in the list as "evacuated" (no Back). The review lists them as
+  "evacuated (zones)"; the crews are not in its roster.
+- **Record and batch:** battle record version 3 (`amb` per side: called, by the player, stood down, came on,
+  arrived, loaded, away, call-to-arrival seconds, men evacuated, first-wound-to-evacuation seconds); batch line
+  "Ambulances".
+- **Lab (`npm run lab -- medevac [seeds]`, 10 seeds per faction, platoon alone with two broken legs):** call to the
+  edge = the drawn delay (to the second); call to arrival within delay + the same drive alone ±10 % in 16 of 18 runs
+  (0.0-0.1 %); 2 (seed 7, both factions) were held up by a hedge gap within 80 m and stopped there (the hull alone did
+  not get through either); places never exceeded; 2 runs had no ambulance (nobody reached the nest / stood down).
+- **Batches (10 seeds × 1200 s; before = HEAD before this slice, after = this slice):** attacker wins platoon 3 → 4,
+  platoon-ru (red attacks) 8 → 7, platoon-vehicles 7 → 5; mean casualties blue/red platoon 20.3/13.3 → 17.8/13.8,
+  platoon-ru 17.3/8.9 → 16.9/9.4, platoon-vehicles 15.4/26.4 → 18.0/26.4. Ambulances in 1200 s: called 7/8, 3/7, 7/6
+  (blue/red), came on 0, 0, 3 (calls come at 400-800 s, the delay is 10-15 min), so the 1200 s balance is the M10.5
+  battle with noise (the drone-id divergence above); the evacuation itself is checked by the lab, the tests and a
+  2400 s run. No tuning.
+- **Tests:** `tools/test/medical-evac.test.ts` (parked and skipped from tick 0, crews outside the result; a call after
+  a man reaches the nest, the delay within 10-15 min, on at the edge, loaded, off the map, evacuated, roster round
+  trip, condition frozen; capacity: 3 lying in a Boxer, T1 first, the second ambulance called for the rest; men and
+  items conserved; the player's call, refusals, stand-down; care off: no call; save/load on the way and while
+  loading); architecture test "off-map vehicles are skipped"; `ui/test/wounded.test.ts` (ambulance rows, evacuated
+  rows). Tests adjusted for the assets: scenario-platoon / scenario-mounted (units and vehicles besides the
+  ambulances), siting (the defenders without the crews), sidebar (tiles), mounted invariants (men of an off-map hull
+  are not in a seat's place). `--scene medevac` screenshots (phone and desktop).
+- **Goldens regenerated** (`npm run golden:update`: data changed the fingerprint; demo, shootout, fixture,
+  fixture-cart, vehicles, platoon-vehicles, village-occupy, house-clear). `golden/no-interiors` untouched.
+
 ## 2026-11-15 — Men down, identity tags, casualties and prisoners crawling to cover, prisoners' care, surrendered men under fog (owner requests 2026-11-15; goldens regenerated)
 Owner requests 2026-11-15 (binding), each logged here as "owner request 2026-11-15":
 - **A (bug): "surrendered enemy soldiers are always visible to the player."** Investigated: the renderer draws an enemy
@@ -5602,3 +5679,60 @@ extracts only (web pages cannot be opened here), confidence medium at most, most
 - xf fixture unchanged.
 Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
 untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).
+## 2026-11-15 — M9.6 Night AI, balance and polish (roadmap-detail slice 37, parallel session; owner to review)
+Built in four parts (parallel worktrees), then reviewed (4 reviewers, every finding checked by two sceptics: 7
+confirmed and fixed, 3 rejected) and fixed. All game values below are low confidence.
+- **Flares give light** (a gap left by M9.1: flares existed but lit nothing): `sim/flares.ts flareLightAt` — the
+  brightest burning flare's illuminance candela/(h^2+d^2) lux over `night.flareFullLux` 20, capped at
+  `night.flareMaxLight` 0.6, computed once per target (not per pair) and only while flares burn; every sensor term
+  takes it like a muzzle flash. A 120 mm round 400 m up lights the ground below to about 0.3 (dusk). The renderer draws
+  the flare and its lit circle. Night lab: a still man at 300 m on a moonless night, 17 % found within 30 s, 63 %
+  under a flare. Without flares nothing changes (goldens bit-identical except the fingerprint).
+- **AI night drills** (`COMMANDER.night`, only when the light is below 0.3): the mortar allotments of generated battles
+  carry 4 illumination rounds per side; the defender lights 2+ seen or reported enemy men within 300 m of the main
+  objective or 200 m of any objective (not heard ones: it kept its rounds for the assault), at most every 90 s; the
+  attacker lights 150 m beyond the objective while closing in and assaulting; at night the attacker sneaks the last
+  125 m (2.5 x 50) and sets its support line at 231 m (0.7 x 330), the defender's own engagement range is 200 m (300
+  by day), re-sent when the light crosses the threshold; artillery illumination goes danger close (a flare does no
+  blast harm) and not while the battery displaces; prep-fire timing counts the slower night sneak leg; the support
+  distance is frozen with the squads' places (a dusk crossing no longer splits them).
+- **Night fire discipline** (soldiers, `behaviour.decisions.night`): in the dark a man whose unit has not been fired on
+  recently opens fire on his own only within 150 m (rifle), 250 m (magnified sight), 300 m (machine gun): his muzzle
+  flash and tracers would show him. Fire tasks he has are not cut off; vehicles are not affected.
+- **Hiding from drones** (`behaviour.soldier.droneHide`, men on foot, not fighting, not in a drill, not under fire):
+  halted, a man who sees an enemy drone within 300 m lies down where he is under a canopy or indoors, else runs to the
+  nearest canopy within 40 m (only while the drone is 100 m+ off) and lies there, and walks back to his place when it
+  has been gone 30 s; on the move he freezes only when it is within 120 m (nearly overhead), for 20 s re-armed up to
+  60 s, then not again for 240 s; never on a bolt out of a house or a beaten zone; men at a post (busy, a mortar or
+  missile team set up, a drone operator) lie down where they are. Running (not sneaking) to the canopy: the drone lab
+  showed sneaking under a drone at 100 m got a man found sooner than standing still (median 5 s against 18 s); running
+  cut the share found within 60 s from 20/20 to 11/20. Review: the first version froze men on the move within 300 m;
+  AI drones hover about 220 m off, so attacks stalled (German village attack 4 -> 0 of 10 by day, Russian 7 -> 4;
+  with hiding off exactly the old numbers).
+- **Review rows:** `sim/review.ts tallyReview` (events only): drones flown, recovered, lost by reason, enemy drones
+  shot down; enemies found and the share first found by a drone; fire missions and rounds by location method;
+  missiles fired and hit; the light at the start and its lowest. Event fields added: `drone.launched.item`,
+  `drone.lost.by`, `support.round.method`. Shown in the after-action review (rows only when non-zero, a timeline row
+  for each drone lost) and as batch-report lines.
+- **Batches (10 seeds x 1200 s, attacker wins of 10, before -> after; night = 23:00, half moon):**
+  day: platoon (German attack) 4 -> 4, platoon-ru (Russian attack) 7 -> 8, platoon-vehicles 6 -> 5,
+  platoon-ru-vehicles 2 -> 1; night: platoon 7 -> 4, platoon-ru 8 -> 8, platoon-vehicles 6 -> 4,
+  platoon-ru-vehicles 0 -> 1. Day unchanged within noise; at night the German attacks win less (the defender's
+  illumination and the shorter night ranges), the Russian ones as before. Batch report (night, platoon): the Russians
+  find 79-91 % of the enemies they find through their drone first. **No re-tuning:** no attacker-win band has been
+  agreed (the D4 owner question); the numbers are reported for it.
+- **Not done:** the owner play-test (owner not reachable from here); a footstep-noise model (men moving are not heard,
+  so "lights on movement heard" was not built); thermal blankets stay issued to nobody.
+- **Merge with D2 (battle record, main.ts split) and M10.5:** the M9.6 review tally now lives in the battle record
+  (`BattleRecord.review`, folded in `recordEvents`, RECORD_VERSION 3; the drone-lost timeline lines come from the
+  record), the after-action rows moved to `app/src/review.ts`, the batch lines read `rec.review`. Test changed:
+  commander.test "the defender goes down" now accepts red men lying down (siting places every defender in seeds
+  2-16 after this merge's reshuffle; a posture order only comes for men it could not place).
+
+## 2026-11-15 — Merge origin/main (men down, identity tags, crawling, prisoners' care, HQ drone tile, tanks) into the medical line; goldens regenerated
+Conflicts kept both sides: DECISIONS entries, events (`medical.ambulance` / `medical.evacuated` next to `medical.checked`
+/ `tagTaken` / `crawled`), the battle record (`amb` and `down` per side; `RECORD_VERSION` 3 → 4 since the merged shape
+is new to both lines), the batch lines, Russian strings, catalog medical blocks (`evacuation` and `down`), the xf
+fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
+regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
+`commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).

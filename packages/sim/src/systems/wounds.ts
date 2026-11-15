@@ -268,7 +268,9 @@ export function woundSystem(ctx: SimContext, state: SimState, events: EventSink)
   const aboard: PhysiologyEnv = { ...open, sheltered: true };
   // mounted: ok wounds run their course aboard too (out of the weather)
   for (const [id, s] of state.soldier.entries()) {
-    if (s.wounds.length === 0 || !s.physiology.alive) continue;
+    // (M10.6a: an evacuated man is off the map, in the chain of care beyond the battle: his condition is kept as he
+    // left; the aid station's outcome is settled in M10.6b.)
+    if (s.wounds.length === 0 || !s.physiology.alive || s.evacuated !== undefined) continue;
     // Without a physiology model ("none") nothing bleeds, but pain still fades.
     if (model) model.step(s.physiology, s.wounds, dt, params, s.mount ? aboard : open);
     else s.physiology.pain = Math.max(0, s.physiology.pain - (params["painDecayPerS"] ?? 0) * dt);

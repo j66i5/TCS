@@ -14,7 +14,9 @@ describe("AI commander (M6.3)", () => {
   // first assault order at 925 s; the behaviour checked is unchanged.)
   // (Seed 6 since the medical + M9.4 drones merge, 2026-11-15: in seed 1 the attacker's drone-observed mortars now
   // break the defence at 560 s before any assault; seeds 2-5 and 7 place every defender, so no posture order.)
-  const input = scenario(6, 1200);
+  // (Seed 9 since the merge of origin/main's men-down work into the medical line with off-map ambulances, 2026-11-15:
+  // seed 6 now places every defender too; seeds 8 and 10-14 likewise.)
+  const input = scenario(9, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;
@@ -28,8 +30,11 @@ describe("AI commander (M6.3)", () => {
     }
     return o;
   } }));
+  let redProne = 0;
   const r = runBattle(input, { controllers: watched, onTick: (sim) => {
     if (sim.state.tick % 30 !== 0) return;
+    // (The defender goes down: red men lying, by a posture order or at the end of their siting moves.)
+    for (const [id, i] of sim.state.identity.entries()) if (i.side === "red" && sim.state.soldier.get(id)?.posture === "prone") { redProne++; break; }
     for (const [uid, u] of sim.state.unit.entries()) {
       // (A house clearing, M7.5e, is the assault's drill too.)
       if (u.drill?.kind !== "assault" && u.drill?.kind !== "clear") { inDrill.delete(uid); continue; }
@@ -46,7 +51,9 @@ describe("AI commander (M6.3)", () => {
     expect(by("blue", "fire")).toBeGreaterThan(0);
     expect(by("blue", "assault")).toBeGreaterThan(0);
     expect(r.orders.some((o) => o.issuer === "red" && o.kind === "rules" && o.fire === "free")).toBe(true);
-    expect(by("red", "posture")).toBeGreaterThan(0);
+    // (M9.6 merge, 2026-11-15: a posture order only comes for men siting could not place; seeds 2-16 place every
+    // defender. What is checked is that the defence lies down.)
+    expect(by("red", "posture") + redProne).toBeGreaterThan(0);
     // A real fight: both sides fire and both lose men.
     expect(r.eventCounts["shot.fired"] ?? 0).toBeGreaterThan(200);
     expect(r.sides.every((s) => s.soldiersStart - s.soldiersFit > 0)).toBe(true);

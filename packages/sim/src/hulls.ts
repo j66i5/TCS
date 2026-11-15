@@ -5,6 +5,7 @@
  *
  * Derived data only: everything here is recomputed from the state at fixed points of the tick (rule 1).
  */
+import { isOffMap } from "./offmap";
 import type { VehicleDef } from "./catalog";
 import type { SimContext } from "./context";
 import { NEAR_VEHICLE, type VehicleGrid } from "./ballistics";
@@ -185,6 +186,7 @@ export function rebuildVehicleGrid(ctx: SimContext, state: SimState): void {
   const map = ctx.map, bm = B.bucketM, bcols = B.bcols, brows = B.brows;
   let n = 0;
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def];
     const t = state.transform.get(vid);
     if (!def || !t) continue;
@@ -256,7 +258,7 @@ export function deriveWrecks(ctx: SimContext, state: SimState): [number, number,
   const stamps: NavStamp[] = [];
   if (state.vehicle.size > 0) {
     for (const [vid, v] of state.vehicle.entries()) {
-      if (!isWreck(v, state.tick)) continue;
+      if (isOffMap(v) || !isWreck(v, state.tick)) continue;
       const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
       if (!def || !t) continue;
       const o = hullObb(def, t.x, t.y, t.heading);

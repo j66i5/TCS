@@ -36,6 +36,9 @@ export interface SpotCase {
   thermal?: boolean;
   blanket?: boolean;
   offAxisDeg?: number;
+  /** M9.6: an illumination flare of `candela` burning steadily (no descent, for the whole case) `heightM` above the
+   *  ground at a point `beyondM` beyond the target (on the line from the observer); injected into the state. */
+  flare?: { candela: number; heightM: number; beyondM: number };
 }
 export interface SpotRow extends SpotCase { runs: number; spotted: number; medianS: number | null; within10: number; within30: number }
 
@@ -68,6 +71,7 @@ export function spotCase(catalog: Catalog, c: SpotCase): SpotRow {
       ],
     };
     const sim = createSim(input);
+    if (c.flare) sim.state.flares = [{ x: tx + c.flare.beyondM, y: ty, z: c.flare.heightM, startTick: 0, untilTick: (max + 20) * 60, descentMps: 0, candela: c.flare.candela, side: "blue" }];
     const ids = [...sim.state.identity.entries()];
     const tid = ids.find(([, i]) => i.side === "red")![0];
     for (const [id] of ids) sim.state.soldier.req(id).posture = id === tid ? c.posture : "standing";

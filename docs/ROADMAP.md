@@ -237,6 +237,8 @@ white flags on the map; the after-action review lists surrendered and captured m
     with a standoff; M14 hooks (link, hit chance). Lab counter rows.
   - ✅ **M9.5 Drone-observed fire** (2026-11-14) — location methods "drone" and "air" (off-map fixed-wing
     reconnaissance, `?air=`), drones read the falls; `lab -- indirect` rows by location method.
+  - ✅ **M9.6 Night AI, balance and polish** (2026-11-15) — flares give light, AI night drills, night fire
+    discipline, hiding from drones, review rows; batches day and night reported. Owner play-test open.
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
   before logistics). 🔶
   - ✅ **M7.6a Main battle tanks: data and labs** (2026-11-14) — Leopard 2A7V, T-90M, T-72B3M; reactive tiles as
@@ -312,7 +314,15 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     Wounded tab, owner Q-2c); the AI commander counts carriers as committed and never orders them; batch
     "Verwundetennest" line; `--scene nest`.
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)
-12. ⬜ **M10.6a Off-map vehicles and ambulance runs** (slice 13)
+12. ✅ **M10.6a Off-map vehicles and ambulance runs** (slice 13, 2026-11-15) — off-map entity state: an asset is
+    an ordinary vehicle with its crew from tick 0 carrying `VehicleState.offMap`, parked off the map and skipped by
+    every vehicle loop while off it (architecture test), its crew nobody's to order and in no side's strength; each
+    generated battle gives a side its faction's ambulances (manifest `ambulance`: DE two Boxer, RU two BMM); a platoon
+    with casualties at its nest calls one (automatic; the player's `callAmbulance`, the Wounded tab's button), it comes
+    on at the edge behind the nest after 10-15 min (owner Q-6), drives to the nest, takes the men aboard T1 first
+    within its layouts, leaves the map; its wounded are "evacuated" (roster status; condition kept until M10.6b);
+    `medical.ambulance` / `medical.evacuated` events, batch "Ambulances" line, `npm run lab -- medevac`,
+    `--scene medevac`.
 13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)
 14. ⬜ **M10.7a Recognition and respect** (slice 15)
 15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16; an order to fire at a recognised

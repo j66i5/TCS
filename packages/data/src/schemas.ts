@@ -360,6 +360,8 @@ export const SpottingFile = withProv({
   night: z.object({
     sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
     moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
+    /** Flares (M9.6): a burning flare's light = min(flareMaxLight, lux / flareFullLux), lux = candela / (h^2 + d^2). */
+    flareFullLux: Num(0.01, 100000), flareMaxLight: Num(0, 1),
   }).strict(),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
@@ -392,6 +394,8 @@ export const BehaviourFile = withProv({
     seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
     ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
+    /** Night fire discipline (M9.6): below this light, a man not fired on lately opens fire on his own only out to these ranges. */
+    night: z.object({ belowLight: Num(0, 1), engageRangeM: z.object({ rifle: Num(0, 5000), magnified: Num(0, 5000), sustained: Num(0, 5000) }).strict() }).strict().optional(),
   }).strict(),
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
@@ -445,6 +449,7 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
+    droneHide: z.object({ triggerM: Num(0, 3000), freezeTriggerM: Num(0, 3000), freezeSeconds: Num(0, 600), maxFreezeSeconds: Num(0, 3600), freezeCooldownSeconds: Num(0, 3600), searchM: Num(0, 200), hideSeconds: Num(0, 3600), mode: z.string(), moveBeyondM: Num(0, 3000) }).strict().optional(),
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
     houseLeaveM: z.tuple([Num(0, 500), Num(0, 500)]), houseLeaveDeg: Num(0, 180), houseLeaveMode: z.string(), houseReenterSeconds: Num(0, 3600), houseContactErrM: Num(0, 1000),
@@ -575,6 +580,11 @@ export const MedicalFile = z.object({
     checkS: Num(1, 600), driftM: Num(0, 5000), maxParties: z.number().int().min(0).max(20), bearers: z.number().int().min(1).max(4),
     minFitLeft: z.number().int().min(0).max(20), medicReachM: Num(0, 5000),
   }).optional(),
+  /** Ambulance runs from the rear (M10.6a): delay, pace, where it stands, loading, how long it waits. */
+  evacuation: withProv({
+    delayMinS: Num(0, 36000), delayMaxS: Num(0, 36000), pace: Id, nearPace: Id, standM: Num(0, 100), carryMps: Num(0.1, 5), loadSecondsExtra: Num(0, 600),
+    waitS: Num(0, 3600), maxStayS: Num(0, 36000), edgeM: Num(1, 200), retryS: Num(1, 600), requestAt: z.number().int().min(1).max(20),
+  }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),
@@ -704,6 +714,9 @@ export const FactionManifest = withProv({
   /** Tank section generated battles add with `tanks` (M7.6b): a template whose sub-units are all crews of vehicles
    *  with no passenger seats. */
   tankSectionTemplate: Id.optional(),
+  /** Ambulances off the map (M10.6a): generated battles give each side `count` of this crew template's vehicle
+   *  (a template with `vehicle`, an ambulance), waiting at the rear to be called. */
+  ambulance: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });

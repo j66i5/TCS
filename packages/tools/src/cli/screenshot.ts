@@ -239,6 +239,18 @@ async function nightScenes(page: Page, name: string, errors: string[], shots: st
     await page.screenshot({ path: p }); shots.push(p);
     info.push(`${time} ${look} z${zoom} light ${r.light.toFixed(2)} lastShot ${r.last}/${r.tick} proj ${r.proj} ${r.post}`);
   }
+  // M9.6: an illumination flare burning over the ground ahead at 23:00 (its glow and lit circle), zoomed out.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&time=23:00&moon=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const fl = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
+    const W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM, x = W / 2, y = H / 2;
+    s.flares = [...(s.flares ?? []), { x, y, z: 400, startTick: s.tick, untilTick: s.tick + 60 * 600, descentMps: 0, candela: 1000000, side: "blue" }];
+    t.focus(x, y, 1400); t.stepTicks(1); return { flares: s.flares.length, light: s.environment.light };`) as () => { flares: number; light: number });
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await page.waitForTimeout(400);
+  const pf = `${outDir}/night-${seed}-${name}-2300-flare.png`;
+  await page.screenshot({ path: pf }); shots.push(pf);
+  info.push(`flare ${fl.flares} light ${fl.light.toFixed(2)}`);
   console.log(`${name}: night scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
@@ -338,6 +350,46 @@ async function nestScenes(page: Page, name: string, errors: string[], shots: str
   await shot("2-wounded-back");
   const log = await ev<unknown>(`return [${info.hurt.join(",")}].map((id) => ({ id, atNest: s.soldier.get(id).atNest ?? null, carried: s.carry.has(id), alive: s.soldier.get(id).physiology.alive }));`);
   console.log(`${name}: nest scene ${JSON.stringify({ nest: info.nest, men: log })}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.6a ambulance runs (`--scene medevac`): the platoon battle on foot (village). Three men of the lead squad are
+ * hurt (debug hook) and taken to the platoon's nest; the platoon calls an ambulance on its own (the delay is cut short
+ * here so that the shots do not wait a quarter of an hour). Shots: the Wounded tab with the ambulance on its way and
+ * the call button; the ambulance on the map driving in; at the nest loading (map and tab); the tab after it left the
+ * map (men "evacuated").
+ */
+async function medevacScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/medevac-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const amb = `[...s.vehicle.entries()].find(([, v]) => v.side === "blue" && v.offMap && v.offMap.phase !== "ready")`;
+  const info = await ev<{ hurt: number[]; phase: string | null }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader);
+    t.hurt(men[1], { zone: "legR", severity: 0.35, fracture: true });
+    t.hurt(men[2], { zone: "legL", severity: 0.4, fracture: true });
+    t.hurt(men[3], { zone: "armL", severity: 0.9 });
+    for (let k = 0; k < 900 && !${amb}; k++) t.stepTicks(60);
+    t.select(null); t.stepTicks(1);
+    const a = ${amb};
+    return { hurt: [men[1], men[2], men[3]], phase: a ? a[1].offMap.phase : null };`);
+  if (name === "phone") await page.click(".hud-side-wounded"); else await page.click(".hud-side-tab:nth-child(2)");
+  await page.waitForTimeout(200);
+  await shot("0-called");
+  // (Cut the delay short: it comes onto the map in ten seconds.)
+  await ev(`const a = ${amb}; if (a) a[1].offMap.enterTick = s.tick + 600; t.stepTicks(60 * 18); const tt = a ? s.transform.get(a[0]) : null; if (tt) t.focusScale(tt.x, tt.y, ${name === "phone" ? 4 : 6}); t.stepTicks(1); return null;`);
+  await settle();
+  await shot("1-driving-in");
+  await ev(`const a = ${amb}; for (let k = 0; k < 600 && a && a[1].offMap.phase === "inbound"; k++) t.stepTicks(60); t.stepTicks(60 * 30); const n = [...s.rear.values()].find((p) => p.side === "blue" && p.kind === "medical"); if (n) t.focusScale(n.x, n.y, ${name === "phone" ? 6 : 8}); t.stepTicks(1); return null;`);
+  await settle();
+  await shot("2-loading");
+  await ev(`const a = ${amb}; for (let k = 0; k < 1500 && a && a[1].offMap.phase !== "away"; k++) t.stepTicks(60); t.stepTicks(1); return null;`);
+  await page.waitForTimeout(300);
+  await shot("3-evacuated");
+  const log = await ev<unknown>(`const a = ${amb}; return { phase: a ? a[1].offMap.phase : null, men: [${info.hurt.join(",")}].map((id) => ({ id, evacuated: s.soldier.get(id).evacuated ?? null, alive: s.soldier.get(id).physiology.alive })) };`);
+  console.log(`${name}: medevac scene ${JSON.stringify({ called: info.phase, ...(log as object) })}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -1690,6 +1742,7 @@ try {
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "nest") { await nestScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "medevac") { await medevacScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

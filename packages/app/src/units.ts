@@ -129,7 +129,8 @@ export const inMap = (a: App, w: Pt) => w.x >= 0 && w.y >= 0 && w.x <= a.input.m
 /** The crew unit of the side's vehicle whose hull (grown by `tolM`) holds the point, or null. */
 export function vehicleAt(sim: Sim, x: number, y: number, tolM: number, side: string): EntityId | null {
   for (const [vid, v] of sim.state.vehicle.entries()) {
-    if (v.side !== side || v.unit === null) continue;
+    // (An off-map asset, M10.6a, is nobody's to select: an ambulance is called, not ordered.)
+    if (v.side !== side || v.unit === null || v.offMap !== undefined) continue;
     const def = sim.ctx.catalog.vehicles[v.def], t = sim.state.transform.get(vid);
     if (def && t && pointInObb(hullObb(def, t.x, t.y, t.heading), x, y, tolM)) return v.unit;
   }
@@ -183,4 +184,12 @@ export function sideColour(a: App, side: string): string {
 export function sideName(a: App, side: string): string {
   const f = a.sim.state.sides.find((x) => x.id === side)?.faction ?? "";
   return a.strings.t(`faction.${f}`, {}, f);
+}
+
+/** Who calls an ambulance for the player (M10.6a): the selected own unit, else his first platoon (not an asset's crew). */
+export function ambulanceCaller(a: App): EntityId | null {
+  const st = a.sim.state, sel = a.overlay.selectedUnit;
+  if (sel !== null && st.unit.get(sel)?.side === a.playerSide && st.unit.get(sel)?.asset === undefined) return sel;
+  for (const [id, u] of st.unit.entries()) if (u.side === a.playerSide && u.parent === null && u.asset === undefined) return id;
+  return null;
 }

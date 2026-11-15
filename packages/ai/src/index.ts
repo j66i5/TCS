@@ -9,7 +9,8 @@ import { createRng, nextRange, secondsToTicks, type Controller, type EntityId, t
 /** Top-level units (no parent) of a side, ascending ID. */
 export function topUnits(state: SimView, side: SideId): EntityId[] {
   const out: EntityId[] = [];
-  for (const [id, u] of state.unit.entries()) if (u.side === side && u.parent === null) out.push(id);
+  // (Not an off-map asset's crew, M10.6a: nobody orders an ambulance.)
+  for (const [id, u] of state.unit.entries()) if (u.side === side && u.parent === null && u.asset === undefined) out.push(id);
   return out;
 }
 

@@ -274,6 +274,31 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M7.6b): two tortoises, the fixture's tank section (rule 8)."
+    },
+    {
+      "id": "litter-crew",
+      "echelon": "vehicle",
+      "callsign": "Litter {n}",
+      "leaderIndex": 0,
+      "vehicle": "xf-litter-cart",
+      "members": [
+        {
+          "role": "carter",
+          "rank": "boss",
+          "seat": "carter",
+          "load": []
+        },
+        {
+          "role": "slinger",
+          "rank": "private",
+          "seat": "slinger",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M10.6a): the litter cart's crew, called from off the map."
     }
   ]
 }

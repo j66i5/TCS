@@ -1,6 +1,7 @@
 /** runBattle: the battle-as-a-function entry point (SPEC 4.3 rule 11). */
 import { isWreck } from "./hulls";
 import { rosterStatus } from "./impair";
+import { isAssetUnit, isOffMap } from "./offmap";
 import { battleScore } from "./systems/objectives";
 import type { BattleInput, BattleResult, Controller, RunOptions, SaveGame, SideResult } from "./battle";
 import type { SimEventKind } from "./events";
@@ -58,23 +59,24 @@ function summarize(
 ): BattleResult {
   const { state } = sim;
   const sides: SideResult[] = state.sides.map((sd) => {
-    let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0;
-    // mounted: ok results count every man, aboard or not
+    let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0, evacuated = 0;
+    // mounted: ok results count every man, aboard or not (not the crews of off-map assets, M10.6a: not of the force)
     for (const [id, ident] of state.identity.entries()) {
-      if (ident.side !== sd.id) continue;
+      if (ident.side !== sd.id || isAssetUnit(state, ident.unit)) continue;
       start++;
       const st = rosterStatus(state.soldier.req(id));
       if (st === "killed") killed++;
       else if (st === "captured") captured++;
       else if (st === "surrendered") surrendered++;
       else if (st === "fit") fit++;
-      else wounded++;
+      else { wounded++; if (st === "evacuated") evacuated++; }
     }
-    const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured };
+    const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured, ...(evacuated > 0 ? { evacuated } : {}) };
     // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
     let vs: NonNullable<SideResult["vehicles"]> | null = null;
     for (const [, v] of state.vehicle.entries()) {
-      if (v.side !== sd.id) continue;
+      // (Off-map assets, M10.6a, are not of the force: an ambulance is counted nowhere here.)
+      if (v.offMap !== undefined || v.side !== sd.id) continue;
       vs ??= { start: 0, ok: 0, immobilised: 0, disarmed: 0, abandoned: 0, destroyed: 0, captured: 0 };
       vs.start++;
       vs[v.status]++;
@@ -85,7 +87,7 @@ function summarize(
   });
   const wrecks: NonNullable<BattleResult["wrecks"]> = [];
   for (const [id, v] of state.vehicle.entries()) {
-    if (!isWreck(v, state.tick)) continue;
+    if (isOffMap(v) || !isWreck(v, state.tick)) continue;
     const t = state.transform.req(id);
     wrecks.push({ vehicleId: v.vehicleId, type: v.def, side: v.side, x: t.x, y: t.y, heading: t.heading, status: v.status });
   }
@@ -101,7 +103,7 @@ function summarize(
       side: f.side, faction: f.faction, units: unitsFromState(state, f.side, f.units),
       ...(f.vehicles && f.vehicles.length > 0 ? { vehicles: vehiclesFromState(state, f.side) } : {}),
     })),
-    ...(state.vehicle.size > 0 ? { wrecks } : {}),
+    ...([...state.vehicle.values()].some((v) => v.offMap === undefined) || wrecks.length > 0 ? { wrecks } : {}),
     orders,
     eventCounts,
     ...battleScore(sim.ctx, state),

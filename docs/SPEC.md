@@ -251,7 +251,7 @@ Do not build these before their milestone. Do keep the listed foundation require
 - Faction differences come from data: training levels, kit contents, evacuation assets, doctrine priority.
 - The owner will review the medical model for plausibility. Ask him before fixing treatment times and the chain of care.
 
-**Foundation requirements:** wounds as records with time-stepped physiology; casualties as persistent, movable entities; items and generic transfer; actions with duration that can be interrupted; skills per soldier; carrying modelled as a movement mode involving several soldiers; event stream entries for every medical event.
+**Foundation requirements:** wounds as records with time-stepped physiology; casualties as persistent, movable entities; items and generic transfer; actions with duration that can be interrupted; skills per soldier; carrying modelled as a movement mode involving several soldiers; event stream entries for every medical event; off-map entity state (M10.6a): an off-map asset (an ambulance; later supply vehicles, M11) is an ordinary vehicle entity with its crew from the start of the battle, skipped by every system while off the map, that comes onto the map and leaves it again mid-battle.
 
 ### 9.2 Logistics
 

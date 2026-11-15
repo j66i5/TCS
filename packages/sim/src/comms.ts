@@ -5,6 +5,7 @@
  * simple fixed delay. The command & electronic-warfare extension replaces the model (radio nets, runners,
  * jamming, battle management systems) without touching the callers.
  */
+import { isOffMap } from "./offmap";
 import type { Catalog } from "./catalog";
 import type { CommState } from "./components";
 import { compCondition } from "./mount";
@@ -60,6 +61,7 @@ export const simpleComms: CommsModel = {
     // A wrecked radio (M7.4b, plan C63): its crew is off the net; so is a unit whose men are all aboard it.
     if (!catalog || state.vehicle.size === 0) return;
     for (const [vid, v] of state.vehicle.entries()) {
+      if (isOffMap(v)) continue;
       const def = catalog.vehicles[v.def];
       if (!def?.components || compCondition(v, def, "radio") > 0) continue;
       if (v.unit !== null) { const u = state.unit.get(v.unit); if (u) u.comms.link = "none"; }

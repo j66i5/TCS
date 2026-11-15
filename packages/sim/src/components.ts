@@ -147,6 +147,18 @@ export interface SoldierState {
   /** M9.3b: the tick he last launched a guided missile from a tripod (the launch shows him); absent: never. */
   launchTick?: number;
   /**
+   * Hiding from an enemy drone (M9.6, behaviour.soldier.droneHide). "freeze": stopped on his way since `since`, held
+   * until `until`; "spent": he froze as long as he may and moves on regardless until `until`; "hide": lying down (under a
+   * canopy, indoors, or going there) until `until`. `searched`: the tick he last looked for a canopy. `cool`: no new
+   * freeze before this tick (carried over from a "spent" run into a "hide"). `ox`/`oy`: where he left from for a
+   * canopy, `gx`/`gy`: the canopy, `home`: his fire position's posture then (he goes back once it is over). Absent:
+   * not hiding.
+   */
+  droneHide?: {
+    kind: "freeze" | "spent" | "hide"; since: number; until: number; searched?: number; cool?: number;
+    ox?: number; oy?: number; gx?: number; gy?: number; home?: Posture;
+  };
+  /**
    * His triage tag (M10.3b), set by the man who treats him: category 1 immediate (T1), 2 delayed (T2), 3 minimal
    * (T3); who tagged him, when, with what training. It may be wrong (core/medical.json `triage`). Absent: not triaged.
    */
@@ -190,6 +202,12 @@ export interface SoldierState {
   /** A trip to the Verwundetennest ended short (no way, bearers lost or gave up, M10.5): not tried again before this
    *  tick. Absent: no wait. */
   evacRetryTick?: number;
+  /**
+   * Evacuated (M10.6a): he left the battle in an ambulance that drove off the map at `tick`, and lies in `vehicle`
+   * (off the map) from then on: his wounds no longer run their course here, he counts as out, and his roster status
+   * is "evacuated" (the aid station's outcome is M10.6b). Absent: not evacuated.
+   */
+  evacuated?: { tick: number; vehicle: EntityId };
 }
 
 /**
@@ -271,7 +289,7 @@ export interface CommState {
  * first responder or medic (else as a comrade).
  */
 export interface Intent {
-  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care";
+  kind: "engage" | "cover" | "bringAmmo" | "takePrisoner" | "fetchAmmo" | "reposition" | "care" | "hideDrone";
   tick: number;
   target?: EntityId;
   /** bringAmmo: the item to hand over when it is not the receiver's magazine (an anti-tank round, M7.4a). */
@@ -381,6 +399,9 @@ export interface Unit {
   exVehicle?: EntityId;
   /** A foot unit's own carrier (M7.2). */
   carrier?: EntityId;
+  /** The crew of an off-map asset (M10.6a: an ambulance called from the rear): no commander, AI or player orders it;
+   *  it counts in no side's strength. Absent: an ordinary unit. */
+  asset?: "ambulance";
   /** Getting in or out of a vehicle (M7.2); not a drill. */
   boarding?: Boarding;
   /**
@@ -729,4 +750,43 @@ export interface VehicleState {
   recovery: { state: "none" } | null;
   /** Reserved: the side holding an abandoned hull (campaign). */
   capturedBy: SideId | null;
+  /**
+   * An off-map asset (M10.6a, SPEC "off-map entity state"): a vehicle that is in the battle from tick 0 but comes onto
+   * the map only when called, and leaves it again. While off the map (`isOffMap`) every system skips it, and its men
+   * aboard with it. Absent: an ordinary vehicle, on the map from the start.
+   */
+  offMap?: OffMapAsset;
+}
+
+/**
+ * An off-map asset's run (M10.6a; an ambulance). Phases: `ready` waiting off the map for a call; `called` on its way
+ * to the map edge (it comes on at `enterTick`); `inbound` on the map driving to the rear point `point`; `loading`
+ * halted there taking casualties aboard; `outbound` driving back to its entry point `entry`; `away` gone off the map
+ * with its casualties (one run per hull); `lost` stranded on the map (no driver, immobilised, destroyed: an ordinary
+ * hull from then on). Off the map: ready, called, away.
+ */
+export interface OffMapAsset {
+  kind: "ambulance";
+  phase: "ready" | "called" | "inbound" | "loading" | "outbound" | "away" | "lost";
+  /** The rear point it was called to (a Verwundetennest), and the top unit that called (the nest's platoon). */
+  point?: EntityId;
+  unit?: EntityId;
+  /** The player called it (`callAmbulance`). */
+  ordered?: true;
+  /** When it was called, when it comes onto the map, when it reached the rear point, when it set off back, when it
+   *  left the map. */
+  callTick?: number;
+  enterTick?: number;
+  arriveTick?: number;
+  departTick?: number;
+  leftTick?: number;
+  /** Where it comes onto the map and leaves it again (a point on the edge behind the rear point; heading inward). */
+  entry?: { x: number; y: number; heading: number };
+  /** The spot it drives to (short of the rear point) and the rear point's place it was routed for. */
+  goal?: { x: number; y: number; px: number; py: number };
+  /** The casualty being taken aboard and when he is in. Absent: nobody. */
+  loading?: { casualty: EntityId; doneTick: number };
+  /** Last time it took someone aboard or reached the point (the wait for more starts here); next route try. */
+  lastLoadTick?: number;
+  retryTick?: number;
 }

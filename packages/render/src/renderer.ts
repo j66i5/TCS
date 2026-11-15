@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, floorAtZ, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, isOffMap, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -232,6 +232,8 @@ export class BattleRenderer {
   private hudRects: Rect[] = [];
   /** Smoke model constants (M8.1) for drawing the clouds as the sim sees them. */
   private smokePhys: SmokePhysics | null = null;
+  /** The catalog (M9.6: a flare's light, for its glow). */
+  private cat: Catalog | null = null;
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
   /** M9.4a: each quadcopter item's camera footprint radius (m). */
@@ -419,6 +421,7 @@ export class BattleRenderer {
   /** What the renderer needs to know of the data: ammunition looks and vehicle shapes. */
   setCatalog(catalog: Catalog): void {
     this.smokePhys = smokePhysics(catalog);
+    this.cat = catalog;
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
@@ -639,6 +642,7 @@ export class BattleRenderer {
 
     // Fog of war is on whenever Debug is off (the app supplies what the side knows).
     const fog = !overlay.debug && overlay.reveal !== true;
+    if (state.flares !== undefined && state.flares.length > 0) this.drawFlares(g, state, map);
     this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): symbols instead of men and hulls (M7.5a: a vehicle symbol per vehicle — near ones
     // stacked into one — and an infantry symbol only for a unit with men on foot).
@@ -939,6 +943,7 @@ export class BattleRenderer {
     // Vehicles: greedy stacks in screen space (ID order), each drawn once.
     const stacks: { x: number; y: number; side: string; n: number; first: EntityId; unit: EntityId | null; wreck: boolean; selected: boolean; aboard: number }[] = [];
     for (const [vid, v] of state.vehicle.entries()) {
+      if (isOffMap(v)) continue;
       if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
       if (!state.transform.has(vid)) continue;
       const p = this.pos(state, vid, alpha), s = worldToScreen(c, p.x, p.y);
@@ -1056,6 +1061,7 @@ export class BattleRenderer {
   private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {
+      if (isOffMap(v)) continue;
       // (Owner Q8, M7.4a: both sides know of a wreck at once, so enemy wrecks are drawn under fog too.)
       if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
       const def = this.vehicleDefs[v.def];
@@ -1380,6 +1386,30 @@ export class BattleRenderer {
     this.menLayer.tint = mix(NIGHT_MEN, w);
   }
 
+  /**
+   * Illumination flares (M9.6): each burning one as a bright point over the spot below it, with a soft warm glow on
+   * the ground out to where its light falls to about 0.1 (the sim's own formula), brighter inside (0.3). Seen by
+   * everyone (a flare lights both sides). Drawn only while flares burn: nothing changes otherwise.
+   */
+  private drawFlares(g: Graphics, state: SimView, map: MapDef): void {
+    const c = this.camera, cat = this.cat;
+    if (!cat) return;
+    const glow = 0.1 + 0.2 * this.dark;
+    for (const f of state.flares ?? []) {
+      if (!flareBurning(f, state.tick)) continue;
+      const gz = heightAt(map, f.x, f.y); // ground: ok (the ground below a flare)
+      const outer = flareLitRadius(cat, f, state.tick, 0.1, gz);
+      const s = worldToScreen(c, f.x, f.y);
+      if (outer > 0) {
+        const inner = flareLitRadius(cat, f, state.tick, 0.3, gz);
+        g.circle(s.x, s.y, outer * c.scale).fill({ color: 0xffe2a0, alpha: glow * 0.5 });
+        if (inner > 0) g.circle(s.x, s.y, inner * c.scale).fill({ color: 0xfff0c8, alpha: glow * 0.6 });
+      }
+      g.circle(s.x, s.y, 9).fill({ color: 0xfff4d0, alpha: 0.35 });
+      g.circle(s.x, s.y, 3.5).fill({ color: 0xffffff, alpha: 1 });
+    }
+  }
+
   private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, fog = false): void {
     const c = this.camera, W = this.width, H = this.height;
     // Craters stay (terrain damage is part of the battle state).
@@ -1461,6 +1491,7 @@ export class BattleRenderer {
     for (let k = 0; k < missiles.length; k += 6) {
       const mx = missiles[k]!, my = missiles[k + 1]!, vx = missiles[k + 2]!, vy = missiles[k + 3]!, owner = missiles[k + 4]!, born = missiles[k + 5]!;
       const sx = (mx - c.x) * c.scale, sy = (my - c.y) * c.scale;
+      // off-map: ok a guided missile's launcher is on the map (an off-map hull has no launch in flight)
       for (const [vid, v] of state.vehicle.entries()) {
         const gd = v.stations.find((st) => st.guide && st.guide.gunner === owner && st.guide.launchTick === born)?.guide;
         const t = gd ? state.transform.get(vid) : undefined;

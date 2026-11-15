@@ -6196,3 +6196,50 @@ both entries; no sim change, goldens unchanged). Built:
 - Tests `tools/test/medical-stats.test.ts` (classification by step, killed outright, medians; a real battle's summary
   matches the state's wounded and dead, is deterministic per seed and survives JSON; every review key in the string
   table). No per-tick per-man work (the record folds events already emitted), so no perf run; goldens unchanged.
+
+
+## 2026-11-15 — Morale rework (owner: "morale is almost always at 100"; design in the session's DESIGN.md; goldens regenerated)
+
+- **Model** (sim/systems/morale.ts): morale = resolve x (1 - shock) x (1 - strain). Resolve from the unit's quality
+  (new `qualities.json` `morale`: resolve 0.85/0.93/1.0, pinSuppression 0.5/0.6/0.7, recovery 0.75/1/1.3, bond
+  0.45/0.6/0.75, fatigueCost 0.4/0.3/0.25), the man's nerve (stream `morale`, N(0.5, 0.15), same for every side),
+  fatigue and heavy squad losses. Shock = `mental.stress` (field kept: roster, `law.breach`, saves), strain new. Kicks
+  saturate and are scaled by susceptibility (experience, leader near x(1 - 0.5 L), mates, bond, cover, own armour,
+  darkness only with `environment.sky`). Values: `behaviour.json` `morale` (replaces `stress` and `states`), all
+  `confidence: low`, sources the Dupuy Institute and Wong extracts.
+- **Deviations from the design** (software decisions): fire alone is capped at 0.5 of shock (`underFireCap`; without
+  it 55 s of a rifle team at 190 m panicked the target team); a unit breaks below 0.22 for 20 s (design 0.3 / 10 s:
+  211 squad breaks per 40 battles); heavy-loss exception at half the men (design a third) and never for a top unit;
+  a top unit breaks only after losing a fifth of its men (`topBreakLossShare`); no break within 2 min of a rally;
+  the untreated-wound creep shares the "wounded" reason slot (cap woundBase + untreatedCap); fleeing ends after 60 s.
+  Not built: the player's Rally order (open question 3), order delays for shaken men and pinned men refusing moves,
+  the darkness of "enemy close" exceptions, per-man armour scan every 2 s (done each 0.5 s step, early exit).
+- **Batches** (scratch sampler `sample2.mts`, 10 seeds x 1200 s each of platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles; before = origin/main 95b20d6):
+
+  | # | target | before | after |
+  |---|---|---|---|
+  | 1 | men whose morale goes below 1 | 0 % | 99.5 % |
+  | 2 | steady share of able man-time 60-85 % | 98.3 % | 84.8 % (shaken 9.9, pinned 1.0, panicked 1.5, fleeing 0.2, routed 2.6) |
+  | 3 | engaged men's morale <= 0.75 | 1.0 | 0.50 |
+  | 4 | wounded untreated <= 0.65 / >= 40 % shaken+; treated <= 0.8 | 1.0 / 12 % / 1.0 | 0.43 / 81 % / 0.55 |
+  | 5 | squad mate killed within 10 m: drop >= 0.15 at 10 s, >= 0.08 at 60 s | 0 / 0 | 0.28 / 0.26 (n 258) |
+  | 9 | own hull penetrated: >= 50 % aboard shaken+ within 10 s | 64 % | 92 % |
+  | 10 | early break (own first 120 s, not heavy loss) in <= 5 % of runs; platoon break loses 5-35 % | 2 of 40; 11 of 40 | 2 of 40; **22 of 40 (missed)** |
+  | 11 | time-limit share up <= 10 points; casualties within +-30 % | 65 %; 35.9 | 42.5 %; 25.6 (-29 %) |
+  | 12 | panic surrenders > 0, < 10 % of casualties, none by attackers | 1 (0.1 %) | 2 (0.2 %), 0 by attackers |
+
+  Per scenario (winners blue/red before -> after): platoon 6/4 -> 8/2, platoon-ru 0/10 -> 1/9, platoon-vehicles 6/4 ->
+  9/1, platoon-ru-vehicles 9/1 -> 9/1. Attackers now win more often in platoon (the small prepared defence breaks
+  after its losses): target 11's "attack against a prepared defence loses most of the time" was not met before either
+  (6/10) and is further off now — owner to judge. Squad breaks 199, rallies 361 per 40 battles.
+- **Lab** `npm run lab -- morale` (12 trials): leader + two men lost under light fire -> squad shaken or worse 100 %
+  for every quality (mean morale conscript 0.16, regular 0.28, veteran 0.41); PKP at 200 m for 120 s, leader lost:
+  panicked time conscript 16 %, regular 5 %, veteran 1 %; recovery once quiet: shaken -> steady median 28 s with the
+  leader, 44 s without; panicked -> shaken 17 s with a rally, 28 s without (all within 3 / 6 / 2 / 5 min targets;
+  recovery is faster than the design's example).
+- Tests: `sim/test/morale-rework.test.ts` (16), card/sidebar UI test, morale break in drills; seed moves (commander
+  test seed 9 -> 1: the attack now wipes out the defence before any assault; battle-record test seed 1 -> 2: no
+  treatment finished in 240 s), fire test (red reset before its answer; tolerance 1.3 shots per man), casualty lab
+  targets keep their nerve. **Goldens regenerated** (`npm run golden:update`; catalog fingerprint and behaviour
+  changed); `golden/no-interiors` untouched.

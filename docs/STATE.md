@@ -1,10 +1,22 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.8 review statistics and balance; roadmap-detail slice 17, M10 built). The long session-by-session
+_Last updated: 2026-11-15 (morale rework; M10.8 review statistics and balance; roadmap-detail slice 17, M10 built). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Morale rework (2026-11-15, branch `claude/morale-rework`; owner report "morale is almost always at 100").**
+  morale = resolve x (1 - shock) x (1 - strain) per man (`mental.morale` is now the sim's value; `mental.stress` is the
+  shock, new `strain`, `nerve`, `why`, `flee`); the four driver groups (leadership/cohesion, losses/wounded,
+  fire/danger, success/support), graded states with hysteresis (shaken 0.60/0.70, pinned by quality, panicked
+  0.25/0.40 cowering or fleeing 50-150 m), the leader's `rally` action, `Unit.morale` with breaks for any echelon
+  (rout drill; platoon leader's squad rally), quality block in `qualities.json`, AI no assault by pinned/broken/badly
+  shaken squads, group surrender of broken outflanked defenders. UI: Morale bar with state word, "Why"/"Helping"
+  reasons, second badge in the Men list, squad morale in the unit list. Lab `npm run lab -- morale`. Batches and the
+  acceptance table in DECISIONS "Morale rework". **Open:** platoon breaks end 22 of 40 batch battles (baseline 11,
+  target 5-35 %), casualties -29 % (limit -30 %), the five owner questions of the design (aboard men, fleeing, an
+  explicit Rally order — not built, automatic only —, squad breaks, fresh troops below 100 %); order delays and
+  pinned men refusing moves (design section 7) not built.
 - **Slice 41, M7.6c Wheeled carriers and their platoons (2026-11-15, branch `claude/medical-ambulance-smoke`, parallel
   session; not pushed).** GTK Boxer (`de-boxer-gtk`: FLW 200 with a 12.7 mm sMG worked by the commander, 2 crew + 8)
   and BTR-82A (`ru-btr82a`: 2A72 + PKTM, 3 + 7); the 8-man Jaegergruppe and the Jaegerzug in four Boxers; the BTR

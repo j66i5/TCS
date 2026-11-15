@@ -93,6 +93,9 @@ describe("squad drills (M4.3)", () => {
     const [a, b] = blue.members as [number, number];
     sim.state.soldier.req(a).mental.stress = 1;
     sim.state.soldier.req(b).mental.stress = 1;
+    // (Morale rework: no unit breaks in its first two minutes under fire; this one has been at it long.)
+    sim.state.unit.req(bid).morale.firstContact = -1e6;
+    sim.state.unit.req(bid).morale.lost = 1; // (a top unit breaks only after losses: topBreakLossShare)
     const ev = run(sim, 3);
     expect(radioKeys(ev, "blue")).toContain("radio.broken");
     expect(sim.state.unit.req(bid).broken).toBe(true);

@@ -61,7 +61,8 @@ describe("battle record (D2)", () => {
   }, 120_000);
 
   it("is plain JSON, deterministic per seed, and read back only at its own version", () => {
-    const one = viaBatch(1).rec, two = viaBatch(1).rec;
+    // (Seed 2 since the morale rework, 2026-11-15: seed 1 now finishes no treatment within its 240 s.)
+    const one = viaBatch(2).rec, two = viaBatch(2).rec;
     expect(JSON.stringify(one)).toBe(JSON.stringify(two));
     const back = readRecord(JSON.parse(JSON.stringify(one)));
     expect(back).toEqual(one);

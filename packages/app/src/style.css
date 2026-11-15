@@ -262,6 +262,13 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-man-mark { display: flex; position: relative; width: 20px; height: 20px; }
 /* The man's triage tag (M10.3b) in this corner slot: T1 red, T2 yellow, T3 green, as on the map. */
 .hud-man-tag { position: absolute; right: -3px; bottom: -3px; }
+/* His state of mind (morale rework 2026-11-15) as a second badge in the top corner: shaken amber, pinned orange,
+   panicked or running red; shown beside a wound too. */
+.hud-man-mental { position: absolute; right: -6px; top: -5px; display: flex; border-radius: 50%; padding: 1px; background: #11180f; }
+.hud-man-mental.ms-shaken { box-shadow: 0 0 0 1px #ffd23d; }
+.hud-man-mental.ms-pinned { box-shadow: 0 0 0 1px #ff9f43; }
+.hud-man-mental.ms-panicked, .hud-man-mental.ms-fleeing, .hud-man-mental.ms-routed { box-shadow: 0 0 0 1px #ff6b57; }
+.hud-manbox-why { font-size: 12px; color: var(--muted); }
 .hud-triage { display: inline-block; padding: 0 2px; border-radius: 3px; font-size: 9px; font-weight: 700; line-height: 11px; color: #111; }
 .hud-triage.t1 { background: #ff4a3d; color: #fff; }
 .hud-triage.t2 { background: #ffd23d; }
@@ -284,7 +291,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-manbox-status { display: flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 13px; color: var(--muted); }
 .hud-manbox-line { color: var(--text); margin-top: 3px; }
 .hud-manbox-line b { color: var(--muted); font-weight: 600; }
-.hud-manbox-bar { display: grid; grid-template-columns: 6.5em 1fr 3.2em; gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.hud-manbox-bar { display: grid; grid-template-columns: 6.5em 1fr minmax(3.2em, auto); gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 12px; }
 .hud-manbox-bar i { height: 7px; background: #2b3627; border-radius: 3px; overflow: hidden; }
 .hud-manbox-bar b { display: block; height: 100%; }
 .hud-manbox-bar em { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }

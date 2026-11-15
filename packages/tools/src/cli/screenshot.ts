@@ -1166,6 +1166,13 @@ async function cardScenes(page: Page, name: string, errors: string[], shots: str
   await page.click('.hud-card-list .hud-man:nth-child(2)');
   log["rowBox"] = await ev("return t.card().inspected;");
   await shot("5-man-box-from-row");
+  // Morale (rework 2026-11-15): the inspected man badly shaken by comrades hit and his leader lost; another man of the
+  // list panicked (his second badge). Set through the debug hook, then stepped so the sim works out morale and state.
+  log["morale"] = await ev(`const id = t.card().inspected, u = s.unit.get(globalThis.__sq); const m = s.soldier.get(id).mental;
+    m.stress = 0.42; m.strain = 0.12; m.why[6] = 0.3; m.why[7] = 0.12; m.why[0] = 0.05;
+    const other = [...u.members].find((x) => x !== id && x !== u.leader); if (other !== undefined) { const os = s.soldier.get(other), o = os.mental; o.stress = 0.97; o.why[6] = 0.6; os.wounds.push({ id: 90, zone: "legL", mechanism: "penetrating", severity: 0.3, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: s.tick ?? 0, treatments: [] }); }
+    t.stepTicks(31); return { id, morale: m.morale, behaviour: m.behaviour, other, otherBehaviour: other !== undefined ? s.soldier.get(other).mental.behaviour : null };`);
+  await shot("5b-man-box-morale-reasons");
   // (The squad in the upper part of the free area, clear of the card.)
   await ev(`const c = t.controls().centre, ins = t.insets(); const box = document.querySelector('.hud-manbox').getBoundingClientRect(), card = document.querySelector('.hud-card').getBoundingClientRect();
     const want = (box.bottom + Math.min(card.top, document.querySelector('.hud-radio').getBoundingClientRect().top || card.top)) / 2, mid = ins.top + (innerHeight - ins.top - ins.bottom) / 2;

@@ -319,8 +319,7 @@ export interface ZoneWoundDef {
 }
 export interface BehaviourDef {
   suppression: { nearMissRadiusM: number; perRound: number; energyRefJ: number; blastFactor: number; blastRadiusScale: number; decayPerS: number; max: number; heavyEnergyCap?: number };
-  stress: { fromSuppressionPerS: number; casualtyNearbyM: number; fromCasualty: number; fromLeaderLoss: number; fromWound: number; decayPerS: number; experienceDamp: number; leaderNearbyM: number; leaderNearbyDamp: number; quietBelowSuppression: number; fromOwnVehiclePenetrated?: number; fromOwnVehicleStruck?: number };
-  states: { pinnedSuppression: number; unpinnedBelow: number; cautiousStress: number; shakenStress: number; panickedStress: number; calmBelowStress: number };
+  morale: MoraleDef;
   effects: { pinnedFireRateFactor: number; shakenFireRateFactor: number };
   stepSeconds: number;
   /** Soldier decisions (M4.2). */
@@ -411,6 +410,8 @@ export interface BehaviourDef {
   smoke: { screenM: number; enemyMinM: number; enemyMaxM: number; knownWithinS: number; cooldownS: number; onWithdraw: boolean; onMoveUnderFire: boolean; underFireS: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
+    /** Morale rework 2026-11-15: a broken, outflanked unit (not attacking) gives up together with a known enemy this close (absent/0: never). */
+    brokenFlankedEnemyM?: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
     walkToEnemyM: number; walkSeenFactor: number; handOverM: number; walkSpeedFactor: number; walkReplanM: number; walkTimeoutSeconds: number;
     /** Owner request 2026-11-15: under fire he crawls to cover this close (absent or 0: he lies where he is), by a way at most crawlMaxM. */
@@ -621,6 +622,36 @@ export interface QualityDef {
   id: DefId; // "conscript" | "regular" | "veteran" ...
   /** Mean and standard deviation of each skill, 0..1. */
   skills: Record<string, { mean: number; sd: number }>;
+  /** Morale by quality (rework 2026-11-15; core/qualities.json). */
+  morale: QualityMoraleDef;
+}
+
+/** A quality's morale values (core/qualities.json `morale`). */
+export interface QualityMoraleDef { resolve: number; pinSuppression: number; recovery: number; bond: number; fatigueCost: number }
+
+/** Morale (rework 2026-11-15; core/behaviour.json `morale`; systems/morale.ts explains each value). */
+export interface MoraleDef {
+  stepSeconds: number; unitStepSeconds: number; defaultQuality: DefId;
+  shock: {
+    fromSuppressionPerS: number; nearMissFactor: number; underFireCap: number; killed: number; incapacitated: number; fullM: number; zeroM: number;
+    relation: { squad: number; platoon: number; other: number };
+    rapidLossExtra: number; rapidWindowS: number; leaderLost: number; platoonLeaderLost: number;
+    woundBase: number; woundPerSeverity: number; untreatedPerS: number; untreatedCap: number; uncaredAfterS: number; uncaredPerS: number; uncaredCap: number;
+    indirectM: number; indirect: number; indirectMinDiameterM: number; heavyDiameterM: number; heavyFactor: number;
+    armourM: number; armourPerS: number; armourCap: number; armourWithAtFactor: number; ownPenetrated: number; ownStruck: number; ownVehicleLostM: number; ownVehicleLost: number;
+    flankedPerS: number; flankedCap: number; enemyCloseM: number; enemyClosePerS: number; isolatedM: number; isolatedPerS: number; isolatedCap: number;
+    darkBelowLight: number; darkFactor: number;
+  };
+  strain: { killed: number; incapacitated: number; leaderLost: number; platoonLeaderLost: number; woundPerSeverity: number; lossFloorPerRatio: number; lossResolveFrom: number; lossResolvePerRatio: number; flanked: number; ownPenetrated: number; tauQuietS: number };
+  relief: { enemyDownM: number; enemyDown: number; enemyDownByHim: number; enemyBrokeM: number; enemyBroke: number; enemyBrokeStrain: number; supportM: number; supportPerRound: number; supportCapPerMin: number; armourNearM: number; medicM: number; medic: number; evacuatedStrain: number; coverExposure: number };
+  recovery: { quietTauS: number; lightTauS: number; quietBelowSuppression: number; lightBelowSuppression: number; quietAfterLossS: number; leaderPerL: number; cover: number; mates: number; winded: number; armourNear: number; bondBase: number; bondPer: number };
+  damp: { experience: number; leaderPerL: number; leaderNearM: number; radioLeaderM: number; leaderLowMorale: number; matesM: number; matesMin: number; mates: number; bondBase: number; bondPer: number; cover: number; armourNear: number; min: number; max: number };
+  nerve: { mean: number; sd: number; resolvePer: number; panicPer: number };
+  fatigue: { from: number };
+  states: { shaken: number; unshaken: number; pinnedMorale: number; pinnedMoraleSuppression: number; shakenPinShift: number; unpinGap: number; unpinMorale: number; panic: number; unpanic: number; panicHoldS: number; cowerSuppression: number; cowerEnemyM: number; fleeMinM: number; fleeMaxM: number; fleeSeconds: number; whyMin: number };
+  unit: { shakenValue: number; shakenShare: number; pinnedShare: number; brokenPanicShare: number; brokenValue: number; brokenForS: number; minBreakSeconds: number; earlyBreakLossShare: number; brokenSquadShare: number; topBreakLossShare: number; flankStepSeconds: number; flankSpanDeg: number; flankRearDeg: number; flankM: number; contactM: number; bondLeaderLost: number; bondUncared: number; bondEvacuated: number };
+  rally: { rangeM: number; seconds: number; spacingS: number; minMorale: number; maxSuppression: number; targetBelowMorale: number; shockCut: number; strain: number; squadSeconds: number; squadRangeM: number; radioSpacingS: number };
+  effects: { shakenAimFactor: number };
 }
 
 /** An off-map fire support asset (M6.5c mortars, M8.4 artillery). */

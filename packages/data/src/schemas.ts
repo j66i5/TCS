@@ -47,6 +47,10 @@ export const QualitySchema = withProv({
   id: Id,
   nameKey: z.string(),
   skills: z.object(Object.fromEntries(SKILL_KEYS.map((k) => [k, SkillDist])) as Record<(typeof SKILL_KEYS)[number], typeof SkillDist>).strict(),
+  /** Morale by quality (owner 2026-11-15, never by nationality): resolve (ceiling of a fresh man's morale), the
+   *  suppression that pins him, a factor on recovery, the default squad cohesion (bond), and the resolve lost per
+   *  unit of fatigue above `morale.fatigue.from`. */
+  morale: z.object({ resolve: z.number().min(0).max(1), pinSuppression: z.number().min(0).max(1), recovery: z.number().min(0).max(5), bond: z.number().min(0).max(1), fatigueCost: z.number().min(0).max(2) }).strict(),
 });
 export const QualitiesFile = z.object({ qualities: z.array(QualitySchema).min(1) }).strict();
 
@@ -54,6 +58,9 @@ export const StringsFile = z.record(z.string(), z.string());
 
 // ---------- body (core/body.json): postures, movement and physiology parameters ----------
 const Num = (lo: number, hi: number) => z.number().min(lo).max(hi);
+/** A strict block of non-negative numbers with these keys (and any extra fields). */
+const nums = <E extends z.ZodRawShape = Record<never, never>>(keys: readonly string[], extra?: E) =>
+  z.object({ ...(Object.fromEntries(keys.map((k) => [k, Num(0, 100000)])) as Record<string, z.ZodNumber>), ...(extra ?? ({} as E)) }).strict();
 export const BodyFile = z.object({
   postures: z.array(withProv({ id: PostureId, heightM: Num(0.1, 2.5), speedFactor: Num(0.05, 1), muzzleHeightM: Num(0.05, 2.5) })).length(3),
   transitions: withProv({
@@ -380,11 +387,24 @@ export const BehaviourFile = withProv({
   suppression: z.object({ nearMissRadiusM: Num(0, 50), perRound: Num(0, 1), energyRefJ: Num(1, 1e6), blastFactor: Num(0, 5), blastRadiusScale: Num(0, 10), decayPerS: Num(0, 10), max: Num(0, 1),
     /** M7.3: the energy factor of a near miss is capped at 2; heavy rounds (12.7 mm and up) at this. */
     heavyEnergyCap: Num(0.25, 20).optional() }).strict(),
-  stress: z.object({ fromSuppressionPerS: Num(0, 10), casualtyNearbyM: Num(0, 1000), fromCasualty: Num(0, 1), fromLeaderLoss: Num(0, 1), fromWound: Num(0, 1), decayPerS: Num(0, 1), experienceDamp: Num(0, 1), leaderNearbyM: Num(0, 500), leaderNearbyDamp: Num(0, 1), quietBelowSuppression: Num(0, 1),
-    /** Men aboard a closed vehicle (owner 2026-11-13, "only own vehicle"): stress when their own hull is penetrated,
-     *  and when it is struck by a heavy round (12.7 mm and up) or a burst that does not get through. */
-    fromOwnVehiclePenetrated: Num(0, 1).optional(), fromOwnVehicleStruck: Num(0, 1).optional() }).strict(),
-  states: z.object({ pinnedSuppression: Num(0, 1), unpinnedBelow: Num(0, 1), cautiousStress: Num(0, 1), shakenStress: Num(0, 1), panickedStress: Num(0, 1), calmBelowStress: Num(0, 1) }).strict(),
+  /** Morale (rework 2026-11-15; sim/systems/morale.ts explains each value). */
+  morale: z.object({
+    stepSeconds: Num(0.05, 10), unitStepSeconds: Num(0.05, 10), defaultQuality: Id,
+    shock: nums(["fromSuppressionPerS", "nearMissFactor", "underFireCap", "killed", "incapacitated", "fullM", "zeroM", "rapidLossExtra", "rapidWindowS", "leaderLost", "platoonLeaderLost",
+      "woundBase", "woundPerSeverity", "untreatedPerS", "untreatedCap", "uncaredAfterS", "uncaredPerS", "uncaredCap", "indirectM", "indirect", "indirectMinDiameterM", "heavyDiameterM", "heavyFactor",
+      "armourM", "armourPerS", "armourCap", "armourWithAtFactor", "ownPenetrated", "ownStruck", "ownVehicleLostM", "ownVehicleLost", "flankedPerS", "flankedCap", "enemyCloseM", "enemyClosePerS",
+      "isolatedM", "isolatedPerS", "isolatedCap", "darkBelowLight", "darkFactor"], { relation: z.object({ squad: Num(0, 1), platoon: Num(0, 1), other: Num(0, 1) }).strict() }),
+    strain: nums(["killed", "incapacitated", "leaderLost", "platoonLeaderLost", "woundPerSeverity", "lossFloorPerRatio", "lossResolveFrom", "lossResolvePerRatio", "flanked", "ownPenetrated", "tauQuietS"]),
+    relief: nums(["enemyDownM", "enemyDown", "enemyDownByHim", "enemyBrokeM", "enemyBroke", "enemyBrokeStrain", "supportM", "supportPerRound", "supportCapPerMin", "armourNearM", "medicM", "medic", "evacuatedStrain", "coverExposure"]),
+    recovery: nums(["quietTauS", "lightTauS", "quietBelowSuppression", "lightBelowSuppression", "quietAfterLossS", "leaderPerL", "cover", "mates", "winded", "armourNear", "bondBase", "bondPer"]),
+    damp: nums(["experience", "leaderPerL", "leaderNearM", "radioLeaderM", "leaderLowMorale", "matesM", "matesMin", "mates", "bondBase", "bondPer", "cover", "armourNear", "min", "max"]),
+    nerve: nums(["mean", "sd", "resolvePer", "panicPer"]),
+    fatigue: nums(["from"]),
+    states: nums(["shaken", "unshaken", "pinnedMorale", "pinnedMoraleSuppression", "shakenPinShift", "unpinGap", "unpinMorale", "panic", "unpanic", "panicHoldS", "cowerSuppression", "cowerEnemyM", "fleeMinM", "fleeMaxM", "fleeSeconds", "whyMin"]),
+    unit: nums(["shakenValue", "shakenShare", "pinnedShare", "brokenPanicShare", "brokenValue", "brokenForS", "minBreakSeconds", "earlyBreakLossShare", "brokenSquadShare", "topBreakLossShare", "flankStepSeconds", "flankSpanDeg", "flankRearDeg", "flankM", "contactM", "bondLeaderLost", "bondUncared", "bondEvacuated"]),
+    rally: nums(["rangeM", "seconds", "spacingS", "minMorale", "maxSuppression", "targetBelowMorale", "shockCut", "strain", "squadSeconds", "squadRangeM", "radioSpacingS"]),
+    effects: nums(["shakenAimFactor"]),
+  }).strict(),
   effects: z.object({ pinnedFireRateFactor: Num(0, 1), shakenFireRateFactor: Num(0, 1) }).strict(),
   stepSeconds: Num(0.05, 10),
   decisions: z.object({
@@ -408,6 +428,8 @@ export const BehaviourFile = withProv({
   /** Surrender (M6.6, owner 2026-11-12): the same for every side. 0 switches a rule off. */
   surrender: z.object({
     stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
+    /** Morale rework 2026-11-15: a broken, outflanked unit of the defence gives up together with an enemy this close (0 = never). */
+    brokenFlankedEnemyM: Num(0, 500).optional(),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
     walkToEnemyM: Num(0, 500), walkSeenFactor: Num(0.05, 1), handOverM: Num(0, 50), walkSpeedFactor: Num(0.1, 1), walkReplanM: Num(0.5, 100), walkTimeoutSeconds: Num(1, 3600),
     /** Owner request 2026-11-15: a surrendered man under fire crawls to cover this close (0 = off), by a way at most crawlMaxM. */
@@ -869,6 +891,8 @@ export const UnitTemplateSchema = withProv({
   subunits: z.array(Id).default([]),
   /** Crew templates (M7): the vehicle type (vehicles.json) this unit crews. */
   vehicle: Id.optional(),
+  /** Morale (rework 2026-11-15): this unit's cohesion and trust 0..1 at the start (absent: its quality's `bond`). */
+  bond: Num(0, 1).optional(),
   /** Parent templates (M7): which sub-unit (index into `subunits`) is the crew of a vehicle that carries which
    *  other sub-units. A crew template never names its siblings itself. */
   carriage: z.array(z.object({

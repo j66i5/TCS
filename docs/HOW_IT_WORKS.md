@@ -667,13 +667,66 @@ to every enemy he can see.
 Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little
 (heavier rounds more); a grenade or shell bursting nearby a lot. Suppression fades within seconds when the fire
 stops. A suppressed man aims worse and is slower to spot; heavily suppressed he is **pinned**: he drops flat,
-stops moving and fires only now and then until it lets up (a yellow ring). **Stress** builds more slowly: under
-fire, when a comrade falls close by, when his leader falls, when he is wounded himself; experience and a leader
-nearby steady him. A stressed man is shaken (fires less, faint ring); at the end of his tether he **panics**: he
-lies flat and does not fire (a red ring) until he has calmed down. In practice a machine gun pins the men it
-fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fire team within about 6 s; a
+stops moving and fires only now and then until it lets up (a yellow ring). In practice a machine gun pins the men
+it fires at within a couple of seconds at 200 m and within about 8 s at 600 m; a fire team within about 6 s; a
 single aimed rifle seldom pins anyone. `npm run lab -- suppression` prints the table. Debug labels show
-suppression / stress per man.
+suppression / shock per man.
+
+### Morale (reworked 2026-11-15)
+
+The owner found morale "almost always at 100, even when wounded, saw buddies die". It is now a real number from 0 to
+100 % for every man, and the **Morale** bar in his box shows exactly the number the simulation uses. It is made of
+three parts multiplied together:
+
+- **Resolve** — how steady a fresh man of his unit is: conscripts start at about 85 %, regulars 93 %, veterans 100 %.
+  Each man also has his own **nerve** (a few are brittle, a few rock-steady, the same spread on both sides).
+  Exhaustion and heavy losses in his squad lower it.
+- **Shock** — the fast fear. Rounds cracking past him (at once, not only after half a minute), a comrade hit (much
+  worse at 5 m than at 50 m, worse for his own squad than for another; several losses in a minute worse still), his
+  leader falling, his own wound, a wound nobody has treated, a comrade left lying with nobody going to him, shells
+  bursting near him, an enemy tank he knows of (less if his squad has a rocket launcher), being outflanked, an enemy
+  close by, being alone. It fades again over a minute or two once it is quiet, more slowly under light fire, not at
+  all while the fire is heavy.
+- **Strain** — the slow wear of losses, his leader and his wounds. It fades over tens of minutes, and never below a
+  floor set by how many of his squad have been lost (half the squad gone: morale stays below about two thirds).
+
+Each blow is softened or sharpened by the man himself and his situation: experience, his **leader near him** (the
+leader's leadership skill counts; a corporal who has just taken over usually leads less well), mates around him, his
+squad's **cohesion** (higher for better troops; it drops when the leader falls or wounded men are left lying, and rises
+when a casualty is carried out), good cover, own armour close by; at night a little sharper. The same things speed
+his recovery. Good news helps too: an enemy his squad knew of falling, an enemy unit breaking, own mortar or artillery
+fire landing near an enemy his squad knows, a medic working on a comrade nearby.
+
+From it follow his **states**, each with a margin so that nobody flickers between two:
+
+- **shaken** below 60 % (steady again at 70 %): fires at 0.7 the rate and aims worse;
+- **pinned** when suppression reaches his quality's level (conscripts sooner, veterans later, sooner when shaken), or
+  below 40 % while under fire: flat, does not move, fires a third as often;
+- **panicked** below 25 % (a little earlier or later by his nerve; at least 20 s, until he is back at 40 %): he does
+  not fire. Under heavy fire or with an enemy close he cowers where he is; otherwise he **runs back** 50-150 m from the
+  enemy he knows and lies down there.
+
+His **leader rallies** him: an able squad leader whose own morale holds, not pinned himself, spends 4 s crouching (and
+exposed) with the worst-off man within 30 m — panicked, pinned with low morale, or badly shaken — easing his shock by
+up to half (more for a good leader, less under fire); a runner stops. Each man at most once in 30 s. Without a leader a
+man recovers on his own, more slowly.
+
+Every second each **unit** gets a morale value (the mean of its men) and a state: shaken, pinned, or **broken** when
+half its able men have panicked or its morale stays below 30 % for 10 s — but never in its first two minutes under fire
+unless it has lost half its men, and not again within two minutes of rallying. Squads can now break on their own (they
+run back about 150 m and rally once it is quiet, or sooner when the platoon leader comes over: 8 s); the platoon breaks
+— and loses the battle — when half its men panic or half its squads have broken. A broken unit of the defence that the
+enemy has outflanked gives up together once an enemy is within 50 m (attackers never: they run). The AI commander no
+longer sends a pinned, broken or badly shaken squad (below 45 %) into an assault.
+
+On screen: the man's box shows the Morale bar coloured by his state with the state word, then **Why:** the two biggest
+reasons ("comrades hit, leader lost") and **Helping:** what is lifting him (his leader near, just rallied); suppression
+and fatigue keep their own bars. In the Men list a small second badge beside the status picture shows a man shaken,
+pinned, panicked or fleeing, so a wounded man who has also panicked shows both. The unit list shows each squad's
+morale ("morale 72 % shaken"). The radio carries "we're getting shaken here", "rallying the men", "falling back!" and
+"rallied". `npm run lab -- morale` runs the set pieces (losses under light fire, a machine gun's heavy fire by
+quality, recovery with and without a leader). All values are game values in `core/behaviour.json` (`morale`) and
+`core/qualities.json`; nationality plays no part.
 
 **Men inside a vehicle** (owner's choice, 2026-11-13: "only own vehicle") see nothing outside, so they are shaken
 only by what happens to their own vehicle: a comrade falling *inside it*, its armour being penetrated (a big
@@ -800,7 +853,8 @@ the last 30 m together ("back at the rally point"); a unit of three able men or 
 together (with only two men, bounding left one lying alone to cover the other and took minutes). **Breaking.** When half a unit's able men have panicked, the
 unit breaks ("falling back!"): every man runs about 150 m away from the enemy they know, does not fire and does
 not take orders ("unable"). Once they are there and nothing has been fired at them for 30 s they rally
-("rallied"), still uneasy (stress reduced to 60 %).
+("rallied"), still shaken (their shock cut to 60 %). Since the morale rework (2026-11-15) this holds for squads too,
+not only for the whole platoon (see "Morale" above).
 
 ## Surrender
 
@@ -1094,7 +1148,7 @@ Ideas taken from Firefight (only the ideas: the drawings, words and colours are 
   status pictures" below). Tap a man's row, or tap him on the map, and a box opens: his insignia drawn larger, his
   status in words, his rank and name, his
   weapon and rounds, what he is doing right now (moving at a walk, firing at an enemy he sees, pinned down, bringing
-  ammunition ...), his pulse, bars for fatigue, how hard he is under fire, stress and morale, and his wounds. A
+  ammunition ...), his pulse, his morale bar with its reasons, bars for how hard he is under fire and fatigue, and his wounds. A
   yellow ring marks him on the map. Tap him again or the × to close it. The card remembers whether you like it short
   or with the men. On a phone the card keeps to a small part of the screen: the radio shows its two newest lines
   while it is open.

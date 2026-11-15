@@ -23,6 +23,9 @@ export interface SideReview {
   missiles: { fired: number; hit: number };
   /** The targets this side has found so far (ascending ids; the "first seen" set). */
   seen: EntityId[];
+  /** Morale (rework 2026-11-15): times a man of this side panicked, units of it that broke, rallies by its leaders.
+   *  Optional: tallies saved before the rework have none. */
+  morale?: { panicked: number; broken: number; rallies: number };
 }
 
 export interface ReviewTally {
@@ -36,7 +39,7 @@ export function newReviewTally(): ReviewTally {
 }
 
 function newSide(): SideReview {
-  return { drones: { launched: 0, landed: 0, lostBattery: 0, lostNoOperator: 0, shotDown: 0, downedEnemy: 0 }, found: { total: 0, byDrone: 0 }, calls: {}, rounds: {}, missiles: { fired: 0, hit: 0 }, seen: [] };
+  return { drones: { launched: 0, landed: 0, lostBattery: 0, lostNoOperator: 0, shotDown: 0, downedEnemy: 0 }, found: { total: 0, byDrone: 0 }, calls: {}, rounds: {}, missiles: { fired: 0, hit: 0 }, seen: [], morale: { panicked: 0, broken: 0, rallies: 0 } };
 }
 
 /** Insert `id` into ascending `xs` unless present; whether it was new. */
@@ -82,6 +85,18 @@ export function tallyReview(t: ReviewTally, events: readonly SimEvent[], view: S
         break;
       }
       case "support.call": { const c = side(e.side).calls; c[e.method] = (c[e.method] ?? 0) + 1; break; }
+      case "behaviour.changed": {
+        if (e.to !== "panicked") break;
+        const sd = view.identity.get(e.soldier)?.side;
+        if (sd !== undefined) (side(sd).morale ??= { panicked: 0, broken: 0, rallies: 0 }).panicked++;
+        break;
+      }
+      case "radio": if (e.key === "radio.broken") (side(e.side).morale ??= { panicked: 0, broken: 0, rallies: 0 }).broken++; break;
+      case "morale.rally": {
+        const sd = view.identity.get(e.leader)?.side;
+        if (sd !== undefined) (side(sd).morale ??= { panicked: 0, broken: 0, rallies: 0 }).rallies++;
+        break;
+      }
       case "support.round": if (e.method !== undefined) { const c = side(e.side).rounds; c[e.method] = (c[e.method] ?? 0) + 1; } break;
       case "missile.ended": {
         const sd = e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : view.identity.get(e.gunner)?.side;

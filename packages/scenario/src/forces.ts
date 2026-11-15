@@ -46,6 +46,8 @@ export function buildForceWithVehicles(data: DataSet, opts: BuildForceOptions): 
   const counter = { n: 0 };
   const vehicles: ForceVehicle[] = [];
   const unit = buildUnit(pack, opts.template, quality.skills, rng, `${opts.keyPrefix}`, opts.number ?? 1, counter, vehicles);
+  // Its quality goes into the battle (morale rework 2026-11-15: resolve, pinning, recovery by quality).
+  unit.quality = quality.id;
   return { unit, vehicles };
 }
 
@@ -102,6 +104,7 @@ function buildUnit(
     members,
     subunits,
     ...(t.vehicle !== undefined ? { vehicleId: key } : {}),
+    ...(t.bond !== undefined ? { bond: t.bond } : {}),
   };
   // Who rides in which vehicle (the parent's carriage).
   for (const c of t.carriage ?? []) {

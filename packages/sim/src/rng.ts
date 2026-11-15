@@ -49,6 +49,8 @@ export const Streams = {
   /** Laws of war (M10.7b): deliberate breaches. Created on first use (only a man who sees an enemy he knows to be
    *  protected or giving up ever draws). */
   conduct: "conduct",
+  /** Morale (rework 2026-11-15): each man's nerve, drawn at setup. */
+  morale: "morale",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

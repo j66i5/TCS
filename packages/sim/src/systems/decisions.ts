@@ -942,6 +942,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     if (!ident || !unit) continue;
     const top = topUnit(state, ident.unit)!;
     if (s.mental.behaviour === "routed") { s.intent = null; dropDroneHide(state, id, s); continue; } // running back: no decisions of his own
+    if (s.mental.flee !== null) { s.intent = null; dropDroneHide(state, id, s); continue; } // panicked, running back (morale.ts)
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {

@@ -25,9 +25,16 @@
           "sd": 0.08
         }
       },
+      "morale": {
+        "resolve": 0.85,
+        "pinSuppression": 0.5,
+        "recovery": 0.75,
+        "bond": 0.45,
+        "fatigueCost": 0.4
+      },
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Morale (owner 2026-11-15, by quality never by nationality): resolve = ceiling of a fresh man's morale; pinSuppression = suppression that pins him; recovery = factor on recovery; bond = default squad cohesion; fatigueCost = resolve lost per unit of fatigue above 0.4."
     },
     {
       "id": "regular",
@@ -54,9 +61,16 @@
           "sd": 0.08
         }
       },
+      "morale": {
+        "resolve": 0.93,
+        "pinSuppression": 0.6,
+        "recovery": 1.0,
+        "bond": 0.6,
+        "fatigueCost": 0.3
+      },
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Morale (owner 2026-11-15, by quality never by nationality): resolve = ceiling of a fresh man's morale; pinSuppression = suppression that pins him; recovery = factor on recovery; bond = default squad cohesion; fatigueCost = resolve lost per unit of fatigue above 0.4."
     },
     {
       "id": "veteran",
@@ -83,9 +97,16 @@
           "sd": 0.08
         }
       },
+      "morale": {
+        "resolve": 1.0,
+        "pinSuppression": 0.7,
+        "recovery": 1.3,
+        "bond": 0.75,
+        "fatigueCost": 0.25
+      },
       "sources": [],
       "confidence": "low",
-      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs."
+      "note": "Game-design value chosen for plausible behaviour; tune in the sim labs. Morale (owner 2026-11-15, by quality never by nationality): resolve = ceiling of a fresh man's morale; pinSuppression = suppression that pins him; recovery = factor on recovery; bond = default squad cohesion; fatigueCost = resolve lost per unit of fatigue above 0.4."
     }
   ]
 }

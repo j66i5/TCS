@@ -27,6 +27,9 @@ export interface UnitTile {
   fit: number;
   total: number;
   state: TileState;
+  /** Infantry (morale rework 2026-11-15): its morale 0..100 and state (`Unit.morale`). */
+  morale?: number;
+  moraleState?: "steady" | "shaken" | "pinned" | "broken";
   /** A vehicle: its status key (ok, immobilised, ...) and the men riding in it. */
   vehicleStatus?: string;
   passengers?: number;
@@ -92,6 +95,12 @@ function countMen(view: SimView, men: readonly EntityId[]): { fit: number; total
   return { fit, total, pinned, aboard };
 }
 
+/** A unit's morale chip after its state (morale rework 2026-11-15): " · morale 72 % shaken"; nothing for a vehicle. */
+function moraleChip(s: Strings, t: UnitTile): string {
+  if (t.morale === undefined || t.moraleState === undefined) return "";
+  return ` · ${s.t("side.morale", { pct: t.morale })}${t.moraleState !== "steady" ? ` ${s.t(`unitMorale.${t.moraleState}`)}` : ""}`;
+}
+
 /** Is the man one of a headquarters (his unit has sub-units)? */
 function isHqMan(view: SimView, m: EntityId): boolean {
   const u = view.unit.get(view.identity.get(m)?.unit ?? -1);
@@ -130,6 +139,7 @@ export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTi
       : !veh && aboard === fit ? "aboard"
       : u.moving ? "moving" : "ok";
     const tile: UnitTile = { unit: uid, callsign: u.callsign, parent, depth, kind: veh ? "vehicle" : u.children.length > 0 ? "hq" : "infantry", fit, total, state };
+    if (!veh && fit > 0 && u.morale) { tile.morale = Math.round(u.morale.value * 100); tile.moraleState = u.morale.state; }
     if (veh && def) {
       tile.vehicleStatus = veh.status;
       tile.passengers = veh.seats.filter((o, i) => o !== null && def.seats[i]?.station === "passenger").length;
@@ -294,8 +304,8 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         const detail = isDrone ? s.t(t.droneUp ? "side.droneUp" : t.droneAboard ? "side.droneAboard" : "side.droneReady", { pct: t.dronePct ?? 0 })
           : t.kind === "vehicle"
           ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}${t.hqAboard ? ` · ${s.t("side.hqAboard")}` : ""}`
-          : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}`
-          : s.t(`side.state.${t.state}`);
+          : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`
+          : `${s.t(`side.state.${t.state}`)}${moraleChip(s, t)}`;
         const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}`;
         if (e.key !== key) {
           e.key = key;

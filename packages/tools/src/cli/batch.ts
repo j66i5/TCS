@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ReviewTally, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
+import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
@@ -53,6 +54,8 @@ interface Row {
    *  them wrong; drags to cover started and finished. */
   /** M9.6: drones, enemies found, fire missions by location method, missiles, light (sim/src/review.ts). */
   review: ReviewTally;
+  /** D4a per side: the attack's tally from its commander's memory (null: no commander, or it defended). */
+  attack: Record<string, AttackStats | null>;
   m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
   /** M10.5 per side: nests sited and moved, casualties sent back with bearers or walking, arrivals; at the end, the
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
@@ -93,8 +96,9 @@ for (let i = 0; i < runs; i++) {
   const threatened = new Set<number>(), died = new Set<number>();
   // M10.5: who is to be taken back at the last look (living, not captured; at the nest counts).
   let evacEnd: { id: number; side: string }[] = [];
+  const ctls = sc.controllers?.(input) ?? [];
   const r = runBattle(input, {
-    controllers: sc.controllers?.(input) ?? [],
+    controllers: ctls,
     onEvents: (ev) => { pending = ev; houses.onEvents(ev); },
     onTick: (sim) => {
       houses.onTick(sim);
@@ -157,6 +161,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: perSide((x) => (x.firstDismountTick === null ? null : x.firstDismountTick / 60)),
     review: rec.review,
+    attack: Object.fromEntries(["blue", "red"].map((x) => { const c = ctls.find((k) => k.side === x); return [x, c?.saveState ? attackStats(c.saveState()) : null]; })),
     crews: perSide((x) => x.crews), missiles: perSide((x) => x.missiles), mortar: perSide((x) => x.mortar), buildings: houses.tally,
     care: perSide((x) => x.care),
     carers: perSide((x, side) => ({ comrades: x.carers.comrades, responders: x.carers.responders, needed: carers[side]!.needed, cared: carers[side]!.firstCareS.length, firstCareS: carers[side]!.firstCareS, maxComrades: carers[side]!.maxComrades, diedFast: carers[side]!.diedFast })),
@@ -214,6 +219,13 @@ const md = [
   `- Enemies found per battle (M9.6): ${["blue", "red"].map((s) => {
     const tot = rows.reduce((n, r) => n + (r.review.sides[s]?.found.total ?? 0), 0), dr = rows.reduce((n, r) => n + (r.review.sides[s]?.found.byDrone ?? 0), 0);
     return `${s} ${(tot / Math.max(1, rows.length)).toFixed(1)}, first by a drone ${(dr / Math.max(1, rows.length)).toFixed(1)} (${tot > 0 ? Math.round((100 * dr) / tot) : 0} %)`;
+  }).join("; ")}`,
+  `- Attack (D4a, by the attacking side's commander): ${["blue", "red"].map((s) => {
+    const xs = rows.map((r) => r.attack[s]).filter((x): x is AttackStats => x !== null && x !== undefined);
+    if (xs.length === 0) return `${s} -`;
+    const sum = (f: (x: AttackStats) => number) => xs.reduce((n, x) => n + f(x), 0);
+    const tookAny = xs.filter((x) => x.taken > 0).length, comBefore = xs.filter((x) => x.taken > 0 && x.committedBeforeTake > 0).length;
+    return `${s} support masked ${sum((x) => x.maskedLooks)} of ${sum((x) => x.baseLooks)} base-of-fire looks (${(100 * sum((x) => x.maskedLooks) / Math.max(1, sum((x) => x.baseLooks))).toFixed(0)} %; own men in the line, the lift aside, ${(100 * sum((x) => x.inLineLooks ?? 0) / Math.max(1, sum((x) => x.baseLooks))).toFixed(0)} %), bounds forward ${sum((x) => x.baseBounds ?? 0)}, men stepped aside ${sum((x) => x.stepped ?? 0)}, took an objective in ${tookAny} of ${xs.length} attacks that went in, reserve kept in ${xs.filter((x) => x.reserveKept > 0).length}, committed in ${xs.filter((x) => x.reserveCommitted > 0).length} (before a take in ${comBefore} of the ${tookAny} that took one)`;
   }).join("; ")}`,
   `- Fire missions by location method (M9.5; calls per battle, rounds landed in brackets): ${["blue", "red"].map((s) => `${s} ${(["estimate", "laser", "registered", "drone", "air"] as const).map((k) => `${k} ${mean(rows.map((r) => r.review.sides[s]?.calls[k] ?? 0)).toFixed(1)} (${mean(rows.map((r) => r.review.sides[s]?.rounds[k] ?? 0)).toFixed(1)})`).join(", ")}`).join("; ")}`,
   ...(timeOfDay !== null ? [`- Light (M9.1): start ${Math.round(100 * mean(rows.map((r) => r.review.light?.start ?? 1)))} %, lowest ${Math.round(100 * mean(rows.map((r) => r.review.light?.min ?? 1)))} %`] : []),

@@ -464,10 +464,13 @@ goes back to his squad: **returned to duty**. The AI commander counts bearers, c
 committed (not in a squad's strength) and never gives them orders of their own. **The player:** the nest is a red
 cross on a white square on the map, with the number of men lying there; drag it to move it (`casualtyPoint`; it
 then stays). The sidebar's **Wounded** tab (on the phone: the red-cross button with the count on the slim strip)
-lists the player's own wounded, T1 first, with their tag and what is happening to them (still fighting, being
-treated, waiting to be carried back, being carried, walking back, at the Verwundetennest, aboard); a tap on a row
-selects him, and **Back** sends him to the nest now (`evacuate`: first in the queue, and even a man who could still
-fight goes). The batch report's "Verwundetennest" line counts nests set up and moved, men sent back with bearers or
+lists the player's own wounded, T1 first, with their tag and what is happening to them (wounded but still at his
+post, being treated, waiting to be carried back, being carried, walking back, at the Verwundetennest, aboard), a
+line saying what T1-T3 and "–" (not yet tagged) mean, his unit by its full callsign ("2/Trupp 1" where two platoons
+have a Trupp 1), and the men already evacuated last under their own heading; a tap on a row selects him (on a phone
+the list closes so the man box is not drawn over it), and **Back** sends him to the nest now (`evacuate`: first in
+the queue, and even a man who could still fight goes). A squad's strength on its tile ("4/6") leaves out men at the
+nest and men being taken there. On the phone the open list's top button reads "✕ Close". The batch report's "Verwundetennest" line counts nests set up and moved, men sent back with bearers or
 walking, arrivals and returns to duty, the share of those to be taken back who reached the nest by the end, and the
 wrong tags put right.
 
@@ -476,7 +479,8 @@ ambulances, the Russians two BMM, from each faction's data): they are in the bat
 but stand far outside the map where nothing sees, hits or counts them, and their crews take no orders and are not
 part of the side's strength. When men lie at a platoon's Verwundetennest and no ambulance is already coming to it,
 the platoon calls one on the radio ("ambulance requested, about 13 min"); the player can call one any time with
-**Call ambulance** in the Wounded tab (for the selected platoon; refused with a radio reason when one is already
+**Call ambulance** in the Wounded tab (for the selected platoon; with nothing selected, for the platoon with men
+lying at its nest; the button names the platoon; refused with a radio reason when one is already
 coming or none is left). If, when it is due, nobody is waiting at the nest any more and nobody is on the way there
 (the men went back to their squads, or died), the call is stood down and the ambulance waits for the next. After the
 delay — drawn between 10 and 15 minutes (the owner's answer; `core/medical.json`
@@ -503,7 +507,9 @@ goes at a time, and the platoon always keeps one on the map. It drives to the ne
 ambulance's crew does, T1 first, lying or sitting as its seats allow), it waits half a minute for more, then drives to
 the map edge behind the nest and leaves the map: the wounded are handed over (evacuated); the fit crew stays with the
 hull. It is away about 15 minutes (to the company's casualty collection point and back), then comes onto the map
-where it left and drives back to its squad's leader (or to where it set off). A hull carrying wounded aboard (its
+where it left and drives back to its squad's leader (or to where it set off). A man handed over at the aid post is
+out of the battle: if he still sits in the hull it brings back, he takes no part, starts no new run and is not hurt
+again. A hull carrying wounded aboard (its
 squad got in and took the men lying at the nest along) that then stands idle goes back with them the same way. The
 player can send any vehicle with **Take wounded back** on the order bar (a vehicle selected); it is refused with a
 radio reason when nobody waits, or while its squad is assaulting. While the hull is away, orders to its crew are
@@ -526,7 +532,10 @@ holds the ground where he lies — more able men within 150 m, or else the neare
 ambulance 25 minutes later; on ground the enemy holds he is **captured** and treated by the enemy. Prisoners are
 treated by their captors. Walking wounded who can still fight stay with their units and are seen to after the
 battle. The roster records the outcome: "evacuated", "captured" or "wounded" with `recoveryDays`, or "killed" with
-`diedOfWoundsTick` for a man who died of his wounds. The review's Medical tab gives per side the rear runs, the
+`diedOfWoundsTick` for a man who died of his wounds. A bruise under body armour (the vest stopped the round) is no
+wound to settle. A record that comes into the next battle with recovery days keeps them, and its old wounds are not
+settled again (only new ones are); an evacuated man is in the rear and must be left out of the next battle's input
+(review fix 2026-11-15). The review's Medical tab gives per side the rear runs, the
 end-of-battle settlement and the Role 1 outcomes (T1 within 60 minutes, died of wounds, the median recovery); the
 batch report's "Rear runs and Role 1" line adds the time from wound to death in bands. All numbers:
 `core/medical.json` `role1`, low confidence (no published figures could be opened here).
@@ -534,7 +543,8 @@ batch report's "Rear runs and Role 1" line adds the time from wound to death in 
 **Red cross, bearers and the Verwundetennest: who is spared (M10.7a).** Both sides try to keep the laws of war, but
 they can only spare what they recognise. A medic wearing the red cross armband, a marked ambulance (the Boxer
 ambulance, the BMM), men carrying a wounded comrade, and the men lying at a Verwundetennest are protected as long as
-they do not fight (a man or hull that fired in the last two minutes is not). Whether an enemy can tell depends on how
+they do not fight (a man or hull that fired in the last two minutes is not). Bearers count as a carrying party only
+once they have the casualty: men walking up to him empty-handed are soldiers like any (review fix 2026-11-15). Whether an enemy can tell depends on how
 far away he is: an armband is made out to about 50 m by eye and 150 m through a rifle's optic, a carrying party to
 150 m / 400 m, an ambulance's emblem or the flag at a Verwundetennest to 300 m / 800 m; at night these shrink to a
 third, smoke on the line shrinks them by up to the same, and a frightened or suppressed man looks less closely (down
@@ -544,10 +554,15 @@ recognised it; the AI commander gives no fire order at him and calls no high exp
 of is protected people. Beyond that range he takes the medic for a soldier and may fire — an honest mistake. What one
 man recognised is not passed on by radio: a comrade who has not seen the armband himself may still fire. **Your
 orders:** if you order men to fire at an enemy they have recognised as protected (or at a spot where they know only a
-medic, bearers or the Verwundetennest), they refuse and say so on the radio ("negative, we will not fire on that"),
-and a call for fire on such a place is refused the same way. The Russian platoon's rifleman-medic wears no armband
-(he is a rifleman with medical training), so he is not protected; the German Sanitäter is. Nothing of this is shown
-live on the map; breaches come with the after-action review (M10.7b, M10.8). All numbers: `core/medical.json`
+medic, bearers or the Verwundetennest), they refuse and say so on the radio ("negative, we will not fire on that",
+in the warning colour), and a grenade or under-barrel grenade order or a call for fire on such a place is refused the
+same way. A refused order changes nothing: a drill, an errand or a carrying party goes on, and nobody gets out of his
+vehicle first. **On the map** an enemy one of your men recognises as protected carries a small red cross beside his
+marker, and firing at him warns you at once that the order will be refused (review fix 2026-11-15). The AI commander
+orders no fire at an enemy any of its men spares. The Russian platoon's rifleman-medic wears no armband
+(he is a rifleman with medical training), so he is not protected; the German Sanitäter is, and so are the crews of
+both sides' ambulances (each man wears the armband; the ambulance medic carries a medic bag and gives care on foot,
+for example after his hull is stranded). Breaches come with the after-action review (M10.7b, M10.8). All numbers: `core/medical.json`
 `protection`, low confidence (game values; none are published); `npm run lab -- protection` prints them and checks
 them in the sim.
 
@@ -564,7 +579,8 @@ beside him), which does not cost his protection; drills and the AI commander's f
 direct order makes him fire farther, and then he loses his protection for two minutes after his last shot (a
 bearer or a wounded man at the nest who fires loses it with any shot). Hits on protected people — a medic, an
 ambulance, bearers, men at the nest, wounded men lying out of action, men giving up and prisoners — are counted
-separately, aimed at them or incidental. None of this is shown during the battle: no radio line, no marker; it all
+separately, aimed at them (he could see the man he fired at) or incidental (a stray round, or fire at an old reported
+spot of a man already down there). None of this is shown during the battle: no radio line, no marker; it all
 goes into the battle record for the after-action review (M10.8). Prisoners are cared for by the side holding them
 like its own men, in order of need (built 2026-11-15). `npm run lab -- protection` adds a misidentification table
 (more at night and in smoke) and the deliberate-breach chances.
@@ -587,7 +603,9 @@ protected people the men refused (owner Q-7), hits on protected people as two li
 (Q-8), then each breach with its time, who fired from which unit, at whom, at what range, the light, how much could
 be seen through smoke, his stress, and whether it was ordered or from a vehicle (the first 30 per side; the counts
 cover all). The balance report of the whole medical step (four scenarios, 40-minute battles, with and without care)
-is in DECISIONS (2026-11-15, M10.8).
+is in DECISIONS (2026-11-15, M10.8). In both tabs each side has its own coloured heading and the per-man lines are
+indented; durations read "13 min 52 s" or "3 h 4 min" so they are not taken for clock times; the evacuation time
+is "during the battle" and left out when nobody was; smoke is mentioned only when there was some on the line.
 
 ## Grenades
 

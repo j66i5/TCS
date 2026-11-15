@@ -13,6 +13,7 @@
  * `rules` order — Ambush is fire at will with the existing "no fire beyond" range at `AMBUSH_M`).
  */
 import type { Insignia, Strings } from "@tcs/data";
+import { shownCallsigns } from "@tcs/render";
 import { isAble, isOut, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
 import type { UnitRules } from "./hud";
 import { icon, paceIcon } from "./icons";
@@ -242,7 +243,7 @@ export function manDetail(view: SimView, catalog: Catalog, id: EntityId): ManDet
   if (!s || !i) return null;
   return {
     id, given: i.given, family: i.family, rank: i.rank, role: i.role, faction: i.faction,
-    callsign: view.unit.get(i.unit)?.callsign ?? "",
+    callsign: shownCallsigns(view.unit.entries()).get(i.unit) ?? view.unit.get(i.unit)?.callsign ?? "",
     weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), behaviour: s.mental.behaviour,
     fatigue: s.physical.fatigue, stress: s.mental.stress, suppression: s.mental.suppression, morale: s.mental.morale,
     heartRateBpm: s.physical.heartRateBpm, winded: s.physical.winded,

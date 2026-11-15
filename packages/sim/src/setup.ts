@@ -243,6 +243,9 @@ function addSoldier(
   catalog: Catalog,
   fallback?: { x: number; y: number; heading: number },
 ): EntityId {
+  // (Review fix: a man evacuated in an earlier battle is in the rear, not on this field: the battle input leaves him
+  // out until he is back, M12.)
+  if (rec.status === "evacuated") throw new Error(`soldier ${rec.personId} is evacuated (in the rear): leave him out of the battle input`);
   const id = newEntity(state);
   const p = placements.get(rec.personId) ?? fallback;
   if (!p) throw new Error(`no placement for soldier ${rec.personId}`);
@@ -286,6 +289,10 @@ function addSoldier(
   }
   // A prisoner record (M6.6) enters the battle out of the fight.
   if (rec.status === "surrendered" || rec.status === "captured") { s.captive = { state: rec.status, tick: 0 }; s.mental.behaviour = "surrendered"; }
+  // (Review fix: a record with recovery days was settled after an earlier battle: those wounds are not handed over
+  // again, and his recovery days go out again unless new wounds are settled here. Wounds without them — a scenario
+  // that starts with wounded men — are this battle's to settle.)
+  if (rec.recoveryDays !== undefined) s.rosterIn = { wounds: rec.wounds.length, recoveryDays: rec.recoveryDays };
   updateImpairment(catalog, s);
   state.soldier.set(id, s);
   const c = emptyContainer();
@@ -335,7 +342,8 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
-    ...(s.aftercare !== undefined && dow === undefined ? { recoveryDays: s.aftercare.recoveryDays } : {}),
+    // (A man not settled again keeps the recovery days he came in with; a new settlement covers all his wounds.)
+    ...(dow === undefined && (s.aftercare?.recoveryDays ?? s.rosterIn?.recoveryDays) !== undefined ? { recoveryDays: s.aftercare?.recoveryDays ?? s.rosterIn!.recoveryDays } : {}),
     ...(dow !== undefined ? { diedOfWoundsTick: dow } : {}),
   };
 }

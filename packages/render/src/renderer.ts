@@ -92,6 +92,8 @@ export interface Overlay {
    */
   known?: readonly {
     target: EntityId; x: number; y: number; errM: number; kind: "seen" | "heard" | "reported"; ageS: number; /** Known to have surrendered (M6.6). */ surrendered?: boolean;
+    /** Recognised as protected by one of the player's men (M10.7a; review fix): a red cross beside the marker. */
+    protected?: boolean;
     /** A vehicle (M7.3): drawn as a hull outline, its type's size once identified (owner Q6), facing as last seen. */
     cls?: "vehicle"; vtype?: string; heading?: number;
   }[] | null;
@@ -1368,6 +1370,8 @@ export class BattleRenderer {
       if (pinned && k.kind !== "heard" && k.ageS >= PIN_AFTER_S) continue;
       const s = worldToScreen(c, k.x, k.y);
       const fade = Math.max(0.15, 1 - k.ageS / 120);
+      // (Review fix: a recognised medic, ambulance, bearer or man at a Verwundetennest: an order to fire is refused.)
+      if (k.protected) drawProtectedMark(g, s.x, s.y, k.cls === "vehicle" ? d * 2 : d, inSightNow(k) ? 1 : fade);
       if (k.cls === "vehicle") { this.drawKnownVehicle(g, k, s, colour, fade); continue; }
       if (figures && inSightNow(k)) continue;
       const rr = k.errM * c.scale;
@@ -1786,6 +1790,14 @@ export class BattleRenderer {
     g.stroke({ width: 1, color: GRID });
     g.rect(tl.x, tl.y, map.widthM * c.scale, map.heightM * c.scale).stroke({ width: 2, color: 0x6b7f69 });
   }
+}
+
+/** A small red cross on white above-right of a known enemy recognised as protected (review fix, M10.7a). */
+function drawProtectedMark(g: Graphics, x: number, y: number, d: number, alpha: number): void {
+  const r = Math.max(4, d * 0.7), cx = x + d + r * 0.6, cy = y - d - r * 0.6, w = r * 0.38;
+  g.rect(cx - r, cy - r, 2 * r, 2 * r).fill({ color: 0xffffff, alpha: 0.9 * alpha }).stroke({ width: 1, color: 0x000000, alpha: 0.6 * alpha });
+  g.rect(cx - w, cy - r * 0.8, 2 * w, r * 1.6).fill({ color: 0xd8261c, alpha });
+  g.rect(cx - r * 0.8, cy - w, r * 1.6, 2 * w).fill({ color: 0xd8261c, alpha });
 }
 
 /** A white flag on a pole beside a man who has surrendered (M6.6). */

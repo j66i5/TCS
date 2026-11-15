@@ -370,7 +370,7 @@ export function releaseCarer(ctx: SimContext, state: SimState, events: EventSink
   if (!walkBack || it.x === undefined || it.y === undefined || state.action.has(id)) return;
   const t = state.transform.req(id), m = state.mover.get(id);
   if (!m || Math.abs(t.x - it.x) + Math.abs(t.y - it.y) < 2) return;
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, it.x, it.y, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz: it.z ?? 0 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, it.x, it.y, { maxExpansions: 20000, snapCells: 3 }, { sz: t.z, gz: it.z ?? 0 });
   if (!leg) return;
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
@@ -385,7 +385,7 @@ function routeCarer(ctx: SimContext, state: SimState, id: EntityId, casualty: En
   const gx = b.x + (dx / L) * 1.2, gy = b.y + (dy / L) * 1.2;
   const last = m.waypoints[m.waypoints.length - 1];
   if (last && Math.abs(last.x - gx) + Math.abs(last.y - gy) < 2.5) return true; // already on his way
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, a.x, a.y, gx, gy, { maxExpansions: 6000, snapCells: 3 }, { sz: a.z, gz: b.z });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, a.x, a.y, gx, gy, { maxExpansions: 20000, snapCells: 3 }, { sz: a.z, gz: b.z });
   if (!leg) return false;
   m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
   m.formation = null; m.endPosture = "prone"; m.endHeading = null;
@@ -415,7 +415,8 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
     if (!cs || isMounted(cs) || careSide(state, c) !== state.identity.get(id)?.side) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
     // A dead man (owner request 2026-11-15): he goes on while his comrades do not know it, or his tag is still on him.
     const dead = !cs.physiology.alive;
-    if (dead && (cs.captive !== null || !(downUnknown(ctx.catalog, cs) || (!treating && tagsLeft(ctx.catalog, state, c) !== null)))) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
+    // (Review fix: not while he is checking him or taking the tag: he finishes and walks back.)
+    if (dead && (cs.captive !== null || !(downUnknown(ctx.catalog, cs) || ak === "checkDown" || ak === "takeTag" || (!treating && tagsLeft(ctx.catalog, state, c) !== null)))) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
     if (state.tick - it.tick > secondsToTicks(K.timeoutS) && !treating) { releaseCarer(ctx, state, events, id, "gave-up", true); continue; }
     if (dead) {
       if (it.responder === true) responder.set(c, id); else comrades.set(c, (comrades.get(c) ?? 0) + 1);
@@ -448,7 +449,9 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
     }
     // A first responder or medic beside him triages him (again, if a comrade tagged him), whether or not he treats.
     if (it.responder === true && !treating && near(id, c)) triage(ctx, state, events, id, c, underFireForCare(ctx, state, id, c));
-    if (!treating && careNeed(ctx.catalog, state, c, params) === null) { releaseCarer(ctx, state, events, id, "done", true); continue; }
+    // (Review fix: a medic sent to tag a man at the Verwundetennest who needs nothing else walks on until he is beside
+    // him and has tagged him.)
+    if (!treating && careNeed(ctx.catalog, state, c, params) === null && !(it.responder === true && cs.atNest !== undefined && !near(id, c))) { releaseCarer(ctx, state, events, id, "done", true); continue; }
     const r = responder.get(c);
     if (it.responder !== true && r !== undefined && !treating && near(r, c)) { releaseCarer(ctx, state, events, id, "handed-over", true); continue; }
     if (it.responder === true) responder.set(c, id); else comrades.set(c, (comrades.get(c) ?? 0) + 1);
@@ -497,6 +500,8 @@ function pickCarer(ctx: SimContext, state: SimState, c: EntityId, responders: bo
     if (m === c || ident.side !== side) continue;
     const s = state.soldier.get(m);
     if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || state.action.has(m)) continue;
+    // (Review fix: not a bearer of a carrying party, nor a man at the Verwundetennest.)
+    if (s.carrying !== undefined || s.atNest !== undefined) continue;
     if (s.intent !== null && s.intent.kind !== "engage" && s.intent.kind !== "cover") continue;
     if (state.tick < s.stunnedUntilTick || (state.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
     if (isResponder(ctx.catalog, state, m) !== responders || leads(state, m)) continue;
@@ -701,7 +706,8 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
     }
     // A comrade: for an urgent casualty as well as the first responder; for any other when nobody is coming yet.
     // (Not while a man beside him is treating him already.)
-    if (n < K.comradesPerCasualty && treater === undefined && (need.urgent || r === undefined)) {
+    // (Review fix: not while his first responder is beside him already: the comrade would only be handed over.)
+    if (n < K.comradesPerCasualty && treater === undefined && (need.urgent || r === undefined) && !(r !== undefined && beside(ctx, state, r, c))) {
       const m = pickCarer(ctx, state, c, false, exposed, why);
       const can = m !== null && nextIntervention(ctx.catalog, state, m, c, false, params) !== null;
       if (m !== null && !can) noKit = true;

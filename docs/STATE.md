@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.8 review statistics and balance; roadmap-detail slice 17, M10 built). The long session-by-session
+_Last updated: 2026-11-15 (M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M10 review fixes (2026-11-15, branch `claude/medical-review-fixes`, on main after M10.8 merged; M10 complete).** Grenade orders at
+  recognised protected people are refused too, and a refused order changes nothing (drills, errands, carrying
+  parties, boarding); the AI commander no longer orders fire at enemies its men spare (refusals 43-53 → 0-1 per 10
+  battles); bearers are protected only once they carry; far casualties reachable (route cap 20 000); carer
+  reassignment loops gone; the nest medic is someone who can work; evacuated men in a returning hull are out of the
+  battle (no repeated rear runs); bruises under armour and settled roster wounds are not settled again, recovery days
+  survive the roster round trip, an "evacuated" record is refused as input; ambulance crews wear the armband and the
+  medic has a kit (`ambulanceCrew` level); the Wounded tab, review tabs and map got the UX fixes (DECISIONS "M10
+  Medical: review fixes", with the before/after table). Open: the plan's acceptance targets marked 🔶 in ROADMAP; a
+  responder upstairs cannot drag (floor-aware drag later); `npm test` wall time.
 - **Slice 41, M7.6c Wheeled carriers and their platoons (2026-11-15, branch `claude/medical-ambulance-smoke`, parallel
   session; not pushed).** GTK Boxer (`de-boxer-gtk`: FLW 200 with a 12.7 mm sMG worked by the commander, 2 crew + 8)
   and BTR-82A (`ru-btr82a`: 2A72 + PKTM, 3 + 7); the 8-man Jaegergruppe and the Jaegerzug in four Boxers; the BTR
@@ -30,7 +40,7 @@ DECISIONS.md under its date._
   12.2x, bench-combined 4.7x, bench-medical 16.3x, bench-tanks 11.9x. Open for the owner: the TANKS values and the
   section attachments (low), vehicle points for tanks, a Russian "tanks lead" doctrine, CLAUDE.md's command list
   (add `?tanks=`, the new tools scenarios and `--scene tanks-battle`). **Next: slice 41 M7.6c.**
-- **Current milestone: M10 Medical** (SPEC 9.1, pulled forward by the owner), plan `docs/plans/roadmap-detail.md`
+- **M10 Medical: ✅ complete (2026-11-15, with the review fixes)** (SPEC 9.1, pulled forward by the owner), plan `docs/plans/roadmap-detail.md`
   Phase 1, slices 2-17 — **all built** (slices 5 and 12 from parallel sessions, merged); ROADMAP lists each slice and
   DECISIONS has the details. The chain: the "medical" physiology (M10.1), self-aid and buddy aid (M10.2), carers and
   first responders (M10.3a), triage and care under fire (M10.3b), carrying parties (M10.4a) and into vehicles
@@ -54,6 +64,10 @@ DECISIONS.md under its date._
   ambulance and BMM hulls; an order to fire at a recognised protected target is **refused** (the men will not fire;
   a short radio note says why); incidental hits on protected people get their own list in the review; breaches
   are shown only in the review; air evacuation later.
+- **D4a done (2026-11-15, parallel session; DECISIONS "D4a"):** the AI attack keeps a reserve (committed when the
+  assault falters), its base of fire bounds forward or its men step aside when own men mask it, and shifts fire to
+  depth; rushes are 16 m. Batch line "Attack (D4a)". Open: "support masked" fell 35 %, not the 50 % asked. **Next:
+  D4b** (fire distribution, low aim at heard/reported men, ambush and defend-an-arc orders, hesitation).
 - **Order after M10** (owner): a debt slot (D3 phone pass, D4 infantry tactics with 3-5 s rushes of 15-20 m), then
   M8 → M9 → M7.6 (tanks, wheeled carriers, Jäger/BTR platoons) → M11 (minimum, after measuring ammunition use) →
   M12 → M13. One short debt slot after every milestone.

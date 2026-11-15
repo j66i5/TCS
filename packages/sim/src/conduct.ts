@@ -183,7 +183,7 @@ export function beyondSelfDefence(ctx: SimContext, state: SimState, id: EntityId
 /**
  * A hit on `target` (a man, or a hull with `vehicle`) by `owner`'s fire (Q-8): if he is protected now — an emblem,
  * a marked ambulance, a carrying party, at the nest, wounded out of action, giving up or held prisoner — and of the
- * enemy side, a `law.hit` is recorded: `aimed` when the shooter's fire was at him, else incidental.
+ * enemy side, a `law.hit` is recorded: `aimed` when the shooter's fire was at him and he saw him, else incidental.
  */
 export function noteHit(ctx: SimContext, state: SimState, events: EventSink, target: EntityId, owner: EntityId, fragment: boolean): void {
   if (ctx.catalog.medical === undefined) return;
@@ -202,8 +202,11 @@ export function noteHit(ctx: SimContext, state: SimState, events: EventSink, tar
     if (ctx.catalog.vehicles[v.def]?.ambulance?.marked === true) prot = kindOf(protectionNow(ctx.catalog, state, target));
   }
   if (prot === null) return;
-  let aimed = state.fire.get(owner)?.contact === target;
-  const om = state.soldier.get(owner)?.mount;
+  // (Review fix: aimed only when he sees the man he fires at; fire at an old reported spot of a man already down there
+  // is not fire aimed at a wounded man.)
+  const os = state.soldier.get(owner);
+  let aimed = state.fire.get(owner)?.contact === target && os !== undefined && os.contacts.some((c) => c.target === target && c.kind === "seen");
+  const om = os?.mount;
   if (!aimed && om !== undefined) { const ov = state.vehicle.get(om.vehicle); if (ov) for (const st of ov.stations) if (st.task?.contact === target) aimed = true; }
   events.emit({ kind: "law.hit", tick: state.tick, side, by: owner, target, protection: prot, aimed, fragment });
 }

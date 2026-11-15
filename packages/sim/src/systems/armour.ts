@@ -159,6 +159,7 @@ function collectTargets(ctx: SimContext, state: SimState, v: VehicleState, def: 
   for (let k = 0; k < def.seats.length; k++) {
     const who = v.seats[k];
     if (who === null || who === undefined || onRoof(state, who)) continue; // (M9.3a: out on the roof, not in his seat)
+    if (state.soldier.get(who)?.evacuated !== undefined) continue; // (review fix: handed over at the aid post, M10.6b)
     const p = def.seats[k]!.pos;
     const u0 = p[2] - 0.4;
     if (clipBox(HULL, x, y, z, dx, dy, dz, L, p[0] - A.seatHalfM, p[0] + A.seatHalfM, p[1] - A.seatHalfM, p[1] + A.seatHalfM, u0, u0 + A.seatHeightM)) push(ct0, 0, k);
@@ -518,7 +519,7 @@ function destroyVehicle(ctx: SimContext, state: SimState, events: EventSink, vid
   if (v.unit !== null && !wasAbandoned) radioFromTarget(state, v.unit, "radio.vehicleDestroyed", events);
   for (let k = 0; k < v.seats.length; k++) {
     const m = v.seats[k];
-    if (m === null || m === undefined) continue;
+    if (m === null || m === undefined || state.soldier.get(m)?.evacuated !== undefined) continue;
     const sev = C.occupantBurnSeverity[0] + (C.occupantBurnSeverity[1] - C.occupantBurnSeverity[0]) * nextFloat(state.rng, Streams.armour);
     applyBurn(ctx, state, events, m, sev, vid);
   }

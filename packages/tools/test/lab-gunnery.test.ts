@@ -73,6 +73,35 @@ describe("gunnery lab", () => {
       expect(val(v, "refilling a ready belt")).toBeCloseTo(refill, 0);
     });
   }
+  // M7.6c: the wheeled carriers at each other (2A72 against the GTK, the FLW 200's 12.7 mm against the BTR).
+  const WHEELED: { v: string; h1000: [number, number]; h1500: [number, number]; move: number; lay: [number, number]; refill: [number, number] }[] = [
+    { v: "ru-btr82a", h1000: [0.4, 0.85], h1500: [0.2, 0.65], move: 0.03, lay: [1.5, 5], refill: [60, 120] },
+    { v: "de-boxer-gtk", h1000: [0.3, 0.75], h1500: [0.1, 0.5], move: 0.4, lay: [1.5, 4], refill: [90, 150] },
+  ];
+  for (const { v, h1000, h1500, move, lay, refill } of WHEELED) {
+    it(`${v}: AP at a halted hull side-on at 1000 and 1500 m, on the move, laying, counted rounds and the refill`, () => {
+      const a = val(v, "AP at a halted hull side-on, 1000 m"), b = val(v, "AP at a halted hull side-on, 1500 m"), m = val(v, "AP on the move");
+      expect(a).toBeGreaterThanOrEqual(h1000[0]);
+      expect(a).toBeLessThanOrEqual(h1000[1]);
+      expect(b).toBeGreaterThanOrEqual(h1500[0]);
+      expect(b).toBeLessThanOrEqual(h1500[1]);
+      expect(b).toBeLessThanOrEqual(a);
+      // GTK: at least 0.4 x its halted share (stabilised remote station); BTR: like the BMP-2's (same stabiliser
+      // values), a few per cent at the wheeled slow pace (the plan's 0.5 x halted is not met: see DECISIONS M7.6c).
+      expect(m).toBeGreaterThanOrEqual(v === "de-boxer-gtk" ? move * a : move);
+      expect(m).toBeLessThan(a);
+      expect(val(v, "order to first round")).toBeGreaterThanOrEqual(lay[0]);
+      expect(val(v, "order to first round")).toBeLessThanOrEqual(lay[1]);
+      expect(val(v, "rounds fired - (ready + stowed")).toBe(0);
+      expect(val(v, "refilling a ready belt")).toBeGreaterThanOrEqual(refill[0]);
+      expect(val(v, "refilling a ready belt")).toBeLessThanOrEqual(refill[1]);
+      // The BTR has an HE belt (2A72); the GTK has none, so its "HE" row fires the 12.7 mm (it still runs).
+      expect(val(v, "HE at six men")).toBeGreaterThanOrEqual(v === "ru-btr82a" ? 1 : 0);
+    });
+  }
+  it("the GTK Boxer lays faster than the BTR-82A (remote station with a fast drive and a laser rangefinder)", () => {
+    expect(val("de-boxer-gtk", "order to first round")).toBeLessThan(val("ru-btr82a", "order to first round"));
+  });
   it("the T-90M's crew chooses armour-piercing at a Leopard side-on at 1500 m and its missile at 3000 m", () => {
     expect(val("ru-t90m", "own choice at a tank side-on 1500 m")).toBe(0);
     expect(val("ru-t90m", "own choice at a tank side-on 3000 m")).toBe(1);

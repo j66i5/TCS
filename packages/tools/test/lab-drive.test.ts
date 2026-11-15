@@ -69,7 +69,21 @@ describe("drive lab", () => {
       expect(val(v, "braking from 50 km/h")).toBeLessThanOrEqual(25);
     }
   });
-  it("wheeled ambulances: no pivot (90 degrees from a standstill in 3-10 s), turning circle 20-30 m, ground order, slope, fuel, no driver", () => {
+  it("wheeled carriers (M7.6c): GTK Boxer 0-50 in 9-17 s, top 95-100 km/h; BTR-82A 0-50 in 10-18 s, top 75-80 km/h; reverse within 5 %", () => {
+    expect(val("de-boxer-gtk", "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(9);
+    expect(val("de-boxer-gtk", "0-50 km/h on asphalt")).toBeLessThanOrEqual(17);
+    expect(val("ru-btr82a", "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(10);
+    expect(val("ru-btr82a", "0-50 km/h on asphalt")).toBeLessThanOrEqual(18);
+    expect(val("de-boxer-gtk", "top speed")).toBeGreaterThanOrEqual(95);
+    expect(val("de-boxer-gtk", "top speed")).toBeLessThanOrEqual(100.5);
+    expect(val("ru-btr82a", "top speed")).toBeGreaterThanOrEqual(75);
+    expect(val("ru-btr82a", "top speed")).toBeLessThanOrEqual(80.5);
+    expect(Math.abs(val("de-boxer-gtk", "reverse top speed") / 20 - 1)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(val("ru-btr82a", "reverse top speed") / 15 - 1)).toBeLessThanOrEqual(0.05);
+    // The heavier GTK is a little slower off the mark than the ambulance on the same drive module.
+    expect(val("de-boxer-gtk", "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(val("de-boxer-san", "0-50 km/h on asphalt"));
+  });
+  it("wheeled ambulances and carriers: no pivot (90 degrees from a standstill in 3-10 s), turning circle 20-30 m, ground order, slope, fuel, no driver", () => {
     for (const v of WHEELED) {
       expect(val(v, "turn 90 deg from a standstill")).toBeGreaterThanOrEqual(3);
       expect(val(v, "turn 90 deg from a standstill")).toBeLessThanOrEqual(10);

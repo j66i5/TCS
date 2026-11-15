@@ -28,6 +28,19 @@ function holdAll(sim: Sim): void {
 }
 
 describe("vehicle gunnery (M7.3)", () => {
+
+  it("M7.6c: a station worked by the commander (GTK Boxer's FLW 200, no gunner aboard) lays and fires on order; only the commander shoots", () => {
+    const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }, undefined, 2400, ["boxer-besatzung", "btr82a-ekipazh"]));
+    holdAll(sim);
+    const b = crew(sim, "blue");
+    const v = sim.state.vehicle.req(b.vid), def = sim.ctx.catalog.vehicles[v.def]!;
+    expect(def.seats.some((q) => q.station === "gunner")).toBe(false);
+    const cmd = v.seats[def.seats.findIndex((q) => q.station === "commander")]!;
+    order(sim, "blue", b.crew, { kind: "fire", x: 1200, y: 600, heightM: 1.2, nature: "ap" });
+    let shots = 0;
+    run(sim, 20, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) { shots++; expect(e.shooter).toBe(cmd); } });
+    expect(shots).toBeGreaterThan(10);
+  });
   it("a fire order lays the turret and fires the cannon; every round leaves the ready feed (rule 9)", () => {
     const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }));
     holdAll(sim);

@@ -205,4 +205,24 @@ describe("determinism", () => {
     expect(unbroken.delivered).toBe(D);
     expect(loaded.hashes).toEqual(unbroken.hashes);
   });
+
+  it("M7.6c: the wheeled platoon battle (GTK Boxers against BTR-82A) saved while its carriers drive and again in the middle of a dismount continues identically", () => {
+    const ws = getScenario("platoon-vehicles-wheeled");
+    const input = ws.build(data, 1, 200);
+    let firstOut = -1;
+    const full = runBattle(input, { controllers: ws.controllers!(input), onEvents: (ev) => { for (const e of ev) if (firstOut < 0 && e.kind === "soldier.dismounted") firstOut = e.tick; } });
+    expect(firstOut).toBeGreaterThan(0);
+    for (const at of [secondsToTicks(20), firstOut + 1]) {
+      const sim = createSim({ ...input, orders: [] });
+      const stream = [...full.orders].sort((x, y) => x.tick - y.tick);
+      let next = 0;
+      while (sim.state.tick < at) {
+        while (next < stream.length && stream[next]!.tick <= sim.state.tick) submitOrder(sim, stream[next++]!);
+        step(sim);
+      }
+      const loaded = loadSim({ ...input, orders: full.orders }, JSON.parse(JSON.stringify(saveSim(sim))));
+      expect(simHash(loaded)).toBe(simHash(sim));
+      expect(continueBattle(loaded, { ...input, orders: full.orders }).finalStateHash).toBe(full.finalStateHash);
+    }
+  }, 120_000);
 });

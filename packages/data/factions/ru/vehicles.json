@@ -3380,11 +3380,11 @@
         "exits": [
           [
             -0.3,
-            1.8
+            2.2
           ],
           [
             -0.3,
-            -1.8
+            -2.2
           ]
         ],
         "openSeconds": 1,
@@ -3570,7 +3570,7 @@
             "part": "hull",
             "face": "rear",
             "material": "armour-steel",
-            "thicknessMm": 12,
+            "thicknessMm": 13,
             "slopeDeg": 0
           },
           {
@@ -3617,7 +3617,7 @@
           "https://military-history.fandom.com/wiki/BTR-80"
         ],
         "confidence": "low",
-        "note": "Search extracts: the front stops 12.7 mm (not 14.5 mm), the sides and rear 7.62 mm; the BTR-80 hull is about 7-9 mm of high-hardness steel (upper front 9 mm at 64 degrees, about 21 mm along the line of sight), the 82A adds a spall liner. Armour-steel equivalents (game values): hull front 10 mm at 64 degrees (28.5 mm mild steel: stops 12.7 mm AP at 500 m), sides 14 mm at 15 degrees and rear 12 mm (the thin hard plate and the spall liner: they stop 7.62 mm AP at 75 m, but not 12.7 mm), roof 7; turret front 20 mm at 30 degrees, sides 10 at 20, rear 8, roof 6. Every cannon round and rocket in the game penetrates."
+        "note": "Search extracts: the front stops 12.7 mm (not 14.5 mm), the sides and rear 7.62 mm; the BTR-80 hull is about 7-9 mm of high-hardness steel (upper front 9 mm at 64 degrees, about 21 mm along the line of sight), the 82A adds a spall liner. Armour-steel equivalents (game values): hull front 10 mm at 64 degrees (28.5 mm mild steel: stops 12.7 mm AP at 500 m), sides 14 mm at 15 degrees and rear 13 mm (the thin hard plate and the spall liner: they stop 7.62 mm AP at 75 m, but not 12.7 mm), roof 7; turret front 20 mm at 30 degrees, sides 10 at 20, rear 8, roof 6. Every cannon round and rocket in the game penetrates."
       },
       "components": {
         "parts": [

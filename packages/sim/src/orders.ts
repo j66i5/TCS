@@ -143,6 +143,9 @@ export interface PendingOrder {
   order: Order;
   receivedTick: number;
   deliverTick: number;
+  /** The men hesitated over it once (D4b, behaviour.hesitation): it was put back to `deliverTick` and will be
+   *  carried out then, unless a later order to them replaces it first. */
+  hesitated?: true;
 }
 
 /** An order submitted but not yet processed (its tick is in the future). Part of the serialised state. */

@@ -411,6 +411,13 @@ export interface BehaviourDef {
    * (`onMoveUnderFire`: fired on within `underFireS`). The medical line calls `screenCasualty` for a drag.
    */
   smoke: { screenM: number; enemyMinM: number; enemyMaxM: number; knownWithinS: number; cooldownS: number; onWithdraw: boolean; onMoveUnderFire: boolean; underFireS: number };
+  /**
+   * Order hesitation (D4b, SPEC 6.6 "obey, hesitate or refuse"): an order of one of `kinds` to a unit or man on
+   * foot whose able men are at least `shakenShare` shaken, pinned or panicked is carried out only after
+   * min(`maxSeconds`, `baseSeconds` + `perSuppressionSeconds` x their mean suppression), once per order. A later
+   * order to the same men replaces it. Absent: nobody hesitates.
+   */
+  hesitation?: { kinds: string[]; shakenShare: number; baseSeconds: number; perSuppressionSeconds: number; maxSeconds: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;

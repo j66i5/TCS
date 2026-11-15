@@ -99,6 +99,7 @@
   "app.tapFire": "tap: fire",
   "app.ceaseFire": "cease fire",
   "radio.unable": "{callsign}: unable.",
+  "radio.hesitate": "{callsign}: ... wait one ... moving in a moment.",
   "radio.manDown": "{callsign}: man down - {name}.",
   "zone.head": "head",
   "zone.neck": "neck",

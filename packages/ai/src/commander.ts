@@ -154,14 +154,21 @@ interface Memory {
   /** D4a: the attack's tally (read by the batch through `attackStats`): five-second looks at a base-of-fire squad
    *  and those it was masked by its own men; objectives taken; the reserve kept, committed, committed before a take. */
   att?: AttackStats;
-  /** D4a: the reserve squad of the assault on the current objective (-1: committed or released); per base-of-fire
-   *  squad, its masked looks in a row and when it last bounded forward. */
-  reserve?: number; maskedRun?: Record<string, number>; baseMoved?: Record<string, number>; stepAside?: Record<string, number>;
+  /** D4a: the reserve squad of the assault on the main objective (-1: committed or released; reset when the main
+   *  objective is assaulted afresh), the assault squads it backs, the squad committed and when; per base-of-fire squad,
+   *  its masked looks in a row and when it last bounded forward; per man, when he last stepped aside. */
+  reserve?: number; reserveLead?: number[]; reserveSq?: number; reserveAt?: number; maskedRun?: Record<string, number>; baseMoved?: Record<string, number>; stepAside?: Record<string, number>;
   clearing?: Record<string, [number, number]>; taken?: number[]; takenAt?: Record<string, number>; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
 }
 
 /** D4a: what a commander's attack did (from its saved memory; zero for a defender). */
-export interface AttackStats { baseLooks: number; maskedLooks: number; taken: number; reserveKept: number; reserveCommitted: number; committedBeforeTake: number; baseBounds: number; inLineLooks?: number; stepped?: number }
+export interface AttackStats {
+  baseLooks: number; maskedLooks: number; taken: number;
+  /** Reserves held; committed (any reason); committed because the assault faltered (the rest: its lead got into a
+   *  house of the objective's ring, `reserveExploit`). */
+  reserveKept: number; reserveCommitted: number; committedBeforeTake: number; reserveExploit?: number;
+  baseBounds: number; inLineLooks?: number; stepped?: number;
+}
 export function attackStats(saved: unknown): AttackStats | null {
   const m = (saved as { att?: AttackStats } | null | undefined)?.att;
   return m === undefined ? null : { ...m };
@@ -1293,12 +1300,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         }
         case "hold":
           // The enemy has taken an objective back: go for it again.
-          if (objectives.some((_, i) => !holds(i))) { mem.target = objectives.findIndex((_, i) => !holds(i)); mem.phase = mem.target === 0 ? "assault" : "second"; mem.phaseTick = tick; mem.lastAssault = {}; }
+          if (objectives.some((_, i) => !holds(i))) { mem.target = objectives.findIndex((_, i) => !holds(i)); mem.phase = mem.target === 0 ? "assault" : "second"; mem.phaseTick = tick; mem.lastAssault = {}; if (mem.target === 0) { delete mem.reserve; delete mem.reserveLead; delete mem.reserveSq; delete mem.reserveAt; } }
           break;
         case "assault":
         case "second": {
           // In the second phase, the main objective lost again comes first.
-          if (mem.phase === "second" && !holds(0)) { mem.target = 0; mem.phase = "assault"; mem.lastAssault = {}; }
+          if (mem.phase === "second" && !holds(0)) { mem.target = 0; mem.phase = "assault"; mem.lastAssault = {}; delete mem.reserve; delete mem.reserveLead; delete mem.reserveSq; delete mem.reserveAt; }
           if (holds(mem.target)) {
             (mem.att ??= { baseLooks: 0, maskedLooks: 0, taken: 0, reserveKept: 0, reserveCommitted: 0, committedBeforeTake: 0, baseBounds: 0 }).taken++;
             // (A reserve still held is released: the objective fell without it.)
@@ -1309,7 +1316,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             if (next >= 0) {
               mem.target = next; mem.phase = next === 0 ? "assault" : "second"; mem.phaseTick = tick; mem.lastAssault = {};
               delete mem.flank; delete mem.axis;
-              if (next === 0) { mem.closed = []; mem.closedAt = {}; mem.resumeN = {}; }
+              if (next === 0) { mem.closed = []; mem.closedAt = {}; mem.resumeN = {}; delete mem.reserve; delete mem.reserveLead; delete mem.reserveSq; delete mem.reserveAt; }
             } else { mem.phase = "hold"; toAll({ kind: "posture", posture: "prone" }); }
             break;
           }
@@ -1356,17 +1363,30 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const att = mem.att ??= { baseLooks: 0, maskedLooks: 0, taken: 0, reserveKept: 0, reserveCommitted: 0, committedBeforeTake: 0, baseBounds: 0 };
           if (mem.phase === "assault" && mem.reserve === undefined && live.length >= R.minSquads && assaultersAll.length >= 2) {
             mem.reserve = assaultersAll[assaultersAll.length - 1]!;
+            mem.reserveLead = assaultersAll.filter((sq) => sq !== mem.reserve);
             att.reserveKept++;
           }
-          let reserve = mem.phase === "assault" && mem.reserve !== undefined && mem.reserve >= 0 && assaultersAll.includes(mem.reserve) ? mem.reserve : -1;
+          let reserve = mem.phase === "assault" && mem.reserve !== undefined && mem.reserve >= 0 && live.includes(mem.reserve) ? mem.reserve : -1;
+          if (mem.phase === "assault" && mem.reserve !== undefined && mem.reserve >= 0 && reserve < 0) mem.reserve = -1; // (gone)
           if (reserve >= 0) {
-            const lead = assaultersAll.filter((sq) => sq !== reserve);
+            // The squads it backs (as chosen: one cut down to nobody still counts as faltering). Faltering: one broken or
+            // below `commitStrength`, or every one of them closed in for `commitSeconds` (since it reached the assault
+            // position, not since its last re-assault) without the objective taken.
+            const lead = mem.reserveLead ?? [];
             const faltering = lead.length === 0 || lead.some((sq) => view.unit.get(sq)?.broken === true || strength(sq) < R.commitStrength)
-              || lead.every((sq) => mem.closed?.includes(sq) === true && tick - (mem.lastAssault[String(sq)] ?? tick) >= R.commitSeconds * 60);
+              || lead.every((sq) => mem.closed?.includes(sq) === true && tick - (mem.closedAt?.[String(sq)] ?? tick) >= R.commitSeconds * 60);
+            // (Its lead in a house of the objective's ring: it goes in after them, to exploit.)
+            const inHouse = !faltering && lead.every((sq) => mem.held?.[String(sq)] !== undefined || strength(sq) <= 0);
             const ready = strength(reserve) >= 0.5 && view.unit.get(reserve)?.broken !== true;
-            if (faltering && ready) {
+            // (A lead with nobody left able: it goes in whatever its state, or nobody would.)
+            const leadGone = lead.every((sq) => strength(sq) <= 0 || view.unit.get(sq)?.broken === true);
+            if ((faltering && (ready || leadGone)) || inHouse) {
+              // (Its own closing in starts now: re-sends counted afresh, `closeTimeoutSeconds` from the commitment.)
+              mem.reserveSq = reserve; mem.reserveAt = tick;
+              if (mem.resumeN) delete mem.resumeN[String(reserve)];
               mem.reserve = -1; reserve = -1;
-              att.reserveCommitted++; att.committedBeforeTake++;
+              att.reserveCommitted++;
+              if (inHouse) att.reserveExploit = (att.reserveExploit ?? 0) + 1; else att.committedBeforeTake++;
             } else {
               // Held: to its place behind the assault position (sent on as the others are), facing the objective.
               sendOn(reserve, assaultPos(chooseFlank(), 0, COMMANDER.assaultPositionM + R.backM));
@@ -1379,7 +1399,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // safety cone of his line; the squad is, when half its men who have a line at all are. Tallied once a look.
           const maskedBases = new Set<EntityId>();
           /** Men of the base whose every line of fire has an own man in it (each with the first such aim). */
-          const blockedMen: [EntityId, { x: number; y: number; h: number }][] = [], steppedNow = new Set<EntityId>();
+          const blockedMen: [EntityId, { x: number; y: number; h: number }, EntityId][] = [], steppedNow = new Set<EntityId>(), boundNow = new Set<EntityId>();
           const maskOwn = all.filter((f) => { const s = view.soldier.get(f) as SoldierState | undefined; return able(s) && s!.mount === undefined && !bases.includes(view.identity.get(f)?.unit ?? -1); })
             .map((f) => view.transform.get(f)).filter((x) => x !== undefined);
           const lifted = (x: number, y: number) => maskOwn.some((f) => hypot2(f.x - x, f.y - y) < COMMANDER.liftM);
@@ -1402,7 +1422,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
                 lined++;
                 const line = open.map((p) => friendInLine(ground(), st, m, p.x, p.y));
                 if (open.every((p, j) => lifted(p.x, p.y) || line[j])) masked++;
-                if (line.every((x) => x)) blockedMen.push([m, open[0]!]);
+                if (line.every((x) => x)) blockedMen.push([m, open[0]!, base]);
                 // (Masked by men in his line itself, the lift aside.)
                 if (line.every((x) => x)) inLine++;
               }
@@ -1410,43 +1430,6 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               att.baseLooks++;
               if (masked * 2 >= lined) { att.maskedLooks++; maskedBases.add(base); }
               if (inLine * 2 >= lined) att.inLineLooks = (att.inLineLooks ?? 0) + 1;
-            }
-          }
-          // D4a: a man of the base whose every line of fire has an own man in it (a squad gone to ground on its way lies
-          // in file: two thirds of the masked looks were its own men) dashes a few metres across his line
-          // (`baseBound.stepAsideM`, nearest first) to a spot on open ground, `soldier.minSpacingM` clear of others, with
-          // a line of fire to an enemy known near the objective that no own man is in; at most every `stepAsideSeconds`.
-          // Then the base's fire is given again at the next look.
-          if (blockedMen.length > 0) {
-            const BB = COMMANDER.baseBound, st = view as unknown as SimState, ctx = ground(), foot = navFor(ctx, "foot").grid;
-            const minM = input.catalog.behaviour.soldier.minSpacingM;
-            const ours = all.map((f) => view.transform.get(f)).filter((x) => x !== undefined);
-            let stepped = 0;
-            mem.stepAside ??= {};
-            for (const [m, aim] of blockedMen) {
-              const mt = view.transform.get(m)!;
-              if (mt.z > 0 || indoorAt(ctx, mt.x, mt.y) >= 0 || tick - (mem.stepAside[String(m)] ?? -1e9) < BB.stepAsideSeconds * 60) continue;
-              if ((view.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
-              const L = hypot2(aim.x - mt.x, aim.y - mt.y);
-              if (L < 1) continue;
-              const px = -(aim.y - mt.y) / L, py = (aim.x - mt.x) / L;
-              for (const off of BB.stepAsideM) {
-                const x = mt.x + px * off, y = mt.y + py * off;
-                if (x < 1 || y < 1 || x > W - 1 || y > H - 1 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
-                if (ours.some((o) => o !== mt && hypot2(o.x - x, o.y - y) < minM)) continue;
-                const to = maskAims.find((p) => !lifted(p.x, p.y) && fireLine(x, y, p.x, p.y, p.h) > 0 && !friendInLine(ctx, st, m, p.x, p.y, 0, { x, y }));
-                if (!to) continue;
-                order(m, { kind: "move", waypoints: [{ x, y, mode: "run" }], facing: atan2(to.y - y, to.x - x) });
-                mem.stepAside[String(m)] = tick;
-                steppedNow.add(m);
-                stepped++;
-                break;
-              }
-            }
-            if (stepped > 0) {
-              att.stepped = (att.stepped ?? 0) + stepped;
-              // (Fire again at the next look, from the new spots.)
-              mem.lastFire = Math.min(mem.lastFire, tick + every - COMMANDER.refireSeconds * 60);
             }
           }
           // D4a: a squad of the base of fire masked `baseBound.maskedLooks` looks in a row bounds forward (owner to
@@ -1477,6 +1460,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               let best: { x: number; y: number } | null = null, bestScore = 0;
               for (const turn of BB.turnDeg) for (const step of [BB.stepM, BB.stepM / 2]) {
                 const d = Math.max(BB.minM, dc - step), a = bc + (away * turn * PI) / 180;
+                // (Forward only: a base already within `minM` (the second objective) stays.)
+                if (d >= dc - 1) continue;
                 const x = clamp(tgt.x + cos(a) * d, W), y = clamp(tgt.y + sin(a) * d, H);
                 if (navCostAt(foot, x, y) <= 0 || indoorAt(ground(), x, y) >= 0) continue;
                 const score = aims.reduce((n, p) => n + (fireLine(x, y, p.x, p.y, p.h) > 0 && !friendInLine(ground(), st, shooter, p.x, p.y, 0, { x, y }) ? 1 : 0), 0)
@@ -1486,8 +1471,44 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               if (!best) continue;
               order(base, { kind: "move", waypoints: [{ x: best.x, y: best.y, mode: underFire(base) ? "run" : "walk" }], facing: atan2(tgt.y - best.y, tgt.x - best.x) });
               mem.baseMoved[k] = tick; mem.maskedRun[k] = 0;
+              boundNow.add(base);
               att.baseBounds++;
             }
+          }
+          // D4a: a man of the base whose every line of fire has an own man in it (a squad gone to ground on its way lies
+          // in file: two thirds of the masked looks were its own men) dashes a few metres across his line
+          // (`baseBound.stepAsideM`, nearest first) to a spot on open ground, `soldier.minSpacingM` clear of others, with
+          // a line of fire to an enemy known near the objective that no own man is in; at most every `stepAsideSeconds`.
+          // Then the base's fire is given again at the next look (after this look's fire, below).
+          if (blockedMen.length > 0) {
+            const BB = COMMANDER.baseBound, st = view as unknown as SimState, ctx = ground(), foot = navFor(ctx, "foot").grid;
+            const minM = input.catalog.behaviour.soldier.minSpacingM;
+            const ours = all.map((f) => view.transform.get(f)).filter((x) => x !== undefined);
+            let stepped = 0;
+            mem.stepAside ??= {};
+            for (const [m, aim, base] of blockedMen) {
+              // (Not a man whose squad bounds forward this look: its move takes him along.)
+              if (boundNow.has(base)) continue;
+              const mt = view.transform.get(m)!;
+              if (mt.z > 0 || indoorAt(ctx, mt.x, mt.y) >= 0 || tick - (mem.stepAside[String(m)] ?? -1e9) < BB.stepAsideSeconds * 60) continue;
+              if ((view.mover.get(m)?.waypoints.length ?? 0) > 0) continue;
+              const L = hypot2(aim.x - mt.x, aim.y - mt.y);
+              if (L < 1) continue;
+              const px = -(aim.y - mt.y) / L, py = (aim.x - mt.x) / L;
+              for (const off of BB.stepAsideM) {
+                const x = mt.x + px * off, y = mt.y + py * off;
+                if (x < 1 || y < 1 || x > W - 1 || y > H - 1 || navCostAt(foot, x, y) <= 0 || indoorAt(ctx, x, y) >= 0) continue;
+                if (ours.some((o) => o !== mt && hypot2(o.x - x, o.y - y) < minM)) continue;
+                const to = maskAims.find((p) => !lifted(p.x, p.y) && fireLine(x, y, p.x, p.y, p.h) > 0 && !friendInLine(ctx, st, m, p.x, p.y, 0, { x, y }));
+                if (!to) continue;
+                order(m, { kind: "move", waypoints: [{ x, y, mode: "run" }], facing: atan2(to.y - y, to.x - x) });
+                mem.stepAside[String(m)] = tick;
+                steppedNow.add(m);
+                stepped++;
+                break;
+              }
+            }
+            if (stepped > 0) att.stepped = (att.stepped ?? 0) + stepped;
           }
           if (bases.length > 0 && tick - mem.lastFire >= COMMANDER.refireSeconds * 60) {
             // Distribution of fire (balance pass 2026-11-13): each man of the base of fire at another enemy its men
@@ -1516,7 +1537,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             let k = 0;
             bases.forEach((base, bi) => {
               // (A squad clearing a house on its approach is left to its drill; one bounding forward to its move, D4a.)
-              if (view.unit.get(base)?.drill?.kind === "clear" || (view.unit.get(base)?.moving === true && tick - (mem.baseMoved?.[String(base)] ?? -1e9) < COMMANDER.baseBound.everySeconds * 60)) return;
+              if (view.unit.get(base)?.drill?.kind === "clear" || boundNow.has(base) || (view.unit.get(base)?.moving === true && tick - (mem.baseMoved?.[String(base)] ?? -1e9) < COMMANDER.baseBound.everySeconds * 60)) return;
               if (mem.maxRate?.includes(base) !== true) { order(base, { kind: "rules", ammo: "max" }); (mem.maxRate ??= []).push(base); }
               const flankBase = other !== null && bi === bases.length - 1;
               const list = flankBase ? sideList : mainList, aim = flankBase ? other : tgt;
@@ -1535,6 +1556,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             });
             mem.lastFire = tick;
           }
+          // (D4a: men who stepped aside this look fire again at the next one, from their new spots.)
+          if (steppedNow.size > 0) mem.lastFire = Math.min(mem.lastFire, tick + every - COMMANDER.refireSeconds * 60);
           // Close in: grenades at an enemy an assaulting squad knows within throwing range (M6.5b); from the
           // assault position on (balance pass 2026-11-13) also its grenade launchers, at the nearest enemy it knows
           // within their reach (the order's men pick hand grenade or launcher by range).
@@ -1565,7 +1588,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           assaulters.forEach((sq, i) => {
             if (mem.closed!.includes(sq)) return;
             const off = (i - (assaulters.length - 1) / 2) * 25;
-            const late = mem.phase === "second" || tick - mem.phaseTick >= COMMANDER.closeTimeoutSeconds * 60;
+            const late = mem.phase === "second" || tick - (sq === mem.reserveSq ? mem.reserveAt ?? mem.phaseTick : mem.phaseTick) >= COMMANDER.closeTimeoutSeconds * 60;
             // (Slice s0-clear: closing in, a house with a known, well-placed enemy on its way is cleared first.)
             // (Its way leads on to the objective: a house of the objective's ring on it counts.)
             if (!late && clearOnApproach(sq, tgt, [assaultPos(flank, off, COMMANDER.closeInM)], true)) return;

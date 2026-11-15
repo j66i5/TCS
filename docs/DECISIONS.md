@@ -5773,22 +5773,33 @@ data or golden change.
 
   | Scenario | Attacker wins | Support masked | Reserve committed before a take |
   |---|---|---|---|
-  | platoon (DE attacks) | 2 -> 4 | 45 % -> 25 % | 3 of 4 |
-  | platoon-ru (RU attacks) | 9 -> 9 | 36 % -> 22 % | 3 of 3 |
-  | platoon-vehicles (DE) | 8 -> 8 | 55 % -> 36 % | 4 of 4 |
+  | platoon (DE attacks) | 2 -> 6 | 45 % -> 26 % | 4 of 4 |
+  | platoon-ru (RU attacks) | 9 -> 9 | 36 % -> 24 % | 3 of 3 |
+  | platoon-vehicles (DE) | 8 -> 7 | 55 % -> 41 % | 4 of 4 |
   | platoon-ru-vehicles (RU) | 1 -> 1 | 48 % -> 24 % (17 looks) | - |
-  | pooled | | 44.6 % -> 27.1 % (**-39 %**) | **10 of 11 (91 %)** |
+  | pooled | | 44.6 % -> 29.0 % (**-35 %**) | **11 of 11**, all because the assault faltered |
 
   - Acceptance: reserve committed in >= 50 % of attacks that take an objective: **met**. Supported-attack lab not
     worse: **met** (`lab -- attack`, 20 runs: two squads on the wall 25 % -> 40 %; one squad on the wall 0 % -> 0 %,
-    in the open 0 % -> 0 %). "Support masked" time down >= 50 %: **not met** (-39 % pooled; the variants tried
-    gave -33 % to -39 %, run-to-run spread about +-8 points).
+    in the open 0 % -> 0 %). "Support masked" time down >= 50 %: **not met** (-35 % pooled; the variants tried gave
+    -33 % to -39 %, run-to-run spread about +-8 points).
   - Why masking stays at about a quarter of the looks: two thirds of it was the base squad's own men (a squad that
     went to ground on contact on its way to the support line lies in file, men 1-3 m apart along the line of fire;
     the place counts as reached within 40 m). Tried and dropped: taking the place in line formation and a "dress
     the line" move in place (masked rose to 30 %: under fire the dress halts at once, as any move); bounding after
-    one masked look every 20 s (-33 %). The sidestep cut it most. What is left is mostly squads still moving and
-    the assault between base and objective in the last 100 m. **Open (owner to review):** accept -39 %, or have D4b
-    look at the men's own fire positions (a man under ordered fire who has a comrade in his line moving aside on his
-    own, as covering men in a drill already do).
+    one masked look every 20 s (-33 %). The sidestep cut it most. What is left: squads still on their way, the
+    assault between base and objective in its last 100 m, and (mounted, 41 %) fire lifted off enemies the assault
+    is close to while the base shifts to depth (counted as masked: the measure keeps the 120 m it was taken with).
+    **Open (owner to review):** accept -35 %, or have D4b look at the men's own fire positions (a man under ordered
+    fire with a comrade in his line moving aside on his own, as covering men in a drill already do).
+- **Review (spec-reviewer; 10 findings, all fixed):** a bound was cancelled by the base's fire orders in the same
+  look (a fire order stops a man), and a man's sidestep by his squad's bound: the bound now goes first, sidesteps and
+  fire skip a squad that bounds in that look, and the "fire again next look" after a sidestep is set after the
+  look's own fire; "assaulting for 90 s" now counts from when the squad reached the assault position (re-assault
+  orders reset it before); a reserve is no longer committed as "faltering" when its lead got into a house of the
+  objective (counted apart as exploitation; 0 in the batches); the lead it backs is kept as chosen (a squad cut down
+  to nobody still counts); a reserve below half strength still goes in when its lead is gone; a committed reserve's
+  re-sends and close-in time start afresh; a new reserve is kept when the main objective is assaulted afresh; a
+  bound never moves a base away from the objective. Test: the bound squad really moves (no fire order to its men in
+  the same look).
 - Goldens regenerated (catalog fingerprint: `boundM`; AI behaviour); `golden/no-interiors` untouched.

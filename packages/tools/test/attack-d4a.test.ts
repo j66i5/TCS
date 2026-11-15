@@ -27,6 +27,12 @@ const squadsOf = (sim: Sim) => [...sim.state.unit.entries()].filter(([, u]) => u
 /** A unit's men, its sub-units' included. */
 const members = (sim: Sim, uid: number): number[] => { const u = sim.state.unit.req(uid); return [...u.members, ...u.children.flatMap((c) => members(sim, c))]; };
 
+/** Where a squad's living men are, on average. */
+const centreOf = (sim: Sim, uid: number) => {
+  const ts = members(sim, uid).filter((m) => sim.state.soldier.req(m).physiology.alive).map((m) => sim.state.transform.req(m));
+  return { x: ts.reduce((a, t) => a + t.x, 0) / ts.length, y: ts.reduce((a, t) => a + t.y, 0) / ts.length };
+};
+
 describe("attack (D4a)", () => {
   it("keeps the last assault squad back as a reserve, never sends it in while held, and commits it when the lead squad is cut down", () => {
     const { input, sim } = weakDefence(2, 1500);
@@ -68,7 +74,8 @@ describe("attack (D4a)", () => {
     // (Open ground: the base has a line of fire to the objective.)
     const { input, sim } = weakDefence(2, 1500, "farmland");
     const blue = commanderController("blue", input), red = commanderController("red", input);
-    let base = -1, masked = false, bounded = -1;
+    let base = -1, masked = false, bounded = -1, fireSameLook = -1;
+    let startAt = { x: 0, y: 0 };
     const obj = input.rules.objectives[0]!;
     for (let k = 0; k < 1500 * 60 && !sim.state.ended && bounded < 0; k++) {
       const mem = blue.saveState!() as Mem;
@@ -92,7 +99,13 @@ describe("attack (D4a)", () => {
       }
       const orders = blue.think(sim.state, sim.state.tick);
       if (base >= 0 && ((blue.saveState!() as Mem).maskedRun?.[String(base)] ?? 0) >= 1) masked = true;
-      if (orders.some((o) => o.kind === "move" && o.target === base) && (blue.saveState!() as Mem).phase === "assault") bounded = sim.state.tick;
+      if (orders.some((o) => o.kind === "move" && o.target === base) && (blue.saveState!() as Mem).phase === "assault") {
+        bounded = sim.state.tick;
+        // (Review fix: no fire order to its men in the same look; it would stop them where they are.)
+        const men = new Set(members(sim, base));
+        fireSameLook = orders.filter((o) => o.kind === "fire" && men.has(o.target)).length;
+        startAt = centreOf(sim, base);
+      }
       for (const o of orders) submitOrder(sim, o);
       for (const o of red.think(sim.state, sim.state.tick)) submitOrder(sim, o);
       step(sim);
@@ -100,6 +113,12 @@ describe("attack (D4a)", () => {
     expect(base).toBeGreaterThanOrEqual(0);
     expect(masked).toBe(true);
     expect(bounded).toBeGreaterThan(0);
+    expect(fireSameLook).toBe(0);
+    // It really goes: 20 s on, its men are on their way (the squad's centre has moved, nearer the objective).
+    for (let k = 0; k < 20 * 60; k++) { for (const o of red.think(sim.state, sim.state.tick)) submitOrder(sim, o); step(sim); }
+    const now = centreOf(sim, base), o = input.rules.objectives[0]!;
+    expect(Math.hypot(now.x - startAt.x, now.y - startAt.y)).toBeGreaterThan(10);
+    expect(Math.hypot(now.x - o.x, now.y - o.y)).toBeLessThan(Math.hypot(startAt.x - o.x, startAt.y - o.y));
     expect(attackStats(blue.saveState!())!.baseBounds).toBeGreaterThanOrEqual(1);
   });
 });

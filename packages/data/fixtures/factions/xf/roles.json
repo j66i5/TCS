@@ -32,6 +32,13 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture."
+    },
+    {
+      "id": "stoker",
+      "nameKey": "role.xf.stoker",
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a): the tortoise's loader."
     }
   ]
 }

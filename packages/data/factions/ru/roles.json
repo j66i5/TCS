@@ -175,6 +175,21 @@
       "sources": [],
       "confidence": "low",
       "note": "M9.3b dismounted missile team (game role, low): the commander picks targets and carries a round, the operator carries and works the 9P151 launch post, the loader carries rounds."
+    },
+    {
+      "id": "komandir-tanka",
+      "nameKey": "role.ru.komandir-tanka",
+      "leader": true,
+      "sources": [],
+      "confidence": "low",
+      "note": "Tank commander (M7.6a); crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "navodchik-operator",
+      "nameKey": "role.ru.navodchik-operator",
+      "sources": [],
+      "confidence": "low",
+      "note": "Tank gunner (M7.6a; the BMP-2's is operator-navodchik); crew organisation to be reviewed by the owner."
     }
   ]
 }

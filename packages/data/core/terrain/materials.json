@@ -175,6 +175,35 @@
       "sources": [],
       "confidence": "low",
       "note": "Generic modular composite armour (M7): game values; composition of real modules is not public."
+    },
+    {
+      "id": "composite-heavy",
+      "nameKey": "material.composite-heavy",
+      "densityKgM3": 5000,
+      "resistance": 1.25,
+      "resistanceShaped": 2.1,
+      "ricochetAngleDeg": 15,
+      "breaksBullets": false,
+      "sources": [
+        "https://old-wiki.warthunder.com/Leopard_2A6_(Sweden)",
+        "https://tanks-encyclopedia.com/coldwar/West_Germany/Leopard-2.php"
+      ],
+      "confidence": "low",
+      "note": "M7.6a: multi-layer special armour of a western main battle tank (thicknesses in the vehicle data are line-of-sight equivalents): per mm about RHA against long rods (1.25 mm mild steel), about 1.7 times that against jets (2.1). Game values from public RHA-equivalent estimates (game wikis and forums, no primary data); search extracts only."
+    },
+    {
+      "id": "composite-cast",
+      "nameKey": "material.composite-cast",
+      "densityKgM3": 6500,
+      "resistance": 1.25,
+      "resistanceShaped": 1.48,
+      "ricochetAngleDeg": 18,
+      "breaksBullets": false,
+      "sources": [
+        "https://www.deagel.com/armies/t-72/a000770"
+      ],
+      "confidence": "low",
+      "note": "M7.6a: cast steel turret or welded hull with a filler (T-72B / T-90 style), as line-of-sight equivalents: per mm about RHA against long rods (1.25), about 1.18 times that against jets (1.48; published estimates of about 410 KE / 500 CE for the T-72B turret). Game values; search extracts only."
     }
   ]
 }

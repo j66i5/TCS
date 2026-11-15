@@ -179,6 +179,13 @@
       "sources": [],
       "confidence": "low",
       "note": "M8.3a on-map mortar crew (game role, low): the leader lays and commands, the gunner carries and fires the tube, loaders carry the rounds."
+    },
+    {
+      "id": "ladeschuetze",
+      "nameKey": "role.de.ladeschuetze",
+      "sources": [],
+      "confidence": "low",
+      "note": "Tank loader (M7.6a): loads the main gun by hand; crew organisation to be reviewed by the owner."
     }
   ]
 }

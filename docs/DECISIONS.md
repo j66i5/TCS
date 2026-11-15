@@ -5113,10 +5113,215 @@ goldens unchanged):
 - DE strap: `strap.widthMm` is now its width at the slide's collar end and it widens with the slide's taper, 52 mm
   (was a 50 mm parallel strap), so below the slide it is as wide as the slide's shoulder end (60 mm, 61.1 at its
   bottom) instead of looking pinched.
+
+## 2026-11-14 — M7.6a Main battle tanks: data and labs (roadmap-detail slice 39, parallel session)
+Leopard 2A7V, T-90M and T-72B3M as data, with the engine changes the data needs. The tanks are not yet in any
+battle scenario: AI use with infantry, a tank scenario, the vehicle batch and tank perf are slice 40. APS stays
+fixture-only (M14.5). Research came from search extracts only (pages not opened), so the medium confidence cap
+applies. Software decisions:
+- **Variants:**
+  - DE: `de-leopard2a7v` only. The 2A8 comes with Trophy in M14.5; no public armour delta was found.
+  - RU: `ru-t90m` and `ru-t72b3m`.
+  - Crews: `leopard2a7v-besatzung` (commander, gunner, new role `ladeschuetze`, driver), and `t90m-ekipazh` /
+    `t72b3m-ekipazh` (new roles `komandir-tanka` and `navodchik-operator`, plus `mekhanik-voditel`).
+  - Each crewman carries a G36 or AK-74M with two magazines. This is low confidence: the real personal weapons
+    are not in the data.
+- **Armour model:**
+  - Two new core materials, both low confidence:
+    - `composite-heavy`: resistance 1.25 against long rods, 2.1 against jets.
+    - `composite-cast`: 1.25 and 1.48.
+  - Tank plates are line-of-sight equivalents with slope 0, one plate per face. Known simplification: there is no
+    weak lower glacis or mantlet.
+  - The far-face lookup after an over-penetration still uses the hull frame (an existing quirk, left as it is).
+- **Reactive tiles (ERA), counted items (rule 9):**
+  - The item carries a `reactive` block (mild-steel mm added against a kinetic round, a single shaped charge, and a
+    tandem's main jet, plus a trigger). The vehicle has `armour.tiles[{part, face, item, coverage}]` with one item id
+    per face. `fitted` is the stowed count, which the catalog copies onto the tile row.
+  - A hit meets a live tile with chance `coverage * left / fitted`: one draw on the armour stream, then one item is
+    used up. That holds for any hit that meets a tile, even one the plate would have stopped anyway.
+  - A kinetic round sets a tile off only if it is heavy and at or above the trigger, so 30 mm and small arms never
+    use tiles.
+  - The tandem precursor sets the tile off, and the main jet then meets `addTandemMm`.
+  - HE and artillery do not strip tiles (M14.5).
+  - The legacy fixture `factor` tiles behave exactly as before (shaped charges only, the same calls in the same
+    order, no draw). Each row has exactly one of `factor` or `coverage`.
+  - `vehicle.hit` gets `era` (the tile item) when a tile was used, for both kinds of tile.
+  - Pure helpers `tileFor` and `reactiveAdd` live in `sim/src/tiles.ts`.
+  - Values in mild-steel mm (kinetic / single shaped / tandem, trigger 150):
+    - Relikt front: +344 / +750 / +312 (low).
+    - Relikt side (4S24): +125 / +625 / +188 (low).
+    - Kontakt-5: +250 / +625 / +62 (medium for the generic figures).
+  - Coverage and tile counts are game values:
+
+    | Tank | Turret front | Turret side | Hull front | Hull side |
+    |---|---|---|---|---|
+    | T-90M (Relikt) | 0.85 of 26 | 0.5 of 10 | 0.75 of 20 | 0.6 of 12 |
+    | T-72B3M | Kontakt-5, 0.85 of 26 | Kontakt-5, 0.5 of 6 | Relikt, 0.75 of 18 | Relikt, 0.6 of 12 |
+
+- **Weapons:**
+  - New weapon type `tank-gun`, and the weapon mass cap rises to 5000 kg. Expenditure counts its rounds as cannon
+    rounds, and a guided round fired through it as a missile.
+  - `startLoaded`: a single-round or autoloader gun starts with a round of its first feed in the breech.
+  - The Refleks-M is a separate guided weapon entry (`ru-2a46m5-gl`) on the same station and muzzle, so its
+    missiles are counted apart from the carousel. It reloads in the weapon's 7.5 s, halted, through `missiles.ts`.
+  - That weapon is out when the `gun` or the `sights` component is wrecked.
+  - `missileBeyondM` per weapon (guided weapons only); the T-90M and T-72B3M use 2500 m.
+- **Crew judgement (`gunnery.ts`):**
+  - `faceNeed` is factored out of `apCanPierce`. It takes the hull plate on the face shown, struck level (as
+    before), plus the expected tile add: `coverage * left / fitted * add`, or the legacy factor for shaped charges.
+    It makes no random draw. A vehicle without tiles gets exactly the old number.
+  - New `missileCanPierce`.
+  - The crew now takes the missile nearer than `missileBeyondM` only when armour-piercing cannot get through **and**
+    the missile can. Before, it took the missile whenever armour-piercing could not get through. Existing pairs are
+    unchanged: the Konkurs (937) beats every Puma face (at most 750), and Spike against the BMP-2 also gets through.
+    Only the fixture wagon's dart (600) now holds back at a Puma's front within 1000 m; it is in no golden.
+- **Scenario:**
+  - `crewTemplateOf` takes only crews whose vehicle has passenger seats, so a tank never becomes the default carrier.
+  - `vehicleBattle` sets `carrierId` only when the crew's vehicle has passenger seats.
+  - `?scenario=vehicles&crew=leopard2a7v-besatzung,t90m-ekipazh` therefore works with no app change; the squads
+    walk.
+- **Loader and lint:**
+  - New loader errors:
+    - a reactive tile (`coverage`) whose item has no `reactive` block;
+    - a `factor` tile whose item is reactive;
+    - a tile item that is not stowed;
+    - the same tile item on two rows;
+    - an autoloader without `roundLoadSeconds`;
+    - `startLoaded` on a belt feed;
+    - `missileBeyondM` on a weapon that is not guided.
+  - Data lint now checks provenance on the `armour` and `components` blocks. The existing low blocks show up as
+    review warnings.
+- **Fixture (rule 8):** `xf-tortoise` is a tracked turreted tank with a loader, the `xf-bombard` tank gun with
+  `xf-ram` / `xf-pot`, and the tiles `xf-scale` (turret front, coverage 1, deterministic) and `xf-scale-hull`
+  (hull front, 0.5). Its crew `tortoise-crew` has a new role, `stoker`. `xf-wagon` and `cart-crew` are untouched.
+- **Data, DE (source URLs in the entries):**
+  - Published values (medium):
+    - mass 63.9 t;
+    - MTU 1100 kW, top speed 63 km/h;
+    - 42 rounds, 15 of them in the bustle;
+    - EMES/PERI sights.
+  - DM63A1 (low): 680 mm RHA at 2 km gives 850 mm mild steel at 1654 m/s (from its drag, about 2.8 % lost per
+    km); the muzzle velocity, 1750 m/s, is medium.
+  - DM11: point detonation only; its fragments are a game value.
+  - Game values (low):
+    - load time 6 s, and 2.5 times that without the loader;
+    - armour: turret front 850 composite-heavy (1062 / 1785), hull front 640 (800 / 1344), hull side 100 composite
+      (160 / 250);
+    - components: bustle cook-off 0.05, hull rack 0.35;
+    - signature, and refill 120 s.
+- **Data, RU:**
+  - Published values (medium):
+    - V-92S2F 843 kW, top speed 60 km/h;
+    - 3 crew, 22-round carousel;
+    - Sosna-U;
+    - Refleks-M range and penetration.
+  - Penetration (low):
+    - 3BM60: 775 mm at 1586 m/s.
+    - 3BM42 (the T-72B3M's carousel round, low): 575 mm at 1583 m/s.
+  - 3OF26 is from memory: the search for it was refused.
+  - Loading: autoloader at 7 s (T-90M) and 7.5 s (T-72B3M).
+  - Reverse speed 4.8 and 4.2 km/h, from memory.
+  - Armour (cast with filler):
+    - T-90M: turret front 550 (687 / 814), hull front 480 (600 / 710).
+    - T-72B3M: turret front 430, hull front 420.
+    - Hull sides: 80 mm steel.
+  - The T-90M has a laser warner; the T-72B3M does not. The T-72B3M commander has a day sight only and there is no
+    bustle rack.
+  - Russian commander and gunner seats were placed on the correct sides (commander right, gunner left).
+- **Labs (bands in the tests; tables in the session report):**
+  - armour: the vehicle list is a parameter, with tank rounds and missiles added (PG-7VR and Kornet are lab only).
+    Every plan band holds.
+  - antitank: `crewTemplates` and `eraSpent` cases.
+  - gunnery: tank pairs on a 4 km field.
+  - drive: the three tanks.
+  - missile: Refleks rows.
+- **Deviations from the plan:**
+  1. Gunnery: the plan's "rounds in the first 60 s" band assumed full rate. Ordered fire trickles after 30 s
+     (`shooting.json fire.fullRateSeconds`), so the lab measures the seconds between rounds at full rate:
+     - Leopard 6.1 s, 15.0 s with the loader dead;
+     - T-90M 7.4 s, and the same with the gunner dead (the commander fires);
+     - T-72B3M 7.6 s.
+     (Corrected by the review fixes below. Before them a single-round or autoloader gun's load overwrote the
+     interval set at the shot, so tank guns never trickled and ignored the ammunition rule; the first figures,
+     6.0 / 7.0 / 7.5 s, were the bare load times. The cycle is now the longer of the load and the gun's interval:
+     the T-90M's 8 rounds a minute, 7.5 s, is longer than its 7 s carousel.) With the trickle working, a
+     rounds-in-60-s figure does mean something, and the lab now gives it, beside the trickle's spacing: Leopard 8
+     rounds (9.9 s apart after 30 s), T-90M 8 (9.4 s), T-72B3M 7 (10.6 s); bands 6-10 rounds and 8.5-11.5 s. It
+     still is not the plan's full-rate band: that one stays replaced by the seconds between rounds.
+  2. Drive: the Leopard's 90° pivot takes 5.2 s at its 30°/s game value. The band is 2-6 s instead of 2-5. The
+     data was not tuned.
+  3. Missile: the long Refleks row is at 3500 m, not 4000, because a map is at most 4000 m across
+     (`MAX_MAP_SIZE_M`).
+  4. Anti-tank: the "hits at 300 m ≥ 0.5 (as today)" band is not asserted. Today's Puma and BMP-2 rows are 30-50 %.
+  5. APFSDS reference speeds come from each round's own drag (1586 and 1583 m/s) instead of the plan's 1560 and
+     1600. 3BM60 at 1000 m is 802 mm, just above the Leopard's 800 mm hull front (the band still holds).
+  6. The screenshot's firing frame uses an ordered armour-piercing shot, because the vehicles scenario's default
+     rule is "return".
+- **Goldens:**
+  - `npm run golden:update`; `no-interiors` is untouched.
+  - The order streams of all eight goldens are identical.
+  - Fingerprint-blanked state hashes are identical at every checkpoint of all eight goldens once projectile
+    ammunition indices are mapped to ids.
+  - Without that mapping, shootout, platoon-vehicles, village-occupy and house-clear differ only because the new
+    ammunition ids re-index `catalog.ammoIds` while rounds are in flight.
+  - Balance report `platoon-vehicles`, 10 seeds, 300 s: identical before and after.
+- **Left for later:**
+  - Slice 40: AI use, a tank scenario, the vehicle batch, tank perf.
+  - M14.5: Trophy and the 2A8, tiles stripped by HE and artillery, cages.
+  - DM73.
+  - An overview tank symbol and drawn ERA.
+  - Plate zones.
+  - Per-round refill time.
+  - An autoloader component.
+- **Review fixes (adversarial review of the slice):**
+  - Crew judgement: `faceNeed` counts a reactive tile against a kinetic round only if the round is heavy and its
+    published penetration is at or above the tile's trigger, as the hit does (`useTile`); `apCanPierce` passes the
+    round's figure. Before, a Puma's 30 mm (132.5 mm, below Relikt's 150 mm trigger) judged a T-90M's hull side
+    at 100 + 0.6 x 125 = 175 mm, not 100, and fired its Spike where the cannon gets through (test in tanks.test.ts).
+  - Single-round and autoloader guns: the load now runs within the interval set at the last shot
+    (`nextShotTick = max(post-shot, load end)`), so ordered fire trickles after 30 s and "conserve" fires slower
+    (test: a T-90M at 7-8 s, then at least 8.4 s apart after 30 s; conserve at least 1.4 x slower). A vehicle fired
+    on during the trickle cuts the interval to 0.5 s as before, but not the load in progress. The fixture tortoise
+    now fires every 6 s (its bombard's 10 rounds a minute) instead of its 5 s load; with the loader dead it is 10 s
+    (2 x 5), the test now says so. The xf sling (15 rounds a minute, 4 s, load 4 s) is in fixture-cart-s3, whose
+    fingerprint-blanked hashes are unchanged: its sling is not on an ordered task there.
+  - Loader: two tile rows on the same part and face are an error (the sim reads only the first).
+  - The tortoise conservation test is now hit: the Puma fires its 30 mm (heavy, above the scales' 80 mm trigger)
+    at the tortoise's front, and the test asserts tiles were used (6 in 60 s) and tiles left + `era` events = fitted.
+  - Data: the tank round items no longer count the cartridge twice (`stackMassKg = massKg + charge`). As the
+    9M131 splits tube and missile, each round item's own mass is the case and propellant (published cartridge
+    minus projectile) and its charge is the projectile, which is also the ammunition's `cartridgeMassKg` (the
+    loader requires the two to agree): DM63A1 16.8 + 4.6, DM11 12.6 + 11.4 (the 24.0 kg of the ammunition entry;
+    the item had 24.1), 3BM60 and 3BM42 15.55 + 4.85, 3OF26 10 + 23, 9M119M 7.1 + 17.2, xf-ram 16 + 4, xf-pot
+    10 + 10. (`de-mells-round`, 13 + 13, predates the slice and is left as it is.)
+  - Goldens: `npm run golden:update` for the catalog fingerprint only; with the fingerprint blanked, the old
+    goldens' order streams replay to identical hashes at every checkpoint of all eight. `no-interiors` untouched.
+  - Not changed (reviewed): the Refleks channel keeps its own reload beside the gun's loaded round (deviation by
+    design, see Weapons above); the armour lab's "Puma and BMP-2 rows as before" check compares the new code
+    with itself (no defect found).
 - **Merge with M9.3b (Metis-M, #53):** the ui test "AI vehicle orders sent unchanged never set playerHold" checked the
   player's halt on the AI battle after two minutes; with the AI's drones flying, platoon-ru-vehicles seed 1 now ends
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
   half of the test now runs on a fresh battle (same intent).
+
+Owner correction 2026-11-15 (binding; supersedes the review fix that moved the Leutnant's star up and the Winkel
+centring above): on the real slide every device is built up from the shoulder end. German slide, y from the shoulder
+end (exact millimetres still inferred, low; web searches only confirmed the counts, never positions):
+- Stripes: the lowest stripe's low end 5 mm above the shoulder end (centre 25.5 mm), 3 mm gaps upward; Gefreiter,
+  Obergefreiter and Hauptgefreiter all start there (were centred on the slide at 45 mm). Stabsgefreiter: the three
+  of the Hauptgefreiter, then the fourth set apart (9 mm gap instead of 3 mm; centres 25.5, 35.2, 45.0, 62.1).
+- Stars: the Leutnant's centred 20 mm above the shoulder end (lower third; was 42), the Oberleutnant's at 20 and 40
+  (were 33 and 55): a Hauptmann's third would go at 60.
+- Winkel inside the closed Tresse, low: the lowest one's legs end 4 mm above the Tresse's inner edge at the shoulder
+  end (Feldwebel's point at 27.2 mm, was 58.9; Oberfeldwebel's at 27.2 and 37.2, were 53.9 and 63.9). The
+  Kopfwinkel's legs end at the same height (its crossing at 24.5 mm, was 52). Reading chosen by the owner's rule
+  (no source found for the Winkel's place): low.
+- Russian sleeve re-checked, unchanged: it already follows the regulation figures from the shoulder end (first
+  stripe's edge and first star's centre 25 mm from the lower edge, rows 25 mm apart; Prikaz 525 tables 1 and 3,
+  medium-low).
+Tests: appearance.test pins the shoulder-end build-up (common lowest stripe, the Stabsgefreiter's top gap larger
+than the others, the Leutnant's star and the lowest Winkel in the lower part); insignia.test checks the drawn star
+is in the lower third. Appearance only: goldens unchanged.
 
 ## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
 The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
@@ -5173,3 +5378,30 @@ platoon tile's move moves everyone, `own` refused for a drill (`ui/test/hq-drone
 Known limits: a drone operator who is flying cannot get back in until the drone has landed (he holds the controller,
 as before); the duplicate "Gruppa 1" callsign in the Russian platoon (two squad templates numbered separately) is
 unchanged.
+## 2026-11-15 — Realistic ranks per role (owner request: "make the job distribution more realistic")
+Owner (binding): a Gefreiter has 3 to 6 months of service and would hardly see a battle, let alone be the dedicated
+medic. Least invasive option chosen: one most typical rank per template slot (no rank distributions: `MemberSlot.rank`
+is a single id and `buildForce` copies it, so weights would need a schema and generator change for little gain).
+Skills are not tied to rank or role (they come from the quality level), so nothing else changes. Sources: search
+extracts only (web pages cannot be opened here), confidence medium at most, mostly low.
+- DE (deployed SaZ unit, no Gefreiter in combat posts; SLV: Gefreiter after 3, Obergefreiter 6, Hauptgefreiter 12,
+  Stabsgefreiter 36, Oberstabsgefreiter 48 months): Schuetzentrupp: Truppfuehrer Stabsunteroffizier, MG-Schuetze
+  Stabsgefreiter, Panzerfaustschuetze Hauptgefreiter, Gruppenscharfschuetze Oberstabsgefreiter, Granatpistolenschuetze
+  Obergefreiter, Einsatzersthelfer B Hauptgefreiter (was Gefreiter). Zug HQ: Zugfuehrer Leutnant (unchanged), Funker
+  and drone operator Stabsgefreiter, Sanitaeter Stabsunteroffizier (was Hauptgefreiter). Puma crews: Kommandant
+  (= Gruppenfuehrer) Feldwebel, Richtschuetze Unteroffizier, Fahrer Hauptgefreiter; the fourth (headquarters) Puma
+  gets its own crew template `puma-besatzung-zug` (fixed callsign "Puma 4") whose Kommandant is the Zugtruppfuehrer
+  and deputy platoon leader, a Hauptfeldwebel (a Bundeswehr Puma podcast names a Hauptfeldwebel commander and an
+  Oberstabsgefreiter Truppfuehrer). Boxer San: Notfallsanitaeter Feldwebel (Feldwebel career), driver Hauptgefreiter.
+  Mortar Trupp: leader Stabsunteroffizier, loaders Obergefreiter. Demo team: no Gefreiter.
+- DE new rank Oberstabsgefreiter (OR-4, grade 6; Unteroffizier..Hauptfeldwebel grades +1, grade is only an order).
+  Insignia: five Schraegstreifen (Anlage 2 BPrDGrUnifAnO, medium): the Stabsgefreiter's four built up from the
+  shoulder end, the fifth 9.7 mm above the set-apart fourth (y 71.8; positions low). Hauptmann/Stabsfeldwebel not
+  added (no template uses them).
+- RU (combat units contract-manned; a contract private usually stays ryadovoy or yefreytor): the first squad's leader
+  is the deputy platoon commander, starshiy serzhant (battleorder.org: BTR company deputy platoon commander a senior
+  sergeant); other squad leaders serzhant; machine gunners yefreytor (were ryadovoy); strelok-sanitar yefreytor (was
+  ryadovoy). BMP crews unchanged (commander mladshiy serzhant, gunner-operator and driver-mechanic yefreytor).
+- xf fixture unchanged.
+Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
+untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).

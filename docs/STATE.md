@@ -68,6 +68,26 @@ contacts), call them out and fire at those within 200 m (abstract hit box, `dron
 located by the drone (or an off-map reconnaissance drone, `?air=blue`) when that is better, and drones read the falls.
 Next on this line: M9.6 night AI and balance (hiding from drones).
 
+**Main battle tanks: data and labs (2026-11-14, roadmap-detail slice 39 "M7.6a", parallel session; DECISIONS
+"M7.6a").**
+- New tanks: Leopard 2A7V (4 crew, loader, 42 rounds) and T-90M / T-72B3M (3 crew, carousel autoloader, Refleks-M
+  through the gun as its own weapon entry).
+- New data and engine pieces:
+  - weapon type `tank-gun` and `startLoaded`;
+  - `missileBeyondM` per weapon;
+  - materials `composite-heavy` and `composite-cast`;
+  - explosive reactive tiles as counted items, one item id per face (`reactive` item block,
+    `armour.tiles[].coverage`, used up per hit met, a tandem's main jet beats most of a tile);
+  - the crew's armour judgement (`faceNeed`) counts the tiles it expects.
+- The fixture's `xf-tortoise` covers all of this for rule 8.
+- Tanks are in no battle scenario yet. Only the labs, `--scene tanks` and the app's
+  `?scenario=vehicles&crew=leopard2a7v-besatzung,t90m-ekipazh` use them. The default vehicle crews skip vehicles
+  without passenger seats.
+- Lab rows: `armour` (tiles full and spent), `antitank` (PzF3 against the T-90M, RPG-7 against the Leopard),
+  `gunnery` (4 km field), `drive` and `missile` (Refleks).
+- Existing battles are unchanged: the goldens moved only by the fingerprint.
+- **Next: slice 40 (M7.6b)**: AI use with infantry, a tank scenario, the vehicle batch, tank perf.
+
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
 grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook
@@ -194,8 +214,33 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   nothing since 2026-11-13; the plan recommends deleting, and updating the CLAUDE.md note), or keep them?
 - Data reviews whenever convenient (lists in the earlier STATE, `docs/history/STATE-until-2026-11-14.md`, "Open
   questions"): Konkurs-M values, vehicle data of M7.1b-M7.4b, behaviour game values, squad tables, ranks and names.
+- Realistic ranks (2026-11-15, DECISIONS "Realistic ranks per role", low/medium, search extracts only): one rank per
+  slot; DE Puma Kommandant Feldwebel and HQ Puma (Zugtruppfuehrer) Hauptfeldwebel, Sanitaeter Stabsunteroffizier,
+  marksman Oberstabsgefreiter (new rank, insignia positions inferred); RU first squad leader = deputy (starshiy
+  serzhant). Zugfuehrer Leutnant or Oberleutnant?
 - After M10.8: the medical numbers table (keep, adjust named values, or faster care for gameplay).
 - D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
   (15 m, once a minute, on withdrawals and moves under fire).
+- M7.6a tanks (low confidence, for review):
+  - Armour: Leopard turret front 850 mm and hull front 640 mm of heavy composite. The T-90M is 550 / 480 mm and the
+    T-72B3M 430 / 420 mm of cast armour with filler; hull sides are 80 mm steel.
+    - With these values DM63A1 at 2 km gets through the Leopard's own hull front (850 against 800), and 3BM60
+      does so from about 1 km.
+    - The crew's armour judgement uses hull plates only (as before), so a turret-front hit can be misjudged.
+  - Reactive tiles:
+    - add values: Relikt +344 / +750 / +312, Kontakt-5 +250 / +625 / +62, trigger 150 mm;
+    - coverage and tiles fitted per face, e.g. T-90M turret front 0.85 of 26.
+  - Loading and refill: 6 s with 2.5 times that without the loader; autoloader 7 / 7.5 s; refill of the ready rack
+    120 s (Leopard) and 240 s (T-90M / T-72B3M).
+  - Rounds:
+    - 3OF26 is from memory: the search for it was refused.
+    - Refleks-M flight: 280 m/s launch, 300 m/s cruise, turn rate.
+    - 3BM42 as the T-72B3M's round: its newer autoloader may take 3BM59/60.
+    - DM63A1 penetration 680 mm RHA at 2 km.
+  - Mobility: reverse speeds (Leopard 31 km/h; T-90M 4.8 and T-72B3M 4.2 km/h on one gear) and pivot rates
+    (30 / 20 deg/s).
+  - Gunnery: armour-piercing hits 100 % at 3 km on a still hull side-on, which may be too good.
+  - Crew personal weapons: a G36 or AK-74M with two magazines (the real MP7 / P8 are not in the data).
+  - The 2A8 and Trophy wait for M14.5.
 - M10.6-data (low confidence, for review): Boxer ambulance and BMM armour, components, gear bands, reverse speeds,
   steering, ramp and loading times, extinguishers, signatures; the medic's rank and load.

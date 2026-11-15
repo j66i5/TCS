@@ -77,6 +77,21 @@ describe("guided missile (owner 2026-11-13)", () => {
     expect(side.cannon).toBeGreaterThan(0);
   });
 
+  it("M7.6a: a T-90M's Refleks-M through the gun hits a Leopard side-on at 2000 and 3500 m and gets through; its front stops it", () => {
+    let hits = 0, pen = 0, fired = 0, frontHits = 0, frontPen = 0;
+    for (let k = 0; k < 5; k++) {
+      for (const R of [2000, 3500]) { const r = missileTrial(data, R, "side", 2000 + k, false, "refleks"); if (r.fired) fired++; if (r.hit) hits++; if (r.penetrated) pen++; }
+      const f = missileTrial(data, 2000, "front", 2000 + k, false, "refleks");
+      if (f.hit) frontHits++;
+      if (f.penetrated) frontPen++;
+    }
+    expect(fired).toBe(10);
+    expect(hits / 10).toBeGreaterThanOrEqual(0.6);
+    expect(pen / Math.max(1, hits)).toBeGreaterThanOrEqual(0.8);
+    expect(frontHits).toBeGreaterThan(0);
+    expect(frontPen).toBe(0);
+  }, 120_000);
+
   it("a save made while the missile flies continues identically", () => {
     const { input, shooter, target } = missileSetup(data, 2000, "front", 5);
     const sim = createSim(input);

@@ -215,8 +215,9 @@ export const AmmoSchema = withProv({
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
 export const WeaponSchema = withProv({
   id: Id, nameKey: z.string(),
-  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon"]),
-  calibre: z.string(), massKg: Num(0.1, 500),
+  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon", "tank-gun"]),
+  /** M7.6a: up to 5000 kg (a tank's main gun with its mount). */
+  calibre: z.string(), massKg: Num(0.1, 5000),
   feed: z.object({ magazine: Id }).strict(),
   fireModes: z.array(z.enum(["semi", "burst", "auto"])).min(1),
   cyclicRpm: Num(1, 6000),
@@ -773,6 +774,11 @@ export const ItemSchema = withProv({
     altitudeM: Num(5, 2000), minAltitudeM: Num(5, 2000), maxAltitudeM: Num(5, 3000), launchSeconds: Num(0, 600), controlRangeM: Num(50, 50000),
     sensors: z.array(z.string()).min(1), footprintM: Num(10, 5000), noiseM: Num(0, 2000), areaM2: Num(0.001, 10),
   }).strict().optional(),
+  /** M7.6a: an explosive reactive armour tile (fitted to a vehicle face through `armour.tiles[].coverage`): the
+   *  mild-steel mm it adds to the plate's need against a long rod, a single shaped charge and the main jet of a
+   *  tandem charge (its precursor sets the tile off), and the least kinetic penetration (mild-steel mm) of a heavy
+   *  round that sets it off. Values are game abstractions of published "share of penetration taken off" figures. */
+  reactive: z.object({ addKineticMm: Num(0, 2000), addShapedMm: Num(0, 3000), addTandemMm: Num(0, 3000), triggerSteelMm: Num(0, 2000) }).strict().optional(),
   /** Belts: every `tracerEvery`-th round is this tracer ammunition instead of `chargeItem`. */
   tracerItem: Id.optional(), tracerEvery: z.number().int().min(2).max(100).optional(),
   /** Body armour and helmets: which body zones it covers, how much of each, and how much it stops. */
@@ -836,6 +842,11 @@ export const VehicleWeaponSchema = z.object({
    *  "autoloader": single rounds without a loader. */
   feedKind: z.enum(["belt", "single", "autoloader"]),
   loaderStation: StationKind.optional(), roundLoadSeconds: Num(0.1, 120).optional(), noLoaderFactor: Num(1, 20).optional(),
+  /** M7.6a: "single" / "autoloader": a round is in the breech when the battle starts (taken from the first feed). */
+  startLoaded: z.boolean().optional(),
+  /** M7.6a: a guided weapon: the crew chooses it against vehicles at or beyond this range (m); default
+   *  `behaviour.gunnery.missileBeyondM`. */
+  missileBeyondM: Num(0, 10000).optional(),
 }).strict();
 /** Component kinds a vehicle's parts may be (M7.4a/b); what each does when damaged is in systems/armour.ts. */
 export const COMPONENT_KINDS = ["engine", "transmission", "track", "wheels", "turret-drive", "stabiliser", "gun", "coax", "sights", "radio", "dischargers", "extinguisher", "ammo", "fuel"] as const;
@@ -899,9 +910,15 @@ export const VehicleSchema = withProv({
     plates: z.array(z.object({
       part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), material: Id, thicknessMm: Num(0, 2000), slopeDeg: Num(0, 89),
     }).strict()).min(1),
-    /** Add-on tiles against shaped charges (M7.4b; reactive or similar): a shaped-charge hit on that part and face
-     *  uses up one `item` from the vehicle's container (counted) and needs `factor` times the penetration. */
-    tiles: z.array(z.object({ part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), item: Id, factor: Num(1, 20) }).strict()).optional(),
+    /** Add-on tiles on a part and face, counted items of the vehicle's container (each `item` stowed, one row per
+     *  item). Exactly one of:
+     *  - `factor` (M7.4b, fixture): a shaped-charge hit uses up one tile and needs `factor` times the penetration;
+     *  - `coverage` (M7.6a, explosive reactive armour): the item has a `reactive` block; a hit meets a live tile with
+     *    chance `coverage * tiles left / tiles fitted` (fitted = the stowed count), uses it up and adds the tile's
+     *    mm to the need (kinetic rounds: heavy rounds at or above its trigger only). */
+    tiles: z.array(z.object({
+      part: z.enum(["hull", "turret"]), face: z.enum(["front", "side", "rear", "top"]), item: Id, factor: Num(1, 20).optional(), coverage: Num(0, 1).optional(),
+    }).strict().refine((t) => (t.factor === undefined) !== (t.coverage === undefined), "a tile has exactly one of factor or coverage")).optional(),
   }).optional(),
   /** Parts inside and outside the hull a penetrating round can damage (M7.4a). Box in the part's frame (turret:
    *  about the turret pivot); toughnessMm: residual penetration that wrecks it outright (less: that share of its

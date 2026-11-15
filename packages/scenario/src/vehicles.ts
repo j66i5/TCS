@@ -30,11 +30,16 @@ export interface VehicleBattleOptions {
   timeLimitSeconds?: number;
 }
 
-/** The first crew template of a fighting vehicle (not an ambulance) of a faction, by id order. */
+/** The first crew template of a fighting vehicle that carries a squad (not an ambulance, not a tank) of a faction,
+ *  by id order. */
 export function crewTemplateOf(data: DataSet, faction: string): string {
   const pack = data.factions[faction];
-  // (M10.6-data: a fighting vehicle's crew, not an ambulance's: ambulances come from off the map, M10.6a.)
-  const fighting = (id: string) => { const v = pack!.units[id]!.vehicle; return v !== undefined && pack!.vehicles[v]?.ambulance === undefined; };
+  // (M10.6-data: a fighting vehicle's crew, not an ambulance's: ambulances come from off the map, M10.6a. M7.6a: a
+  // vehicle with passenger seats, so a tank never becomes the default carrier of these battles.)
+  const fighting = (id: string) => {
+    const v = pack!.units[id]!.vehicle, vd = v === undefined ? undefined : pack!.vehicles[v];
+    return vd !== undefined && vd.ambulance === undefined && vd.seats.some((q) => q.station === "passenger");
+  };
   const ids = pack ? Object.keys(pack.units).sort().filter(fighting) : [];
   if (ids.length === 0) throw new Error(`faction '${faction}' has no vehicle crew template`);
   return ids[0]!;
@@ -72,8 +77,9 @@ export function vehicleBattle(data: DataSet, opts: VehicleBattleOptions): Battle
         const seed = opts.seed * 131 + s * 17 + p * 7 + k;
         const crew = buildForce(data, { faction, template: crewT, seed, keyPrefix: `${key}-v${k + 1}`, number: p * per + k + 1 });
         const squad = buildForce(data, { faction, template: squadT, seed: seed + 1000, keyPrefix: `${key}-s${k + 1}`, number: p * per + k + 1 });
-        // The squad rides in this vehicle when it mounts (M7.2).
-        squad.carrierId = crew.key;
+        // The squad rides in this vehicle when it mounts (M7.2); a vehicle without passenger seats (a tank, M7.6a)
+        // carries nobody.
+        if (def.seats.some((q) => q.station === "passenger")) squad.carrierId = crew.key;
         subunits.push(crew, squad);
         // The vehicle: a fresh roster record (fuel full, stowage from data).
         vehicles.push({

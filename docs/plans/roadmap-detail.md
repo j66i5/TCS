@@ -338,7 +338,7 @@ player's medical orders and the wounded list.
 - **Acceptance:** supported-attack lab not worse; "support masked" time down 50 % or more; reserve committed in 50 %
   or more of attacks that take an objective.
 
-**20. D4b Infantry tactics pass 2: fire and the missing SPEC 6.6 orders** (M). Depends on 19.
+**20. D4b Infantry tactics pass 2: fire and the missing SPEC 6.6 orders** (M). Depends on 19. ✅ 2026-11-15 (DECISIONS "D4b"; win band an open owner question).
 - **Built:** fire distribution (MGs and marksmen on the most dangerous enemy); heard or reported contacts aimed at
   0.2-0.5 m, not 0.9 m; SPEC 6.6 gaps: an `ambush` order (hold fire until the enemy is inside a set range or the
   first shot), "defend an arc" as an explicit order, order hesitation for shaken men (refusal exists); "deploy

@@ -257,7 +257,8 @@ white flags on the map; the after-action review lists surrendered and captured m
 **Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e and is the current milestone.
 After it: D3 phone pass (✅ 2026-11-15: `?perf=1`, phone proxy, UI leftovers, roof atlas in a worker, F2/F3
 probes; the owner's phone numbers open) and D4 infantry tactics (the debt slot; D4a ✅ 2026-11-15: reserve, base of fire
-bounding and sidestepping when masked, shift fire, 16 m rushes; D4b next), then M8 → M9 → M7.6 (tanks, wheeled carriers,
+bounding and sidestepping when masked, shift fire, 16 m rushes; D4b ✅ 2026-11-15: fire distribution, low aim,
+ambush and defend-arc orders, hesitation; win band open), then M8 → M9 → M7.6 (tanks, wheeled carriers,
 Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
 `docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
 

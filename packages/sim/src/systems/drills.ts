@@ -31,7 +31,7 @@ import { navFor } from "../navctx";
 import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
-import { isCowering } from "./morale";
+import { firedOnTick, isCowering, scaleWhy } from "./morale";
 import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, spareMagazines } from "./fire";
 import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
@@ -416,18 +416,7 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
     // Every runner gave up (M6.6): the unit stays broken, nobody rallies.
     // mounted: ok a prisoner is never aboard
     if (men.length === 0 && unitSoldiers(state, uid).some((m) => isCaptive(state.soldier.get(m)))) { u.drill = null; return; }
-    if (men.length === 0 || (!men.some(moving) && state.tick - u.underFireTick >= secondsToTicks(D.rallyQuietSeconds))) {
-      for (const m of men) {
-        const s = state.soldier.req(m);
-        events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: m, from: "routed", to: "cautious" });
-        s.mental.behaviour = "cautious";
-        s.mental.stress *= D.rallyStressFactor;
-        s.mental.suppression = 0;
-        requestPosture(ctx, state, m, "prone");
-      }
-      u.broken = false; u.drill = null;
-      radio(state, uid, "radio.rallied", events);
-    }
+    if (men.length === 0 || (!men.some(moving) && state.tick - firedOnTick(u) >= secondsToTicks(D.rallyQuietSeconds))) rallyRouted(ctx, state, uid, events);
     return;
   }
   if (d.phaseTick < 0) { startPhase(ctx, state, uid, d, events); return; }
@@ -499,6 +488,33 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
   }
 }
 
+/**
+ * A broken unit rallies (quiet for `rallyQuietSeconds` after its run, or its parent's leader rallied it, morale.ts):
+ * its runners stop, shaken (morale rework 2026-11-15; their shock eased by `rallyStressFactor`), and lie down.
+ */
+export function rallyRouted(ctx: SimContext, state: SimState, uid: EntityId, events: EventSink): void {
+  const D = ctx.catalog.behaviour.drills, u = state.unit.req(uid);
+  if (!u.broken) return;
+  // mounted: ok a routed man is on foot
+  for (const m of footSoldiers(state, uid)) {
+    const s = state.soldier.req(m);
+    if (!isAble(s) || s.mental.behaviour !== "routed") continue;
+    events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: m, from: "routed", to: "shaken" });
+    s.mental.behaviour = "shaken";
+    s.mental.stress *= D.rallyStressFactor;
+    scaleWhy(s, D.rallyStressFactor, false);
+    s.mental.suppression = 0;
+    s.mental.panicTick = -1e9;
+    const mv = state.mover.get(m);
+    if (mv) { mv.waypoints = []; mv.speedMps = 0; }
+    requestPosture(ctx, state, m, "prone");
+  }
+  u.broken = false; u.drill = null;
+  // (It does not break again at once: the guard of its first minutes under fire applies anew.)
+  u.morale.rallied = state.tick; u.morale.lowSince = -1; u.morale.state = "shaken";
+  radio(state, uid, "radio.rallied", events);
+}
+
 /** Break a unit: its men run back from the enemy they know. */
 function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: EventSink): void {
   const D = ctx.catalog.behaviour.drills, u = state.unit.req(uid);
@@ -509,6 +525,7 @@ function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: Even
   if (enemy) { const L = hypot2(c.x - enemy.x, c.y - enemy.y) || 1; ax = (c.x - enemy.x) / L; ay = (c.y - enemy.y) / L; }
   const rx = Math.min(Math.max(c.x + ax * D.rallyDistanceM, 5), ctx.map.widthM - 5), ry = Math.min(Math.max(c.y + ay * D.rallyDistanceM, 5), ctx.map.heightM - 5);
   u.broken = true;
+  u.morale.state = "broken";
   for (const k of u.children) clearDrills(state, k);
   // (D4b: running back, they defend no arc any more.)
   clearArcsUnder(state, uid);
@@ -529,6 +546,7 @@ function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: E
   const s = state.soldier.req(m);
   const from = s.mental.behaviour;
   s.mental.behaviour = "routed";
+  s.mental.flee = null;
   events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: m, from, to: "routed" });
   state.fire.delete(m);
   s.intent = null;
@@ -599,13 +617,16 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
   const D = ctx.catalog.behaviour.drills;
   if (state.tick % Math.max(1, secondsToTicks(D.stepSeconds)) !== 0) return;
   for (const [uid, u] of state.unit.entries()) {
-    // ---- break: half the able men of a top unit panic
-    if (u.parent === null) {
+    // ---- break (any echelon, morale rework 2026-11-15): the unit's morale state says so (morale.ts: half its able
+    // men panicked, its morale very low for a while, or half its squads broken; not in its first minutes under fire)
+    if (u.vehicle === undefined && u.asset === undefined) {
       const men = footSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)));
-      const panicked = men.filter((m) => state.soldier.req(m).mental.behaviour === "panicked");
-      if (!u.broken && men.length > 0 && panicked.length > 0 && panicked.length >= D.breakPanickedFraction * men.length) { breakUnit(ctx, state, uid, events); continue; }
+      if (!u.broken && men.length > 0 && u.morale.state === "broken") { breakUnit(ctx, state, uid, events); continue; }
       // In a broken unit, a man who panics later runs too.
-      if (u.broken && u.drill?.kind === "rout") for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
+      if (u.broken && u.drill?.kind === "rout") {
+        const panicked = men.filter((m) => state.soldier.req(m).mental.behaviour === "panicked");
+        for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
+      }
     }
     // ---- react to contact: on the move, fired upon anew since the move began; only the men carrying this move
     // (its own, and sub-units without a move of their own) or a unit of the platoon close by (reactNeighbourM)

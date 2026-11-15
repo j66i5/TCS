@@ -50,7 +50,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     movementModes[m.id] = def;
   }
   const qualities: Catalog["qualities"] = {};
-  for (const q of Object.values(data.qualities)) qualities[q.id] = { id: q.id, skills: { ...q.skills } };
+  for (const q of Object.values(data.qualities)) qualities[q.id] = { id: q.id, skills: { ...q.skills }, morale: { ...q.morale } };
   // Weapons and ammunition of the factions taking part.
   const ammo: Catalog["ammo"] = {};
   const weapons: Catalog["weapons"] = {};

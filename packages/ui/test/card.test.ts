@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
+import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, mentalStatus, moraleReasons, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
+import { MORALE_SOURCES } from "@tcs/sim";
 import { Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
 import { ICON_NAMES, icon, paceIcon } from "../src/icons";
@@ -102,6 +103,39 @@ describe("unit card snapshots (S6)", () => {
     delete s.triage;
     Object.assign(s, keep);
     Object.assign(sim.state.soldier.req(by), keepBy);
+  });
+  it("morale (rework 2026-11-15): the box shows mental.morale, its reasons and what helps; a wounded panicked man shows both badges", () => {
+    const rows0 = unitMenRows(sim.state, cat, squad.unit);
+    const id = rows0[4]!.id;
+    const s = sim.state.soldier.req(id);
+    const keep = structuredClone(s);
+    delete s.mount;
+    s.mental.morale = 0.37; s.mental.behaviour = "panicked"; s.mental.flee = { x: 0, y: 0, untilTick: 999 };
+    s.mental.why = s.mental.why.map(() => 0);
+    s.mental.why[6] = 0.3; s.mental.why[7] = 0.2; s.mental.why[0] = 0.01; // comrades hit, leader lost; under fire too small
+    s.wounds.push({ id: 1, zone: "legL", mechanism: "penetrating", severity: 0.3, bleedingLps: 0, compressible: true, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] } as never);
+    const h = simHash(sim);
+    const d = manDetail(sim.state, cat, id)!;
+    expect(simHash(sim)).toBe(h);
+    expect(d.morale).toBe(0.37);
+    expect(d.behaviour).toBe("fleeing");
+    expect(d.reasons).toEqual(["comradeHit", "leaderLost"]);
+    expect(mentalStatus(s)).toBe("fleeing");
+    const row = unitMenRows(sim.state, cat, squad.unit)[4]!;
+    expect(row.status).toBe("serious");
+    expect(row.mental).toBe("fleeing");
+    expect(moraleReasons(s, 0.04)).toEqual(["comradeHit", "leaderLost"]);
+    // Every key the box and the sidebar build is in the string table.
+    const t = new Strings(loadData(), "en");
+    const keys = [...MORALE_SOURCES.map((k) => `morale.reason.${k}`), "morale.relief.leaderNear", "morale.relief.rallied", "card.moraleWhy", "card.moraleHelp", "behaviour.fleeing",
+      "man.activity.fleeing", "side.morale", "unitMorale.steady", "unitMorale.shaken", "unitMorale.pinned", "unitMorale.broken", "radio.squadShaken", "radio.rallying"];
+    for (const k of keys) expect(t.has(k), k).toBe(true);
+    Object.assign(s, keep);
+  });
+  it("the sidebar shows each squad's morale", () => {
+    const t = unitTiles(sim.state, "blue", cat).find((x) => x.kind === "infantry")!;
+    expect(t.morale).toBe(100);
+    expect(t.moraleState).toBe("steady");
   });
   it("the ammunition bar: one cell per magazine, the loaded one first", () => {
     expect(ammoCells({ loaded: 15, capacity: 30, spareMags: 3, spareRounds: 90 })).toEqual({ fill: [0.5, 1, 1, 1], more: 0 });

@@ -336,7 +336,10 @@ describe("defend arc ends (D4b review F6, F8)", () => {
     const [, team1] = byKey(sim, "t1"), [, platoon] = byKey(sim, "p");
     team1.arc = { ...ARC };
     platoon.arc = { ...ARC };
-    // (A top unit breaks when half its able men panic.)
+    // (A top unit breaks when half its able men panic, once past its break guard (long under fire) and its loss gate
+    // (topBreakLossShare): both set by hand, as in morale-rework.test.ts.)
+    platoon.morale.firstContact = -1e6;
+    platoon.morale.lost = Math.ceil(platoon.morale.start * 0.5);
     for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") for (const m of u.members) { const s = sim.state.soldier.req(m).mental; s.stress = 0.95; s.suppression = 0.8; }
     run(sim, 4);
     expect(platoon.broken).toBe(true);

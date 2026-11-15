@@ -14,11 +14,11 @@
  */
 import type { Insignia, Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
-import { isAble, isOut, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
+import { isAble, isOut, MORALE_SOURCES, secondsToTicks, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
 import type { UnitRules } from "./hud";
 import { icon, paceIcon } from "./icons";
 import { insigniaSvg } from "./insignia";
-import { statusPictogram, type ManStatus } from "./pictograms";
+import { mentalPictogram, statusPictogram, type ManStatus } from "./pictograms";
 import { unitSoldierIds } from "./orders-for";
 
 /** A man's state as the card shows it (worst first: captive, down, wounded, pinned, shaken, steady). */
@@ -41,6 +41,8 @@ export interface ManRow {
   leader: boolean;
   /** His triage tag (M10.3b): 1 = T1 immediate .. 3 = T3 minimal; absent: not triaged (or dead, or a prisoner). */
   triage?: 1 | 2 | 3;
+  /** His state of mind beside the pictogram (morale rework): absent while steady. */
+  mental?: MentalStatus;
 }
 
 type Man = NonNullable<ReturnType<SimView["soldier"]["get"]>>;
@@ -80,6 +82,37 @@ export function manStatus(s: Man): ManStatus {
   if (b === "shaken") return "shaken";
   if (s.mount !== undefined) return "mounted";
   return "ready";
+}
+
+/** His state of mind as the second badge shows it (morale rework 2026-11-15): null while steady. A wounded and
+ *  panicked man shows both his wound (`manStatus`) and this. */
+export type MentalStatus = "shaken" | "pinned" | "panicked" | "fleeing" | "routed";
+export function mentalStatus(s: Man): MentalStatus | null {
+  if (s.captive !== null || isOut(s) || !isAble(s)) return null;
+  const b = s.mental.behaviour;
+  if (b === "panicked") return s.mental.flee ? "fleeing" : "panicked";
+  if (b === "pinned" || b === "shaken" || b === "routed") return b;
+  return null;
+}
+
+/** The two largest reasons for his lost morale (`morale.reason.<source>` keys' sources), largest first. */
+export function moraleReasons(s: Man, min: number): string[] {
+  const w = s.mental.why ?? [];
+  const idx = MORALE_SOURCES.map((_, i) => i).filter((i) => (w[i] ?? 0) >= min).sort((a, b) => (w[b] ?? 0) - (w[a] ?? 0) || a - b);
+  return idx.slice(0, 2).map((i) => MORALE_SOURCES[i]!);
+}
+
+/** What is helping him now (one `morale.relief.` key), or null: rallied lately, or his leader near. */
+export function moraleRelief(view: SimView, catalog: Catalog, id: EntityId, s: Man): string | null {
+  if (s.captive !== null || !isAble(s)) return null;
+  if (view.tick - s.mental.rallyTick <= secondsToTicks(catalog.behaviour.morale.rally.reliefShowS)) return "rallied";
+  const u = view.unit.get(view.identity.get(id)?.unit ?? -1);
+  const l = u?.leader ?? null;
+  if (l === null || l === id) return null;
+  const ls = view.soldier.get(l), a = view.transform.get(id), b = view.transform.get(l);
+  const r = catalog.behaviour.morale.damp.leaderNearM;
+  if (!ls || !isAble(ls) || !a || !b || (ls.mount === undefined) !== (s.mount === undefined)) return null;
+  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) <= r * r ? "leaderNear" : null;
 }
 
 /** His weapon's rounds (null without a weapon that takes magazines or belts). */
@@ -163,7 +196,9 @@ export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId, own
     // (No soldier record left for a listed man: shown as missing rather than dropped.)
     if (!s) { out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: null, ammo: null, state: "down", status: "missing", leader: leaders.has(id) }); continue; }
     const tag = triageOf(s);
-    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), leader: leaders.has(id), ...(tag ? { triage: tag.cat } : {}) });
+    // (The second badge only where the status picture shows his body: wounded or aboard; shaken and pinned show there.)
+    const status = manStatus(s), mental = status === "wounded" || status === "serious" || status === "mounted" ? mentalStatus(s) : null;
+    out.push({ id, faction: i.faction, role: i.role, rank: i.rank, family: i.family, weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status, leader: leaders.has(id), ...(tag ? { triage: tag.cat } : {}), ...(mental ? { mental } : {}) });
   }
   return out;
 }
@@ -198,6 +233,7 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   if (s.crawlCover !== undefined && (view.mover.get(id)?.waypoints.length ?? 0) > 0) return { key: "crawling" };
   if (s.intent?.kind === "care") return { key: "care" };
   const b = s.mental.behaviour;
+  if (b === "panicked" && s.mental.flee) return { key: "fleeing" };
   if (b === "panicked" || b === "routed") return { key: b };
   const intent = s.intent?.kind;
   if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone") return { key: intent };
@@ -222,12 +258,17 @@ export interface ManDetail {
   ammo: AmmoState | null;
   state: ManState;
   status: ManStatus;
+  /** His state word (`behaviour.<key>`; "fleeing" for a panicked man running back). */
   behaviour: string;
-  /** 0..1 each (morale: 1 = high). */
+  /** 0..1 each (morale: 1 = high; stress: his shock, strain: his slow wear). */
   fatigue: number;
   stress: number;
+  strain: number;
   suppression: number;
   morale: number;
+  /** Why his morale is down (up to two `morale.reason.` sources) and what helps (a `morale.relief.` key). */
+  reasons: string[];
+  relief: string | null;
   heartRateBpm: number;
   winded: boolean;
   /** Wounds that broke the skin (as in the after-action review), worst first. */
@@ -244,8 +285,9 @@ export function manDetail(view: SimView, catalog: Catalog, id: EntityId): ManDet
   return {
     id, given: i.given, family: i.family, rank: i.rank, role: i.role, faction: i.faction,
     callsign: shownCallsigns(view.unit.entries()).get(i.unit) ?? view.unit.get(i.unit)?.callsign ?? "",
-    weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), behaviour: s.mental.behaviour,
-    fatigue: s.physical.fatigue, stress: s.mental.stress, suppression: s.mental.suppression, morale: s.mental.morale,
+    weapon: view.weapon.get(id)?.weapon ?? null, ammo: ammoOf(view, catalog, id), state: manState(s), status: manStatus(s), behaviour: s.mental.behaviour === "panicked" && s.mental.flee ? "fleeing" : s.mental.behaviour,
+    fatigue: s.physical.fatigue, stress: s.mental.stress, strain: s.mental.strain, suppression: s.mental.suppression, morale: s.mental.morale,
+    reasons: isAble(s) && s.captive === null ? moraleReasons(s, catalog.behaviour.morale.states.whyMin) : [], relief: moraleRelief(view, catalog, id, s),
     heartRateBpm: s.physical.heartRateBpm, winded: s.physical.winded,
     wounds: s.wounds.filter((w) => w.mechanism !== "blunt").map((w) => ({ zone: w.zone, severity: w.severity })).sort((a, b) => b.severity - a.severity),
     activity: activityOf(view, id),
@@ -510,7 +552,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           rows.set(r.id, e);
         }
         const a = r.ammo;
-        const key = `${r.status}|${r.state}|${r.rank}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}|${insignia ? 1 : 0}|${r.triage ?? ""}`;
+        const key = `${r.status}|${r.state}|${r.rank}|${r.role}|${r.weapon}|${a ? `${a.loaded}/${a.spareMags}/${a.spareRounds}` : ""}|${r.leader}|${insignia ? 1 : 0}|${r.triage ?? ""}|${r.mental ?? ""}`;
         if (key !== e.key) {
           e.key = key;
           const rankName = text(`rank.${r.faction}.${r.rank}`, r.faction), statusName = s.t(`card.status.${r.status}`);
@@ -518,12 +560,15 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           e.b.dataset["status"] = r.status;
           // His triage tag (M10.3b) sits in the pictogram cell's corner slot.
           const tag = r.triage ? `<span class="hud-man-tag"><span class="hud-triage t${r.triage}" title="${s.t(`card.triage.${r.triage}`)}">${s.t(`card.triage.short.${r.triage}`)}</span></span>` : "";
-          e.b.innerHTML = `<span class="hud-man-mark">${statusPictogram(r.status, 20, statusName)}${tag}</span>`
+          // His state of mind as a second badge (morale rework): shown beside a wound too.
+          const mentalName = r.mental ? s.t(`behaviour.${r.mental}`) : "";
+          const badge = r.mental ? `<span class="hud-man-mental ms-${r.mental}" title="${esc(mentalName)}">${mentalPictogram(r.mental, 12, mentalName)}</span>` : "";
+          e.b.innerHTML = `<span class="hud-man-mark">${statusPictogram(r.status, 20, statusName)}${tag}${badge}</span>`
             + `<span class="hud-man-rank">${insigniaSvg(insignia?.[r.faction], r.rank, 34, rankName)}</span>`
             + `<span class="hud-man-role">${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`
             + `<span class="hud-man-weapon">${r.weapon ? text(`weapon.${r.weapon}`, r.faction) : ""}</span>`
             + fmtAmmo(a);
-          e.b.title = `${rankName} ${r.family} · ${statusName}`;
+          e.b.title = `${rankName} ${r.family} · ${statusName}${r.mental ? ` · ${mentalName}` : ""}`;
         }
         e.b.classList.toggle("inspected", inspected === r.id);
         if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
@@ -568,13 +613,16 @@ export interface ManBox {
   setInsignia(t: Readonly<Record<string, Insignia>> | undefined): void;
 }
 
-/** A bar of 0..1 with a label (fatigue, stress, ...); `bad`: high values are bad (drawn warmer). */
-function bar(label: string, v: number, bad: boolean): string {
+/** A bar of 0..1 with a label (fatigue, suppression, ...); `bad`: high values are bad (drawn warmer); `col`: its colour. */
+function bar(label: string, v: number, bad: boolean, col?: string, word?: string): string {
   const x = Math.max(0, Math.min(1, v));
   const warm = bad ? x : 1 - x;
-  const col = warm > 0.66 ? "#ff6b57" : warm > 0.33 ? "#ffd23d" : "#8fd36a";
-  return `<div class="hud-manbox-bar"><span>${label}</span><i><b style="width:${Math.round(x * 100)}%;background:${col}"></b></i><em>${Math.round(x * 100)} %</em></div>`;
+  const c = col ?? (warm > 0.66 ? "#ff6b57" : warm > 0.33 ? "#ffd23d" : "#8fd36a");
+  return `<div class="hud-manbox-bar"><span>${label}</span><i><b style="width:${Math.round(x * 100)}%;background:${c}"></b></i><em>${Math.round(x * 100)} %${word ? ` ${word}` : ""}</em></div>`;
 }
+
+/** The morale bar's colour by his state (green steady, amber shaken, orange pinned, red panicked or running). */
+const MORALE_COLOUR: Record<string, string> = { steady: "#8fd36a", cautious: "#8fd36a", shaken: "#ffd23d", pinned: "#ff9f43", panicked: "#ff6b57", fleeing: "#ff6b57", routed: "#ff6b57" };
 
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
@@ -613,8 +661,10 @@ export function createManBox(s: Strings, onClose: () => void): ManBox {
         + `<div class="hud-manbox-line">${d.weapon ? esc(s.t(`weapon.${d.weapon}`, {}, f)) : esc(s.t("card.noWeapon"))}${a ? ` · ${esc(s.t("card.rounds", { loaded: a.loaded, spare: a.spareRounds, mags: a.spareMags }))}` : ""}</div>`
         + `<div class="hud-manbox-line"><b>${esc(s.t("card.doing"))}</b> ${esc(doing)}</div>`
         + `<div class="hud-manbox-line"><b>${esc(s.t("card.stateLabel"))}</b> ${esc(s.t(`behaviour.${d.behaviour}`))}${d.winded ? ` · ${esc(s.t("card.winded"))}` : ""} · ${esc(s.t("card.pulse", { bpm: Math.round(d.heartRateBpm) }))}</div>`
-        + bar(s.t("card.fatigue"), d.fatigue, true) + bar(s.t("card.suppression"), d.suppression, true)
-        + bar(s.t("card.stress"), d.stress, true) + bar(s.t("card.morale"), d.morale, false)
+        + bar(s.t("card.morale"), d.morale, false, MORALE_COLOUR[d.behaviour] ?? "#9aa4ad", esc(s.t(`behaviour.${d.behaviour}`)))
+        + (d.reasons.length > 0 || d.relief ? `<div class="hud-manbox-line hud-manbox-why">${d.reasons.length > 0 ? `<b>${esc(s.t("card.moraleWhy"))}</b> ${d.reasons.map((r) => esc(s.t(`morale.reason.${r}`))).join(", ")}` : ""}`
+          + `${d.relief ? `${d.reasons.length > 0 ? " · " : ""}<b>${esc(s.t("card.moraleHelp"))}</b> ${esc(s.t(`morale.relief.${d.relief}`))}` : ""}</div>` : "")
+        + bar(s.t("card.suppression"), d.suppression, true) + bar(s.t("card.fatigue"), d.fatigue, true)
         + `<div class="hud-manbox-line"><b>${esc(s.t("card.wounds"))}</b> ${d.wounds.length === 0 ? esc(s.t("card.noWounds")) : d.wounds.map((w) => esc(`${s.t(`zone.${w.zone}`)} (${sev(w.severity)})`)).join(", ")}</div>`
         + (d.triage ? `<div class="hud-manbox-line"><b>${esc(s.t("card.triage"))}</b> <span class="hud-triage t${d.triage.cat}">${esc(s.t(`card.triage.short.${d.triage.cat}`))}</span> ${esc(s.t("card.triage.by", { cat: s.t(`card.triage.${d.triage.cat}`), role: s.t(`role.${d.triage.byFaction}.${d.triage.byRole}`, {}, d.triage.byFaction) }))}</div>` : "");
       if (html !== last) { last = html; body.innerHTML = html; }

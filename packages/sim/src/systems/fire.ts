@@ -13,7 +13,7 @@
  */
 import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
-import { fireRateFactor, isCowering } from "./morale";
+import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
 import type { Contact, FireTask, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
@@ -75,7 +75,7 @@ export function aimErrorMrad(ctx: SimContext, state: SimState, id: EntityId, w: 
   const onTheMove = task?.onTheMove === true && mv !== undefined && mv.speedMps > 0.2 ? ctx.catalog.behaviour.soldier.assaultFireAimFactor : 1;
   return onTheMove * settle * braced * a.baseMrad * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * a.postureFactor[s.posture]
     * (1 + a.fatigueK * s.physical.fatigue) * (1 + a.heartRateK * hr) * (1 + a.suppressionK * s.mental.suppression)
-    * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim;
+    * (a.sightFactor[sight] ?? 1) * (aimed || sus ? 1 : a.rapidFactor) * (1 + a.burstGrowth * (sus ? sus.recoilFactor : 1) * w.burstIndex) * s.impair.aim * aimErrorFactor(ctx, s);
 }
 
 /** A wall or the ground this close to the point fired at does not count as blocking: it is the target. */

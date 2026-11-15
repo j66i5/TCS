@@ -96,6 +96,11 @@ function givesUp(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState
   const R = ctx.catalog.behaviour.surrender;
   const scared = s.mental.behaviour === "panicked" || s.mental.behaviour === "routed";
   const downed = isDowned(s);
+  // A broken unit of the defence that the enemy has outflanked gives up together once the enemy is close (morale
+  // rework 2026-11-15; attackers never: they run back).
+  const u = state.unit.get(state.identity.req(id).unit);
+  const cut = !downed && u !== undefined && u.broken && u.morale.flanked && (R.brokenFlankedEnemyM ?? 0) > 0 && s.mount === undefined;
+  if (cut && !attacking(state, id) && nearestKnownEnemy2(ctx, state, id, s) <= R.brokenFlankedEnemyM! * R.brokenFlankedEnemyM!) return "routed";
   if (!scared && !downed) return null;
   // Attackers (the attacking side, or any unit in an assault) are less likely to give up (owner).
   const att = attacking(state, id);

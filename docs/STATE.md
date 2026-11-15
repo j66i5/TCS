@@ -1,10 +1,24 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
+_Last updated: 2026-11-15 (morale rework; M10 review fixes after M10.8; M10 Medical complete). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **Morale rework (2026-11-15, branch `claude/morale-rework`; owner report "morale is almost always at 100").**
+  morale = resolve x (1 - shock) x (1 - strain) per man (`mental.morale` is now the sim's value; `mental.stress` is the
+  shock, new `strain`, `nerve`, `why`, `flee`); the four driver groups (leadership/cohesion, losses/wounded,
+  fire/danger, success/support), graded states with hysteresis (shaken 0.60/0.70, pinned by quality, panicked
+  0.25/0.40 cowering or fleeing 50-150 m), the leader's `rally` action, `Unit.morale` with breaks for any echelon
+  (rout drill; platoon leader's squad rally), quality block in `qualities.json`, AI no assault by pinned/broken/badly
+  shaken squads, group surrender of broken outflanked defenders. UI: Morale bar with state word, "Why"/"Helping"
+  reasons, second badge in the Men list, squad morale in the unit list. Lab `npm run lab -- morale`. Batches and the
+  acceptance table in DECISIONS "Morale rework". Review fixes (DECISIONS "Morale rework: review fixes"): each man
+  one loss, squads' break guard from their own men under fire, no break within 2 min of a rally, defenders hold to 40 %
+  losses. **Open:** platoon breaks still end 17 of 40 batch battles (baseline 11, target 5-35 %), casualties -23 %,
+  outflanking rare (0.7 % of squad-time; no flanking lab yet), the five owner questions of the design (aboard men, fleeing, an
+  explicit Rally order — not built, automatic only —, squad breaks, fresh troops below 100 %); order delays and
+  pinned men refusing moves (design section 7) not built.
 - **Slice 42, M7.6d Russian assault group and support weapons (2026-11-15, branch `claude/medical-ambulance-smoke`,
   parallel session).** The GTK Boxer with the 40 mm GMW as a variant (`de-boxer-gtk-gmw`; the Jaegerzug's Boxer 1 and
   3 carry it), the SVD in the BTR squad, automatic grenade launcher teams on foot (`crewServed.kind "agl"`, the

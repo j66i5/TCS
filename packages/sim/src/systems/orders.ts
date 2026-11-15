@@ -308,7 +308,7 @@ function hesitationTicks(ctx: SimContext, state: SimState, p: PendingOrder): num
   const isUnit = state.unit.has(o.target);
   const own = isUnit && o.own === true;
   if (isUnit) {
-    if (state.unit.req(o.target).vehicle !== undefined || (!own && vehicleChildren(state, o.target).length > 0) || hasRiders(state, o.target, own)) return 0;
+    if (state.unit.req(o.target).vehicle !== undefined || (!own && vehicleChildren(state, o.target).length > 0) || hasRiders(ctx, state, o.target, own)) return 0;
   } else if (state.soldier.get(o.target)?.mount !== undefined) return 0;
   // (The same men applyOrder would move: able, not routed, on foot, not busy with a casualty.)
   const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, o.target) : [o.target]).filter((m) => {
@@ -407,7 +407,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "drone") {
     const rider = order.op === "fly" && order.dismount === true && !afterDismount ? droneRiderOf(ctx, state, order.target) : null;
     if (rider !== null) {
-      const res = dismountThen(state, { ...order, target: rider }) ?? "unable";
+      const res = dismountThen(ctx, state, { ...order, target: rider }) ?? "unable";
       if (res === true) radioFromTarget(state, order.target, "radio.dismountFirst", events);
       return res;
     }
@@ -448,11 +448,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // halt need nobody to get out.
   const passThrough = order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
   if (!afterDismount && !passThrough && crewOf === undefined && vehicles.length === 0) {
-    const aboard = isUnit ? hasRiders(state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
+    const aboard = isUnit ? hasRiders(ctx, state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
       if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
       else if (isUnit) clearDrills(state, order.target);
-      const res = dismountThen(state, order) ?? "unable";
+      const res = dismountThen(ctx, state, order) ?? "unable";
       if (res === true) radioFromTarget(state, order.target, "radio.dismountFirst", events);
       return res;
     }
@@ -492,7 +492,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
-  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
+  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(ctx, state, order.target, own)) && (order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
   if (soldiers.length === 0 && !ridersOnly) {
     if (vehicleRes !== null) return vehicleRes; // only vehicles under it: their answer
     // Nobody left to obey: the unit is neither moving nor firing any more.

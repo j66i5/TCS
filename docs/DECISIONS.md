@@ -6281,6 +6281,118 @@ catalog fingerprint, and the behaviour changes below change the battles. `golden
   tests pass (`npm test` 439 s under load from other sessions); the timing tests failed under that load (load
   average 12 on 4 cores, render perf too) and passed when rerun alone (23/23).
 
+## 2026-11-15 — Morale rework (owner: "morale is almost always at 100"; design in the session's DESIGN.md; goldens regenerated)
+
+- **Model** (sim/systems/morale.ts): morale = resolve x (1 - shock) x (1 - strain). Resolve from the unit's quality
+  (new `qualities.json` `morale`: resolve 0.85/0.93/1.0, pinSuppression 0.5/0.6/0.7, recovery 0.75/1/1.3, bond
+  0.45/0.6/0.75, fatigueCost 0.4/0.3/0.25), the man's nerve (stream `morale`, N(0.5, 0.15), same for every side),
+  fatigue and heavy squad losses. Shock = `mental.stress` (field kept: roster, `law.breach`, saves), strain new. Kicks
+  saturate and are scaled by susceptibility (experience, leader near x(1 - 0.5 L), mates, bond, cover, own armour,
+  darkness only with `environment.sky`). Values: `behaviour.json` `morale` (replaces `stress` and `states`), all
+  `confidence: low`, sources the Dupuy Institute and Wong extracts.
+- **Deviations from the design** (software decisions): fire alone is capped at 0.5 of shock (`underFireCap`; without
+  it 55 s of a rifle team at 190 m panicked the target team); a unit breaks below 0.22 for 20 s (design 0.3 / 10 s:
+  211 squad breaks per 40 battles); heavy-loss exception at half the men (design a third) and never for a top unit;
+  a top unit breaks only after losing a fifth of its men (`topBreakLossShare`); no break within 2 min of a rally;
+  the untreated-wound creep shares the "wounded" reason slot (cap woundBase + untreatedCap); fleeing ends after 60 s.
+  Not built: the player's Rally order (open question 3), order delays for shaken men and pinned men refusing moves,
+  the darkness of "enemy close" exceptions, per-man armour scan every 2 s (done each 0.5 s step, early exit).
+- **Batches** (scratch sampler `sample2.mts`, 10 seeds x 1200 s each of platoon, platoon-ru, platoon-vehicles,
+  platoon-ru-vehicles; before = origin/main 95b20d6):
+
+  | # | target | before | after |
+  |---|---|---|---|
+  | 1 | men whose morale goes below 1 | 0 % | 99.5 % |
+  | 2 | steady share of able man-time 60-85 % | 98.3 % | 84.8 % (shaken 9.9, pinned 1.0, panicked 1.5, fleeing 0.2, routed 2.6) |
+  | 3 | engaged men's morale <= 0.75 | 1.0 | 0.50 |
+  | 4 | wounded untreated <= 0.65 / >= 40 % shaken+; treated <= 0.8 | 1.0 / 12 % / 1.0 | 0.43 / 81 % / 0.55 |
+  | 5 | squad mate killed within 10 m: drop >= 0.15 at 10 s, >= 0.08 at 60 s | 0 / 0 | 0.28 / 0.26 (n 258) |
+  | 9 | own hull penetrated: >= 50 % aboard shaken+ within 10 s | 64 % | 92 % |
+  | 10 | early break (own first 120 s, not heavy loss) in <= 5 % of runs; platoon break loses 5-35 % | 2 of 40; 11 of 40 | 2 of 40; **22 of 40 (missed)** |
+  | 11 | time-limit share up <= 10 points; casualties within +-30 % | 65 %; 35.9 | 42.5 %; 25.6 (-29 %) |
+  | 12 | panic surrenders > 0, < 10 % of casualties, none by attackers | 1 (0.1 %) | 2 (0.2 %), 0 by attackers |
+
+  Per scenario (winners blue/red before -> after): platoon 6/4 -> 8/2, platoon-ru 0/10 -> 1/9, platoon-vehicles 6/4 ->
+  9/1, platoon-ru-vehicles 9/1 -> 9/1. Attackers now win more often in platoon (the small prepared defence breaks
+  after its losses): target 11's "attack against a prepared defence loses most of the time" was not met before either
+  (6/10) and is further off now — owner to judge. Squad breaks 199, rallies 361 per 40 battles.
+- **Lab** `npm run lab -- morale` (12 trials): leader + two men lost under light fire -> squad shaken or worse 100 %
+  for every quality (mean morale conscript 0.16, regular 0.28, veteran 0.41); PKP at 200 m for 120 s, leader lost:
+  panicked time conscript 16 %, regular 5 %, veteran 1 %; recovery once quiet: shaken -> steady median 28 s with the
+  leader, 44 s without; panicked -> shaken 17 s with a rally, 28 s without (all within 3 / 6 / 2 / 5 min targets;
+  recovery is faster than the design's example).
+- Tests: `sim/test/morale-rework.test.ts` (16), card/sidebar UI test, morale break in drills; seed moves (commander
+  test seed 9 -> 1: the attack now wipes out the defence before any assault; battle-record test seed 1 -> 2: no
+  treatment finished in 240 s), fire test (red reset before its answer; tolerance 1.3 shots per man), casualty lab
+  targets keep their nerve. **Goldens regenerated** (`npm run golden:update`; catalog fingerprint and behaviour
+  changed); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Morale rework: review fixes (goldens regenerated)
+
+Merged origin/main (M10 review fixes, README) first: conflicts in docs, `ui/card.ts` (both callsign and morale
+changes kept) and the goldens. Then the findings of the morale review, each checked against the code.
+**Goldens regenerated** (data and behaviour changed); `golden/no-interiors` untouched. `STATE_SCHEMA_VERSION` 20 -> 21
+with a migration that gives an older save neutral morale values (nerve 0.5, no strain, units steady and not yet under
+fire, start strength = their men now, men already down booked as losses), so it loads and steps instead of crashing.
+
+- **A man is one loss** (`mental.lossBooked`): before, a man down and then dead, or down and then surrendered, was
+  booked two or three times (260 of 1221 fallen men in the review runs; 101 units with `lost > start`), which
+  inflated the strain floor, resolve loss, the heavy-loss exception and the top unit's loss gate. The second event no
+  longer kicks his comrades again either. A man who comes round (not a prisoner) is unbooked (`unbookLoss`, wounds.ts).
+- **Break guard for squads and bailed-out crews**: `firedOnTick(u)` = max(`underFireTick`, `ownFireTick`). Before, a
+  squad on foot never got `firstContact` (only top units and crews were stamped), so it could break only by heavy loss,
+  and drills rallied a routed squad "after 30 s quiet" at once, even under fire. Both the guard and the rally's quiet
+  check now use it.
+- **No break within `minBreakSeconds` of a rally** (`rallied` is part of the guard, not only of the heavy-loss
+  exception): the break/rally loop (65 breaks of one crew in one battle, radio spam, relief for the enemy each time) is
+  gone; in the 40-battle batch every repeat break of a unit is at least 120 s after the last.
+- **A broken squad's routed men do not count as panic toward the parent's "half panicked"** (they count once, through
+  "half the squads broken").
+- **Squad rally** (`rallyUnit`) starts only once the routed men have stopped running, and its radio call respects
+  `rally.radioSpacingS` (it restarted every second while the runners left its reach).
+- **Top-unit gate tuned after the honest count**: `topBreakLossShare` 0.2 -> 0.3, new `topBreakLossShareDefence` 0.4
+  for a side whose posture is "defend" (Dupuy Institute extracts: defenders hold to higher losses; game values,
+  confidence low). With the double count fixed but the gate at 0.2, platoon breaks still decided 20 of 40 battles and the
+  prepared defence of platoon-ru broke at 32-33 % losses in 5 of 10.
+- **Outflanking** loosened: a unit counts the contacts of its whole top unit (a squad knows what the platoon reported),
+  and `flankSpanDeg` 140 -> 100, `flankRearDeg` 120 -> 90 (enemy in front and on a side counts). Flanked squad-time
+  0.0-0.5 % -> 0.2-1.1 % per scenario (0.7 % over all): still rare in these AI battles, where the enemy mostly stays in
+  one direction; a scripted flanking lab is left open.
+- **Values into data**: `damp.defaultLeadership/defaultExperience/leaderLowFactor`, `shock.leaderLostSubUnit`,
+  `shock.recentMax`, `states.fleeMaxExpansions`, `rally.squadShare`, `rally.reliefShowS` (the card's "rallied" window).
+  Dead `drills.breakPanickedFraction` removed. **Skipped:** `COMMANDER.assaultMinMorale` stays in `ai/commander.ts`:
+  every AI commander tunable lives in that constant (none of them is in data).
+- **Leftovers:** `rallyRouted` scales the shock reasons with the shock; panicked, fleeing and routed men get their own
+  badge in the Men list (a crouched figure, arms over the head) instead of the pinned picture.
+- **Skipped, no change:** quality differs little in mounted battles (penetrations and comrades killed inside the hull
+  dominate; acceptable per the review); the "confirmed working" finding.
+- Tests (`sim/test/morale-rework.test.ts`): a man down then dead is one loss and a man who comes round is none; a squad
+  on foot starts its guard from its own men under fire (no hand-set `firstContact`), breaks only after it and not again
+  within the guard after a rally; a broken squad's routed men do not break the platoon. A schema-20 save stripped of the
+  morale fields loads and steps. Other tests moved by the changed battles: the commander's assault-tempo bound +90 ->
+  +120 s (the advance takes 10 s longer on its seed); tanks-ai "never lead" seed 2 -> 3 (on seed 2 a tank runs 11-14 m
+  past the 30 m slack for two samples while every blue unit is steady: not a morale effect); attack lab: support must
+  not lower the win rate (both 1/16 now), its "hurts the defence more" check unchanged.
+- **Batch after** (same sampler, 10 seeds x 1200 s each of platoon, platoon-ru, platoon-vehicles, platoon-ru-vehicles;
+  "build" = the rework as first built):
+
+  | target | before (main) | build | now |
+  |---|---|---|---|
+  | men whose morale goes below 1 | 0 % | 99.5 % | 99.5 % |
+  | steady share of man-time 60-85 % | 98.3 % | 84.8 % | 85.4 % (shaken 9.6, pinned 1.0, panicked 1.0, fleeing 0.2, routed 2.9) |
+  | engaged men's morale <= 0.75 | 1.0 | 0.50 | 0.51 |
+  | wounded untreated <= 0.65 / >= 40 % shaken+; treated <= 0.8 | 1.0 / 12 % / 1.0 | 0.43 / 81 % / 0.55 | 0.45 / 81 % / 0.60 |
+  | mate killed within 10 m: drop at 10 s / 60 s | 0 / 0 | 0.28 / 0.26 | 0.29 / 0.26 |
+  | own hull penetrated: >= 50 % aboard shaken+ | 64 % | 92 % | 92 % |
+  | early break without heavy loss (runs) | 2 of 40 | 2 of 40 | 0 of 40 |
+  | platoon break decides the battle, 5-35 % | 11 of 40 | 22 of 40 | **17 of 40 (42.5 %, still missed)** |
+  | time-limit share | 65 % | 42.5 % | 50 % |
+  | casualties per battle (+-30 %) | 35.9 | 25.6 (-29 %) | 27.6 (-23 %) |
+  | panic surrenders (none by attackers) | 1 | 2 | 2, 0 by attackers |
+
+  Winners (blue/red) now: platoon 6/4 (main 6/4), platoon-ru 1/9 (0/10), platoon-vehicles 9/1 (6/4),
+  platoon-ru-vehicles 8/2 (9/1). Squad breaks 204, rallies 356 per 40 battles; most breaks by one unit 6 (was 65).
+  (The sampler now names a broken unit by the radio's sender: red callsigns repeat between platoons, "Gruppa 1".)
 ## 2026-11-15 — M7.6d Russian assault group and support weapons (roadmap-detail slice 42, parallel session)
 Owner not reachable; decisions D1-D9 of the slice plan, all logged here (data from search extracts only, so medium at
 most; game values low; the new low entries are in `docs/research/low-confidence.md`).
@@ -6477,3 +6589,17 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   the same tick. A replaced order emits `order.rejected` with the new reason `superseded` (no radio text; the
   renderer drops its marker). Golden `platoon-vehicles-s1` changed (AI orders to part of a hesitating unit, or that do
   not move it, no longer drop its hesitating order); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Merge of origin/main (D4b, M7.6d) into the morale rework (goldens regenerated)
+- `ambush.test.ts` "a unit that breaks ... defends no arc": the platoon's break is now forced the morale rework's way
+  (break guard over: `firstContact` long ago; past `topBreakLossShare`: half its men lost), as in
+  `morale-rework.test.ts`; panic alone no longer breaks a top unit. What it checks is unchanged: `breakUnit`
+  (drills.ts, the only place a unit is set broken) still clears the arcs under it.
+- `lab-attack.test.ts`: 32 trials instead of 16. At 16 the defence's losses with and without a supporting squad tied
+  (8 men down each, 0.083); over 48 trials support doubles them (9.0 % against 4.5 %; wins 5/48 against 0/48): a
+  small-sample tie, not a regression.
+- Sim fix (boarding.ts `atStation`): a passenger who took over a fallen operator's crew seat (seat swap, M7.6c review:
+  the GTK Boxer's commander with the FLW 200) stays at that station when his squad gets out; a dismount order to him
+  alone is "unable", as for crew. Before, the squad's dismount took him out and left the station empty (a second
+  passenger then swapped in and got out with the rest). `gtk-seatswap.test.ts` passed on main only because the old
+  morale broke the blue platoon at 37 s, before its squad ever got out. No golden changed.

@@ -99,6 +99,9 @@ function runOnce(catalog: Catalog, c: CasualtyCase, seed: number, row: CasualtyR
     if (t % 1200 === 240) for (let i = 0; i < pairs; i++) if (!done[i]) submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: sId[i]!, kind: "fire", x: tx, y: y(i), heightM: aimH });
     // Lab harness: the riflemen take their time (the table is about wounds, not about hurried first shots).
     for (const [, task] of sim.state.fire.entries()) task.startTick = -100000;
+    // (And the targets keep their nerve, morale rework 2026-11-15: a panicked man would get up and run, and the table
+    // is about where rounds strike a man in the given posture.)
+    for (const id of tId) { const m = sim.state.soldier.req(id).mental; m.stress = 0; m.strain = 0; }
     for (const e of step(sim)) {
       if (e.kind !== "hit") continue;
       const i = pairOf.get(e.target);

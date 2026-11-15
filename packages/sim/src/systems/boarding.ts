@@ -455,16 +455,28 @@ function carrierOf(state: SimState, uid: EntityId): EntityId | undefined {
   return undefined;
 }
 
-/** Passengers (not crew) of a unit's own members who are aboard and could get out on their own. */
-function ridersOf(state: SimState, uid: EntityId): EntityId[] {
+/**
+ * Does this man (aboard) sit in a crew seat, not a passenger's? A passenger who took over a fallen operator's seat
+ * (seat swap, M7.6c review: a GTK Boxer's commander) stays at that station when his squad gets out, as crew do.
+ */
+function atStation(ctx: SimContext, state: SimState, s: SoldierState): boolean {
+  const mt = s.mount;
+  if (mt === undefined) return false;
+  const v = state.vehicle.get(mt.vehicle);
+  const st = v ? ctx.catalog.vehicles[v.def]?.seats[mt.seat]?.station : undefined;
+  return st !== undefined && st !== "passenger";
+}
+
+/** Passengers (not crew, nor a passenger at a crew station) of a unit's own members who are aboard and could get out on their own. */
+function ridersOf(ctx: SimContext, state: SimState, uid: EntityId): EntityId[] {
   const u = state.unit.get(uid);
   if (!u || u.vehicle !== undefined) return [];
-  return u.members.filter((m) => { const s = state.soldier.get(m); return s?.mount !== undefined && walker(s); }).sort((a, b) => a - b);
+  return u.members.filter((m) => { const s = state.soldier.get(m); return s?.mount !== undefined && walker(s) && !atStation(ctx, state, s); }).sort((a, b) => a - b);
 }
 
 /** Does any foot unit of this subtree have men aboard who could get out (Q12)? */
-export function hasRiders(state: SimState, uid: EntityId, own = false): boolean {
-  return footUnits(state, uid, own).some((u) => ridersOf(state, u).length > 0);
+export function hasRiders(ctx: SimContext, state: SimState, uid: EntityId, own = false): boolean {
+  return footUnits(state, uid, own).some((u) => ridersOf(ctx, state, u).length > 0);
 }
 
 function setBoarding(state: SimState, uid: EntityId, b: Boarding): void {
@@ -507,22 +519,22 @@ function startDismount(state: SimState, uid: EntityId, men: EntityId[], then: Or
  * Orders to men aboard (Q12): a squad (or a man) still aboard gets out first, then carries the order out.
  * Returns null when the order is not for riders (the caller goes on as usual).
  */
-export function dismountThen(state: SimState, order: Order): OrderResult | null {
+export function dismountThen(ctx: SimContext, state: SimState, order: Order): OrderResult | null {
   const isUnit = state.unit.has(order.target);
   const body = toBody(order);
   if (!isUnit) {
     const s = state.soldier.get(order.target);
     if (s?.mount === undefined) return null;
     const uid = state.identity.req(order.target).unit;
-    if (state.unit.get(uid)?.vehicle !== undefined || !walker(s)) return "unable"; // crew stay at their stations
+    if (state.unit.get(uid)?.vehicle !== undefined || !walker(s) || atStation(ctx, state, s)) return "unable"; // crew stay at their stations
     startDismount(state, uid, [order.target], body, order.target);
     return true;
   }
-  const units = footUnits(state, order.target, order.own === true).filter((u) => ridersOf(state, u).length > 0);
+  const units = footUnits(state, order.target, order.own === true).filter((u) => ridersOf(ctx, state, u).length > 0);
   if (units.length === 0) return null;
   // The order goes with the target's own boarding if its own men ride, else with the first unit under it.
   const holder = units.includes(order.target) ? order.target : units[0]!;
-  for (const u of units) startDismount(state, u, ridersOf(state, u), u === holder ? body : null, u === holder && holder !== order.target ? order.target : undefined);
+  for (const u of units) startDismount(state, u, ridersOf(ctx, state, u), u === holder ? body : null, u === holder && holder !== order.target ? order.target : undefined);
   return true;
 }
 
@@ -545,7 +557,7 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
       for (const sid of v.seats) {
         if (sid === null) continue;
         const s = state.soldier.get(sid), uid = state.identity.get(sid)?.unit;
-        if (uid === undefined || !walker(s) || state.unit.get(uid)?.vehicle !== undefined) continue;
+        if (uid === undefined || !walker(s) || state.unit.get(uid)?.vehicle !== undefined || atStation(ctx, state, s!)) continue;
         byUnit.set(uid, [...(byUnit.get(uid) ?? []), sid]);
       }
       let any = false;
@@ -554,13 +566,13 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
     }
     if (!isUnit) {
       const s = state.soldier.get(order.target);
-      if (s?.mount === undefined || !walker(s)) return "unable";
+      if (s?.mount === undefined || !walker(s) || atStation(ctx, state, s)) return "unable";
       const uid = state.identity.req(order.target).unit;
       if (state.unit.get(uid)?.vehicle !== undefined) return "unable";
       return startDismount(state, uid, [order.target], null, undefined) ? true : "unable";
     }
     let any = false;
-    for (const u of footUnits(state, order.target, order.own === true)) any = startDismount(state, u, ridersOf(state, u), null, undefined, order.wounded ? woundedAboard(state, u) : []) || any;
+    for (const u of footUnits(state, order.target, order.own === true)) any = startDismount(state, u, ridersOf(ctx, state, u), null, undefined, order.wounded ? woundedAboard(state, u) : []) || any;
     return any ? true : "unable";
   }
   // ---- mount

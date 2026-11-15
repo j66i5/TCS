@@ -118,11 +118,16 @@ describe("ammunition management (owner decision)", () => {
     fireAt(sim, bid, 190, 12);
     run(sim, 45); // blue is now on the trickle
     const quiet = kinds(run(sim, 10), "shot.fired").filter((e) => e.kind === "shot.fired" && bunit.members.includes(e.shooter)).length;
+    // (Red has been under blue's fire for a minute and is shaken: a fresh red answers, so the test is of blue's clock only.)
+    for (const m of sim.state.unit.req(rid).members) { const s = sim.state.soldier.req(m).mental; s.stress = 0; s.suppression = 0; s.why.fill(0); }
     submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: rid, kind: "fire", x: 10, y: 15 });
     run(sim, 4); // red's order arrives and its first rounds are on the way
     const answer = kinds(run(sim, 6), "shot.fired").filter((e) => e.kind === "shot.fired" && bunit.members.includes(e.shooter)).length;
     expect(quiet).toBeLessThanOrEqual(bunit.members.length * 2);
-    expect(answer).toBeGreaterThanOrEqual(bunit.members.length * 2); // back to a shot every ~2.5 s each
+    // back to a shot every ~2.5 s each (morale rework: a man of the team may be hit meanwhile and the others shaken,
+    // firing at 0.7 the rate)
+    expect(answer).toBeGreaterThanOrEqual(Math.ceil(bunit.members.length * 1.3));
+    expect(answer).toBeGreaterThan(quiet);
   });
 
   it("no magazine swapping while the unit is still firing slowly", () => {

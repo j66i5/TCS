@@ -83,3 +83,4 @@ export { environmentAt, lightAt, parseTimeOfDay } from "./light";
 export { flareBurning, flareLightAt, flareLitRadius, flareZ } from "./flares";
 export * from "./record";
 export * from "./medstats";
+export { aimErrorFactor, fireRateFactor, isCowering, leaderNear, moraleKicks, moraleOf, qualityMorale, resolveOf } from "./systems/morale";

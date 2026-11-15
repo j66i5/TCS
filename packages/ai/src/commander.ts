@@ -31,7 +31,7 @@ import {
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
 import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
 
-export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
+export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new assault by a squad pinned, broken or with morale below this. */ assaultMinMorale: 0.45, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
   // objective's ring holds it, and its men stay inside the ring.
   siteRingSlackM: 15,
@@ -201,6 +201,10 @@ export function viewGround(input: BattleInput): (view: SimView, tick: number) =>
 }
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
+/** Morale rework 2026-11-15: a squad pinned down, broken or badly shaken is not sent into an assault (it waits for
+ *  its leader to rally it, or for the fire to ease). */
+const moraleReady = (u: { morale?: { state: string; value: number } }) =>
+  u.morale === undefined || (u.morale.state !== "pinned" && u.morale.state !== "broken" && u.morale.value >= COMMANDER.assaultMinMorale);
 /** M10.5: a man carrying a casualty back, gone to one, or on his way to (or at) the Verwundetennest is not the
  *  commander's to task (an order to him alone would take him out of it). */
 const committed = (s: SoldierState | undefined) => s !== undefined && (s.carrying !== undefined || s.atNest !== undefined || s.intent?.kind === "care");
@@ -1747,7 +1751,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             const u = view.unit.get(sq);
             const last = mem.lastAssault[String(sq)] ?? -1e9;
             if (!mem.closed!.includes(sq) || mem.clearing?.[String(sq)] !== undefined && !u?.drill) return;
-            if (u && !u.drill && !u.broken && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq)) {
+            if (u && !u.drill && !u.broken && moraleReady(u) && strength(sq) >= 0.5 && tick - last >= COMMANDER.reassaultSeconds * 60 && rested(sq)) {
               const off = (i - (assaulters.length - 1) / 2) * 20;
               const hb = nextHouse(sq);
               if (hb >= 0) {

@@ -32,7 +32,9 @@ export interface SoldierRecord {
   weapon?: DefId;
   /** Carried-over condition. */
   fatigue: number;
+  /** His shock (fast fear) as it stood, and his strain (slow wear; morale rework 2026-11-15; absent = 0). */
   stress: number;
+  strain?: number;
   wounds: Wound[];
   /** Blood volume, shock, consciousness... of a man who is already hurt (omitted = healthy, or derived from status). */
   physiology?: Physiology;
@@ -59,6 +61,10 @@ export interface UnitInput {
   leaderIndex: number;
   members: SoldierRecord[];
   subunits: UnitInput[];
+  /** Its quality level (core/qualities.json; morale rework 2026-11-15). Absent: its parent's, else the data's default. */
+  quality?: DefId;
+  /** Its cohesion and trust 0..1 at the start (unit template `bond`). Absent: its quality's. */
+  bond?: number;
   /** A vehicle crew unit (M7): the `vehicleId` of the force's vehicle it crews. */
   vehicleId?: string;
   /** A unit on foot (M7.2): the `vehicleId` of the vehicle that carries it (its own men; sub-units without a

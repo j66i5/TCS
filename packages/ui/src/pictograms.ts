@@ -52,6 +52,19 @@ function svg(px: number, colour: string, body: string, title: string): string {
   return `<svg class="hud-picto" viewBox="0 0 20 20" width="${px}" height="${px}" role="img" aria-label="${t}"><title>${t}</title><g fill="${colour}">${body}</g></svg>`;
 }
 
+/** Crouched low, arms over his head (panicked, fleeing, routed: the Men list's second badge, morale rework). */
+const COWER = `<circle cx="9" cy="9.4" r="2.1"/><rect x="6.3" y="10.6" width="5.6" height="4.4" rx="1.2" transform="rotate(18 9.1 12.8)"/>`
+  + `<path d="M5.6 9.6c0.4-3.2 2.2-4.6 4-4.6s3.4 1.2 3.8 3.6l-1.2 0.4c-0.4-1.8-1.4-2.7-2.6-2.7s-2.4 1-2.7 3.5z"/>`
+  + `<rect x="6" y="14.6" width="7.6" height="1.9" rx="0.8"/><rect x="5.4" y="16.6" width="1.9" height="2.2" rx="0.6"/><rect x="11.8" y="16.6" width="1.9" height="2.2" rx="0.6"/>`;
+/** The panic badge's colour (red-orange: worse than pinned). */
+export const PANIC_COLOUR = "#ff7a3d";
+
+/** A man's state of mind as a small pictogram (the Men list's second badge): shaken, pinned, or panicked/fleeing/routed. */
+export function mentalPictogram(mental: "shaken" | "pinned" | "panicked" | "fleeing" | "routed", px = 12, title = ""): string {
+  if (mental === "shaken" || mental === "pinned") return statusPictogram(mental, px, title);
+  return svg(px, PANIC_COLOUR, COWER + `<path d="M15.6 1v5.2M15.6 7.6v1.2M18.4 1v5.2M18.4 7.6v1.2" fill="none" stroke="${PANIC_COLOUR}" stroke-width="1.4"/>`, title);
+}
+
 /** The status pictogram as inline SVG `px` square, labelled `title` (the translated status). */
 export function statusPictogram(status: ManStatus, px = 20, title = ""): string {
   const c = STATUS_COLOUR[status];

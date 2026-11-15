@@ -59,6 +59,46 @@ export interface Mover {
 export type Behaviour =
   | "steady" | "cautious" | "pinned" | "shaken" | "panicked" | "routed" | "surrendered" | "incapacitated";
 
+/**
+ * Sources of a man's lost morale (morale rework 2026-11-15), the order of `SoldierState.mental.why`. The first seven
+ * belong to the shock (they fade with it), the rest to the strain. UI keys: `morale.reason.<source>`.
+ */
+export const MORALE_SOURCES = ["underFire", "artillery", "armour", "flanked", "enemyClose", "isolated", "comradeHit", "leaderLost", "squadLosses", "wounded", "uncared", "fatigue"] as const;
+export type MoraleSource = (typeof MORALE_SOURCES)[number];
+/** Index of the first strain source in `MORALE_SOURCES`. */
+export const MORALE_STRAIN_FROM = 7;
+
+/** A unit's morale (morale rework 2026-11-15), refreshed every `morale.unitStepSeconds` by systems/morale.ts. */
+export interface UnitMorale {
+  /** Mean morale of its able men (all men under it for a unit with sub-units). */
+  value: number;
+  state: "steady" | "shaken" | "pinned" | "broken";
+  /** Men at the start (all men under it) and those lost since (killed, incapacitated, surrendered). */
+  start: number;
+  lost: number;
+  /** Ticks of its latest losses (at most 8, within `shock.rapidWindowS`). */
+  recent: number[];
+  /** Enemy known on two sides or behind (`unit.flankSpanDeg`), and since when. */
+  flanked: boolean;
+  flankTick: number;
+  /** Cohesion and trust 0..1: from its template or quality; falls with its leader lost and comrades left lying. */
+  bond: number;
+  /** First tick a man of it came under fire (-1 = not yet): no break within `unit.minBreakSeconds` of it. */
+  firstContact: number;
+  /** Since when its value has been below `unit.brokenValue` (-1 = it is not). */
+  lowSince: number;
+  /** Downed men of it with nobody coming to them, and since when there have been any (-1 = none). */
+  uncared: number;
+  uncaredSince: number;
+  /** Own fire support relief given this minute (`relief.supportCapPerMin`) and the minute's start tick. */
+  support: number;
+  supportTick: number;
+  /** Last "rallying" call on the radio. */
+  radioTick: number;
+  /** When it last rallied after a break (-1 = never): no new break within `unit.minBreakSeconds` of it. */
+  rallied: number;
+}
+
 /** Why a man gave up (carried by the `surrendered` event). */
 export type SurrenderReason = "wounded" | "panicked" | "routed";
 
@@ -75,7 +115,22 @@ export interface SoldierState {
   postureDoneTick: number;
   /** winded: reached the exhaustion limit; stays true until fatigue falls below the run-again level. */
   physical: { fatigue: number; heartRateBpm: number; hydration: number; winded: boolean };
-  mental: { stress: number; suppression: number; morale: number; behaviour: Behaviour };
+  /**
+   * His state of mind (morale rework 2026-11-15, systems/morale.ts). `morale` = resolve x (1 - shock) x (1 - strain),
+   * written every morale step (the UI, medical care and the AI read it). `stress` is the SHOCK (fast fear: fire, a
+   * comrade falling, tanks; recovers in minutes); `strain` the slow wear (losses, his wounds, his leader lost; tens
+   * of minutes, never below his squad's loss floor). `nerve`: his own steadiness, drawn at setup (stream "morale").
+   * `why`: how much of his shock and strain each source holds (`MORALE_SOURCES` order; the UI shows the largest).
+   * `jolt`: suppression added since his last step (a near miss registers at once). `flee`: a panicked man running
+   * back to (x, y) until `untilTick`. `rallyTick`: last rallied by his leader; `panicTick`: when he panicked.
+   * `lossBooked`: counted as a loss of his units (once per man, however often he is hit, dies or gives up; cleared
+   * when he comes round).
+   */
+  mental: {
+    stress: number; suppression: number; morale: number; behaviour: Behaviour;
+    strain: number; nerve: number; why: number[]; jolt: number;
+    flee: { x: number; y: number; untilTick: number } | null; rallyTick: number; panicTick: number; lossBooked: boolean;
+  };
   physiology: Physiology;
   wounds: Wound[];
   nextWoundId: number;
@@ -432,7 +487,11 @@ export interface Unit {
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */
   drill: Drill | null;
+  /** Broken (any echelon, morale rework): its men run back (the rout drill) until it rallies. */
   broken: boolean;
+  /** Its quality level (core/qualities.json; absent: `morale.defaultQuality`) and its morale (morale rework). */
+  quality?: DefId;
+  morale: UnitMorale;
   /** A vehicle crew unit (M7): the vehicle it crews. */
   vehicle?: EntityId;
   /** A crew that bailed out (M7.4b): the vehicle it left. It is a unit on foot from then on (`vehicle` cleared). */

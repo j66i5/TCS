@@ -4,7 +4,7 @@
  * zone, mechanism, severity, bleeding, airway/breathing/consciousness effects. The physiology model then runs
  * on a clock. A casualty stays in the world as an entity; he is never deleted.
  */
-import { leaderLost } from "./morale";
+import { leaderLost, unbookLoss } from "./morale";
 import { noteHit } from "../conduct";
 import { interruptAction } from "../actions";
 import type { SimContext } from "../context";
@@ -246,6 +246,7 @@ export function refreshStatus(ctx: SimContext, state: SimState, events: EventSin
   if (now === "none") { // came round (a prisoner who comes round is still a prisoner: his behaviour is not "incapacitated")
     s.casualty = "none";
     if (s.mental.behaviour === "incapacitated") s.mental.behaviour = "steady";
+    unbookLoss(state, id); // back in the fight: no longer a loss of his units
     return;
   }
   const first = s.casualty === "none";

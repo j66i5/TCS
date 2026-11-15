@@ -16,7 +16,9 @@ describe("AI commander (M6.3)", () => {
   // break the defence at 560 s before any assault; seeds 2-5 and 7 place every defender, so no posture order.)
   // (Seed 9 since the merge of origin/main's men-down work into the medical line with off-map ambulances, 2026-11-15:
   // seed 6 now places every defender too; seeds 8 and 10-14 likewise.)
-  const input = scenario(9, 1200);
+  // (Seed 1 since the morale rework, 2026-11-15: in seed 9 the attack now wipes out the defence by fire at 744 s before
+  // any assault, as the defenders shaken by losses fire less.)
+  const input = scenario(1, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;
@@ -76,11 +78,13 @@ describe("AI commander (M6.3)", () => {
     expect(fatigueAtDrill.reduce((x, y) => x + y, 0) / fatigueAtDrill.length).toBeLessThan(0.4);
     // (Called no earlier than the fire's delay and a minute and a half before the squads are in place: since the
     // defence picks its own fire positions (overnight pick "defence-siting") it sees the advance and halts it more
-    // often, which the call's walking-time estimate does not foresee; it was a minute before.)
+    // often, which the call's walking-time estimate does not foresee; it was a minute before. Morale review fixes
+    // 2026-11-15: squads now keep their break guard and stay shaken under fire, the advance takes 10 s longer: two
+    // minutes.)
     const fs = input.catalog.factions["de"]!.fireSupport!;
     expect(heTick).toBeGreaterThanOrEqual(0);
     expect(reconTick).toBeGreaterThan(0);
-    expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 90);
+    expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 120);
   });
 
   // (M10.0, test speed) "the same battle twice is the same battle" ran the whole battle again; the test below already

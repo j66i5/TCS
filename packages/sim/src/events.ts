@@ -117,6 +117,8 @@ export type SimEvent =
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
   | { kind: "weapon.jammed"; tick: number; soldier: EntityId }
   | { kind: "fire.ceased"; tick: number; unit: EntityId; reason: "ordered" | "no-target" | "ammunition" | "moved" | "unable" }
+  /** A leader rallied a man of his unit (morale rework 2026-11-15): his shock eased, a runner stopped. */
+  | { kind: "morale.rally"; tick: number; leader: EntityId; soldier: EntityId }
   | { kind: "behaviour.changed"; tick: number; soldier: EntityId; from: Behaviour; to: Behaviour }
   /** A man has given up (M6.6). `side` is his own. */
   | { kind: "surrendered"; tick: number; soldier: EntityId; side: SideId; reason: SurrenderReason }

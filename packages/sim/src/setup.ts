@@ -9,6 +9,8 @@ import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
 import { addItems, aglBoxOf, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { nextNormal, Streams } from "./rng";
+import { MORALE_SOURCES } from "./components";
 import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
@@ -185,9 +187,13 @@ function addUnit(
   placements: Map<string, Placement>,
   catalog: Catalog,
   vehicles: Map<string, EntityId>,
+  parentQuality?: DefId,
 ): EntityId {
   const id = newEntity(state);
   const vid = u.vehicleId === undefined ? undefined : vehicles.get(u.vehicleId);
+  const quality = u.quality ?? parentQuality;
+  const Q = catalog.qualities[quality ?? catalog.behaviour.morale.defaultQuality];
+  if (!Q) throw new Error(`unit ${u.key}: unknown quality '${quality ?? catalog.behaviour.morale.defaultQuality}'`);
   if (u.vehicleId !== undefined && vid === undefined) throw new Error(`unit ${u.key}: no vehicle '${u.vehicleId}' in its force`);
   // A crewman needs no placement of his own: he starts in his seat.
   const vt = vid === undefined ? undefined : state.transform.req(vid);
@@ -216,6 +222,11 @@ function addUnit(
     drill: null,
     broken: false,
     lastCallTick: -100000,
+    ...(quality !== undefined ? { quality } : {}),
+    morale: {
+      value: 1, state: "steady", start: 0, lost: 0, recent: [], flanked: false, flankTick: -1, bond: u.bond ?? Q.morale.bond,
+      firstContact: -1, lowSince: -1, uncared: 0, uncaredSince: -1, support: 0, supportTick: -1, radioTick: -1e9, rallied: -1,
+    },
   });
   const unit = state.unit.req(id);
   u.members.forEach((rec, i) => {
@@ -229,7 +240,10 @@ function addUnit(
     if (cv === undefined) throw new Error(`unit ${u.key}: no vehicle '${u.carrierId}' to ride in`);
     unit.carrier = cv;
   }
-  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles));
+  for (const sub of u.subunits) unit.children.push(addUnit(state, sub, id, side, faction, placements, catalog, vehicles, quality));
+  // Men at the start, all of them under it (morale: its loss share).
+  const count = (x: UnitInput): number => x.members.length + x.subunits.reduce((n, c) => n + count(c), 0);
+  unit.morale.start = count(u);
   return id;
 }
 
@@ -267,7 +281,12 @@ function addSoldier(
     postureTo: null,
     postureDoneTick: 0,
     physical: { fatigue: rec.fatigue, heartRateBpm: catalog.body.physiology.hrRestBpm, hydration: 1, winded: false },
-    mental: { stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady" },
+    // His nerve (morale rework): his own steadiness, the same distribution for every side (stream "morale").
+    mental: {
+      stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady", strain: rec.strain ?? 0,
+      nerve: Math.min(1, Math.max(0, catalog.behaviour.morale.nerve.mean + catalog.behaviour.morale.nerve.sd * nextNormal(state.rng, Streams.morale))),
+      why: MORALE_SOURCES.map(() => 0), jolt: 0, flee: null, rallyTick: -1e9, panicTick: -1e9, lossBooked: false,
+    },
     // A man who comes into the battle already hurt keeps his condition (rule 11: records in and out).
     physiology: rec.physiology ? { ...rec.physiology } : { ...healthyPhysiology(), ...(rec.status === "killed" ? { alive: false, consciousness: 0 } : rec.status === "incapacitated" ? { consciousness: 0 } : {}) },
     wounds: rec.wounds.map((w) => ({ ...w, treatments: [...w.treatments] })),
@@ -336,6 +355,7 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     skills: { ...s.skills },
     fatigue: s.physical.fatigue,
     stress: s.mental.stress,
+    ...(s.mental.strain > 0 ? { strain: s.mental.strain } : {}),
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)

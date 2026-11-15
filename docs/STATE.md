@@ -79,8 +79,9 @@ DECISIONS.md under its date._
   are shown only in the review; air evacuation later.
 - **D4a done (2026-11-15, parallel session; DECISIONS "D4a"):** the AI attack keeps a reserve (committed when the
   assault falters), its base of fire bounds forward or its men step aside when own men mask it, and shifts fire to
-  depth; rushes are 16 m. Batch line "Attack (D4a)". Open: "support masked" fell 35 %, not the 50 % asked. **Next:
-  D4b** (fire distribution, low aim at heard/reported men, ambush and defend-an-arc orders, hesitation).
+  depth; rushes are 16 m. Batch line "Attack (D4a)". Open: "support masked" fell 35 %, not the 50 % asked. D4b done too
+  (DECISIONS "D4b"): fire distribution, low aim at heard/reported men (0.3 m), `ambush` and `defendArc` orders
+  (Fire tray, card chip; `lab -- ambush`), hesitation of shaken men. Open: the win band (owner question).
 - **Order after M10** (owner): a debt slot (D3 phone pass, D4 infantry tactics with 3-5 s rushes of 15-20 m), then
   M8 → M9 → M7.6 (tanks, wheeled carriers, Jäger/BTR platoons) → M11 (minimum, after measuring ammunition use) →
   M12 → M13. One short debt slot after every milestone.

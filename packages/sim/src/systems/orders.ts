@@ -20,7 +20,7 @@ import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
 import { OWN_ORDER_KINDS, type Order, type OrderRejectReason, type PendingOrder, type Waypoint } from "../orders";
 import { bestCoverNear, clearLine, navCostAt, nearestPassable } from "../nav";
-import { atan2, cos, hypot2, sin } from "../math";
+import { PI, atan2, cos, hypot2, sin, wrapAngle } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
@@ -145,6 +145,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return ctx.catalog.medical?.nest ? null : "not-applicable";
     case "callAmbulance":
       return ctx.catalog.medical?.nest && ctx.catalog.medical.evacuation ? null : "not-applicable";
+    case "ambush":
+      // (D4b: a unit, and a range its men can hold their fire to.)
+      if (!state.unit.has(o.target)) return "invalid-params";
+      return Number.isFinite(o.rangeM) && o.rangeM >= 10 && o.rangeM <= 2000 ? null : "invalid-params";
+    case "defendArc":
+      if (!state.unit.has(o.target)) return "invalid-params";
+      return Number.isFinite(o.facing) && Number.isFinite(o.widthRad) && o.widthRad > 0 && o.widthRad <= 2 * PI ? null : "invalid-params";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
@@ -160,7 +167,7 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
   const vid = state.unit.get(o.target)?.vehicle;
   const crew = vid !== undefined;
   switch (o.kind) {
-    case "posture": case "assault": case "withdraw": case "grenade": case "occupy":
+    case "posture": case "assault": case "withdraw": case "grenade": case "occupy": case "defendArc":
       return !crew;
     case "fire":
       // A crew has no launcher (M7.4a), unless its vehicle carries guided missiles (owner 2026-11-13).
@@ -229,7 +236,9 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   if (due.length === 0) return;
   state.pendingOrders = rest;
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
-  for (const p of due) {
+  const done = new Set<number>();
+  const deliver = (p: PendingOrder): void => {
+    done.add(p.seq);
     const res = applyOrder(ctx, state, p.order, events);
     if (res === true) screenAfterOrder(ctx, state, p.order, events);
     const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
@@ -237,7 +246,99 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
     radioFromTarget(state, p.order.target, res === true ? (p.order.kind === "grenade" && p.order.smoke === true ? "radio.ack.smoke" : `radio.ack.${p.order.kind}`) : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
+  };
+  for (const p of due) {
+    if (done.has(p.seq)) continue;
+    // An order that moves or stops the men meets older orders they are still hesitating over (D4b):
+    // - one that reaches all of their men replaces it (if they would hesitate over it too, they take it up when
+    //   they would have moved anyway: an order repeated every few seconds must not keep them waiting for ever);
+    // - one to part of them (a sub-unit, one man) lets the broader order go first, now, so the two come in the
+    //   order they were given, as without hesitation.
+    let replacedUntil = -1;
+    if (SUPERSEDES_HESITATION.includes(p.order.kind)) {
+      const older = (h: PendingOrder) => h !== p && h.hesitated === true && h.seq < p.seq && !done.has(h.seq);
+      const cands = [...state.pendingOrders.filter(older), ...due.filter(older)].sort((a, b) => a.seq - b.seq);
+      for (const h of cands) {
+        if (ordersCover(state, p.order, h.order)) {
+          replacedUntil = Math.max(replacedUntil, h.deliverTick);
+          done.add(h.seq);
+          state.pendingOrders = state.pendingOrders.filter((x) => x !== h);
+          // (Events are the only channel out, rule 5: the order is over, its marker goes.)
+          events.emit({ kind: "order.rejected", tick: state.tick, seq: h.seq, issuer: h.order.issuer, target: h.order.target, reason: "superseded" });
+        } else if (ordersCover(state, h.order, p.order)) {
+          state.pendingOrders = state.pendingOrders.filter((x) => x !== h);
+          deliver(h);
+        }
+      }
+    }
+    // Shaken men hesitate before obeying (D4b): the order waits a little, once.
+    const wait = hesitationTicks(ctx, state, p);
+    const until = wait <= 0 ? -1 : replacedUntil >= 0 ? replacedUntil : state.tick + wait;
+    if (until > state.tick) {
+      p.hesitated = true;
+      p.deliverTick = until;
+      state.pendingOrders.push(p);
+      events.emit({ kind: "order.hesitating", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind, deliverTick: p.deliverTick });
+      if (replacedUntil < 0) radioFromTarget(state, p.order.target, "radio.hesitate", events);
+      continue;
+    }
+    deliver(p);
   }
+}
+
+/**
+ * The orders that replace one the men are hesitating over (D4b): those that send them somewhere, or stop them
+ * where they are (a fire task stops them too). Everything else (rules, an ambush, cease-fire, a call for fire, a
+ * grenade, a posture, smoke, a drone...) leaves the hesitating order pending: it changes how they fight, not where
+ * they go, and the move must still come. A fire order is in the set because it stops them: were the older move
+ * left pending, it would later end the newer fire task and walk them off, the reverse of the order given.
+ */
+const SUPERSEDES_HESITATION: readonly string[] = ["move", "assault", "withdraw", "occupy", "halt", "mount", "dismount", "defendArc", "fire"];
+
+/**
+ * How long the men hesitate over a due order (D4b, SPEC 6.6, behaviour.hesitation), in ticks; 0 = they obey now.
+ * Only listed kinds, only once per order, only men on foot (not a crew, not aboard, not a unit with vehicles):
+ * when at least `shakenShare` of the able men who would carry it out are shaken, pinned or panicked, they wait
+ * `baseSeconds` + `perSuppressionSeconds` x their mean suppression, at most `maxSeconds`.
+ */
+function hesitationTicks(ctx: SimContext, state: SimState, p: PendingOrder): number {
+  const H = ctx.catalog.behaviour.hesitation;
+  if (!H || p.hesitated === true || !H.kinds.includes(p.order.kind)) return 0;
+  const o = p.order;
+  const isUnit = state.unit.has(o.target);
+  const own = isUnit && o.own === true;
+  if (isUnit) {
+    if (state.unit.req(o.target).vehicle !== undefined || (!own && vehicleChildren(state, o.target).length > 0) || hasRiders(state, o.target, own)) return 0;
+  } else if (state.soldier.get(o.target)?.mount !== undefined) return 0;
+  // (The same men applyOrder would move: able, not routed, on foot, not busy with a casualty.)
+  const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, o.target) : [o.target]).filter((m) => {
+    const s = state.soldier.get(m);
+    return isAble(s) && s!.mental.behaviour !== "routed" && s!.mount === undefined
+      && !(isUnit && (s!.intent?.kind === "care" || s!.carrying !== undefined || s!.atNest !== undefined));
+  });
+  if (men.length === 0) return 0;
+  let shaken = 0, supp = 0;
+  for (const m of men) {
+    const ms = state.soldier.req(m).mental;
+    if (ms.behaviour === "shaken" || ms.behaviour === "pinned" || ms.behaviour === "panicked") shaken++;
+    supp += ms.suppression;
+  }
+  if (shaken < H.shakenShare * men.length) return 0;
+  return Math.max(1, secondsToTicks(Math.min(H.maxSeconds, H.baseSeconds + H.perSuppressionSeconds * supp / men.length)));
+}
+
+/**
+ * Does order `a` reach every man order `b` reaches? A man: only himself. A unit with `own`: its own men (an order
+ * to it with `own`, or to one of them). A unit: everybody under it.
+ */
+function ordersCover(state: SimState, a: Order, b: Order): boolean {
+  const aUnit = state.unit.has(a.target), bUnit = state.unit.has(b.target);
+  if (!aUnit) return !bUnit && a.target === b.target;
+  const bu = bUnit ? b.target : state.identity.get(b.target)?.unit;
+  if (bu === undefined) return false;
+  if (a.own === true) return bu === a.target && (!bUnit || b.own === true);
+  for (let u: EntityId | null = bu; u !== null; u = state.unit.get(u)?.parent ?? null) if (u === a.target) return true;
+  return false;
 }
 
 /**
@@ -299,6 +400,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
   const gate = rearRunGate(state, events, order);
   if (gate !== null) return gate;
+  // (D4b: a halt, getting in or out, or a move of the vehicle that carries them ends an arc they were defending.)
+  if (isUnit && (order.kind === "halt" || order.kind === "mount" || order.kind === "dismount" || order.kind === "move")) clearArcs(state, order.target, own);
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
   // (With `dismount`: its carrier, if he rides, gets out first; the order goes to him once he is out.)
   if (order.kind === "drone") {
@@ -322,7 +425,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // A vehicle crew: move and halt drive the vehicle; rules and cease-fire as for any unit.
   const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
   if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
-  if (crewOf !== undefined && order.kind !== "rules") return vehicleOrder(ctx, state, order, crewOf);
+  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ambush") return vehicleOrder(ctx, state, order, crewOf);
   // Owner Q-7 (M10.7a): fire, a grenade or a fire mission at a recognised medic, ambulance, carrying party or
   // Verwundetennest is refused, and a refused order changes nothing: no drill, errand or carrying party ends, nobody
   // gets out (review fix). What men aboard know counts too.
@@ -343,7 +446,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Men still aboard (owner Q12): a squad (or a man) gets out first, then carries the order out. Orders to a
   // platoon with vehicles go to the vehicles (the squads ride along). Rules, cease-fire, a call for fire and a
   // halt need nobody to get out.
-  const passThrough = order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
+  const passThrough = order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
   if (!afterDismount && !passThrough && crewOf === undefined && vehicles.length === 0) {
     const aboard = isUnit ? hasRiders(state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
@@ -356,6 +459,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   }
   if (!isUnit && state.soldier.get(order.target)?.mount !== undefined && order.kind !== "rules" && order.kind !== "callFire") return "unable";
   if (!isUnit) leaveBoarding(state, order.target);
+  // (D4b: going somewhere else ends an arc the unit was defending.)
+  if (isUnit && (order.kind === "assault" || order.kind === "withdraw" || order.kind === "occupy")) clearArcs(state, order.target, own);
   let vehicleRes: OrderResult | null = null;
   if (vehicles.length > 0) vehicleRes = splitToVehicles(ctx, state, order, vehicles, events);
   // Smoke (M7.3) is the vehicles' alone: nothing else changes.
@@ -370,7 +475,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
   // (An anti-tank shot, M7.4a, is like a grenade: one man acts, the drill goes on.)
-  const keepsDrill = order.kind === "rules" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
+  const keepsDrill = order.kind === "rules" || order.kind === "ambush" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
   if (!keepsDrill) {
     for (const m of soldiers) {
       const ms = state.soldier.get(m);
@@ -387,7 +492,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
-  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
+  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
   if (soldiers.length === 0 && !ridersOnly) {
     if (vehicleRes !== null) return vehicleRes; // only vehicles under it: their answer
     // Nobody left to obey: the unit is neither moving nor firing any more.
@@ -676,9 +781,46 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.onContact !== undefined) x.onContact = order.onContact;
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
         if (order.at !== undefined) x.atRule = order.at;
+        // (A new fire rule ends an ambush laid, D4b: the player has decided otherwise.)
+        if (order.fire !== undefined) delete x.ambush;
         if (!own) x.children.forEach(set);
       };
+      // (With `own` too: the sub-units holding the same ambush as the target lose it with it, or they would hold
+      // fire for an ambush nobody can spring any more.)
+      const laid = ru !== undefined && order.fire !== undefined ? state.unit.get(ru)?.ambush?.root : undefined;
+      if (laid !== undefined) forTree(state, ru!, false, (x) => { if (x.ambush?.root === laid) delete x.ambush; });
       if (ru !== undefined) set(ru);
+      break;
+    }
+    case "ambush": {
+      // Lay an ambush (D4b): whatever they were firing at, they stop; from now on the ambush governs their fire
+      // (systems/ambush.ts springs it). A cease-fire before it no longer holds them once it is sprung.
+      endFire(state, order.target, soldiers, "ordered", events);
+      const lay = { rangeM: order.rangeM, tick: state.tick, root: order.target };
+      forTree(state, order.target, own, (x, uid) => {
+        if (x.vehicle !== undefined) stationCeaseFire(state, uid, events);
+        x.ambush = { ...lay };
+        x.fireRule = "free";
+        if (x.parent !== null) x.ceaseFireTick = -1e9; // (a crew's own, gunnery.ts; the top unit's below)
+      });
+      // A cease-fire is read from the top unit for every man of the platoon (decisions.ts fireAllowed): only an
+      // ambush on the whole platoon (the top unit, not its headquarters alone) lifts it. One on part of it leaves the others' cease-fire alone (its own men
+      // stay held by it too, until they are fired on).
+      if (state.unit.req(order.target).parent === null && !own) state.unit.req(order.target).ceaseFireTick = -1e9;
+      break;
+    }
+    case "defendArc": {
+      // Defend an arc (D4b): the men stop where they are and face it; the arc limits their own fire (decisions.ts).
+      stopUnit(state, order.target);
+      const arc = { facing: wrapAngle(order.facing), halfRad: order.widthRad / 2 };
+      forTree(state, order.target, own, (x) => { x.arc = { ...arc }; });
+      for (const s of soldiers) {
+        const m = state.mover.get(s);
+        if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
+        // (Indoors his window place sets his facing.)
+        const t = state.transform.get(s);
+        if (t && !state.fire.has(s) && indoorAt(ctx, t.x, t.y) < 0) t.heading = arc.facing;
+      }
       break;
     }
     case "grenade": {
@@ -900,6 +1042,28 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   const end = routeBetween(ctx, search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
+}
+
+/** Call `f` on a unit and (unless `own`: its own men only) every unit under it, parents first. */
+function forTree(state: SimState, uid: EntityId, own: boolean, f: (u: Unit, id: EntityId) => void): void {
+  const u = state.unit.get(uid);
+  if (!u) return;
+  f(u, uid);
+  if (!own) for (const c of u.children) forTree(state, c, false, f);
+}
+
+/** End the arcs (D4b) of a unit and (unless `own`) its sub-units; a crew's: of the units of the men it carries. */
+function clearArcs(state: SimState, uid: EntityId, own: boolean): void {
+  forTree(state, uid, own, (x) => { delete x.arc; });
+  const vid = state.unit.get(uid)?.vehicle;
+  if (vid === undefined) return;
+  // mounted: ok the men aboard that hull
+  for (const [id, s] of state.soldier.entries()) {
+    if (s.mount?.vehicle !== vid) continue;
+    // (Their own unit's alone: a man's arc is read from it, decisions.ts.)
+    const u = state.identity.get(id)?.unit;
+    if (u !== undefined) { const x = state.unit.get(u); if (x) delete x.arc; }
+  }
 }
 
 function topUnitOf(state: SimState, unit: EntityId): Unit {

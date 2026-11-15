@@ -574,8 +574,14 @@ export class BattleRenderer {
         const p = state.pendingOrders.find((o) => o.seq === e.seq);
         const wp = p && p.order.kind === "move" ? p.order.waypoints.at(-1) : undefined;
         if (wp) this.markers.push({ x: wp.x, y: wp.y, seq: e.seq, untilTick: e.deliverTick + 120, delivered: false });
+      } else if (e.kind === "order.hesitating") {
+        // (D4b: shaken men obey later; the marker stays hollow until then.)
+        for (const m of this.markers) if (m.seq === e.seq) m.untilTick = e.deliverTick + 120;
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
+      } else if (e.kind === "order.rejected") {
+        // (D4b: an order replaced while the men hesitated over it is over; its marker goes.)
+        this.markers = this.markers.filter((m) => m.seq !== e.seq);
       } else if (e.kind === "shot.fired") {
         this.firedAt.set(e.shooter, e.tick);
         // Fog: an enemy's flash only while his man is in sight now (drawn as a figure).

@@ -20,6 +20,7 @@
  * comrade in the danger zone behind the tube. A comrade nearby hands over a round when he has none left.
  */
 import { registerActionHandler, startAction } from "../actions";
+import { inArc } from "../arc";
 import { lineBlocked, type AmmoRT } from "../ballistics";
 import type { SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
@@ -208,6 +209,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity, bestAmmo = "";
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > seen || spared(c) || c.wreck) continue; // (M10.7a: not a recognised ambulance or medic)
+    if (!inArc(state, id, me, c.x, c.y)) continue; // (D4b: on his own only into the arc his unit defends)
     const d = hypot2(c.x - me.x, c.y - me.y);
     if (d > Math.max(range, rangeP) || d < 15) continue;
     const isV = c.cls === "vehicle";
@@ -252,6 +254,7 @@ function repositionForVehicle(ctx: SimContext, state: SimState, id: EntityId, s:
   let veh: (typeof s.contacts)[number] | null = null, vd = Infinity;
   for (const c of s.contacts) {
     if (c.cls !== "vehicle" || c.wreck || spared(c) || state.tick - c.tick > secondsToTicks(S.atContactSeconds)) continue;
+    if (!inArc(state, id, me, c.x, c.y)) continue; // (D4b: nor moves to get a shot outside it)
     const v = state.vehicle.get(c.target);
     if (!v || v.status === "destroyed" || v.status === "abandoned") continue;
     const d = hypot2(c.x - me.x, c.y - me.y);

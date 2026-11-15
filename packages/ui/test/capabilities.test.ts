@@ -35,6 +35,8 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(cap.canDismount).toBe(true);
     expect(cap.canMount).toBe(false);
     const o = ordersFor(cap, modes);
+    // (D4b review: no Defend arc while every man rides.)
+    expect(cap.onFoot).toBe(0);
     expect(o.modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"]);
     expect(o.dismount && !o.mount && o.posture && o.rules).toBe(true);
     expect(boardingOf(sim.state, cat, uid)).toEqual({ mount: false, dismount: true });
@@ -53,6 +55,25 @@ describe("unitCapabilities and ordersFor (M7.5a)", () => {
     expect(o.modes).not.toContain("grenades");
     for (const sp of s2.state.support) { const c = s2.state.container.get(sp.battery); if (c) c.stacks = []; }
     expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toEqual(["move", "assault", "withdraw", "occupy", "clear", "fire"]);
+  });
+
+  it("Defend arc (D4b): offered once a man is on foot, not for a platoon whose squads all ride", () => {
+    const s2 = fresh();
+    const uid = blueSquad(s2);
+    const platoon = s2.state.unit.req(uid).parent!;
+    // (The test puts men aboard or on foot by hand.)
+    const hq = s2.state.unit.req(platoon).members;
+    for (const m of hq) delete s2.state.soldier.req(m).mount; // (the headquarters on foot)
+    const cHq = unitCapabilities(s2.state, cat, platoon);
+    expect(cHq.onFoot).toBeGreaterThan(0);
+    expect(ordersFor(cHq, modes).modes).toContain("arc");
+    // Everyone aboard (the headquarters back in): no arc for the platoon, nor for the headquarters alone.
+    for (const m of unitSoldierIds(s2.state, platoon)) if (s2.state.soldier.req(m).mount === undefined) s2.state.soldier.req(m).mount = { vehicle: -1, seat: 0 };
+    expect(ordersFor(unitCapabilities(s2.state, cat, platoon), modes).modes).not.toContain("arc");
+    expect(ordersFor(unitCapabilities(s2.state, cat, platoon, true), modes).modes).not.toContain("arc");
+    const man = unitSoldierIds(s2.state, uid)[0]!;
+    delete s2.state.soldier.req(man).mount;
+    expect(ordersFor(unitCapabilities(s2.state, cat, uid), modes).modes).toContain("arc");
   });
 
   it("a launcher without rounds does not count (the simulation's own test)", () => {

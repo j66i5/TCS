@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,7 @@ import { fragmentationLab, fragmentationLabMarkdown } from "../labs/fragmentatio
 import { sightLab, sightLabMarkdown } from "../labs/sight";
 import { spottingLab, spottingLabMarkdown } from "../labs/spotting";
 import { suppressionLab, suppressionLabMarkdown } from "../labs/suppression";
-import { attackLab, attackLabMarkdown } from "../labs/attack";
+import { ambushLab, ambushLabMarkdown, attackLab, attackLabMarkdown } from "../labs/attack";
 import { coverLab, coverLabMarkdown } from "../labs/cover";
 import { movementLab, movementLabMarkdown } from "../labs/movement";
 import { driveLab, driveLabMarkdown } from "../labs/drive";
@@ -44,6 +44,7 @@ const LABS: Record<string, () => string> = {
   spotting: () => `# Spotting lab\n\n${spottingLabMarkdown(spottingLab(loadData()))}\n`,
   suppression: () => `# Suppression lab\n\n${suppressionLabMarkdown(suppressionLab(loadData()))}\n`,
   attack: () => `# Attack lab\n\n${attackLabMarkdown(attackLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
+  ambush: () => `# Ambush lab\n\n${ambushLabMarkdown(ambushLab(loadData(), Number(process.argv[3] ?? 10)))}\n`,
   cover: () => `# Cover and flight lab\n\n${coverLabMarkdown(coverLab(loadData()))}\n`,
   drive: () => `# Drive lab\n\n${driveLabMarkdown(driveLab(loadData(true)))}\n`,
   drone: () => `# Drone lab\n\n${droneLabMarkdown(droneLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,

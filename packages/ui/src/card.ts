@@ -10,7 +10,7 @@
  *
  * The data comes from read-only snapshots of the state (`unitMenRows`, `manDetail`; pure, tested without a DOM),
  * and every choice goes out as an existing order (pace: the next move, or the move under way sent again; fire: the
- * `rules` order — Ambush is fire at will with the existing "no fire beyond" range at `AMBUSH_M`).
+ * `rules` order — Ambush is the `ambush` order (D4b) at `AMBUSH_M`; `rulesOrder` builds either).
  */
 import type { Insignia, Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
@@ -264,21 +264,54 @@ function triageDetail(view: SimView, s: Man): Pick<ManDetail, "triage"> {
 
 export type FireChoice = "free" | "return" | "hold" | "ambush";
 export const FIRE_CHOICES: readonly FireChoice[] = ["free", "return", "hold", "ambush"];
-/** Ambush (owner S3: "hold until within N m"): fire at will, but never on their own beyond this range. A game value,
- *  the shortest range the Rules panel offers. */
+/** Ambush (owner S3: "hold until within N m"; D4b: the real `ambush` order): fire held until an enemy is this close,
+ *  then at will. A game value, the shortest range the Rules panel offers. */
 export const AMBUSH_M = 100;
 
-/** Which chip of the fire row is lit for these rules. */
-export function fireChoice(r: Pick<UnitRules, "fire" | "maxEngageM">): FireChoice {
-  if (r.fire === "free" && r.maxEngageM > 0 && r.maxEngageM <= AMBUSH_M) return "ambush";
+/** Which chip of the fire row is lit for these rules: Ambush while one is laid (not yet sprung). */
+export function fireChoice(r: Pick<UnitRules, "fire" | "ambush">): FireChoice {
+  if ((r.ambush ?? 0) > 0) return "ambush";
   return r.fire;
 }
 
-/** The rules a chip of the fire row orders. Leaving an ambush lifts its range limit; any other range set in the
- *  Rules panel stays. */
-export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "maxEngageM">): Partial<UnitRules> {
-  if (c === "ambush") return { fire: "free", maxEngageM: AMBUSH_M };
-  return fireChoice(now) === "ambush" ? { fire: c, maxEngageM: 0 } : { fire: c };
+/** The rules a chip of the fire row sets: an ambush at `AMBUSH_M`, or a fire rule (which ends an ambush laid). */
+export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "ambush">): Partial<UnitRules> {
+  if (c === "ambush") return { ambush: AMBUSH_M };
+  return (now.ambush ?? 0) > 0 ? { fire: c, ambush: 0 } : { fire: c };
+}
+
+/**
+ * Rules shown as ordered (`pend`) settle (D4b): once an order of `kind` has been delivered, the sim's own value is the
+ * truth, what it carried is no longer shown as pending (an ambush delivered and sprung at once leaves no ambush to
+ * match its range). `now`: the unit's rules now; any pending value equal to it settles too. Returns whether
+ * anything is still pending.
+ */
+export function settleRules(pend: Partial<UnitRules>, now: UnitRules, kind?: string): boolean {
+  if (kind === "ambush") delete pend.ambush;
+  if (kind === "rules") {
+    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at;
+    if (pend.ambush === 0) delete pend.ambush;
+  }
+  for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === (now[k] ?? 0)) delete pend[k];
+  return Object.keys(pend).length > 0;
+}
+
+/** The order for rules from the card or the Rules panel (`base`: tick, issuer, target): an ambush to lay is the
+ *  `ambush` order (D4b); anything else the `rules` order (a fire rule in it ends an ambush). */
+export function rulesOrder(base: { tick: number; issuer: string; target: EntityId }, r: Partial<UnitRules>): Order {
+  if (r.ambush !== undefined && r.ambush > 0) return { ...base, kind: "ambush", rangeM: r.ambush };
+  return {
+    ...base, kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}),
+    ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}),
+  };
+}
+
+/** Defend arc (D4b): its width, a game value (owner to review). */
+export const ARC_WIDTH_RAD = (120 * Math.PI) / 180;
+
+/** The `defendArc` order facing from the unit's middle `from` toward the point tapped `to`. */
+export function arcOrder(base: { tick: number; issuer: string; target: EntityId }, from: { x: number; y: number }, to: { x: number; y: number }): Order {
+  return { ...base, kind: "defendArc", facing: Math.atan2(to.y - from.y, to.x - from.x), widthRad: ARC_WIDTH_RAD };
 }
 
 // ---- the pace row (S3)

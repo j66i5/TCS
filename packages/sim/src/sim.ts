@@ -27,6 +27,7 @@ import { fireSystem, incomingFireSystem } from "./systems/fire";
 import { woundSystem } from "./systems/wounds";
 import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
+import { ambushSystem } from "./systems/ambush";
 import { surrenderSystem } from "./systems/surrender";
 import { medicalSystem } from "./systems/medical";
 import { nestSystem } from "./systems/nest";
@@ -157,6 +158,8 @@ export function step(sim: Sim): SimEvent[] {
   evacuationSystem(ctx, state, events);
   // Combat vehicles' rear runs (M10.6b): after the ambulances (a nest an ambulance serves needs no hull).
   rearRunSystem(ctx, state, events);
+  // Ambushes (D4b): sprung before the decisions, so the men open fire at once.
+  ambushSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);

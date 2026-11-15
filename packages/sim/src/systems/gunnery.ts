@@ -534,10 +534,11 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       // Single-round feeds: a round must be loaded (by the loader if there is one).
       if (wdef.feedKind !== "belt" && !w.loadedRound) {
         if (w.burstIndex !== -1) {
-          const loader = wdef.feedKind === "single" && wdef.loaderStation !== undefined ? loaderFit(state, v, def, wdef.loaderStation) : true;
-          if (!loader && wdef.noLoaderFactor === undefined) continue; // nobody can load it
-          const secs = (wdef.roundLoadSeconds ?? 1) * (loader ? 1 : wdef.noLoaderFactor!);
-          w.burstIndex = -1; w.nextShotTick = tick + Math.max(1, secondsToTicks(secs));
+          const load = loadTicks(state, v, wdef, def);
+          if (load < 0) continue; // nobody can load it
+          // The load runs during the interval set at the last shot (the trickle, the ammunition rule): whichever
+          // ends later (review fix: the load no longer overrides them).
+          w.burstIndex = -1; w.nextShotTick = Math.max(w.nextShotTick, tick + load);
         } else if (tick >= w.nextShotTick) { w.loadedRound = true; w.burstIndex = 0; }
         continue;
       }
@@ -814,6 +815,13 @@ export function launchNoticed(ctx: SimContext, state: SimState, tv: EntityId, fr
   return false;
 }
 
+/** Ticks to load one round into a single-round or autoloader gun (slower without an able loader); -1: nobody can. */
+function loadTicks(state: SimState, v: VehicleState, wdef: VehicleDef["stations"][number]["weapons"][number], def: VehicleDef): number {
+  const loader = wdef.feedKind === "single" && wdef.loaderStation !== undefined ? loaderFit(state, v, def, wdef.loaderStation) : true;
+  if (!loader && wdef.noLoaderFactor === undefined) return -1;
+  return Math.max(1, secondsToTicks((wdef.roundLoadSeconds ?? 1) * (loader ? 1 : wdef.noLoaderFactor!)));
+}
+
 function loaderFit(state: SimState, v: VehicleState, def: VehicleDef, kind: string): boolean {
   for (let i = 0; i < def.seats.length; i++) {
     if (def.seats[i]!.station !== kind) continue;
@@ -1033,9 +1041,20 @@ export function vehicleIncomingSystem(ctx: SimContext, state: SimState, events: 
   for (const vid of [...refresh].sort((a, b) => a - b)) {
     const v = state.vehicle.get(vid);
     if (!v) continue;
-    for (const st of v.stations) {
+    const def = ctx.catalog.vehicles[v.def];
+    for (let si = 0; si < v.stations.length; si++) {
+      const st = v.stations[si]!;
       if (!st.task) continue;
-      if (tick - st.task.reasonTick > fullTicks) for (const w of st.weapons) w.nextShotTick = Math.min(w.nextShotTick, tick + TICK_HZ / 2);
+      if (tick - st.task.reasonTick > fullTicks) {
+        for (let wi = 0; wi < st.weapons.length; wi++) {
+          const w = st.weapons[wi]!;
+          // A round being loaded (review fix): the slow interval goes, the load itself does not.
+          const wdef = def?.stations[si]?.weapons[wi];
+          const loading = wdef !== undefined && wdef.feedKind !== "belt" && !w.loadedRound && w.burstIndex === -1;
+          const floor = loading ? Math.max(w.lastShotTick + 1, w.switchUntilTick) + Math.max(0, loadTicks(state, v, wdef, def!)) : 0;
+          w.nextShotTick = Math.min(w.nextShotTick, Math.max(tick + TICK_HZ / 2, floor));
+        }
+      }
       st.task.reasonTick = tick;
     }
   }

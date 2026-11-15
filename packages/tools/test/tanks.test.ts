@@ -101,6 +101,33 @@ describe("main battle tanks (M7.6a)", () => {
     expect(weaponOut(sim.ctx, t90, def, 0, 0)).toBe(false);
   });
 
+  it("ordered tank fire slows to the trickle after 30 s, and a crew told to conserve fires slower (the load no longer overrides them)", () => {
+    /** Shot times (s) of the T-90M on an ordered armour-piercing task at the Leopard's spot, `ammo` its rule. */
+    const shots = (ammo: "normal" | "conserve"): number[] => {
+      const sim = createSim(leoVsT90(2000, Math.PI / 2));
+      holdAll(sim);
+      const [rid, t90] = side(sim, "red");
+      const t = sim.state.transform.req(side(sim, "blue")[0]);
+      for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null && u.side === "red") submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: uid, kind: "rules", ammo });
+      submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: t90.unit!, kind: "fire", x: t.x, y: t.y, heightM: 1.2, nature: "ap" });
+      const t0 = sim.state.tick, at: number[] = [];
+      run(sim, 75, (e) => { if (e.kind === "shot.fired" && e.vehicle === rid && e.ammo === "ru-125-3bm60") at.push((e.tick - t0) / TICK_HZ); });
+      return at;
+    };
+    const gaps = (at: number[], from: number, to: number) => { const g: number[] = []; for (let i = 1; i < at.length; i++) if (at[i - 1]! >= from && at[i]! <= to) g.push(at[i]! - at[i - 1]!); return g; };
+    const mean = (g: number[]) => g.reduce((a, b) => a + b, 0) / g.length;
+    const normal = shots("normal");
+    const early = gaps(normal, 0, 30), late = gaps(normal, 32, 75);
+    expect(early.length).toBeGreaterThanOrEqual(2);
+    expect(late.length).toBeGreaterThanOrEqual(2);
+    expect(mean(early)).toBeLessThan(9); // the 7 s carousel (7.5 s +-15 % interval)
+    expect(Math.min(...late)).toBeGreaterThanOrEqual(8.4); // the 10 s trickle (+-15 %)
+    expect(mean(late)).toBeGreaterThan(mean(early) * 1.15);
+    const conserve = gaps(shots("conserve"), 0, 30);
+    expect(conserve.length).toBeGreaterThanOrEqual(1);
+    expect(mean(conserve)).toBeGreaterThan(mean(early) * 1.4); // x1.8 the interval
+  });
+
   it("the tank gun's rounds are credited to the vehicle as cannon rounds; its missile as a missile", () => {
     const sim = createSim(leoVsT90(2000, Math.PI / 2));
     holdAll(sim);
@@ -181,14 +208,16 @@ describe("the fixture's tortoise (M7.6a, rule 8)", () => {
     return { cycle: ticks.length > 1 ? (ticks[ticks.length - 1]! - ticks[0]!) / TICK_HZ / (ticks.length - 1) : -1, shots: ticks.length };
   }
 
-  it("its crew fires the bombard at the Puma; with the loader dead each round takes twice as long to load", () => {
+  it("its crew fires the bombard at the Puma; with the loader dead each round takes twice as long to load (10 s, not the 6 s interval)", () => {
     const full = cycle(false), slow = cycle(true);
+    // With a loader the bombard's 6 s interval (10 rounds a minute, +-15 %) is longer than its 5 s load and sets
+    // the cycle; without one the load takes 2 x 5 = 10 s and sets it (review fix: the load runs within the interval).
     expect(full.shots).toBeGreaterThanOrEqual(3);
     expect(full.cycle).toBeGreaterThanOrEqual(5);
-    expect(full.cycle).toBeLessThan(6.5);
+    expect(full.cycle).toBeLessThan(7);
     expect(slow.shots).toBeGreaterThanOrEqual(2);
-    expect(slow.cycle / full.cycle).toBeGreaterThan(1.7);
-    expect(slow.cycle / full.cycle).toBeLessThan(2.3);
+    expect(slow.cycle).toBeGreaterThanOrEqual(10);
+    expect(slow.cycle).toBeLessThan(11);
   });
 
   it("rounds and tiles stay counted: fired + left = ready + stowed at the start; tiles only leave the container when used", () => {

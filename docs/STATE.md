@@ -194,6 +194,10 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   nothing since 2026-11-13; the plan recommends deleting, and updating the CLAUDE.md note), or keep them?
 - Data reviews whenever convenient (lists in the earlier STATE, `docs/history/STATE-until-2026-11-14.md`, "Open
   questions"): Konkurs-M values, vehicle data of M7.1b-M7.4b, behaviour game values, squad tables, ranks and names.
+- Realistic ranks (2026-11-15, DECISIONS "Realistic ranks per role", low/medium, search extracts only): one rank per
+  slot; DE Puma Kommandant Feldwebel and HQ Puma (Zugtruppfuehrer) Hauptfeldwebel, Sanitaeter Stabsunteroffizier,
+  marksman Oberstabsgefreiter (new rank, insignia positions inferred); RU first squad leader = deputy (starshiy
+  serzhant). Zugfuehrer Leutnant or Oberleutnant?
 - After M10.8: the medical numbers table (keep, adjust named values, or faster care for gameplay).
 - D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
   (15 m, once a minute, on withdrawals and moves under fire).

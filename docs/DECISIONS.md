@@ -5153,3 +5153,31 @@ order dispatch (casualty point and evacuate next to drone). The app's card row f
 record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, its gunner). Goldens regenerated with
 `npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
 now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.
+
+## 2026-11-15 — Realistic ranks per role (owner request: "make the job distribution more realistic")
+Owner (binding): a Gefreiter has 3 to 6 months of service and would hardly see a battle, let alone be the dedicated
+medic. Least invasive option chosen: one most typical rank per template slot (no rank distributions: `MemberSlot.rank`
+is a single id and `buildForce` copies it, so weights would need a schema and generator change for little gain).
+Skills are not tied to rank or role (they come from the quality level), so nothing else changes. Sources: search
+extracts only (web pages cannot be opened here), confidence medium at most, mostly low.
+- DE (deployed SaZ unit, no Gefreiter in combat posts; SLV: Gefreiter after 3, Obergefreiter 6, Hauptgefreiter 12,
+  Stabsgefreiter 36, Oberstabsgefreiter 48 months): Schuetzentrupp: Truppfuehrer Stabsunteroffizier, MG-Schuetze
+  Stabsgefreiter, Panzerfaustschuetze Hauptgefreiter, Gruppenscharfschuetze Oberstabsgefreiter, Granatpistolenschuetze
+  Obergefreiter, Einsatzersthelfer B Hauptgefreiter (was Gefreiter). Zug HQ: Zugfuehrer Leutnant (unchanged), Funker
+  and drone operator Stabsgefreiter, Sanitaeter Stabsunteroffizier (was Hauptgefreiter). Puma crews: Kommandant
+  (= Gruppenfuehrer) Feldwebel, Richtschuetze Unteroffizier, Fahrer Hauptgefreiter; the fourth (headquarters) Puma
+  gets its own crew template `puma-besatzung-zug` (fixed callsign "Puma 4") whose Kommandant is the Zugtruppfuehrer
+  and deputy platoon leader, a Hauptfeldwebel (a Bundeswehr Puma podcast names a Hauptfeldwebel commander and an
+  Oberstabsgefreiter Truppfuehrer). Boxer San: Notfallsanitaeter Feldwebel (Feldwebel career), driver Hauptgefreiter.
+  Mortar Trupp: leader Stabsunteroffizier, loaders Obergefreiter. Demo team: no Gefreiter.
+- DE new rank Oberstabsgefreiter (OR-4, grade 6; Unteroffizier..Hauptfeldwebel grades +1, grade is only an order).
+  Insignia: five Schraegstreifen (Anlage 2 BPrDGrUnifAnO, medium): the Stabsgefreiter's four built up from the
+  shoulder end, the fifth 9.7 mm above the set-apart fourth (y 71.8; positions low). Hauptmann/Stabsfeldwebel not
+  added (no template uses them).
+- RU (combat units contract-manned; a contract private usually stays ryadovoy or yefreytor): the first squad's leader
+  is the deputy platoon commander, starshiy serzhant (battleorder.org: BTR company deputy platoon commander a senior
+  sergeant); other squad leaders serzhant; machine gunners yefreytor (were ryadovoy); strelok-sanitar yefreytor (was
+  ryadovoy). BMP crews unchanged (commander mladshiy serzhant, gunner-operator and driver-mechanic yefreytor).
+- xf fixture unchanged.
+Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
+untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).

@@ -4914,6 +4914,98 @@ string tables (litters next to thermal sights, blankets and MELLS), the batch to
 next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm run golden:update` after the merge
 (intended: the two branches' changes together); `golden/no-interiors` untouched. `npm test` green (118 files).
 
+## 2026-11-14 — D2 Battle record and `main.ts` split (roadmap-detail slice 10)
+- **One battle record from the events** (`sim/src/record.ts`, software decision): rule 5 says readers consume events;
+  the app's review and the batch tool each had their own fold of the same events. Now `newBattleRecord` /
+  `recordEvents(rec, events, view, catalog)` / `finishRecord(rec, result)` build one plain-JSON record: the timeline
+  as string-table keys with raw values (side, family name, callsign, objective, status, end reason, vehicle), the heat
+  map, ammunition (`tallyExpenditure`), and per side the counts the batch reports (first dismount, crews, missiles,
+  mortar, care, carers, triage tags and wrong tags, drags, carrying parties, metres carried, cover taken, loaded and
+  unloaded casualties) plus each casualty's first treatment tick. It lives in `sim` (pure, no text) so the app and the
+  tools share it. It is a **fold**, not `battleRecord(events, result)` over the whole stream as the plan wrote: the
+  timeline reads names and sides from the state of the tick (as the review always did), and keeping every event of a
+  40-minute battle would cost far more memory than the record.
+- **The batch keeps** what events cannot tell (who needs care and life-threatening needs, looked at once a second; the
+  comrades on one casualty at once) and reads everything else from the record. Check: the old and the new batch tool
+  give **identical rows** on platoon-vehicles, platoon-ru-vehicles and bench-combined (5 seeds x 600 s each, every
+  field but wall time); speed unchanged (9x / 83x / 52x against 9x / 80x / 51x).
+- **App save:** the record goes into the save (`record` field, `RECORD_VERSION` 1). A save from before D2 (its record
+  held text) loads with a fresh record: the review then starts at the load. Sim state, schema and goldens unchanged.
+- **The review in tabs** (`ui/src/aar.ts`): Battle (as before), Medical and Conduct, the last two with a short note
+  until M10.8 fills them; `__tcs.reviewTab(t)` and `__tcs.record()` for screenshots and checks;
+  `npm run screenshot -- --scene aar` (the platoon battle's review, heat map, both new tabs, phone and desktop).
+- **`main.ts` split:** 1,521 → 334 lines. The app's shared state is one `App` object (`app/src/app.ts`); the modules
+  beside `main.ts`: `orders.ts` (plans, the order for a gesture or tap, the order log), `units.ts` (read-only questions
+  about the player's units), `camera.ts` (centring, follow), `panels.ts` (order bar, sidebar, card, rules, score line),
+  `controls.ts` (map gestures), `keys.ts`, `view.ts` (floor switch, last-seen pins, debug sight), `review.ts` (the
+  review's words from the record), `save.ts`, `hooks.ts` (`window.__tcs`), `sprite-sheet.ts`. Behaviour unchanged
+  (controls, card, map-feel, fire-support and medical screenshot scenes run with the same results and no page errors).
+- **Test:** `tools/test/battle-record.test.ts`: the app's own loop and `runBattle` (the batch's way) give the same
+  record on 5 seeds of the shootout (240 s, with casualties and care), folding leaves the final hash unchanged, the
+  record is deterministic and round-trips as JSON, another version is not read back.
+- **Main moved on during the slice** (M8.6 fire support interface, M8 debt slot deleting the classic look, M9.4a
+  drone; PR #50): fast-forwarded onto it (no merge commit) and its `main.ts` changes ported into the new modules
+  (drone selection and orders in `units.ts` / `camera.ts` / `panels.ts` / `controls.ts`, the smoke-screen drag and
+  per-asset pop-up in `orders.ts` / `controls.ts`, fire support rounds in `review.ts`, the classic look gone from
+  `main.ts`). The drone, fire-support, controls and review screenshot scenes run with no page errors. No golden change.
+
+## 2026-11-14 — M10.5 Verwundetennest and platoon medic (roadmap-detail slice 11; state schema 20; goldens regenerated)
+Built per the owner's binding answers (medical system 1, 4, 6; rounds M10-2/M10-3: bearers are riflemen tasked by
+the platoon leader, under fire they take cover with the casualty; a Wounded sidebar tab; enemy casualties only as
+seen). Software decisions, not asked (owner to review after playing, M10.8):
+- **Generic rear points:** a `rear` store of `RearPoint { kind: medical | supply, side, unit, x, y, placed? }`, keyed
+  by its own entity id (state schema 19 → 20, migration adds the empty store; `SoldierState.atNest`, `evacOrdered`,
+  `evacRetryTick` and `Carry.point` are new optional fields). M11 reuses it for supply points.
+- **One nest per platoon (top unit)**, sited lazily when its first man needs taking back: `nest.backM` 150 m behind
+  the centre of its able men, away from the mean of the enemy contacts they hold (none: toward the nearest map edge),
+  within 100-200 m back, the spot within 45 m (25 candidates) hidden for a man lying from that enemy, outside
+  buildings, on a wheeled-grid cell in the same region as the edge behind (reachable by the ambulance of M10.6a). A
+  known enemy within 100 m moves it (checked every 10 s); an empty one more than 300 m from the platoon follows it; one
+  the player placed stays. All values `core/medical.json` `nest`, confidence low (no published figures; search
+  extracts only name the company Verwundetensammelpunkt).
+- **Who goes back:** `needsEvacuation` — alive, uncaptured, wounded and incapacitated, unable to walk or to fight, or
+  ordered back; once nobody treats him and his urgent needs are seen to (or `careWait` says nobody can). T1 first by
+  the tag he has; ordered men first of all. He walks himself if he can (the "walking" carry method), but not while he
+  is under fire (keeps with his squad, e.g. out of a trap house; found by the house lab). Otherwise the platoon leader
+  (or the casualty's squad leader) tasks bearers: 2 (`nest.bearers`) fit, free riflemen of the platoon, not leaders,
+  not medical men, not firing at the enemy (the attack lab's supporting squad was stripped of its fire), not on the
+  move with their squad, not in an assault or clearing drill, not indoors under fire, own squad first; a squad keeps 2 (`minFitLeft`) fit men; one alone (fireman's carry) when no second is free; at most 3
+  (`maxParties`) parties per platoon. A trip cut short is retried after 30 s (without it a man with no way re-tried
+  every second: 2,000 parties in one battle). On arrival `atNest` is set, the bearers walk back to their squad leader.
+- **The platoon medic:** the platoon's best-trained medical man (medic over first responder, HQ first: DE the
+  Sanitäter, RU the rifleman-medic) goes to the nest as a carer (`care` intent, responder) when it is within 400 m and
+  he is free, T1 first: he triages again (higher training re-tags at once) and gives what only he can. Casualties at
+  the nest get no carers from the line. A man fit to fight again there **returns to duty** (`medical.evac` returned).
+- **Orders** `casualtyPoint {x, y}` (to any unit or man: his platoon's nest moves there, snapped to passable ground
+  outside buildings, then `placed`) and `evacuate` (to the wounded man himself; a unit target is invalid). Neither ends
+  a drill or an errand. A unit ordered to mount ends its men's nest trips and takes its men at the nest along (the
+  mount's fetch of M10.4b does the rest); the nest system leaves boarding units alone.
+- **AI commander:** `strength()` no longer counts bearers, carers or men at the nest; it never orders such a man on
+  his own (an order to one man would end his trip: the defence fall-back moves did exactly that).
+- **Events, record:** `medical.nest` (sited, threatened, drift, ordered), `medical.evac` (tasked, walks, arrived,
+  returned); radio `radio.nestSited` / `radio.nestMoved` (RU strings say casualty collection point). The battle
+  record (version 2) counts them, the first arrival per man and wrong tags tagged again; batch line "Verwundetennest".
+- **Interface:** the nest is a red cross on white with the number of men lying there; dragging it sends
+  `casualtyPoint`. The sidebar gets Units / Wounded tabs (wide screens: the tabs replace the head; phone: a red-cross
+  button with the count on the slim strip): own wounded, T1 first, tag, status, a tap selects him, **Back** sends
+  `evacuate`. No "dismount with wounded" button yet (D3).
+- **Batches** (10 seeds; attacker wins; of the men to be taken back at the end, the share who had reached the nest,
+  blue/red): before → after at 1200 s: platoon 3/10 → 3/10 (27 % / 34 %), platoon-ru (red attacks) 9/10 → 8/10
+  (3 % / 5 %), platoon-vehicles 7/10 → 9/10 (16 % / 3 %). At 2400 s: platoon 45 % / 49 %, platoon-ru 3 % / 10 %.
+  **The plan's 60 % at 2400 s is not met** (earlier tries with bearers allowed under fire and from firing men reached
+  55 % and 63 % in the platoon battle, but stripped the attack lab's supporting fire and kept men in trap houses). The
+  Russian attack in platoon-ru shoots the German defenders to pieces: nobody is left free to carry, and the Russian
+  attackers have few free men behind their assault. Re-triage: wrong tags tagged again 7 (platoon blue, 2400 s), of
+  them 4 put right; red 4 of 4 — 13-29 % of all wrong tags; the plan's 50 % is met only among men a medic re-tags
+  (the Russians have no medic on the map). Left for M10.8 (levers: more bearers, `minFitLeft` 1, company bearers from
+  off the map, the medic doing rounds). Preventable deaths swing a lot between runs (platoon 2400 s blue 46-59 % of
+  life-threatening needs in three runs of this slice): the 10-seed batches are noisy.
+- Tests: `tools/test/medical-nest.test.ts` (siting, bearers, medic, walking, orders, return to duty, threat, save/load
+  mid-carry, a schema-19 save), `ui/test/wounded.test.ts`; `scenario-mounted` "losses force a withdrawal" now keeps
+  the battle from ending first (seed 1's defenders were all down at 112 s). Screenshots `--scene nest` (phone and
+  desktop). Goldens regenerated; `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, the wheeled grid
+  built once per battle, 61 ms): the timing tests run in `npm run check`.
+
 ## 2026-11-14 — M9.4b Counter-drone and AI use (roadmap-detail slice 35, parallel session; owner to review)
 - **Seen:** every man looks for enemy drones on the vehicles' slower schedule (every fourth scan): a small airframe
   against the sky (item `areaM2` per 0.7 m^2 x `drone.targetContrast` 3), larger while it flies, to `seenMaxM`
@@ -5220,3 +5312,11 @@ crew bails out, revived, out within two seconds). The case seen in the seed-1 ba
 feet in the battle's last tick (the wound system runs after the damage system). The test excuse for men in abandoned
 or destroyed hulls in scenario-mounted.test.ts is removed; the excuse for a squad that got back in to withdraw (Q24)
 stays. No sim change; goldens unchanged.
+
+## 2026-11-15 — Merge origin/main (M9.3b Metis-M, M9.4b counter-drone, M9.5 drone-observed fire, Boxer/BMM ambulance hulls, exact insignia) into the medical branch
+Conflicts kept both sides: DECISIONS entries, string tables (Verwundetennest lines next to the drone radio lines), the
+order dispatch (casualty point and evacuate next to drone). The app's card row for a missile team moved to
+`app/src/panels.ts` (the D2 split); the batch tool's M9.3b missile count for teams on foot moved into the battle
+record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, its gunner). Goldens regenerated with
+`npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
+now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.

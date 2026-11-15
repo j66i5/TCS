@@ -156,6 +156,9 @@ export function viewGround(input: BattleInput): (view: SimView, tick: number) =>
 }
 
 const able = (s: SoldierState | undefined) => s !== undefined && !isOut(s) && s.mental.behaviour !== "routed";
+/** M10.5: a man carrying a casualty back, gone to one, or on his way to (or at) the Verwundetennest is not the
+ *  commander's to task (an order to him alone would take him out of it). */
+const committed = (s: SoldierState | undefined) => s !== undefined && (s.carrying !== undefined || s.atNest !== undefined || s.intent?.kind === "care");
 
 /** The men of a unit and its sub-units, vehicle crews left out (they fight from their vehicles). */
 function members(view: SimView, uid: EntityId): EntityId[] {
@@ -426,7 +429,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       if (view.ended || tick % every !== 0) return [];
       curView = view; curTick = tick;
       const out: Order[] = [];
-      const order = (target: EntityId, body: Record<string, unknown>) => out.push({ tick, issuer: side, target, ...body } as Order);
+      // (M10.5: never an order to a man alone who carries a casualty, is with one, or is on his way to or at the
+      // Verwundetennest: it would take him out of that.)
+      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined)) out.push({ tick, issuer: side, target, ...body } as Order); };
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
@@ -440,7 +445,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // Crews that bailed out (M7.4b): on foot, they go back to where the side started (once each).
       const bailed = children.filter((c) => view.unit.get(c)?.exVehicle !== undefined);
       const crewOfVehicle = (vid: EntityId | undefined) => crews.find((c) => view.unit.get(c)?.vehicle === vid);
-      const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined));
+      // (M10.5: not the medic seeing to a casualty, nor a wounded man on his way to the nest.)
+      const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && !committed(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
       // given up (M6.6: the commander does not fire, shell or throw at him).
@@ -449,7 +455,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const knownMen = (m: EntityId) => known(m).filter((c) => c.cls !== "vehicle");
       // Fire is called through the first platoon that still has a man who can use the radio.
       const caller = topIds.find((id) => members(view, id).some((m) => { const s = view.soldier.get(m); return able(s as SoldierState | undefined) && s!.impair.canSpeak; })) ?? topIds[0]!;
-      const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => able(view.soldier.get(m) as SoldierState | undefined)).length / ms.length : 0; };
+      // M10.5: bearers carrying a casualty back, carers with one and men at the Verwundetennest are committed.
+      const strength = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && !committed(s); }).length / ms.length : 0; };
       /** Men not killed or out (a man who panicked and ran is not lost: his unit rallies). */
       const fitShare = (uid: EntityId) => { const ms = members(view, uid); return ms.length ? ms.filter((m) => { const s = view.soldier.get(m); return s !== undefined && !isOut(s); }).length / ms.length : 0; };
       const all = topIds.flatMap((id) => members(view, id));
@@ -510,7 +517,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const targets = [...vk.entries()].sort((a, b) => a[0] - b[0]);
           for (const m of all) {
             const s = view.soldier.get(m) as SoldierState | undefined;
-            if (!able(s) || s!.mount !== undefined || !s!.impair.canUseArms || view.action.has(m)) continue;
+            if (!able(s) || committed(s) || s!.mount !== undefined || !s!.impair.canUseArms || view.action.has(m)) continue;
             const uid = view.identity.get(m)?.unit;
             if (uid === undefined || atRule(uid) === "hold") continue;
             const rd = launcherReady(view, input, m);
@@ -1285,7 +1292,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               const flankBase = other !== null && bi === bases.length - 1;
               const list = flankBase ? sideList : mainList, aim = flankBase ? other : tgt;
               for (const m of members(view, base)) {
-                if (!able(view.soldier.get(m) as SoldierState | undefined) || view.action.has(m)) continue;
+                if (!able(view.soldier.get(m) as SoldierState | undefined) || committed(view.soldier.get(m) as SoldierState | undefined) || view.action.has(m)) continue;
                 // (The next enemy on the list he has a line of fire to; none: the objective, if he can fire at it.)
                 const mt = view.transform.get(m);
                 if (!mt) continue;

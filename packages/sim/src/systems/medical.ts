@@ -270,7 +270,7 @@ function tryDrag(ctx: SimContext, state: SimState, events: EventSink, helper: En
 }
 
 /** A carer's errand ends: he goes back to where he stood (unless he cannot), with a `medical.carer` event. */
-function releaseCarer(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, reason: string, walkBack: boolean): void {
+export function releaseCarer(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, reason: string, walkBack: boolean): void {
   const s = state.soldier.req(id), it = s.intent;
   if (it?.kind !== "care") return;
   s.intent = null;
@@ -393,7 +393,7 @@ function pickCarer(ctx: SimContext, state: SimState, c: EntityId, responders: bo
 }
 
 /** Send `m` to `c` as his carer (he leaves the fight). */
-function assignCarer(ctx: SimContext, state: SimState, events: EventSink, m: EntityId, c: EntityId, responder: boolean): boolean {
+export function assignCarer(ctx: SimContext, state: SimState, events: EventSink, m: EntityId, c: EntityId, responder: boolean): boolean {
   const t = state.transform.req(m);
   if (!routeCarer(ctx, state, m, c)) return false;
   state.fire.delete(m);
@@ -479,6 +479,8 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
   for (const c of waiting) {
     const cs = state.soldier.req(c);
     if (cs.captive !== null) continue;
+    // At the Verwundetennest (M10.5) the platoon medic sees to him (systems/nest.ts), no carers from the line.
+    if (cs.atNest !== undefined) { if (cs.careWait !== undefined) delete cs.careWait; continue; }
     const need = careNeed(ctx.catalog, state, c, params);
     if (!need) { if (cs.careWait !== undefined) delete cs.careWait; continue; }
     const treater = busy!.get(c);

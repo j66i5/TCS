@@ -142,5 +142,9 @@
   "item.ru-kontakt5-turret-front": "Kontakt-5 tile (turret front)",
   "item.ru-kontakt5-turret-side": "Kontakt-5 tile (turret side)",
   "role.ru.komandir-tanka": "Tank commander",
-  "role.ru.navodchik-operator": "Gunner"
+  "role.ru.navodchik-operator": "Gunner",
+  "radio.nestSited": "{callsign}: casualty collection point set up behind us.",
+  "radio.nestMoved": "{callsign}: moving the casualty collection point, it is under threat.",
+  "radio.ack.casualtyPoint": "{callsign}: casualty collection point there, understood.",
+  "radio.ack.evacuate": "{callsign}: understood, taking him back to the collection point."
 }

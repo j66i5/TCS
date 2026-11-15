@@ -42,6 +42,7 @@ export { takeOutOfFight } from "./systems/wounds";
 export * from "./medical";
 export { careEnabled, medicalSystem, startTreatment, treatedNow, underFireForCare } from "./systems/medical";
 export { carryLeader, carryParams, carrySpeedMps, carrySystem, coverSpotNear, endCarry, isCarried, leaveCarry, payloadMassKg, startCarry, type CarryOptions } from "./systems/carry";
+export { casualtyPointOrder, evacuateOrder, nestFor, nestOf, nestSystem, setNest, siteNest } from "./systems/nest";
 export { liesAboard, loadingParams, placesFit, placesUsed } from "./systems/boarding";
 export { driveSurface, followRoute, fuelLitres, planVehicleRoute, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";
 export * from "./hulls";
@@ -71,3 +72,4 @@ export { canFight, faceNeed, gunneryAllowed, muzzleWorld, stationOperator, weapo
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";
+export * from "./record";

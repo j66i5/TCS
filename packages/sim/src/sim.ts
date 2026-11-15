@@ -28,6 +28,7 @@ import { moraleSystem } from "./systems/morale";
 import { decisionSystem } from "./systems/decisions";
 import { surrenderSystem } from "./systems/surrender";
 import { medicalSystem } from "./systems/medical";
+import { nestSystem } from "./systems/nest";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -147,6 +148,7 @@ export function step(sim: Sim): SimEvent[] {
   surrenderSystem(ctx, state, events);
   // Self-aid and buddy aid (M10.2): before decisions, so a man who starts treating is not given something else.
   medicalSystem(ctx, state, events);
+  nestSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);

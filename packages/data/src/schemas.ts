@@ -571,6 +571,12 @@ export const MedicalFile = z.object({
   carrying: withProv({ reachM: Num(0.5, 10), holdSuppression: Num(0, 1), resumeQuietS: Num(0, 600), selfDefenceM: Num(0, 300), massRefKg: Num(10, 500) }).optional(),
   /** Casualties into and out of vehicles (M10.4b): how far a mounting unit fetches its wounded, places a lying man takes. */
   vehicleLoading: withProv({ fetchM: Num(0, 1000), lyingSeats: z.number().int().min(1).max(6), lyingShock: Num(0, 1) }).optional(),
+  /** The Verwundetennest (M10.5): siting, moving, bearers, the platoon medic. */
+  nest: withProv({
+    backM: Num(0, 2000), minBackM: Num(0, 2000), maxBackM: Num(0, 2000), searchM: Num(0, 500), arriveM: Num(1, 50), threatM: Num(0, 2000),
+    checkS: Num(1, 600), driftM: Num(0, 5000), maxParties: z.number().int().min(0).max(20), bearers: z.number().int().min(1).max(4),
+    minFitLeft: z.number().int().min(0).max(20), medicReachM: Num(0, 5000),
+  }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),

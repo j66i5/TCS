@@ -319,6 +319,40 @@ async function triageScenes(page: Page, name: string, errors: string[], shots: s
 }
 
 /**
+ * M10.5 Verwundetennest (`--scene nest`): the platoon battle on foot (village). Three men of the lead squad are hurt
+ * through the debug hook (a broken leg, a shattered arm, a leg bleed); four minutes on, the platoon's nest is sited
+ * behind it, bearers carry the man who cannot walk and the others walk there. Shots: the nest marker with the men
+ * around it (figures), the Wounded tab open (phone: the red-cross button on the slim strip), the tab with the
+ * Back button tapped for a man.
+ */
+async function nestScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/nest-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const info = await ev<{ hurt: number[]; nest: unknown }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader);
+    t.hurt(men[1], { zone: "legR", severity: 0.35, fracture: true });
+    t.hurt(men[2], { zone: "armL", severity: 0.9 });
+    t.hurt(men[3], { zone: "legL", bleedingLps: 0.004, severity: 0.3, compressible: true });
+    t.stepTicks(60 * 240); t.select(null);
+    const n = [...s.rear.values()].find((p) => p.side === "blue" && p.kind === "medical") ?? null;
+    if (n) t.focusScale(n.x + 40, n.y, ${name === "phone" ? 5 : 7}); t.stepTicks(1);
+    return { hurt: [men[1], men[2], men[3]], nest: n };`);
+  await settle();
+  await shot("0-nest-marker");
+  if (name === "phone") await page.click(".hud-side-wounded"); else await page.click(".hud-side-tab:nth-child(2)");
+  await page.waitForTimeout(200);
+  await shot("1-wounded-tab");
+  await ev(`const b = document.querySelector(".hud-wounded-back"); if (b) b.click(); t.stepTicks(60 * 3); return null;`);
+  await page.waitForTimeout(400);
+  await shot("2-wounded-back");
+  const log = await ev<unknown>(`return [${info.hurt.join(",")}].map((id) => ({ id, atNest: s.soldier.get(id).atNest ?? null, carried: s.carry.has(id), alive: s.soldier.get(id).physiology.alive }));`);
+  console.log(`${name}: nest scene ${JSON.stringify({ nest: info.nest, men: log })}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.4b carrying to and into vehicles (`--scene medical`): the mounted platoon battle (village), the lead squad gets
  * out, one of its men is knocked out (debug hook), and the squad is ordered back in: its men carry him to the Puma
  * (the "carried" frame) and lift him in; the platoon's medic and three men carry another on the folding litter (the
@@ -1565,12 +1599,14 @@ try {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    if (args["scene"] === "aar") { await page.close(); continue; } // D2: only the platoon battle's review (below)
     if (args["scene"] === "vehicles") { await vehicleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "night") { await nightScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "nest") { await nestScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }
@@ -1725,6 +1761,14 @@ try {
     await page.waitForTimeout(500);
     const q2 = `${outDir}/platoon-${seed}-${name}-2-heat-map.png`;
     await page.screenshot({ path: q2 }); shots.push(q2);
+    // D2: the review's Medical and Conduct tabs (a short note until M10.8 fills them), the heat map off again.
+    await page.evaluate(new Function("const b = [...document.querySelectorAll('.hud-aar button')][0]; if (b) b.click();") as () => void);
+    for (const tab of ["medical", "conduct"]) {
+      await page.evaluate(new Function(`globalThis.__tcs.reviewTab(${JSON.stringify(tab)});`) as () => void);
+      await page.waitForTimeout(300);
+      const q3 = `${outDir}/platoon-${seed}-${name}-3-review-${tab}.png`;
+      await page.screenshot({ path: q3 }); shots.push(q3);
+    }
     console.log(`${name}: platoon battle, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
     await page.close();
   }

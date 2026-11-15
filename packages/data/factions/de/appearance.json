@@ -47,7 +47,7 @@
         "elements": [
           {
             "kind": "bar",
-            "y": 45.0,
+            "y": 25.5,
             "widthMm": 5.0,
             "angleDeg": 35.0,
             "insetMm": 4.0
@@ -58,14 +58,14 @@
         "elements": [
           {
             "kind": "bar",
-            "y": 40.1,
+            "y": 25.5,
             "widthMm": 5.0,
             "angleDeg": 35.0,
             "insetMm": 4.0
           },
           {
             "kind": "bar",
-            "y": 49.9,
+            "y": 35.2,
             "widthMm": 5.0,
             "angleDeg": 35.0,
             "insetMm": 4.0
@@ -74,6 +74,38 @@
       },
       "hauptgefreiter": {
         "elements": [
+          {
+            "kind": "bar",
+            "y": 25.5,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 35.2,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 45.0,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          }
+        ]
+      },
+      "stabsgefreiter": {
+        "elements": [
+          {
+            "kind": "bar",
+            "y": 25.5,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
           {
             "kind": "bar",
             "y": 35.2,
@@ -90,45 +122,13 @@
           },
           {
             "kind": "bar",
-            "y": 54.8,
-            "widthMm": 5.0,
-            "angleDeg": 35.0,
-            "insetMm": 4.0
-          }
-        ]
-      },
-      "stabsgefreiter": {
-        "elements": [
-          {
-            "kind": "bar",
-            "y": 30.4,
-            "widthMm": 5.0,
-            "angleDeg": 35.0,
-            "insetMm": 4.0
-          },
-          {
-            "kind": "bar",
-            "y": 40.1,
-            "widthMm": 5.0,
-            "angleDeg": 35.0,
-            "insetMm": 4.0
-          },
-          {
-            "kind": "bar",
-            "y": 49.9,
-            "widthMm": 5.0,
-            "angleDeg": 35.0,
-            "insetMm": 4.0
-          },
-          {
-            "kind": "bar",
-            "y": 59.6,
+            "y": 62.1,
             "widthMm": 5.0,
             "angleDeg": 35.0,
             "insetMm": 4.0
           }
         ],
-        "note": "four evenly spaced stripes (a set-apart top stripe was not confirmed)"
+        "note": "three stripes from the shoulder end, the fourth set apart above them (owner 2026-11-15)"
       },
       "unteroffizier": {
         "elements": [
@@ -161,7 +161,7 @@
           },
           {
             "kind": "chevron",
-            "y": 58.9,
+            "y": 27.2,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
@@ -178,14 +178,14 @@
           },
           {
             "kind": "chevron",
-            "y": 63.9,
+            "y": 37.2,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
           },
           {
             "kind": "chevron",
-            "y": 53.9,
+            "y": 27.2,
             "halfSpanMm": 14.0,
             "riseMm": 11.7,
             "widthMm": 5.0
@@ -202,7 +202,7 @@
           },
           {
             "kind": "chevron",
-            "y": 52.0,
+            "y": 24.5,
             "halfSpanMm": 12.0,
             "riseMm": 9.0,
             "widthMm": 5.0,
@@ -216,7 +216,7 @@
           {
             "kind": "star",
             "x": 0,
-            "y": 42,
+            "y": 20,
             "diameterMm": 17,
             "points": 4
           }
@@ -227,14 +227,14 @@
           {
             "kind": "star",
             "x": 0,
-            "y": 33,
+            "y": 20,
             "diameterMm": 17,
             "points": 4
           },
           {
             "kind": "star",
             "x": 0,
-            "y": 55,
+            "y": 40,
             "diameterMm": 17,
             "points": 4
           }
@@ -252,7 +252,7 @@
       "https://www.meinbwshop.de/produkte/bundeswehr-rangschlaufen-gefreiter-ua-olivwei-11612"
     ],
     "confidence": "medium",
-    "note": "Field uniform (Feldanzug, Heer): the olive rank slide (Aufschiebeschlaufe) on the camouflage shoulder strap, devices woven in black (BPrDGrUnifAnO para 5(3): black or white replace silver on the Kampfanzug; TL 8455-0009 Anhang A 'DG Schwarz auf Oliv'). Medium (official-text extracts): device kinds and counts per Anlage 2 (1-4 Schraegstreifen; Tresse open at the bottom / closed; closed Tresse with 1 or 2 Winkel point up or a Kopfwinkel; 1 or 2 stars); the Litze in the Waffenfarbe on the Feldanzug strap, Heer only, 4 mm wide (bundeswehr.de), green (Jaegergruen) for Panzergrenadiere. Medium-low: slide 90 mm long, 52 mm wide at the collar end, 60 mm at the shoulder end (one TL 8455-0009 extract and a shop; not reproduced). Low (inferred, no drawing readable): every device size and position (stripes 5 mm with 3 mm gaps at 35 deg; Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg, the group centred 53 mm above the shoulder end; stars four-pointed faceted pips, 17 mm, inner radius 0.42, one at 42 mm, a pair at 33 and 55 mm), the Kopfwinkel's shape (drawn Odal-like: a 5 mm band, legs crossing under an 11 mm diamond head), the stripes' direction, the strap's shape (as wide as the slide, following its taper) and colour, the Litze's place 3 mm below the slide and its hex colour. Search extracts only; no page could be opened."
+    "note": "Field uniform (Feldanzug, Heer): the olive rank slide (Aufschiebeschlaufe) on the camouflage shoulder strap, devices woven in black (BPrDGrUnifAnO para 5(3): black or white replace silver on the Kampfanzug; TL 8455-0009 Anhang A 'DG Schwarz auf Oliv'). Medium (official-text extracts): device kinds and counts per Anlage 2 (1-4 Schraegstreifen; Tresse open at the bottom / closed; closed Tresse with 1 or 2 Winkel point up or a Kopfwinkel; 1 or 2 stars); the Litze in the Waffenfarbe on the Feldanzug strap, Heer only, 4 mm wide (bundeswehr.de), green (Jaegergruen) for Panzergrenadiere. Medium-low: slide 90 mm long, 52 mm wide at the collar end, 60 mm at the shoulder end (one TL 8455-0009 extract and a shop; not reproduced). Low (inferred, no drawing readable): every device size and the exact millimetres (stripes 5 mm with 3 mm gaps at 35 deg, the lowest 5 mm above the shoulder end, the Stabsgefreiter's fourth 9 mm above the third; Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg, the lowest one's legs ending 4 mm above the Tresse at the shoulder end, the next 10 mm higher; stars four-pointed faceted pips, 17 mm, inner radius 0.42, the first centred 20 mm above the shoulder end, the next 20 mm higher). Owner (2026-11-15, binding): every device is built up from the shoulder end (Gefreiter stripe and Leutnant star at the bottom; the Stabsgefreiter's top stripe set apart from the three below), the Kopfwinkel's shape (drawn Odal-like: a 5 mm band, legs crossing under an 11 mm diamond head), the stripes' direction, the strap's shape (as wide as the slide, following its taper) and colour, the Litze's place 3 mm below the slide and its hex colour. Search extracts only; no page could be opened."
   },
   "note": "Original colour choices (M7.5, docs/ASSETS.md): green tones in the spirit of a woodland camouflage (made greener at the owner's review, 2026-11-13); NATO-style green paint. Presentation only, outside the catalog."
 }

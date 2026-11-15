@@ -728,6 +728,18 @@ export interface MedicalDef {
    * takes in a vehicle without an ambulance layout; lyingShock: a casualty lies when unconscious or this shocked.
    */
   vehicleLoading?: { fetchM: number; lyingSeats: number; lyingShock: number };
+  /**
+   * The Verwundetennest (M10.5; absent: no nest, nobody is carried back). Sited `backM` behind the platoon's centre
+   * (within minBackM-maxBackM), at a spot within `searchM` hidden from the enemy its men know and reachable by wheeled
+   * vehicles; a casualty within `arriveM` is at it. Every `checkS`: a known enemy within `threatM` moves it (unless the
+   * player placed it), an empty one more than `driftM` from the platoon follows it. Bearers: `bearers` riflemen per
+   * casualty who cannot walk, at most `maxParties` parties per platoon, a squad keeps `minFitLeft` fit men. The
+   * platoon's medic goes to it when within `medicReachM`.
+   */
+  nest?: {
+    backM: number; minBackM: number; maxBackM: number; searchM: number; arriveM: number; threatM: number; checkS: number;
+    driftM: number; maxParties: number; bearers: number; minFitLeft: number; medicReachM: number;
+  };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */

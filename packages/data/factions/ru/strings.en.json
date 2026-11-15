@@ -119,5 +119,9 @@
   "role.ru.ptur-operator": "Missile operator",
   "role.ru.ptur-loader": "Missile team loader",
   "item.ru-quadcopter": "Reconnaissance quadcopter (Mavic class)",
-  "item.ru-drone-battery": "Drone battery"
+  "item.ru-drone-battery": "Drone battery",
+  "radio.nestSited": "{callsign}: casualty collection point set up behind us.",
+  "radio.nestMoved": "{callsign}: moving the casualty collection point, it is under threat.",
+  "radio.ack.casualtyPoint": "{callsign}: casualty collection point there, understood.",
+  "radio.ack.evacuate": "{callsign}: understood, taking him back to the collection point."
 }

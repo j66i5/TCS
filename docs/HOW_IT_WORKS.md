@@ -30,7 +30,10 @@ and withdraws. On foot it needs most of 15 minutes to get in (see "Does an attac
 down; a side that breaks or has nobody left loses at once. **Save** keeps the battle in the browser; **Load**
 brings it back exactly. At the end the **after-action review** shows the result and why, both casualty lists
 (who, where wounded), a timeline (men falling, objectives changing hands, units breaking) and, on the
-battlefield, a **heat map** (dots where shots came from, crosses where men fell).
+battlefield, a **heat map** (dots where shots came from, crosses where men fell). The review has three tabs: the
+battle, **Medical** and **Conduct**; the last two say "not recorded here yet" until the end of the medical work
+(M10.8) fills them. Everything in the review comes from one **battle record**, folded from the battle's events as
+they happen (`packages/sim/src/record.ts`); the batch report reads the same record, so the two cannot disagree.
 `?scenario=demo` opens the old one-squad sandbox.
 
 **Mortars and smoke (M6.5; ranging since the "fire-support" step).** The attacker has two platoons. Each side can
@@ -373,8 +376,8 @@ carry on with a way for fewer men, or put the casualty down). **Fired on** (a ca
 party takes the casualty into the nearest cover within 15 m hidden from the enemy, lies down there, and goes on
 after 10 s without fire. A party ends when it gets there, or when the casualty dies, is loaded or taken prisoner.
 For now carrying is used by the drag to cover under fire (with two carers beside him it is the two-man drag, and on
-the ground floor a casualty can be dragged into a house) and by men taking a casualty to their vehicle (below);
-taking casualties back to the Verwundetennest comes with it in M10.5. The debug view shows "drag -> id (move)" or
+the ground floor a casualty can be dragged into a house), by men taking a casualty to their vehicle (below) and by
+bearers taking casualties back to the Verwundetennest (below). The debug view shows "drag -> id (move)" or
 "two-man -> id (hold)" for a carrier and "carried" for the casualty; the man box says "carrying a wounded comrade".
 On the map a casualty being carried is drawn limp on his back with a dressing, or lying on the litter between its
 four bearers. The **carry lab** (`npm run lab -- carry`) measures every way on flat ground, a slope, through a house
@@ -392,12 +395,43 @@ shock, otherwise he **sits**. **Places:** in a carrier every passenger seat take
 takes its wounded). An ambulance uses its own layouts instead: the Boxer takes 3 lying, or 7 sitting, or 2 lying and
 3 sitting; the BMM 4 lying inside and 2 on the hull, or 7 sitting and 2 on the hull (the two outside places only
 while there are seats for them: 7 men in all). Casualties there is no place for are left where they lie. A
-**dismount with the wounded** (the order's `wounded` flag; the player's button for it comes with the wounded list in
-M10.5) first lets every able man out, then two of them carry each casualty out of the nearest door and lay him down
+**dismount with the wounded** (the order's `wounded` flag; no player button for it yet: the Wounded tab of M10.5 has
+none, D3) first lets every able man out, then two of them carry each casualty out of the nearest door and lay him down
 close behind it. An ordinary dismount leaves the wounded aboard. The man box says "lifting a wounded comrade into
 the vehicle" or "carrying a wounded comrade out of the vehicle"; the batch report counts casualties into and out of
 vehicles per side. The **bench-medical** benchmark (a third of 270 men down from the start, carried to 30 vehicles)
 must run at 8× real time or more.
+
+**The Verwundetennest and the platoon medic (M10.5).** Each platoon gathers its wounded at a **Verwundetennest**
+(the Bundeswehr's company point is the Verwundetensammelpunkt; the Russians' a casualty collection point), a rear
+point of kind "medical" (supply points in M11 will be the same kind of thing). It is set up the first time one of
+the platoon's men needs taking back: 150 m behind the centre of the platoon's men (`core/medical.json` `nest`),
+away from the enemy they know (with nobody known, toward the nearest map edge), at the spot within 45 m that is
+hidden from that enemy for a man lying down, outside buildings, on ground a wheeled vehicle can reach from that
+edge (the ambulance of M10.6 will drive there). The platoon leader says so on the radio. Every 10 s it is looked
+at: a known enemy within 100 m moves it, and an empty one left more than 300 m behind follows the platoon — unless
+the player put it there. **Who goes back:** a living wounded man who is out of the fight (unconscious, cannot walk
+or cannot fight), once nobody is treating him and his urgent needs are seen to (or nobody can see to them), T1
+first. He walks there himself if he can. Otherwise the platoon leader (or, with him down, the man's squad leader)
+tasks **bearers**: two riflemen of the platoon who are free (not leaders, not medical men, not firing at the enemy,
+not on the move with their squad, not in an assault or clearing, not in a house under fire), his own squad's first, never leaving a squad with fewer than two fit men; one
+alone (a fireman's carry) when no second man is free; at most three parties at once. They are a carrying party
+(above): under fire they take cover with him and go on when it eases; a trip cut short is tried again after 30 s.
+On arrival he lies at the nest (his squad's orders no longer reach him) and the bearers walk back to their squad
+leader. **The platoon medic** — the platoon's best-trained medical man (the German Sanitäter; the Russian rifleman-
+medic) — goes to the nest when it is within 400 m and he is free, and sees to the men there one by one: he tags each
+again (his training beats a comrade's tag, so most wrong tags are put right) and gives the care only he can
+(decompression, drips). Men at the nest get no other carers. A man who is fit to fight again there (his pain eased)
+goes back to his squad: **returned to duty**. The AI commander counts bearers, carers and men at the nest as
+committed (not in a squad's strength) and never gives them orders of their own. **The player:** the nest is a red
+cross on a white square on the map, with the number of men lying there; drag it to move it (`casualtyPoint`; it
+then stays). The sidebar's **Wounded** tab (on the phone: the red-cross button with the count on the slim strip)
+lists the player's own wounded, T1 first, with their tag and what is happening to them (still fighting, being
+treated, waiting to be carried back, being carried, walking back, at the Verwundetennest, aboard); a tap on a row
+selects him, and **Back** sends him to the nest now (`evacuate`: first in the queue, and even a man who could still
+fight goes). The batch report's "Verwundetennest" line counts nests set up and moved, men sent back with bearers or
+walking, arrivals and returns to duty, the share of those to be taken back who reached the nest by the end, and the
+wrong tags put right.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
@@ -1160,7 +1194,7 @@ his own side now, whichever platoon he belongs to.
 You tap the map at a point 200 m east and 90 m south of the map corner, with the blue team selected.
 
 1. **Tap → order.** The UI (`packages/ui/src/input.ts`) turns your finger position into map metres. The app
-   (`packages/app/src/main.ts`) creates the order
+   (`packages/app/src/controls.ts`, which sends it through `orders.ts`) creates the order
    `{ tick: 61, issuer: "blue", target: <team>, kind: "move", waypoints: [{ x: 200, y: 90, mode: "walk" }] }`
    and submits it.
 2. **Inbox.** The order waits in the simulation's inbox until its tick (`systems/orders.ts`).

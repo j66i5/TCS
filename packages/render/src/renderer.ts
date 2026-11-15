@@ -98,6 +98,9 @@ export interface Overlay {
   plan?: PlanOverlay | null;
   /** Objectives (M6) as the player's side sees them (holders are public: who stands on them is visible). */
   objectives?: readonly { x: number; y: number; radiusM: number; holder: string | null; contested: boolean; label: string }[];
+  /** M10.5: the player's Verwundetennester (a red cross on white; the number of men lying there). `drag`: the marker
+   *  being dragged there (a ghost and a line from where it stands). */
+  nests?: readonly { x: number; y: number; count: number; drag?: { x: number; y: number } | null }[] | null;
   /** After-action heat map (M6): shots as (x, y, side index) triples, men fallen as (x, y, side index). */
   heat?: { shots: readonly number[]; falls: readonly number[] } | null;
   /** The floor shown in buildings (M7.5d floor switch; 0 / absent = ground). Men inside on another floor are
@@ -1208,6 +1211,16 @@ export class BattleRenderer {
       }
       this.request(o.label, s.x, s.y - r - 9, 4, colour, 1, k++);
     }
+    for (const n of overlay.nests ?? []) {
+      const s = worldToScreen(c, n.x, n.y);
+      if (n.drag) {
+        const d = worldToScreen(c, n.drag.x, n.drag.y);
+        g.moveTo(s.x, s.y).lineTo(d.x, d.y).stroke({ width: 2, color: 0xf4f1ea, alpha: 0.6 });
+        drawNestMarker(g, d.x, d.y, 1);
+      }
+      drawNestMarker(g, s.x, s.y, n.drag ? 0.45 : 1);
+      if (n.count > 0) this.request(String(n.count), s.x, s.y + 17, 4, 0xf4f1ea, 1, k++);
+    }
     const h = overlay.heat;
     if (h) {
       for (let i = 0; i < h.shots.length; i += 3) {
@@ -1728,6 +1741,15 @@ export function drawTriageTag(g: Graphics, x: number, y: number, cat: number, r:
   g.rect(px - 1, py - 1, w + 2, w + 2).fill({ color: 0x14110f, alpha: 0.85 });
   g.rect(px, py, w, w).fill({ color: TRIAGE_COLOURS[Math.min(2, Math.max(0, cat - 1))]! });
   if (cat === 1) g.rect(px + w * 0.35, py + w * 0.35, w * 0.3, w * 0.3).fill({ color: 0xffffff });
+}
+
+/** The Verwundetennest's marker (M10.5): a red cross on a white square with a dark rim, a fixed size on screen. */
+export function drawNestMarker(g: Graphics, x: number, y: number, alpha: number): void {
+  const h = 10, a = h * 0.3, b = h * 0.75;
+  g.roundRect(x - h - 1.5, y - h - 1.5, 2 * h + 3, 2 * h + 3, 3).fill({ color: 0x14110f, alpha: 0.85 * alpha });
+  g.roundRect(x - h, y - h, 2 * h, 2 * h, 2.5).fill({ color: 0xf4f1ea, alpha });
+  g.rect(x - a, y - b, 2 * a, 2 * b).fill({ color: 0xd22a22, alpha });
+  g.rect(x - b, y - a, 2 * b, 2 * a).fill({ color: 0xd22a22, alpha });
 }
 
 function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {

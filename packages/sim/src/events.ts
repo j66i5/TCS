@@ -58,6 +58,13 @@ export type SimEvent =
    * rest, done (with `reason`: arrived, dead, gone, carriers-lost, no-way, gave-up, ordered) and the metres carried.
    */
   | { kind: "medical.carried"; tick: number; payload: EntityId; by: EntityId; method: DefId; carriers: number; phase: "start" | "hold" | "resume" | "rest" | "done"; distanceM: number; reason?: string }
+  /** The Verwundetennest (M10.5, rear point `point` of top unit `unit`): sited, or moved (`reason`: threatened, drift,
+   *  ordered by the player), now at (x, y). */
+  | { kind: "medical.nest"; tick: number; side: SideId; point: EntityId; unit: EntityId; x: number; y: number; reason: "sited" | "threatened" | "drift" | "ordered" }
+  /** A casualty on his way to the Verwundetennest (M10.5): `phase` tasked (bearers sent by `by`, `bearers` men),
+   *  walks (he goes himself), arrived; returned: fit to fight again after care there, back to his squad (returned to
+   *  duty). `ordered`: the player's `evacuate` order. */
+  | { kind: "medical.evac"; tick: number; casualty: EntityId; point: EntityId; phase: "tasked" | "walks" | "arrived" | "returned"; by?: EntityId; bearers?: number; ordered?: boolean }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

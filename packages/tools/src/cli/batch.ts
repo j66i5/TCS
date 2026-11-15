@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { careNeed, environmentAt, lifeThreatNeed, parseTimeOfDay, runBattle, newReviewTally, stripInteriors, tallyExpenditure, tallyReview, type Expenditure, type ReviewTally, type Sim } from "@tcs/sim";
+import { type ReviewTally, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
@@ -54,6 +54,10 @@ interface Row {
   /** M9.6: drones, enemies found, fire missions by location method, missiles, light (sim/src/review.ts). */
   review: ReviewTally;
   m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
+  /** M10.5 per side: nests sited and moved, casualties sent back with bearers or walking, arrivals; at the end, the
+   *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
+   *  tagged again, and of those now right. */
+  nest: Record<string, { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number; needEnd: number; reachedEnd: number; wrong: number; wrongRetagged: number; corrected: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -65,40 +69,27 @@ for (let i = 0; i < runs; i++) {
   if (noInteriors) input.map = stripInteriors(input.map);
   if (noMedical) input.rules.medicalCare = false;
   const s0 = performance.now();
-  // Each side's first dismount (M7.2), from the event stream.
-  const firstDismount: Record<string, number | null> = { blue: null, red: null };
-  const sideOfUnit = new Map<number, string>();
-  const sideOfVehicle = new Map<number, string>();
-  const crews: Row["crews"] = { blue: { reversedOut: 0, fires: 0, firesOut: 0 }, red: { reversedOut: 0, fires: 0, firesOut: 0 } };
-  const missiles: Row["missiles"] = { blue: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 }, red: { fired: 0, hit: 0, lost: 0, miss: 0, penetrated: 0, rocketPenetrated: 0 } };
-  const exp: Expenditure = {};
-  const mortar: Row["mortar"] = { blue: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 }, red: { bursts: 0, ranging: 0, enemyWounded: 0, enemyDown: 0 } };
-  const mortarHe = new Set(Object.values(input.catalog.factions).map((f) => f.fireSupport?.heAmmo).filter((x): x is string => x !== undefined));
+  // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
+  // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
+  const rec = newBattleRecord([...new Set(input.forces.map((f) => f.side))]);
+  let pending: SimEvent[] = [];
   const sideOfSoldier = (sim: Sim, id: number) => sim.state.identity.get(id)?.side;
-  let simRef: Sim | null = null;
-  let pending: Parameters<typeof tallyExpenditure>[1] = [];
+  const treated = (id: number) => rec.firstTreated[String(id)];
   const houses = buildingsTally(input);
-  const care: Row["care"] = { blue: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 }, red: { self: 0, buddy: 0, worked: 0, men: 0, tourniquets: 0 } };
-  const cared = new Set<number>();
-  const carers: Row["carers"] = { blue: { comrades: 0, responders: 0, needed: 0, cared: 0, firstCareS: [], maxComrades: 0, diedFast: 0 }, red: { comrades: 0, responders: 0, needed: 0, cared: 0, firstCareS: [], maxComrades: 0, diedFast: 0 } };
+  const carers: Record<string, { needed: number; firstCareS: number[]; maxComrades: number; diedFast: number }> = { blue: { needed: 0, firstCareS: [], maxComrades: 0, diedFast: 0 }, red: { needed: 0, firstCareS: [], maxComrades: 0, diedFast: 0 } };
   const gone = new Set<number>();
-  const needSince = new Map<number, number>(); // casualty -> tick he first needed care
-  const firstCared = new Set<number>();
-  const m103b: Row["m103b"] = {
-    blue: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
-    red: { lifeThreat: 0, preventable: 0, killedAfter: 0, tags: {}, wrong: {}, drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0 },
-  };
+  const needSince = new Map<number, { tick: number; side: string }>(); // casualty -> tick he first needed care, his side
+  const m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number }> = { blue: { lifeThreat: 0, preventable: 0, killedAfter: 0 }, red: { lifeThreat: 0, preventable: 0, killedAfter: 0 } };
   const threatened = new Set<number>(), died = new Set<number>();
-  const review = newReviewTally();
+  // M10.5: who is to be taken back at the last look (living, not captured; at the nest counts).
+  let evacEnd: { id: number; side: string }[] = [];
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
+    onEvents: (ev) => { pending = ev; houses.onEvents(ev); },
     onTick: (sim) => {
-      simRef = sim;
       houses.onTick(sim);
-      if (sideOfUnit.size === 0) for (const [id, u] of sim.state.unit.entries()) sideOfUnit.set(id, u.side);
-      if (sideOfVehicle.size === 0) for (const [id, v] of sim.state.vehicle.entries()) sideOfVehicle.set(id, v.side);
-      tallyReview(review, pending, sim.state);
-      if (pending.length > 0) { tallyExpenditure(exp, pending, sim.state, input.catalog); pending = []; }
+      recordEvents(rec, pending, sim.state, input.catalog);
+      pending = [];
       // Life-threatening needs care can answer, and deaths after one (M10.3b), once a second, care on or off.
       if (sim.state.tick % 60 === 0) {
         for (const [id, s] of sim.state.soldier.entries()) {
@@ -116,107 +107,36 @@ for (let i = 0; i < runs; i++) {
           if (!threatened.has(id) && lifeThreatNeed(input.catalog, sim.state, id, sim.ctx.physiologyParams)) { threatened.add(id); k.lifeThreat++; }
         }
       }
+      if (sim.state.tick % 60 === 0) {
+        evacEnd = [];
+        for (const [id, s] of sim.state.soldier.entries()) if (s.physiology.alive && s.captive === null && (needsEvacuation(s) || s.atNest !== undefined)) evacEnd.push({ id, side: sideOfSoldier(sim, id) ?? "" });
+      }
       // Who needs care, once a second (M10.3a), and comrade carers per casualty at once.
       if (sim.state.tick % 60 === 0 && !noMedical) {
         const per = new Map<number, number>();
         for (const [id, s] of sim.state.soldier.entries()) {
           if (s.intent?.kind === "care" && s.intent.responder !== true && s.intent.target !== undefined) per.set(s.intent.target, (per.get(s.intent.target) ?? 0) + 1);
-          if (!s.physiology.alive && needSince.has(id) && !firstCared.has(id) && !gone.has(id)) {
+          if (!s.physiology.alive && needSince.has(id) && treated(id) === undefined && !gone.has(id)) {
             gone.add(id);
             const k = carers[sideOfSoldier(sim, id) ?? ""];
-            if (k && sim.state.tick - needSince.get(id)! < 120 * 60) k.diedFast++;
+            if (k && sim.state.tick - needSince.get(id)!.tick < 120 * 60) k.diedFast++;
           }
-          if (s.wounds.length === 0 || !s.physiology.alive || needSince.has(id) || firstCared.has(id)) continue;
+          if (s.wounds.length === 0 || !s.physiology.alive || needSince.has(id) || treated(id) !== undefined) continue;
           if (careNeed(input.catalog, sim.state, id, sim.ctx.physiologyParams) === null) continue;
-          needSince.set(id, sim.state.tick);
-          const c = carers[sideOfSoldier(sim, id) ?? ""];
+          const side = sideOfSoldier(sim, id) ?? "";
+          needSince.set(id, { tick: sim.state.tick, side });
+          const c = carers[side];
           if (c) c.needed++;
         }
         for (const [c, n] of per) { const k = carers[sideOfSoldier(sim, c) ?? ""]; if (k) k.maxComrades = Math.max(k.maxComrades, n); }
       }
     },
-    onEvents: (ev) => {
-      pending = ev;
-      houses.onEvents(ev);
-      // Mortar bursts this tick (by the side of the man who called them), then the enemy men hurt in the same tick.
-      let burstSide: string | undefined;
-      for (const e of ev) {
-        if (e.kind === "explosion" && mortarHe.has(e.ammo) && simRef) { burstSide = sideOfSoldier(simRef, e.owner); const m = mortar[burstSide ?? ""]; if (m) m.bursts++; }
-        else if ((e as { kind: string }).kind === "support.ranging") { const m = mortar[(e as unknown as { side: string }).side]; if (m) m.ranging++; }
-      }
-      if (burstSide !== undefined && simRef) {
-        const hurt = new Set<number>();
-        for (const e of ev) {
-          if (e.kind === "wound" && (e.mechanism === "fragment" || e.mechanism === "blast") && sideOfSoldier(simRef, e.soldier) !== burstSide && !hurt.has(e.soldier)) { hurt.add(e.soldier); mortar[burstSide]!.enemyWounded++; }
-          else if (e.kind === "casualty" && sideOfSoldier(simRef, e.soldier) !== burstSide) mortar[burstSide]!.enemyDown++;
-        }
-      }
-      for (const e of ev) {
-        if (e.kind === "medical.treated" && simRef) {
-          const c = care[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (c) {
-            if (e.by === e.casualty) c.self++; else c.buddy++;
-            if (e.success) c.worked++;
-            if (e.success && e.intervention === "tourniquet") c.tourniquets++;
-            if (!cared.has(e.casualty)) { cared.add(e.casualty); c.men++; }
-          }
-          if (!firstCared.has(e.casualty)) {
-            firstCared.add(e.casualty);
-            const k = carers[sideOfSoldier(simRef, e.casualty) ?? ""], since = needSince.get(e.casualty);
-            if (k && since !== undefined) { k.cared++; k.firstCareS.push((e.tick - since) / 60); }
-          }
-          continue;
-        }
-        if (e.kind === "medical.triaged" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { k.tags[e.skill] = (k.tags[e.skill] ?? 0) + 1; if (e.cat !== e.actual) k.wrong[e.skill] = (k.wrong[e.skill] ?? 0) + 1; }
-          continue;
-        }
-        if (e.kind === "medical.dragged" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { if (e.done) k.dragsDone++; else k.drags++; }
-          continue;
-        }
-        if (e.kind === "medical.carried" && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.payload) ?? ""];
-          if (k && e.phase === "start") k.carries[e.method] = (k.carries[e.method] ?? 0) + 1;
-          if (k && e.phase === "hold") k.holds++;
-          if (k && e.phase === "done") k.carriedM += e.distanceM;
-          continue;
-        }
-        // M10.4b: casualties lifted into and carried out of vehicles (the lead's action completes).
-        if (e.kind === "action.completed" && (e.action === "loadCasualty" || e.action === "unloadCasualty") && simRef) {
-          const k = m103b[sideOfSoldier(simRef, e.actor) ?? ""];
-          if (k) { if (e.action === "loadCasualty") k.loaded++; else k.unloaded++; }
-          continue;
-        }
-        if (e.kind === "medical.carer" && e.assigned && simRef) {
-          const k = carers[sideOfSoldier(simRef, e.casualty) ?? ""];
-          if (k) { if (e.responder) k.responders++; else k.comrades++; }
-          continue;
-        }
-        // (M9.3b: a missile from a team on foot counts for its gunner's side.)
-        if (e.kind === "missile.ended") { const sd = e.vehicle !== undefined ? sideOfVehicle.get(e.vehicle) : simRef ? sideOfSoldier(simRef, e.gunner) : undefined; const m = missiles[sd ?? ""]; if (m) m[e.result]++; continue; }
-        if (e.kind === "shot.fired" && input.catalog.ammo[e.ammo]?.guided !== undefined) { const sd = e.vehicle !== undefined ? sideOfVehicle.get(e.vehicle) : simRef ? sideOfSoldier(simRef, e.shooter) : undefined; const m = missiles[sd ?? ""]; if (m) m.fired++; continue; }
-        if (e.kind === "vehicle.hit" && e.result === "penetrated") {
-          const am = input.catalog.ammo[e.ammo];
-          const vs = sideOfVehicle.get(e.vehicle);
-          const m = missiles[vs === "blue" ? "red" : vs === "red" ? "blue" : ""];
-          if (m && am?.guided !== undefined) m.penetrated++;
-          else if (m && am?.delivery?.method === "direct") m.rocketPenetrated++;
-          continue;
-        }
-        if (e.kind === "vehicle.reaction" || e.kind === "vehicle.fire" || e.kind === "vehicle.extinguished") {
-          const c = crews[sideOfVehicle.get(e.vehicle) ?? ""];
-          if (c) { if (e.kind === "vehicle.reaction" && e.reaction === "reverseOut") c.reversedOut++; else if (e.kind === "vehicle.fire") c.fires++; else if (e.kind === "vehicle.extinguished") c.firesOut++; }
-          continue;
-        }
-        if (e.kind !== "unit.dismounted") continue;
-        const side = sideOfUnit.get(e.unit);
-        if (side !== undefined && firstDismount[side] === null) firstDismount[side] = e.tick / 60;
-      }
-    },
   });
+  finishRecord(rec, r);
+  // Seconds from first needing care to the first treatment, per treated man (by his side).
+  for (const [id, since] of needSince) { const t = treated(id), k = carers[since.side]; if (k && t !== undefined) k.firstCareS.push((t - since.tick) / 60); }
+  const sd = (side: string) => rec.sides[side] ?? newSideRecord();
+  const perSide = <T>(f: (x: SideRecord, side: string) => T): Record<string, T> => Object.fromEntries(["blue", "red"].map((x) => [x, f(sd(x), x)]));
   rows.push({
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
@@ -225,9 +145,17 @@ for (let i = 0; i < runs; i++) {
     winner: r.winner, scores: Object.fromEntries(r.scores.map((s) => [s.side, s.score])),
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
-    firstDismountS: firstDismount,
-    crews, missiles, mortar, buildings: houses.tally, care, carers, m103b, review,
-    spent: Object.fromEntries(Object.entries(exp).map(([side, e]) => {
+    firstDismountS: perSide((x) => (x.firstDismountTick === null ? null : x.firstDismountTick / 60)),
+    review: rec.review,
+    crews: perSide((x) => x.crews), missiles: perSide((x) => x.missiles), mortar: perSide((x) => x.mortar), buildings: houses.tally,
+    care: perSide((x) => x.care),
+    carers: perSide((x, side) => ({ comrades: x.carers.comrades, responders: x.carers.responders, needed: carers[side]!.needed, cared: carers[side]!.firstCareS.length, firstCareS: carers[side]!.firstCareS, maxComrades: carers[side]!.maxComrades, diedFast: carers[side]!.diedFast })),
+    nest: perSide((x, side) => {
+      const mine = evacEnd.filter((e) => e.side === side);
+      return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
+    }),
+    m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
+    spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
       return [side, { smallArms: e.smallArms, grenades: e.grenades, handSmoke: e.handSmoke, rockets: Object.values(e.rockets).reduce((a, b) => a + b, 0), cannon: vs.reduce((n, v) => n + Object.values(v.cannon).reduce((a, b) => a + b, 0), 0), coax: vs.reduce((n, v) => n + v.coax, 0), smoke: vs.reduce((n, v) => n + v.smoke, 0) }];
     })),
@@ -264,6 +192,16 @@ const md = [
   `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
   `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}, hand smoke ${mean(rows.map((r) => r.spent[s]?.handSmoke ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
+  `- Drones per battle (M9.4): ${["blue", "red"].map((s) => {
+    const d = (f: (x: ReviewTally["sides"][string]["drones"]) => number) => mean(rows.map((r) => { const x = r.review.sides[s]; return x ? f(x.drones) : 0; })).toFixed(1);
+    return `${s} flown ${d((x) => x.launched)}, recovered ${d((x) => x.landed)}, lost ${d((x) => x.lostBattery + x.lostNoOperator + x.shotDown)} (shot down ${d((x) => x.shotDown)}, battery ${d((x) => x.lostBattery)}, no operator ${d((x) => x.lostNoOperator)}), enemy drones shot down ${d((x) => x.downedEnemy)}`;
+  }).join("; ")}`,
+  `- Enemies found per battle (M9.6): ${["blue", "red"].map((s) => {
+    const tot = rows.reduce((n, r) => n + (r.review.sides[s]?.found.total ?? 0), 0), dr = rows.reduce((n, r) => n + (r.review.sides[s]?.found.byDrone ?? 0), 0);
+    return `${s} ${(tot / Math.max(1, rows.length)).toFixed(1)}, first by a drone ${(dr / Math.max(1, rows.length)).toFixed(1)} (${tot > 0 ? Math.round((100 * dr) / tot) : 0} %)`;
+  }).join("; ")}`,
+  `- Fire missions by location method (M9.5; calls per battle, rounds landed in brackets): ${["blue", "red"].map((s) => `${s} ${(["estimate", "laser", "registered", "drone", "air"] as const).map((k) => `${k} ${mean(rows.map((r) => r.review.sides[s]?.calls[k] ?? 0)).toFixed(1)} (${mean(rows.map((r) => r.review.sides[s]?.rounds[k] ?? 0)).toFixed(1)})`).join(", ")}`).join("; ")}`,
+  ...(timeOfDay !== null ? [`- Light (M9.1): start ${Math.round(100 * mean(rows.map((r) => r.review.light?.start ?? 1)))} %, lowest ${Math.round(100 * mean(rows.map((r) => r.review.light?.min ?? 1)))} %`] : []),
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),
   `- Care per battle (M10.2, by the casualty's side): ${["blue", "red"].map((s) => `${s} self-aid ${mean(rows.map((r) => r.care[s]?.self ?? 0)).toFixed(1)}, by a comrade ${mean(rows.map((r) => r.care[s]?.buddy ?? 0)).toFixed(1)}, worked ${mean(rows.map((r) => r.care[s]?.worked ?? 0)).toFixed(1)}, men treated ${mean(rows.map((r) => r.care[s]?.men ?? 0)).toFixed(1)}, tourniquets on ${mean(rows.map((r) => r.care[s]?.tourniquets ?? 0)).toFixed(1)}`).join("; ")}`,
@@ -281,16 +219,12 @@ const md = [
     const ka = sum((r) => r.m103b[s]?.killedAfter ?? 0);
     return `${s} life-threatening needs ${lt}, died of wounds before the end (preventable) ${pd} (${lt > 0 ? Math.round((100 * pd) / lt) : 0} %), ${(pd / Math.max(1, rows.length)).toFixed(2)} per battle, killed by a new wound ${ka}; wrong tags ${skills}; drags ${sum((r) => r.m103b[s]?.drags ?? 0)} (finished ${sum((r) => r.m103b[s]?.dragsDone ?? 0)}); carrying parties (M10.4a) ${(() => { const by: Record<string, number> = {}; for (const r of rows) for (const [m, n] of Object.entries(r.m103b[s]?.carries ?? {})) by[m] = (by[m] ?? 0) + n; const e = Object.entries(by).sort(); return e.length > 0 ? e.map(([m, n]) => `${m} ${n}`).join(", ") : "none"; })()}, ${sum((r) => r.m103b[s]?.carriedM ?? 0)} m carried, took cover ${sum((r) => r.m103b[s]?.holds ?? 0)}; into vehicles (M10.4b) ${sum((r) => r.m103b[s]?.loaded ?? 0)}, out ${sum((r) => r.m103b[s]?.unloaded ?? 0)}`;
   }).join("; ")}`,
-  `- Drones per battle (M9.4): ${["blue", "red"].map((s) => {
-    const d = (f: (x: ReviewTally["sides"][string]["drones"]) => number) => mean(rows.map((r) => { const x = r.review.sides[s]; return x ? f(x.drones) : 0; })).toFixed(1);
-    return `${s} flown ${d((x) => x.launched)}, recovered ${d((x) => x.landed)}, lost ${d((x) => x.lostBattery + x.lostNoOperator + x.shotDown)} (shot down ${d((x) => x.shotDown)}, battery ${d((x) => x.lostBattery)}, no operator ${d((x) => x.lostNoOperator)}), enemy drones shot down ${d((x) => x.downedEnemy)}`;
+  `- Verwundetennest (M10.5, by the casualty's side): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const need = sum((r) => r.nest[s]?.needEnd ?? 0), got = sum((r) => r.nest[s]?.reachedEnd ?? 0);
+    const wrong = sum((r) => r.nest[s]?.wrong ?? 0), again = sum((r) => r.nest[s]?.wrongRetagged ?? 0), fixed = sum((r) => r.nest[s]?.corrected ?? 0);
+    return `${s} nests sited ${sum((r) => r.nest[s]?.sited ?? 0)}, moved ${sum((r) => r.nest[s]?.moved ?? 0)}; sent back with bearers ${sum((r) => r.nest[s]?.tasked ?? 0)}, walking ${sum((r) => r.nest[s]?.walks ?? 0)}, arrived ${sum((r) => r.nest[s]?.arrived ?? 0)}, returned to duty ${sum((r) => r.nest[s]?.returned ?? 0)}; at the end ${got} of ${need} to be taken back had reached it (${need > 0 ? Math.round((100 * got) / need) : 0} %); wrong tags ${wrong}, tagged again ${again}, now right ${fixed} (${wrong > 0 ? Math.round((100 * fixed) / wrong) : 0} % of wrong tags corrected)`;
   }).join("; ")}`,
-  `- Enemies found per battle (M9.6): ${["blue", "red"].map((s) => {
-    const tot = rows.reduce((n, r) => n + (r.review.sides[s]?.found.total ?? 0), 0), dr = rows.reduce((n, r) => n + (r.review.sides[s]?.found.byDrone ?? 0), 0);
-    return `${s} ${(tot / Math.max(1, rows.length)).toFixed(1)}, first by a drone ${(dr / Math.max(1, rows.length)).toFixed(1)} (${tot > 0 ? Math.round((100 * dr) / tot) : 0} %)`;
-  }).join("; ")}`,
-  `- Fire missions by location method (M9.5; calls per battle, rounds landed in brackets): ${["blue", "red"].map((s) => `${s} ${(["estimate", "laser", "registered", "drone", "air"] as const).map((k) => `${k} ${mean(rows.map((r) => r.review.sides[s]?.calls[k] ?? 0)).toFixed(1)} (${mean(rows.map((r) => r.review.sides[s]?.rounds[k] ?? 0)).toFixed(1)})`).join(", ")}`).join("; ")}`,
-  ...(timeOfDay !== null ? [`- Light (M9.1): start ${Math.round(100 * mean(rows.map((r) => r.review.light?.start ?? 1)))} %, lowest ${Math.round(100 * mean(rows.map((r) => r.review.light?.min ?? 1)))} %`] : []),
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",

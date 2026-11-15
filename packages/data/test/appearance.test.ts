@@ -90,10 +90,31 @@ describe("appearance (M7.5a)", () => {
     const de = data.factions["de"]!.appearance!.insignia!, ru = data.factions["ru"]!.appearance!.insignia!;
     // German slide 90 x 52/60 mm (TL 8455-0009), 4 mm Litze (bundeswehr.de); counts per Anlage 2 BPrDGrUnifAnO.
     expect([de.board.lengthMm, de.board.widthTopMm, de.board.widthBottomMm, de.litze!.widthMm]).toEqual([90, 52, 60, 4]);
+    const L_DE = de.board.lengthMm;
     expect(de.ranks["schuetze"]!.bare).toBe(true);
     for (const [r, n] of [["gefreiter", 1], ["obergefreiter", 2], ["hauptgefreiter", 3], ["stabsgefreiter", 4]] as const) expect(de.ranks[r]!.elements.filter((e) => e.kind === "bar")).toHaveLength(n);
     expect(de.ranks["unteroffizier"]!.elements).toContainEqual(expect.objectContaining({ kind: "braid", open: true }));
     expect(de.ranks["hauptfeldwebel"]!.elements.some((e) => e.kind === "chevron" && (e.headMm ?? 0) > 0)).toBe(true);
+    // Owner correction 2026-11-15: devices are built up from the shoulder end (y 0). Every stripe rank starts with the
+    // Gefreiter's stripe; the Stabsgefreiter's fourth stripe is set apart (a larger gap than between the three below).
+    const barYs = (r: string) => de.ranks[r]!.elements.flatMap((e) => (e.kind === "bar" ? [e.y] : [])).sort((a, b) => a - b);
+    const low = barYs("gefreiter")[0]!;
+    expect(low, "Gefreiter stripe in the lower third").toBeLessThan(L_DE / 3);
+    for (const r of ["obergefreiter", "hauptgefreiter", "stabsgefreiter"]) expect(barYs(r)[0], r).toBe(low);
+    const sg = barYs("stabsgefreiter"), gaps = sg.slice(1).map((y, i) => y - sg[i]!);
+    expect(gaps[2]!).toBeGreaterThan(gaps[0]! + 3);
+    expect(gaps[2]!).toBeGreaterThan(gaps[1]! + 3);
+    expect(barYs("hauptgefreiter")).toEqual(sg.slice(0, 3));
+    // The Leutnant's star in the lower third; the Oberleutnant's first star in the same place, the second above it.
+    const starYs = (r: string) => de.ranks[r]!.elements.flatMap((e) => (e.kind === "star" ? [e.y] : [])).sort((a, b) => a - b);
+    expect(starYs("leutnant")[0]!).toBeLessThan(L_DE / 3);
+    expect(starYs("oberleutnant")[0]).toBe(starYs("leutnant")[0]);
+    expect(starYs("oberleutnant")[1]!).toBeGreaterThan(starYs("oberleutnant")[0]! + 17);
+    // Winkel (and the Kopfwinkel) low inside the closed Tresse: the lowest one's legs end in the lower fifth.
+    for (const r of ["feldwebel", "oberfeldwebel", "hauptfeldwebel"]) {
+      const lowest = Math.min(...de.ranks[r]!.elements.flatMap((e) => (e.kind === "chevron" ? [e.y - e.riseMm] : [])));
+      expect(lowest, r).toBeLessThan(L_DE / 5);
+    }
     // Russian field sleeve: narrow stripes 10 mm, 2 mm apart from 25 mm; stars 13 mm, a pair at +-12.5 mm (Ukaz 293, Prikaz 525).
     expect(ru.ranks["serzhant"]!.elements).toEqual([25, 37, 49].map((y0) => ({ kind: "band", y0, y1: y0 + 10 })));
     expect(ru.ranks["leytenant"]!.elements).toEqual([-12.5, 12.5].map((x) => ({ kind: "star", x, y: 25, diameterMm: 13, points: 5 })));

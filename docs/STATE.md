@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.4b carrying to and into vehicles, roadmap-detail slice 9). The long session-by-session
+_Last updated: 2026-11-14 (M10.5 Verwundetennest and platoon medic, roadmap-detail slice 11). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -20,8 +20,16 @@ DECISIONS.md under its date._
   carries its wounded from up to 150 m to the ramp and lifts them in; lying and sitting places, ambulance layouts;
   `dismount` with `wounded` carries them out; "carried" and "stretcher" sprite frames; `bench-medical` perf case,
   floor 8×; `--scene medical`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and
-  are merged, and so is M8 (fire support, from main).** **Next: slice 10, D2 battle record and `main.ts` split**
-  (it must come before slice 11). Slice 13 needs slices 11 and 12 (12 merged).
+  are merged, and so is M8 (fire support, from main). Slice 10 (D2) is done: one battle record folded from the
+  events (`sim/src/record.ts`) feeds the review, the save and the batch report; the review has Battle, Medical and
+  Conduct tabs (the last two empty until M10.8); `app/src/main.ts` is cut to about 330 lines, the rest in modules
+  beside it (`app.ts` holds the shared app state). Slice 11 (M10.5) is done: a generic rear-point store (`rear`,
+  state schema 20) holds each platoon's Verwundetennest (`systems/nest.ts`): sited 150 m behind the platoon away from
+  the known enemy on ground wheeled vehicles reach, moved when threatened; the platoon leader tasks two riflemen as
+  bearers, walking wounded walk, T1 first; the platoon's medic triages again and treats there; men fit again return
+  to duty; orders `casualtyPoint` (drag the red-cross marker) and `evacuate` (Back in the sidebar's Wounded tab); the
+  AI commander counts carriers as committed; batch "Verwundetennest" line; `--scene nest`.** **Next: slice 13,
+  M10.6a off-map vehicles and ambulance runs (slice 12 is merged).**
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -151,11 +159,13 @@ sensor physics (thermal, goggle numbers).
   looks too), after-action review, save and load; phone layout.
 
 ## What is weak or missing (honest list)
-- **Medical care is only first aid so far:** a man treats himself, a free comrade within 3 m treats him (M10.2), or
-  a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b, a carrying party since M10.4a);
-  carrying works (M10.4a) and squads take their wounded into their vehicles (M10.4b), but nobody yet carries
-  casualties back to a nest or evacuates them (M10.5-10.6); the player has no button yet for "get out with the
-  wounded" (an order flag; the Wounded list in M10.5); carriers' extra
+- **Medical care ends at the platoon's Verwundetennest so far:** a man treats himself, a free comrade within 3 m
+  treats him (M10.2), or a carer runs over (M10.3a) and under fire gets him into cover within 15 m (M10.3b); squads
+  take their wounded into their vehicles (M10.4b); bearers carry casualties back to the nest, where the medic sees to
+  them (M10.5), but nobody evacuates them further yet (M10.6); a platoon shot to pieces has nobody left to carry
+  (the share reaching the nest by 2400 s is below the plan's 60 % for defenders, see DECISIONS M10.5); the Russians
+  have no medic on the map, so their tags are seldom put right; the player has no button yet for "get out with the
+  wounded" (an order flag; not in the Wounded tab either: D3); carriers' extra
   tiredness from the load is not modelled (the data's rests stand for it). The Russian defenders' casualties gain little from care (one rifleman-medic per platoon; men
   in houses are not dragged): watch in M10.5 (the medic) and M10.8. Only 54-86 % of the
   casualties who live past 2 minutes get any care in 10-seed batches (plan target 70 %): carers are hit on the way,
@@ -174,7 +184,6 @@ sensor physics (thermal, goggle numbers).
 - Leftovers from the UI work for D3: vehicle gun and ammunition on the card, the phone's unit list overlapping the
   card, a release-time "no line of fire" warning, drag ghosts piling up, casualties hard to read in the pixel look;
   the roof atlas paints on the main thread.
-- `main.ts` in the app is long (cut in D2, slice 10).
 
 ## Live build
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.

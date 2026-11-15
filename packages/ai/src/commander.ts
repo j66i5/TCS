@@ -104,12 +104,14 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   //   back until its men's mean fatigue is below `restFatigue` or `restMaxSeconds` have passed (closeTimeoutSeconds
   //   180 -> 300 for the slower pace), and smoke is called when the rest begins, to stand as it goes in.
   // Night drills (M9.6, game values, low; all only while the light is below `belowLight`, so daylight battles are
-  // unchanged): the defender fires one illumination round over the enemy men its men know (within `contactSeconds`)
-  // within `illumTriggerM` of an objective, the attacker one `illumBeyondM` beyond the objective it assaults (on the
+  // unchanged): the defender fires one illumination round over the enemy men its men have seen or been told of (not
+  // only heard; within `contactSeconds`) within `illumTriggerM` of the main objective or `illumAnyM` of any, once
+  // there are at least `illumMinMen` of them (review fix: 450 m of any objective, heard contacts too, spent its four
+  // rounds before the assault), the attacker one `illumBeyondM` beyond the objective it assaults (on the
   // axis: it silhouettes the defence for the assault element), each at most every `illumEverySeconds` while rounds
   // last; the attacker starts sneaking `sneakFactor` x `sneakM` out and lays its support line at `supportFactor` x
   // `supportM` (closer, within night sight); the defender's men fire at will only out to `defenceRangeM`.
-  night: { belowLight: 0.3, illumTriggerM: 450, illumEverySeconds: 90, illumBeyondM: 150, contactSeconds: 60, sneakFactor: 2.5, supportFactor: 0.7, defenceRangeM: 200 },
+  night: { belowLight: 0.3, illumTriggerM: 300, illumAnyM: 200, illumMinMen: 2, illumEverySeconds: 90, illumBeyondM: 150, contactSeconds: 60, sneakFactor: 2.5, supportFactor: 0.7, defenceRangeM: 200 },
   sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 300, closeInM: 60, underFireSuppression: 0.1, prepLeadS: 15, restFatigue: 0.35, restMaxSeconds: 60, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, screenHalfM: 50, screenRounds: 4, screenLeadS: 20, dangerCloseMarginM: 50, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200 } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
@@ -144,6 +146,8 @@ interface Memory {
    *  known in it. */
   /** M9.6 night: when it last called an illumination round; whether the defence's rules were last sent for the dark. */
   lastIllum?: number; darkRules?: boolean;
+  /** M9.6 review fix: the support distance the places for `placesFor` were chosen at (frozen at dusk crossings). */
+  placesD?: number;
   clearing?: Record<string, [number, number]>; taken?: number[]; takenAt?: Record<string, number>; held?: Record<string, number>; clearFailed?: Record<string, number>; houseSeen?: Record<string, number>;
 }
 
@@ -466,12 +470,16 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const N = COMMANDER.night, dark = view.environment.light < N.belowLight;
       const sneakM = dark ? COMMANDER.sneakM * N.sneakFactor : COMMANDER.sneakM;
       const supportM = dark ? COMMANDER.supportM * N.supportFactor : COMMANDER.supportM;
-      /** One illumination round over (x, y), by the mortars, else the artillery; at most every `illumEverySeconds`. */
+      /** One illumination round over (x, y), by the mortars, else the artillery (not while its battery is moving;
+       *  danger close: a flare does no blast harm, and the point is always near own men); at most every
+       *  `illumEverySeconds`, counted from the last call actually sent. */
       const illumCall = (x: number, y: number): boolean => {
         if (tick - (mem.lastIllum ?? -1e9) < N.illumEverySeconds * 60) return false;
-        const asset = supportLeft(view, side, "illum", input.catalog) > 0 ? "mortar" : supportLeft(view, side, "illum", input.catalog, "artillery") > 0 ? "artillery" : null;
+        const artSec = view.support.find((s) => s.side === side && s.asset === "artillery");
+        const artReady = artSec !== undefined && (artSec.movingUntil === undefined || tick >= artSec.movingUntil);
+        const asset = supportLeft(view, side, "illum", input.catalog) > 0 ? "mortar" : artReady && supportLeft(view, side, "illum", input.catalog, "artillery") > 0 ? "artillery" : null;
         if (asset === null) return false;
-        order(caller, { kind: "callFire", x: clamp(x, W), y: clamp(y, H), ammo: "illum", rounds: 1, ...(asset === "artillery" ? { asset } : {}) });
+        order(caller, { kind: "callFire", x: clamp(x, W), y: clamp(y, H), ammo: "illum", rounds: 1, ...(asset === "artillery" ? { asset, dangerClose: true } : {}) });
         mem.lastIllum = tick;
         return true;
       };
@@ -610,12 +618,15 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         if ((mem.darkRules ?? false) !== dark) { toAll({ kind: "rules", fire: "free", maxEngageM: dark ? N.defenceRangeM : COMMANDER.defenceRangeM }); mem.darkRules = dark; }
         // An illumination round over the enemy men its men know closing on an objective (M9.6).
         if (dark) {
+          // (Men seen or reported, not only heard, near the main objective or close to any; at least `illumMinMen`.)
           let ix = 0, iy = 0, n = 0;
+          const men = new Set<EntityId>();
           for (const m of all) for (const c of knownMen(m)) {
-            if (tick - c.tick > N.contactSeconds * 60 || !objectives.some((o) => hypot2(c.x - o.x, c.y - o.y) <= N.illumTriggerM)) continue;
-            ix += c.x; iy += c.y; n++;
+            if (c.kind === "heard" || tick - c.tick > N.contactSeconds * 60) continue;
+            if (hypot2(c.x - main.x, c.y - main.y) > N.illumTriggerM && !objectives.some((o) => hypot2(c.x - o.x, c.y - o.y) <= N.illumAnyM)) continue;
+            ix += c.x; iy += c.y; n++; men.add(c.target);
           }
-          if (n > 0) illumCall(ix / n, iy / n);
+          if (men.size >= N.illumMinMen) illumCall(ix / n, iy / n);
         }
         // Falling back (overnight pick "defence-fallback"): a squad below half strength pulls back only under a
         // close threat, each to a covered rally point of its own behind its own position, then holds there.
@@ -785,8 +796,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           if (objectives.some((o) => hypot2(o.x - vt.x, o.y - vt.y) <= M.holdDismountM + o.radiusM)) order(sq, { kind: "dismount" });
         }
       }
-      const support = { x: clamp(tgt.x - ux * supportM, W), y: clamp(tgt.y - uy * supportM, H) };
-      const lateral = (k: number) => ({ x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) });
+      // The support distance (M9.6 review fix): the one the squads' places for this objective were chosen at, so a
+      // dusk or dawn crossing does not move the support point and HQ away from the places (by day: `supportM`).
+      const supportD = () => (mem.placesFor === mem.target && mem.places !== undefined ? mem.placesD ?? supportM : supportM);
+      const supportAt = () => { const d = supportD(); return { x: clamp(tgt.x - ux * d, W), y: clamp(tgt.y - uy * d, H) }; };
+      const lateral = (k: number) => { const support = supportAt(); return { x: clamp(support.x - uy * k, W), y: clamp(support.y + ux * k, H) }; };
       /** The advance on foot to the support line: walk most of the way, sneak the last stretch (from where the
        *  squad is: men who got out near the line only sneak). */
       /** Can a man lying (or, failing that, kneeling) at (x, y) fire at (tx, ty), `hz` above the ground there? 1, 0.6, 0. */
@@ -806,10 +820,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         const foot = navFor(ground(), "foot").grid;
         const aims = [{ x: tgt.x, y: tgt.y }, ...[0, 1, 2, 3].map((k) => ({ x: tgt.x + cos((k * PI) / 2) * tgt.radiusM * 0.6, y: tgt.y + sin((k * PI) / 2) * tgt.radiusM * 0.6 }))];
         mem.places = {};
+        mem.placesD = supportM;
         squads.forEach((sq, i) => {
           let best: [number, number] | null = null, bestScore = -1;
           for (const dd of COMMANDER.placeDepthsM) for (const da of COMMANDER.placeAsideM) {
-            const lat = slot(i) + da, d = supportM + dd;
+            const lat = slot(i) + da, d = mem.placesD! + dd;
             const x = clamp(tgt.x - ux * d - uy * lat, W), y = clamp(tgt.y - uy * d + ux * lat, H);
             if (navCostAt(foot, x, y) <= 0 || indoorAt(ground(), x, y) >= 0) continue;
             const score = aims.reduce((a, t) => a + fireLine(x, y, t.x, t.y, 0.9), 0) - (Math.abs(dd) + Math.abs(da)) * 0.002;
@@ -1171,7 +1186,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // Walk most of the way, sneak the last stretch to the support line (M6.5b); routes keep to cover as
           // the faction's doctrine prefers (systems/orders.ts).
           squads.forEach((sq, i) => advance(sq, i));
-          for (const m of hq) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
+          for (const m of hq) order(m, { kind: "move", waypoints: [{ x: supportAt().x - ux * 30, y: supportAt().y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
           mem.phase = "advance"; mem.phaseTick = tick;
           break;
         case "ride": {
@@ -1201,7 +1216,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           const hqV = tops.length > 0 ? view.unit.get(tops[0]![0])?.carrier : undefined;
           const hv = hqV === undefined ? undefined : view.vehicle.get(hqV);
           if (hqIn.length > 0 && !mem.out.includes(-1) && (hv === undefined || hv.drive.arrived || hitNow || late || (hqV !== undefined && atThreat(hqV)))) {
-            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: support.x - ux * 30, y: support.y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
+            for (const m of hqIn) order(m, { kind: "move", waypoints: [{ x: supportAt().x - ux * 30, y: supportAt().y - uy * 30, mode: hqUnderFire() ? "run" : "walk" }] });
             mem.out.push(-1);
           }
           if (squads.every((sq) => mem.out!.includes(sq))) { mem.phase = "advance"; mem.phaseTick = tick; }
@@ -1225,7 +1240,15 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // The squads nearing their places: the fires are called now, to land about as two thirds of them are in
           // place (when the squad that makes up two thirds is within the fire's delay and `prepLeadS` of its place at
           // a walk; overnight pick "assault-tempo": it was the first squad 100 m short along the axis).
-          const eta = squads.map((sq, i) => { const c = centre(sq), p = placeOf(i); return c === null ? Infinity : onLine(sq) ? 0 : hypot2(c.x - p.x, c.y - p.y) / walkMps; }).sort((a, b) => a - b);
+          // (At night the last `sneakM` is longer, at the sneak's pace: by day the second term is 0.)
+          const sneakMode = input.catalog.movementModes["sneak"], sneakMps = sneakMode?.class === "foot" ? sneakMode.speedMps : 0.7;
+          const eta = squads.map((sq, i) => {
+            const c = centre(sq), p = placeOf(i);
+            if (c === null) return Infinity;
+            if (onLine(sq)) return 0;
+            const d = hypot2(c.x - p.x, c.y - p.y);
+            return d / walkMps + (sneakM > COMMANDER.sneakM ? (Math.min(d, sneakM) - Math.min(d, COMMANDER.sneakM)) * (1 / sneakMps - 1 / walkMps) : 0);
+          }).sort((a, b) => a - b);
           if (eta.length > 0 && eta[Math.max(0, Math.ceil((eta.length * 2) / 3) - 1)]! <= fireDelayS + COMMANDER.prepLeadS) prepFires();
           if (arrived || tick - mem.phaseTick > COMMANDER.advanceTimeoutSeconds * 60) { mem.phase = "recon"; mem.phaseTick = tick; toAll({ kind: "rules", fire: "free" }); }
           break;

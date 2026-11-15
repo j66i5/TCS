@@ -29,20 +29,33 @@ function setup(c: Catalog, seed: number, wood: "none" | "near" = "none"): { inpu
   for (const [u, un] of sim.state.unit.entries()) submitOrder(sim, { tick: 0, issuer: un.side, target: u, kind: "rules", fire: "hold" });
   return { input, sim, op, tgt };
 }
-const seesDrone = (sim: Sim, id: number) => sim.state.soldier.req(id).seen.some((e) => sim.state.drone.has(e.target) && sim.state.tick - e.lastTick <= 6 * 60);
+/** Does he see an enemy drone within `m` metres horizontally? */
+const seesDroneWithin = (sim: Sim, id: number, m: number) => {
+  const me = sim.state.transform.req(id);
+  return sim.state.soldier.req(id).seen.some((e) => {
+    const t = sim.state.transform.get(e.target);
+    return sim.state.drone.has(e.target) && sim.state.tick - e.lastTick <= 6 * 60 && t !== undefined && Math.hypot(t.x - me.x, t.y - me.y) <= m;
+  });
+};
+/** Walks him (from 400, 200) toward 120, 200 under the drone flown to 300, 200 until he freezes. */
+function frozenWalker(): { sim: Sim; op: number; tgt: number; seenAt: number | null; frozeAt: number | null } {
+  const { sim, op, tgt } = setup(cat, 2);
+  submitOrder(sim, { tick: 0, issuer: "red", target: tgt, kind: "move", waypoints: [{ x: 120, y: 200, mode: "walk" }] });
+  submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 300, y: 200, altM: 80 });
+  let seenAt: number | null = null, frozeAt: number | null = null;
+  for (let k = 0; k < 300 * 60 && frozeAt === null; k++) {
+    step(sim);
+    // (He freezes only with it nearly overhead: within freezeTriggerM.)
+    if (seenAt === null && seesDroneWithin(sim, tgt, H.freezeTriggerM)) seenAt = sim.state.tick;
+    const m = sim.state.mover.req(tgt);
+    if (sim.state.soldier.req(tgt).droneHide?.kind === "freeze" && m.holdUntilTick !== undefined && m.speedMps === 0) frozeAt = sim.state.tick;
+  }
+  return { sim, op, tgt, seenAt, frozeAt };
+}
 
 describe("hiding from drones (M9.6)", () => {
   it("a man walking under an order freezes when he sees an enemy drone overhead, and moves on after maxFreezeSeconds", () => {
-    const { sim, op, tgt } = setup(cat, 2);
-    submitOrder(sim, { tick: 0, issuer: "red", target: tgt, kind: "move", waypoints: [{ x: 120, y: 200, mode: "walk" }] });
-    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 300, y: 200, altM: 80 });
-    let seenAt: number | null = null, frozeAt: number | null = null;
-    for (let k = 0; k < 300 * 60 && frozeAt === null; k++) {
-      step(sim);
-      if (seenAt === null && seesDrone(sim, tgt)) seenAt = sim.state.tick;
-      const m = sim.state.mover.req(tgt);
-      if (sim.state.soldier.req(tgt).droneHide?.kind === "freeze" && m.holdUntilTick !== undefined && m.speedMps === 0) frozeAt = sim.state.tick;
-    }
+    const { sim, tgt, seenAt, frozeAt } = frozenWalker();
     expect(seenAt).not.toBeNull();
     expect(frozeAt).not.toBeNull();
     expect((frozeAt! - seenAt!) / 60).toBeLessThanOrEqual(3);
@@ -92,6 +105,110 @@ describe("hiding from drones (M9.6)", () => {
     run(sim, 20);
     expect(sim.state.soldier.req(tgt).posture).toBe("prone");
     expect(sim.state.transform.req(tgt).y).toBeGreaterThanOrEqual(226);
+  });
+
+  it("after a freeze run he does not freeze again within freezeCooldownSeconds, though the drone stays over him", () => {
+    const { sim, tgt, frozeAt } = frozenWalker();
+    expect(frozeAt).not.toBeNull();
+    // Through the run (maxFreezeSeconds) and on: once spent he walks on, never frozen again within the cooldown.
+    for (let k = 0; k < (H.maxFreezeSeconds + 2) * 60; k++) step(sim);
+    const dh = sim.state.soldier.req(tgt).droneHide;
+    expect(dh?.kind).toBe("spent");
+    expect((dh!.until - sim.state.tick) / 60).toBeGreaterThan(H.freezeCooldownSeconds - 5);
+    let froze = false, near = false;
+    for (let k = 0; k < 60 * 60; k++) {
+      step(sim);
+      if (seesDroneWithin(sim, tgt, H.freezeTriggerM)) near = true;
+      if (sim.state.soldier.req(tgt).droneHide?.kind === "freeze") froze = true;
+    }
+    expect(near).toBe(true);
+    expect(froze).toBe(false);
+    expect(sim.state.mover.req(tgt).speedMps).toBeGreaterThan(0.3);
+  });
+
+  it("walking with the drone 200 m off he does not freeze; halted he still lies down", () => {
+    const { sim, op, tgt } = setup(cat, 3);
+    submitOrder(sim, { tick: 0, issuer: "red", target: tgt, kind: "move", waypoints: [{ x: 400, y: 380, mode: "walk" }, { x: 400, y: 240, mode: "walk" }] });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 200, y: 200, altM: 80 });
+    step(sim); step(sim);
+    let saw = false, froze = false;
+    for (let k = 0; k < 400 * 60 && sim.state.mover.req(tgt).waypoints.length > 0; k++) {
+      step(sim);
+      if (seesDroneWithin(sim, tgt, H.triggerM)) saw = true;
+      if (sim.state.soldier.req(tgt).droneHide?.kind === "freeze") froze = true;
+    }
+    expect(saw).toBe(true);
+    expect(froze).toBe(false);
+    expect(sim.state.mover.req(tgt).waypoints.length).toBe(0);
+    run(sim, 10);
+    expect(sim.state.soldier.req(tgt).droneHide?.kind).toBe("hide");
+    expect(sim.state.soldier.req(tgt).posture).toBe("prone");
+  });
+
+  it("a man bolting (a bolt leg, as out of a house) is not frozen by a drone overhead", () => {
+    const { sim, op, tgt } = setup(cat, 2);
+    submitOrder(sim, { tick: 0, issuer: "red", target: tgt, kind: "move", waypoints: [{ x: 120, y: 200, mode: "walk" }] });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 300, y: 200, altM: 80 });
+    step(sim); step(sim);
+    // (A bolt leg as house.ts sets it: the order's move, marked bolt.)
+    const m = sim.state.mover.req(tgt);
+    expect(m.waypoints.length).toBeGreaterThan(0);
+    for (const w of m.waypoints) w.bolt = true;
+    let near = false, froze = false;
+    for (let k = 0; k < 150 * 60 && m.waypoints.length > 0; k++) {
+      step(sim);
+      if (seesDroneWithin(sim, tgt, H.freezeTriggerM)) near = true;
+      if (sim.state.soldier.req(tgt).droneHide?.kind === "freeze" || m.holdUntilTick !== undefined) froze = true;
+    }
+    expect(near).toBe(true);
+    expect(froze).toBe(false);
+  });
+
+  it("a mortar crew man with the tube deployed is not sent to a canopy: he lies down where he is", () => {
+    const { sim, op, tgt } = setup(cat, 4, "near");
+    const u = sim.state.unit.req(sim.state.identity.req(tgt).unit);
+    u.mortar = { state: "ready", readyTick: 0, stillTick: 0 };
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 380, y: 200, altM: 80 });
+    let hid = false, moved = false;
+    for (let k = 0; k < 120 * 60; k++) {
+      step(sim);
+      const dh = sim.state.soldier.req(tgt).droneHide;
+      if (dh?.kind === "hide") hid = true;
+      if (dh?.gx !== undefined || sim.state.mover.req(tgt).waypoints.length > 0) moved = true;
+    }
+    expect(hid).toBe(true);
+    expect(moved).toBe(false);
+    expect(sim.state.soldier.req(tgt).posture).toBe("prone");
+    expect(sim.state.transform.req(tgt).y).toBeLessThan(205);
+  });
+
+  it("a man who ran to a canopy walks back to his place, in his fire position's posture, once the drone is gone", () => {
+    const { sim, op, tgt } = setup(cat, 4, "near");
+    submitOrder(sim, { tick: 0, issuer: "red", target: sim.state.identity.req(tgt).unit, kind: "posture", posture: "crouching" });
+    run(sim, 2);
+    const home = sim.state.soldier.req(tgt).homePosture;
+    const t0 = { ...sim.state.transform.req(tgt) };
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: op, kind: "drone", op: "fly", x: 380, y: 200, altM: 80 });
+    for (let k = 0; k < 200 * 60; k++) {
+      step(sim);
+      const t = sim.state.transform.req(tgt);
+      if (t.y >= 226 && sim.state.soldier.req(tgt).posture === "prone" && sim.state.mover.req(tgt).waypoints.length === 0) break;
+    }
+    expect(sim.state.transform.req(tgt).y).toBeGreaterThanOrEqual(226);
+    expect(sim.state.soldier.req(tgt).droneHide?.gx).toBeDefined();
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: op, kind: "drone", op: "home" });
+    let back = false;
+    for (let k = 0; k < (H.hideSeconds + 90) * 60 && !back; k++) {
+      step(sim);
+      const t = sim.state.transform.req(tgt);
+      back = Math.hypot(t.x - t0.x, t.y - t0.y) < 3 && sim.state.mover.req(tgt).waypoints.length === 0;
+    }
+    expect(home).toBe("crouching");
+    expect(back).toBe(true);
+    expect(sim.state.soldier.req(tgt).droneHide).toBeUndefined();
+    expect(sim.state.soldier.req(tgt).homePosture).toBe(home);
+    run(sim, 3);
+    expect(sim.state.soldier.req(tgt).posture).toBe(home);
   });
 
   it("with no drones nothing changes: the same state as with hiding switched off, and no droneHide", () => {

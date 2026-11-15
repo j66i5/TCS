@@ -48,6 +48,59 @@ describe("night drills (M9.6)", () => {
     expect(r.orders.some((o) => o.issuer === "red" && o.kind === "rules" && o.maxEngageM === 200)).toBe(true);
   });
 
+  it("with illumination left only with the artillery, the AI calls it danger close (a flare does no blast harm)", () => {
+    const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 540, artillery: true });
+    input.environment = environmentAt(input.catalog, 23 * 3600, 0.5);
+    for (const s of input.rules.support!) if (s.asset !== "artillery") s.illum = 0;
+    expect(input.rules.support!.some((s) => s.asset === "artillery" && s.illum! > 0)).toBe(true);
+    // (The defender's artillery illumination rounds left, noted at each look.)
+    const left: number[] = [];
+    const controllers = [commanderController("blue", input), commanderController("red", input)].map((c) => ({
+      ...c,
+      think: (v: Parameters<Controller["think"]>[0], t: number) => {
+        if (c.side === "red" && t % 300 === 0) left.push(supportLeft(v, "red", "illum", input.catalog, "artillery"));
+        return c.think(v, t);
+      },
+    }));
+    const r = runBattle(input, { controllers });
+    const calls = r.orders.filter((o) => o.kind === "callFire" && o.ammo === "illum");
+    expect(calls.some((o) => o.issuer === "red")).toBe(true);
+    for (const o of calls) expect(o.kind === "callFire" && o.asset === "artillery" && o.dangerClose === true).toBe(true);
+    // The artillery took it (not refused as danger close): its illumination rounds ran down.
+    expect(left[0]).toBe(4);
+    expect(left[left.length - 1]!).toBeLessThan(4);
+  });
+
+  it("the defender does not call illumination on enemy men it has only heard", () => {
+    const input = buildScenario(data, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 540 });
+    input.environment = environmentAt(input.catalog, 23 * 3600, 0.5);
+    const main = input.rules.objectives[0]!;
+    let heardNear = 0;
+    const deaf = (c: Controller): Controller => ({
+      ...c,
+      think: (v: Parameters<Controller["think"]>[0], t: number) => {
+        if (c.side !== "red") return c.think(v, t);
+        // The defender's view with every contact turned into a heard one.
+        const soldier = new Proxy(v.soldier, {
+          get(store, key) {
+            if (key === "get") return (id: Parameters<typeof store.get>[0]) => { const s = store.get(id); return s && { ...s, contacts: s.contacts.map((k) => ({ ...k, kind: "heard" as const })) }; };
+            const val = Reflect.get(store, key, store) as unknown;
+            return typeof val === "function" ? (val as (...a: unknown[]) => unknown).bind(store) : val;
+          },
+        });
+        const near = new Set<number>();
+        for (const s of v.soldier.values()) for (const k of s.contacts) if (k.cls !== "vehicle" && t - k.tick <= 60 * 60 && Math.hypot(k.x - main.x, k.y - main.y) <= 300) near.add(k.target);
+        heardNear = Math.max(heardNear, near.size);
+        return c.think({ ...v, soldier } as typeof v, t);
+      },
+    });
+    const r = runBattle(input, { controllers: [commanderController("blue", input), deaf(commanderController("red", input))] });
+    // Its men did know enemy men close to the objective (seen ones would have lit it up: the test above)...
+    expect(heardNear).toBeGreaterThanOrEqual(2);
+    // ...but only heard, they bring no illumination round.
+    expect(r.orders.filter((o) => o.kind === "callFire" && o.ammo === "illum" && o.issuer === "red")).toHaveLength(0);
+  });
+
   /** One German rifleman (G36: the rifle range), fire at will, and one Russian standing still `rangeM` away, in the
    *  open; the observer wears night goggles so that he sees him in the dark too. */
   function lone(catalog: Catalog, rangeM: number, night: boolean): { spotted: boolean; fired: boolean } {

@@ -502,11 +502,14 @@ export interface BehaviourDef {
      *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
     hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
     /** Hiding from drones (M9.6, game values, low): a man on foot who sees an enemy drone within triggerM
-     *  (horizontal) and is not fighting nor under fire freezes on his way for freezeSeconds (re-armed while he sees it,
-     *  at most maxFreezeSeconds in a row); halted, he lies down under a canopy or indoors where he is, else goes to
-     *  the nearest canopy within searchM (at the pace `mode`, only while the drone is at least moveBeyondM off horizontally) and lies there; hidden, he stays down for hideSeconds after he last saw it
+     *  (horizontal) and is not fighting nor under fire hides from it. On his way he freezes only when it is within
+     *  freezeTriggerM (nearly overhead), for freezeSeconds (re-armed while he sees it, at most maxFreezeSeconds in a
+     *  row; then not again for freezeCooldownSeconds; never on a bolt out of a house or out of a beaten zone); halted, he lies down under a canopy or indoors where he is, else goes to
+     *  the nearest canopy within searchM (at the pace `mode`, only while the drone is at least moveBeyondM off horizontally;
+     *  not a man at a post: busy, a deployed mortar or missile team, a drone operator) and lies there, and walks back
+     *  to his place once it is over; hidden, he stays down for hideSeconds after he last saw it
      *  (and looks for a canopy again no sooner). triggerM 0 = off. Absent: off. */
-    droneHide?: { triggerM: number; freezeSeconds: number; maxFreezeSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
+    droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).
      * A trap: enemy bursts in or on his house (inside its walls, or within houseBurstNearM outside them) add up to

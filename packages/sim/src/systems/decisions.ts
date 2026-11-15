@@ -715,15 +715,40 @@ function underCanopy(ctx: SimContext, x: number, y: number, z: number, aboveM: n
   return v > 0 && ctx.ballistics.vegHeightM[v - 1]! - z - TARGET_POINT_M.prone > aboveM;
 }
 
+/** Ends his hiding from a drone (M9.6) without more: a freeze hold it set is lifted and the record dropped (a man
+ *  leaving decision-making — down, aboard, routed, evading — or the hide stopped). */
+export function dropDroneHide(state: SimState, id: EntityId, s: SoldierState): void {
+  const dh = s.droneHide;
+  if (dh === undefined) return;
+  if (dh.kind === "freeze") {
+    const m = state.mover.get(id);
+    if (m && m.holdUntilTick === dh.until) delete m.holdUntilTick;
+  }
+  delete s.droneHide;
+}
+
+/** Is he at a post he must not leave for a canopy (M9.6): busy with an action, of a mortar or missile team that is
+ *  not packed, or flying a drone? */
+function postedMan(state: SimState, id: EntityId, unitId: EntityId): boolean {
+  if (state.action.has(id)) return true;
+  const u = state.unit.get(unitId);
+  if (u?.mortar !== undefined && u.mortar.state !== "packed") return true;
+  if (u?.missileTeam !== undefined && u.missileTeam.state !== "packed") return true;
+  for (const [, d] of state.drone.entries()) if (d.operator === id) return true;
+  return false;
+}
+
 /**
  * Hiding from drones (M9.6, `soldier.droneHide`): a man on foot who sees an enemy drone within `triggerM`
  * (horizontally), is not firing at it, has no enemy on the ground in sight to fight and is not under fire. On his
- * way he freezes (held `freezeSeconds`, re-armed while he sees it, at most `maxFreezeSeconds` in a row; then he moves
- * on and does not freeze again for `hideSeconds`). Halted under a canopy or indoors he lies down where he is; in the
- * open, while the drone is still `moveBeyondM` off, he goes at the pace `mode` to the nearest canopy within `searchM`
- * (rings of cell lookups, no sight lines; looked for at most every `hideSeconds`) and lies there, else lies down
- * where he is. Hidden, he stays down until `hideSeconds` after
- * he last saw it. Returns true while he is hidden (lying low: his fire position's posture waits).
+ * way he freezes when it is within `freezeTriggerM` (held `freezeSeconds`, re-armed while he sees it, at most
+ * `maxFreezeSeconds` in a row; then he moves on and does not freeze again for `freezeCooldownSeconds`) — never on a
+ * bolt out of a house or out of a beaten zone. Halted under a canopy or indoors he lies down where he is; in the
+ * open, while the drone is still `moveBeyondM` off and he is not at a post (postedMan), he goes at the pace `mode`
+ * to the nearest canopy within `searchM` (rings of cell lookups, no sight lines; looked for at most every
+ * `hideSeconds`) and lies there, else lies down where he is. Hidden, he stays down until `hideSeconds` after he last
+ * saw it; then he takes his fire position's posture again and walks back from the canopy to his place.
+ * Returns true while he is hidden (lying low: his fire position's posture waits).
  */
 function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState, unitId: EntityId): boolean {
   const H = ctx.catalog.behaviour.soldier.droneHide, tick = state.tick;
@@ -731,9 +756,16 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
   if (!H || H.triggerM <= 0 || (state.drone.size === 0 && dh === undefined)) return false;
   const m = state.mover.get(id), me = state.transform.req(id);
   const moving = m !== undefined && m.waypoints.length > 0;
+  const last = moving ? m.waypoints[m.waypoints.length - 1]! : null;
+  // (On his way to the canopy he chose — not a new move ordered meanwhile.)
+  const onCanopyLeg = (): boolean => {
+    const it = s.intent;
+    return last !== null && it?.kind === "hideDrone" && it.x !== undefined && it.y !== undefined && hypot2(last.x - it.x, last.y - it.y) < 3;
+  };
   const stop = (): false => {
-    if (dh?.kind === "freeze" && m && m.holdUntilTick === dh.until) delete m.holdUntilTick;
-    delete s.droneHide;
+    // The canopy route it set goes with it.
+    if (m && onCanopyLeg()) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
+    dropDroneHide(state, id, s);
     if (s.intent?.kind === "hideDrone") s.intent = null;
     return false;
   };
@@ -761,21 +793,39 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
     }
   }
   if (!sees) {
-    if (dh && tick >= dh.until) return stop();
+    if (dh && tick >= dh.until) {
+      if (dh.kind !== "hide") return stop();
+      // Over: his fire position's posture again, and back from the canopy to the place he left (a man moved on by
+      // an order meanwhile goes where the order sends him).
+      const toCanopy = onCanopyLeg();
+      stop();
+      // (A freeze cooldown he was in still holds.)
+      if (dh.cool !== undefined && dh.cool > tick) s.droneHide = { kind: "spent", since: dh.since, until: dh.cool };
+      if (dh.gx === undefined || dh.gy === undefined || dh.ox === undefined || dh.oy === undefined) return false;
+      if (dh.home !== undefined) s.homePosture = dh.home; else delete s.homePosture;
+      if (!m || (m.waypoints.length > 0 && !toCanopy) || (!toCanopy && hypot2(me.x - dh.gx, me.y - dh.gy) > 5)) return false;
+      const leg = routeBetween(ctx, navFor(ctx, "foot").search, me.x, me.y, dh.ox, dh.oy, { maxExpansions: 3000, snapCells: 1 }); // (outdoors only: he left from outdoors)
+      if (!leg) return false;
+      m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
+      m.formation = null; m.endPosture = s.homePosture ?? null; m.endHeading = null;
+      return false;
+    }
     return dh?.kind === "hide";
   }
   const hideT = secondsToTicks(H.hideSeconds);
-  // (On his way to the canopy he chose — not a new move ordered meanwhile.)
-  const last = moving ? m.waypoints[m.waypoints.length - 1]! : null, it = s.intent;
-  const toCanopy = dh?.kind === "hide" && last !== null && it?.kind === "hideDrone" && it.x !== undefined && it.y !== undefined && hypot2(last.x - it.x, last.y - it.y) < 3;
+  const toCanopy = dh?.kind === "hide" && onCanopyLeg();
   if (moving && !toCanopy) {
-    // (a) On his way: he freezes.
-    if (dh?.kind === "spent" && tick < dh.until) return false;
+    // (a) On his way: he freezes — not on a bolt out of a house or out of a beaten zone (his life is in the move).
+    if (last!.bolt === true || s.beaten?.left === true) return dh?.kind === "freeze" ? stop() : false;
+    const cool = dh?.kind === "spent" ? dh.until : dh?.cool;
+    if (cool !== undefined && tick < cool) return false;
+    // Only with the drone nearly overhead (it would see him move); a freeze run he is in runs out on its own.
+    if (near > H.freezeTriggerM * H.freezeTriggerM) return dh?.kind === "freeze" && tick >= dh.until ? stop() : false;
     const run = dh?.kind === "freeze" ? dh : { kind: "freeze" as const, since: tick, until: tick };
     const end = run.since + secondsToTicks(H.maxFreezeSeconds);
     if (tick >= end) {
       if (m.holdUntilTick === run.until) delete m.holdUntilTick;
-      s.droneHide = { kind: "spent", since: run.since, until: tick + hideT };
+      s.droneHide = { kind: "spent", since: run.since, until: tick + secondsToTicks(H.freezeCooldownSeconds) };
       if (s.intent?.kind === "hideDrone") s.intent = null;
       return false;
     }
@@ -788,13 +838,23 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
   if (moving) { dh!.until = tick + hideT; return true; } // on his way to the canopy
   // (b) Halted: down under a canopy or indoors where he is; else to the nearest canopy, else down where he is.
   const aboveM = ctx.catalog.spotting.drone?.canopyAboveM ?? 3;
-  const hide = dh?.kind === "hide" ? dh : { kind: "hide" as const, since: tick, until: tick };
+  let hide: NonNullable<SoldierState["droneHide"]>;
+  if (dh?.kind === "hide") hide = dh;
+  else {
+    // (A freeze cooldown he is in carries over: halting between bounds does not re-arm his freezing.)
+    const cool = dh?.kind === "spent" ? dh.until : dh?.cool;
+    if (dh?.kind === "freeze" && m && m.holdUntilTick === dh.until) delete m.holdUntilTick;
+    hide = { kind: "hide", since: tick, until: tick };
+    if (cool !== undefined && cool > tick) hide.cool = cool;
+  }
   hide.until = tick + hideT;
   s.droneHide = hide;
   if (s.intent?.kind !== "hideDrone") s.intent = { kind: "hideDrone", tick, x: me.x, y: me.y };
   const covered = indoorAt(ctx, me.x, me.y) >= 0 || underCanopy(ctx, me.x, me.y, me.z, aboveM);
-  // (Only while the drone is still at least moveBeyondM off: closer, moving would show him; he lies still instead.)
-  if (!covered && m && H.searchM > 0 && near >= H.moveBeyondM * H.moveBeyondM && (hide.searched === undefined || tick - hide.searched >= hideT)) {
+  // (Only while the drone is still at least moveBeyondM off: closer, moving would show him; he lies still instead.
+  // Not a man at a post: he lies down where he is.)
+  if (!covered && m && H.searchM > 0 && near >= H.moveBeyondM * H.moveBeyondM && (hide.searched === undefined || tick - hide.searched >= hideT)
+    && !postedMan(state, id, unitId)) {
     hide.searched = tick;
     const { grid, search } = navFor(ctx, "foot");
     const taken = placesTaken(state, id), sep = ctx.catalog.behaviour.soldier.minSpacingM;
@@ -816,6 +876,9 @@ function hideFromDrone(ctx: SimContext, state: SimState, id: EntityId, s: Soldie
     for (const c of cands.slice(0, 4)) {
       const leg = routeBetween(ctx, search, me.x, me.y, c.x, c.y, { maxExpansions: 3000, snapCells: 1 }); // (outdoors only: he is not indoors)
       if (!leg || leg.cost > H.searchM * 2) continue;
+      // (Where he left from, once per hide: he goes back there when it is over.)
+      if (hide.ox === undefined) { hide.ox = me.x; hide.oy = me.y; if (s.homePosture !== undefined) hide.home = s.homePosture; }
+      hide.gx = c.x; hide.gy = c.y;
       m.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode });
       m.formation = null; m.endPosture = "prone"; m.endHeading = me.heading;
       s.intent = { kind: "hideDrone", tick, x: c.x, y: c.y };
@@ -859,16 +922,17 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
   for (let id = staggerFirst(state.tick, every); id < state.nextEntityId; id += every) {
     const s = state.soldier.get(id);
     if (s === undefined) continue;
-    if (!isAble(s)) { s.intent = null; continue; }
-    if (s.mount !== undefined) { s.intent = null; continue; } // aboard: no decisions of his own (M7)
-    if (state.tick < s.stunnedUntilTick || s.evade !== null) continue;
+    if (!isAble(s)) { s.intent = null; dropDroneHide(state, id, s); continue; }
+    if (s.mount !== undefined) { s.intent = null; dropDroneHide(state, id, s); continue; } // aboard: no decisions of his own (M7)
+    if (s.evade !== null) { dropDroneHide(state, id, s); continue; }
+    if (state.tick < s.stunnedUntilTick) continue;
     // Guiding a missile from his team's post (M9.3b): he keeps his eye to the sight — no cover, no moves, no fire.
     if (isGuiding(state, id)) continue;
     const ident = state.identity.get(id);
     const unit = ident ? state.unit.get(ident.unit) : undefined;
     if (!ident || !unit) continue;
     const top = topUnit(state, ident.unit)!;
-    if (s.mental.behaviour === "routed") { s.intent = null; continue; } // running back: no decisions of his own
+    if (s.mental.behaviour === "routed") { s.intent = null; dropDroneHide(state, id, s); continue; } // running back: no decisions of his own
     const topId = (() => { let u = ident.unit; for (let p = state.unit.get(u)?.parent ?? null; p !== null; p = state.unit.get(u)?.parent ?? null) u = p; return u; })();
     if (s.intent?.kind === "bringAmmo") { stepBringAmmo(ctx, state, events, id); continue; }
     if (s.intent?.kind === "fetchAmmo") {

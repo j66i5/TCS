@@ -149,9 +149,15 @@ export interface SoldierState {
   /**
    * Hiding from an enemy drone (M9.6, behaviour.soldier.droneHide). "freeze": stopped on his way since `since`, held
    * until `until`; "spent": he froze as long as he may and moves on regardless until `until`; "hide": lying down (under a
-   * canopy, indoors, or going there) until `until`. `searched`: the tick he last looked for a canopy. Absent: not hiding.
+   * canopy, indoors, or going there) until `until`. `searched`: the tick he last looked for a canopy. `cool`: no new
+   * freeze before this tick (carried over from a "spent" run into a "hide"). `ox`/`oy`: where he left from for a
+   * canopy, `gx`/`gy`: the canopy, `home`: his fire position's posture then (he goes back once it is over). Absent:
+   * not hiding.
    */
-  droneHide?: { kind: "freeze" | "spent" | "hide"; since: number; until: number; searched?: number };
+  droneHide?: {
+    kind: "freeze" | "spent" | "hide"; since: number; until: number; searched?: number; cool?: number;
+    ox?: number; oy?: number; gx?: number; gy?: number; home?: Posture;
+  };
   /**
    * His triage tag (M10.3b), set by the man who treats him: category 1 immediate (T1), 2 delayed (T2), 3 minimal
    * (T3); who tagged him, when, with what training. It may be wrong (core/medical.json `triage`). Absent: not triaged.

@@ -95,7 +95,9 @@ describe("tanks in the platoon battle (M7.6b, scenario)", () => {
   it("the fixture's tortoises (rule 8), and tanks in a battle without the platoons' vehicles", () => {
     const fx = loadData(true);
     const input = buildScenario(fx, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["xf", "de"], attacker: "blue", tanks: true });
-    expect(sideOf(input, "blue").vehicles!.map((r) => r.type)).toEqual(["xf-tortoise", "xf-tortoise"]);
-    expect(sideOf(input, "red").vehicles!.map((r) => r.type)).toEqual(["de-leopard2a7v", "de-leopard2a7v"]);
+    // (M10.6a: the off-map ambulances are left out: they are not on the map.)
+    const onMap = (side: string) => { const f = sideOf(input, side); const off = new Set((f.offMap ?? []).map((o) => o.vehicleId)); return f.vehicles!.filter((r) => !off.has(r.vehicleId)).map((r) => r.type); };
+    expect(onMap("blue")).toEqual(["xf-tortoise", "xf-tortoise"]);
+    expect(onMap("red")).toEqual(["de-leopard2a7v", "de-leopard2a7v"]);
   });
 });

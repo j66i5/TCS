@@ -723,10 +723,13 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
   if (!tv || !tt || !rt) return null;
-  const rel = Math.abs(wrapAngle(atan2(y - tt.y, x - tt.x) - tt.heading));
-  const face = rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1;
-  // M7.6b: the part aimed at; a turret face without a plate of its own is judged by the hull's.
-  const tp = zone === "turret" ? rt.plates[4 + face] : undefined;
+  const bearing = atan2(y - tt.y, x - tt.x);
+  const faceAt = (h: number): number => { const rel = Math.abs(wrapAngle(bearing - h)); return rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1; };
+  // M7.6b: the part aimed at; a turret face without a plate of its own is judged by the hull's. The turret's face is
+  // taken in the turret's frame (hull heading + first station's traverse), as the hit resolves it (hulls.ts).
+  const tf = zone === "turret" ? faceAt(tt.heading + (tv.stations[0]?.azimuth ?? 0)) : 0;
+  const tp = zone === "turret" ? rt.plates[4 + tf] : undefined;
+  const face = tp ? tf : faceAt(tt.heading);
   const part = tp ? "turret" : "hull";
   const p = tp ?? rt.plates[face];
   if (!p) return null;

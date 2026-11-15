@@ -284,9 +284,39 @@ describe("aim at the part of a vehicle that can be seen (M7.6b)", () => {
     expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic")).toBeCloseTo(600 + 0.75 * 344, 6);
     removeItems(sim.state.container.req(rid), "ru-relikt-turret-front", 1000);
     expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", Infinity, true, "turret")).toBeCloseTo(plate, 6);
-    // A vehicle with no turret plate is judged at its hull plate.
-    const amb = sim.ctx.ballistics.vehicleRT["ru-bmm"];
-    expect(amb?.plates[4] ?? null).toBeNull();
+  });
+
+  it("the turret is judged in the turret's frame: traversed 90 degrees it shows its side, and a side-on hull with the turret turned to face shows the turret front", () => {
+    const front = (() => { const s = createSim(leoVsT90()); return faceNeed(s.ctx, s.state, side(s, "red")[0], 400, 600, "kinetic", Infinity, true, "turret")!; })();
+    // Hull facing the Leopard, turret traversed 90 degrees: the turret side, as a side-on hull with its turret straight.
+    const a = createSim(leoVsT90());
+    const [ra, ta] = side(a, "red");
+    ta.stations[0]!.azimuth = -Math.PI / 2;
+    const b = createSim(leoVsT90(1500, Math.PI / 2));
+    const [rb] = side(b, "red");
+    const sideNeed = faceNeed(b.ctx, b.state, rb, 400, 600, "kinetic", Infinity, true, "turret")!;
+    expect(sideNeed).toBeLessThan(front);
+    expect(faceNeed(a.ctx, a.state, ra, 400, 600, "kinetic", Infinity, true, "turret")).toBeCloseTo(sideNeed, 6);
+    // The hull still judged by the hull's heading: its front.
+    expect(faceNeed(a.ctx, a.state, ra, 400, 600, "kinetic")).toBeCloseTo(600 + 0.75 * 344, 6);
+    // Side-on hull, turret turned to face the Leopard: the turret front.
+    const [, tb] = side(b, "red");
+    tb.stations[0]!.azimuth = Math.PI / 2;
+    expect(faceNeed(b.ctx, b.state, rb, 400, 600, "kinetic", Infinity, true, "turret")).toBeCloseTo(front, 6);
+  });
+
+  it("a vehicle with no turret plate (the BMM) is judged at its hull plate for the turret zone", () => {
+    const sim = createSim(leoVsT90());
+    const [rid, t90] = side(sim, "red");
+    expect(sim.ctx.ballistics.vehicleRT["ru-bmm"]!.plates[4] ?? null).toBeNull();
+    t90.def = "ru-bmm"; // the same hull place, judged as a BMM
+    t90.stations[0]!.azimuth = Math.PI / 2;
+    const hull = faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic");
+    expect(hull).not.toBeNull();
+    expect(Number.isFinite(hull!)).toBe(true);
+    expect(hull!).toBeGreaterThan(0);
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", Infinity, true, "turret")).toBe(hull);
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "shaped", Infinity, true, "turret")).toBe(faceNeed(sim.ctx, sim.state, rid, 400, 600, "shaped"));
   });
 
   it("a missile gunner whose view of the hull is blocked guides onto the turret point; with nothing in the way, onto the hull", () => {
@@ -300,7 +330,12 @@ describe("aim at the part of a vehicle that can be seen (M7.6b)", () => {
     expect(out.z).toBeCloseTo(aps[1]![2], 6);
     expect(missileAimPoint(sim.ctx, sim.state, rid, out)).toBe(true);
     expect(out.z).toBeCloseTo(aps[0]![2], 6);
-    // From high above the bank the hull shows: its own point.
+    // From high above the bank the hull shows: its own point, for the index and for the missile gunner.
     expect(visibleAimIndex(sim.ctx, sim.state, rid, 1700, 600, 60, lid)).toBe(0);
+    out.z = -1;
+    expect(missileAimPoint(sim.ctx, sim.state, rid, out, { x: 1700, y: 600, z: 60, own: lid })).toBe(true);
+    const gz = out.z - aps[0]![2];
+    expect(missileAimPoint(sim.ctx, sim.state, rid, out, { x: 400, y: 600, z: 2.4, own: lid })).toBe(true);
+    expect(out.z - gz).toBeCloseTo(aps[1]![2], 6); // same ground: the clear view got the hull point, the blocked one the turret's
   });
 });

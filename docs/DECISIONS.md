@@ -5619,3 +5619,53 @@ is new to both lines), the batch lines, Russian strings, catalog medical blocks 
 fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
 regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
 `commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).
+
+## 2026-11-15 — M10.6b combat vehicles' rear run, Role 1 outcome, end-of-battle settlement, roster (roadmap-detail slice 14; goldens regenerated)
+Owner answers used (binding): combat vehicles take wounded when going back or idle, the player can order any vehicle
+(Q-9); realistic delays, those still waiting at the end settled by an end-of-battle roll (Q-1e); the side holding the
+ground evacuates, wounded on enemy-held ground are captured and treated (Q-10); recovery in days from wound severity
+and treatment (Q-16, plan default). Q-7 (an order to fire at a recognised protected target is refused) needs
+recognition, which is slice 15; it is built in slices 15/16. Software decisions, not asked (owner to review in M10.8):
+- **Rear run as a generic task** (`VehicleState.rearRun`, `RearRun` with `cargo: "casualties"`; M11 adds supplies):
+  phases toPoint → loading → outbound → away → return. While "away" the hull is off the map exactly like an asset
+  (`isOffMap` also reads `rearRun`), but stays of its force (results, score, AI strength). No state schema bump (new
+  optional fields: `rearRun`, `rearRunRetryTick`, `SoldierState.aftercare`; `evacuated.vehicle` became optional with
+  `via`).
+- **Automatic ("idle")**: not moved for 60 s, not hit for 60 s, crew knows no enemy within 200 m, no fit riders, its
+  squad not assaulting/clearing/boarding; a nest with 1 T1 (by tag) or 3 men of any tag, no ambulance there or due
+  within 300 s; one hull per platoon at a time, the platoon keeps one on the map; nearest idle hull within 800 m with
+  room. "Going back": an idle hull with wounded aboard goes off with them. Away 900 s (to the company point and
+  back), back to its squad leader or its start spot. A cancelled run is not restarted on its own for 120 s. All game
+  values, `core/medical.json` `rearRun`, low.
+- **Orders**: `rearRun` (to a crew unit; "Take wounded back" on the order bar, phone: under "⋯"); refused with radio
+  reasons: nobody to take, squad assaulting, already away. An order to a hull away is refused ("at the rear with the
+  wounded"); on the map any order other than fire/rules/cease fire/smoke ends the run; a squad's mount order meets
+  the same gate. The AI commander sends no orders to a hull on a run (or "mount" to its squad).
+- **Role 1 outcome at hand-over** (`systems/aftercare.ts`, `core/medical.json` `role1`, all low): Role 1 15 min after
+  the map edge; died-of-wounds chance = 0.01 + 0.2 shock + 0.2 blood share lost + 0.2 oxygen debt + 0.1 (1 −
+  consciousness) + 0.05 worst severity, × (1 + 0.1 per hour past `chain.role1S`), × 1.5 by captors, max 0.9; death
+  0.5-72 h after Role 1 (log-uniform); recovery days by worst-wound band (3-10 / 14-35 / 45-120 / 120-300 d) + 30-60
+  for a fracture, × 1.2 untreated bleeding, × 1.25 late, + 180 for a limb lost to a tourniquet (the existing
+  ischaemia points, tourniquet time to surgery). First draft coefficients (0.35/0.4/0.3/0.15/0.08) gave about 20 %
+  died of wounds in the platoon batch; halved to about 10-15 %.
+- **End-of-battle settlement** on the tick the battle ends (time limit or defeat): prisoners treated by captors; a man
+  who needs evacuation (or lies at a nest) is evacuated if his side holds the ground (more able men within 150 m, else
+  the nearest able man's side), reaching an ambulance 1500 s later; otherwise captured; walking wounded who can fight
+  stay with their unit (recovery days only). Draws come from the "medical" stream, so every golden changes at its end.
+- **Roster**: `SoldierRecord.recoveryDays`; a man who died of wounds is status **"killed"** with `diedOfWoundsTick`
+  (a consumer reading only the status never brings a dead man back); `SideResult.diedOfWounds` (not in `killed`,
+  which stays killed in action); `evacuated` now also counts rear runs and end settlement.
+- **Events/record/batch/review**: `medical.rearRun`, `medical.role1` (with `inTime`), `medical.settled`; battle
+  record version 5 (`rear`, `role1`, `settled`); batch line "Rear runs and Role 1" (T1 to Role 1 within 60 min per
+  side, died-of-wounds hours histogram); Medical tab lines; Wounded tab rows for rear runs.
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: winners platoon blue 8/red 2 → 8/2, casualties
+  blue/red 15.5/15.0 → 15.4/13.5; platoon-vehicles 8/2 → 8/2, 15.4/26.9 → 15.4/26.4; platoon-ru-vehicles 9/1 → 9/1,
+  8.7/29.9 → 8.7/29.6 (noise: hand-overs draw from the medical stream). Rear runs are rare in AI battles (1 in 10
+  battles in each vehicle scenario; vehicles seldom stand idle away from the enemy in 1200 s); at the end blue
+  platoon evacuated 65, captured 1, stayed 33; T1 reaching Role 1 within 60 min 95 % (blue) / 80 % (red) in platoon,
+  100 % in the vehicle scenarios (few T1 tags); died of wounds platoon 10 of 99 (blue) / 9 of 61 (red), hours from
+  wound 1-6: 3, 6-24: 4, 24-72: 3 (blue). Left for M10.8: whether rear runs should start more readily.
+- Tests `tools/test/medical-rearrun.test.ts` (run end to end, real data needs T1 or three, no run while assaulting,
+  order refusals, orders while away, save/load on the way and away, DOW chance, settlement both ways, roster);
+  `--scene rearrun` screenshots (phone and desktop). Goldens regenerated (data fingerprint and the end settlement);
+  `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, per hull), so no perf run.

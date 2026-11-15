@@ -30,6 +30,8 @@ export interface OrderSet {
   nature: boolean;
   /** The guns and rounds the vehicle's type has (M7.5a: the nature button cycles only through these). */
   natures?: Nature[];
+  /** "Take wounded back" (M10.6b, owner Q-9): a combat vehicle's rear run. Absent: not offered. */
+  rearRun?: boolean;
 }
 
 /** What the selected unit can do about vehicles now (M7.2). */
@@ -63,6 +65,8 @@ export interface UnitCapabilities {
   natures: Nature[];
   /** The unit's own men alone (a platoon's headquarters, owner 2026-11-15): no drills. */
   own?: boolean;
+  /** A combat vehicle that can take wounded back (M10.6b): the battle has rear runs, it is on the map, not on one. */
+  canRearRun?: boolean;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -117,6 +121,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     out.ableMen = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station !== "passenger" && isAble(view.soldier.get(o))).length;
     out.passengers = veh.seats.filter((o, i) => o !== null && vdef.seats[i]?.station === "passenger").length;
     out.hasSmokeDischargers = vdef.dischargers !== undefined && countIn(view, u.vehicle, vdef.dischargers.item) > 0;
+    if (catalog.medical?.rearRun !== undefined && veh.offMap === undefined && veh.rearRun === undefined && (veh.status === "ok" || veh.status === "disarmed")) out.canRearRun = true;
     // The natures its guns offer: a coaxial machine gun "mg"; a cannon "ap" / "he" by the feed's round.
     const set = new Set<Nature>();
     vdef.stations.forEach((st, si) => st.weapons.forEach((w, wi) => {
@@ -200,6 +205,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     o.natures = cap.natures;
     o.nature = cap.natures.length > 1;
     if (cap.hasLauncherRounds) o.modes = [...o.modes, "antitank"];
+    if (cap.canRearRun) o.rearRun = true;
     return o;
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;

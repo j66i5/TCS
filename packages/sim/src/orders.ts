@@ -105,7 +105,10 @@ export type OrderBody =
   | { kind: "evacuate" }
   /** Call an ambulance to the Verwundetennest (M10.6a, owner answer 4): the target's platoon (its top unit) asks for
    *  its side's next waiting ambulance now, even before anyone lies at the nest (the nest is sited if it has none). */
-  | { kind: "callAmbulance" };
+  | { kind: "callAmbulance" }
+  /** Evacuate with this vehicle (M10.6b, owner Q-9): the target crew's hull takes the casualties at its platoon's
+   *  Verwundetennest (or the wounded aboard) off the map, then comes back. */
+  | { kind: "rearRun" };
 
 export type OrderKind = OrderBody["kind"];
 

@@ -319,7 +319,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     },
     setWounded(rows, amb) {
       nWounded = rows.filter((r) => r.status !== "evacuated").length;
-      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|") + "#" + (amb ? `${amb.ready}:${amb.rows.map((r) => `${r.id}:${r.phase}:${Math.ceil(r.dueS / 60)}:${r.aboard}`).join(",")}` : "");
+      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|") + "#" + (amb ? `${amb.ready}:${amb.rows.map((r) => `${r.kind ?? "a"}${r.id}:${r.phase}:${Math.ceil(r.dueS / 60)}:${r.aboard}`).join(",")}` : "");
       if (key !== wkey) {
         wkey = key;
         wlist.innerHTML = "";
@@ -327,7 +327,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         for (const r of amb?.rows ?? []) {
           const e = document.createElement("div");
           e.className = `hud-ambulance ph-${r.phase}`;
-          e.textContent = s.t(`ambulance.${r.phase}`, { callsign: r.callsign, min: Math.max(1, Math.ceil(r.dueS / 60)), n: r.aboard });
+          e.textContent = s.t(r.kind === "rearRun" ? `rearRun.${r.phase}` : `ambulance.${r.phase}`, { callsign: r.callsign, min: Math.max(1, Math.ceil(r.dueS / 60)), n: r.aboard });
           wlist.append(e);
         }
         if (amb && amb.ready > 0 && wounded?.onCallAmbulance) {

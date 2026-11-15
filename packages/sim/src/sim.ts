@@ -30,6 +30,8 @@ import { surrenderSystem } from "./systems/surrender";
 import { medicalSystem } from "./systems/medical";
 import { nestSystem } from "./systems/nest";
 import { evacuationSystem } from "./systems/evacuation";
+import { settleBattle } from "./systems/aftercare";
+import { rearRunSystem } from "./systems/rearrun";
 import { drillSystem } from "./systems/drills";
 import { boardingSystem } from "./systems/boarding";
 import { stationDecisionSystem, stationFireSystem, turretSystem, vehicleIncomingSystem } from "./systems/gunnery";
@@ -151,6 +153,8 @@ export function step(sim: Sim): SimEvent[] {
   medicalSystem(ctx, state, events);
   nestSystem(ctx, state, events);
   evacuationSystem(ctx, state, events);
+  // Combat vehicles' rear runs (M10.6b): after the ambulances (a nest an ambulance serves needs no hull).
+  rearRunSystem(ctx, state, events);
   decisionSystem(ctx, state, events);
   stationDecisionSystem(ctx, state, events);
   drillSystem(ctx, state, events);
@@ -169,6 +173,7 @@ export function step(sim: Sim): SimEvent[] {
   if (state.tick >= secondsToTicks(ctx.rules.timeLimitSeconds)) {
     state.ended = { tick: state.tick, reason: "time-limit" };
     events.emit({ kind: "battle.ended", tick: state.tick, reason: "time-limit" });
+    settleBattle(ctx, state, events);
   }
   return events.events;
 }

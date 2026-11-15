@@ -12,7 +12,7 @@ import type { CareSkill, CarryMethodDef, Catalog, InterventionDef, MedicalDef } 
 import type { SoldierState } from "./components";
 import type { DefId, EntityId } from "./ids";
 import { secondsToTicks } from "./ids";
-import type { SimState } from "./state";
+import type { DeepReadonly, SimState } from "./state";
 import type { Physiology, Wound } from "./wounds";
 
 const LIMBS = new Set(["armL", "armR", "legL", "legR"]);
@@ -229,6 +229,15 @@ export function careNeed(catalog: Catalog, state: SimState, casualty: EntityId, 
     need = true;
   }
   return need ? { urgent: false } : null;
+}
+
+/**
+ * Is he to be taken to the Verwundetennest (M10.5)? A living, uncaptured wounded man who is out of the fight
+ * (incapacitated, cannot walk or cannot fight), or whom the player ordered back.
+ */
+export function needsEvacuation(s: DeepReadonly<SoldierState>): boolean {
+  return s.physiology.alive && s.captive === null && s.wounds.length > 0
+    && (s.evacOrdered === true || s.casualty === "incapacitated" || !s.impair.canWalk || !s.impair.canFight);
 }
 
 /** Is this man a first responder or a medic by his role (data: `medicalRoles`)? He answers urgent casualties. */

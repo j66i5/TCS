@@ -24,7 +24,9 @@ export type Gesture =
   /** S2: a fire order held; `onUnit`: back on the unit (release cancels). */
   | { kind: "fire"; at: Pt; onUnit: boolean; los: LosLine[] }
   /** S11: a point held for fire support (letting go opens the HE / smoke pop-up there). */
-  | { kind: "support"; at: Pt; from: Pt };
+  | { kind: "support"; at: Pt; from: Pt }
+  /** M10.5: the Verwundetennest's marker dragged (letting go moves it there: a `casualtyPoint` order to `unit`). */
+  | { kind: "nest"; unit: EntityId; from: Pt; at: Pt };
 
 export interface App {
   readonly input: BattleInput;

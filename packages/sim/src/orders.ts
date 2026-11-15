@@ -94,7 +94,13 @@ export type OrderBody =
    *  (`floor`: that floor first), those facing `facing` (rad; absent: away from the building's centre) first.
    *  M7.5e: `windowIndex` (an index into the building's window places, `windowPlaces`) sends the first man to exactly
    *  that window (any others take the next places); `mode` is the pace there (a foot movement mode; default run). */
-  | { kind: "occupy"; building: number; floor?: number; facing?: number; windowIndex?: number; mode?: DefId };
+  | { kind: "occupy"; building: number; floor?: number; facing?: number; windowIndex?: number; mode?: DefId }
+  /** Put the Verwundetennest here (M10.5, owner answer 4): the target's platoon (its top unit) gathers its casualties
+   *  at (x, y) from now on; the nest stays where the player put it. */
+  | { kind: "casualtyPoint"; x: number; y: number }
+  /** Take this casualty to the Verwundetennest now (M10.5, owner answer 4): the target is the wounded man; he goes
+   *  first in the bearers' queue, and walks there himself if he can, even if he could still fight. */
+  | { kind: "evacuate" };
 
 export type OrderKind = OrderBody["kind"];
 

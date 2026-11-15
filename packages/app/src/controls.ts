@@ -4,7 +4,7 @@
  */
 import { indoorAt, ticksToSeconds, type EntityId } from "@tcs/sim";
 import { worldToScreen, type GestureOverlay } from "@tcs/render";
-import { addPoint, attachInput, centreOf, dragTo, hitHandle, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
+import { addPoint, attachInput, centreOf, dragTo, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { stopFollow } from "./camera";
 import { clearAt, facingHandle, fireAtPoint, forUnit, ghostPlan, issue, losTo, now, occupyOrder, offerSupport, oneTapDone, SCREEN_MIN_M, startPlan, turnPlan } from "./orders";
@@ -105,6 +105,11 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
     onDragStart: (w) => {
       a.gesture = null;
       hud.offerContext(null);
+      // M10.5: the Verwundetennest's marker (whatever is selected): drag it where the casualties should gather.
+      if (!a.plan) {
+        const nest = nestAt(nestMarkers(sim.state, playerSide), w.x, w.y, 16 / renderer.camera.scale + 1);
+        if (nest) { a.gesture = { kind: "nest", unit: nest.unit, from: { x: nest.x, y: nest.y }, at: { ...w } }; return true; }
+      }
       if (a.plan) {
         const g = markerFor(a, a.plan);
         a.dragHandle = hitHandle(a.plan, g, w.x, w.y, 22 / renderer.camera.scale + 1);
@@ -150,6 +155,7 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
     onDrag: (w) => {
       const gs = a.gesture;
       if (!gs) return;
+      if (gs.kind === "nest") { if (inMap(a, w)) gs.at = { ...w }; return; }
       if (gs.kind === "plan") { if (a.plan && a.dragHandle !== null) a.plan = dragTo(a.plan, a.dragHandle, w.x, w.y, { minFrontageM: 2, maxFrontageM: 200, resizeGapM: a.dragGapM }); return; }
       if (gs.kind === "fire") { gs.at = { ...w }; gs.onUnit = onSelected(a, w); gs.los = gs.onUnit || !inMap(a, w) ? [] : losTo(a, w); return; }
       if (gs.kind === "support") { if (inMap(a, w)) gs.at = { ...w }; return; }
@@ -164,6 +170,10 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       a.gesture = null;
       a.dragHandle = null;
       const uid = overlay.selectedUnit;
+      if (gs?.kind === "nest") {
+        if (how !== "cancel" && how !== "tap" && inMap(a, gs.at)) issue(a, { ...now(a, gs.unit), kind: "casualtyPoint", x: gs.at.x, y: gs.at.y });
+        return false;
+      }
       if (!gs || gs.kind === "plan" || how === "cancel" || uid === null) return false;
       // Released without moving: a tap as before (a press on the unit still selects it, in Fire mode it fires); only
       // a tap on the facing handle does nothing. (A right click: the move to that point, below.)

@@ -291,7 +291,15 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    report (identical rows on 15 battles); the review in three tabs (battle, Medical, Conduct; the last two empty until
    M10.8); `app/src/main.ts` 1,521 → 334 lines (app state, orders, camera, panels, map gestures, keys, map views,
    review, save, debug hooks and sprite sheet in their own modules). No sim or golden change.
-10. ⬜ **M10.5 Verwundetennest and platoon medic** (slice 11)
+10. ✅ **M10.5 Verwundetennest and platoon medic** (slice 11, 2026-11-14) — a generic rear-point store (`kind`
+    medical; supply in M11, state schema 20); each platoon's nest sited 150 m behind its men (away from the enemy
+    they know, else toward the nearest edge), hidden from him, on ground wheeled vehicles reach; moved when a known
+    enemy comes within 100 m or, empty, left 300 m behind; the platoon leader tasks two riflemen as bearers per
+    casualty who cannot walk (at most three parties, a squad keeps two fit men; one alone when no second is free),
+    walking wounded walk, T1 first; the platoon's best-trained medical man goes there, triages again and gives his
+    care; men fit again return to duty; orders `casualtyPoint` (drag the red-cross marker) and `evacuate` (Back in the
+    Wounded tab, owner Q-2c); the AI commander counts carriers as committed and never orders them; batch
+    "Verwundetennest" line; `--scene nest`.
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)
 12. ⬜ **M10.6a Off-map vehicles and ambulance runs** (slice 13)
 13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)

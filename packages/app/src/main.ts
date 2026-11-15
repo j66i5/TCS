@@ -16,7 +16,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, RangingBook, repaceMove, unitTiles } from "@tcs/ui";
+import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, unitTiles } from "@tcs/ui";
 import { loadBundledData } from "./data";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
@@ -175,6 +175,18 @@ async function main(): Promise<void> {
     },
     onFollowUnit: (u) => { endPlan(a); a.gesture = null; overlay.selectedUnit = u; startFollow(a, u); syncOrders(a); refreshTiles(a); },
     onStopFollow: () => stopFollow(a),
+    // M10.5 Wounded tab: a row selects the man's unit and opens his box, the camera on him; "Back" orders him to the
+    // Verwundetennest (the order goes to the man himself).
+    onWoundedMan: (m) => {
+      const uid = sim.state.identity.get(m)?.unit;
+      if (uid === undefined) return;
+      endPlan(a); a.gesture = null;
+      overlay.selectedUnit = uid; overlay.selectedDrone = null; a.inspected = m; showCard(a);
+      const t = sim.state.transform.get(m);
+      if (t) { stopFollow(a); renderer.focusScale(t.x, t.y, Math.max(renderer.camera.scale, OPENING_SCALE), hud.insets()); }
+      syncOrders(a); refreshTiles(a);
+    },
+    onEvacuate: (m) => { issue(a, { ...now(a, m), kind: "evacuate" }); refreshTiles(a); },
     onContours: (on) => {
       a.contoursOn = on;
       renderer.setContoursAlways(on);
@@ -298,6 +310,8 @@ async function main(): Promise<void> {
       const vid = overlay.debug && overlay.selectedUnit !== null ? sim.state.unit.get(overlay.selectedUnit)?.vehicle : undefined;
       overlay.vehicleDebug = vid === undefined ? null : { vehicle: vid, ...vehicleDebug.view(sim.state, vid, strings) };
     }
+    // M10.5: the side's Verwundetennester (one being dragged: its ghost where it would go).
+    { const gs = a.gesture; overlay.nests = nestMarkers(sim.state, playerSide).map((n) => ({ x: n.x, y: n.y, count: n.count, drag: gs?.kind === "nest" && gs.unit === n.unit ? gs.at : null })); }
     planOverlay(a);
     overlay.gesture = gestureOverlay(a);
     syncOrders(a);

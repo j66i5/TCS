@@ -145,6 +145,8 @@ describe("platoons with vehicles (M7.2)", () => {
 
   it("losses force a withdrawal: squads within 100 m of their vehicle get back in, and the vehicles drive back (Q24)", () => {
     const input = buildScenario(data, def(1));
+    // (M10.5: the battle must not end first — since the Verwundetennest, seed 1's defenders are all down by 112 s.)
+    if (input.rules.victory) input.rules.victory = { ...input.rules.victory, endOnDefeat: false };
     let hurt = false;
     const { events, sim } = play(input, 200, (s) => {
       // Once everyone is out, half the attacking platoon's men fall (beyond the doctrine's tolerance).

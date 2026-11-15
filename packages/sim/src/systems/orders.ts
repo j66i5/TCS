@@ -4,6 +4,7 @@
 import { droneOrder, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { leaveCarry } from "./carry";
+import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { startSetup } from "./mortars";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
@@ -124,6 +125,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.windowIndex !== undefined && !(Number.isInteger(o.windowIndex) && o.windowIndex >= 0 && o.windowIndex < windowPlaces(ctx, buildingIndex(ctx, o.building)).length)) return "invalid-params";
       if (o.mode !== undefined && ctx.catalog.movementModes[o.mode]?.class !== "foot") return "invalid-params";
       return null;
+    case "casualtyPoint":
+      if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || o.x < 0 || o.y < 0 || o.x > ctx.map.widthM || o.y > ctx.map.heightM) return "invalid-params";
+      return ctx.catalog.medical?.nest ? null : "not-applicable";
+    case "evacuate":
+      // The target is the wounded man himself (M10.5).
+      if (!state.soldier.has(o.target)) return "invalid-params";
+      return ctx.catalog.medical?.nest ? null : "not-applicable";
   }
 }
 
@@ -262,8 +270,13 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
  */
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink, afterDismount = false): OrderResult {
   const isUnit = state.unit.has(order.target);
+  // The Verwundetennest (M10.5): nobody's errand or drill changes.
+  if (order.kind === "casualtyPoint") return casualtyPointOrder(ctx, state, events, order.target, order.x, order.y) ? true : "unable";
+  if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
   // Getting in and out (M7.2): replaces a drill or a boarding under way, like any order.
   if (order.kind === "mount" || order.kind === "dismount") {
+    // (M10.5: getting in takes the wounded along, from the Verwundetennest too.)
+    if (order.kind === "mount" && isUnit) releaseForBoarding(ctx, state, events, order.target);
     if (isUnit) clearDrills(state, order.target);
     else { leaveBoarding(state, order.target); releaseFromParentDrills(state, state.identity.get(order.target)?.unit ?? -1, [order.target]); }
     return boardingOrder(ctx, state, order, events);
@@ -298,7 +311,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // A man gone to a wounded comrade (M10.3a) stays with him, and a man carrying one (M10.4a) carries on: orders to
   // his unit pass him by (an order to him alone ends the errand, below).
   const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
-    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined)));
+    && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.

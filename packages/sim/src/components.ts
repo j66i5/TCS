@@ -168,6 +168,36 @@ export interface SoldierState {
    * orders and drills pass him by. Absent: not carrying.
    */
   carrying?: EntityId;
+  /**
+   * He lies (or sits) at this rear point (M10.5, the Verwundetennest; the `rear` store's key): brought there by bearers
+   * or walked there himself. His unit's orders and drills pass him by. Cleared when he is more than twice the nest's
+   * `arriveM` from it (the nest moved, an order to him alone). Absent: not at a nest.
+   */
+  atNest?: EntityId;
+  /** The player ordered him taken to the Verwundetennest (M10.5 `evacuate`): first in the bearers' queue, and he goes
+   *  even if he could still fight. Cleared when he arrives. */
+  evacOrdered?: true;
+  /** A trip to the Verwundetennest ended short (no way, bearers lost or gave up, M10.5): not tried again before this
+   *  tick. Absent: no wait. */
+  evacRetryTick?: number;
+}
+
+/**
+ * A rear point (M10.5, SPEC 9.1/9.2; the `rear` store, keyed by its own entity id): a place behind a unit where
+ * something is collected. `kind` medical: the Verwundetennest, where bearers bring the unit's casualties and its
+ * medic sees to them (supply points in M11 reuse it). `unit`: the top unit it serves. `placed`: put there by the
+ * player's `casualtyPoint` order (it stays; an automatic one moves when threatened or left behind).
+ */
+export interface RearPoint {
+  kind: "medical" | "supply";
+  side: SideId;
+  unit: EntityId;
+  x: number;
+  y: number;
+  placed?: true;
+  /** When it was sited (or last moved) and last checked. */
+  sitedTick: number;
+  checkTick: number;
 }
 
 /**
@@ -201,6 +231,8 @@ export interface Carry {
   untilTick?: number;
   /** The litter (stretcher) used: its item type and the carrier holding it (the item stays in his container). */
   litter?: { type: DefId; from: EntityId };
+  /** Taken to this rear point (M10.5, the Verwundetennest): on arrival he is at it; the bearers go back. */
+  point?: EntityId;
 }
 
 /** A triage tag (M10.3b). */

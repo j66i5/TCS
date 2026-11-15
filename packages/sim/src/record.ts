@@ -16,7 +16,7 @@ import type { EntityId } from "./ids";
 import type { SimView } from "./state";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -68,6 +68,11 @@ export interface SideRecord {
   holds: number;
   loaded: number;
   unloaded: number;
+  /** The Verwundetennest (M10.5): nests sited and moved; casualties sent back with bearers and walking, arrived,
+   *  returned to duty from it. */
+  nest: { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number };
+  /** Re-triage (M10.5): tags given again where the last tag was wrong, and of them now right. */
+  retriage: { wrongRetagged: number; corrected: number };
 }
 
 export interface BattleRecord {
@@ -81,6 +86,10 @@ export interface BattleRecord {
   sides: Record<string, SideRecord>;
   /** Casualty id -> tick of his first finished treatment (the Medical tab and the batch's time to first care). */
   firstTreated: Record<string, number>;
+  /** Casualty id -> his last triage tag and the true category then (M10.5: was it wrong?). */
+  lastTag: Record<string, [number, number]>;
+  /** Casualty id -> tick he first reached a Verwundetennest (M10.5). */
+  atNest: Record<string, number>;
   /** Filled by `finishRecord`. */
   end: { tick: number; reason: BattleEndReason; winner: string | null; loser: string | null } | null;
 }
@@ -98,12 +107,13 @@ export function newSideRecord(): SideRecord {
     carers: { comrades: 0, responders: 0 },
     tags: {}, wrongTags: {},
     drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0,
+    nest: { sited: 0, moved: 0, tasked: 0, walks: 0, arrived: 0, returned: 0 }, retriage: { wrongRetagged: 0, corrected: 0 },
   };
 }
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -182,6 +192,9 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       case "medical.triaged": {
         const r = side(sideOfMan(e.casualty));
         if (r) { r.tags[e.skill] = (r.tags[e.skill] ?? 0) + 1; if (e.cat !== e.actual) r.wrongTags[e.skill] = (r.wrongTags[e.skill] ?? 0) + 1; }
+        const k = String(e.casualty), last = rec.lastTag[k];
+        if (r && last && last[0] !== last[1]) { r.retriage.wrongRetagged++; if (e.cat === e.actual) r.retriage.corrected++; }
+        rec.lastTag[k] = [e.cat, e.actual];
         break;
       }
       case "medical.dragged": {
@@ -194,6 +207,14 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         if (r && e.phase === "start") r.carries[e.method] = (r.carries[e.method] ?? 0) + 1;
         if (r && e.phase === "hold") r.holds++;
         if (r && e.phase === "done") r.carriedM += e.distanceM;
+        break;
+      }
+      case "medical.nest": { const r = side(e.side); if (r) { if (e.reason === "sited") r.nest.sited++; else r.nest.moved++; } break; }
+      case "medical.evac": {
+        const r = side(sideOfMan(e.casualty));
+        if (r) { if (e.phase === "tasked") r.nest.tasked++; else if (e.phase === "walks") r.nest.walks++; else if (e.phase === "returned") r.nest.returned++; }
+        const k = String(e.casualty);
+        if (e.phase === "arrived" && rec.atNest[k] === undefined) { rec.atNest[k] = e.tick; if (r) r.nest.arrived++; }
         break;
       }
       case "medical.carer":

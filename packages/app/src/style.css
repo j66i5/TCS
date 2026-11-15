@@ -118,6 +118,32 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-side.expanded .hud-tile-detail { display: block; grid-column: 2 / 4; grid-row: 2; color: var(--muted); font-size: 12px; }
 .hud-side.expanded .hud-tile.depth-1 { margin-left: 10px; width: calc(100% - 10px); }
 .hud-side.expanded .hud-tile.depth-2 { margin-left: 20px; width: calc(100% - 20px); }
+/* M10.5 Wounded tab (owner Q-2c): two tabs in the open list; a red-cross button with the count on the slim strip */
+.hud-side-tabs { display: none; flex: 0 0 auto; gap: 4px; }
+.hud-side.expanded .hud-side-tabs { display: flex; }
+.hud-side-tab { flex: 1 1 0; min-height: 30px; border-radius: 6px; border: 1px solid #3d4a39; background: #1f2a1c; color: var(--muted); font-size: 13px;
+  display: flex; align-items: center; justify-content: center; gap: 4px; }
+.hud-side-tab.on { color: var(--text); border-color: #8a9a7f; background: #2c3a27; }
+.hud-side-tab svg, .hud-side-wounded svg { display: block; }
+.hud-side-wounded { flex: 0 0 auto; width: 56px; min-height: 34px; border-radius: 6px; border: 1px solid #6b3a35; background: #2a1d1b; color: var(--text);
+  display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.hud-side.expanded .hud-side-wounded { display: none !important; }
+/* (A wide screen keeps the list open: the tabs name it, the head would only repeat "Units".) */
+@media (min-width: 1000px) { .hud-side.expanded .hud-side-head { display: none; } }
+.hud-wounded-list { display: none; }
+.hud-side.expanded.tab-wounded .hud-wounded-list { display: flex; }
+.hud-side.expanded.tab-wounded .hud-side-list:not(.hud-wounded-list) { display: none; }
+.hud-wounded { flex: 0 0 auto; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 6px; padding: 4px; border-radius: 6px;
+  border: 1px solid #3d4a39; background: #1f2a1c; }
+.hud-wounded-tag { min-width: 26px; height: 22px; border-radius: 4px; background: #555; color: #14110f; font-weight: 700; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; }
+.hud-wounded-who { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; padding: 0; background: none;
+  color: var(--text); text-align: left; font-size: 13px; }
+.hud-wounded-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.hud-wounded-status { color: var(--muted); font-size: 12px; }
+.hud-wounded.st-nest { border-left: 4px solid #f4f1ea; }
+.hud-wounded-back { min-height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid #8a5a52; background: #3a2421; color: var(--text); font-size: 13px; }
+.hud-wounded-none { color: var(--muted); font-size: 13px; padding: 6px; }
 /* Hidden means hidden, whatever display the class sets. */
 [hidden] { display: none !important; }
 @media (max-width: 700px) {

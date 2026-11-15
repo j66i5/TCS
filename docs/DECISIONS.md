@@ -4828,3 +4828,60 @@ next to night and thermal) and DECISIONS entries. Goldens regenerated with `npm 
   (drone selection and orders in `units.ts` / `camera.ts` / `panels.ts` / `controls.ts`, the smoke-screen drag and
   per-asset pop-up in `orders.ts` / `controls.ts`, fire support rounds in `review.ts`, the classic look gone from
   `main.ts`). The drone, fire-support, controls and review screenshot scenes run with no page errors. No golden change.
+
+## 2026-11-14 — M10.5 Verwundetennest and platoon medic (roadmap-detail slice 11; state schema 20; goldens regenerated)
+Built per the owner's binding answers (medical system 1, 4, 6; rounds M10-2/M10-3: bearers are riflemen tasked by
+the platoon leader, under fire they take cover with the casualty; a Wounded sidebar tab; enemy casualties only as
+seen). Software decisions, not asked (owner to review after playing, M10.8):
+- **Generic rear points:** a `rear` store of `RearPoint { kind: medical | supply, side, unit, x, y, placed? }`, keyed
+  by its own entity id (state schema 19 → 20, migration adds the empty store; `SoldierState.atNest`, `evacOrdered`,
+  `evacRetryTick` and `Carry.point` are new optional fields). M11 reuses it for supply points.
+- **One nest per platoon (top unit)**, sited lazily when its first man needs taking back: `nest.backM` 150 m behind
+  the centre of its able men, away from the mean of the enemy contacts they hold (none: toward the nearest map edge),
+  within 100-200 m back, the spot within 45 m (25 candidates) hidden for a man lying from that enemy, outside
+  buildings, on a wheeled-grid cell in the same region as the edge behind (reachable by the ambulance of M10.6a). A
+  known enemy within 100 m moves it (checked every 10 s); an empty one more than 300 m from the platoon follows it; one
+  the player placed stays. All values `core/medical.json` `nest`, confidence low (no published figures; search
+  extracts only name the company Verwundetensammelpunkt).
+- **Who goes back:** `needsEvacuation` — alive, uncaptured, wounded and incapacitated, unable to walk or to fight, or
+  ordered back; once nobody treats him and his urgent needs are seen to (or `careWait` says nobody can). T1 first by
+  the tag he has; ordered men first of all. He walks himself if he can (the "walking" carry method), but not while he
+  is under fire (keeps with his squad, e.g. out of a trap house; found by the house lab). Otherwise the platoon leader
+  (or the casualty's squad leader) tasks bearers: 2 (`nest.bearers`) fit, free riflemen of the platoon, not leaders,
+  not medical men, not firing at the enemy (the attack lab's supporting squad was stripped of its fire), not on the
+  move with their squad, not in an assault or clearing drill, not indoors under fire, own squad first; a squad keeps 2 (`minFitLeft`) fit men; one alone (fireman's carry) when no second is free; at most 3
+  (`maxParties`) parties per platoon. A trip cut short is retried after 30 s (without it a man with no way re-tried
+  every second: 2,000 parties in one battle). On arrival `atNest` is set, the bearers walk back to their squad leader.
+- **The platoon medic:** the platoon's best-trained medical man (medic over first responder, HQ first: DE the
+  Sanitäter, RU the rifleman-medic) goes to the nest as a carer (`care` intent, responder) when it is within 400 m and
+  he is free, T1 first: he triages again (higher training re-tags at once) and gives what only he can. Casualties at
+  the nest get no carers from the line. A man fit to fight again there **returns to duty** (`medical.evac` returned).
+- **Orders** `casualtyPoint {x, y}` (to any unit or man: his platoon's nest moves there, snapped to passable ground
+  outside buildings, then `placed`) and `evacuate` (to the wounded man himself; a unit target is invalid). Neither ends
+  a drill or an errand. A unit ordered to mount ends its men's nest trips and takes its men at the nest along (the
+  mount's fetch of M10.4b does the rest); the nest system leaves boarding units alone.
+- **AI commander:** `strength()` no longer counts bearers, carers or men at the nest; it never orders such a man on
+  his own (an order to one man would end his trip: the defence fall-back moves did exactly that).
+- **Events, record:** `medical.nest` (sited, threatened, drift, ordered), `medical.evac` (tasked, walks, arrived,
+  returned); radio `radio.nestSited` / `radio.nestMoved` (RU strings say casualty collection point). The battle
+  record (version 2) counts them, the first arrival per man and wrong tags tagged again; batch line "Verwundetennest".
+- **Interface:** the nest is a red cross on white with the number of men lying there; dragging it sends
+  `casualtyPoint`. The sidebar gets Units / Wounded tabs (wide screens: the tabs replace the head; phone: a red-cross
+  button with the count on the slim strip): own wounded, T1 first, tag, status, a tap selects him, **Back** sends
+  `evacuate`. No "dismount with wounded" button yet (D3).
+- **Batches** (10 seeds; attacker wins; of the men to be taken back at the end, the share who had reached the nest,
+  blue/red): before → after at 1200 s: platoon 3/10 → 3/10 (27 % / 34 %), platoon-ru (red attacks) 9/10 → 8/10
+  (3 % / 5 %), platoon-vehicles 7/10 → 9/10 (16 % / 3 %). At 2400 s: platoon 45 % / 49 %, platoon-ru 3 % / 10 %.
+  **The plan's 60 % at 2400 s is not met** (earlier tries with bearers allowed under fire and from firing men reached
+  55 % and 63 % in the platoon battle, but stripped the attack lab's supporting fire and kept men in trap houses). The
+  Russian attack in platoon-ru shoots the German defenders to pieces: nobody is left free to carry, and the Russian
+  attackers have few free men behind their assault. Re-triage: wrong tags tagged again 7 (platoon blue, 2400 s), of
+  them 4 put right; red 4 of 4 — 13-29 % of all wrong tags; the plan's 50 % is met only among men a medic re-tags
+  (the Russians have no medic on the map). Left for M10.8 (levers: more bearers, `minFitLeft` 1, company bearers from
+  off the map, the medic doing rounds). Preventable deaths swing a lot between runs (platoon 2400 s blue 46-59 % of
+  life-threatening needs in three runs of this slice): the 10-seed batches are noisy.
+- Tests: `tools/test/medical-nest.test.ts` (siting, bearers, medic, walking, orders, return to duty, threat, save/load
+  mid-carry, a schema-19 save), `ui/test/wounded.test.ts`; `scenario-mounted` "losses force a withdrawal" now keeps
+  the battle from ending first (seed 1's defenders were all down at 112 s). Screenshots `--scene nest` (phone and
+  desktop). Goldens regenerated; `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, the wheeled grid
+  built once per battle, 61 ms): the timing tests run in `npm run check`.

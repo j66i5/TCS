@@ -8,6 +8,7 @@
 import type { Strings } from "@tcs/data";
 import { isAble, isOut, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import { unitSoldierIds } from "./orders-for";
+import type { WoundedRow } from "./wounded";
 
 export type TileState = "ok" | "moving" | "firing" | "aboard" | "pinned" | "damaged" | "broken" | "lost";
 
@@ -124,6 +125,24 @@ export interface Sidebar {
   isExpanded(): boolean;
   /** Width the strip takes from the map (px): the slim strip, or the open list on a wide screen. */
   width(): number;
+  /** The Wounded tab (M10.5, owner Q-2c): the player's wounded, T1 first. */
+  setWounded(rows: readonly WoundedRow[]): void;
+  /** The tab shown in the open list. */
+  tab(): "units" | "wounded";
+}
+
+/** The Wounded tab's actions (M10.5): a row tapped (his unit selected, his box opened), "Back" tapped (evacuate). */
+export interface WoundedActions {
+  onMan(man: EntityId): void;
+  onEvacuate(man: EntityId): void;
+}
+
+/** The triage tag colours of the map (render's TRIAGE_COLOURS), for the list. */
+const TAG_CSS = ["#ff4a3d", "#ffd23d", "#8fd36a"] as const;
+
+/** A small red cross on white (the Wounded tab's button). */
+export function redCross(px = 18): string {
+  return `<svg viewBox="0 0 20 20" width="${px}" height="${px}" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="3" fill="#f4f1ea" stroke="#14110f" stroke-width="1.5"/><path d="M8 4h4v4h4v4h-4v4H8v-4H4V8h4z" fill="#d22a22"/></svg>`;
 }
 
 export const WIDE_SCREEN_PX = 1000;
@@ -133,7 +152,7 @@ export const SLIM_PX = 64;
 /** S5: a press held this long on a tile follows the unit. */
 export const HOLD_MS = 450;
 
-export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId, drone?: boolean) => void, onResize: () => void, onHold?: (unit: EntityId) => void): Sidebar {
+export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId, drone?: boolean) => void, onResize: () => void, onHold?: (unit: EntityId) => void, wounded?: WoundedActions): Sidebar {
   const root = document.createElement("div");
   root.className = "hud-side side-left";
   const head = document.createElement("button");
@@ -141,15 +160,39 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   head.setAttribute("aria-label", s.t("side.units"));
   const list = document.createElement("div");
   list.className = "hud-side-list";
-  root.append(head, list);
-  let expanded = false;
+  // M10.5 (owner Q-2c): the Wounded tab. Open list: two tabs; slim strip: a red-cross button with the count.
+  const tabs = document.createElement("div");
+  tabs.className = "hud-side-tabs";
+  const tabUnits = document.createElement("button"), tabWounded = document.createElement("button");
+  tabUnits.className = "hud-side-tab"; tabWounded.className = "hud-side-tab";
+  tabs.append(tabUnits, tabWounded);
+  const slimWounded = document.createElement("button");
+  slimWounded.className = "hud-side-wounded";
+  slimWounded.setAttribute("aria-label", s.t("side.wounded"));
+  const wlist = document.createElement("div");
+  wlist.className = "hud-side-list hud-wounded-list";
+  root.append(head, tabs, slimWounded, list, wlist);
+  let expanded = false, tab: "units" | "wounded" = "units", nWounded = 0, wkey = "";
   const wide = () => globalThis.innerWidth >= WIDE_SCREEN_PX;
+  const applyTab = () => {
+    root.classList.toggle("tab-wounded", tab === "wounded");
+    tabUnits.classList.toggle("on", tab === "units"); tabWounded.classList.toggle("on", tab === "wounded");
+    tabUnits.textContent = s.t("side.unitsOpen");
+    tabWounded.innerHTML = `${redCross(14)} ${s.t("side.woundedN", { n: nWounded })}`;
+    slimWounded.innerHTML = `${redCross(18)}<span>${nWounded}</span>`;
+    slimWounded.style.display = nWounded > 0 ? "" : "none";
+  };
   const applyExpanded = () => {
     const on = expanded || wide();
     root.classList.toggle("expanded", on);
     head.textContent = on ? s.t("side.unitsOpen") : s.t("side.unitsShort");
+    if (!on) tab = "units";
+    applyTab();
   };
   head.onclick = () => { if (!wide()) { expanded = !expanded; applyExpanded(); onResize(); } };
+  tabUnits.onclick = () => { tab = "units"; applyTab(); };
+  tabWounded.onclick = () => { tab = "wounded"; applyTab(); };
+  slimWounded.onclick = () => { tab = "wounded"; if (!wide()) { expanded = true; } applyExpanded(); tab = "wounded"; applyTab(); onResize(); };
   applyExpanded();
   globalThis.addEventListener("resize", applyExpanded);
   const els = new Map<string, { b: HTMLButtonElement; key: string }>();
@@ -216,6 +259,42 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
       for (const [k, e] of els) if (!keep.has(k)) { e.b.remove(); els.delete(k); }
       markMore();
     },
+    setWounded(rows) {
+      nWounded = rows.length;
+      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|");
+      if (key !== wkey) {
+        wkey = key;
+        wlist.innerHTML = "";
+        if (rows.length === 0) { const e = document.createElement("div"); e.className = "hud-wounded-none"; e.textContent = s.t("side.woundedNone"); wlist.append(e); }
+        for (const r of rows) {
+          const row = document.createElement("div");
+          row.className = `hud-wounded st-${r.status}`;
+          row.dataset["man"] = String(r.id);
+          const tag = document.createElement("span");
+          tag.className = "hud-wounded-tag";
+          tag.textContent = r.tag === null ? "–" : `T${r.tag}`;
+          if (r.tag !== null) tag.style.background = TAG_CSS[r.tag - 1]!;
+          const who = document.createElement("button");
+          who.className = "hud-wounded-who";
+          const nm = document.createElement("span"); nm.className = "hud-wounded-name"; nm.textContent = `${r.name} · ${r.callsign}`;
+          const st = document.createElement("span"); st.className = "hud-wounded-status"; st.textContent = s.t(`wounded.status.${r.status}`) + (r.ordered ? ` · ${s.t("wounded.ordered")}` : "");
+          who.append(nm, st);
+          who.onclick = () => wounded?.onMan(r.id);
+          row.append(tag, who);
+          if (r.canEvacuate && wounded) {
+            const back = document.createElement("button");
+            back.className = "hud-wounded-back";
+            back.textContent = s.t("wounded.back");
+            back.title = s.t("wounded.backTitle");
+            back.onclick = () => wounded.onEvacuate(r.id);
+            row.append(back);
+          }
+          wlist.append(row);
+        }
+      }
+      applyTab();
+    },
+    tab: () => tab,
     setSide(side) { root.classList.toggle("side-left", side === "left"); root.classList.toggle("side-right", side === "right"); },
     setExpanded(on) { expanded = on; applyExpanded(); onResize(); },
     isExpanded: () => expanded || wide(),

@@ -37,6 +37,8 @@ import { isCowering } from "./morale";
 
 /** Code defaults when the data has no `carrying` block (old data sets). */
 const DEFAULTS = { reachM: 2, holdSuppression: 0.3, resumeQuietS: 10, selfDefenceM: 30, massRefKg: 105 };
+/** A trip to the Verwundetennest cut short is tried again after this long (s, M10.5). */
+const EVAC_RETRY_S = 30;
 /** Carriers who have not gathered after this long give up (s). */
 const GATHER_TIMEOUT_S = 120;
 /** A new trail point when the leader has moved this far (m). */
@@ -92,6 +94,8 @@ export interface CarryOptions {
   underFire?: boolean;
   /** Give up after this many seconds (a drag to cover). */
   limitS?: number;
+  /** Taken to this rear point (M10.5, the Verwundetennest). */
+  point?: EntityId;
 }
 
 /**
@@ -120,6 +124,7 @@ export function startCarry(ctx: SimContext, state: SimState, events: EventSink, 
     massKg, speedMps: carrySpeedMps(ctx, def, massKg), trail: [], sinceRestM: 0, totalM: 0,
     ...(def.needsTag !== undefined && litter ? { litter } : {}),
     ...(opts.limitS !== undefined ? { untilTick: state.tick + secondsToTicks(opts.limitS) } : {}),
+    ...(opts.point !== undefined ? { point: opts.point } : {}),
   };
   state.carry.set(payload, c);
   for (const m of use) {
@@ -151,6 +156,16 @@ export function endCarry(ctx: SimContext, state: SimState, events: EventSink, pa
   const pm = state.mover.get(payload);
   if (pm && pm.waypoints.length > 0) { pm.waypoints = []; pm.speedMps = 0; }
   state.carry.delete(payload);
+  // Brought to the Verwundetennest (M10.5): he is at it, and the bearers go back to their squad.
+  if (c.point !== undefined && reason === "arrived" && ps) {
+    ps.atNest = c.point;
+    if (ps.evacOrdered) delete ps.evacOrdered;
+    events.emit({ kind: "medical.evac", tick: state.tick, casualty: payload, point: c.point, phase: "arrived" });
+    bearersBack(ctx, state, c.carriers);
+  } else if (c.point !== undefined && ps && reason !== "dead") {
+    // (Cut short: tried again after a while, not every second.)
+    ps.evacRetryTick = state.tick + secondsToTicks(EVAC_RETRY_S);
+  }
   if (c.purpose === "cover" && reason === "arrived" && ps) {
     const pt = state.transform.req(payload);
     ps.sheltered = { x: pt.x, y: pt.y };
@@ -158,6 +173,21 @@ export function endCarry(ctx: SimContext, state: SimState, events: EventSink, pa
     events.emit({ kind: "medical.dragged", tick: state.tick, casualty: payload, by: lead, done: true, distanceM: Math.round(c.totalM) });
   }
   events.emit({ kind: "medical.carried", tick: state.tick, payload, by: lead, method: c.method, carriers: c.carriers.length, phase: "done", distanceM: Math.round(c.totalM), reason });
+}
+
+/** Bearers back with their squad (M10.5, on arrival at the nest; a man returned to duty): each walks to his unit's leader. */
+export function bearersBack(ctx: SimContext, state: SimState, carriers: readonly EntityId[]): void {
+  for (const m of carriers) {
+    const s = state.soldier.get(m), mv = state.mover.get(m);
+    const u = state.unit.get(state.identity.get(m)?.unit ?? -1);
+    if (!s || !mv || !isAble(s) || !u || u.leader === null || u.leader === m) continue;
+    const a = state.transform.req(m), b = state.transform.get(u.leader);
+    if (!b || hypot2(a.x - b.x, a.y - b.y) < 5) continue;
+    const leg = routeBetween(ctx, navFor(ctx, "foot").search, a.x, a.y, b.x, b.y, { maxExpansions: 8000, snapCells: 3 }, { sz: a.z, gz: b.z });
+    if (!leg) continue;
+    mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "walk" });
+    mv.formation = null; mv.endPosture = "prone"; mv.endHeading = null;
+  }
 }
 
 /** Take one man out of the party he carries in (an order to him alone; the system then carries on without him). */
@@ -325,6 +355,8 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
   if (c.untilTick !== undefined && state.tick > c.untilTick) { endCarry(ctx, state, events, payload, "gave-up"); return; }
   let def = M.carry[c.method];
   if (!def) { endCarry(ctx, state, events, payload, "gone"); return; }
+  // A walking wounded man knocked down for a moment (a hit, a blast) waits until he is up again (M10.5).
+  if (c.carriers.length === 0 && ps?.carrying === payload && state.tick < ps.stunnedUntilTick && isConscious(ps) && ps.impair.canWalk && ps.captive === null) return;
   // A walking wounded man who can no longer walk, or was ordered elsewhere.
   if (c.carriers.length === 0 && (!walksSelf(state, payload) || ps?.carrying !== payload)) { endCarry(ctx, state, events, payload, ps?.carrying !== payload ? "ordered" : "carriers-lost"); return; }
   // Carriers lost (hit, panicking, aboard, ordered away): the rest carry on with a method for fewer men.

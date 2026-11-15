@@ -66,6 +66,9 @@ export function antitankLab(data: DataSet, trials = 20): AntitankRow[] {
     // M7.6a: the tanks (the target's own crew; its reactive tiles there or used up).
     { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "T-90M", ranges: [100, 200, 300], crewTemplates: ["puma-besatzung", "t90m-ekipazh"], eras: ["full", "spent"] },
     { factions: ["ru", "de"], shooter: "RPG-7 (PG-7VL)", target: "Leopard 2A7V", ranges: [100, 200, 300], crewTemplates: ["bmp2-ekipazh", "leopard2a7v-besatzung"] },
+    // M7.6c: the wheeled carriers.
+    { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "BTR-82A", ranges: [100, 200, 300], crewTemplates: ["puma-besatzung", "btr82a-ekipazh"] },
+    { factions: ["ru", "de"], shooter: "RPG-7 (PG-7VL)", target: "GTK Boxer", ranges: [100, 200, 300], crewTemplates: ["bmp2-ekipazh", "boxer-besatzung"] },
   ];
   for (const cs of cases) {
     for (const era of cs.eras ?? [undefined]) {

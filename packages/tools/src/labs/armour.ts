@@ -88,8 +88,8 @@ export function plateThrough(data: DataSet, vehicle: string, part: "hull" | "tur
   return { need, through: mildMm >= need };
 }
 
-/** The default vehicles of the lab (M7.6a: the tanks too). */
-export const ARMOUR_LAB_VEHICLES = ["de-puma", "ru-bmp2", "de-leopard2a7v", "ru-t90m", "ru-t72b3m"];
+/** The default vehicles of the lab (M7.6a: the tanks too; M7.6c: the wheeled carriers). */
+export const ARMOUR_LAB_VEHICLES = ["de-puma", "ru-bmp2", "de-leopard2a7v", "ru-t90m", "ru-t72b3m", "de-boxer-gtk", "ru-btr82a"];
 
 export function armourLab(data: DataSet, vehicles: string[] = ARMOUR_LAB_VEHICLES): ArmourRow[] {
   const { c } = cat(data);

@@ -15,6 +15,7 @@ import {
 import { defaultRules, freeSpot, SIDES } from "./demo";
 import { allMembers, buildForceWithVehicles, withoutVehicles, type ForceVehicle } from "./forces";
 import { generateMap, type MapKind } from "./mapgen/index";
+import { platoonTemplateOf, type CarrierClass } from "./vehicles";
 
 export interface ScenarioDef {
   kind: "platoon-attack";
@@ -26,8 +27,12 @@ export interface ScenarioDef {
   attacker: "blue" | "red";
   /** Platoons on the attacking side (owner, M6 review: two against one); the defender always has one. */
   attackerPlatoons?: number;
-  /** Unit template per side (defaults: the faction manifest's platoon template, else its demo template). */
+  /** Unit template per side (defaults: the faction manifest's platoon template for `carriers`, else its demo
+   *  template). */
   templates?: [string, string];
+  /** M7.6c: the class of carriers each side's platoon rides in (one for both sides, or blue, red): the manifest's
+   *  `platoonTemplates[class]`, falling back to `platoonTemplate` (default: that, the tracked platoon). */
+  carriers?: CarrierClass | [CarrierClass, CarrierClass];
   timeLimitSeconds?: number;
   mapWidthM?: number;
   mapHeightM?: number;
@@ -110,7 +115,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
   const buildSide = (side: "blue" | "red", s: number): ForceInput => {
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
-    const template = def.templates?.[s] ?? pack?.manifest.platoonTemplate ?? pack?.manifest.demoTemplate ?? "demo-team";
+    const carriers = Array.isArray(def.carriers) ? def.carriers[s] : def.carriers;
+    const template = def.templates?.[s] ?? platoonTemplateOf(data, faction, carriers) ?? pack?.manifest.demoTemplate ?? "demo-team";
     const count = side === def.attacker ? Math.max(1, def.attackerPlatoons ?? 2) : 1;
     const built = Array.from({ length: count }, (_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
     const withVehicles = def.vehicles === true && built.some((b) => b.vehicles.length > 0);

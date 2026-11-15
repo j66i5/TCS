@@ -705,6 +705,20 @@
       "sources": [],
       "confidence": "low",
       "note": "Game value: one charge of the Leopard's fire suppression system (M7.6a)."
+    },
+    {
+      "id": "de-127x99-belt",
+      "nameKey": "item.de-127x99-belt",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 100,
+      "chargeMassKg": 0.117,
+      "chargeItem": "de-127x99-ap",
+      "sources": [
+        "https://knds.de/en/systems-products/armament-systems/remote-controlled-weapon-stations/flw-200"
+      ],
+      "confidence": "low",
+      "note": "100-round belt for the FLW 200's 12.7 mm machine gun: the station holds 100 ready rounds (KNDS listing, search extract, medium); nine more belts stowed in the hull (1,000 rounds in all) are a game value (low)."
     }
   ]
 }

@@ -158,5 +158,8 @@
   "order.rearRunTitle": "Evacuate with this vehicle: it takes the wounded at the casualty collection point off the map, then comes back",
   "radio.rearRun": "{callsign}: going to the collection point, taking the wounded back.",
   "rearRun.toPoint": "{callsign}: driving to the collection point",
-  "rearRun.loading": "{callsign}: at the collection point, {n} aboard"
+  "rearRun.loading": "{callsign}: at the collection point, {n} aboard",
+  "weapon.ru-2a72": "2A72",
+  "item.ru-btr82a-diesel": "BTR-82A fuel",
+  "role.ru.assistant-mg-gunner": "Assistant machine gunner"
 }

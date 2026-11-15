@@ -189,6 +189,27 @@
       "sources": [],
       "confidence": "low",
       "note": "Tank loader (M7.6a): loads the main gun by hand; crew organisation to be reviewed by the owner."
+    },
+    {
+      "id": "gruppenfuehrer",
+      "nameKey": "role.de.gruppenfuehrer",
+      "leader": true,
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/leben-und-kaempfen-mit-dem-gtk-boxer-5311730",
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/-kampf-jaeger-eva-slowakei-5559700"
+      ],
+      "confidence": "low",
+      "note": "Leader of a dismounted Jaegergruppe (M7.6c): in the GTK Boxer the Gruppenfuehrer dismounts with his group; the vehicle commander stays with the Boxer (inference from 'max 10 persons' and two vehicle crew; search extracts only)."
+    },
+    {
+      "id": "mg-assistant",
+      "nameKey": "role.de.mg-assistant",
+      "sources": [
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/missionen/ich-bin-im-einsatz/maschinengewehrschuetze-jaegerkompanie-5541572"
+      ],
+      "confidence": "low",
+      "note": "MG5 assistant gunner (M7.6c): the MG5 is worked by a two-man team, gunner and assistant (Bundeswehr 'Maschinengewehrschuetze Jaegerkompanie', search extract, medium); carries belts for the gun (game value, low)."
     }
   ]
 }

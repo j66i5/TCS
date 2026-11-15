@@ -1544,6 +1544,1071 @@
       ],
       "confidence": "low",
       "note": "M7.6b: two Leopard 2A7V, a Halbzug (half of a four-tank Panzerzug; medium, from search extracts only). Attaching one to a Panzergrenadier platoon's attack as an overwatch section is a game value (low)."
+    },
+    {
+      "id": "boxer-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Boxer {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-gtk",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "GTK Boxer crew (M7.6c): commander, who works the FLW 200 from inside, and driver (Bundeswehr GTK page 'max 10 persons' with one group of eight in the back; the 2-man crew is an inference, low). Each carries a G36 with three magazines, helmet and vest as the Puma crews (game value, low). Ranks as the Puma crew's (realistic ranks, owner 2026-11-15): Kommandant Feldwebel, Fahrer Hauptgefreiter."
+    },
+    {
+      "id": "boxer-besatzung-zug",
+      "echelon": "vehicle",
+      "callsign": "Boxer 4",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-gtk",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "hauptfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "Crew of the Jaegerzug headquarters Boxer (M7.6c): as boxer-besatzung, but its commander is the Zugtruppfuehrer, the deputy platoon leader (Hauptfeldwebel, as puma-besatzung-zug). Fixed callsign Boxer 4."
+    },
+    {
+      "id": "jaeger-gruppe",
+      "echelon": "squad",
+      "callsign": "Gruppe {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "gruppenfuehrer",
+          "rank": "feldwebel",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 3
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "mg-gunner",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-mg5-belt",
+              "count": 2,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-mg5"
+        },
+        {
+          "role": "mg-assistant",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 2,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "at-gunner",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 1,
+              "charge": 120
+            },
+            {
+              "item": "de-pzf3-firing-unit",
+              "count": 1
+            },
+            {
+              "item": "de-pzf3-dm12",
+              "count": 1
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "marksman",
+          "rank": "oberstabsgefreiter",
+          "load": [
+            {
+              "item": "de-g28-mag",
+              "count": 6,
+              "charge": 20
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-thermal-sight",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g28"
+        },
+        {
+          "role": "grenadier",
+          "rank": "obergefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-ag36-launcher",
+              "count": 1
+            },
+            {
+              "item": "de-40mm-he",
+              "count": 6
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "einsatzersthelfer",
+          "rank": "hauptgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 1,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 3
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 3
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 6
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 3
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 3
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 3
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-ehb-bag",
+              "count": 1
+            },
+            {
+              "item": "de-chest-seal",
+              "count": 2
+            },
+            {
+              "item": "de-npa",
+              "count": 2
+            },
+            {
+              "item": "de-decompression-needle",
+              "count": 1
+            },
+            {
+              "item": "de-iv-set",
+              "count": 1
+            },
+            {
+              "item": "de-fluid-500",
+              "count": 2
+            },
+            {
+              "item": "de-splint",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "rifleman",
+          "rank": "obergefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-mg5-belt",
+              "count": 1,
+              "charge": 120
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/leben-und-kaempfen-mit-dem-gtk-boxer-5311730",
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/-kampf-jaeger-eva-slowakei-5559700",
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/missionen/ich-bin-im-einsatz/maschinengewehrschuetze-jaegerkompanie-5541572",
+        "https://www.bundeswehr.de/de/organisation/heer/truppengattungen/infanterie",
+        "https://www.battleorder.org/post/de-squad26"
+      ],
+      "confidence": "low",
+      "note": "Dismounted Jaegergruppe of a GTK Boxer (M7.6c, slice 41): eight men, the GTK's eight places behind its two crew (Bundeswehr GTK page: at most ten persons, the rear holding 'one infantry group with weapons and equipment'). No official strength (STAN) was found; the composition is an inference (low) from a Bundeswehr exercise text (a covering group with Panzerfaust and 40 mm, an MG group, an assault group) and the two-man MG5 team (Bundeswehr 'Maschinengewehrschuetze Jaegerkompanie'). G36 rifles: Boxer units lag the Puma units in modernisation (battleorder.org, search extract). One Einsatzersthelfer B per Gruppe (binding medical answer). Loads copied from the Panzergrenadier Schuetzentrupp (game values, low); the Gruppenfuehrer a Feldwebel (he dismounts; the Puma's Gruppenfuehrer commands the vehicle), the rifleman an Obergefreiter."
+    },
+    {
+      "id": "jaeger-zug",
+      "echelon": "platoon",
+      "callsign": "Zug {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "zugfuehrer",
+          "rank": "leutnant",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "funker",
+          "rank": "stabsgefreiter",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 5,
+              "charge": 30
+            },
+            {
+              "item": "de-dm51",
+              "count": 2
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 1
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 2
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 1
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 1
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-quadcopter",
+              "count": 1
+            },
+            {
+              "item": "de-drone-battery",
+              "count": 3,
+              "charge": 75
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "sanitaeter",
+          "rank": "stabsunteroffizier",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 5
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 10
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 5
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 4
+            },
+            {
+              "item": "de-pain-tablets",
+              "count": 5
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-nvg",
+              "count": 1
+            },
+            {
+              "item": "de-medic-bag",
+              "count": 1
+            },
+            {
+              "item": "de-litter",
+              "count": 1
+            },
+            {
+              "item": "de-chest-seal",
+              "count": 4
+            },
+            {
+              "item": "de-npa",
+              "count": 2
+            },
+            {
+              "item": "de-decompression-needle",
+              "count": 2
+            },
+            {
+              "item": "de-iv-set",
+              "count": 2
+            },
+            {
+              "item": "de-io-set",
+              "count": 1
+            },
+            {
+              "item": "de-fluid-500",
+              "count": 3
+            },
+            {
+              "item": "de-ketamine",
+              "count": 3
+            },
+            {
+              "item": "de-splint",
+              "count": 2
+            },
+            {
+              "item": "de-armband",
+              "count": 1
+            },
+            {
+              "item": "de-dm45",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [
+        "jaeger-gruppe",
+        "jaeger-gruppe",
+        "jaeger-gruppe",
+        "boxer-besatzung",
+        "boxer-besatzung",
+        "boxer-besatzung",
+        "boxer-besatzung-zug"
+      ],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/leben-und-kaempfen-mit-dem-gtk-boxer-5311730",
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/-kampf-jaeger-eva-slowakei-5559700",
+        "https://www.bundeswehr.de/de/auftrag/einsaetze/missionen/ich-bin-im-einsatz/maschinengewehrschuetze-jaegerkompanie-5541572",
+        "https://www.bundeswehr.de/de/organisation/heer/truppengattungen/infanterie",
+        "https://www.battleorder.org/post/de-squad26",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "Jaegerzug in GTK Boxers (M7.6c, slice 41): the Zugtrupp (Zugfuehrer, Funker with the platoon's quadcopter, Sanitaeter with the litter, as the Panzergrenadierzug's) and three Jaegergruppen, in four Boxers: each of the first three carries a Gruppe, the fourth the Zugtrupp (mirrors pzgren-zug; no official table found, the four-vehicle platoon is an inference, low). 35 men. Ranks as the Panzergrenadierzug's.",
+      "carriage": [
+        {
+          "crew": 3,
+          "carries": [
+            0
+          ]
+        },
+        {
+          "crew": 4,
+          "carries": [
+            1
+          ]
+        },
+        {
+          "crew": 5,
+          "carries": [
+            2
+          ]
+        },
+        {
+          "crew": 6,
+          "carries": [],
+          "hq": true
+        }
+      ]
     }
   ]
 }

@@ -16,5 +16,9 @@
     "template": "boxer-san-besatzung",
     "count": 2
   },
-  "note": "M10.6a ambulance: two Boxer ambulances (SanKfz) of the company/battalion medical element wait off the map for each generated battle (search extracts: 'company: Sanitaetstrupp + protected ambulance on request'; the count is a game value, low)."
+  "note": "M10.6a ambulance: two Boxer ambulances (SanKfz) of the company/battalion medical element wait off the map for each generated battle (search extracts: 'company: Sanitaetstrupp + protected ambulance on request'; the count is a game value, low).",
+  "platoonTemplates": {
+    "tracked": "pzgren-zug",
+    "wheeled": "jaeger-zug"
+  }
 }

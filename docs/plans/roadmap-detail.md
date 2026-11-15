@@ -332,7 +332,7 @@ player's medical orders and the wounded list.
   worker here (M13.0 moved forward; architecture, not a SPEC 8/9 feature).
 - **Request to the owner (not a decision):** open `?perf=1` on your phone and send the numbers.
 
-**19. D4a Infantry tactics pass 2: the attack** (M). Depends on M10.
+**19. D4a Infantry tactics pass 2: the attack** (M). Depends on M10. ✅ 2026-11-15 (DECISIONS "D4a"; masked time -35 %, not -50 %).
 - **Built:** the fire base bounds forward when the assault masks it; the attacker keeps a reserve and commits it
   (SPEC 6.9 "reserve"); 3-5 s rushes if A2 (a).
 - **Acceptance:** supported-attack lab not worse; "support masked" time down 50 % or more; reserve committed in 50 %
@@ -479,13 +479,14 @@ medium/low; ERA tiles as counted items); armour and anti-tank lab rows. APS wait
 **40. M7.6b Tanks in battle** (M). Depends on 39: AI use with infantry; a tank-supported scenario variant; vehicles
 batch. **[perf]**
 
-**41. M7.6c Wheeled carriers and their platoons** (M). Depends on 12 (Boxer base): Boxer infantry variant, BTR-82A;
+**41. M7.6c Wheeled carriers and their platoons** (M) — ✅ done 2026-11-15 (DECISIONS "M7.6c"; the GMW 40 mm and
+the SVD moved to 42). Depends on 12 (Boxer base): Boxer infantry variant, BTR-82A;
 the German Jäger platoon and the Russian BTR platoon as unit templates; app `?vehicles=` choice. Acceptance: drive
 and gunnery lab rows; mounted batches with wheeled carriers.
 
 **42. M7.6d Russian assault group and support weapons** (M, optional): the assault-group organisation; automatic
 grenade launcher (AGS type) and thermobaric launcher as data (abstract effects, SPEC 3); a German automatic grenade
-launcher if sourced. Acceptance: lab rows; batch.
+launcher if sourced. From 41: the GTK's 40 mm GMW on the FLW 200 (a second feed or variant), the SVD for the BTR squads. Acceptance: lab rows; batch.
 
 - **Owner (Q7c):** tanks and the other vehicles: (a) after M9, before logistics (b) just before M14 (c) tanks only
   before M14, the rest after M15 starts.

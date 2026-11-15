@@ -1,7 +1,10 @@
 /** D4b: the ambush and defend-arc orders (SPEC 6.6). */
 import { describe, expect, it } from "vitest";
 import { createSim, deserializeState, hashState, loadSim, saveSim, secondsToTicks, serializeState, step, submitOrder, PI, type BattleInput, type Sim, type SimEvent } from "../src/index";
-import { armedInput, vehicleInput } from "./helpers";
+import { rearRunGate } from "../src/systems/rearrun";
+import { flatMap } from "../src/map";
+import { armedInput, rec, team, testInput, vehicleInput } from "./helpers";
+import type { UnitInput } from "../src/index";
 
 const unitOf = (sim: Sim, side: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === side)!;
 function run(sim: Sim, seconds: number): SimEvent[] {
@@ -159,5 +162,198 @@ describe("defend arc (D4b)", () => {
     submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: bid, kind: "move", waypoints: [{ x: 15, y: 40, mode: "walk" }] });
     run(sim, 2);
     expect(blue.arc).toBeUndefined();
+  });
+});
+
+/**
+ * A blue platoon (headquarters "p": two men at x = 10), squad "s1" (one man, with team "t1": two men) beside it,
+ * squad "s2" (two men) 150 m north at (10, 180); red (two men, holding fire) at (150, 20). Rifles all round.
+ */
+function platoonSetup(): BattleInput {
+  const input = testInput(1, 900);
+  input.map = flatMap("t", 300, 300);
+  input.rules.physiologyModel = "simple";
+  const t1 = team("t1", 2), s2 = { ...team("s2", 2), echelon: "squad" };
+  const s1: UnitInput = { key: "s1", callsign: "s1", echelon: "squad", leaderIndex: 0, members: [rec("s1.0", [{ type: "mag", count: 3, charge: 30 }])], subunits: [t1] };
+  const p: UnitInput = { ...team("p", 2), echelon: "platoon", subunits: [s1, s2] };
+  const arm = (u: UnitInput) => { for (const m of u.members) m.weapon = "rifle"; u.subunits.forEach(arm); };
+  arm(p);
+  const red = input.forces[1]!.units[0]!;
+  arm(red);
+  const at = (id: string, x: number, y: number) => ({ personId: id, x, y, heading: 0 });
+  input.forces[0]!.units = [p];
+  input.forces[0]!.placements = [at("p.0", 10, 10), at("p.1", 10, 14), at("s1.0", 10, 30), at("t1.0", 10, 34), at("t1.1", 10, 38), at("s2.0", 10, 180), at("s2.1", 10, 184)];
+  input.forces[1]!.placements = input.forces[1]!.placements.map((q, i) => ({ ...q, x: 150, y: 20 + i * 4 }));
+  return input;
+}
+const byKey = (sim: Sim, key: string) => [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.callsign === key)!;
+
+describe("ambush on a platoon tree (D4b review)", () => {
+  it("F1: a fire rule to the root with `own` clears the whole ambush; none is left orphaned", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid] = byKey(sim, "p");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(sim, 2);
+    for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") expect(u.ambush?.root).toBe(pid);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind: "rules", fire: "free", own: true });
+    run(sim, 2);
+    for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") expect(u.ambush).toBeUndefined();
+  });
+
+  it("F1: a squad given its own ambush inside a platoon ambush: the platoon's still reaches the teams below it", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid] = byKey(sim, "p"), [s1] = byKey(sim, "s1"), [t1, team1] = byKey(sim, "t1");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(sim, 2);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: s1, kind: "ambush", rangeM: 60, own: true });
+    run(sim, 2);
+    expect(sim.state.unit.req(s1).ambush?.root).toBe(s1);
+    expect(team1.ambush?.root).toBe(pid);
+    // A headquarters man fires: the platoon's ambush is sprung, the team below the squad with it.
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: sim.state.unit.req(pid).members[0]!, kind: "fire", x: 150, y: 20, heightM: 1 });
+    run(sim, 5);
+    expect(sim.state.unit.req(pid).ambush).toBeUndefined();
+    expect(sim.state.unit.req(t1).ambush).toBeUndefined();
+  });
+
+  it("F1: safety net: an ambush whose root no longer holds it is dropped", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid] = byKey(sim, "p"), [, team1] = byKey(sim, "t1");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(sim, 2);
+    delete sim.state.unit.req(pid).ambush; // (as an order to the root alone once did)
+    run(sim, 0.5);
+    expect(team1.ambush).toBeUndefined();
+  });
+
+  it("F2: an ambush on one squad leaves the platoon's cease-fire; one on the whole platoon lifts it", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid, platoon] = byKey(sim, "p"), [s1] = byKey(sim, "s1");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "ceaseFire" });
+    run(sim, 2);
+    const cease = platoon.ceaseFireTick;
+    expect(cease).toBeGreaterThan(-1e9);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: s1, kind: "ambush", rangeM: 50 });
+    run(sim, 2);
+    expect(platoon.ceaseFireTick).toBe(cease);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind: "ambush", rangeM: 50, own: true });
+    run(sim, 2);
+    expect(platoon.ceaseFireTick).toBe(cease); // (the headquarters alone: not the whole platoon)
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(sim, 2);
+    expect(platoon.ceaseFireTick).toBe(-1e9);
+  });
+
+  /** Squad s2 (150 m off) comes under fire: its men suppressed for a while. */
+  const fireOnS2 = (sim: Sim) => { for (const m of byKey(sim, "s2")[1].members) sim.state.soldier.req(m).mental.suppression = 0.5; };
+
+  it("F3: a headquarters-only ambush is not sprung by fire on another squad; a platoon ambush is", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid, platoon] = byKey(sim, "p");
+    submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "ambush", rangeM: 50, own: true });
+    run(sim, 8);
+    fireOnS2(sim);
+    run(sim, 2);
+    expect(platoon.underFireTick).toBeGreaterThan(platoon.ambush!.tick);
+    expect(platoon.ambush).toBeDefined();
+    const all = createSim(platoonSetup());
+    redHolds(all);
+    submitOrder(all, { tick: 0, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(all, 8);
+    fireOnS2(all);
+    const ev = run(all, 2);
+    expect(all.state.unit.req(pid).ambush).toBeUndefined();
+    expect(ev.some((e) => e.kind === "radio" && e.key === "radio.ambushSprung")).toBe(true);
+  });
+
+  it("F4: leftover suppression right after the ambush is laid does not spring it", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [pid, platoon] = byKey(sim, "p");
+    run(sim, 1);
+    // Pinned a moment ago: suppression fades over seconds and keeps stamping the unit as under fire.
+    for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") for (const m of u.members) sim.state.soldier.req(m).mental.suppression = 0.5;
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind: "ambush", rangeM: 50 });
+    run(sim, 5.5);
+    expect((platoon.ownFireTick ?? -1e9)).toBeGreaterThan(platoon.ambush!.tick);
+    expect(platoon.ambush).toBeDefined();
+  });
+});
+
+describe("rear run and the ambush order (D4b review F11)", () => {
+  it("an ambush, like a change of rules, neither cancels a rear run nor is refused while the hull is away", () => {
+    const vs = createSim(vehicleInput());
+    const [cid, crew] = unitOf(vs, "blue");
+    const v = vs.state.vehicle.req(crew.vehicle!);
+    const sink = { events: [] as SimEvent[], emit(e: SimEvent) { this.events.push(e); } };
+    v.rearRun = { phase: "away" } as never;
+    expect(rearRunGate(vs.state, sink as never, { tick: 0, issuer: "blue", target: cid, kind: "ambush", rangeM: 300 })).toBeNull();
+    expect(rearRunGate(vs.state, sink as never, { tick: 0, issuer: "blue", target: cid, kind: "rules", fire: "hold" })).toBeNull();
+    expect(rearRunGate(vs.state, sink as never, { tick: 0, issuer: "blue", target: cid, kind: "halt" })).toEqual({ unable: "radio.rearRunAway" });
+  });
+});
+
+describe("defend arc ends (D4b review F6, F8)", () => {
+  const ARC = { facing: 0, halfRad: 1 };
+  it("a halt, a mount and a dismount end it (the latter two even when they cannot be carried out)", () => {
+    for (const kind of ["halt", "mount", "dismount"] as const) {
+      const sim = createSim(platoonSetup());
+      redHolds(sim);
+      const [pid] = byKey(sim, "p"), [, team1] = byKey(sim, "t1");
+      submitOrder(sim, { tick: 0, issuer: "blue", target: pid, kind: "defendArc", facing: 0, widthRad: 2 });
+      run(sim, 2);
+      expect(team1.arc).toBeDefined();
+      submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, kind } as never);
+      run(sim, 2);
+      for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") expect(u.arc, kind).toBeUndefined();
+    }
+  });
+
+  it("a move ordered to a vehicle crew ends the arc of the squad it carries", () => {
+    const input = vehicleInput();
+    const foot = team("a", 2);
+    input.forces[0]!.units.push(foot);
+    input.forces[0]!.placements.push(...foot.members.map((m, i) => ({ personId: m.personId, x: 50, y: 100 + i, heading: 0 })));
+    const vs = createSim(input);
+    const [cid, crew] = unitOf(vs, "blue");
+    const [, squad] = [...vs.state.unit.entries()].find(([, u]) => u.side === "blue" && u.callsign === "a")!;
+    // (Aboard by hand: the test vehicle's seats do not matter to the arc.)
+    squad.members.forEach((m, k) => { vs.state.soldier.req(m).mount = { vehicle: crew.vehicle!, seat: 3 + k }; });
+    squad.arc = { ...ARC };
+    submitOrder(vs, { tick: 0, issuer: "blue", target: cid, kind: "move", waypoints: [{ x: 300, y: 100, mode: "walk" }] });
+    run(vs, 1);
+    expect(squad.arc).toBeUndefined();
+  });
+
+  it("a unit that breaks, or falls back on contact, defends no arc any more", () => {
+    const sim = createSim(platoonSetup());
+    redHolds(sim);
+    const [, team1] = byKey(sim, "t1"), [, platoon] = byKey(sim, "p");
+    team1.arc = { ...ARC };
+    platoon.arc = { ...ARC };
+    // (A top unit breaks when half its able men panic.)
+    for (const [, u] of sim.state.unit.entries()) if (u.side === "blue") for (const m of u.members) { const s = sim.state.soldier.req(m).mental; s.stress = 0.95; s.suppression = 0.8; }
+    run(sim, 4);
+    expect(platoon.broken).toBe(true);
+    expect(platoon.arc).toBeUndefined();
+    expect(team1.arc).toBeUndefined();
+
+    const s2 = createSim(platoonSetup());
+    redHolds(s2);
+    const [sid, squad2] = byKey(s2, "s2");
+    submitOrder(s2, { tick: 0, issuer: "blue", target: sid, kind: "rules", onContact: "back" });
+    submitOrder(s2, { tick: 0, issuer: "blue", target: sid, kind: "move", waypoints: [{ x: 60, y: 180, mode: "walk" }] });
+    run(s2, 3);
+    expect(squad2.moving).toBe(true);
+    squad2.arc = { ...ARC }; // (as one left over)
+    for (const m of squad2.members) s2.state.soldier.req(m).mental.suppression = 0.3;
+    run(s2, 3);
+    expect(squad2.drill?.kind).toBe("withdraw");
+    expect(squad2.arc).toBeUndefined();
   });
 });

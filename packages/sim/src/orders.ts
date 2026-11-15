@@ -161,4 +161,7 @@ export type OrderRejectReason =
   | "invalid-params"
   /** This kind of order means nothing to that kind of unit (M7.3: a grenade to a vehicle crew, smoke to men on foot). */
   | "not-applicable"
-  | "battle-ended";
+  | "battle-ended"
+  /** A later order to the same men replaced it while they were still hesitating over it (D4b): not a refusal, the
+   *  order is just over (no radio text; the renderer drops its marker). */
+  | "superseded";

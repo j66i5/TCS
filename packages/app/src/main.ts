@@ -26,7 +26,7 @@ import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { carriersParam } from "./params";
 import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPoint } from "./orders";
-import { refreshTiles, showCard, showObjectives, showUnit, syncOrders } from "./panels";
+import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
@@ -265,7 +265,10 @@ async function main(): Promise<void> {
       if (e.kind === "radio" && e.side === playerSide) {
         const faction = sim.state.identity.get(e.from)?.faction;
         hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), sideColour(a, e.side));
-      } else if (e.kind === "order.rejected" && e.issuer === playerSide) {
+      } else if (e.kind === "order.delivered" && (e.orderKind === "rules" || e.orderKind === "ambush")) {
+        settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
+      } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {
+        // (A superseded order, D4b, was replaced by the player's own newer one: nothing to tell him.)
         hud.radio(strings.t("order.rejected", { reason: e.reason }), ticksToSeconds(e.tick), "#ffb4b4");
       }
     }

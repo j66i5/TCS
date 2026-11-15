@@ -510,9 +510,19 @@ function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: Even
   const rx = Math.min(Math.max(c.x + ax * D.rallyDistanceM, 5), ctx.map.widthM - 5), ry = Math.min(Math.max(c.y + ay * D.rallyDistanceM, 5), ctx.map.heightM - 5);
   u.broken = true;
   for (const k of u.children) clearDrills(state, k);
+  // (D4b: running back, they defend no arc any more.)
+  clearArcsUnder(state, uid);
   u.drill = { kind: "rout", x: rx, y: ry, groups: [], mover: 0, phaseTick: state.tick, final: true };
   for (const m of men) rout(ctx, state, m, u.drill, events, enemy);
   radio(state, uid, "radio.broken", events);
+}
+
+/** End the arcs (D4b, `defendArc`) of a unit and every unit under it: they are going elsewhere. */
+function clearArcsUnder(state: SimState, uid: EntityId): void {
+  const u = state.unit.get(uid);
+  if (!u) return;
+  delete u.arc;
+  for (const c of u.children) clearArcsUnder(state, c);
 }
 
 function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: EventSink, enemy: { x: number; y: number } | null): void {
@@ -630,7 +640,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
             const rx = Math.min(Math.max(c.x + ((c.x - enemy.x) / L) * D.fallBackM, 5), ctx.map.widthM - 5);
             const ry = Math.min(Math.max(c.y + ((c.y - enemy.y) / L) * D.fallBackM, 5), ctx.map.heightM - 5);
             const groups = drillGroups(state, uid);
-            if (groups.length > 0) u.drill = { kind: "withdraw", x: rx, y: ry, groups, mover: 0, phaseTick: -1, final: false };
+            if (groups.length > 0) { u.drill = { kind: "withdraw", x: rx, y: ry, groups, mover: 0, phaseTick: -1, final: false }; clearArcsUnder(state, uid); }
           }
         }
       }

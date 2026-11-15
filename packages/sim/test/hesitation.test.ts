@@ -100,4 +100,89 @@ describe("order hesitation (D4b)", () => {
     run(sim, 15); run(copy, 15);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
   });
+
+  /** A shaken unit hesitating over a move (its seq and the hesitation event). */
+  function hesitating(sim: Sim): { seq: number; until: number } {
+    shake(sim);
+    const seq = move(sim, 60, 150);
+    const h = run(sim, 1.5).find((e) => e.kind === "order.hesitating");
+    if (h?.kind !== "order.hesitating") throw new Error("no hesitation");
+    return { seq, until: h.deliverTick };
+  }
+
+  it("orders that neither move nor stop them leave the hesitating move pending (review F5, F10, F15)", () => {
+    for (const body of [{ kind: "posture", posture: "crouching" }, { kind: "ambush", rangeM: 100 }, { kind: "ceaseFire" }, { kind: "rules", fire: "hold" }] as const) {
+      const sim = createSim(setup());
+      const { seq } = hesitating(sim);
+      submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], ...body } as never);
+      const ev = run(sim, 1.5);
+      expect(ev.some((e) => e.kind === "order.rejected"), body.kind).toBe(false);
+      expect(sim.state.pendingOrders.some((p) => p.seq === seq), body.kind).toBe(true);
+      const later = run(sim, 12);
+      expect(later.some((e) => e.kind === "order.delivered" && e.seq === seq), body.kind).toBe(true);
+    }
+  });
+
+  it("a fire order replaces the move they hesitate over: it is not undone later, and the move is reported over (review F14, F16)", () => {
+    const sim = createSim(setup());
+    const at = where(sim);
+    const { seq } = hesitating(sim);
+    const fire = submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: unitOf(sim, "blue")[0], kind: "fire", x: 190, y: 15, heightM: 1 });
+    const ev = run(sim, 1.5);
+    const rej = ev.find((e) => e.kind === "order.rejected");
+    expect(rej?.kind === "order.rejected" && rej.seq === seq && rej.reason === "superseded").toBe(true);
+    expect(ev.some((e) => e.kind === "order.delivered" && e.seq === fire)).toBe(true);
+    const later = run(sim, 12);
+    expect(later.some((e) => e.kind === "order.delivered" && e.seq === seq)).toBe(false);
+    expect(sim.state.pendingOrders.length).toBe(0);
+    expect(moved(sim, at)).toBe(false);
+  });
+
+  it("an order to one of the men lets the unit's hesitating move go first, in the same tick (review F13)", () => {
+    const sim = createSim(setup());
+    const { seq } = hesitating(sim);
+    const man = unitOf(sim, "blue")[1].members[1]!;
+    const mine = submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: man, kind: "posture", posture: "prone" });
+    // (A posture leaves it pending; a move to him lets it go first.)
+    run(sim, 1.5);
+    expect(sim.state.pendingOrders.some((p) => p.seq === seq)).toBe(true);
+    const his = submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: man, kind: "move", waypoints: [{ x: 20, y: 40, mode: "walk" }] });
+    const ev = run(sim, 1.5);
+    expect(mine).toBeLessThan(his);
+    const unitMove = ev.findIndex((e) => e.kind === "order.delivered" && e.seq === seq);
+    const manMove = ev.findIndex((e) => (e.kind === "order.delivered" || e.kind === "order.hesitating") && e.seq === his);
+    expect(unitMove).toBeGreaterThanOrEqual(0);
+    expect(manMove).toBeGreaterThan(unitMove);
+    expect(ev[unitMove]!.tick).toBe(ev[manMove]!.tick);
+    expect(ev.some((e) => e.kind === "order.rejected")).toBe(false);
+  });
+
+  it("with `own`: an order to a sub-unit does not touch a headquarters-only move; one to its man lets it go first (review F13)", () => {
+    const input = setup();
+    const blue = input.forces[0]!.units[0]!;
+    const sub = { ...blue, key: "c", callsign: "c", members: blue.members.splice(1), subunits: [] };
+    blue.subunits = [sub];
+    blue.echelon = "platoon";
+    const sim = createSim(input);
+    const [pid, platoon] = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === null)!;
+    const [cid] = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.parent === pid)!;
+    shake(sim);
+    const hq = submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: pid, own: true, kind: "move", waypoints: [{ x: 60, y: 150, mode: "walk" }] });
+    expect(run(sim, 1.5).some((e) => e.kind === "order.hesitating" && e.seq === hq)).toBe(true);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: cid, kind: "halt" });
+    run(sim, 1.5);
+    expect(sim.state.pendingOrders.some((p) => p.seq === hq)).toBe(true);
+    submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: platoon.members[0]!, kind: "halt" });
+    const ev = run(sim, 1.5);
+    expect(ev.some((e) => e.kind === "order.delivered" && e.seq === hq)).toBe(true);
+    expect(ev.some((e) => e.kind === "order.rejected")).toBe(false);
+  });
+
+  it("a newer move to the whole unit replaces the hesitating order and says so (review F16)", () => {
+    const sim = createSim(setup());
+    const { seq } = hesitating(sim);
+    move(sim, 100, 20);
+    const ev = run(sim, 1.5);
+    expect(ev.filter((e) => e.kind === "order.rejected").map((e) => (e.kind === "order.rejected" ? [e.seq, e.reason, e.issuer] : []))).toEqual([[seq, "superseded", "blue"]]);
+  });
 });

@@ -6196,3 +6196,17 @@ both entries; no sim change, goldens unchanged). Built:
 - Tests `tools/test/medical-stats.test.ts` (classification by step, killed outright, medians; a real battle's summary
   matches the state's wounded and dead, is deterministic per seed and survives JSON; every review key in the string
   table). No per-tick per-man work (the record folds events already emitted), so no perf run; goldens unchanged.
+
+## 2026-11-15 — D4b review fixes (ambush, defend arc, hesitation; golden regenerated)
+- Ambush: a fire rule ends the ambush on its target and on every unit below it holding the same ambush, `own` or not;
+  the tree walk reaches every unit holding the root's ambush; a unit whose ambush root no longer holds it drops it.
+  Only an ambush on the whole platoon (the top unit, not `own`) lifts the platoon's cease-fire. "Under fire" springs
+  it only from fire on the tree's own men (`ownFireTick`; a crew's hull hits), and not within 6 s of laying it
+  (`LAID_GRACE_S`: leftover suppression keeps stamping the unit for seconds). The rear-run gate lets `ambush` pass.
+- Defend arc: also ended by halt, mount, dismount, a move of the carrying vehicle, a rout and an on-contact fall-back;
+  own launcher shots (and moves to get one) and own hand grenades keep to it. The bar offers it only with men on foot.
+- Hesitation inverted: only move, assault, withdraw, occupy, halt, mount, dismount, defendArc and fire replace an order
+  the men hesitate over, and only when they reach all its men; a narrower one lets the hesitating order go first, in
+  the same tick. A replaced order emits `order.rejected` with the new reason `superseded` (no radio text; the
+  renderer drops its marker). Golden `platoon-vehicles-s1` changed (AI orders to part of a hesitating unit, or that do
+  not move it, no longer drop its hesitating order); `golden/no-interiors` untouched.

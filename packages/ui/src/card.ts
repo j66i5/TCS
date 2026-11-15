@@ -279,6 +279,22 @@ export function fireChoiceRules(c: FireChoice, now: Pick<UnitRules, "fire" | "am
   return (now.ambush ?? 0) > 0 ? { fire: c, ambush: 0 } : { fire: c };
 }
 
+/**
+ * Rules shown as ordered (`pend`) settle (D4b): once an order of `kind` has been delivered, the sim's own value is the
+ * truth, what it carried is no longer shown as pending (an ambush delivered and sprung at once leaves no ambush to
+ * match its range). `now`: the unit's rules now; any pending value equal to it settles too. Returns whether
+ * anything is still pending.
+ */
+export function settleRules(pend: Partial<UnitRules>, now: UnitRules, kind?: string): boolean {
+  if (kind === "ambush") delete pend.ambush;
+  if (kind === "rules") {
+    delete pend.fire; delete pend.maxEngageM; delete pend.onContact; delete pend.ammo; delete pend.at;
+    if (pend.ambush === 0) delete pend.ambush;
+  }
+  for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === (now[k] ?? 0)) delete pend[k];
+  return Object.keys(pend).length > 0;
+}
+
 /** The order for rules from the card or the Rules panel (`base`: tick, issuer, target): an ambush to lay is the
  *  `ambush` order (D4b); anything else the `rules` order (a fire rule in it ends an ambush). */
 export function rulesOrder(base: { tick: number; issuer: string; target: EntityId }, r: Partial<UnitRules>): Order {

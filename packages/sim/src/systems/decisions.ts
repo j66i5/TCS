@@ -18,6 +18,7 @@
  * Every man decides once per `decisions.stepSeconds`, staggered by ID; values are data (core/behaviour.json).
  * Casualty care (dragging, first aid) comes with the medical system.
  */
+import { inArc } from "../arc";
 import { DRONE_SEEN_S } from "./drones";
 import { startAction } from "../actions";
 import type { Contact, Intent, SoldierState, Unit } from "../components";
@@ -30,7 +31,7 @@ import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight, TARGET_POINT_M } from "../los";
-import { atan2, cos, hypot2, PI, sin, wrapAngle } from "../math";
+import { atan2, cos, hypot2, PI, sin } from "../math";
 import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
@@ -112,13 +113,6 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
     if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score }; }
   }
   return best;
-}
-
-/** Is (x, y) within the arc his unit defends (D4b, `defendArc`)? Always, without one. */
-function inArc(state: SimState, id: EntityId, me: { x: number; y: number }, x: number, y: number): boolean {
-  const u = state.identity.get(id)?.unit;
-  const arc = u !== undefined ? state.unit.get(u)?.arc : undefined;
-  return arc === undefined || Math.abs(wrapAngle(atan2(y - me.y, x - me.x) - arc.facing)) <= arc.halfRad + 1e-9;
 }
 
 /** The nearest enemy drone he sees now within `drone.engageM` (slant), if any (M9.4b). */
@@ -647,6 +641,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
   let best: Contact | null = null, bestD = Infinity;
   for (const k of s.contacts) {
     if (spared(k) || k.cls === "vehicle" || k.kind === "heard" || state.tick - k.tick > recent) continue;
+    if (!inArc(state, id, me, k.x, k.y)) continue; // (D4b: on his own only into the arc his unit defends)
     const d = hypot2(k.x - me.x, k.y - me.y);
     if (d > reach || d < G.minSafeDistanceM + 2 || d >= bestD) continue;
     // Behind cover from him (not in his sight now), or in a house.

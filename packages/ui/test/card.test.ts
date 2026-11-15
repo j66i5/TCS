@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, gunText, manDetail, manState, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
+import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
 import { Strings } from "@tcs/data";
 import { ICON_NAMES, icon, paceIcon } from "../src/icons";
 import { GROUP_OF } from "../src/hud";
@@ -119,6 +119,25 @@ describe("the fire row (S3)", () => {
     // Another chip while an ambush is laid ends it (the rules order's fire rule does, D4b).
     expect(fireChoiceRules("free", { fire: "free", ambush: AMBUSH_M })).toEqual({ fire: "free", ambush: 0 });
     expect(fireChoiceRules("hold", { fire: "free" })).toEqual({ fire: "hold" });
+  });
+
+  it("rules shown as ordered settle once delivered: an ambush sprung at once leaves no lit chip (D4b review F7)", () => {
+    const now = { fire: "free", maxEngageM: 0, onContact: "ground", ammo: "normal", at: "vehicles", ambush: 0 } as const;
+    // Laid and sprung before the card looked again: the sim shows no ambush, the pending range never matches.
+    const pend: Parameters<typeof settleRules>[0] = { ambush: AMBUSH_M };
+    expect(settleRules(pend, now)).toBe(true);
+    expect(fireChoice({ ...now, ...pend })).toBe("ambush");
+    expect(settleRules(pend, now, "ambush")).toBe(false);
+    expect(fireChoice({ ...now, ...pend })).toBe("free");
+    // A rules order delivered settles what it carried, not an ambush still on its way.
+    const both: Parameters<typeof settleRules>[0] = { fire: "hold", ambush: AMBUSH_M };
+    expect(settleRules(both, now, "rules")).toBe(true);
+    expect(both).toEqual({ ambush: AMBUSH_M });
+    // An ambush ended by a fire rule: settled with the rules order.
+    const end: Parameters<typeof settleRules>[0] = { fire: "return", ambush: 0 };
+    expect(settleRules(end, now, "rules")).toBe(false);
+    // Values the unit already has settle without a delivery (a laid ambush shown by the sim).
+    expect(settleRules({ ambush: AMBUSH_M }, { ...now, ambush: AMBUSH_M })).toBe(false);
   });
 
   it("the Ambush chip sends the real ambush order (D4b); the others a rules order", () => {

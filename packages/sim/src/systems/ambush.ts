@@ -4,7 +4,7 @@
  * It is sprung for the whole unit tree it was laid on when
  *   - an enemy is seen within `rangeM` of one of its men,
  *   - one of its men or vehicles fires (an order to fire, a man defending himself), or
- *   - one of its units comes under fire after it was laid.
+ *   - one of its men (a crew: its hull too) comes under fire after it was laid (after `LAID_GRACE_S`).
  * Then the ambush is gone and the men fire at will (their fire rule was set to "free" when it was laid).
  * Runs right before the decisions, so the men open fire in the same tick.
  */
@@ -16,8 +16,21 @@ import { hypot2 } from "../math";
 import type { SimState } from "../state";
 import { radioFromTarget, unitSoldiers } from "./orders";
 
+/**
+ * Fire on the men stamped within this long after the ambush was laid does not spring it (s). Suppression fades
+ * slowly (0.1/s) and keeps refreshing the under-fire stamps for seconds after the last round (decisions.ts): a unit
+ * that breaks contact and lays an ambush at once would otherwise spring it on the next tick, nobody having fired
+ * at it since. Own shots and enemies seen within its range still spring it at once.
+ */
+const LAID_GRACE_S = 6;
+
 export function ambushSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   let roots: EntityId[] | null = null;
+  // (Safety net: an ambush whose root no longer holds it, e.g. after an order to the root alone, is over.)
+  for (const u of state.unit.values()) {
+    if (u.ambush === undefined) continue;
+    if (state.unit.get(u.ambush.root)?.ambush?.root !== u.ambush.root) delete u.ambush;
+  }
   // (Each ambush once, by the unit it was laid on: ascending id.)
   for (const [uid, u] of state.unit.entries()) if (u.ambush !== undefined && u.ambush.root === uid) (roots ??= []).push(uid);
   if (roots === null) return;
@@ -30,13 +43,14 @@ export function ambushSystem(ctx: SimContext, state: SimState, events: EventSink
   }
 }
 
-/** The units of the tree (the root and every unit under it that still holds this ambush), ascending id. */
+/** The units of the tree (the root and every unit under it that still holds this ambush, also below a unit that
+ *  holds another, e.g. one laid on it alone later), ascending id. */
 function treeUnits(state: SimState, root: EntityId): EntityId[] {
   const out: EntityId[] = [];
   const walk = (uid: EntityId): void => {
     const u = state.unit.get(uid);
-    if (!u || u.ambush?.root !== root) return;
-    out.push(uid);
+    if (!u) return;
+    if (u.ambush?.root === root) out.push(uid);
     for (const c of u.children) walk(c);
   };
   walk(root);
@@ -46,9 +60,13 @@ function treeUnits(state: SimState, root: EntityId): EntityId[] {
 function sprung(ctx: SimContext, state: SimState, events: EventSink, root: EntityId, rangeM: number, tick: number): boolean {
   const units = treeUnits(state, root);
   const unitSet = new Set(units);
-  // Under fire since it was laid (each unit remembers fire on its own men, decisions.ts; a platoon and a crew
-  // remember fire on any of theirs, hits on a hull too).
-  for (const uid of units) { const u = state.unit.req(uid); if ((u.ownFireTick ?? -1e9) > tick || u.underFireTick > tick) return true; }
+  // Under fire since it was laid (each unit remembers fire on its own men, decisions.ts; a crew remembers hits on
+  // its hull too). Not the platoon-wide stamp: fire on a squad outside the ambush must not spring it.
+  const after = tick + secondsToTicks(LAID_GRACE_S);
+  for (const uid of units) {
+    const u = state.unit.req(uid);
+    if ((u.ownFireTick ?? -1e9) > after || (u.vehicle !== undefined && u.underFireTick > after)) return true;
+  }
   // mounted: ok the crews and men aboard are part of the ambush too
   const men = unitSoldiers(state, root).filter((m) => unitSet.has(state.identity.get(m)?.unit ?? -1));
   const menSet = new Set(men);

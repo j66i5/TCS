@@ -571,6 +571,9 @@ export class BattleRenderer {
         for (const m of this.markers) if (m.seq === e.seq) m.untilTick = e.deliverTick + 120;
       } else if (e.kind === "order.delivered") {
         for (const m of this.markers) if (m.seq === e.seq) m.delivered = true;
+      } else if (e.kind === "order.rejected") {
+        // (D4b: an order replaced while the men hesitated over it is over; its marker goes.)
+        this.markers = this.markers.filter((m) => m.seq !== e.seq);
       } else if (e.kind === "shot.fired") {
         this.firedAt.set(e.shooter, e.tick);
         // Fog: an enemy's flash only while his man is in sight now (drawn as a figure).

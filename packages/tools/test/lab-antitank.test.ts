@@ -127,6 +127,18 @@ describe("standing anti-tank rule (owner Q19, plan C1)", () => {
     }
   });
 
+  it("D4b review F9: not at a vehicle outside the arc his unit defends", () => {
+    const { sim, gunner } = standingRule("vehicles");
+    const me = sim.state.transform.req(gunner);
+    const hull = [...sim.state.vehicle.keys()].find((v) => sim.state.vehicle.req(v).side !== "blue")!;
+    const at = sim.state.transform.req(hull);
+    // A narrow arc square to the BMP: he still sees it (to his side), it is outside the arc.
+    sim.state.unit.req(sim.state.identity.req(gunner).unit).arc = { facing: Math.atan2(at.y - me.y, at.x - me.x) + Math.PI / 2, halfRad: Math.PI / 8 };
+    let shots = 0;
+    run(sim, 60, (e) => { if (e.kind === "grenade.launched" && e.soldier === gunner) shots++; });
+    expect(shots).toBe(0);
+  });
+
   it("the default rule for a unit without one is the data's (vehicles)", () => {
     const { input, gunner } = antitankSetup(data, ["de", "ru"], 180, "side", 5);
     const sim = createSim(input);

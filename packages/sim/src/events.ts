@@ -130,8 +130,8 @@ export type SimEvent =
    *  ("splash"). */
   | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered" | "drone" | "air"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
   /** M8.6: a round of a fire mission lands (for the review's tally: which asset, which kind). */
-  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number }
-  /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: M9.1). */
+  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number; /** M9.6: how the mission's target was located. */ method?: "estimate" | "laser" | "registered" | "drone" | "air" }
+  /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: flares.ts, M9.6). */
   | { kind: "support.illum"; tick: number; x: number; y: number; side: SideId; burnS: number }
   | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
   | { kind: "support.splash"; tick: number; side: SideId; caller: EntityId; x: number; y: number; inS: number }
@@ -139,9 +139,9 @@ export type SimEvent =
    *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
   /** M9.4a reconnaissance quadcopters: launched (its operator flies it), landed and recovered by a man, lost (empty
    *  battery, or nobody there when it came home). */
-  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId }
+  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId }
   | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
-  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot" }
+  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot"; /** M9.6: the man whose round brought it down (reason "shot"). */ by?: EntityId }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
   | { kind: "mortar.packed"; tick: number; unit: EntityId }

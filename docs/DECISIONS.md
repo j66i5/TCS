@@ -5562,6 +5562,55 @@ extracts only (web pages cannot be opened here), confidence medium at most, most
 - xf fixture unchanged.
 Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
 untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).
+## 2026-11-15 — M9.6 Night AI, balance and polish (roadmap-detail slice 37, parallel session; owner to review)
+Built in four parts (parallel worktrees), then reviewed (4 reviewers, every finding checked by two sceptics: 7
+confirmed and fixed, 3 rejected) and fixed. All game values below are low confidence.
+- **Flares give light** (a gap left by M9.1: flares existed but lit nothing): `sim/flares.ts flareLightAt` — the
+  brightest burning flare's illuminance candela/(h^2+d^2) lux over `night.flareFullLux` 20, capped at
+  `night.flareMaxLight` 0.6, computed once per target (not per pair) and only while flares burn; every sensor term
+  takes it like a muzzle flash. A 120 mm round 400 m up lights the ground below to about 0.3 (dusk). The renderer draws
+  the flare and its lit circle. Night lab: a still man at 300 m on a moonless night, 17 % found within 30 s, 63 %
+  under a flare. Without flares nothing changes (goldens bit-identical except the fingerprint).
+- **AI night drills** (`COMMANDER.night`, only when the light is below 0.3): the mortar allotments of generated battles
+  carry 4 illumination rounds per side; the defender lights 2+ seen or reported enemy men within 300 m of the main
+  objective or 200 m of any objective (not heard ones: it kept its rounds for the assault), at most every 90 s; the
+  attacker lights 150 m beyond the objective while closing in and assaulting; at night the attacker sneaks the last
+  125 m (2.5 x 50) and sets its support line at 231 m (0.7 x 330), the defender's own engagement range is 200 m (300
+  by day), re-sent when the light crosses the threshold; artillery illumination goes danger close (a flare does no
+  blast harm) and not while the battery displaces; prep-fire timing counts the slower night sneak leg; the support
+  distance is frozen with the squads' places (a dusk crossing no longer splits them).
+- **Night fire discipline** (soldiers, `behaviour.decisions.night`): in the dark a man whose unit has not been fired on
+  recently opens fire on his own only within 150 m (rifle), 250 m (magnified sight), 300 m (machine gun): his muzzle
+  flash and tracers would show him. Fire tasks he has are not cut off; vehicles are not affected.
+- **Hiding from drones** (`behaviour.soldier.droneHide`, men on foot, not fighting, not in a drill, not under fire):
+  halted, a man who sees an enemy drone within 300 m lies down where he is under a canopy or indoors, else runs to the
+  nearest canopy within 40 m (only while the drone is 100 m+ off) and lies there, and walks back to his place when it
+  has been gone 30 s; on the move he freezes only when it is within 120 m (nearly overhead), for 20 s re-armed up to
+  60 s, then not again for 240 s; never on a bolt out of a house or a beaten zone; men at a post (busy, a mortar or
+  missile team set up, a drone operator) lie down where they are. Running (not sneaking) to the canopy: the drone lab
+  showed sneaking under a drone at 100 m got a man found sooner than standing still (median 5 s against 18 s); running
+  cut the share found within 60 s from 20/20 to 11/20. Review: the first version froze men on the move within 300 m;
+  AI drones hover about 220 m off, so attacks stalled (German village attack 4 -> 0 of 10 by day, Russian 7 -> 4;
+  with hiding off exactly the old numbers).
+- **Review rows:** `sim/review.ts tallyReview` (events only): drones flown, recovered, lost by reason, enemy drones
+  shot down; enemies found and the share first found by a drone; fire missions and rounds by location method;
+  missiles fired and hit; the light at the start and its lowest. Event fields added: `drone.launched.item`,
+  `drone.lost.by`, `support.round.method`. Shown in the after-action review (rows only when non-zero, a timeline row
+  for each drone lost) and as batch-report lines.
+- **Batches (10 seeds x 1200 s, attacker wins of 10, before -> after; night = 23:00, half moon):**
+  day: platoon (German attack) 4 -> 4, platoon-ru (Russian attack) 7 -> 8, platoon-vehicles 6 -> 5,
+  platoon-ru-vehicles 2 -> 1; night: platoon 7 -> 4, platoon-ru 8 -> 8, platoon-vehicles 6 -> 4,
+  platoon-ru-vehicles 0 -> 1. Day unchanged within noise; at night the German attacks win less (the defender's
+  illumination and the shorter night ranges), the Russian ones as before. Batch report (night, platoon): the Russians
+  find 79-91 % of the enemies they find through their drone first. **No re-tuning:** no attacker-win band has been
+  agreed (the D4 owner question); the numbers are reported for it.
+- **Not done:** the owner play-test (owner not reachable from here); a footstep-noise model (men moving are not heard,
+  so "lights on movement heard" was not built); thermal blankets stay issued to nobody.
+- **Merge with D2 (battle record, main.ts split) and M10.5:** the M9.6 review tally now lives in the battle record
+  (`BattleRecord.review`, folded in `recordEvents`, RECORD_VERSION 3; the drone-lost timeline lines come from the
+  record), the after-action rows moved to `app/src/review.ts`, the batch lines read `rec.review`. Test changed:
+  commander.test "the defender goes down" now accepts red men lying down (siting places every defender in seeds
+  2-16 after this merge's reshuffle; a posture order only comes for men it could not place).
 
 ## 2026-11-15 — Merge origin/main (men down, identity tags, crawling, prisoners' care, HQ drone tile, tanks) into the medical line; goldens regenerated
 Conflicts kept both sides: DECISIONS entries, events (`medical.ambulance` / `medical.evacuated` next to `medical.checked`

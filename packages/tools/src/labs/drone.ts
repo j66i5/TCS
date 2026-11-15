@@ -3,14 +3,22 @@
  * enemy below it. A German Funker with the platoon's quadcopter sends it over a Russian rifleman 300 m away; each
  * row is timed from the moment the man is within the cameras' footprint at the drone's height (launch and climb excluded) to the first sighting by
  * its cameras, over many seeds. Rows by flying height, the man's posture and cover (open, crops, woodland), by day
- * and on a moonless night (the thermal camera); then the battery: how long one battery keeps it up.
+ * and on a moonless night (the thermal camera); then the battery: how long one battery keeps it up. M9.6: with a
+ * woodland strip 30 m to his side, a man walking past it or standing still in the open, with and without hiding from
+ * drones (behaviour.soldier.droneHide; off = its triggerM 0 on a copy of the catalog).
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
   createSim, DEFAULT_COMMS, environmentAt, flatMap, step, submitOrder, type BattleInput, type Catalog, type MapDef, type Posture, type SoldierRecord,
 } from "@tcs/sim";
 
-export interface DroneCase { name: string; altM: number; posture: Posture; cover?: "crops" | "woodland"; night?: boolean; blanket?: boolean; walk?: boolean }
+export interface DroneCase {
+  name: string; altM: number; posture: Posture; cover?: "crops" | "woodland"; night?: boolean; blanket?: boolean; walk?: boolean;
+  /** M9.6: a woodland strip 30 m to his side (x 430-460, the whole height of the map). */
+  woodSide?: boolean;
+  /** M9.6: hiding from drones off (behaviour.soldier.droneHide.triggerM 0 on a copy of the catalog). */
+  noHide?: boolean;
+}
 export interface DroneRow extends DroneCase { runs: number; spotted: number; medianS: number | null; within10: number; within60: number }
 
 const NOON = 12 * 3600, NIGHT = 0;
@@ -27,6 +35,11 @@ export function droneLabBattle(cat: Catalog, c: DroneCase, seed: number, limitS:
     map.vegetationPalette.push(c.cover);
     for (let r = 0; r < map.rows; r++) for (let col = Math.floor(300 / map.cellSizeM); col < map.cols; col++) map.vegetation[r * map.cols + col] = 1;
   }
+  if (c.woodSide) {
+    map.vegetationPalette.push("woodland");
+    const v = map.vegetationPalette.length;
+    for (let r = 0; r < map.rows; r++) for (let col = Math.floor(430 / map.cellSizeM); col < Math.floor(460 / map.cellSizeM); col++) map.vegetation[r * map.cols + col] = v;
+  }
   const op = man("op", "de-g36", "de-g36-mag", cat, [{ type: "de-quadcopter", count: 1 }, { type: "de-drone-battery", count: 1, charge: cat.items["de-drone-battery"]!.chargeCapacity! }]);
   const tgt = man("tgt", "ru-ak74m", "ru-ak74-mag", cat, c.blanket ? [{ type: "ru-thermal-blanket", count: 1 }] : []);
   return {
@@ -40,7 +53,15 @@ export function droneLabBattle(cat: Catalog, c: DroneCase, seed: number, limitS:
   };
 }
 
-export function droneCase(cat: Catalog, c: DroneCase, seeds: number, seedBase: number): DroneRow {
+/** The catalog with hiding from drones switched off (M9.6: its triggerM 0). */
+export function noDroneHide(cat: Catalog): Catalog {
+  const S = cat.behaviour.soldier;
+  if (!S.droneHide) return cat;
+  return { ...cat, behaviour: { ...cat.behaviour, soldier: { ...S, droneHide: { ...S.droneHide, triggerM: 0 } } } };
+}
+
+export function droneCase(catalog: Catalog, c: DroneCase, seeds: number, seedBase: number): DroneRow {
+  const cat = c.noHide ? noDroneHide(catalog) : catalog;
   const times: number[] = [];
   for (let seed = seedBase + 1; seed <= seedBase + seeds; seed++) {
     const sim = createSim(droneLabBattle(cat, c, seed, 400));
@@ -80,7 +101,10 @@ export const DRONE_CASES: DroneCase[] = [
   { name: "prone, still, open", altM: 100, posture: "prone" },
   { name: "prone, still, in crops", altM: 100, posture: "prone", cover: "crops" },
   { name: "prone, still, in woodland", altM: 100, posture: "prone", cover: "woodland" },
-  { name: "walking, open", altM: 200, posture: "standing", walk: true },
+  { name: "walking, open", altM: 200, posture: "standing", walk: true, noHide: true },
+  { name: "walking, open, hides (freezes; woodland 30 m to his side)", altM: 200, posture: "standing", walk: true, woodSide: true },
+  { name: "standing, still, open, woodland 30 m to his side, no hiding", altM: 100, posture: "standing", woodSide: true, noHide: true },
+  { name: "standing, still, open, woodland 30 m to his side, hides", altM: 100, posture: "standing", woodSide: true },
   { name: "prone, still, open", altM: 100, posture: "prone", night: true },
   { name: "prone, still, in woodland", altM: 100, posture: "prone", cover: "woodland", night: true },
   { name: "prone, still, open, under a thermal blanket", altM: 100, posture: "prone", night: true, blanket: true },

@@ -105,13 +105,15 @@ for (let i = 0; i < runs; i++) {
         if (e.result === "penetrated") lastPen.set(e.vehicle, shooterLabel(sim, e.owner));
         if (e.era !== undefined) { const sd0 = sim.state.vehicle.get(e.vehicle)?.side; if (sd0) era[sd0] = (era[sd0] ?? 0) + 1; }
       } else if (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
+        if (lastPen.get(e.vehicle) === "counted") continue; // (abandoned, then destroyed: one loss)
         const t = sim.state.vehicle.get(e.vehicle)?.def ?? "?";
         const k = (killers[t] ??= {}), who = lastPen.get(e.vehicle) ?? "none";
         k[who] = (k[who] ?? 0) + 1;
         lastPen.set(e.vehicle, "counted");
       } else if (e.kind === "shot.fired" && e.vehicle !== undefined) {
         const v = sim.state.vehicle.get(e.vehicle), am = input.catalog.ammo[e.ammo];
-        if (!v || !am || am.guided !== undefined || !tankDef(v.def) || am.diameterM < 0.1) continue;
+        // (The tank's main gun: the first weapon of its first station.)
+        if (!v || !am || am.guided !== undefined || !tankDef(v.def) || input.catalog.vehicles[v.def]?.stations[0]?.weapons[0]?.weapon !== e.weapon) continue;
         const tr = tankRounds[v.side] ??= { ap: 0, he: 0 };
         if (am.explosive !== undefined) tr.he++; else tr.ap++;
       }

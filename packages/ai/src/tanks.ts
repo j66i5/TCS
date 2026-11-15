@@ -33,9 +33,9 @@ import { approachPoints, siteHullDown } from "./siting";
 
 /** Game values (low confidence): see the module comment. */
 export const TANKS = {
-  sbfFarM: 700, sbfNearM: 450, holdBehindM: 120, secondShortM: 480, coverStandoffM: 250, atStandoffM: 300, clearedM: 50,
+  sbfFarM: 550, sbfNearM: 350, holdBehindM: 120, secondShortM: 480, coverStandoffM: 200, atStandoffM: 300, clearedM: 50,
   enemyCoverSeconds: 60, enemyNearCoverM: 100, enemyClearSeconds: 60, enemyClearM: 60, frontSlackM: 30, coverMinHeightM: 1.8,
-  shotsPerPost: 3, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 120, defenceEngageM: 1500, pullBackM: 250,
+  shotsPerPost: 3, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 180, defenceEngageM: 1500, pullBackM: 250,
   pullRangeM: 600, eraLowShare: 0.25, atKnownM: 500, coverCellM: 10, rangeM: [150, 2500], beyondM: 150, defenceBehindM: 50,
   pullRingsM: [0, 40, 80], turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
 } as const;

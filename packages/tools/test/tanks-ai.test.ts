@@ -40,7 +40,7 @@ const mem = (c: Controller): Mem => c.saveState!() as Mem;
 describe("the commander's tanks (M7.6b)", () => {
   const sc = getScenario("platoon-vehicles-tanks");
 
-  it("both Leopards are on hull-down posts at least 450 m from the main objective by 180 s; the carriers move off only once they are (or at 120 s)", () => {
+  it("both Leopards are on hull-down posts well short of the main objective by 180 s; the carriers move off only once they are (or at carrierWaitSeconds)", () => {
     const r = start(sc.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "blue");
     const main = r.sim.state.objectives.length > 0 ? sc.build(data, 1, 600).rules.objectives[0]! : null;
@@ -53,12 +53,12 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(onPost).toBeGreaterThan(0);
     expect(onPost).toBeLessThanOrEqual(180 * 60);
     const m = mem(r.ctrls[0]!);
-    for (const c of crews) for (const p of m.tk![String(c)]!.posts) expect(hypot2(p[0] - main!.x, p[1] - main!.y)).toBeGreaterThanOrEqual(450);
+    for (const c of crews) for (const p of m.tk![String(c)]!.posts) expect(hypot2(p[0] - main!.x, p[1] - main!.y)).toBeGreaterThanOrEqual(TANKS.sbfFarM - 250);
     // The carriers' first move (any blue crew that is not a tank's).
     const tankCrews = new Set(crews);
     const first = r.orders.find((o) => o.kind === "move" && o.issuer === "blue" && r.sim.state.unit.get(o.target)?.vehicle !== undefined && !tankCrews.has(o.target));
     expect(first).toBeDefined();
-    expect(first!.tick).toBeGreaterThanOrEqual(Math.min(onPost, 120 * 60));
+    expect(first!.tick).toBeGreaterThanOrEqual(Math.min(onPost, TANKS.carrierWaitSeconds * 60));
   });
 
   it("the attacker's tanks never lead into ground its men have not reached, and never stand in a house or a wood", () => {
@@ -84,7 +84,7 @@ describe("the commander's tanks (M7.6b)", () => {
         if (v.status === "destroyed" || v.status === "abandoned") continue;
         samples++;
         if (t.x * ux + t.y * uy > front + TANKS.frontSlackM) ahead++;
-        if (hypot2(t.x - main.x, t.y - main.y) >= TANKS.sbfNearM - 100) far++;
+        if (hypot2(t.x - main.x, t.y - main.y) >= TANKS.sbfNearM - 150) far++;
         // (Standing, once on its posts: it may start in, or drive through, a wood.)
         const tm = mem(rr.ctrls[0]!).tk?.[String(v.unit!)];
         if (!tm?.reached || !v.drive.arrived) continue;

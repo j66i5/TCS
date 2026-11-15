@@ -5,13 +5,16 @@
  */
 import { describe, expect, it } from "vitest";
 import { addSmoke, createSim, runBattle, step, submitOrder } from "@tcs/sim";
-import { demoBattle } from "@tcs/scenario";
+import { siteHullDown, TANKS } from "@tcs/ai";
+import { buildScenario, demoBattle } from "@tcs/scenario";
 import { getScenario, loadData } from "../src/scenarios";
 
 /** Minimum headless speed, multiples of real time. SPEC target: >= 8x on a laptop. */
 export const PERF_FLOOR_X_REALTIME = 8;
 /** bench-medical (M10.4b): floor a software decision: the SPEC target (8x), about half its measured speed (17x). */
 export const BENCH_MEDICAL_FLOOR_X = 8;
+/** bench-tanks (M7.6b): 30 tanks and their squads: the SPEC target (DECISIONS.md). */
+export const BENCH_TANKS_FLOOR_X = 8;
 
 describe("performance floor", () => {
   it(`benchmark scenario runs at >= ${PERF_FLOOR_X_REALTIME}x real time headless`, () => {
@@ -102,6 +105,55 @@ describe("performance floor", () => {
     console.log(`bench-drones: ${sim.state.drone.size} drones up, ${speed.toFixed(1)}x real time`);
     expect(sim.state.drone.size).toBeGreaterThanOrEqual(12);
     expect(speed).toBeGreaterThanOrEqual(PERF_FLOOR_X_REALTIME);
+  });
+
+  // M7.6b: bench-vehicles with tank crews (Leopard 2A7V against T-90M): more sights per hull, a heavier gun.
+  it(`bench-tanks (30 tanks + their squads walking, all moving) runs at >= ${BENCH_TANKS_FLOOR_X}x real time`, () => {
+    const data = loadData();
+    const seconds = 60;
+    const time = (name: string): { speed: number; soldiers: number; vehicles: number } => {
+      const sc = getScenario(name);
+      const input = sc.build(data, 1, seconds);
+      runBattle(sc.build(data, 2, 10), { controllers: sc.controllers!(input) });
+      const t0 = performance.now();
+      const r = runBattle(input, { controllers: sc.controllers!(input) });
+      return { speed: seconds / ((performance.now() - t0) / 1000), soldiers: r.sides.reduce((n, s) => n + s.soldiersStart, 0), vehicles: input.forces.reduce((n, f) => n + (f.vehicles?.length ?? 0), 0) };
+    };
+    const tk = time("bench-tanks"), ifv = time("bench-vehicles");
+    console.log(`bench-tanks: ${tk.vehicles} tanks + ${tk.soldiers} soldiers, ${tk.speed.toFixed(1)}x real time (${(1000 / 60 / tk.speed).toFixed(2)} ms per tick; bench-vehicles ${ifv.speed.toFixed(1)}x, ${(1000 / 60 / ifv.speed).toFixed(2)} ms per tick: tanks cost ${(ifv.speed / tk.speed).toFixed(2)}x)`);
+    expect(tk.vehicles).toBe(30);
+    expect(tk.speed).toBeGreaterThanOrEqual(BENCH_TANKS_FLOOR_X);
+  });
+
+  it("platoon-vehicles-tanks (the commander siting its tanks) runs at >= 0.85x the speed of platoon-vehicles over the first 600 s", () => {
+    const data = loadData();
+    const speed = (name: string): number => {
+      const sc = getScenario(name), input = sc.build(data, 1, 600);
+      const t0 = performance.now();
+      runBattle(input, { controllers: sc.controllers!(input) });
+      return 600 / ((performance.now() - t0) / 1000);
+    };
+    speed("platoon-vehicles"); // (warm-up)
+    const base = speed("platoon-vehicles"), tanks = speed("platoon-vehicles-tanks");
+    console.log(`platoon-vehicles-tanks: ${tanks.toFixed(1)}x real time, platoon-vehicles ${base.toFixed(1)}x (ratio ${(tanks / base).toFixed(2)})`);
+    expect(tanks).toBeGreaterThanOrEqual(0.85 * base);
+  });
+
+  it("one siteHullDown call on the village map takes at most 60 ms (median of 5)", () => {
+    const input = buildScenario(loadData(), { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: true, tanks: "attacker" });
+    const sim = createSim(input);
+    const main = input.rules.objectives[0]!;
+    const targets: { x: number; y: number }[] = [];
+    for (let k = 0; k < 24; k++) targets.push({ x: main.x + Math.cos((k * Math.PI) / 12) * 60, y: main.y + Math.sin((k * Math.PI) / 12) * 60 });
+    const threats = Array.from({ length: 400 }, (_, k) => ({ x: main.x + ((k % 20) - 10) * 10, y: main.y + (Math.floor(k / 20) - 10) * 10 }));
+    const opts = { cls: "tracked" as const, turretZ: 2.8, hullZ: 1.3, rangeM: TANKS.rangeM, threats, standoffM: TANKS.coverStandoffM };
+    const anchor = { x: main.x - TANKS.sbfFarM, y: main.y };
+    siteHullDown(sim.ctx, anchor, targets, opts); // (the nav grid built first)
+    const ms: number[] = [];
+    for (let i = 0; i < 5; i++) { const t0 = performance.now(); siteHullDown(sim.ctx, anchor, targets, opts); ms.push(performance.now() - t0); }
+    ms.sort((a, b) => a - b);
+    console.log(`siteHullDown on the village map: median ${ms[2]!.toFixed(1)} ms (${ms.map((x) => x.toFixed(1)).join(", ")})`);
+    expect(ms[2]!).toBeLessThanOrEqual(60);
   });
 
   // M10.4b (roadmap-detail slice 9): the medical load on top of bench-vehicles: a third of the men down from the

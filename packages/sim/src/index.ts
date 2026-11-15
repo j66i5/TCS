@@ -66,6 +66,7 @@ export * from "./run";
 export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture } from "./systems/body";
 export * from "./expenditure";
+export * from "./review";
 export { canFight, gunneryAllowed, muzzleWorld, stationOperator } from "./systems/gunnery";
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";

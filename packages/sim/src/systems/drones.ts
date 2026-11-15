@@ -170,7 +170,7 @@ registerActionHandler(LAUNCH_ACTION, {
     const alt = Math.min(def.maxAltitudeM, Math.max(def.minAltitudeM, Number(a.params["alt"])));
     state.drone.set(id, { side, unit: Number(a.params["unit"]), item, operator: actor, mode: "climb", goal: { x: gx, y: gy }, altGoal: alt, homeX: t.x, homeY: t.y, seen: [] });
     startAction(state, events, actor, FLY_ACTION, OPEN_ENDED_TICKS, { drone: id });
-    events.emit({ kind: "drone.launched", tick: state.tick, drone: id, operator: actor, side });
+    events.emit({ kind: "drone.launched", tick: state.tick, drone: id, operator: actor, side, item });
     radio(state, events, actor, "radio.droneUp");
   },
 });
@@ -212,7 +212,7 @@ function endDrone(state: SimState, events: EventSink, id: EntityId, d: DroneStat
     events.emit({ kind: "drone.landed", tick: state.tick, drone: id, side: d.side, by: into });
     radio(state, events, into, "radio.droneLanded");
   } else {
-    events.emit({ kind: "drone.lost", tick: state.tick, drone: id, side: d.side, reason: reason ?? "noOperator" });
+    events.emit({ kind: "drone.lost", tick: state.tick, drone: id, side: d.side, reason: reason ?? "noOperator", ...(reason === "shot" && d.hitBy !== undefined ? { by: d.hitBy } : {}) });
     const lead = d.operator ?? state.unit.get(d.unit)?.members.find((m) => isAble(state.soldier.get(m)));
     if (lead !== undefined) radio(state, events, lead, "radio.droneLost");
   }

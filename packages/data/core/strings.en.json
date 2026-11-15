@@ -658,5 +658,18 @@
   "radio.droneOverhead": "{callsign}: enemy drone overhead!",
   "radio.droneDown": "{callsign}: drone shot down.",
   "radio.fireCallDrone": "{callsign}: mortars have it, target fixed by the drone, first round in {s} s.",
-  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s."
+  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s.",
+  "support.method.estimate": "estimated",
+  "support.method.laser": "laser rangefinder",
+  "support.method.registered": "registered point",
+  "support.method.drone": "drone",
+  "support.method.air": "from the air",
+  "aar.drones": "drones: {flown} flown, {landed} recovered, {lost} lost ({shot} shot down, {battery} flat battery, {alone} no one to fly it)",
+  "aar.dronesDowned": "enemy drones shot down: {n}",
+  "aar.found": "enemies found: {n}, {drone} of them first by a drone ({pct} %)",
+  "aar.calls": "fire missions by how the target was located: {list}",
+  "aar.callsBy": "{method} {n}",
+  "aar.light": "Local time {time}; light at the start {start} %, lowest {min} %.",
+  "aar.drone.shotDown": "{side} drone shot down",
+  "aar.drone.lost": "{side} drone lost"
 }

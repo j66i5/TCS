@@ -12,7 +12,7 @@ import {
   battleScore, isOut, loadGame, rosterStatus, saveGame, supportLeft, type SaveGame,
   eyeHeightM, fuelLitres, heightAt, hullObb, pointInObb, sideKnowledge, sight,
   buildSpatialHash, createSim, DT, navFor, queryRadius, simHash, step, submitOrder, ticksToSeconds,
-  tallyExpenditure, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink, startCarry,
+  tallyExpenditure, tallyReview, newReviewTally, type ReviewTally, vehicleItems, environmentAt, parseTimeOfDay, atRuleOf, floorOf, indoorAt, unitSoldiers, standZ, clearable, refreshStatus, EventSink, startCarry,
   type EntityId, type Expenditure, type Order, type Sim, type SimEvent, type Wound,
   mortarTeams, launcherOf, teamRounds, fireOptions, airborneDroneOf,
 } from "@tcs/sim";
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   // Load: the save is kept with the URL it was made under (the same URL rebuilds the same battle).
   const SAVE_KEY = "tcs.save";
   let sim: Sim = createSim(input);
-  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[]; exp?: Expenditure };
+  type AarRecord = { timeline: { tick: number; text: string; colour: string }[]; heatShots: number[]; heatFalls: number[]; exp?: Expenditure; review?: ReviewTally };
   let loadedRecord = null as AarRecord | null;
   let loadFailed = false;
   if (params.get("load") === "1") {
@@ -201,7 +201,7 @@ async function main(): Promise<void> {
     onSave: () => {
       try {
         // The after-action record so far goes with the save (the timeline and heat map cover the whole battle).
-        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls, exp } }));
+        localStorage.setItem(SAVE_KEY, JSON.stringify({ url: location.search, save: saveGame(sim, ai), record: { timeline, heatShots, heatFalls, exp, review } }));
         hud.radio(strings.t("app.saved"), ticksToSeconds(sim.state.tick), "#d8e0c8");
       } catch { hud.radio(strings.t("app.saveFailed"), ticksToSeconds(sim.state.tick), "#ffb4b4"); }
     },
@@ -987,6 +987,8 @@ async function main(): Promise<void> {
   const timeline: { tick: number; text: string; colour: string }[] = [...(loadedRecord?.timeline ?? [])];
   // Ammunition used per side (M7.3): vehicle rounds credited to the vehicle, from the events.
   const exp: Expenditure = loadedRecord?.exp ?? {};
+  // M9 review rows (M9.6): drones, enemies found, fire missions by location method, the light.
+  const review: ReviewTally = loadedRecord?.review ?? newReviewTally();
   if (loadFailed) hud.radio(strings.t("app.loadFailed"), 0, "#ffb4b4");
   const callsignOf = (id: EntityId) => sim.state.unit.get(sim.state.identity.get(id)?.unit ?? -1)?.callsign ?? "";
   let aarShown = false;
@@ -995,6 +997,7 @@ async function main(): Promise<void> {
     renderer.onEvents(events, sim.state, overlay);
     vehicleDebug.onEvents(events);
     tallyExpenditure(exp, events, sim.state, input.catalog);
+    tallyReview(review, events, sim.state);
     for (const e of events) {
       if (e.kind === "shot.fired") { if (heatShots.length < 300000) heatShots.push(e.x, e.y, sideIdx(sim.state.identity.get(e.shooter)?.side ?? "")); continue; }
       if (e.kind === "casualty") {
@@ -1022,6 +1025,9 @@ async function main(): Promise<void> {
           const t = sim.state.transform.get(e.vehicle);
           if (t && (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned")) heatFalls.push(t.x, t.y, sideIdx(v.side));
         }
+      } else if (e.kind === "drone.lost") {
+        // M9.6: a drone shot down or lost (battery, no one to fly it).
+        timeline.push({ tick: e.tick, colour: sideColour(e.side), text: strings.t(e.reason === "shot" ? "aar.drone.shotDown" : "aar.drone.lost", { side: sideName(e.side) }) });
       } else if (e.kind === "battle.ended") {
         timeline.push({ tick: e.tick, colour: "#ffd23d", text: strings.t("timeline.ended", { reason: strings.t(`aar.reason.${e.reason}`, { loser: e.loser ? sideName(e.loser) : "" }) }) });
       }
@@ -1247,6 +1253,8 @@ async function main(): Promise<void> {
       summary: [
         `${sc.winner ? strings.t("aar.winner", { side: sideName(sc.winner) }) : strings.t("aar.draw")} ${reason !== "time-limit" && sim.state.endLoser === null ? strings.t("aar.reason.both") : strings.t(`aar.reason.${reason}`, { loser: sim.state.endLoser ? sideName(sim.state.endLoser) : "" })}`,
         ...sc.scores.map((x) => strings.t("aar.score", { side: sideName(x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
+        // M9.6: the local time at the end and the lowest light of the battle (a battle with a sky, M9.1).
+        ...(sim.state.environment.sky && review.light ? [strings.t("aar.light", { time: localClock(sim.state.environment.timeOfDaySeconds), start: Math.round(review.light.start * 100), min: Math.round(review.light.min * 100) })] : []),
       ],
       casualties: sim.state.sides.map((sd) => {
         // mounted: ok the after-action roster counts every man
@@ -1283,7 +1291,17 @@ async function main(): Promise<void> {
         // Vehicles (M7.4a): lost and immobilised.
         const vs = [...sim.state.vehicle.values()].filter((v) => v.side === sd.id);
         const vline = vs.length > 0 ? [strings.t("aar.vehicles", { side: sideName(sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
-        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: [...vline, ...rows.map((r) => r.text), ...spent] };
+        // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
+        const rv = review.sides[sd.id], m9: string[] = [];
+        if (rv) {
+          const d = rv.drones, lost = d.lostBattery + d.lostNoOperator + d.shotDown;
+          if (d.launched > 0) m9.push(strings.t("aar.drones", { flown: d.launched, landed: d.landed, lost, shot: d.shotDown, battery: d.lostBattery, alone: d.lostNoOperator }));
+          if (d.downedEnemy > 0) m9.push(strings.t("aar.dronesDowned", { n: d.downedEnemy }));
+          if (rv.found.total > 0) m9.push(strings.t("aar.found", { n: rv.found.total, drone: rv.found.byDrone, pct: Math.round((100 * rv.found.byDrone) / rv.found.total) }));
+          const calls = (["estimate", "laser", "registered", "drone", "air"] as const).filter((k) => (rv.calls[k] ?? 0) > 0).map((k) => strings.t("aar.callsBy", { method: strings.t(`support.method.${k}`), n: rv.calls[k] ?? 0 }));
+          if (calls.length > 0) m9.push(strings.t("aar.calls", { list: calls.join(", ") }));
+        }
+        return { heading: strings.t("aar.sideHead", { side: sideName(sd.id), down, total: men.length }), colour: sideColour(sd.id), rows: [...vline, ...m9, ...rows.map((r) => r.text), ...spent] };
       }),
       timeline: timeline.map((t) => ({ time: fmtClock(ticksToSeconds(t.tick)), text: t.text, colour: t.colour })),
     };

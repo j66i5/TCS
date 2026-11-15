@@ -25,7 +25,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
@@ -474,7 +474,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
    * the last stretch; there the sim sets it up and it fires on its own at the enemy men its men see, and on the
    * commander's orders at those the side sees; with nothing to fire at for `aglRepostSeconds` it moves to its next post.
    */
-  const aglTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, men: readonly EntityId[]): void => {
+  const aglTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, men: readonly EntityId[], sideSpared: ReadonlySet<EntityId>): void => {
     const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam?.kind === "agl").map(([id]) => id);
     if (ids.length === 0) return;
     mem.mt ??= {};
@@ -512,11 +512,15 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       }
       if (mt.state !== "ready" || mt.burst !== undefined || mt.queued !== undefined || view.action.has(l.carrier) || tick - st.launch < COMMANDER.aglOrderSeconds * 60) continue;
       const cands: { x: number; y: number; n: number; d: number }[] = [];
+      // (Review fix: never at an enemy any of the side's men spares, nor where a burst would reach a man its men
+      // recognise as protected: a medic, bearers, a man at the Verwundetennest; nor near its own men.)
+      const prot: { x: number; y: number }[] = [];
       for (const m of men) {
         const sm = view.soldier.get(m);
         if (sm === undefined || isCaptive(sm)) continue;
         for (const c of sm.contacts) {
-          if (c.cls === "vehicle" || c.kind !== "seen" || c.down === true || c.surrendered === true || spared(c) || c.errM > COMMANDER.aglErrM || tick - c.tick > COMMANDER.aglSeenSeconds * 60) continue;
+          if (protectedContact(c)) prot.push({ x: c.x, y: c.y });
+          if (c.cls === "vehicle" || c.kind !== "seen" || c.down === true || c.surrendered === true || spared(c) || sideSpared.has(c.target) || c.errM > COMMANDER.aglErrM || tick - c.tick > COMMANDER.aglSeenSeconds * 60) continue;
           const d = hypot2(c.x - lt.x, c.y - lt.y);
           if (d < COMMANDER.aglMinM * 0.5 || d > l.def.engageRangeM) continue;
           if (cands.some((q) => hypot2(q.x - c.x, q.y - c.y) < 3)) continue;
@@ -526,7 +530,12 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       for (const a of cands) for (const b of cands) if (hypot2(a.x - b.x, a.y - b.y) <= 10) a.n++;
       cands.sort((a, b) => b.n - a.n || a.d - b.d || a.x - b.x || a.y - b.y);
       const z0 = heightAt(ground().map, lt.x, lt.y) + l.def.sightHeightM; // ground: ok (the gun on the ground)
-      for (const c of cands.slice(0, 4)) {
+      const own = men.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return s !== undefined && !isOut(s) && s.mount === undefined; }).map((m) => view.transform.get(m)).filter((t) => t !== undefined);
+      const safe = cands.filter((c) => {
+        const r = aglDangerM(ground(), c.d);
+        return !prot.some((p) => hypot2(p.x - c.x, p.y - c.y) <= AGL_BURST_M) && !own.some((t) => hypot2(t.x - c.x, t.y - c.y) <= r);
+      });
+      for (const c of safe.slice(0, 4)) {
         const r = sight(ground(), lt.x, lt.y, z0, c.x, c.y, heightAt(ground().map, c.x, c.y) + 1, l.carrier, -1); // ground: ok (a man on the ground)
         if (r.blockedBy !== null && (1 - r.blockedAt) * c.d > 40) continue;
         order(id, { kind: "fire", x: clamp(c.x, W), y: clamp(c.y, H) });
@@ -716,7 +725,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // on its own (sim); fired at the enemy vehicle that threatens the own carriers most; after each launch it
       // moves on to its next post.
       missileTeams(view, tick, order, freshVehicleContacts([...all, ...teamMen(view)]));
-      aglTeams(view, tick, order, all); // (M7.6d)
+      aglTeams(view, tick, order, all, sideSpared); // (M7.6d)
       const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];

@@ -262,6 +262,20 @@
       "note": "Made-up test fixture (M7.6a): the tortoise's four crew (commander, gunner, loader, driver)."
     },
     {
+      "id": "tortoise-pair",
+      "echelon": "section",
+      "callsign": "Tortoises {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "tortoise-crew",
+        "tortoise-crew"
+      ],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6b): two tortoises, the fixture's tank section (rule 8)."
+    },
+    {
       "id": "litter-crew",
       "echelon": "vehicle",
       "callsign": "Litter {n}",

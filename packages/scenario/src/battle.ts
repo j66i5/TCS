@@ -50,6 +50,12 @@ export interface ScenarioDef {
   artillery?: boolean;
   /** M9.5: sides with an off-map fixed-wing reconnaissance drone overhead (it locates targets and watches falls). */
   airRecon?: string[];
+  /** Tanks (M7.6b): each side named (true: both) whose faction has a `tankSectionTemplate` gets its tank section as
+   *  a unit of its own (not part of a platoon): the attacker's in dead ground behind its carriers' start, the
+   *  defender's 150-210 m behind its main objective. With or without `vehicles`. */
+  tanks?: boolean | "attacker" | "defender";
+  /** Tank section template per side (blue, red), instead of the faction manifest's (null: the manifest's). */
+  tankTemplates?: [string | null, string | null];
   /** M10.6a: each side gets its faction's ambulances off the map (manifest `ambulance`), called to its platoons'
    *  Verwundetennester. Default true; false: none (comparisons). */
   ambulances?: boolean;
@@ -114,6 +120,28 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const attacking = side === def.attacker;
     const fv = withVehicles ? placeVehicles(catalog, map, built.flatMap((b) => b.vehicles), attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null) : null;
     if (fv) placements.push(...fv.placements);
+    // Tanks (M7.6b): the side's tank section, a unit of its own, its crews in their seats.
+    const tankWanted = def.tanks === true || def.tanks === (attacking ? "attacker" : "defender");
+    const tt = tankWanted ? (def.tankTemplates?.[s] ?? pack?.manifest.tankSectionTemplate) : undefined;
+    let tv: ReturnType<typeof placeVehicles> | null = null;
+    if (tt) {
+      const sec = buildForceWithVehicles(data, { faction, template: tt, seed: def.seed * 47 + s * 19, keyPrefix: `${side}-t`, number: 1 });
+      units.push(sec.unit);
+      const ifvs = fv?.vehiclePlacements ?? [];
+      let home: { x: number; y: number } | null = null, behind: { x: number; y: number }[] = [];
+      if (attacking && ifvs.length > 0) {
+        // Behind the carriers' group, away from the main objective: 60 m for the dead-ground search, 40 m as the
+        // fallback line.
+        let cx = 0, cy = 0;
+        for (const p of ifvs) { cx += p.x; cy += p.y; }
+        cx /= ifvs.length; cy /= ifvs.length;
+        const L = Math.max(1, hypot2(mainP.x - cx, mainP.y - cy)), ux = (mainP.x - cx) / L, uy = (mainP.y - cy) / L;
+        home = { x: cx - ux * 60, y: cy - uy * 60 };
+        behind = sec.vehicles.map((_, i) => ({ x: cx - ux * 40 - uy * (i - (sec.vehicles.length - 1) / 2) * 25, y: cy - uy * 40 + ux * (i - (sec.vehicles.length - 1) / 2) * 25 }));
+      }
+      tv = placeVehicles(catalog, map, sec.vehicles, attacking, side, mainP, dx, W, H, attacking && def.deadGroundStart !== false ? { observers, objectives: [mainP, secondP] } : null, { home, avoid: ifvs, behind });
+      placements.push(...tv.placements);
+    }
     // Each sub-unit (squad) and each platoon's own men get a spot; men stand in a loose line, 6 m apart.
     // (With vehicles: crews are in their seats, and the attacker's carried men start aboard.)
     const footGroups = (unit: UnitInput): SoldierGroup[] => {
@@ -192,6 +220,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
+    if (tv) { force.vehicles = [...(force.vehicles ?? []), ...tv.records]; force.vehiclePlacements = [...(force.vehiclePlacements ?? []), ...tv.vehiclePlacements]; }
     // Ambulances off the map (M10.6a): crews and hulls from the faction's data, waiting at the rear to be called.
     const amb = def.ambulances !== false ? pack?.manifest.ambulance : undefined;
     if (amb && amb.count > 0) {
@@ -210,7 +239,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
       const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };
       observers = [
-        ...(fv?.vehiclePlacements ?? []).map((p) => ({ x: p.x, y: p.y, z: eye(force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? "") })),
+        ...(force.vehiclePlacements ?? []).map((p) => ({ x: p.x, y: p.y, z: eye(force.vehicles?.find((r) => r.vehicleId === p.vehicleId)?.type ?? "") })),
         ...defenceSpots(mainP, secondP, dx).map((p) => ({ x: p.x, y: p.y, z: 1.7 })),
       ];
     }
@@ -344,6 +373,16 @@ function teamDeadGround(
 /** Diagnostics of the last dead-ground choice (tools and tests): observers seeing each start, hidden spots. */
 export let lastDeadGround: { seen: number[]; observers: number; candidates: number; hidden: number } | null = null;
 
+/** Diagnostics of the attacker's tanks' dead-ground start (M7.6b; null: not searched or none found). */
+export let lastTankDeadGround: { seen: number[]; observers: number; candidates: number; hidden: number } | null = null;
+
+/** M7.6b: how a side's tanks are placed: the dead-ground search's home (behind the carriers; null: the usual start),
+ *  the carriers' starts to keep clear of, and the fallback line behind the carriers (empty: the usual start). */
+interface TankPlacing { home: { x: number; y: number } | null; avoid: readonly { x: number; y: number }[]; behind: { x: number; y: number }[] }
+
+/** Tanks start at least this far from every carrier, m (M7.6b). */
+const TANK_AVOID_M = 25;
+
 /** Spacing of the vehicles at the start, m. */
 const VEHICLE_SPACING_M = 20;
 
@@ -355,6 +394,7 @@ const VEHICLE_SPACING_M = 20;
 function placeVehicles(
   catalog: Catalog, map: MapDef, vehicles: ForceVehicle[], attacking: boolean, side: string, mainP: { x: number; y: number }, dx: number, W: number, H: number,
   dead: { observers: readonly { x: number; y: number; z: number }[]; objectives: readonly { x: number; y: number }[] } | null = null,
+  tank: TankPlacing | null = null,
 ): { records: VehicleRecord[]; vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]>; placements: Placement[] } {
   const records: VehicleRecord[] = [], vehiclePlacements: NonNullable<ForceInput["vehiclePlacements"]> = [], placements: Placement[] = [];
   const grids = new Map<string, NavGrid>();
@@ -369,7 +409,15 @@ function placeVehicles(
       const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
       let tallest = 0;
       for (const fv of vehicles) tallest = Math.max(tallest, catalog.vehicles[fv.type]?.body.heightM ?? 2.5);
-      starts = deadGroundStarts(catalog, map, grid, mainRegion, vehicles.length, side, tallest, dead.observers, dead.objectives, W, H);
+      if (tank) {
+        // M7.6b: tanks hidden behind the carriers' group, 25 m clear of every carrier; seen by anyone: the line behind
+        // the carriers (or, with no carriers, the usual start). The carriers' diagnostics stay as they were.
+        const keep = lastDeadGround;
+        starts = deadGroundStarts(catalog, map, grid, mainRegion, vehicles.length, side, tallest, dead.observers, dead.objectives, W, H, tank.home, tank.avoid, TANK_AVOID_M);
+        lastTankDeadGround = starts ? lastDeadGround : null;
+        lastDeadGround = keep;
+        if (starts && lastTankDeadGround !== null && lastTankDeadGround.seen.some((k) => k > 0) && tank.behind.length === vehicles.length) starts = tank.behind.map((p) => ({ ...p }));
+      } else starts = deadGroundStarts(catalog, map, grid, mainRegion, vehicles.length, side, tallest, dead.observers, dead.objectives, W, H);
       if (starts) {
         // Facing the main objective from the group's middle.
         let sx = 0, sy = 0;
@@ -378,6 +426,8 @@ function placeVehicles(
       }
     }
   }
+  // (M7.6b: an attacker's tanks with no dead-ground start stand behind the carriers.)
+  if (tank && attacking && !starts && tank.behind.length === vehicles.length) starts = tank.behind.map((p) => ({ ...p }));
   vehicles.forEach((fv, i) => {
     const def = catalog.vehicles[fv.type];
     if (!def) throw new Error(`scenario: vehicle type '${fv.type}' not in the catalog`);
@@ -386,11 +436,16 @@ function placeVehicles(
     const mainRegion = grid.region[Math.floor(H / 2 / 2) * grid.cols + Math.floor(W / 2 / 2)] ?? 0;
     const lat = (i - (vehicles.length - 1) / 2) * VEHICLE_SPACING_M;
     // Attack: a line across the own edge. Defence: behind the main objective (away from the attack), staggered.
-    const x0 = starts ? starts[i]!.x : attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (60 + (i % 2) * 60);
-    const y0 = starts ? starts[i]!.y : attacking ? H / 2 + lat : mainP.y + lat * 1.5;
-    const cell = nearestPassable(grid, Math.min(Math.max(x0, 1), W - 1), Math.min(Math.max(y0, 1), H - 1), 80, mainRegion);
+    // (M7.6b: the defender's tanks 150-210 m behind the main objective, 40 m apart.)
+    const x0 = starts ? starts[i]!.x : attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (tank ? 150 + (i % 2) * 60 : 60 + (i % 2) * 60);
+    const y0 = starts ? starts[i]!.y : attacking ? H / 2 + lat : mainP.y + lat * (tank ? 2 : 1.5);
+    const cx0 = Math.min(Math.max(x0, 1), W - 1), cy0 = Math.min(Math.max(y0, 1), H - 1);
+    let cell = nearestPassable(grid, cx0, cy0, 80, mainRegion);
+    // (M7.6b review fix: drivable ground also where the main region is not near: wider, then any region.)
+    if (cell < 0) cell = nearestPassable(grid, cx0, cy0, 250, mainRegion);
+    if (cell < 0) cell = nearestPassable(grid, cx0, cy0, 250);
     const taken = (x: number, y: number) => vehiclePlacements.some((p) => hypot2(p.x - x, p.y - y) < 12);
-    let vx = cell < 0 ? x0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? y0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;
+    let vx = cell < 0 ? cx0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? cy0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;
     // Never two hulls on the same spot: step along the line until free.
     for (let k = 1; taken(vx, vy) && k < 40; k++) {
       const c2 = nearestPassable(grid, vx, Math.min(Math.max(vy + (k % 2 === 0 ? 1 : -1) * k * 6, 1), H - 1), 40, mainRegion);

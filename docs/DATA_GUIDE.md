@@ -336,6 +336,21 @@ calls, `doctrine.json` `fireSupport`) stays as it is; a side with mortar teams c
 Check with `npm run lint:data`, `npx vitest run packages/tools/test/mortars.test.ts` and
 `npx vitest run packages/tools/test/mortars-signature.test.ts`, and a batch of `platoon-mortars`.
 
+## Add a tank section (M7.6b)
+
+A tank section is **a unit template with no men of its own** (`"echelon": "section"`, `"leaderIndex": -1`,
+`"members": []`) whose `"subunits"` are all **vehicle crews** (templates with `"vehicle"`) of vehicles with **no
+passenger seats** (tanks), e.g. DE `panzer-halbzug` (two `leopard2a7v-besatzung`), RU `tankovaya-gruppa` (two
+`t72b3m-ekipazh`; `tankovaya-gruppa-t90m` for the T-90M), the fixture's `tortoise-pair`. Name it in `manifest.json`
+as `"tankSectionTemplate": "<section id>"`: generated battles with `tanks: true | "attacker" | "defender"` (tools
+scenarios `platoon-vehicles-tanks`, `platoon-ru-vehicles-tanks`, `platoon-vehicles-tanks-both`; app `?tanks=1`,
+`?tanks=attacker`, `&tankCrew=<blue section>,<red section>`) add it as a unit of its own; the AI commander recognises
+it from the data alone (crews of vehicles that carry no one) and runs it in overwatch (`ai/src/tanks.ts`).
+
+The loader checks (errors): the template exists; it has no members and at least one sub-unit; every sub-unit is a
+vehicle crew; none of their vehicles has a passenger seat. Check with `npm run lint:data` and
+`npx vitest run packages/tools/test/scenario-tanks.test.ts packages/tools/test/tanks-ai.test.ts`.
+
 ## Add a reconnaissance drone (M9.4a)
 
 A quadcopter is an **airframe item** with a `drone` block and a **battery item** with a charge in Wh, both carried by

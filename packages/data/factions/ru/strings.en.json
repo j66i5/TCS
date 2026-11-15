@@ -123,5 +123,11 @@
   "radio.nestSited": "{callsign}: casualty collection point set up behind us.",
   "radio.nestMoved": "{callsign}: moving the casualty collection point, it is under threat.",
   "radio.ack.casualtyPoint": "{callsign}: casualty collection point there, understood.",
-  "radio.ack.evacuate": "{callsign}: understood, taking him back to the collection point."
+  "radio.ack.evacuate": "{callsign}: understood, taking him back to the collection point.",
+  "radio.ack.callAmbulance": "{callsign}: requesting an ambulance to the collection point.",
+  "radio.ambulanceCalled": "{callsign}: wounded at the collection point, ambulance requested, about {min} min.",
+  "radio.ambulanceArrived": "{callsign}: ambulance at the collection point, loading.",
+  "ambulance.inbound": "{callsign}: driving to the collection point",
+  "ambulance.loading": "{callsign}: at the collection point, {n} aboard",
+  "ambulance.callTitle": "Call an ambulance to the selected platoon's casualty collection point"
 }

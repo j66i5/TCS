@@ -48,6 +48,7 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
   if (data.medical) {
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
+    if (m.evacuation) { check(f, "evacuation", m.evacuation, false); notHigh(f, "evacuation", m.evacuation); }
     for (const v of m.interventions) { check(f, `interventions.${v.id}`, v, false); notHigh(f, `interventions.${v.id}`, v); }
     for (const c of m.carry) { check(f, `carry.${c.id}`, c, false); notHigh(f, `carry.${c.id}`, c); }
     // Every tag a treatment uses up should be carried by some item of some real faction.
@@ -71,6 +72,12 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     const fx = pack.manifest.fixture === true;
     const d = pack.dir;
     check(`${d}/manifest.json`, "manifest", pack.manifest, fx);
+    // Ambulances off the map (M10.6a): the template must crew an ambulance.
+    const amb = pack.manifest.ambulance;
+    if (amb) {
+      const vt = pack.units[amb.template]?.vehicle;
+      if (vt === undefined || pack.vehicles[vt]?.ambulance === undefined) errors.push({ file: `${d}/manifest.json`, path: "ambulance.template", message: `'${amb.template}' is not the crew of an ambulance`, severity: "error" });
+    }
     check(`${d}/names.json`, "names", pack.names, fx);
     check(`${d}/doctrine.json`, "doctrine", pack.doctrine, fx);
     Object.values(pack.ranks).forEach((x) => check(`${d}/ranks.json`, x.id, x, fx));

@@ -5,7 +5,7 @@
 import { atRuleOf, fuelLitres, isOut, launcherOf, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
-import { droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, woundedRows, type UnitRules, type UnitTile } from "@tcs/ui";
+import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, woundedRows, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
 import { droneMode, fmtClock, localClock, sideColour, sideName, unitSoldierIds, vehicleClassOf } from "./units";
@@ -35,7 +35,7 @@ export function syncOrders(a: App): void {
 export function refreshTiles(a: App): void {
   const tiles = unitTiles(a.sim.state, a.playerSide, a.input.catalog);
   a.hud.setTiles(tiles, a.overlay.selectedUnit, droneMode(a));
-  a.hud.setWounded(woundedRows(a.sim.state, a.playerSide));
+  a.hud.setWounded(woundedRows(a.sim.state, a.playerSide), ambulanceRows(a.sim.state, a.playerSide));
   showCard(a, tiles);
 }
 

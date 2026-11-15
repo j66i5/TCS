@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-14 (M10.5 Verwundetennest and platoon medic, roadmap-detail slice 11). The long session-by-session
+_Last updated: 2026-11-15 (M10.6a off-map vehicles and ambulance runs, roadmap-detail slice 13). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -28,8 +28,18 @@ DECISIONS.md under its date._
   the known enemy on ground wheeled vehicles reach, moved when threatened; the platoon leader tasks two riflemen as
   bearers, walking wounded walk, T1 first; the platoon's medic triages again and treats there; men fit again return
   to duty; orders `casualtyPoint` (drag the red-cross marker) and `evacuate` (Back in the sidebar's Wounded tab); the
-  AI commander counts carriers as committed; batch "Verwundetennest" line; `--scene nest`.** **Next: slice 13,
-  M10.6a off-map vehicles and ambulance runs (slice 12 is merged).**
+  AI commander counts carriers as committed; batch "Verwundetennest" line; `--scene nest`. Slice 13 (M10.6a) is
+  done: off-map entity state — an asset is an ordinary vehicle with its crew from tick 0 carrying
+  `VehicleState.offMap`, created after every force, parked at `OFF_MAP_PARK` and skipped by every vehicle loop while
+  off the map (architecture test; `offmap.ts`), its crew (`Unit.asset`) nobody's to order and outside the side's
+  strength, results and score; generated battles give each side its faction's ambulances (manifest `ambulance`: DE
+  two Boxer, RU two BMM; `ScenarioDef.ambulances`); a platoon with casualties at its nest calls one (automatic, or
+  the player's `callAmbulance`: "Call ambulance" in the Wounded tab), it comes on at the edge behind the nest after
+  10-15 min (stood down if nobody waits by then), drives there, loads T1 first within its layouts, backs off, leaves
+  the map; its wounded are "evacuated" (roster status; their condition is kept until M10.6b); `systems/evacuation.ts`,
+  `medical.ambulance` / `medical.evacuated` events, battle record version 3, batch "Ambulances" line,
+  `npm run lab -- medevac`, `--scene medevac`.** **Next: slice 14, M10.6b (combat vehicles' rear run, Role 1,
+  end-of-battle settlement, roster `recoveryDays` / `diedOfWoundsTick`).**
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid

@@ -50,6 +50,9 @@ export interface ScenarioDef {
   artillery?: boolean;
   /** M9.5: sides with an off-map fixed-wing reconnaissance drone overhead (it locates targets and watches falls). */
   airRecon?: string[];
+  /** M10.6a: each side gets its faction's ambulances off the map (manifest `ambulance`), called to its platoons'
+   *  Verwundetennester. Default true; false: none (comparisons). */
+  ambulances?: boolean;
 }
 
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
@@ -189,6 +192,20 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     }
     const force: ForceInput = { side, faction, units, placements, posture: side === def.attacker ? "attack" : "defend" };
     if (fv) { force.vehicles = fv.records; force.vehiclePlacements = fv.vehiclePlacements; }
+    // Ambulances off the map (M10.6a): crews and hulls from the faction's data, waiting at the rear to be called.
+    const amb = def.ambulances !== false ? pack?.manifest.ambulance : undefined;
+    if (amb && amb.count > 0) {
+      const vtype = pack!.units[amb.template]?.vehicle;
+      if (vtype !== undefined && catalog.vehicles[vtype]) {
+        for (let k = 0; k < amb.count; k++) {
+          const crew = buildForceWithVehicles(data, { faction, template: amb.template, seed: def.seed * 43 + s * 17 + k, keyPrefix: `${side}-amb${k + 1}`, number: k + 1 }).unit;
+          crew.vehicleId = crew.key;
+          units.push(crew);
+          (force.vehicles ??= []).push(newVehicleRecord(catalog, vtype, crew.key));
+          (force.offMap ??= []).push({ vehicleId: crew.key, kind: "ambulance" });
+        }
+      }
+    }
     if (!attacking) {
       // What the defence sees from (dead ground for the attacker's start): its vehicles' sights and its men.
       const eye = (type: string) => { const vd = catalog.vehicles[type]; let z = vd?.body.heightM ?? 2.5; for (const q of vd?.seats ?? []) for (const k of q.sensors ?? []) z = Math.max(z, k.pos?.[2] ?? 0); return z; };

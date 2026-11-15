@@ -3,7 +3,7 @@
  * log. Every order goes to the simulation through `submitOrder` (rule 3), the player's marked as his.
  */
 import {
-  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOut, sideKnowledge, standZ, submitOrder, ticksToSeconds,
+  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOffMap, isOut, sideKnowledge, standZ, submitOrder, ticksToSeconds,
   type EntityId, type Order,
 } from "@tcs/sim";
 import { worldToScreen } from "@tcs/render";
@@ -209,7 +209,7 @@ export function losTo(a: App, w: Pt): LosLine[] {
     let best = -1, bd = 7 * 7;
     for (const [vid, v] of st.vehicle.entries()) {
       const t = st.transform.get(vid);
-      if (!t) continue;
+      if (!t || isOffMap(v)) continue;
       const d = (t.x - x) ** 2 + (t.y - y) ** 2;
       if (d < bd) { bd = d; best = v.side !== a.playerSide && !knownHulls.has(vid) ? vid : -1; }
     }

@@ -65,6 +65,16 @@ export type SimEvent =
    *  walks (he goes himself), arrived; returned: fit to fight again after care there, back to his squad (returned to
    *  duty). `ordered`: the player's `evacuate` order. */
   | { kind: "medical.evac"; tick: number; casualty: EntityId; point: EntityId; phase: "tasked" | "walks" | "arrived" | "returned"; by?: EntityId; bearers?: number; ordered?: boolean }
+  /**
+   * An ambulance run (M10.6a; `vehicle` an off-map asset): `phase` called (by the platoon `unit` for its nest `point`;
+   * `ordered`: the player's `callAmbulance`; `dueS`: seconds until it comes onto the map), entered (it is on the map),
+   * arrived (at the nest), loaded (`casualty` is aboard), departed (`aboard` men), away (off the map with them),
+   * noRoute (it found no way and tries again), lost (stranded on the map: no driver, immobilised or destroyed),
+   * cancelled (stood down when it was due: nobody waiting at the nest or on the way there; it waits for the next call).
+   */
+  | { kind: "medical.ambulance"; tick: number; side: SideId; vehicle: EntityId; phase: "called" | "entered" | "arrived" | "loaded" | "departed" | "away" | "noRoute" | "lost" | "cancelled"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; dueS?: number; ordered?: boolean }
+  /** A casualty left the battle in an ambulance that drove off the map (M10.6a): evacuated from then on. */
+  | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }

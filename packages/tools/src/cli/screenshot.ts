@@ -341,6 +341,46 @@ async function nestScenes(page: Page, name: string, errors: string[], shots: str
 }
 
 /**
+ * M10.6a ambulance runs (`--scene medevac`): the platoon battle on foot (village). Three men of the lead squad are
+ * hurt (debug hook) and taken to the platoon's nest; the platoon calls an ambulance on its own (the delay is cut short
+ * here so that the shots do not wait a quarter of an hour). Shots: the Wounded tab with the ambulance on its way and
+ * the call button; the ambulance on the map driving in; at the nest loading (map and tab); the tab after it left the
+ * map (men "evacuated").
+ */
+async function medevacScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/medevac-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const amb = `[...s.vehicle.entries()].find(([, v]) => v.side === "blue" && v.offMap && v.offMap.phase !== "ready")`;
+  const info = await ev<{ hurt: number[]; phase: string | null }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom"); const sq = t.units().find((u) => u.kind === "infantry" && u.depth >= 1) ?? t.units().find((u) => u.kind === "infantry");
+    const u = s.unit.get(sq.unit); const men = [...u.members].filter((m) => m !== u.leader);
+    t.hurt(men[1], { zone: "legR", severity: 0.35, fracture: true });
+    t.hurt(men[2], { zone: "legL", severity: 0.4, fracture: true });
+    t.hurt(men[3], { zone: "armL", severity: 0.9 });
+    for (let k = 0; k < 900 && !${amb}; k++) t.stepTicks(60);
+    t.select(null); t.stepTicks(1);
+    const a = ${amb};
+    return { hurt: [men[1], men[2], men[3]], phase: a ? a[1].offMap.phase : null };`);
+  if (name === "phone") await page.click(".hud-side-wounded"); else await page.click(".hud-side-tab:nth-child(2)");
+  await page.waitForTimeout(200);
+  await shot("0-called");
+  // (Cut the delay short: it comes onto the map in ten seconds.)
+  await ev(`const a = ${amb}; if (a) a[1].offMap.enterTick = s.tick + 600; t.stepTicks(60 * 18); const tt = a ? s.transform.get(a[0]) : null; if (tt) t.focusScale(tt.x, tt.y, ${name === "phone" ? 4 : 6}); t.stepTicks(1); return null;`);
+  await settle();
+  await shot("1-driving-in");
+  await ev(`const a = ${amb}; for (let k = 0; k < 600 && a && a[1].offMap.phase === "inbound"; k++) t.stepTicks(60); t.stepTicks(60 * 30); const n = [...s.rear.values()].find((p) => p.side === "blue" && p.kind === "medical"); if (n) t.focusScale(n.x, n.y, ${name === "phone" ? 6 : 8}); t.stepTicks(1); return null;`);
+  await settle();
+  await shot("2-loading");
+  await ev(`const a = ${amb}; for (let k = 0; k < 1500 && a && a[1].offMap.phase !== "away"; k++) t.stepTicks(60); t.stepTicks(1); return null;`);
+  await page.waitForTimeout(300);
+  await shot("3-evacuated");
+  const log = await ev<unknown>(`const a = ${amb}; return { phase: a ? a[1].offMap.phase : null, men: [${info.hurt.join(",")}].map((id) => ({ id, evacuated: s.soldier.get(id).evacuated ?? null, alive: s.soldier.get(id).physiology.alive })) };`);
+  console.log(`${name}: medevac scene ${JSON.stringify({ called: info.phase, ...(log as object) })}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.4b carrying to and into vehicles (`--scene medical`): the mounted platoon battle (village), the lead squad gets
  * out, one of its men is knocked out (debug hook), and the squad is ordered back in: its men carry him to the Puma
  * (the "carried" frame) and lift him in; the platoon's medic and three men carry another on the folding litter (the
@@ -1595,6 +1635,7 @@ try {
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "nest") { await nestScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "medevac") { await medevacScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

@@ -68,7 +68,12 @@ describe("platoons with vehicles (M7.2)", () => {
 
   it("off by default: the same battle as before, on foot, with no vehicles", () => {
     const off = buildScenario(data, def(2, { vehicles: undefined }));
-    for (const f of off.forces) { expect(f.vehicles).toBeUndefined(); for (const u of f.units) expect(u.subunits).toHaveLength(3); }
+    // (M10.6a: only the ambulances waiting off the map, with their crews.)
+    for (const f of off.forces) {
+      const amb = new Set((f.offMap ?? []).map((a) => a.vehicleId));
+      expect((f.vehicles ?? []).filter((v) => !amb.has(v.vehicleId))).toEqual([]);
+      for (const u of f.units) if (u.vehicleId === undefined || !amb.has(u.vehicleId)) expect(u.subunits).toHaveLength(3);
+    }
   });
 
   it("the attacker starts aboard at its edge; the Russian platoon commander sits in the back of the first BMP-2; the defender's vehicles stand behind its objective, crews only", () => {
@@ -83,6 +88,7 @@ describe("platoons with vehicles (M7.2)", () => {
       // mounted: ok the test checks that every man is aboard
       for (const [id] of atkMen) expect(s.soldier.req(id).mount, `man ${id}`).toBeDefined();
       for (const [vid, v] of s.vehicle.entries()) {
+        if (v.offMap !== undefined) continue; // (the ambulances wait off the map, M10.6a)
         const t = s.transform.req(vid);
         if (v.side === atkSide) expect(atkSide === "blue" ? t.x < 0.4 * input.map.widthM : t.x > 0.6 * input.map.widthM).toBe(true);
         else {

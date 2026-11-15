@@ -5,9 +5,9 @@
  * with how many men lie at each. The sidebar draws the rows; the renderer draws the markers; the app turns a tap on
  * "Back" into an `evacuate` order and a dragged marker into a `casualtyPoint` order.
  */
-import type { EntityId, SimView } from "@tcs/sim";
+import { TICK_HZ, type EntityId, type SimView } from "@tcs/sim";
 
-export type WoundedStatus = "nest" | "carried" | "walking" | "treated" | "aboard" | "waiting" | "fighting";
+export type WoundedStatus = "nest" | "carried" | "walking" | "treated" | "aboard" | "waiting" | "fighting" | "evacuated";
 
 export interface WoundedRow {
   id: EntityId;
@@ -36,7 +36,8 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
     const ident = view.identity.get(id);
     if (!ident || ident.side !== side) continue;
     const party = view.carry.get(id);
-    const status: WoundedStatus = s.atNest !== undefined ? "nest"
+    const status: WoundedStatus = s.evacuated !== undefined ? "evacuated"
+      : s.atNest !== undefined ? "nest"
       : s.mount !== undefined ? "aboard"
       : party ? (party.carriers.length === 0 ? "walking" : "carried")
       : treated.has(id) ? "treated"
@@ -44,10 +45,36 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
     out.push({
       id, name: ident.family, callsign: view.unit.get(ident.unit)?.callsign ?? "", tag: s.triage?.cat ?? null, status,
       ordered: s.evacOrdered === true,
-      canEvacuate: status !== "nest" && status !== "aboard" && status !== "carried" && status !== "walking" && s.evacOrdered !== true,
+      canEvacuate: status !== "nest" && status !== "aboard" && status !== "carried" && status !== "walking" && status !== "evacuated" && s.evacOrdered !== true,
     });
   }
   return out.sort((a, b) => tagRank(a.tag) - tagRank(b.tag) || a.id - b.id);
+}
+
+/** One of the player's ambulances on a run (M10.6a): called (comes onto the map in about `dueS`), on its way to the
+ *  nest, there, leaving, or gone off the map with `aboard` men. */
+export interface AmbulanceRow {
+  id: EntityId;
+  callsign: string;
+  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost";
+  dueS: number;
+  aboard: number;
+}
+
+/** The side's ambulances (M10.6a): those on a run or done (rows), and how many still wait to be called. */
+export function ambulanceRows(view: SimView, side: string): { rows: AmbulanceRow[]; ready: number } {
+  const rows: AmbulanceRow[] = [];
+  let ready = 0;
+  for (const [id, v] of view.vehicle.entries()) {
+    const o = v.offMap;
+    if (o?.kind !== "ambulance" || v.side !== side) continue;
+    if (o.phase === "ready") { ready++; continue; }
+    let aboard = 0;
+    for (const sid of v.seats) { const s = sid === null ? undefined : view.soldier.get(sid); if (s && s.wounds.length > 0 && view.unit.get(view.identity.get(sid!)?.unit ?? -1)?.asset === undefined) aboard++; }
+    const dueS = o.phase === "called" ? Math.max(0, Math.round(((o.enterTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
+    rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: o.phase, dueS, aboard });
+  }
+  return { rows, ready };
 }
 
 export interface NestMarker {

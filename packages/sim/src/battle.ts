@@ -40,7 +40,7 @@ export interface SoldierRecord {
   load: ItemStack[];
   /** Outcome status after a battle. "fit" going in. */
   /** "surrendered" / "captured" (M6.6): such a record placed in a battle is a prisoner from the first tick. */
-  status: "fit" | "wounded" | "incapacitated" | "killed" | "missing" | "surrendered" | "captured";
+  status: "fit" | "wounded" | "incapacitated" | "killed" | "missing" | "surrendered" | "captured" | "evacuated";
 }
 
 export interface UnitInput {
@@ -103,6 +103,9 @@ export interface ForceInput {
   /** The force's vehicles (M7), and where each starts. */
   vehicles?: VehicleRecord[];
   vehiclePlacements?: { vehicleId: string; x: number; y: number; heading: number }[];
+  /** Off-map assets (M10.6a): vehicles of `vehicles` (with their crews) that start off the map and come on only when
+   *  called (an ambulance). They need no placement. */
+  offMap?: { vehicleId: string; kind: "ambulance" }[];
   /** Whether this side attacks or defends (scenario). Optional: absent = not stated. */
   posture?: "attack" | "defend";
 }
@@ -128,6 +131,8 @@ export interface SideResult {
   /** Living prisoners (M6.6): start = fit + wounded + killed + surrendered + captured. */
   surrendered: number;
   captured: number;
+  /** Of the wounded (M10.6a): evacuated off the map by ambulance. Absent: none. */
+  evacuated?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
   vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number };
 }

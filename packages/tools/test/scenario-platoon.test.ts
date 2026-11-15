@@ -13,9 +13,13 @@ describe("platoon battle generator (M6.2)", () => {
     expect(hashState(createSim(a).state)).toBe(hashState(createSim(b).state));
     // The attacker (blue here) has two platoons, the defender one (owner, M6 review); each of three squads.
     for (const f of a.forces) {
-      expect(f.units).toHaveLength(f.side === "blue" ? 2 : 1);
-      for (const u of f.units) expect(u.subunits).toHaveLength(3);
-      expect(f.placements.length).toBeGreaterThanOrEqual(19 * f.units.length);
+      // (M10.6a: besides the platoons, the crews of the ambulances waiting off the map.)
+      const amb = new Set((f.offMap ?? []).map((x) => x.vehicleId));
+      const plats = f.units.filter((u) => u.vehicleId === undefined || !amb.has(u.vehicleId));
+      expect(plats).toHaveLength(f.side === "blue" ? 2 : 1);
+      expect(f.units.length - plats.length).toBe(amb.size);
+      for (const u of plats) expect(u.subunits).toHaveLength(3);
+      expect(f.placements.length).toBeGreaterThanOrEqual(19 * plats.length);
     }
     // A scenario definition is plain data.
     expect(JSON.parse(JSON.stringify(def(4)))).toEqual(def(4));

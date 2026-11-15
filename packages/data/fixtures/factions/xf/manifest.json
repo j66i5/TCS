@@ -9,5 +9,9 @@
   "confidence": "low",
   "note": "Made-up test fixture.",
   "platoonTemplate": "cart-band",
-  "missileTeamTemplate": "dart-team"
+  "missileTeamTemplate": "dart-team",
+  "ambulance": {
+    "template": "litter-crew",
+    "count": 1
+  }
 }

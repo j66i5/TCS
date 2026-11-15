@@ -223,6 +223,31 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3b): a two-man beam-riding dart team on foot."
+    },
+    {
+      "id": "litter-crew",
+      "echelon": "vehicle",
+      "callsign": "Litter {n}",
+      "leaderIndex": 0,
+      "vehicle": "xf-litter-cart",
+      "members": [
+        {
+          "role": "carter",
+          "rank": "boss",
+          "seat": "carter",
+          "load": []
+        },
+        {
+          "role": "slinger",
+          "rank": "private",
+          "seat": "slinger",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M10.6a): the litter cart's crew, called from off the map."
     }
   ]
 }

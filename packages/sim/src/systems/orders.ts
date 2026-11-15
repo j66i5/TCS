@@ -5,6 +5,7 @@ import { droneOrder, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
+import { callAmbulanceOrder } from "./evacuation";
 import { startSetup } from "./mortars";
 import { teamOrderShot } from "./missile-team";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
@@ -133,6 +134,8 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       // The target is the wounded man himself (M10.5).
       if (!state.soldier.has(o.target)) return "invalid-params";
       return ctx.catalog.medical?.nest ? null : "not-applicable";
+    case "callAmbulance":
+      return ctx.catalog.medical?.nest && ctx.catalog.medical.evacuation ? null : "not-applicable";
   }
 }
 
@@ -274,6 +277,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // The Verwundetennest (M10.5): nobody's errand or drill changes.
   if (order.kind === "casualtyPoint") return casualtyPointOrder(ctx, state, events, order.target, order.x, order.y) ? true : "unable";
   if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
+  // An ambulance from the rear (M10.6a): the platoon's call; nothing of the unit changes.
+  if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
   if (order.kind === "drone") return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
   // Getting in and out (M7.2): replaces a drill or a boarding under way, like any order.

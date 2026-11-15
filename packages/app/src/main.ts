@@ -12,7 +12,7 @@ import { buildAppearance, formatErrors, Strings } from "@tcs/data";
 import { buildScenario, demoBattle, MAP_KINDS, vehicleBattle, type MapKind } from "@tcs/scenario";
 import { commanderController, vehicleWanderController, wanderController } from "@tcs/ai";
 import {
-  DT, environmentAt, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
+  DT, environmentAt, isOffMapMan, navFor, newBattleRecord, parseTimeOfDay, recordEvents, sideKnowledge, simHash, step, ticksToSeconds,
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
@@ -27,7 +27,7 @@ import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPo
 import { refreshTiles, showCard, showObjectives, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
-import { activeMoveOf, droneMode, placesOf, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
+import { activeMoveOf, ambulanceCaller, droneMode, placesOf, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -187,6 +187,8 @@ async function main(): Promise<void> {
       syncOrders(a); refreshTiles(a);
     },
     onEvacuate: (m) => { issue(a, { ...now(a, m), kind: "evacuate" }); refreshTiles(a); },
+    // M10.6a: the selected unit's platoon calls an ambulance (none selected: the first own platoon).
+    onCallAmbulance: () => { const u = ambulanceCaller(a); if (u !== null) { issue(a, { ...now(a, u), kind: "callAmbulance" }); refreshTiles(a); } },
     onContours: (on) => {
       a.contoursOn = on;
       renderer.setContoursAlways(on);
@@ -213,7 +215,8 @@ async function main(): Promise<void> {
   // M7.5b (owner answer 1): the battle opens zoomed in on the player's lead unit (his first squad; its vehicle
   // while it rides), at true scale.
   // mounted: ok the start view centres on every own man, aboard or not
-  const own = [...sim.state.identity.entries()].filter(([, i]) => i.side === playerSide).map(([id]) => sim.state.transform.req(id));
+  // (Not the men off the map, M10.6a: the ambulances' crews wait far outside it.)
+  const own = [...sim.state.identity.entries()].filter(([id, i]) => i.side === playerSide && !isOffMapMan(sim.state, sim.state.soldier.get(id))).map(([id]) => sim.state.transform.req(id));
   const leadAt = (() => {
     const tiles = unitTiles(sim.state, playerSide, input.catalog);
     const lead = tiles.find((t) => t.kind === "infantry") ?? tiles[0];

@@ -408,7 +408,7 @@ point of kind "medical" (supply points in M11 will be the same kind of thing). I
 the platoon's men needs taking back: 150 m behind the centre of the platoon's men (`core/medical.json` `nest`),
 away from the enemy they know (with nobody known, toward the nearest map edge), at the spot within 45 m that is
 hidden from that enemy for a man lying down, outside buildings, on ground a wheeled vehicle can reach from that
-edge (the ambulance of M10.6 will drive there). The platoon leader says so on the radio. Every 10 s it is looked
+edge (the ambulance drives there, below). The platoon leader says so on the radio. Every 10 s it is looked
 at: a known enemy within 100 m moves it, and an empty one left more than 300 m behind follows the platoon — unless
 the player put it there. **Who goes back:** a living wounded man who is out of the fight (unconscious, cannot walk
 or cannot fight), once nobody is treating him and his urgent needs are seen to (or nobody can see to them), T1
@@ -432,6 +432,31 @@ selects him, and **Back** sends him to the nest now (`evacuate`: first in the qu
 fight goes). The batch report's "Verwundetennest" line counts nests set up and moved, men sent back with bearers or
 walking, arrivals and returns to duty, the share of those to be taken back who reached the nest by the end, and the
 wrong tags put right.
+
+**Ambulances from the rear (M10.6a).** Each side's ambulances wait **off the map** (the Germans two Boxer
+ambulances, the Russians two BMM, from each faction's data): they are in the battle from the start with their crews,
+but stand far outside the map where nothing sees, hits or counts them, and their crews take no orders and are not
+part of the side's strength. When men lie at a platoon's Verwundetennest and no ambulance is already coming to it,
+the platoon calls one on the radio ("ambulance requested, about 13 min"); the player can call one any time with
+**Call ambulance** in the Wounded tab (for the selected platoon; refused with a radio reason when one is already
+coming or none is left). If, when it is due, nobody is waiting at the nest any more and nobody is on the way there
+(the men went back to their squads, or died), the call is stood down and the ambulance waits for the next. After the
+delay — drawn between 10 and 15 minutes (the owner's answer; `core/medical.json`
+`evacuation`) — it comes onto the map at the edge behind the nest (away from the enemy the platoon knows), on ground
+its wheels reach, drives there (slowly over the last 30 m) and stops about 15 m short of the men, or at the nearest
+ground it can reach. Its crew takes the men aboard one by one, T1 first, lying or sitting as its layouts allow (the
+Boxer 3 lying, or 7 sitting, or 2 lying and 3 sitting); each takes the hull's loading time, 20 s more, and the walk
+to him and back with a litter. It leaves when full, or when nobody has come aboard for two minutes and nobody else is
+on the way to the nest (at most ten minutes after it arrived): it backs away from the men, turns and drives back to
+where it came on, and leaves the map (held up on the way back for ten minutes, it is taken to have found another way
+off). The living wounded aboard are **evacuated**: they are out of the battle, their
+condition stays as it was (the aid station's outcome comes in M10.6b), and the after-action roster says
+"evacuated". Each hull makes one run. A hull that loses its driver or its wheels on the map is stranded there and
+is an ordinary vehicle from then on. The Wounded tab shows each run (on its way with the minutes left, driving to the
+nest, there with so many aboard, gone back with so many); the batch report's "Ambulances" line counts calls,
+arrivals, men taken aboard and evacuated, the time from a call to the arrival and from the first wound to leaving the
+map. `npm run lab -- medevac` checks that an ambulance arrives after the delay plus the drive it would need alone.
+Off-map assets are a general mechanism: supply runs (M11) will use the same.
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man

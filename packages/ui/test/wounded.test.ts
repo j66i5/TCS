@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { nestAt, nestMarkers, woundedRows } from "../src/wounded";
+import { ambulanceRows, nestAt, nestMarkers, woundedRows } from "../src/wounded";
 
 const hurt = (sev: number) => ({ id: 1, zone: "legL" as const, mechanism: "bullet" as const, severity: sev, bleedingLps: 0, compressible: false, airway: false, breathing: false, consciousness: false, tickInflicted: 0, treatments: [] });
 
@@ -48,5 +48,27 @@ describe("woundedRows and nestMarkers (M10.5)", () => {
     expect(m).toEqual([{ point: 999, unit: top, x: 100, y: 200, count: 1, placed: false }]);
     expect(nestAt(m, 104, 203, 6)?.point).toBe(999);
     expect(nestAt(m, 120, 200, 6)).toBeNull();
+  });
+
+  it("M10.6a: the side's ambulances: waiting ones counted, runs listed with the minutes left and the men aboard; evacuated men listed without Back", () => {
+    const sim2 = createSim(getScenario("platoon").build(loadData(), 1, 600));
+    const s2 = sim2.state;
+    const own = [...s2.vehicle.entries()].filter(([, v]) => v.side === "blue" && v.offMap !== undefined);
+    expect(own.length).toBe(2);
+    expect(ambulanceRows(s2, "blue")).toEqual({ rows: [], ready: 2 });
+    const [vid, v] = own[0]!;
+    v.offMap = { kind: "ambulance", phase: "called", callTick: 0, enterTick: 60 * 125 };
+    const h = simHash(sim2);
+    const r = ambulanceRows(s2, "blue");
+    expect(simHash(sim2)).toBe(h);
+    expect(r.ready).toBe(1);
+    expect(r.rows).toEqual([{ id: vid, callsign: s2.unit.get(v.unit!)!.callsign, phase: "called", dueS: 125, aboard: 0 }]);
+    // A man evacuated: listed as such, no Back.
+    const m = [...s2.identity.entries()].find(([, i]) => i.side === "blue")![0];
+    const sm = s2.soldier.req(m);
+    sm.wounds.push(hurt(0.5)); sm.evacuated = { tick: 0, vehicle: vid };
+    const row = woundedRows(s2, "blue").find((x) => x.id === m)!;
+    expect(row.status).toBe("evacuated");
+    expect(row.canEvacuate).toBe(false);
   });
 });

@@ -3,7 +3,7 @@
 A real-time, top-down tactical combat simulation at platoon to company scale, set in the present day.
 Plain visuals, deep simulation: every soldier is an individual and every projectile is simulated.
 
-- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **Wheeled carriers (GTK Boxer, BTR-82A), infantry tactics part 1, medical review tabs** (2026-11-15 14:45 UTC; deployed from `main`)
+- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **Medical system complete (M10), infantry tactics part 2: fire distribution, ambush and arc orders** (2026-11-15 16:46 UTC; deployed from `main`)
 - Specification: [`docs/SPEC.md`](docs/SPEC.md) · Status: [`docs/STATE.md`](docs/STATE.md) ·
   Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md) · Tour: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md)
 

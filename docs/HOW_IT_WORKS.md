@@ -358,6 +358,29 @@ none willing to go under fire), "waits: unwilling", "waits: no kit". The batch r
 line counts life-threatening needs, deaths of wounds after one (preventable deaths), wrong tags by training and
 drags.
 
+**Men down, identity tags, crawling into cover, prisoners' care (owner requests 2026-11-15).** A man who goes down
+is, to his comrades, **"down, state unknown"**: from where they lie they cannot tell a wounded man from a dead one.
+So they come to him as to any urgent casualty (his first responder and a comrade, or the man beside him), and under
+fire they first drag him into cover — even if he is in fact dead. Only a comrade beside him can **check** him (about
+5 s: does he respond, does he breathe; `core/medical.json` `down`, game values): a living man is checked by the first
+treatment a comrade gives him, a dead one by this check, and only then do his comrades know he is dead. Found dead,
+his **identity tag** is taken: every soldier carries his side's tag as a counted item (the German Erkennungsmarke is
+two halves, counted as two: one half is broken off and taken, the other stays with the body; the Russian personal tag
+is one plate, taken whole; `factions/<id>/doctrine.json` `identityTag`, research from search extracts only). The man
+who checked him takes it (8 s) when it is quiet enough — not suppressed, no rounds cracking past him for 20 s; if it
+is too hot he goes back to his place, and later, when it is quiet, a willing comrade goes to fetch it. The body stays
+where it lies. A carrying party that feels the man it carries die knows he is dead. **A wounded man who cannot walk
+but can use his arms crawls into cover himself** while he is under fire: to the nearest spot within 10 m hidden from
+the enemy (a way of at most 15 m), at the crawl pace (0.3 m/s) slowed by his wounds — unless a carer of his is
+within 15 m, then he waits for him. **Prisoners are cared for like one's own** (Geneva Convention I art. 12: the
+order of treatment by medical urgency alone): a surrendered or captured wounded man is treated by the men of the side
+holding him — buddy aid, carers, first responders and medics — and carers are sent to the most urgent casualties
+first, whichever side they belong to (then nearest first). The man box says "checking a comrade who is down",
+"taking a fallen comrade's identity tag", "crawling into cover, wounded". The review's Medical tab gives per side
+the men checked, how many were found dead, dead men dragged into cover before anyone knew, tags recovered, wounded who
+crawled into cover, treatments of men held prisoner and surrendered men who crawled out of the fire; the batch
+report has a "Men down" line with the same counts.
+
 **Carrying (M10.4a).** Moving a casualty is a **carrying party**: one or more men and the man they carry, moving
 together as one. Each way of carrying is a line in `core/medical.json` `carry`: **walking wounded** (he walks
 himself, 0.9 m/s), **supported** (an arm over a comrade's shoulder, 0.6 m/s), the **drag** (one man, crouched,
@@ -664,7 +687,13 @@ within about 80 m whom he knew of or who can see him (preferring one who has see
 close he lies down and waits until it has passed; after about 90 seconds he stops and waits where he is. An enemy
 who comes within a few metres takes him prisoner (a white square) and, if he has nothing else to do, turns to
 cover him. A man who cannot walk (or has stopped walking) stays where he is: when it is quiet, one enemy nearby
-who saw it walks over to take him and then goes back. A surrendered or captured man costs his side the same as a man
+who saw it walks over to take him and then goes back. **Under fire** (owner request 2026-11-15) a surrendered man who
+can use his arms goes down and crawls out of the line of fire: to the nearest spot within about 15 m hidden from where
+the rounds come from (else from the nearest enemy he knows), by a way of at most about 25 m; once the fire has passed he
+goes on with his walk over, or waits there to be fetched. A wounded prisoner is treated by the enemy's men like their
+own (above, under care). **Fog of war:** a surrendered or captured enemy is shown like any enemy man — as a figure only
+while your men see him now, otherwise as his contact marker with a white flag at the place he was last seen (the
+flag fades with the marker). A surrendered or captured man costs his side the same as a man
 down. Your fire tap on an enemy your men know has surrendered gives no order.
 
 ## Vehicles and riding in them (M7)

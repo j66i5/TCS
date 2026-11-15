@@ -628,6 +628,17 @@
       ],
       "confidence": "low",
       "note": "M9.4a: the quadcopter's flight battery; charge in Wh (Mavic 3 class: 77 Wh; DE a game value). Three per drone (game value, low)."
+    },
+    {
+      "id": "de-erkennungsmarke",
+      "nameKey": "item.de-erkennungsmarke",
+      "category": "identity",
+      "massKg": 0.01,
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/persoenliche-ausruestung-bekleidung/erkennungsmarke-6162196"
+      ],
+      "confidence": "medium",
+      "note": "One half of the Bundeswehr Erkennungsmarke: an oval stainless-steel tag perforated across the middle, both halves stamped alike, so either half identifies the man; on his death one half is broken off for the formalities and the other stays with him (bundeswehr.de, search extract). Counted as two items per man (a whole tag = two halves). Mass about 10 g per half: not published, typical value (low)."
     }
   ]
 }

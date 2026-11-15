@@ -407,6 +407,8 @@ export interface BehaviourDef {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     fetchWithinM: number; fetchQuietSeconds: number; fetchTimeoutSeconds: number;
     walkToEnemyM: number; walkSeenFactor: number; handOverM: number; walkSpeedFactor: number; walkReplanM: number; walkTimeoutSeconds: number;
+    /** Owner request 2026-11-15: under fire he crawls to cover this close (absent or 0: he lies where he is), by a way at most crawlMaxM. */
+    crawlSearchM?: number; crawlMaxM?: number;
   };
   /**
    * Getting in and out of vehicles (M7.2). boardReachM: a man this close to an exit can board; approachReplanM:
@@ -648,6 +650,9 @@ export interface FactionDef {
   dismountM?: number;
   /** After the squads are out (M7.3): vehicles stay in overwatch, or follow the squads `followM` behind. */
   afterDismount?: { kind: "overwatch" | "follow"; followM: number };
+  /** The identity tag every man carries (owner request 2026-11-15): `perMan` of `item` each, `taken` of them taken
+   *  from a man confirmed dead. Absent: no tags. */
+  identityTag?: { item: DefId; perMan: number; taken: number };
 }
 
 export interface FormationDef {
@@ -769,6 +774,17 @@ export interface MedicalDef {
   carers?: {
     comradeReachM: number; responderReachM: number; urgentTreats: string[]; willingAt: number; behaviourK: Record<string, number>;
     suppressionK: number; otherUnitK: number; exposedK: number; responderK: number; comradesPerCasualty: number; timeoutS: number;
+  };
+  /**
+   * Men down (owner request 2026-11-15; absent: the dead are known dead at once, no tags, no crawling). checkS: the
+   * check of a man down whose state his comrades do not know; tagS: taking a dead man's identity tag, done only with
+   * the taker's suppression below tagSuppression and no rounds past him for tagQuietS (else fetched by a comrade later);
+   * a conscious casualty who cannot walk but can crawl crawls to cover within crawlSearchM (way at most crawlMaxM),
+   * looked at every crawlLookS, unless a carer is within crawlCarerNearM of him.
+   */
+  down?: {
+    checkS: number; tagS: number; tagSuppression: number; tagQuietS: number;
+    crawlSearchM: number; crawlMaxM: number; crawlLookS: number; crawlCarerNearM: number;
   };
 }
 

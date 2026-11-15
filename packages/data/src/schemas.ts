@@ -405,6 +405,8 @@ export const BehaviourFile = withProv({
     stepSeconds: Num(0.1, 10), downedEnemyM: Num(0, 500), comradeNearM: Num(0, 500), caughtEnemyM: Num(0, 500), attackerDownedEnemyM: Num(0, 500), attackerPanicGivesUp: z.boolean(), captureM: Num(0, 50),
     fetchWithinM: Num(0, 500), fetchQuietSeconds: Num(0, 600), fetchTimeoutSeconds: Num(1, 3600),
     walkToEnemyM: Num(0, 500), walkSeenFactor: Num(0.05, 1), handOverM: Num(0, 50), walkSpeedFactor: Num(0.1, 1), walkReplanM: Num(0.5, 100), walkTimeoutSeconds: Num(1, 3600),
+    /** Owner request 2026-11-15: a surrendered man under fire crawls to cover this close (0 = off), by a way at most crawlMaxM. */
+    crawlSearchM: Num(0, 100).optional(), crawlMaxM: Num(0, 200).optional(),
   }).strict(),
   /** Getting in and out of vehicles (M7.2): the same for every side. */
   mounting: z.object({
@@ -596,6 +598,11 @@ export const MedicalFile = z.object({
     comradeReachM: Num(0, 1000), responderReachM: Num(0, 2000), urgentTreats: z.array(z.string()),
     willingAt: Num(0, 10), behaviourK: z.record(z.string(), Num(0, 2)), suppressionK: Num(0, 5), otherUnitK: Num(0, 1),
     exposedK: Num(0, 1), responderK: Num(0, 10), comradesPerCasualty: z.number().int().min(0).max(4), timeoutS: Num(1, 3600),
+  }).optional(),
+  /** Men down, dead or alive (owner request 2026-11-15): the check, the identity tag, a casualty crawling to cover. */
+  down: withProv({
+    checkS: Num(0.5, 120), tagS: Num(0.5, 120), tagSuppression: Num(0, 1), tagQuietS: Num(0, 600),
+    crawlSearchM: Num(0, 100), crawlMaxM: Num(0, 200), crawlLookS: Num(0.5, 60), crawlCarerNearM: Num(0, 200),
   }).optional(),
 }).strict();
 export type MedicalT = z.infer<typeof MedicalFile>;
@@ -1025,6 +1032,9 @@ export const DoctrineFile = withProv({
      *  squads this far behind, supporting them by fire. Default overwatch. */
     afterward: z.enum(["overwatch", "follow"]).optional(), followM: Num(0, 2000).optional(),
   }).optional(),
+  /** The identity tag every soldier carries (owner request 2026-11-15): `perMan` of the item each; `taken` of them
+   *  are taken from a man confirmed dead (the German tag's broken-off half, the Russian tag whole). */
+  identityTag: withProv({ item: Id, perMan: z.number().int().min(1).max(4), taken: z.number().int().min(1).max(4) }).optional(),
 });
 
 export type FactionManifestT = z.infer<typeof FactionManifest>;

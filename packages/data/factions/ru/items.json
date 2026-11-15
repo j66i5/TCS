@@ -562,6 +562,18 @@
       ],
       "confidence": "medium",
       "note": "M9.4a: the quadcopter's flight battery; charge in Wh (Mavic 3 class: 77 Wh; DE a game value). Three per drone (game value, low)."
+    },
+    {
+      "id": "ru-lichny-znak",
+      "nameKey": "item.ru-lichny-znak",
+      "category": "identity",
+      "massKg": 0.015,
+      "sources": [
+        "https://www.kontur-extern.ru/info/normativ/document/1/8312-prikaz-ministra-oborony-rf-ot-05-11-2000-n-500",
+        "https://harant.ru/questions/q-13226/"
+      ],
+      "confidence": "low",
+      "note": "The Russian serviceman's personal tag (lichny znak, a metal plate with the personal number; Order of the Minister of Defence No. 500 of 5 Nov 2000, search extracts only): one piece, not halved. Mass about 15 g: typical value (low)."
     }
   ]
 }

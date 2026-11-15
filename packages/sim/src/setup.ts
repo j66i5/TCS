@@ -8,7 +8,7 @@ import type { DriveState, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
-import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { addItems, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
 import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
@@ -265,6 +265,11 @@ function addSoldier(
   state.soldier.set(id, s);
   const c = emptyContainer();
   for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+  // His identity tag (owner request 2026-11-15; faction data): issued if his record has none.
+  const tag = catalog.medical?.down !== undefined ? catalog.factions[faction]?.identityTag : undefined;
+  if (tag && catalog.items[tag.item] && countItems(c, tag.item) === 0) addItems(c, tag.item, tag.perMan);
+  // A man dead before the battle is known dead.
+  if (!s.physiology.alive) s.checked = { tick: 0, by: id, dead: true };
   state.container.set(id, c);
   if (rec.weapon !== undefined) {
     const wd = catalog.weapons[rec.weapon];

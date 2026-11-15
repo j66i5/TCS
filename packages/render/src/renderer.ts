@@ -1330,10 +1330,11 @@ export class BattleRenderer {
         }
         g.stroke({ width: 1.5, color: colour, alpha: 0.7 * fade });
         g.moveTo(s.x - d * 0.6, s.y - d * 0.6).lineTo(s.x + d * 0.6, s.y + d * 0.6).moveTo(s.x + d * 0.6, s.y - d * 0.6).lineTo(s.x - d * 0.6, s.y + d * 0.6).stroke({ width: 2, color: colour, alpha: fade });
-        if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d);
+        if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d, fade);
         continue;
       }
-      if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d);
+      // (A known prisoner's flag fades with his marker: where he was last seen, not where he is; owner 2026-11-15.)
+      if (k.surrendered) drawWhiteFlag(g, s.x, s.y, d, inSightNow(k) ? 1 : fade);
       if (rr > d * 1.5) g.circle(s.x, s.y, rr).stroke({ width: 1, color: colour, alpha: 0.45 * fade });
       if (inSightNow(k)) g.poly(diamond).fill({ color: colour }).stroke({ width: 1, color: 0x000000, alpha: 0.6 });
       else g.poly(diamond).stroke({ width: 2, color: colour, alpha: fade });
@@ -1724,10 +1725,10 @@ export function drawNestMarker(g: Graphics, x: number, y: number, alpha: number)
   g.rect(x - b, y - a, 2 * b, 2 * a).fill({ color: 0xd22a22, alpha });
 }
 
-function drawWhiteFlag(g: Graphics, x: number, y: number, r: number): void {
+function drawWhiteFlag(g: Graphics, x: number, y: number, r: number, alpha = 1): void {
   const k = Math.max(r, 4);
-  g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a });
-  g.rect(x + 0.6 * k, y - 2.6 * k, 1.4 * k, 0.9 * k).fill({ color: 0xffffff }).stroke({ width: 1, color: 0x2a2a2a });
+  g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a, alpha });
+  g.rect(x + 0.6 * k, y - 2.6 * k, 1.4 * k, 0.9 * k).fill({ color: 0xffffff, alpha }).stroke({ width: 1, color: 0x2a2a2a, alpha });
 }
 
 function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): boolean {

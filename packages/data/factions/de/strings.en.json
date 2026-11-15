@@ -128,5 +128,6 @@
   "ammo.de-155-illum": "155 mm illumination shell",
   "ammo.de-120-illum": "120 mm illumination bomb",
   "item.de-quadcopter": "Reconnaissance quadcopter",
-  "item.de-drone-battery": "Drone battery"
+  "item.de-drone-battery": "Drone battery",
+  "item.de-erkennungsmarke": "Identity tag (Erkennungsmarke), half"
 }

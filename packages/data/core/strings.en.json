@@ -680,5 +680,11 @@
   "radio.droneOverhead": "{callsign}: enemy drone overhead!",
   "radio.droneDown": "{callsign}: drone shot down.",
   "radio.fireCallDrone": "{callsign}: mortars have it, target fixed by the drone, first round in {s} s.",
-  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s."
+  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s.",
+  "man.activity.checking": "checking a comrade who is down",
+  "man.activity.takingTag": "taking a fallen comrade's identity tag",
+  "man.activity.crawling": "crawling into cover, wounded",
+  "aar.medical.down": "{side}: {checked} men down checked by a comrade, {dead} of them found dead ({dragged} dead men dragged into cover before anyone knew); identity tags recovered from {tags} fallen; {crawled} wounded crawled into cover",
+  "aar.medical.prisoners": "{side}: {treated} treatments of its men held prisoner by the enemy; {crawled} times a surrendered man crawled out of the fire",
+  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up"
 }

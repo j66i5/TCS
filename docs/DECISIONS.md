@@ -5153,3 +5153,84 @@ order dispatch (casualty point and evacuate next to drone). The app's card row f
 record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, its gunner). Goldens regenerated with
 `npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
 now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.
+
+## 2026-11-15 — Men down, identity tags, casualties and prisoners crawling to cover, prisoners' care, surrendered men under fog (owner requests 2026-11-15; goldens regenerated)
+Owner requests 2026-11-15 (binding), each logged here as "owner request 2026-11-15":
+- **A (bug): "surrendered enemy soldiers are always visible to the player."** Investigated: the renderer draws an enemy
+  man as a figure only when `fog.ts` `enemyMenInSight(overlay.known)` lists him (a "seen" contact under 2 s old), and
+  surrendered or captured men take the same path; `sideKnowledge` builds `known` from the side's able men's contacts
+  only. Measured (platoon and platoon-ru seeds 1-6, 900 s; prisoners only in platoon seeds 4 and 6): a prisoner was "in
+  sight now" in 81-88 % of samples, and in seed 4 (1,243 samples, one a second) an able enemy had a clear line to him
+  in the same share (10 samples in sight without one, all inside the 2 s window after he went behind something), so
+  the figure follows real sight; prisoners are in sight so
+  often because they walk over to the enemy, stand upright with hands up and are then kept next to their captor. A
+  prisoner put out of sight in the app (debug hook) is not drawn. What did not follow the fog rule: the white flag on
+  a known prisoner's contact marker was drawn at full strength however old the contact was, so a stale "where he
+  was" marker looked like a live sighting. Fixed: the flag fades with its marker (`drawWhiteFlag` alpha; `renderer.ts`).
+  Rule written down (HOW_IT_WORKS "Surrender"): surrendered and captured enemies are figures only while in sight now,
+  otherwise their contact marker or pin with the white flag. Test `medical-down.test.ts` "fog of war": a surrendered
+  enemy is in sight while seen and never "in sight now" once behind a wall, his contact keeping the surrender flag.
+  If the owner still sees prisoners where his men cannot, a seed and time would let us find it.
+- **B: "make soldiers collect body tags and drag wounded behind cover; soldiers should not know right away whether
+  someone is lost for good."** Built (systems/medical.ts header, core/medical.json `down`, game values, low):
+  - "Down, state unknown": a dead man his side has not checked (`SoldierState.checked`, new optional field; absent or
+    `dead: false` from before he died = unknown; `downUnknown` in sim/src/medical.ts). Comrades come to him as to an
+    urgent casualty (a first responder and a comrade within their reach, or a free man beside him); under fire the
+    carer drags him into cover first (the M10.3b drag; `startCarry` and the carry system accept a dead payload only for
+    a drag to cover while he is unknown; `medical.dragged` carries `deadNow`); then the `checkDown` action
+    (`down.checkS` 5 s) finds him dead (`medical.checked`). A living man is "checked" by a comrade's first treatment
+    (his triage). Carriers who feel the man they carry die know it (no check).
+  - Identity tags (rule 9): faction data `doctrine.json` `identityTag {item, perMan, taken}`: DE `de-erkennungsmarke`,
+    two items per man (the two halves), one taken (bundeswehr.de "Erkennungsmarke", search extract: perforated, both
+    halves stamped alike, one half for the formalities, one stays with the fallen; medium); RU `ru-lichny-znak`, one
+    per man, taken whole (MoD order No. 500 of 2000 and a legal Q&A, search extracts only; whether Russian practice
+    leaves it on the body is not in the extracts: low). Issued at setup to every man whose record has none (only with
+    the `down` data); masses typical values (low). After the check, the man who checked him takes the tag with the
+    `takeTag` action (`down.tagS` 8 s, `transferItems` from the body's container) when it is quiet for him (his
+    suppression below `down.tagSuppression` 0.1, not cowering, no rounds past him for `down.tagQuietS` 20 s; first
+    tried with "his unit not fired on for 20 s", which in seed-1 platoon left 5 of 6 tags behind for the whole battle);
+    else he goes back and a willing comrade fetches it later when it is quiet (`medical.tagTaken`). The body stays.
+  - Record (`RECORD_VERSION` 3; older saves start the review afresh) `SideRecord.down`; review Medical tab lines
+    `aar.medical.down`, `aar.medical.prisoners`; batch line "Men down"; man box "checking a comrade who is down",
+    "taking a fallen comrade's identity tag".
+- **C: "wounded soldiers that cannot walk might crawl behind cover as well."** A conscious casualty who cannot walk
+  (`impair.canWalk` false) but can use his arms, under fire for care, halted, not carried, crawls to the nearest spot
+  hidden from the enemy within `down.crawlSearchM` 10 m (`coverSpotNear`, `routeBetween`, way at most `crawlMaxM` 15 m)
+  at the crawl mode's pace times his `impair.move` (0.3 m/s × e.g. 0.46 with a broken leg), looked at every
+  `down.crawlLookS` 4 s, unless a carer of his is within `down.crawlCarerNearM` 15 m. `medical.crawled`;
+  `SoldierState.crawlCover`; the spot is his `sheltered` place once he is there (care in cover as after a drag).
+- **D: "same applies to surrendered that want to get out of the line of fire."** A surrendered man (not yet taken)
+  who is conscious and can use his arms, at `decisions.seekCoverSuppression` or more, crawls to the nearest spot within
+  `behaviour.json surrender.crawlSearchM` 15 m hidden from where the rounds come from (else the nearest enemy he
+  knows), way at most `crawlMaxM` 25 m; the walk over is paused (`handOver.down`) and goes on when the fire has faded,
+  or he waits there to be fetched. His crawl is not slowed by the hands-up walking factor. `surrender.crawl` event and
+  timeline line. `crawlSearchM` 0 or absent: the old rule (he lies where he is).
+- **E (coordinator relay, owner 2026-11-15): "medics also help surrendered enemy soldiers and don't discriminate
+  against them in their triage."** Laws-of-war default for every side, no faction difference in data (no per-unit
+  compliance value exists in medical.json): a prisoner's carers, buddy aid and first responders are the men of the
+  side holding him (`careSide`), with the same willingness rules as for a man of another squad; carers are now sent
+  to the casualties waiting for one urgent first (T1-looking needs), then in ID order — never by side (Geneva
+  Convention I art. 12). "Medic!" is not called on a prisoner's own radio. Test: a surrendered enemy with a massive
+  bleed gets the only first responder before an own man with a light wound (before this change he got nobody, and the
+  first responder went to the own man first by ID order). Review line counts treatments of men held prisoner.
+- **Software decisions (owner to review):** the check is needed only for the dead (a living man's state is known
+  from the first treatment); unknown dead men draw carers like urgent casualties, which takes first responders away
+  from the living for a while (the realism asked for); a carer at a body under fire waits beside it for the next
+  drag look (4 s) rather than checking at once; the tag is taken by the checker or fetched later, never by a man
+  under fire.
+- **State:** new optional fields only (`checked`, `crawlCover`; events `medical.checked`, `medical.tagTaken`,
+  `medical.crawled`, `surrender.crawl`, `deadNow` on `medical.dragged`). Save/load hash tests mid-check and mid-crawl
+  in `tools/test/medical-down.test.ts`.
+- **Measured** (10 seeds × 1200 s, before = c74e54d, after = this change; batch "Men down" line, sums over 10
+  battles, blue / red): platoon — killed 67 / 104, checked 38 / 38 (all found dead), dead dragged into cover before
+  the check 2 / 0, tags recovered from 26 / 33 fallen, wounded crawled to cover 5 / 4, prisoners' treatments by the
+  enemy 1 / 3, surrendered crawled 0 / 0; platoon-ru — killed 112 / 39, checked 26 / 29, dead dragged 2 / 1, tags 21 /
+  33, crawled 1 / 1, prisoners treated 3 / 0, surrendered crawled 0; platoon-vehicles — killed 67 / 247 (crews
+  included), checked 37 / 40, dead dragged 0 / 6, tags 38 / 30, crawled 0 / 3, prisoners treated 0 / 3, surrendered
+  crawled 0 / 1. Outcomes (attacker wins, before → after): platoon blue 3 → 3; platoon-ru red 8 → 7; platoon-vehicles
+  blue 7 → 9; mean casualties per side within ±2.2 men: within the noise of 10 seeds.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data and behaviour): demo, shootout, fixture,
+  vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors` untouched.
+- **Not done:** no new sprite for checking a man or taking his tag (the man kneels beside the body; the man box says
+  what he does); a crawling casualty uses the existing crawl frame. The perf check of bench-vehicles was skipped (the
+  machine was loaded by another build); the new work runs once a second in the medical system, not per tick.

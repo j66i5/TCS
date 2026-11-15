@@ -132,5 +132,16 @@
       "droneReadM": 3,
       "airReadM": 6
     }
+  },
+  "identityTag": {
+    "item": "ru-lichny-znak",
+    "perMan": 1,
+    "taken": 1,
+    "sources": [
+      "https://www.kontur-extern.ru/info/normativ/document/1/8312-prikaz-ministra-oborony-rf-ot-05-11-2000-n-500",
+      "https://harant.ru/questions/q-13226/"
+    ],
+    "confidence": "low",
+    "note": "Every soldier wears his lichny znak (one plate with his personal number; MoD order No. 500 of 2000, search extracts only). It is not halved; the game has the comrade who confirms a man dead take it whole (whether Russian practice leaves it on the body is not in the extracts: low)."
   }
 }

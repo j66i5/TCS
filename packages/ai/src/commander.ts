@@ -23,6 +23,7 @@
  *
  * Its memory is plain data (saved with the game). Values not from data are listed in COMMANDER.
  */
+import { withDrones } from "./drone";
 import {
   atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
@@ -419,7 +420,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     }
   };
 
-  return {
+  const ctl: Controller = {
     side,
     think(view, tick): Order[] {
       if (view.ended || tick % every !== 0) return [];
@@ -1379,6 +1380,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     saveState: () => JSON.parse(JSON.stringify(mem)) as unknown,
     loadState: (d) => { mem = JSON.parse(JSON.stringify(d)) as Memory; },
   };
+  // (M9.4b: it also keeps its platoons' drones up, over where it wants to look.)
+  return withDrones(ctl, input);
 }
 
 function clamp(v: number, max: number): number { return Math.min(Math.max(v, 5), max - 5); }

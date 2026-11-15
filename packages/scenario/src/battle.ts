@@ -48,6 +48,8 @@ export interface ScenarioDef {
   /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
    *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
   artillery?: boolean;
+  /** M9.5: sides with an off-map fixed-wing reconnaissance drone overhead (it locates targets and watches falls). */
+  airRecon?: string[];
 }
 
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
@@ -225,6 +227,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       if (catalog.factions[def.factions[s]!]?.artillery) rules.support!.push({ side, ...SCENARIO_ARTILLERY, asset: "artillery" });
     });
   }
+  if (def.airRecon && def.airRecon.length > 0) rules.airRecon = [...def.airRecon];
   return { map, catalog, forces, rules, seed: def.seed, orders: [] };
 }
 

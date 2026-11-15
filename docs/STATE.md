@@ -55,7 +55,10 @@ M8 (slice 29): `?look=classic` deleted, perf re-baselined, `docs/research/low-co
 platoon HQ (DE Funker, RU commander): launched by the `drone` order into an entity with its own battery, a busy
 operator, cameras that search the ground below, a feed over the radio with the usual delay, a sidebar tile where
 Move means fly and Halt brings it home. `npm run lab -- drone`, `--scene drone`, scenario `bench-drones`. The AI
-does not fly it yet. Next: M9.4b counter-drone and AI use, M9.5 drone-observed fire.
+AI keeps its drones up 220 m short of the enemy at 120 m (M9.4b); men see and hear enemy drones (in `seen`, not
+contacts), call them out and fire at those within 200 m (abstract hit box, `droneHitChance`). M9.5: a call is
+located by the drone (or an off-map reconnaissance drone, `?air=blue`) when that is better, and drones read the falls.
+Next on this line: M9.6 night AI and balance (hiding from drones).
 
 **Main battle tanks: data and labs (2026-11-14, roadmap-detail slice 39 "M7.6a", parallel session; DECISIONS
 "M7.6a").**

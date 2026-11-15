@@ -640,6 +640,10 @@ export interface DroneState {
   aloneSince?: number;
   /** It has called "battery low" (coming home). */
   low?: true;
+  /** Hit (M9.4b): it falls at this tick (when the round that hit it arrives). */
+  hitTick?: number; hitBy?: EntityId;
+  /** M14 hook: its control link (absent: as now, the operator always reaches it within its control range). */
+  link?: "radio" | "fibre";
   seen: { target: EntityId; firstTick: number; lastTick: number; rep?: number }[];
 }
 

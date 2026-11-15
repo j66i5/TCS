@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import { buildScenario } from "@tcs/scenario";
-import { countItems, createSim, hashState, loadSim, saveSim, step, submitOrder, type Sim, type SimEvent } from "@tcs/sim";
+import { commanderController } from "@tcs/ai";
+import { countItems, createSim, droneHitChance, hashState, loadSim, runBattle, saveSim, step, submitOrder, type Sim, type SimEvent } from "@tcs/sim";
 import { droneLab, droneLabBattle } from "../src/labs/drone";
 import { loadData } from "../src/scenarios";
 
@@ -111,5 +112,55 @@ describe("drone lab (M9.4a)", () => {
     expect(row("prone, still, in woodland", 100, true).within60).toBeGreaterThan(row("prone, still, in woodland", 100).within60);
     expect(r.endurance.recovered).toBe(true);
     expect(r.endurance.upMinutes).toBeGreaterThan(15);
+  });
+});
+
+describe("counter-drone and AI use (M9.4b)", () => {
+  it("a man free to fire sees a drone overhead, fires at it, and never takes it for a contact", () => {
+    const input = droneLabBattle(cat, { name: "c", altM: 80, posture: "standing" }, 7, 900);
+    const sim = createSim(input);
+    const ids = [...sim.state.identity.entries()];
+    const op = ids.find(([, i]) => i.side === "blue")![0], tid = ids.find(([, i]) => i.side === "red")![0];
+    const ru = [...sim.state.unit.keys()].find((u) => sim.state.unit.get(u)!.side === "red")!;
+    submitOrder(sim, { tick: 0, issuer: "red", target: ru, kind: "rules", fire: "free", maxEngageM: 200 });
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 400, y: 200, altM: 80 });
+    let fired = false, overhead = false;
+    for (let k = 0; k < 300 * 60 && !fired; k++) for (const e of step(sim)) {
+      if (e.kind === "radio" && e.key === "radio.droneOverhead") overhead = true;
+      if (e.kind === "shot.fired" && e.shooter === tid) { const ft = sim.state.fire.get(tid); if (ft?.contact !== undefined && sim.state.drone.has(ft.contact)) fired = true; }
+    }
+    expect(fired).toBe(true);
+    expect(overhead).toBe(true);
+    const s = sim.state.soldier.req(tid);
+    expect(s.contacts.some((c) => sim.state.drone.has(c.target))).toBe(false);
+  });
+
+  it("the hit chance falls with range and with the drone moving", () => {
+    const { sim, op } = lab(9);
+    submitOrder(sim, { tick: 0, issuer: "blue", target: op, kind: "drone", op: "fly", x: 400, y: 200, altM: 100 });
+    run(sim, 150);
+    const id = [...sim.state.drone.keys()][0]!;
+    const t = sim.state.transform.req(id);
+    const at = (dx: number) => droneHitChance(sim.ctx, sim.state, id, t.x + dx, t.y, 1.5, t.x, t.y, t.z, 0.002, 900);
+    expect(at(0)).toBeGreaterThan(at(150));
+    expect(at(0)).toBeLessThanOrEqual(cat.spotting.drone!.maxHitChance);
+    const still = at(50);
+    sim.state.drone.req(id).mode = "fly";
+    expect(at(50)).toBeLessThan(still);
+  });
+
+  it("the AI commander keeps its platoons' drones up", () => {
+    const input = buildScenario(data, { kind: "platoon-attack", seed: 2, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: 300 });
+    const ups = new Set<string>();
+    runBattle(input, { controllers: [commanderController("blue", input), commanderController("red", input)], onEvents: (es) => { for (const e of es) if (e.kind === "drone.launched") ups.add(e.side); } });
+    expect([...ups].sort()).toEqual(["blue", "red"]);
+  });
+
+  it("lab: low and close drones come down, one that keeps its standoff does not", () => {
+    const rows = droneLab(data, 8).counter;
+    const row = (name: string, alt: number, off: number) => rows.find((x) => x.name === name && x.altM === alt && x.offsetM === off)!;
+    expect(row("one rifleman", 50, 0).down).toBeGreaterThan(row("one rifleman", 150, 0).down);
+    expect(row("four riflemen", 120, 220).down).toBe(0);
+    expect(row("four riflemen", 100, 0).seen60).toBeGreaterThanOrEqual(6);
   });
 });

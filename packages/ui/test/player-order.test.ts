@@ -39,11 +39,13 @@ describe("playerOrder", () => {
     }
     expect(aiVehicleOrders).toBeGreaterThan(0);
     expect(held).toBe(0);
-    // A player's gesture to a vehicle crew (through playerOrder) still makes the hull hold its order.
-    const [uid, u] = [...sim.state.unit.entries()].find(([, x]) => x.vehicle !== undefined && sim.state.vehicle.get(x.vehicle) !== undefined)!;
-    const v = sim.state.vehicle.req(u.vehicle!);
-    submitOrder(sim, playerOrder({ tick: sim.state.tick, issuer: u.side, target: uid, kind: "halt" }, 0, outdoors));
-    for (let k = 0; k < 10 * 60 && !v.playerHold; k++) step(sim); // (the order goes out over the radio)
+    // A player's gesture to a vehicle crew (through playerOrder) still makes the hull hold its order. (On a fresh
+    // battle: with the AI's drones flying, M9.4b, this seed's battle can be over before two minutes, a side broken.)
+    const sim2 = createSim(input);
+    const [uid, u] = [...sim2.state.unit.entries()].find(([, x]) => x.vehicle !== undefined && sim2.state.vehicle.get(x.vehicle) !== undefined)!;
+    const v = sim2.state.vehicle.req(u.vehicle!);
+    submitOrder(sim2, playerOrder({ tick: sim2.state.tick, issuer: u.side, target: uid, kind: "halt" }, 0, outdoors));
+    for (let k = 0; k < 10 * 60 && !v.playerHold; k++) step(sim2); // (the order goes out over the radio)
     expect(v.playerHold).toBe(true);
   });
 });

@@ -324,6 +324,47 @@
       ],
       "confidence": "low",
       "note": "The 2A46M-5 as the 9K119M Refleks-M launcher (M7.6a): a separate weapon entry on the same station and muzzle, so its missiles are counted apart from the gun's carousel rounds (the real carousel holds both). Search extracts only (pages not opened in this container). Launch velocity 280 m/s and 7.5 s to put the next missile in, halted (game values, low); the gunner guides it on the beam through his sight; wrecked with the gun or the sights."
+    },
+    {
+      "id": "ru-2a72",
+      "nameKey": "weapon.ru-2a72",
+      "type": "autocannon",
+      "calibre": "30x165",
+      "massKg": 84,
+      "feed": {
+        "magazine": "ru-30x165-belt-he"
+      },
+      "fireModes": [
+        "semi",
+        "auto"
+      ],
+      "cyclicRpm": 330,
+      "dispersionMrad": 0.8,
+      "reloadSeconds": 10,
+      "setupSeconds": 0,
+      "jamProbability": 0.0001,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 6
+        }
+      ],
+      "ammo": {
+        "ru-30x165-3ubr8": 1120,
+        "ru-30x165-3uof8": 960
+      },
+      "sustained": {
+        "burstRounds": 4,
+        "intervalS": 2.0,
+        "recoilFactor": 0.15
+      },
+      "sources": [
+        "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+        "https://www.weaponsystems.net/system/123-BTR-82",
+        "https://forum.warthunder.com/t/btr-82a-cornerstone-of-the-russian-army/9028"
+      ],
+      "confidence": "low",
+      "note": "2A72 30 mm (BTR-82A, M7.6c): fires the 2A42's 30 x 165 rounds from a dual feed (army-technology, weaponsystems.net; search extracts, medium). About 330 rounds/min, one fixed rate (a forum figure, low); mass about 84 kg (as remembered, low). Bursts, dispersion and reload as the 2A42's (game values, low)."
     }
   ]
 }

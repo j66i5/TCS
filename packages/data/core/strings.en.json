@@ -644,6 +644,8 @@
   "medical.carry.stretcher": "Stretcher",
   "vehicle.de.boxer-san": "Boxer ambulance",
   "vehicle.ru.bmm": "BMM ambulance",
+  "vehicle.de.boxer-gtk": "GTK Boxer",
+  "vehicle.ru.btr82a": "BTR-82A",
   "radio.smokeOut": "{callsign}: smoke out!",
   "radio.medic": "{callsign}: Medic! Man down!",
   "radio.treating": "{callsign}: man down, treating.",

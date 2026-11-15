@@ -142,5 +142,10 @@
   "item.de-mg3-coax-belt": "coaxial MG3 belt (250)",
   "item.de-leopard-diesel": "Leopard fuel",
   "item.de-leopard-extinguisher": "Leopard fire-suppression charge",
-  "role.de.ladeschuetze": "Loader"
+  "role.de.ladeschuetze": "Loader",
+  "ammo.de-127x99-ap": "12.7 mm AP",
+  "item.de-127x99-belt": "12.7 mm belt (100)",
+  "weapon.de-m2qcb-rws": "sMG M2 QCB",
+  "role.de.gruppenfuehrer": "Gruppenführer",
+  "role.de.mg-assistant": "MG-Hilfsschütze"
 }

@@ -723,8 +723,12 @@ export const FactionManifest = withProv({
   defaultQuality: Id,
   /** Unit template the demo scenario and the app start with (default "demo-team"). */
   demoTemplate: Id.optional(),
-  /** Platoon used by generated battles (M6). */
+  /** Platoon used by generated battles (M6); the tracked carriers' platoon unless `platoonTemplates` says else. */
   platoonTemplate: Id.optional(),
+  /** M7.6c: the platoon generated battles use by the class of its carriers (`carriers` "tracked" / "wheeled");
+   *  a class without an entry falls back to `platoonTemplate`. Each template's carriage crews drive vehicles of
+   *  that class. */
+  platoonTemplates: z.object({ tracked: Id.optional(), wheeled: Id.optional() }).strict().optional(),
   /** On-map mortar section generated battles add with `mortars` (M8.3a). */
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */

@@ -16,8 +16,10 @@ import { generateMap, type MapKind } from "./mapgen/index";
 export interface VehicleBattleOptions {
   seed: number;
   factions: [string, string];
-  /** Crew template per side (a template with `vehicle`); default: the faction's first crew template. */
+  /** Crew template per side (a template with `vehicle`); default: the faction's carrier crew (`crewTemplateOf`). */
   crewTemplates?: [string, string];
+  /** M7.6c: the carrier class of the default crews (`crewTemplateOf`); default: the manifest's `platoonTemplate`. */
+  carriers?: CarrierClass;
   /** Squad on foot that goes with each vehicle; default: the faction's demo template. */
   squadTemplates?: [string, string];
   /** Platoons per side, and vehicles (each with its squad) per platoon. */
@@ -30,17 +32,34 @@ export interface VehicleBattleOptions {
   timeLimitSeconds?: number;
 }
 
-/** The first crew template of a fighting vehicle that carries a squad (not an ambulance, not a tank) of a faction,
- *  by id order. */
-export function crewTemplateOf(data: DataSet, faction: string): string {
+/** Carrier class of a generated platoon (M7.6c): which of the manifest's `platoonTemplates` a battle uses. */
+export type CarrierClass = "tracked" | "wheeled";
+
+/** The platoon template of a faction for a carrier class: `platoonTemplates[cls]`, else `platoonTemplate`. */
+export function platoonTemplateOf(data: DataSet, faction: string, carriers?: CarrierClass): string | undefined {
+  const m = data.factions[faction]?.manifest;
+  return (carriers !== undefined ? m?.platoonTemplates?.[carriers] : undefined) ?? m?.platoonTemplate;
+}
+
+/**
+ * The crew template of a fighting vehicle that carries a squad (not an ambulance, not a tank) of a faction: one of
+ * the carriage crews of its platoon for that carrier class (M7.6c: `platoonTemplateOf`), first by id; a faction
+ * whose platoon has none: the first such template by id (as before M7.6c).
+ */
+export function crewTemplateOf(data: DataSet, faction: string, carriers?: CarrierClass): string {
   const pack = data.factions[faction];
   // (M10.6-data: a fighting vehicle's crew, not an ambulance's: ambulances come from off the map, M10.6a. M7.6a: a
   // vehicle with passenger seats, so a tank never becomes the default carrier of these battles.)
   const fighting = (id: string) => {
-    const v = pack!.units[id]!.vehicle, vd = v === undefined ? undefined : pack!.vehicles[v];
+    const v = pack!.units[id]?.vehicle, vd = v === undefined ? undefined : pack!.vehicles[v];
     return vd !== undefined && vd.ambulance === undefined && vd.seats.some((q) => q.station === "passenger");
   };
-  const ids = pack ? Object.keys(pack.units).sort().filter(fighting) : [];
+  if (!pack) throw new Error(`faction '${faction}' has no vehicle crew template`);
+  const pt = platoonTemplateOf(data, faction, carriers);
+  const plat = pt === undefined ? undefined : pack.units[pt];
+  const carried = [...new Set((plat?.carriage ?? []).map((c) => plat!.subunits[c.crew]).filter((x): x is string => x !== undefined))].sort().filter(fighting);
+  if (carried.length > 0) return carried[0]!;
+  const ids = Object.keys(pack.units).sort().filter(fighting);
   if (ids.length === 0) throw new Error(`faction '${faction}' has no vehicle crew template`);
   return ids[0]!;
 }
@@ -58,7 +77,7 @@ export function vehicleBattle(data: DataSet, opts: VehicleBattleOptions): Battle
   const grids = new Map<string, NavGrid>();
   const forces: ForceInput[] = SIDES.map((side, s) => {
     const faction = opts.factions[s]!;
-    const crewT = opts.crewTemplates?.[s] ?? crewTemplateOf(data, faction);
+    const crewT = opts.crewTemplates?.[s] ?? crewTemplateOf(data, faction, opts.carriers);
     const squadT = opts.squadTemplates?.[s] ?? data.factions[faction]?.manifest.demoTemplate ?? "demo-team";
     const vtype = data.factions[faction]!.units[crewT]!.vehicle!;
     const def = catalog.vehicles[vtype];

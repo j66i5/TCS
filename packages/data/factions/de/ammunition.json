@@ -823,6 +823,32 @@
       ],
       "confidence": "low",
       "note": "DM11 HE multipurpose for the 120 mm L55: its programmable fuze has point detonation, delay and air burst (published); here only point detonation (the factory default) is modelled. Search extracts only (pages not opened in this container). Projectile and cartridge mass, filling, fragments, their speed and the arming time are game values (low); muzzle velocity about 1050 m/s (game value). Fragments are the 120 mm mortar bomb's (game abstraction). cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
+    },
+    {
+      "id": "de-127x99-ap",
+      "nameKey": "ammo.de-127x99-ap",
+      "calibre": "12.7x99",
+      "kind": "armour-piercing",
+      "projectileMassKg": 0.043,
+      "cartridgeMassKg": 0.117,
+      "diameterM": 0.0129,
+      "drag": {
+        "a": 0.2,
+        "b": 20,
+        "max": 0.5
+      },
+      "penetration": {
+        "steelMm": 25,
+        "atVelocityMps": 720
+      },
+      "tracer": false,
+      "fuse": "none",
+      "guidance": "unguided",
+      "sources": [
+        "https://knds.de/en/systems-products/armament-systems/remote-controlled-weapon-stations/flw-200"
+      ],
+      "confidence": "low",
+      "note": "12.7 mm x 99 belt round of the FLW 200's heavy machine gun (M7.6c), modelled as one armour-piercing kind for the mixed AP/ball belt (the station fires it as its 'ap' feed). Bullet about 43 g, cartridge about 117 g, muzzle velocity about 890 m/s (generic .50 BMG figures, as remembered; no extract read). Penetration about 20 mm RHA (25 mm mild-steel equivalent) at about 500 m, where the drag model gives about 720 m/s: game value fitted to the armour lab's 12.7 mm reference (low)."
     }
   ]
 }

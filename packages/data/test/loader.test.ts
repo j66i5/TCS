@@ -112,8 +112,8 @@ describe("data loader", () => {
     it("loads the Puma, the BMP-2 and the fixture cart", () => {
       const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
-      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v"]);
-      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m"]);
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk"]);
+      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m", "ru-btr82a"]);
       expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise"]);
     });
     it("checks tanks (M7.6a): reactive tiles, autoloader cycle, a round in the breech, the missile range", () => {
@@ -169,6 +169,26 @@ describe("data loader", () => {
       // The headquarters (the platoon's own three men since M10.1: leader, radio operator, Sanitäter) counted in the seats; only one vehicle carries it (M7.2).
       expect(broken((f) => add(f, [{ crew: 3, carries: [0], hq: true }]))).toContain("9 men to carry but 'de-puma' has 6 passenger seats");
       expect(broken((f) => add(f, [{ crew: 3, carries: [], hq: true }, { crew: 4, carries: [], hq: true }]))).toContain("only one vehicle carries the headquarters");
+    });
+    it("checks the platoon by carrier class (M7.6c): the template exists, has a carriage, its crews drive that class", () => {
+      const man = (f: Record<string, unknown>) => f["factions/de/manifest.json"] as V;
+      expect(broken((f) => { man(f)["platoonTemplates"].wheeled = "jaeger-nichts"; })).toContain("platoonTemplates.wheeled: unknown unit template 'jaeger-nichts'");
+      expect(broken((f) => { man(f)["platoonTemplates"].wheeled = "pzgren-zug"; })).toContain("platoonTemplates.wheeled: 'pzgren-zug': carriage crew 'puma-besatzung' drives 'de-puma', a tracked vehicle, not wheeled");
+      expect(broken((f) => { man(f)["platoonTemplates"].tracked = "jaeger-zug"; })).toContain("a wheeled vehicle, not tracked");
+      expect(broken((f) => { man(f)["platoonTemplates"].tracked = "pzgren-schuetzentrupp"; })).toContain("'pzgren-schuetzentrupp' has no carriage");
+      expect(broken((f) => { man(f)["platoonTemplates"].hover = "jaeger-zug"; })).toContain("platoonTemplates");
+    });
+    it("the wheeled platoons fit their carriers (M7.6c): a Jaegergruppe of 8 in a GTK's 8 places, the Zugtrupp in the fourth; BTR squads of 7 and 6 + the platoon commander", () => {
+      const { data } = loadDataSet(read(["core", "factions"]));
+      const pass = (f: string, v: string) => data!.factions[f]!.vehicles[v]!.seats.filter((q) => q.station === "passenger").length;
+      expect(pass("de", "de-boxer-gtk")).toBe(8);
+      expect(pass("ru", "ru-btr82a")).toBe(7);
+      expect(data!.factions["de"]!.units["jaeger-gruppe"]!.members).toHaveLength(8);
+      expect(data!.factions["de"]!.units["jaeger-zug"]!.members).toHaveLength(3);
+      expect(data!.factions["ru"]!.units["motor-rifle-squad-btr"]!.members).toHaveLength(7);
+      expect(data!.factions["ru"]!.units["motor-rifle-squad-1"]!.members.length + 1).toBe(7);
+      expect(data!.factions["de"]!.manifest.platoonTemplates).toEqual({ tracked: "pzgren-zug", wheeled: "jaeger-zug" });
+      expect(data!.factions["ru"]!.manifest.platoonTemplates).toEqual({ tracked: "motor-rifle-platoon", wheeled: "motor-rifle-platoon-btr" });
     });
     it("checks that a foot pace names vehicle paces of the right class", () => {
       expect(broken((f) => { (f["core/movement-modes.json"] as { movementModes: V[] }).movementModes[0]!["vehiclePace"].tracked = "wdrive"; })).toContain("movementModes[0].vehiclePace.tracked: 'wdrive' is not a tracked pace");

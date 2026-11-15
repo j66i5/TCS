@@ -11,3 +11,4 @@ export * from "./tile-queue";
 export * from "./photo/paint";
 export * from "./sprites/atlas";
 export * from "./sprites/soldier-art";
+export * from "./sprites/frames";

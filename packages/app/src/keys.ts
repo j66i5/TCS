@@ -6,7 +6,7 @@ import { startFollow, stopFollow } from "./camera";
 import { endPlan, goPlan, undoPlanPoint } from "./orders";
 import { select, selectAndCentre, showCard } from "./panels";
 
-const SPEEDS = [0, 1, 2, 4];
+const SPEEDS = [0, 1, 2, 4, 8];
 
 /** Listens for keys; returns the per-frame pan (held pan keys move the map at a steady speed on screen). */
 export function attachKeys(a: App): (now: number) => void {

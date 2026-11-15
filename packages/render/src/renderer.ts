@@ -20,7 +20,8 @@ import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
 import { enemyMenInSight, inSightNow } from "./fog";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
-import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
+import { LYING, SPRITE_M, type FrameId } from "./sprites/soldier-art";
+import { carryLookOf, carryOffset, frameFor, type CarryRole } from "./sprites/frames";
 
 /**
  * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph) or "flat" (M7.5b:
@@ -272,6 +273,9 @@ export class BattleRenderer {
   /** Weapon type per weapon id, and which ids are anti-tank launchers (carried on the back). */
   private weaponType: Record<string, string> = {};
   private launchers = new Set<string>();
+  /** Carry methods by id (their shape picks the carried man's frame), and each party member's role this frame. */
+  private carryMethods: Record<string, { carriers: number; upright: boolean; casualtyWalks?: boolean }> = {};
+  private carryRoles = new Map<EntityId, CarryRole>();
   private carriesLauncher = new Map<EntityId, { tick: number; yes: boolean }>();
   private roofMen = new Float64Array(64);
   private map: MapDef | null = null;
@@ -430,6 +434,21 @@ export class BattleRenderer {
     for (const [k, it] of Object.entries(catalog.items)) if (it.drone) this.droneFootprint[k] = it.drone.footprintM;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
+    this.carryMethods = catalog.medical?.carry ?? {};
+  }
+
+  /** Each carrying party's men and their roles (sprite fix 2026-11-15: frames and drawn positions follow the method). */
+  private updateCarryRoles(state: SimView): void {
+    this.carryRoles.clear();
+    if (state.carry.size === 0) return;
+    for (const [payload, c] of state.carry.entries()) {
+      const look = carryLookOf(this.carryMethods[c.method], c.litter !== undefined);
+      const lead = c.carriers[0];
+      const leaderProne = lead !== undefined && state.soldier.get(lead)?.posture === "prone";
+      const base = { look, bearers: c.carriers.length, phase: c.phase, leaderProne };
+      this.carryRoles.set(payload, { ...base, index: -1 });
+      c.carriers.forEach((m, i) => this.carryRoles.set(m, { ...base, index: i }));
+    }
   }
 
   /**
@@ -665,12 +684,19 @@ export class BattleRenderer {
     // Soldiers (under fog of war the player's own and the enemy men in sight now; the rest of the enemy as his men
     // know him, below). An enemy figure has no label and no rings (his state of mind is not seen).
     const inSight = fog ? this.menInSight(overlay) : null;
+    this.updateCarryRoles(state);
     for (const [id, ident] of state.identity.entries()) {
       const foe = fog && ident.side !== overlay.playerSide;
       if (foe && !inSight!.has(id)) continue;
       if (state.soldier.get(id)?.mount !== undefined) continue; // men aboard are inside their vehicle (drawn with it)
-      const p = this.pos(state, id, alpha);
+      let p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
+      const role = this.carryRoles.get(id);
+      if (role) {
+        // A carrying party drawn side by side where the method has them so (render only; frames.ts).
+        const o = carryOffset(role), ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+        if (o.ahead !== 0 || o.right !== 0) p = { x: p.x + ux * o.ahead - uy * o.right, y: p.y + uy * o.ahead + ux * o.right };
+      }
       const s = worldToScreen(c, p.x, p.y);
       const colour = SIDE_COLOURS[(sideIndex.get(ident.side) ?? 0) % SIDE_COLOURS.length]!;
       const selected = overlay.selectedUnit !== null && isSelected(state, overlay, ident.unit);
@@ -1576,16 +1602,12 @@ export class BattleRenderer {
     const t = state.transform.req(id), p = this.prev.get(id);
     const moving = p !== undefined && (Math.abs(p.x - t.x) > 1e-4 || Math.abs(p.y - t.y) > 1e-4);
     const step = ((state.tick + id * 7) / 12 | 0) & 1;
-    let frame: FrameId;
-    // Carried by others (M10.4b): limp in their arms, or on the litter (a walking wounded man walks as usual).
-    const carried = sol?.casualty !== "killed" && state.carry.size > 0 ? state.carry.get(id) : undefined;
-    if (sol?.casualty === "killed") frame = "dead";
-    else if (carried && carried.carriers.length > 0) frame = carried.litter ? "stretcher" : "carried";
-    else if (sol && sol.casualty !== "none") frame = "down";
-    else if (sol?.captive) frame = sol.captive.state === "captured" ? "captive" : "surrender";
-    else if (sol?.posture === "prone") frame = moving && step ? "crawl" : "prone";
-    else if (sol?.posture === "crouching") frame = moving && step ? "crouchWalk" : "crouch";
-    else frame = moving ? (step ? "walk2" : "walk1") : "stand";
+    // The frame from his state (frames.ts): carried by others (M10.4b) by the carry method, a crawling casualty, ...
+    const frame: FrameId | null = frameFor({
+      casualty: sol?.casualty ?? "none", captive: sol?.captive?.state ?? null, posture: sol?.posture ?? "standing",
+      moving, step, carry: this.carryRoles.get(id) ?? null,
+    });
+    if (frame === null) return; // on his bearer's shoulders: the bearer's frame shows him
     k.frame = frame;
     const w = state.weapon.get(id);
     k.weapon = (w ? weaponLook(this.weaponType[w.weapon]) : "rifle") as WeaponLook;
@@ -1634,13 +1656,16 @@ export class BattleRenderer {
         this.contacts.push(sh); this.rims.push(rim);
         this.contactC.addChild(sh); this.rimC.addChild(rim);
       }
-      const lying = frame === "dead" || frame === "down" || frame === "prone" || frame === "crawl" || frame === "carried" || frame === "stretcher";
-      const k2 = lying ? 1.35 : 1;
+      const k2 = LYING.has(frame) ? 1.35 : 1;
       sh.position.set(x + SHADOW_DIR.dx * size * 0.28, y + SHADOW_DIR.dy * size * 0.28);
       sh.width = size * CONTACT_W * k2; sh.height = size * CONTACT_H * k2;
       sh.alpha = CONTACT_ALPHA * alpha; sh.visible = true;
-      if (rim.texture !== cell.outline) rim.texture = cell.outline;
-      rim.scale.set(sc * (1 + Math.min(0.3, 1.2 / (0.3 * size))));
+      // The rim is a ring just outside the outline at the figure's own scale (sprite fix 2026-11-15: it was the
+      // outline enlarged about his position, which slid off long lying figures); two art pixels deep when one art
+      // pixel is under a screen pixel, so it stays about a pixel wide at every zoom.
+      const rt = size < 16 ? cell.rimWide : cell.rim;
+      if (rim.texture !== rt) rim.texture = rt;
+      rim.scale.set(sc);
       rim.position.set(x, y);
       rim.alpha = (dead ? 0.4 : 0.8) * alpha; rim.visible = true;
     }

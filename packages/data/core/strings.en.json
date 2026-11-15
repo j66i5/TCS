@@ -553,7 +553,7 @@
   "help.k.space": "Space",
   "help.space": "Pause / go on (orders work while paused)",
   "help.k.speed": "1 2 3 4",
-  "help.speed": "Pause, 1×, 2×, 4× (the speed buttons in order)",
+  "help.speed": "Pause, 1×, 2×, 4×, 8× (the speed buttons in order)",
   "help.k.pan": "W A S D / arrows",
   "help.pan": "Move the map (stops following)",
   "help.k.esc": "Esc",

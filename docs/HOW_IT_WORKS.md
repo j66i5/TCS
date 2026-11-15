@@ -1171,6 +1171,13 @@ RPG; a flash at the muzzle when he fires; blood and a white dressing when he is 
 in 16 steps. Each side wears its own uniform tones (from the appearance data), and a thin blue or red outline
 says whose he is; your selected unit's men have a thin white ring.
 
+A wounded man who crawls to cover is drawn crawling. Men carrying a casualty are drawn by the way they carry him:
+dragged on his back behind one man or between two who walk side by side; sitting on the joined hands of two
+bearers; across one man's shoulders (one figure: the bearer with the man over his shoulders); on a litter with two
+bearers side by side at each end; a lightly wounded man helped along walks beside his helper. (Only the picture
+moves the bearers side by side: the battle keeps them where the simulation has them.) Turned figures keep their
+rifles, hands and dressings, and the side outline and the photo look's dark rim follow the figure's edge.
+
 **Roofs.** A roof is drawn over each building until one of your own men (on foot, able) is inside it or within
 8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the
 windows. Enemy men never lift a roof.

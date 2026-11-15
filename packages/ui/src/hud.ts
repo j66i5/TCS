@@ -156,7 +156,7 @@ export interface Hud {
   /** S11: the fire support pop-up (HE or smoke at a point) or none; is it shown. */
   offerSupport(o: SupportOffer | null): void;
   supportShown(): boolean;
-  /** S13: the speed buttons (0 = pause, 1, 2, 4) as if pressed; the speed shown. */
+  /** S13: the speed buttons (0 = pause, 1, 2, 4, 8) as if pressed; the speed shown. */
   setSpeed(v: number): void;
   speed(): number;
   /** S13: press an order's button as a tap would (a mode, halt, mount / dismount): false if not offered now. */
@@ -191,7 +191,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const bar = el("div", "hud-bar");
   const title = el("div", "hud-title", s.t("app.title"));
   const clock = el("div", "hud-clock", "00:00");
-  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4]];
+  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4], ["8×", 8]];
   let speedNow = 1;
   const speedBtns = speeds.map(([label, v]) => {
     const b = el("button", "hud-btn", label);

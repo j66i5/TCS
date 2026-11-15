@@ -189,6 +189,26 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
+  "platoon-vehicles-tanks": {
+    description: "M7.6b: platoon-vehicles (village; Germany attacks mounted in Pumas, the BMP-2s and a Metis-M team defend) with two Leopard 2A7V (Panzer-Halbzug) on the attacker's side: they start in dead ground behind the Pumas, take hull-down posts in overwatch and bound with the attack.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker" }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "platoon-ru-vehicles-tanks": {
+    description: "M7.6b: platoon-ru-vehicles (farmland; Russia attacks mounted in BMP-2s, the Pumas defend) with two T-72B3M on the attacker's side in overwatch.",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker" }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "platoon-vehicles-tanks-both": {
+    description: "M7.6b: platoon-vehicles-tanks with tanks on both sides: two Leopard 2A7V with the attack, two T-72B3M behind the defence (tank against tank).",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: true }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "bench-tanks": {
+    description: "Benchmark (M7.6b): bench-vehicles with tank crews: 15 Leopard 2A7V against 15 T-90M (5 platoons of 3 per side), their squads walking, on a 2 x 2 km farmland map, all moving (return fire).",
+    build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], platoonsPerSide: 5, vehiclesPerPlatoon: 3, mapKind: "farmland", mapWidthM: 2000, mapHeightM: 2000, timeLimitSeconds: seconds, crewTemplates: ["leopard2a7v-besatzung", "t90m-ekipazh"] }),
+    controllers: (input) => [vehicleWanderController("blue", input.seed * 2 + 1, input.map, 60), vehicleWanderController("red", input.seed * 2 + 2, input.map, 60)],
+  },
   vehicles: {
     description: "M7.1c: a platoon of two Pumas with their squads on foot against two BMP-2s with theirs, on a generated 1200 x 900 m farmland map; vehicles and squads wander (M7.3: crews fire on their own when fired upon).",
     build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], mapKind: "farmland", timeLimitSeconds: seconds }),

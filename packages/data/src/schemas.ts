@@ -736,6 +736,9 @@ export const FactionManifest = withProv({
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
   missileTeamTemplate: Id.optional(),
+  /** Tank section generated battles add with `tanks` (M7.6b): a template whose sub-units are all crews of vehicles
+   *  with no passenger seats. */
+  tankSectionTemplate: Id.optional(),
   /** Ambulances off the map (M10.6a): generated battles give each side `count` of this crew template's vehicle
    *  (a template with `vehicle`, an ambulance), waiting at the rear to be called. */
   ambulance: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),

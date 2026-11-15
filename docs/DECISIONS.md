@@ -5340,6 +5340,123 @@ record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, i
 `npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
 now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.
 
+## 2026-11-15 — M7.6b Tanks in battle (roadmap-detail slice 40)
+
+### Step 1: aim at the part of a vehicle that can be seen (sim fix; golden `platoon-vehicles-s1` regenerated)
+- Vehicle targets are aimed at the lowest aim point the shooter's line clears (the signature's `aimPoints`: index 0
+  the hull, higher ones the turret; spotting's order). Before, a hull-down vehicle was seen (spotting counts the
+  turret's share) but could never be engaged: `chooseTarget` tested the line at a fixed 1.2 m, `missileAimPoint` used
+  the hull point only, and an order without a height defaulted to 1.2 m. Now `visibleAimIndex` (gunnery.ts) is used by
+  the crew's choice (`heightM` = the aim point's height, kept current while the task stays the same), by
+  `stationFireOrder` without a height (from the first muzzle), by the missile gunner's sight check, by the guidance
+  each tick (the gunner's sight; `missiles.ts`) and by the Metis team's aim (`missile-team.ts`). A fire-and-forget
+  seeker is unchanged. With no clear point the hull point is used, as before.
+- The crew judges the zone it aims at (answers the slice 39 open question): `faceNeed(..., zone)` reads the turret
+  plate (`plates[4 + face]`) and the turret tiles at a turret aim point; a part without a turret plate (the
+  ambulances) is judged at the hull plate. The T-90M's turret front with Relikt: 550 x 1.25 + 0.85 x 344 mm; spent,
+  687.5. The hull judgement is unchanged.
+- Goldens: only `platoon-vehicles-s1` moved (from tick 2400); demo, shootout, fixture, fixture-cart, vehicles,
+  village-occupy and house-clear are byte-identical; `golden/no-interiors` untouched.
+- Balance check, 10 seeds x 1200 s before/after: platoon-vehicles (DE attacks) blue wins 7 -> 4, vehicles lost blue
+  0.60 -> 0.40, red 2.30 -> 2.40; platoon-ru-vehicles (RU attacks) blue (defender) wins 10 -> 10, vehicles lost blue
+  0.20 -> 0.10, red 2.80 -> 3.00. The DE win count left the +-2 band (seeds 1, 6, 9 flipped), so seeds 11-30 were run
+  before and after: blue 11, red 8, draw 1 in both (vehicles lost blue 0.55 -> 0.35, red 2.10 -> 2.45). Over 30
+  seeds 18 -> 15 attacker wins: read as seed noise, not a shift; no tuning.
+
+### Data, scenario, AI (slice 40)
+- **Tank sections** (`manifest.tankSectionTemplate`, loader checks: known template, no members, at least one sub-unit,
+  every sub-unit a vehicle crew, none of their vehicles with passenger seats): DE `panzer-halbzug` (two Leopard 2A7V),
+  RU `tankovaya-gruppa` (two T-72B3M), RU `tankovaya-gruppa-t90m` (two T-90M, for `tankTemplates`; a small addition to
+  the plan, which named the T-90M "by override" without a section to name), xf `tortoise-pair` (rule 8). Two per
+  side; the Halbzug is a real organisation (medium, search extracts only), attaching it to the platoon battle is a game
+  value (all entries `low` with notes).
+- **Scenario** `tanks?: boolean | "attacker" | "defender"`, `tankTemplates?: [string | null, string | null]` (null:
+  the manifest's; JSON-safe instead of the plan's `undefined`). The section is a top-level unit. The attacker's tanks
+  start in dead ground found from a home 60 m behind its carriers' group, at least 25 m from every carrier (the
+  carriers' starts and `lastDeadGround` unchanged; `lastTankDeadGround` for the tanks); seen by anyone, a line 40 m
+  behind the carriers. The defender's stand 150-210 m behind its main objective, 40 m apart; their sights join the
+  observers of the attacker's dead ground. With `tanks` unset `buildScenario` is unchanged (hashes of the built inputs
+  equal before and after for both mounted scenarios, seeds 1-3; no-tank batch hashes identical). Tools scenarios
+  `platoon-vehicles-tanks`, `platoon-ru-vehicles-tanks`, `platoon-vehicles-tanks-both`, `bench-tanks`; app
+  `?tanks=1|attacker|defender&tankCrew=<blue>,<red>`. In the app the section shows as a top unit with its two crews;
+  each crew is selected and ordered like any vehicle (a move to the section is split to its vehicles by the sim).
+- **Vehicle points** stay 20 lost / 10 immobilised for tanks too (owner question later).
+- **AI** (`ai/src/tanks.ts`, values `TANKS`, low): the commander leaves the tank section out of its platoons (`tops`:
+  no `toAll`, no 300 m defence cap, no caller), and `vehiclesLost` counts the platoons' hulls only (unchanged where
+  every hull is a platoon's). Posts from `siteHullDown` (siting.ts), one call per section and stage (far `sbfFarM`,
+  near `sbfNearM` from the assault, second, hold; defender hold/counter behind its line + 50 m), tank k on post k;
+  threat cover = house or vegetation >= 1.8 m cells beyond the foremost own man + 30 m or near a known enemy man, not
+  cleared; posts keep `coverStandoffM` from it and from known enemy men (else the least exposed, flagged). Relocation
+  on a hit that did not get through, after its smoke drill, after 3 main-gun rounds, an enemy man within 300 m (the
+  farthest post, or straight back), threat cover near its post (re-site at most once a minute). Pull back once
+  (`pullBackM` 250, rings 0-80 m about it) with the gun empty or disarmed or the front tiles below a quarter, an enemy
+  man known within 500 m or a launch seen. The front faces the freshest enemy vehicle in gun reach, else the targets.
+  The carriers wait in "start" until the tanks are on their first posts, at most `carrierWaitSeconds`. The tanks join
+  the support by fire unless their crew knows an enemy vehicle in gun reach (their own target choice stays with
+  gunnery). In a withdrawal they hold until the carriers are on their way (or a minute), then go back reversing.
+  Posts never in tall vegetation (`vegMaxM`); the defence's crews fire free out to 1500 m. Tank against tank: front
+  to the threat and relocate on hits; flanking and "hold fire when the round cannot get through" are left for later.
+  One doctrine for both factions; the Russian "tanks lead the attack" variant goes to the M7.6 owner round.
+- **Tuning pass** (the one the plan allows, TANKS game values only): sbfFarM 700 -> 550, sbfNearM 450 -> 350,
+  coverStandoffM 250 -> 200, carrierWaitSeconds 120 -> 180 (the first batch: Leopards untouched and only 9 of 28
+  BMP-2 losses theirs, posts too far back). No sim tuning.
+- **Tests that differ from the plan:** the "200 m from threat cover in 95 % of samples" check could not hold on the
+  village seeds (cover lies just ahead of the start, and the threat line moves with the men), so `tanks-ai.test.ts`
+  checks instead that a tank never stands more than `frontSlackM` ahead of the side's foremost man or carrier before
+  the objective falls, never closer to it than its near overwatch less 150 m, and never halts in a house or tall
+  vegetation; the siting standoff itself is tested in `siting-hulldown.test.ts` (a new file, not siting.test.ts).
+  The pull-back test checks 150 m from where it stood and 100 m farther from the man (the map edge is near).
+  The batch does not count "exposed" sitings (controller memory is not in the battle record).
+
+### Balance (10 seeds x 1200 s; before = the same scenario without tanks, after Step 1; after = with the tuning pass)
+| | DE attack (village) before | with 2 Leopard 2A7V | RU attack (farmland) before | with 2 T-72B3M | both sides (DE attacks) |
+|---|---|---|---|---|---|
+| attacker wins | 4 | 9 (1 draw) | 0 | 5 | 8 |
+| men down blue / red | 16.7 / 26.3 | 14.0 / 28.0 | 9.4 / 36.8 | 21.4 / 22.5 | 16.6 / 33.0 |
+| carriers lost (BMP-2 / Puma) | BMP 2.40 | BMP 2.90 | Puma 0.10 | Puma 2.00 | BMP 2.80, Puma 1.10 |
+| tanks lost | - | Leopard 0.00 | - | T-72B3M 0.40 | Leopard 0.10, T-72B3M 1.90 |
+| kills by shooter | BMP by Puma 32 | BMP by Puma 24, Leopard 14 | BMP by Puma 36 | Puma by T-72B3M 20; BMP by Puma 12; T-72B3M by Puma 4 | Puma by T-72 10; BMP by Puma 23, Leopard 11; T-72 by Puma 11, Leopard 9; Leopard by Metis team 1 |
+| tank rounds AP / HE, tiles used | - | 3.0 / 8.9, 0 | - | 8.7 / 13.3, tiles 0.1 | DE 4.3 / 8.6; RU 4.0 / 0, tiles 1.2 |
+| speed | 67x | 47x | 88x | 73x | 45x |
+
+Acceptance (plan step 8), reported as it stands after the one tuning pass:
+- **A** (DE + Leopards): attacker wins 9 >= 4 + 2: met. Blue men down 14.0 <= 16.7 + 1.5: met. BMP-2 losses +0.5
+  (2.40 -> 2.90): **missed** (+0.7 is out of reach: three BMP-2s, 2.40 + 0.7 > 3). Leopard share of BMP-2 losses 14
+  of 38 = 37 %: **missed** (40 %). Leopards lost 0.00 (0.2-1.2 wanted): **missed** — the BMP-2's 30 mm and Konkurs do
+  not get through the Leopard's front and the Metis team rarely sees one.
+- **B** (RU + T-72B3M): RU wins 5 >= 0 + 1: met. Pumas lost +1.9: met. T-72B3M lost 0.40 (0.3-1.6): met, but all four
+  by the Puma's 30 mm (side shots); no Spike or Panzerfaust kill, tiles used 0.1 (> 0, barely): partly missed. No
+  10-of-10 wipe-out: met.
+- **C** (both): 10 distinct hashes. Tank losses in at least 3 runs each side: T-72B3M yes, Leopard **no** (one run,
+  the Metis team). Exchange 1 Leopard for 19 T-72B3M (3BM42 575 mm against 800 / 1062 mm fronts: lopsided as
+  expected); decided by time 8 of 10.
+- Perf (`npm run test:perf`, alone): bench-tanks 11.9x (1.40 ms per tick, 1.09x bench-vehicles; floor 8x),
+  platoon-vehicles-tanks: the commanders' extra thinking for the tanks 3.0 % of the battle's sim time over 600 s
+  (limit 10 %; the plan's whole-battle speed ratio, 0.85, measured 0.90 and then 0.80 on a second run: the battle
+  with two more hulls fighting is a different battle, so the test now times the AI alone), `siteHullDown` median 27 ms on
+  the village map (limit 60); bench-vehicles 12.2x (step 0: 11.4x, 12.6x), bench-combined 4.7x (4.4x, 4.9x),
+  bench-medical 16.3x (17.4x, 20.1x).
+- Goldens: new `platoon-vehicles-tanks-s1` (seed 1, 240 s); every other golden unchanged by steps 2-5.
+- **Review fixes** (adversarial review; 13 findings confirmed, two rejected by the verifiers and left: the ordered
+  height's zone in `stationFireOrder`, small-arms hits counting as a hit that did not get through):
+  `faceNeed` judges a turret face in the turret's frame (hull heading + station 0 traverse, as the hit does; a test
+  with the turret traversed 90 degrees both ways); a tank that stands short of its post after an order (no route) or
+  whose route has not got `progressM` 20 m shorter in `blockedSeconds` 20 s tries its next post, and once every post
+  has failed in a row (`stuck`) the carriers no longer wait for it (platoon-ru-vehicles-tanks seed 2: the T-72B3M held
+  behind its own BMP-2 made them wait the full 180 s; now they go at 105 s); in a withdrawal each tank gets its own
+  spot after the carriers' (both went to one point) and a disarmed tank withdraws too; tank crews that bailed out are
+  sent back like the platoons' crews; the tanks' support by fire also runs when the platoons have no vehicles; a
+  vehicle start whose region search fails searches wider, then any region, clamped to the map (industrial seed 7:
+  a T-72B3M and a BMP-2 started on ground they cannot drive); the batch's kills by shooter counts each hull once
+  (`lossTally`). Tests that could not fail were made to bite: the tanks' front leaves out mounted men (with a
+  negative control; it now shows the tanks leading by up to 250 m in "start" and "ride", on purpose, the carriers
+  waiting for them in overwatch, so the check runs from the advance on), siting's own-side line must change the
+  posts, `faceNeed` on a turretless hull and `missileAimPoint` with a clear view are called. Goldens all unchanged
+  (replays; `golden:update` reported every one unchanged). Batches after the fixes (10 x 1200 s): DE + Leopards blue
+  wins 8 (9 before), men down 16.9 / 28.3, Pumas lost 0.40, BMP-2 2.70 (by Puma 16, Leopard 11), Leopards 0.00, 66x;
+  RU + T-72B3M red wins 6 (5), men down 24.4 / 22.8, Pumas lost 2.40 (by T-72B3M 23), BMP-2 1.10, T-72B3M 0.40 (by
+  Puma 4), tiles 0.0, 81x; both sides blue wins 8 (8), men down 17.0 / 32.7, Pumas 1.00 (by T-72B3M 9), BMP-2 2.60,
+  T-72B3M 1.80 (by Leopard 9, Puma 8, foot 1), Leopards 0.00, tiles red 1.0, 51x.
 ## 2026-11-15 — M10.6a off-map vehicles and ambulance runs (roadmap-detail slice 13; goldens regenerated)
 Owner answers used (binding): the full chain to an aid station off the map; automatic, the player can call an
 ambulance (answer 4); new Boxer ambulance and BMM hulls (Q-4, slice 12); delay 10-15 min plus the drive (Q-6); same

@@ -12,6 +12,7 @@
   "platoonTemplate": "motor-rifle-platoon",
   "mortarTemplate": "minomyotny-vzvod-82",
   "missileTeamTemplate": "raschet-metis",
+  "tankSectionTemplate": "tankovaya-gruppa",
   "ambulance": {
     "template": "bmm-ekipazh",
     "count": 2

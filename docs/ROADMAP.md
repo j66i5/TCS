@@ -243,7 +243,11 @@ white flags on the map; the after-action review lists surrendered and captured m
   before logistics). 🔶
   - ✅ **M7.6a Main battle tanks: data and labs** (2026-11-14) — Leopard 2A7V, T-90M, T-72B3M; reactive tiles as
     counted items, `tank-gun`, Refleks-M through the gun; armour, anti-tank, gunnery, drive and missile lab rows;
-    `--scene tanks`. Next: M7.6b tanks in battle.
+    `--scene tanks`.
+  - ✅ **M7.6b Tanks in battle** (2026-11-15) — vehicle targets aimed at the part that shows (hull, else turret; the
+    crew judges that zone); tank sections (`tankSectionTemplate`), scenario `tanks`, app `?tanks=`; AI overwatch from
+    hull-down posts (`siteHullDown`, `ai/src/tanks.ts`), carriers wait for it; `bench-tanks`; `--scene tanks-battle`.
+    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS. Next: M7.6c.
 
 ## Stage C — depth
 

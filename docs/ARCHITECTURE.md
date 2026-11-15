@@ -645,6 +645,18 @@ transcendental maths via sim/math. The app builds the after-action review from t
 (`sim/src/record.ts`, D2: folded from the events, the same record the batch report reads; `app/src/review.ts` turns
 its keys into words, `ui/src/aar.ts` lays it out in three tabs: the battle, Medical, Conduct) and draws objectives and the heat map through `Overlay.objectives` / `.heat`.
 
+**Tanks in battle (M7.6b).** `ScenarioDef.tanks` / `tankTemplates` add each side's tank section (manifest
+`tankSectionTemplate`) as a top-level unit: the attacker's in dead ground behind its carriers (their starts unchanged,
+diagnostics in `lastTankDeadGround`), the defender's 150-210 m behind its main objective. `ai/src/tanks.ts`:
+`isArmourSection` (from data: a unit of crews of vehicles with no passenger seats), `tankSections` (called by the
+commander every think; memory `tk`, `tkSited`, `tkHome`, `tkResite` in its plain-data memory), `threatCover` (derived
+cover cells, `coverCells`, not saved), values in `TANKS`; the commander leaves the section out of its platoons
+(`tops`), of `vehiclesLost` and of `toAll`. `ai/src/siting.ts` `siteHullDown`: posts on the tank's drive grid where
+the turret sees the targets and the hull is hidden from them, with a standoff from threats. Gunnery (`sim/src/systems/
+gunnery.ts`, `visibleAimIndex`): a vehicle target is aimed at the lowest of its signature's aim points the line from
+the muzzle (or a missile gunner's sight) clears, hull first, then the turret; `faceNeed` judges that zone's plate
+and tiles.
+
 ## 16p. Fire support (M6.5c) — `sim/src/systems/support.ts`
 `rules.support` gives each side's rounds (HE, smoke); faction doctrine `fireSupport` the ammunition, delay,
 spread, cadence and smoke size. A `callFire` order (does not end a drill) goes through the unit's leader or

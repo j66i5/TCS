@@ -5,6 +5,18 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Slice 40, M7.6b Tanks in battle (2026-11-15, branch `claude/medical-ambulance-smoke` after slice 39; not pushed
+  while PR #59 is open).** Gunnery aims at the lowest aim point the line clears (a hull-down tank can now be engaged;
+  golden `platoon-vehicles-s1` regenerated) and judges that zone's plate and tiles; tank sections in data
+  (`panzer-halbzug`, `tankovaya-gruppa`, `tankovaya-gruppa-t90m`, xf `tortoise-pair`); scenario `tanks` /
+  `tankTemplates`; AI tank overwatch (`ai/src/tanks.ts`, `siteHullDown`); batch lines "Vehicles by type", "Kills by
+  shooter", tiles and tank rounds; `bench-tanks` 11.9x (floor 8x); golden `platoon-vehicles-tanks-s1`;
+  `--scene tanks-battle`. Balance: DE attack wins 4 -> 9 of 10 with two Leopards, RU attack 0 -> 5 with two T-72B3M;
+  missed: Leopards are never lost (0.0 per battle) and take 37 % of the BMP-2 losses (40 % wanted); the T-72B3M are
+  killed only by Puma 30 mm side shots. Tables in DECISIONS "M7.6b". Performance (test:perf alone): bench-vehicles
+  12.2x, bench-combined 4.7x, bench-medical 16.3x, bench-tanks 11.9x. Open for the owner: the TANKS values and the
+  section attachments (low), vehicle points for tanks, a Russian "tanks lead" doctrine, CLAUDE.md's command list
+  (add `?tanks=`, the new tools scenarios and `--scene tanks-battle`). **Next: slice 41 M7.6c.**
 - **Current milestone: M10 Medical** (SPEC 9.1, pulled forward by the owner), plan `docs/plans/roadmap-detail.md`
   Phase 1, slices 2-17; ROADMAP lists them. **Done: slices 2 (M10.0), 3 (M10.1: `core/medical.json`, kits
   as counted items, medical roles, the "medical" physiology model as the default, state schema 18) and 4 (M10.2:

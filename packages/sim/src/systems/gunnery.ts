@@ -275,11 +275,18 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).
   let best: (typeof scored)[number] | null = null;
+  let bestAp = 0;
   const st = v.stations[si]!;
   for (const cnd of scored.slice(0, 4)) {
     const [mx, my, mz] = muzzleWorld(ctx, def, si, 0, me.x, me.y, me.heading, st.azimuth);
-    const tz = heightAt(ctx.map, cnd.x, cnd.y) + (cnd.vehicle ? 1.2 : aimHeightAt(ctx, cnd)); // ground: ok (a man's floor in his aim height)
-    const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, cnd.vehicle ? cnd.target : -1);
+    // M7.6b: at a vehicle, the lowest of its aim points the line clears (hull, else the turret over a crest).
+    if (cnd.vehicle) {
+      const k = visibleAimIndex(ctx, state, cnd.target, mx, my, mz, vid, cnd.x, cnd.y);
+      if (k >= 0) { best = cnd; bestAp = k; break; }
+      continue;
+    }
+    const tz = heightAt(ctx.map, cnd.x, cnd.y) + aimHeightAt(ctx, cnd); // ground: ok (a man's floor in his aim height)
+    const r = sight(ctx, mx, my, mz, cnd.x, cnd.y, tz, vid, -1);
     if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(cnd.x - mx, cnd.y - my) <= LINE_ALLOWANCE_M) { best = cnd; break; }
   }
   if (!best) return null;
@@ -288,13 +295,14 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   let nature: Nature;
   let heightM: number;
   if (best.vehicle) {
-    heightM = 1.2;
+    heightM = aimPointsOf(ctx, state, best.target)[bestAp]![2];
+    const zone = bestAp === 0 ? "hull" : "turret";
     // The missile at an enemy vehicle beyond missileBeyondM (or beyond the guns), or nearer when armour-piercing
     // cannot get through the face it shows (owner 2026-11-13).
     // M7.6a: the weapon's own missile range if it has one; nearer, only when the missile gets through where the
     // armour-piercing round does not (the face's plate and the tiles it expects there).
     const far = d > reach || (msl !== null && d >= (sn.weapons[msl.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000));
-    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, me.x, me.y, best.target) && missileCanPierce(ctx, state, def, si, msl.weapon, me.x, me.y, best.target))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
+    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, me.x, me.y, best.target, zone) && missileCanPierce(ctx, state, def, si, msl.weapon, me.x, me.y, best.target, zone))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
     else { nature = "ap"; keys.push("why.nature.vehicle"); }
   }
   else {
@@ -367,7 +375,7 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
       }
       const changed = !st.task || st.task.contact !== pick.target || st.taskWeapon !== f.weapon || st.taskFeed !== f.feed;
       if (changed) setStationTask(ctx, state, vid, si, pick.x, pick.y, pick.heightM, f.weapon, f.feed, pick.target, true);
-      else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; }
+      else { st.task!.x = pick.x; st.task!.y = pick.y; st.task!.reasonTick = tick; if (state.vehicle.has(pick.target)) st.task!.heightM = pick.heightM; }
       if (f.nature !== pick.nature) pick.keys.push("why.nature.substitute");
       emitDecision(events, state, vid, si, st, f.nature, pick.keys);
     }
@@ -457,6 +465,37 @@ export function muzzleWorld(ctx: SimContext, def: VehicleDef, si: number, wi: nu
 
 /** A wall or the ground this close to the point fired at is the target, not a block. */
 const LINE_ALLOWANCE_M = 5;
+
+const HULL_ONLY: readonly (readonly [number, number, number])[] = [[0, 0, 1.2]];
+
+/** An enemy vehicle's aim points (hull first, then higher ones: the turret), as its type's signature gives them. */
+function aimPointsOf(ctx: SimContext, state: SimState, target: EntityId): readonly (readonly [number, number, number])[] {
+  const tv = state.vehicle.get(target);
+  const aps = tv ? ctx.catalog.vehicles[tv.def]?.signature?.aimPoints : undefined;
+  return aps && aps.length > 0 ? aps : HULL_ONLY;
+}
+
+/**
+ * M7.6b: the lowest of an enemy vehicle's aim points (index into its signature's `aimPoints`: 0 the hull, higher the
+ * turret) that a line from (sx, sy, sz) clears, or is blocked only within `LINE_ALLOWANCE_M` of it; -1: none. `own`
+ * (the shooter's hull) and the target are ignored by the line. With (px, py), the points stand at that place (where
+ * the shooter knows the vehicle to be) at their heights; without, at their true places on the hull. The order is
+ * spotting's: a hull-down vehicle shows only its turret, and is aimed at there.
+ */
+export function visibleAimIndex(ctx: SimContext, state: SimState, target: EntityId, sx: number, sy: number, sz: number, own: EntityId, px?: number, py?: number): number {
+  const tt = state.transform.get(target);
+  if (!tt) return -1;
+  const aps = aimPointsOf(ctx, state, target);
+  const c = cos(tt.heading), s = sin(tt.heading);
+  const gz = heightAt(ctx.map, px ?? tt.x, py ?? tt.y); // ground: ok (a hull's aim points)
+  for (let k = 0; k < aps.length; k++) {
+    const ap = aps[k]!;
+    const ax = px ?? tt.x + c * ap[0] - s * ap[1], ay = py ?? tt.y + s * ap[0] + c * ap[1];
+    const r = sight(ctx, sx, sy, sz, ax, ay, gz + ap[2], own, target);
+    if (r.blockedBy === null || (1 - r.blockedAt) * hypot2(ax - sx, ay - sy) <= LINE_ALLOWANCE_M) return k;
+  }
+  return -1;
+}
 
 /**
  * Could this crew fire at a man at (x, y), `tz` m above sea level, from where it stands (owner 2026-11-13: a crew
@@ -624,11 +663,13 @@ export function vehicleHasMissiles(ctx: SimContext, state: SimState, vid: Entity
 }
 
 /** The point a missile gunner holds his sight on: an enemy vehicle's aim point (its true place: he sees it). */
-export function missileAimPoint(ctx: SimContext, state: SimState, target: EntityId, out: { x: number; y: number; z: number }): boolean {
+export function missileAimPoint(ctx: SimContext, state: SimState, target: EntityId, out: { x: number; y: number; z: number }, from?: { x: number; y: number; z: number; own: EntityId }): boolean {
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const td = tv ? ctx.catalog.vehicles[tv.def] : undefined;
   if (!tv || !tt || !td) return false;
-  const ap = td.signature?.aimPoints[0] ?? [0, 0, 1.2];
+  // M7.6b: from the gunner's sight, the lowest aim point he sees (the turret of a hull-down vehicle); else the hull's.
+  const k = from ? Math.max(0, visibleAimIndex(ctx, state, target, from.x, from.y, from.z, from.own)) : 0;
+  const ap = aimPointsOf(ctx, state, target)[k]!;
   const c = cos(tt.heading), s = sin(tt.heading);
   out.x = tt.x + c * ap[0] - s * ap[1]; out.y = tt.y + s * ap[0] + c * ap[1];
   out.z = heightAt(ctx.map, tt.x, tt.y) + ap[2]; // ground: ok (a hull's aim point)
@@ -660,8 +701,9 @@ const MSL_AIM = { x: 0, y: 0, z: 0 };
 /** Can this station's missile gunner, from where the launcher stands now, see the enemy vehicle to guide onto it? */
 function missileSeesTarget(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleState, def: VehicleDef, si: number, wi: number, target: EntityId): boolean {
   const t = state.transform.get(vid);
-  if (!t || !missileAimPoint(ctx, state, target, MSL_AIM)) return false;
+  if (!t) return false;
   const [sx, sy, sz] = muzzleWorld(ctx, def, si, wi, t.x, t.y, t.heading, v.stations[si]!.azimuth);
+  if (!missileAimPoint(ctx, state, target, MSL_AIM, { x: sx, y: sy, z: sz, own: vid })) return false;
   return missileSees(ctx, state, vid, target, sx, sy, sz, MSL_AIM.x, MSL_AIM.y, MSL_AIM.z);
 }
 
@@ -685,17 +727,23 @@ function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: num
  * trigger (`penMm`, `heavy`: the round judged; left out, one that sets it off), as the hit does. No random draw.
  * null: no plate data (assume it gets through).
  */
-export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true): number | null {
+export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true, zone: "hull" | "turret" = "hull"): number | null {
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
   if (!tv || !tt || !rt) return null;
-  const rel = Math.abs(wrapAngle(atan2(y - tt.y, x - tt.x) - tt.heading));
-  const face = rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1;
-  const p = rt.plates[face];
+  const bearing = atan2(y - tt.y, x - tt.x);
+  const faceAt = (h: number): number => { const rel = Math.abs(wrapAngle(bearing - h)); return rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1; };
+  // M7.6b: the part aimed at; a turret face without a plate of its own is judged by the hull's. The turret's face is
+  // taken in the turret's frame (hull heading + first station's traverse), as the hit resolves it (hulls.ts).
+  const tf = zone === "turret" ? faceAt(tt.heading + (tv.stations[0]?.azimuth ?? 0)) : 0;
+  const tp = zone === "turret" ? rt.plates[4 + tf] : undefined;
+  const face = tp ? tf : faceAt(tt.heading);
+  const part = tp ? "turret" : "hull";
+  const p = tp ?? rt.plates[face];
   if (!p) return null;
   let need = (p.thicknessMm * (kind === "kinetic" ? p.kPerMm : p.sPerMm)) / Math.max(p.cosS, ctx.catalog.ballistics.armour.losFloorCos);
   const tdef = ctx.catalog.vehicles[tv.def];
-  const tile = tdef?.armour?.tiles ? tileFor(tdef, "hull", face === 0 ? "front" : face === 2 ? "rear" : "side") : undefined;
+  const tile = tdef?.armour?.tiles ? tileFor(tdef, part, face === 0 ? "front" : face === 2 ? "rear" : "side") : undefined;
   if (tile) {
     const left = vehicleItems(state, target, tile.item);
     if (left > 0) {
@@ -715,7 +763,7 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
  * The crew's judgement whether its armour-piercing round gets through the face the enemy vehicle shows it (hull,
  * struck level, with the tiles it expects there): the round's published penetration against `faceNeed`.
  */
-function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId): boolean {
+function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId, zone: "hull" | "turret" = "hull"): boolean {
   let pen = 0, heavy = false;
   for (const w of def.stations[si]!.weapons) {
     if (guidedRound(ctx.catalog, w)) continue;
@@ -725,16 +773,16 @@ function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: numb
       if (am && am.explosive === undefined && am.penetration.steelMm > pen) { pen = am.penetration.steelMm; heavy = am.diameterM >= 0.0125; }
     }
   }
-  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy);
+  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy, zone);
   return need === null || pen >= need;
 }
 
 /** The same judgement for the station's missile (M7.6a): its jet (tandem or single) against `faceNeed`. */
-function missileCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, wi: number, x: number, y: number, target: EntityId): boolean {
+function missileCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, wi: number, x: number, y: number, target: EntityId, zone: "hull" | "turret" = "hull"): boolean {
   const gr = guidedRound(ctx.catalog, def.stations[si]!.weapons[wi]);
   const am = gr ? ctx.catalog.ammo[gr.ammo] : undefined;
   if (!am) return true;
-  const need = faceNeed(ctx, state, target, x, y, am.kind === "tandem-shaped-charge" ? "tandem" : "shaped");
+  const need = faceNeed(ctx, state, target, x, y, am.kind === "tandem-shaped-charge" ? "tandem" : "shaped", Infinity, true, zone);
   return need === null || am.penetration.steelMm >= need;
 }
 
@@ -967,12 +1015,15 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   const isVeh = named !== undefined && state.vehicle.has(named);
   const d = hypot2(x - t.x, y - t.y);
   const G = ctx.catalog.behaviour.gunnery;
+  // M7.6b: at a vehicle, the lowest aim point the line from the (first) muzzle clears; none: the hull's.
+  const apk = isVeh ? Math.max(0, visibleAimIndex(ctx, state, named, ...muzzleWorld(ctx, def, 0, 0, t.x, t.y, t.heading, v.stations[0]!.azimuth), vid, x, y)) : 0;
+  const zone = apk === 0 ? "hull" : "turret";
   // "Anti-tank" (owner 2026-11-13): the guided missile if the vehicle has one ready, else armour-piercing.
   // An order without a nature at an enemy vehicle: the missile where the crew would choose it itself.
   const mslVeh = (si: number): boolean => {
     const m = isVeh ? missileReady(ctx, v, def, si) : null;
     return m !== null && named !== undefined && d >= m.g.minRangeM && d <= Math.min(m.g.maxRangeM, def.stations[si]!.weapons[m.weapon]!.engageRangeM)
-      && (d >= (def.stations[si]!.weapons[m.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000) || (!apCanPierce(ctx, state, def, si, t.x, t.y, named) && missileCanPierce(ctx, state, def, si, m.weapon, t.x, t.y, named)));
+      && (d >= (def.stations[si]!.weapons[m.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000) || (!apCanPierce(ctx, state, def, si, t.x, t.y, named, zone) && missileCanPierce(ctx, state, def, si, m.weapon, t.x, t.y, named, zone)));
   };
   const want0: Nature = order.nature === "at" ? "atgm" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
   let any = false;
@@ -981,7 +1032,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
     const want: Nature = order.nature === undefined && mslVeh(si) ? "atgm" : want0;
     const f = feedFor(ctx, def, v.stations[si]!, si, want, v);
     if (!f) continue;
-    const h = order.heightM ?? (isVeh || f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
+    const h = order.heightM ?? (isVeh ? aimPointsOf(ctx, state, named)[apk]![2] : f.nature === "atgm" ? 1.2 : f.nature === "he" ? 0 : aimHeightAt(ctx, known));
     setStationTask(ctx, state, vid, si, x, y, h, f.weapon, f.feed, named, false);
     v.stations[si]!.why = { tick: state.tick, keys: ["why.target.ordered", `why.nature.${f.nature}`] };
     any = true;

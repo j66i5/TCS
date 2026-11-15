@@ -723,5 +723,20 @@
   "man.activity.crawling": "crawling into cover, wounded",
   "aar.medical.down": "{side}: {checked} men down checked by a comrade, {dead} of them found dead ({dragged} dead men dragged into cover before anyone knew); identity tags recovered from {tags} fallen; {crawled} wounded crawled into cover",
   "aar.medical.prisoners": "{side}: {treated} treatments of its men held prisoner by the enemy; {crawled} times a surrendered man crawled out of the fire",
-  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up"
+  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up",
+  "perf.title": "Frame ms p50/p95/max, last {s} s ({n} frames)",
+  "perf.frame": "frame",
+  "perf.slow": "over 33 ms",
+  "perf.dropped": "lost ms",
+  "perf.sim": "sim",
+  "perf.know": "know",
+  "perf.ui": "ui",
+  "perf.draw": "draw",
+  "perf.gpu": "gpu",
+  "perf.steps": "steps avg/max",
+  "perf.tiles": "tiles",
+  "perf.speed": "speed",
+  "perf.copy": "Copy",
+  "perf.copied": "Copied",
+  "perf.reset": "Reset"
 }

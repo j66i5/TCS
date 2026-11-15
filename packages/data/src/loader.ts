@@ -408,6 +408,21 @@ function loadFaction(
   if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
     errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });
   }
+  // M7.6c: a platoon by carrier class: the template exists, has a carriage, and every carriage crew drives a
+  // vehicle of that class.
+  for (const cls of ["tracked", "wheeled"] as const) {
+    const id = manifest.platoonTemplates?.[cls];
+    if (id === undefined) continue;
+    const err = (message: string) => errors.push({ file: f("manifest.json"), path: `platoonTemplates.${cls}`, message, severity: "error" });
+    const pt = pack.units[id];
+    if (!pt) { err(`unknown unit template '${id}' (known: ${known(pack.units)})`); continue; }
+    if (!pt.carriage || pt.carriage.length === 0) { err(`'${id}' has no carriage (no vehicles carry it)`); continue; }
+    for (const c of pt.carriage) {
+      const su = pack.units[pt.subunits[c.crew] ?? ""];
+      const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
+      if (vd && vd.class !== cls) err(`'${id}': carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
+    }
+  }
   // M7.6b: the tank section is crews of vehicles that carry no one (tanks), and nothing else.
   if (manifest.tankSectionTemplate !== undefined) {
     const ts = pack.units[manifest.tankSectionTemplate];

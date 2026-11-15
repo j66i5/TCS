@@ -247,7 +247,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M7.6b Tanks in battle** (2026-11-15) — vehicle targets aimed at the part that shows (hull, else turret; the
     crew judges that zone); tank sections (`tankSectionTemplate`), scenario `tanks`, app `?tanks=`; AI overwatch from
     hull-down posts (`siteHullDown`, `ai/src/tanks.ts`), carriers wait for it; `bench-tanks`; `--scene tanks-battle`.
-    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS. Next: M7.6c.
+    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS.
+  - ✅ **M7.6c Wheeled carriers and their platoons** (2026-11-15) — GTK Boxer (FLW 200, 12.7 mm) and BTR-82A; the
+    Jägerzug and the BTR platoon; manifest `platoonTemplates`, `carriers`, app `?vehicles=wheeled`; lab rows, batches
+    (wheeled Jäger attack 0 of 10: reported, not tuned), `--scene wheeled`. Next: M7.6d (GMW 40 mm, AGS, SVD).
 
 ## Stage C — depth
 
@@ -353,7 +356,13 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     `selfDefenceM` 50 m (no loss of protection), beyond only on the player's order (lost for 120 s); `law.hit` for hits
     on protected people, aimed or incidental (Q-8); nothing live; battle record version 6 (`conduct`); batch "Laws of
     war" line; lab part 3 and 4. Prisoners' care was built on 2026-11-15 (captors treat by need).
-16. ⬜ **M10.8 Review, statistics, balance** (slice 17; batches at 2400 s)
+16. ✅ **M10.8 Review, statistics, balance** (slice 17, 2026-11-15) — battle record version 7 (`track`: each wounded
+    man's way through the chain of care; refused orders); `sim/src/medstats.ts` `medicalSummary` read by the review's
+    Medical tab (times to first care, nest, evacuation; deaths of wounds with timing and the missing step) and Conduct
+    tab (breaches with circumstances, refused orders, aimed and incidental hits, both sides) and by the batch "Medical"
+    block; HOW_IT_WORKS chapter "Care of the wounded"; balance report on four scenarios at 2400 s with and without
+    `--no-medical` (deaths of wounds −26 %, preventable −30 %; collection to the nest is the weak link; no re-tuning,
+    owner's question after playing).
 
 Acceptance: the chain runs for both sides and the xf fixture; preventable deaths clearly lower than with
 `--no-medical`; recognition and breaches measured in a lab; the owner reviews the numbers table and plays a battle

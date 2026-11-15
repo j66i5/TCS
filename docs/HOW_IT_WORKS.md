@@ -275,9 +275,24 @@ round stopped by a plate knocks the man flat for about four seconds and bruises 
 A round that gets through makes a **wound record**: where, how severe, how fast it bleeds, whether it affects
 breathing. Severe head, neck and chest wounds can kill at once. Otherwise a clock runs: blood is lost at the
 wound's rate (small bleeds stop by themselves), he passes out after losing about a third of his blood and dies
-at about half; an untreated chest wound that stops him breathing kills in some minutes. Nobody gives first aid
-yet. Until then a wounded man carries on as well as he can: a leg wound slows him or leaves him crawling, an
-arm wound or strong pain spoils his aim or stops him using his rifle.
+at about half; an untreated chest wound that stops him breathing kills in some minutes (what his comrades do
+about it is the chapter "Care of the wounded"). A wounded man carries on as well as he can: a leg wound slows
+him or leaves him crawling, an arm wound or strong pain spoils his aim or stops him using his rifle.
+
+The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
+carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
+down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what
+happened to them.
+
+## Care of the wounded (M10)
+
+A wound starts a clock, and the medical system is everything the men do against it, the same rules for both sides
+and only the data different (who carries what, who is trained for what, which vehicles come). In order: the clock
+itself; first aid by the man himself and his comrades; who leaves the fight to help; triage and care under fire;
+carrying; the Verwundetennest and the platoon medic; ambulances and combat vehicles that take the wounded back; what
+happens to them after the battle; who is spared under the laws of war and what counts as a breach; and at the end
+what the after-action review and the batch tool make of it all. `--no-medical` (batch and headless) switches care off
+for comparison: men still bleed, nobody helps.
 
 **The medical clock (M10.1).** Since the medical step every battle runs the "medical" body model. It keeps the
 clock above and adds what makes casualties a problem with a clock: some chest wounds develop a **tension
@@ -554,10 +569,25 @@ goes into the battle record for the after-action review (M10.8). Prisoners are c
 like its own men, in order of need (built 2026-11-15). `npm run lab -- protection` adds a misidentification table
 (more at night and in smoke) and the deliberate-breach chances.
 
-The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
-carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
-down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what
-happened to them.
+**After the battle: the Medical and Conduct tabs (M10.8).** The review's two tabs are filled from the battle record,
+which is folded from the battle's events (nothing is read from inside the simulation), so the same battle always gives
+the same numbers, and the batch tool's "Medical" block uses the very same function (`medicalSummary`). For each man
+the record keeps his first and last wound, when he went down and when he died, and his Role 1 outcome. The
+**Medical tab** shows, per side: how many were wounded and how many of them were killed within 30 seconds of a wound
+(no care could reach them); the median time from the first wound to the first finished treatment, to the
+Verwundetennest and to leaving the map; every death of wounds — in the battle or after it at Role 1 — with when he
+was wounded and how long he lived; and the **potentially preventable deaths** with the first step of the chain that
+was missing: no first aid; treated but never carried back to the nest; at the nest but not taken off the map; or
+reached Role 1 later than an hour after the wound. A man who had every step in time and still died is listed with
+"nothing missing". ("Potentially preventable" is the military-medicine term: care was missing or late. Whether that
+particular wound could have been survived the record does not know.) Below that come the earlier lines: men down
+checked, prisoners treated, rear runs, the end-of-battle settlement, Role 1. The **Conduct tab** shows, per side
+that fired: breaches by cause (not recognised, deliberate, under orders), how many of your fire orders at recognised
+protected people the men refused (owner Q-7), hits on protected people as two lists, aimed at them and incidental
+(Q-8), then each breach with its time, who fired from which unit, at whom, at what range, the light, how much could
+be seen through smoke, his stress, and whether it was ordered or from a vehicle (the first 30 per side; the counts
+cover all). The balance report of the whole medical step (four scenarios, 40-minute battles, with and without care)
+is in DECISIONS (2026-11-15, M10.8).
 
 ## Grenades
 
@@ -948,6 +978,17 @@ stand behind its position with only their crews and fire at will. Once the squad
 where they dropped them and support by fire from there; the Russian BMP-2s follow their squads about 150 m behind
 (both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
 knows near the objective, never close to its own men.
+
+**Wheeled carriers (M7.6c).** Each army also has a wheeled platoon: the German **Jägerzug** in four **GTK Boxer**
+(eight-wheeled; a crew of two, the commander working the remote weapon station on the roof — a 12.7 mm heavy
+machine gun with a thermal sight and laser rangefinder — and eight men in the back: a Jägergruppe of eight with an
+MG5 team, a Panzerfaust, a marksman and an Einsatzersthelfer; the Zugtrupp rides in the fourth) and the Russian
+**BTR platoon** in three **BTR-82A** (crew of three, a 30 mm 2A72 and a machine gun in a small turret, seven men in
+the back who get out through cramped side doors; the platoon commander rides in the first). Which platoon a battle
+uses is chosen by the class of its carriers, never by vehicle name: `&vehicles=wheeled` (or `tracked`, the
+default, or one each, `&vehicles=wheeled,tracked`). A wheeled carrier is faster on roads, turns in a circle rather
+than on the spot, and keeps to ground wheels can cross (no woods). The Boxer's hull stops heavy machine-gun fire;
+the BTR's front stops 12.7 mm but its sides do not; every cannon round and rocket goes through both.
 
 ## The screen: order bar, unit list, labels (M7.5a)
 The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons

@@ -24,6 +24,12 @@ describe("ambulance hulls", () => {
     expect(boxer.ambulance!.layouts).toEqual([{ lying: 3, sitting: 0, lyingOutside: 0 }, { lying: 0, sitting: 7, lyingOutside: 0 }, { lying: 2, sitting: 3, lyingOutside: 0 }]);
     expect(Math.max(...bmm.ambulance!.layouts.map((l) => l.lying + l.sitting + l.lyingOutside))).toBe(9);
     expect(cat.vehicles["de-puma"]!.ambulance).toBeUndefined();
+    // M7.6c: the wheeled carriers are no ambulances and carry no red cross.
+    for (const [f, v] of [["de", "de-boxer-gtk"], ["ru", "ru-btr82a"]] as const) {
+      expect(cat.vehicles[v]!.ambulance).toBeUndefined();
+      expect(cat.vehicles[v]!.class).toBe("wheeled");
+      expect(data.factions[f]!.appearance?.markings?.[v]).toBeUndefined();
+    }
   });
 
   it("damaged wheels pull less; a wheeled hull without components is unchanged", () => {

@@ -329,6 +329,44 @@
       ],
       "confidence": "low",
       "note": "MG3A1 coaxial machine gun of the Leopard 2A7V (published; some vehicles may carry the MG5). Search extracts only (pages not opened in this container). Rate about 1100 rounds a minute (published for the MG3, medium); bursts of 6 every 1.5 s as the Puma's coax (game values)."
+    },
+    {
+      "id": "de-m2qcb-rws",
+      "nameKey": "weapon.de-m2qcb-rws",
+      "type": "machine-gun",
+      "calibre": "12.7x99",
+      "massKg": 38,
+      "feed": {
+        "magazine": "de-127x99-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 500,
+      "dispersionMrad": 0.8,
+      "reloadSeconds": 10,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 10
+        }
+      ],
+      "ammo": {
+        "de-127x99-ap": 890
+      },
+      "sustained": {
+        "burstRounds": 5,
+        "intervalS": 1.5,
+        "recoilFactor": 0.1
+      },
+      "sources": [
+        "https://knds.de/en/systems-products/armament-systems/remote-controlled-weapon-stations/flw-200",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer"
+      ],
+      "confidence": "low",
+      "note": "sMG M2 QCB (12.7 mm) on the KNDS FLW 200 remote weapon station of the GTK Boxer (KNDS listing and the Bundeswehr GTK page name the 12.7 mm sMG; no extract confirms the M3M; search extracts only). Rate about 500 rounds/min (M2 range 450-600), muzzle velocity about 890 m/s: medium figures as remembered. Bursts of 5 every 1.5 s, dispersion and the sensor head's thermal sight as a sight entry are game values (low). The 40 mm GMW option comes with slice 42."
     }
   ]
 }

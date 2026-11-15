@@ -66,6 +66,9 @@ const PAIRS: Pair[] = [
   { factions: ["de", "ru"], crewTemplates: ["leopard2a7v-besatzung", "t90m-ekipazh"], tank: true },
   { factions: ["ru", "de"], crewTemplates: ["t90m-ekipazh", "leopard2a7v-besatzung"], tank: true },
   { factions: ["ru", "de"], crewTemplates: ["t72b3m-ekipazh", "leopard2a7v-besatzung"], tank: true },
+  // M7.6c: the wheeled carriers (GTK Boxer's 12.7 mm remote station, BTR-82A's 2A72) at each other.
+  { factions: ["de", "ru"], crewTemplates: ["boxer-besatzung", "btr82a-ekipazh"] },
+  { factions: ["ru", "de"], crewTemplates: ["btr82a-ekipazh", "boxer-besatzung"] },
 ];
 const TANK_FIELD_M = 4000;
 

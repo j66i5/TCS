@@ -3101,6 +3101,843 @@
       ],
       "confidence": "medium",
       "note": "T-72B3M (T-72B3 obr. 2016) main battle tank (M7.6a): 3 crew, carousel autoloader. Search extracts only (pages not opened in this container). Published (medium): engine, speed, crew, 22-round carousel, Sosna-U, Relikt on the glacis and skirts, Kontakt-5 on the turret. Game values (low): armour, tiles, components, 40 rounds in all (38-45 in the sources), reload 7.5 s, signature. 3BM42 is the carousel round here (low: the B3M's newer autoloader may take 3BM59/60). No laser warner (not found). No turret bustle rack."
+    },
+    {
+      "id": "ru-btr82a",
+      "nameKey": "vehicle.ru.btr82a",
+      "class": "wheeled",
+      "body": {
+        "lengthM": 7.65,
+        "widthM": 2.9,
+        "heightM": 2.8,
+        "groundClearanceM": 0.475,
+        "hull": {
+          "f": [
+            -3.825,
+            3.825
+          ],
+          "r": [
+            -1.45,
+            1.45
+          ],
+          "u": [
+            0.475,
+            2.1
+          ]
+        },
+        "turret": {
+          "pivotF": 1.2,
+          "f": [
+            -0.8,
+            0.8
+          ],
+          "r": [
+            -0.8,
+            0.8
+          ],
+          "u": [
+            2.1,
+            2.8
+          ],
+          "barrelM": 2.6,
+          "trunnionU": 2.45
+        },
+        "wheelbaseM": 3,
+        "sources": [
+          "https://www.armyrecognition.com/9wrc",
+          "https://esp.fsvts.gov.ru/catalog/919.en.html",
+          "https://www.globalsecurity.org/military/world/russia/btr-80-specs.htm",
+          "https://warwheels.net/images/BTR80datasheet.pdf"
+        ],
+        "confidence": "medium",
+        "note": "BTR-82A: 7.65 x 2.90 x 2.80 m (Army Recognition; the state catalogue gives 7.58 x 2.985 x 2.725 m), ground clearance 0.475 m (BTR-80 figures; search extracts). Hull roof about 2.1 m, the turret box and the effective steering wheelbase are game values (low): the wheelbase is the BMM's (same BTR-80 chassis), which with its steering gives a turning circle near the published 13.2 m radius (axles 0 / 1.35 / 3.05 / 4.40 m)."
+      },
+      "mass": {
+        "kg": 15400,
+        "sources": [
+          "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+          "https://www.armyrecognition.com/9wrc",
+          "https://roe.ru/en/production/land-forces/armored-combat-vehicles/bronetransporter-btr-82a/"
+        ],
+        "confidence": "medium",
+        "note": "Combat weight 15.4 t (most sources; 14.55 t and 16 t also quoted; search extracts)."
+      },
+      "drive": {
+        "powerKw": 221,
+        "efficiency": 0.75,
+        "topSpeedKmh": 80,
+        "reverseTopSpeedKmh": 15,
+        "brakeMps2": 6,
+        "gears": [
+          {
+            "toKmh": 10
+          },
+          {
+            "toKmh": 20
+          },
+          {
+            "toKmh": 35
+          },
+          {
+            "toKmh": 55
+          },
+          {
+            "toKmh": 80
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 15
+          }
+        ],
+        "shiftSeconds": 0.8,
+        "steering": {
+          "kind": "wheeled",
+          "maxSteerDeg": 14,
+          "steerRateDegS": 25,
+          "maxLatAccelMps2": 3.5
+        },
+        "idleKw": 12,
+        "litresPerKwh": 0.3,
+        "sources": [
+          "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+          "https://www.armyrecognition.com/9wrc",
+          "https://roe.ru/en/production/land-forces/armored-combat-vehicles/bronetransporter-btr-82a/",
+          "https://www.globalmilitary.net/vehicles/btr-82a"
+        ],
+        "confidence": "medium",
+        "note": "KAMAZ 740.14-300 turbo diesel of 300 hp (221 kW; army-technology) and 80 km/h on roads (Army Recognition, ROE; other sites 90-100); search extracts. Gear bands, reverse speed, braking, steering, idle power and fuel use as the BMM's (same BTR-80 chassis; game values, low). Swimming is not modelled."
+      },
+      "fuel": {
+        "item": "ru-btr82a-diesel",
+        "capacityL": 300
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            2.3,
+            -0.45,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                2.3,
+                -0.45,
+                2.3
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            },
+            {
+              "kind": "vehicle-night-ir",
+              "pos": [
+                2.3,
+                -0.45,
+                2.3
+              ],
+              "arcDeg": 60,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            1.2,
+            0.0,
+            1.6
+          ],
+          "part": "turret",
+          "hatch": false,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.4,
+                0.3,
+                2.7
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            },
+            {
+              "kind": "vehicle-night-ir",
+              "pos": [
+                1.4,
+                0.3,
+                2.7
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.3,
+            0.45,
+            1.2
+          ],
+          "part": "hull",
+          "hatch": true
+        },
+        {
+          "id": "p1",
+          "station": "passenger",
+          "pos": [
+            0.4,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p2",
+          "station": "passenger",
+          "pos": [
+            -0.4,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p3",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p4",
+          "station": "passenger",
+          "pos": [
+            0.4,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p5",
+          "station": "passenger",
+          "pos": [
+            -0.4,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p6",
+          "station": "passenger",
+          "pos": [
+            -1.2,
+            -0.8,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        },
+        {
+          "id": "p7",
+          "station": "passenger",
+          "pos": [
+            -1.6,
+            0.0,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": false
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            -0.3,
+            2.2
+          ],
+          [
+            -0.3,
+            -2.2
+          ]
+        ],
+        "openSeconds": 1,
+        "mountSecondsPerMan": 3,
+        "dismountSecondsPerMan": 2.25,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the BTR-80's two side doors between the second and third axles, cramped (dismounting 1.5 times the BMP-2's rear doors' time per man); the roof hatches are not modelled."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 35,
+          "elevateDegS": 20,
+          "elevationDeg": [
+            -5,
+            70
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.6,
+          "movingMradPerMps": 0.8,
+          "layToleranceMrad": 3,
+          "rangefinder": false,
+          "readyRefillInBattle": true,
+          "weapons": [
+            {
+              "weapon": "ru-2a72",
+              "coax": false,
+              "muzzle": [
+                3.8,
+                0,
+                2.45
+              ],
+              "feeds": [
+                {
+                  "item": "ru-30x165-belt-ap",
+                  "ready": {
+                    "count": 1,
+                    "charge": 100
+                  }
+                },
+                {
+                  "item": "ru-30x165-belt-he",
+                  "ready": {
+                    "count": 1,
+                    "charge": 200
+                  }
+                }
+              ],
+              "switchSeconds": 1,
+              "engageRangeM": 1500,
+              "feedKind": "belt"
+            },
+            {
+              "weapon": "ru-pkt",
+              "coax": true,
+              "muzzle": [
+                2.0,
+                0.3,
+                2.4
+              ],
+              "feeds": [
+                {
+                  "item": "ru-pkt-belt",
+                  "ready": {
+                    "count": 1,
+                    "charge": 250
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [
+            "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+            "https://forum.warthunder.com/t/btr-82a-cornerstone-of-the-russian-army/9028",
+            "https://www.weaponsystems.net/system/123-BTR-82",
+            "https://mail.army-guide.com/eng/product4649.html"
+          ],
+          "confidence": "low",
+          "note": "BPPU-type turret with the 2A72 and the PKTM coax, stabilised in two planes, elevation -5 to +70 degrees (army-technology, army-guide; search extracts, medium). 300 ready 30 mm rounds (medium), split 100 AP / 200 HE (low) and no 30 mm stowed; 2,000 PKT rounds (medium): 250 ready, seven belts stowed, refilled in battle, halted, in about 90 s (as the BMP-2's; low). The gunner's TKN-4GA-02 day / passive-IR sight (later builds: the TKN-4GA-03 thermal imager, not modelled); no laser rangefinder (low). Traverse, elevation rate and errors are game values (low).",
+          "refillSeconds": 90
+        }
+      ],
+      "stowed": [
+        {
+          "item": "ru-ak74-mag",
+          "count": 24,
+          "charge": 30
+        },
+        {
+          "item": "ru-pkp-belt",
+          "count": 6,
+          "charge": 100
+        },
+        {
+          "item": "ru-pkt-belt",
+          "count": 7,
+          "charge": 250
+        },
+        {
+          "item": "ru-81mm-smoke",
+          "count": 6
+        },
+        {
+          "item": "ru-bmm-extinguisher",
+          "count": 2
+        }
+      ],
+      "sources": [
+        "https://roe.ru/en/production/land-forces/armored-combat-vehicles/bronetransporter-btr-82a/",
+        "https://www.armyrecognition.com/9wrc",
+        "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+        "https://esp.fsvts.gov.ru/catalog/919.en.html",
+        "https://www.globalsecurity.org/military/world/russia/btr-80-specs.htm"
+      ],
+      "confidence": "medium",
+      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low).",
+      "dischargers": {
+        "item": "ru-81mm-smoke",
+        "perSalvo": 6,
+        "salvos": 1,
+        "arcDeg": 90,
+        "rangeM": 30,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+          "https://forum.warthunder.com/t/btr-82a-cornerstone-of-the-russian-army/9028"
+        ],
+        "confidence": "low",
+        "note": "902V Tucha, six 81 mm launchers on the turret (army-technology, search extract, medium); range, delay and cloud are game values as the BMP-2's."
+      },
+      "signature": {
+        "sizeFactor": 1.0,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 1500,
+        "noiseIdleM": 300,
+        "noiseMovingM": 900,
+        "aimPoints": [
+          [
+            0,
+            0,
+            1.2
+          ],
+          [
+            1.2,
+            0,
+            2.4
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: the BMM's hull with a small turret; quieter than the tracked carriers."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 10,
+            "slopeDeg": 64
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 14,
+            "slopeDeg": 15
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 13,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 7,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 30
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 10,
+            "slopeDeg": 20
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 8,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 6,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://forum.warthunder.com/t/btr-82a-cornerstone-of-the-russian-army/9028",
+          "https://weaponsandwarfare.com/?p=21158",
+          "https://mil.in.ua/en/blogs/btr-82a-vs-m113-why-the-russian-isn-t-a-competitor-to-the-american",
+          "https://www.army-technology.com/projects/btr-82a-armoured-personnel-carrier/",
+          "https://military-history.fandom.com/wiki/BTR-80"
+        ],
+        "confidence": "low",
+        "note": "Search extracts: the front stops 12.7 mm (not 14.5 mm), the sides and rear 7.62 mm; the BTR-80 hull is about 7-9 mm of high-hardness steel (upper front 9 mm at 64 degrees, about 21 mm along the line of sight), the 82A adds a spall liner. Armour-steel equivalents (game values): hull front 10 mm at 64 degrees (28.5 mm mild steel: stops 12.7 mm AP at 500 m), sides 14 mm at 15 degrees and rear 13 mm (the thin hard plate and the spall liner: they stop 7.62 mm AP at 75 m, but not 12.7 mm), roof 7; turret front 20 mm at 30 degrees, sides 10 at 20, rear 8, roof 6. Every cannon round and rocket in the game penetrates."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.6,
+                -1.9
+              ],
+              "r": [
+                -1.1,
+                1.1
+              ],
+              "u": [
+                0.6,
+                1.6
+              ]
+            },
+            "toughnessMm": 70,
+            "absorbMm": 50,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -1.9,
+                -1.5
+              ],
+              "r": [
+                -1.1,
+                1.1
+              ],
+              "u": [
+                0.5,
+                1
+              ]
+            },
+            "toughnessMm": 50,
+            "absorbMm": 40
+          },
+          {
+            "id": "wheels-left",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3,
+                3
+              ],
+              "r": [
+                -1.45,
+                -1.05
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "wheels-right",
+            "kind": "wheels",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3,
+                3
+              ],
+              "r": [
+                1.05,
+                1.45
+              ],
+              "u": [
+                0,
+                1.1
+              ]
+            },
+            "external": true,
+            "toughnessMm": 25,
+            "absorbMm": 10
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                -1.5,
+                -1
+              ],
+              "r": [
+                -1.2,
+                1.2
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 20,
+            "fireChance": 0.35
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                -1,
+                -0.5
+              ],
+              "u": [
+                1.2,
+                1.7
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.6,
+                2
+              ],
+              "r": [
+                0.5,
+                1
+              ],
+              "u": [
+                0.5,
+                1.2
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.4,
+                1.0
+              ],
+              "r": [
+                -0.2,
+                0.2
+              ],
+              "u": [
+                2.3,
+                2.6
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.4,
+                0.9
+              ],
+              "r": [
+                0.2,
+                0.45
+              ],
+              "u": [
+                2.25,
+                2.5
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.7,
+                0.7
+              ],
+              "r": [
+                -0.7,
+                0.7
+              ],
+              "u": [
+                1.9,
+                2.1
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.0,
+                0.4
+              ],
+              "r": [
+                -0.2,
+                0.2
+              ],
+              "u": [
+                2.1,
+                2.4
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.3,
+                0.7
+              ],
+              "r": [
+                0.3,
+                0.7
+              ],
+              "u": [
+                2.5,
+                2.8
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "ammo-ready",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                0.6,
+                1.6
+              ],
+              "r": [
+                -0.6,
+                0.6
+              ],
+              "u": [
+                0.6,
+                1.3
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.15
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.4,
+                0.0
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                2.5,
+                2.75
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://en.wikipedia.org/wiki/BTR-80"
+        ],
+        "confidence": "low",
+        "note": "Hull parts as the BMM's (BTR-80: engine at the rear, crew at the front); the turret's gun, coax, drive, stabiliser, sights and smoke launchers, and the ready 30 mm belts under the turret (game values, low; 'wheels': each side's running gear)."
+      },
+      "extinguisher": {
+        "item": "ru-bmm-extinguisher",
+        "chance": 0.4,
+        "delaySeconds": 2,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values as the BMP-2's and the BMM's."
+      }
     }
   ]
 }

@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type ReviewTally, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
+import { type ReviewTally, type MedicalSideSummary, MISSING_STEPS, medianOf, medicalSummary, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
 import { attackStats, type AttackStats } from "@tcs/ai";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
@@ -26,6 +26,10 @@ const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
 interface Row {
+  /** The medical block (M10.8, `medicalSummary` of the battle record: the same numbers as the review's Medical tab). */
+  medical: Record<string, Omit<MedicalSideSummary, "deaths"> & { dowS: number[]; dowAfterH: number[] }>;
+  /** Orders to fire at protected people refused (owner Q-7). */
+  refused: Record<string, number>;
   seed: number; durationS: number; endReason: string; orders: number; hash: string; casualties: Record<string, number>; prisoners: Record<string, number>; wallMs: number; winner: string | null; scores: Record<string, number>;
   /** Vehicles (M7.2): lost (destroyed or abandoned) and immobilised per side; game time of each side's first dismount, s (null = none). */
   vehiclesLost: Record<string, number>; vehiclesImmobilised: Record<string, number>; firstDismountS: Record<string, number | null>;
@@ -204,7 +208,13 @@ for (let i = 0; i < runs; i++) {
   for (const [id, since] of needSince) { const t = treated(id), k = carers[since.side]; if (k && t !== undefined) k.firstCareS.push((t - since.tick) / 60); }
   const sd = (side: string) => rec.sides[side] ?? newSideRecord();
   const perSide = <T>(f: (x: SideRecord, side: string) => T): Record<string, T> => Object.fromEntries(["blue", "red"].map((x) => [x, f(sd(x), x)]));
+  const ms = medicalSummary(rec);
   rows.push({
+    medical: Object.fromEntries(Object.entries(ms).map(([side, m]) => {
+      const { deaths, ...rest } = m;
+      return [side, { ...rest, dowS: deaths.filter((x) => !x.after).map((x) => x.afterS), dowAfterH: deaths.filter((x) => x.after).map((x) => Math.round(x.afterS / 360) / 10) }];
+    })),
+    refused: perSide((x) => x.conduct.refused),
     seed, durationS: r.durationSeconds, endReason: r.endReason, orders: r.orders.length, hash: r.finalStateHash,
     casualties: Object.fromEntries(r.sides.map((s) => [s.side, s.wounded + s.killed])),
     prisoners: Object.fromEntries(r.sides.map((s) => [s.side, s.surrendered + s.captured])),
@@ -346,6 +356,22 @@ const md = [
     const bins = [1, 6, 24, 72, Infinity].map((hi, i, a) => dowH.filter((h) => h >= (i === 0 ? 0 : a[i - 1]!) && h < hi).length);
     return `${s} rear runs ${sum((r) => r.rear[s]?.started ?? 0)} (ordered ${sum((r) => r.rear[s]?.ordered ?? 0)}, cancelled ${sum((r) => r.rear[s]?.cancelled ?? 0)}), off the map ${sum((r) => r.rear[s]?.away ?? 0)} with ${sum((r) => r.rear[s]?.men ?? 0)} men, back ${sum((r) => r.rear[s]?.back ?? 0)}; at the end evacuated ${sum((r) => r.settled[s]?.evacuated ?? 0)}, captured ${sum((r) => r.settled[s]?.captured ?? 0)}, prisoners ${sum((r) => r.settled[s]?.prisoner ?? 0)}, stayed ${sum((r) => r.settled[s]?.stays ?? 0)}; Role 1 ${sum((r) => r.role1[s]?.men ?? 0)} men (by captors ${sum((r) => r.role1[s]?.captor ?? 0)}), T1 within 60 min ${t1in}/${t1} (${t1 > 0 ? Math.round((100 * t1in) / t1) : 0} %), died of wounds ${dowH.length} (h from wound <1/1-6/6-24/24-72/>72: ${bins.join("/")}), recovery median ${med(all((r) => r.role1[s]?.recoveryD ?? []))} d`;
   }).join("; ")}`,
+  "",
+  "## Medical (M10.8, by the casualty's side; the review's Medical tab per battle)",
+  "",
+  ...["blue", "red"].map((s) => {
+    const sum = (f: (m: Row["medical"][string]) => number) => rows.reduce((n, r) => n + (r.medical[s] ? f(r.medical[s]!) : 0), 0);
+    const all = (f: (m: Row["medical"][string]) => number[]) => rows.flatMap((r) => (r.medical[s] ? f(r.medical[s]!) : [])).sort((a, b) => a - b);
+    const med = (xs: number[]) => { const m = medianOf(xs); return m === null ? "-" : `${m} s`; };
+    const wounded = sum((m) => m.wounded), out = sum((m) => m.killedOutright), live = wounded - out;
+    const care = all((m) => m.firstCareS), nest = all((m) => m.nestS), evac = all((m) => m.evacS), dow = all((m) => m.dowS), dowA = all((m) => m.dowAfterH);
+    const bins = [120, 600, 1800, Infinity].map((hi, i, a) => dow.filter((x) => x >= (i === 0 ? 0 : a[i - 1]!) && x < hi).length);
+    const pct = (n: number) => (live > 0 ? Math.round((100 * n) / live) : 0);
+    const steps = MISSING_STEPS.map((k) => `${k} ${sum((m) => m.steps[k])}`).join(", ");
+    const prev = MISSING_STEPS.reduce((n, k) => n + sum((m) => m.steps[k]), 0);
+    return `- ${s}: wounded ${wounded} (${(wounded / Math.max(1, rows.length)).toFixed(1)} per battle), killed outright ${out}; of the ${live} who lived past 30 s: first care ${care.length} (${pct(care.length)} %, median ${med(care)} from the first wound), at the nest ${nest.length} (${pct(nest.length)} %, median ${med(nest)}), evacuated ${evac.length} (${pct(evac.length)} %, median ${med(evac)}); died of wounds in the battle ${dow.length} (${pct(dow.length)} %; <2/2-10/10-30/>30 min after the wound: ${bins.join("/")}), after it ${dowA.length} (median ${dowA.length > 0 ? dowA[dowA.length >> 1] : "-"} h); potentially preventable ${prev} (${(prev / Math.max(1, rows.length)).toFixed(2)} per battle; missing ${steps}); fire orders on protected people refused ${rows.reduce((n, r) => n + (r.refused[s] ?? 0), 0)}`;
+  }),
+  "",
   `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
     const g = (k: keyof Row["down"][string]) => sum((r) => r.down[s]?.[k] ?? 0);

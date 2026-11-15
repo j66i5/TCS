@@ -99,3 +99,28 @@ describe("squads and kit (M2.5)", () => {
     expect(de.items[de.weapons["de-g95a1"]!.feed.magazine]?.chargeCapacity).toBe(30);
   });
 });
+
+describe("the wheeled platoons' squads (M7.6c)", () => {
+  const input = demoBattle(data, { seed: 1, factions: ["de", "ru"], timeLimitSeconds: 600, templates: ["jaeger-gruppe", "motor-rifle-squad-btr"] });
+  const sim = createSim(input);
+  const side = (s: string) => [...sim.state.identity.entries()].filter(([, i]) => i.side === s).map(([id, i]) => ({ id, role: i.role, weapon: sim.state.weapon.get(id)?.weapon ?? null }));
+
+  it("a Jaegergruppe of eight (its Einsatzersthelfer B) and a BTR squad of seven (the assistant MG gunner)", () => {
+    expect(side("blue").map((m) => `${m.role}:${m.weapon}`)).toEqual([
+      "gruppenfuehrer:de-g36", "mg-gunner:de-mg5", "mg-assistant:de-g36", "at-gunner:de-g36", "marksman:de-g28", "grenadier:de-g36", "einsatzersthelfer:de-g36", "rifleman:de-g36",
+    ]);
+    expect(side("red").map((m) => `${m.role}:${m.weapon}`)).toEqual([
+      "squad-leader:ru-ak74m", "mg-gunner:ru-pkp", "assistant-mg-gunner:ru-ak74m", "at-gunner:ru-ak74m", "assistant-at-gunner:ru-ak74m", "senior-rifleman:ru-ak74m", "rifleman-gl:ru-ak74m",
+    ]);
+  });
+
+  it("every man feeds his weapon from his own load, 22-45 kg", () => {
+    for (const s of ["blue", "red"]) for (const m of side(s)) {
+      const w = sim.state.weapon.req(m.id);
+      expect(sim.state.container.req(m.id).stacks.some((st) => st.type === input.catalog.weapons[w.weapon]!.feed.magazine && st.count > 0)).toBe(true);
+      const kg = loadKg(sim.ctx, sim.state, m.id);
+      expect(kg, `${s} ${m.role}`).toBeGreaterThan(22);
+      expect(kg, `${s} ${m.role}`).toBeLessThan(45);
+    }
+  });
+});

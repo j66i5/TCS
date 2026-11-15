@@ -775,6 +775,20 @@
       ],
       "confidence": "medium",
       "note": "Kontakt-5 (4S22 elements) explosive reactive armour (medium for the generic published figures): about 200-250 mm RHA added against a long rod ('up to 20 %'), about 500-600 against a single shaped charge, little against a tandem charge; in mild-steel mm added to the plate's need: +250 against a long rod, +625 against a single shaped charge, +62 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-btr82a-diesel",
+      "nameKey": "item.ru-btr82a-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 300,
+      "chargeMassKg": 0.84,
+      "sources": [
+        "https://www.globalsecurity.org/military/world/russia/btr-82-specs.htm",
+        "https://mail.army-guide.com/eng/product4649.html"
+      ],
+      "confidence": "medium",
+      "note": "The BTR-82A's fuel tanks (M7.6c): the charge is litres of diesel (0.84 kg per litre); 300 L for about 600 km (search extracts; ROE gives 700 km). The tank is part of the hull (mass 0)."
     }
   ]
 }

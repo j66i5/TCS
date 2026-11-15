@@ -222,6 +222,9 @@ describe("the fixture's tortoise (M7.6a, rule 8)", () => {
 
   it("rounds and tiles stay counted: fired + left = ready + stowed at the start; tiles only leave the container when used", () => {
     const { sim, vid, crew, tx } = tortoise();
+    // The Puma fires its 30 mm (heavy, 132.5 mm: above the scales' 80 mm trigger) at the tortoise's front.
+    const [, puma] = side(sim, "red");
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: puma.unit!, kind: "fire", x: 400, y: 600, heightM: 1.2, contact: vid, nature: "ap" });
     const v = sim.state.vehicle.req(vid), c = sim.state.container.req(vid);
     const rounds = () => v.stations[0]!.weapons[0]!.feeds.reduce((n, f) => n + f.rounds, 0) + countItems(c, "xf-ram-round") + countItems(c, "xf-pot-round");
     const tiles = () => countItems(c, "xf-scale") + countItems(c, "xf-scale-hull");
@@ -233,6 +236,7 @@ describe("the fixture's tortoise (M7.6a, rule 8)", () => {
     run(sim, 60, (e) => { if (e.kind === "shot.fired" && e.vehicle === vid) fired++; if (e.kind === "vehicle.hit" && e.vehicle === vid && e.era !== undefined) used++; });
     expect(fired).toBeGreaterThan(0);
     expect(rounds()).toBe(r0 - fired);
+    expect(used).toBeGreaterThan(0);
     expect(tiles()).toBe(t0 - used);
     expect(buildCatalog(fixtures, ["xf"]).vehicles["xf-tortoise"]!.armour!.tiles!.map((t) => t.fitted)).toEqual([6, 6]);
   });

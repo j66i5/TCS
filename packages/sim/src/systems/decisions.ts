@@ -66,8 +66,7 @@ function fireAllowed(state: SimState, ctx: SimContext, unit: Unit, top: Unit): b
 }
 
 /** The range out to which he engages on his own, by his weapon. */
-function engageRange(ctx: SimContext, state: SimState, id: EntityId): number {
-  const R = ctx.catalog.behaviour.decisions.engageRangeM;
+function engageRange(ctx: SimContext, state: SimState, id: EntityId, R = ctx.catalog.behaviour.decisions.engageRangeM): number {
   const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
   if (!wd) return 0;
   if (wd.sustained) return R.sustained;
@@ -826,7 +825,12 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
     const current = state.fire.get(id);
     if (halted && (!current || current.self) && fireAllowed(state, ctx, unit, top)) {
       // (A unit rule may hold fire to a shorter range, e.g. for an ambush.)
-      const range = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+      const range0 = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+      // (Night fire discipline, M9.6: in the dark, not fired on lately, he holds his fire to closer ranges — a muzzle
+      // flash gives his place away. Vehicles' guns are not affected: crews have their own fire.)
+      const N = D.night;
+      const dark = N !== undefined && state.environment.light < N.belowLight && state.tick - top.underFireTick > secondsToTicks(D.underFireMemorySeconds);
+      const range = dark ? Math.min(range0, engageRange(ctx, state, id, N.engageRangeM)) : range0;
       // Down to the magazine in his weapon (a rifleman): only at an enemy he keeps it for (package A).
       const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
       const reserve = wd !== undefined && !wd.sustained && spareCount(state.container.get(id), wd.feed.magazine) <= 0;

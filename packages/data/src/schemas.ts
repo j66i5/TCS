@@ -393,6 +393,8 @@ export const BehaviourFile = withProv({
     seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
     ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
+    /** Night fire discipline (M9.6): below this light, a man not fired on lately opens fire on his own only out to these ranges. */
+    night: z.object({ belowLight: Num(0, 1), engageRangeM: z.object({ rifle: Num(0, 5000), magnified: Num(0, 5000), sustained: Num(0, 5000) }).strict() }).strict().optional(),
   }).strict(),
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),

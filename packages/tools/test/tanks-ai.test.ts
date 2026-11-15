@@ -102,6 +102,47 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(far).toBe(samples); // (never closer to the objective than its near overwatch, less the ring searched)
   });
 
+  it("a tank that cannot get to its post (no route) tries its alternates, then the carriers stop waiting for it (review fix)", () => {
+    const r = start(sc.build(data, 1, 600));
+    const { crews, vids } = tanksOf(r.sim, "blue");
+    const tankCrews = new Set(crews);
+    // Every tank halts short of wherever it is sent, as after move.noRoute.
+    const halt = () => { for (const vid of vids) { const d = r.sim.state.vehicle.get(vid)!.drive; d.route = []; d.routeIdx = 0; d.arrived = true; d.speed = 0; } };
+    let carriers = -1;
+    const end = 150 * 60;
+    while (r.sim.state.tick < end && carriers < 0) {
+      for (const c of r.ctrls) for (const o of c.think(r.sim.state, r.sim.state.tick)) {
+        if (o.issuer === "blue" && o.kind === "move" && r.sim.state.unit.get(o.target)?.vehicle !== undefined && !tankCrews.has(o.target)) carriers = r.sim.state.tick;
+        submitOrder(r.sim, o);
+      }
+      step(r.sim);
+      halt();
+    }
+    const m = mem(r.ctrls[0]!);
+    for (const c of crews) {
+      const tm = m.tk![String(c)]!;
+      expect(tm.reached).toBeUndefined();
+      expect(tm.stuck).toBe(true);
+      expect(tm.failed).toBeGreaterThanOrEqual(tm.posts.length);
+    }
+    expect(carriers).toBeGreaterThan(0);
+    expect(carriers).toBeLessThan(TANKS.carrierWaitSeconds * 60);
+  });
+
+  it("platoon-ru-vehicles-tanks seed 2: the T-72B3M held behind its own BMP-2 tries its other posts; the carriers move off well before the 180 s cap", () => {
+    const sc2 = getScenario("platoon-ru-vehicles-tanks");
+    const r = start(sc2.build(data, 2, 600));
+    const { crews } = tanksOf(r.sim, "red");
+    const tankCrews = new Set(crews);
+    let carriers = -1;
+    run(r, 170, (rr) => {
+      if (carriers < 0) carriers = rr.orders.find((o) => o.issuer === "red" && o.kind === "move" && rr.sim.state.unit.get(o.target)?.vehicle !== undefined && !tankCrews.has(o.target))?.tick ?? -1;
+      return carriers >= 0;
+    });
+    expect(carriers).toBeGreaterThan(0);
+    expect(carriers).toBeLessThan(150 * 60);
+  });
+
   it("a hit that did not get through, or an enemy man known 250 m off, moves the tank on (to a post more than 300 m from him)", () => {
     const r = start(sc.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "blue");

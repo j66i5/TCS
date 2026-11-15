@@ -37,7 +37,7 @@ export const TANKS = {
   enemyCoverSeconds: 60, enemyNearCoverM: 100, enemyClearSeconds: 60, enemyClearM: 60, frontSlackM: 30, coverMinHeightM: 1.8,
   shotsPerPost: 3, arrivedM: 15, resendSeconds: 30, carrierWaitSeconds: 180, defenceEngageM: 1500, pullBackM: 250,
   pullRangeM: 600, eraLowShare: 0.25, atKnownM: 500, coverCellM: 10, rangeM: [150, 2500], beyondM: 150, defenceBehindM: 50,
-  pullRingsM: [0, 40, 80], turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
+  pullRingsM: [0, 40, 80], stuckSeconds: 5, blockedSeconds: 20, progressM: 20, turnDeg: 40, resiteSeconds: 60, withdrawHoldSeconds: 60, reverseMaxM: 150, launchSeenSeconds: 60, menSeenSeconds: 60,
 } as const;
 
 /** One tank's memory: its posts [x, y, facing], the post it holds or goes to, the stage they were sited for, when it
@@ -45,6 +45,11 @@ export const TANKS = {
 export interface TankMem {
   posts: [number, number, number][]; post: number; stage: string; sent: number; seenHit: number; seenSmoke: number;
   shots: number; lastShot: number; reached?: true; pulled?: true; back?: true;
+  /** Review fix: posts in a row it could not get to (stood still short of it after an order); `stuck`: all of them
+   *  failed, the carriers no longer wait for it. */
+  failed?: number; stuck?: true;
+  /** Review fix: the shortest way still to go on its route since the order, m, and when it last got `progressM` shorter. */
+  progD?: number; progTick?: number;
 }
 /** The commander's memory for its tank sections. */
 export interface TanksMemory {
@@ -360,6 +365,25 @@ export function tankSections(a: TankArgs): number {
       }
       if (relocate && m.posts.length > 1) { m.post = (m.post + 1) % m.posts.length; m.sent = -1e9; m.shots = 0; }
       else if (relocate) m.shots = 0;
+      const moving = !q.v.drive.arrived && q.v.drive.routeIdx < q.v.drive.route.length;
+      // Review fix: standing short of its post after an order (no route), or its route no `progressM` shorter in
+      // `blockedSeconds` (behind a blocking hull, mired): the next post; once every post has failed in a row (re-sitings included), the
+      // carriers stop waiting for it (it keeps trying; reaching a post ends it).
+      if (m.sent > -1e9) {
+        const cp = m.posts[m.post]!, dc = hypot2(cp[0] - q.x, cp[1] - q.y), rt = q.v.drive.route;
+        let togo = 0;
+        for (let i = q.v.drive.routeIdx, px = q.x, py = q.y; i < rt.length; i++) { togo += hypot2(rt[i]!.x - px, rt[i]!.y - py); px = rt[i]!.x; py = rt[i]!.y; }
+        if (m.progTick === undefined || togo < (m.progD ?? Infinity) - T.progressM) { m.progD = togo; m.progTick = tick; }
+        const blocked = moving && tick - m.progTick >= T.blockedSeconds * 60;
+        if ((!moving || blocked) && tick - m.sent >= T.stuckSeconds * 60 && dc > T.arrivedM) {
+          m.failed = (m.failed ?? 0) + 1;
+          if (m.failed >= m.posts.length) m.stuck = true;
+          if (m.posts.length > 1) { m.post = (m.post + 1) % m.posts.length; m.shots = 0; }
+          m.sent = -1e9;
+        }
+      }
+      if (m.sent <= -1e9 && m.progTick !== undefined) { delete m.progD; delete m.progTick; }
+      const sendMove = (body: Record<string, unknown>) => { order(q.c, body); m.sent = tick; delete m.progD; delete m.progTick; };
       const p = m.posts[m.post]!;
       // The front toward the enemy vehicle it knows within its gun's reach, else the post's facing.
       const reach = q.def.stations[0]?.weapons[0]?.engageRangeM ?? 0;
@@ -375,23 +399,22 @@ export function tankSections(a: TankArgs): number {
       }
       const facing = veh ? atan2(veh.y - p[1], veh.x - p[0]) : facingOf(p);
       const d = hypot2(p[0] - q.x, p[1] - q.y);
-      const moving = !q.v.drive.arrived && q.v.drive.routeIdx < q.v.drive.route.length;
       if (d <= T.arrivedM) {
         if (!m.reached) m.reached = true;
+        if (m.failed) m.failed = 0;
+        if (m.stuck) delete m.stuck;
         // On the post: the front turned toward an enemy vehicle off to a side.
         if (veh && !moving && Math.abs(wrapAngle(facing - q.h)) > (T.turnDeg * PI) / 180 && tick - m.sent >= T.resendSeconds * 60) {
-          order(q.c, { kind: "move", waypoints: [{ x: p[0], y: p[1], mode: "walk" }], facing });
-          m.sent = tick;
+          sendMove({ kind: "move", waypoints: [{ x: p[0], y: p[1], mode: "walk" }], facing });
         }
         continue;
       }
-      if (!m.reached) notReady++;
+      if (!m.reached && !m.stuck) notReady++;
       if (moving && tick - m.sent < T.resendSeconds * 60) continue;
       // Reversing to a post behind its front (a short way only).
       const ahead = (p[0] - q.x) * cos(q.h) + (p[1] - q.y) * sin(q.h);
       const reverse = ahead < 0 && d <= T.reverseMaxM && Math.abs(wrapAngle(p[2] - q.h)) < PI / 2;
-      order(q.c, { kind: "move", waypoints: [{ x: p[0], y: p[1], mode: m.reached ? "walk" : "run", ...(reverse ? { reverse: true } : {}) }], facing });
-      m.sent = tick;
+      sendMove({ kind: "move", waypoints: [{ x: p[0], y: p[1], mode: m.reached ? "walk" : "run", ...(reverse ? { reverse: true } : {}) }], facing });
     }
   }
   return notReady;

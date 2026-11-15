@@ -56,6 +56,26 @@ describe("main battle tanks (M7.6a)", () => {
     expect(faceNeed(sim.ctx, sim.state, pid, 400, 600, "kinetic")).toBeCloseTo((p.thicknessMm * p.kPerMm) / Math.max(p.cosS, sim.ctx.catalog.ballistics.armour.losFloorCos), 9);
   });
 
+  it("a round below the reactive tile's trigger is judged by the plate alone: a Puma's 30 mm goes for the T-90M's hull side, not its Spike", () => {
+    // Puma (blue, west), T-90M (red) 800 m east, side-on, immobilised and holding its fire.
+    const input = duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }, undefined, 2400, ["puma-besatzung", "t90m-ekipazh"]);
+    for (const rec of input.forces[1]!.vehicles ?? []) rec.status = "immobilised";
+    const sim = createSim(input);
+    const [rid, t90] = side(sim, "red");
+    const [pid] = side(sim, "blue");
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: t90.unit!, kind: "rules", fire: "hold", at: "hold" });
+    for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null && u.side === "blue") submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "rules", fire: "free" });
+    const pmc = sim.ctx.catalog.ammo["de-30x173-pmc287"]!;
+    const plate = faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", pmc.penetration.steelMm, true)!;
+    expect(plate).toBeLessThan(pmc.penetration.steelMm); // the plate alone: through
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic")).toBeGreaterThan(pmc.penetration.steelMm); // a heavy round at the trigger meets Relikt
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", 1000, false)).toBeCloseTo(plate, 9); // not heavy: never sets it off
+    const ammo: string[] = [];
+    run(sim, 30, (e) => { if (e.kind === "shot.fired" && e.vehicle === pid) ammo.push(e.ammo); });
+    expect(ammo).toContain("de-30x173-pmc287");
+    expect(ammo).not.toContain("de-spike-lr");
+  });
+
   it("a single-round gun with startLoaded has a round in the breech at the start; a belt-fed one does not", () => {
     const sim = createSim(leoVsT90());
     const [, leo] = side(sim, "blue");

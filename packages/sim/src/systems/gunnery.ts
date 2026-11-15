@@ -672,9 +672,11 @@ function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: num
  * What the crew expects it takes to get through the face an enemy vehicle shows from (x, y) (M7.6a, factored out of
  * `apCanPierce`): the hull plate on that face struck level (resistance per mm by kind), plus the add-on tile it
  * expects there: a reactive tile's mm times the chance of meeting one (`coverage * left / fitted`), a legacy factor
- * tile (shaped charges) while tiles last. No random draw. null: no plate data (assume it gets through).
+ * tile (shaped charges) while tiles last; a kinetic round counts a reactive tile only if heavy and at or above its
+ * trigger (`penMm`, `heavy`: the round judged; left out, one that sets it off), as the hit does. No random draw.
+ * null: no plate data (assume it gets through).
  */
-export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem"): number | null {
+export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true): number | null {
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
   if (!tv || !tt || !rt) return null;
@@ -691,7 +693,9 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
       if (tile.factor !== undefined) { if (kind !== "kinetic") need *= tile.factor; }
       else {
         const r = ctx.catalog.items[tile.item]?.reactive;
-        if (r && tile.coverage !== undefined && tile.fitted > 0) need += tile.coverage * Math.min(1, left / tile.fitted) * reactiveAdd(r, kind);
+        // As the hit does (armour.ts useTile): a kinetic round sets the tile off only if heavy and at its trigger.
+        const sets = kind !== "kinetic" || (heavy && penMm >= (r?.triggerSteelMm ?? 0));
+        if (r && sets && tile.coverage !== undefined && tile.fitted > 0) need += tile.coverage * Math.min(1, left / tile.fitted) * reactiveAdd(r, kind);
       }
     }
   }
@@ -703,16 +707,16 @@ export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: 
  * struck level, with the tiles it expects there): the round's published penetration against `faceNeed`.
  */
 function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId): boolean {
-  let pen = 0;
+  let pen = 0, heavy = false;
   for (const w of def.stations[si]!.weapons) {
     if (guidedRound(ctx.catalog, w)) continue;
     for (const f of w.feeds) {
       const round = ctx.catalog.items[f.item]?.chargeItem;
       const am = round !== undefined ? ctx.catalog.ammo[round] : undefined;
-      if (am && am.explosive === undefined && am.penetration.steelMm > pen) pen = am.penetration.steelMm;
+      if (am && am.explosive === undefined && am.penetration.steelMm > pen) { pen = am.penetration.steelMm; heavy = am.diameterM >= 0.0125; }
     }
   }
-  const need = faceNeed(ctx, state, target, x, y, "kinetic");
+  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy);
   return need === null || pen >= need;
 }
 

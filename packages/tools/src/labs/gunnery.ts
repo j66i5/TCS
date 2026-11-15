@@ -140,12 +140,17 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
         const b = crewOf(sim, "blue");
         const t0 = sim.state.tick, full = sim.ctx.catalog.shooting.fire.fullRateSeconds;
         submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: b.crew, kind: "fire", x: 1900, y: 600, heightM: 1.2, nature: "ap" });
-        const ticks: number[] = [];
-        run(sim, full, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) ticks.push(e.tick - t0); });
-        return { cycle: ticks.length > 1 ? (ticks[ticks.length - 1]! - ticks[0]!) / 60 / (ticks.length - 1) : -1, n: ticks.length, type: b.type };
+        const all: number[] = [];
+        run(sim, 60, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) all.push(e.tick - t0); });
+        const ticks = all.filter((t) => t <= full * 60);
+        // (Review fix: the load runs within the post-shot interval, so after fullRateSeconds the trickle shows.)
+        const late = all.filter((t) => t > full * 60 + 60), lateGap = late.length > 1 ? (late[late.length - 1]! - late[0]!) / 60 / (late.length - 1) : -1;
+        return { cycle: ticks.length > 1 ? (ticks[ticks.length - 1]! - ticks[0]!) / 60 / (ticks.length - 1) : -1, n: ticks.length, in60: all.length, lateGap, type: b.type };
       };
       const full = rate(null);
       rows.push({ vehicle: full.type, case: `seconds between AP rounds at the full rate (first 30 s of an order, ${full.n} rounds), 1500 m`, value: full.cycle, unit: "s" });
+      rows.push({ vehicle: full.type, case: "AP rounds in the first 60 s of an order (30 s full rate, then the trickle)", value: full.in60, unit: "rounds" });
+      rows.push({ vehicle: full.type, case: "seconds between AP rounds after the full rate (the trickle, from 31 s)", value: full.lateGap, unit: "s" });
       const def = buildCatalog(data, [...factions]).vehicles[full.type]!;
       const hasLoader = seats.some((sid) => def.seats.find((q) => q.id === sid)?.station === "loader");
       const k = rate(hasLoader ? "loader" : "gunner");

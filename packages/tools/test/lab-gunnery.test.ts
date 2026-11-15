@@ -58,6 +58,14 @@ describe("gunnery lab", () => {
       expect(k).toBeGreaterThanOrEqual(otherCycle[0]);
       expect(k).toBeLessThanOrEqual(otherCycle[1]);
     });
+    it(`${v}: an ordered fire slows to the trickle after its 30 s at the full rate (review fix: the load no longer overrides it)`, () => {
+      const t = val(v, "seconds between AP rounds after the full rate");
+      expect(t).toBeGreaterThanOrEqual(8.5); // shooting.json fire.trickleIntervalS 10 s, +-15 %
+      expect(t).toBeLessThanOrEqual(11.5);
+      const n = val(v, "AP rounds in the first 60 s");
+      expect(n).toBeGreaterThanOrEqual(6); // about 30 / cycle + 1 at the full rate, then two or three at the trickle
+      expect(n).toBeLessThanOrEqual(10);
+    });
     it(`${v}: high explosive hurts men in the open; every round is counted; the ready rack is refilled in its refill time`, () => {
       expect(val(v, "HE at six men")).toBeGreaterThan(0);
       expect(val(v, "rounds fired - (ready + stowed")).toBe(0);

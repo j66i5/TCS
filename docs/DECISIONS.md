@@ -5146,9 +5146,16 @@ applies. Software decisions:
 - **Deviations from the plan:**
   1. Gunnery: the plan's "rounds in the first 60 s" band assumed full rate. Ordered fire trickles after 30 s
      (`shooting.json fire.fullRateSeconds`), so the lab measures the seconds between rounds at full rate:
-     - Leopard 6.0 s, 15.0 s with the loader dead;
-     - T-90M 7.0 s, and the same with the gunner dead (the commander fires);
-     - T-72B3M 7.5 s.
+     - Leopard 6.1 s, 15.0 s with the loader dead;
+     - T-90M 7.4 s, and the same with the gunner dead (the commander fires);
+     - T-72B3M 7.6 s.
+     (Corrected by the review fixes below. Before them a single-round or autoloader gun's load overwrote the
+     interval set at the shot, so tank guns never trickled and ignored the ammunition rule; the first figures,
+     6.0 / 7.0 / 7.5 s, were the bare load times. The cycle is now the longer of the load and the gun's interval:
+     the T-90M's 8 rounds a minute, 7.5 s, is longer than its 7 s carousel.) With the trickle working, a
+     rounds-in-60-s figure does mean something, and the lab now gives it, beside the trickle's spacing: Leopard 8
+     rounds (9.9 s apart after 30 s), T-90M 8 (9.4 s), T-72B3M 7 (10.6 s); bands 6-10 rounds and 8.5-11.5 s. It
+     still is not the plan's full-rate band: that one stays replaced by the seconds between rounds.
   2. Drive: the Leopard's 90° pivot takes 5.2 s at its 30°/s game value. The band is 2-6 s instead of 2-5. The
      data was not tuned.
   3. Missile: the long Refleks row is at 3500 m, not 4000, because a map is at most 4000 m across
@@ -5174,6 +5181,32 @@ applies. Software decisions:
   - Plate zones.
   - Per-round refill time.
   - An autoloader component.
+- **Review fixes (adversarial review of the slice):**
+  - Crew judgement: `faceNeed` counts a reactive tile against a kinetic round only if the round is heavy and its
+    published penetration is at or above the tile's trigger, as the hit does (`useTile`); `apCanPierce` passes the
+    round's figure. Before, a Puma's 30 mm (132.5 mm, below Relikt's 150 mm trigger) judged a T-90M's hull side
+    at 100 + 0.6 x 125 = 175 mm, not 100, and fired its Spike where the cannon gets through (test in tanks.test.ts).
+  - Single-round and autoloader guns: the load now runs within the interval set at the last shot
+    (`nextShotTick = max(post-shot, load end)`), so ordered fire trickles after 30 s and "conserve" fires slower
+    (test: a T-90M at 7-8 s, then at least 8.4 s apart after 30 s; conserve at least 1.4 x slower). A vehicle fired
+    on during the trickle cuts the interval to 0.5 s as before, but not the load in progress. The fixture tortoise
+    now fires every 6 s (its bombard's 10 rounds a minute) instead of its 5 s load; with the loader dead it is 10 s
+    (2 x 5), the test now says so. The xf sling (15 rounds a minute, 4 s, load 4 s) is in fixture-cart-s3, whose
+    fingerprint-blanked hashes are unchanged: its sling is not on an ordered task there.
+  - Loader: two tile rows on the same part and face are an error (the sim reads only the first).
+  - The tortoise conservation test is now hit: the Puma fires its 30 mm (heavy, above the scales' 80 mm trigger)
+    at the tortoise's front, and the test asserts tiles were used (6 in 60 s) and tiles left + `era` events = fitted.
+  - Data: the tank round items no longer count the cartridge twice (`stackMassKg = massKg + charge`). As the
+    9M131 splits tube and missile, each round item's own mass is the case and propellant (published cartridge
+    minus projectile) and its charge is the projectile, which is also the ammunition's `cartridgeMassKg` (the
+    loader requires the two to agree): DM63A1 16.8 + 4.6, DM11 12.6 + 11.4 (the 24.0 kg of the ammunition entry;
+    the item had 24.1), 3BM60 and 3BM42 15.55 + 4.85, 3OF26 10 + 23, 9M119M 7.1 + 17.2, xf-ram 16 + 4, xf-pot
+    10 + 10. (`de-mells-round`, 13 + 13, predates the slice and is left as it is.)
+  - Goldens: `npm run golden:update` for the catalog fingerprint only; with the fingerprint blanked, the old
+    goldens' order streams replay to identical hashes at every checkpoint of all eight. `no-interiors` untouched.
+  - Not changed (reviewed): the Refleks channel keeps its own reload beside the gun's loaded round (deviation by
+    design, see Weapons above); the armour lab's "Puma and BMP-2 rows as before" check compares the new code
+    with itself (no defect found).
 - **Merge with M9.3b (Metis-M, #53):** the ui test "AI vehicle orders sent unchanged never set playerHold" checked the
   player's halt on the AI battle after two minutes; with the AI's drones flying, platoon-ru-vehicles seed 1 now ends
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold

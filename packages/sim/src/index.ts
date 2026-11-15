@@ -68,7 +68,7 @@ export * from "./run";
 export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture } from "./systems/body";
 export * from "./expenditure";
-export { canFight, faceNeed, gunneryAllowed, muzzleWorld, stationOperator, weaponOut } from "./systems/gunnery";
+export { canFight, faceNeed, gunneryAllowed, missileAimPoint, muzzleWorld, stationOperator, visibleAimIndex, weaponOut } from "./systems/gunnery";
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";

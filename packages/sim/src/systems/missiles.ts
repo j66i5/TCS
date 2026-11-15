@@ -55,6 +55,7 @@ function launchersOf(ctx: SimContext, def: VehicleDef): [number, number][] {
 }
 
 const AIM = { x: 0, y: 0, z: 0 };
+const FROM = { x: 0, y: 0, z: 0, own: -1 as EntityId };
 
 export function missileSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size > 0) {
@@ -190,7 +191,9 @@ function guideCore(ctx: SimContext, state: SimState, events: EventSink, g: Missi
   const [sx, sy, sz] = h.origin();
   const mx = P.x[row]!, my = P.y[row]!, mz = P.z[row]!;
   if ((mx - sx) * (mx - sx) + (my - sy) * (my - sy) > gd.maxRangeM * gd.maxRangeM) { lose(g.kind === "command-beam" ? "missile.lost.range" : "missile.lost.wire"); return; }
-  if (g.target >= 0) { if (!missileAimPoint(ctx, state, g.target, AIM)) { lose("missile.lost.unseen"); return; } g.ax = AIM.x; g.ay = AIM.y; g.az = AIM.z; }
+  // (M7.6b: the lowest aim point the gunner sees from his sight: the turret of a hull-down vehicle.)
+  FROM.x = sx; FROM.y = sy; FROM.z = sz; FROM.own = h.ignore;
+  if (g.target >= 0) { if (!missileAimPoint(ctx, state, g.target, AIM, FROM)) { lose("missile.lost.unseen"); return; } g.ax = AIM.x; g.ay = AIM.y; g.az = AIM.z; }
   const ax = g.ax, ay = g.ay, az = g.az;
   // His sight line to the target, every missileSightSeconds.
   const every = Math.max(1, secondsToTicks(G.missileSightSeconds ?? 0.1));

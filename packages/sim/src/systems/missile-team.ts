@@ -78,8 +78,9 @@ function sightOf(ctx: SimContext, state: SimState, l: Launcher): [number, number
 const AIM = { x: 0, y: 0, z: 0 };
 
 /** The point a shot aims at: a vehicle's aim point (true place: he sees it), else the ground point + 1 m. */
-function aimAt(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number): boolean {
-  if (target >= 0) return missileAimPoint(ctx, state, target, AIM);
+function aimAt(ctx: SimContext, state: SimState, l: Launcher, target: EntityId, x: number, y: number): boolean {
+  // (M7.6b: the lowest aim point the gunner sees from his sight: the turret of a hull-down vehicle.)
+  if (target >= 0) { const [sx, sy, sz] = sightOf(ctx, state, l); return missileAimPoint(ctx, state, target, AIM, { x: sx, y: sy, z: sz, own: l.carrier }); }
   AIM.x = x; AIM.y = y; AIM.z = heightAt(ctx.map, x, y) + 1; // ground: ok (a point on the ground)
   return true;
 }
@@ -112,7 +113,7 @@ export function missileTeamSystem(ctx: SimContext, state: SimState, events: Even
     if (mt.queued) {
       const q = mt.queued;
       const live = q.target < 0 || vehicleLive(state, q.target);
-      const why = !live ? "team.gone" : !aimAt(ctx, state, q.target, q.x, q.y) ? "team.unseen" : shotBlocked(ctx, state, l, gr, q.target);
+      const why = !live ? "team.gone" : !aimAt(ctx, state, l, q.target, q.x, q.y) ? "team.unseen" : shotBlocked(ctx, state, l, gr, q.target);
       delete mt.queued;
       if (why !== null) { teamRadio(state, events, uid, "radio.missileTeamNoShot"); continue; }
       pick = { target: q.target, x: AIM.x, y: AIM.y };
@@ -164,7 +165,7 @@ function ownTarget(ctx: SimContext, state: SimState, uid: EntityId, l: Launcher,
   cands.sort((a, b) => b.tick - a.tick || a.d - b.d || a.target - b.target);
   for (let i = 0; i < cands.length && i < 3; i++) {
     const c = cands[i]!;
-    if (!aimAt(ctx, state, c.target, 0, 0) || shotBlocked(ctx, state, l, gr, c.target) !== null) continue;
+    if (!aimAt(ctx, state, l, c.target, 0, 0) || shotBlocked(ctx, state, l, gr, c.target) !== null) continue;
     return { target: c.target, x: AIM.x, y: AIM.y };
   }
   return null;
@@ -221,7 +222,7 @@ function launchFromPost(ctx: SimContext, state: SimState, events: EventSink, gun
   const l = launcherOf(ctx, state, uid);
   if (!u || !mt || !l || l.carrier !== gunner || mt.guide) return;
   const gr = teamRound(ctx, l.def);
-  if (!gr || (target >= 0 && !vehicleLive(state, target)) || !aimAt(ctx, state, target, x, y)) return;
+  if (!gr || (target >= 0 && !vehicleLive(state, target)) || !aimAt(ctx, state, l, target, x, y)) return;
   if (shotBlocked(ctx, state, l, gr, target) !== null) return; // the line closed or a comrade stepped behind
   if (!takeRound(state, l, l.def.round)) return;
   const tick = state.tick;

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import { crewTemplateOf, vehicleBattle } from "@tcs/scenario";
 import {
-  countItems, createSim, faceNeed, removeItems, step, submitOrder, tallyExpenditure, TICK_HZ, weaponOut,
+  countItems, createSim, faceNeed, missileAimPoint, removeItems, step, visibleAimIndex, submitOrder, tallyExpenditure, TICK_HZ, weaponOut,
   type BattleInput, type EntityId, type Expenditure, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { duel } from "../src/labs/gunnery";
@@ -242,5 +242,65 @@ describe("the fixture's tortoise (M7.6a, rule 8)", () => {
     expect(used).toBeGreaterThan(0);
     expect(tiles()).toBe(t0 - used);
     expect(buildCatalog(fixtures, ["xf"]).vehicles["xf-tortoise"]!.armour!.tiles!.map((t) => t.fitted)).toEqual([6, 6]);
+  });
+});
+
+describe("aim at the part of a vehicle that can be seen (M7.6b)", () => {
+  /** Leopard (blue, x 400) and T-90M (red, x 1900, facing it) with a 1.6 m earth bank 10 to 22 m in front of the T-90M. */
+  function hullDown(): BattleInput {
+    const input = leoVsT90(1500);
+    const m = input.map, w = m.cols + 1;
+    for (let r = 0; r <= m.rows; r++) for (let c = 0; c <= m.cols; c++) { const x = c * m.cellSizeM; if (x >= 1878 && x <= 1890) m.heights[r * w + c] = 1.6; }
+    return input;
+  }
+
+  it("a hull-down T-90M (turret over a bank) is chosen and fired at, aimed at its turret; never at its hidden hull", () => {
+    const sim = createSim(hullDown());
+    const [rid, t90] = side(sim, "red");
+    const [lid, leo] = side(sim, "blue");
+    submitOrder(sim, { tick: sim.state.tick, issuer: "red", target: t90.unit!, kind: "rules", fire: "hold", at: "hold" });
+    for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null && u.side === "blue") submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: uid, kind: "rules", fire: "free" });
+    const turretZ = sim.ctx.catalog.vehicles["ru-t90m"]!.signature!.aimPoints[1]![2];
+    const heights: number[] = [];
+    let shots = 0;
+    for (let i = 0; i < 60 * TICK_HZ; i++) {
+      for (const e of step(sim)) if (e.kind === "shot.fired" && e.vehicle === lid) shots++;
+      const task = leo.stations[0]!.task;
+      if (task && task.contact === rid) heights.push(task.heightM);
+    }
+    expect(heights.length).toBeGreaterThan(0);
+    expect(heights.every((h) => h >= 1.5)).toBe(true);
+    expect(heights.at(-1)).toBeCloseTo(turretZ, 6);
+    expect(shots).toBeGreaterThan(0);
+  });
+
+  it("the crew judges the part it aims at: the T-90M's turret front with Relikt (plate + 0.85 x 344), the plate alone when spent; the hull as before", () => {
+    const sim = createSim(leoVsT90());
+    const [rid] = side(sim, "red");
+    const p = sim.ctx.ballistics.vehicleRT["ru-t90m"]!.plates[4]!;
+    const plate = (p.thicknessMm * p.kPerMm) / Math.max(p.cosS, sim.ctx.catalog.ballistics.armour.losFloorCos);
+    expect(plate).toBeCloseTo(687.5, 6);
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", Infinity, true, "turret")).toBeCloseTo(plate + 0.85 * 344, 6);
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic")).toBeCloseTo(600 + 0.75 * 344, 6);
+    removeItems(sim.state.container.req(rid), "ru-relikt-turret-front", 1000);
+    expect(faceNeed(sim.ctx, sim.state, rid, 400, 600, "kinetic", Infinity, true, "turret")).toBeCloseTo(plate, 6);
+    // A vehicle with no turret plate is judged at its hull plate.
+    const amb = sim.ctx.ballistics.vehicleRT["ru-bmm"];
+    expect(amb?.plates[4] ?? null).toBeNull();
+  });
+
+  it("a missile gunner whose view of the hull is blocked guides onto the turret point; with nothing in the way, onto the hull", () => {
+    const sim = createSim(hullDown());
+    const [rid] = side(sim, "red");
+    const [lid] = side(sim, "blue");
+    const aps = sim.ctx.catalog.vehicles["ru-t90m"]!.signature!.aimPoints;
+    const out = { x: 0, y: 0, z: 0 };
+    expect(visibleAimIndex(sim.ctx, sim.state, rid, 400, 600, 2.4, lid)).toBe(1);
+    expect(missileAimPoint(sim.ctx, sim.state, rid, out, { x: 400, y: 600, z: 2.4, own: lid })).toBe(true);
+    expect(out.z).toBeCloseTo(aps[1]![2], 6);
+    expect(missileAimPoint(sim.ctx, sim.state, rid, out)).toBe(true);
+    expect(out.z).toBeCloseTo(aps[0]![2], 6);
+    // From high above the bank the hull shows: its own point.
+    expect(visibleAimIndex(sim.ctx, sim.state, rid, 1700, 600, 60, lid)).toBe(0);
   });
 });

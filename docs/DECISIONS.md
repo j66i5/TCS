@@ -5320,3 +5320,26 @@ order dispatch (casualty point and evacuate next to drone). The app's card row f
 record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, its gunner). Goldens regenerated with
 `npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
 now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.
+
+## 2026-11-15 — M7.6b Tanks in battle (roadmap-detail slice 40)
+
+### Step 1: aim at the part of a vehicle that can be seen (sim fix; golden `platoon-vehicles-s1` regenerated)
+- Vehicle targets are aimed at the lowest aim point the shooter's line clears (the signature's `aimPoints`: index 0
+  the hull, higher ones the turret; spotting's order). Before, a hull-down vehicle was seen (spotting counts the
+  turret's share) but could never be engaged: `chooseTarget` tested the line at a fixed 1.2 m, `missileAimPoint` used
+  the hull point only, and an order without a height defaulted to 1.2 m. Now `visibleAimIndex` (gunnery.ts) is used by
+  the crew's choice (`heightM` = the aim point's height, kept current while the task stays the same), by
+  `stationFireOrder` without a height (from the first muzzle), by the missile gunner's sight check, by the guidance
+  each tick (the gunner's sight; `missiles.ts`) and by the Metis team's aim (`missile-team.ts`). A fire-and-forget
+  seeker is unchanged. With no clear point the hull point is used, as before.
+- The crew judges the zone it aims at (answers the slice 39 open question): `faceNeed(..., zone)` reads the turret
+  plate (`plates[4 + face]`) and the turret tiles at a turret aim point; a part without a turret plate (the
+  ambulances) is judged at the hull plate. The T-90M's turret front with Relikt: 550 x 1.25 + 0.85 x 344 mm; spent,
+  687.5. The hull judgement is unchanged.
+- Goldens: only `platoon-vehicles-s1` moved (from tick 2400); demo, shootout, fixture, fixture-cart, vehicles,
+  village-occupy and house-clear are byte-identical; `golden/no-interiors` untouched.
+- Balance check, 10 seeds x 1200 s before/after: platoon-vehicles (DE attacks) blue wins 7 -> 4, vehicles lost blue
+  0.60 -> 0.40, red 2.30 -> 2.40; platoon-ru-vehicles (RU attacks) blue (defender) wins 10 -> 10, vehicles lost blue
+  0.20 -> 0.10, red 2.80 -> 3.00. The DE win count left the +-2 band (seeds 1, 6, 9 flipped), so seeds 11-30 were run
+  before and after: blue 11, red 8, draw 1 in both (vehicles lost blue 0.55 -> 0.35, red 2.10 -> 2.45). Over 30
+  seeds 18 -> 15 attacker wins: read as seed noise, not a shift; no tuning.

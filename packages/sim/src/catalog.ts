@@ -786,9 +786,18 @@ export interface MedicalDef {
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */
   protection: {
-    recognitionM: { vehicleEye: number; vehicleOptics: number; armbandEye: number; armbandOptics: number };
-    obscuredFactor: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
+    /** Ranges (m) to which a protected target is told as such in daylight, clear air, by a calm man: a marked
+     *  vehicle, an armband, a carrying party, a man at a marked Verwundetennest; by eye and with optics (M10.7a). */
+    recognitionM: { vehicleEye: number; vehicleOptics: number; armbandEye: number; armbandOptics: number; carryEye: number; carryOptics: number; pointEye: number; pointOptics: number };
+    /** Light and smoke each scale a range between this (dark, opaque) and 1; stress shrinks it by up to `stressK`;
+     *  `aimSpareM` / `missionSpareM`: how near an aimed point / a fire mission's point a protected man must be to spare it. */
+    obscuredFactor: number; stressK: number; aimSpareM: number; missionSpareM: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
     medicFiredLosesProtectionS: number;
+    /** M10.7b breaches and self-defence (see systems/conduct.ts): a deliberate-breach decision at most every
+     *  `breachCheckS` per man; own losses reach their full factor at `breachLossesAt` (share of his platoon down,
+     *  dead or taken); a deliberate breach lasts `breachHoldS`; a man wearing an emblem fires on his own, or on a drill
+     *  or AI order, only within `selfDefenceM` (m), and his shots within it are self-defence (no loss of protection). */
+    breachCheckS: number; breachLossesAt: number; breachHoldS: number; selfDefenceM: number;
   };
   /**
    * Triage (M10.3b): chance of a wrong category by skill, more under fire (`underFireAdd`); a casualty is truly T1

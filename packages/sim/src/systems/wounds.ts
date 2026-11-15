@@ -5,6 +5,7 @@
  * on a clock. A casualty stays in the world as an entity; he is never deleted.
  */
 import { leaderLost } from "./morale";
+import { noteHit } from "../conduct";
 import { interruptAction } from "../actions";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -59,6 +60,8 @@ export function resolveBodyHit(
   // A helmet is curved: many hits glance, which makes it thicker along the round's path.
   if (protection > 0 && group === "head") protection /= 0.25 + 0.75 * nextFloat(rng, Streams.wounds);
 
+  // Laws of war (M10.7b, Q-8): a hit on a protected man is recorded (aimed at him or incidental).
+  if (ctx.catalog.medical !== undefined && s.physiology.alive) noteHit(ctx, state, events, target, owner, fragment);
   if (protection > 0 && capacitySteelMm <= protection) {
     events.emit({ kind: "hit", tick: state.tick, target, zone, armour: "stopped", ammo: ammoId, owner });
     if (s.physiology.alive && energyJ > 200) {

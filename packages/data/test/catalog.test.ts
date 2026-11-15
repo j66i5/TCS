@@ -45,8 +45,8 @@ describe("catalog", () => {
     expect(p.drive.steering.kind === "tracked" && p.drive.steering.pivotRateRadS).toBeCloseTo((40 * Math.PI) / 180, 9);
     expect(p.massKg).toBe(43000);
     expect(catalog.vehicles["ru-bmp2"]!.stations[0]!.elevationRad[1]).toBeCloseTo((74 * Math.PI) / 180, 9);
-    expect(Object.keys(catalog.vehicles).sort()).toEqual(["de-boxer-san", "de-leopard2a7v", "de-puma", "ru-bmm", "ru-bmp2", "ru-t72b3m", "ru-t90m", "xf-cart", "xf-litter-cart", "xf-tortoise", "xf-wagon"]);
-    expect(Object.keys(buildCatalog(data, ["de"]).vehicles)).toEqual(["de-boxer-san", "de-leopard2a7v", "de-puma"]);
+    expect(Object.keys(catalog.vehicles).sort()).toEqual(["de-boxer-gtk", "de-boxer-san", "de-leopard2a7v", "de-puma", "ru-bmm", "ru-bmp2", "ru-btr82a", "ru-t72b3m", "ru-t90m", "xf-cart", "xf-litter-cart", "xf-tortoise", "xf-wagon"]);
+    expect(Object.keys(buildCatalog(data, ["de"]).vehicles)).toEqual(["de-boxer-gtk", "de-boxer-san", "de-leopard2a7v", "de-puma"]);
   });
 
   it("one armour scale: rhaToMildSteel equals the armour-steel material's resistance", () => {

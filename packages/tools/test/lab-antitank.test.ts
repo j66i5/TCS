@@ -82,6 +82,21 @@ describe("anti-tank lab: main battle tanks (M7.6a)", () => {
     expect(front.pen).toBe(0);
   }, 120_000);
 
+  it("M7.6c: a Panzerfaust 3 gets through a BTR-82A and a PG-7VL through a GTK Boxer, side and front, at 100 m (at least 90 % of hits)", () => {
+    const at100 = (factions: [string, string], crew: [string, string], aspect: "side" | "front") => {
+      let hits = 0, pen = 0;
+      for (let k = 0; k < 10; k++) { const r = antitankTrial(data, factions, 100, aspect, 1000 + k, { crewTemplates: crew }); if (r.hit) hits++; if (r.penetrated) pen++; }
+      return { hits, share: hits > 0 ? pen / hits : 0 };
+    };
+    for (const aspect of ["side", "front"] as const) {
+      for (const [f, c] of [[["de", "ru"], ["puma-besatzung", "btr82a-ekipazh"]], [["ru", "de"], ["bmp2-ekipazh", "boxer-besatzung"]]] as const) {
+        const r = at100([f[0], f[1]], [c[0], c[1]], aspect);
+        expect(r.hits, `${c[1]} ${aspect}`).toBeGreaterThanOrEqual(5);
+        expect(r.share, `${c[1]} ${aspect}`).toBeGreaterThanOrEqual(0.9);
+      }
+    }
+  }, 180_000);
+
   it("used-up tiles stay counted items: the record's tiles are gone, the rest of its load is not", () => {
     const full = antitankSetup(data, ["de", "ru"], 200, "front", 1, { crewTemplates: T90 }).input.forces[1]!.vehicles![0]!.load;
     const spent = antitankSetup(data, ["de", "ru"], 200, "front", 1, { crewTemplates: T90, eraSpent: true }).input.forces[1]!.vehicles![0]!.load;

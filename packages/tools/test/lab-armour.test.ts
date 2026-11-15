@@ -150,4 +150,28 @@ describe("armour lab: main battle tanks (M7.6a)", () => {
     expect(thru(T90, "hull", 1, "de-30x173-pmc287", "full")).toBe(true);
     expect(thru(LEO, "hull", 1, "de-30x173-pmc287")).toBe(false);
   });
+
+  // M7.6c: the wheeled carriers. Reference rounds: 7.62 mm B-32 AP at 75 m, 12.7 mm B-32 at 500 m, 3UBR8 at 1500 m
+  // (more at 1000 m), PMC287 at 1000 m.
+  const thruW = (v: string, part: "hull" | "turret", face: number, id: string) => plateThrough(data, v, part, face, can(id), referenceRounds(data).find((r) => r.id === id)!.kind).through;
+  it("BTR-82A: the front stops 12.7 mm at 500 m, the sides and rear do not; 7.62 mm AP stopped by the hull's front, sides and rear; every 30 mm AP round goes through every face", () => {
+    expect(thruW("ru-btr82a", "hull", 0, "lab-12_7mm-b32")).toBe(false);
+    expect(thruW("ru-btr82a", "hull", 1, "lab-12_7mm-b32")).toBe(true);
+    expect(thruW("ru-btr82a", "hull", 2, "lab-12_7mm-b32")).toBe(true);
+    for (const f of [0, 1, 2]) expect(thruW("ru-btr82a", "hull", f, "lab-762-b32")).toBe(false);
+    expect(thruW("ru-btr82a", "turret", 0, "lab-762-b32")).toBe(false);
+    for (const part of ["hull", "turret"] as const) for (let f = 0; f < 4; f++) {
+      expect(thruW("ru-btr82a", part, f, "ru-30x165-3ubr8")).toBe(true);
+      expect(thruW("ru-btr82a", part, f, "de-30x173-pmc287")).toBe(true);
+    }
+  });
+  it("GTK Boxer: 12.7 mm at 500 m and 7.62 mm AP stopped by every hull face (about STANAG level 4); 30 mm AP through its sides; the FLW 200 is thin", () => {
+    for (let f = 0; f < 3; f++) {
+      expect(thruW("de-boxer-gtk", "hull", f, "lab-12_7mm-b32")).toBe(false);
+      expect(thruW("de-boxer-gtk", "hull", f, "lab-762-b32")).toBe(false);
+    }
+    expect(thruW("de-boxer-gtk", "hull", 1, "ru-30x165-3ubr8")).toBe(true);
+    expect(thruW("de-boxer-gtk", "hull", 1, "de-30x173-pmc287")).toBe(true);
+    expect(thruW("de-boxer-gtk", "turret", 0, "lab-762-b32")).toBe(true);
+  });
 });

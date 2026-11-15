@@ -979,6 +979,17 @@ where they dropped them and support by fire from there; the Russian BMP-2s follo
 (both from the research on each army's doctrine). During the assault each vehicle fires at an enemy its side
 knows near the objective, never close to its own men.
 
+**Wheeled carriers (M7.6c).** Each army also has a wheeled platoon: the German **Jägerzug** in four **GTK Boxer**
+(eight-wheeled; a crew of two, the commander working the remote weapon station on the roof — a 12.7 mm heavy
+machine gun with a thermal sight and laser rangefinder — and eight men in the back: a Jägergruppe of eight with an
+MG5 team, a Panzerfaust, a marksman and an Einsatzersthelfer; the Zugtrupp rides in the fourth) and the Russian
+**BTR platoon** in three **BTR-82A** (crew of three, a 30 mm 2A72 and a machine gun in a small turret, seven men in
+the back who get out through cramped side doors; the platoon commander rides in the first). Which platoon a battle
+uses is chosen by the class of its carriers, never by vehicle name: `&vehicles=wheeled` (or `tracked`, the
+default, or one each, `&vehicles=wheeled,tracked`). A wheeled carrier is faster on roads, turns in a circle rather
+than on the spot, and keeps to ground wheels can cross (no woods). The Boxer's hull stops heavy machine-gun fire;
+the BTR's front stops 12.7 mm but its sides do not; every cannon round and rocket goes through both.
+
 ## The screen: order bar, unit list, labels (M7.5a)
 The battle opens with **nothing selected**. The **order bar** is always there; until you pick a unit its buttons
 are greyed out. Pick a unit by tapping one of your men or vehicles on the map, or its tile in the **unit list**.

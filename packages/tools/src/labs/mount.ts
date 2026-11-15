@@ -9,10 +9,13 @@ import { createSim, step, submitOrder, type EntityId, type Sim, type SimEvent } 
 
 export interface MountRow { vehicle: string; case: string; value: number; unit: string }
 
-const CASES: { factions: [string, string]; squad: string }[] = [
+const CASES: { factions: [string, string]; squad: string; crew?: [string, string] }[] = [
   { factions: ["de", "ru"], squad: "pzgren-schuetzentrupp" },
   { factions: ["ru", "de"], squad: "motor-rifle-squad" },
   { factions: ["xf", "de"], squad: "porter-gang" },
+  // M7.6c: the wheeled carriers with their squads (GTK rear ramp, BTR-82A side doors).
+  { factions: ["de", "ru"], squad: "jaeger-gruppe", crew: ["boxer-besatzung", "btr82a-ekipazh"] },
+  { factions: ["ru", "de"], squad: "motor-rifle-squad-btr", crew: ["btr82a-ekipazh", "boxer-besatzung"] },
 ];
 
 function until(sim: Sim, seconds: number, done: (e: SimEvent) => boolean): number | null {
@@ -25,7 +28,7 @@ export function mountLab(data: DataSet): MountRow[] {
   const rows: MountRow[] = [];
   for (const c of CASES) {
     if (!data.factions[c.factions[0]]) continue;
-    const input = vehicleBattle(data, { seed: 1, factions: c.factions, squadTemplates: [c.squad, data.factions[c.factions[1]]!.manifest.demoTemplate ?? "demo-team"], vehiclesPerPlatoon: 1, mapWidthM: 800, mapHeightM: 600, timeLimitSeconds: 3600 });
+    const input = vehicleBattle(data, { seed: 1, factions: c.factions, squadTemplates: [c.squad, data.factions[c.factions[1]]!.manifest.demoTemplate ?? "demo-team"], vehiclesPerPlatoon: 1, mapWidthM: 800, mapHeightM: 600, timeLimitSeconds: 3600, ...(c.crew ? { crewTemplates: c.crew } : {}) });
     const sim = createSim(input);
     const v = [...sim.state.vehicle.entries()].find(([, x]) => x.side === "blue")!;
     const vid: EntityId = v[0], type = v[1].def;

@@ -4,7 +4,7 @@
  * commander riding in, getting out on arrival or at once when a hull is hit, getting back in on withdrawal (Q24).
  */
 import { describe, expect, it } from "vitest";
-import { buildScenario, lastDeadGround, withoutVehicles, buildForceWithVehicles, type ScenarioDef } from "@tcs/scenario";
+import { buildScenario, crewTemplateOf, lastDeadGround, withoutVehicles, buildForceWithVehicles, type ScenarioDef } from "@tcs/scenario";
 import { commanderController } from "@tcs/ai";
 import {
   createSim, hashState, hypot2, isAble, step, submitOrder, type BattleInput, type Controller, type EntityId, type Sim, type SimEvent,
@@ -226,5 +226,62 @@ describe("platoons with vehicles (M7.2)", () => {
     const out = events.find((e) => e.kind === "unit.dismounted");
     expect(out).toBeDefined();
     expect(out!.tick - at).toBeLessThan(25 * 60);
+  });
+});
+
+describe("wheeled carriers and their platoons (M7.6c)", () => {
+  const fx = loadData(true);
+
+  it("crewTemplateOf: the platoon's carriage crews (tracked by default, as before), wheeled ones on request; xf as before", () => {
+    expect(crewTemplateOf(data, "de")).toBe("puma-besatzung");
+    expect(crewTemplateOf(data, "ru")).toBe("bmp2-ekipazh");
+    expect(crewTemplateOf(data, "de", "tracked")).toBe("puma-besatzung");
+    expect(crewTemplateOf(data, "de", "wheeled")).toBe("boxer-besatzung");
+    expect(crewTemplateOf(data, "ru", "wheeled")).toBe("btr82a-ekipazh");
+    // The old rule (first fighting crew by id) for the fixture, which has no platoonTemplates.
+    const pack = fx.factions["xf"]!;
+    const old = Object.keys(pack.units).sort().filter((id) => { const v = pack.units[id]!.vehicle, vd = v === undefined ? undefined : pack.vehicles[v]; return vd !== undefined && vd.ambulance === undefined && vd.seats.some((q) => q.station === "passenger"); })[0];
+    expect(crewTemplateOf(fx, "xf")).toBe(old);
+    expect(crewTemplateOf(fx, "xf", "wheeled")).toBe(old);
+  });
+
+  it("the Jaegerzug in four GTK Boxers (Zugtrupp in the fourth) and the BTR platoon in three BTR-82A (commander in the first); every man has a seat", () => {
+    const de = buildForceWithVehicles(data, { faction: "de", template: "jaeger-zug", seed: 3, keyPrefix: "b" });
+    expect(de.vehicles.map((v) => v.type)).toEqual(["de-boxer-gtk", "de-boxer-gtk", "de-boxer-gtk", "de-boxer-gtk"]);
+    const deCrews = de.unit.subunits.filter((u) => u.vehicleId !== undefined);
+    expect(deCrews.map((c) => c.callsign)).toEqual(["Boxer 1", "Boxer 2", "Boxer 3", "Boxer 4"]);
+    for (const c of deCrews) expect(c.members).toHaveLength(2);
+    const deSquads = de.unit.subunits.filter((u) => u.vehicleId === undefined);
+    expect(deSquads.map((q) => q.members.length)).toEqual([8, 8, 8]);
+    expect(deSquads.map((q) => q.carrierId)).toEqual(deCrews.slice(0, 3).map((c) => c.vehicleId));
+    expect(de.unit.carrierId).toBe(deCrews[3]!.vehicleId);
+    const ru = buildForceWithVehicles(data, { faction: "ru", template: "motor-rifle-platoon-btr", seed: 3, keyPrefix: "r" });
+    expect(ru.vehicles.map((v) => v.type)).toEqual(["ru-btr82a", "ru-btr82a", "ru-btr82a"]);
+    const ruCrews = ru.unit.subunits.filter((u) => u.vehicleId !== undefined);
+    expect(ruCrews.map((c) => c.callsign)).toEqual(["BTR 1", "BTR 2", "BTR 3"]);
+    const ruSquads = ru.unit.subunits.filter((u) => u.vehicleId === undefined);
+    expect(ruSquads.map((q) => q.members.length)).toEqual([6, 7, 7]);
+    expect(ru.unit.carrierId).toBe(ruCrews[0]!.vehicleId);
+    // In battle: the attacker starts mounted, everyone of it aboard; every carrier wheeled.
+    const input = buildScenario(data, def(1, { carriers: "wheeled", missileTeams: false }));
+    const sim = createSim(input);
+    const cat = input.catalog;
+    for (const [, v] of sim.state.vehicle.entries()) if (v.offMap === undefined) expect(cat.vehicles[v.def]!.class).toBe("wheeled");
+    const aboard = [...sim.state.vehicle.values()].filter((v) => v.side === "blue" && v.offMap === undefined).flatMap((v) => v.seats.filter((x) => x !== null));
+    expect(aboard).toHaveLength(2 * 35);
+  });
+
+  it("carriers absent is the tracked battle exactly; wheeled against tracked mixes the classes per side", () => {
+    const h = (over: Partial<ScenarioDef>) => hashState(createSim(buildScenario(data, def(2, over))).state);
+    expect(h({ carriers: "tracked" })).toBe(h({}));
+    expect(h({ carriers: ["tracked", "tracked"] })).toBe(h({}));
+    const mixed = buildScenario(data, def(2, { carriers: ["wheeled", "tracked"] }));
+    const types = (side: string) => [...new Set((mixed.forces.find((f) => f.side === side)!.vehicles ?? []).filter((v) => !(mixed.forces.find((f) => f.side === side)!.offMap ?? []).some((a) => a.vehicleId === v.vehicleId)).map((v) => v.type))];
+    expect(types("blue")).toEqual(["de-boxer-gtk"]);
+    expect(types("red")).toEqual(["ru-bmp2"]);
+    // A faction with no wheeled platoon (the fixture) keeps its platoonTemplate.
+    const xf = buildScenario(fx, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["xf", "de"], attacker: "blue", vehicles: true, carriers: "wheeled" });
+    expect(xf.forces[0]!.units[0]!.key.startsWith("blue")).toBe(true);
+    expect(JSON.stringify(xf.forces[0]!.units)).toBe(JSON.stringify(buildScenario(fx, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["xf", "de"], attacker: "blue", vehicles: true }).forces[0]!.units));
   });
 });

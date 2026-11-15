@@ -247,7 +247,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M7.6b Tanks in battle** (2026-11-15) — vehicle targets aimed at the part that shows (hull, else turret; the
     crew judges that zone); tank sections (`tankSectionTemplate`), scenario `tanks`, app `?tanks=`; AI overwatch from
     hull-down posts (`siteHullDown`, `ai/src/tanks.ts`), carriers wait for it; `bench-tanks`; `--scene tanks-battle`.
-    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS. Next: M7.6c.
+    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS.
+  - ✅ **M7.6c Wheeled carriers and their platoons** (2026-11-15) — GTK Boxer (FLW 200, 12.7 mm) and BTR-82A; the
+    Jägerzug and the BTR platoon; manifest `platoonTemplates`, `carriers`, app `?vehicles=wheeled`; lab rows, batches
+    (wheeled Jäger attack 0 of 10: reported, not tuned), `--scene wheeled`. Next: M7.6d (GMW 40 mm, AGS, SVD).
 
 ## Stage C — depth
 

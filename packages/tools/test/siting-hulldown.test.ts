@@ -67,7 +67,11 @@ describe("siteHullDown (M7.6b)", () => {
   });
 
   it("stays on its own side of a line when told to", () => {
-    const posts = siteHullDown(ctx, anchor, targets, opts({ behind: { x: 950, y: 600, ux: -1, uy: 0, minM: 50 } }));
-    for (const p of posts) expect(p.x).toBeLessThanOrEqual(900 + 1e-6);
+    // (Unconstrained, the best post stands at x 900: a line at x 890 must move it.)
+    const free = siteHullDown(ctx, anchor, targets, opts());
+    expect(free.some((p) => p.x > 890 + 1e-6)).toBe(true);
+    const posts = siteHullDown(ctx, anchor, targets, opts({ behind: { x: 940, y: 600, ux: -1, uy: 0, minM: 50 } }));
+    expect(posts.length).toBeGreaterThan(0);
+    for (const p of posts) expect(p.x).toBeLessThanOrEqual(890 + 1e-6);
   });
 });

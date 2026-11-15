@@ -61,7 +61,7 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(first!.tick).toBeGreaterThanOrEqual(Math.min(onPost, TANKS.carrierWaitSeconds * 60));
   });
 
-  it("the attacker's tanks never lead into ground its men have not reached, and never stand in a house or a wood", () => {
+  it("the attacker's tanks never lead into ground its men have not reached once the platoons move up, and never stand in a house or a wood", () => {
     const input = sc.build(data, 2, 600);
     const r = start(input);
     const { vids } = tanksOf(r.sim, "blue");
@@ -70,20 +70,26 @@ describe("the commander's tanks (M7.6b)", () => {
     const bf = input.forces.find((f) => f.side === "blue")!;
     const blueStart = { x: bf.placements.reduce((a, p) => a + p.x, 0) / bf.placements.length, y: bf.placements.reduce((a, p) => a + p.y, 0) / bf.placements.length };
     const L = hypot2(main.x - blueStart.x, main.y - blueStart.y), ux = (main.x - blueStart.x) / L, uy = (main.y - blueStart.y) / L;
-    let samples = 0, stood = 0, ahead = 0, far = 0;
+    let samples = 0, stood = 0, ahead = 0, far = 0, later = 0;
+    // The side's foremost man on foot (not mounted: a tank's own crew rides with it) or carrier along the axis.
+    const frontOf = (st: Sim["state"]): number => {
+      const own = [...st.identity.entries()].filter(([id, idn]) => idn.side === "blue" && st.soldier.get(id)?.casualty === "none" && st.soldier.get(id)?.mount === undefined).map(([id]) => st.transform.get(id)!);
+      const carriers = [...st.vehicle.entries()].filter(([id, v]) => v.side === "blue" && !tankSet.has(id) && v.status !== "destroyed" && v.status !== "abandoned").map(([id]) => st.transform.get(id)!);
+      return [...own, ...carriers].reduce((m, f) => Math.max(m, f.x * ux + f.y * uy), -Infinity);
+    };
     run(r, 300, (rr) => {
       const st = rr.sim.state;
       if (st.tick % 300 !== 0) return false;
       if (st.objectives[0]?.holder === "blue") return true;
-      // The side's foremost man on foot or carrier along the axis.
-      const own = [...st.identity.entries()].filter(([id, idn]) => idn.side === "blue" && st.soldier.get(id)?.casualty === "none").map(([id]) => st.transform.get(id)!);
-      const carriers = [...st.vehicle.entries()].filter(([id, v]) => v.side === "blue" && !tankSet.has(id) && v.status !== "destroyed" && v.status !== "abandoned").map(([id]) => st.transform.get(id)!);
-      const front = [...own, ...carriers].reduce((m, f) => Math.max(m, f.x * ux + f.y * uy), -Infinity);
+      const front = frontOf(st);
       for (const vid of vids) {
         const v = st.vehicle.get(vid)!, t = st.transform.get(vid)!;
         if (v.status === "destroyed" || v.status === "abandoned") continue;
         samples++;
-        if (t.x * ux + t.y * uy > front + TANKS.frontSlackM) ahead++;
+        // (Before the platoons move up, "start" and "ride", the tanks go ahead to their overwatch on purpose: the
+        // carriers wait for them there. From then on they never lead.)
+        const ph = mem(rr.ctrls[0]!).phase;
+        if (ph !== "start" && ph !== "ride") { later++; if (t.x * ux + t.y * uy > front + TANKS.frontSlackM) ahead++; }
         if (hypot2(t.x - main.x, t.y - main.y) >= TANKS.sbfNearM - 150) far++;
         // (Standing, once on its posts: it may start in, or drive through, a wood.)
         const tm = mem(rr.ctrls[0]!).tk?.[String(v.unit!)];
@@ -98,8 +104,13 @@ describe("the commander's tanks (M7.6b)", () => {
     });
     expect(samples).toBeGreaterThan(20);
     expect(stood).toBeGreaterThan(5);
+    expect(later).toBeGreaterThan(10);
     expect(ahead).toBe(0);
     expect(far).toBe(samples); // (never closer to the objective than its near overwatch, less the ring searched)
+    // Negative control: the check bites (a tank put 200 m ahead of the front is seen ahead of it).
+    const st = r.sim.state, t = st.transform.get(vids[0]!)!, f = frontOf(st), a = t.x * ux + t.y * uy;
+    t.x += ux * (f + 200 - a); t.y += uy * (f + 200 - a);
+    expect(t.x * ux + t.y * uy > frontOf(st) + TANKS.frontSlackM).toBe(true);
   });
 
   it("a tank that cannot get to its post (no route) tries its alternates, then the carriers stop waiting for it (review fix)", () => {

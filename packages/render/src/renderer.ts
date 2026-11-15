@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, floorAtZ, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -227,6 +227,8 @@ export class BattleRenderer {
   private hudRects: Rect[] = [];
   /** Smoke model constants (M8.1) for drawing the clouds as the sim sees them. */
   private smokePhys: SmokePhysics | null = null;
+  /** The catalog (M9.6: a flare's light, for its glow). */
+  private cat: Catalog | null = null;
   /** Vehicle types (hull and turret boxes) from the catalog. */
   private vehicleDefs: Catalog["vehicles"] = {};
   /** M9.4a: each quadcopter item's camera footprint radius (m). */
@@ -414,6 +416,7 @@ export class BattleRenderer {
   /** What the renderer needs to know of the data: ammunition looks and vehicle shapes. */
   setCatalog(catalog: Catalog): void {
     this.smokePhys = smokePhysics(catalog);
+    this.cat = catalog;
     this.tracer = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracer);
     this.burnoutM = catalog.ammoIds.map((id) => catalog.ammo[id]!.tracerBurnoutM ?? 600);
     this.special = catalog.ammoIds.map((id) => (catalog.ammo[id]!.guided ? 3 : catalog.ammo[id]!.explosive ? 1 : catalog.ammo[id]!.kind === "fragment" ? 2 : 0));
@@ -634,6 +637,7 @@ export class BattleRenderer {
 
     // Fog of war is on whenever Debug is off (the app supplies what the side knows).
     const fog = !overlay.debug && overlay.reveal !== true;
+    if (state.flares !== undefined && state.flares.length > 0) this.drawFlares(g, state, map);
     this.drawProjectiles(g, state, alpha, overlay, fog);
     // Overview zoom (far out): symbols instead of men and hulls (M7.5a: a vehicle symbol per vehicle — near ones
     // stacked into one — and an infantry symbol only for a unit with men on foot).
@@ -1362,6 +1366,30 @@ export class BattleRenderer {
     this.roofLayer.tint = mix(NIGHT_MAP, w);
     this.shadowLayer.tint = mix(NIGHT_MAP, w);
     this.menLayer.tint = mix(NIGHT_MEN, w);
+  }
+
+  /**
+   * Illumination flares (M9.6): each burning one as a bright point over the spot below it, with a soft warm glow on
+   * the ground out to where its light falls to about 0.1 (the sim's own formula), brighter inside (0.3). Seen by
+   * everyone (a flare lights both sides). Drawn only while flares burn: nothing changes otherwise.
+   */
+  private drawFlares(g: Graphics, state: SimView, map: MapDef): void {
+    const c = this.camera, cat = this.cat;
+    if (!cat) return;
+    const glow = 0.1 + 0.2 * this.dark;
+    for (const f of state.flares ?? []) {
+      if (!flareBurning(f, state.tick)) continue;
+      const gz = heightAt(map, f.x, f.y); // ground: ok (the ground below a flare)
+      const outer = flareLitRadius(cat, f, state.tick, 0.1, gz);
+      const s = worldToScreen(c, f.x, f.y);
+      if (outer > 0) {
+        const inner = flareLitRadius(cat, f, state.tick, 0.3, gz);
+        g.circle(s.x, s.y, outer * c.scale).fill({ color: 0xffe2a0, alpha: glow * 0.5 });
+        if (inner > 0) g.circle(s.x, s.y, inner * c.scale).fill({ color: 0xfff0c8, alpha: glow * 0.6 });
+      }
+      g.circle(s.x, s.y, 9).fill({ color: 0xfff4d0, alpha: 0.35 });
+      g.circle(s.x, s.y, 3.5).fill({ color: 0xffffff, alpha: 1 });
+    }
   }
 
   private drawProjectiles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, fog = false): void {

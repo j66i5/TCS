@@ -40,6 +40,18 @@ export function nightLab(data: DataSet, seeds = 30): { rows: NightRow[]; table: 
       }
     }
   }
+  // M9.6: a still man at 300 m on a moonless night (23:00), without and under a 120 mm illumination flare burning
+  // 400 m up over a point 100 m beyond him (held steady: no descent).
+  const illum = cat.factions["de"]?.fireSupport?.illumAmmo;
+  const il = illum !== undefined ? cat.ammo[illum]?.illum : undefined;
+  for (const lit of [false, true]) {
+    if (lit && !il) continue;
+    const g = TARGETS[1]!;
+    const name = `standing, still, open${lit ? `, under a flare (${illum}, 400 m up, 100 m beyond him)` : ", no flare"}`;
+    const r = spotCase(cat, { ...g, name, timeOfDay: 23 * 3600, moon: 0, seeds, seedBase: base, ...(lit && il ? { flare: { candela: il.candela, heightM: 400, beyondM: 100 } } : {}) });
+    base += 100;
+    rows.push({ ...r, time: "23:00, no moon", light: lightAt(cat, 23 * 3600, 0) });
+  }
   const table = Array.from({ length: 25 }, (_, h) => ({ hour: h, light: lightAt(cat, h * 3600, 0), lightFullMoon: lightAt(cat, h * 3600, 1) }));
   return { rows, table };
 }

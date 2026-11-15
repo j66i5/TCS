@@ -5662,3 +5662,8 @@ data or golden change.
   battle on a phone needs smaller nav arrays or lazy per-region grids first (noted for whoever builds 4 km maps).
 - **Not done:** the owner's phone numbers; Firefox/WebKit probe results (CI); a "get out with the wounded" button
   (a D3-tagged leftover not in slice 18's list).
+- **Review (3 reviewers, every finding checked by two sceptics; 4 confirmed and fixed, 4 rejected):** the
+  no-line-of-fire warning fired on every fire order at a known enemy vehicle (its own hull blocked the line to it: the
+  target hull is now looked past); the phone list's cap is redone when the card changes height, not only when it shows
+  or hides; `phoneperf` no longer loads the read-out (every second swipe started on it and panned nothing) and its
+  frame loops no longer pile up across runs (the frame counts were 2-4x too high; percentiles were right).

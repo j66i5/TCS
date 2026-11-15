@@ -743,11 +743,11 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const x of ruleBtns) x.b.classList.toggle("on", r[x.key] === x.value);
     },
     setCard(m) {
-      const was = card.el.hidden;
+      const was = card.el.hidden, wasH = card.el.offsetHeight;
       card.update(m); bottom.classList.toggle("with-card", m !== null);
       if (m === null) { panel.hidden = true; card.setRulesButton(false, false); }
-      // (D3: the open list's height follows the card on a narrow screen; only when the card shows or hides.)
-      if (was !== card.el.hidden && sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout();
+      // (D3: the open list's height follows the card on a narrow screen: when the card shows, hides or changes height.)
+      if ((was !== card.el.hidden || card.el.offsetHeight !== wasH) && sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout();
     },
     showMan(d) { manBox.update(d); },
     setInspected(id) { card.setInspected(id); },

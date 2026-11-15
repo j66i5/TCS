@@ -57,8 +57,8 @@ interface Run { look: string; run: string; raf: { n: number; p50: number; p95: n
 const fn = <T>(body: string) => new Function(body) as () => T;
 
 async function measure(page: Page, cdp: Cdp, look: string, run: string, pan: boolean, ms: number): Promise<Run> {
-  await page.evaluate(fn<void>(`const g = globalThis; g.__ft = []; let last = 0; g.__ftOn = true; g.__tcs.perf(true);
-    const f = (t) => { if (last) g.__ft.push(t - last); last = t; if (g.__ftOn) requestAnimationFrame(f); }; requestAnimationFrame(f);`));
+  await page.evaluate(fn<void>(`const g = globalThis; g.__ft = []; let last = 0; const gen = (g.__ftGen = (g.__ftGen || 0) + 1); g.__tcs.perf(true);
+    const f = (t) => { if (g.__ftGen !== gen) return; if (last) g.__ft.push(t - last); last = t; requestAnimationFrame(f); }; requestAnimationFrame(f);`));
   const end = Date.now() + ms;
   const cx = W / 2, cy = H / 2;
   let dir = 1;
@@ -70,7 +70,7 @@ async function measure(page: Page, cdp: Cdp, look: string, run: string, pan: boo
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     dir = -dir;
   }
-  const out = await page.evaluate(fn<{ ft: number[]; perf: Report }>(`const g = globalThis; g.__ftOn = false; return { ft: g.__ft, perf: g.__tcs.perf() };`));
+  const out = await page.evaluate(fn<{ ft: number[]; perf: Report }>(`const g = globalThis; g.__ftGen = (g.__ftGen || 0) + 1; return { ft: g.__ft, perf: g.__tcs.perf() };`));
   const s = [...out.ft].sort((x, y) => x - y);
   const q = (p: number) => s.length ? s[Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1))]! : 0;
   return { look, run, raf: { n: s.length, p50: q(0.5), p95: q(0.95), max: s[s.length - 1] ?? 0, over33: s.length ? s.filter((x) => x > 33.4).length / s.length : 0 }, perf: out.perf };
@@ -83,7 +83,7 @@ async function measureLook(browser: Browser, base: string, look: string): Promis
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   const t0 = Date.now();
-  await page.goto(`${base}?seed=${seed}&map=${map}&look=${look}&perf=1`, { waitUntil: "load", timeout: 60000 });
+  await page.goto(`${base}?seed=${seed}&map=${map}&look=${look}`, { waitUntil: "load", timeout: 60000 });
   await page.waitForFunction(fn<boolean>("return globalThis.__tcs?.ready === true && globalThis.__tcs.tilesPending() === 0"), null, { timeout: 120000 });
   const loadMs = Date.now() - t0;
   await page.waitForTimeout(1000);

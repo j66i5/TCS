@@ -320,6 +320,21 @@ Acceptance: the chain runs for both sides and the xf fixture; preventable deaths
 on his phone.
 
 - **M11 Logistics** (SPEC 9.2) ⬜
+  - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
+    because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
+    prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):
+    - *Prisoner collection point* behind each company, like the Verwundetennest: the capturing squad walks or
+      escorts prisoners there (one guard per few prisoners, guards out of the fight), searched (weapons and
+      documents as counted items, rule 9), segregated (officers, NCOs, men), wounded prisoners handed to the medics
+      (already treated by need, owner 2026-11-15).
+    - *MP team* off the map, requested like the ambulance (delay, a vehicle such as a Feldjäger Dingo/Wolf or an
+      MP UAZ/Tigr as data): drives to the collection point, takes the prisoners back, frees the guards.
+    - *Laws of war*: prisoners protected from fire and moved out of the danger zone (GC III art. 19-20);
+      treatment of prisoners in the after-action review, using the M10.7 recognition and breach machinery.
+    - *Intelligence*: prisoners questioned by MPs may yield reports on enemy positions (later, with M13
+      intelligence hooks); roster: captured men leave the battle as "captured" records for the campaign (M12).
+    - *Cost*: guards and escorts are men not fighting, a real tactical trade-off for the player.
+
 - **M12 Persistent roster and linked battles** (SPEC 9.3 stage one) ⬜
 - **M13 Dynamic campaign** (SPEC 9.3 stage two) ⬜
 

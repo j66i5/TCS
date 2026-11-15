@@ -9,6 +9,7 @@ import { careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed,
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
+import { lossTally } from "../vehicle-losses";
 
 const args = parseArgs(process.argv.slice(2));
 const timeOfDay = parseTimeOfDay(args["time"]);
@@ -93,8 +94,8 @@ for (let i = 0; i < runs; i++) {
   let evacEnd: { id: number; side: string }[] = [];
   // M7.6b: vehicles by type, the last penetrating hit on each hull (shooter label), tiles used, tank gun rounds.
   let simRef: Sim | null = null;
-  const lastPen = new Map<number, string>();
-  const killers: Record<string, Record<string, number>> = {}, era: Record<string, number> = { blue: 0, red: 0 }, tankRounds: Record<string, { ap: number; he: number }> = { blue: { ap: 0, he: 0 }, red: { ap: 0, he: 0 } };
+  const losses = lossTally(), killers = losses.killers;
+  const era: Record<string, number> = { blue: 0, red: 0 }, tankRounds: Record<string, { ap: number; he: number }> = { blue: { ap: 0, he: 0 }, red: { ap: 0, he: 0 } };
   const shooterLabel = (sim: Sim, owner: number): string => {
     const s = sim.state.soldier.get(owner);
     if (s?.mount) return sim.state.vehicle.get(s.mount.vehicle)?.def ?? "vehicle";
@@ -106,14 +107,10 @@ for (let i = 0; i < runs; i++) {
   const foldTanks = (sim: Sim, ev: readonly SimEvent[]) => {
     for (const e of ev) {
       if (e.kind === "vehicle.hit") {
-        if (e.result === "penetrated") lastPen.set(e.vehicle, shooterLabel(sim, e.owner));
+        losses.hit(e.vehicle, e.result === "penetrated" ? shooterLabel(sim, e.owner) : undefined);
         if (e.era !== undefined) { const sd0 = sim.state.vehicle.get(e.vehicle)?.side; if (sd0) era[sd0] = (era[sd0] ?? 0) + 1; }
       } else if (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
-        if (lastPen.get(e.vehicle) === "counted") continue; // (abandoned, then destroyed: one loss)
-        const t = sim.state.vehicle.get(e.vehicle)?.def ?? "?";
-        const k = (killers[t] ??= {}), who = lastPen.get(e.vehicle) ?? "none";
-        k[who] = (k[who] ?? 0) + 1;
-        lastPen.set(e.vehicle, "counted");
+        losses.lost(e.vehicle, sim.state.vehicle.get(e.vehicle)?.def ?? "?"); // (abandoned, then destroyed: one loss)
       } else if (e.kind === "shot.fired" && e.vehicle !== undefined) {
         const v = sim.state.vehicle.get(e.vehicle), am = input.catalog.ammo[e.ammo];
         // (The tank's main gun: the first weapon of its first station.)

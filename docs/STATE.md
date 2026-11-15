@@ -232,14 +232,16 @@ sensor physics (thermal, goggle numbers).
   re-tuning only in the named balance slices (M10.8, D4, M8.5, M9.6).
 - **Performance headroom is small:** bench-vehicles sits close to its 8× floor; every medical slice marked [perf]
   measures it alone twice.
-- **Phone smoothness unmeasured on a real phone** (the container's software renderer is far slower); D3.
+- **Phone smoothness unmeasured on a real phone** (the container's software renderer is far slower). D3 built the
+  `?perf=1` read-out (Copy sends the numbers) and `npm run phoneperf`; the owner's numbers decide the sim-in-a-worker
+  question.
 - **Pre-interiors goldens** (`packages/tools/golden/no-interiors/`, six files) have been skipped since 2026-11-13
   (the data changed). The plan proposes deleting them; they are kept untouched until the owner says so (see
   "Open questions").
 - Data from search extracts only (web pages cannot be opened here): confidence medium at most, many values low.
-- Leftovers from the UI work for D3: vehicle gun and ammunition on the card, the phone's unit list overlapping the
-  card, a release-time "no line of fire" warning, drag ghosts piling up, casualties hard to read in the pixel look;
-  the roof atlas paints on the main thread.
+- D3 (2026-11-15) closed the UI leftovers (gun on the card, list over the card, no-line-of-fire warning, drag
+  ghosts, casualties in the flat look) and moved the roof atlas into a worker; F2 probe (`npm run probe`) and F3 4 km
+  numbers in DECISIONS "D3". Open: "get out with the wounded" button.
 
 ## Live build
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.

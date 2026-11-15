@@ -219,10 +219,10 @@ function roofBox(b: Building, ppm: number): { gx0: number; gy0: number; w: numbe
 /**
  * All roofs of a map packed into atlas pages (shelves, tallest first, 2 px gutters so mipmaps do not bleed), pages
  * at most `pageSize` px a side. Pitched roofs at ROOF_PPM (8 px/m), lower on maps with very many or very large
- * buildings so the atlas stays within ROOF_ATLAS_PX; flat roofs (plain gravel) at half that. `colourOf(b)`: the roof
- * colour.
+ * buildings so the atlas stays within ROOF_ATLAS_PX; flat roofs (plain gravel) at half that. `colourOf(b, i)`: the roof
+ * colour of building i (D3: the app computes the colours on the main thread and the roof worker reads them by index).
  */
-export function buildRoofAtlas(buildings: readonly Building[], colourOf: (b: Building) => number, maxPpm = ROOF_PPM, pageSize = 2048): RoofAtlas {
+export function buildRoofAtlas(buildings: readonly Building[], colourOf: (b: Building, i: number) => number, maxPpm = ROOF_PPM, pageSize = 2048): RoofAtlas {
   const G = 2;
   let ppm = maxPpm;
   const ppmOf = (b: Building, p: number) => (FLAT.has(b.kind) ? p / 2 : p);
@@ -252,7 +252,7 @@ export function buildRoofAtlas(buildings: readonly Building[], colourOf: (b: Bui
   const items: RoofAtlas["items"] = [];
   buildings.forEach((b, i) => {
     const s = sizes[i]!, q = place[i]!, pg = pages[q.page]!;
-    const pic = paintRoof(b, colourOf(b), s.ppm);
+    const pic = paintRoof(b, colourOf(b, i), s.ppm);
     for (let j = 0; j < s.h; j++) pg.data.set(pic.data.subarray(j * pic.w * 4, (j * pic.w + s.w) * 4), ((q.py + j) * pg.w + q.px) * 4);
     items.push({ page: q.page, px: q.px, py: q.py, pw: s.w, ph: s.h, x: s.gx0 / s.ppm, y: s.gy0 / s.ppm, wM: s.w / s.ppm, hM: s.h / s.ppm });
   });

@@ -4,7 +4,7 @@
  */
 import { indoorAt, ticksToSeconds, type EntityId } from "@tcs/sim";
 import { worldToScreen, type GestureOverlay } from "@tcs/render";
-import { addPoint, attachInput, centreOf, dragTo, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
+import { addPoint, attachInput, centreOf, dragTo, ghostFarEnough, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { stopFollow } from "./camera";
 import { clearAt, facingHandle, fireAtPoint, forUnit, ghostPlan, issue, losTo, now, occupyOrder, offerSupport, oneTapDone, SCREEN_MIN_M, startPlan, turnPlan } from "./orders";
@@ -164,9 +164,13 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       if (gs.kind === "support") { if (inMap(a, w)) gs.at = { ...w }; return; }
       if (gs.kind === "facing") { if (Math.hypot(w.x - gs.centre.x, w.y - gs.centre.y) > 0.5) gs.angle = Math.atan2(w.y - gs.centre.y, w.x - gs.centre.x); return; }
       if (gs.kind === "marker") { gs.at = { ...w }; gs.onUnit = onSelected(a, w); return; }
-      // From the unit: the ghost marker appears once the pointer has left the unit.
-      gs.plan = onSelected(a, w) || !inMap(a, w) ? null : ghostPlan(a, gs.planKind, gs.from, w, null);
-      if (gs.plan) gs.left = true;
+      // From the unit: the ghost marker appears once the pointer is well clear of the unit (D3: closer, its men lay
+      // over the squad's own; the cancel mark shows from the moment the pointer leaves the unit).
+      const on = onSelected(a, w);
+      if (!on) gs.left = true;
+      const gp = on || !inMap(a, w) ? null : ghostPlan(a, gs.planKind, gs.from, w, null);
+      // (The right button presses anywhere, not on the unit: its ghost follows at once.)
+      gs.plan = gp && (gs.right || ghostFarEnough(Math.hypot(w.x - gs.from.x, w.y - gs.from.y), renderer.camera.scale, gp.frontageM)) ? gp : null;
     },
     onDragEnd: (how) => {
       const gs = a.gesture;
@@ -250,7 +254,8 @@ export function gestureOverlay(a: App): GestureOverlay | null {
     const ang = gs.angle ?? gs.start;
     out.facing = { centre: gs.centre, handle: { x: gs.centre.x + Math.cos(ang) * gs.dist, y: gs.centre.y + Math.sin(ang) * gs.dist }, dragging: true };
   }
-  if (!a.plan && gs?.kind !== "marker") {
+  // (D3: not while a drag from the unit shows its ghost: the old end marker added to the pile of rings.)
+  if (!a.plan && gs?.kind !== "marker" && !(gs?.kind === "fromUnit" && gs.plan)) {
     const end = activeMoveOf(a, uid)?.waypoints.at(-1);
     if (end) out.marker = { x: end.x, y: end.y, from: null, dragging: false };
   }

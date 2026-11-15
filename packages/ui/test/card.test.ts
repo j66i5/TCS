@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, activityOf, ammoCells, fireChoice, fireChoiceRules, manDetail, manState, repaceMove, unitMenRows } from "../src/card";
+import { AMBUSH_M, activityOf, ammoCells, fireChoice, fireChoiceRules, gunText, manDetail, manState, repaceMove, unitMenRows, vehicleGuns } from "../src/card";
+import { Strings } from "@tcs/data";
 import { ICON_NAMES, icon, paceIcon } from "../src/icons";
 import { GROUP_OF } from "../src/hud";
 import { unitTiles } from "../src/sidebar";
@@ -144,5 +145,53 @@ describe("icons (S4)", () => {
     expect(paceIcon("drive")).toBe("walk");
     expect(paceIcon("reverse")).toBe("reverse");
     expect(paceIcon("crawl")).toBe("crawl");
+  });
+});
+
+describe("the vehicle's guns on the card (D3)", () => {
+  const data = loadData();
+  const strings = new Strings(data, "en");
+  for (const name of ["platoon-vehicles", "platoon-ru-vehicles"]) {
+    it(`${name}: every gun with ready and stowed rounds by nature; read only; none for a squad`, () => {
+      const sim = createSim(getScenario(name).build(data, 1, 600));
+      const cat = sim.ctx.catalog;
+      const tiles = unitTiles(sim.state, "blue", cat);
+      const veh = tiles.find((t) => t.kind === "vehicle")!;
+      const squad = tiles.find((t) => t.kind === "infantry")!;
+      const h = simHash(sim);
+      const guns = vehicleGuns(sim.state, cat, veh.unit);
+      expect(simHash(sim)).toBe(h);
+      expect(vehicleGuns(sim.state, cat, squad.unit)).toEqual([]);
+      const def = cat.vehicles[sim.state.vehicle.req(sim.state.unit.req(veh.unit).vehicle!).def]!;
+      expect(guns.length).toBe(def.stations.reduce((n, s) => n + s.weapons.length, 0));
+      const kinds = new Set(guns.flatMap((g) => g.feeds.map((f) => f.kind)));
+      expect(kinds.has("mg")).toBe(true);
+      expect(kinds.has("he") || kinds.has("ap")).toBe(true);
+      for (const g of guns) {
+        const line = gunText(strings, g);
+        expect(line).not.toContain("[[");
+        expect(line.startsWith(strings.t(`weapon.${g.weapon}`, {}, g.faction))).toBe(true);
+      }
+      const cannon = guns.find((g) => g.feeds.some((f) => f.kind === "he" || f.kind === "ap"))!;
+      expect(cannon.feeds.some((f) => f.ready > 0)).toBe(true);
+      expect(gunText(strings, cannon)).toMatch(/(HE|AP) \d+/);
+    });
+  }
+  it("the line: natures, a machine gun's belt by count, stowed rounds, jams and reloads", () => {
+    expect(gunText(strings, { weapon: "de-mk30-2", faction: "de", jammed: false, reloading: false, feeds: [{ kind: "he", ready: 160, stowed: 0 }, { kind: "ap", ready: 80, stowed: 120 }] }))
+      .toBe("MK30-2 · HE 160 | AP 80 (+120 stowed)");
+    expect(gunText(strings, { weapon: "de-mg5-coax", faction: "de", jammed: true, reloading: false, feeds: [{ kind: "mg", ready: 500, stowed: 0 }] }))
+      .toBe("MG5 (coaxial) · 500 · jammed");
+    expect(gunText(strings, { weapon: "ru-9p135m", faction: "ru", jammed: false, reloading: true, feeds: [{ kind: "missile", ready: 0, stowed: 3 }] }))
+      .toBe("9P135M launcher · Missiles 0 (+3 stowed) · reloading");
+  });
+  it("the BMP-2's launcher counts as missiles", () => {
+    const sim = createSim(getScenario("platoon-ru-vehicles").build(data, 1, 600));
+    const kinds = new Set<string>();
+    for (const t of unitTiles(sim.state, "blue", sim.ctx.catalog)) {
+      if (t.kind !== "vehicle") continue;
+      for (const g of vehicleGuns(sim.state, sim.ctx.catalog, t.unit)) for (const f of g.feeds) kinds.add(f.kind);
+    }
+    expect(kinds.has("missile")).toBe(true);
   });
 });

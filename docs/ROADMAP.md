@@ -248,7 +248,8 @@ white flags on the map; the after-action review lists surrendered and captured m
 ## Stage C — depth
 
 **Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e and is the current milestone.
-After it: D3 phone pass and D4 infantry tactics (the debt slot), then M8 → M9 → M7.6 (tanks, wheeled carriers,
+After it: D3 phone pass (✅ 2026-11-15: `?perf=1`, phone proxy, UI leftovers, roof atlas in a worker, F2/F3
+probes; the owner's phone numbers open) and D4 infantry tactics (the debt slot), then M8 → M9 → M7.6 (tanks, wheeled carriers,
 Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
 `docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
 

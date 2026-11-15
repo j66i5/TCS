@@ -4,7 +4,8 @@
  *   engage     He fires at an enemy he can see, within the range his weapon is used at, if his unit's fire rule
  *              allows: "free" any time, "return" once his unit has been fired upon (in the last 30 s), "hold"
  *              never. A cease-fire order holds until the unit is fired upon again. He picks the enemy who
- *              matters most: near, firing, standing. He stops when he has lost sight of him for a while.
+ *              matters most: near, firing, standing (D4b: a machine gunner or a marksman the most dangerous; a
+ *              rifleman one his comrades are not already firing at). He stops when he has lost sight of him for a while.
  *              An order always comes first: he never replaces a fire task he was ordered to carry out.
  *   cover      Halted and under fire, and the enemy he knows of can see him where he lies: he runs to the
  *              nearest spot within 15 m where that enemy cannot, preferring one he can fire from on his knees.
@@ -67,12 +68,26 @@ function fireAllowed(state: SimState, ctx: SimContext, unit: Unit, top: Unit): b
   return firedOnSinceCease && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds);
 }
 
+/** What his weapon makes him (D4b): a machine gunner (sustained fire), a marksman (a sight of 4x or more) or a rifleman. */
+type WeaponRole = "sustained" | "magnified" | "rifle";
+function weaponRole(ctx: SimContext, state: SimState, id: EntityId): WeaponRole | null {
+  const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
+  if (!wd) return null;
+  if (wd.sustained) return "sustained";
+  return wd.sights.some((s) => s.magnification >= 4) ? "magnified" : "rifle";
+}
+
 /** The range out to which he engages on his own, by his weapon. */
 function engageRange(ctx: SimContext, state: SimState, id: EntityId, R = ctx.catalog.behaviour.decisions.engageRangeM): number {
-  const w = state.weapon.get(id), wd = w ? ctx.catalog.weapons[w.weapon] : undefined;
-  if (!wd) return 0;
-  if (wd.sustained) return R.sustained;
-  return wd.sights.some((s) => s.magnification >= 4) ? R.magnified : R.rifle;
+  const role = weaponRole(ctx, state, id);
+  return role === null ? 0 : R[role];
+}
+
+/** Who is choosing a target (fire distribution, D4b): his weapon's role and the men of his own unit. */
+interface Shooter { id: EntityId; role: WeaponRole | null; mates: readonly EntityId[] }
+function shooterOf(ctx: SimContext, state: SimState, id: EntityId): Shooter {
+  const u = state.identity.get(id)?.unit;
+  return { id, role: weaponRole(ctx, state, id), mates: (u !== undefined ? state.unit.get(u)?.members : undefined) ?? [] };
 }
 
 /**
@@ -86,11 +101,12 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
   // His deliberate breach (M10.7b), if one goes on: that enemy comes first.
   const breach = s.breachOn !== undefined && state.tick < s.breachOn.untilTick ? s.breachOn.target : undefined;
   let candD = rangeM;
+  const shooter = shooterOf(ctx, state, id);
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
     // (The nearest enemy in range he knows to be protected or giving up: a deliberate breach may be decided on him.)
     if (out !== undefined && breach === undefined && breachCandidate(c)) { const d = hypot2(c.x - me.x, c.y - me.y); if (d <= candD) { candD = d; out.cand = c.target; } }
-    const score = targetScore(ctx, state, c, me, rangeM, breach);
+    const score = targetScore(ctx, state, c, me, rangeM, shooter, breach);
     if (score === null || (reserve && !reserveTargetOk(ctx, state, c, me))) continue;
     if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score }; }
   }
@@ -113,8 +129,13 @@ function droneTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
   return best;
 }
 
-/** How much an enemy he knows matters (lower = more): null if out of range, given up or down. */
-function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: number; y: number }, rangeM: number, breach?: EntityId): number | null {
+/**
+ * How much an enemy he knows matters (lower = more): null if out of range, given up or down. Fire distribution
+ * (D4b, `soldier.fireDistribution`): a machine gunner or a marksman puts his fire on the most dangerous enemy (a
+ * machine gun, a marksman, a man firing now); a rifleman spreads his: each comrade of his unit already firing at that
+ * enemy makes him matter less.
+ */
+function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: number; y: number }, rangeM: number, shooter: Shooter, breach?: EntityId): number | null {
   // He knows this man has given up (M6.6), is down (package A) or is protected (M10.7a) — unless it is his deliberate
   // breach (M10.7b, conduct.ts), who comes first.
   if (spared(c) && c.target !== breach) return null;
@@ -123,8 +144,24 @@ function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: numb
   const ew = state.weapon.get(c.target), es = state.soldier.get(c.target);
   if (!es || !es.physiology.alive || es.casualty !== "none") return null;
   let score = d;
-  if (ew && state.tick - ew.lastShotTick <= 3 * TICK_HZ) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
+  const firing = ew !== undefined && state.tick - ew.lastShotTick <= 3 * TICK_HZ;
+  if (firing) score *= ctx.catalog.weapons[ew.weapon]?.sustained ? 0.35 : 0.6;
   if (c.posture === "prone") score *= 1.3;
+  const FD = ctx.catalog.behaviour.soldier.fireDistribution;
+  if (FD !== undefined && shooter.role !== null) {
+    if (shooter.role !== "rifle") {
+      const role = weaponRole(ctx, state, c.target);
+      if (role === "sustained") score *= FD.dangerSustained;
+      else if (role === "magnified") score *= FD.dangerMagnified;
+      if (firing) score *= FD.dangerFiring;
+    } else {
+      // (His comrades' fire tasks, in the order of his unit's members: deterministic. Himself not counted, so his
+      // own target scores the same when he keeps it as when he picks it.)
+      let n = 0;
+      for (const m of shooter.mates) if (m !== shooter.id && n < FD.spreadCap && state.fire.get(m)?.contact === c.target) n++;
+      for (let k = 0; k < n; k++) score *= 1 + FD.spreadPenalty;
+    }
+  }
   return c.target === breach ? 0 : score;
 }
 
@@ -1040,7 +1077,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       if (pick && current && current.contact !== undefined && current.contact !== pick.target) {
         const cc = s.contacts.find((k) => k.target === current.contact);
         // (Out of sight for a moment — a man lying down flickers in and out of view — is not "hidden".)
-        const cs = cc && cc.kind === "seen" && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range) : null;
+        const cs = cc && cc.kind === "seen" && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range, shooterOf(ctx, state, id)) : null;
         keep = cs !== null && pick.score >= ctx.catalog.behaviour.soldier.keepTargetFactor * cs;
       }
       if (pick && !keep && (!current || current.contact !== pick.target)) {

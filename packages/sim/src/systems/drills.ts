@@ -18,7 +18,7 @@
  * Runs every `drills.stepSeconds`; values are data (core/behaviour.json `drills`). Doctrine profiles (M4.4)
  * will vary them by faction.
  */
-import type { Drill, SoldierState, Unit } from "../components";
+import type { Contact, Drill, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import type { SimContext } from "../context";
 import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
@@ -395,7 +395,7 @@ function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number
  */
 function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, onTheMove = false): void {
   const s = state.soldier.req(m);
-  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
+  let best: { target: EntityId; x: number; y: number; z?: number; kind: Contact["kind"] } | null = null, bestD = 40;
   for (const c of s.contacts) {
     if (spared(c) || c.cls === "vehicle") continue; // a man he knows has given up (M6.6), is down (package A) or is protected (M10.7a) is not fired at
     const dd = hypot2(c.x - at.x, c.y - at.y);

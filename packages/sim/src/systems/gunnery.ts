@@ -29,7 +29,7 @@ import { isOffMap } from "../offmap";
 import { registerActionHandler, startAction } from "../actions";
 import { dropAt, flightTimeAt } from "../ballistics";
 import type { AmmoDef, Catalog, VehicleDef } from "../catalog";
-import type { FireTask, StationState, Unit, VehicleState, VehicleWeaponState } from "../components";
+import type { Contact, FireTask, StationState, Unit, VehicleState, VehicleWeaponState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
 import type { OrderBody, Posture } from "../orders";
@@ -195,15 +195,15 @@ export function setStationTask(
 }
 
 /** A crew's picture of an enemy: the most certain contact any able man of the crew unit holds. */
-function crewContact(ctx: SimContext, state: SimState, crew: Unit, target: EntityId): { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture } | null {
-  let best: { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture } | null = null;
+function crewContact(ctx: SimContext, state: SimState, crew: Unit, target: EntityId): { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture; kind: Contact["kind"] } | null {
+  let best: { x: number; y: number; err: number; vx: number; vy: number; z?: number; posture?: Posture; kind: Contact["kind"] } | null = null;
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
     for (const c of s!.contacts) {
       if (c.target !== target) continue;
       const err = contactErrorM(ctx, c, state.tick);
-      if (!best || err < best.err) best = { x: c.x, y: c.y, err, vx: c.vx ?? 0, vy: c.vy ?? 0, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) };
+      if (!best || err < best.err) best = { x: c.x, y: c.y, err, vx: c.vx ?? 0, vy: c.vy ?? 0, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) };
     }
   }
   return best;
@@ -243,7 +243,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   let mReach = msl ? Math.min(sn.weapons[msl.weapon]!.engageRangeM, msl.g.maxRangeM) : 0;
   if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
-  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number; posture?: Posture }>();
+  const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number; posture?: Posture; kind: Contact["kind"] }>();
   const prot = protectedTargets(state, crew.members);
   for (const m of crew.members) {
     const s = state.soldier.get(m);
@@ -257,10 +257,10 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
       if (!ok) continue;
       const err = contactErrorM(ctx, c, tick);
       const prev = cands.get(c.target);
-      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) });
+      if (!prev || err < prev.err) cands.set(c.target, { x: c.x, y: c.y, err, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}) });
     }
   }
-  const scored: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; score: number; vehicle: boolean; firing: boolean }[] = [];
+  const scored: { target: EntityId; x: number; y: number; z?: number; posture?: Posture; kind: Contact["kind"]; score: number; vehicle: boolean; firing: boolean }[] = [];
   for (const [target, c] of [...cands.entries()].sort((a, b) => a[0] - b[0])) {
     if (!targetLive(state, target)) continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -270,7 +270,7 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     const firing = isVeh
       ? state.vehicle.get(target)!.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= 3 * TICK_HZ))
       : ew !== undefined && tick - ew.lastShotTick <= 3 * TICK_HZ;
-    scored.push({ target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
+    scored.push({ target, x: c.x, y: c.y, kind: c.kind, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score: d * (isVeh ? G.vehicleScore : 1) * (firing ? G.firingScore : 1), vehicle: isVeh, firing });
   }
   scored.sort((a, b) => a.score - b.score || a.target - b.target);
   // The best one the gun can reach from where the vehicle stands (a few lines of fire tried, best first).

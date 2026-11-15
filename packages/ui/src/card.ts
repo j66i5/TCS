@@ -14,11 +14,11 @@
  */
 import type { Insignia, Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
-import { isAble, isOut, MORALE_SOURCES, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
+import { isAble, isOut, MORALE_SOURCES, secondsToTicks, type Catalog, type EntityId, type Order, type SimView } from "@tcs/sim";
 import type { UnitRules } from "./hud";
 import { icon, paceIcon } from "./icons";
 import { insigniaSvg } from "./insignia";
-import { statusPictogram, type ManStatus } from "./pictograms";
+import { mentalPictogram, statusPictogram, type ManStatus } from "./pictograms";
 import { unitSoldierIds } from "./orders-for";
 
 /** A man's state as the card shows it (worst first: captive, down, wounded, pinned, shaken, steady). */
@@ -105,7 +105,7 @@ export function moraleReasons(s: Man, min: number): string[] {
 /** What is helping him now (one `morale.relief.` key), or null: rallied lately, or his leader near. */
 export function moraleRelief(view: SimView, catalog: Catalog, id: EntityId, s: Man): string | null {
   if (s.captive !== null || !isAble(s)) return null;
-  if (view.tick - s.mental.rallyTick <= 30 * 60) return "rallied";
+  if (view.tick - s.mental.rallyTick <= secondsToTicks(catalog.behaviour.morale.rally.reliefShowS)) return "rallied";
   const u = view.unit.get(view.identity.get(id)?.unit ?? -1);
   const l = u?.leader ?? null;
   if (l === null || l === id) return null;
@@ -529,7 +529,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
           const tag = r.triage ? `<span class="hud-man-tag"><span class="hud-triage t${r.triage}" title="${s.t(`card.triage.${r.triage}`)}">${s.t(`card.triage.short.${r.triage}`)}</span></span>` : "";
           // His state of mind as a second badge (morale rework): shown beside a wound too.
           const mentalName = r.mental ? s.t(`behaviour.${r.mental}`) : "";
-          const badge = r.mental ? `<span class="hud-man-mental ms-${r.mental}" title="${esc(mentalName)}">${statusPictogram(r.mental === "shaken" ? "shaken" : "pinned", 12, mentalName)}</span>` : "";
+          const badge = r.mental ? `<span class="hud-man-mental ms-${r.mental}" title="${esc(mentalName)}">${mentalPictogram(r.mental, 12, mentalName)}</span>` : "";
           e.b.innerHTML = `<span class="hud-man-mark">${statusPictogram(r.status, 20, statusName)}${tag}${badge}</span>`
             + `<span class="hud-man-rank">${insigniaSvg(insignia?.[r.faction], r.rank, 34, rankName)}</span>`
             + `<span class="hud-man-role">${text(`role.${r.faction}.${r.role}`, r.faction)}</span>`

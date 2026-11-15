@@ -6,6 +6,7 @@
  * test, golden replays, saves and battle results.
  */
 import type { Action, Carry, ContactReport, DroneState, FireTask, Identity, Mover, RearPoint, SoldierState, TerrainState, Transform, Unit, VehicleState, WeaponState } from "./components";
+import { MORALE_SOURCES } from "./components";
 import { defaultEnvironment, type Environment } from "./environment";
 import type { SmokeCloud } from "./smoke";
 import type { DefId, EntityId, SideId } from "./ids";
@@ -86,7 +87,7 @@ export type DeepReadonly<T> =
 export type SimView = DeepReadonly<SimState>;
 
 /** Bump when the serialised shape changes; old saves are then migrated or rejected. */
-export const STATE_SCHEMA_VERSION = 20;
+export const STATE_SCHEMA_VERSION = 21;
 
 /**
  * Older schemas this build can still load, each with its migration to the next (M10.1 onwards).
@@ -96,11 +97,38 @@ export const STATE_SCHEMA_VERSION = 20;
  * is a new optional field.
  * 19 -> 20 (M10.5 Verwundetennest): a new store, `rear` (rear points), empty in an older save; `SoldierState.atNest`,
  * `evacOrdered` and `Carry.point` are new optional fields.
+ * 20 -> 21 (morale rework): `Unit.morale` and the man's `mental.strain/nerve/why/jolt/flee/rallyTick/panicTick/
+ * lossBooked` are new required fields: an older save gets neutral values (no strain, an average nerve, no reasons,
+ * a unit steady and not yet under fire, its start strength its men now, a man already down booked as a loss), so it
+ * loads and steps instead of crashing in the morale system.
  */
+function migrateMorale20(d: SerializedState): SerializedState {
+  const soldiers = (d.stores.soldier ?? []) as [EntityId, { casualty?: string; captive?: unknown; mental: Record<string, unknown> }][];
+  for (const [, s] of soldiers) {
+    const m = s.mental;
+    m["strain"] ??= 0; m["nerve"] ??= 0.5; m["why"] ??= MORALE_SOURCES.map(() => 0); m["jolt"] ??= 0; m["flee"] ??= null;
+    m["rallyTick"] ??= -1e9; m["panicTick"] ??= -1e9;
+    m["lossBooked"] ??= (s.casualty !== undefined && s.casualty !== "none") || (s.captive !== undefined && s.captive !== null);
+  }
+  const identity = (d.stores.identity ?? []) as [EntityId, { unit: EntityId }][];
+  const units = (d.stores.unit ?? []) as [EntityId, { parent: EntityId | null; morale?: unknown; broken?: boolean }][];
+  const parent = new Map(units.map(([id, u]) => [id, u.parent]));
+  const count = new Map<EntityId, number>();
+  for (const [, i] of identity) for (let u: EntityId | null | undefined = i.unit; u !== null && u !== undefined; u = parent.get(u)) count.set(u, (count.get(u) ?? 0) + 1);
+  for (const [id, u] of units) {
+    u.broken ??= false;
+    u.morale ??= {
+      value: 1, state: "steady", start: count.get(id) ?? 0, lost: 0, recent: [], flanked: false, flankTick: -1, bond: 0.6,
+      firstContact: -1, lowSince: -1, uncared: 0, uncaredSince: -1, support: 0, supportTick: -1, radioTick: -1e9, rallied: -1,
+    };
+  }
+  return { ...d, schema: 21 };
+}
 const MIGRATIONS: Record<number, (d: SerializedState) => SerializedState> = {
   17: (d) => ({ ...d, schema: 18 }),
   18: (d) => ({ ...d, schema: 19, stores: { ...d.stores, carry: d.stores.carry ?? [] } }),
   19: (d) => ({ ...d, schema: 20, stores: { ...d.stores, rear: d.stores.rear ?? [] } }),
+  20: migrateMorale20,
 };
 
 /** Bring a save up to the current schema, or throw if it is too old or too new. */

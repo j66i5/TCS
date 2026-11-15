@@ -78,11 +78,13 @@ describe("AI commander (M6.3)", () => {
     expect(fatigueAtDrill.reduce((x, y) => x + y, 0) / fatigueAtDrill.length).toBeLessThan(0.4);
     // (Called no earlier than the fire's delay and a minute and a half before the squads are in place: since the
     // defence picks its own fire positions (overnight pick "defence-siting") it sees the advance and halts it more
-    // often, which the call's walking-time estimate does not foresee; it was a minute before.)
+    // often, which the call's walking-time estimate does not foresee; it was a minute before. Morale review fixes
+    // 2026-11-15: squads now keep their break guard and stay shaken under fire, the advance takes 10 s longer: two
+    // minutes.)
     const fs = input.catalog.factions["de"]!.fireSupport!;
     expect(heTick).toBeGreaterThanOrEqual(0);
     expect(reconTick).toBeGreaterThan(0);
-    expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 90);
+    expect((reconTick - heTick) / 60).toBeLessThanOrEqual(secondsToEffect(fs) + 120);
   });
 
   // (M10.0, test speed) "the same battle twice is the same battle" ran the whole battle again; the test below already

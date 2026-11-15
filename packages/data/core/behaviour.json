@@ -28,7 +28,9 @@
       },
       "rapidLossExtra": 0.08,
       "rapidWindowS": 60,
+      "recentMax": 8,
       "leaderLost": 0.25,
+      "leaderLostSubUnit": 0.5,
       "platoonLeaderLost": 0.1,
       "woundBase": 0.15,
       "woundPerSeverity": 0.5,
@@ -70,7 +72,7 @@
       "lossResolveFrom": 0.25,
       "lossResolvePerRatio": 0.15,
       "flanked": 0.05,
-    "ownPenetrated": 0.1,
+      "ownPenetrated": 0.1,
       "tauQuietS": 1200
     },
     "relief": {
@@ -109,6 +111,9 @@
       "leaderNearM": 30,
       "radioLeaderM": 60,
       "leaderLowMorale": 0.5,
+      "leaderLowFactor": 0.5,
+      "defaultLeadership": 0.4,
+      "defaultExperience": 0.3,
       "matesM": 15,
       "matesMin": 2,
       "mates": 0.9,
@@ -144,6 +149,7 @@
       "fleeMinM": 50,
       "fleeMaxM": 150,
       "fleeSeconds": 60,
+      "fleeMaxExpansions": 6000,
       "whyMin": 0.04
     },
     "unit": {
@@ -156,10 +162,11 @@
       "minBreakSeconds": 120,
       "earlyBreakLossShare": 0.5,
       "brokenSquadShare": 0.5,
-      "topBreakLossShare": 0.2,
+      "topBreakLossShare": 0.3,
+      "topBreakLossShareDefence": 0.4,
       "flankStepSeconds": 2,
-      "flankSpanDeg": 140,
-      "flankRearDeg": 120,
+      "flankSpanDeg": 100,
+      "flankRearDeg": 90,
       "flankM": 150,
       "contactM": 400,
       "bondLeaderLost": 0.1,
@@ -177,7 +184,9 @@
       "strain": 0.03,
       "squadSeconds": 8,
       "squadRangeM": 50,
-      "radioSpacingS": 60
+      "squadShare": 0.5,
+      "radioSpacingS": 60,
+      "reliefShowS": 1800
     },
     "effects": {
       "shakenAimFactor": 0.85
@@ -228,7 +237,6 @@
     "finalM": 25,
     "phaseTimeoutSeconds": 40,
     "spreadM": 4,
-    "breakPanickedFraction": 0.5,
     "rallyDistanceM": 150,
     "rallyQuietSeconds": 30,
     "rallyStressFactor": 0.6,

@@ -85,8 +85,8 @@ export function leaderNear(ctx: SimContext, state: SimState, id: EntityId, s: So
   if (b === "panicked" || b === "routed") return 0;
   if (range === D.leaderNearM ? !together(s, l) : false) return 0;
   if (d2(state, id, leader) > range * range) return 0;
-  const L = l.skills["leadership"] ?? 0.4;
-  return l.mental.morale < D.leaderLowMorale ? L * 0.5 : L;
+  const L = l.skills["leadership"] ?? D.defaultLeadership;
+  return l.mental.morale < D.leaderLowMorale ? L * D.leaderLowFactor : L;
 }
 
 /** Scratch: his situation this step (no allocation per man). */
@@ -127,7 +127,7 @@ function situation(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSta
     }
   }
   const matesOk = mates >= D.matesMin;
-  let k = (1 - D.experience * (s.skills["experience"] ?? 0.3)) * (1 - D.leaderPerL * L) * (matesOk ? D.mates : 1) * (D.bondBase - D.bondPer * bond)
+  let k = (1 - D.experience * (s.skills["experience"] ?? D.defaultExperience)) * (1 - D.leaderPerL * L) * (matesOk ? D.mates : 1) * (D.bondBase - D.bondPer * bond)
     * (cover ? D.cover : 1) * (armourNear ? D.armourNear : 1);
   const env = state.environment;
   if (env.sky !== undefined && env.light < M.shock.darkBelowLight) k *= M.shock.darkFactor;
@@ -162,7 +162,7 @@ function addStrain(s: SoldierState, a: number, src: number, k: number): void {
 }
 
 /** Scale the reasons that belong to the shock (from < MORALE_STRAIN_FROM) or to the strain by f. */
-function scaleWhy(s: SoldierState, f: number, strain: boolean): void {
+export function scaleWhy(s: SoldierState, f: number, strain: boolean): void {
   const w = s.mental.why;
   const a = strain ? MORALE_STRAIN_FROM : 0, b = strain ? N_SRC - 1 /* fatigue is set, not scaled */ : MORALE_STRAIN_FROM;
   for (let i = a; i < b; i++) w[i] = w[i]! * f;
@@ -274,7 +274,7 @@ export function leaderLost(ctx: SimContext, state: SimState, unitId: EntityId, l
     const mv = s.mount?.vehicle;
     const feels = !(mv !== undefined && leader !== undefined && mv !== inside);
     const own = state.identity.get(m)?.unit === unitId;
-    const sub = own ? 1 : 0.5;
+    const sub = own ? 1 : M.shock.leaderLostSubUnit;
     kick(ctx, state, m, feels ? M.shock.leaderLost * sub : 0, M.strain.leaderLost * sub, SRC.leaderLost!);
   }
   // A platoon (a unit with sub-units) lost its leader: its squad leaders take a further blow.
@@ -352,7 +352,7 @@ function startFlight(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
   const dx = t.x - e.x, dy = t.y - e.y, L = sqrt(dx * dx + dy * dy) || 1;
   const run = S.fleeMinM + (S.fleeMaxM - S.fleeMinM) * s.mental.nerve;
   const gx = Math.min(Math.max(t.x + (dx / L) * run, 5), ctx.map.widthM - 5), gy = Math.min(Math.max(t.y + (dy / L) * run, 5), ctx.map.heightM - 5);
-  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz: 0 });
+  const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: S.fleeMaxExpansions, snapCells: 3 }, { sz: t.z, gz: 0 });
   if (!leg) return false;
   mv.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run", bolt: true as const }).map((w) => ({ ...w, posture: "crouching" as const }));
   mv.formation = null; mv.endPosture = "prone"; mv.endHeading = atan2(e.y - leg.goalY, e.x - leg.goalX);
@@ -386,7 +386,7 @@ registerActionHandler("rally", {
     const t = Number(a.params["soldier"]);
     const s = state.soldier.get(t), l = state.soldier.get(actor);
     if (!s || !l || !isAble(s)) return;
-    rallyMan(ctx, state, t, s, l.skills["leadership"] ?? 0.4, events, actor, 1);
+    rallyMan(ctx, state, t, s, l.skills["leadership"] ?? ctx.catalog.behaviour.morale.damp.defaultLeadership, events, actor, 1);
   },
 });
 
@@ -420,11 +420,11 @@ registerActionHandler("rallyUnit", {
   complete(ctx, state, actor, a, events) {
     const uid = Number(a.params["unit"]), l = state.soldier.get(actor);
     if (!l) return;
-    const L = l.skills["leadership"] ?? 0.4;
+    const M = ctx.catalog.behaviour.morale, L = l.skills["leadership"] ?? M.damp.defaultLeadership;
     // mounted: ok (morale rework) men aboard are counted; each blow below says whether it reaches them
     for (const m of unitSoldiers(state, uid)) {
       const s = state.soldier.get(m);
-      if (s && isAble(s)) rallyMan(ctx, state, m, s, L, events, actor, 0.5);
+      if (s && isAble(s)) rallyMan(ctx, state, m, s, L, events, actor, M.rally.squadShare);
     }
     rallyRouted(ctx, state, uid, events);
   },
@@ -449,16 +449,35 @@ function topOf(state: SimState, uid: EntityId): EntityId {
   return u;
 }
 
-/** A man of this unit fell: losses booked on it and every unit above it. */
-function bookLoss(ctx: SimContext, state: SimState, uid: EntityId): void {
-  const win = secondsToTicks(ctx.catalog.behaviour.morale.shock.rapidWindowS);
+/**
+ * A man of this unit fell (down, killed or given up): the loss is booked on his unit and every unit above it, ONCE per
+ * man (`mental.lossBooked`): a man who goes down and later dies, or goes down and then gives up, is one loss.
+ * Returns false when he was booked already.
+ */
+function bookLoss(ctx: SimContext, state: SimState, victim: EntityId, uid: EntityId): boolean {
+  const s = state.soldier.get(victim);
+  if (s) { if (s.mental.lossBooked) return false; s.mental.lossBooked = true; }
+  const SH = ctx.catalog.behaviour.morale.shock, win = secondsToTicks(SH.rapidWindowS);
   for (let u: EntityId | null = uid; u !== null; u = state.unit.get(u)?.parent ?? null) {
     const un = state.unit.get(u);
     if (!un) break;
     un.morale.lost++;
     const r = un.morale.recent.filter((t) => state.tick - t <= win);
     r.push(state.tick);
-    un.morale.recent = r.slice(-8);
+    un.morale.recent = r.slice(-SH.recentMax);
+  }
+  return true;
+}
+
+/** A man booked as a loss came round (not a prisoner): he is no loss any more (wounds.ts). */
+export function unbookLoss(state: SimState, id: EntityId): void {
+  const s = state.soldier.get(id), i = state.identity.get(id);
+  if (!s || !s.mental.lossBooked || s.captive !== null || !i) return;
+  s.mental.lossBooked = false;
+  for (let u: EntityId | null = i.unit; u !== null; u = state.unit.get(u)?.parent ?? null) {
+    const un = state.unit.get(u);
+    if (!un) break;
+    un.morale.lost = Math.max(0, un.morale.lost - 1);
   }
 }
 
@@ -467,7 +486,8 @@ function onCasualty(ctx: SimContext, state: SimState, victim: EntityId, killed: 
   const vi = state.identity.get(victim), at = state.transform.get(victim);
   if (!vi || !at) return;
   const vs = state.soldier.get(victim);
-  bookLoss(ctx, state, vi.unit);
+  // Down already (now dead of his wounds, or a prisoner): his comrades took that blow when he fell.
+  if (!bookLoss(ctx, state, victim, vi.unit)) return;
   const vTop = topOf(state, vi.unit);
   const inside = vs?.mount?.vehicle;
   const vu = state.unit.get(vi.unit)!;
@@ -568,7 +588,7 @@ function eventKicks(ctx: SimContext, state: SimState, tickEvents: readonly SimEv
       case "casualty": onCasualty(ctx, state, e.soldier, e.status === "killed", tickEvents); break;
       case "surrendered": {
         const i = state.identity.get(e.soldier);
-        if (i) bookLoss(ctx, state, i.unit);
+        if (i) bookLoss(ctx, state, e.soldier, i.unit);
         // The enemy who sees it takes heart as at a man going down.
         const at = state.transform.get(e.soldier);
         if (at) for (const [id, s] of state.soldier.entries()) {
@@ -723,11 +743,21 @@ function stepMan(ctx: SimContext, state: SimState, events: EventSink, id: Entity
 
 const SHAKEN_OR_WORSE = (b: Behaviour) => b === "shaken" || b === "pinned" || b === "panicked" || b === "routed";
 
+/**
+ * The last tick a man of this unit came under fire: its own men (`ownFireTick`, stamped for every unit, a squad on
+ * foot or a crew that bailed out included) or, for a top unit or a crew, any man under it (`underFireTick`).
+ */
+export function firedOnTick(u: Unit): number {
+  return Math.max(u.underFireTick, u.ownFireTick ?? -1e9);
+}
+
 function stepUnit(ctx: SimContext, state: SimState, events: EventSink, uid: EntityId, u: Unit, flankNow: boolean): void {
   const M = ctx.catalog.behaviour.morale, U = M.unit, mo = u.morale;
   // mounted: ok (morale rework) men aboard are counted; each blow below says whether it reaches them
   const men = unitSoldiers(state, uid);
-  let sum = 0, n = 0, shaken = 0, pinned = 0, panicked = 0, uncared = 0;
+  // (`nOwn`/`panickedOwn`: the men not in a broken sub-unit. A sub-unit's rout is its own break; it counts toward the
+  // parent's through the "half its squads broken" rule, not again as panic in the parent's share.)
+  let sum = 0, n = 0, shaken = 0, pinned = 0, nOwn = 0, panickedOwn = 0, uncared = 0;
   for (const m of men) {
     const s = state.soldier.get(m)!;
     if (isAble(s)) {
@@ -735,7 +765,10 @@ function stepUnit(ctx: SimContext, state: SimState, events: EventSink, uid: Enti
       const b = s.mental.behaviour;
       if (SHAKEN_OR_WORSE(b)) shaken++;
       if (b === "pinned" || b === "panicked" || b === "routed") pinned++;
-      if (b === "panicked" || b === "routed") panicked++;
+      const mu = state.identity.get(m)?.unit;
+      if (mu !== uid && mu !== undefined && state.unit.get(mu)?.broken === true) continue;
+      nOwn++;
+      if (b === "panicked" || b === "routed") panickedOwn++;
     } else if (s.physiology.alive && !isCaptive(s) && s.careWait !== undefined && u.members.includes(m)) uncared++;
   }
   // comrades left lying: the count, since when, and the bond lost once for each newly left man
@@ -743,12 +776,13 @@ function stepUnit(ctx: SimContext, state: SimState, events: EventSink, uid: Enti
   if (uncared === 0) mo.uncaredSince = -1; else if (mo.uncaredSince < 0) mo.uncaredSince = state.tick;
   mo.uncared = uncared;
   mo.value = n > 0 ? sum / n : 0;
-  if (mo.firstContact === -1 && u.underFireTick > 0) mo.firstContact = u.underFireTick;
+  const fired = firedOnTick(u);
+  if (mo.firstContact === -1 && fired >= 0) mo.firstContact = fired;
   if (mo.value < U.brokenValue && n > 0) { if (mo.lowSince < 0) mo.lowSince = state.tick; } else mo.lowSince = -1;
   // ---- flanking (every flankStepSeconds)
   if (flankNow) {
     const was = mo.flanked;
-    mo.flanked = flanked(ctx, state, men);
+    mo.flanked = flanked(ctx, state, men, u.parent === null ? men : unitSoldiers(state, topOf(state, uid)));
     if (mo.flanked && !was) {
       mo.flankTick = state.tick;
       for (const m of u.members) { const s = state.soldier.get(m); if (s && isAble(s) && s.mount === undefined) addStrain(s, M.strain.flanked, SRC.flanked!, gainFactor(ctx, state, m, s)); }
@@ -758,18 +792,20 @@ function stepUnit(ctx: SimContext, state: SimState, events: EventSink, uid: Enti
   let broken = u.broken;
   if (!broken && n > 0) {
     // No break in its first minutes under fire (unless it has lost heavily; never so for a top unit, whose break
-    // ends the battle), nor in the same span after it rallied.
-    const guard = mo.firstContact === -1 || state.tick - mo.firstContact < secondsToTicks(U.minBreakSeconds);
+    // ends the battle), nor in the same span after it rallied (not even for heavy losses).
     const rallied = mo.rallied >= 0 && state.tick - mo.rallied < secondsToTicks(U.minBreakSeconds);
+    const guard = mo.firstContact === -1 || state.tick - mo.firstContact < secondsToTicks(U.minBreakSeconds) || rallied;
     const heavyLoss = u.parent !== null && !rallied && lossShare(u) >= U.earlyBreakLossShare;
     let squadsBroken = 0, squads = 0;
     for (const c of u.children) { const cu = state.unit.get(c); if (!cu || cu.vehicle !== undefined || cu.asset !== undefined) continue; squads++; if (cu.broken) squadsBroken++; }
-    const breaks = (panicked > 0 && panicked >= U.brokenPanicShare * n)
+    const breaks = (panickedOwn > 0 && panickedOwn >= U.brokenPanicShare * nOwn)
       || (mo.lowSince >= 0 && state.tick - mo.lowSince >= secondsToTicks(U.brokenForS))
       || (squads > 1 && squadsBroken >= U.brokenSquadShare * squads);
     // A top unit (its break loses the battle) breaks only once it has lost `topBreakLossShare` of its men (killed,
-    // incapacitated, given up; Dupuy Institute breakpoint extracts: about a fifth for an attacker, more for a defender).
-    const topHolds = u.parent === null && lossShare(u) < U.topBreakLossShare;
+    // incapacitated, given up; Dupuy Institute breakpoint extracts: about a fifth for an attacker, more for a defender:
+    // `topBreakLossShareDefence` for a side whose posture is "defend").
+    const defends = state.sides.find((sd) => sd.id === u.side)?.posture === "defend";
+    const topHolds = u.parent === null && lossShare(u) < (defends ? U.topBreakLossShareDefence : U.topBreakLossShare);
     if (breaks && (!guard || heavyLoss) && !topHolds) broken = true;
   }
   const prev = mo.state;
@@ -789,8 +825,11 @@ function radioFrom(state: SimState, uid: EntityId, key: string, events: EventSin
   if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign } });
 }
 
-/** Enemy known on two sides or behind (geometry around the unit's centre). */
-function flanked(ctx: SimContext, state: SimState, men: EntityId[]): boolean {
+/**
+ * Enemy known on two sides or behind (geometry around the unit's centre). `pool`: the men whose contacts count (its
+ * whole top unit: a squad knows what the platoon has reported).
+ */
+function flanked(ctx: SimContext, state: SimState, men: EntityId[], pool: EntityId[]): boolean {
   const U = ctx.catalog.behaviour.morale.unit;
   const able = men.filter((m) => { const s = state.soldier.get(m); return isAble(s) && s!.mount === undefined; });
   const c = centreOf(state, able);
@@ -799,7 +838,10 @@ function flanked(ctx: SimContext, state: SimState, men: EntityId[]): boolean {
   const angs: number[] = [], near: boolean[] = [];
   let sx = 0, sy = 0;
   const seen = new Set<EntityId>();
-  for (const m of able) for (const k of state.soldier.req(m).contacts) {
+  for (const m of pool) {
+    const ps = state.soldier.get(m);
+    if (!ps || !isAble(ps)) continue;
+    for (const k of ps.contacts) {
     if (k.down || k.surrendered || k.wreck || seen.has(k.target)) continue;
     const dx = k.x - c.x, dy = k.y - c.y, dd = dx * dx + dy * dy;
     if (dd > c2 || dd < 1) continue;
@@ -807,6 +849,7 @@ function flanked(ctx: SimContext, state: SimState, men: EntityId[]): boolean {
     const L = sqrt(dd);
     sx += dx / L; sy += dy / L;
     angs.push(atan2(dy, dx)); near.push(dd <= f2);
+    }
   }
   if (angs.length < 2) return false;
   const main = atan2(sy, sx);
@@ -830,11 +873,15 @@ function rallyStep(ctx: SimContext, state: SimState, events: EventSink, uid: Ent
     const pl = state.unit.get(u.parent)?.leader ?? null, ps = pl !== null ? state.soldier.get(pl) : undefined;
     if (pl !== null && ps && isAble(ps) && ps.mount === undefined && !isCowering(ps) && ps.mental.behaviour !== "routed" && !state.action.has(pl)
       && ps.mental.morale >= R.minMorale && ps.mental.suppression < R.maxSuppression) {
-      const c = centreOf(state, unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)) && state.soldier.get(m)!.mount === undefined));
+      const foot = unitSoldiers(state, uid).filter((m) => isAble(state.soldier.get(m)) && state.soldier.get(m)!.mount === undefined);
+      // (Only once its runners have stopped: men still running would be out of his reach before he is done.)
+      const running = foot.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0);
+      const c = running ? null : centreOf(state, foot);
       const t = state.transform.get(pl);
       if (c && t && (c.x - t.x) * (c.x - t.x) + (c.y - t.y) * (c.y - t.y) <= R.squadRangeM * R.squadRangeM) {
         startAction(state, events, pl, "rallyUnit", secondsToTicks(R.squadSeconds), { unit: uid });
-        radioFrom(state, u.parent, "radio.rallying", events);
+        const pu = state.unit.get(u.parent)!;
+        if (state.tick - pu.morale.radioTick >= secondsToTicks(R.radioSpacingS)) { pu.morale.radioTick = state.tick; radioFrom(state, u.parent, "radio.rallying", events); }
         return;
       }
     }

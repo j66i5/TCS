@@ -730,10 +730,15 @@ up to half (more for a good leader, less under fire); a runner stops. Each man a
 man recovers on his own, more slowly.
 
 Every second each **unit** gets a morale value (the mean of its men) and a state: shaken, pinned, or **broken** when
-half its able men have panicked or its morale stays below 30 % for 10 s — but never in its first two minutes under fire
-unless it has lost half its men, and not again within two minutes of rallying. Squads can now break on their own (they
-run back about 150 m and rally once it is quiet, or sooner when the platoon leader comes over: 8 s); the platoon breaks
-— and loses the battle — when half its men panic or half its squads have broken. A broken unit of the defence that the
+half its able men have panicked or its morale stays below 22 % for 20 s — but never in its first two minutes under fire
+(counted from the first time its own men are fired on) unless it has lost half its men, and never within two minutes
+of rallying. Each man counts once as a loss however often he is hit (down, then dead, or down, then a prisoner); a man
+who comes round counts no more. Squads can break on their own (they run back about 150 m and rally once nothing has
+been fired at their own men for 30 s, or sooner when the platoon leader comes over once they have stopped running:
+8 s); the platoon breaks — and loses the battle — when half its men panic or half its squads have broken, and only
+after losing 30 % of its men (40 % for a defending platoon). Men of a squad that has already broken do not count again
+as panic toward the platoon's half. A unit is outflanked when enemy it or its platoon knows of are spread over more than
+100° around it, or one within 150 m is more than 90° off the main direction. A broken unit of the defence that the
 enemy has outflanked gives up together once an enemy is within 50 m (attackers never: they run). The AI commander no
 longer sends a pinned, broken or badly shaken squad (below 45 %) into an assault.
 

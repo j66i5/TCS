@@ -31,7 +31,7 @@ import { navFor } from "../navctx";
 import { navCostAt } from "../nav";
 import type { SimState } from "../state";
 import { requestPosture } from "./body";
-import { isCowering } from "./morale";
+import { firedOnTick, isCowering, scaleWhy } from "./morale";
 import { aimHeightAt, assignFireTask, friendInLine, lineOfFireTo, spareMagazines } from "./fire";
 import { freeSpotNear } from "./decisions";
 import { unitSoldiers } from "./orders";
@@ -416,7 +416,7 @@ function stepDrill(ctx: SimContext, state: SimState, uid: EntityId, u: Unit, eve
     // Every runner gave up (M6.6): the unit stays broken, nobody rallies.
     // mounted: ok a prisoner is never aboard
     if (men.length === 0 && unitSoldiers(state, uid).some((m) => isCaptive(state.soldier.get(m)))) { u.drill = null; return; }
-    if (men.length === 0 || (!men.some(moving) && state.tick - u.underFireTick >= secondsToTicks(D.rallyQuietSeconds))) rallyRouted(ctx, state, uid, events);
+    if (men.length === 0 || (!men.some(moving) && state.tick - firedOnTick(u) >= secondsToTicks(D.rallyQuietSeconds))) rallyRouted(ctx, state, uid, events);
     return;
   }
   if (d.phaseTick < 0) { startPhase(ctx, state, uid, d, events); return; }
@@ -502,6 +502,7 @@ export function rallyRouted(ctx: SimContext, state: SimState, uid: EntityId, eve
     events.emit({ kind: "behaviour.changed", tick: state.tick, soldier: m, from: "routed", to: "shaken" });
     s.mental.behaviour = "shaken";
     s.mental.stress *= D.rallyStressFactor;
+    scaleWhy(s, D.rallyStressFactor, false);
     s.mental.suppression = 0;
     s.mental.panicTick = -1e9;
     const mv = state.mover.get(m);

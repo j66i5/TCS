@@ -123,11 +123,13 @@ export interface SoldierState {
    * `why`: how much of his shock and strain each source holds (`MORALE_SOURCES` order; the UI shows the largest).
    * `jolt`: suppression added since his last step (a near miss registers at once). `flee`: a panicked man running
    * back to (x, y) until `untilTick`. `rallyTick`: last rallied by his leader; `panicTick`: when he panicked.
+   * `lossBooked`: counted as a loss of his units (once per man, however often he is hit, dies or gives up; cleared
+   * when he comes round).
    */
   mental: {
     stress: number; suppression: number; morale: number; behaviour: Behaviour;
     strain: number; nerve: number; why: number[]; jolt: number;
-    flee: { x: number; y: number; untilTick: number } | null; rallyTick: number; panicTick: number;
+    flee: { x: number; y: number; untilTick: number } | null; rallyTick: number; panicTick: number; lossBooked: boolean;
   };
   physiology: Physiology;
   wounds: Wound[];

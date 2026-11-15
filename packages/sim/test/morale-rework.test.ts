@@ -5,6 +5,7 @@ import {
   type BattleInput, type Sim, type SimEvent, type Wound,
 } from "../src/index";
 import { moraleKicks, moraleOf, resolveOf } from "../src/systems/morale";
+import { rallyRouted } from "../src/systems/drills";
 import { EventSink } from "../src/events";
 import { refreshStatus } from "../src/systems/wounds";
 import { armedInput, team } from "./helpers";
@@ -224,6 +225,91 @@ describe("graded states (rework)", () => {
   });
 });
 
+/** A platoon: a leader and three squads of six (blue at x = 60), red 130 m away at x = 190. */
+function platoonInput(): BattleInput {
+  const input = armedInput();
+  const s1 = team("s1", 6), s2 = team("s2", 6), s3 = team("s3", 6), p = team("p", 1);
+  for (const m of [...s1.members, ...s2.members, ...s3.members, ...p.members]) m.weapon = "rifle";
+  p.echelon = "platoon"; p.subunits = [s1, s2, s3];
+  input.forces[0]!.units = [p];
+  input.forces[0]!.placements = [...p.members, ...s1.members, ...s2.members, ...s3.members].map((m, i) => ({ personId: m.personId, x: 60, y: 10 + i * 3, heading: 0 }));
+  input.forces[1]!.placements = input.forces[1]!.placements.map((q) => ({ ...q, x: 190 }));
+  return input;
+}
+
+describe("unit losses and breaks (review fixes)", () => {
+  it("a man who goes down and then dies is one loss; a man who comes round is no loss", () => {
+    const sim = createSim(squadInput());
+    run(sim, 1);
+    const [, u] = blueUnit(sim);
+    const id = u.members[3]!, s = sim.state.soldier.req(id);
+    const fall = () => { const sink = new EventSink(); refreshStatus(sim.ctx, sim.state, sink, id); moraleKicks(sim.ctx, sim.state, sink.events); return sink.events; };
+    s.physiology.consciousness = 0.2;
+    expect(fall().some((e) => e.kind === "casualty" && e.status === "incapacitated")).toBe(true);
+    expect(u.morale.lost).toBe(1);
+    const mate = sim.state.soldier.req(u.members[2]!), before = mate.mental.stress;
+    s.physiology.alive = false;
+    expect(fall().some((e) => e.kind === "casualty" && e.status === "killed")).toBe(true);
+    expect(u.morale.lost).toBe(1); // the same man: still one loss
+    expect(u.morale.recent.length).toBe(1);
+    expect(mate.mental.stress).toBe(before); // his comrades took that blow when he fell
+    // Another man goes down, comes round: booked, then unbooked.
+    const id2 = u.members[4]!, s2 = sim.state.soldier.req(id2);
+    s2.physiology.consciousness = 0.2;
+    { const sink = new EventSink(); refreshStatus(sim.ctx, sim.state, sink, id2); moraleKicks(sim.ctx, sim.state, sink.events); }
+    expect(u.morale.lost).toBe(2);
+    s2.physiology.consciousness = 0.9;
+    refreshStatus(sim.ctx, sim.state, new EventSink(), id2);
+    expect(u.morale.lost).toBe(1);
+  });
+
+  it("a squad on foot starts its break guard from its own men under fire, breaks after it, and not again right after a rally", () => {
+    const sim = createSim(platoonInput());
+    run(sim, 1);
+    const [, sq] = [...sim.state.unit.entries()].find(([, u]) => u.side === "blue" && u.parent !== null && u.callsign === "s1")!;
+    expect(sq.morale.firstContact).toBe(-1);
+    const panicky = sq.members.slice(1, 5);
+    sim.state.soldier.req(panicky[0]!).mental.suppression = 1;
+    run(sim, 2);
+    const first = sq.morale.firstContact;
+    expect(first).toBeGreaterThanOrEqual(0); // stamped from the squad's own men under fire, not set by hand
+    // Four of six panic: inside the guard nothing breaks; once the guard is over the squad breaks.
+    let brokeAt = -1;
+    run(sim, 150, () => {
+      for (const m of panicky) if (sim.state.soldier.req(m).mental.behaviour !== "routed") { M(sim, m).stress = 1; M(sim, m).suppression = Math.max(M(sim, m).suppression, 0.3); }
+      if (brokeAt < 0 && sq.broken) brokeAt = sim.state.tick;
+    });
+    expect(brokeAt).toBeGreaterThanOrEqual(first + secondsToTicks(sim.ctx.catalog.behaviour.morale.unit.minBreakSeconds));
+    // Rallied, and the men panic again at once: no new break within the guard after the rally.
+    const uid = [...sim.state.unit.entries()].find(([, u]) => u === sq)![0];
+    if (sq.broken) rallyRouted(sim.ctx, sim.state, uid, new EventSink());
+    const rallied = sim.state.tick;
+    let again = -1;
+    run(sim, 60, () => {
+      for (const m of panicky) { M(sim, m).stress = 1; M(sim, m).suppression = Math.max(M(sim, m).suppression, 0.3); }
+      if (again < 0 && sq.broken) again = sim.state.tick;
+    });
+    expect(again).toBe(-1);
+    expect(sim.state.tick - rallied).toBeLessThan(secondsToTicks(sim.ctx.catalog.behaviour.morale.unit.minBreakSeconds));
+  });
+
+  it("a broken squad's routed men do not count as panic toward its platoon's break", () => {
+    const sim = createSim(platoonInput());
+    run(sim, 1);
+    const units = [...sim.state.unit.entries()].filter(([, u]) => u.side === "blue");
+    const [, top] = units.find(([, u]) => u.parent === null)!;
+    const [, s1] = units.find(([, u]) => u.callsign === "s1")!;
+    top.morale.firstContact = -1e6; top.morale.lost = 6; // long in the fight, past its loss gate (one squad of three broken: under half)
+    s1.broken = true;
+    for (const m of s1.members) M(sim, m).behaviour = "routed";
+    const [, s2] = units.find(([, u]) => u.callsign === "s2")!;
+    // Four panicked men elsewhere: with the six routed they would be over half the platoon, alone they are not.
+    run(sim, 3, () => { for (const m of s1.members) M(sim, m).behaviour = "routed"; for (const m of s2.members.slice(1, 5)) M(sim, m).stress = 1; });
+    expect(s2.members.slice(1, 5).every((m) => M(sim, m).behaviour === "panicked")).toBe(true);
+    expect(top.broken).toBe(false);
+  });
+});
+
 describe("morale state is plain data (rework)", () => {
   it("save and load mid-panic with a running man and a rally gives the same hash and the same future", () => {
     const input = squadInput();
@@ -238,6 +324,22 @@ describe("morale state is plain data (rework)", () => {
     expect(hashState(copy.state)).toBe(hashState(sim.state));
     run(sim, 20); run(copy, 20);
     expect(hashState(copy.state)).toBe(hashState(sim.state));
+  });
+
+  it("a schema-20 save (before the rework: no unit morale, no strain or nerve) loads with neutral values and steps on", () => {
+    const input = squadInput();
+    const sim = createSim(input);
+    run(sim, 2);
+    const saved = JSON.parse(JSON.stringify(saveSim(sim))) as ReturnType<typeof saveSim>;
+    const st = saved as unknown as { schema: number; stores: Record<string, [number, Record<string, unknown>][]> };
+    st.schema = 20;
+    for (const [, u] of st.stores["unit"]!) delete u["morale"];
+    for (const [, s] of st.stores["soldier"]!) { const m = s["mental"] as Record<string, unknown>; for (const k of ["strain", "nerve", "why", "jolt", "flee", "rallyTick", "panicTick", "lossBooked"]) delete m[k]; }
+    const copy = loadSim({ ...input, orders: [] }, saved);
+    const [, u] = blueUnit(copy);
+    expect(u.morale.start).toBe(6);
+    expect(copy.state.soldier.req(u.members[0]!).mental.nerve).toBe(0.5);
+    expect(() => run(copy, 5)).not.toThrow();
   });
 
   it("the roster carries strain out and in (a missing value reads as 0)", () => {

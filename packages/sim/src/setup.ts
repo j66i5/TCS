@@ -285,7 +285,7 @@ function addSoldier(
     mental: {
       stress: rec.stress, suppression: 0, morale: 1, behaviour: "steady", strain: rec.strain ?? 0,
       nerve: Math.min(1, Math.max(0, catalog.behaviour.morale.nerve.mean + catalog.behaviour.morale.nerve.sd * nextNormal(state.rng, Streams.morale))),
-      why: MORALE_SOURCES.map(() => 0), jolt: 0, flee: null, rallyTick: -1e9, panicTick: -1e9,
+      why: MORALE_SOURCES.map(() => 0), jolt: 0, flee: null, rallyTick: -1e9, panicTick: -1e9, lossBooked: false,
     },
     // A man who comes into the battle already hurt keeps his condition (rule 11: records in and out).
     physiology: rec.physiology ? { ...rec.physiology } : { ...healthyPhysiology(), ...(rec.status === "killed" ? { alive: false, consciousness: 0 } : rec.status === "incapacitated" ? { consciousness: 0 } : {}) },

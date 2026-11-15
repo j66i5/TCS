@@ -13,8 +13,10 @@ DECISIONS.md under its date._
   (rout drill; platoon leader's squad rally), quality block in `qualities.json`, AI no assault by pinned/broken/badly
   shaken squads, group surrender of broken outflanked defenders. UI: Morale bar with state word, "Why"/"Helping"
   reasons, second badge in the Men list, squad morale in the unit list. Lab `npm run lab -- morale`. Batches and the
-  acceptance table in DECISIONS "Morale rework". **Open:** platoon breaks end 22 of 40 batch battles (baseline 11,
-  target 5-35 %), casualties -29 % (limit -30 %), the five owner questions of the design (aboard men, fleeing, an
+  acceptance table in DECISIONS "Morale rework". Review fixes (DECISIONS "Morale rework: review fixes"): each man
+  one loss, squads' break guard from their own men under fire, no break within 2 min of a rally, defenders hold to 40 %
+  losses. **Open:** platoon breaks still end 17 of 40 batch battles (baseline 11, target 5-35 %), casualties -23 %,
+  outflanking rare (0.7 % of squad-time; no flanking lab yet), the five owner questions of the design (aboard men, fleeing, an
   explicit Rally order — not built, automatic only —, squad breaks, fresh troops below 100 %); order delays and
   pinned men refusing moves (design section 7) not built.
 - **M10 review fixes (2026-11-15, branch `claude/medical-review-fixes`, on main after M10.8 merged; M10 complete).** Grenade orders at

@@ -422,9 +422,13 @@ function placeVehicles(
     // (M7.6b: the defender's tanks 150-210 m behind the main objective, 40 m apart.)
     const x0 = starts ? starts[i]!.x : attacking ? (side === "blue" ? W * 0.08 : W * 0.92) : mainP.x + dx * (tank ? 150 + (i % 2) * 60 : 60 + (i % 2) * 60);
     const y0 = starts ? starts[i]!.y : attacking ? H / 2 + lat : mainP.y + lat * (tank ? 2 : 1.5);
-    const cell = nearestPassable(grid, Math.min(Math.max(x0, 1), W - 1), Math.min(Math.max(y0, 1), H - 1), 80, mainRegion);
+    const cx0 = Math.min(Math.max(x0, 1), W - 1), cy0 = Math.min(Math.max(y0, 1), H - 1);
+    let cell = nearestPassable(grid, cx0, cy0, 80, mainRegion);
+    // (M7.6b review fix: drivable ground also where the main region is not near: wider, then any region.)
+    if (cell < 0) cell = nearestPassable(grid, cx0, cy0, 250, mainRegion);
+    if (cell < 0) cell = nearestPassable(grid, cx0, cy0, 250);
     const taken = (x: number, y: number) => vehiclePlacements.some((p) => hypot2(p.x - x, p.y - y) < 12);
-    let vx = cell < 0 ? x0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? y0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;
+    let vx = cell < 0 ? cx0 : ((cell % grid.cols) + 0.5) * grid.cellM, vy = cell < 0 ? cy0 : (Math.floor(cell / grid.cols) + 0.5) * grid.cellM;
     // Never two hulls on the same spot: step along the line until free.
     for (let k = 1; taken(vx, vy) && k < 40; k++) {
       const c2 = nearestPassable(grid, vx, Math.min(Math.max(vy + (k % 2 === 0 ? 1 : -1) * k * 6, 1), H - 1), 40, mainRegion);

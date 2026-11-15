@@ -72,6 +72,26 @@ describe("tanks in the platoon battle (M7.6b, scenario)", () => {
     expect(blue.vehicles!.filter((r) => tankIds(blue).has(r.vehicleId)).map((r) => r.type)).toEqual(["de-leopard2a7v", "de-leopard2a7v"]);
   });
 
+  it("every tank and carrier starts on ground its class can drive, inside the map, on every map kind (review fix: industrial seed 7)", () => {
+    const grids = new Map<string, ReturnType<typeof buildNavGrid>>();
+    for (const mapKind of ["village", "farmland", "woodland", "industrial"] as const) {
+      grids.clear();
+      for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        const input = buildScenario(data, def(seed, { mapKind, tanks: true }));
+        const W = input.map.widthM, H = input.map.heightM;
+        for (const f of input.forces) for (const p of f.vehiclePlacements ?? []) {
+          const type = f.vehicles!.find((r) => r.vehicleId === p.vehicleId)!.type, cls = input.catalog.vehicles[type]!.class;
+          const key = `${seed}:${cls}`;
+          let grid = grids.get(key);
+          if (!grid) { grid = buildNavGrid(input.map, input.catalog.terrain, cls, 2, 0, [], { clearanceCells: 3 }); grids.set(key, grid); }
+          const where = `${mapKind} seed ${seed} ${p.vehicleId} (${p.x}, ${p.y})`;
+          expect(p.x > 0 && p.y > 0 && p.x < W && p.y < H, where).toBe(true);
+          expect(nearestPassable(grid, p.x, p.y, 0), where).toBeGreaterThanOrEqual(0);
+        }
+      }
+    }
+  });
+
   it("the fixture's tortoises (rule 8), and tanks in a battle without the platoons' vehicles", () => {
     const fx = loadData(true);
     const input = buildScenario(fx, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["xf", "de"], attacker: "blue", tanks: true });

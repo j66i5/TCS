@@ -53,9 +53,24 @@ function catalog(thermobaric: boolean): Catalog {
 
 /** Red men: three in room 1 (north-east), one in room 2 (south-east) behind the inner wall, one outdoors east. */
 const RED_AT: [number, number][] = [[107, 81], [109, 82.5], [110.5, 84], [109, 87.5], [118, 82]];
-function input(thermobaric: boolean): BattleInput {
+
+/** The same house with a second storey of the same rooms (storey 2.8 m). */
+function house2(): Building {
+  const b = house(), int = b.interior!;
+  return {
+    ...b, storeys: 2,
+    interior: {
+      ...int,
+      rooms: [...int.rooms, ...int.rooms.map((r) => ({ ...r, id: r.id + 3, floor: 1 }))],
+      walls: [...int.walls, ...int.walls.map((w) => ({ ...w, id: w.id + 2, floor: 1 }))],
+      stairs: [{ id: 0, floor: 0, room: 0, x0: 101, y0: 88, x1: 104.5, y1: 88, widthM: 1 }],
+    },
+  };
+}
+
+function input(thermobaric: boolean, building: Building = house()): BattleInput {
   const inp = armedInput(1, 600);
-  const m: MapDef = { ...inp.map, buildings: [house()] };
+  const m: MapDef = { ...inp.map, buildings: [building] };
   inp.map = m;
   inp.catalog = catalog(thermobaric);
   const red = inp.forces[1]!;
@@ -66,9 +81,10 @@ function input(thermobaric: boolean): BattleInput {
 }
 
 /** Burst the round at (x, y, z) and return each red man's blast severity (0: none) and stun. */
-function burst(thermobaric: boolean, x: number, y: number, z: number): { sim: Sim; sev: number[]; stunned: boolean[] } {
-  const sim = createSim(input(thermobaric));
+function burst(thermobaric: boolean, x: number, y: number, z: number, building?: Building, zs?: number[]): { sim: Sim; sev: number[]; stunned: boolean[] } {
+  const sim = createSim(input(thermobaric, building));
   const owner = [...sim.state.identity.entries()].find(([, i]) => i.side === "blue")![0];
+  if (zs) [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").forEach(([id], i) => { sim.state.transform.req(id).z = zs[i] ?? 0; });
   detonate(sim.ctx, sim.state, new EventSink(), x, y, z, sim.ctx.catalog.ammoIds.indexOf("tb"), owner);
   const red = [...sim.state.identity.entries()].filter(([, i]) => i.side === "red").map(([id]) => id);
   return {
@@ -100,6 +116,18 @@ describe("thermobaric bursts (M7.6d)", () => {
     const tb = burst(true, 109, 79.7, 1), plain = burst(false, 109, 79.7, 1);
     for (let i = 0; i < 3; i++) expect(tb.sev[i]).toBeGreaterThan(0);
     expect(tb.sev.slice(0, 3).reduce((a, b) => a + b, 0)).toBeGreaterThan(plain.sev.slice(0, 3).reduce((a, b) => a + b, 0));
+  });
+
+  it("two storeys: a burst 1.6 m up a ground-floor room fills that room, not the room above it", () => {
+    const b = house2();
+    expect(roomOfPoint(createSim(input(true, b)).ctx, 109, 82, 1.6)).toEqual({ bi: 0, floor: 0, room: 1 });
+    expect(roomOfPoint(createSim(input(true, b)).ctx, 109, 82, 2.9)).toEqual({ bi: 0, floor: 1, room: 4 });
+    // Men 0 and 2 on the ground floor of room 1, men 1 and 3 upstairs (room 1's and room 2's upper twins), 4 outdoors.
+    const zs = [0, 2.8, 0, 2.8, 0];
+    const tb = burst(true, 106.6, 80.6, 1.6, b, zs), plain = burst(false, 106.6, 80.6, 1.6, b, zs);
+    for (const i of [0, 2]) { expect(tb.sev[i]).toBeGreaterThan(0); expect(tb.sev[i]).toBeGreaterThanOrEqual(plain.sev[i]!); }
+    expect(tb.sev[2]).toBeGreaterThan(plain.sev[2]!);
+    for (const i of [1, 3, 4]) { expect(tb.sev[i]).toBe(plain.sev[i]); expect(tb.stunned[i]).toBe(plain.stunned[i]); }
   });
 
   it("in the open: the plain blast of its filling", () => {

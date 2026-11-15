@@ -63,7 +63,7 @@ export function roomOfPoint(ctx: SimContext, x: number, y: number, rel: number, 
   const probe = (px: number, py: number) => {
     const bi = indoorAt(ctx, px, py);
     if (bi < 0) return null;
-    const b = ctx.map.buildings[bi]!, floor = floorAtZ(b, rel), room = roomAt(b, floor, px, py);
+    const b = ctx.map.buildings[bi]!, floor = floorOfPointZ(b, rel), room = roomAt(b, floor, px, py);
     return room < 0 ? null : { bi, floor, room };
   };
   const r = probe(x, y);
@@ -85,6 +85,16 @@ function anyInterior(ctx: SimContext): boolean {
 export function floorAtZ(b: Building, z: number): number {
   if (!(z > 0)) return 0;
   const f = Math.floor(z / b.storeyHeightM + 0.5);
+  return f < 0 ? 0 : f >= b.storeys ? b.storeys - 1 : f;
+}
+
+/**
+ * The storey a point `rel` m above the ground is inside (a burst, not a man's feet): floor(rel / storey height),
+ * clamped to the building's storeys. `floorAtZ` rounds to the nearest floor, which is right for feet only.
+ */
+export function floorOfPointZ(b: Building, rel: number): number {
+  if (!(rel > 0)) return 0;
+  const f = Math.floor(rel / b.storeyHeightM);
   return f < 0 ? 0 : f >= b.storeys ? b.storeys - 1 : f;
 }
 

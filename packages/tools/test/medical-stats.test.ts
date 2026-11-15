@@ -98,7 +98,7 @@ describe("medical statistics (M10.8)", () => {
       ...MISSING_STEPS.map((k) => `aar.medical.step.${k}`), "aar.medical.step.none", "aar.medical.summary", "aar.medical.times", "aar.medical.preventable",
       "aar.medical.noPreventable", "aar.medical.death", "aar.medical.deathAfter", "aar.medical.none", "aar.medical.empty",
       ...["medical", "carrying", "point", "surrendered", "wounded", "prisoner"].map((k) => `aar.conduct.prot.${k}`),
-      "aar.conduct.cause.misidentified", "aar.conduct.cause.deliberate", "aar.conduct.summary", "aar.conduct.hits", "aar.conduct.breach", "aar.conduct.more", "aar.conduct.empty",
+      "aar.conduct.cause.misidentified", "aar.conduct.cause.deliberate", "aar.conduct.summary", "aar.conduct.smoke", "aar.medical.timesEvac", "aar.conduct.hits", "aar.conduct.breach", "aar.conduct.more", "aar.conduct.empty",
     ];
     expect(keys.filter((k) => typeof t[k] !== "string")).toEqual([]);
   });

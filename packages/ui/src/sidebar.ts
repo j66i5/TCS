@@ -84,7 +84,8 @@ function countMen(view: SimView, men: readonly EntityId[]): { fit: number; total
     const s = view.soldier.get(m);
     if (!s) continue;
     total++;
-    if (isOut(s) || !isAble(s)) continue;
+    // (Review fix: a man lying at the Verwundetennest or on his way there is not with his squad.)
+    if (isOut(s) || !isAble(s) || s.atNest !== undefined || view.carry.has(m)) continue;
     fit++;
     if (s.mental.behaviour === "pinned" || s.mental.behaviour === "panicked") pinned++;
     if (s.mount !== undefined) aboard++;
@@ -172,7 +173,7 @@ export interface Sidebar {
   width(): number;
   /** The Wounded tab (M10.5, owner Q-2c): the player's wounded, T1 first; M10.6a: his ambulances on a run, and
    *  how many still wait to be called (a "Call ambulance" button while any do). */
-  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number }): void;
+  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number; caller?: string }): void;
   /** The tab shown in the open list. */
   tab(): "units" | "wounded";
 }
@@ -228,7 +229,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   const wlist = document.createElement("div");
   wlist.className = "hud-side-list hud-wounded-list";
   root.append(head, tabs, slimWounded, list, wlist);
-  let expanded = false, tab: "units" | "wounded" = "units", nWounded = 0, wkey = "";
+  let expanded = false, tab: "units" | "wounded" = "units", nWounded = 0, slimShow = false, wkey = "";
   const wide = () => globalThis.innerWidth >= WIDE_SCREEN_PX;
   const applyTab = () => {
     root.classList.toggle("tab-wounded", tab === "wounded");
@@ -236,12 +237,16 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     tabUnits.textContent = s.t("side.unitsOpen");
     tabWounded.innerHTML = `${redCross(14)} ${s.t("side.woundedN", { n: nWounded })}`;
     slimWounded.innerHTML = `${redCross(18)}<span>${nWounded}</span>`;
-    slimWounded.style.display = nWounded > 0 ? "" : "none";
+    // (Review fix: also while ambulances are on a run or men are listed as evacuated, so their status and the call
+    // button stay one tap away.)
+    slimWounded.style.display = nWounded > 0 || slimShow ? "" : "none";
   };
   const applyExpanded = () => {
     const on = expanded || wide();
     root.classList.toggle("expanded", on);
-    head.textContent = on ? s.t("side.unitsOpen") : s.t("side.unitsShort");
+    // (Review fix: open on a phone the head closes the list, and says so.)
+    head.textContent = on ? (wide() ? s.t("side.unitsOpen") : s.t("side.close")) : s.t("side.unitsShort");
+    head.setAttribute("aria-label", on && !wide() ? s.t("side.closeTitle") : s.t("side.units"));
     if (!on) tab = "units";
     applyTab();
   };
@@ -332,7 +337,8 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
     },
     setWounded(rows, amb) {
       nWounded = rows.filter((r) => r.status !== "evacuated").length;
-      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|") + "#" + (amb ? `${amb.ready}:${amb.rows.map((r) => `${r.kind ?? "a"}${r.id}:${r.phase}:${Math.ceil(r.dueS / 60)}:${r.aboard}`).join(",")}` : "");
+      slimShow = rows.length > 0 || (amb?.rows.length ?? 0) > 0;
+      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}:${r.callsign}`).join("|") + "#" + (amb ? `${amb.ready}:${amb.caller ?? ""}:${amb.rows.map((r) => `${r.kind ?? "a"}${r.id}:${r.phase}:${Math.ceil(r.dueS / 60)}:${r.aboard}`).join(",")}` : "");
       if (key !== wkey) {
         wkey = key;
         wlist.innerHTML = "";
@@ -346,26 +352,33 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
         if (amb && amb.ready > 0 && wounded?.onCallAmbulance) {
           const b = document.createElement("button");
           b.className = "hud-ambulance-call";
-          b.textContent = s.t("ambulance.call", { n: amb.ready });
-          b.title = s.t("ambulance.callTitle");
+          // (Review fix: the platoon it is called for is named.)
+          b.textContent = amb.caller ? s.t("ambulance.callFor", { n: amb.ready, callsign: amb.caller }) : s.t("ambulance.call", { n: amb.ready });
+          b.title = amb.caller ? s.t("ambulance.callTitleFor", { callsign: amb.caller }) : s.t("ambulance.callTitle");
           b.onclick = () => wounded.onCallAmbulance?.();
           wlist.append(b);
         }
         if (rows.length === 0) { const e = document.createElement("div"); e.className = "hud-wounded-none"; e.textContent = s.t("side.woundedNone"); wlist.append(e); }
-        for (const r of rows) {
+        // (Review fix: what the tags mean, on a phone too; the evacuated men last, under their own heading.)
+        if (rows.length > 0) { const e = document.createElement("div"); e.className = "hud-wounded-legend"; e.textContent = s.t("wounded.legend"); wlist.append(e); }
+        const here = rows.filter((r) => r.status !== "evacuated"), gone = rows.filter((r) => r.status === "evacuated");
+        for (const r of [...here, ...gone]) {
+          if (r === gone[0]) { const h = document.createElement("div"); h.className = "hud-wounded-group"; h.textContent = s.t("wounded.evacuatedN", { n: gone.length }); wlist.append(h); }
           const row = document.createElement("div");
           row.className = `hud-wounded st-${r.status}`;
           row.dataset["man"] = String(r.id);
           const tag = document.createElement("span");
           tag.className = "hud-wounded-tag";
           tag.textContent = r.tag === null ? "–" : `T${r.tag}`;
+          tag.title = s.t(r.tag === null ? "wounded.tagNone" : `wounded.tag${r.tag}`);
           if (r.tag !== null) tag.style.background = TAG_CSS[r.tag - 1]!;
           const who = document.createElement("button");
           who.className = "hud-wounded-who";
           const nm = document.createElement("span"); nm.className = "hud-wounded-name"; nm.textContent = `${r.name} · ${r.callsign}`;
-          const st = document.createElement("span"); st.className = "hud-wounded-status"; st.textContent = s.t(`wounded.status.${r.status}`) + (r.ordered ? ` · ${s.t("wounded.ordered")}` : "");
+          const st = document.createElement("span"); st.className = "hud-wounded-status"; st.textContent = s.t(r.status === "fighting" && r.tag === 1 ? "wounded.status.fightingUrgent" : `wounded.status.${r.status}`) + (r.ordered ? ` · ${s.t("wounded.ordered")}` : "");
           who.append(nm, st);
-          who.onclick = () => wounded?.onMan(r.id);
+          // (Review fix: on a phone the list closes, so the man box is not drawn over it.)
+          who.onclick = () => { if (!wide() && expanded) { expanded = false; applyExpanded(); onResize(); } wounded?.onMan(r.id); };
           row.append(tag, who);
           if (r.canEvacuate && wounded) {
             const back = document.createElement("button");

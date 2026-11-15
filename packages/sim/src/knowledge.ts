@@ -23,6 +23,9 @@ export interface KnownEnemy {
   ageS: number;
   /** Some able man of the side knows he has given up (M6.6). */
   surrendered: boolean;
+  /** Some able man of the side recognises him as protected (M10.7a: red cross, bearers, Verwundetennest): an order
+   *  to fire at him would be refused (review fix: shown on the map). */
+  protected?: true;
   /** A vehicle (M7.3): its type once identified (owner Q6: within about 1.5 km), its heading when seen. */
   cls?: "vehicle";
   vtype?: string;
@@ -33,13 +36,14 @@ export interface KnownEnemy {
 export function sideKnowledge(ctx: SimContext, state: SimView, side: string): KnownEnemy[] {
   const best = new Map<EntityId, { c: Contact; err: number }>();
   const types = new Map<EntityId, string>();
-  const flagged = new Set<EntityId>();
+  const flagged = new Set<EntityId>(), prot = new Set<EntityId>();
   // mounted: ok what men aboard know is passed on too; a man aboard is never listed (below)
   for (const [id, s] of state.soldier.entries()) {
     // Only men who are alive, conscious and still in the fight (what they know can still be passed on).
     if (!isAble(s) || state.identity.get(id)?.side !== side) continue;
     for (const c of s.contacts) {
       if (c.surrendered) flagged.add(c.target);
+      if (c.marked === true || c.carrying === true || c.atPoint === true) prot.add(c.target);
       if (c.vtype !== undefined) types.set(c.target, c.vtype);
       const err = contactErrorM(ctx, c, state.tick);
       const b = best.get(c.target);
@@ -48,6 +52,7 @@ export function sideKnowledge(ctx: SimContext, state: SimView, side: string): Kn
   }
   return [...best.entries()].filter(([target]) => state.soldier.get(target)?.mount === undefined || onRoof(state as SimState, target)).sort((a, b) => a[0] - b[0]).map(([target, { c, err }]) => ({
     target, x: c.x, y: c.y, errM: err, kind: c.kind, ageS: (state.tick - c.tick) / 60, surrendered: flagged.has(target),
+    ...(prot.has(target) ? { protected: true as const } : {}),
     ...(c.cls !== undefined ? { cls: c.cls } : {}), ...(types.has(target) ? { vtype: types.get(target)! } : {}), ...(c.heading !== undefined ? { heading: c.heading } : {}),
   }));
 }

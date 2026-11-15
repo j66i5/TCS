@@ -35,6 +35,7 @@ import type { SimState } from "../state";
 import { contactErrorM } from "./contacts";
 import { placeFree, placesTaken } from "./decisions";
 import { windowPlaces } from "./occupy";
+import { spared } from "../protection";
 
 /** Centre of a footprint polygon (mean of its corners). */
 function centreOf(fp: readonly number[]): [number, number] {
@@ -102,9 +103,9 @@ function inHisRoom(ctx: SimContext, bi: number, me: { x: number; y: number; z: n
   return r >= 0 && r === roomAt(b, floorAtZ(b, c.z ?? 0), c.x, c.y);
 }
 
-/** Can a contact be thought of as an enemy to flee from (not down, not given up, not a wreck)? */
+/** Can a contact be thought of as an enemy to flee from (not down, not given up, not recognised as protected, not a wreck)? */
 function live(c: Contact): boolean {
-  return c.down !== true && c.surrendered !== true && c.wreck !== true;
+  return !spared(c) && c.wreck !== true;
 }
 
 /**

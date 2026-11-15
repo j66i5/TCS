@@ -25,7 +25,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, isMortarUnit, isOffMap, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, spared, isMortarUnit, isOffMap, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
@@ -348,7 +348,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const s = v.soldier.get(m);
       if (s === undefined || isCaptive(s)) continue;
       for (const c of s.contacts) {
-        if (c.surrendered === true || c.down === true) continue;
+        if (spared(c)) continue; // (M10.7a: not a recognised ambulance)
         if (c.cls !== "vehicle" || c.wreck === true || c.kind === "heard" || tick - c.tick > COMMANDER.atContactSeconds * 60) continue;
         const prev = vk.get(c.target);
         if (!prev || c.tick > prev.tick) vk.set(c.target, { x: c.x, y: c.y, tick: c.tick, moving: Math.abs(c.vx ?? 0) + Math.abs(c.vy ?? 0) > 1 });
@@ -469,8 +469,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const hq = tops.flatMap(([, u]) => u.members).filter((m) => able(view.soldier.get(m) as SoldierState | undefined) && !committed(view.soldier.get(m) as SoldierState | undefined));
       const toAll = (body: Record<string, unknown>) => { for (const id of topIds) order(id, body); };
       // What its men know of the enemy: not what its own prisoners know, and never an enemy they know has
-      // given up (M6.6: the commander does not fire, shell or throw at him).
-      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => c.surrendered !== true && c.down !== true); };
+      // given up (M6.6: the commander does not fire, shell or throw at him), nor one they recognise as protected
+      // (M10.7a: a medic, an ambulance, bearers, men at the Verwundetennest).
+      const known = (m: EntityId) => { const s = view.soldier.get(m); return s === undefined || isCaptive(s) ? [] : s.contacts.filter((c) => !spared(c)); };
       // Men only (M7.3): no mortar, grenade or rifle base of fire at a vehicle contact (plan §12).
       const knownMen = (m: EntityId) => known(m).filter((c) => c.cls !== "vehicle");
       // Fire is called through the first platoon that still has a man who can use the radio.
@@ -509,6 +510,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // and the battery is not moving (airburst on men seen in the open where it has the fuse), else by the mortars.
       const artDef = input.catalog.factions[force.faction]?.artillery;
       const heCall = (x: number, y: number, rounds: number) => {
+        // M10.7a: never a mission on a place where all its men know is protected people.
+        const spare = input.catalog.medical?.protection.missionSpareM;
+        if (spare !== undefined) { const cs: SoldierState["contacts"] = []; for (const m of all) { const s = view.soldier.get(m); if (s && !isCaptive(s)) cs.push(...s.contacts); } if (onlyProtectedAt(cs, x, y, spare)) return; }
         const sec = view.support.find((s) => s.side === side && s.asset === "artillery");
         const left = supportLeft(view, side, "he", input.catalog, "artillery");
         const dc = artDef?.dangerCloseM ?? 0;

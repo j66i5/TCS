@@ -38,6 +38,7 @@ import { unitSoldiers } from "./orders";
 import { footSoldiers } from "../mount";
 import { beginStack, houseCentre, stepClear } from "./clear";
 import { buildingIndex, windowPlaces } from "./occupy";
+import { spared } from "../protection";
 
 // (A man gone to a wounded comrade, M10.3a, is out of his unit's drills until he comes back.)
 const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !== "routed" && s!.intent?.kind !== "care" && s!.carrying === undefined && s!.atNest === undefined;
@@ -335,7 +336,7 @@ function windowAim(ctx: SimContext, state: SimState, m: EntityId, bi: number, po
 function coverTargets(ctx: SimContext, s: SoldierState, at: { x: number; y: number }): SoldierState["contacts"] {
   const D = ctx.catalog.behaviour.drills;
   return s.contacts
-    .filter((c) => !c.surrendered && !c.down && c.cls !== "vehicle" && hypot2(c.x - at.x, c.y - at.y) <= D.coverTargetM)
+    .filter((c) => !spared(c) && c.cls !== "vehicle" && hypot2(c.x - at.x, c.y - at.y) <= D.coverTargetM)
     .sort((a, b) => hypot2(a.x - at.x, a.y - at.y) - hypot2(b.x - at.x, b.y - at.y) || a.target - b.target)
     .slice(0, D.coverCandidates);
 }
@@ -396,7 +397,7 @@ function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: 
   const s = state.soldier.req(m);
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
   for (const c of s.contacts) {
-    if (c.surrendered || c.down || c.cls === "vehicle") continue; // a man he knows has given up (M6.6) or is down (package A) is not fired at
+    if (spared(c) || c.cls === "vehicle") continue; // a man he knows has given up (M6.6), is down (package A) or is protected (M10.7a) is not fired at
     const dd = hypot2(c.x - at.x, c.y - at.y);
     if (dd < bestD) { bestD = dd; best = c; }
   }

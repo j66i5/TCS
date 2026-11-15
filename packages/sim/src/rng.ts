@@ -46,6 +46,9 @@ export const Streams = {
   conditions: "conditions",
   /** Care (M10.2): whether a treatment works. Created on first use (a battle where nobody is treated never draws). */
   medical: "medical",
+  /** Laws of war (M10.7b): deliberate breaches. Created on first use (only a man who sees an enemy he knows to be
+   *  protected or giving up ever draws). */
+  conduct: "conduct",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

@@ -385,23 +385,27 @@ export class BattleRenderer {
   setBuildings(map: MapDef): void {
     if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.bld.upper.parent?.removeChild(this.bld.upper); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
     this.map = map;
-    this.bld = new BuildingLayers(map, this.appearance, this.look === "photo");
+    // D3: photo roofs paint in a short-lived worker where there are workers (here at once otherwise: Node, tests).
+    const photo = this.look === "photo";
+    const roofWorker = photo && typeof Worker !== "undefined" ? () => new Worker(new URL("./photo/roof-worker.ts", import.meta.url), { type: "module" }) : undefined;
+    this.bld = new BuildingLayers(map, this.appearance, photo, { roofWorker });
     if (this.terrain) this.terrain.addChild(this.bld.floors, this.bld.upper); else this.worldLayer.addChild(this.bld.floors, this.bld.upper);
     this.roofLayer.addChild(this.bld.roofs);
   }
 
   /**
    * Paint the detail tiles of the view now (the opening view: the first picture complete). Photo with workers:
-   * resolves when they are painted (callers wait with a time limit).
+   * resolves when they are painted and the roof atlas is in place (D3; callers wait with a time limit).
    */
   primeDetail(): Promise<void> {
     const c = this.camera;
-    if (!this.tiles) return Promise.resolve();
-    return this.tiles.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lodFor(c.scale, this.lod) >= LOD_FIGURE);
+    const roofs = this.bld?.roofsReady() ?? Promise.resolve();
+    if (!this.tiles) return roofs;
+    return Promise.all([this.tiles.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lodFor(c.scale, this.lod) >= LOD_FIGURE), roofs]).then(() => undefined);
   }
 
-  /** Terrain tiles still to paint or upload (the screenshot tool waits for 0). */
-  tilesPending(): number { return this.tiles?.pending() ?? 0; }
+  /** Terrain tiles still to paint or upload, plus one while the roof atlas paints (the screenshot tool waits for 0). */
+  tilesPending(): number { return (this.tiles?.pending() ?? 0) + (this.bld?.roofsPending() ? 1 : 0); }
   /** Terrain detail level shown last (0 whole map; photo 1..3 = 2, 4, 8 px/m). */
   terrainLevel(): number { return this.tiles?.shownLevel ?? 0; }
 

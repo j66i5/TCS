@@ -197,6 +197,14 @@ export const WIDE_SCREEN_PX = 1000;
 /** The slim strip's width (56 px tiles and a margin; matches style.css). */
 export const SLIM_PX = 64;
 
+/** D3: the gap kept between the open list's foot and the unit card's top on a narrow screen. */
+export const SIDE_CARD_GAP_PX = 6;
+
+/** D3: the open list's height on a narrow screen with the card showing: from its top down to above the card. */
+export function sideListMaxPx(top: number, cardTop: number): number {
+  return Math.max(80, cardTop - SIDE_CARD_GAP_PX - top);
+}
+
 /** S5: a press held this long on a tile follows the unit. */
 export const HOLD_MS = 450;
 
@@ -274,7 +282,12 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           b.addEventListener("pointercancel", stop);
           b.addEventListener("pointerleave", stop);
           b.addEventListener("contextmenu", (ev) => ev.preventDefault());
-          b.onclick = () => { if (held) { held = false; return; } onSelect(t.unit, tp); };
+          // (D3: on a narrow screen the open list lies over the card; picking a unit from it closes it.)
+          b.onclick = () => {
+            if (held) { held = false; return; }
+            onSelect(t.unit, tp);
+            if (expanded && !wide() && tab === "units") { expanded = false; applyExpanded(); onResize(); }
+          };
           e = { b, key: "" };
           els.set(tk, e);
         }

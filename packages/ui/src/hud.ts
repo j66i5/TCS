@@ -18,7 +18,7 @@ import type { EntityId } from "@tcs/sim";
 import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
-import { createSidebar, type TilePart, type UnitTile } from "./sidebar";
+import { createSidebar, sideListMaxPx, WIDE_SCREEN_PX, type TilePart, type UnitTile } from "./sidebar";
 import type { AmbulanceRow, WoundedRow } from "./wounded";
 import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
@@ -407,7 +407,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     onFire: (c) => { if (!rules) return; const r = fireChoiceRules(c, rules); rules = { ...rules, ...r }; card.setFire(fireChoice(rules)); cb.onRules(r); },
     onRules: () => toggleRules(),
     onMan: (id) => cb.onInspect?.(id),
-    onResize: () => cb.onCardResize?.(),
+    onResize: () => { if (sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout(); cb.onCardResize?.(); },
   });
   const manBox = createManBox(s, () => cb.onInspect?.(null));
   // S4: the context button (Occupy at the end of a drag onto a house).
@@ -595,6 +595,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     follow.style.left = `${free.left + (Math.max(0, (root.clientWidth || globalThis.innerWidth) - free.left - free.right)) / 2}px`;
     closeTrays();
     placeBottom();
+    capSide(sTop);
+  };
+  /** D3: the list opened over the map on a narrow screen ends above the unit card (it lay over the card). */
+  const capSide = (sTop: number) => {
+    if (card.el.hidden || !sidebar.isExpanded() || globalThis.innerWidth >= WIDE_SCREEN_PX) return;
+    const r = card.el.getBoundingClientRect?.(), r0 = root.getBoundingClientRect?.();
+    if (!r || r.height <= 0) return;
+    const cap = sideListMaxPx(sTop, r.top - (r0?.top ?? 0));
+    const now = parseFloat(sidebar.el.style.maxHeight) || Infinity;
+    if (cap < now) sidebar.el.style.maxHeight = `${cap}px`;
   };
   const setDock = (e: Edge, remember: boolean) => {
     edge = e;
@@ -703,7 +713,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       const key = JSON.stringify(parts);
       if (key === score.dataset["key"]) return;
       score.dataset["key"] = key;
-      const was = score.hidden;
+      const was = score.hidden, wasH = score.offsetHeight;
       score.replaceChildren(...parts.map((p, i) => {
         const sp = el("span", "hud-score-part");
         if (p.colour) { const m = el("span", "hud-score-mark"); m.style.background = p.colour; sp.append(m); }
@@ -713,7 +723,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
         return sp;
       }));
       score.hidden = parts.length === 0;
-      if (was !== score.hidden) layout();
+      // (D3: on a phone the line wraps; a second line moves everything under it down.)
+      if (was !== score.hidden || score.offsetHeight !== wasH) layout();
     },
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },
@@ -736,7 +747,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (!r) return;
       for (const x of ruleBtns) x.b.classList.toggle("on", r[x.key] === x.value);
     },
-    setCard(m) { card.update(m); bottom.classList.toggle("with-card", m !== null); if (m === null) { panel.hidden = true; card.setRulesButton(false, false); } },
+    setCard(m) {
+      const was = card.el.hidden, wasH = card.el.offsetHeight;
+      card.update(m); bottom.classList.toggle("with-card", m !== null);
+      if (m === null) { panel.hidden = true; card.setRulesButton(false, false); }
+      // (D3: the open list's height follows the card on a narrow screen: when the card shows, hides or changes height.)
+      if ((was !== card.el.hidden || card.el.offsetHeight !== wasH) && sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout();
+    },
     showMan(d) { manBox.update(d); },
     setInspected(id) { card.setInspected(id); },
     setCardDetailed(on) { card.setDetailed(on); },

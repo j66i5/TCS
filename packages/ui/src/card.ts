@@ -108,6 +108,43 @@ export function cardMen(view: SimView, catalog: Catalog, unit: EntityId, own = f
   return unitSoldierIds(view, unit);
 }
 
+/** What a vehicle gun's feed holds (D3): high explosive, armour-piercing, a guided missile, or machine-gun belts. */
+export type GunFeedKind = "he" | "ap" | "missile" | "mg";
+
+/** One feed of a vehicle weapon: rounds ready on the weapon and stowed in the hull. */
+export interface GunFeed { kind: GunFeedKind; ready: number; stowed: number }
+
+/** One weapon of the unit's vehicle as the card shows it (D3). */
+export interface GunRow { weapon: string; faction: string; feeds: GunFeed[]; jammed: boolean; reloading: boolean }
+
+/**
+ * The guns and their rounds of the unit's vehicle (D3, read only): one row per station weapon with each feed's
+ * ready rounds (on the weapon) and stowed rounds (in the hull's container); none for a unit without a vehicle.
+ */
+export function vehicleGuns(view: SimView, catalog: Catalog, unit: EntityId): GunRow[] {
+  const vid = view.unit.get(unit)?.vehicle;
+  const veh = vid !== undefined ? view.vehicle.get(vid) : undefined;
+  const def = veh ? catalog.vehicles[veh.def] : undefined;
+  if (!veh || !def || vid === undefined) return [];
+  const stacks = view.container.get(vid)?.stacks ?? [];
+  const out: GunRow[] = [];
+  def.stations.forEach((sd, si) => sd.weapons.forEach((wd, wi) => {
+    const ws = veh.stations[si]?.weapons[wi];
+    if (!ws) return;
+    const cannon = catalog.weapons[wd.weapon]?.type === "autocannon" || !wd.coax;
+    const feeds = wd.feeds.map((fd, fi): GunFeed => {
+      const item = catalog.items[fd.item];
+      const ammo = item?.chargeItem !== undefined ? catalog.ammo[item.chargeItem] : undefined;
+      const kind: GunFeedKind = ammo?.guided !== undefined ? "missile" : !cannon ? "mg" : ammo?.explosive !== undefined ? "he" : "ap";
+      let stowed = 0;
+      for (const st of stacks) if (st.type === fd.item) stowed += st.count * (st.charge ?? item?.chargeCapacity ?? 1);
+      return { kind, ready: ws.feeds[fi]?.rounds ?? 0, stowed };
+    });
+    out.push({ weapon: wd.weapon, faction: veh.faction, feeds, jammed: ws.jammed, reloading: ws.reloadDoneTick !== undefined });
+  }));
+  return out;
+}
+
 /** One row per man of the unit (S6), in the unit's order (leader of each unit first as the data lists him). */
 export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId, own = false): ManRow[] {
   const out: ManRow[] = [];
@@ -285,6 +322,8 @@ export interface UnitCardModel {
   /** The unit's state line ("ready", "pinned", ...), already translated. */
   state: string;
   men: readonly ManRow[];
+  /** The vehicle's guns and their rounds (D3); absent or empty: no gun row. */
+  guns?: readonly GunRow[];
 }
 
 export interface UnitCardCallbacks {
@@ -331,6 +370,19 @@ export function ammoCells(a: AmmoState): { fill: number[]; more: number } {
   return { fill: cells, more: Math.max(0, spare - 7) };
 }
 
+/**
+ * One weapon's line on the card (D3): its name, then each feed's ready rounds by nature ("HE 160 | AP 80"; a
+ * machine gun's belt by count alone), the stowed rounds in the hull, and a jam or a missile reload under way.
+ */
+export function gunText(s: Strings, g: GunRow): string {
+  const feeds = g.feeds.map((f) => (f.kind === "mg" ? String(f.ready) : `${s.t(`card.gun.${f.kind}`)} ${f.ready}`)).join(" | ");
+  const stowed = g.feeds.reduce((n, f) => n + f.stowed, 0);
+  return `${s.t(`weapon.${g.weapon}`, {}, g.faction)} · ${feeds}`
+    + (stowed > 0 ? ` ${s.t("card.gun.stowed", { n: stowed })}` : "")
+    + (g.jammed ? ` · ${s.t("card.gun.jammed")}` : "")
+    + (g.reloading ? ` · ${s.t("card.gun.reloading")}` : "");
+}
+
 export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   const root = h("div", "hud-card");
   root.hidden = true;
@@ -352,8 +404,14 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   paceRow.dataset["row"] = "pace";
   const fireRow = h("div", "hud-seg");
   fireRow.dataset["row"] = "fire";
+  // The vehicle's guns and rounds (D3): one compact row in both modes, one entry per weapon (wraps on a phone).
+  const gunRow = h("div", "hud-seg hud-card-guns");
+  gunRow.dataset["row"] = "guns";
+  gunRow.title = s.t("card.gun.title");
+  gunRow.hidden = true;
+  let gunKey = "";
   const list = h("div", "hud-card-list");
-  root.append(head, paceRow, fireRow, list);
+  root.append(head, paceRow, fireRow, gunRow, list);
 
   const store = (): Storage | null => { try { return globalThis.localStorage; } catch { return null; } };
   let detailed = false;
@@ -395,6 +453,16 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       name.textContent = m.callsign;
       badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
+      const guns = (m.guns ?? []).map((g) => gunText(s, g));
+      const gk = guns.join("\n");
+      if (gk !== gunKey) {
+        gunKey = gk;
+        gunRow.hidden = guns.length === 0;
+        const label = guns.length > 0 ? [segLabel("card.gunRow")] : [];
+        const col = h("div", "hud-guns");
+        col.append(...guns.map((g) => h("span", "hud-gun", g)));
+        gunRow.replaceChildren(...label, col);
+      }
       if (!detailed) return;
       const keep = new Set<EntityId>();
       m.men.forEach((r, i) => {

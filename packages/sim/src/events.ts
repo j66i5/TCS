@@ -18,6 +18,8 @@ export type SimEvent =
   | { kind: "order.received"; tick: number; seq: number; issuer: SideId; target: EntityId; orderKind: OrderKind; deliverTick: number }
   | { kind: "order.rejected"; tick: number; seq: number; issuer: SideId; target: EntityId; reason: OrderRejectReason }
   | { kind: "order.delivered"; tick: number; seq: number; target: EntityId; orderKind: OrderKind }
+  /** The men hesitate over an order (D4b): it is carried out at `deliverTick` instead, unless replaced first. */
+  | { kind: "order.hesitating"; tick: number; seq: number; target: EntityId; orderKind: OrderKind; deliverTick: number }
   | { kind: "radio"; tick: number; side: SideId; from: EntityId; key: string; params: Record<string, string | number> }
   | { kind: "unit.arrived"; tick: number; unit: EntityId }
   | { kind: "move.noRoute"; tick: number; target: EntityId }

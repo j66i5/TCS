@@ -470,6 +470,10 @@ export const BehaviourFile = withProv({
     screenM: Num(1, 100), enemyMinM: Num(0, 2000), enemyMaxM: Num(0, 5000), knownWithinS: Num(0, 600), cooldownS: Num(0, 3600),
     onWithdraw: z.boolean(), onMoveUnderFire: z.boolean(), underFireS: Num(0, 600),
   }).strict(),
+  /** Shaken men hesitate before obeying (D4b, SPEC 6.6): the same for every side. See BehaviourDef.hesitation. */
+  hesitation: z.object({
+    kinds: z.array(z.string()), shakenShare: Num(0, 1), baseSeconds: Num(0, 120), perSuppressionSeconds: Num(0, 120), maxSeconds: Num(0, 300),
+  }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
 

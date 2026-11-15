@@ -228,7 +228,30 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
   if (due.length === 0) return;
   state.pendingOrders = rest;
   due.sort((a, b) => a.deliverTick - b.deliverTick || a.seq - b.seq);
+  const dropped = new Set<number>();
   for (const p of due) {
+    if (dropped.has(p.seq)) continue;
+    // A later order to the same men replaces one they are still hesitating over (not a change of rules or fire);
+    // if they would hesitate over it too, they take it up when they would have moved anyway (an order repeated
+    // every few seconds must not keep them waiting for ever).
+    let replacedUntil = -1;
+    if (!KEEPS_HESITATION.includes(p.order.kind)) {
+      const overlaps = (h: PendingOrder) => h.hesitated === true && h.seq < p.seq && ordersOverlap(state, h.order.target, p.order.target);
+      for (const h of state.pendingOrders) if (overlaps(h)) replacedUntil = Math.max(replacedUntil, h.deliverTick);
+      state.pendingOrders = state.pendingOrders.filter((h) => !overlaps(h));
+      for (const h of due) if (h !== p && !dropped.has(h.seq) && overlaps(h)) dropped.add(h.seq);
+    }
+    // Shaken men hesitate before obeying (D4b): the order waits a little, once.
+    const wait = hesitationTicks(ctx, state, p);
+    const until = wait <= 0 ? -1 : replacedUntil >= 0 ? replacedUntil : state.tick + wait;
+    if (until > state.tick) {
+      p.hesitated = true;
+      p.deliverTick = until;
+      state.pendingOrders.push(p);
+      events.emit({ kind: "order.hesitating", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind, deliverTick: p.deliverTick });
+      if (replacedUntil < 0) radioFromTarget(state, p.order.target, "radio.hesitate", events);
+      continue;
+    }
     const res = applyOrder(ctx, state, p.order, events);
     if (res === true) screenAfterOrder(ctx, state, p.order, events);
     const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
@@ -237,6 +260,56 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
     radioFromTarget(state, p.order.target, res === true ? (p.order.kind === "grenade" && p.order.smoke === true ? "radio.ack.smoke" : `radio.ack.${p.order.kind}`) : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
   }
+}
+
+/** Orders that do not replace one the men are hesitating over (they change how they fire, not where they go). */
+const KEEPS_HESITATION: readonly string[] = ["rules", "ceaseFire", "callFire", "fire"];
+
+/**
+ * How long the men hesitate over a due order (D4b, SPEC 6.6, behaviour.hesitation), in ticks; 0 = they obey now.
+ * Only listed kinds, only once per order, only men on foot (not a crew, not aboard, not a unit with vehicles):
+ * when at least `shakenShare` of the able men who would carry it out are shaken, pinned or panicked, they wait
+ * `baseSeconds` + `perSuppressionSeconds` x their mean suppression, at most `maxSeconds`.
+ */
+function hesitationTicks(ctx: SimContext, state: SimState, p: PendingOrder): number {
+  const H = ctx.catalog.behaviour.hesitation;
+  if (!H || p.hesitated === true || !H.kinds.includes(p.order.kind)) return 0;
+  const o = p.order;
+  const isUnit = state.unit.has(o.target);
+  const own = isUnit && o.own === true;
+  if (isUnit) {
+    if (state.unit.req(o.target).vehicle !== undefined || (!own && vehicleChildren(state, o.target).length > 0) || hasRiders(state, o.target, own)) return 0;
+  } else if (state.soldier.get(o.target)?.mount !== undefined) return 0;
+  // (The same men applyOrder would move: able, not routed, on foot, not busy with a casualty.)
+  const men = (own ? [...state.unit.req(o.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, o.target) : [o.target]).filter((m) => {
+    const s = state.soldier.get(m);
+    return isAble(s) && s!.mental.behaviour !== "routed" && s!.mount === undefined
+      && !(isUnit && (s!.intent?.kind === "care" || s!.carrying !== undefined || s!.atNest !== undefined));
+  });
+  if (men.length === 0) return 0;
+  let shaken = 0, supp = 0;
+  for (const m of men) {
+    const ms = state.soldier.req(m).mental;
+    if (ms.behaviour === "shaken" || ms.behaviour === "pinned" || ms.behaviour === "panicked") shaken++;
+    supp += ms.suppression;
+  }
+  if (shaken < H.shakenShare * men.length) return 0;
+  return Math.max(1, secondsToTicks(Math.min(H.maxSeconds, H.baseSeconds + H.perSuppressionSeconds * supp / men.length)));
+}
+
+/** Do orders to these two targets reach some of the same men (the same unit or man, or one under the other)? */
+function ordersOverlap(state: SimState, a: EntityId, b: EntityId): boolean {
+  if (a === b) return true;
+  // A unit and every unit above it (a man: his own unit up).
+  const chain = (t: EntityId): EntityId[] => {
+    const out: EntityId[] = [];
+    for (let u = state.unit.has(t) ? t : state.identity.get(t)?.unit ?? null; u !== null && u !== undefined; u = state.unit.get(u)?.parent ?? null) out.push(u);
+    return out;
+  };
+  // (Two men are the same man or none; a unit overlaps a unit or man below it.)
+  if (state.unit.has(a) && chain(b).includes(a)) return true;
+  if (state.unit.has(b) && chain(a).includes(b)) return true;
+  return false;
 }
 
 /**

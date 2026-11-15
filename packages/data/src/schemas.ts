@@ -167,6 +167,10 @@ export const AmmoSchema = withProv({
     burstOnBody: z.boolean().optional(),
     /** Rockets (M7.4a): it bursts by itself this long after launch if it has struck nothing. */
     selfDestructSeconds: Num(0.1, 60).optional(),
+    /** M7.6d: a thermobaric filling (SPEC 3, an abstract effect): a burst inside a room fills it, every man in that
+     *  room (same building, floor and room) takes the blast at the radii x `enclosedFactor`, no wall shielding him;
+     *  in the open it is the plain blast of the filling. */
+    thermobaric: z.object({ enclosedFactor: Num(1, 3) }).strict().optional(),
   }).strict().optional(),
   /** Rockets (M7.4a): a motor that ignites `ignitionSeconds` after launch and speeds it up at `accelMps2` for
    *  `burnSeconds` along its flight path. */
@@ -210,12 +214,18 @@ export const AmmoSchema = withProv({
      *  and round (one standard deviation, mrad), time to aim, danger zone behind the tube, and whether the tube
      *  is thrown away (the round item is the tube). */
     dispersionMrad: Num(0, 50).optional(), aimSeconds: Num(0, 60).optional(), backblastM: Num(0, 200).optional(), disposable: z.boolean().optional(),
+    /** M7.6d, "direct": what the round is for (default "antiTank"). "antiPersonnel" (a thermobaric rocket): never
+     *  fired at a vehicle; fired on his own at positions (men in a house, a machine gun) whatever the anti-tank rule
+     *  says. A disposable round may have no `launcher`: the tube is the round item. */
+    role: z.enum(["antiPersonnel", "antiTank"]).optional(),
   }).strict().optional(),
 });
 export const AmmunitionFile = z.object({ ammunition: z.array(AmmoSchema) }).strict();
 export const WeaponSchema = withProv({
   id: Id, nameKey: z.string(),
-  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon", "tank-gun"]),
+  type: z.enum(["rifle", "carbine", "marksman-rifle", "light-machine-gun", "machine-gun", "pistol", "grenade-launcher", "launcher", "autocannon", "tank-gun",
+    /** M7.6d: an automatic grenade launcher (GMW, AGS-30): on a vehicle station counted and fired as a cannon. */
+    "grenade-machine-gun"]),
   /** M7.6a: up to 5000 kg (a tank's main gun with its mount). */
   calibre: z.string(), massKg: Num(0.1, 5000),
   feed: z.object({ magazine: Id }).strict(),
@@ -740,6 +750,10 @@ export const FactionManifest = withProv({
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
   missileTeamTemplate: Id.optional(),
+  /** Dismounted automatic grenade launcher team generated battles add with `aglTeams` (M7.6d). */
+  aglTeamTemplate: Id.optional(),
+  /** M7.6d: the platoon-sized assault group generated battles use in place of the platoon with `assaultGroup`. */
+  assaultGroupTemplate: Id.optional(),
   /** Tank section generated battles add with `tanks` (M7.6b): a template whose sub-units are all crews of vehicles
    *  with no passenger seats. */
   tankSectionTemplate: Id.optional(),
@@ -811,11 +825,21 @@ export const ItemSchema = withProv({
    *  fewest who can still fire), the sight's height above the ground, the danger zone behind (m), how far the
    *  launch is heard (m), the traverse either side of the laid heading before a re-lay (deg) and its time, and the
    *  seconds to lay on a target. */
-  crewServed: z.object({
-    kind: z.literal("missile"), weapon: Id, round: Id, setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
-    crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), sightHeightM: Num(0, 5), backblastM: Num(0, 200),
-    launchLoudM: Num(0, 20000), traverseDeg: Num(1, 180), relaySeconds: Num(0, 60), aimSeconds: Num(0, 60),
-  }).strict().optional(),
+  crewServed: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("missile"), weapon: Id, round: Id, setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+      crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), sightHeightM: Num(0, 5), backblastM: Num(0, 200),
+      launchLoudM: Num(0, 20000), traverseDeg: Num(1, 180), relaySeconds: Num(0, 60), aimSeconds: Num(0, 60),
+    }).strict(),
+    /** M7.6d `kind "agl"`: an automatic grenade launcher on its tripod (AGS-30, GMW): the weapon (weapons.json: its
+     *  rate, bursts and muzzle velocity), the round item (a counted box of grenades), the same post life as a missile
+     *  team's, and the range out to which it engages men on its own (direct, flat fire only). */
+    z.object({
+      kind: z.literal("agl"), weapon: Id, round: Id, setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+      crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), sightHeightM: Num(0, 5),
+      traverseDeg: Num(1, 180), relaySeconds: Num(0, 60), aimSeconds: Num(0, 60), engageRangeM: Num(50, 5000),
+    }).strict(),
+  ]).optional(),
   /** M9.4a: a reconnaissance quadcopter (the airframe item; its operator carries it and its batteries): the battery
    *  item (charge = Wh) and the power it draws (W), the share of a battery kept to fly home on, cruise and climb
    *  speeds (m/s), the usual, lowest and highest flying height above the ground (m), seconds to launch, how far from

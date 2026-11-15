@@ -163,6 +163,49 @@
       "note": "40 mm x 46 low-velocity high-explosive round of the M406 class as a stand-in for the Bundeswehr round: 32 g filling, about 76 m/s, arms after 14-28 m, lethal radius about 5 m (published). Fragment count and mass are game values."
     },
     {
+      "id": "de-40x53-hedp",
+      "nameKey": "ammo.de-40x53-hedp",
+      "calibre": "40x53",
+      "kind": "shaped-charge",
+      "projectileMassKg": 0.24,
+      "cartridgeMassKg": 0.34,
+      "diameterM": 0.04,
+      "drag": {
+        "a": 0.14,
+        "b": 0,
+        "max": 0.2
+      },
+      "penetration": {
+        "steelMm": 63,
+        "atVelocityMps": 240
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.032,
+        "fragmentCount": 300,
+        "fragmentAmmo": "de-40mm-fragment",
+        "fragmentVelocityMps": [
+          1200,
+          1500
+        ],
+        "armingSeconds": 0.1
+      },
+      "behindArmour": {
+        "spallCount": 8,
+        "spallConeDeg": 20,
+        "spallEnergyJ": 150
+      },
+      "sources": [
+        "https://man.fas.org/dod-101/sys/land/m430.htm",
+        "https://www.rheinmetall.com/de/media/news-watch/news/2024/02/2024-02-05-auftrag-der-bundeswehr-fuer-40mm-munition",
+        "https://www.bundeswehr.de/de/meldungen/fernbedienbare-waffenstationen-5572956"
+      ],
+      "confidence": "low",
+      "note": "40 mm x 53 high-velocity HEDP belt round (M430 class) of the GMW (M7.6d): muzzle velocity 'over 240 m/s' (Rheinmetall, search extract, medium), round about 0.34 kg, arms at 18-30 m, kill radius about 5 m and casualty radius about 15 m (fas.org M430, search extract, medium); the Bundeswehr's 'fragment radius 25 m' is read as the danger radius, not the lethal one. Game values (low): 32 g filling (Comp B, forum figure), 300 fragments as the 40x46 round's, drag (fitted so the greatest range is about 2200 m, the UK MoD and Rheinmetall figure), penetration about 50 mm RHA x 1.25 = 63 mm mild-steel equivalent (not sourced), 8 fragments thrown inside a hull it penetrates. No delivery block: it is fired only from a GMW (a station or a tripod), never by hand."
+    },
+    {
       "id": "de-40mm-fragment",
       "nameKey": "ammo.de-40mm-fragment",
       "calibre": "fragment",

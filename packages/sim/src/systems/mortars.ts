@@ -24,7 +24,7 @@ import { secondsToTicks, type EntityId, type SideId } from "../ids";
 import { isAble } from "../impair";
 import { countItems, removeItems, transferItems } from "../items";
 import { atan2, sqrt } from "../math";
-import type { CrewServedDef, ItemTypeDef, MortarDef } from "../catalog";
+import type { AglPostDef, CrewServedDef, ItemTypeDef, MissilePostDef, MortarDef } from "../catalog";
 import type { SimState, SimView } from "../state";
 
 /** A team that has stood still this long sets up on its own. */
@@ -34,8 +34,11 @@ export const CREW_RADIUS_M = 20;
 
 /** Where a team's tube is and what it is: the man carrying it, the item, its data. */
 export interface Tube { team: EntityId; carrier: EntityId; item: string; def: MortarDef; x: number; y: number }
-/** M9.3b: where a missile team's launch post is and what it is (the man carrying it is its gunner). */
-export interface Launcher { team: EntityId; carrier: EntityId; item: string; def: CrewServedDef; x: number; y: number }
+/** M9.3b: where a missile team's launch post is and what it is (the man carrying it is its gunner). M7.6d: the
+ *  same for an automatic grenade launcher's post (`Post<AglPostDef>`) and either (`Post`). */
+export interface Post<D extends CrewServedDef = CrewServedDef> { team: EntityId; carrier: EntityId; item: string; def: D; x: number; y: number }
+export type Launcher = Post<MissilePostDef>;
+export type AglPost = Post<AglPostDef>;
 
 /** The crew-served item (picked by `pick`) a unit's men carry: the first man in ID order who has one, or null. */
 function carriedOf<D>(ctx: SimContext, state: SimView, team: EntityId, pick: (it: ItemTypeDef | undefined) => D | undefined): { team: EntityId; carrier: EntityId; item: string; def: D; x: number; y: number } | null {
@@ -56,6 +59,8 @@ function carriedOf<D>(ctx: SimContext, state: SimView, team: EntityId, pick: (it
 }
 const pickMortar = (it: ItemTypeDef | undefined) => it?.mortar;
 const pickCrewServed = (it: ItemTypeDef | undefined) => it?.crewServed;
+const pickMissile = (it: ItemTypeDef | undefined) => (it?.crewServed?.kind === "missile" ? it.crewServed : undefined);
+const pickAgl = (it: ItemTypeDef | undefined) => (it?.crewServed?.kind === "agl" ? it.crewServed : undefined);
 
 /** The tube a unit's men carry (the first man in ID order who has one), or null. */
 export function tubeOf(ctx: SimContext, state: SimView, team: EntityId): Tube | null {
@@ -64,12 +69,34 @@ export function tubeOf(ctx: SimContext, state: SimView, team: EntityId): Tube | 
 
 /** The missile launch post a unit's men carry (M9.3b; the first man in ID order who has one), or null. */
 export function launcherOf(ctx: SimContext, state: SimView, team: EntityId): Launcher | null {
+  return carriedOf(ctx, state, team, pickMissile);
+}
+
+/** M7.6d: the automatic grenade launcher's post a unit's men carry (the first man in ID order who has one), or null. */
+export function aglOf(ctx: SimContext, state: SimView, team: EntityId): AglPost | null {
+  return carriedOf(ctx, state, team, pickAgl);
+}
+
+/** The crew-served post of either kind a unit's men carry (M7.6d), or null. */
+export function crewPostOf(ctx: SimContext, state: SimView, team: EntityId): Post | null {
   return carriedOf(ctx, state, team, pickCrewServed);
 }
 
-/** Is this unit a dismounted missile team (M9.3b)? */
+/** Is this unit a dismounted missile team (M9.3b)? (M7.6d: not an automatic grenade launcher team.) */
 export function isMissileTeam(state: SimView, uid: EntityId): boolean {
-  return state.unit.get(uid)?.missileTeam !== undefined;
+  const mt = state.unit.get(uid)?.missileTeam;
+  return mt !== undefined && mt.kind !== "agl";
+}
+
+/** M7.6d: is this unit an automatic grenade launcher team (its post state is `Unit.missileTeam` with kind "agl")? */
+export function isAglTeam(state: SimView, uid: EntityId): boolean {
+  return state.unit.get(uid)?.missileTeam?.kind === "agl";
+}
+
+/** M7.6d: the kind of crew-served team this unit is ("missile", "agl"), or null (not a crew-served team). */
+export function crewServedKind(state: SimView, uid: EntityId): "missile" | "agl" | null {
+  const mt = state.unit.get(uid)?.missileTeam;
+  return mt === undefined ? null : mt.kind === "agl" ? "agl" : "missile";
 }
 
 /** Is this unit a mortar team (it has a tube state), or a section made only of teams? */
@@ -148,7 +175,11 @@ export function initMortars(ctx: SimContext, state: SimState): void {
     if (u.mortar !== undefined || u.missileTeam !== undefined) continue;
     if (tubeOf(ctx, state, id)) u.mortar = { state: "packed", readyTick: -1, stillTick: 0 };
     // M9.3b: a missile team, packed, laid the way its gunner faces.
-    else { const l = launcherOf(ctx, state, id); if (l) u.missileTeam = { state: "packed", readyTick: -1, stillTick: 0, heading: state.transform.get(l.carrier)?.heading ?? 0, lastLaunchTick: -1, shots: 0, guide: null }; }
+    // (M7.6d: an automatic grenade launcher's team the same, marked kind "agl".)
+    else {
+      const l = crewPostOf(ctx, state, id);
+      if (l) u.missileTeam = { state: "packed", readyTick: -1, stillTick: 0, heading: state.transform.get(l.carrier)?.heading ?? 0, lastLaunchTick: -1, shots: 0, guide: null, ...(l.def.kind === "agl" ? { kind: "agl" as const } : {}) };
+    }
   }
 }
 
@@ -170,7 +201,7 @@ export function startSetup(ctx: SimContext, state: SimState, events: EventSink, 
 /** M9.3b: a missile team starts setting up its post (laid toward a queued shot, else the way its gunner faces). */
 function startTeamSetup(ctx: SimContext, state: SimState, events: EventSink, team: EntityId): boolean {
   const u = state.unit.get(team), mt = u?.missileTeam;
-  const l = launcherOf(ctx, state, team);
+  const l = crewPostOf(ctx, state, team);
   if (!mt || !l) return false;
   if (mt.state !== "packed") return true;
   if (!isAble(state.soldier.get(l.carrier)) || busyWithCasualty(state.soldier.req(l.carrier))) return false;
@@ -229,12 +260,11 @@ function missileTeamState(ctx: SimContext, state: SimState, events: EventSink, i
   passCarried(ctx, state, id, pickCrewServed);
   // Review fix: a post carrier who is carrying a casualty (or waiting on one) has left the fight: the post moves
   // with him, so the team counts as moving (packs, does not set up on its own).
-  const lc = launcherOf(ctx, state, id), cs = lc ? state.soldier.get(lc.carrier) : undefined;
+  const lc = crewPostOf(ctx, state, id), cs = lc ? state.soldier.get(lc.carrier) : undefined;
   if (u.moving || (cs !== undefined && busyWithCasualty(cs)) || u.members.some((m) => (state.mover.get(m)?.waypoints.length ?? 0) > 0)) {
     if (mt.guide) return; // (packing waits for the missile)
     if (mt.state !== "packed") {
-      const l = launcherOf(ctx, state, id);
-      const packT = state.tick + secondsToTicks(l?.def.packSeconds ?? 0);
+      const packT = state.tick + secondsToTicks(lc?.def.packSeconds ?? 0);
       mt.state = "packed"; mt.readyTick = -1;
       delete mt.relayTick;
       for (const m of u.members) { const mv = state.mover.get(m); if (mv && mv.waypoints.length > 0) mv.holdUntilTick = Math.max(mv.holdUntilTick ?? 0, packT); }

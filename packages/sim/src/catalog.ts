@@ -18,9 +18,16 @@ export interface MortarDef {
 }
 
 /** A crew-served weapon worked by a team on foot (M9.3b; see the data schema): a guided missile launch post. */
-export interface CrewServedDef {
+export type CrewServedDef = MissilePostDef | AglPostDef;
+/** M9.3b: a guided missile launch post. */
+export interface MissilePostDef {
   kind: "missile"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
   sightHeightM: number; backblastM: number; launchLoudM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number;
+}
+/** M7.6d: an automatic grenade launcher on its tripod (direct fire at men out to `engageRangeM`). */
+export interface AglPostDef {
+  kind: "agl"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
+  sightHeightM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number; engageRangeM: number;
 }
 
 /** A reconnaissance quadcopter (M9.4a): its battery item (charge in Wh) and draw (W), speeds, heights above the
@@ -240,7 +247,7 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number; /** M7.6d: a room it bursts in takes the blast x this. */ thermobaric?: { enclosedFactor: number } };
   /** Rocket motor (M7.4a). */
   propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
   /** Wire-guided (SACLOS) missiles (owner 2026-11-13; full guided weapons M9). */
@@ -258,7 +265,7 @@ export interface AmmoDef {
   /** M8.4 illumination round: the flare (its light: flares.ts, M9.6). */
   illum?: { candela: number; burnSeconds: number; heightM: number; descentMps: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
-  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
+  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean; /** M7.6d: "antiPersonnel" never at a vehicle (default "antiTank"). */ role?: "antiPersonnel" | "antiTank" };
 }
 
 export interface WeaponDef {

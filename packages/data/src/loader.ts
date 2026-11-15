@@ -293,6 +293,12 @@ function loadFaction(
         if (a.delivery.velocityMps === undefined) errors.push({ ...at("delivery.velocityMps"), message: "a launched munition needs its muzzle velocity" });
         if (a.delivery.launcher === undefined || !itemsF.items.some((it) => it.id === a.delivery!.launcher)) errors.push({ ...at("delivery.launcher"), message: `unknown launcher item '${a.delivery.launcher ?? ""}'` });
       }
+      // M7.6d: a direct round may leave out its launcher only if it is disposable (the tube is the round item).
+      if (a.delivery.method === "direct") {
+        if (a.delivery.launcher === undefined && a.delivery.disposable !== true) errors.push({ ...at("delivery.launcher"), message: "a direct round without a launcher item must be disposable (the tube is the round)" });
+        else if (a.delivery.launcher !== undefined && !itemsF.items.some((it) => it.id === a.delivery!.launcher)) errors.push({ ...at("delivery.launcher"), message: `unknown launcher item '${a.delivery.launcher}'` });
+      }
+      if (a.delivery.role !== undefined && a.delivery.method !== "direct") errors.push({ ...at("delivery.role"), message: "a role belongs to a direct (shoulder-fired) round" });
     }
   });
   itemsF.items.forEach((it, i) => {
@@ -325,10 +331,19 @@ function loadFaction(
     if (!w) errors.push({ ...at("weapon"), message: `unknown weapon '${cs.weapon}'` });
     const r = itemsF.items.find((x) => x.id === cs.round);
     const am = r?.chargeItem !== undefined ? ammoF.ammunition.find((a) => a.id === r.chargeItem) : undefined;
+    if (cs.crewMin > cs.crew) errors.push({ ...at("crewMin"), message: "crewMin must not exceed crew" });
+    // M7.6d: an automatic grenade launcher's post: its round item is a box of an explosive round the weapon fires
+    // and whose magazine it is; never a shoulder-fired round.
+    if (cs.kind === "agl") {
+      if (!am || am.explosive === undefined || am.guided !== undefined) errors.push({ ...at("round"), message: `'${cs.round}' is not a box of an unguided explosive round of this faction` });
+      else if (w && w.ammo[am.id] === undefined) errors.push({ ...at("weapon"), message: `weapon '${cs.weapon}' gives no muzzle velocity for '${am.id}'` });
+      if (w && w.feed.magazine !== cs.round) errors.push({ ...at("round"), message: `'${cs.round}' is not the magazine of weapon '${cs.weapon}'` });
+      if (am?.delivery !== undefined) errors.push({ ...at("round"), message: "an automatic grenade launcher's round has no `delivery`" });
+      return;
+    }
     if (!am || am.guided === undefined) errors.push({ ...at("round"), message: `'${cs.round}' is not a round item holding a guided missile of this faction` });
     else if (w && w.ammo[am.id] === undefined) errors.push({ ...at("weapon"), message: `weapon '${cs.weapon}' gives no launch velocity for '${am.id}'` });
     if (am?.delivery !== undefined) errors.push({ ...at("round"), message: "a crew-served missile has no `delivery` (it would be fired as a shoulder-fired round)" });
-    if (cs.crewMin > cs.crew) errors.push({ ...at("crewMin"), message: "crewMin must not exceed crew" });
   });
   // Fire support (M6.5c): its rounds must be ammunition of this faction (HE with an explosive, a smoke round).
   // (M8.4: the artillery battery the same; an illumination round must be one, with its flare.)
@@ -422,6 +437,16 @@ function loadFaction(
       const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
       if (vd && vd.class !== cls) err(`'${id}': carriage crew '${su!.id}' drives '${vd.id}', a ${vd.class} vehicle, not ${cls}`);
     }
+  }
+  // M7.6d: the automatic grenade launcher team and the assault group are templates of this faction; the team's men
+  // carry an "agl" post.
+  for (const key of ["aglTeamTemplate", "assaultGroupTemplate", "missileTeamTemplate"] as const) {
+    const id = manifest[key];
+    if (id !== undefined && !pack.units[id]) errors.push({ file: f("manifest.json"), path: key, message: `unknown unit template '${id}' (known: ${known(pack.units)})`, severity: "error" });
+  }
+  if (manifest.aglTeamTemplate !== undefined) {
+    const t = pack.units[manifest.aglTeamTemplate];
+    if (t && !t.members.some((m) => m.load.some((l) => pack.items[l.item]?.crewServed?.kind === "agl"))) errors.push({ file: f("manifest.json"), path: "aglTeamTemplate", message: `no man of '${t.id}' carries an automatic grenade launcher post (an item with crewServed kind "agl")`, severity: "error" });
   }
   // M7.6b: the tank section is crews of vehicles that carry no one (tanks), and nothing else.
   if (manifest.tankSectionTemplate !== undefined) {

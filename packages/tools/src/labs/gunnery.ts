@@ -69,6 +69,8 @@ const PAIRS: Pair[] = [
   // M7.6c: the wheeled carriers (GTK Boxer's 12.7 mm remote station, BTR-82A's 2A72) at each other.
   { factions: ["de", "ru"], crewTemplates: ["boxer-besatzung", "btr82a-ekipazh"] },
   { factions: ["ru", "de"], crewTemplates: ["btr82a-ekipazh", "boxer-besatzung"] },
+  // M7.6d: the GTK Boxer with the 40 mm GMW on its station.
+  { factions: ["de", "ru"], crewTemplates: ["boxer-besatzung-gmw", "btr82a-ekipazh"] },
 ];
 const TANK_FIELD_M = 4000;
 
@@ -79,6 +81,13 @@ function killBlueSeat(data: DataSet, input: BattleInput, crewTemplate: string, s
   const k = tmpl.members.findIndex((m) => def.seats.find((q) => q.id === m.seat)?.station === station);
   for (const u of f.units.flatMap((x) => x.subunits)) if (u.vehicleId !== undefined && k >= 0) u.members[k]!.status = "killed";
   return input;
+}
+
+/** M7.6d: does the blue vehicle's first station carry an automatic grenade launcher? */
+function isAglStation(data: DataSet, factions: [string, string], crewTemplates?: [string, string]): boolean {
+  if (!crewTemplates) return false;
+  const c = buildCatalog(data, [...factions]), vid = data.factions[factions[0]]!.units[crewTemplates[0]]!.vehicle!;
+  return c.vehicles[vid]!.stations.some((sn) => sn.weapons.some((w) => c.weapons[w.weapon]?.type === "grenade-machine-gun"));
 }
 
 export function gunneryLab(data: DataSet): GunneryRow[] {
@@ -170,6 +179,27 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
       run(sim, 45, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) shots++; else if (e.kind === "wound" && sim.state.identity.get(e.soldier)?.side === "red") hit.add(e.soldier); });
       rows.push({ vehicle: b.type, case: `HE at six men 600 m off, 45 s (${shots} rounds): men wounded or killed`, value: hit.size, unit: "men" });
     }
+    // ---- M7.6d: an automatic grenade launcher on the station: the first burst's mean miss from the aim point
+    // (the drop table's laying at long range) and men down among six standing at 600 / 1000 / 1500 m in 60 s
+    if (isAglStation(data, factions, crewTemplates)) {
+      for (const R of [600, 1000, 1500]) {
+        const sim = createSim(mk({ blue: { x: 300, y: 600, heading: 0 }, red: { x: W - 100, y: 1100, heading: 0 }, redSquadAt: { x: 300 + R, y: 600, spacing: 3 } }));
+        holdAll(sim);
+        const b = crewOf(sim, "blue");
+        submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: b.crew, kind: "fire", x: 300 + R, y: 600, heightM: 0, nature: "he" });
+        let shots = 0;
+        const miss: number[] = [], hit = new Set<EntityId>(), down = new Set<EntityId>();
+        const own = new Set(sim.state.unit.req(b.crew).members);
+        run(sim, 60, (e) => {
+          if (e.kind === "shot.fired" && e.vehicle === b.vid) shots++;
+          else if (e.kind === "explosion" && own.has(e.owner) && miss.length < 3) miss.push(Math.hypot(e.x - (300 + R), e.y - 600));
+          else if (e.kind === "wound" && sim.state.identity.get(e.soldier)?.side === "red") hit.add(e.soldier);
+          else if (e.kind === "casualty" && sim.state.identity.get(e.soldier)?.side === "red") down.add(e.soldier);
+        });
+        rows.push({ vehicle: b.type, case: `GMW: mean miss of the first burst's ${miss.length} rounds from the aim point, ${R} m`, value: miss.length > 0 ? miss.reduce((a, x) => a + x, 0) / miss.length : -1, unit: "m" });
+        rows.push({ vehicle: b.type, case: `GMW at six standing men ${R} m off, 60 s (${shots} rounds): men hit / down`, value: hit.size, unit: `men (${down.size} down)` });
+      }
+    }
     // ---- ammunition: a long order empties the HE belt, the crew refills it from stowage, halted (Q17)
     {
       const sim = createSim(mk({ blue: { x: 400, y: 600, heading: 0 }, red: { x: W - 100, y: 1100, heading: 0 } }));
@@ -228,6 +258,6 @@ export function gunneryLab(data: DataSet): GunneryRow[] {
 }
 
 export function gunneryLabMarkdown(rows: GunneryRow[]): string {
-  const fmt = (r: GunneryRow) => (r.unit === "share" ? `${Math.round(r.value * 100)} %` : r.unit === "s" ? r.value.toFixed(1) : String(r.value));
+  const fmt = (r: GunneryRow) => (r.unit === "share" ? `${Math.round(r.value * 100)} %` : r.unit === "s" || r.unit === "m" ? r.value.toFixed(1) : String(r.value));
   return ["| vehicle | case | value | unit |", "|---|---|---:|---|", ...rows.map((r) => `| ${r.vehicle} | ${r.case} | ${fmt(r)} | ${r.unit === "share" ? "" : r.unit} |`)].join("\n");
 }

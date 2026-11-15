@@ -468,6 +468,11 @@ export interface Unit {
     relayTick?: number;
     queued?: { x: number; y: number; target: EntityId };
     guide: TeamGuide | null;
+    /** M7.6d: an automatic grenade launcher team (systems/agl-team.ts; `guide` stays null): its burst series now
+     *  (`burst`: rounds left in this burst, `nextTick`: the next round, `target`/`x`/`y`: the aim). Absent kind: a
+     *  missile team. */
+    kind?: "agl";
+    burst?: { left: number; nextTick: number; index: number; target: EntityId; x: number; y: number; ordered: boolean; series: number };
   };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";

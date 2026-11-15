@@ -147,5 +147,11 @@
   "item.de-127x99-belt": "12.7 mm belt (100)",
   "weapon.de-m2qcb-rws": "sMG M2 QCB",
   "role.de.gruppenfuehrer": "Gruppenführer",
-  "role.de.mg-assistant": "MG-Hilfsschütze"
+  "role.de.mg-assistant": "MG-Hilfsschütze",
+  "ammo.de-40x53-hedp": "40 mm x 53 HEDP",
+  "item.de-40x53-belt": "40 mm belt box (32)",
+  "item.de-gmw": "GMW 40 mm (tripod)",
+  "weapon.de-gmw-rws": "GMW 40 mm",
+  "weapon.de-gmw": "GMW 40 mm (tripod)",
+  "vehicle.de.boxer-gtk-gmw": "GTK Boxer (GMW)"
 }

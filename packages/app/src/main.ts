@@ -66,7 +66,7 @@ async function main(): Promise<void> {
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...crewParam(params.get("crew")) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}) });
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew")) });
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));
@@ -345,4 +345,13 @@ main().catch((e: unknown) => {
 function crewParam(v: string | null): { crewTemplates?: [string, string] } {
   const parts = (v ?? "").split(",").filter((x) => x.length > 0);
   return parts.length === 2 ? { crewTemplates: [parts[0]!, parts[1]!] } : {};
+}
+
+/** `?tanks=1|attacker|defender` (M7.6b): the sides' tank sections (1: both); `&tankCrew=<blue section>,<red
+ *  section>` (unit template ids, empty: the manifest's), e.g. `tankCrew=,tankovaya-gruppa-t90m`. */
+function tanksParam(v: string | null, crew: string | null): { tanks?: true | "attacker" | "defender"; tankTemplates?: [string | null, string | null] } {
+  const tanks = v === "1" || v === "both" ? true : v === "attacker" || v === "defender" ? v : undefined;
+  if (tanks === undefined) return {};
+  const parts = (crew ?? "").split(",");
+  return { tanks, ...(crew ? { tankTemplates: [parts[0] || null, parts[1] || null] as [string | null, string | null] } : {}) };
 }

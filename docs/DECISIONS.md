@@ -5619,3 +5619,46 @@ is new to both lines), the batch lines, Russian strings, catalog medical blocks 
 fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
 regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
 `commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).
+
+## 2026-11-15 — D3 Phone pass (roadmap-detail slice 18, parallel session; owner to review)
+No owner phone available (relayed by the coordinator): measured with Playwright mobile emulation (Pixel 7, 4x CPU
+throttle) in the container, whose WebGL is software (SwiftShader). Built in four parts (parallel worktrees). No sim,
+data or golden change.
+- **`?perf=1` read-out** (`ui/src/perf.ts` ring-buffer recorder, `app/src/perf.ts` overlay): frame interval, sim
+  (AI + step + events), know (fog of war), ui, draw, gpu (CPU side of Pixi's render), steps per frame and game time
+  lost to the 0.25 s frame clamp; p50/p95/max over 5 s, the share over 33 ms, dpr, renderer resolution, look, worker
+  tier, GL string; Copy puts the JSON on the clipboard. `__tcs.perf(reset?)` returns it (always installed). Perf mode
+  never computes the state hash.
+- **Phone proxy** `npm run phoneperf` (report only): photo and flat, idle / pan at 1x / pan paused / pan unthrottled.
+  Here every frame is over 33 ms in every run (software GL at dpr 2.6: rAF p50 150-300 ms throttled, 133-250 ms
+  unthrottled); the JS parts are about 20 ms of a 150-300 ms frame (sim p50 12-14 ms per frame at 1x under the 4x
+  throttle because slow frames run 10-15 steps; draw 2 ms; gpu submit 4-5 ms). **The acceptance (your phone, p95 <=
+  33 ms while panning) cannot be judged here: request to the owner — open the deployed build with `?perf=1`, pan
+  10 s in photo and in flat, tap Copy and send the numbers.**
+- **Software decision (sim in a worker): not now.** The proxy shows the sim at a small share of the main thread;
+  the decision waits for the owner's `?perf=1` numbers (the read-out splits sim from render for exactly this).
+  Cheap lever if the phone is slow: cap the renderer resolution on phones (dpr 1 halved frame times here).
+- **Roof atlas off the main thread** (supersedes the photo item 7 deviation): a short-lived worker
+  `render/src/photo/roof-worker.ts` (pure `handleRoofs`, byte-identical atlas; tested), roofs filled in when it
+  replies, synchronous fallback without workers (Node, tests) or on error/timeout; `primeDetail` and `tilesPending`
+  wait for it. Throttled phone proxy: `setBuildings` 209-547 ms -> 7-69 ms on the main thread.
+- **UI leftovers (DECISIONS 2026-11-13 list):** the vehicle card shows its guns and rounds ("MK30-2 · HE 160 | AP 80
+  (+120 stowed)", MG, missiles; jammed / reloading); the phone's open unit list closes when a unit is picked and
+  never reaches over the card; a fire order released at a point nobody sees warns at once in the radio log (the order
+  is still sent); drag ghosts appear only past max(40 px, half the frontage, at most 40 m) from the unit and are drawn
+  fainter, the old move marker hidden meanwhile (half the frontage, not the planned 1.5x: at 1.5x a 25 m drag sent no
+  move); a man down gets a small red-cross mark in both looks, and in the flat look casualties get the photo look's
+  dark rim and a darker tint (flat men who are not down stay byte-identical); the status line no longer overflows at
+  360 px.
+- **F2 cross-browser probe** `npm run probe [-- --diff]` (report only; CI job `probe`, continue-on-error, installs
+  Chromium, Firefox and WebKit): the shootout golden in Node (18/18 checkpoints), the probe bundle in Node (18/18),
+  Chromium 153 **7/18** (first difference at tick 600: last-bit `Math.cos/pow/log` differences between V8 versions,
+  e.g. cos(0.1) ...257 vs ...258, reaching two headings; the final hash matches again). Firefox and WebKit cannot be
+  installed here (download blocked): the CI job measures them. This sizes MP1 (deterministic maths), not D3.
+- **F3 4 km map check** `npm run map -- --kind K --size 4000 --nav [--seeds 3]`: every kind generates clean (0
+  problems) in 0.4-1.1 s; navigation grids foot / cover / tracked / wheeled 0.45-0.6 s each; a cross-map foot route
+  0.35-0.45 s; the map itself about 6 MB; **navigation memory about 350 MB at 4 km** (88 MB at 2 km, ~35 MB on the
+  default 1200 x 900 m map; it scales with the area). Throttled phone proxy (scout): about 4x those times; a 4 km
+  battle on a phone needs smaller nav arrays or lazy per-region grids first (noted for whoever builds 4 km maps).
+- **Not done:** the owner's phone numbers; Firefox/WebKit probe results (CI); a "get out with the wounded" button
+  (a D3-tagged leftover not in slice 18's list).

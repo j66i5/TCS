@@ -297,6 +297,8 @@ export interface ShootingDef {
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
     /** Aim height above the ground at a man seen in each posture (soldier AI package A). */
     aimHeightByPostureM: Record<"standing" | "crouching" | "prone", number>;
+    /** Aim height above the ground, at most, at an enemy only heard or reported (D4b, game value, low). Absent: off. */
+    aimUnseenHeightM?: number;
   };
   grenades: {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
@@ -514,6 +516,12 @@ export interface BehaviourDef {
      *  not a man at a post: busy, a deployed mortar or missile team, a drone operator) and lies there, and walks back
      *  to his place once it is over; hidden, he stays down for hideSeconds after he last saw it
      *  (and looks for a canopy again no sooner). triggerM 0 = off. Absent: off. */
+    /** Fire distribution (D4b, game values, low): a machine gunner or a marksman (by his weapon, as for his engage
+     *  range) multiplies an enemy's target score by dangerSustained if that enemy has a machine gun, dangerMagnified
+     *  if a magnified sight, and dangerFiring if he fired in the last 3 s (lower = more important); a rifleman
+     *  multiplies it by (1 + spreadPenalty) for each comrade of his unit already firing at that enemy, at most
+     *  spreadCap of them. Absent: off. */
+    fireDistribution?: { dangerSustained: number; dangerMagnified: number; dangerFiring: number; spreadPenalty: number; spreadCap: number };
     droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).

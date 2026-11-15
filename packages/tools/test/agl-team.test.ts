@@ -81,6 +81,25 @@ describe("automatic grenade launcher teams (M7.6d)", () => {
     expect(soldierRecordFromState(sim.state, aglOf(sim.ctx, sim.state, tid)!.carrier).load).toContainEqual({ type: round, count: 1, charge: box.rounds });
   });
 
+  it("holds its own fire while an own man stands just past the target (within the burst and the range error)", () => {
+    const fire = (friend: boolean) => {
+      const sim = createSim(aglSetup(data, "ru", 800, 2));
+      const tid = team(sim);
+      holdOthers(sim, tid);
+      if (friend) {
+        const mine = new Set(sim.state.unit.req(tid).members);
+        const own = [...sim.state.identity.entries()].find(([id, i]) => i.side === "red" && !mine.has(id) && sim.state.soldier.get(id)?.mount === undefined)![0];
+        const t = sim.state.transform.req(own);
+        t.x = 200 + 800 + 40; t.y = 600;
+      }
+      let shots = 0;
+      run(sim, 60 * 120, (e) => { if (e.kind === "shot.fired" && sim.ctx.catalog.weapons[e.weapon]?.type === "grenade-machine-gun") shots++; });
+      return shots;
+    };
+    expect(fire(false)).toBeGreaterThan(10);
+    expect(fire(true)).toBe(0);
+  });
+
   it("does not fire on its own beyond its engage range (1200 m)", () => {
     const sim = createSim(aglSetup(data, "ru", 1450, 3));
     const tid = team(sim);

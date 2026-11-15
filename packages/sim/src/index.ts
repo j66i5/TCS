@@ -33,7 +33,7 @@ export { battleScore, type BattleScore, type SideScore } from "./systems/objecti
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
 export { airborneDroneOf, droneChargeWh, droneDefOf, droneHitChance, droneInSight, droneRiderOf, FLY_ACTION, hasDrone } from "./systems/drones";
 export { AUTO_DEPLOY_S, aglOf, crewAt, crewPostOf, crewServedKind, isAglTeam, isMissileTeam, isMortarUnit, launcherOf, mortarTeams, teamRounds, tubeOf, tubeRangeM, tubeReaches, type AglPost, type Launcher, type Post, type Tube } from "./systems/mortars";
-export { aglRoundsLeft, AGL_ACTION } from "./systems/agl-team";
+export { aglDangerM, aglRoundsLeft, AGL_ACTION, AGL_BURST_M } from "./systems/agl-team";
 export { fireOptions, type FireOption } from "./systems/support";
 export { isGuiding, teamRound, TEAM_FIRE_ACTION } from "./systems/missile-team";
 export { crewRate, flightSecondsOf, firstRoundErrorM, missionPhases, secondsToEffect, supportLeft } from "./systems/support";

@@ -60,6 +60,18 @@ const ADJUST_M = 30;
 /** A sight line blocked closer than this to the aim point still lets the team fire (m; ground and cover there). */
 const LINE_ALLOWANCE_M = 40;
 
+/** A round's burst that harms men out to about this (m; game value: the published lethal radius of 30 and 40 mm
+ *  grenades is 5 to 8 m). */
+export const AGL_BURST_M = 8;
+
+/**
+ * How far past the point aimed at (and round it) own men are in danger from a burst at `rangeM` (m): the round's burst
+ * plus one standard deviation of a series' range error (the gunner's skill not counted: the worst case near enough).
+ */
+export function aglDangerM(ctx: SimContext, rangeM: number): number {
+  return AGL_BURST_M + ctx.catalog.shooting.aim.rangeErrorFraction * rangeM;
+}
+
 /** Is this unit an automatic grenade launcher team that has rounds (on the gun or in its loads) and its post? */
 export function aglRoundsLeft(ctx: SimContext, state: SimView, uid: EntityId): number {
   const u = state.unit.get(uid), l = aglOf(ctx, state, uid);
@@ -193,7 +205,8 @@ export function aglTeamSystem(ctx: SimContext, state: SimState, events: EventSin
       mt.relayTick = state.tick + secondsToTicks(l.def.relaySeconds);
       continue;
     }
-    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, 0, { x: l.x, y: l.y })) continue;
+    // (Own men in the line, or past the point within the burst and the range error: no burst.)
+    if (friendInLine(ctx, state, l.carrier, pick.x, pick.y, aglDangerM(ctx, hypot2(pick.x - l.x, pick.y - l.y)), { x: l.x, y: l.y })) continue;
     if (mt.queued) {
       // An ordered series: one burst now, the rest stay queued.
       const left = (mt.queued.bursts ?? ORDER_BURSTS) - 1;

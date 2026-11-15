@@ -82,6 +82,8 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   // M7.6d: fire orders to an AGL team on its post: at enemy men seen within `aglSeenSeconds`, placed to `aglErrM`,
   // at most one series every `aglOrderSeconds` (game values, low).
   aglSeenSeconds: 10, aglErrM: 25, aglOrderSeconds: 20,
+  // M7.6d: an AGL team that has fired nothing for this long on its post moves on to its next post (game value, low).
+  aglRepostSeconds: 120,
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
   // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
@@ -446,7 +448,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
   /**
    * M7.6d: site and move the side's automatic grenade launcher teams: each to an overwatch post (sited once, within
    * its engage range of the enemy's area: the attacker's main objective, the defender's expected attack), sneaking
-   * the last stretch; there the sim sets it up and it fires on its own at the enemy men its men see. It stays.
+   * the last stretch; there the sim sets it up and it fires on its own at the enemy men its men see, and on the
+   * commander's orders at those the side sees; with nothing to fire at for `aglRepostSeconds` it moves to its next post.
    */
   const aglTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, men: readonly EntityId[]): void => {
     const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam?.kind === "agl").map(([id]) => id);
@@ -479,6 +482,11 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // to within `aglErrM`) in its range and in the gun's line, the biggest group first, as an ordered series (its
       // own fire only takes what its own two or three men see).
       const mt = u.missileTeam!;
+      // Nothing to fire at from here for a while (its last order, or since it was laid): on to its next post.
+      if (mt.state === "ready" && mt.burst === undefined && st.posts.length > 1 && tick - Math.max(st.launch, mt.readyTick) > COMMANDER.aglRepostSeconds * 60) {
+        st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; st.launch = tick;
+        continue;
+      }
       if (mt.state !== "ready" || mt.burst !== undefined || mt.queued !== undefined || view.action.has(l.carrier) || tick - st.launch < COMMANDER.aglOrderSeconds * 60) continue;
       const cands: { x: number; y: number; n: number; d: number }[] = [];
       for (const m of men) {

@@ -2683,7 +2683,8 @@
             },
             {
               "item": "ru-drone-battery",
-              "count": 3
+              "count": 3,
+              "charge": 77
             },
             {
               "item": "ru-helmet",

@@ -151,6 +151,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-wounded-status { color: var(--muted); font-size: 12px; }
 .hud-wounded.st-nest { border-left: 4px solid #f4f1ea; }
 .hud-wounded-back { min-height: 30px; padding: 0 8px; border-radius: 6px; border: 1px solid #8a5a52; background: #3a2421; color: var(--text); font-size: 13px; }
+.hud-ambulance { flex: 0 0 auto; padding: 4px 6px; border-radius: 6px; border: 1px solid #6b3a35; background: #2a1d1b; font-size: 12px; color: var(--text); }
+.hud-ambulance.ph-away, .hud-ambulance.ph-lost { color: var(--muted); background: #1f2a1c; border-color: #3d4a39; }
+.hud-ambulance-call { flex: 0 0 auto; min-height: 34px; border-radius: 6px; border: 1px solid #c9473d; background: #4a2420; color: var(--text); font-size: 13px; font-weight: 600; }
+.hud-wounded.st-evacuated { opacity: 0.6; }
 .hud-wounded-none { color: var(--muted); font-size: 13px; padding: 6px; }
 /* Hidden means hidden, whatever display the class sets. */
 [hidden] { display: none !important; }

@@ -25,7 +25,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isCaptive, isMortarUnit, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, isMortarUnit, isOffMap, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
@@ -423,7 +423,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // Ready with nothing in flight: the enemy vehicle in its range that threatens the own carriers most (nearest
       // to one of them), else the nearest to the team.
       if (mt.state !== "ready" || busy || mt.queued !== undefined || vk.size === 0) continue;
-      const hulls = [...view.vehicle.entries()].filter(([, v]) => v.side === side && v.status !== "destroyed" && v.status !== "abandoned").map(([vid]) => view.transform.get(vid)).filter((q) => q !== undefined);
+      const hulls = [...view.vehicle.entries()].filter(([, v]) => v.side === side && !isOffMap(v) && v.status !== "destroyed" && v.status !== "abandoned").map(([vid]) => view.transform.get(vid)).filter((q) => q !== undefined);
       let best: { id: EntityId; x: number; y: number; score: number } | null = null;
       for (const [vid, k] of [...vk.entries()].sort((a, b) => a[0] - b[0])) {
         const d = hypot2(k.x - lt.x, k.y - lt.y);
@@ -448,7 +448,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
-      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined);
+      // (M10.6a: nor an off-map asset's crew: an ambulance is called by the casualties' platoon, never commanded.)
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isAssetUnit(view, id));
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
@@ -520,7 +521,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
       for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
       // Its own vehicles (a crew that bailed out no longer has one: count the hulls of its side).
-      const ownVehicles = [...view.vehicle.values()].filter((v) => v.side === side);
+      const ownVehicles = [...view.vehicle.values()].filter((v) => v.side === side && v.offMap === undefined);
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
       mem.sentBack ??= [];
       for (const c of bailed) {

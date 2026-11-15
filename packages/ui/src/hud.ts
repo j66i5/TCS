@@ -19,7 +19,7 @@ import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
 import { createSidebar, type TilePart, type UnitTile } from "./sidebar";
-import type { WoundedRow } from "./wounded";
+import type { AmbulanceRow, WoundedRow } from "./wounded";
 import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
 import { createManBox, createUnitCard, fireChoice, fireChoiceRules, type ManDetail, type UnitCardModel } from "./card";
@@ -76,6 +76,8 @@ export interface HudCallbacks {
   /** M10.5 Wounded tab: a casualty's row tapped; "Back" tapped (take him to the Verwundetennest). */
   onWoundedMan?(man: EntityId): void;
   onEvacuate?(man: EntityId): void;
+  /** M10.6a: "Call ambulance" in the Wounded tab. */
+  onCallAmbulance?(): void;
   /** S3: a pace chip pressed on the card (after onPace): the app may send the move under way again at it. */
   onPaceChosen?(pace: string): void;
   /** S6: a man's row on the card tapped (his detail box), or the box closed (null). */
@@ -121,7 +123,7 @@ export interface Hud {
   /** The unit sidebar's tiles and the selected unit (M7.5a; the app refreshes them a few times a second). */
   setTiles(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
   /** The sidebar's Wounded tab (M10.5, owner Q-2c). */
-  setWounded(rows: readonly WoundedRow[]): void;
+  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number }): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
   insets(): Insets;
   /** Review fix: how far up from the screen's bottom edge the radio log and the unit card reach (px; 0: none). */
@@ -472,7 +474,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const toggleRules = () => { if (current?.none || !current?.rules) return; panel.hidden = !panel.hidden; card.setRulesButton(true, !panel.hidden); hint.hidden = true; };
   dock.append(orders, plan, moreMenu);
   // ---- unit sidebar (M7.5a)
-  const sidebar = createSidebar(s, cb.sideColour, (u, d) => cb.onSelectUnit(u, d), () => layout(), (u) => cb.onFollowUnit?.(u), { onMan: (m) => cb.onWoundedMan?.(m), onEvacuate: (m) => cb.onEvacuate?.(m) });
+  const sidebar = createSidebar(s, cb.sideColour, (u, d) => cb.onSelectUnit(u, d), () => layout(), (u) => cb.onFollowUnit?.(u), { onMan: (m) => cb.onWoundedMan?.(m), onEvacuate: (m) => cb.onEvacuate?.(m), onCallAmbulance: () => cb.onCallAmbulance?.() });
   // Where the dragged bar would dock (a strip along that edge while the grip is held).
   const preview = el("div", "hud-dock-preview");
   preview.hidden = true;
@@ -709,7 +711,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (was !== score.hidden) layout();
     },
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
-    setWounded(rows) { sidebar.setWounded(rows); },
+    setWounded(rows, amb) { sidebar.setWounded(rows, amb); },
     insets: () => ({ ...free }),
     bottomCover: () => {
       if (bottom.hidden || bottom.childElementCount === 0) return 0;

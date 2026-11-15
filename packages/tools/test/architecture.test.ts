@@ -138,6 +138,26 @@ describe("men aboard vehicles are gated (A7, plan §15 M7.1c)", () => {
   });
 });
 
+describe("off-map vehicles are skipped (M10.6a, SPEC off-map entity state)", () => {
+  /** Loops over the vehicle store: each must skip an off-map asset first (`isOffMap` or `offMap`), or say why not. */
+  const LOOP = /\.vehicle\.(entries|values|keys)\(\)/;
+  const GATE = /isOffMap\(|\.offMap\b|off-map: ok/;
+  it("every vehicle loop in sim, ai, render and app has an off-map gate or an `off-map: ok` marker", () => {
+    const bad: string[] = [];
+    for (const pkg of ["sim", "ai", "render", "app"]) {
+      for (const f of sourceFiles(join(PKG, pkg, "src"))) {
+        const lines = readFileSync(f, "utf8").split("\n");
+        lines.forEach((line, i) => {
+          if (!LOOP.test(stripComments(line))) return;
+          const near = lines.slice(Math.max(0, i - 2), i + 4).join("\n");
+          if (!GATE.test(near)) bad.push(`${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
+        });
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
+
 describe("men's routes know building interiors (M7.5c)", () => {
   it("every findPath call in sim and ai goes through routeBetween or carries an `outdoor: ok` marker", () => {
     const bad: string[] = [];

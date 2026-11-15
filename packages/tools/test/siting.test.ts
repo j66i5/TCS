@@ -21,7 +21,7 @@ describe("defence siting", () => {
   const windowZ = (p: SitingPlace) => win(p).z;
   const main = input.rules.objectives[0]!, def = main.holder!;
   // The defenders' groups as the scenario places them (each unit's own men), each with its objective's ring.
-  const groups: SitingGroup[] = [...st.unit.entries()].filter(([, u]) => u.side === def && u.members.length > 0).map(([, u]) => {
+  const groups: SitingGroup[] = [...st.unit.entries()].filter(([, u]) => u.side === def && u.members.length > 0 && u.asset === undefined).map(([, u]) => {
     const men = [...u.members].sort((a, b) => a - b).map((id) => { const t = st.transform.req(id); return { id, x: t.x, y: t.y }; });
     const cx = men.reduce((a, m) => a + m.x, 0) / men.length, cy = men.reduce((a, m) => a + m.y, 0) / men.length;
     const o = input.rules.objectives.find((ob) => hypot2(ob.x - cx, ob.y - cy) <= ob.radiusM + 15);
@@ -59,7 +59,8 @@ describe("defence siting", () => {
   it("in a battle, the defending commander sends its men there at once; they lie down apart", () => {
     const r = runBattle(input, { controllers: [commanderController("blue", input), commanderController("red", input)], onTick: (sim) => {
       if (sim.state.tick !== 60 * 59) return;
-      const men = [...sim.state.soldier.entries()].filter(([id, s]) => sim.state.identity.get(id)?.side === def && isAble(s)).map(([id, s]) => ({ s, t: sim.state.transform.req(id) }));
+      // (Not the crews of the ambulances waiting off the map, M10.6a.)
+      const men = [...sim.state.soldier.entries()].filter(([id, s]) => sim.state.identity.get(id)?.side === def && isAble(s) && sim.state.unit.get(sim.state.identity.req(id).unit)?.asset === undefined).map(([id, s]) => ({ s, t: sim.state.transform.req(id) }));
       // (Men outdoors lie down; men at windows, M7.5e, kneel or stand by the sill.)
       const out = men.filter((m) => indoorAt(sim.ctx, m.t.x, m.t.y) < 0);
       expect(out.filter((m) => m.s.posture === "prone").length).toBeGreaterThanOrEqual(out.length - 2);

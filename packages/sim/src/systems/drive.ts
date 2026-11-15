@@ -13,6 +13,7 @@
  * M7.1c: routes on the class grid with clearance; hulls are checked against true building outlines, walls,
  * water and each other; a corridor ahead makes men step aside and hulls yield; stuck hulls plan again.
  */
+import { isOffMap } from "../offmap";
 import type { SurfaceVehicleDef, VehicleDef } from "../catalog";
 import type { DriveState, Transform, VehicleState } from "../components";
 import type { SimContext } from "../context";
@@ -424,6 +425,7 @@ const VEH = { n: 0, id: [] as EntityId[], v: [] as VehicleState[], t: [] as (Tra
 function fillVehicles(ctx: SimContext, state: SimState): void {
   let n = 0;
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     VEH.id[n] = vid; VEH.v[n] = v; VEH.t[n] = state.transform.get(vid); VEH.def[n] = ctx.catalog.vehicles[v.def]; n++;
   }
   VEH.n = n;
@@ -436,6 +438,7 @@ export function vehicleDriveSystem(ctx: SimContext, state: SimState, events: Eve
   const wet = clamp(state.environment.rain, 0, 1);
   let replanned = false; // one re-plan per tick (ID order)
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
     const t = state.transform.req(vid);
@@ -706,6 +709,7 @@ function runOver(ctx: SimContext, state: SimState, vid: EntityId, v: VehicleStat
 export function vehicleSyncSystem(ctx: SimContext, state: SimState): void {
   if (state.vehicle.size === 0) { if (ctx.ballistics.vehicles.n > 0) rebuildVehicleGrid(ctx, state); return; }
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
     const t = state.transform.req(vid);

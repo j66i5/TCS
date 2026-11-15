@@ -11,5 +11,10 @@
   "confidence": "high",
   "platoonTemplate": "motor-rifle-platoon",
   "mortarTemplate": "minomyotny-vzvod-82",
-  "missileTeamTemplate": "raschet-metis"
+  "missileTeamTemplate": "raschet-metis",
+  "ambulance": {
+    "template": "bmm-ekipazh",
+    "count": 2
+  },
+  "note": "M10.6a ambulance: two BMM of the battalion medical point (MPB) wait off the map for each generated battle (search extracts: 'battalion: MPB + BMM/MT-LB ambulance on request'; the count is a game value, low)."
 }

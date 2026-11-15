@@ -14,7 +14,9 @@ describe("AI commander (M6.3)", () => {
   // first assault order at 925 s; the behaviour checked is unchanged.)
   // (Seed 6 since the medical + M9.4 drones merge, 2026-11-15: in seed 1 the attacker's drone-observed mortars now
   // break the defence at 560 s before any assault; seeds 2-5 and 7 place every defender, so no posture order.)
-  const input = scenario(6, 1200);
+  // (Seed 9 since the merge of origin/main's men-down work into the medical line with off-map ambulances, 2026-11-15:
+  // seed 6 now places every defender too; seeds 8 and 10-14 likewise.)
+  const input = scenario(9, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;

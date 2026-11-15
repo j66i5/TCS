@@ -2,7 +2,7 @@
  * What the map shows beyond the units (from the `main.ts` split, D2): the floor switch (M7.5d), the "last seen"
  * pins (S8) and the debug sight overlay. Read-only views of the state.
  */
-import { eyeHeightM, floorOf, heightAt, indoorAt, isOut, sight, standZ, unitSoldiers, type EntityId } from "@tcs/sim";
+import { eyeHeightM, floorOf, heightAt, indoorAt, isOffMap, isOut, sight, standZ, unitSoldiers, type EntityId } from "@tcs/sim";
 import type { Overlay } from "@tcs/render";
 import { createFloorSwitch, followFloor, unitFloor } from "@tcs/ui";
 import type { App } from "./app";
@@ -54,7 +54,7 @@ function ownEyes(a: App): EyePt[] {
     if (t) eyes.push({ x: t.x, y: t.y, z: standZ(map, t) + eyeHeightM(a.sim.ctx, s.posture), ignore: -1 });
   }
   for (const [vid, v] of st.vehicle.entries()) {
-    if (v.side !== a.playerSide || v.unit === null || v.status === "destroyed" || v.status === "abandoned") continue;
+    if (v.side !== a.playerSide || v.unit === null || v.status === "destroyed" || v.status === "abandoned" || isOffMap(v)) continue;
     const t = st.transform.get(vid);
     if (t) eyes.push({ x: t.x, y: t.y, z: heightAt(map, t.x, t.y) + 2.3, ignore: vid });
   }

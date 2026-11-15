@@ -8,7 +8,7 @@
 import type { Strings } from "@tcs/data";
 import { isAble, isOut, type Catalog, type EntityId, type SimView } from "@tcs/sim";
 import { unitSoldierIds } from "./orders-for";
-import type { WoundedRow } from "./wounded";
+import type { AmbulanceRow, WoundedRow } from "./wounded";
 
 export type TileState = "ok" | "moving" | "firing" | "aboard" | "pinned" | "damaged" | "broken" | "lost";
 
@@ -142,7 +142,7 @@ export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTi
     if (dt) out.push(dt);
     for (const c of u.children) visit(c, depth + 1, u.callsign);
   };
-  for (const [uid, u] of view.unit.entries()) if (u.side === side && u.parent === null) visit(uid, 0, null);
+  for (const [uid, u] of view.unit.entries()) if (u.side === side && u.parent === null && u.asset === undefined) visit(uid, 0, null); // (not an off-map asset's crew, M10.6a)
   return out;
 }
 
@@ -170,8 +170,9 @@ export interface Sidebar {
   isExpanded(): boolean;
   /** Width the strip takes from the map (px): the slim strip, or the open list on a wide screen. */
   width(): number;
-  /** The Wounded tab (M10.5, owner Q-2c): the player's wounded, T1 first. */
-  setWounded(rows: readonly WoundedRow[]): void;
+  /** The Wounded tab (M10.5, owner Q-2c): the player's wounded, T1 first; M10.6a: his ambulances on a run, and
+   *  how many still wait to be called (a "Call ambulance" button while any do). */
+  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number }): void;
   /** The tab shown in the open list. */
   tab(): "units" | "wounded";
 }
@@ -180,6 +181,8 @@ export interface Sidebar {
 export interface WoundedActions {
   onMan(man: EntityId): void;
   onEvacuate(man: EntityId): void;
+  /** M10.6a: "Call ambulance" tapped. */
+  onCallAmbulance?(): void;
 }
 
 /** The triage tag colours of the map (render's TRIAGE_COLOURS), for the list. */
@@ -314,12 +317,27 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
       for (const [k, e] of els) if (!keep.has(k)) { e.b.remove(); els.delete(k); }
       markMore();
     },
-    setWounded(rows) {
-      nWounded = rows.length;
-      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|");
+    setWounded(rows, amb) {
+      nWounded = rows.filter((r) => r.status !== "evacuated").length;
+      const key = rows.map((r) => `${r.id}:${r.tag}:${r.status}:${r.ordered}`).join("|") + "#" + (amb ? `${amb.ready}:${amb.rows.map((r) => `${r.id}:${r.phase}:${Math.ceil(r.dueS / 60)}:${r.aboard}`).join(",")}` : "");
       if (key !== wkey) {
         wkey = key;
         wlist.innerHTML = "";
+        // Ambulances (M10.6a): a line per run, then the call button while any wait.
+        for (const r of amb?.rows ?? []) {
+          const e = document.createElement("div");
+          e.className = `hud-ambulance ph-${r.phase}`;
+          e.textContent = s.t(`ambulance.${r.phase}`, { callsign: r.callsign, min: Math.max(1, Math.ceil(r.dueS / 60)), n: r.aboard });
+          wlist.append(e);
+        }
+        if (amb && amb.ready > 0 && wounded?.onCallAmbulance) {
+          const b = document.createElement("button");
+          b.className = "hud-ambulance-call";
+          b.textContent = s.t("ambulance.call", { n: amb.ready });
+          b.title = s.t("ambulance.callTitle");
+          b.onclick = () => wounded.onCallAmbulance?.();
+          wlist.append(b);
+        }
         if (rows.length === 0) { const e = document.createElement("div"); e.className = "hud-wounded-none"; e.textContent = s.t("side.woundedNone"); wlist.append(e); }
         for (const r of rows) {
           const row = document.createElement("div");

@@ -2,7 +2,7 @@
  * The after-action review's content (M6; D2 tabs), from the battle record (`@tcs/sim` record.ts) and the state at
  * the end. All text from the string table; the record itself holds keys and raw values only.
  */
-import { battleScore, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
+import { battleScore, isAssetUnit, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
 import type { AarModel } from "@tcs/ui";
 import type { App } from "./app";
 import { fmtClock, localClock, sideColour, sideName } from "./units";
@@ -40,13 +40,15 @@ export function reviewModel(a: App): AarModel {
     ],
     casualties: st.sides.map((sd) => {
       // mounted: ok the after-action roster counts every man
-      const men = [...st.identity.entries()].filter(([, i]) => i.side === sd.id);
+      // (Not the crews of off-map assets, M10.6a: an ambulance crew is not of the force.)
+      const men = [...st.identity.entries()].filter(([, i]) => i.side === sd.id && !isAssetUnit(st, i.unit));
       const rows = men.map(([id, i]) => {
         const so = st.soldier.req(id);
         const rs = rosterStatus(so), hurt = so.wounds.some((w) => w.mechanism !== "blunt");
         const status = (rs === "surrendered" || rs === "captured") && hurt ? s.t(`status.${rs}Wounded`, { zones: zoneNames(id) })
-          : rs === "wounded" ? (hurt ? s.t("status.wounded", { zones: zoneNames(id) }) : s.t("status.fit")) : s.t(`status.${rs}`);
-        const rank = { killed: 0, captured: 1, surrendered: 2, incapacitated: 3, wounded: 4, fit: 5, missing: 6 }[rs];
+          : rs === "wounded" ? (hurt ? s.t("status.wounded", { zones: zoneNames(id) }) : s.t("status.fit"))
+          : rs === "evacuated" ? s.t("status.evacuated", { zones: zoneNames(id) }) : s.t(`status.${rs}`);
+        const rank = { killed: 0, captured: 1, surrendered: 2, incapacitated: 3, evacuated: 4, wounded: 5, fit: 6, missing: 7 }[rs];
         return { order: rank, text: s.t("aar.man", { rank: s.t(`rank.${i.faction}.${i.rank}`, {}, i.faction), name: `${i.given} ${i.family}`, callsign: callsignOf(id), role: s.t(`role.${i.faction}.${i.role}`, {}, i.faction), status }) };
       }).sort((p, q) => p.order - q.order);
       const down = sc.scores.find((x) => x.side === sd.id)?.menDown ?? 0; // the same count as the score
@@ -62,6 +64,7 @@ export function reviewModel(a: App): AarModel {
           spent.push(s.t("aar.exp.support", { asset: s.t(asset === "artillery" ? "support.artillery" : "support.mortar"), ammo: s.t(`support.${ammo}`), n }));
         }
         for (const [vid, v] of Object.entries(e.vehicles).sort(([p], [q]) => (p < q ? -1 : 1))) {
+          // off-map: ok a lookup by name
           const call = [...st.vehicle.values()].find((x) => x.vehicleId === vid);
           const name = call && call.unit !== null ? st.unit.get(call.unit)?.callsign ?? vid : vid;
           for (const [ammo, n] of Object.entries(v.cannon)) spent.push(s.t("aar.exp.cannon", { vehicle: name, ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
@@ -71,7 +74,7 @@ export function reviewModel(a: App): AarModel {
         }
       }
       // Vehicles (M7.4a): lost and immobilised.
-      const vs = [...st.vehicle.values()].filter((v) => v.side === sd.id);
+      const vs = [...st.vehicle.values()].filter((v) => v.side === sd.id && v.offMap === undefined);
       const vline = vs.length > 0 ? [s.t("aar.vehicles", { side: sideName(a, sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
       // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
       const rv = record.review.sides[sd.id], m9: string[] = [];

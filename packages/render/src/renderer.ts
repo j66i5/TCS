@@ -5,7 +5,7 @@
  * calls `capturePrevious` before each step; `draw(alpha)` blends previous and current positions.
  */
 import { Application, Container, Graphics, Text } from "pixi.js";
-import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
+import { DT, flareBurning, flareLitRadius, floorAtZ, heightAt, isOffMap, smokePhysics, smokeShapes, type SmokePhysics, type Catalog, type EntityId, type MapDef, type NavGrid, type SimEvent, type SimView, type SoldierState, type DeepReadonly } from "@tcs/sim";
 import { BufferImageSource, Sprite, Texture, TilingSprite } from "pixi.js";
 import { lookOf, type Appearance } from "@tcs/data";
 import { fitCamera, worldToScreen, type Camera, type Insets } from "./camera";
@@ -943,6 +943,7 @@ export class BattleRenderer {
     // Vehicles: greedy stacks in screen space (ID order), each drawn once.
     const stacks: { x: number; y: number; side: string; n: number; first: EntityId; unit: EntityId | null; wreck: boolean; selected: boolean; aboard: number }[] = [];
     for (const [vid, v] of state.vehicle.entries()) {
+      if (isOffMap(v)) continue;
       if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
       if (!state.transform.has(vid)) continue;
       const p = this.pos(state, vid, alpha), s = worldToScreen(c, p.x, p.y);
@@ -1060,6 +1061,7 @@ export class BattleRenderer {
   private drawVehicles(g: Graphics, state: SimView, alpha: number, overlay: Overlay, sideIndex: Map<string, number>, fog: boolean): void {
     const c = this.camera;
     for (const [vid, v] of state.vehicle.entries()) {
+      if (isOffMap(v)) continue;
       // (Owner Q8, M7.4a: both sides know of a wreck at once, so enemy wrecks are drawn under fog too.)
       if (fog && v.side !== overlay.playerSide && v.status !== "destroyed" && v.status !== "abandoned") continue;
       const def = this.vehicleDefs[v.def];
@@ -1489,6 +1491,7 @@ export class BattleRenderer {
     for (let k = 0; k < missiles.length; k += 6) {
       const mx = missiles[k]!, my = missiles[k + 1]!, vx = missiles[k + 2]!, vy = missiles[k + 3]!, owner = missiles[k + 4]!, born = missiles[k + 5]!;
       const sx = (mx - c.x) * c.scale, sy = (my - c.y) * c.scale;
+      // off-map: ok a guided missile's launcher is on the map (an off-map hull has no launch in flight)
       for (const [vid, v] of state.vehicle.entries()) {
         const gd = v.stations.find((st) => st.guide && st.guide.gunner === owner && st.guide.launchTick === born)?.guide;
         const t = gd ? state.transform.get(vid) : undefined;

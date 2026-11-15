@@ -25,6 +25,7 @@
  * able man in the loader's station (`noLoaderFactor`), impossible without one if no factor is given. The round
  * stays counted on the rack until it is fired.
  */
+import { isOffMap } from "../offmap";
 import { registerActionHandler, startAction } from "../actions";
 import { dropAt, flightTimeAt } from "../ballistics";
 import type { AmmoDef, Catalog, VehicleDef } from "../catalog";
@@ -322,7 +323,7 @@ export function stationDecisionSystem(ctx: SimContext, state: SimState, events: 
   const G = ctx.catalog.behaviour.gunnery, tick = state.tick;
   const every = Math.max(1, secondsToTicks(G.stepSeconds));
   for (const [vid, v] of state.vehicle.entries()) {
-    if ((vid + tick) % every !== 0 || v.stations.length === 0) continue;
+    if ((vid + tick) % every !== 0 || v.stations.length === 0 || isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def];
     const crew = v.unit !== null ? state.unit.get(v.unit) : undefined;
     if (!def) continue;
@@ -379,7 +380,7 @@ export function turretSystem(ctx: SimContext, state: SimState): void {
   if (state.vehicle.size === 0) return;
   const G = ctx.catalog.behaviour.gunnery, tick = state.tick, dt = 1 / TICK_HZ;
   for (const [vid, v] of state.vehicle.entries()) {
-    if (v.stations.length === 0) continue;
+    if (v.stations.length === 0 || isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
     if (!def || !t) continue;
     // Damaged turret drive (M7.4b): below half, hand traverse at a quarter of the rate; a wrecked stabiliser.
@@ -488,6 +489,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
   const tick = state.tick, F = ctx.catalog.shooting.fire, A = ctx.catalog.shooting.aim;
   const fullTicks = secondsToTicks(F.fullRateSeconds), endTicks = fullTicks + secondsToTicks(F.trickleSeconds);
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
     if (!def || !t) continue;
     if (v.pendingSmokeTick >= 0 && tick >= v.pendingSmokeTick) smokeScreen(ctx, state, events, vid, v, def);
@@ -1023,7 +1025,7 @@ export function vehicleIncomingSystem(ctx: SimContext, state: SimState, events: 
     if (near === null) {
       near = [];
       for (const [vid, v] of state.vehicle.entries()) {
-        if (!v.stations.some((s) => s.task !== null)) continue;
+        if (isOffMap(v) || !v.stations.some((s) => s.task !== null)) continue;
         const t = state.transform.get(vid);
         if (t) near.push({ vid, x: t.x, y: t.y, side: v.side });
       }

@@ -7,7 +7,7 @@
  * the enemy it keeps `standoffM` short of him, toward its own men, at `altitudeM`: out of his rifles' easy reach.
  */
 import type { BattleInput, Controller, EntityId, Order, SideId, SimView } from "@tcs/sim";
-import { hypot2 } from "@tcs/sim";
+import { hypot2, isOffMapMan } from "@tcs/sim";
 
 export const DRONE = {
   /** How often the commander sends its drones somewhere new, s. */
@@ -64,7 +64,8 @@ export function droneUse(view: SimView, input: BattleInput, side: SideId, tick: 
   }
   // Short of that point, toward its own men (out of the enemy's rifles' easy reach).
   let ox = 0, oy = 0, k = 0;
-  for (const [id, i] of view.identity.entries()) { if (i.side !== side) continue; const t = view.transform.get(id); if (t) { ox += t.x; oy += t.y; k++; } }
+  // (Not the men off the map, M10.6a: an ambulance's crew waits far outside it.)
+  for (const [id, i] of view.identity.entries()) { if (i.side !== side || isOffMapMan(view, view.soldier.get(id))) continue; const t = view.transform.get(id); if (t) { ox += t.x; oy += t.y; k++; } }
   if (k > 0) { ox /= k; oy /= k; const d = hypot2(ox - gx, oy - gy); if (d > 1) { const m = Math.min(DRONE.standoffM, d) / d; gx += (ox - gx) * m; gy += (oy - gy) * m; } }
   gx = Math.min(Math.max(gx, 5), input.map.widthM - 5); gy = Math.min(Math.max(gy, 5), input.map.heightM - 5);
   const out: Order[] = [];

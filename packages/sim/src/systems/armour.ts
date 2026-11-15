@@ -27,6 +27,7 @@
  * Randomness: the "armour" stream (created on first use: vehicle-free battles never draw from it). No
  * allocation on the stopped-round path; one event per hit (small arms stay aggregated per vehicle and tick).
  */
+import { isOffMap } from "../offmap";
 import { addSmoke } from "../smoke";
 import type { VehicleComponent, VehicleDef } from "../catalog";
 import { reactiveAdd, tileFor } from "../tiles";
@@ -564,6 +565,7 @@ export function vehicleDamageSystem(ctx: SimContext, state: SimState, events: Ev
   if (state.vehicle.size === 0) return;
   const C = ctx.catalog.behaviour.crew;
   for (const [vid, v] of state.vehicle.entries()) {
+    if (isOffMap(v)) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def) continue;
     if (v.fire !== null && v.status !== "destroyed" && v.fire.nextExtTick >= 0 && state.tick >= v.fire.nextExtTick) tryExtinguish(ctx, state, events, vid, v, def);
@@ -637,7 +639,7 @@ export function crewReactionSystem(ctx: SimContext, state: SimState, events: Eve
   const every = Math.max(1, secondsToTicks(C.reactionStepSeconds));
   const recent = secondsToTicks(C.recentHitSeconds);
   for (const [vid, v] of state.vehicle.entries()) {
-    if ((vid + tick) % every !== 0) continue;
+    if ((vid + tick) % every !== 0 || isOffMap(v)) continue;
     if (v.unit === null || v.crewReaction === "bailOut" || (v.status !== "ok" && v.status !== "disarmed")) continue;
     const def = ctx.catalog.vehicles[v.def];
     if (!def || !def.components) continue;

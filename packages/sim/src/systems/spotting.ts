@@ -20,6 +20,7 @@
  * the turret, its range, fog floor and rain factor); passengers do not observe. Smoke: each sensor keeps its
  * `smokeFactor` of the view through ordinary smoke (thermal half, owner Q7), none through a multispectral cloud.
  */
+import { isOffMap } from "../offmap";
 import { smokePhysics, smokeTransmission } from "../smoke";
 import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
@@ -121,7 +122,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       // Aboard (M7.3): the crew look through their seats' sensors; passengers see nothing outside.
       const v = state.vehicle.get(os.mount.vehicle), def = v ? ctx.catalog.vehicles[v.def] : undefined;
       const seat = def?.seats[os.mount.seat];
-      if (!v || !def || !seat?.sensors || seat.sensors.length === 0 || seat.station === "passenger") continue;
+      if (!v || !def || !seat?.sensors || seat.sensors.length === 0 || seat.station === "passenger" || isOffMap(v)) continue;
       targets ??= soldierTargets(ctx, state);
       vtargets ??= vehicleTargets(ctx, state);
       crewScan(ctx, state, events, oid, os, v, def, os.mount.seat, targets, vtargets, every);
@@ -440,7 +441,7 @@ const TARGETS: SoldierTarget[] = [];
 
 /** A vehicle that can still be seen as a target: not a wreck (owner Q8: both sides know of a wreck at once, M7.4a). */
 function vehicleSeeable(v: VehicleState | undefined): boolean {
-  return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned";
+  return v !== undefined && v.status !== "destroyed" && v.status !== "abandoned" && !isOffMap(v);
 }
 
 /** Every vehicle that can be seen this scan, ID order. */
@@ -449,7 +450,7 @@ function vehicleTargets(ctx: SimContext, state: SimState): VehTarget[] {
   const out: VehTarget[] = [];
   const flaring = state.flares !== undefined && state.flares.length > 0;
   for (const [vid, v] of state.vehicle.entries()) {
-    if (!vehicleSeeable(v)) continue;
+    if (!vehicleSeeable(v)) continue; // off-map: ok vehicleSeeable is false off the map
     const def = ctx.catalog.vehicles[v.def], t = state.transform.get(vid);
     if (!def || !t) continue;
     const firing = canFight(v) && v.stations.some((st) => st.weapons.some((w) => tick - w.lastShotTick <= secondsToTicks(D.firingWithinSeconds)));

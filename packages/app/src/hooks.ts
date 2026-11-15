@@ -5,7 +5,7 @@
  * are screenshot-only shortcuts, as before.
  */
 import { buildAppearance, type DataSet } from "@tcs/data";
-import { EventSink, indoorAt, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
+import { EventSink, indoorAt, isOffMap, navFor, refreshStatus, simHash, startCarry, supportLeft, type EntityId, type Wound } from "@tcs/sim";
 import { enemyMenInSight, SIDE_COLOURS, worldToScreen } from "@tcs/render";
 import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
@@ -71,7 +71,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void): void 
     /** Own top-level units and all own units (sidebar order). */
     units: () => unitTiles(sim.state, playerSide, a.input.catalog).map((t) => ({ unit: t.unit, callsign: t.callsign, kind: t.kind, depth: t.depth })),
     /** Own vehicles: [entity, crew unit] (screenshots). */
-    vehicles: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.side === playerSide).map(([id, v]) => [id, v.unit]),
+    vehicles: () => [...sim.state.vehicle.entries()].filter(([, v]) => v.side === playerSide && !isOffMap(v)).map(([id, v]) => [id, v.unit]),
     /** Get in / get out (M7.2), for the selected unit. */
     mount: () => issue(a, { ...to(), kind: "mount" }),
     dismount: () => issue(a, { ...to(), kind: "dismount" }),

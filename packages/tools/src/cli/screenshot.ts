@@ -239,6 +239,18 @@ async function nightScenes(page: Page, name: string, errors: string[], shots: st
     await page.screenshot({ path: p }); shots.push(p);
     info.push(`${time} ${look} z${zoom} light ${r.light.toFixed(2)} lastShot ${r.last}/${r.tick} proj ${r.proj} ${r.post}`);
   }
+  // M9.6: an illumination flare burning over the ground ahead at 23:00 (its glow and lit circle), zoomed out.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&time=23:00&moon=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const fl = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
+    const W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM, x = W / 2, y = H / 2;
+    s.flares = [...(s.flares ?? []), { x, y, z: 400, startTick: s.tick, untilTick: s.tick + 60 * 600, descentMps: 0, candela: 1000000, side: "blue" }];
+    t.focus(x, y, 1400); t.stepTicks(1); return { flares: s.flares.length, light: s.environment.light };`) as () => { flares: number; light: number });
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await page.waitForTimeout(400);
+  const pf = `${outDir}/night-${seed}-${name}-2300-flare.png`;
+  await page.screenshot({ path: pf }); shots.push(pf);
+  info.push(`flare ${fl.flares} light ${fl.light.toFixed(2)}`);
   console.log(`${name}: night scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 

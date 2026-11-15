@@ -40,6 +40,8 @@ import { heightAt, pointInPolygon, standZ } from "../terrain";
 import { launchProjectile } from "./ballistics";
 import { skillFactor } from "./fire";
 import { footSoldiers } from "../mount";
+import { spared } from "../protection";
+import { noteFireAt, noteShot } from "../conduct";
 
 export type AtRule = "vehicles" | "vehiclesAndPositions" | "hold";
 
@@ -191,7 +193,7 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const seen = secondsToTicks(AT.seenWithinSeconds);
   let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
   for (const c of s.contacts) {
-    if (c.kind !== "seen" || state.tick - c.tick > seen || c.surrendered || c.down || c.wreck) continue;
+    if (c.kind !== "seen" || state.tick - c.tick > seen || spared(c) || c.wreck) continue; // (M10.7a: not a recognised ambulance or medic)
     const d = hypot2(c.x - me.x, c.y - me.y);
     if (d > range || d < 15) continue;
     const isV = c.cls === "vehicle";
@@ -229,7 +231,7 @@ function repositionForVehicle(ctx: SimContext, state: SimState, id: EntityId, s:
   if (indoorAt(ctx, me.x, me.y) >= 0) return false;
   let veh: (typeof s.contacts)[number] | null = null, vd = Infinity;
   for (const c of s.contacts) {
-    if (c.cls !== "vehicle" || c.wreck || state.tick - c.tick > secondsToTicks(S.atContactSeconds)) continue;
+    if (c.cls !== "vehicle" || c.wreck || spared(c) || state.tick - c.tick > secondsToTicks(S.atContactSeconds)) continue;
     const v = state.vehicle.get(c.target);
     if (!v || v.status === "destroyed" || v.status === "abandoned") continue;
     const d = hypot2(c.x - me.x, c.y - me.y);
@@ -398,4 +400,9 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   // He has fired: it gives him away like a shot (spotting reads his weapon's last shot).
   const w = state.weapon.get(id);
   if (w) w.lastShotTick = state.tick;
+  // Laws of war (M10.7b): a rocket costs any protection he had; fire at a protected enemy is recorded.
+  if (ctx.catalog.medical !== undefined) {
+    noteShot(ctx, state, id, s, tx, ty);
+    if (target !== undefined) noteFireAt(ctx, state, events, id, { contact: target }, false);
+  }
 }

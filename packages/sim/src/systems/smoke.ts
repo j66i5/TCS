@@ -20,6 +20,7 @@ import { canReport, isAble } from "../impair";
 import { atan2, hypot2 } from "../math";
 import type { SimState } from "../state";
 import { grenadeOption, throwArcExists } from "./grenades";
+import { spared } from "../protection";
 
 /** All soldiers of a unit and its sub-units, ascending id. */
 function menOf(state: SimState, uid: EntityId): EntityId[] {
@@ -54,7 +55,7 @@ function nearestThreat(ctx: SimContext, state: SimState, men: readonly EntityId[
     const s = state.soldier.get(m);
     if (!s) continue;
     for (const k of s.contacts) {
-      if (k.tick < since || k.surrendered || k.down) continue;
+      if (k.tick < since || spared(k)) continue;
       const d = hypot2(k.x - x, k.y - y);
       if (d < S.enemyMinM || d > S.enemyMaxM || d >= bestD) continue;
       best = { x: k.x, y: k.y }; bestD = d;

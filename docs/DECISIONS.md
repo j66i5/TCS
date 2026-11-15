@@ -5815,6 +5815,121 @@ recognition, which is slice 15; it is built in slices 15/16. Software decisions,
   order refusals, orders while away, save/load on the way and away, DOW chance, settlement both ways, roster);
   `--scene rearrun` screenshots (phone and desktop). Goldens regenerated (data fingerprint and the end settlement);
   `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, per hull), so no perf run.
+
+## 2026-11-15 — Merge origin/main (M9.6 night AI, smoke fires) into the medical line
+origin/main had 15 new commits (PR #62: M8 smoke fires and M9.6 night AI, drone hiding, flares). Only the goldens
+conflicted (both sides had regenerated them); taken from our side, then all regenerated with `npm run golden:update`
+on the merged tree (`golden/no-interiors` untouched). No text conflicts in DECISIONS or STATE.
+
+## 2026-11-15 — M10.7a Recognition and respect (roadmap-detail slice 15; goldens regenerated)
+All owner questions were answered up front (2026-11-14 entries): protected if recognised (answer 6), honest mistakes
+from range, smoke, night and stress (answer 5), nothing shown live (answer 7), and Q-7: **an order to fire at a
+recognised protected target is refused**, with a short radio note. Built:
+- **`sim/src/protection.ts`**: who is protected now (`protectionNow`): a man with an `emblem` item (the DE
+  Sanitäter's armband), a hull whose type has `ambulance.marked` (Boxer ambulance, BMM, xf litter cart), a man in a
+  carrying party (`SoldierState.carrying`: bearers and a walking wounded man), a man at a medical rear point
+  (`atNest`); none of them if he (or the hull) fired within `medicFiredLosesProtectionS` (120 s; slice 16 refines
+  this to "except in self-defence"). Data only, no faction in code: the RU rifleman-medic wears no armband in the
+  data (a rifleman with medical training, not medical personnel), so he is not protected — a data asymmetry, not a
+  rule asymmetry.
+- **Recognition inside the contact scan** (no new scan): on each sighting the observer's own contact gets
+  `marked` / `carrying` / `atPoint` when the range is within the data's range for that kind, by eye or with optics (any
+  non-thermal sensor with factor above 1: a G36's 3x, telescopic sights, vehicle day and night sights; a thermal
+  sight shows no red cross), × light (`obscuredFactor` 0.3 in the dark up to 1 by day), × smoke on the line (0.3 when
+  opaque up to 1), × (1 − 0.5 × stress or suppression); the flag is cleared when he is near enough to tell the man is
+  no longer protected, or at any range when the target fired lately; beyond the range he keeps what he knew. No
+  random draw: recognition is a threshold (the honest mistakes come from range, light, smoke and stress, and from
+  comrades who did not see for themselves). **Flags are not passed on in reports** (decided without the owner: "that's
+  a medic" is a man's own judgement; it keeps misidentification possible and avoids stale flags spreading).
+- **Respect**: one helper `spared(c)` (given up, down, or recognised as protected) replaces the old pair of checks in
+  the soldier's own target choice, the threat he takes cover from, keeping up his own fire, grenade throws, launcher
+  targets and AT repositioning, covering fire and fire on a position in drills, flight from a house, the hand smoke
+  screen's threat, a hull's fire on men near it; a fire task at a contact he has since recognised stops; vehicle
+  crews and missile teams spare a target any one of them recognised (`protectedTargets`); the AI commander's known
+  enemies (fire orders, AT, vehicles' support fire) skip them, and its high-explosive calls are not made on a place
+  where every known enemy within `missionSpareM` is spared and at least one is protected (`onlyProtectedAt`). Lawful
+  incidental harm is not prevented: fire at a fighting enemy beside a medic is allowed.
+- **Owner Q-7, the refusal**: a `fire` order (also anti-tank, and a crew's station fire) naming a contact any of the
+  ordered men recognises as protected, or at a point where they know only spared men within `aimSpareM` (10 m) and
+  at least one protected, returns `{ unable: "radio.refuseProtected" }` ("negative, we will not fire on that: red cross,
+  wounded or bearers"); a `callFire` with high explosive on such a place within `missionSpareM` (50 m) likewise.
+  Smoke and illumination are never refused.
+- **Data** (`core/medical.json` `protection`, low, game values): `recognitionM` gains `carryEye` 150 / `carryOptics`
+  400 and `pointEye` 300 / `pointOptics` 800; new `stressK` 0.5, `aimSpareM` 10, `missionSpareM` 50.
+- **Event** `protection.recognised` (observer, target, kind, range) when a flag is newly set; batch line
+  "Protection recognised". `Contact` gains three optional fields (no schema bump; old saves load unchanged).
+- **Lab** `npm run lab -- protection [seeds]`: the range table per kind (day, night, smoke 50 %, eye, optics) and, in the
+  sim, an enemy medic with the armband at ranges on both sides of each predicted range (day, night 01:00 without moon,
+  a thin cloud letting 55 % through; G36 optic or AK iron sights): every row recognised within the range and not
+  beyond (3 seeds each). Tests `tools/test/protection.test.ts`: the lab; a recognised medic is never fired at, an
+  unmarked man in his place is; beyond the range he is fired at; the refused order (named and at a point) with no shot;
+  the area rule; reports carry no flag; a Puma never engages a recognised BMM while it does engage a BMP-2 in its place.
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: platoon winners blue 2 / red 8 → 2 / 8, casualties
+  blue/red 18.2/14.2 → 17.2/13.1; platoon-vehicles 8/2 → 6/4, 12.8/26.3 → 16.9/26.3 (seed-level divergence; 10 seeds).
+  Recognised per battle: platoon blue 57.6 (mostly red's bearers, many re-recognitions as parties form and break up),
+  red 5.9; platoon-vehicles blue 26.2, red 3.1; emblems 0 in both (the DE Sanitäter stays back with the Zug HQ, rarely
+  within 150 m of the enemy; no ambulance came within a crew's sight in these runs). Left for M10.8: whether the
+  bearer count should be shown per party instead of per recognition.
+- **Perf** (per sighting, cheap tests first; `npm run test:perf` alone twice, both green): spotting bench 10.6x
+  (floor 8x; 11.2x on 2026-11-14), bench-vehicles 10.8x, bench-medical 17.5x. Goldens regenerated (data fingerprint
+  and the changed choices); `golden/no-interiors` untouched. No visible change except the radio line, so no
+  screenshots.
+
+## 2026-11-15 — M10.7b Breaches, medic self-defence, prisoners' care (roadmap-detail slice 16; goldens regenerated)
+Merged origin/main first (8x speed button, soldier sprite fixes, README version; render/UI only, no conflicts).
+Owner answers used (binding, 2026-11-14): breaches mostly honest mistakes, rarely deliberate by panicked, vengeful or
+poorly disciplined men, more after own losses, same rules for both sides from unit data only (answer 5); medics fire
+only in self-defence and lose protection if they fight otherwise (answer 8); breaches in the review, not live
+(answer 7); **Q-7: an order to fire at a recognised protected target is refused** — so there is no "ordered" breach:
+an ordered breach can only be a misidentification (recorded with `ordered: true`); Q-8 incidental hits: a separate
+list. Built (`sim/src/conduct.ts`); software decisions, owner to review in M10.8:
+- **`law.breach` "misidentified"**: checked where the rounds leave (a man's shot, a hull station's round or missile,
+  a rocket), every 2 s of a fire task at a named enemy and once per task: the enemy is protected now
+  (`protectionNow`: emblem, marked ambulance, carrying party, at the nest) and neither the shooter nor (for a hull)
+  any of its crew recognised him. Circumstances: range, light, smoke transmission on the line, stress or
+  suppression, ordered, hull. Fire at a point (no enemy named) is not judged (it shows up in `law.hit`).
+- **`law.breach` "deliberate"**: a man on foot whose target choice finds an enemy he knows to be protected or giving
+  up (not one known to be down: he may be dead) decides at most once per `breachCheckS` 60 s, from the new
+  **"conduct" RNG stream** (created on first use); chance = `breachBase` 1 % × (1 + 2 × min(1, platoon losses /
+  `breachLossesAt` 0.25)) × (1 + 1 × (1 − experience)) × (1 + 1 × stress), from the existing data factors (×3 losses,
+  ×2 poor discipline, ×2 panic); "unit quality" is the man's `experience` skill, losses are his platoon's (his unit's
+  parent with sub-units) men down, dead or taken. Once decided he fires at that man first for `breachHoldS` 30 s
+  (`SoldierState.breachOn`; the recognised/surrendered stop checks in fire.ts and decisions let it through). Crews and
+  missile teams do not breach deliberately: they decide together and one man saying "ambulance" holds the gun.
+- **Self-defence**: a man wearing an emblem fires on his own, on drills and on AI orders only within `selfDefenceM`
+  50 m (`assignFireTask` refuses beyond; his own target choice re-picks within it); a shot within it costs no
+  protection. Beyond it only on the player's own order (`Order.player`), and then he loses protection for
+  `medicFiredLosesProtectionS` 120 s after that shot. Protection loss now reads `SoldierState.protLostTick` (set by
+  any shot of anyone else: a bearer or a wounded man at the nest who fires is back in the fight; mortar and missile
+  crews too) instead of the weapon's last shot; hulls still use their stations' last shot.
+- **`law.hit`** (Q-8): a hit on an enemy who is protected now, wounded out of action, giving up or a prisoner, or on a
+  marked ambulance, by the firing side, `aimed` when the shooter's fire task (or his hull's station) was at him, else
+  incidental; fragments flagged.
+- **Nothing live**: no radio line, no string; the battle record keeps them (`SideRecord.conduct`: breaches with
+  circumstances, first 200 per side, counts by cause, hits by kind aimed/incidental; `RECORD_VERSION` 5 → 6); batch line
+  "Laws of war". The review tabs come in M10.8.
+- **Prisoners' care**: already built on 2026-11-15 (owner request E: captors treat prisoners by need, never by side;
+  end settlement treats them); nothing added.
+- **Data** (`core/medical.json` `protection`, low, game values): `breachCheckS` 60, `breachLossesAt` 0.25,
+  `breachHoldS` 30, `selfDefenceM` 50. No state schema bump (new optional fields on `SoldierState` and `FireTask`).
+- **Lab** `npm run lab -- protection` part 3 (AK observer free to fire, medic at 15-60 m, 3 seeds): misidentified
+  breach by day only beyond 50 m (60 m: 3/3), at night from 30 m (recognised only to 15 m), in a thin smoke wisp from
+  40 m (recognised to 34 m); part 4: the deliberate chance table (1 % calm and trained, 12 % for a green, panicking
+  man after a quarter of his platoon is lost). Tests `tools/test/conduct.test.ts`: misidentification at night and in
+  smoke, not by day, with circumstances and no radio; the record; chance factors and the same chance for both sides;
+  drawn rate at the chance (4000 draws); a deliberate breach with base 1 and never with base 0; medic self-defence
+  (keeps protection at 35 m; at 120 m nothing on his own or on an AI order, the player's order makes him fire and
+  costs protection for 120 s).
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: platoon winners blue 2 / red 8 → 2 / 8, casualties
+  blue/red 17.2/13.1 → 15.5/12.9, prisoners 0.7/1.3 → 0.6/1.5; platoon-vehicles 6/4 → 7/3, 16.9/26.3 → 16.1/26.4
+  (seed-level divergence). Laws of war per 10 battles (after): platoon blue misidentified 92 (14 through smoke, none
+  in the dark: daytime battles), deliberate 0; red 28 / 1; platoon-vehicles blue 101 / 1, red 26 / 1. Most
+  misidentifications are fire at red's carrying parties beyond 150 m (eye) — left for M10.8 whether that reads as
+  too many. Hits aimed/incidental (platoon, blue): bearers 9/50, wounded 77/65.
+- **Perf**: `npm run test:perf` alone green (20); the noisy parked-hulls test failed once inside the full check
+  (39 %) and passed alone. Goldens regenerated (data fingerprint, the self-defence gate and the conduct checks);
+  `golden/no-interiors` untouched. No visible change, so no screenshots.
+
 ## 2026-11-15 — D3 Phone pass (roadmap-detail slice 18, parallel session; owner to review)
 No owner phone available (relayed by the coordinator): measured with Playwright mobile emulation (Pixel 7, 4x CPU
 throttle) in the container, whose WebGL is software (SwiftShader). Built in four parts (parallel worktrees). No sim,
@@ -5955,3 +6070,6 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   (+900 stowed)", wheeled paces Fast / Drive / Slow / Reverse), the Jaeger getting out at 50 s, and the debug
   overview. Noticed (pre-existing, not changed): the Russian squads of a platoon are called "Gruppa 1, Gruppa 1,
   Gruppa 2" (callsigns numbered per template; also in the BMP platoon).
+- **Merge of origin/claude/medical-ambulance-smoke (b5a2963, laws of war #73)** into this work: only the goldens
+  conflicted; taken from that side and regenerated with `golden:update` (recorded orders of every existing golden
+  equal to that side's: the fingerprint only).

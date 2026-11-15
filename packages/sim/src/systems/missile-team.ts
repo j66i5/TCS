@@ -35,6 +35,8 @@ import { learnContact } from "./contacts";
 import { launchGuided, launchNoticed, missileAimPoint, missileSees } from "./gunnery";
 import { atRuleOf, backblastBlocked } from "./launcher";
 import { busyWithCasualty, crewAt, launcherOf, takeRound, teamRounds, type Launcher } from "./mortars";
+import { protectedTargets } from "../protection";
+
 
 /** The gunner's action that ends in a launch. */
 export const TEAM_FIRE_ACTION = "fireTeamMissile";
@@ -148,11 +150,13 @@ function ownTarget(ctx: SimContext, state: SimState, uid: EntityId, l: Launcher,
   const u = state.unit.req(uid);
   const seen = secondsToTicks(ctx.catalog.behaviour.antitank.seenWithinSeconds);
   const cands: { target: EntityId; tick: number; d: number }[] = [];
+  const prot = protectedTargets(state, u.members);
   for (const m of u.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
     for (const c of s!.contacts) {
       if (c.cls !== "vehicle" || c.kind !== "seen" || c.wreck || state.tick - c.tick > seen) continue;
+      if (prot !== null && prot.has(c.target)) continue; // (M10.7a: a recognised marked ambulance)
       const v = state.vehicle.get(c.target);
       if (!v || v.side === u.side || !vehicleLive(state, c.target)) continue;
       const d = hypot2(c.x - l.x, c.y - l.y);
@@ -244,6 +248,7 @@ function launchFromPost(ctx: SimContext, state: SimState, events: EventSink, gun
   state.fire.delete(gunner); // (review fix: his own fire task ends; he guides)
   const w = state.weapon.get(gunner);
   if (w) w.lastShotTick = tick;
+  if (ctx.catalog.medical !== undefined) s.protLostTick = tick; // (M10.7b: firing is not self-defence)
   // Launch warning (as from a vehicle, M9.3a): a crew that has the gunner in sight fires its smoke toward him a
   // moment later, and marks the post (its crewmen get a contact there).
   if (target >= 0 && launchNoticed(ctx, state, target, gunner, kind)) {

@@ -1,4 +1,5 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|treatment|carry|medevac [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
@@ -27,12 +28,14 @@ import { artilleryLab, artilleryLabMarkdown } from "../labs/artillery";
 import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
 import { carryLab, carryLabMarkdown } from "../labs/carry";
 import { medevacLab, medevacLabMarkdown } from "../labs/medevac";
+import { breachLab, breachLabMarkdown, chanceTable, protectionLab, protectionLabMarkdown } from "../labs/protection";
 import { loadData } from "../scenarios";
 
 const LABS: Record<string, () => string> = {
   movement: () => `# Movement and fatigue lab\n\n${movementLabMarkdown(movementLab(loadData()))}\n`,
   carry: () => `# Carry lab\n\n${carryLabMarkdown(carryLab(loadData()))}\n`,
   medevac: () => { const n = Number(process.argv[3] ?? 10); return `# Medevac lab\n\n${medevacLabMarkdown(medevacLab(loadData(), n), n)}\n`; },
+  protection: () => { const d = loadData(), n = Number(process.argv[3] ?? 3); return `# Protection lab\n\n${protectionLabMarkdown(protectionLab(d, n))}\n\n${breachLabMarkdown(breachLab(d, n), chanceTable(buildCatalog(d, ["de", "ru"])))}\n`; },
   range: () => `# Firing range lab\n\n${rangeLabMarkdown(rangeLab(loadData()))}\n`,
   casualty: () => `# Casualty lab\n\n${casualtyLabMarkdown(casualtyLab(loadData()))}\n`,
   fragmentation: () => `# Fragmentation lab\n\n${fragmentationLabMarkdown(fragmentationLab(loadData()))}\n`,

@@ -690,6 +690,7 @@
   "radio.noAmbulance": "{callsign}: no ambulance left to send.",
   "radio.ambulanceComing": "{callsign}: an ambulance is already on its way.",
   "radio.ambulanceNoWay": "{callsign}: no way in for an ambulance.",
+  "radio.refuseProtected": "{callsign}: negative, we will not fire on that: red cross, wounded or bearers.",
   "side.wounded": "Wounded",
   "side.woundedN": "Wounded {n}",
   "side.woundedNone": "No wounded.",

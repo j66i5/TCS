@@ -735,6 +735,20 @@ export interface MedicalDef {
     backM: number; minBackM: number; maxBackM: number; searchM: number; arriveM: number; threatM: number; checkS: number;
     driftM: number; maxParties: number; bearers: number; minFitLeft: number; medicReachM: number;
   };
+  /**
+   * Ambulance runs from the rear (M10.6a; absent: no ambulance is ever called). A call (automatic, or the player's
+   * `callAmbulance`) brings the side's next waiting ambulance onto the map after a delay drawn between `delayMinS`
+   * and `delayMaxS` (owner M10-3 Q-6: 10-15 min, plus the drive); it drives at `pace` (a foot movement mode, mapped
+   * to the vehicle's pace; near the nest at `nearPace`) to `standM` short of the Verwundetennest; its crew carries each casualty there aboard
+   * (`loadSecondsExtra` plus the walk at `carryMps` each way, on top of the hull's `loadCasualtySeconds`), T1 first,
+   * as its layouts allow; it leaves when full, or `waitS` after the last man came aboard with nobody else on the way
+   * (at most `maxStayS` after it arrived), and leaves the map at its entry point (within `edgeM`). A route that cannot
+   * be found is tried again after `retryS`. `requestAt`: casualties waiting at the nest for an automatic call.
+   */
+  evacuation?: {
+    delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; carryMps: number; loadSecondsExtra: number;
+    waitS: number; maxStayS: number; edgeM: number; retryS: number; requestAt: number;
+  };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */

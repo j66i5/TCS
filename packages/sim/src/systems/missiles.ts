@@ -22,6 +22,7 @@
  *
  * Randomness: the "missile" stream (created on first use: battles without missiles never draw).
  */
+import { isOffMap } from "../offmap";
 import type { AmmoDef, VehicleDef } from "../catalog";
 import type { MissileGuide, VehicleState } from "../components";
 import type { SimContext } from "../context";
@@ -59,7 +60,7 @@ const AIM = { x: 0, y: 0, z: 0 };
 export function missileSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (state.vehicle.size > 0) {
     for (const [vid, v] of state.vehicle.entries()) {
-      if (v.stations.length === 0) continue;
+      if (v.stations.length === 0 || isOffMap(v)) continue;
       const def = ctx.catalog.vehicles[v.def];
       if (!def) continue;
       const launchers = launchersOf(ctx, def);

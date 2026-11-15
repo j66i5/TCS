@@ -308,7 +308,15 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     Wounded tab, owner Q-2c); the AI commander counts carriers as committed and never orders them; batch
     "Verwundetennest" line; `--scene nest`.
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)
-12. ⬜ **M10.6a Off-map vehicles and ambulance runs** (slice 13)
+12. ✅ **M10.6a Off-map vehicles and ambulance runs** (slice 13, 2026-11-15) — off-map entity state: an asset is
+    an ordinary vehicle with its crew from tick 0 carrying `VehicleState.offMap`, parked off the map and skipped by
+    every vehicle loop while off it (architecture test), its crew nobody's to order and in no side's strength; each
+    generated battle gives a side its faction's ambulances (manifest `ambulance`: DE two Boxer, RU two BMM); a platoon
+    with casualties at its nest calls one (automatic; the player's `callAmbulance`, the Wounded tab's button), it comes
+    on at the edge behind the nest after 10-15 min (owner Q-6), drives to the nest, takes the men aboard T1 first
+    within its layouts, leaves the map; its wounded are "evacuated" (roster status; condition kept until M10.6b);
+    `medical.ambulance` / `medical.evacuated` events, batch "Ambulances" line, `npm run lab -- medevac`,
+    `--scene medevac`.
 13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)
 14. ⬜ **M10.7a Recognition and respect** (slice 15)
 15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16; an order to fire at a recognised

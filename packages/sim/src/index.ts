@@ -43,6 +43,8 @@ export * from "./medical";
 export { careEnabled, medicalSystem, startTreatment, treatedNow, underFireForCare } from "./systems/medical";
 export { carryLeader, carryParams, carrySpeedMps, carrySystem, coverSpotNear, endCarry, isCarried, leaveCarry, payloadMassKg, startCarry, type CarryOptions } from "./systems/carry";
 export { casualtyPointOrder, evacuateOrder, nestFor, nestOf, nestSystem, setNest, siteNest } from "./systems/nest";
+export { isAssetMan, isAssetUnit, isOffMap, isOffMapMan, OFF_MAP_PARK, parkOffMap } from "./offmap";
+export { callAmbulance, callAmbulanceOrder, entryPoint, evacuationSystem, onRun } from "./systems/evacuation";
 export { liesAboard, loadingParams, placesFit, placesUsed } from "./systems/boarding";
 export { driveSurface, followRoute, fuelLitres, planVehicleRoute, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";
 export * from "./hulls";

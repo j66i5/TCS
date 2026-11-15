@@ -53,12 +53,14 @@ export function isFit(s: Man | undefined): boolean {
 
 /** A man lost to his side: a casualty (killed or incapacitated) or a prisoner. Counted once per man. */
 export function isOut(s: Man): boolean {
-  return s.casualty !== "none" || s.captive !== null;
+  return s.casualty !== "none" || s.captive !== null || s.evacuated !== undefined;
 }
 
 /** His status for the roster, the review and the result: killed > captured > surrendered > incapacitated > wounded > fit. */
-export function rosterStatus(s: Man): "fit" | "wounded" | "incapacitated" | "surrendered" | "captured" | "killed" {
+export function rosterStatus(s: Man): "fit" | "wounded" | "incapacitated" | "surrendered" | "captured" | "killed" | "evacuated" {
   if (!s.physiology.alive) return "killed";
+  // (M10.6a: taken off the map by ambulance; the aid station's outcome comes in M10.6b.)
+  if (s.evacuated !== undefined) return "evacuated";
   if (s.captive !== null) return s.captive.state;
   if (s.casualty === "incapacitated") return "incapacitated";
   return s.wounds.length > 0 ? "wounded" : "fit";

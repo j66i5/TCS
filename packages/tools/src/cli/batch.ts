@@ -56,6 +56,8 @@ interface Row {
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
    *  tagged again, and of those now right. */
   nest: Record<string, { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number; needEnd: number; reachedEnd: number; wrong: number; wrongRetagged: number; corrected: number }>;
+  /** M10.6a per side: ambulance runs (battle record `amb`). */
+  amb: Record<string, SideRecord["amb"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
    *  check, tags recovered (men), wounded who crawled to cover, prisoners' treatments by the enemy, surrendered men
    *  who crawled out of the fire; killed at the end. */
@@ -155,6 +157,7 @@ for (let i = 0; i < runs; i++) {
       const mine = evacEnd.filter((e) => e.side === side);
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
+    amb: perSide((x) => x.amb),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
@@ -216,6 +219,13 @@ const md = [
     const need = sum((r) => r.nest[s]?.needEnd ?? 0), got = sum((r) => r.nest[s]?.reachedEnd ?? 0);
     const wrong = sum((r) => r.nest[s]?.wrong ?? 0), again = sum((r) => r.nest[s]?.wrongRetagged ?? 0), fixed = sum((r) => r.nest[s]?.corrected ?? 0);
     return `${s} nests sited ${sum((r) => r.nest[s]?.sited ?? 0)}, moved ${sum((r) => r.nest[s]?.moved ?? 0)}; sent back with bearers ${sum((r) => r.nest[s]?.tasked ?? 0)}, walking ${sum((r) => r.nest[s]?.walks ?? 0)}, arrived ${sum((r) => r.nest[s]?.arrived ?? 0)}, returned to duty ${sum((r) => r.nest[s]?.returned ?? 0)}; at the end ${got} of ${need} to be taken back had reached it (${need > 0 ? Math.round((100 * got) / need) : 0} %); wrong tags ${wrong}, tagged again ${again}, now right ${fixed} (${wrong > 0 ? Math.round((100 * fixed) / wrong) : 0} % of wrong tags corrected)`;
+  }).join("; ")}`,
+  `- Ambulances (M10.6a, by side): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const all = (f: (r: Row) => number[]) => rows.flatMap(f).sort((a, b) => a - b);
+    const med = (xs: number[]) => (xs.length === 0 ? "-" : `${Math.round(xs[Math.floor(xs.length / 2)]!)} s`);
+    const cta = all((r) => r.amb[s]?.callToArriveS ?? []), wte = all((r) => r.amb[s]?.woundToEvacS ?? []);
+    return `${s} called ${sum((r) => r.amb[s]?.called ?? 0)} (stood down ${sum((r) => r.amb[s]?.cancelled ?? 0)}), came on ${sum((r) => r.amb[s]?.entered ?? 0)}, reached the nest ${sum((r) => r.amb[s]?.arrived ?? 0)} (call to arrival median ${med(cta)}), took aboard ${sum((r) => r.amb[s]?.loaded ?? 0)}, left the map ${sum((r) => r.amb[s]?.away ?? 0)}; men evacuated ${sum((r) => r.amb[s]?.evacuated ?? 0)} (${(sum((r) => r.amb[s]?.evacuated ?? 0) / Math.max(1, rows.length)).toFixed(2)} per battle; first wound to leaving the map median ${med(wte)})`;
   }).join("; ")}`,
   `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

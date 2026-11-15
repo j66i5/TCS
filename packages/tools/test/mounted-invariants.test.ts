@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { commanderController } from "@tcs/ai";
-import { createSim, friendInLine, hypot2, seatWorld, sideKnowledge, step, submitOrder, type EntityId, type Sim } from "@tcs/sim";
+import { createSim, friendInLine, hypot2, isOffMap, seatWorld, sideKnowledge, step, submitOrder, type EntityId, type Sim } from "@tcs/sim";
 import { getScenario, loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -21,8 +21,9 @@ function check(sim: Sim, label: string): number {
   for (const [id, ss] of s.soldier.entries()) {
     const m = ss.mount;
     if (m === undefined) continue;
-    aboard++;
     const v = s.vehicle.req(m.vehicle);
+    if (isOffMap(v)) continue; // (an off-map ambulance's crew, M10.6a: parked off the map, not in a seat's place)
+    aboard++;
     expect(v.seats[m.seat], `${label} seat of ${id}`).toBe(id);
     const def = sim.ctx.catalog.vehicles[v.def]!, t = s.transform.req(m.vehicle), mt = s.transform.req(id);
     const [x, y] = seatWorld(def, m.seat, t.x, t.y, t.heading);

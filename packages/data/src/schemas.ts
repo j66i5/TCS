@@ -575,6 +575,11 @@ export const MedicalFile = z.object({
     checkS: Num(1, 600), driftM: Num(0, 5000), maxParties: z.number().int().min(0).max(20), bearers: z.number().int().min(1).max(4),
     minFitLeft: z.number().int().min(0).max(20), medicReachM: Num(0, 5000),
   }).optional(),
+  /** Ambulance runs from the rear (M10.6a): delay, pace, where it stands, loading, how long it waits. */
+  evacuation: withProv({
+    delayMinS: Num(0, 36000), delayMaxS: Num(0, 36000), pace: Id, nearPace: Id, standM: Num(0, 100), carryMps: Num(0.1, 5), loadSecondsExtra: Num(0, 600),
+    waitS: Num(0, 3600), maxStayS: Num(0, 36000), edgeM: Num(1, 200), retryS: Num(1, 600), requestAt: z.number().int().min(1).max(20),
+  }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),
@@ -701,6 +706,9 @@ export const FactionManifest = withProv({
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
   missileTeamTemplate: Id.optional(),
+  /** Ambulances off the map (M10.6a): generated battles give each side `count` of this crew template's vehicle
+   *  (a template with `vehicle`, an ambulance), waiting at the rear to be called. */
+  ambulance: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });

@@ -15,6 +15,7 @@
  * place the flag is created — and passes that news on at once; a report carries it, and nothing clears it
  * while the contact lasts. Who may be fired at is decided on this flag, never on the enemy's real state.
  */
+import { isOffMap } from "../offmap";
 import { onRoof } from "../mount";
 import type { Contact, SoldierState } from "../components";
 import type { SimContext } from "../context";
@@ -324,7 +325,7 @@ function hearEngines(ctx: SimContext, state: SimState, fresh: { who: EntityId; c
   const wind = Math.max(1, ctx.catalog.spotting.vehicles.downwind);
   for (const [vid, v] of state.vehicle.entries()) {
     const vt = state.transform.get(vid);
-    if (!vt) continue;
+    if (!vt || isOffMap(v)) continue;
     // The farthest it can be heard (downwind): men beyond are not looked at further.
     const Rmax = engineRangeM(ctx, state, vid, vt.x, vt.y) * wind;
     if (Rmax <= 0) continue;

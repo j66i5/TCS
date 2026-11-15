@@ -14,6 +14,7 @@ import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
 import { healthyPhysiology } from "./wounds";
 import { defaultEnvironment } from "./environment";
+import { OFF_MAP_PARK, parkOffMap } from "./offmap";
 
 export function buildInitialState(input: BattleInput): SimState {
   const state = createState(input.seed, input.catalog.fingerprint);
@@ -24,10 +25,28 @@ export function buildInitialState(input: BattleInput): SimState {
     if (!input.catalog.factions[force.faction]) throw new Error(`unknown faction '${force.faction}'`);
     state.sides.push(force.posture ? { id: force.side, faction: force.faction, posture: force.posture } : { id: force.side, faction: force.faction });
     const placements = new Map(force.placements.map((p) => [p.personId, p]));
-    // Vehicles first (M7): crews are seated in them as their units are added.
-    const vehicles = addVehicles(state, force, input.catalog);
-    for (const u of force.units) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    const offMap = new Set((force.offMap ?? []).map((a) => a.vehicleId));
+    // Vehicles first (M7): crews are seated in them as their units are added. (Off-map assets come after every
+    // force, M10.6a, so that the entities of the battle itself keep the ids they have without them.)
+    const vehicles = addVehicles(state, force, input.catalog, (id) => !offMap.has(id));
+    for (const u of force.units) if (u.vehicleId === undefined || !offMap.has(u.vehicleId)) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
     seatPassengers(state, force, vehicles, input.catalog);
+  }
+  // Off-map assets (M10.6a): their crews are nobody's to order; they wait at the off-map park until called.
+  for (const force of input.forces) {
+    if (!force.offMap || force.offMap.length === 0) continue;
+    const offMap = new Set(force.offMap.map((a) => a.vehicleId));
+    const placements = new Map(force.placements.map((p) => [p.personId, p]));
+    const vehicles = addVehicles(state, force, input.catalog, (id) => offMap.has(id));
+    for (const u of force.units) if (u.vehicleId !== undefined && offMap.has(u.vehicleId)) addUnit(state, u, null, force.side, force.faction, placements, input.catalog, vehicles);
+    for (const a of force.offMap) {
+      const vid = vehicles.get(a.vehicleId);
+      if (vid === undefined) throw new Error(`off-map asset: no vehicle '${a.vehicleId}' in force ${force.side}`);
+      const v = state.vehicle.req(vid);
+      v.offMap = { kind: a.kind, phase: "ready" };
+      if (v.unit !== null) state.unit.req(v.unit).asset = a.kind;
+      parkOffMap(state, vid);
+    }
   }
   return state;
 }
@@ -58,14 +77,17 @@ export function seatWorld(def: VehicleDef, seat: number, x: number, y: number, h
   return [x + c * p[0] - s * p[1], y + s * p[0] + c * p[1], p[2]];
 }
 
-function addVehicles(state: SimState, force: ForceInput, catalog: Catalog): Map<string, EntityId> {
+function addVehicles(state: SimState, force: ForceInput, catalog: Catalog, which: (vehicleId: string) => boolean): Map<string, EntityId> {
   const out = new Map<string, EntityId>();
   const places = new Map((force.vehiclePlacements ?? []).map((p) => [p.vehicleId, p]));
+  const offMap = new Set((force.offMap ?? []).map((a) => a.vehicleId));
   for (const rec of force.vehicles ?? []) {
+    if (!which(rec.vehicleId)) continue;
     const def = catalog.vehicles[rec.type];
     if (!def) throw new Error(`vehicle ${rec.vehicleId}: unknown vehicle type '${rec.type}'`);
     if (out.has(rec.vehicleId)) throw new Error(`duplicate vehicleId '${rec.vehicleId}'`);
-    const p = places.get(rec.vehicleId);
+    // (An off-map asset, M10.6a, needs no placement: it starts at the off-map park.)
+    const p = places.get(rec.vehicleId) ?? (offMap.has(rec.vehicleId) ? { vehicleId: rec.vehicleId, x: OFF_MAP_PARK.x, y: OFF_MAP_PARK.y, heading: 0 } : undefined);
     if (!p) throw new Error(`no placement for vehicle ${rec.vehicleId}`);
     const id = newEntity(state);
     out.set(rec.vehicleId, id);
@@ -331,6 +353,7 @@ export function vehicleRecordFromState(state: SimState, id: EntityId): VehicleRe
 /** Every vehicle of a side as roster records, in entity order. */
 export function vehiclesFromState(state: SimState, side: SideId): VehicleRecord[] {
   const out: VehicleRecord[] = [];
+  // off-map: ok the roster lists every vehicle of the side, an off-map asset too (rule 11: records in and out)
   for (const [id, v] of state.vehicle.entries()) if (v.side === side) out.push(vehicleRecordFromState(state, id));
   return out;
 }

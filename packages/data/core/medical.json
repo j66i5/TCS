@@ -719,6 +719,25 @@
     "confidence": "low",
     "note": "M10.5 Verwundetennest (platoon casualty collection point; Bundeswehr reports name a company Verwundetensammelpunkt, search extracts only; the platoon term is the owner's). Game values, none published: the nest is sited backM 150 m behind the platoon's centre, away from the enemy its men know (else toward the nearest map edge), within minBackM-maxBackM, at the spot within searchM that is hidden (lying) from that enemy, open ground a wheeled vehicle can reach from that edge; a casualty within arriveM is at the nest. Checked every checkS: a known enemy within threatM of a nest the player did not place moves it; an empty nest more than driftM from the platoon's centre follows it. The platoon leader tasks bearers (riflemen, owner M10-2 Q-2e): bearers men per casualty who cannot walk (one alone, a fireman's carry, when no second man is free), at most maxParties parties per platoon at once, never leaving a squad with fewer than minFitLeft fit men; walking wounded walk there themselves. A man at the nest fit to fight again goes back to his squad. The platoon's best-trained medical man (DE the Sanitaeter, RU the rifleman-medic) goes to the nest when it is within medicReachM, to triage again and give the care he alone can."
   },
+  "evacuation": {
+    "delayMinS": 600,
+    "delayMaxS": 900,
+    "pace": "walk",
+    "nearPace": "walk",
+    "standM": 15,
+    "carryMps": 1.0,
+    "loadSecondsExtra": 20,
+    "waitS": 120,
+    "maxStayS": 600,
+    "edgeM": 20,
+    "retryS": 30,
+    "requestAt": 1,
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+    ],
+    "confidence": "low",
+    "note": "M10.6a ambulance runs. delayMinS-delayMaxS 600-900 s: the owner's answer (M10-3 Q-6: 10-15 min plus the drive) for an ambulance called from the company or battalion behind; research extracts only give the 10-1-2 rule (Role 1 within 60 min) and 'protected ambulance on request', no figure for the call itself. Game values, none published (decided without the owner, low): it drives at the 'walk' pace (the wheeled 'wdrive-slow' pace, 30 % of its top speed: about 30 km/h for the Boxer, 24 km/h for the BMM; at the 'run' pace, 70 %, hulls ran into hedges at route corners in the lab), and so does nearPace near the nest (a hull's look-ahead for men in its way must not reach the men lying there); it stops standM 15 m short of the Verwundetennest (not on top of the men lying there), or where its way first comes within 65 m of the nest, or where the ground holds it up within 80 m; its crew fetches each casualty on a litter at carryMps 1.0 m/s (the two-man carry's speed) each way plus loadSecondsExtra 20 s (onto the litter) and the hull's loadCasualtySeconds (lifting him in), T1 first; it leaves when full, or waitS 120 s after the last man came aboard with nobody else on the way to the nest, at most maxStayS 600 s after it arrived; it is off the map within edgeM 20 m of its entry point; a route not found is tried again after retryS 30 s; requestAt: an automatic call goes out once this many casualties are waiting at the nest (1)."
+  },
   "chain": {
     "firstAidS": 600,
     "role1S": 3600,

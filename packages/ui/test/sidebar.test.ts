@@ -11,7 +11,8 @@ describe("unitTiles", () => {
     const h = simHash(sim);
     const all0 = unitTiles(sim.state, "blue", cat);
     expect(simHash(sim)).toBe(h);
-    const own = [...sim.state.unit.values()].filter((u) => u.side === "blue");
+    // (Not the crews of the ambulances waiting off the map, M10.6a.)
+    const own = [...sim.state.unit.values()].filter((u) => u.side === "blue" && u.asset === undefined);
     // (M9.4a: each platoon's quadcopter has its own tile right under its headquarters' tile, owner 2026-11-15,
     // which comes right under the platoon's.)
     const tiles = all0.filter((t) => t.kind !== "drone" && t.kind !== "hqGroup");

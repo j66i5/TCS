@@ -23,6 +23,7 @@
  * seats and `SoldierState.mount` are written only here and by the battle setup. Values: core/behaviour.json
  * `mounting`, core/medical.json `vehicleLoading` and the vehicle's `ramp` and `ambulance` blocks.
  */
+import { isOffMap } from "../offmap";
 import { registerActionHandler, startAction } from "../actions";
 import type { VehicleDef } from "../catalog";
 import type { Boarding, SoldierState, Unit, VehicleState } from "../components";
@@ -174,6 +175,23 @@ function seatIn(state: SimState, def: VehicleDef, vid: EntityId, seat: number, s
 
 function firstFreePassengerSeat(v: VehicleState, def: VehicleDef): number {
   return def.seats.findIndex((q, i) => q.station === "passenger" && v.seats[i] === null);
+}
+
+/**
+ * Put a casualty into a free passenger place of vehicle `vid` (M10.6a: an ambulance's crew lifts him in), lying or
+ * sitting as `liesAboard` says. False if no place fits him.
+ */
+export function seatCasualty(ctx: SimContext, state: SimState, vid: EntityId, c: EntityId, events: EventSink): boolean {
+  const v = state.vehicle.req(vid), def = ctx.catalog.vehicles[v.def];
+  const s = state.soldier.get(c);
+  if (!def || !s || s.mount !== undefined) return false;
+  const lies = liesAboard(ctx, s);
+  const seat = firstFreePassengerSeat(v, def);
+  if (seat < 0 || !roomFor(ctx, state, v, def, lies ? 1 : 0, lies ? 0 : 1)) return false;
+  state.action.delete(c);
+  seatIn(state, def, vid, seat, c, events);
+  if (lies) s.mount!.lying = true;
+  return true;
 }
 
 // ---------------------------------------------------------------- actions
@@ -386,7 +404,7 @@ export function vehicleSource(ctx: SimContext, state: SimState, id: EntityId, it
   const own = carrierOf(state, ident.unit);
   if (own !== undefined && ok(own) < Infinity) return own;
   let best: EntityId | null = null, bestD = Infinity;
-  for (const [vid] of state.vehicle.entries()) { const d = ok(vid); if (d < bestD) { bestD = d; best = vid; } }
+  for (const [vid, v] of state.vehicle.entries()) { if (isOffMap(v)) continue; const d = ok(vid); if (d < bestD) { bestD = d; best = vid; } }
   return best;
 }
 
@@ -856,7 +874,7 @@ function stepUnload(ctx: SimContext, state: SimState, uid: EntityId, b: Boarding
 /** A fallen driver or gunner is replaced by another crewman (Q13 default: a crewman, after `seatSwapSeconds`). */
 function seatSwaps(ctx: SimContext, state: SimState, events: EventSink): void {
   for (const [vid, v] of state.vehicle.entries()) {
-    if (v.unit === null || v.seatSwap !== null || v.status === "destroyed" || v.status === "abandoned") continue;
+    if (isOffMap(v) || v.unit === null || v.seatSwap !== null || v.status === "destroyed" || v.status === "abandoned") continue;
     const def = ctx.catalog.vehicles[v.def];
     const crew = state.unit.get(v.unit);
     if (!def || !crew) continue;
@@ -892,6 +910,7 @@ export function boardingSystem(ctx: SimContext, state: SimState, events: EventSi
   if (state.vehicle.size === 0) return;
   const M = ctx.catalog.behaviour.mounting;
   // A seat swap that was broken off (the crewman hit) is forgotten, so another can try.
+  // off-map: ok a seat swap is never under way off the map (seatSwaps skips those hulls)
   for (const [, v] of state.vehicle.entries()) {
     if (v.seatSwap && state.action.get(v.seatSwap.actor)?.kind !== "seatSwap") v.seatSwap = null;
   }
@@ -908,6 +927,7 @@ export function boardingSystem(ctx: SimContext, state: SimState, events: EventSi
     if (b.kind === "dismount") for (const m of [...b.queue, ...(b.casualties ?? [])]) { const mv = state.soldier.get(m)?.mount?.vehicle; if (mv !== undefined) holding.add(mv); }
     else if (state.vehicle.get(b.vehicle)?.drive.holdForDismount) holding.add(b.vehicle);
   }
+  // off-map: ok only clears a flag that is never set off the map
   for (const [vid, v] of state.vehicle.entries()) if (v.drive.holdForDismount && !holding.has(vid)) v.drive.holdForDismount = false;
   if (state.tick % Math.max(1, secondsToTicks(M.seatSwapCheckSeconds)) === 0) seatSwaps(ctx, state, events);
 }

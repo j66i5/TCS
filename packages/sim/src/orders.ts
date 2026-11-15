@@ -102,7 +102,10 @@ export type OrderBody =
   | { kind: "casualtyPoint"; x: number; y: number }
   /** Take this casualty to the Verwundetennest now (M10.5, owner answer 4): the target is the wounded man; he goes
    *  first in the bearers' queue, and walks there himself if he can, even if he could still fight. */
-  | { kind: "evacuate" };
+  | { kind: "evacuate" }
+  /** Call an ambulance to the Verwundetennest (M10.6a, owner answer 4): the target's platoon (its top unit) asks for
+   *  its side's next waiting ambulance now, even before anyone lies at the nest (the nest is sited if it has none). */
+  | { kind: "callAmbulance" };
 
 export type OrderKind = OrderBody["kind"];
 

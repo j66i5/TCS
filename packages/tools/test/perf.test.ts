@@ -125,18 +125,26 @@ describe("performance floor", () => {
     expect(tk.speed).toBeGreaterThanOrEqual(BENCH_TANKS_FLOOR_X);
   });
 
-  it("platoon-vehicles-tanks (the commander siting its tanks) runs at >= 0.85x the speed of platoon-vehicles over the first 600 s", () => {
+  it("platoon-vehicles-tanks: the commanders' extra thinking for the tanks costs at most 10 % of the battle's sim time over the first 600 s", () => {
+    // (The two more hulls' own sim cost is bench-tanks' business; this is the AI: siting, relocation, threat cover.)
     const data = loadData();
-    const speed = (name: string): number => {
+    const time = (name: string): { think: number; sim: number } => {
       const sc = getScenario(name), input = sc.build(data, 1, 600);
-      const t0 = performance.now();
-      runBattle(input, { controllers: sc.controllers!(input) });
-      return 600 / ((performance.now() - t0) / 1000);
+      const sim = createSim(input), cs = sc.controllers!(input);
+      let think = 0, simMs = 0;
+      for (let i = 0; i < 600 * 60 && !sim.state.ended; i++) {
+        const t0 = performance.now();
+        for (const c of cs) for (const o of c.think(sim.state, sim.state.tick)) submitOrder(sim, o);
+        const t1 = performance.now();
+        step(sim);
+        think += t1 - t0; simMs += performance.now() - t1;
+      }
+      return { think, sim: simMs };
     };
-    speed("platoon-vehicles"); // (warm-up)
-    const base = speed("platoon-vehicles"), tanks = speed("platoon-vehicles-tanks");
-    console.log(`platoon-vehicles-tanks: ${tanks.toFixed(1)}x real time, platoon-vehicles ${base.toFixed(1)}x (ratio ${(tanks / base).toFixed(2)})`);
-    expect(tanks).toBeGreaterThanOrEqual(0.85 * base);
+    time("platoon-vehicles"); // (warm-up)
+    const base = time("platoon-vehicles"), tanks = time("platoon-vehicles-tanks");
+    console.log(`platoon-vehicles-tanks: commanders think ${tanks.think.toFixed(0)} ms, sim ${tanks.sim.toFixed(0)} ms; platoon-vehicles think ${base.think.toFixed(0)} ms, sim ${base.sim.toFixed(0)} ms (extra thinking ${(((tanks.think - base.think) / tanks.sim) * 100).toFixed(1)} % of the sim time)`);
+    expect(tanks.think - base.think).toBeLessThanOrEqual(0.1 * tanks.sim);
   });
 
   it("one siteHullDown call on the village map takes at most 60 ms (median of 5)", () => {

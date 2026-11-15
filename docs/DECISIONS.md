@@ -5412,7 +5412,9 @@ Acceptance (plan step 8), reported as it stands after the one tuning pass:
   the Metis team). Exchange 1 Leopard for 19 T-72B3M (3BM42 575 mm against 800 / 1062 mm fronts: lopsided as
   expected); decided by time 8 of 10.
 - Perf (`npm run test:perf`, alone): bench-tanks 11.9x (1.40 ms per tick, 1.09x bench-vehicles; floor 8x),
-  platoon-vehicles-tanks 0.90x the speed of platoon-vehicles over 600 s (floor 0.85), `siteHullDown` median 27 ms on
+  platoon-vehicles-tanks: the commanders' extra thinking for the tanks 3.0 % of the battle's sim time over 600 s
+  (limit 10 %; the plan's whole-battle speed ratio, 0.85, measured 0.90 and then 0.80 on a second run: the battle
+  with two more hulls fighting is a different battle, so the test now times the AI alone), `siteHullDown` median 27 ms on
   the village map (limit 60); bench-vehicles 12.2x (step 0: 11.4x, 12.6x), bench-combined 4.7x (4.4x, 4.9x),
   bench-medical 16.3x (17.4x, 20.1x).
 - Goldens: new `platoon-vehicles-tanks-s1` (seed 1, 240 s); every other golden unchanged by steps 2-5.

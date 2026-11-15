@@ -24,6 +24,8 @@ import type { SimState } from "../state";
 import { heightAt, standZ, interiorSegmentsInRectInto, segmentsInRectInto } from "../terrain";
 import { applyBlast } from "./wounds";
 import { markHouseDanger } from "./house";
+import { floorAtZ, indoorAt, roomOfPoint } from "../interior-nav";
+import { roomAt } from "../interior";
 
 /**
  * Re-derive everything that depends on terrain damage (after a new breach, and after loading a save).
@@ -37,6 +39,9 @@ export function syncTerrainDamage(ctx: SimContext, state: SimState, rect?: reado
   deriveWrecks(ctx, state);
   ctx.nav = {}; // routes are planned on grids rebuilt with the holes in them
 }
+
+/** M7.6d: a thermobaric round bursting this close outside a building's wall fills the room just inside (m). */
+const THERMOBARIC_WALL_M = 0.6;
 
 /** Scratch list of inner walls near a burst (M7.5c). */
 const BREACH_IN: number[] = [];
@@ -74,14 +79,22 @@ export function detonate(ctx: SimContext, state: SimState, events: EventSink, x:
   suppressByBurst(ctx, state, x, y, stunR, state.identity.get(owner)?.side);
 
   // ---- blast
+  // M7.6d (SPEC 3, an abstract effect): a thermobaric filling bursting in a room (or on its outer wall) fills it:
+  // every man in that room takes the blast at the radii x `enclosedFactor`, no wall shielding him.
+  const room = ex.thermobaric ? roomOfPoint(ctx, x, y, z - heightAt(map, x, y), THERMOBARIC_WALL_M) : null; // ground: ok (the burst's floor)
+  const rb = room ? map.buildings[room.bi]! : null, k = room ? ex.thermobaric!.enclosedFactor : 1, reachR = stunR * k;
   for (const [id, s] of state.soldier.entries()) {
     if (!s.physiology.alive || (s.mount !== undefined && !onRoof(state, id))) continue; // men aboard are behind armour (M7; not one out on the roof, M9.3a)
     const t = state.transform.get(id);
     if (!t) continue;
     const dx = t.x - x, dy = t.y - y;
-    if (dx > stunR || dx < -stunR || dy > stunR || dy < -stunR) continue;
+    if (dx > reachR || dx < -reachR || dy > reachR || dy < -reachR) continue;
     const cz = standZ(map, t) + ctx.catalog.body.postures[s.posture].heightM * 0.5;
     const d = sqrt(dx * dx + dy * dy + (cz - z) * (cz - z));
+    if (rb && indoorAt(ctx, t.x, t.y) === room!.bi && floorAtZ(rb, t.z) === room!.floor && roomAt(rb, room!.floor, t.x, t.y) === room!.room) {
+      if (d <= reachR) applyBlast(ctx, state, events, id, d, severeR * k, injuryR * k, reachR, owner);
+      continue;
+    }
     if (d > stunR) continue;
     if (d > 0.3 && lineBlocked(ctx.ballistics, map, ctx.mapIndex, x, y, z, t.x, t.y, cz, BL.shieldSteelMm)) continue;
     applyBlast(ctx, state, events, id, d, severeR, injuryR, stunR, owner);

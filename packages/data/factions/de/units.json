@@ -1416,6 +1416,146 @@
       "note": "M8.3a: one 120 mm tube and its crew of four (leader with the radio and the smoke rounds, gunner with the tube, two loaders with six HE rounds each): 12 HE + 4 smoke at the tube. Crew and rounds at the position are game values (low); the Bundeswehr mortar platoon's organisation was not found in search extracts. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most)."
     },
     {
+      "id": "gmw-trupp",
+      "echelon": "team",
+      "callsign": "GraMaWa {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "truppfuehrer",
+          "rank": "unteroffizier",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-40x53-belt",
+              "count": 1,
+              "charge": 32
+            }
+          ]
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "hauptgefreiter",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-gmw",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "ladeschuetze",
+          "rank": "obergefreiter",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-40x53-belt",
+              "count": 2,
+              "charge": 32
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/granatmaschinenwaffe-40-mm"
+      ],
+      "confidence": "low",
+      "note": "M7.6d: a GMW team on foot of three (Truppfuehrer, Richtschuetze, Ladeschuetze: Bundeswehr GMW page, medium) with the gun on its tripod and three boxes of 32. Its place in the Jaegerkompanie is not sourced (low): data and lab only, in no generated battle."
+    },
+    {
       "id": "moerser-gruppe",
       "echelon": "section",
       "callsign": "Mörsergruppe {n}",
@@ -1602,6 +1742,64 @@
       ],
       "confidence": "low",
       "note": "GTK Boxer crew (M7.6c): commander, who works the FLW 200 from inside, and driver (Bundeswehr GTK page 'max 10 persons' with one group of eight in the back; the 2-man crew is an inference, low). Each carries a G36 with three magazines, helmet and vest as the Puma crews (game value, low). Ranks as the Puma crew's (realistic ranks, owner 2026-11-15): Kommandant Feldwebel, Fahrer Hauptgefreiter."
+    },
+    {
+      "id": "boxer-besatzung-gmw",
+      "echelon": "vehicle",
+      "callsign": "Boxer {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-boxer-gtk-gmw",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "low",
+      "note": "Crew of a GTK Boxer with the 40 mm GMW (M7.6d): as boxer-besatzung; the station's weapon is the only difference."
     },
     {
       "id": "boxer-besatzung-zug",
@@ -2568,9 +2766,9 @@
         "jaeger-gruppe",
         "jaeger-gruppe",
         "jaeger-gruppe",
+        "boxer-besatzung-gmw",
         "boxer-besatzung",
-        "boxer-besatzung",
-        "boxer-besatzung",
+        "boxer-besatzung-gmw",
         "boxer-besatzung-zug"
       ],
       "sources": [
@@ -2583,7 +2781,7 @@
         "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Jaegerzug in GTK Boxers (M7.6c, slice 41): the Zugtrupp (Zugfuehrer, Funker with the platoon's quadcopter, Sanitaeter with the litter, as the Panzergrenadierzug's) and three Jaegergruppen, in four Boxers: each of the first three carries a Gruppe, the fourth the Zugtrupp (mirrors pzgren-zug; no official table found, the four-vehicle platoon is an inference, low). 35 men. Ranks as the Panzergrenadierzug's.",
+      "note": "Jaegerzug in GTK Boxers (M7.6c, slice 41): the Zugtrupp (Zugfuehrer, Funker with the platoon's quadcopter, Sanitaeter with the litter, as the Panzergrenadierzug's) and three Jaegergruppen, in four Boxers: each of the first three carries a Gruppe, the fourth the Zugtrupp (mirrors pzgren-zug; no official table found, the four-vehicle platoon is an inference, low). 35 men. Ranks as the Panzergrenadierzug's. M7.6d: Boxer 1 and Boxer 3 carry the 40 mm GMW, Boxer 2 and the headquarters Boxer 4 the 12.7 mm (the station takes either; the command variant only the 12.7 mm: Bundeswehr GTK page, medium; the two-and-two mix is a game value, low).",
       "carriage": [
         {
           "crew": 3,

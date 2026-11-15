@@ -97,7 +97,9 @@ export const FRAG_DISTANCES = [2, 5, 10, 15, 20, 30];
 
 export function fragmentationLab(data: DataSet): { open: FragRow[]; wall: FragRow[]; cover: FragRow[] } {
   const cat = buildCatalog(data, ["de", "ru"]);
-  const munitions: [string, string][] = [["de-dm51", "ru"], ["ru-rgd5", "de"], ["de-40mm-he", "ru"], ["ru-vog25", "de"]];
+  const munitions: [string, string][] = [["de-dm51", "ru"], ["ru-rgd5", "de"], ["de-40mm-he", "ru"], ["ru-vog25", "de"],
+    // M7.6d: the automatic grenade launchers' rounds.
+    ["ru-vog30", "de"], ["de-40x53-hedp", "ru"], ["ru-rpo-a", "de"]];
   const open: FragRow[] = [], wall: FragRow[] = [], cover: FragRow[] = [];
   for (const [ammo, targetFaction] of munitions) {
     for (const posture of ["standing", "prone"] as Posture[]) for (const distanceM of FRAG_DISTANCES) open.push(burstCase(cat, { ammo, targetFaction, posture, distanceM }));

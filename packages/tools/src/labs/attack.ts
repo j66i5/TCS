@@ -5,6 +5,12 @@
  * Each run ends when one side is finished — broken, or down to under half its men — or the attacker holds the
  * objective with the defender gone, or after the time limit (a failed attack). Half the runs Germany attacks,
  * half Russia. Acceptance: the attack in the open against a prepared defence fails most of the time.
+ *
+ * AMBUSH (D4b, `npm run lab -- ambush [trials]`): the same ground, the defender lying in the open (no wall), the
+ * attacker walking in on it from 300 m (a move, not an assault: its covering fire would spring the ambush at once; he
+ * returns fire only, not knowing where the defence lies). The defender is under an `ambush` order (fire held until the
+ * attacker is within `AMBUSH_LAB_M`) or, for comparison, fires at will. From the events: the distance of the defender's first shot to the nearest attacker (the first volley),
+ * which side fired first, and the attacker's men down in the 30 s after that volley.
  */
 import type { DataSet } from "@tcs/data";
 import { demoBattle } from "@tcs/scenario";
@@ -88,4 +94,80 @@ function attackTable(rows: AttackRun[]): string {
     "", "| seed | attacker | result | how | s | attacker down | defender down |", "|---:|---|---|---|---:|---:|---:|",
     ...rows.map((r) => `| ${r.seed} | ${r.attacker} | ${r.winner} | ${r.how} | ${r.durationS.toFixed(0)} | ${r.attackerDown} | ${r.defenderDown} |`),
   ].join("\n");
+}
+
+// ---- the ambush lab (D4b)
+
+/** The ambush range the lab's defender is given (m). */
+export const AMBUSH_LAB_M = 150;
+/** The window after the first volley in which the attacker's losses are counted (s). */
+const VOLLEY_WINDOW_S = 30;
+
+export interface AmbushRun { seed: number; attacker: string; ambush: boolean; firstVolleyM: number | null; firstFire: "attacker" | "defender" | "none"; blueDown30: number; attackerMen: number; sprungS: number | null }
+
+/** One advance from 300 m on a defender lying in the open, with an ambush laid (`ambush`) or firing at will. */
+export function ambushRun(data: DataSet, seed: number, attacker: "de" | "ru", ambush: boolean, seconds = 300): AmbushRun {
+  const defender = attacker === "de" ? "ru" : "de";
+  const input = demoBattle(data, { seed, factions: [attacker, defender], mapWidthM: 800, mapHeightM: 400, frontM: 300, timeLimitSeconds: seconds });
+  const red = input.forces[1]!.placements;
+  const ox = red.reduce((a, p) => a + p.x, 0) / red.length, oy = red.reduce((a, p) => a + p.y, 0) / red.length;
+  const sim: Sim = createSim(input);
+  const tops = (side: string) => [...sim.state.unit.entries()].filter(([, u]) => u.side === side && u.parent === null).map(([id]) => id);
+  const aid = tops("blue")[0]!, did = tops("red")[0]!;
+  submitOrder(sim, { tick: 0, issuer: "red", target: did, kind: "posture", posture: "prone" });
+  submitOrder(sim, ambush ? { tick: 0, issuer: "red", target: did, kind: "ambush", rangeM: AMBUSH_LAB_M } : { tick: 0, issuer: "red", target: did, kind: "rules", fire: "free" });
+  // (The attacker returns fire only: he does not know where the defence lies, so the first shot is the defender's choice.)
+  submitOrder(sim, { tick: 0, issuer: "blue", target: aid, kind: "rules", fire: "return" });
+  const blue = [...sim.state.identity.entries()].filter(([, i]) => i.side === "blue").map(([id]) => id);
+  const down = () => blue.filter((m) => isOut(sim.state.soldier.req(m))).length;
+  let firstVolleyM: number | null = null, firstFire: AmbushRun["firstFire"] = "none", volleyTick = -1, downAtVolley = 0, sprungS: number | null = null;
+  for (let k = 0; k < seconds * 60; k++) {
+    // (A move, not an assault: an assault's covering half fires on the position from the start and springs any ambush.)
+    if (k === 120) submitOrder(sim, { tick: k, issuer: "blue", target: aid, kind: "move", waypoints: [{ x: ox, y: oy, mode: "walk" }] });
+    for (const e of step(sim)) {
+      if (e.kind === "radio" && e.key === "radio.ambushSprung" && e.side === "red" && sprungS === null) sprungS = e.tick / 60;
+      if (e.kind !== "shot.fired") continue;
+      const side = sim.state.identity.get(e.shooter)?.side;
+      if (firstFire === "none") firstFire = side === "red" ? "defender" : "attacker";
+      if (side !== "red" || firstVolleyM !== null) continue;
+      // The first volley: from the shooter to the nearest attacker still in the fight.
+      const t = sim.state.transform.req(e.shooter);
+      let best = Infinity;
+      for (const m of blue) {
+        if (isOut(sim.state.soldier.req(m))) continue;
+        const b = sim.state.transform.req(m);
+        best = Math.min(best, Math.hypot(b.x - t.x, b.y - t.y));
+      }
+      firstVolleyM = best;
+      volleyTick = e.tick; downAtVolley = down();
+    }
+    if (volleyTick >= 0 && sim.state.tick >= volleyTick + VOLLEY_WINDOW_S * 60) break;
+  }
+  return { seed, attacker, ambush, firstVolleyM, firstFire, blueDown30: volleyTick >= 0 ? down() - downAtVolley : 0, attackerMen: blue.length, sprungS };
+}
+
+/** `runs` advances on a defender in ambush, as many on one firing at will (Germany and Russia attacking in turn). */
+export function ambushLab(data: DataSet, runs = 10): AmbushRun[] {
+  const out: AmbushRun[] = [];
+  for (const ambush of [true, false]) for (let i = 0; i < runs; i++) out.push(ambushRun(data, i + 1, i % 2 === 0 ? "de" : "ru", ambush));
+  return out;
+}
+
+export function ambushLabMarkdown(all: AmbushRun[]): string {
+  const table = (rows: AmbushRun[]) => {
+    const vs = rows.map((r) => r.firstVolleyM).filter((v): v is number => v !== null);
+    const mean = (xs: number[]) => (xs.length > 0 ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(0) : "-");
+    return [
+      `${rows.length} runs; the attacker (returning fire only) walks in from 300 m across open ground, Germany and Russia attacking in turn.`, "",
+      `- First volley (the defender's first shot to the nearest attacker): mean ${mean(vs)} m, min ${vs.length > 0 ? Math.min(...vs).toFixed(0) : "-"} m, max ${vs.length > 0 ? Math.max(...vs).toFixed(0) : "-"} m`,
+      `- Fired first: defender ${rows.filter((r) => r.firstFire === "defender").length}, attacker ${rows.filter((r) => r.firstFire === "attacker").length}, nobody ${rows.filter((r) => r.firstFire === "none").length}`,
+      `- Attacker's men down in the ${VOLLEY_WINDOW_S} s after the first volley: mean ${mean(rows.map((r) => r.blueDown30))} of ${rows[0]?.attackerMen ?? 0}`,
+      "", `| seed | attacker | first volley m | fired first | down in ${VOLLEY_WINDOW_S} s | sprung s |`, "|---:|---|---:|---|---:|---:|",
+      ...rows.map((r) => `| ${r.seed} | ${r.attacker} | ${r.firstVolleyM === null ? "-" : r.firstVolleyM.toFixed(0)} | ${r.firstFire} | ${r.blueDown30} | ${r.sprungS === null ? "-" : r.sprungS.toFixed(0)} |`),
+    ].join("\n");
+  };
+  return [
+    `## Defender in ambush (fire held to ${AMBUSH_LAB_M} m)\n\n${table(all.filter((r) => r.ambush))}`,
+    `## Defender firing at will (comparison)\n\n${table(all.filter((r) => !r.ambush))}`,
+  ].join("\n\n");
 }

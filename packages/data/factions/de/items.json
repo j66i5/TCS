@@ -719,6 +719,48 @@
       ],
       "confidence": "low",
       "note": "100-round belt for the FLW 200's 12.7 mm machine gun: the station holds 100 ready rounds (KNDS listing, search extract, medium); nine more belts stowed in the hull (1,000 rounds in all) are a game value (low)."
+    },
+    {
+      "id": "de-40x53-belt",
+      "nameKey": "item.de-40x53-belt",
+      "category": "magazine",
+      "massKg": 2.0,
+      "chargeCapacity": 32,
+      "chargeMassKg": 0.34,
+      "chargeItem": "de-40x53-hedp",
+      "sources": [
+        "https://knds.com/en/products/flw-200-range/flw-200",
+        "https://www.bundeswehr.de/de/meldungen/fernbedienbare-waffenstationen-5572956",
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_GMG"
+      ],
+      "confidence": "low",
+      "note": "32-round belt in its box for the 40 mm GMW (M7.6d): the FLW 200 holds one box of 32 ready rounds (KNDS, Bundeswehr, search extracts, medium); a box of link and case of about 2 kg is a game value (low). The same box feeds the GMW on its tripod."
+    },
+    {
+      "id": "de-gmw",
+      "nameKey": "item.de-gmw",
+      "category": "crew-served",
+      "massKg": 39.5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_GMG",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/granatmaschinenwaffe-40-mm"
+      ],
+      "confidence": "low",
+      "note": "40 mm GMW on its ground tripod (M7.6d): gun 28.8 kg plus tripod 10.7 kg (Wikipedia, search extract, medium; the Bundeswehr page gives a 15 kg tripod: sources conflict). Carried by the team's gunner as one load here (in practice the team splits gun and tripod). The crewServed block: set-up 45 s, packing 20 s, crew 3 (Truppfuehrer, Richtschuetze, Ladeschuetze: Bundeswehr, medium), the fewest who can still fire 1, sight 0.9 m, traverse +-30 deg before a 5 s re-lay, 2 s to lay, engages men on its own out to 1500 m (HK's effective range, medium): game values otherwise (low).",
+      "crewServed": {
+        "kind": "agl",
+        "weapon": "de-gmw",
+        "round": "de-40x53-belt",
+        "setupSeconds": 45,
+        "packSeconds": 20,
+        "crew": 3,
+        "crewMin": 1,
+        "sightHeightM": 0.9,
+        "traverseDeg": 30,
+        "relaySeconds": 5,
+        "aimSeconds": 2,
+        "engageRangeM": 1500
+      }
     }
   ]
 }

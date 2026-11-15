@@ -54,6 +54,23 @@ export function indoorAt(ctx: SimContext, x: number, y: number): number {
   return ctx.map.buildings[ri]?.interior ? ri : -1;
 }
 
+/**
+ * M7.6d: the room a point `rel` m above the ground is in: building index, floor and room index, or null outdoors (or
+ * in a building without rooms). With `wallM`, a point on an outer wall (outdoors, within that of a building with an
+ * interior: a round striking it) counts as in the room just inside (probes east, west, north, south in that order).
+ */
+export function roomOfPoint(ctx: SimContext, x: number, y: number, rel: number, wallM = 0): { bi: number; floor: number; room: number } | null {
+  const probe = (px: number, py: number) => {
+    const bi = indoorAt(ctx, px, py);
+    if (bi < 0) return null;
+    const b = ctx.map.buildings[bi]!, floor = floorOfPointZ(b, rel), room = roomAt(b, floor, px, py);
+    return room < 0 ? null : { bi, floor, room };
+  };
+  const r = probe(x, y);
+  if (r || wallM <= 0) return r;
+  return probe(x + wallM, y) ?? probe(x - wallM, y) ?? probe(x, y + wallM) ?? probe(x, y - wallM);
+}
+
 /** Has the map any building with an interior? (Set lazily on the context: never read `ctx.hasInteriors` directly.) */
 export function mapHasInteriors(ctx: SimContext): boolean {
   return ctx.hasInteriors ??= anyInterior(ctx);
@@ -68,6 +85,16 @@ function anyInterior(ctx: SimContext): boolean {
 export function floorAtZ(b: Building, z: number): number {
   if (!(z > 0)) return 0;
   const f = Math.floor(z / b.storeyHeightM + 0.5);
+  return f < 0 ? 0 : f >= b.storeys ? b.storeys - 1 : f;
+}
+
+/**
+ * The storey a point `rel` m above the ground is inside (a burst, not a man's feet): floor(rel / storey height),
+ * clamped to the building's storeys. `floorAtZ` rounds to the nearest floor, which is right for feet only.
+ */
+export function floorOfPointZ(b: Building, rel: number): number {
+  if (!(rel > 0)) return 0;
+  const f = Math.floor(rel / b.storeyHeightM);
   return f < 0 ? 0 : f >= b.storeys ? b.storeys - 1 : f;
 }
 

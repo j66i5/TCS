@@ -95,7 +95,13 @@ function buildUnit(
     vehicles.push({ vehicleId: key, type: t.vehicle, crewSeats: t.members.flatMap((slot, i) => (slot.seat === undefined ? [] : [{ personId: members[i]!.personId, seat: slot.seat }])) });
   }
   // Each sub-unit is numbered among its siblings of the same template ("Puma 1" .. "Puma 4" after three squads).
-  const subunits = t.subunits.map((s, i) => buildUnit(pack, s, skills, rng, `${key}/${i + 1}`, t.subunits.slice(0, i).filter((x) => x === s).length + 1, counter, vehicles));
+  // M7.6d: a vehicle crew among the sibling crews with the same callsign pattern (carrier variants in one platoon:
+  // "Boxer 1" .. "Boxer 3" whichever weapon each station carries).
+  const sameAs = (s: string) => {
+    const ts = pack.units[s];
+    return ts?.vehicle !== undefined ? (x: string) => pack.units[x]?.vehicle !== undefined && pack.units[x]?.callsign === ts.callsign : (x: string) => x === s;
+  };
+  const subunits = t.subunits.map((s, i) => buildUnit(pack, s, skills, rng, `${key}/${i + 1}`, t.subunits.slice(0, i).filter(sameAs(s)).length + 1, counter, vehicles));
   const unit: UnitInput = {
     key,
     callsign: t.callsign.replace("{n}", String(n)),

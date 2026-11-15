@@ -6393,3 +6393,213 @@ fire, start strength = their men now, men already down booked as losses), so it 
   Winners (blue/red) now: platoon 6/4 (main 6/4), platoon-ru 1/9 (0/10), platoon-vehicles 9/1 (6/4),
   platoon-ru-vehicles 8/2 (9/1). Squad breaks 204, rallies 356 per 40 battles; most breaks by one unit 6 (was 65).
   (The sampler now names a broken unit by the radio's sender: red callsigns repeat between platoons, "Gruppa 1".)
+## 2026-11-15 — M7.6d Russian assault group and support weapons (roadmap-detail slice 42, parallel session)
+Owner not reachable; decisions D1-D9 of the slice plan, all logged here (data from search extracts only, so medium at
+most; game values low; the new low entries are in `docs/research/low-confidence.md`).
+- **D1 GTK with the GMW is a variant** (`de-boxer-gtk-gmw`, crew `boxer-besatzung-gmw`), not a second feed: the FLW
+  200 carries the 12.7 mm or the 40 mm GMW, one at a time, the command variant only the 12.7 mm (Bundeswehr GTK page,
+  KNDS; medium). A full copy of `de-boxer-gtk` except the station weapon (`de-gmw-rws`: 340 rpm, 240 m/s, bursts of 3
+  every 1.5 s, 2 mrad), its ready box (32, KNDS / Bundeswehr) and the stowage (4 boxes = 128 in place of the 12.7 mm
+  belts, low); a data test keeps the two hulls equal. Round `de-40x53-hedp` (shaped charge: HEDP, 0.34 kg, 32 g
+  filling, 300 fragments, arms after 0.1 s, 63 mm mild steel = about 50 mm RHA, unsourced, low), belt box
+  `de-40x53-belt`. Drag fitted so its greatest range is about 2200 m (UK MoD / Rheinmetall), not to the plan's
+  0.35 (which gave 1300 m).
+- **D2 the Jaegerzug's carriers mixed**: Boxer 1 and 3 GMW, Boxer 2 and the HQ Boxer 4 the 12.7 mm (game value, low).
+  Vehicle crews are now numbered among the sibling crews with the same callsign pattern (`forces.ts`), so the
+  mixed carriers are "Boxer 1-4" (other sub-units still by template: the pre-existing "Gruppa 1" twice is
+  unchanged). The intended golden change: `platoon-vehicles-wheeled-s1` (orders and checkpoints); every other golden
+  replays the same orders (checkpoints change only through the fingerprint and the ammunition index); event streams
+  of all goldens compared before and after: only that one differs.
+- **D3 SVD in the BTR squad**: the second GP-25 rifleman of `motor-rifle-squad-btr` is the new role `marksman` with
+  `ru-svd` (4.3 kg, PSO-1 x4, 10-round `ru-svd-mag`, 830 m/s; Wikipedia, FSVTS, medium) and 6 magazines; still 7
+  men. It fires the 7.62x54R light ball (`ru-762r-lps`; the 7N1/7N14 sniper rounds deferred). BTR-82A stows 4 SVD
+  magazines (low). The BMP squads are unchanged; the forum claim that the SVDs went to a brigade marksman company
+  stays noted as disputed.
+- **D4 automatic grenade launchers on foot**: `crewServed.kind: "agl"` (schema discriminated union; loader: the round
+  is a box of an unguided explosive round that is the weapon's magazine, no delivery). The team reuses the missile
+  team's post life (`Unit.missileTeam` with `kind: "agl"`, `box` on the gun, the burst under way, `lastAim`; no new
+  component, saves as before); helpers `crewServedKind`, `isAglTeam`, `aglOf`, `crewPostOf` (`launcherOf` is missile
+  posts only now). `systems/agl-team.ts`: direct flat fire only (high-angle AGS fire deferred), bursts at the
+  weapon's cyclic rate, laid with the drop table as a vehicle gun (`launchShot`), aiming error 1 mrad x skill growing
+  through the burst plus the weapon's dispersion, a range error per series ("agl" rng stream) halved by each burst at
+  the same place (the crew watches the fall), the first box put on during the set-up, a box change in the weapon's
+  reload time; own fire at men its men saw (or a comrade reported to 25 m) within 8 s, inside `engageRangeM` and the
+  gun's line, the biggest group first; an ordered fire is a series of 6 bursts. The gunner works it as an action
+  (`workAgl`), so he does not fire his rifle meanwhile. The AI commander sites an overwatch post 300-700 m from the
+  enemy's area (`siteOverwatch` with a range band, men's height and near target rings: new optional arguments,
+  missile teams unchanged), orders fire at the enemy men the side's men see (seen within 10 s, placed to 25 m, line
+  checked, one series per 20 s) and after 120 s with nothing to fire at moves it to its next post (game values, low).
+  AGS-30 (`ru-ags30` item and weapon: 17.5 kg, 400 rpm, bursts of 4 every 3 s, 4 mrad, 185 m/s; `ru-ags-box` of 29
+  `ru-vog30`; crew 2, set-up 40 s, engages to 1200 m) and the team `raschet-ags` (manifest `aglTeamTemplate`). VOG-30:
+  0.35 kg, 36 g filling (low), 400 fragments (lab-fitted: the plan's 320 gave only 43 % wounded at 5 m), drag fitted
+  to its 1700 m range.
+- **D5 German GMW team** `gmw-trupp` (Truppfuehrer, Richtschuetze with `de-gmw` 39.5 kg, Ladeschuetze; 3 boxes;
+  Bundeswehr GMW page, medium; its place in the Jaegerkompanie unsourced): data, lab and the `bench-agl` scenario
+  only; manifest de `aglTeamTemplate`.
+- **D6 RPO-A only** (`ru-rpo-a`, kind thermobaric, the 11 kg tube is the round item, no launcher: a direct round may
+  leave out its launcher only when disposable, loader check). `explosive.thermobaric.enclosedFactor` 1.6 (game value,
+  SPEC 3 abstract effect, now a paragraph in SPEC 3): a burst in a room, or within 0.6 m outside its outer wall (a
+  rocket striking it), fills that room: every man in it takes the blast at the radii x 1.6, no shield; others as
+  before (`roomOfPoint` in interior-nav.ts). In the open the plain 2.1 kg blast. `delivery.role: "antiPersonnel"`:
+  `launcherRound(..., "vehicle")` (the default, every existing caller) never returns it; the man fires it on his own
+  at positions (an enemy in a house or with a machine gun) within `antitank.thermobaricRangeM` 250 m (new optional
+  behaviour value) whatever the anti-tank rule says (not under "hold"), and his line may end on the wall of the
+  target's room (3 m). Ordered "at" a vehicle he never uses it. Deferred: burns, adjacent rooms, a pre-entry RPO shot
+  in the clear drill, MRO-A and RShG-2.
+- **D7 assault group**: `shturmovaya-gruppa` (13: commander with GP-25 and thermal sight, radio and drone operator,
+  `shturmovaya-trojka` x 2 "Shturm 1/2" with GP-25, RPG-7V and RPO-A, `ognevaya-gruppa` "Ogon" with PKP, assistant
+  and SVD, `rezerv-gruppa` "Rezerv" with spare RPO-A and ammunition; composite of the Pulaski report,
+  euromaidanpress 2023-03-14 and thelightningpress; low). Manifest ru `assaultGroupTemplate`; `ScenarioDef.assaultGroup`
+  and `aglTeams` (placed as the missile team, on the other flank); headless `assault-group` (village; two assault
+  groups and the AGS team attack the Panzergrenadierzug on foot) and `bench-agl`; app `?assault=1`. The plan's spare
+  AGS box with the reserve is not carried (only the team's own men feed its gun).
+- **D8 expenditure**: GMW rounds on the vehicle's cannon line by ammunition; AGL rounds on foot in the new optional
+  `grenadeMg` (absent when zero: existing batch lines unchanged; batch prints "AGL on foot" only when present; the
+  review a row per round); RPO-A on the rocket line by ammunition.
+- **D9** weapon type `grenade-machine-gun`: on a station it is a cannon (non-coax) and gets "he"; ordered "ap" at a hull
+  it falls back to its HEDP (verified in a test).
+- **GMW reload**: the Bundeswehr says the FLW is reloaded from outside on top; here through the hatch in 120 s as the
+  12.7 mm's (exposed reload deferred).
+- **Drop table**: entries steeper than 6 degrees are now solved exactly (secant method on the flight model) — needed
+  for the 40 mm at 1500 m (first-burst miss 188 m before, 13 m after). Flatter entries, so every existing rifle and gun
+  table, are unchanged (the gunnery lab's existing rows are identical).
+- **Render / UI**: a man carrying an AGL post is drawn with the heavy weapon, the RPO-A tube as a launcher on the back
+  (flat look unchanged for every existing unit); the team's card "Post: ready, N grenades / firing"; the station card
+  "GMW 40 mm · HE 32 (+128 stowed)"; the order bar offers "at" for a disposable round.
+- **Labs (bands in the tests):** gunnery GTK-GMW — first burst's mean miss 13.2 m at 600 m, 13.9 m at 1000 m, 12.8 m
+  at 1500 m; six standing men at 600 / 1000 / 1500 m: 6 / 6 / 5 hit, 5 / 5 / 2 down in 60 s; refill 120 s, every
+  round counted. **Missed:** the plan's "<= 10 m at 600 m": the flat path (about 4 degrees) turns 2 mrad of elevation
+  error into some 15 m along the line; the band is <= 20 m at 600 and 1000 m, <= 35 m at 1500 m. Armour — the 40 mm
+  HEDP goes through every face of the BTR-82A, BMP-2 and GTK, no T-90M front or side. Range — SVD on the man-sized
+  board 59 / 26 / 11 % at 300 / 600 / 800 m (AK-74M 49 / 19 / 12 %). Fragmentation (standing, wounded) — VOG-30 96 % at
+  2 m, 43 % at 5 m, 4 % at 15 m; 40x53 HEDP as the 40 mm HE (39 % at 5 m, 3 % at 20 m); RPO-A in the open down at
+  once within 2 m. AGL lab (20 trials, six men 3 m apart, ordered fire, 60 s): AGS-30 set-up 40.2 s, GMW 45.2 s;
+  men down standing 4.8 / 4.5 / 4.4 (AGS) and 4.0 / 4.1 / 4.4 (GMW) at 400 / 800 / 1200 m, prone 4.2 / 3.9 / 4.0 and
+  3.4 / 3.9 / 3.8; 55 / 63 rounds, 2.1 / 2.6 boxes a minute. **Pattern noted:** prone men do far better against a
+  single burst (fragmentation lab: 9 % wounded at 5 m) but sixty seconds of fire on a still group lying in the open
+  saturates it: the plan's "prone about half" is not met (report only, no band). House rocket (10 runs, the burst on
+  the outer wall of the room holding most men): RPO-A 0.9 down of 1.6 in the room, PG-7VL 0.0; other rooms 0.4 / 0.1;
+  outside none.
+- **Batches (10 seeds x 1200 s; attacker wins of 10; casualties blue / red; carriers lost per battle). Before = the
+  M7.6c table; "after" measured on this branch before the merge of origin/main (bea8016: D4a infantry tactics, medical
+  review fixes), "merged" after it:**
+
+  | scenario | before | after | merged |
+  |---|---|---|---|
+  | platoon-vehicles-wheeled (GTK, 2 with GMW, attack v BTR) | 0; 35.8 / 14.8; 1.4 / 0.4 | 0; 32.7 / 16.4; 0.7 / 1.0 | 0; 33.1 / 20.5; 1.0 / 1.3 |
+  | platoon-ru-vehicles-wheeled (BTR attack v GTK) | 5; 25.6 / 24.0; 1.7 / 0.5 | 2; 25.2 / 31.7; 1.7 / 1.4 | 2; 23.1 / 30.1; 1.8 / 1.3 |
+  | platoon-vehicles-mixed (GTK v BMP-2) | 0; 35.3 / 11.0; 1.3 / 0.3 | 0; 34.8 / 17.3; 0.9 / 0.9 | - |
+  | night 23:00 moon 0, platoon-vehicles-wheeled | 0; 38.4 / 13.3; 1.7 / 0.6 | 0; 39.3 / 16.8; 1.2 / 1.0 | - |
+  | night, platoon-ru-vehicles-wheeled | 5; 24.0 / 22.6; 1.6 / 0.6 | 3; 22.5 / 29.3; 1.6 / 1.1 | - |
+  | assault-group (new; two assault groups and the AGS team attack on foot) | - | 4; 16.2 / 8.2 | 4; 16.0 / 8.6 |
+
+  Kills by shooter (day, after): BTR by GTK-GMW 8 (Jaeger attack) and 12 (Jaeger defence), by the 12.7 mm GTK 1 and 2
+  (before: BTR by GTK 4 / 4); GTK-GMW lost to BTR 3 / 8, 12.7 mm GTK 3 / 5. GMW rounds on the cannon line 113 / 98
+  per battle (the two 12.7 mm GTKs' rounds stay on the "coax" line). First dismount unchanged (47 s, 31 s).
+  **Pattern, not tuned (plan: report, no band):** BTR losses rise (0.4 -> 1.0 attacking, 0.5 -> 1.4 defending) and
+  the Jaeger casualties fall a little, but the Jaeger attack still wins 0 of 10 (the plan hoped for >= 1); the BTR
+  attack falls from 5 to 2 of 10. Owner to review. Assault group (merged run; 8 of 10 runs the AGS team posted and
+  fired in the pre-merge detail run, 42-63 rounds a battle; an RPO-A fired at a position in 6 of 10, never at a
+  vehicle (none there; the unit test covers it); the PG-7VL never fired (no vehicles). `bench-agl` x 20 (180 s):
+  casualties 7.3 / 7.2, GMW 79 and AGS 65 rounds a battle. Regression: platoon-vehicles 6 of 10, 15.8 / 26.0 (M7.6c
+  5, 14.7 / 26.5 — main changed between; its event streams at 1200 s, seeds 1, 2 and 6, are identical with and
+  without this slice, so the slice changes nothing there).
+- **Perf:** the AGL system loops units each tick only for teams with a burst under way (looks every 15 ticks); no work
+  in spotting, contacts or vehicles. Headless 600 s seed 1: platoon-vehicles-wheeled 43x (M7.6c 47x, floor 38x),
+  platoon-vehicles 43x (unchanged), assault-group 76x. `npm run test:perf` alone: 23 passed.
+- **Screenshots** (`--scene wheeled` extended, new `--scene assault`; phone and desktop): the GTK-GMW close up with
+  its card "GMW 40 mm · HE 32 (+128 stowed)" (the station looks like the 12.7 mm one; the card tells them apart); a
+  GMW burst ring and crater among the BTR's dismounts at about 940 m, "HE 23 (+128 stowed)" after; the mixed
+  Jaegerzug's callsigns Boxer 1-4. The assault group's unit list (Shturmovaya 1 and 2 with HQ and drone, Shturm 1,
+  Shturm 2, Ogon, Rezerv, AGS 1), the AGS card "Post: packed"; the AGS team on its post in a wood at 8:53 (two men
+  under the canopy, rounds in flight) and its target area at the main objective; an RPO-A burst ring at 14:34 in an
+  orchard (fired at a machine gunner, not a house, in that run). No page errors.
+- **Review fixes (six findings):** (1) a thermobaric burst's room is the storey the burst *point* is inside
+  (`floorOfPointZ`: floor(height / storey height), clamped; `floorAtZ`, the nearest floor, stays for men's feet): a
+  burst 1.6 m up a ground-floor wall of a two-storey house fills the ground-floor room, not the one above (new test).
+  (2) The box on an AGL keeps its item identity (`missileTeam.box = { item, rounds, holder }`, plain data): it counts
+  in the post carrier's mass (`loadKg`) and goes back into his roster load with its partial charge (`aglBoxOf`, like
+  the magazine in a weapon), and follows the post when it passes to another man; an emptied box is thrown away when
+  the next goes on (as before). Test: roster rounds = rounds before - rounds fired. (3) The AI's repost of an AGL team
+  counts the team's own bursts (`lastLaunchTick`): a team firing on its own is not moved. (4) AI AGL fire orders skip
+  enemies any of the side's men spares (`sideSpared`), points within `AGL_BURST_M` (8 m, game value) of a man its men
+  recognise as protected, and points with own men not out within `aglDangerM`. (5) An AGL burst is not fired with an
+  own man in the line or up to `aglDangerM` = 8 m + rangeErrorFraction x range past the aim point (test: an own man
+  40 m past the target at 800 m stops the team's own fire). (6) The assault-group determinism test runs 300 s on seed
+  17 (the AGS fires from about 210 s), saves at 30 s and in the middle of an AGS burst, and asserts AGS shots (~17 s);
+  no RPO-A fires within 600 s on seeds 1-18 (thermobaric.test.ts covers its burst). Goldens unchanged (no golden
+  scenario has an AGL team or RPO-A).
+
+## 2026-11-15 — D4b Infantry tactics pass 2: fire and the missing SPEC 6.6 orders (roadmap-detail slice 20, parallel session; owner to review)
+- **Owner screen not answered** (fire distribution, aim at heard/reported enemies, win band): I took the recommended
+  options and log them for review: (a) **spread fire, MGs and marksmen on the most dangerous enemy**; (a) **aim low,
+  0.2-0.5 m**, at heard or reported enemies; win band: **open (owner question)** — see the batches below; no
+  re-tuning was done without an agreed band.
+- **Fire distribution** (`behaviour.soldier.fireDistribution`, game values, low): the shooter is classed by his
+  weapon as before (`weaponRole`: sustained = MG, a sight of 4x or more = marksman, else rifle). MG gunners and
+  marksmen weight an enemy MG x0.4, an enemy marksman x0.6 and one who fired in the last 3 s x0.5 (lower = more
+  important); riflemen keep distance-first scoring but each comrade of their own unit already firing at that enemy
+  multiplies it by 1.5 (at most 3 counted, never himself); the keep-target score uses the same formula. Danger is read
+  from the enemy's weapon (as the old "firing" factor did), only for enemies the man sees.
+- **Low aim at unseen enemies:** `shooting.fire.aimUnseenHeightM` 0.3 m for heard or reported contacts (or the
+  posture's height if lower); seen men are aimed as before (0.2 prone, 0.6 kneeling, 1.0 standing, 0.9 unknown);
+  vehicle coax at a reported man too.
+- **`ambush` order** `{ rangeM }`: the unit (and its sub-units, crews included) hold their own fire, rockets,
+  grenades and drone fire until an enemy is seen within `rangeM`, one of them fires, or they come under fire (not in
+  the first 6 s after laying it: leftover suppression); then it is sprung for the tree ("Ambush sprung, open fire!")
+  and they fire at will. A fire-rule order ends it. The card's Ambush chip (100 m) now sends it.
+  **Ambush lab** (`npm run lab -- ambush [trials]`, 10 runs, attacker walking in from 300 m returning fire only):
+  first volley at 148-150 m with the ambush (150 m) against 300 m firing at will; the attacker's men down in the
+  30 s after the first volley 6 of 6 against 5 of 6. (In the attack lab's own set-up the assaulting attacker opens
+  fire at about 300 m and springs every ambush at once.)
+- **`defendArc` order** `{ facing, widthRad }` (UI: Fire tray "Defend arc", tap a point: 120 degrees toward it):
+  men face the arc and open fire, throw grenades and fire rockets on their own only at enemies inside it; a move,
+  assault, withdraw, occupy, halt, mount or dismount (or a rout, or a fall-back on contact) ends it.
+- **Hesitation** (`behaviour.hesitation`, game values, low): a move, assault or occupy to men on foot of whom at
+  least half the able ones are shaken, pinned or panicked is carried out after 3 s + 8 s x their mean suppression
+  (at most 10 s), once per order ("... wait one ... moving in a moment"); an order that moves or stops the same men
+  replaces it, one to part of them ends the wait first; refusal (routed men, `radio.unable`) is unchanged.
+- **AI:** unchanged (it never orders ambush or arcs); it is affected by fire distribution, low aim and hesitation.
+- **Batches** (10 seeds, attacker wins; before -> after; the attacker is blue except platoon-ru*, where red attacks):
+
+  | Scenario | 1200 s | 2400 s | casualties blue / red at 2400 s |
+  |---|---|---|---|
+  | platoon (DE attacks) | 6 -> 4 | 6 -> 5 | 16.7 / 15.7 -> 17.8 / 15.9 |
+  | platoon-ru (RU attacks) | 10 -> 7 | 10 -> 9 | 15.4 / 8.0 -> 18.5 / 12.2 |
+  | platoon-vehicles (DE) | 6 -> 6 | 6 (+1 draw) -> 8 | 19.5 / 26.8 -> 15.7 / 28.1 |
+  | platoon-ru-vehicles (RU) | 1 -> 1 | 1 -> 1 | 7.4 / 33.8 -> 8.9 / 32.9 |
+
+  The defenders hit back harder on foot (RU attack on farmland 10 -> 7 at 1200 s, defender losses up). **Owner
+  question (win band):** the plan's recommended band was 3-6 attacker wins of 10 at 2400 s; only platoon is inside
+  it (platoon-ru 9, platoon-vehicles 8, platoon-ru-vehicles 1). Options: (a) agree the band and re-tune in a balance
+  slice (M8.5), (b) report only, as now. I did not re-tune.
+- **Built in three parallel worktrees, then reviewed** (4 reviewers, every finding checked by two sceptics: 16 of 19
+  confirmed, all fixed, see below). Goldens regenerated; `golden/no-interiors` untouched.
+
+## 2026-11-15 — D4b review fixes (ambush, defend arc, hesitation; golden regenerated)
+- Ambush: a fire rule ends the ambush on its target and on every unit below it holding the same ambush, `own` or not;
+  the tree walk reaches every unit holding the root's ambush; a unit whose ambush root no longer holds it drops it.
+  Only an ambush on the whole platoon (the top unit, not `own`) lifts the platoon's cease-fire. "Under fire" springs
+  it only from fire on the tree's own men (`ownFireTick`; a crew's hull hits), and not within 6 s of laying it
+  (`LAID_GRACE_S`: leftover suppression keeps stamping the unit for seconds). The rear-run gate lets `ambush` pass.
+- Defend arc: also ended by halt, mount, dismount, a move of the carrying vehicle, a rout and an on-contact fall-back;
+  own launcher shots (and moves to get one) and own hand grenades keep to it. The bar offers it only with men on foot.
+- Hesitation inverted: only move, assault, withdraw, occupy, halt, mount, dismount, defendArc and fire replace an order
+  the men hesitate over, and only when they reach all its men; a narrower one lets the hesitating order go first, in
+  the same tick. A replaced order emits `order.rejected` with the new reason `superseded` (no radio text; the
+  renderer drops its marker). Golden `platoon-vehicles-s1` changed (AI orders to part of a hesitating unit, or that do
+  not move it, no longer drop its hesitating order); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Merge of origin/main (D4b, M7.6d) into the morale rework (goldens regenerated)
+- `ambush.test.ts` "a unit that breaks ... defends no arc": the platoon's break is now forced the morale rework's way
+  (break guard over: `firstContact` long ago; past `topBreakLossShare`: half its men lost), as in
+  `morale-rework.test.ts`; panic alone no longer breaks a top unit. What it checks is unchanged: `breakUnit`
+  (drills.ts, the only place a unit is set broken) still clears the arcs under it.
+- `lab-attack.test.ts`: 32 trials instead of 16. At 16 the defence's losses with and without a supporting squad tied
+  (8 men down each, 0.083); over 48 trials support doubles them (9.0 % against 4.5 %; wins 5/48 against 0/48): a
+  small-sample tie, not a regression.
+- Sim fix (boarding.ts `atStation`): a passenger who took over a fallen operator's crew seat (seat swap, M7.6c review:
+  the GTK Boxer's commander with the FLW 200) stays at that station when his squad gets out; a dismount order to him
+  alone is "unable", as for crew. Before, the squad's dismount took him out and left the station empty (a second
+  passenger then swapped in and got out with the rest). `gtk-seatswap.test.ts` passed on main only because the old
+  morale broke the blue platoon at 37 s, before its squad ever got out. No golden changed.

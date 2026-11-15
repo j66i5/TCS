@@ -66,7 +66,7 @@ export const testCatalog: Catalog = {
     fire: {
       bands: [{ maxRangeM: 30, mode: "burst", intervalS: 1, burstRounds: 3 }, { maxRangeM: 100, mode: "rapid", intervalS: 1, burstRounds: 1 }, { maxRangeM: 1e5, mode: "aimed", intervalS: 2.5, burstRounds: 1 }],
       fullRateSeconds: 30, trickleIntervalS: 10, trickleSeconds: 60, incomingRadiusM: 30, topUpBelowFraction: 0.7, incomingReachM: 800, topUpAfterSeconds: 5, clearStoppageSeconds: 4, aimPointHeightM: 0.9, safetyConeDeg: 4,
-      aimHeightByPostureM: { standing: 1.0, crouching: 0.6, prone: 0.2 },
+      aimHeightByPostureM: { standing: 1.0, crouching: 0.6, prone: 0.2 }, aimUnseenHeightM: 0.3,
     },
     grenades: { throwRangeM: { standing: 30, crouching: 20, prone: 15 }, throwElevationDeg: 40, throwErrorFraction: 0.07, throwErrorMinM: 0.6, throwSeconds: 2.5, postErrorM: 0.2, launchErrorFraction: 0.05, launchErrorMinM: 1, launchSeconds: 4, minSafeDistanceM: 8, throwAnglesDeg: [40, 25, 12, 60], throwPowerMargin: 1.15, carrySeconds: 0.25, staggerSeconds: 0.6, reactRadiusM: 10, runRadiusM: 3, reactDelaySeconds: 0.4 },
   },
@@ -136,6 +136,7 @@ export const testCatalog: Catalog = {
       crawlMode: "crawl", crawlSearchM: 8, crawlSearchFarM: 15, crawlRetrySeconds: 10, minSpacingM: 5, beatenNoticeM: 60, beatenRadiusM: 35, beatenMemorySeconds: 90, beatenMoveM: 40, beatenHouseM: 30, beatenOpenExposure: 0.9,
       riseBelowSuppression: 0.05, lookEverySeconds: 4, faceEnemy: true, rearWatchMinMen: 3, atMoveM: 30, atMoveMinRangeM: 40, atMoveRetrySeconds: 20, atContactSeconds: 20,
       grenadeEverySeconds: 20, grenadeClearM: 10, grenadeContactSeconds: 30, assaultFireM: 50, assaultFireAimFactor: 3,
+      fireDistribution: { dangerSustained: 0.4, dangerMagnified: 0.6, dangerFiring: 0.5, spreadPenalty: 0.5, spreadCap: 3 },
       friendBeyondM: 60, overlapM: 1, stepAsideM: [2, 3], overlapCheckSeconds: 1, duckAboveIntervalS: 3, duckHoldS: 1,
       hurryModes: ["walk", "sneak"], hurryMode: "run", hurryFiredOnSeconds: 0, hurryQuietSeconds: 10,
       houseLeave: true, houseTrapBursts: 2, houseTrapSeconds: 30, houseHeavyKg: 0.3, houseHeavyCount: 2, houseBurstNearM: 1,

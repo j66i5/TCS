@@ -47,6 +47,8 @@ export interface UnitCapabilities {
   vehicleClass: "tracked" | "wheeled" | null;
   /** Able men (aboard or not; a vehicle: its crew). */
   ableMen: number;
+  /** Able men on foot (not aboard a vehicle; D4b: an arc is for them). Absent: as `ableMen`. */
+  onFoot?: number;
   /** An able man has an anti-tank launcher with a round for it (the same test as the simulation's `launcherRound`). */
   hasLauncherRounds: boolean;
   /** Hand grenades and rifle grenades (with their launcher) among the able men. */
@@ -139,17 +141,19 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     return out;
   }
   out.kind = "group";
+  out.onFoot = 0;
   for (const m of own ? u.members : unitSoldierIds(view, unitId)) {
     const s = view.soldier.get(m);
     if (!isAble(s)) continue;
     out.ableMen++;
+    if (s!.mount === undefined) out.onFoot = (out.onFoot ?? 0) + 1;
     const c = view.container.get(m);
     if (!c) continue;
     for (const st of c.stacks) {
       if (st.count <= 0) continue;
       const d = catalog.ammo[st.type]?.delivery;
       if (!d) continue;
-      if (d.method === "direct") { if (d.launcher !== undefined && countIn(view, m, d.launcher) > 0) out.hasLauncherRounds = true; continue; }
+      if (d.method === "direct") { if (d.launcher !== undefined ? countIn(view, m, d.launcher) > 0 : d.disposable === true) out.hasLauncherRounds = true; continue; }
       if (catalog.ammo[st.type]?.smoke !== undefined && d.method === "thrown") { out.smokeGrenades += st.count; continue; }
       if (!catalog.ammo[st.type]?.explosive) continue;
       if (d.method === "thrown") out.handGrenades += st.count;
@@ -162,7 +166,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support", "arc"];
 type Modes = Readonly<Record<string, { class: string; speedFraction?: number }>>;
 
 /** The greyed bar shown while nothing is selected (M7.5a, owner answer 6). */
@@ -217,6 +221,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (grenades > 0) m.push("grenade");
     if (cap.smokeGrenades > 0) m.push("smoke");
     if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
+    if (onFoot(cap)) m.push("arc"); // (D4b: Defend arc, a unit's; not for men all aboard)
     return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
   if (cap.kind === "man") {
@@ -231,7 +236,15 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   if (cap.smokeGrenades > 0) m.push("smoke");
   // (Step fire-support: one Fire support button; the pop-up offers what is left of HE and smoke.)
   if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
+  // (D4b: Defend arc — a unit on foot faces a sector and fires on its own only into it; not offered while all its
+  // men are aboard: the sim would answer "unable" for a platoon whose squads ride.)
+  if (onFoot(cap)) m.push("arc");
   return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+}
+
+/** Has the unit able men on foot (D4b)? */
+function onFoot(cap: UnitCapabilities): boolean {
+  return (cap.onFoot ?? cap.ableMen) > 0;
 }
 
 /** A planned leg's pace as a waypoint mode: "reverse" drives the slowest vehicle pace backwards. */

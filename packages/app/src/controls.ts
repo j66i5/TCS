@@ -4,7 +4,7 @@
  */
 import { indoorAt, ticksToSeconds, type EntityId } from "@tcs/sim";
 import { worldToScreen, type GestureOverlay } from "@tcs/render";
-import { addPoint, attachInput, centreOf, dragTo, ghostFarEnough, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
+import { addPoint, arcOrder, attachInput, centreOf, dragTo, ghostFarEnough, hitHandle, nestAt, nestMarkers, ordersFor, planToOrder, retargetMove, unitCapabilities, type PlanKind } from "@tcs/ui";
 import type { App, Pt } from "./app";
 import { stopFollow } from "./camera";
 import { clearAt, facingHandle, fireAtPoint, forUnit, ghostPlan, issue, losTo, now, occupyOrder, offerSupport, oneTapDone, SCREEN_MIN_M, startPlan, turnPlan } from "./orders";
@@ -98,6 +98,12 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
         return;
       }
       if (mode === "fire" || mode === "antitank") { fireAtPoint(a, w); return; }
+      if (mode === "arc") {
+        // Defend arc (D4b): the unit faces from its middle toward the tapped point and fires on its own only into it.
+        const c = centreOf(placesOf(a, uid));
+        if (c) { issue(a, arcOrder(now(a, uid), c, w)); oneTapDone(a); }
+        return;
+      }
       // Move / assault / withdraw: each tap adds a point to the plan; Go sends it.
       if (!a.plan) startPlan(a, mode);
       a.plan = addPoint(a.plan!, w.x, w.y, a.pace);

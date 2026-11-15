@@ -105,12 +105,12 @@ describe("the wheeled platoons' squads (M7.6c)", () => {
   const sim = createSim(input);
   const side = (s: string) => [...sim.state.identity.entries()].filter(([, i]) => i.side === s).map(([id, i]) => ({ id, role: i.role, weapon: sim.state.weapon.get(id)?.weapon ?? null }));
 
-  it("a Jaegergruppe of eight (its Einsatzersthelfer B) and a BTR squad of seven (the assistant MG gunner)", () => {
+  it("a Jaegergruppe of eight (its Einsatzersthelfer B) and a BTR squad of seven (the assistant MG gunner; M7.6d: the SVD marksman)", () => {
     expect(side("blue").map((m) => `${m.role}:${m.weapon}`)).toEqual([
       "gruppenfuehrer:de-g36", "mg-gunner:de-mg5", "mg-assistant:de-g36", "at-gunner:de-g36", "marksman:de-g28", "grenadier:de-g36", "einsatzersthelfer:de-g36", "rifleman:de-g36",
     ]);
     expect(side("red").map((m) => `${m.role}:${m.weapon}`)).toEqual([
-      "squad-leader:ru-ak74m", "mg-gunner:ru-pkp", "assistant-mg-gunner:ru-ak74m", "at-gunner:ru-ak74m", "assistant-at-gunner:ru-ak74m", "senior-rifleman:ru-ak74m", "rifleman-gl:ru-ak74m",
+      "squad-leader:ru-ak74m", "mg-gunner:ru-pkp", "assistant-mg-gunner:ru-ak74m", "at-gunner:ru-ak74m", "assistant-at-gunner:ru-ak74m", "senior-rifleman:ru-ak74m", "marksman:ru-svd",
     ]);
   });
 

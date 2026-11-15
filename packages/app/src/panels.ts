@@ -2,10 +2,10 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, launcherOf, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
+import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
-import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
+import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
 import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
@@ -53,7 +53,11 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
   let state = tile.kind === "vehicle" ? a.strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : a.strings.t(`side.state.${tile.state}`);
   // A missile team (M9.3b): its launch post packed, setting up, ready (missiles left) or guiding one.
   const mt = a.sim.state.unit.get(uid)?.missileTeam;
-  if (mt) {
+  if (mt?.kind === "agl") {
+    // (M7.6d: an automatic grenade launcher team: its gun packed, setting up, ready or firing, grenades left.)
+    const rounds = aglRoundsLeft(a.sim.ctx, a.sim.state, uid);
+    state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.burst ? "card.aglTeam.firing" : mt.state === "ready" ? "card.aglTeam.ready" : `card.team.${mt.state}`, { rounds })}`;
+  } else if (mt) {
     const l = launcherOf(a.sim.ctx, a.sim.state, uid);
     const rounds = l ? teamRounds(a.sim.state, uid, l.def.round) : 0;
     state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
@@ -78,6 +82,24 @@ export function selectAndCentre(a: App, uid: EntityId): void {
   showCard(a);
   if (a.following !== null) startFollow(a, uid); else centreOn(a, uid);
   syncOrders(a); refreshTiles(a);
+}
+
+/** A unit's rules as the sim has them now (the card's fire row and the Rules panel). */
+function rulesNow(a: App, uid: EntityId): UnitRules | null {
+  const u = a.sim.state.unit.get(uid);
+  if (!u) return null;
+  return { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, a.sim.state, uid), ambush: u.ambush?.rangeM ?? 0 };
+}
+
+/**
+ * Settle the rules shown as ordered for a unit (D4b, F7): on every delivered order of `kind` to it (`rules`, `ambush`),
+ * selected or not, a crew too, and whenever its card is shown. A unit gone drops them.
+ */
+export function settlePendingRules(a: App, uid: EntityId, kind?: string): void {
+  const pend = a.pendingRules.get(uid);
+  if (!pend) return;
+  const now = rulesNow(a, uid);
+  if (now === null || !settleRules(pend, now, kind)) a.pendingRules.delete(uid);
 }
 
 /** The selected unit's rules and state for the rules panel. */
@@ -106,7 +128,8 @@ export function showUnit(a: App): void {
         ext: def.extinguisher ? vehicleItems(st, vid, def.extinguisher.item) : 0,
       })}` : "")
       + (veh.crewReaction !== null ? `\n${t("status.vehicle.reaction", { reaction: t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => t(k)).join(", ") })}` : "");
-    a.hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid), ...(a.pendingRules.get(uid) ?? {}) }, status);
+    settlePendingRules(a, uid);
+    a.hud.setUnit({ ...rulesNow(a, uid)!, ...(a.pendingRules.get(uid) ?? {}) }, status);
     return;
   }
   let fit = 0, wounded = 0, down = 0;
@@ -118,13 +141,8 @@ export function showUnit(a: App): void {
     states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
   }
   const state = u.broken ? t("behaviour.broken") : [...states.entries()].sort((p, q) => q[1] - p[1]).map(([k, n]) => `${n} ${t(`behaviour.${k}`)}`).join(", ");
-  const nowRules: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid) };
-  const pend = a.pendingRules.get(uid);
-  if (pend) {
-    for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === nowRules[k]) delete pend[k];
-    if (Object.keys(pend).length === 0) a.pendingRules.delete(uid);
-  }
-  a.hud.setUnit({ ...nowRules, ...(a.pendingRules.get(uid) ?? {}) }, t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
+  settlePendingRules(a, uid);
+  a.hud.setUnit({ ...rulesNow(a, uid)!, ...(a.pendingRules.get(uid) ?? {}) }, t("status.unit", { callsign: u.callsign, fit, wounded, down, state }));
 }
 
 /** Objectives on the map and the score line. */

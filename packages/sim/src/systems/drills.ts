@@ -18,7 +18,7 @@
  * Runs every `drills.stepSeconds`; values are data (core/behaviour.json `drills`). Doctrine profiles (M4.4)
  * will vary them by faction.
  */
-import type { Drill, SoldierState, Unit } from "../components";
+import type { Contact, Drill, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import type { SimContext } from "../context";
 import { indoorAt, routeBetween, routeWaypoints } from "../interior-nav";
@@ -395,7 +395,7 @@ function sidestep(ctx: SimContext, state: SimState, m: EntityId, at: { x: number
  */
 function fireOnPosition(ctx: SimContext, state: SimState, m: EntityId, at: { x: number; y: number }, assault: boolean, onTheMove = false): void {
   const s = state.soldier.req(m);
-  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestD = 40;
+  let best: { target: EntityId; x: number; y: number; z?: number; kind: Contact["kind"] } | null = null, bestD = 40;
   for (const c of s.contacts) {
     if (spared(c) || c.cls === "vehicle") continue; // a man he knows has given up (M6.6), is down (package A) or is protected (M10.7a) is not fired at
     const dd = hypot2(c.x - at.x, c.y - at.y);
@@ -527,9 +527,19 @@ function breakUnit(ctx: SimContext, state: SimState, uid: EntityId, events: Even
   u.broken = true;
   u.morale.state = "broken";
   for (const k of u.children) clearDrills(state, k);
+  // (D4b: running back, they defend no arc any more.)
+  clearArcsUnder(state, uid);
   u.drill = { kind: "rout", x: rx, y: ry, groups: [], mover: 0, phaseTick: state.tick, final: true };
   for (const m of men) rout(ctx, state, m, u.drill, events, enemy);
   radio(state, uid, "radio.broken", events);
+}
+
+/** End the arcs (D4b, `defendArc`) of a unit and every unit under it: they are going elsewhere. */
+function clearArcsUnder(state: SimState, uid: EntityId): void {
+  const u = state.unit.get(uid);
+  if (!u) return;
+  delete u.arc;
+  for (const c of u.children) clearArcsUnder(state, c);
 }
 
 function rout(ctx: SimContext, state: SimState, m: EntityId, d: Drill, events: EventSink, enemy: { x: number; y: number } | null): void {
@@ -651,7 +661,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
             const rx = Math.min(Math.max(c.x + ((c.x - enemy.x) / L) * D.fallBackM, 5), ctx.map.widthM - 5);
             const ry = Math.min(Math.max(c.y + ((c.y - enemy.y) / L) * D.fallBackM, 5), ctx.map.heightM - 5);
             const groups = drillGroups(state, uid);
-            if (groups.length > 0) u.drill = { kind: "withdraw", x: rx, y: ry, groups, mover: 0, phaseTick: -1, final: false };
+            if (groups.length > 0) { u.drill = { kind: "withdraw", x: rx, y: ry, groups, mover: 0, phaseTick: -1, final: false }; clearArcsUnder(state, uid); }
           }
         }
       }

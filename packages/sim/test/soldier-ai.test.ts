@@ -275,6 +275,13 @@ describe("package D: close combat", () => {
     expect(sim.state.soldier.req(who).grenadeTick).toBeDefined();
   });
 
+  it("not at an enemy outside the arc his unit defends (D4b review F9)", () => {
+    const sim = walled();
+    unitOf(sim, "blue")[1].arc = { facing: Math.PI, halfRad: Math.PI / 3 }; // (to the west; red is east)
+    const ev = run(sim, 10);
+    expect(ev.some((e) => e.kind === "grenade.launched")).toBe(false);
+  });
+
   it("not with a man of his own side close to the enemy", () => {
     const sim = walled();
     const friend = unitOf(sim, "blue")[1].members[2]!;

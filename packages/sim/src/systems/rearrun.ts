@@ -361,7 +361,8 @@ export function rearRunOrder(ctx: SimContext, state: SimState, events: EventSink
  * on the map: the run ends (the order takes the hull back) and the order goes on. Null: nothing to do with a run.
  */
 export function rearRunGate(state: SimState, events: EventSink, order: Order): OrderResult | null {
-  if (order.kind === "rearRun" || order.kind === "fire" || order.kind === "ceaseFire" || order.kind === "rules" || order.kind === "discharge") return null;
+  // (Fire discipline, an ambush too (D4b), is no reason to stop or refuse a run.)
+  if (order.kind === "rearRun" || order.kind === "fire" || order.kind === "ceaseFire" || order.kind === "rules" || order.kind === "ambush" || order.kind === "discharge") return null;
   let vid: EntityId | undefined = state.unit.get(order.target)?.vehicle;
   if (vid === undefined && order.kind === "mount") {
     const uid = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;

@@ -25,7 +25,7 @@
  */
 import { withDrones } from "./drone";
 import {
-  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, spared, isMortarUnit, isOffMap, isOut, launcherOf, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
+  atan2, backblastBlocked, friendInLine, buildingIndex as buildingIndexOf, clearable, contactErrorM, bestCoverNear, cos, exposureAt, createContext, heightAt, indoorAt, mapHasInteriors, navCostAt, navFor, PI, sin, hypot2, isAssetUnit, isCaptive, onlyProtectedAt, protectedContact, spared, isMortarUnit, isOffMap, isOut, launcherOf, aglOf, aglDangerM, AGL_BURST_M, teamRound, teamRounds, AUTO_DEPLOY_S, rebuildVehicleGrid, secondsToEffect, sight, supportLeft, syncTerrainDamage,
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
@@ -76,6 +76,14 @@ export const COMMANDER = { stepSeconds: 5, /** Morale rework 2026-11-15: no new 
   // walk at `mtWalkMps` (the last `sneakM` at `mtSneakMps`), packing and set-up; review fix). The attacker's team sites its post on the ground
   // `mtBeyondObjectiveM` beyond the main objective (where the defence's vehicles stand).
   mtArrivedM: 15, mtResendSeconds: 60, overwatchWaitSeconds: 90, mtWalkMps: 0.9, mtSneakMps: 0.45, mtBeyondObjectiveM: 100,
+  // M7.6d: an automatic grenade launcher team's post is this far from the enemy's area (within its engage range;
+  // game values, low: about its effective range against point targets).
+  aglMinM: 300, aglMaxM: 700,
+  // M7.6d: fire orders to an AGL team on its post: at enemy men seen within `aglSeenSeconds`, placed to `aglErrM`,
+  // at most one series every `aglOrderSeconds` (game values, low).
+  aglSeenSeconds: 10, aglErrM: 25, aglOrderSeconds: 20,
+  // M7.6d: an AGL team that has fired nothing for this long on its post moves on to its next post (game value, low).
+  aglRepostSeconds: 120,
   atEverySeconds: 5, atContactSeconds: 10, atRefireSeconds: 12, huntBeyondM: 300, huntAtRangeShare: 0.8, huntersMax: 2, huntSeconds: 150, atSidestepM: 8,
   // Getting out at once on an anti-tank threat (M7.4b): enemy men known this close to a carrier, or an enemy
   // vehicle seen this close; a crew reversing out is left to it this long (its hold, behaviour crew.reverseHoldSeconds);
@@ -408,10 +416,10 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
     return (mt.state === "packed" ? 0 : l.def.packSeconds) + (d - sneak) / COMMANDER.mtWalkMps + sneak / COMMANDER.mtSneakMps + AUTO_DEPLOY_S + l.def.setupSeconds;
   };
   /** The men of the side's missile teams (M9.3b). */
-  const teamMen = (view: SimView): EntityId[] => [...view.unit.values()].filter((u) => u.side === side && u.missileTeam !== undefined).flatMap((u) => u.members);
+  const teamMen = (view: SimView): EntityId[] => [...view.unit.values()].filter((u) => u.side === side && u.missileTeam !== undefined && u.missileTeam.kind !== "agl").flatMap((u) => u.members);
   /** M9.3b: site, move and fire the side's missile teams (see the call). */
   const missileTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, vk: Map<EntityId, { x: number; y: number; tick: number; moving: boolean }>): void => {
-    const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam !== undefined).map(([id]) => id);
+    const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam !== undefined && u.missileTeam.kind !== "agl").map(([id]) => id);
     if (ids.length === 0) return;
     mem.mt ??= {};
     const main = objectives[0];
@@ -461,6 +469,84 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         if (!best || score < best.score) best = { id: vid, x: k.x, y: k.y, score };
       }
       if (best) order(id, { kind: "fire", x: clamp(best.x, W), y: clamp(best.y, H), contact: best.id, nature: "at" });
+    }
+  };
+
+  /**
+   * M7.6d: site and move the side's automatic grenade launcher teams: each to an overwatch post (sited once, within
+   * its engage range of the enemy's area: the attacker's main objective, the defender's expected attack), sneaking
+   * the last stretch; there the sim sets it up and it fires on its own at the enemy men its men see, and on the
+   * commander's orders at those the side sees; with nothing to fire at for `aglRepostSeconds` it moves to its next post.
+   */
+  const aglTeams = (view: SimView, tick: number, order: (target: EntityId, body: Record<string, unknown>) => void, men: readonly EntityId[], sideSpared: ReadonlySet<EntityId>): void => {
+    const ids = [...view.unit.entries()].filter(([, u]) => u.side === side && u.missileTeam?.kind === "agl").map(([id]) => id);
+    if (ids.length === 0) return;
+    mem.mt ??= {};
+    const main = objectives[0];
+    for (const id of ids) {
+      const u = view.unit.get(id)!;
+      const l = aglOf(ground(), view, id), lt = l ? view.transform.get(l.carrier) : undefined;
+      if (!l || !lt || !u.members.some((m) => able(view.soldier.get(m) as SoldierState | undefined))) continue;
+      let st = mem.mt[String(id)];
+      if (!st) {
+        const away = main ? atan2(main.y - lt.y, main.x - lt.x) : 0;
+        const enemy = defending && main ? { x: clamp(main.x + cos(front0()) * 500, W), y: clamp(main.y + sin(front0()) * 500, H) } : main ? { x: clamp(main.x + cos(away) * 50, W), y: clamp(main.y + sin(away) * 50, H) } : { x: W / 2, y: H / 2 };
+        const nearPts = defending ? [enemy] : objectives.filter((o) => o.holder !== side).map((o) => ({ x: o.x, y: o.y }));
+        const posts = siteOverwatch(ground(), { x: lt.x, y: lt.y }, enemy, l.def.sightHeightM, nearPts, 0, defending, { rangeM: [COMMANDER.aglMinM, Math.min(COMMANDER.aglMaxM, l.def.engageRangeM)], targetZ: 1, targetRingsM: [0, 60, 120] });
+        st = mem.mt[String(id)] = { posts: posts.map((p) => [p.x, p.y, p.facing]), post: 0, launch: -1e9, sent: -1e9 };
+        order(id, { kind: "rules", onContact: "push" });
+      }
+      const p = st.posts[st.post];
+      const moving = u.moving || u.members.some((m) => (view.mover.get(m)?.waypoints.length ?? 0) > 0);
+      if (p && hypot2(p[0] - lt.x, p[1] - lt.y) > COMMANDER.mtArrivedM && (!moving || st.sent < 0) && tick - st.sent >= COMMANDER.mtResendSeconds * 60) {
+        const d = hypot2(p[0] - lt.x, p[1] - lt.y), k = Math.max(0, d - COMMANDER.sneakM) / Math.max(1, d);
+        const wp = d > COMMANDER.sneakM ? [{ x: lt.x + (p[0] - lt.x) * k, y: lt.y + (p[1] - lt.y) * k, mode: "walk" }, { x: p[0], y: p[1], mode: "sneak" }] : [{ x: p[0], y: p[1], mode: "sneak" }];
+        order(id, { kind: "move", waypoints: wp, facing: p[2] });
+        st.sent = tick;
+        continue;
+      }
+      // Ready on its post with nothing to fire at: the enemy men the side's men saw (within `aglSeenSeconds`, placed
+      // to within `aglErrM`) in its range and in the gun's line, the biggest group first, as an ordered series (its
+      // own fire only takes what its own two or three men see).
+      const mt = u.missileTeam!;
+      // Nothing to fire at from here for a while (its last order, or since it was laid): on to its next post.
+      // (Review fix: its own bursts count as firing: a team firing on its own is not moved.)
+      if (mt.state === "ready" && mt.burst === undefined && st.posts.length > 1 && tick - Math.max(st.launch, mt.readyTick, mt.lastLaunchTick) > COMMANDER.aglRepostSeconds * 60) {
+        st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; st.launch = tick;
+        continue;
+      }
+      if (mt.state !== "ready" || mt.burst !== undefined || mt.queued !== undefined || view.action.has(l.carrier) || tick - st.launch < COMMANDER.aglOrderSeconds * 60) continue;
+      const cands: { x: number; y: number; n: number; d: number }[] = [];
+      // (Review fix: never at an enemy any of the side's men spares, nor where a burst would reach a man its men
+      // recognise as protected: a medic, bearers, a man at the Verwundetennest; nor near its own men.)
+      const prot: { x: number; y: number }[] = [];
+      for (const m of men) {
+        const sm = view.soldier.get(m);
+        if (sm === undefined || isCaptive(sm)) continue;
+        for (const c of sm.contacts) {
+          if (protectedContact(c)) prot.push({ x: c.x, y: c.y });
+          if (c.cls === "vehicle" || c.kind !== "seen" || c.down === true || c.surrendered === true || spared(c) || sideSpared.has(c.target) || c.errM > COMMANDER.aglErrM || tick - c.tick > COMMANDER.aglSeenSeconds * 60) continue;
+          const d = hypot2(c.x - lt.x, c.y - lt.y);
+          if (d < COMMANDER.aglMinM * 0.5 || d > l.def.engageRangeM) continue;
+          if (cands.some((q) => hypot2(q.x - c.x, q.y - c.y) < 3)) continue;
+          cands.push({ x: c.x, y: c.y, n: 0, d });
+        }
+      }
+      for (const a of cands) for (const b of cands) if (hypot2(a.x - b.x, a.y - b.y) <= 10) a.n++;
+      cands.sort((a, b) => b.n - a.n || a.d - b.d || a.x - b.x || a.y - b.y);
+      const z0 = heightAt(ground().map, lt.x, lt.y) + l.def.sightHeightM; // ground: ok (the gun on the ground)
+      const own = men.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return s !== undefined && !isOut(s) && s.mount === undefined; }).map((m) => view.transform.get(m)).filter((t) => t !== undefined);
+      const safe = cands.filter((c) => {
+        const r = aglDangerM(ground(), c.d);
+        return !prot.some((p) => hypot2(p.x - c.x, p.y - c.y) <= AGL_BURST_M) && !own.some((t) => hypot2(t.x - c.x, t.y - c.y) <= r);
+      });
+      for (const c of safe.slice(0, 4)) {
+        const r = sight(ground(), lt.x, lt.y, z0, c.x, c.y, heightAt(ground().map, c.x, c.y) + 1, l.carrier, -1); // ground: ok (a man on the ground)
+        if (r.blockedBy !== null && (1 - r.blockedAt) * c.d > 40) continue;
+        order(id, { kind: "fire", x: clamp(c.x, W), y: clamp(c.y, H) });
+        st.launch = tick;
+        break;
+      }
     }
   };
 
@@ -644,6 +730,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // on its own (sim); fired at the enemy vehicle that threatens the own carriers most; after each launch it
       // moves on to its next post.
       missileTeams(view, tick, order, freshVehicleContacts([...all, ...teamMen(view)]));
+      aglTeams(view, tick, order, all, sideSpared); // (M7.6d)
       const down = all.filter((m) => { const s = view.soldier.get(m); return s !== undefined && isOut(s); }).length / Math.max(1, all.length);
       const holds = (i: number) => view.objectives[i]?.holder === side;
       const main = objectives[0];
@@ -1224,7 +1311,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
           // (Review fix: only while the team can still be there in time: its walk and set-up within the wait.)
           if (squads.some((sq) => riders(view, sq).length > 0) && tick < COMMANDER.overwatchWaitSeconds * 60
             && [...view.unit.entries()].some(([id, u]) => {
-              if (u.side !== side || u.missileTeam === undefined || teamOnPost(view, id)) return false;
+              if (u.side !== side || u.missileTeam === undefined || u.missileTeam.kind === "agl" || teamOnPost(view, id)) return false;
               return tick / 60 + teamEtaS(view, id, tick) <= COMMANDER.overwatchWaitSeconds;
             })) break;
           // M7.6b: and until the side's tanks are on their first posts in overwatch (at most `carrierWaitSeconds`).

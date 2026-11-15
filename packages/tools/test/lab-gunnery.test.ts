@@ -99,6 +99,20 @@ describe("gunnery lab", () => {
       expect(val(v, "HE at six men")).toBeGreaterThanOrEqual(v === "ru-btr82a" ? 1 : 0);
     });
   }
+  // M7.6d: the GTK Boxer with the 40 mm GMW. The plan's 10 m at 600 m is not met: the round's flat path there (about
+  // 4 deg) stretches 2 mrad of elevation error into some 15 m along the line (DECISIONS M7.6d); the long-range laying
+  // (the exact drop-table entries above 6 deg) is what the bands guard.
+  it("de-boxer-gtk-gmw: the first burst lands near the aim point out to 1500 m; men in the open go down; rounds counted", () => {
+    const v = "de-boxer-gtk-gmw";
+    expect(val(v, "GMW: mean miss of the first burst's 3 rounds from the aim point, 600 m")).toBeLessThanOrEqual(20);
+    expect(val(v, "GMW: mean miss of the first burst's 3 rounds from the aim point, 1000 m")).toBeLessThanOrEqual(20);
+    expect(val(v, "GMW: mean miss of the first burst's 3 rounds from the aim point, 1500 m")).toBeLessThanOrEqual(35);
+    const down = (R: number) => Number(/\((\d+) down\)/.exec(rows.find((x) => x.vehicle === v && x.case.startsWith(`GMW at six standing men ${R} m`))!.unit)![1]);
+    expect(down(600)).toBeGreaterThanOrEqual(2);
+    expect(down(1000)).toBeGreaterThanOrEqual(1);
+    expect(val(v, "rounds fired - (ready + stowed")).toBe(0);
+    expect(val(v, "refilling a ready belt")).toBeCloseTo(120, 0);
+  });
   it("the GTK Boxer lays faster than the BTR-82A (remote station with a fast drive and a laser rangefinder)", () => {
     expect(val("de-boxer-gtk", "order to first round")).toBeLessThan(val("ru-btr82a", "order to first round"));
   });

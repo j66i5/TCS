@@ -45,6 +45,8 @@ export function referenceRounds(data: DataSet): ArmourRound[] {
     rd("lab-762-b32", "7.62 mm B-32 at 75 m (12 mm RHA)", 12 * r, "kinetic"),
     rd("ru-pg7vl", "PG-7VL (RPG-7)", pen("ru-pg7vl"), "shaped"),
     rd("de-pzf3-dm12", "Panzerfaust 3 DM12", pen("de-pzf3-dm12"), "shaped"),
+    // M7.6d: the GMW's 40 mm HEDP (station and tripod).
+    rd("de-40x53-hedp", "40 mm x 53 HEDP (GMW)", pen("de-40x53-hedp"), "shaped"),
     // M7.6a: tank rounds and the anti-tank missiles.
     rd("de-120-dm63a1", "120 mm DM63A1 at 2000 m", pen("de-120-dm63a1"), "kinetic"),
     rd("ru-125-3bm60", "125 mm 3BM60 at 2000 m", pen("ru-125-3bm60"), "kinetic"),

@@ -1916,6 +1916,879 @@
       "note": "M9.3b (owner: a Metis-M team at company level attached to the platoon battle): the 9P151 launch post and four 9M131 rounds with a crew of three: commander with the radio and a round, operator with the launch post and a round, loader with two rounds (the real Metis-M crew is two men carrying the post and rounds in packs; the third man and the rounds per man are game values, low). The operator keeps his AK-74M (no pistol in the data)."
     },
     {
+      "id": "raschet-ags",
+      "echelon": "team",
+      "callsign": "AGS {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "ags-commander",
+          "rank": "mladshiy-serzhant",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-ags-box",
+              "count": 2,
+              "charge": 29
+            }
+          ]
+        },
+        {
+          "role": "ags-gunner",
+          "rank": "yefreytor",
+          "weapon": "ru-ak74m",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-ags30",
+              "count": 1
+            },
+            {
+              "item": "ru-ags-box",
+              "count": 1,
+              "charge": 29
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk",
+        "https://en.wikipedia.org/wiki/AGS-30"
+      ],
+      "confidence": "low",
+      "note": "M7.6d: an AGS-30 team of two (Army Recognition: gunner and ammunition carrier, medium) with three boxes of 29 VOG-30: the gunner carries the gun and one box, the commander the radio and two boxes (loads are game values, low; in a battalion the AGS sit in the grenade launcher platoon, six AGS-17: battleorder, medium). Placed with the assault group (assault-group scenario) as a unit of its own."
+    },
+    {
+      "id": "shturmovaya-trojka",
+      "echelon": "team",
+      "callsign": "Shturm {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "team-leader",
+          "rank": "mladshiy-serzhant",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-gp25",
+              "count": 1
+            },
+            {
+              "item": "ru-vog25",
+              "count": 8
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 3
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "at-gunner",
+          "rank": "yefreytor",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-rpg7",
+              "count": 1
+            },
+            {
+              "item": "ru-pg7vl",
+              "count": 2
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "shturmovik-rpo",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-rpo-a",
+              "count": 1
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 3
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf",
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/",
+        "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
+      ],
+      "confidence": "low",
+      "note": "Assault team of an assault group (M7.6d): three men (3-man fire teams: euromaidanpress, medium-low): team leader with AK-74M and GP-25, an RPG-7V gunner with two PG-7VL, a man with the RPO-A (composite, low)."
+    },
+    {
+      "id": "ognevaya-gruppa",
+      "echelon": "team",
+      "callsign": "Ogon",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "mg-gunner",
+          "rank": "yefreytor",
+          "load": [
+            {
+              "item": "ru-pkp-belt",
+              "count": 3,
+              "charge": 100
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 1
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-pkp"
+        },
+        {
+          "role": "assistant-mg-gunner",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-pkp-belt",
+              "count": 3,
+              "charge": 100
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "marksman",
+          "rank": "yefreytor",
+          "load": [
+            {
+              "item": "ru-svd-mag",
+              "count": 6,
+              "charge": 10
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-svd"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf",
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/",
+        "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
+      ],
+      "confidence": "low",
+      "note": "Fire team of an assault group (M7.6d): PKP gunner, assistant with belts, SVD marksman (the fire-support element: euromaidanpress, thelightningpress, medium-low; composite, low). The group's AGS-30 team is a unit of its own (raschet-ags)."
+    },
+    {
+      "id": "rezerv-gruppa",
+      "echelon": "team",
+      "callsign": "Rezerv",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "rifleman",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-rpo-a",
+              "count": 1
+            },
+            {
+              "item": "ru-pkp-belt",
+              "count": 1,
+              "charge": 100
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 3
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "rifleman",
+          "rank": "ryadovoy",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-rpo-a",
+              "count": 1
+            },
+            {
+              "item": "ru-pg7vl",
+              "count": 1
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 3
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf",
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/",
+        "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
+      ],
+      "confidence": "low",
+      "note": "Reserve of an assault group (M7.6d): two riflemen with a spare RPO-A each, a PKP belt and a PG-7VL (a reserve section with riflemen and ammunition: euromaidanpress, medium-low; composite, low). The extra AGS box of the plan is not carried: only the AGS team's own men feed its gun."
+    },
+    {
+      "id": "shturmovaya-gruppa",
+      "echelon": "platoon",
+      "callsign": "Shturmovaya {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "assault-commander",
+          "rank": "starshiy-serzhant",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 6,
+              "charge": 30
+            },
+            {
+              "item": "ru-gp25",
+              "count": 1
+            },
+            {
+              "item": "ru-vog25",
+              "count": 8
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 2
+            },
+            {
+              "item": "ru-rdg2",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-thermal-sight",
+              "count": 1
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "uav-operator",
+          "rank": "yefreytor",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "ru-rgd5",
+              "count": 1
+            },
+            {
+              "item": "ru-radio",
+              "count": 1
+            },
+            {
+              "item": "ru-quadcopter",
+              "count": 1
+            },
+            {
+              "item": "ru-drone-battery",
+              "count": 3,
+              "charge": 77
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            },
+            {
+              "item": "ru-water",
+              "count": 1
+            },
+            {
+              "item": "ru-rations",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 1
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 2
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 1
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 1
+            },
+            {
+              "item": "ru-webbing",
+              "count": 1
+            },
+            {
+              "item": "ru-nvg",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [
+        "shturmovaya-trojka",
+        "shturmovaya-trojka",
+        "ognevaya-gruppa",
+        "rezerv-gruppa"
+      ],
+      "sources": [
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf",
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/",
+        "https://www.thelightningpress.com/russian-deliberate-assault-small-unit-level/"
+      ],
+      "confidence": "low",
+      "note": "Assault group (shturmovaya gruppa, M7.6d): 13 men on foot. A composite of the reported 2023 assault tactics (Pulaski report; euromaidanpress 2023-03-14; thelightningpress: assault platoons of 12-15 in 3-man teams, a command group with a UAV team, a fire-support element, a reserve; medium-low): command (commander with GP-25 and a thermal sight, radio and drone operator with the group's quadcopter), two assault teams (Shturm 1 and 2: GP-25, RPG-7V, RPO-A), a fire team (Ogon: PKP, assistant, SVD), a reserve (Rezerv: two riflemen with spare RPO-A and ammunition). The AGS-30 team (raschet-ags) goes with it as a unit of its own. Loads and ranks are game values (low). Used only by the opt-in assault-group battle."
+    },
+    {
       "id": "t72b3m-ekipazh",
       "echelon": "vehicle",
       "callsign": "Tank {n}",
@@ -2609,26 +3482,18 @@
           "weapon": "ru-ak74m"
         },
         {
-          "role": "rifleman-gl",
+          "role": "marksman",
           "rank": "ryadovoy",
           "load": [
             {
-              "item": "ru-ak74-mag",
+              "item": "ru-svd-mag",
               "count": 6,
-              "charge": 30
+              "charge": 10
             },
             {
               "item": "ru-pkp-belt",
               "count": 1,
               "charge": 100
-            },
-            {
-              "item": "ru-gp25",
-              "count": 1
-            },
-            {
-              "item": "ru-vog25",
-              "count": 6
             },
             {
               "item": "ru-rgd5",
@@ -2683,7 +3548,7 @@
               "count": 1
             }
           ],
-          "weapon": "ru-ak74m"
+          "weapon": "ru-svd"
         }
       ],
       "subunits": [],
@@ -2695,7 +3560,7 @@
         "https://community.battlefront.com/topic/121355-modern-russian-infantry-battalion-structure/"
       ],
       "confidence": "low",
-      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. No SVD marksman: battleorder says BTR squads typically have one, a forum post says the SVDs moved to a brigade marksman company (disputed; owner to review, slice 42). Loads as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low)."
+      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. M7.6d: the second GP-25 rifleman is the squad's marksman with the SVD (battleorder says BTR squads typically have one, search extract, medium; a forum claim that the SVDs moved to a brigade marksman company is disputed); six SVD magazines are a game value (low). Loads otherwise as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low)."
     },
     {
       "id": "motor-rifle-platoon-btr",

@@ -18,9 +18,16 @@ export interface MortarDef {
 }
 
 /** A crew-served weapon worked by a team on foot (M9.3b; see the data schema): a guided missile launch post. */
-export interface CrewServedDef {
+export type CrewServedDef = MissilePostDef | AglPostDef;
+/** M9.3b: a guided missile launch post. */
+export interface MissilePostDef {
   kind: "missile"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
   sightHeightM: number; backblastM: number; launchLoudM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number;
+}
+/** M7.6d: an automatic grenade launcher on its tripod (direct fire at men out to `engageRangeM`). */
+export interface AglPostDef {
+  kind: "agl"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
+  sightHeightM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number; engageRangeM: number;
 }
 
 /** A reconnaissance quadcopter (M9.4a): its battery item (charge in Wh) and draw (W), speeds, heights above the
@@ -240,7 +247,7 @@ export interface AmmoDef {
   tracer: boolean;
   fuse: string;
   guidance: string;
-  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number };
+  explosive?: { fillingKg: number; fragmentCount: number; fragmentAmmo: DefId; fragmentVelocityMps: [number, number]; fuseSeconds?: number; armingSeconds?: number; /** Bursts on a man it strikes (M7.3, Q18). */ burstOnBody?: boolean; /** Rockets (M7.4a). */ selfDestructSeconds?: number; /** M7.6d: a room it bursts in takes the blast x this. */ thermobaric?: { enclosedFactor: number } };
   /** Rocket motor (M7.4a). */
   propulsion?: { ignitionSeconds: number; burnSeconds: number; accelMps2: number };
   /** Wire-guided (SACLOS) missiles (owner 2026-11-13; full guided weapons M9). */
@@ -258,7 +265,7 @@ export interface AmmoDef {
   /** M8.4 illumination round: the flare (its light: flares.ts, M9.6). */
   illum?: { candela: number; burnSeconds: number; heightM: number; descentMps: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
-  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
+  delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean; /** M7.6d: "antiPersonnel" never at a vehicle (default "antiTank"). */ role?: "antiPersonnel" | "antiTank" };
 }
 
 export interface WeaponDef {
@@ -297,6 +304,8 @@ export interface ShootingDef {
     topUpBelowFraction: number; incomingReachM: number; topUpAfterSeconds: number; clearStoppageSeconds: number; aimPointHeightM: number; safetyConeDeg: number;
     /** Aim height above the ground at a man seen in each posture (soldier AI package A). */
     aimHeightByPostureM: Record<"standing" | "crouching" | "prone", number>;
+    /** Aim height above the ground, at most, at an enemy only heard or reported (D4b, game value, low). Absent: off. */
+    aimUnseenHeightM?: number;
   };
   grenades: {
     throwRangeM: Record<"standing" | "crouching" | "prone", number>; throwElevationDeg: number;
@@ -408,6 +417,13 @@ export interface BehaviourDef {
    * (`onMoveUnderFire`: fired on within `underFireS`). The medical line calls `screenCasualty` for a drag.
    */
   smoke: { screenM: number; enemyMinM: number; enemyMaxM: number; knownWithinS: number; cooldownS: number; onWithdraw: boolean; onMoveUnderFire: boolean; underFireS: number };
+  /**
+   * Order hesitation (D4b, SPEC 6.6 "obey, hesitate or refuse"): an order of one of `kinds` to a unit or man on
+   * foot whose able men are at least `shakenShare` shaken, pinned or panicked is carried out only after
+   * min(`maxSeconds`, `baseSeconds` + `perSuppressionSeconds` x their mean suppression), once per order. A later
+   * order to the same men replaces it. Absent: nobody hesitates.
+   */
+  hesitation?: { kinds: string[]; shakenShare: number; baseSeconds: number; perSuppressionSeconds: number; maxSeconds: number };
   surrender: {
     stepSeconds: number; downedEnemyM: number; comradeNearM: number; caughtEnemyM: number; attackerDownedEnemyM: number; attackerPanicGivesUp: boolean; captureM: number;
     /** Morale rework 2026-11-15: a broken, outflanked unit (not attacking) gives up together with a known enemy this close (absent/0: never). */
@@ -458,7 +474,7 @@ export interface BehaviourDef {
    * house smaller than largeRoomM2 that is not breached, nor with a wall within wallBehindM behind him; a
    * comrade within handOverM brings him a round when he has none.
    */
-  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number };
+  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number; /** M7.6d: own anti-personnel (thermobaric) shots at positions out to this (m). */ thermobaricRangeM?: number };
   /**
    * Crews of damaged vehicles (M7.4a, owner Q14/Q15): men get out bailOnFireSeconds after a fire starts; a fire
    * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;
@@ -515,6 +531,12 @@ export interface BehaviourDef {
      *  not a man at a post: busy, a deployed mortar or missile team, a drone operator) and lies there, and walks back
      *  to his place once it is over; hidden, he stays down for hideSeconds after he last saw it
      *  (and looks for a canopy again no sooner). triggerM 0 = off. Absent: off. */
+    /** Fire distribution (D4b, game values, low): a machine gunner or a marksman (by his weapon, as for his engage
+     *  range) multiplies an enemy's target score by dangerSustained if that enemy has a machine gun, dangerMagnified
+     *  if a magnified sight, and dangerFiring if he fired in the last 3 s (lower = more important); a rifleman
+     *  multiplies it by (1 + spreadPenalty) for each comrade of his unit already firing at that enemy, at most
+     *  spreadCap of them. Absent: off. */
+    fireDistribution?: { dangerSustained: number; dangerMagnified: number; dangerFiring: number; spreadPenalty: number; spreadCap: number };
     droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).

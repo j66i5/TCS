@@ -3484,6 +3484,11 @@
           "charge": 30
         },
         {
+          "item": "ru-svd-mag",
+          "count": 4,
+          "charge": 10
+        },
+        {
           "item": "ru-pkp-belt",
           "count": 6,
           "charge": 100
@@ -3510,7 +3515,7 @@
         "https://www.globalsecurity.org/military/world/russia/btr-80-specs.htm"
       ],
       "confidence": "medium",
-      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low).",
+      "note": "BTR-82A eight-wheeled armoured personnel carrier (M7.6c, slice 41) on the BTR-80 chassis: crew of three (commander, gunner, driver) and seven dismounts (army-technology, ROE, Army Recognition; search extracts only). Infantry stowage as the BMP-2's (game value, low). M7.6d: four SVD magazines stowed for the squad's marksman (game value, low).",
       "dischargers": {
         "item": "ru-81mm-smoke",
         "perSalvo": 6,

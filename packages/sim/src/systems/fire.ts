@@ -14,7 +14,7 @@
 import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
 import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
-import type { FireTask, WeaponState } from "../components";
+import type { Contact, FireTask, WeaponState } from "../components";
 import { sight } from "../los";
 import type { Posture } from "../orders";
 import { loadKg, postureChangeSeconds, requestPosture } from "./body";
@@ -117,13 +117,15 @@ export function lineOfFireClear(ctx: SimContext, state: SimState, id: EntityId, 
 /**
  * Aim height above the ground for firing at an enemy man (M7.5d): the usual aim point, on his floor when the
  * shooter knows him to be upstairs (M7.5 review fix: `known` is the shooter's contact, whose height is where he was
- * last seen; never the target's true position).
+ * last seen; never the target's true position). An enemy only heard or reported (`kind`, D4b) is aimed at low,
+ * at `aimUnseenHeightM` at most (owner pick: grazing fire where he is likely lying or kneeling).
  */
-export function aimHeightAt(ctx: SimContext, known: { z?: number; posture?: Posture } | undefined): number {
+export function aimHeightAt(ctx: SimContext, known: { z?: number; posture?: Posture; kind?: Contact["kind"] } | undefined): number {
   const F = ctx.catalog.shooting.fire;
   // The middle of what he sees of him (soldier AI package A): by the posture he was last seen in; never seen, the
   // usual aim point.
-  const base = known?.posture !== undefined ? F.aimHeightByPostureM[known.posture] : F.aimPointHeightM;
+  let base = known?.posture !== undefined ? F.aimHeightByPostureM[known.posture] : F.aimPointHeightM;
+  if (F.aimUnseenHeightM !== undefined && (known?.kind === "heard" || known?.kind === "reported")) base = Math.min(base, F.aimUnseenHeightM);
   const z = known?.z ?? 0;
   return z > 0 ? base + z : base;
 }

@@ -24,6 +24,63 @@
       "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     },
     {
+      "id": "ru-svd-mag",
+      "nameKey": "item.ru-svd-mag",
+      "category": "magazine",
+      "massKg": 0.21,
+      "chargeCapacity": 10,
+      "chargeMassKg": 0.0218,
+      "chargeItem": "ru-762r-lps",
+      "sources": [
+        "https://en.wikipedia.org/wiki/SVD_(rifle)"
+      ],
+      "confidence": "low",
+      "note": "10-round magazine of the SVD (Wikipedia, search extract, medium). Empty mass about 0.21 kg is a game value (low). Holds the light-ball 7.62x54R the PKP fires (the 7N14 sniper round is not modelled: no difference in the game's ballistics)."
+    },
+    {
+      "id": "ru-ags-box",
+      "nameKey": "item.ru-ags-box",
+      "category": "magazine",
+      "massKg": 4.0,
+      "chargeCapacity": 29,
+      "chargeMassKg": 0.35,
+      "chargeItem": "ru-vog30",
+      "sources": [
+        "https://en.wikipedia.org/wiki/AGS-30",
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk"
+      ],
+      "confidence": "low",
+      "note": "Belt box of the AGS-30 (M7.6d): 29 rounds (Wikipedia; sources give 29 or 30, medium); about 14 kg loaded: the empty box and belt of about 4 kg is a game value (low)."
+    },
+    {
+      "id": "ru-ags30",
+      "nameKey": "item.ru-ags30",
+      "category": "crew-served",
+      "massKg": 17.5,
+      "sources": [
+        "https://en.wikipedia.org/wiki/AGS-30",
+        "https://gunrf.ru/rg_granatomet_ags-30_eng.html",
+        "https://esp.fsvts.gov.ru/catalog/1012.en.html",
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk"
+      ],
+      "confidence": "low",
+      "note": "AGS-30 30 mm automatic grenade launcher on its tripod (M7.6d): 16 kg unloaded, 17.5 kg with the sight (Wikipedia, GunRF, search extracts, medium), carried by the team's gunner. The crewServed block: set-up 40 s, packing 15 s, crew 2 (Army Recognition: gunner and ammunition carrier, medium), the fewest who can still fire 1, sight 0.7 m (the gunner sitting behind the low tripod), traverse +-30 deg before a 4 s re-lay, 2 s to lay, engages men on its own out to 1200 m (point targets about 800 m, sight range 1700 m: medium): game values otherwise (low). Direct fire only (high-angle fire deferred).",
+      "crewServed": {
+        "kind": "agl",
+        "weapon": "ru-ags30",
+        "round": "ru-ags-box",
+        "setupSeconds": 40,
+        "packSeconds": 15,
+        "crew": 2,
+        "crewMin": 1,
+        "sightHeightM": 0.7,
+        "traverseDeg": 30,
+        "relaySeconds": 4,
+        "aimSeconds": 2,
+        "engageRangeM": 1200
+      }
+    },
+    {
       "id": "ru-helmet",
       "nameKey": "item.ru-helmet",
       "category": "armour",

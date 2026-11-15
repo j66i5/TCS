@@ -5,7 +5,7 @@
  */
 import type { Catalog } from "./catalog";
 import type { MapDef, Opening } from "./map";
-import { cos, PI, sin, sqrt } from "./math";
+import { atan2, cos, PI, sin, sqrt, tan } from "./math";
 import { heightAt, interiorSegmentsInRectInto, pointInPolygon, segmentsInRectInto, type MapIndex } from "./terrain";
 
 export interface SegInfo {
@@ -523,8 +523,42 @@ export function buildDropTable(catalog: Catalog, ammoId: string, v0: number, max
     }
     time += dt;
   }
+  // M7.6d: a slow round (a 40 mm grenade) needs a steep angle at long range, where the level-fire drop no longer
+  // gives it: from STEEP_RAD up the entry is the drop that lays the exact elevation (range x tan of the angle the
+  // flight model hits that range with, found by the secant method), and its time of flight. Flatter entries (every
+  // rifle and gun round) stay the level-fire figures.
+  for (let i = 1; i < next; i++) {
+    const r = i * DROP_STEP_M;
+    if (out[i]! < r * STEEP_TAN) continue;
+    let e0 = atan2(out[i]!, r), h0 = flyTo(a.drag, k, b.gravityMps2, b.minSpeedMps, v0, e0, r);
+    let e1 = e0 + 0.02, h1 = flyTo(a.drag, k, b.gravityMps2, b.minSpeedMps, v0, e1, r);
+    for (let it = 0; it < 8 && h1.h > -1e8 && Math.abs(h1.h) > 0.05 && h1.h !== h0.h; it++) {
+      const e2 = e1 - h1.h * (e1 - e0) / (h1.h - h0.h);
+      e0 = e1; h0 = h1; e1 = Math.min(Math.max(e2, 0), 0.75); h1 = flyTo(a.drag, k, b.gravityMps2, b.minSpeedMps, v0, e1, r);
+    }
+    if (h1.h > -1e8 && Math.abs(h1.h) <= 0.5) { out[i] = r * tan(e1); tof[i] = h1.t; }
+  }
   for (; next < out.length; next++) { out[next] = out[next - 1]! + 50; tof[next] = tof[next - 1]! + 1; } // beyond the bullet's reach
   return { drop: out, tof };
+}
+
+/** Above this elevation (tan) a drop-table entry is solved exactly (M7.6d): 6 degrees. */
+const STEEP_TAN = 0.1051;
+/** Height above the line of departure (and the time) at `rangeM` of a round fired at `el` (h -1e9: never gets there). */
+function flyTo(drag: { a: number; b: number; max: number }, k: number, g: number, minV: number, v0: number, el: number, rangeM: number): { h: number; t: number } {
+  const dt = 1 / 240;
+  let x = 0, z = 0, vx = v0 * cos(el), vz = v0 * sin(el), time = 0;
+  while (x < rangeM) {
+    const v = sqrt(vx * vx + vz * vz);
+    if (v < minV || time > 120 || vx <= 0) return { h: -1e9, t: time };
+    const f = k * Math.min(drag.max * v, drag.a * v + drag.b) * dt;
+    vx -= f * vx; vz -= f * vz + g * dt;
+    const px = x, pz = z;
+    x += vx * dt; z += vz * dt;
+    if (x >= rangeM) { const t = (rangeM - px) / (x - px); return { h: pz + t * (z - pz), t: time + t * dt }; }
+    time += dt;
+  }
+  return { h: z, t: time };
 }
 
 function dropTable(ctx: { catalog: Catalog; dropTables: Record<string, DropTable> }, ammoId: string, v0: number, maxRangeM: number): DropTable {

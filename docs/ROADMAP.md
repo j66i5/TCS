@@ -251,13 +251,18 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M7.6c Wheeled carriers and their platoons** (2026-11-15) — GTK Boxer (FLW 200, 12.7 mm) and BTR-82A; the
     Jägerzug and the BTR platoon; manifest `platoonTemplates`, `carriers`, app `?vehicles=wheeled`; lab rows, batches
     (wheeled Jäger attack 0 of 10: reported, not tuned), `--scene wheeled`. Next: M7.6d (GMW 40 mm, AGS, SVD).
+  - ✅ **M7.6d Russian assault group and support weapons** (2026-11-15) — GTK with the GMW (variant), SVD in the BTR
+    squad, AGS-30 / GMW teams on foot (`crewServed` kind "agl"), RPO-A thermobaric (abstract enclosed-space blast),
+    the assault group (`assault-group`, `?assault=1`); labs, batches, `--scene assault`. Deferred: AGS high-angle fire,
+    MRO-A / RShG-2.
 
 ## Stage C — depth
 
 **Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e (✅ complete 2026-11-15).
 After it: D3 phone pass (✅ 2026-11-15: `?perf=1`, phone proxy, UI leftovers, roof atlas in a worker, F2/F3
 probes; the owner's phone numbers open) and D4 infantry tactics (the debt slot; D4a ✅ 2026-11-15: reserve, base of fire
-bounding and sidestepping when masked, shift fire, 16 m rushes; D4b next), then M8 → M9 → M7.6 (tanks, wheeled carriers,
+bounding and sidestepping when masked, shift fire, 16 m rushes; D4b ✅ 2026-11-15: fire distribution, low aim,
+ambush and defend-arc orders, hesitation; win band open), then M8 → M9 → M7.6 (tanks, wheeled carriers,
 Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
 `docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
 

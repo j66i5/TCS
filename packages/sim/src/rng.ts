@@ -51,6 +51,8 @@ export const Streams = {
   conduct: "conduct",
   /** Morale (rework 2026-11-15): each man's nerve, drawn at setup. */
   morale: "morale",
+  /** M7.6d: automatic grenade launcher teams on foot: their range errors. Created on first use. */
+  agl: "agl",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

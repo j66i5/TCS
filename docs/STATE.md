@@ -19,6 +19,19 @@ DECISIONS.md under its date._
   outflanking rare (0.7 % of squad-time; no flanking lab yet), the five owner questions of the design (aboard men, fleeing, an
   explicit Rally order — not built, automatic only —, squad breaks, fresh troops below 100 %); order delays and
   pinned men refusing moves (design section 7) not built.
+- **Slice 42, M7.6d Russian assault group and support weapons (2026-11-15, branch `claude/medical-ambulance-smoke`,
+  parallel session).** The GTK Boxer with the 40 mm GMW as a variant (`de-boxer-gtk-gmw`; the Jaegerzug's Boxer 1 and
+  3 carry it), the SVD in the BTR squad, automatic grenade launcher teams on foot (`crewServed.kind "agl"`, the
+  missile team's post state reused: `systems/agl-team.ts`; AGS-30 `raschet-ags`, GMW `gmw-trupp` data and lab only),
+  the RPO-A (disposable, no launcher item, `role antiPersonnel`, thermobaric `enclosedFactor` filling the room), the
+  assault group `shturmovaya-gruppa` (opt-in: headless `assault-group`, app `?assault=1`), `bench-agl`, the drop table
+  solved exactly above 6 degrees, expenditure `grenadeMg`. Labs `agl`, `house rocket`, gunnery / armour / range /
+  fragmentation rows; `--scene assault`, `--scene wheeled` with the GMW. Golden `platoon-vehicles-wheeled-s1`
+  regenerated (intended); the others replay the same orders. Tables and misses in DECISIONS "M7.6d". **Open for the
+  owner** (all low): the two-and-two GMW mix, the 40 mm penetration and filling, the SVD in BTR squads (disputed),
+  the assault group's composition, the thermobaric factor, AGL lethality against prone men (high: a still group
+  lying in the open is saturated), the wheeled Jaeger attack still 0 of 10 (BTR losses up, not tuned). Deferred: AGS
+  high-angle fire, MRO-A / RShG-2, burns, an RPO step in the clear drill, the GMW's exposed reload.
 - **M10 review fixes (2026-11-15, branch `claude/medical-review-fixes`, on main after M10.8 merged; M10 complete).** Grenade orders at
   recognised protected people are refused too, and a refused order changes nothing (drills, errands, carrying
   parties, boarding); the AI commander no longer orders fire at enemies its men spare (refusals 43-53 → 0-1 per 10
@@ -80,8 +93,9 @@ DECISIONS.md under its date._
   are shown only in the review; air evacuation later.
 - **D4a done (2026-11-15, parallel session; DECISIONS "D4a"):** the AI attack keeps a reserve (committed when the
   assault falters), its base of fire bounds forward or its men step aside when own men mask it, and shifts fire to
-  depth; rushes are 16 m. Batch line "Attack (D4a)". Open: "support masked" fell 35 %, not the 50 % asked. **Next:
-  D4b** (fire distribution, low aim at heard/reported men, ambush and defend-an-arc orders, hesitation).
+  depth; rushes are 16 m. Batch line "Attack (D4a)". Open: "support masked" fell 35 %, not the 50 % asked. D4b done too
+  (DECISIONS "D4b"): fire distribution, low aim at heard/reported men (0.3 m), `ambush` and `defendArc` orders
+  (Fire tray, card chip; `lab -- ambush`), hesitation of shaken men. Open: the win band (owner question).
 - **Order after M10** (owner): a debt slot (D3 phone pass, D4 infantry tactics with 3-5 s rushes of 15-20 m), then
   M8 → M9 → M7.6 (tanks, wheeled carriers, Jäger/BTR platoons) → M11 (minimum, after measuring ammunition use) →
   M12 → M13. One short debt slot after every milestone.

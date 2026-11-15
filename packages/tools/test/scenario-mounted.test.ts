@@ -247,7 +247,8 @@ describe("wheeled carriers and their platoons (M7.6c)", () => {
 
   it("the Jaegerzug in four GTK Boxers (Zugtrupp in the fourth) and the BTR platoon in three BTR-82A (commander in the first); every man has a seat", () => {
     const de = buildForceWithVehicles(data, { faction: "de", template: "jaeger-zug", seed: 3, keyPrefix: "b" });
-    expect(de.vehicles.map((v) => v.type)).toEqual(["de-boxer-gtk", "de-boxer-gtk", "de-boxer-gtk", "de-boxer-gtk"]);
+    // (M7.6d: Boxer 1 and 3 carry the 40 mm GMW, numbered among the crews with the same callsign pattern.)
+    expect(de.vehicles.map((v) => v.type)).toEqual(["de-boxer-gtk-gmw", "de-boxer-gtk", "de-boxer-gtk-gmw", "de-boxer-gtk"]);
     const deCrews = de.unit.subunits.filter((u) => u.vehicleId !== undefined);
     expect(deCrews.map((c) => c.callsign)).toEqual(["Boxer 1", "Boxer 2", "Boxer 3", "Boxer 4"]);
     for (const c of deCrews) expect(c.members).toHaveLength(2);
@@ -277,7 +278,7 @@ describe("wheeled carriers and their platoons (M7.6c)", () => {
     expect(h({ carriers: ["tracked", "tracked"] })).toBe(h({}));
     const mixed = buildScenario(data, def(2, { carriers: ["wheeled", "tracked"] }));
     const types = (side: string) => [...new Set((mixed.forces.find((f) => f.side === side)!.vehicles ?? []).filter((v) => !(mixed.forces.find((f) => f.side === side)!.offMap ?? []).some((a) => a.vehicleId === v.vehicleId)).map((v) => v.type))];
-    expect(types("blue")).toEqual(["de-boxer-gtk"]);
+    expect(types("blue")).toEqual(["de-boxer-gtk-gmw", "de-boxer-gtk"]);
     expect(types("red")).toEqual(["ru-bmp2"]);
     // A faction with no wheeled platoon (the fixture) keeps its platoonTemplate.
     const xf = buildScenario(fx, { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["xf", "de"], attacker: "blue", vehicles: true, carriers: "wheeled" });

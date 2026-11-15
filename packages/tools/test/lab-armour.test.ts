@@ -64,6 +64,11 @@ describe("armour lab (M7.4a)", () => {
     expect(plateThrough(data, "de-puma", "hull", 0, can("ru-pg7vl"), true, [-Math.cos(e), 0, -Math.sin(e)]).through).toBe(false);
   });
 
+  it("M7.6d: the GMW's 40 mm HEDP goes through every face of the BTR-82A, the BMP-2 and the GTK, through no T-90M front or side", () => {
+    const hedp = can("de-40x53-hedp");
+    for (const v of ["ru-btr82a", "ru-bmp2", "de-boxer-gtk"]) for (let f = 0; f < 4; f++) for (const p of ["hull", "turret"] as const) expect(plateThrough(data, v, p, f, hedp, true).through).toBe(true);
+    for (let f = 0; f < 2; f++) for (const p of ["hull", "turret"] as const) for (const era of ["full", "spent"] as const) expect(plateThrough(data, "ru-t90m", p, f, hedp, true, undefined, era).through).toBe(false);
+  });
   it("a kinetic round can ricochet only at a grazing angle", () => {
     const p = plate(20, 0);
     const graze = (deg: number) => { const a = (deg * Math.PI) / 180; return plateNeed(p, 0, 1, -Math.cos(a), Math.sin(a), 0, 0.05); };

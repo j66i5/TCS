@@ -11,7 +11,7 @@ import { footModeOrUndefined } from "../catalog";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
-import { containerMassKg } from "../items";
+import { aglBoxOf, containerMassKg } from "../items";
 import { clamp, exp } from "../math";
 import type { Posture } from "../orders";
 import type { SimState } from "../state";
@@ -28,6 +28,9 @@ export function loadKg(ctx: SimContext, state: SimState, id: EntityId): number {
       if (d) kg += d.massKg + w.magazine.rounds * (d.chargeMassKg ?? 0);
     }
   }
+  // M7.6d: the box on his team's AGL, if he carries the post.
+  const box = aglBoxOf(state, id);
+  if (box) { const d = ctx.catalog.items[box.item]; if (d) kg += d.massKg + box.rounds * (d.chargeMassKg ?? 0); }
   return kg;
 }
 

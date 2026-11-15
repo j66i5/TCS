@@ -56,6 +56,12 @@ interface Row {
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
    *  tagged again, and of those now right. */
   nest: Record<string, { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number; needEnd: number; reachedEnd: number; wrong: number; wrongRetagged: number; corrected: number }>;
+  /** M7.6b: per side and vehicle type, how many were there, lost (destroyed or abandoned) and immobilised at the end;
+   *  per lost vehicle type, who made the last penetrating hit before the loss (the shooter's vehicle type, "team" for a
+   *  missile team, "foot" for a man with a launcher, "none"); reactive tiles used per side (of the hulls hit); tank gun
+   *  rounds per side (a gun on a vehicle with no passenger seats; armour-piercing and high explosive). */
+  types: Record<string, Record<string, { n: number; lost: number; immob: number }>>; killers: Record<string, Record<string, number>>;
+  era: Record<string, number>; tankRounds: Record<string, { ap: number; he: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -81,10 +87,42 @@ for (let i = 0; i < runs; i++) {
   const threatened = new Set<number>(), died = new Set<number>();
   // M10.5: who is to be taken back at the last look (living, not captured; at the nest counts).
   let evacEnd: { id: number; side: string }[] = [];
+  // M7.6b: vehicles by type, the last penetrating hit on each hull (shooter label), tiles used, tank gun rounds.
+  let simRef: Sim | null = null;
+  const lastPen = new Map<number, string>();
+  const killers: Record<string, Record<string, number>> = {}, era: Record<string, number> = { blue: 0, red: 0 }, tankRounds: Record<string, { ap: number; he: number }> = { blue: { ap: 0, he: 0 }, red: { ap: 0, he: 0 } };
+  const shooterLabel = (sim: Sim, owner: number): string => {
+    const s = sim.state.soldier.get(owner);
+    if (s?.mount) return sim.state.vehicle.get(s.mount.vehicle)?.def ?? "vehicle";
+    const uid = sim.state.identity.get(owner)?.unit;
+    if (uid !== undefined && sim.state.unit.get(uid)?.missileTeam !== undefined) return "team";
+    return s ? "foot" : "none";
+  };
+  const tankDef = (type: string) => { const d = input.catalog.vehicles[type]; return d !== undefined && !d.seats.some((q) => q.station === "passenger"); };
+  const foldTanks = (sim: Sim, ev: readonly SimEvent[]) => {
+    for (const e of ev) {
+      if (e.kind === "vehicle.hit") {
+        if (e.result === "penetrated") lastPen.set(e.vehicle, shooterLabel(sim, e.owner));
+        if (e.era !== undefined) { const sd0 = sim.state.vehicle.get(e.vehicle)?.side; if (sd0) era[sd0] = (era[sd0] ?? 0) + 1; }
+      } else if (e.kind === "vehicle.destroyed" || e.kind === "vehicle.abandoned") {
+        const t = sim.state.vehicle.get(e.vehicle)?.def ?? "?";
+        const k = (killers[t] ??= {}), who = lastPen.get(e.vehicle) ?? "none";
+        k[who] = (k[who] ?? 0) + 1;
+        lastPen.set(e.vehicle, "counted");
+      } else if (e.kind === "shot.fired" && e.vehicle !== undefined) {
+        const v = sim.state.vehicle.get(e.vehicle), am = input.catalog.ammo[e.ammo];
+        if (!v || !am || am.guided !== undefined || !tankDef(v.def) || am.diameterM < 0.1) continue;
+        const tr = tankRounds[v.side] ??= { ap: 0, he: 0 };
+        if (am.explosive !== undefined) tr.he++; else tr.ap++;
+      }
+    }
+  };
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
     onEvents: (ev) => { pending = ev; houses.onEvents(ev); },
     onTick: (sim) => {
+      simRef = sim;
+      foldTanks(sim, pending);
       houses.onTick(sim);
       recordEvents(rec, pending, sim.state, input.catalog);
       pending = [];
@@ -131,6 +169,13 @@ for (let i = 0; i < runs; i++) {
     },
   });
   finishRecord(rec, r);
+  const types: Record<string, Record<string, { n: number; lost: number; immob: number }>> = { blue: {}, red: {} };
+  for (const v of (simRef as Sim | null)?.state.vehicle.values() ?? []) {
+    const k = ((types[v.side] ??= {})[v.def] ??= { n: 0, lost: 0, immob: 0 });
+    k.n++;
+    if (v.status === "destroyed" || v.status === "abandoned") k.lost++;
+    else if (v.status === "immobilised") k.immob++;
+  }
   // Seconds from first needing care to the first treatment, per treated man (by his side).
   for (const [id, since] of needSince) { const t = treated(id), k = carers[since.side]; if (k && t !== undefined) k.firstCareS.push((t - since.tick) / 60); }
   const sd = (side: string) => rec.sides[side] ?? newSideRecord();
@@ -151,6 +196,7 @@ for (let i = 0; i < runs; i++) {
       const mine = evacEnd.filter((e) => e.side === side);
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
+    types, killers, era, tankRounds,
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
@@ -212,6 +258,15 @@ const md = [
     const wrong = sum((r) => r.nest[s]?.wrong ?? 0), again = sum((r) => r.nest[s]?.wrongRetagged ?? 0), fixed = sum((r) => r.nest[s]?.corrected ?? 0);
     return `${s} nests sited ${sum((r) => r.nest[s]?.sited ?? 0)}, moved ${sum((r) => r.nest[s]?.moved ?? 0)}; sent back with bearers ${sum((r) => r.nest[s]?.tasked ?? 0)}, walking ${sum((r) => r.nest[s]?.walks ?? 0)}, arrived ${sum((r) => r.nest[s]?.arrived ?? 0)}, returned to duty ${sum((r) => r.nest[s]?.returned ?? 0)}; at the end ${got} of ${need} to be taken back had reached it (${need > 0 ? Math.round((100 * got) / need) : 0} %); wrong tags ${wrong}, tagged again ${again}, now right ${fixed} (${wrong > 0 ? Math.round((100 * fixed) / wrong) : 0} % of wrong tags corrected)`;
   }).join("; ")}`,
+  `- Vehicles by type (M7.6b; mean per battle, lost = destroyed or abandoned): ${["blue", "red"].map((s) => {
+    const ts = [...new Set(rows.flatMap((r) => Object.keys(r.types?.[s] ?? {})))].sort();
+    return `${s} ${ts.length === 0 ? "none" : ts.map((t) => `${t} x${mean(rows.map((r) => r.types[s]?.[t]?.n ?? 0)).toFixed(1)}: lost ${mean(rows.map((r) => r.types[s]?.[t]?.lost ?? 0)).toFixed(2)}, immobilised ${mean(rows.map((r) => r.types[s]?.[t]?.immob ?? 0)).toFixed(2)}`).join("; ")}`;
+  }).join(" | ")}`,
+  `- Kills by shooter (M7.6b; the last penetrating hit before each loss, all runs): ${(() => {
+    const vs = [...new Set(rows.flatMap((r) => Object.keys(r.killers ?? {})))].sort();
+    return vs.length === 0 ? "none" : vs.map((t) => { const by: Record<string, number> = {}; for (const r of rows) for (const [w, n] of Object.entries(r.killers[t] ?? {})) by[w] = (by[w] ?? 0) + n; return `${t} by ${Object.entries(by).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([w, n]) => `${w} ${n}`).join(", ")}`; }).join("; ");
+  })()}`,
+  `- Reactive tiles used and tank gun rounds per battle (M7.6b): ${["blue", "red"].map((s) => `${s} tiles ${mean(rows.map((r) => r.era?.[s] ?? 0)).toFixed(1)}, tank rounds AP ${mean(rows.map((r) => r.tankRounds?.[s]?.ap ?? 0)).toFixed(1)}, HE ${mean(rows.map((r) => r.tankRounds?.[s]?.he ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",

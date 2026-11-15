@@ -61,8 +61,8 @@ describe("siteHullDown (M7.6b)", () => {
     expect(posts.length).toBeGreaterThan(0);
     for (const p of posts) { expect(hypot2(p.x - 1000, p.y - 600)).toBeGreaterThanOrEqual(250); expect(p.exposed).toBeUndefined(); }
     const all = siteHullDown(ctx, anchor, targets, opts({ threats: [anchor], standoffM: 1000 }));
-    expect(all).toHaveLength(1);
-    expect(all[0]!.exposed).toBe(true);
+    expect(all.length).toBeGreaterThanOrEqual(1);
+    for (const p of all) expect(p.exposed).toBe(true);
     expect(hypot2(all[0]!.x - anchor.x, all[0]!.y - anchor.y)).toBeGreaterThan(200); // the farthest ring
   });
 

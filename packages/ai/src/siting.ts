@@ -407,6 +407,10 @@ export interface HullDownOpts {
   behind?: { x: number; y: number; ux: number; uy: number; minM: number };
   /** Where the tank stands: candidates must be reachable from it (its grid region). */
   from?: { x: number; y: number };
+  /** No post in vegetation at least this tall (a tank does not stand in a wood or a treeline). */
+  vegMaxM?: number;
+  /** Rings searched instead of `ringsM` (e.g. a short pull back). */
+  ringsM?: readonly number[];
 }
 
 export interface HullDownPost extends OverwatchPost { exposed?: true; score: number }
@@ -431,7 +435,7 @@ export function siteHullDown(ctx: SimContext, anchor: { x: number; y: number }, 
   for (const t of tg) { mx += t.x; my += t.y; }
   if (tg.length > 0) { mx /= tg.length; my /= tg.length; } else { mx = anchor.x; my = anchor.y; }
   const cands: { x: number; y: number }[] = [];
-  for (const r of D.ringsM) {
+  for (const r of o.ringsM ?? D.ringsM) {
     const n = r === 0 ? 1 : Math.max(8, Math.round((2 * PI * r) / D.stepM));
     for (let k = 0; k < n; k++) {
       const b = (2 * PI * k) / n, x = anchor.x + cos(b) * r, y = anchor.y + sin(b) * r;
@@ -442,18 +446,21 @@ export function siteHullDown(ctx: SimContext, anchor: { x: number; y: number }, 
   const stride = Math.max(1, Math.ceil(cands.length / D.maxCands));
   const s2 = o.standoffM * o.standoffM;
   const scored: { x: number; y: number; score: number }[] = [];
-  let fallback: { x: number; y: number; minD: number } | null = null;
+  const fallback: { x: number; y: number; score: number }[] = [];
+  const vegH = (x: number, y: number): number => {
+    const c = Math.min(Math.floor(x / map.cellSizeM), map.cols - 1), r = Math.min(Math.floor(y / map.cellSizeM), map.rows - 1);
+    const vi = map.vegetation[r * map.cols + c] ?? 0;
+    return vi > 0 ? ctx.catalog.terrain.vegetation[map.vegetationPalette[vi - 1] ?? ""]?.heightM ?? 0 : 0;
+  };
   for (let i = 0; i < cands.length; i += stride) {
     const c = cands[i]!;
     if (navCostAt(grid, c.x, c.y) <= 0 || indoorAt(ctx, c.x, c.y) >= 0) continue;
+    if (o.vegMaxM !== undefined && vegH(c.x, c.y) >= o.vegMaxM) continue;
     if (region > 0 && regionAt(c.x, c.y) !== region) continue;
     if (o.behind && (c.x - o.behind.x) * o.behind.ux + (c.y - o.behind.y) * o.behind.uy < o.behind.minM) continue;
     let minD2 = Infinity;
     for (const t of o.threats) { const d2 = (t.x - c.x) * (t.x - c.x) + (t.y - c.y) * (t.y - c.y); if (d2 < minD2) minD2 = d2; }
-    if (minD2 < s2) {
-      if (!fallback || minD2 > fallback.minD) fallback = { x: c.x, y: c.y, minD: minD2 };
-      continue;
-    }
+    if (minD2 < s2) { fallback.push({ x: c.x, y: c.y, score: minD2 }); continue; }
     const g = heightAt(map, c.x, c.y); // ground: ok (a hull on open ground)
     const tz = g + o.turretZ, hz = g + o.hullZ;
     let seen = 0, hidden = 0;
@@ -470,15 +477,19 @@ export function siteHullDown(ctx: SimContext, anchor: { x: number; y: number }, 
     scored.push({ x: c.x, y: c.y, score });
   }
   const face = (p: { x: number; y: number }) => atan2(my - p.y, mx - p.x);
-  if (scored.length === 0) return fallback ? [{ x: fallback.x, y: fallback.y, facing: face(fallback), exposed: true, score: 0 }] : [];
-  scored.sort((a, b) => b.score - a.score || a.x - b.x || a.y - b.y);
-  const best = scored[0]!;
-  const out: HullDownPost[] = [{ x: best.x, y: best.y, facing: face(best), score: best.score }];
-  for (const s of scored) {
+  // (None keeps the standoff: those farthest from the nearest threat, flagged exposed.)
+  const exposed = scored.length === 0;
+  const list = exposed ? fallback : scored;
+  if (list.length === 0) return [];
+  list.sort((a, b) => b.score - a.score || a.x - b.x || a.y - b.y);
+  const best = list[0]!;
+  const post = (p: { x: number; y: number; score: number }): HullDownPost => ({ x: p.x, y: p.y, facing: face(p), score: exposed ? 0 : p.score, ...(exposed ? { exposed: true as const } : {}) });
+  const out: HullDownPost[] = [post(best)];
+  for (const s of list) {
     if (out.length >= 3) break;
     const d0 = hypot2(s.x - best.x, s.y - best.y);
     if (d0 < HULL_DOWN.altM[0] || d0 > HULL_DOWN.altM[1] || out.some((p) => hypot2(p.x - s.x, p.y - s.y) < HULL_DOWN.altM[0])) continue;
-    out.push({ x: s.x, y: s.y, facing: face(s), score: s.score });
+    out.push(post(s));
   }
   return out;
 }

@@ -29,6 +29,7 @@ import {
   type BattleInput, type Controller, type EntityId, type ObjectiveDef, type Order, type SideId, type SimContext, type SimState, type SimView, type SoldierState,
 } from "@tcs/sim";
 import { approachPoints, seenShare, siteDefence, siteOverwatch, type SitingGroup } from "./siting";
+import { isArmourSection, tankSections, TANKS, tankVehicles, type TanksMemory } from "./tanks";
 
 export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defenceRangeM: 300, refireSeconds: 20, reassaultSeconds: 30, grenadeRangeM: 35, grenadeEverySeconds: 20, heEverySeconds: 45, heRounds: 6, smokeEverySeconds: 120, smokeRounds: 3, smokeAheadM: 45, defenceHeEverySeconds: 120, defenceHeRounds: 4, rideTimeoutSeconds: 300, dismountStepM: 50, dismountCandidates: 3, vehicleSlotM: 60, vehicleLossShare: 2 / 3, vehicleFireNearOwnM: 80, followReplanM: 40, supportFireEverySeconds: 20, houseResiteSeconds: 30,
   // Defence siting (overnight pick "defence-siting"; the rest in siting.ts SITING): a group within this of an
@@ -106,7 +107,7 @@ export const COMMANDER = { stepSeconds: 5, supportM: 330, reconSeconds: 60, defe
   sneakM: 50, resumeSeconds: 15, resumeMax: 4, arrivedM: 40, advanceTimeoutSeconds: 600, assaultPositionM: 120, flankMaxDeg: 50, closeTimeoutSeconds: 300, closeInM: 60, underFireSuppression: 0.1, prepLeadS: 15, restFatigue: 0.35, restMaxSeconds: 60, blindAheadM: 10, axisMaxDeg: 45, screenShare: 0.5, screenHalfM: 50, screenRounds: 4, screenLeadS: 20, dangerCloseMarginM: 50, liftM: 40, lineAllowanceM: 5, placeDepthsM: [0, 20, -10], placeAsideM: [0, -20, 20, -40, 40], flankClearM: 320, launcherReachM: 200 } as const;
 
 type Phase = "start" | "ride" | "advance" | "recon" | "assault" | "second" | "hold" | "withdraw";
-interface Memory {
+interface Memory extends TanksMemory {
   phase: Phase; phaseTick: number; target: number; lastFire: number; lastAssault: Record<string, number>; pulledBack: number[]; counterTick: number; lastGrenade?: Record<string, number>; lastHe?: number; lastSmoke?: number;
   /** M7.2 ride and dismount: the last vehicle hit it has seen (polled `lastHitTick`), squads and men ordered out,
    *  vehicles waiting for their squad to get back in during a withdrawal. */
@@ -435,7 +436,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)
-      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined);
+      // (M7.6b: nor a tank section: it is sited and moved below, tanks.ts.)
+      const tops = [...view.unit.entries()].filter(([id, u]) => u.side === side && u.parent === null && !isMortarUnit(view, id) && u.missileTeam === undefined && !isArmourSection(view, ground(), id));
       if (tops.length === 0) return out;
       const topIds = tops.map(([id]) => id);
       // Squads on foot and vehicle crews (M7.2), paired by the squad's carrier.
@@ -490,7 +492,16 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const hitNow = crews.some((c) => (vehicleOf(c)?.lastHitTick ?? -1e9) > (mem.lastHitSeen ?? -1e9));
       for (const c of crews) mem.lastHitSeen = Math.max(mem.lastHitSeen ?? -1e9, vehicleOf(c)?.lastHitTick ?? -1e9);
       // Its own vehicles (a crew that bailed out no longer has one: count the hulls of its side).
-      const ownVehicles = [...view.vehicle.values()].filter((v) => v.side === side);
+      // (M7.6b: the platoons' own hulls: not the tank sections'.)
+      const tankVids = tankVehicles(view, ground(), side);
+      const ownVehicles = [...view.vehicle.entries()].filter(([vid, v]) => v.side === side && !tankVids.has(vid)).map(([, v]) => v);
+      const tankCrews = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.vehicle !== undefined).sort((a, b) => a - b);
+      /** M7.6b: the side's tank sections (tanks.ts); returns the tanks not yet on their first post. */
+      const tanks = (ux: number, uy: number, backOf: (c: EntityId) => Record<string, unknown>): number => {
+        if (tankCrews.length === 0) return 0;
+        const ownFoot = all.filter((m) => { const s = view.soldier.get(m) as SoldierState | undefined; return able(s) && s!.mount === undefined; }).map((m) => view.transform.get(m)).filter((x) => x !== undefined);
+        return tankSections({ view, tick, side, ctx: ground(), objectives, mem, order, defending, ux, uy, phase: mem.phase, phaseTick: mem.phaseTick, remounting: mem.remount?.length ?? 0, ownFoot, back: backOf, reverseHoldSeconds: COMMANDER.reverseOutHoldSeconds });
+      };
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
       mem.sentBack ??= [];
       for (const c of bailed) {
@@ -564,6 +575,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       if (!main) return out;
 
       if (defending) {
+        { const f = mem.front ?? front0(); tanks(cos(f), sin(f), () => ({ kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] })); }
         if (mem.phase === "start") {
           toAll({ kind: "rules", fire: "free", maxEngageM: COMMANDER.defenceRangeM });
           // Each man to a fire position of his own near his group's place (overnight pick "defence-siting"):
@@ -1050,7 +1062,14 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         if ((mem.phase === "assault" || mem.phase === "second") && tick - (mem.lastVehicleFire ?? -1e9) >= COMMANDER.supportFireEverySeconds * 60) {
           const used = new Set<number>();
           const ownFoot = all.filter((f) => { const s = view.soldier.get(f); return s !== undefined && s.mount === undefined && s.physiology.alive; }).map((f) => view.transform.get(f)).filter((x) => x !== undefined);
-          for (const c of fighting) {
+          // (M7.6b: the tanks too, unless their crew knows an enemy vehicle within its gun's reach: that is theirs.)
+          const tankFire = tankCrews.filter((c) => {
+            const v = vehicleOf(c), vt = v ? view.transform.get(view.unit.get(c)!.vehicle!) : undefined;
+            if (!v || !vt || (v.status !== "ok" && v.status !== "immobilised")) return false;
+            const reach = input.catalog.vehicles[v.def]?.stations[0]?.weapons[0]?.engageRangeM ?? 0;
+            return ![...freshVehicleContacts(view.unit.get(c)!.members).values()].some((k) => hypot2(k.x - vt.x, k.y - vt.y) <= reach);
+          });
+          for (const c of [...fighting, ...tankFire]) {
             let best: { target: EntityId; x: number; y: number } | null = null, bestD = 150;
             for (const m of all) for (const k of known(m)) {
               if (k.kind === "heard") continue;
@@ -1097,6 +1116,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
         }
         blind();
       };
+      // M7.6b: the tank sections (overwatch from hull-down posts; tanks.ts).
+      const tanksNotReady = tanks(ux, uy, back);
       switch (mem.phase) {
         case "start":
           // M9.3b (A4): mounted, the carriers wait in dead ground until the side's missile team is set up on its
@@ -1107,6 +1128,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
               if (u.side !== side || u.missileTeam === undefined || teamOnPost(view, id)) return false;
               return tick / 60 + teamEtaS(view, id, tick) <= COMMANDER.overwatchWaitSeconds;
             })) break;
+          // M7.6b: and until the side's tanks are on their first posts in overwatch (at most `carrierWaitSeconds`).
+          if (tanksNotReady > 0 && tick < TANKS.carrierWaitSeconds * 60) break;
           toAll({ kind: "rules", fire: "return", onContact: "ground" });
           // Mounted (M7.2): the vehicles drive the squads to their dismount points; the squads ride.
           if (squads.some((sq) => riders(view, sq).length > 0)) {

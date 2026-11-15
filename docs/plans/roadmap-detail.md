@@ -484,7 +484,8 @@ the SVD moved to 42). Depends on 12 (Boxer base): Boxer infantry variant, BTR-82
 the German Jäger platoon and the Russian BTR platoon as unit templates; app `?vehicles=` choice. Acceptance: drive
 and gunnery lab rows; mounted batches with wheeled carriers.
 
-**42. M7.6d Russian assault group and support weapons** (M, optional): the assault-group organisation; automatic
+**42. M7.6d Russian assault group and support weapons** (M, optional) — ✅ done 2026-11-15 (DECISIONS "M7.6d"; AGS
+high-angle fire, MRO-A / RShG-2, burns and an RPO step in the clear drill deferred): the assault-group organisation; automatic
 grenade launcher (AGS type) and thermobaric launcher as data (abstract effects, SPEC 3); a German automatic grenade
 launcher if sourced. From 41: the GTK's 40 mm GMW on the FLW 200 (a second feed or variant), the SVD for the BTR squads. Acceptance: lab rows; batch.
 

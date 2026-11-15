@@ -251,6 +251,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M7.6c Wheeled carriers and their platoons** (2026-11-15) — GTK Boxer (FLW 200, 12.7 mm) and BTR-82A; the
     Jägerzug and the BTR platoon; manifest `platoonTemplates`, `carriers`, app `?vehicles=wheeled`; lab rows, batches
     (wheeled Jäger attack 0 of 10: reported, not tuned), `--scene wheeled`. Next: M7.6d (GMW 40 mm, AGS, SVD).
+  - ✅ **M7.6d Russian assault group and support weapons** (2026-11-15) — GTK with the GMW (variant), SVD in the BTR
+    squad, AGS-30 / GMW teams on foot (`crewServed` kind "agl"), RPO-A thermobaric (abstract enclosed-space blast),
+    the assault group (`assault-group`, `?assault=1`); labs, batches, `--scene assault`. Deferred: AGS high-angle fire,
+    MRO-A / RShG-2.
 
 ## Stage C — depth
 

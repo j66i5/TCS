@@ -1,11 +1,13 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting [seeds]|engage [seeds]|reacquire [seeds] [--seeds 1,2,3] [--scenarios a,b] [--seconds s]|suppression|morale [trials]|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { casualtyLab, casualtyLabMarkdown } from "../labs/casualty";
 import { fragmentationLab, fragmentationLabMarkdown } from "../labs/fragmentation";
 import { sightLab, sightLabMarkdown } from "../labs/sight";
-import { spottingLab, spottingLabMarkdown } from "../labs/spotting";
+import { sightRealismLab, sightRealismMarkdown, spottingLab, spottingLabMarkdown } from "../labs/spotting";
+import { engageLab, engageLabMarkdown } from "../labs/engage";
+import { reacquireLab, reacquireLabMarkdown, reacquireOptions } from "../labs/reacquire";
 import { suppressionLab, suppressionLabMarkdown } from "../labs/suppression";
 import { moraleLab, moraleLabMarkdown } from "../labs/morale";
 import { ambushLab, ambushLabMarkdown, attackLab, attackLabMarkdown } from "../labs/attack";
@@ -42,7 +44,9 @@ const LABS: Record<string, () => string> = {
   casualty: () => `# Casualty lab\n\n${casualtyLabMarkdown(casualtyLab(loadData()))}\n`,
   fragmentation: () => `# Fragmentation lab\n\n${fragmentationLabMarkdown(fragmentationLab(loadData()))}\n`,
   sight: () => `# Line-of-sight lab\n\n${sightLabMarkdown(sightLab(loadData()))}\n`,
-  spotting: () => `# Spotting lab\n\n${spottingLabMarkdown(spottingLab(loadData()))}\n`,
+  spotting: () => { const d = loadData(); return `# Spotting lab\n\n${spottingLabMarkdown(spottingLab(d))}\n\n${sightRealismMarkdown(sightRealismLab(d, Number(process.argv[3] ?? 20)))}\n`; },
+  engage: () => `# Engage lab\n\n${engageLabMarkdown(engageLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
+  reacquire: () => `# Re-acquire lab\n\n${reacquireLabMarkdown(reacquireLab(reacquireOptions(process.argv.slice(3))))}\n`,
   suppression: () => `# Suppression lab\n\n${suppressionLabMarkdown(suppressionLab(loadData()))}\n`,
   morale: () => `# Morale lab\n\n${moraleLabMarkdown(moraleLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
   attack: () => `# Attack lab\n\n${attackLabMarkdown(attackLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,

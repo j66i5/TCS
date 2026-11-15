@@ -6603,3 +6603,147 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   alone is "unable", as for crew. Before, the squad's dismount took him out and left the station empty (a second
   passenger then swapped in and got out with the rest). `gtk-seatswap.test.ts` passed on main only because the old
   morale broke the blue platoon at 37 s, before its squad ever got out. No golden changed.
+
+## 2026-11-15 — Sight realism: baseline (step 1 of 5; tools only, no sim or data change, no golden update)
+- **Owner request** (2026-11-15, "make the line of sight more realistic"): men see enemies too easily (through bushes
+  and crops, at long range, lying still), yet sometimes do not shoot at an enemy right in front of them and do not
+  move to see a known enemy again. Before changing anything, the audit's throwaway scripts became repo labs, so that
+  every later step is judged by the same cases and seeds:
+  - `npm run lab -- spotting [seeds]` now also prints the **sight realism rows** (`SIGHT_CASES`, `sightCase` in
+    `tools/src/labs/spotting.ts`: a 4 m vegetation patch in front of the target, crop fields, treelines, crawling,
+    firing, 1/3/9 observers, optic against iron sights, a house window placed with `occupyPlaces`; seeds 7001-7020)
+    and a **retention** table (`retainCase`: seen, then prone and still; seeds 101-120). The old table is unchanged.
+  - `npm run lab -- engage [seeds]` (new, `labs/engage.ts`): one G36 rifleman, one enemy still in the open ahead at
+    30/60/100 m; halted under rule return (the data default, no order), free or hold; walking toward or across under
+    free; forced pinned under free. 12 seeds, 60 s.
+  - `npm run lab -- reacquire [seeds] [--seeds 1-3] [--scenarios a,b] [--seconds s]` (new, `labs/reacquire.ts`):
+    samples once a second; platoon (red defends), platoon-ru (blue defends), village-occupy (red attacks; 900 s, the
+    audit's length; the others 1200 s), seeds 1-3; about 2.5 min for all nine battles. Definitions are in the file's
+    header. The "not engaged" front arc is +-60 degrees of his facing (the audit's), visibility at least 0.5.
+- **Reproduced the audit** (all within noise, most exactly): prone still behind 4 m of crops at 100 m 13 s, 45 %
+  within 10 s; standing 2 m inside a treeline at 100 m 2 s (the open: 2 s); crops at 200 m 34 s with one observer,
+  2.8 s with nine; retention behind scrub at 300 m 15/15 kept at 60 s; engage rule return 0/72; walking toward
+  under rule free 19.6 s at 30 m, 41.5 s at 60 m, never at 100 m; pinned 0/72; platoon s1-3 defence blind-idle to
+  sighted 1.50 (5367/3585), re-acquisition 4.3 %; village-occupy s1 attackers blind-idle 52.0 % of man-time,
+  defenders indoors 1272 man-s, 95.5 % of it with another window of the house seeing.
+- **Spotting, sight realism rows (before):**
+
+  | target | range m | runs | median s | found within 10 s | never found in 120 s |
+  |---|---:|---:|---:|---:|---:|
+  | standing, still, open | 50 | 20 | 1.0 | 100 % | 0 % |
+  | standing, still, open | 100 | 20 | 2.0 | 100 % | 0 % |
+  | standing, still, open | 200 | 20 | 5.0 | 80 % | 0 % |
+  | prone, still, open | 50 | 20 | 2.0 | 100 % | 0 % |
+  | prone, still, behind 4 m of crops | 100 | 20 | 13.0 | 45 % | 0 % |
+  | prone, still, behind 4 m of crops | 200 | 20 | 34.0 | 15 % | 5 % |
+  | prone, still, behind 4 m of crops | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of tall-grass | 100 | 20 | 10.0 | 60 % | 0 % |
+  | prone, still, behind 4 m of tall-grass | 200 | 20 | 21.0 | 25 % | 0 % |
+  | prone, still, behind 4 m of tall-grass | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of scrub | 100 | 20 | 14.0 | 40 % | 0 % |
+  | prone, still, behind 4 m of scrub | 200 | 20 | 37.0 | 15 % | 15 % |
+  | prone, still, behind 4 m of scrub | 400 | 20 | 107.0 | 10 % | 40 % |
+  | prone, still, in a whole crop field | 100 | 20 | over 120 | 0 % | 100 % |
+  | prone, still, in a whole crop field | 200 | 20 | over 120 | 0 % | 100 % |
+  | standing, still, 2 m inside a treeline | 100 | 20 | 2.0 | 100 % | 0 % |
+  | standing, still, 2 m inside a treeline | 400 | 20 | 17.0 | 35 % | 0 % |
+  | standing, still, 5 m inside woodland | 400 | 20 | 19.0 | 30 % | 0 % |
+  | crouching, still, in tall grass (4 m) | 100 | 20 | 3.0 | 95 % | 0 % |
+  | crouching, still, in tall grass (4 m) | 400 | 20 | 33.0 | 15 % | 0 % |
+  | prone, firing, behind 4 m of crops | 200 | 20 | 5.0 | 80 % | 0 % |
+  | prone, firing, behind 4 m of crops | 400 | 20 | 14.0 | 35 % | 0 % |
+  | prone, firing, open | 400 | 20 | 5.0 | 65 % | 0 % |
+  | prone, firing, open | 600 | 20 | 17.0 | 25 % | 0 % |
+  | crawling, open | 400 | 20 | 17.0 | 35 % | 0 % |
+  | crawling, open | 600 | 20 | 37.0 | 15 % | 15 % |
+  | crawling, behind 4 m of crops | 200 | 20 | 9.0 | 65 % | 0 % |
+  | prone, still, behind 4 m of crops, 1 observer | 200 | 20 | 34.0 | 15 % | 5 % |
+  | prone, still, behind 4 m of crops, 1 observer | 400 | 20 | 67.0 | 15 % | 30 % |
+  | prone, still, behind 4 m of crops, 3 observers | 200 | 20 | 9.9 | 55 % | 0 % |
+  | prone, still, behind 4 m of crops, 3 observers | 400 | 20 | 25.9 | 30 % | 15 % |
+  | prone, still, behind 4 m of crops, 9 observers | 200 | 20 | 2.8 | 95 % | 0 % |
+  | prone, still, behind 4 m of crops, 9 observers | 400 | 20 | 8.8 | 55 % | 0 % |
+  | standing, still, open, G36 optic | 400 | 20 | 14.0 | 40 % | 0 % |
+  | standing, still, open, iron sights | 400 | 20 | 19.0 | 30 % | 0 % |
+  | standing, still, open, G36 optic | 600 | 20 | 37.0 | 15 % | 5 % |
+  | standing, still, open, iron sights | 600 | 20 | 37.0 | 15 % | 15 % |
+  | standing, still, at a house window | 300 | 20 | 9.0 | 65 % | 0 % |
+
+- **Retention (before):**
+
+  | in front of him | range m | seen as he stopped | still kept at 60 s | lost within 20 s | mean time kept s |
+  |---|---:|---:|---:|---:|---:|
+  | open ground | 100 | 20/20 | 100 % | 0 % | 80 |
+  | open ground | 200 | 20/20 | 100 % | 0 % | 80 |
+  | open ground | 300 | 18/20 | 100 % | 0 % | 80 |
+  | 4 m of crops | 100 | 20/20 | 100 % | 0 % | 79 |
+  | 4 m of crops | 200 | 20/20 | 100 % | 0 % | 79 |
+  | 4 m of crops | 300 | 19/20 | 100 % | 0 % | 79 |
+  | 4 m of scrub | 100 | 20/20 | 100 % | 0 % | 76 |
+  | 4 m of scrub | 200 | 20/20 | 100 % | 0 % | 76 |
+  | 4 m of scrub | 300 | 15/20 | 100 % | 0 % | 76 |
+
+- **Engage lab (before).** By case: walking toward fires at 19.6 s (30 m) and 41.5 s (60 m) for both postures, 0/12
+  at 100 m; rule free, halted, fires at a median of 1.5-8.2 s.
+
+  | situation | fired within 10 s | within 15 s | within 60 s | median s of those that fired | never spotted |
+  |---|---:|---:|---:|---:|---:|
+  | rule return | 0/72 | 0/72 | 0/72 | – | 0 |
+  | rule free | 65/72 | 68/72 | 72/72 | 1.9 | 0 |
+  | rule hold | 0/72 | 0/72 | 0/72 | – | 0 |
+  | walking toward (free) | 0/72 | 0/72 | 48/72 | 41.0 | 0 |
+  | walking across (free) | 0/72 | 0/72 | 0/72 | – | 12 |
+  | pinned (free) | 0/72 | 0/72 | 0/72 | – | 0 |
+
+- **Re-acquire lab, seeds 1-3 (before).** Village-occupy s1 alone: attack 1842 of 3541 man-s blind-idle (52.0 %),
+  defence 1272 blind-idle man-s, all indoors, 1215 (95.5 %) with another window seeing.
+
+  | scenario | side | man-s | sighted man-s | blind-idle man-s | blind-idle / sighted | blind-idle share of man-time | re-acquisition | episodes | median s | p90 s | median s, enemy stayed within 10 m | fully blind squad-time | longest fully blind squad s | squad episodes over 30 s |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | platoon s1,2,3 | defence | 48865 | 3585 | 5367 | 1.50 | 11.0 % | 4.3 % | 588 | 3 | 15 | 3 | 10.1 % | 154 | 7 (2.3 per battle) |
+  | platoon s1,2,3 | attack | 123475 | 10497 | 1643 | 0.16 | 1.3 % | 1.6 % | 503 | 1 | 5 | 1 | 1.1 % | 28 | 0 (0.0 per battle) |
+  | platoon-ru s1,2,3 | defence | 29933 | 10567 | 322 | 0.03 | 1.1 % | 14.3 % | 42 | 6 | 10 | 5 | 1.0 % | 14 | 0 (0.0 per battle) |
+  | platoon-ru s1,2,3 | attack | 57699 | 17374 | 96 | 0.01 | 0.2 % | 8.0 % | 25 | 2 | 9 | 2 | 0.0 % | 0 | 0 (0.0 per battle) |
+  | village-occupy s1,2,3 | defence | 14464 | 958 | 1823 | 1.90 | 12.6 % | 6.9 % | 58 | 12 | 89 | 12 | 0.7 % | 6 | 0 (0.0 per battle) |
+  | village-occupy s1,2,3 | attack | 10445 | 957 | 2447 | 2.56 | 23.4 % | 12.4 % | 129 | 6 | 24 | 6 | 3.9 % | 15 | 0 (0.0 per battle) |
+
+  | scenario | side | blind-idle man-s | prone | under fire (suppression 0.1+) | indoors | indoors, another window sees | visible now, not yet spotted | kneel shows him | stand shows him | side-step of 2-6 m shows him | fixable by a peek of 6 m or less | nothing near shows him | episodes ended by |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+  | platoon | defence | 5367 | 4502 | 344 | 1654 | 678 (41.0 %) | 47 | 75 | 35 | 361 | 471 (8.8 %) | 4849 | forgot 521, posture 29, seen again 25, other 6, own move 4, fired 2, unit moved 1 |
+  | platoon | attack | 1643 | 1484 | 28 | 196 | 124 (63.3 %) | 3 | 19 | 36 | 126 | 181 (11.0 %) | 1459 | forgot 430, unit moved 45, other 10, seen again 8, posture 5, fired 3, own move 2 |
+  | platoon-ru | defence | 322 | 315 | 50 | 132 | 132 (100.0 %) | 15 | 40 | 68 | 62 | 170 (52.8 %) | 137 | forgot 34, seen again 6, posture 2 |
+  | platoon-ru | attack | 96 | 96 | 0 | 0 | 0 (–) | 1 | 41 | 0 | 0 | 41 (42.7 %) | 54 | forgot 15, fired 7, seen again 2, unit moved 1 |
+  | village-occupy | defence | 1823 | 43 | 14 | 1823 | 1532 (84.0 %) | 18 | 15 | 0 | 0 | 15 (0.8 %) | 1790 | forgot 50, seen again 4, own move 3, posture 1 |
+  | village-occupy | attack | 2447 | 2195 | 154 | 0 | 0 (–) | 127 | 111 | 36 | 1413 | 1560 (63.8 %) | 760 | forgot 99, seen again 16, posture 5, own move 5, other 4 |
+
+  Enemy in front, not engaged (only 285 exposure man-s in nine battles: few men are within 100 m of an enemy in
+  clear view; platoon-ru and village-occupy have none at that range):
+
+  | scenario | side | exposure man-s | not engaged man-s | share | carrying | care | pinned | rule | moving | drill or ordered task | other |
+  |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | platoon | defence | 155 | 52 | 33.5 % | 31 | 0 | 0 | 0 | 0 | 0 | 21 |
+  | platoon | attack | 130 | 103 | 79.2 % | 17 | 19 | 26 | 0 | 31 | 5 | 5 |
+  | platoon-ru | defence | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | platoon-ru | attack | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | village-occupy | defence | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | village-occupy | attack | 0 | 0 | – | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+  | all | both | 285 | 155 | 54.4 % | 48 | 19 | 26 | 0 | 31 | 5 | 26 |
+
+- **Batches (before**, `npm run batch -- --scenario <s> --runs 10 --seconds 1200`, seeds 1-10):
+
+  | scenario (attacker) | winners blue/red | attacker wins | casualties blue/red | mean duration s | end reasons |
+  |---|---|---:|---|---:|---|
+  | platoon (blue) | 8/2 | 8 | 12.1 / 11.8 | 1018 | eliminated 7, time 3 |
+  | platoon-ru (red) | 2/8 | 8 | 14.1 / 5.3 | 808 | eliminated 8, time 2 |
+  | platoon-vehicles (blue) | 9/1 | 9 | 6.6 / 25.5 | 899 | eliminated 4, time 6 |
+  | platoon-ru-vehicles (red) | 10/0 | 0 | 8.2 / 34.0 | 1096 | eliminated 1, time 9 |
+
+  Casualties 31.4 per battle. Two of the four are already outside the acceptance's 2-8 band (platoon-vehicles 9,
+  platoon-ru-vehicles 0): later steps are judged against these numbers. Platoon breaks: the morale rework's "17 of
+  40" came from a scratch sampler that is not in the repo and cannot be re-run the same way. Counted again on these
+  40 battles with a scratch script (`sight/step1/breaks.ts` in the session's scratch folder; a top-level unit of
+  echelon platoon with `broken` set at any time): a platoon of the side that lost broke in 32 of 40 (8 in each
+  scenario); a platoon broke at all in 34 of 40. Later steps compare with this count, same script.
+- No behaviour change: `sim`, `ai` and data untouched, goldens unchanged. Tests: `lab-engage.test.ts` (hold never
+  fires; free and halted fires within 10 s at 30 m), `lab-reacquire.test.ts` (options; counts consistent over a
+  short village-occupy battle), a sight realism row in `lab-spotting.test.ts`.

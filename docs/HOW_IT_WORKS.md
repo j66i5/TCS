@@ -680,6 +680,17 @@ drawn: `enemyMenInSight` in `render/src/fog.ts`, the same "in sight now" test as
 `npm run lab -- spotting` prints how long it takes in typical cases; with Debug on, a thin line joins each man
 to every enemy he can see.
 
+**Measuring sight (2026-11-15).** Three labs measure how well men see and react, so that every change to sight is
+judged by the same yardsticks. `npm run lab -- spotting` also prints the "sight realism" rows: how long one or more
+observers take to find a man lying in crops, grass or scrub, standing inside a treeline, crawling, firing, or
+standing at a house window, at 100 to 600 m over 20 seeds, and how long a man who was seen stays seen once he lies
+down still. `npm run lab -- engage` puts one rifleman in front of an enemy standing or lying in the open at 30-100 m
+and times his first shot: halted under each fire rule, walking, or pinned. `npm run lab -- reacquire [seeds]` runs
+whole battles (platoon, platoon-ru, village-occupy) and counts, once a second, men who know where an enemy is but
+cannot see him and do nothing about it ("blind and idle"), whether a small peek or another window would have shown
+him, squads that are blind as a whole, and men who have an enemy in clear view in front of them within 100 m and
+have not fired for over 5 s, with the reason.
+
 ## Under fire
 
 Every enemy round that cracks past a man within about 4 m — or strikes near him — **suppresses** him a little

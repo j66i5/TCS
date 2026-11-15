@@ -5,6 +5,13 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism, step 1 of 5: measuring tools and baseline (2026-11-15, branch `claude/sight-realism`, on the
+  morale rework; owner request "make the line of sight more realistic").** No behaviour change yet. New labs:
+  `npm run lab -- engage` (does a man shoot an enemy right in front of him?), `npm run lab -- reacquire` (men who
+  know where an enemy is but cannot see him and do nothing; enemies in front not engaged) and the sight realism and
+  retention rows in `npm run lab -- spotting`. The before numbers and batches are in DECISIONS "Sight realism:
+  baseline". Next steps: harder spotting where it should be (vegetation, posture, stillness, range, losing sight of
+  a man who lies still), prompt fire at an enemy close in front, and men and squads moving to see a lost enemy again.
 - **Morale rework (2026-11-15, branch `claude/morale-rework`; owner report "morale is almost always at 100").**
   morale = resolve x (1 - shock) x (1 - strain) per man (`mental.morale` is now the sim's value; `mental.stress` is the
   shock, new `strain`, `nerve`, `why`, `flee`); the four driver groups (leadership/cohesion, losses/wounded,

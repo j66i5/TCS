@@ -166,6 +166,12 @@ Wounded men who can no longer fight, and panicked or fleeing men, give up when a
 hold fire once they see it; prisoners are taken (a quiet enemy walks over); surrender costs like a casualty;
 white flags on the map; the after-action review lists surrendered and captured men.
 
+### Sight realism — 🔨 (owner request 2026-11-15: "make the line of sight more realistic")
+Men see enemies too easily through bushes and crops, at long range and lying still; yet an enemy right in front is
+sometimes not shot at, and men do not move to see a known enemy again. Five steps: (1) ✅ measuring tools and the
+before numbers (labs `engage`, `reacquire`, sight realism rows in `spotting`; DECISIONS "Sight realism: baseline");
+(2-5) harder spotting where it should be, prompt fire at a close enemy in front, and men and squads regaining sight.
+
 ## Stage B — combined arms and the modern layer
 - **M7 Vehicles** — drive model, crews, armour, components, IFVs and carriers, mount/dismount, shoulder-fired
   anti-tank weapons. ✅ (2026-11-12; M7.1a–c, M7.2, M7.3, M7.4a, M7.4b — plan `docs/plans/m7-vehicles.md`).

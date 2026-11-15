@@ -242,6 +242,8 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   const msl = missileReady(ctx, v, def, si);
   let mReach = msl ? Math.min(sn.weapons[msl.weapon]!.engageRangeM, msl.g.maxRangeM) : 0;
   if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
+  // (An ambush laid, D4b: the crew holds its fire to its range until it is sprung.)
+  if (crew.ambush !== undefined) { reach = Math.min(reach, crew.ambush.rangeM); mReach = Math.min(mReach, crew.ambush.rangeM); }
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
   const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number; posture?: Posture }>();
   const prot = protectedTargets(state, crew.members);

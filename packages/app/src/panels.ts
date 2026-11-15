@@ -105,7 +105,7 @@ export function showUnit(a: App): void {
         ext: def.extinguisher ? vehicleItems(st, vid, def.extinguisher.item) : 0,
       })}` : "")
       + (veh.crewReaction !== null ? `\n${t("status.vehicle.reaction", { reaction: t(`reaction.${veh.crewReaction}`), why: veh.reactionWhy.map((k) => t(k)).join(", ") })}` : "");
-    a.hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid), ...(a.pendingRules.get(uid) ?? {}) }, status);
+    a.hud.setUnit({ fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid), ambush: u.ambush?.rangeM ?? 0, ...(a.pendingRules.get(uid) ?? {}) }, status);
     return;
   }
   let fit = 0, wounded = 0, down = 0;
@@ -117,7 +117,7 @@ export function showUnit(a: App): void {
     states.set(s.mental.behaviour, (states.get(s.mental.behaviour) ?? 0) + 1);
   }
   const state = u.broken ? t("behaviour.broken") : [...states.entries()].sort((p, q) => q[1] - p[1]).map(([k, n]) => `${n} ${t(`behaviour.${k}`)}`).join(", ");
-  const nowRules: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid) };
+  const nowRules: UnitRules = { fire: u.fireRule, maxEngageM: u.maxEngageM, onContact: u.onContact, ammo: u.ammoRule, at: atRuleOf(a.sim.ctx, st, uid), ambush: u.ambush?.rangeM ?? 0 };
   const pend = a.pendingRules.get(uid);
   if (pend) {
     for (const k of Object.keys(pend) as (keyof UnitRules)[]) if (pend[k] === nowRules[k]) delete pend[k];

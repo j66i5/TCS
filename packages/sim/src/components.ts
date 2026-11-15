@@ -471,6 +471,13 @@ export interface Unit {
   };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
+  /** An ambush laid (D4b, `ambush` order) on this unit and every unit under `root` (the unit the order went to):
+   *  fire held until an enemy is within `rangeM` of one of their men, one of them fires, or they are fired on after
+   *  `tick` (systems/ambush.ts). Absent: none (or sprung). */
+  ambush?: { rangeM: number; tick: number; root: EntityId };
+  /** An arc to defend (D4b, `defendArc` order): its men face `facing` (rad) and fire on their own only at enemies
+   *  within `halfRad` of it. Absent: none. */
+  arc?: { facing: number; halfRad: number };
 }
 
 /**

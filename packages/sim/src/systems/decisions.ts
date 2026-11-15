@@ -29,7 +29,7 @@ import { secondsToTicks, staggerFirst, TICK_HZ, type EntityId } from "../ids";
 import { requestPosture } from "./body";
 import { isAble } from "../impair";
 import { sight, TARGET_POINT_M } from "../los";
-import { atan2, cos, hypot2, PI, sin } from "../math";
+import { atan2, cos, hypot2, PI, sin, wrapAngle } from "../math";
 import { bestCoverNear, exposureAt, navCostAt, type findPath } from "../nav";
 import { navFor } from "../navctx";
 import type { SimState } from "../state";
@@ -89,12 +89,20 @@ function pickTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierSt
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > secondsToTicks(D.seenWithinSeconds)) continue;
     // (The nearest enemy in range he knows to be protected or giving up: a deliberate breach may be decided on him.)
+    if (!inArc(state, id, me, c.x, c.y)) continue;
     if (out !== undefined && breach === undefined && breachCandidate(c)) { const d = hypot2(c.x - me.x, c.y - me.y); if (d <= candD) { candD = d; out.cand = c.target; } }
     const score = targetScore(ctx, state, c, me, rangeM, breach);
     if (score === null || (reserve && !reserveTargetOk(ctx, state, c, me))) continue;
     if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}), ...(c.posture !== undefined ? { posture: c.posture } : {}), score }; }
   }
   return best;
+}
+
+/** Is (x, y) within the arc his unit defends (D4b, `defendArc`)? Always, without one. */
+function inArc(state: SimState, id: EntityId, me: { x: number; y: number }, x: number, y: number): boolean {
+  const u = state.identity.get(id)?.unit;
+  const arc = u !== undefined ? state.unit.get(u)?.arc : undefined;
+  return arc === undefined || Math.abs(wrapAngle(atan2(y - me.y, x - me.x) - arc.facing)) <= arc.halfRad + 1e-9;
 }
 
 /** The nearest enemy drone he sees now within `drone.engageM` (slant), if any (M9.4b). */
@@ -546,8 +554,12 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   }
   if (task) return;
   const threat = threatOf(state, id, s);
-  if (!threat) return;
   const me = state.transform.req(id);
+  // An arc to defend (D4b): he faces it, unless the enemy he knows is within it (then the rules below).
+  const arc = state.unit.get(unitId)?.arc;
+  const arcFacing = arc !== undefined && (!threat || !inArc(state, id, me, threat.x, threat.y));
+  if (arcFacing && indoorAt(ctx, me.x, me.y) < 0) me.heading = arc.facing;
+  if (!threat) return;
   if (indoorAt(ctx, me.x, me.y) >= 0) return; // indoors his place (a window) sets his posture and facing
   // Lying blind: he rises to look (every lookEverySeconds, staggered), if kneeling would let him see.
   const lookN = Math.max(1, Math.round(S.lookEverySeconds * TICK_HZ / every));
@@ -561,10 +573,10 @@ function postureAndWatch(ctx: SimContext, state: SimState, id: EntityId, s: Sold
   // rear. (Out of a fight the facing he was given stands: the player's laid-out formation, the halt drill's.)
   const top = topUnit(state, unitId);
   const inFight = top !== undefined && state.tick - top.underFireTick <= secondsToTicks(D.underFireMemorySeconds);
-  if (!S.faceEnemy || !inFight) return;
+  if (!S.faceEnemy || !inFight || arcFacing) return;
   let rear = false;
   const u = state.unit.get(unitId);
-  if (u && S.rearWatchMinMen > 0) {
+  if (u && S.rearWatchMinMen > 0 && arc === undefined) {
     const idle = u.members.filter((m) => {
       const ms = state.soldier.get(m);
       return isAble(ms) && ms!.mount === undefined && !state.fire.has(m) && (state.mover.get(m)?.waypoints.length ?? 0) === 0;
@@ -964,7 +976,9 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const c = s.contacts.find((k) => k.target === task.contact);
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
-      const beyond = c !== undefined && unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM;
+      // (An ambush not yet sprung, D4b, holds his fire to its range.)
+      const beyond = c !== undefined && ((unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM) || (unit.ambush !== undefined && hypot2(c.x - me.x, c.y - me.y) > unit.ambush.rangeM)
+        || (c !== undefined && unit.arc !== undefined && !inArc(state, id, me, c.x, c.y)));
       if (!c || (spared(c) && !breachActive(s, c.target, state.tick)) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
@@ -1009,17 +1023,20 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       }
 
       // ---- an anti-tank shot on his own (M7.4a, owner Q19): his unit's fire rule and anti-tank rule allow it
-      if (halted && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
+      // (Not while an ambush waits, D4b: the first shot is the ambush's.)
+      if (halted && unit.ambush === undefined && fireAllowed(state, ctx, unit, top) && launcherDecision(ctx, state, events, id, s, ident.unit)) continue;
 
       // ---- a hand grenade on his own at an enemy behind cover or in a house close by (package D)
-      if (halted && fireAllowed(state, ctx, unit, top) && ownGrenade(ctx, state, events, id, s, ident.unit)) continue;
+      if (halted && unit.ambush === undefined && fireAllowed(state, ctx, unit, top) && ownGrenade(ctx, state, events, id, s, ident.unit)) continue;
     }
 
     // ---- open fire on his own
     const current = state.fire.get(id);
     if (halted && (!current || current.self) && fireAllowed(state, ctx, unit, top)) {
       // (A unit rule may hold fire to a shorter range, e.g. for an ambush.)
-      const range0 = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+      const range00 = unit.maxEngageM > 0 ? Math.min(unit.maxEngageM, engageRange(ctx, state, id)) : engageRange(ctx, state, id);
+      // (An ambush laid, D4b: nobody fires beyond its range before it is sprung.)
+      const range0 = unit.ambush !== undefined ? Math.min(range00, unit.ambush.rangeM) : range00;
       // (Night fire discipline, M9.6: in the dark, not fired on lately, he holds his fire to closer ranges — a muzzle
       // flash gives his place away. Vehicles' guns are not affected: crews have their own fire.)
       const N = D.night;
@@ -1040,7 +1057,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       if (pick && current && current.contact !== undefined && current.contact !== pick.target) {
         const cc = s.contacts.find((k) => k.target === current.contact);
         // (Out of sight for a moment — a man lying down flickers in and out of view — is not "hidden".)
-        const cs = cc && cc.kind === "seen" && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range) : null;
+        const cs = cc && cc.kind === "seen" && inArc(state, id, state.transform.req(id), cc.x, cc.y) && state.tick - cc.tick <= secondsToTicks(ctx.catalog.behaviour.soldier.keepTargetSeenSeconds) ? targetScore(ctx, state, cc, state.transform.req(id), range) : null;
         keep = cs !== null && pick.score >= ctx.catalog.behaviour.soldier.keepTargetFactor * cs;
       }
       if (pick && !keep && (!current || current.contact !== pick.target)) {
@@ -1051,7 +1068,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
         }
       }
       // No enemy on the ground to fire at: an enemy drone he sees close overhead (M9.4b).
-      if (!pick && !reserve && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
+      if (!pick && !reserve && unit.ambush === undefined && state.drone.size > 0 && (!current || current.contact === undefined || !state.drone.has(current.contact))) {
         const dr = droneTarget(ctx, state, id, s);
         if (dr && assignFireTask(ctx, state, id, dr.x, dr.y, dr.z)) {
           const ft = state.fire.get(id)!;

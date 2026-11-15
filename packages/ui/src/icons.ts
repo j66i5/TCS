@@ -26,6 +26,8 @@ const P: Record<string, string> = {
   dismount: `<path d="M3.5 11.5v5h13v-5"/><path d="M10 12V3"/><path d="M6.5 6.5L10 3l3.5 3.5"/>`,
   // (M10.6b "take wounded back": a cross with an arrow going back.)
   rearRun: `<path d="M7 3.5h3v3h3v3h-3v3H7v-3H4v-3h3z"/><path d="M17 15.5H6"/><path d="M8.5 13 6 15.5 8.5 18"/>`,
+  // (D4b "defend arc": a sector opening from a man.)
+  arc: `<circle cx="10" cy="16" r="1.6"/><path d="M10 16L4 6M10 16l6-10"/><path d="M4 6q6-4 12 0"/>`,
   ceaseFire: `<circle cx="10" cy="10" r="5"/><path d="M10 2v4M10 14v4M2 10h4M14 10h4"/><path d="M4 16L16 4" stroke-width="2.2"/>`,
   discharge: `<path d="M10 17v-4"/><circle cx="5" cy="7" r="2.3"/><circle cx="10" cy="5" r="2.3"/><circle cx="15" cy="7" r="2.3"/><path d="M10 13L5.8 9M10 13l4.2-4" stroke-dasharray="1.5 1.5"/>`,
   nature: `<path d="M7 17V8.5L10 3l3 5.5V17z"/><path d="M7 13h6"/>`,

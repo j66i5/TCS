@@ -753,6 +753,438 @@
         "confidence": "low",
         "note": "Made-up test fixture."
       }
+    },
+    {
+      "id": "xf-tortoise",
+      "nameKey": "vehicle.xf.tortoise",
+      "class": "tracked",
+      "body": {
+        "lengthM": 6.0,
+        "widthM": 3.4,
+        "heightM": 2.4,
+        "groundClearanceM": 0.4,
+        "hull": {
+          "f": [
+            -3.0,
+            3.0
+          ],
+          "r": [
+            -1.7,
+            1.7
+          ],
+          "u": [
+            0.4,
+            1.6
+          ]
+        },
+        "turret": {
+          "pivotF": 0,
+          "f": [
+            -1.2,
+            1.2
+          ],
+          "r": [
+            -1.2,
+            1.2
+          ],
+          "u": [
+            1.6,
+            2.4
+          ],
+          "barrelM": 3,
+          "trunnionU": 2.0
+        },
+        "trackContactM": 4.0,
+        "trackGaugeM": 2.6,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "mass": {
+        "kg": 30000,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "drive": {
+        "powerKw": 500,
+        "efficiency": 0.75,
+        "topSpeedKmh": 50,
+        "reverseTopSpeedKmh": 15,
+        "brakeMps2": 5,
+        "gears": [
+          {
+            "toKmh": 15
+          },
+          {
+            "toKmh": 30
+          },
+          {
+            "toKmh": 50
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 15
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 25,
+          "maxLatAccelMps2": 3,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.5
+        },
+        "idleKw": 20,
+        "litresPerKwh": 0.3,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "fuel": {
+        "item": "xf-hay",
+        "capacityL": 100
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.2,
+            0.6,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            0.2,
+            -0.6,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            }
+          ]
+        },
+        {
+          "id": "ldr",
+          "station": "loader",
+          "pos": [
+            -0.4,
+            0.6,
+            1.8
+          ],
+          "part": "turret",
+          "hatch": true
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.2,
+            0,
+            1.0
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.0
+          ],
+          [
+            0.5,
+            -2.0
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 5,
+        "dismountSecondsPerMan": 3,
+        "bailOutSeconds": 6,
+        "seatSwapSeconds": 20,
+        "loadCasualtySeconds": 40,
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 40,
+          "elevateDegS": 20,
+          "elevationDeg": [
+            -8,
+            20
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.2,
+          "movingMradPerMps": 0.1,
+          "layToleranceMrad": 0.5,
+          "rangefinder": true,
+          "readyRefillInBattle": true,
+          "refillSeconds": 60,
+          "weapons": [
+            {
+              "weapon": "xf-bombard",
+              "coax": false,
+              "muzzle": [
+                4.2,
+                0,
+                2.0
+              ],
+              "feeds": [
+                {
+                  "item": "xf-ram-round",
+                  "ready": {
+                    "count": 4,
+                    "charge": 1
+                  }
+                },
+                {
+                  "item": "xf-pot-round",
+                  "ready": {
+                    "count": 3,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 2000,
+              "feedKind": "single",
+              "loaderStation": "loader",
+              "roundLoadSeconds": 5,
+              "noLoaderFactor": 2,
+              "startLoaded": true
+            }
+          ],
+          "sources": [],
+          "confidence": "low",
+          "note": "Made-up test fixture (M7.6a)."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "xf-ram-round",
+          "count": 4,
+          "charge": 1
+        },
+        {
+          "item": "xf-pot-round",
+          "count": 3,
+          "charge": 1
+        },
+        {
+          "item": "xf-scale",
+          "count": 6
+        },
+        {
+          "item": "xf-scale-hull",
+          "count": 6
+        }
+      ],
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-heavy",
+            "thicknessMm": 300,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite-heavy",
+            "thicknessMm": 300,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 20,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 15,
+            "slopeDeg": 0
+          }
+        ],
+        "tiles": [
+          {
+            "part": "turret",
+            "face": "front",
+            "item": "xf-scale",
+            "coverage": 1.0
+          },
+          {
+            "part": "hull",
+            "face": "front",
+            "item": "xf-scale-hull",
+            "coverage": 0.5
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a): turret-front tiles always met (coverage 1, deterministic for tests), hull-front tiles half the time."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -2.9,
+                -1.2
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                0.5,
+                1.5
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.6,
+                1.2
+              ],
+              "r": [
+                -0.3,
+                0.3
+              ],
+              "u": [
+                1.8,
+                2.2
+              ]
+            },
+            "toughnessMm": 40,
+            "absorbMm": 30
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                0.4,
+                0.9
+              ],
+              "r": [
+                -1.0,
+                -0.6
+              ],
+              "u": [
+                2.2,
+                2.4
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "ammo",
+            "kind": "ammo",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.2,
+                -0.6
+              ],
+              "r": [
+                -1.0,
+                1.0
+              ],
+              "u": [
+                1.7,
+                2.3
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.1
+          }
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Made-up test fixture (M7.6a)."
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a): a turreted tracked tank with a loader and reactive tiles, for the tests only."
     }
   ]
 }

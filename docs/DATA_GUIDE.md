@@ -434,6 +434,31 @@ metres: `f` forward (+) / back, `r` right (+) / left, `u` up from the ground.
   `appearance.json` may give `markings: { "<vehicle type>": "red-cross" }` (outside the catalog).
 - Armour figures from sources in mm RHA are multiplied by `rhaToMildSteel` (core/ballistics.json, 1.25) to the
   mild-steel scale the simulation uses; the `armour-steel` material has the same resistance.
+- Main battle tanks (M7.6a):
+  - Main gun: weapon `type` `"tank-gun"` (mass up to 5000 kg). It counts as a cannon in gunnery and in the
+    expenditure tally. Each round type is a single-round item (`chargeCapacity` 1, `chargeItem` = the ammunition)
+    fed from the ready rack (`feeds[].ready`); the rest is in `stowed` and refilled by `refillSeconds`, halted.
+  - Loading: `feedKind` `"single"` with `loaderStation: "loader"` and `roundLoadSeconds` (a man loads; without
+    him `noLoaderFactor` times slower), or `"autoloader"` (needs `roundLoadSeconds`). `startLoaded: true`: a
+    round of the first feed is in the breech when the battle starts (not on a belt).
+  - Gun-launched missile: a second weapon entry on the same station and muzzle (type `"tank-gun"`), its round a
+    guided ammunition. Its missiles are counted apart from the gun's. It is out when the `gun` or the `sights`
+    component is wrecked. `missileBeyondM` (guided weapons only): the crew picks it against vehicles at or
+    beyond this range (default `behaviour.gunnery.missileBeyondM`). Nearer, the crew picks it only where its
+    armour-piercing round cannot get through and the missile can.
+  - Armour: plates are line-of-sight equivalents (`slopeDeg` 0) of the core materials `composite-heavy` (western
+    special armour: about RHA against long rods, 1.7 times against jets) or `composite-cast` (cast with filler).
+    There is one plate per face, so no weak lower glacis or mantlet.
+  - Reactive tiles: an item with a `reactive` block (`addKineticMm`, `addShapedMm`, `addTandemMm`: mild-steel mm
+    added to the need; `triggerSteelMm`: the least kinetic penetration of a heavy round that sets one off).
+    Fit it with an `armour.tiles` row `{ part, face, item, coverage }`, using one item id per face. The stowed
+    count is the number fitted. A hit meets a live tile with chance `coverage * tiles left / fitted` and uses
+    it up. A tandem charge's precursor sets the tile off, so its main jet meets `addTandemMm`. HE and artillery
+    do not strip tiles yet (M14.5). The older `factor` rows (fixture `xf-shingle`) still work: a shaped charge
+    only, every hit while tiles last. Each row has exactly one of `factor` or `coverage`.
+  - A crew template whose vehicle has no `passenger` seat is never the default crew of the vehicles scenario,
+    and in `?scenario=vehicles&crew=...` its squad has no carrier.
+  - Check with `npm run lab -- armour` (tiles full and spent), `antitank`, `gunnery`, `missile` and `drive`.
 
 ## Add a whole faction
 

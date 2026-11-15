@@ -519,6 +519,14 @@ function checkVehicles(
         if (w.feedKind === "single" && w.roundLoadSeconds === undefined) err(`${p}.roundLoadSeconds`, "a single-round feed needs roundLoadSeconds");
         if (w.loaderStation !== undefined && !kinds.has(w.loaderStation)) err(`${p}.loaderStation`, `no ${w.loaderStation} seat on this vehicle`);
         if (w.noLoaderFactor !== undefined && w.loaderStation === undefined) err(`${p}.noLoaderFactor`, "noLoaderFactor needs a loaderStation");
+        // M7.6a: an autoloader has a cycle, a round in the breech needs a single-round feed, a crew's missile range
+        // only on a guided weapon.
+        if (w.feedKind === "autoloader" && w.roundLoadSeconds === undefined) err(`${p}.roundLoadSeconds`, "an autoloader needs roundLoadSeconds");
+        if (w.startLoaded === true && w.feedKind === "belt") err(`${p}.startLoaded`, "startLoaded is for single-round and autoloader feeds, not belts");
+        if (w.missileBeyondM !== undefined) {
+          const round = pack.items[w.feeds[0]!.item]?.chargeItem;
+          if (round === undefined || pack.ammunition[round]?.guided === undefined) err(`${p}.missileBeyondM`, "missileBeyondM is for a guided weapon only");
+        }
       });
     });
     v.stowed.forEach((x, k) => { if (!pack.items[x.item]) err(`stowed[${k}].item`, `unknown item '${x.item}'`); });
@@ -545,8 +553,17 @@ function checkVehicles(
     if (v.extinguisher && !pack.items[v.extinguisher.item]) err("extinguisher.item", `unknown item '${v.extinguisher.item}'`);
     if (v.activeProtection && !pack.items[v.activeProtection.item]) err("activeProtection.item", `unknown item '${v.activeProtection.item}'`);
     v.armour?.tiles?.forEach((t, k) => {
-      if (!pack.items[t.item]) err(`armour.tiles[${k}].item`, `unknown item '${t.item}'`);
+      const it = pack.items[t.item];
+      if (!it) err(`armour.tiles[${k}].item`, `unknown item '${t.item}'`);
       if (t.part === "turret" && !v.body.turret) err(`armour.tiles[${k}].part`, "a turret tile on a vehicle without a turret");
+      // M7.6a: reactive tiles (coverage) need a reactive item, factor tiles must not have one; every tile item is
+      // stowed (the fitted count) and has its own row (counts per face).
+      if (it && t.coverage !== undefined && it.reactive === undefined) err(`armour.tiles[${k}].item`, `'${t.item}' has no reactive block (a tile with coverage)`);
+      if (it && t.factor !== undefined && it.reactive !== undefined) err(`armour.tiles[${k}].item`, `'${t.item}' is reactive: use coverage, not factor`);
+      if (!v.stowed.some((x) => x.item === t.item && x.count >= 1)) err(`armour.tiles[${k}].item`, `'${t.item}' is not stowed (the stowed count is the tiles fitted)`);
+      if (v.armour!.tiles!.findIndex((x) => x.item === t.item) !== k) err(`armour.tiles[${k}].item`, `'${t.item}' on two tile rows (one item per face)`);
+      // Review fix: the sim reads the first tile row of a part and face only (tiles.ts tileFor).
+      if (v.armour!.tiles!.findIndex((x) => x.part === t.part && x.face === t.face) !== k) err(`armour.tiles[${k}].face`, `two tile rows on ${t.part}/${t.face} (one tile item per face)`);
     });
   });
   // Crew and carriage templates.

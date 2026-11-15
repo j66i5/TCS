@@ -562,6 +562,207 @@
       ],
       "confidence": "medium",
       "note": "M9.4a: the quadcopter's flight battery; charge in Wh (Mavic 3 class: 77 Wh; DE a game value). Three per drone (game value, low)."
+    },
+    {
+      "id": "ru-125-3bm60-round",
+      "nameKey": "item.ru-125-3bm60-round",
+      "category": "magazine",
+      "massKg": 15.55,
+      "chargeCapacity": 1,
+      "chargeMassKg": 4.85,
+      "chargeItem": "ru-125-3bm60",
+      "sources": [
+        "https://www.shephardmedia.com/news/landwarfareintl/army-2021-rostec-companies-showcase-new-offensive-/"
+      ],
+      "confidence": "low",
+      "note": "One 125 mm 3BM60 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 15.55 kg is the case and propellant, its charge the 4.85 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.4 kg cartridge, as the 9M131 splits tube and missile."
+    },
+    {
+      "id": "ru-125-3bm42-round",
+      "nameKey": "item.ru-125-3bm42-round",
+      "category": "magazine",
+      "massKg": 15.55,
+      "chargeCapacity": 1,
+      "chargeMassKg": 4.85,
+      "chargeItem": "ru-125-3bm42",
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
+      ],
+      "confidence": "low",
+      "note": "One 125 mm 3BM42 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 15.55 kg is the case and propellant, its charge the 4.85 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.4 kg cartridge, as the 9M131 splits tube and missile."
+    },
+    {
+      "id": "ru-125-3of26-round",
+      "nameKey": "item.ru-125-3of26-round",
+      "category": "magazine",
+      "massKg": 10.0,
+      "chargeCapacity": 1,
+      "chargeMassKg": 23.0,
+      "chargeItem": "ru-125-3of26",
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
+      ],
+      "confidence": "low",
+      "note": "One 125 mm 3OF26 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 10.0 kg is the case and propellant, its charge the 23.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 33.0 kg cartridge, as the 9M131 splits tube and missile."
+    },
+    {
+      "id": "ru-9m119m-round",
+      "nameKey": "item.ru-9m119m-round",
+      "category": "missile",
+      "massKg": 7.1,
+      "chargeCapacity": 1,
+      "chargeMassKg": 17.2,
+      "chargeItem": "ru-9m119m",
+      "sources": [
+        "https://en.wikipedia.org/wiki/9M119_Svir/Refleks",
+        "https://en.missilery.info/node/12990"
+      ],
+      "confidence": "low",
+      "note": "One 9M119M Refleks-M missile with its propellant charge (M7.6a; mass a game value). Mass (review fix): the item's own 7.1 kg is the case and propellant, its charge the 17.2 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 24.3 kg cartridge, as the 9M131 splits tube and missile."
+    },
+    {
+      "id": "ru-t90m-diesel",
+      "nameKey": "item.ru-t90m-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 1200,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The T-90M's fuel tanks (M7.6a): litres of diesel (0.84 kg per litre); capacity a game value."
+    },
+    {
+      "id": "ru-t72b3m-diesel",
+      "nameKey": "item.ru-t72b3m-diesel",
+      "category": "fuel",
+      "massKg": 0,
+      "chargeCapacity": 1200,
+      "chargeMassKg": 0.84,
+      "sources": [],
+      "confidence": "low",
+      "note": "The T-72B3M's fuel tanks (M7.6a): litres of diesel (0.84 kg per litre); capacity a game value."
+    },
+    {
+      "id": "ru-tank-extinguisher",
+      "nameKey": "item.ru-tank-extinguisher",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "sources": [],
+      "confidence": "low",
+      "note": "Game value: one charge of a tank's fire extinguishing system (M7.6a)."
+    },
+    {
+      "id": "ru-relikt-hull-front",
+      "nameKey": "item.ru-relikt-hull-front",
+      "category": "vehicle-supply",
+      "massKg": 12,
+      "reactive": {
+        "addKineticMm": 344,
+        "addShapedMm": 750,
+        "addTandemMm": 312,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://www.academia.edu/145585481/",
+        "https://mil.in.ua/en/articles/reactive-armor-of-armored-vehicles-experience-in-use-in-the-russian-ukrainian-war",
+        "https://wikiwand.com/en/articles/Kontakt-5",
+        "https://www.janes.com/osint-insights/defence-and-national-security-analysis/russian-armoured-vehicles-at-victory-day-parade"
+      ],
+      "confidence": "low",
+      "note": "Relikt (4S23 front / 4S24 side) explosive reactive armour, game values from public claims (low): 'twice Kontakt-5' and over 50 % off a long rod, about 25 % off a tandem jet; in mild-steel mm added to the plate's need: +344 against a long rod, +750 against a single shaped charge, +312 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-relikt-turret-front",
+      "nameKey": "item.ru-relikt-turret-front",
+      "category": "vehicle-supply",
+      "massKg": 12,
+      "reactive": {
+        "addKineticMm": 344,
+        "addShapedMm": 750,
+        "addTandemMm": 312,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://www.academia.edu/145585481/",
+        "https://mil.in.ua/en/articles/reactive-armor-of-armored-vehicles-experience-in-use-in-the-russian-ukrainian-war",
+        "https://wikiwand.com/en/articles/Kontakt-5"
+      ],
+      "confidence": "low",
+      "note": "Relikt (4S23 front / 4S24 side) explosive reactive armour, game values from public claims (low): 'twice Kontakt-5' and over 50 % off a long rod, about 25 % off a tandem jet; in mild-steel mm added to the plate's need: +344 against a long rod, +750 against a single shaped charge, +312 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-relikt-hull-side",
+      "nameKey": "item.ru-relikt-hull-side",
+      "category": "vehicle-supply",
+      "massKg": 8,
+      "reactive": {
+        "addKineticMm": 125,
+        "addShapedMm": 625,
+        "addTandemMm": 188,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://www.fair.org.ua/en/t-90m-suchasnyi-rosiiskyi-tank-z-innovatsiinym-zakhystom-ta-vohnevoiu-potuzhnistiu/",
+        "https://www.academia.edu/145585481/",
+        "https://mil.in.ua/en/articles/reactive-armor-of-armored-vehicles-experience-in-use-in-the-russian-ukrainian-war"
+      ],
+      "confidence": "low",
+      "note": "Relikt (4S23 front / 4S24 side) explosive reactive armour, game values from public claims (low): 'twice Kontakt-5' and over 50 % off a long rod, about 25 % off a tandem jet; in mild-steel mm added to the plate's need: (4S24 soft-case side tiles: less against a long rod) +125 against a long rod, +625 against a single shaped charge, +188 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-relikt-turret-side",
+      "nameKey": "item.ru-relikt-turret-side",
+      "category": "vehicle-supply",
+      "massKg": 8,
+      "reactive": {
+        "addKineticMm": 125,
+        "addShapedMm": 625,
+        "addTandemMm": 188,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://www.fair.org.ua/en/t-90m-suchasnyi-rosiiskyi-tank-z-innovatsiinym-zakhystom-ta-vohnevoiu-potuzhnistiu/",
+        "https://www.academia.edu/145585481/",
+        "https://mil.in.ua/en/articles/reactive-armor-of-armored-vehicles-experience-in-use-in-the-russian-ukrainian-war"
+      ],
+      "confidence": "low",
+      "note": "Relikt (4S23 front / 4S24 side) explosive reactive armour, game values from public claims (low): 'twice Kontakt-5' and over 50 % off a long rod, about 25 % off a tandem jet; in mild-steel mm added to the plate's need: (4S24 soft-case side tiles: less against a long rod) +125 against a long rod, +625 against a single shaped charge, +188 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-kontakt5-turret-front",
+      "nameKey": "item.ru-kontakt5-turret-front",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "reactive": {
+        "addKineticMm": 250,
+        "addShapedMm": 625,
+        "addTandemMm": 62,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Kontakt-5",
+        "https://forum.warthunder.com/t/comprehensive-technical-review-bm-oplot-duplet-nozh-dynamic-protection-system-and-modeling-deficiencies/270613/3"
+      ],
+      "confidence": "medium",
+      "note": "Kontakt-5 (4S22 elements) explosive reactive armour (medium for the generic published figures): about 200-250 mm RHA added against a long rod ('up to 20 %'), about 500-600 against a single shaped charge, little against a tandem charge; in mild-steel mm added to the plate's need: +250 against a long rod, +625 against a single shaped charge, +62 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
+    },
+    {
+      "id": "ru-kontakt5-turret-side",
+      "nameKey": "item.ru-kontakt5-turret-side",
+      "category": "vehicle-supply",
+      "massKg": 10,
+      "reactive": {
+        "addKineticMm": 250,
+        "addShapedMm": 625,
+        "addTandemMm": 62,
+        "triggerSteelMm": 150
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/Kontakt-5",
+        "https://forum.warthunder.com/t/comprehensive-technical-review-bm-oplot-duplet-nozh-dynamic-protection-system-and-modeling-deficiencies/270613/3"
+      ],
+      "confidence": "medium",
+      "note": "Kontakt-5 (4S22 elements) explosive reactive armour (medium for the generic published figures): about 200-250 mm RHA added against a long rod ('up to 20 %'), about 500-600 against a single shaped charge, little against a tandem charge; in mild-steel mm added to the plate's need: +250 against a long rod, +625 against a single shaped charge, +62 against a tandem charge's main jet; set off by a heavy round of at least 150 mm. One item per tile; the fitted count per face is the vehicle's stowed count (not public, game value). Mass a game value. Search extracts only (pages not opened in this container)."
     }
   ]
 }

@@ -323,16 +323,19 @@ export interface OverwatchPost { x: number; y: number; facing: number }
 export function siteOverwatch(
   ctx: SimContext, anchor: { x: number; y: number }, enemy: { x: number; y: number }, sightZ: number,
   near: readonly { x: number; y: number }[], backM: number, defending = false,
+  /** M7.6d: an automatic grenade launcher's post: its own range band and men's height for the target points. */
+  o: { rangeM?: readonly [number, number]; targetZ?: number; targetRingsM?: readonly number[] } = {},
 ): OverwatchPost[] {
   const O = OVERWATCH, map = ctx.map, W = map.widthM, H = map.heightM;
+  const band = o.rangeM ?? O.targetRangeM, tz = o.targetZ ?? O.hullZ;
   const { grid } = navFor(ctx, "foot");
   // Target points: around the enemy's area, on the side facing the anchor.
   const toAnchor = atan2(anchor.y - enemy.y, anchor.x - enemy.x);
   const targets: { x: number; y: number; z: number }[] = [];
-  for (const r of O.targetRingsM) for (let a = -O.targetArcDeg; a <= O.targetArcDeg + 1e-9; a += O.targetArcStepDeg) {
+  for (const r of o.targetRingsM ?? O.targetRingsM) for (let a = -O.targetArcDeg; a <= O.targetArcDeg + 1e-9; a += O.targetArcStepDeg) {
     const b = toAnchor + (a * PI) / 180, x = enemy.x + cos(b) * r, y = enemy.y + sin(b) * r;
     if (x < 5 || y < 5 || x > W - 5 || y > H - 5 || indoorAt(ctx, x, y) >= 0) continue;
-    targets.push({ x, y, z: heightAt(map, x, y) + O.hullZ }); // ground: ok (a hull on open ground)
+    targets.push({ x, y, z: heightAt(map, x, y) + tz }); // ground: ok (a hull on open ground)
     if (r === 0) break;
   }
   const cands: { x: number; y: number }[] = [];
@@ -356,7 +359,7 @@ export function siteOverwatch(
     let n = 0, m = 0;
     for (const t of targets) {
       const d = hypot2(t.x - c.x, t.y - c.y);
-      if (d < O.targetRangeM[0] || d > O.targetRangeM[1]) continue;
+      if (d < band[0] || d > band[1]) continue;
       m++;
       if (sight(ctx, c.x, c.y, z0, t.x, t.y, t.z).visibility >= O.seenVisibility) n++;
     }

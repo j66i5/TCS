@@ -62,6 +62,8 @@ export function reviewModel(a: App): AarModel {
       if (e) {
         spent.push(s.t("aar.expenditure"), s.t("aar.exp.smallArms", { n: e.smallArms }), s.t("aar.exp.grenades", { n: e.grenades }), ...(e.handSmoke > 0 ? [s.t("aar.exp.handSmoke", { n: e.handSmoke })] : []));
         for (const [ammo, n] of Object.entries(e.rockets).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.rockets", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
+        // M7.6d: automatic grenade launchers on foot.
+        for (const [ammo, n] of Object.entries(e.grenadeMg ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) spent.push(s.t("aar.exp.grenadeMg", { ammo: s.t(`ammo.${ammo}`, {}, sd.faction), n }));
         // M8.6: fire support rounds by asset and kind.
         for (const [k, n] of Object.entries(e.support ?? {}).sort(([p], [q]) => (p < q ? -1 : 1))) {
           const [asset, ammo] = k.split(":");

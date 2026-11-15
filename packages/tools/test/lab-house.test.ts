@@ -2,7 +2,7 @@
  *  mode leave (men leave a house that has become a trap, or that the enemy is inside); mode clear (a squad clears a
  *  house room by room, its grenades bursting in the room it clears). */
 import { describe, expect, it } from "vitest";
-import { houseClearMarkdown, houseClearRun, houseDefendLab, houseDefendMarkdown, houseLeaveMarkdown, houseLeaveRun } from "../src/labs/house";
+import { houseClearMarkdown, houseClearRun, houseDefendLab, houseDefendMarkdown, houseLeaveMarkdown, houseLeaveRun, houseRocketLab, houseRocketMarkdown } from "../src/labs/house";
 import { loadData } from "../src/scenarios";
 
 const rows = houseDefendLab(loadData(), 3);
@@ -49,5 +49,16 @@ describe("house lab (clear)", () => {
       expect(r.inRoom / r.grenades).toBeGreaterThanOrEqual(0.7);
       expect(r.redDown).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe("house lab (rocket, M7.6d)", () => {
+  const rr = houseRocketLab(loadData(), 10);
+  const sum = (a: string, f: (r: (typeof rr)[number]) => number) => rr.filter((r) => r.ammo === a).reduce((n, r) => n + f(r), 0);
+  it("prints the table", () => { console.log(houseRocketMarkdown(rr)); });
+  it("the RPO-A on a held room's wall puts at least twice as many of its men down as a PG-7VL; other rooms within one man", () => {
+    expect(sum("ru-rpo-a", (r) => r.roomDown)).toBeGreaterThanOrEqual(2 * Math.max(1, sum("ru-pg7vl", (r) => r.roomDown)));
+    expect(Math.abs(sum("ru-rpo-a", (r) => r.otherDown) - sum("ru-pg7vl", (r) => r.otherDown)) / 10).toBeLessThanOrEqual(1);
+    expect(sum("ru-rpo-a", (r) => r.outsideDown)).toBe(0);
   });
 });

@@ -184,7 +184,8 @@
     "skillMrad": 2.5,
     "largeRoomM2": 60,
     "wallBehindM": 2,
-    "handOverM": 30
+    "handOverM": 30,
+    "thermobaricRangeM": 250
   },
   "smoke": {
     "screenM": 15,

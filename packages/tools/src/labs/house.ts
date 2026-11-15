@@ -424,3 +424,92 @@ export function houseClearMarkdown(rows: readonly HouseClearRun[]): string {
   }
   return out.join("\n");
 }
+
+/**
+ * HOUSE LAB, mode `rocket` (M7.6d): the defend setting with the player's Occupy ("all in"), everyone holding fire;
+ * after `ROCKET_AT_S` a red rocket bursts on the outer wall of the room that holds most blue men, on the side facing
+ * red (as a round striking it from outside: no aim, the burst itself), 1.2 m above that floor. The RPO-A's thermobaric
+ * burst against the RPG-7's PG-7VL. Counted 10 s later: men down (incapacitated or killed) and wounded in that room,
+ * in the house's other rooms, and outside.
+ */
+export interface HouseRocketRun { seed: number; ammo: string; inRoom: number; roomDown: number; roomWounded: number; otherIn: number; otherDown: number; outside: number; outsideDown: number }
+const ROCKET_AT_S = 90;
+
+export function houseRocketRun(data: DataSet, seed: number, ammo: string): HouseRocketRun {
+  const input = demoBattle(data, { seed, factions: ["de", "ru"], timeLimitSeconds: ROCKET_AT_S + 20, mapKind: "village", frontM: 300 });
+  const centre = (side: string) => {
+    const f = input.forces.find((x) => x.side === side)!;
+    return { x: f.placements.reduce((a, p) => a + p.x, 0) / f.placements.length, y: f.placements.reduce((a, p) => a + p.y, 0) / f.placements.length };
+  };
+  const b = centre("blue"), r = centre("red");
+  let bi = -1, bd = Infinity, hx = 0, hy = 0;
+  input.map.buildings.forEach((bl, i) => {
+    if (!bl.interior || bl.storeys < 2) return;
+    const n = bl.footprint.length / 2;
+    let cx = 0, cy = 0;
+    for (let k = 0; k < n; k++) { cx += bl.footprint[k * 2]! / n; cy += bl.footprint[k * 2 + 1]! / n; }
+    const d = hypot2(cx - b.x, cy - b.y);
+    if (d < bd) { bd = d; bi = i; hx = cx; hy = cy; }
+  });
+  const house = input.map.buildings[bi]!;
+  const sim: Sim = createSim(input);
+  const st = sim.state, ctx = sim.ctx;
+  const tops = (side: string) => [...st.unit.entries()].filter(([, u]) => u.side === side && u.parent === null).map(([id]) => id);
+  const men = (side: string) => [...st.identity.entries()].filter(([, i]) => i.side === side).map(([id]) => id).sort((x, y) => x - y);
+  const facing = Math.atan2(r.y - hy, r.x - hx);
+  for (const id of tops("blue")) { submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "rules", fire: "hold" }); submitOrder(sim, { tick: 0, issuer: "blue", target: id, kind: "occupy", building: house.id, facing }); }
+  for (const id of tops("red")) submitOrder(sim, { tick: 0, issuer: "red", target: id, kind: "rules", fire: "hold" });
+  for (let k = 0; k < ROCKET_AT_S * 60; k++) step(sim);
+  const blue = men("blue"), red = men("red");
+  const roomOf = (m: number): string | null => {
+    const t = st.transform.req(m);
+    if (indoorAt(ctx, t.x, t.y) !== bi) return null;
+    const f = floorAtZ(house, t.z), ri = roomAt(house, f, t.x, t.y);
+    return ri < 0 ? null : `${f}:${ri}`;
+  };
+  const counts = new Map<string, number>();
+  for (const m of blue) { const k = roomOf(m); if (k !== null && isAble(st.soldier.req(m))) counts.set(k, (counts.get(k) ?? 0) + 1); }
+  const best = [...counts.entries()].sort((a, c) => c[1] - a[1] || (a[0] < c[0] ? -1 : 1))[0];
+  const run: HouseRocketRun = { seed, ammo, inRoom: 0, roomDown: 0, roomWounded: 0, otherIn: 0, otherDown: 0, outside: 0, outsideDown: 0 };
+  if (!best) return run;
+  const [fl, ri] = best[0].split(":").map(Number) as [number, number];
+  const poly = house.interior!.rooms[ri]!.poly;
+  let cx = 0, cy = 0;
+  for (let k = 0; k < poly.length; k += 2) { cx += poly[k]! / (poly.length / 2); cy += poly[k + 1]! / (poly.length / 2); }
+  // From the room's middle toward red until outside the house, then 0.2 m more: the wall's outer face.
+  let wx = cx, wy = cy;
+  for (let s = 0; s < 200 && indoorAt(ctx, wx, wy) === bi; s++) { wx += Math.cos(facing) * 0.1; wy += Math.sin(facing) * 0.1; }
+  wx += Math.cos(facing) * 0.2; wy += Math.sin(facing) * 0.2;
+  const before = new Map(blue.map((m) => [m, roomOf(m)]));
+  const sink = new EventSink();
+  detonate(ctx, st, sink, wx, wy, heightAt(ctx.map, wx, wy) + fl * house.storeyHeightM + 1.2, ctx.catalog.ammoIds.indexOf(ammo), red[0]!); // ground: ok (the wall's foot)
+  for (let k = 0; k < 600; k++) step(sim);
+  for (const m of blue) {
+    const where = before.get(m) ?? null, s = st.soldier.req(m), down = isOut(s), hurt = s.wounds.some((w) => w.mechanism !== "blunt");
+    if (where === best[0]) { run.inRoom++; if (down) run.roomDown++; if (hurt) run.roomWounded++; }
+    else if (where !== null) { run.otherIn++; if (down) run.otherDown++; }
+    else { run.outside++; if (down) run.outsideDown++; }
+  }
+  return run;
+}
+
+export function houseRocketLab(data: DataSet, trials = 10): HouseRocketRun[] {
+  const rows: HouseRocketRun[] = [];
+  for (let seed = 1; seed <= trials; seed++) for (const a of ["ru-rpo-a", "ru-pg7vl"]) rows.push(houseRocketRun(data, seed, a));
+  return rows;
+}
+
+export function houseRocketMarkdown(rows: readonly HouseRocketRun[]): string {
+  const m = (rs: readonly HouseRocketRun[], f: (r: HouseRocketRun) => number) => (rs.reduce((a, r) => a + f(r), 0) / Math.max(1, rs.length)).toFixed(2);
+  const out = [
+    `Mode rocket (M7.6d): one squad occupies the two-storey house nearest to it (all in, holding fire); at ${ROCKET_AT_S} s a rocket bursts on the outer wall of the room holding most of its men, on the side facing the enemy, 1.2 m above that floor. Counted 10 s later.`,
+    "",
+    "| round | runs | men in the room | down in it | wounded in it | men in other rooms | down there | men outside | down outside |",
+    "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+  ];
+  for (const a of [...new Set(rows.map((r) => r.ammo))]) {
+    const rs = rows.filter((r) => r.ammo === a);
+    out.push(`| ${a} | ${rs.length} | ${m(rs, (r) => r.inRoom)} | ${m(rs, (r) => r.roomDown)} | ${m(rs, (r) => r.roomWounded)} | ${m(rs, (r) => r.otherIn)} | ${m(rs, (r) => r.otherDown)} | ${m(rs, (r) => r.outside)} | ${m(rs, (r) => r.outsideDown)} |`);
+  }
+  return out.join("\n");
+}

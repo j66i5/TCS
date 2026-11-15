@@ -225,4 +225,34 @@ describe("determinism", () => {
       expect(continueBattle(loaded, { ...input, orders: full.orders }).finalStateHash).toBe(full.finalStateHash);
     }
   }, 120_000);
+  it("M7.6d: the assault group's battle (AGS team, RPO-A, SVD) runs the same twice and continues identically from a save at 30 s and in the middle of an AGS burst", () => {
+    const ag = getScenario("assault-group");
+    // (Seed 17, 300 s: the AGS team is on its post and fires from about 210 s. No RPO-A is fired within 600 s on
+    // seeds 1 to 18; thermobaric.test.ts covers its burst.)
+    const input = ag.build(data, 17, 300);
+    let agsShots = 0, inBurst = -1;
+    const a = runBattle(input, {
+      controllers: ag.controllers!(input),
+      onTick: (sim) => { if (inBurst < 0) for (const [, u] of sim.state.unit.entries()) if (u.missileTeam?.kind === "agl" && (u.missileTeam.burst?.index ?? 0) > 0) inBurst = sim.state.tick; },
+      onEvents: (ev) => { for (const e of ev) if (e.kind === "shot.fired" && e.vehicle === undefined && input.catalog.weapons[e.weapon]?.type === "grenade-machine-gun") agsShots++; },
+    });
+    // (Not vacuous: the AGS fired, and a save falls in the middle of one of its bursts.)
+    expect(agsShots).toBeGreaterThan(0);
+    expect(inBurst).toBeGreaterThan(0);
+    const b = runBattle({ ...input, orders: a.orders });
+    expect(b.finalStateHash).toBe(a.finalStateHash);
+    for (const at of [secondsToTicks(30), inBurst]) {
+      const sim = createSim({ ...input, orders: [] });
+      const stream = [...a.orders].sort((x, y) => x.tick - y.tick);
+      let next = 0;
+      while (sim.state.tick < at) {
+        while (next < stream.length && stream[next]!.tick <= sim.state.tick) submitOrder(sim, stream[next++]!);
+        step(sim);
+      }
+      if (at === inBurst) expect([...sim.state.unit.entries()].some(([, u]) => u.missileTeam?.burst !== undefined)).toBe(true);
+      const loaded = loadSim({ ...input, orders: a.orders }, JSON.parse(JSON.stringify(saveSim(sim))));
+      expect(simHash(loaded)).toBe(simHash(sim));
+      expect(continueBattle(loaded, { ...input, orders: a.orders }).finalStateHash).toBe(a.finalStateHash);
+    }
+  }, 120_000);
 });

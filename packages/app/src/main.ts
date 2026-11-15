@@ -58,7 +58,10 @@ async function main(): Promise<void> {
   const scenario = params.get("scenario") ?? "platoon";
   const playerSide = params.get("side") === "red" ? "red" : "blue";
   const enemySide = playerSide === "blue" ? "red" : "blue";
-  const attacker = params.get("attacker") === "red" ? "red" : "blue";
+  // M7.6d: &assault=1: red's platoon is its assault group (on foot) with its AGS team, red attacking unless
+  // &attacker= says otherwise.
+  const assault = params.get("assault") === "1";
+  const attacker = params.get("attacker") === "red" || (assault && params.get("attacker") === null) ? "red" : "blue";
   // The platoon battle starts with its vehicles (attacker mounted) by default since M7.4a (owner Q26: vehicles
   // can now be knocked out and the Panzerfaust and RPG work); &vehicles=0 gives the battle on foot.
   // M7.6c: &vehicles=wheeled (or tracked, or <blue>,<red>) picks the carrier class of each side's platoon.
@@ -70,7 +73,7 @@ async function main(): Promise<void> {
     ? demoBattle(data, { seed, factions, timeLimitSeconds: 3600, mapKind, mapSeed: seed })
     : scenario === "vehicles"
     ? vehicleBattle(data, { seed, factions, mapKind: mapKind ?? "farmland", timeLimitSeconds: limit, ...(vp.carriers ? { carriers: vp.carriers } : {}), ...crewParam(params.get("crew")) })
-    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew")) });
+    : buildScenario(data, { kind: "platoon-attack", seed, mapKind: mapKind ?? "village", factions, attacker, timeLimitSeconds: limit, ...(withVehicles ? { vehicles: true } : {}), ...(vp.carriers ? { carriers: vp.carriers } : {}), ...(params.get("mortars") === "1" ? { mortars: true } : {}), ...(withVehicles && params.get("missiles") !== "0" ? { missileTeams: true } : {}), ...(params.get("artillery") === "1" ? { artillery: true } : {}), ...(params.get("air") ? { airRecon: params.get("air")!.split(",").filter((x) => x === "blue" || x === "red") } : {}), ...tanksParam(params.get("tanks"), params.get("tankCrew")), ...(assault ? { assaultGroup: "red" as const, aglTeams: attacker === "red" ? "attacker" as const : "defender" as const } : {}) });
   // ?time=HH:MM (M9.1): the battle at that local time, the light following the clock; &moon=0..1 (default a half moon).
   const timeOfDay = parseTimeOfDay(params.get("time"));
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(params.get("moon") ?? 0.5));

@@ -5,6 +5,19 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Slice 42, M7.6d Russian assault group and support weapons (2026-11-15, branch `claude/medical-ambulance-smoke`,
+  parallel session).** The GTK Boxer with the 40 mm GMW as a variant (`de-boxer-gtk-gmw`; the Jaegerzug's Boxer 1 and
+  3 carry it), the SVD in the BTR squad, automatic grenade launcher teams on foot (`crewServed.kind "agl"`, the
+  missile team's post state reused: `systems/agl-team.ts`; AGS-30 `raschet-ags`, GMW `gmw-trupp` data and lab only),
+  the RPO-A (disposable, no launcher item, `role antiPersonnel`, thermobaric `enclosedFactor` filling the room), the
+  assault group `shturmovaya-gruppa` (opt-in: headless `assault-group`, app `?assault=1`), `bench-agl`, the drop table
+  solved exactly above 6 degrees, expenditure `grenadeMg`. Labs `agl`, `house rocket`, gunnery / armour / range /
+  fragmentation rows; `--scene assault`, `--scene wheeled` with the GMW. Golden `platoon-vehicles-wheeled-s1`
+  regenerated (intended); the others replay the same orders. Tables and misses in DECISIONS "M7.6d". **Open for the
+  owner** (all low): the two-and-two GMW mix, the 40 mm penetration and filling, the SVD in BTR squads (disputed),
+  the assault group's composition, the thermobaric factor, AGL lethality against prone men (high: a still group
+  lying in the open is saturated), the wheeled Jaeger attack still 0 of 10 (BTR losses up, not tuned). Deferred: AGS
+  high-angle fire, MRO-A / RShG-2, burns, an RPO step in the clear drill, the GMW's exposed reload.
 - **M10 review fixes (2026-11-15, branch `claude/medical-review-fixes`, on main after M10.8 merged; M10 complete).** Grenade orders at
   recognised protected people are refused too, and a refused order changes nothing (drills, errands, carrying
   parties, boarding); the AI commander no longer orders fire at enemies its men spare (refusals 43-53 → 0-1 per 10

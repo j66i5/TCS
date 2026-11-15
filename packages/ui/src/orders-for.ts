@@ -153,7 +153,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
       if (st.count <= 0) continue;
       const d = catalog.ammo[st.type]?.delivery;
       if (!d) continue;
-      if (d.method === "direct") { if (d.launcher !== undefined && countIn(view, m, d.launcher) > 0) out.hasLauncherRounds = true; continue; }
+      if (d.method === "direct") { if (d.launcher !== undefined ? countIn(view, m, d.launcher) > 0 : d.disposable === true) out.hasLauncherRounds = true; continue; }
       if (catalog.ammo[st.type]?.smoke !== undefined && d.method === "thrown") { out.smokeGrenades += st.count; continue; }
       if (!catalog.ammo[st.type]?.explosive) continue;
       if (d.method === "thrown") out.handGrenades += st.count;

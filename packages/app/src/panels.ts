@@ -2,7 +2,7 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, launcherOf, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
+import { atRuleOf, fuelLitres, isOut, launcherOf, aglRoundsLeft, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
 import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
@@ -53,7 +53,11 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
   let state = tile.kind === "vehicle" ? a.strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : a.strings.t(`side.state.${tile.state}`);
   // A missile team (M9.3b): its launch post packed, setting up, ready (missiles left) or guiding one.
   const mt = a.sim.state.unit.get(uid)?.missileTeam;
-  if (mt) {
+  if (mt?.kind === "agl") {
+    // (M7.6d: an automatic grenade launcher team: its gun packed, setting up, ready or firing, grenades left.)
+    const rounds = aglRoundsLeft(a.sim.ctx, a.sim.state, uid);
+    state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.burst ? "card.aglTeam.firing" : mt.state === "ready" ? "card.aglTeam.ready" : `card.team.${mt.state}`, { rounds })}`;
+  } else if (mt) {
     const l = launcherOf(a.sim.ctx, a.sim.state, uid);
     const rounds = l ? teamRounds(a.sim.state, uid, l.def.round) : 0;
     state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;

@@ -366,7 +366,87 @@
         "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer"
       ],
       "confidence": "low",
-      "note": "sMG M2 QCB (12.7 mm) on the KNDS FLW 200 remote weapon station of the GTK Boxer (KNDS listing and the Bundeswehr GTK page name the 12.7 mm sMG; no extract confirms the M3M; search extracts only). Rate about 500 rounds/min (M2 range 450-600), muzzle velocity about 890 m/s: medium figures as remembered. Bursts of 5 every 1.5 s, dispersion and the sensor head's thermal sight as a sight entry are game values (low). The 40 mm GMW option comes with slice 42."
+      "note": "sMG M2 QCB (12.7 mm) on the KNDS FLW 200 remote weapon station of the GTK Boxer (KNDS listing and the Bundeswehr GTK page name the 12.7 mm sMG; no extract confirms the M3M; search extracts only). Rate about 500 rounds/min (M2 range 450-600), muzzle velocity about 890 m/s: medium figures as remembered. Bursts of 5 every 1.5 s, dispersion and the sensor head's thermal sight as a sight entry are game values (low). The 40 mm GMW option is the variant de-boxer-gtk-gmw (M7.6d)."
+    },
+    {
+      "id": "de-gmw-rws",
+      "nameKey": "weapon.de-gmw-rws",
+      "type": "grenade-machine-gun",
+      "calibre": "40x53",
+      "feed": {
+        "magazine": "de-40x53-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 340,
+      "dispersionMrad": 2,
+      "reloadSeconds": 10,
+      "jamProbability": 0.0005,
+      "ammo": {
+        "de-40x53-hedp": 240
+      },
+      "sustained": {
+        "burstRounds": 3,
+        "intervalS": 1.5,
+        "recoilFactor": 1
+      },
+      "massKg": 28.8,
+      "setupSeconds": 0,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 10
+        }
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_GMG",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/granatmaschinenwaffe-40-mm",
+        "https://www.heckler-koch.com/en/Products/Military%20and%20Law%20Enforcement/40%20mm%20systems/GMG",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/landsysteme-bundeswehr/gtk-boxer",
+        "https://www.rheinmetall.com/de/media/news-watch/news/2024/02/2024-02-05-auftrag-der-bundeswehr-fuer-40mm-munition"
+      ],
+      "confidence": "low",
+      "note": "GMW 40 mm (HK GMG, 'GraMaWa') on the GTK Boxer's FLW 200 (M7.6d): the station carries the 12.7 mm or the GMW, one at a time; the command variant only the 12.7 mm (Bundeswehr GTK page, search extract, medium). Gun 28.8 kg, about 340 rounds/min (Wikipedia; the Bundeswehr says 300 theoretical), effective out to 1500 m (HK), muzzle velocity about 240 m/s (Rheinmetall): medium. Bursts of 3 every 1.5 s, dispersion 2 mrad and the sensor head's thermal sight as a sight entry are game values (low)."
+    },
+    {
+      "id": "de-gmw",
+      "nameKey": "weapon.de-gmw",
+      "type": "grenade-machine-gun",
+      "calibre": "40x53",
+      "feed": {
+        "magazine": "de-40x53-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 340,
+      "dispersionMrad": 2,
+      "reloadSeconds": 10,
+      "jamProbability": 0.0005,
+      "ammo": {
+        "de-40x53-hedp": 240
+      },
+      "sustained": {
+        "burstRounds": 3,
+        "intervalS": 1.5,
+        "recoilFactor": 1
+      },
+      "massKg": 39.5,
+      "setupSeconds": 45,
+      "sights": [
+        {
+          "kind": "magnified",
+          "magnification": 3
+        }
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/Heckler_%26_Koch_GMG",
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/granatmaschinenwaffe-40-mm",
+        "https://www.heckler-koch.com/en/Products/Military%20and%20Law%20Enforcement/40%20mm%20systems/GMG"
+      ],
+      "confidence": "low",
+      "note": "GMW 40 mm on its ground tripod (M7.6d; the team's post item de-gmw): 28.8 kg gun plus 10.7 kg tripod (Wikipedia; Bundeswehr 15 kg tripod), rate and velocity as de-gmw-rws (medium). Optical sight x3, bursts and dispersion are game values (low)."
     }
   ]
 }

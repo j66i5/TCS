@@ -25,6 +25,24 @@ describe("fragmentation lab", () => {
     }
   });
 
+  it("M7.6d: VOG-30 wounds most men within 2 m, at least 40 % at 5 m, at most a quarter at 15 m (lethal radius about 6-7 m)", () => {
+    const v = (x: number) => share(at("ru-vog30", "standing", x).wounded, at("ru-vog30", "standing", x).men);
+    expect(v(2)).toBeGreaterThanOrEqual(0.7);
+    expect(v(5)).toBeGreaterThanOrEqual(0.4);
+    expect(v(15)).toBeLessThanOrEqual(0.25);
+  });
+  it("M7.6d: the GMW's 40 mm HEDP like the 40 mm HE at 5 m (same filling); some wounded at 20 and 30 m (the 25 m danger radius); at most 30 % at 15 m", () => {
+    const h = (x: number) => share(at("de-40x53-hedp", "standing", x).wounded, at("de-40x53-hedp", "standing", x).men);
+    const he5 = share(at("de-40mm-he", "standing", 5).wounded, at("de-40mm-he", "standing", 5).men);
+    expect(Math.abs(h(5) - he5)).toBeLessThanOrEqual(0.2 * he5);
+    expect(h(20) + h(30)).toBeGreaterThan(0);
+    expect(h(15)).toBeLessThanOrEqual(0.3);
+  });
+  it("M7.6d: the RPO-A in the open: severe blast within 3 m (at 2 m nearly all down), few hurt at 10 m", () => {
+    const rp = (x: number) => at("ru-rpo-a", "standing", x);
+    expect(share(rp(2).downAtOnce, rp(2).men)).toBeGreaterThanOrEqual(0.8);
+    expect(share(rp(10).downAtOnce, rp(10).men)).toBeLessThanOrEqual(0.4);
+  });
   it("DM51 with its sleeve of steel balls: deadly within a few metres, wounding out to about 20 m", () => {
     const d = (x: number) => at("de-dm51", "standing", x);
     expect(share(d(2).dead60min, d(2).men)).toBeGreaterThan(0.8);

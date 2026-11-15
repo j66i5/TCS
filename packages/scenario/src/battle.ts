@@ -50,6 +50,13 @@ export interface ScenarioDef {
    *  side whose faction has a `missileTeamTemplate` gets one team as a unit of its own (not part of a platoon): the
    *  defender's 300 m behind its main objective, the attacker's 150 m behind its start on a flank. */
   missileTeams?: boolean;
+  /** M7.6d: automatic grenade launcher teams: each side named (true: both) whose faction has an `aglTeamTemplate`
+   *  gets one team as a unit of its own, placed as the missile team but on the other flank (the defender's 250 m
+   *  behind its main objective, 60 m aside). */
+  aglTeams?: boolean | "attacker" | "defender";
+  /** M7.6d: this side's platoon is its faction's assault group (manifest `assaultGroupTemplate`; on foot) unless
+   *  `templates` names one. */
+  assaultGroup?: "blue" | "red";
   /** Off-map artillery (M8.4): each side whose faction has an `artillery` battery also gets its allotment
    *  (`SCENARIO_ARTILLERY`). The AI commander does not call it yet (M8.5). */
   artillery?: boolean;
@@ -116,7 +123,8 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const faction = def.factions[s]!;
     const pack = data.factions[faction];
     const carriers = Array.isArray(def.carriers) ? def.carriers[s] : def.carriers;
-    const template = def.templates?.[s] ?? platoonTemplateOf(data, faction, carriers) ?? pack?.manifest.demoTemplate ?? "demo-team";
+    const assault = def.assaultGroup === side ? pack?.manifest.assaultGroupTemplate : undefined;
+    const template = def.templates?.[s] ?? assault ?? platoonTemplateOf(data, faction, carriers) ?? pack?.manifest.demoTemplate ?? "demo-team";
     const count = side === def.attacker ? Math.max(1, def.attackerPlatoons ?? 2) : 1;
     const built = Array.from({ length: count }, (_, k) => buildForceWithVehicles(data, { faction, template, seed: def.seed * 31 + s * 7 + k * 101, keyPrefix: `${side}-${k + 1}`, number: k + 1 }));
     const withVehicles = def.vehicles === true && built.some((b) => b.vehicles.length > 0);
@@ -201,13 +209,17 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
       if (hypot2(bx - mainP.x, H / 2 - mainP.y) >= minR) mortarSides.add(side);
     }
     // Dismounted missile team (M9.3b): a unit of its own, behind the own line (never mounted, not a foot group).
+    // (M7.6d: an automatic grenade launcher team the same, on the other flank.)
     const at = def.missileTeams === true ? pack?.manifest.missileTeamTemplate : undefined;
-    if (at) {
-      const team = buildForceWithVehicles(data, { faction, template: at, seed: def.seed * 41 + s * 13, keyPrefix: `${side}-a`, number: 1 }).unit;
+    const aglWanted = def.aglTeams === true || def.aglTeams === (attacking ? "attacker" : "defender");
+    const gt = aglWanted ? pack?.manifest.aglTeamTemplate : undefined;
+    for (const [tpl, prefix, seedK, other] of [[at, "a", 41, false], [gt, "g", 53, true]] as const) {
+      if (!tpl) continue;
+      const team = buildForceWithVehicles(data, { faction, template: tpl, seed: def.seed * seedK + s * 13, keyPrefix: `${side}-${prefix}`, number: 1 }).unit;
       units.push(team);
-      const flank = def.seed % 2 === 0 ? -1 : 1; // (the flank away from the second objective)
-      let bx = side === defender ? Math.min(Math.max(mainP.x + dx * 300, 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
-      let by = side === defender ? mainP.y : H / 2 + flank * H * 0.3;
+      const flank = (def.seed % 2 === 0 ? -1 : 1) * (other ? -1 : 1); // (the missile team: the flank away from the second objective)
+      let bx = side === defender ? Math.min(Math.max(mainP.x + dx * (other ? 250 : 300), 20), W - 20) : side === "blue" ? Math.max(20, W * 0.08 - 150) : Math.min(W - 20, W * 0.92 + 150);
+      let by = side === defender ? mainP.y + (other ? 60 * flank : 0) : H / 2 + flank * H * 0.3;
       // Review fix: the attacker's team starts in dead ground as its vehicles do (hidden from the defence's sights
       // and men, nearest the flank spot, clear of the hulls); else next to the vehicles' start, behind them.
       if (attacking && def.deadGroundStart !== false) {

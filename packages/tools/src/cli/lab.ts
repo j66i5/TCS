@@ -1,4 +1,4 @@
-/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear] [trials]` prints the lab tables and writes them to reports/. */
+/** Sim labs: `npm run lab -- movement|cover|range|casualty|fragmentation|sight|spotting|suppression|attack|ambush [trials]|drive|mount|gunnery|armour|antitank|missile|missile-team [trials]|agl [trials]|treatment|carry|medevac [seeds]|protection [seeds]|smoke [seeds]|night|thermal|drone [seeds]|indirect [seeds]|artillery [seeds]|house [defend|leave|clear|rocket] [trials]` prints the lab tables and writes them to reports/. */
 import { buildCatalog } from "@tcs/data";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,8 @@ import { armourLab, armourLabMarkdown } from "../labs/armour";
 import { antitankLab, antitankLabMarkdown } from "../labs/antitank";
 import { missileLab, missileLabMarkdown } from "../labs/missile";
 import { missileTeamLab, missileTeamLabMarkdown } from "../labs/missile-team";
-import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown } from "../labs/house";
+import { aglLab, aglLabMarkdown } from "../labs/agl";
+import { houseClearLab, houseClearMarkdown, houseDefendLab, houseDefendMarkdown, houseLeaveLab, houseLeaveMarkdown, houseRocketLab, houseRocketMarkdown } from "../labs/house";
 import { indirectLab, indirectLabMarkdown } from "../labs/indirect";
 import { artilleryLab, artilleryLabMarkdown } from "../labs/artillery";
 import { oddsLab, selfAidLab, treatmentLabMarkdown } from "../labs/treatment";
@@ -57,13 +58,15 @@ const LABS: Record<string, () => string> = {
     const mode = process.argv[3] ?? "defend";
     if (mode === "leave") return `# House lab\n\n${houseLeaveMarkdown(houseLeaveLab(loadData(), Number(process.argv[4] ?? 20)))}\n`;
     if (mode === "clear") return `# House lab\n\n${houseClearMarkdown(houseClearLab(loadData(), Number(process.argv[4] ?? 12)))}\n`;
-    if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear)`);
+    if (mode === "rocket") return `# House lab\n\n${houseRocketMarkdown(houseRocketLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
+    if (mode !== "defend") throw new Error(`unknown house lab mode '${mode}' (known: defend, leave, clear, rocket)`);
     return `# House lab\n\n${houseDefendMarkdown(houseDefendLab(loadData(), Number(process.argv[4] ?? 10)))}\n`;
   },
   artillery: () => `# Artillery lab\n\n${artilleryLabMarkdown(artilleryLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   indirect: () => `# Indirect fire lab\n\n${indirectLabMarkdown(indirectLab(loadData(), Number(process.argv[3] ?? 12)))}\n`,
   smoke: () => `# Smoke lab\n\n## Hand smoke grenades\n\n${handSmokeLabMarkdown(handSmokeLab(loadData()))}\n\n${smokeLabMarkdown(smokeLab(loadData(), Number(process.argv[3] ?? 6)))}\n`,
   treatment: () => `# Treatment lab\n\n${treatmentLabMarkdown(oddsLab(loadData()), selfAidLab(loadData()))}\n`,
+  agl: () => `# Automatic grenade launcher lab\n\n${aglLabMarkdown(aglLab(loadData(), Number(process.argv[3] ?? 20)))}\n`,
   "missile-team": () => `# Missile team lab\n\n${missileTeamLabMarkdown(missileTeamLab(loadData(), Number(process.argv[3] ?? 50)))}\n`,
   missile: () => `# Missile lab\n\n${missileLabMarkdown(missileLab(loadData(true), Number(process.argv[3] ?? 20)))}\n`,
 };

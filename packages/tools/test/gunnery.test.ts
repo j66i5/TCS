@@ -4,7 +4,7 @@
  * the order table ("not-applicable"), and the fixture's single-feed sling with and without a loader (C10).
  */
 import { describe, expect, it } from "vitest";
-import { buildBallistics, buildMapIndex, createSim, step, submitOrder, TICK_HZ, type EntityId, type Order, type Sim, type SimEvent } from "@tcs/sim";
+import { buildBallistics, buildMapIndex, createSim, step, submitOrder, tallyExpenditure, TICK_HZ, type EntityId, type Expenditure, type Order, type Sim, type SimEvent } from "@tcs/sim";
 import { vehicleBattle } from "@tcs/scenario";
 import { vehicleIncomingSystem } from "../../sim/src/systems/gunnery";
 import { duel } from "../src/labs/gunnery";
@@ -40,6 +40,23 @@ describe("vehicle gunnery (M7.3)", () => {
     let shots = 0;
     run(sim, 20, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) { shots++; expect(e.shooter).toBe(cmd); } });
     expect(shots).toBeGreaterThan(10);
+  });
+  it("M7.6d: the GTK's GMW fires its HEDP at men and, ordered armour-piercing at the BTR, falls back to the HEDP; the rounds count on the vehicle's cannon line", () => {
+    for (const nature of ["he", "ap"] as const) {
+      const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }, undefined, 2400, ["boxer-besatzung-gmw", "btr82a-ekipazh"]));
+      holdAll(sim);
+      const b = crew(sim, "blue");
+      order(sim, "blue", b.crew, { kind: "fire", x: 1200, y: 600, heightM: nature === "ap" ? 1.2 : 0, nature });
+      const ammo = new Set<string>(), weapons = new Set<string>();
+      const out: Expenditure = {};
+      run(sim, 15, (e) => { if (e.kind === "shot.fired" && e.vehicle === b.vid) { ammo.add(e.ammo); weapons.add(e.weapon); } tallyExpenditure(out, [e], sim.state, sim.ctx.catalog); });
+      expect([...ammo]).toEqual(["de-40x53-hedp"]);
+      expect([...weapons]).toEqual(["de-gmw-rws"]);
+      const veh = Object.values(out["blue"]!.vehicles)[0]!;
+      expect(veh.cannon["de-40x53-hedp"]).toBeGreaterThan(0);
+      expect(veh.coax).toBe(0);
+      expect(out["blue"]!.grenadeMg).toBeUndefined();
+    }
   });
   it("a fire order lays the turret and fires the cannon; every round leaves the ready feed (rule 9)", () => {
     const sim = createSim(duel(data, ["de", "ru"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 1200, y: 600, heading: Math.PI / 2 } }));

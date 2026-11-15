@@ -112,7 +112,7 @@ describe("data loader", () => {
     it("loads the Puma, the BMP-2 and the fixture cart", () => {
       const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
-      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk"]);
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v", "de-boxer-gtk", "de-boxer-gtk-gmw"]);
       expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m", "ru-btr82a"]);
       expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise"]);
     });
@@ -189,6 +189,25 @@ describe("data loader", () => {
       expect(data!.factions["ru"]!.units["motor-rifle-squad-1"]!.members.length + 1).toBe(7);
       expect(data!.factions["de"]!.manifest.platoonTemplates).toEqual({ tracked: "pzgren-zug", wheeled: "jaeger-zug" });
       expect(data!.factions["ru"]!.manifest.platoonTemplates).toEqual({ tracked: "motor-rifle-platoon", wheeled: "motor-rifle-platoon-btr" });
+    });
+    it("M7.6d: the GTK with the GMW is the GTK but for its station's weapon, its ready box and its stowed belts", () => {
+      const { data } = loadDataSet(read(["core", "factions"]));
+      const de = data!.factions["de"]!;
+      const strip = (v: unknown) => { const x = clone(v) as V; delete x["id"]; delete x["nameKey"]; delete x["note"]; delete x["sources"]; delete x["stowed"]; for (const st of x["stations"] as V[]) { delete st["weapons"]; delete st["note"]; delete st["sources"]; } return x; };
+      expect(strip(de.vehicles["de-boxer-gtk-gmw"])).toEqual(strip(de.vehicles["de-boxer-gtk"]));
+      const w = de.vehicles["de-boxer-gtk-gmw"]!.stations[0]!.weapons;
+      expect(w.map((x) => [x.weapon, x.feeds[0]!.item, x.feeds[0]!.ready.charge])).toEqual([["de-gmw-rws", "de-40x53-belt", 32]]);
+      expect(de.vehicles["de-boxer-gtk-gmw"]!.stowed.some((s) => s.item === "de-127x99-belt")).toBe(false);
+      expect(de.units["jaeger-zug"]!.subunits.slice(3)).toEqual(["boxer-besatzung-gmw", "boxer-besatzung", "boxer-besatzung-gmw", "boxer-besatzung-zug"]);
+    });
+    it("M7.6d: a direct round needs a launcher item unless it is disposable; a role only on a direct round; manifest templates exist", () => {
+      const am = (f: Record<string, unknown>) => (f["factions/ru/ammunition.json"] as { ammunition: V[] }).ammunition.find((a) => a["id"] === "ru-pg7vl")!;
+      expect(broken((f) => { delete am(f)["delivery"]["launcher"]; })).toContain("a direct round without a launcher item must be disposable");
+      expect(broken((f) => { delete am(f)["delivery"]["launcher"]; am(f)["delivery"]["disposable"] = true; })).not.toContain("delivery.launcher");
+      expect(broken((f) => { (f["factions/ru/ammunition.json"] as { ammunition: V[] }).ammunition.find((a) => a["id"] === "ru-vog25")!["delivery"]["role"] = "antiPersonnel"; })).toContain("a role belongs to a direct");
+      expect(broken((f) => { (f["factions/de/manifest.json"] as V)["aglTeamTemplate"] = "nichts"; })).toContain("aglTeamTemplate: unknown unit template 'nichts'");
+      expect(broken((f) => { (f["factions/de/manifest.json"] as V)["aglTeamTemplate"] = "boxer-besatzung"; })).toContain("carries an automatic grenade launcher post");
+      expect(broken((f) => { (f["factions/de/manifest.json"] as V)["assaultGroupTemplate"] = "nichts"; })).toContain("assaultGroupTemplate: unknown unit template");
     });
     it("checks that a foot pace names vehicle paces of the right class", () => {
       expect(broken((f) => { (f["core/movement-modes.json"] as { movementModes: V[] }).movementModes[0]!["vehiclePace"].tracked = "wdrive"; })).toContain("movementModes[0].vehiclePace.tracked: 'wdrive' is not a tracked pace");

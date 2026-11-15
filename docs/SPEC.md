@@ -39,6 +39,7 @@ No 3D graphics, no base building, no resource harvesting, no hero units, no firs
 - Scenarios are fictional contingencies on fictional or generic terrain. No real persons, no real named units below a generic type, no depiction of real atrocities, no propaganda framing for either side. Both sides are modelled as competent professionals with different equipment, organisation and doctrine.
 - Soldier names come from generated lists of common given names and surnames per faction.
 - Violence is shown abstractly (symbols, status text). No gore.
+- Thermobaric weapons (M7.6d) are an abstract effect too: no fire or burn model, only the blast. A thermobaric round bursting in a room (or on the outer wall of one) fills that room: every man in it takes the blast at its radii times the round's `enclosedFactor`, with no wall shielding him; men in other rooms and outdoors take the plain blast of its filling, as from any explosive. The factor is a game value (low confidence); contested TNT-equivalence claims are not used.
 
 ## 4. Technology and architecture
 

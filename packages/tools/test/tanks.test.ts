@@ -181,6 +181,9 @@ describe("main battle tanks (M7.6a)", () => {
     const leo = side(sim, "blue");
     const lc = sim.state.container.req(leo[0]);
     expect(leo[1].stations[0]!.weapons[0]!.feeds.reduce((n, f) => n + f.rounds, 0) + countItems(lc, "de-120-dm63a1-round") + countItems(lc, "de-120-dm11-round")).toBe(42);
+    // A loaded round weighs its cartridge once (review fix): the item is the case and propellant, its charge the projectile.
+    const kg = (it: string) => { const d = sim.ctx.catalog.items[it]!; return d.massKg + d.chargeMassKg! * d.chargeCapacity!; };
+    expect([kg("de-120-dm63a1-round"), kg("de-120-dm11-round"), kg("ru-125-3bm60-round"), kg("ru-125-3of26-round"), kg("ru-9m119m-round")].map((x) => Math.round(x * 100) / 100)).toEqual([21.4, 24, 20.4, 33, 24.3]);
   });
 });
 

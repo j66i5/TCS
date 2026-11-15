@@ -889,7 +889,7 @@
       "calibre": "125mm",
       "kind": "kinetic-penetrator",
       "projectileMassKg": 4.85,
-      "cartridgeMassKg": 20.4,
+      "cartridgeMassKg": 4.85,
       "diameterM": 0.024,
       "drag": {
         "a": 0.4,
@@ -916,7 +916,7 @@
         "https://en.wikipedia.org/wiki/2A46"
       ],
       "confidence": "low",
-      "note": "3BM60 Svinets-2 APFSDS (depleted uranium) for the 125 mm 2A46M-5; needs the new autoloader (published). Search extracts only (pages not opened in this container). Penetration (low): the maker's 300 mm at 60 degrees at 2 km (about 600 mm line of sight), Wikipedia 640-700 mm at 0 degrees: 620 mm RHA at 2000 m x 1.25 = 775 mm mild steel at the speed the drag model gives there (1586 m/s from 1660 m/s, game drag a 0.40). Masses and drag are game values; long rod behaviour as the 120 mm DM63A1."
+      "note": "3BM60 Svinets-2 APFSDS (depleted uranium) for the 125 mm 2A46M-5; needs the new autoloader (published). Search extracts only (pages not opened in this container). Penetration (low): the maker's 300 mm at 60 degrees at 2 km (about 600 mm line of sight), Wikipedia 640-700 mm at 0 degrees: 620 mm RHA at 2000 m x 1.25 = 775 mm mild steel at the speed the drag model gives there (1586 m/s from 1660 m/s, game drag a 0.40). Masses and drag are game values; long rod behaviour as the 120 mm DM63A1. cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
       "id": "ru-125-3bm42",
@@ -924,7 +924,7 @@
       "calibre": "125mm",
       "kind": "kinetic-penetrator",
       "projectileMassKg": 4.85,
-      "cartridgeMassKg": 20.4,
+      "cartridgeMassKg": 4.85,
       "diameterM": 0.03,
       "drag": {
         "a": 0.4,
@@ -951,7 +951,7 @@
         "https://reference.org/facts/2A46/ta1AC2ap"
       ],
       "confidence": "low",
-      "note": "3BM42 Mango APFSDS, the round that fits the T-72's old carousel (published). Search extracts only (pages not opened in this container). Penetration (low): 450-500 mm RHA at 0 degrees at 2 km in published tables: 460 mm x 1.25 = 575 mm mild steel at the speed the drag model gives at 2000 m (1583 m/s from 1700 m/s; a thicker two-piece rod, d 0.03 m). Masses and drag are game values."
+      "note": "3BM42 Mango APFSDS, the round that fits the T-72's old carousel (published). Search extracts only (pages not opened in this container). Penetration (low): 450-500 mm RHA at 0 degrees at 2 km in published tables: 460 mm x 1.25 = 575 mm mild steel at the speed the drag model gives at 2000 m (1583 m/s from 1700 m/s; a thicker two-piece rod, d 0.03 m). Masses and drag are game values. cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
       "id": "ru-125-3of26",
@@ -959,7 +959,7 @@
       "calibre": "125mm",
       "kind": "high-explosive",
       "projectileMassKg": 23.0,
-      "cartridgeMassKg": 33.0,
+      "cartridgeMassKg": 23.0,
       "diameterM": 0.125,
       "drag": {
         "a": 0.3,
@@ -988,7 +988,7 @@
         "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
       ],
       "confidence": "low",
-      "note": "3OF26 HE-FRAG for the 125 mm gun. The search for it was refused; projectile about 23 kg, about 3.4 kg filling, about 850 m/s are from memory, not from a source (low). Fragments are the 120 mm mortar bomb's (game abstraction); count and speed are game values. The T-90M's programmable 3VOF128 Telnik is not modelled."
+      "note": "3OF26 HE-FRAG for the 125 mm gun. The search for it was refused; projectile about 23 kg, about 3.4 kg filling, about 850 m/s are from memory, not from a source (low). Fragments are the 120 mm mortar bomb's (game abstraction); count and speed are game values. The T-90M's programmable 3VOF128 Telnik is not modelled. cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
       "id": "ru-9m119m",
@@ -996,7 +996,7 @@
       "calibre": "125mm-atgm",
       "kind": "tandem-shaped-charge",
       "projectileMassKg": 17.2,
-      "cartridgeMassKg": 24.3,
+      "cartridgeMassKg": 17.2,
       "diameterM": 0.125,
       "drag": {
         "a": 0.3,
@@ -1042,7 +1042,7 @@
         "https://en.missilery.info/node/12990"
       ],
       "confidence": "medium",
-      "note": "9M119M Refleks-M, fired through the 125 mm gun's bore (published): laser beam-riding, 75-5000 m (100 m minimum here), missile 17.2 kg, tandem shaped charge 700-750 mm RHA (650-700 behind reactive armour): 700 x 1.25 = 875 mm mild steel. Search extracts only (pages not opened in this container). Game values (low): leaves the bore at 280 m/s and cruises at 300 m/s (about 17 s to 5000 m), turn rate, tracking error, filling 2.0 kg, 150 fragments, arming after 0.3 s, self-destruct at 20 s; the round with its case 24.3 kg."
+      "note": "9M119M Refleks-M, fired through the 125 mm gun's bore (published): laser beam-riding, 75-5000 m (100 m minimum here), missile 17.2 kg, tandem shaped charge 700-750 mm RHA (650-700 behind reactive armour): 700 x 1.25 = 875 mm mild steel. Search extracts only (pages not opened in this container). Game values (low): leaves the bore at 280 m/s and cruises at 300 m/s (about 17 s to 5000 m), turn rate, tracking error, filling 2.0 kg, 150 fragments, arming after 0.3 s, self-destruct at 20 s; the round with its case 24.3 kg. cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     }
   ]
 }

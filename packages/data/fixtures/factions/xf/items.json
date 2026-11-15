@@ -179,25 +179,25 @@
       "id": "xf-ram-round",
       "nameKey": "item.xf-ram-round",
       "category": "magazine",
-      "massKg": 20.0,
+      "massKg": 16.0,
       "chargeCapacity": 1,
-      "chargeMassKg": 20.0,
+      "chargeMassKg": 4.0,
       "chargeItem": "xf-ram",
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture (M7.6a)."
+      "note": "Made-up test fixture (M7.6a). Mass (review fix): the item's own 16.0 kg is the case and propellant, its charge the 4.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.0 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "xf-pot-round",
       "nameKey": "item.xf-pot-round",
       "category": "magazine",
-      "massKg": 20.0,
+      "massKg": 10.0,
       "chargeCapacity": 1,
-      "chargeMassKg": 20.0,
+      "chargeMassKg": 10.0,
       "chargeItem": "xf-pot",
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture (M7.6a)."
+      "note": "Made-up test fixture (M7.6a). Mass (review fix): the item's own 10.0 kg is the case and propellant, its charge the 10.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.0 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "xf-scale",

@@ -567,58 +567,58 @@
       "id": "ru-125-3bm60-round",
       "nameKey": "item.ru-125-3bm60-round",
       "category": "magazine",
-      "massKg": 20.4,
+      "massKg": 15.55,
       "chargeCapacity": 1,
-      "chargeMassKg": 20.4,
+      "chargeMassKg": 4.85,
       "chargeItem": "ru-125-3bm60",
       "sources": [
         "https://www.shephardmedia.com/news/landwarfareintl/army-2021-rostec-companies-showcase-new-offensive-/"
       ],
       "confidence": "low",
-      "note": "One 125 mm 3BM60 round (projectile and charge as one item; M7.6a, game value)."
+      "note": "One 125 mm 3BM60 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 15.55 kg is the case and propellant, its charge the 4.85 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.4 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "ru-125-3bm42-round",
       "nameKey": "item.ru-125-3bm42-round",
       "category": "magazine",
-      "massKg": 20.4,
+      "massKg": 15.55,
       "chargeCapacity": 1,
-      "chargeMassKg": 20.4,
+      "chargeMassKg": 4.85,
       "chargeItem": "ru-125-3bm42",
       "sources": [
         "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
       ],
       "confidence": "low",
-      "note": "One 125 mm 3BM42 round (projectile and charge as one item; M7.6a, game value)."
+      "note": "One 125 mm 3BM42 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 15.55 kg is the case and propellant, its charge the 4.85 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 20.4 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "ru-125-3of26-round",
       "nameKey": "item.ru-125-3of26-round",
       "category": "magazine",
-      "massKg": 33.0,
+      "massKg": 10.0,
       "chargeCapacity": 1,
-      "chargeMassKg": 33.0,
+      "chargeMassKg": 23.0,
       "chargeItem": "ru-125-3of26",
       "sources": [
         "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
       ],
       "confidence": "low",
-      "note": "One 125 mm 3OF26 round (projectile and charge as one item; M7.6a, game value)."
+      "note": "One 125 mm 3OF26 round (projectile and charge as one item; M7.6a, game value). Mass (review fix): the item's own 10.0 kg is the case and propellant, its charge the 23.0 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 33.0 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "ru-9m119m-round",
       "nameKey": "item.ru-9m119m-round",
       "category": "missile",
-      "massKg": 24.3,
+      "massKg": 7.1,
       "chargeCapacity": 1,
-      "chargeMassKg": 24.3,
+      "chargeMassKg": 17.2,
       "chargeItem": "ru-9m119m",
       "sources": [
         "https://en.wikipedia.org/wiki/9M119_Svir/Refleks",
         "https://en.missilery.info/node/12990"
       ],
       "confidence": "low",
-      "note": "One 9M119M Refleks-M missile with its propellant charge (M7.6a; mass a game value)."
+      "note": "One 9M119M Refleks-M missile with its propellant charge (M7.6a; mass a game value). Mass (review fix): the item's own 7.1 kg is the case and propellant, its charge the 17.2 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 24.3 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "ru-t90m-diesel",

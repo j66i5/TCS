@@ -195,7 +195,7 @@
       "calibre": "xf-bombard",
       "kind": "kinetic-penetrator",
       "projectileMassKg": 4.0,
-      "cartridgeMassKg": 20.0,
+      "cartridgeMassKg": 4.0,
       "diameterM": 0.03,
       "drag": {
         "a": 0.4,
@@ -217,7 +217,7 @@
       },
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture (M7.6a)."
+      "note": "Made-up test fixture (M7.6a). cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     },
     {
       "id": "xf-pot",
@@ -225,7 +225,7 @@
       "calibre": "xf-bombard",
       "kind": "high-explosive",
       "projectileMassKg": 10.0,
-      "cartridgeMassKg": 20.0,
+      "cartridgeMassKg": 10.0,
       "diameterM": 0.1,
       "drag": {
         "a": 0.3,
@@ -252,7 +252,7 @@
       },
       "sources": [],
       "confidence": "low",
-      "note": "Made-up test fixture (M7.6a)."
+      "note": "Made-up test fixture (M7.6a). cartridgeMassKg here is the projectile alone (the round item's charge); the case and propellant are the item's own mass (M7.6a review fix)."
     }
   ]
 }

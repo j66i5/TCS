@@ -633,31 +633,31 @@
       "id": "de-120-dm63a1-round",
       "nameKey": "item.de-120-dm63a1-round",
       "category": "magazine",
-      "massKg": 21.4,
+      "massKg": 16.8,
       "chargeCapacity": 1,
-      "chargeMassKg": 21.4,
+      "chargeMassKg": 4.6,
       "chargeItem": "de-120-dm63a1",
       "sources": [
         "https://militarnyi.com/en/news/ukrainian-leopard-tanks-received-modern-dm53-armor-piercing-rounds/",
         "https://kaweah.freedombox.rocks/kiwix/wikipedia_en_all_maxi_2023-10/Leopard_2"
       ],
       "confidence": "low",
-      "note": "One 120 mm DM63A1 cartridge (combustible case), a single-round magazine for the gun's feeds and the stowage (M7.6a). Cartridge mass is a game value."
+      "note": "One 120 mm DM63A1 cartridge (combustible case), a single-round magazine for the gun's feeds and the stowage (M7.6a). Cartridge mass is a game value. Mass (review fix): the item's own 16.8 kg is the case and propellant, its charge the 4.6 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 21.4 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "de-120-dm11-round",
       "nameKey": "item.de-120-dm11-round",
       "category": "magazine",
-      "massKg": 24.1,
+      "massKg": 12.6,
       "chargeCapacity": 1,
-      "chargeMassKg": 24.1,
+      "chargeMassKg": 11.4,
       "chargeItem": "de-120-dm11",
       "sources": [
         "https://www.armyrecognition.com/news/army-news/2017/idex-2017-rheinmetall-120mm-ammunition-technology-remains-commensurate-to-the-threat-22102173",
         "https://spartanat.com/en/dm11-frische-munition-fuer-den-leopard"
       ],
       "confidence": "low",
-      "note": "One 120 mm DM11 cartridge, a single-round magazine (M7.6a). Mass is a game value."
+      "note": "One 120 mm DM11 cartridge, a single-round magazine (M7.6a). Mass is a game value. Mass (review fix): the item's own 12.6 kg is the case and propellant, its charge the 11.4 kg projectile (the ammunition's cartridgeMassKg), so a loaded round weighs the 24.0 kg cartridge, as the 9M131 splits tube and missile."
     },
     {
       "id": "de-mg3-coax-belt",

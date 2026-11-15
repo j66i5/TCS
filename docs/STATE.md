@@ -5,6 +5,19 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Slice 41, M7.6c Wheeled carriers and their platoons (2026-11-15, branch `claude/medical-ambulance-smoke`, parallel
+  session; not pushed).** GTK Boxer (`de-boxer-gtk`: FLW 200 with a 12.7 mm sMG worked by the commander, 2 crew + 8)
+  and BTR-82A (`ru-btr82a`: 2A72 + PKTM, 3 + 7); the 8-man Jaegergruppe and the Jaegerzug in four Boxers; the BTR
+  squad (7, + assistant MG) and the BTR platoon in three BTR-82A. Manifest `platoonTemplates {tracked, wheeled}`,
+  `ScenarioDef.carriers`, headless `--carriers`, app `?vehicles=tracked|wheeled|<blue>,<red>`; `crewTemplateOf`
+  takes the platoon's carriage crews. Scenarios `platoon-vehicles-wheeled`, `platoon-ru-vehicles-wheeled`,
+  `platoon-vehicles-mixed`; golden `platoon-vehicles-wheeled-s1`; drive / gunnery / mount / armour / anti-tank lab
+  rows; `--scene wheeled`. Existing battles bit-identical in their events (fingerprint-only golden update).
+  Batches (10 x 1200 s): Jaeger attack in GTKs 0 of 10 (Pumas 5), BTR attack 5 of 10 (BMP-2 1): the 30 mm outguns
+  the 12.7 mm; not tuned. **Open for the owner** (all low): the GTK 2 + 8 split and the Jaegergruppe composition,
+  the BTR armour equivalents, no SVD, the wheeled balance (the GMW 40 mm in slice 42 is the lever); the Russian
+  squads' duplicate callsigns ("Gruppa 1" twice, pre-existing). **Next: slice 42 M7.6d** (assault group, AGS / GMW,
+  SVD).
 - **Slice 40, M7.6b Tanks in battle (2026-11-15, branch `claude/medical-ambulance-smoke` after slice 39; not pushed
   while PR #59 is open).** Gunnery aims at the lowest aim point the line clears (a hull-down tank can now be engaged;
   golden `platoon-vehicles-s1` regenerated) and judges that zone's plate and tiles; tank sections in data
@@ -246,6 +259,12 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- M7.6c (2026-11-15, low unless noted; `docs/research/low-confidence.md`): GTK 2 crew + 8 (inference from "max 10
+  persons"), the FLW 200's rates, limits, smoke fit and 9 stowed belts, the GTK rear 22 mm; the 12.7 mm round's
+  penetration and drag; the 2A72's 330 rpm and 100 AP / 200 HE split; the BTR-82A armour equivalents (front 10 mm at
+  64 degrees, sides 14, rear 13), its door times; the Jaegergruppe composition and the Gruppenfuehrer a Feldwebel; the
+  BTR squad's assistant MG (medium) and no SVD; the wheeled balance (Jaeger attack 0 of 10).
 
 - M9 owner round answered 2026-11-14 (DECISIONS "Owner answers: M9 round"): night look and goggles as built. Low-confidence M9.1/M9.2 values: thermal heats, sight arcs, who
   carries thermal sights (DE marksman per Trupp, RU platoon commander), blankets issued to nobody; M9.1: the sun table (one date), full-moon light 0.12, flash light 0.8, tracers x3.

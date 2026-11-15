@@ -5862,3 +5862,96 @@ data or golden change.
   target hull is now looked past); the phone list's cap is redone when the card changes height, not only when it shows
   or hides; `phoneperf` no longer loads the read-out (every second swipe started on it and panned nothing) and its
   frame loops no longer pile up across runs (the frame counts were 2-4x too high; percentiles were right).
+
+## 2026-11-15 — M7.6c Wheeled carriers and their platoons (roadmap-detail slice 41, parallel session)
+Owner not reachable; decisions D1-D10 of the slice plan, all logged here (data from search extracts only, so medium at
+most; game values low; the new low entries are in `docs/research/low-confidence.md`).
+- **GTK Boxer** (`de-boxer-gtk`): the GTFz, A2 standard, with the KNDS FLW 200 and a 12.7 mm sMG M2 QCB (KNDS listing;
+  no extract confirms the M3M). The 40 mm GMW is left to slice 42 (grenade machine guns); the RCT30 Schwerer
+  Waffentraeger is rejected (no dismounts). **2 crew + 8 places** from the Bundeswehr "max 10 persons": the commander
+  works the remote station (station `operator: "commander"`; verified: gunnery and the crew AI take the operator from
+  data, `stationOperator`; a test fires it with no gunner seat), so the fallback 3 + 7 was not needed. Hull, drive,
+  wheels and steering copied from `de-boxer-san` (width held at 2.99 m: the shared wheeled nav grid is sized from
+  the widest wheeled hull); mass 36.5 t (A2), 530 kW, 100 km/h (the ambulance's; 103 on spec sites noted). Armour as
+  the ambulance's except the rear, 22 mm instead of 20, so 12.7 mm AP at 500 m is stopped all round (game value);
+  the FLW 200 is a `body.turret` of 6 mm steel. 100 ready 12.7 mm (KNDS) + 9 belts stowed (game value), refilled
+  halted in 120 s; MPL 76 mm smoke (6 x 2, the German fit unconfirmed, low).
+- **BTR-82A** (`ru-btr82a`): 15.4 t, 221 kW, 80 km/h, 300 L, crew 3 + 7, 2A72 (new weapon, the 2A42's 30 x 165
+  belts, 330 rpm low) with 100 AP + 200 HE ready and none stowed, PKTM (`ru-pkt`) 250 + 7 x 250, 902V Tucha x 6,
+  the gunner's day / night-IR sight (the later TKN-4GA-03 thermal not modelled), no rangefinder. Steering and
+  effective wheelbase = the BMM's (same BTR-80 chassis; turning circle 24.1 m; the plan's 4.40 m wheelbase would have
+  given about 35 m). **Armour (game equivalents, low):** hull front 10 mm at 64 degrees (stops 12.7 mm at 500 m),
+  sides 14 mm at 15 degrees and rear 13 mm (the thin hard plate and the spall liner: 7.62 mm B-32 at 75 m stopped,
+  12.7 mm not), roof 7; turret front 20 at 30, sides 10, rear 8, roof 6. Side doors at 2.2 m from the centre line
+  (at 1.8 m, as the BMM's, the seventh man could not reach his exit beside the hull), 2.25 s a man out (1.5 x the
+  BMP-2's).
+- **Jaegergruppe** (`jaeger-gruppe`, 8): Gruppenfuehrer (new role, a Feldwebel: he dismounts), MG5 gunner and
+  assistant (new role `mg-assistant`), Panzerfaust 3, G28 marksman, AG40 grenadier, Einsatzersthelfer B, rifleman;
+  G36 (Boxer units lag the Puma units). Low: an inference. **Jaegerzug** (`jaeger-zug`): Zugtrupp (as the
+  Panzergrenadierzug's, with the drone and litter) + 3 Gruppen in 4 Boxers (`boxer-besatzung`, `boxer-besatzung-zug`
+  "Boxer 4"), 35 men. Medical: one EH-B per Gruppe and the Sanitaeter in the Zugtrupp (binding answer).
+- **BTR platoon** (`motor-rifle-platoon-btr`): the platoon commander, `motor-rifle-squad-1` unchanged (6, with the
+  rifleman-medic; BTR 1 also carries the commander: 7 places) and 2 x `motor-rifle-squad-btr` (7: + the
+  assistant MG gunner, new role `assistant-mg-gunner`, battleorder); 3 x `btr82a-ekipazh`; 30 men. No SVD
+  (disputed; slice 42).
+- **Choosing the platoon:** manifest `platoonTemplates {tracked, wheeled}` (de: pzgren-zug / jaeger-zug; ru:
+  motor-rifle-platoon / motor-rifle-platoon-btr; xf none: falls back to `platoonTemplate`), checked by the loader
+  (exists, has a carriage, its carriage crews drive that class). `ScenarioDef.carriers` (one class or per side),
+  `VehicleBattleOptions.carriers`, headless `--carriers`, app `?vehicles=0|1|tracked|wheeled|<blue>,<red>`
+  (`app/src/params.ts carriersParam`, warns and falls back to tracked). Class words, never vehicle names (rule 8).
+- **`crewTemplateOf`** prefers the carriage crews of the faction's platoon for the class (first by id), falling back to
+  the old first-by-id rule: "boxer-besatzung" would otherwise have become the German default carrier everywhere.
+  Same results as before for de, ru and xf (tested).
+- **`placeVehicles` unchanged** (deviation from the plan): it already builds one grid per vehicle class; each side's
+  carriers are one class, and the sides are placed separately, so a mixed battle stands each on its own class grid.
+- **Scenarios:** `platoon-vehicles-wheeled` (village, Jaeger attack BTRs), `platoon-ru-vehicles-wheeled` (farmland, BTR
+  attack), `platoon-vehicles-mixed` (village, Jaeger in GTKs against BMP-2s); the five tracked mounted scenarios take
+  `--carriers` too. New golden `platoon-vehicles-wheeled-s1` (120 s).
+- **Existing battles unchanged:** for demo, shootout, demo-fixture, house-clear, village-occupy, vehicles,
+  vehicles-fixture, platoon, platoon-ru, platoon-mortars, platoon-vehicles, platoon-ru-vehicles,
+  platoon-vehicles-tanks(-both), bench-vehicles (200-300 s, seed 1/3) the event streams are byte-identical and the
+  final states equal with the catalog fingerprint blanked and projectile ammunition mapped from index to id. (A new
+  round, `de-127x99-ap`, shifts `catalog.ammoIds`: the raw state hash of a battle with projectiles in flight changes
+  though nothing behaves differently.) Golden recorded orders unchanged; `golden:update` for the fingerprint only;
+  `golden/no-interiors` untouched.
+- **Labs (bands in the tests):** drive — GTK 0-50 km/h 13.1 s (band 9-17), top 100 (95-100), circle 24.6 m, braking
+  14.6 m; BTR-82A 13.6 s (10-18), 80 (75-80), 24.1 m, 15.7 m; both: turn from standstill 5.6 / 6.0 s, surface order,
+  fuel 2.0 / 0.7 L per km at full pace, no driver no move. Gunnery (vs each other) — BTR 2A72 AP hits 76 % at
+  1000 m (40-85), 49 % at 1500 m (20-65), 6 % on the move at 24 km/h, laying 4.4 s, coax refill 90 s; GTK 12.7 mm
+  67 % (30-75), 48 % (10-50), 33 % on the move at 30 km/h (>= 0.4 x halted), laying 3.3 s, refill 120 s. **Missed:**
+  the plan's "BTR on the move >= 0.5 x halted" (it is BMP-2-like: the same stabiliser values; the BMP-2 has 12 % at
+  19 km/h); the band is now "above 3 %, below halted". Mount — GTK 8 men 28.6 s in / 19.7 s out (one ramp; the
+  plan's 8-20 / 6-16 assumed six men; bands 18-35 / 12-25), BTR 7 men 16.9 / 11.7 s (slower out than the BMP-2's
+  8.2 s). Armour — as above (BTR every face through for 30 mm AP; GTK hull stops 12.7 mm and 7.62 mm AP, its sides
+  go for 30 mm). Anti-tank — Panzerfaust 3 v BTR-82A and PG-7VL v GTK, side and front at 100 m: >= 90 % of hits
+  penetrate.
+- **Batches (10 seeds x 1200 s; attacker wins of 10; casualties blue / red; carriers lost per battle):**
+
+  | scenario | attacker wins | casualties | carriers lost | first dismount |
+  |---|---|---|---|---|
+  | platoon-vehicles (Puma attack v BMP-2) | 5 | 14.7 / 26.5 | 0.4 of 8 / 2.5 of 3 | 42 s (10 runs) |
+  | platoon-vehicles-wheeled (GTK v BTR-82A) | 0 | 35.8 / 14.8 | 1.4 of 8 / 0.4 of 3 | 47 s (10) |
+  | platoon-vehicles-mixed (GTK v BMP-2) | 0 | 35.3 / 11.0 | 1.3 of 8 / 0.3 of 3 | 46 s (10) |
+  | platoon-ru-vehicles (BMP-2 attack v Puma) | 1 | 8.6 / 32.4 | 0.1 of 4 / 2.7 of 6 | 36 s (9) |
+  | platoon-ru-vehicles-wheeled (BTR v GTK) | 5 | 25.6 / 24.0 | 1.7 of 4 / 0.5 of 6 | 31 s (10) |
+  | night 23:00 moon 0, platoon-vehicles-wheeled | 0 | 38.4 / 13.3 | 1.7 / 0.6 | 45 s (10) |
+  | night, platoon-ru-vehicles-wheeled | 5 | 24.0 / 22.6 | 1.6 / 0.6 | 31 s (10) |
+
+  Kills by shooter (day, all runs): GTK by BTR-82A 13 / 14, BTR by GTK 4 / 4; GTK by BMP-2 13 (mixed). Rounds per
+  battle: the GTKs' 12.7 mm (reported on the "coax" line, a non-cannon weapon) 534 attacking / 549 defending; the
+  BTRs' 30 mm 378 defending / 558 attacking, never refilled (none stowed). Enemies found (day -> night): Jaeger
+  attack 22.4 -> 21.5 by blue, 51.7 -> 55.3 by red; BTR attack 39.7 -> 35.7 by blue, 28.3 -> 26.6 by red (the GTK's
+  thermal against the BTR's night IR shows only weakly: most finds are by drone). No crashes or desyncs; every
+  squad dismounted in every run. **Pattern, not tuned (the plan: report, no band):** the 30 mm guns outgun the
+  12.7 mm (as the plan expected) far more than the GTK's better protection makes up: a Jaeger attack in GTKs never
+  wins, and the Jaeger defence loses half its battles against the BTR attack (the Pumas' 1 of 10). The GTK's 12.7 mm
+  has no high explosive against men in cover; the 40 mm GMW (slice 42) is the obvious lever. Carriers stuck over
+  60 s are not counted by the batch (no metric) and were not measured. Owner to review.
+- **Perf:** no new per-tick work. Headless 600 s seed 1: platoon-vehicles 43x, platoon-vehicles-wheeled 47x (within
+  1.2x). `npm run test:perf` alone passes (23 tests).
+- **Screenshots** (`--scene wheeled`, phone + desktop, photo and flat): the GTK and BTR-82A close up (roof station,
+  BTR turret and barrel, eight wheels a side), the GTK firing its 12.7 mm, the wheeled platoon battle at the start
+  (unit list Zug 1 with HQ, drone, Gruppe 1-3, Boxer 1-4 "8 riding" / "HQ aboard"; the card "sMG M2 QCB AP 100
+  (+900 stowed)", wheeled paces Fast / Drive / Slow / Reverse), the Jaeger getting out at 50 s, and the debug
+  overview. Noticed (pre-existing, not changed): the Russian squads of a platoon are called "Gruppa 1, Gruppa 1,
+  Gruppa 2" (callsigns numbered per template; also in the BMP platoon).

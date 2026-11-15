@@ -29,6 +29,8 @@ export interface NamedScenario {
   fixtures?: boolean;
   /** `opts.carriers` (M7.6c, headless `--carriers`): the carrier class per side for the scenarios that take it. */
   build(data: DataSet, seed: number, seconds: number, opts?: ScenarioOptions): BattleInput;
+  /** True when `build` uses `opts.carriers` (headless warns when `--carriers` goes to a scenario without it). */
+  takesCarriers?: boolean;
   controllers?(input: BattleInput): Controller[];
 }
 
@@ -194,41 +196,49 @@ export const SCENARIOS: Record<string, NamedScenario> = {
   },
   "platoon-vehicles": {
     description: "M7.2: the platoon battle with vehicles (village; Germany attacks): the attacking platoons ride in their Pumas from the map edge and get out short of the objective; the defender's BMP-2s stand behind its position (M7.3: the vehicles fire their guns; rounds do not penetrate hulls until M7.4a). M9.3b: the Russian side also has its Metis-M team 300 m behind its position.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles": {
     description: "M7.2: the same with the sides swapped on farmland: Russia attacks mounted in BMP-2s, Germany defends with its Pumas behind its position. M9.3b: the Russian side's Metis-M team starts 150 m behind its start on a flank and takes up an overwatch post.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-wheeled": {
     description: "M7.6c: the mounted platoon battle in wheeled carriers (village; Germany attacks): a Jaegerzug in four GTK Boxers (12.7 mm on the FLW 200) against a motor-rifle platoon in three BTR-82A (2A72 30 mm) with its Metis-M team.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles-wheeled": {
     description: "M7.6c: the same with the sides swapped on farmland: Russia attacks mounted in BTR-82A, the Jaegerzug defends with its GTK Boxers behind its position.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? "wheeled" }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-mixed": {
     description: "M7.6c: wheeled against tracked (village; Germany attacks): the Jaegerzug in GTK Boxers against the motor-rifle platoon in BMP-2s with its Metis-M team.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? ["wheeled", "tracked"] }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-tanks": {
     description: "M7.6b: platoon-vehicles (village; Germany attacks mounted in Pumas, the BMP-2s and a Metis-M team defend) with two Leopard 2A7V (Panzer-Halbzug) on the attacker's side: they start in dead ground behind the Pumas, take hull-down posts in overwatch and bound with the attack.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker", ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-ru-vehicles-tanks": {
     description: "M7.6b: platoon-ru-vehicles (farmland; Russia attacks mounted in BMP-2s, the Pumas defend) with two T-72B3M on the attacker's side in overwatch.",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "farmland", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: "attacker", ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
   "platoon-vehicles-tanks-both": {
     description: "M7.6b: platoon-vehicles-tanks with tanks on both sides: two Leopard 2A7V with the attack, two T-72B3M behind the defence (tank against tank).",
+    takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, tanks: true, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
   },
@@ -239,7 +249,8 @@ export const SCENARIOS: Record<string, NamedScenario> = {
   },
   vehicles: {
     description: "M7.1c: a platoon of two Pumas with their squads on foot against two BMP-2s with theirs, on a generated 1200 x 900 m farmland map; vehicles and squads wander (M7.3: crews fire on their own when fired upon).",
-    build: (data, seed, seconds) => vehicleBattle(data, { seed, factions: ["de", "ru"], mapKind: "farmland", timeLimitSeconds: seconds }),
+    takesCarriers: true,
+    build: (data, seed, seconds, o) => vehicleBattle(data, { seed, factions: ["de", "ru"], mapKind: "farmland", timeLimitSeconds: seconds, ...(o?.carriers ? { carriers: o.carriers } : {}) }),
     controllers: vehicleWanderBoth,
   },
   "vehicles-fixture": {

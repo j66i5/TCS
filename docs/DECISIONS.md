@@ -6073,3 +6073,14 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
 - **Merge of origin/claude/medical-ambulance-smoke (b5a2963, laws of war #73)** into this work: only the goldens
   conflicted; taken from that side and regenerated with `golden:update` (recorded orders of every existing golden
   equal to that side's: the fingerprint only).
+- **Review fixes** (adversarial review): (1) `VehicleBattleOptions.carriers` takes one class or `[blue, red]`,
+  resolved per side; the app passes `?scenario=vehicles&vehicles=<blue>,<red>` through (it was silently dropped);
+  the named `vehicles` scenario takes `--carriers` too, and headless warns on stderr when `--carriers` goes to a
+  scenario that does not take it (`NamedScenario.takesCarriers`). (2) Seat swaps keep the driver's seat and each
+  station's `operator` seat manned (from data, was a fixed driver + gunner): a GTK whose commander falls gets a new
+  operator for its FLW 200. The driver's and gunner's seats keep their rules (crewmen only); any other operator seat
+  takes a loader or gunner whose seat is not itself kept manned, else an able passenger (lowest seat; the GTK crew is
+  two). Limit: that passenger is still of his squad and gets out with it, so the station falls silent again once the
+  squad is out. Every golden unchanged (no hull other than the GTK has a non-gunner operator). (3) The string
+  `role.de.einsatzersthelfer` reads "Einsatzersthelfer B (first responder)" (the Jaegergruppe has one too); strings
+  are outside the catalog fingerprint. Tests: `packages/tools/test/gtk-seatswap.test.ts`.

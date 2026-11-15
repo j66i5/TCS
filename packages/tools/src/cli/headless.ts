@@ -1,7 +1,7 @@
 /**
  * Headless runner: runs one battle as fast as possible and prints the result.
  *   npm run headless -- --scenario demo --seed 1 --seconds 120 [--orders file.json] [--no-ai] [--events] [--no-interiors] [--no-medical]
- *     [--carriers tracked|wheeled[,tracked|wheeled]] (M7.6c: the mounted platoon scenarios' carrier class per side)
+ *     [--carriers tracked|wheeled[,tracked|wheeled]] (M7.6c: the mounted platoon scenarios' and `vehicles`' carrier class per side; ignored with a warning elsewhere)
  */
 import { readFileSync } from "node:fs";
 import { environmentAt, parseTimeOfDay, runBattle, stripInteriors, type Order, type SimEvent } from "@tcs/sim";
@@ -17,6 +17,7 @@ const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 const carriers = parseCarriers(args["carriers"]);
 if (args["carriers"] !== undefined && carriers === null) throw new Error(`--carriers: '${args["carriers"]}' is not tracked|wheeled[,tracked|wheeled]`);
+if (carriers && !sc.takesCarriers) process.stderr.write(`warning: --carriers is ignored: scenario '${name}' does not take a carrier class\n`);
 const input = sc.build(data, seed, seconds, carriers ? { carriers } : undefined);
 // `--time HH:MM [--moon 0..1]` (M9.1): the battle at that local time, the light following the clock.
 if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(args["moon"] ?? 0.5));

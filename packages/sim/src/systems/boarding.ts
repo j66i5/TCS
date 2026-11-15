@@ -11,8 +11,9 @@
  *              aboard, unless the order says `wounded`: then two of the unit's men carry each casualty out through
  *              an exit and lay him down behind it (M10.4b). An order given to a squad aboard is carried out once it
  *              is out (`then`, Q12).
- *   seat swap  A crewman takes over the seat of a fallen driver or gunner after `seatSwapSeconds` (Q13, recommended
- *              option, decided without the owner); the casualty stays aboard in the seat he left.
+ *   seat swap  A crewman takes over the seat of a fallen driver or station operator after `seatSwapSeconds` (Q13,
+ *              recommended option, decided without the owner); the casualty stays aboard in the seat he left. A
+ *              station worked from the commander's seat (GTK Boxer) may be taken over by a passenger (M7.6c review).
  *
  * Casualties (M10.4b, SPEC 9.1): a unit getting in fetches its wounded who cannot walk from up to
  * `vehicleLoading.fetchM` away: a carrying party (systems/carry.ts) takes each to the nearest exit, then two men load
@@ -871,30 +872,43 @@ function stepUnload(ctx: SimContext, state: SimState, uid: EntityId, b: Boarding
   }
 }
 
-/** A fallen driver or gunner is replaced by another crewman (Q13 default: a crewman, after `seatSwapSeconds`). */
+/**
+ * A fallen driver or station operator is replaced by another man aboard (Q13 default: a crewman, after
+ * `seatSwapSeconds`). The seats kept manned come from the data: the driver's and each station's `operator` seat
+ * (M7.6c review: a GTK Boxer's FLW 200 is worked from the commander's seat). For the driver's and the gunner's seat
+ * the rules are as before (crewmen only: the commander first, then a loader, and for the driver's seat the gunner
+ * last); any other operator seat is taken by a loader or gunner whose own seat is not one of these, else by an able
+ * passenger (lowest seat first), as a crew of two has nobody else.
+ */
 function seatSwaps(ctx: SimContext, state: SimState, events: EventSink): void {
   for (const [vid, v] of state.vehicle.entries()) {
     if (isOffMap(v) || v.unit === null || v.seatSwap !== null || v.status === "destroyed" || v.status === "abandoned") continue;
     const def = ctx.catalog.vehicles[v.def];
     const crew = state.unit.get(v.unit);
     if (!def || !crew) continue;
-    const seatOf = (kind: string) => def.seats.findIndex((q) => q.station === kind);
-    const occ = (i: number) => (i < 0 ? null : v.seats[i] ?? null);
-    for (const need of ["driver", "gunner"] as const) {
-      const si = seatOf(need);
+    const needs = swapSeatKinds(def);
+    for (const need of needs) {
+      const si = def.seats.findIndex((q) => q.station === need);
       if (si < 0) continue;
-      const o = occ(si);
+      const o = v.seats[si] ?? null;
       if (o !== null && isAble(state.soldier.get(o))) continue;
-      // Who takes over: the commander first, then a loader, and for the driver's seat the gunner last.
-      const from = need === "driver" ? ["commander", "loader", "gunner"] : ["commander", "loader"];
+      const free = (a: EntityId | null): a is EntityId => a !== null && isAble(state.soldier.get(a)) && !state.action.has(a);
+      const from = need === "driver" ? ["commander", "loader", "gunner"] : need === "gunner" ? ["commander", "loader"]
+        : ["loader", "gunner"].filter((k) => !needs.includes(k));
       let actor: EntityId | null = null;
       for (const k of from) {
         for (let i = 0; i < def.seats.length && actor === null; i++) {
           if (def.seats[i]!.station !== k) continue;
           const a = v.seats[i] ?? null;
-          if (a !== null && crew.members.includes(a) && isAble(state.soldier.get(a)) && !state.action.has(a)) actor = a;
+          if (free(a) && crew.members.includes(a)) actor = a;
         }
         if (actor !== null) break;
+      }
+      if (actor === null && need !== "driver" && need !== "gunner") {
+        for (let i = 0; i < def.seats.length && actor === null; i++) {
+          const a = v.seats[i] ?? null;
+          if (def.seats[i]!.station === "passenger" && free(a)) actor = a;
+        }
       }
       if (actor === null) continue;
       const dur = secondsToTicks(def.ramp.seatSwapSeconds);
@@ -904,6 +918,13 @@ function seatSwaps(ctx: SimContext, state: SimState, events: EventSink): void {
       break;
     }
   }
+}
+
+/** The seat kinds a crew keeps manned: the driver's, then each station's operator's (in station order, once each). */
+function swapSeatKinds(def: VehicleDef): string[] {
+  const out = ["driver"];
+  for (const sn of def.stations) if (!out.includes(sn.operator)) out.push(sn.operator);
+  return out;
 }
 
 export function boardingSystem(ctx: SimContext, state: SimState, events: EventSink): void {

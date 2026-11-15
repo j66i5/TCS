@@ -18,8 +18,9 @@ export interface VehicleBattleOptions {
   factions: [string, string];
   /** Crew template per side (a template with `vehicle`); default: the faction's carrier crew (`crewTemplateOf`). */
   crewTemplates?: [string, string];
-  /** M7.6c: the carrier class of the default crews (`crewTemplateOf`); default: the manifest's `platoonTemplate`. */
-  carriers?: CarrierClass;
+  /** M7.6c: the carrier class of the default crews (`crewTemplateOf`), one for both sides or [blue, red];
+   * default: the manifest's `platoonTemplate`. */
+  carriers?: CarrierClass | [CarrierClass, CarrierClass];
   /** Squad on foot that goes with each vehicle; default: the faction's demo template. */
   squadTemplates?: [string, string];
   /** Platoons per side, and vehicles (each with its squad) per platoon. */
@@ -77,7 +78,8 @@ export function vehicleBattle(data: DataSet, opts: VehicleBattleOptions): Battle
   const grids = new Map<string, NavGrid>();
   const forces: ForceInput[] = SIDES.map((side, s) => {
     const faction = opts.factions[s]!;
-    const crewT = opts.crewTemplates?.[s] ?? crewTemplateOf(data, faction, opts.carriers);
+    const carriers = Array.isArray(opts.carriers) ? opts.carriers[s] : opts.carriers;
+    const crewT = opts.crewTemplates?.[s] ?? crewTemplateOf(data, faction, carriers);
     const squadT = opts.squadTemplates?.[s] ?? data.factions[faction]?.manifest.demoTemplate ?? "demo-team";
     const vtype = data.factions[faction]!.units[crewT]!.vehicle!;
     const def = catalog.vehicles[vtype];

@@ -16,7 +16,7 @@
 export const SPRITE_M = 1;
 export const ART = 16;
 
-export type FrameId = "stand" | "walk1" | "walk2" | "crouch" | "crouchWalk" | "prone" | "crawl" | "down" | "dead" | "surrender" | "captive" | "carried" | "stretcher";
+export type FrameId = "stand" | "walk1" | "walk2" | "crouch" | "crouchWalk" | "prone" | "crawl" | "down" | "dead" | "surrender" | "captive" | "carried" | "stretcher" | "seated" | "shoulder";
 
 export const FRAMES: Record<FrameId, readonly string[]> = {
   stand: [
@@ -149,26 +149,27 @@ export const FRAMES: Record<FrameId, readonly string[]> = {
     "................",
     "................",
   ],
-  // Down (unconscious or unable to act): on his back, face up, arms out, the rifle dropped beside him.
+  // Down (unconscious or unable to act): on his back, face up, arms out, the rifle dropped by his hand. (Sprite fix
+  // 2026-11-15: arms and rifle joined to the body, so no loose pixels scatter when he is turned.)
   down: [
     "................",
     "................",
     "................",
-    "..........s.....",
-    ".........u......",
-    "........uu......",
-    "dddddluuuuu.hh..",
+    "................",
+    "..........ss....",
+    "........uuuu....",
+    "ddddd.luuuuuhh..",
     "ddddduuuuuuhssh.",
-    ".....uuuuuuhssh.",
-    "ddddduuuuuuhhhd.",
-    "dddddddddddd.hd.",
-    "........dd......",
-    ".........d......",
-    "..........s..ww.",
-    "...........ww...",
+    "......uuuuuhssh.",
+    "ddddduuuuuuhhhh.",
+    "dddddddddddhhd..",
+    ".........ddd....",
+    "..........dss...",
+    "....wwwwwwwss...",
+    "................",
     "................",
   ],
-  // Dead: face down, one arm flung forward, blood under him.
+  // Dead: face down, one arm flung forward, blood under him, his rifle beside him.
   dead: [
     "................",
     "................",
@@ -183,8 +184,8 @@ export const FRAMES: Record<FrameId, readonly string[]> = {
     "..ddddddddd.hd..",
     ".....rddddds....",
     ".....rrrrr......",
-    "......rrr...ww..",
-    "..........ww....",
+    "......rrr.......",
+    "...wwwwwww......",
     "................",
   ],
   // Surrendered: no weapon, hands up and out, a white cloth in one hand.
@@ -265,6 +266,46 @@ export const FRAMES: Record<FrameId, readonly string[]> = {
     "................",
     "................",
   ],
+  // Seat carry (two-man carry, sprite fix 2026-11-15): sitting on his carriers' joined hands, facing ahead, legs
+  // forward with a field dressing, his arms out over their shoulders; drawn between the two carriers.
+  seated: [
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......s........",
+    ".......u........",
+    "......uuu.......",
+    ".....uhhhudddd..",
+    "....guhlhhdxdd..",
+    "....guhhhhdddd..",
+    ".....uhhhudddd..",
+    "......uuu.......",
+    ".......u........",
+    ".......s........",
+    "................",
+    "................",
+  ],
+  // Fireman's carry (sprite fix 2026-11-15): the carrier, no weapon in hand, with the casualty across his shoulders
+  // (legs to his left, head and an arm hanging to his right), one figure: the casualty is not drawn on his own.
+  shoulder: [
+    "................",
+    "................",
+    ".......dd.......",
+    ".......ddd......",
+    "......dddd......",
+    "...ggduuuuu.....",
+    "...ggduxxuuhhh..",
+    "...ggduxxuuhlhh.",
+    "...ggduuuuuhhhh.",
+    "...ggduuuuuhhhd.",
+    "...gg.uuuuu.hd..",
+    "......uhhu..s...",
+    "......hssh......",
+    "......hhhh......",
+    ".......ss.......",
+    "................",
+  ],
 };
 
 /** Frames in which he holds his weapon (the others: none, or dropped beside him). */
@@ -276,3 +317,5 @@ export const WOUND_MARKS: Record<"upright" | "lying", readonly [number, number, 
   lying: [[8, 10, "r"], [9, 10, "r"], [9, 4, "x"]],
 };
 export const LYING: ReadonlySet<FrameId> = new Set(["prone", "crawl", "down", "dead", "carried", "stretcher"]);
+/** Frames with no launcher tube on the back (lying on it, carried, or carrying a man across the shoulders). */
+export const NO_LAUNCHER: ReadonlySet<FrameId> = new Set(["down", "dead", "carried", "stretcher", "seated", "shoulder"]);

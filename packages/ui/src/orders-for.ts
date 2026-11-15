@@ -162,7 +162,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
 }
 
 export const FOOT_PACES = ["walk", "run", "sneak", "crawl"];
-const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support"];
+const FOOT_MODES: OrderMode[] = ["move", "assault", "withdraw", "occupy", "clear", "fire", "antitank", "grenade", "grenades", "smoke", "support", "arc"];
 type Modes = Readonly<Record<string, { class: string; speedFraction?: number }>>;
 
 /** The greyed bar shown while nothing is selected (M7.5a, owner answer 6). */
@@ -217,6 +217,7 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     if (grenades > 0) m.push("grenade");
     if (cap.smokeGrenades > 0) m.push("smoke");
     if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
+    m.push("arc"); // (D4b: Defend arc, a unit's)
     return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }
   if (cap.kind === "man") {
@@ -231,6 +232,8 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
   if (cap.smokeGrenades > 0) m.push("smoke");
   // (Step fire-support: one Fire support button; the pop-up offers what is left of HE and smoke.)
   if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
+  // (D4b: Defend arc — a unit on foot faces a sector and fires on its own only into it.)
+  m.push("arc");
   return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
 }
 

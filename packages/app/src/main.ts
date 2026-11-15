@@ -16,7 +16,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, unitTiles } from "@tcs/ui";
+import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
 import { loadBundledData } from "./data";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
@@ -157,7 +157,8 @@ async function main(): Promise<void> {
       if (uid === null) return;
       // Shown as ordered until the unit has it (radio delay; while paused it waits).
       a.pendingRules.set(uid, { ...(a.pendingRules.get(uid) ?? {}), ...r });
-      issue(a, { ...now(a, uid), kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}) });
+      // (D4b: the Ambush chip lays a real ambush; a fire rule ends one.)
+      issue(a, rulesOrder(now(a, uid), r));
     },
     onPosture: (p) => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "posture", posture: p }); },
     onSave: () => saveNow(a),

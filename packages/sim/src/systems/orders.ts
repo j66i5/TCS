@@ -19,7 +19,7 @@ import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
 import { OWN_ORDER_KINDS, type Order, type OrderRejectReason, type PendingOrder, type Waypoint } from "../orders";
 import { bestCoverNear, clearLine, navCostAt, nearestPassable } from "../nav";
-import { atan2, cos, hypot2, sin } from "../math";
+import { PI, atan2, cos, hypot2, sin, wrapAngle } from "../math";
 import { canReport, isAble } from "../impair";
 import { navFor } from "../navctx";
 import { requestPosture } from "./body";
@@ -144,6 +144,13 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return ctx.catalog.medical?.nest ? null : "not-applicable";
     case "callAmbulance":
       return ctx.catalog.medical?.nest && ctx.catalog.medical.evacuation ? null : "not-applicable";
+    case "ambush":
+      // (D4b: a unit, and a range its men can hold their fire to.)
+      if (!state.unit.has(o.target)) return "invalid-params";
+      return Number.isFinite(o.rangeM) && o.rangeM >= 10 && o.rangeM <= 2000 ? null : "invalid-params";
+    case "defendArc":
+      if (!state.unit.has(o.target)) return "invalid-params";
+      return Number.isFinite(o.facing) && Number.isFinite(o.widthRad) && o.widthRad > 0 && o.widthRad <= 2 * PI ? null : "invalid-params";
     case "rearRun":
       // A vehicle crew's hull (M10.6b).
       if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
@@ -159,7 +166,7 @@ function orderApplies(ctx: SimContext, state: SimState, o: Order): boolean {
   const vid = state.unit.get(o.target)?.vehicle;
   const crew = vid !== undefined;
   switch (o.kind) {
-    case "posture": case "assault": case "withdraw": case "grenade": case "occupy":
+    case "posture": case "assault": case "withdraw": case "grenade": case "occupy": case "defendArc":
       return !crew;
     case "fire":
       // A crew has no launcher (M7.4a), unless its vehicle carries guided missiles (owner 2026-11-13).
@@ -321,13 +328,13 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // A vehicle crew: move and halt drive the vehicle; rules and cease-fire as for any unit.
   const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
   if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
-  if (crewOf !== undefined && order.kind !== "rules") return vehicleOrder(ctx, state, order, crewOf);
+  if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ambush") return vehicleOrder(ctx, state, order, crewOf);
   // A parent unit's vehicles (M7.1c): moves and halts are split to them; their own fire rules stay theirs.
   const vehicles = isUnit && !own ? vehicleChildren(state, order.target) : [];
   // Men still aboard (owner Q12): a squad (or a man) gets out first, then carries the order out. Orders to a
   // platoon with vehicles go to the vehicles (the squads ride along). Rules, cease-fire, a call for fire and a
   // halt need nobody to get out.
-  const passThrough = order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
+  const passThrough = order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
   if (!afterDismount && !passThrough && crewOf === undefined && vehicles.length === 0) {
     const aboard = isUnit ? hasRiders(state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
@@ -340,6 +347,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   }
   if (!isUnit && state.soldier.get(order.target)?.mount !== undefined && order.kind !== "rules" && order.kind !== "callFire") return "unable";
   if (!isUnit) leaveBoarding(state, order.target);
+  // (D4b: going somewhere else ends an arc the unit was defending.)
+  if (isUnit && (order.kind === "move" || order.kind === "assault" || order.kind === "withdraw" || order.kind === "occupy")) forTree(state, order.target, own, (x) => { delete x.arc; });
   let vehicleRes: OrderResult | null = null;
   if (vehicles.length > 0) vehicleRes = splitToVehicles(ctx, state, order, vehicles, events);
   // Smoke (M7.3) is the vehicles' alone: nothing else changes.
@@ -354,7 +363,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
   // An order ends a walk to take a prisoner (M6.6): orders always win.
   // (An anti-tank shot, M7.4a, is like a grenade: one man acts, the drill goes on.)
-  const keepsDrill = order.kind === "rules" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
+  const keepsDrill = order.kind === "rules" || order.kind === "ambush" || order.kind === "grenade" || order.kind === "callFire" || (order.kind === "fire" && order.nature === "at");
   if (!keepsDrill) {
     for (const m of soldiers) {
       const ms = state.soldier.get(m);
@@ -371,7 +380,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
     if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
-  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
+  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ambush" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
   if (soldiers.length === 0 && !ridersOnly) {
     if (vehicleRes !== null) return vehicleRes; // only vehicles under it: their answer
     // Nobody left to obey: the unit is neither moving nor firing any more.
@@ -648,9 +657,39 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.onContact !== undefined) x.onContact = order.onContact;
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
         if (order.at !== undefined) x.atRule = order.at;
+        // (A new fire rule ends an ambush laid, D4b: the player has decided otherwise.)
+        if (order.fire !== undefined) delete x.ambush;
         if (!own) x.children.forEach(set);
       };
       if (ru !== undefined) set(ru);
+      break;
+    }
+    case "ambush": {
+      // Lay an ambush (D4b): whatever they were firing at, they stop; from now on the ambush governs their fire
+      // (systems/ambush.ts springs it). A cease-fire before it no longer holds them once it is sprung.
+      endFire(state, order.target, soldiers, "ordered", events);
+      const lay = { rangeM: order.rangeM, tick: state.tick, root: order.target };
+      forTree(state, order.target, own, (x, uid) => {
+        if (x.vehicle !== undefined) stationCeaseFire(state, uid, events);
+        x.ambush = { ...lay };
+        x.fireRule = "free";
+        x.ceaseFireTick = -1e9;
+      });
+      topUnitOf(state, order.target).ceaseFireTick = -1e9;
+      break;
+    }
+    case "defendArc": {
+      // Defend an arc (D4b): the men stop where they are and face it; the arc limits their own fire (decisions.ts).
+      stopUnit(state, order.target);
+      const arc = { facing: wrapAngle(order.facing), halfRad: order.widthRad / 2 };
+      forTree(state, order.target, own, (x) => { x.arc = { ...arc }; });
+      for (const s of soldiers) {
+        const m = state.mover.get(s);
+        if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
+        // (Indoors his window place sets his facing.)
+        const t = state.transform.get(s);
+        if (t && !state.fire.has(s) && indoorAt(ctx, t.x, t.y) < 0) t.heading = arc.facing;
+      }
       break;
     }
     case "grenade": {
@@ -872,6 +911,14 @@ function personalRoute(ctx: SimContext, x: number, y: number, ox: number, oy: nu
   const end = routeBetween(ctx, search, last.x, last.y, last.x + ox, last.y + oy, { maxExpansions: 3000, snapCells: 4 });
   if (end) for (let i = 0; i < end.points.length; i += 2) out.push({ ...last, x: end.points[i]!, y: end.points[i + 1]! });
   return out;
+}
+
+/** Call `f` on a unit and (unless `own`: its own men only) every unit under it, parents first. */
+function forTree(state: SimState, uid: EntityId, own: boolean, f: (u: Unit, id: EntityId) => void): void {
+  const u = state.unit.get(uid);
+  if (!u) return;
+  f(u, uid);
+  if (!own) for (const c of u.children) forTree(state, c, false, f);
 }
 
 function topUnitOf(state: SimState, unit: EntityId): Unit {

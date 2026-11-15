@@ -5860,3 +5860,54 @@ data or golden change.
   target hull is now looked past); the phone list's cap is redone when the card changes height, not only when it shows
   or hides; `phoneperf` no longer loads the read-out (every second swipe started on it and panned nothing) and its
   frame loops no longer pile up across runs (the frame counts were 2-4x too high; percentiles were right).
+
+## 2026-11-15 — M10.8 review statistics and the medical balance report (roadmap-detail slice 17)
+Merged origin/main first (b12c63e: PR #72, D3 phone pass and smoke fires; ARCHITECTURE and DECISIONS conflicts kept
+both entries; no sim change, goldens unchanged). Built:
+- **Battle record version 7** (`sim/src/record.ts`): `track` keeps each wounded man's way through the chain of care
+  (`CareTrack`: side, name, callsign, first and last wound, down, death, Role 1 outcome; bruises under armour do not
+  count) and `conduct.refused` counts `radio.refuseProtected` (owner Q-7). Older saved records start afresh (as before).
+- **`sim/src/medstats.ts` `medicalSummary(record)`**, pure, used by both the review and the batch: per side the
+  wounded, killed within `KILLED_OUTRIGHT_S` 30 s of a wound (no care can reach them; the same 30 s as the M10.3b batch
+  count), seconds from the first wound to first finished care, to the nest, to leaving the map; deaths of wounds in the
+  battle and after it with timing; **potentially preventable deaths with the first missing step**: `firstAid`
+  (never treated), `collection` (treated, never at the nest), `evacuation` (at the nest, not taken off the map),
+  `role1Late` (died after the battle having reached Role 1 later than `chain.role1S`). Software decisions (not asked,
+  owner to review): "potentially preventable" in the military-medicine sense (care missing or late; the record cannot
+  know whether the wound was survivable); a man with every step in time who still died is listed with nothing missing.
+- **Review tabs filled** (`app/src/review.ts` `medicalLines`, `conductLines`): Medical — summary, median times, the
+  preventable count by step, every death of wounds with time and missing step, then the earlier lines (zero lines left
+  out); Conduct — per firing side breaches by cause (with how many under orders), refused orders, hits on protected
+  people as two lists (aimed, incidental; Q-8), then each breach with time, shooter, unit, target, range, light,
+  smoke, stress, ordered, vehicle (first 30 per side, counts cover all). New string keys `aar.medical.*`,
+  `aar.conduct.*` (strings are outside the fingerprint: no golden change).
+- **Batch "Medical" block** (`--no-medical` comparable). HOW_IT_WORKS: a chapter "Care of the wounded (M10)" now holds
+  all medical paragraphs (moved out of "Getting hit") with an introduction and the review. ARCHITECTURE 4.3.10 and the
+  9.1 event row flipped to ✅, a row for the statistics. `--scene aar` now shows a 25-minute battle the red AI
+  attacks for the two tabs (phone and desktop looked at).
+- **Balance report (10 seeds × 2400 s, on → `--no-medical`; blue/red; percentages of the wounded who lived past
+  30 s):**
+
+  | scenario | winners b/r | first care | at nest | evacuated | died of wounds in battle | after battle | preventable per battle |
+  |---|---|---|---|---|---|---|---|
+  | platoon | 2/8 → 2/8 | 65/61 % | 21/33 % | 3/7 % | 45/44 % → 60/56 % | 13/11 → 8/4 | 7.6/5.1 → 8.9/4.6 |
+  | platoon-ru | 0/10 → 1/9 | 29/70 % | 2/18 % | 0/0 % | 24/21 % → 39/30 % | 14/2 → 15/9 | 2.7/1.3 → 4.9/2.8 |
+  | platoon-vehicles | 7/3 → 6/4 | 66/35 % | 25/8 % | 7/0 % | 29/67 % → 59/63 % | 3/4 → 5/6 | 3.2/4.4 → 6.9/4.8 |
+  | platoon-ru-vehicles | 9/1 → 9/1 | 32/45 % | 9/13 % | 0/0 % | 41/25 % → 61/64 % | 2/6 → 2/1 | 1.0/1.5 → 1.7/3.9 |
+
+  All deaths of wounds over the 40 battles: 297 with care, 403 without (−26 %); potentially preventable 268 → 385
+  (−30 %). Lower with care in 6 of 8 side-scenarios; platoon red (defender) and platoon-vehicles red are within noise.
+  Median first wound to first care 76-213 s, to the nest 3-16 min, to leaving the map 24-27 min (platoon,
+  platoon-vehicles). Missing steps with care on are mostly `firstAid` and `collection` (platoon blue 28/36, red
+  28/13): **carrying back to the nest is the weak link**, evacuation follows from it (0-7 %). Orders to fire at
+  recognised protected people refused: blue 44 (platoon) and 49 (platoon-vehicles) per 10 battles, all from the AI
+  commander's orders. Wall time 16-33 s per 40-minute battle.
+- **No re-tuning** (software decision): the levers for the weak collection (more bearers, `nest.minFitLeft` 1,
+  `maxParties`, company bearers, faster ambulances) each trade fighting men for carrying; slice 11 tried bearers under
+  fire and lost the attack's supporting fire. This is the owner's after-playing question (a keep / b adjust named
+  values / c faster care for gameplay), so the numbers stay as researched and are shown to him as they are.
+- xf fixture: the fixture scenarios hardly fight (demo-fixture 0 wounded, vehicles-fixture 1 in 2 battles); the chain
+  for xf stays covered by `medical-physiology.test.ts` and the M10 tests that build xf.
+- Tests `tools/test/medical-stats.test.ts` (classification by step, killed outright, medians; a real battle's summary
+  matches the state's wounded and dead, is deterministic per seed and survives JSON; every review key in the string
+  table). No per-tick per-man work (the record folds events already emitted), so no perf run; goldens unchanged.

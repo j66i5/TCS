@@ -1899,8 +1899,13 @@ try {
     await page.waitForTimeout(500);
     const q2 = `${outDir}/platoon-${seed}-${name}-2-heat-map.png`;
     await page.screenshot({ path: q2 }); shots.push(q2);
-    // D2: the review's Medical and Conduct tabs (a short note until M10.8 fills them), the heat map off again.
-    await page.evaluate(new Function("const b = [...document.querySelectorAll('.hud-aar button')][0]; if (b) b.click();") as () => void);
+    // D2/M10.8: the review's Medical and Conduct tabs (times, deaths of wounds, breaches), the heat map off again.
+    // (M10.8: a longer battle the red AI attacks, so both tabs have something in them: 25 min, the player's blue
+    // men holding and firing on their own.)
+    await page.goto(`http://localhost:${port}/?seed=${seed}&map=village&side=blue&attacker=red&limit=1500&vehicles=0`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    await page.evaluate(new Function("globalThis.__tcs.setSpeed(0); globalThis.__tcs.stepTicks(1500 * 60 + 60);") as () => void);
+    await page.waitForTimeout(900);
     for (const tab of ["medical", "conduct"]) {
       await page.evaluate(new Function(`globalThis.__tcs.reviewTab(${JSON.stringify(tab)});`) as () => void);
       await page.waitForTimeout(300);

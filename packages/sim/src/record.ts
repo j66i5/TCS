@@ -17,7 +17,7 @@ import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 6;
+export const RECORD_VERSION = 7;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -94,7 +94,19 @@ export interface SideRecord {
   settled: { evacuated: number; captured: number; prisoner: number; stays: number };
   /** Laws of war (M10.7b; by the side that fired): breaches with their circumstances (the first `BREACHES_MAX`),
    *  counts by cause, and hits on protected people by kind, aimed at them or incidental (Q-8). */
-  conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }> };
+  conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }>; /** Orders to fire at a recognised protected target the men refused (owner Q-7; M10.8). */ refused: number };
+}
+
+/**
+ * One wounded man's way through the chain of care (M10.8; the Medical tab and the batch's medical block read it
+ * through `medicalSummary`): his side, family name and callsign at his first wound; ticks of his first and last
+ * wound (bruises stopped by armour do not count), of going down and of his death in the battle; his Role 1 outcome
+ * (reached it in time, died of wounds after the battle at that tick).
+ */
+export interface CareTrack {
+  side: string; name: string; callsign: string;
+  w0: number; wl: number; down: number | null; dead: number | null;
+  role1: { inTime: boolean; dow: number | null } | null;
 }
 
 /** One breach (M10.7b) as the review shows it: who fired (family name, callsign), at whom, why and in what conditions. */
@@ -126,6 +138,8 @@ export interface BattleRecord {
   /** Ambulance id -> tick of its current call (M10.6a; the time to its arrival). Casualty id -> tick he was evacuated. */
   ambCall: Record<string, number>;
   evacuated: Record<string, number>;
+  /** Casualty id -> his way through the chain of care (M10.8). */
+  track: Record<string, CareTrack>;
   /** Filled by `finishRecord`. */
   end: { tick: number; reason: BattleEndReason; winner: string | null; loser: string | null } | null;
 }
@@ -149,13 +163,13 @@ export function newSideRecord(): SideRecord {
     rear: { started: 0, ordered: 0, cancelled: 0, away: 0, men: 0, back: 0 },
     role1: { men: 0, t1: 0, t1InTime: 0, captor: 0, dow: 0, dowH: [], recoveryD: [] },
     settled: { evacuated: 0, captured: 0, prisoner: 0, stays: 0 },
-    conduct: { breaches: [], misidentified: 0, deliberate: 0, hits: {} },
+    conduct: { breaches: [], misidentified: 0, deliberate: 0, hits: {}, refused: 0 },
   };
 }
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, track: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -197,7 +211,18 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         // (M9.3b: a missile from a team on foot counts for its gunner's side.)
         if (catalog.ammo[e.ammo]?.guided !== undefined) { const r = side(e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : sideOfMan(e.shooter)); if (r) r.missiles.fired++; }
         break;
+      case "wound": {
+        // M10.8: the chain of care starts at his first wound (not a bruise under armour; not a body hit again).
+        if (e.mechanism === "blunt") break;
+        const k = String(e.soldier), tr = rec.track[k];
+        if (tr) { if (tr.dead === null) tr.wl = e.tick; break; }
+        const id = view.identity.get(e.soldier);
+        if (id) rec.track[k] = { side: id.side, name: id.family, callsign: callsignOf(e.soldier), w0: e.tick, wl: e.tick, down: null, dead: null, role1: null };
+        break;
+      }
       case "casualty": {
+        const tr = rec.track[String(e.soldier)];
+        if (tr) { if (e.status === "killed") tr.dead ??= e.tick; else tr.down ??= e.tick; }
         const t = view.transform.get(e.soldier), id = view.identity.get(e.soldier);
         if (t && id) {
           rec.heatFalls.push(t.x, t.y, sideIdx(id.side));
@@ -219,6 +244,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         rec.timeline.push({ tick: e.tick, side: e.side, key: e.reason === "shot" ? "aar.drone.shotDown" : "aar.drone.lost" });
         break;
       case "radio":
+        if (e.key === "radio.refuseProtected") { const r = side(e.side); if (r) r.conduct.refused++; }
         if (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken") {
           const key = e.key === "radio.broken" ? "timeline.broken" : e.key === "radio.rallied" ? "timeline.rallied" : "timeline.taken";
           rec.timeline.push({ tick: e.tick, side: e.side, key, callsign: String(e.params["callsign"] ?? "") });
@@ -305,6 +331,8 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         r.role1.men++;
         if (e.by === "captor") r.role1.captor++;
         if (e.cat === 1) { r.role1.t1++; if (e.inTime) r.role1.t1InTime++; }
+        const tr = rec.track[String(e.casualty)];
+        if (tr) tr.role1 = { inTime: e.inTime, dow: e.diedOfWoundsTick ?? null };
         if (e.diedOfWoundsTick !== undefined) { r.role1.dow++; r.role1.dowH.push(Math.round((ticksToSeconds(e.diedOfWoundsTick - e.woundedTick) / 3600) * 10) / 10); }
         else r.role1.recoveryD.push(e.recoveryDays);
         break;

@@ -1,65 +1,23 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.7b breaches, medic self-defence; roadmap-detail slice 16). The long session-by-session
+_Last updated: 2026-11-15 (M10.8 review statistics and balance; roadmap-detail slice 17, M10 built). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
 - **Current milestone: M10 Medical** (SPEC 9.1, pulled forward by the owner), plan `docs/plans/roadmap-detail.md`
-  Phase 1, slices 2-17; ROADMAP lists them. **Done: slices 2 (M10.0), 3 (M10.1: `core/medical.json`, kits
-  as counted items, medical roles, the "medical" physiology model as the default, state schema 18) and 4 (M10.2:
-  the generic `treat` action, MARCH order from `care.order`, self-aid, buddy aid within 3 m, `medical.treated`,
-  `--no-medical`, `lab -- treatment`) and 6 (M10.3a: carers — the first responder for urgent casualties plus at most
-  one willing comrade, `care` intent, doctrine `casualtyCarePriority`, `medical.carer` events, batch "Carers"
-  line) and 7 (M10.3b: triage tags T1-T3 by the man who treats, sometimes wrong; the tag on the map and the card;
-  under fire a casualty is got into cover — he walks or is dragged — and care goes on there; "Medic!" and "Man down,
-  treating" on the radio; batch "Triage, care under fire" line with preventable deaths) and 8 (M10.4a: a generic
-  `carry` store, state schema 19; seven carry methods from data incl. the four-man litter (Sanitaeter's
-  `de-litter`); the leader walks the way, the rest follow his trail; rests, cover under fire, carriers fire only in
-  self-defence; the M10.3b drag is a carrying party now; `npm run lab -- carry`) and 9 (M10.4b: a squad getting in
-  carries its wounded from up to 150 m to the ramp and lifts them in; lying and sitting places, ambulance layouts;
-  `dismount` with `wounded` carries them out; "carried" and "stretcher" sprite frames; `bench-medical` perf case,
-  floor 8×; `--scene medical`); slices 5 (D1 hand smoke) and 12 (ambulance hulls) came from parallel sessions and
-  are merged, and so is M8 (fire support, from main). Slice 10 (D2) is done: one battle record folded from the
-  events (`sim/src/record.ts`) feeds the review, the save and the batch report; the review has Battle, Medical and
-  Conduct tabs (the last two empty until M10.8); `app/src/main.ts` is cut to about 330 lines, the rest in modules
-  beside it (`app.ts` holds the shared app state). Slice 11 (M10.5) is done: a generic rear-point store (`rear`,
-  state schema 20) holds each platoon's Verwundetennest (`systems/nest.ts`): sited 150 m behind the platoon away from
-  the known enemy on ground wheeled vehicles reach, moved when threatened; the platoon leader tasks two riflemen as
-  bearers, walking wounded walk, T1 first; the platoon's medic triages again and treats there; men fit again return
-  to duty; orders `casualtyPoint` (drag the red-cross marker) and `evacuate` (Back in the sidebar's Wounded tab); the
-  AI commander counts carriers as committed; batch "Verwundetennest" line; `--scene nest`. Slice 13 (M10.6a) is
-  done: off-map entity state — an asset is an ordinary vehicle with its crew from tick 0 carrying
-  `VehicleState.offMap`, created after every force, parked at `OFF_MAP_PARK` and skipped by every vehicle loop while
-  off the map (architecture test; `offmap.ts`), its crew (`Unit.asset`) nobody's to order and outside the side's
-  strength, results and score; generated battles give each side its faction's ambulances (manifest `ambulance`: DE
-  two Boxer, RU two BMM; `ScenarioDef.ambulances`); a platoon with casualties at its nest calls one (automatic, or
-  the player's `callAmbulance`: "Call ambulance" in the Wounded tab), it comes on at the edge behind the nest after
-  10-15 min (stood down if nobody waits by then), drives there, loads T1 first within its layouts, backs off, leaves
-  the map; its wounded are "evacuated" (roster status; their condition is kept until M10.6b); `systems/evacuation.ts`,
-  `medical.ambulance` / `medical.evacuated` events, battle record version 3, batch "Ambulances" line,
-  `npm run lab -- medevac`, `--scene medevac`. Slice 14 (M10.6b) is done: a generic rear run
-  (`VehicleState.rearRun`, `systems/rearrun.ts`): an idle combat vehicle takes the nest's men off the map when a T1
-  (or three men) wait and no ambulance is near, one per platoon, back after 15 min; a hull with wounded aboard that
-  stands idle goes too; the player's `rearRun` ("Take wounded back" on the order bar); Role 1 outcome at hand-over and
-  the end-of-battle settlement (`systems/aftercare.ts`: died of wounds, recovery days; the side holding the ground
-  evacuates, else captured); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status "killed"),
-  `SideResult.diedOfWounds`; battle record version 5; batch "Rear runs and Role 1"; `--scene rearrun`. Slice 15
-  (M10.7a) is done: `sim/src/protection.ts` — on a sighting in the contact scan a man flags his own contact `marked`
-  (armband, marked ambulance), `carrying` (bearers) or `atPoint` (men at the nest) within the range for its kind (eye
-  or optics, × light, smoke on the line, stress; `core/medical.json` `protection`), not passed on in reports; one
-  helper `spared(c)` makes every fire choice, the AI commander's fire orders and HE missions spare them; the player's
-  fire order at a recognised protected target (or a call for fire on a place with only protected people known) is
-  refused with `radio.refuseProtected` (owner Q-7); event `protection.recognised`; `npm run lab -- protection`; batch
-  "Protection recognised". Slice 16 (M10.7b) is done: `sim/src/conduct.ts` — `law.breach` "misidentified" (fire
-  at an enemy really protected but not recognised, checked where rounds leave, once per task) and "deliberate" (at
-  most once a minute per man seeing a known protected or surrendering enemy; chance base × losses × low experience
-  × stress, "conduct" stream; no "ordered" breach: Q-7 refuses such orders); a medic with the emblem fires only
-  within `selfDefenceM` 50 m on his own, drills and AI orders (protection kept), beyond only on the player's order
-  (`SoldierState.protLostTick`, lost 120 s); `law.hit` (Q-8: aimed or incidental); nothing live; record v6
-  `conduct`, batch "Laws of war", lab parts 3-4, `tools/test/conduct.test.ts`.** **Next: slice 17, M10.8 (review
-  Medical and Conduct tabs from the record, statistics, balance at 2400 s, owner plays).** Merged origin/main (8x
-  speed, sprite fixes) before slice 16.
+  Phase 1, slices 2-17 — **all built** (slices 5 and 12 from parallel sessions, merged); ROADMAP lists each slice and
+  DECISIONS has the details. The chain: the "medical" physiology (M10.1), self-aid and buddy aid (M10.2), carers and
+  first responders (M10.3a), triage and care under fire (M10.3b), carrying parties (M10.4a) and into vehicles
+  (M10.4b), the D2 battle record and `main.ts` split, the Verwundetennest and platoon medic (M10.5), off-map
+  ambulances (M10.6a), combat vehicles' rear runs, Role 1 and the end-of-battle settlement (M10.6b), recognition and
+  respect (M10.7a, owner Q-7: fire orders at recognised protected people are refused), breaches and medic
+  self-defence (M10.7b), and the review's Medical and Conduct tabs from `sim/src/medstats.ts` `medicalSummary` plus
+  the batch "Medical" block and the balance report (M10.8, record version 7). **Next: the owner plays a battle on
+  his phone and answers the numbers question (keep / adjust named values / faster care); then the debt slot (D3, D4)
+  and M8 per ROADMAP.** Balance at 2400 s (DECISIONS M10.8): deaths of wounds −26 %, potentially preventable −30 %
+  with care; collection to the nest (2-33 %) and evacuation (0-7 %) are the weak links. Merged origin/main (PR #72,
+  D3 phone pass) before slice 17.
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -258,7 +216,7 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   slot; DE Puma Kommandant Feldwebel and HQ Puma (Zugtruppfuehrer) Hauptfeldwebel, Sanitaeter Stabsunteroffizier,
   marksman Oberstabsgefreiter (new rank, insignia positions inferred); RU first squad leader = deputy (starshiy
   serzhant). Zugfuehrer Leutnant or Oberleutnant?
-- After M10.8: the medical numbers table (keep, adjust named values, or faster care for gameplay).
+- Now (M10.8 done): the medical numbers table in DECISIONS (keep, adjust named values, or faster care for gameplay), after playing on the phone.
 - D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
   (15 m, once a minute, on withdrawals and moves under fire).
 - M7.6a tanks (low confidence, for review):

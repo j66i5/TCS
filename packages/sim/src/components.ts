@@ -195,7 +195,23 @@ export interface SoldierState {
    * (off the map) from then on: his wounds no longer run their course here, he counts as out, and his roster status
    * is "evacuated" (the aid station's outcome is M10.6b). Absent: not evacuated.
    */
-  evacuated?: { tick: number; vehicle: EntityId };
+  evacuated?: { tick: number; vehicle?: EntityId; via?: "ambulance" | "vehicle" | "end" };
+  /**
+   * What happens to him after the battle (M10.6b, settled when he is handed over to Role 1 — evacuated — or at the
+   * battle's end): when he reaches Role 1 (`role1Tick`, battle ticks; or the captor's aid post, `by` "captor"), the days
+   * until he is fit again (`recoveryDays`), and, if he dies of his wounds, when (`diedOfWoundsTick`, battle ticks, may
+   * lie after the battle). `limbLost`: a limb lost to a tourniquet. Absent: not settled (fit men, the dead).
+   */
+  aftercare?: Aftercare;
+}
+
+/** The outcome beyond the battle of a wounded man (M10.6b; core/medical.json `role1`). */
+export interface Aftercare {
+  role1Tick: number;
+  by: "own" | "captor";
+  recoveryDays: number;
+  diedOfWoundsTick?: number;
+  limbLost?: true;
 }
 
 /**
@@ -744,6 +760,39 @@ export interface VehicleState {
    * aboard with it. Absent: an ordinary vehicle, on the map from the start.
    */
   offMap?: OffMapAsset;
+  /**
+   * A rear run (M10.6b, owner Q-9): this combat vehicle takes casualties back off the map and comes back. Absent: none.
+   */
+  rearRun?: RearRun;
+  /** A rear run was cancelled (M10.6b): none starts on its own again before this tick. Absent: no wait. */
+  rearRunRetryTick?: number;
+}
+
+/**
+ * A combat vehicle's rear run (M10.6b; casualties now, supplies in M11). Phases: `toPoint` driving to the rear point
+ * `point` (its platoon's Verwundetennest); `loading` halted there taking casualties aboard; `outbound` driving to the
+ * map edge `exit`; `away` off the map (handing them over and driving back) until `backTick`; `return` on the map again
+ * at `exit`, driving to `back`. It ends when it is back (or stranded, or ordered otherwise). `ordered`: the player's
+ * `rearRun` order. `top`: the platoon (top unit) whose nest it serves.
+ */
+export interface RearRun {
+  phase: "toPoint" | "loading" | "outbound" | "away" | "return";
+  cargo: "casualties";
+  top: EntityId;
+  point?: EntityId;
+  ordered?: true;
+  startTick: number;
+  /** Where it was when it set off (it comes back there, or to its squad), and the map edge it leaves by. */
+  from: { x: number; y: number };
+  exit?: { x: number; y: number; heading: number };
+  goal?: { x: number; y: number; px: number; py: number };
+  loading?: { casualty: EntityId; doneTick: number };
+  arriveTick?: number;
+  lastLoadTick?: number;
+  departTick?: number;
+  awayTick?: number;
+  backTick?: number;
+  retryTick?: number;
 }
 
 /**

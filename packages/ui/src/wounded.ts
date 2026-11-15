@@ -56,9 +56,11 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
 export interface AmbulanceRow {
   id: EntityId;
   callsign: string;
-  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost";
+  phase: "called" | "inbound" | "loading" | "outbound" | "away" | "lost" | "toPoint" | "return";
   dueS: number;
   aboard: number;
+  /** A combat vehicle on a rear run (M10.6b; phases toPoint, loading, outbound, away — back in about `dueS` —, return). */
+  kind?: "rearRun";
 }
 
 /** The side's ambulances (M10.6a): those on a run or done (rows), and how many still wait to be called. */
@@ -73,6 +75,15 @@ export function ambulanceRows(view: SimView, side: string): { rows: AmbulanceRow
     for (const sid of v.seats) { const s = sid === null ? undefined : view.soldier.get(sid); if (s && s.wounds.length > 0 && view.unit.get(view.identity.get(sid!)?.unit ?? -1)?.asset === undefined) aboard++; }
     const dueS = o.phase === "called" ? Math.max(0, Math.round(((o.enterTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
     rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: o.phase, dueS, aboard });
+  }
+  // Combat vehicles on a rear run (M10.6b).
+  for (const [id, v] of view.vehicle.entries()) {
+    const r = v.rearRun;
+    if (!r || v.side !== side) continue;
+    let aboard = 0;
+    for (const sid of v.seats) { const s = sid === null ? undefined : view.soldier.get(sid); if (s && s.wounds.length > 0 && s.physiology.alive && (s.casualty !== "none" || !s.impair.canWalk || !s.impair.canFight)) aboard++; }
+    const dueS = r.phase === "away" ? Math.max(0, Math.round(((r.backTick ?? view.tick) - view.tick) / TICK_HZ)) : 0;
+    rows.push({ id, callsign: v.unit !== null ? view.unit.get(v.unit)?.callsign ?? "" : "", phase: r.phase, dueS, aboard, kind: "rearRun" });
   }
   return { rows, ready };
 }

@@ -16,7 +16,7 @@ import { ticksToSeconds, type EntityId } from "./ids";
 import type { SimView } from "./state";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 4;
+export const RECORD_VERSION = 5;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -81,6 +81,16 @@ export interface SideRecord {
    *  before anyone knew, identity tags recovered (items taken), casualties who crawled to cover, prisoners treated by
    *  the side holding them (counted for the prisoner's side), surrendered men who crawled out of the fire. */
   down: { checked: number; checkedDead: number; deadDragged: number; tags: number; tagMen: number; crawled: number; prisonersTreated: number; surrenderCrawled: number };
+  /** Combat vehicles' rear runs (M10.6b): started (by the player's order), cancelled, gone off the map, men handed
+   *  over, back with their squad. */
+  rear: { started: number; ordered: number; cancelled: number; away: number; men: number; back: number };
+  /** Role 1 outcomes settled (M10.6b, the casualty's side): men, of them tagged T1 and those reaching Role 1 within
+   *  `chain.role1S` of the first wound, treated by captors; died of wounds with the hours from the first wound to
+   *  death; recovery days of the survivors. */
+  role1: { men: number; t1: number; t1InTime: number; captor: number; dow: number; dowH: number[]; recoveryD: number[] };
+  /** The end-of-battle settlement (M10.6b): evacuated by the side holding the ground, captured on enemy-held ground,
+   *  prisoners treated, walking wounded staying with their units. */
+  settled: { evacuated: number; captured: number; prisoner: number; stays: number };
 }
 
 export interface BattleRecord {
@@ -121,6 +131,9 @@ export function newSideRecord(): SideRecord {
     nest: { sited: 0, moved: 0, tasked: 0, walks: 0, arrived: 0, returned: 0 }, retriage: { wrongRetagged: 0, corrected: 0 },
     amb: { called: 0, ordered: 0, cancelled: 0, entered: 0, arrived: 0, loaded: 0, away: 0, callToArriveS: [], evacuated: 0, woundToEvacS: [] },
     down: { checked: 0, checkedDead: 0, deadDragged: 0, tags: 0, tagMen: 0, crawled: 0, prisonersTreated: 0, surrenderCrawled: 0 },
+    rear: { started: 0, ordered: 0, cancelled: 0, away: 0, men: 0, back: 0 },
+    role1: { men: 0, t1: 0, t1InTime: 0, captor: 0, dow: 0, dowH: [], recoveryD: [] },
+    settled: { evacuated: 0, captured: 0, prisoner: 0, stays: 0 },
   };
 }
 
@@ -250,10 +263,32 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       }
       case "medical.evacuated": {
         const r = side(e.side);
-        if (r) { r.amb.evacuated++; r.amb.woundToEvacS.push(Math.round(ticksToSeconds(e.tick - e.woundedTick))); }
+        // (M10.6b: a combat vehicle's rear run counts under `rear`.)
+        if (r && e.via === "vehicle") r.rear.men++;
+        else if (r) { r.amb.evacuated++; r.amb.woundToEvacS.push(Math.round(ticksToSeconds(e.tick - e.woundedTick))); }
         rec.evacuated[String(e.casualty)] = e.tick;
         break;
       }
+      case "medical.rearRun": {
+        const r = side(e.side);
+        if (!r) break;
+        if (e.phase === "started") { r.rear.started++; if (e.ordered) r.rear.ordered++; }
+        else if (e.phase === "cancelled") r.rear.cancelled++;
+        else if (e.phase === "away") r.rear.away++;
+        else if (e.phase === "back") r.rear.back++;
+        break;
+      }
+      case "medical.role1": {
+        const r = side(e.side);
+        if (!r) break;
+        r.role1.men++;
+        if (e.by === "captor") r.role1.captor++;
+        if (e.cat === 1) { r.role1.t1++; if (e.inTime) r.role1.t1InTime++; }
+        if (e.diedOfWoundsTick !== undefined) { r.role1.dow++; r.role1.dowH.push(Math.round((ticksToSeconds(e.diedOfWoundsTick - e.woundedTick) / 3600) * 10) / 10); }
+        else r.role1.recoveryD.push(e.recoveryDays);
+        break;
+      }
+      case "medical.settled": { const r = side(e.side); if (r) r.settled[e.outcome]++; break; }
       case "medical.carer":
         if (e.assigned) { const r = side(sideOfMan(e.casualty)); if (r) { if (e.responder) r.carers.responders++; else r.carers.comrades++; } }
         break;

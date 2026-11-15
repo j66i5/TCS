@@ -709,5 +709,22 @@
   "man.activity.crawling": "crawling into cover, wounded",
   "aar.medical.down": "{side}: {checked} men down checked by a comrade, {dead} of them found dead ({dragged} dead men dragged into cover before anyone knew); identity tags recovered from {tags} fallen; {crawled} wounded crawled into cover",
   "aar.medical.prisoners": "{side}: {treated} treatments of its men held prisoner by the enemy; {crawled} times a surrendered man crawled out of the fire",
-  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up"
+  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up",
+  "order.rearRun": "Take wounded back",
+  "order.rearRunTitle": "Evacuate with this vehicle: it takes the wounded at the Verwundetennest off the map, then comes back",
+  "radio.ack.rearRun": "{callsign}: taking the wounded back, wilco.",
+  "radio.rearRun": "{callsign}: going to the Verwundetennest, taking the wounded back.",
+  "radio.rearRunAway": "{callsign}: not here, at the rear with the wounded.",
+  "radio.rearRunAssault": "{callsign}: not now, the squad is assaulting.",
+  "radio.rearRunNobody": "{callsign}: no wounded to take back.",
+  "rearRun.toPoint": "{callsign}: driving to the Verwundetennest",
+  "rearRun.loading": "{callsign}: at the Verwundetennest, {n} aboard",
+  "rearRun.outbound": "{callsign}: taking {n} wounded back",
+  "rearRun.away": "{callsign}: at the rear, back in about {min} min",
+  "rearRun.return": "{callsign}: coming back",
+  "wounded.status.dow": "died of wounds",
+  "wounded.status.capturedEnd": "captured at the end",
+  "aar.medical.role1": "{side}: {n} wounded reached Role 1 ({t1in}/{t1} tagged T1 within 60 min); {dow} died of wounds after the battle; median recovery {days} days",
+  "aar.medical.settled": "{side}: at the end {evac} wounded evacuated by their side, {captured} left on enemy-held ground and captured, {prisoners} prisoners treated by their captors",
+  "aar.medical.rearRuns": "{side}: {runs} rear runs by combat vehicles ({ordered} ordered), {men} wounded taken back"
 }

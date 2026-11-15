@@ -431,7 +431,13 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const out: Order[] = [];
       // (M10.5: never an order to a man alone who carries a casualty, is with one, or is on his way to or at the
       // Verwundetennest: it would take him out of that.)
-      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined)) out.push({ tick, issuer: side, target, ...body } as Order); };
+      // (M10.6b: nor to a hull on a rear run, nor "mount" to the squad it carries: the run is its own task.)
+      const onRun = (target: EntityId, kind: unknown) => {
+        const u = view.unit.get(target);
+        const vid = u?.vehicle ?? (kind === "mount" ? u?.carrier : undefined);
+        return vid !== undefined && view.vehicle.get(vid)?.rearRun !== undefined;
+      };
+      const order = (target: EntityId, body: Record<string, unknown>) => { if (!committed(view.soldier.get(target) as SoldierState | undefined) && !onRun(target, body["kind"])) out.push({ tick, issuer: side, target, ...body } as Order); };
       // Every platoon of the side (the attacker may have two): their squads and their own men.
       // (M8.3a: a mortar section fires missions; it is not a platoon to manoeuvre.)
       // (M9.3b: nor a missile team: it is sited and fired below; its men's eyes still count for what the side knows.)

@@ -580,6 +580,24 @@ export const MedicalFile = z.object({
     delayMinS: Num(0, 36000), delayMaxS: Num(0, 36000), pace: Id, nearPace: Id, standM: Num(0, 100), carryMps: Num(0.1, 5), loadSecondsExtra: Num(0, 600),
     waitS: Num(0, 3600), maxStayS: Num(0, 36000), edgeM: Num(1, 200), retryS: Num(1, 600), requestAt: z.number().int().min(1).max(20),
   }).optional(),
+  /** Combat vehicles' rear run (M10.6b): when an idle hull takes the nest's casualties off the map, and back. */
+  rearRun: withProv({
+    idleS: Num(0, 3600), quietS: Num(0, 3600), enemyM: Num(0, 5000), startT1: z.number().int().min(1).max(20), startAny: z.number().int().min(1).max(20),
+    ambulanceWithinS: Num(0, 36000), maxNestM: Num(0, 10000), maxPerPlatoon: z.number().int().min(1).max(10), keepVehicles: z.number().int().min(0).max(10),
+    waitS: Num(0, 3600), maxStayS: Num(0, 36000), awayS: Num(0, 36000), pace: Id, backM: Num(1, 200),
+  }).optional(),
+  /** Role 1 outcome at hand-over and the end-of-battle settlement (M10.6b): delays, died of wounds, recovery days. */
+  role1: withProv({
+    transferS: Num(0, 360000), settleDelayS: Num(0, 360000), captiveTransferS: Num(0, 360000), holdM: Num(1, 5000),
+    dow: z.object({
+      base: Num(0, 1), shockK: Num(0, 5), bloodK: Num(0, 5), respK: Num(0, 5), unconsciousK: Num(0, 5), severityK: Num(0, 5), max: Num(0, 1),
+      lateKPerH: Num(0, 10), captorFactor: Num(0, 10), delayMinH: Num(0, 10000), delayMaxH: Num(0, 10000),
+    }).strict(),
+    recovery: z.object({
+      bands: z.array(z.object({ upTo: Num(0, 1), minD: Num(0, 10000), maxD: Num(0, 10000) }).strict()).min(1),
+      fractureMinD: Num(0, 10000), fractureMaxD: Num(0, 10000), untreatedFactor: Num(0, 10), lateFactor: Num(0, 10), amputationD: Num(0, 10000),
+    }).strict(),
+  }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
     recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),

@@ -45,6 +45,8 @@ export { carryLeader, carryParams, carrySpeedMps, carrySystem, coverSpotNear, en
 export { casualtyPointOrder, evacuateOrder, nestFor, nestOf, nestSystem, setNest, siteNest } from "./systems/nest";
 export { isAssetMan, isAssetUnit, isOffMap, isOffMapMan, OFF_MAP_PARK, parkOffMap } from "./offmap";
 export { callAmbulance, callAmbulanceOrder, entryPoint, evacuationSystem, onRun } from "./systems/evacuation";
+export { rearRunOrder, rearRunSystem } from "./systems/rearrun";
+export { diedOfWounds, diedOfWoundsChance, handOver, settleBattle } from "./systems/aftercare";
 export { liesAboard, loadingParams, placesFit, placesUsed } from "./systems/boarding";
 export { driveSurface, followRoute, fuelLitres, planVehicleRoute, stepDriveDynamics, type DriveCmd, type DriveFactors, type DriveSurface } from "./systems/drive";
 export * from "./hulls";

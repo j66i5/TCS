@@ -79,10 +79,17 @@ export function reviewModel(a: App): AarModel {
     timeline: record.timeline.map((e) => ({ time: fmtClock(ticksToSeconds(e.tick)), text: timelineText(a, e), colour: e.side ? sideColour(a, e.side) : "#ffd23d" })),
     // D2: the tabs M10.8 fills (times to care, evacuation, died of wounds; breaches of the laws of war).
     medical: st.sides.flatMap((sd) => {
-      const d = record.sides[sd.id]?.down;
-      if (!d) return [];
+      const rs = record.sides[sd.id], d = rs?.down;
+      if (!rs || !d) return [];
+      // M10.6b: rear runs, the end-of-battle settlement, Role 1 outcomes.
+      const r1 = rs.role1, rec = [...r1.recoveryD].sort((x, y) => x - y);
+      const more = [
+        ...(rs.rear.started > 0 ? [s.t("aar.medical.rearRuns", { side: sideName(a, sd.id), runs: rs.rear.started, ordered: rs.rear.ordered, men: rs.rear.men })] : []),
+        ...(rs.settled.evacuated + rs.settled.captured + rs.settled.prisoner > 0 ? [s.t("aar.medical.settled", { side: sideName(a, sd.id), evac: rs.settled.evacuated, captured: rs.settled.captured, prisoners: rs.settled.prisoner })] : []),
+        ...(r1.men > 0 ? [s.t("aar.medical.role1", { side: sideName(a, sd.id), n: r1.men, t1: r1.t1, t1in: r1.t1InTime, dow: r1.dow, days: rec.length > 0 ? rec[Math.floor(rec.length / 2)]! : 0 })] : []),
+      ];
       return [s.t("aar.medical.down", { side: sideName(a, sd.id), checked: d.checked, dead: d.checkedDead, dragged: d.deadDragged, tags: d.tagMen, crawled: d.crawled }),
-        s.t("aar.medical.prisoners", { side: sideName(a, sd.id), treated: d.prisonersTreated, crawled: d.surrenderCrawled })];
+        s.t("aar.medical.prisoners", { side: sideName(a, sd.id), treated: d.prisonersTreated, crawled: d.surrenderCrawled }), ...more];
     }),
     conduct: [],
   };

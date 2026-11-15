@@ -75,6 +75,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void): void 
     /** Get in / get out (M7.2), for the selected unit. */
     mount: () => issue(a, { ...to(), kind: "mount" }),
     dismount: () => issue(a, { ...to(), kind: "dismount" }),
+    rearRun: () => issue(a, { ...to(), kind: "rearRun" }),
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */

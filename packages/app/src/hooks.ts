@@ -15,8 +15,9 @@ import { clearAt, endPlan, facingHandle, forUnit, issue, now, occupyOrder, offer
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
+import type { PerfReport } from "./perf";
 
-export function installHooks(a: App, data: DataSet, stepOnce: () => void): void {
+export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?: (reset?: boolean) => PerfReport): void {
   const { sim, hud, renderer, overlay, playerSide } = a;
   const sel = (): EntityId => {
     if (overlay.selectedUnit === null) { overlay.selectedUnit = [...sim.state.unit.entries()].find(([, u]) => u.side === playerSide && u.parent === null)?.[0] ?? null; syncOrders(a); }
@@ -75,6 +76,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void): void 
     /** Get in / get out (M7.2), for the selected unit. */
     mount: () => issue(a, { ...to(), kind: "mount" }),
     dismount: () => issue(a, { ...to(), kind: "dismount" }),
+    rearRun: () => issue(a, { ...to(), kind: "rearRun" }),
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */
     dismountWounded: () => issue(a, { ...to(), kind: "dismount", wounded: true }),
     /** Own units riding in a vehicle (its crew unit given): screenshots. */
@@ -94,6 +96,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void): void 
     focusScale: (x: number, y: number, scale: number) => { renderer.focusScale(x, y, scale, hud.insets()); void renderer.primeDetail(); },
     /** Photo terrain tiles still to paint or upload (screenshots wait for 0). */
     tilesPending: () => renderer.tilesPending(),
+    /** D3: frame times split by part (p50/p95/max over 5 s and the whole buffer) and the device; `true` resets after reading. */
+    perf: (reset?: boolean) => perf?.(reset) ?? null,
     terrainLevel: () => renderer.terrainLevel(),
     zoomLevel: () => renderer.zoomLevel(),
     /** M7.5b screenshots: every soldier frame of both sides (with variants) as a sheet over the map; false hides it. */

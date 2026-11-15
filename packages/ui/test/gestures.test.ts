@@ -5,7 +5,7 @@ import { createSim, step, submitOrder, type Order } from "@tcs/sim";
 import { loadData } from "../../tools/src/scenarios";
 import { addPoint, newPlan, planToOrder } from "../src/planner";
 import { markerGeometry } from "../src/planner";
-import { centreOf, facingHandleAt, inPlacePoint, isDoubleTap, losPreview, modeAfterOrder, onUnitAt, retargetMove, shapeOf, turnFormation } from "../src/gestures";
+import { centreOf, facingHandleAt, GHOST_FRONTAGE_K, ghostFarEnough, inPlacePoint, isDoubleTap, losPreview, modeAfterOrder, onUnitAt, retargetMove, shapeOf, turnFormation } from "../src/gestures";
 import { ordersFor } from "../src/orders-for";
 
 const angDiff = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -133,5 +133,20 @@ describe("S9 turn in place: the existing move with a facing, to where the unit s
     const t1 = sim.state.transform.req(vid);
     expect(angDiff(t1.heading, face)).toBeLessThan(0.2);
     expect(Math.hypot(t1.x - x0, t1.y - y0)).toBeLessThan(6);
+  });
+});
+
+describe("the drag ghost (D3)", () => {
+  it("shows only clear of the unit: half its frontage out, at least 40 px, at most 40 m", () => {
+    // A wedge 43 m wide at 4 px/m: 21.5 m out (40 px is only 10 m).
+    expect(GHOST_FRONTAGE_K * 43).toBe(21.5);
+    expect(ghostFarEnough(21, 4, 43)).toBe(false);
+    expect(ghostFarEnough(22, 4, 43)).toBe(true);
+    // Zoomed out to 0.5 px/m: 40 px is 80 m.
+    expect(ghostFarEnough(70, 0.5, 43)).toBe(false);
+    expect(ghostFarEnough(81, 0.5, 43)).toBe(true);
+    // A whole platoon's 120 m frontage: 40 m, not 60 m.
+    expect(ghostFarEnough(39, 4, 120)).toBe(false);
+    expect(ghostFarEnough(41, 4, 120)).toBe(true);
   });
 });

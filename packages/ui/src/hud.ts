@@ -18,7 +18,7 @@ import type { EntityId } from "@tcs/sim";
 import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
-import { createSidebar, type TilePart, type UnitTile } from "./sidebar";
+import { createSidebar, sideListMaxPx, WIDE_SCREEN_PX, type TilePart, type UnitTile } from "./sidebar";
 import type { AmbulanceRow, WoundedRow } from "./wounded";
 import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
@@ -52,6 +52,8 @@ export interface HudCallbacks {
   onDismount(): void;
   /** Vehicles (M7.3): fire the smoke dischargers; the gun and round of the next fire order (null = crew's choice). */
   onDischarge(): void;
+  /** "Take wounded back" (M10.6b): the selected vehicle's rear run. */
+  onRearRun?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -154,7 +156,7 @@ export interface Hud {
   /** S11: the fire support pop-up (HE or smoke at a point) or none; is it shown. */
   offerSupport(o: SupportOffer | null): void;
   supportShown(): boolean;
-  /** S13: the speed buttons (0 = pause, 1, 2, 4) as if pressed; the speed shown. */
+  /** S13: the speed buttons (0 = pause, 1, 2, 4, 8) as if pressed; the speed shown. */
   setSpeed(v: number): void;
   speed(): number;
   /** S13: press an order's button as a tap would (a mode, halt, mount / dismount): false if not offered now. */
@@ -189,7 +191,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const bar = el("div", "hud-bar");
   const title = el("div", "hud-title", s.t("app.title"));
   const clock = el("div", "hud-clock", "00:00");
-  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4]];
+  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4], ["8×", 8]];
   let speedNow = 1;
   const speedBtns = speeds.map(([label, v]) => {
     const b = el("button", "hud-btn", label);
@@ -369,13 +371,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const haltBtn = verb("halt", "order.halt", "halt", () => cb.onHalt());
   const mountBtn = verb("mount", "order.mount", "mount", () => cb.onMount());
   const dismountBtn = verb("dismount", "order.dismount", "dismount", () => cb.onDismount());
+  const rearRunBtn = verb("rearRun", "order.rearRun", "rearRun", () => cb.onRearRun?.());
+  rearRunBtn.title = s.t("order.rearRunTitle");
+  rearRunBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn];
-  const OVERFLOW_FIRST = ["mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn];
+  const OVERFLOW_FIRST = ["rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -402,7 +407,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     onFire: (c) => { if (!rules) return; const r = fireChoiceRules(c, rules); rules = { ...rules, ...r }; card.setFire(fireChoice(rules)); cb.onRules(r); },
     onRules: () => toggleRules(),
     onMan: (id) => cb.onInspect?.(id),
-    onResize: () => cb.onCardResize?.(),
+    onResize: () => { if (sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout(); cb.onCardResize?.(); },
   });
   const manBox = createManBox(s, () => cb.onInspect?.(null));
   // S4: the context button (Occupy at the end of a drag onto a house).
@@ -590,6 +595,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
     follow.style.left = `${free.left + (Math.max(0, (root.clientWidth || globalThis.innerWidth) - free.left - free.right)) / 2}px`;
     closeTrays();
     placeBottom();
+    capSide(sTop);
+  };
+  /** D3: the list opened over the map on a narrow screen ends above the unit card (it lay over the card). */
+  const capSide = (sTop: number) => {
+    if (card.el.hidden || !sidebar.isExpanded() || globalThis.innerWidth >= WIDE_SCREEN_PX) return;
+    const r = card.el.getBoundingClientRect?.(), r0 = root.getBoundingClientRect?.();
+    if (!r || r.height <= 0) return;
+    const cap = sideListMaxPx(sTop, r.top - (r0?.top ?? 0));
+    const now = parseFloat(sidebar.el.style.maxHeight) || Infinity;
+    if (cap < now) sidebar.el.style.maxHeight = `${cap}px`;
   };
   const setDock = (e: Edge, remember: boolean) => {
     edge = e;
@@ -670,7 +685,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
-      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true;
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
       // A group shows while one of its modes is offered; its caret while its tray has more than the button itself.
       for (const g of groups) {
@@ -698,7 +713,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       const key = JSON.stringify(parts);
       if (key === score.dataset["key"]) return;
       score.dataset["key"] = key;
-      const was = score.hidden;
+      const was = score.hidden, wasH = score.offsetHeight;
       score.replaceChildren(...parts.map((p, i) => {
         const sp = el("span", "hud-score-part");
         if (p.colour) { const m = el("span", "hud-score-mark"); m.style.background = p.colour; sp.append(m); }
@@ -708,7 +723,8 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
         return sp;
       }));
       score.hidden = parts.length === 0;
-      if (was !== score.hidden) layout();
+      // (D3: on a phone the line wraps; a second line moves everything under it down.)
+      if (was !== score.hidden || score.offsetHeight !== wasH) layout();
     },
     setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },
@@ -731,7 +747,13 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       if (!r) return;
       for (const x of ruleBtns) x.b.classList.toggle("on", r[x.key] === x.value);
     },
-    setCard(m) { card.update(m); bottom.classList.toggle("with-card", m !== null); if (m === null) { panel.hidden = true; card.setRulesButton(false, false); } },
+    setCard(m) {
+      const was = card.el.hidden, wasH = card.el.offsetHeight;
+      card.update(m); bottom.classList.toggle("with-card", m !== null);
+      if (m === null) { panel.hidden = true; card.setRulesButton(false, false); }
+      // (D3: the open list's height follows the card on a narrow screen: when the card shows, hides or changes height.)
+      if ((was !== card.el.hidden || card.el.offsetHeight !== wasH) && sidebar.isExpanded() && globalThis.innerWidth < WIDE_SCREEN_PX) layout();
+    },
     showMan(d) { manBox.update(d); },
     setInspected(id) { card.setInspected(id); },
     setCardDetailed(on) { card.setDetailed(on); },

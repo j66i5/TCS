@@ -49,6 +49,13 @@ export function lintDataSet(files: Record<string, unknown>): { data: DataSet | n
     const m = data.medical, f = "core/medical.json";
     for (const [k, b] of [["physiology", m.physiology], ["levels", m.levels], ["chain", m.chain], ["protection", m.protection], ["triage", m.triage]] as const) { check(f, k, b, false); notHigh(f, k, b); }
     if (m.evacuation) { check(f, "evacuation", m.evacuation, false); notHigh(f, "evacuation", m.evacuation); }
+    if (m.rearRun) { check(f, "rearRun", m.rearRun, false); notHigh(f, "rearRun", m.rearRun); }
+    if (m.role1) {
+      check(f, "role1", m.role1, false); notHigh(f, "role1", m.role1);
+      const bands = m.role1.recovery.bands;
+      if (bands[bands.length - 1]!.upTo < 1) errors.push({ file: f, path: "role1.recovery.bands", message: "the last band must reach severity 1", severity: "error" });
+      for (const b of bands) if (b.minD > b.maxD) errors.push({ file: f, path: "role1.recovery.bands", message: `band up to ${b.upTo}: minD above maxD`, severity: "error" });
+    }
     for (const v of m.interventions) { check(f, `interventions.${v.id}`, v, false); notHigh(f, `interventions.${v.id}`, v); }
     for (const c of m.carry) { check(f, `carry.${c.id}`, c, false); notHigh(f, `carry.${c.id}`, c); }
     // Every tag a treatment uses up should be carried by some item of some real faction.

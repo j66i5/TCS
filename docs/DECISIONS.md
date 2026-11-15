@@ -5736,3 +5736,129 @@ is new to both lines), the batch lines, Russian strings, catalog medical blocks 
 fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
 regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
 `commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).
+
+## 2026-11-15 — "Sometimes, characters look wrong": soldier sprite fixes (render only; sim, data and goldens unchanged)
+Owner report (phone, photo look, figure zoom): one man of a squad drawn as a broken lying figure, limbs and weapon
+in specks, the body doubled, odd colours round it. A diagnostic sheet (every frame x weapon variant x 16 facings)
+and phone screenshots (DPR 3) of the mounted and on-foot battles and of every carry method found these causes:
+- **Atlas key collision**: cells were keyed `slot * 4096 + frameKey`, but `frameKey` reaches 4991 with 13 frames,
+  so the second faction's stand/walk/crouch cells shared keys with the first faction's captive, carried and
+  stretcher cells (whichever was built first was shown for both: a walking man drawn as a carried casualty in the
+  other side's colours). Now `KEYS_PER_SLOT` = frames x weapons x 8 x facings.
+- **Carried men by method**: every carried man got the lying `carried` frame. A fireman's carry (casualty 0 m
+  behind the bearer) drew him lying on top of the standing bearer (the "doubled" lying figure); a supported man
+  who walks lay flat; litter bearers 0.3 m apart on the trail and two draggers 0.4 m apart were drawn on top of
+  each other. Now `frames.ts` picks the frame from the method's shape (drag: `carried`; two-man seat: new
+  `seated`; fireman: the bearer's new `shoulder` frame, the casualty not drawn; litter: `stretcher`; supported: he
+  walks) and draws pairs of bearers side by side (render-only offsets: positions in the sim untouched). Before the
+  bearers gather, or while they rest, he lies `down`. A casualty crawling to cover crawls (was `down`, sliding).
+- **Photo rim**: the dark rim was the side outline drawn 18-30 % larger about the man's position, so on long lying
+  figures it slid off the edge and doubled it. Now a ring mask just outside the outline (two pixels deep below
+  16 px/m), built per cell.
+- **Side colour inside the body**: gaps shut in by the figure (between arm and helmet, and pinholes from turning)
+  got the outline colour. Now only outside pixels are outlined; turned pinholes of 1-2 px are filled dark.
+- **Turning**: Scale2x rounds off single pixels, so at 22.5° / 45° steps hands, faces, dressings, highlights and
+  the launcher tube vanished and thin lines broke into specks. Detail letters are now also forward-mapped, and lone
+  specks dropped; the `down` and `dead` art redrawn with arms and rifle joined to the body (they had loose pixels).
+- **Cell margin**: 3 px cut off turned corners (stretcher, prone with MG and flash); now 6 px (`CELL` 28) and a
+  2-px transparent gutter between atlas cells. Sampling stays nearest.
+Not changed: the renderer's resolution cap of 2 on DPR-3 phones (a performance choice; the browser scales the
+canvas 1.5x). The flat look changes too (same atlas and frames: the bugs were in it as well).
+Tests: `render/test/sprites.test.ts` (frame per state and carry method, key uniqueness per slot, cell padding and
+gutter, one connected piece and no lost colour at every facing, no outline inside the body).
+## 2026-11-15 — M10.6b combat vehicles' rear run, Role 1 outcome, end-of-battle settlement, roster (roadmap-detail slice 14; goldens regenerated)
+Owner answers used (binding): combat vehicles take wounded when going back or idle, the player can order any vehicle
+(Q-9); realistic delays, those still waiting at the end settled by an end-of-battle roll (Q-1e); the side holding the
+ground evacuates, wounded on enemy-held ground are captured and treated (Q-10); recovery in days from wound severity
+and treatment (Q-16, plan default). Q-7 (an order to fire at a recognised protected target is refused) needs
+recognition, which is slice 15; it is built in slices 15/16. Software decisions, not asked (owner to review in M10.8):
+- **Rear run as a generic task** (`VehicleState.rearRun`, `RearRun` with `cargo: "casualties"`; M11 adds supplies):
+  phases toPoint → loading → outbound → away → return. While "away" the hull is off the map exactly like an asset
+  (`isOffMap` also reads `rearRun`), but stays of its force (results, score, AI strength). No state schema bump (new
+  optional fields: `rearRun`, `rearRunRetryTick`, `SoldierState.aftercare`; `evacuated.vehicle` became optional with
+  `via`).
+- **Automatic ("idle")**: not moved for 60 s, not hit for 60 s, crew knows no enemy within 200 m, no fit riders, its
+  squad not assaulting/clearing/boarding; a nest with 1 T1 (by tag) or 3 men of any tag, no ambulance there or due
+  within 300 s; one hull per platoon at a time, the platoon keeps one on the map; nearest idle hull within 800 m with
+  room. "Going back": an idle hull with wounded aboard goes off with them. Away 900 s (to the company point and
+  back), back to its squad leader or its start spot. A cancelled run is not restarted on its own for 120 s. All game
+  values, `core/medical.json` `rearRun`, low.
+- **Orders**: `rearRun` (to a crew unit; "Take wounded back" on the order bar, phone: under "⋯"); refused with radio
+  reasons: nobody to take, squad assaulting, already away. An order to a hull away is refused ("at the rear with the
+  wounded"); on the map any order other than fire/rules/cease fire/smoke ends the run; a squad's mount order meets
+  the same gate. The AI commander sends no orders to a hull on a run (or "mount" to its squad).
+- **Role 1 outcome at hand-over** (`systems/aftercare.ts`, `core/medical.json` `role1`, all low): Role 1 15 min after
+  the map edge; died-of-wounds chance = 0.01 + 0.2 shock + 0.2 blood share lost + 0.2 oxygen debt + 0.1 (1 −
+  consciousness) + 0.05 worst severity, × (1 + 0.1 per hour past `chain.role1S`), × 1.5 by captors, max 0.9; death
+  0.5-72 h after Role 1 (log-uniform); recovery days by worst-wound band (3-10 / 14-35 / 45-120 / 120-300 d) + 30-60
+  for a fracture, × 1.2 untreated bleeding, × 1.25 late, + 180 for a limb lost to a tourniquet (the existing
+  ischaemia points, tourniquet time to surgery). First draft coefficients (0.35/0.4/0.3/0.15/0.08) gave about 20 %
+  died of wounds in the platoon batch; halved to about 10-15 %.
+- **End-of-battle settlement** on the tick the battle ends (time limit or defeat): prisoners treated by captors; a man
+  who needs evacuation (or lies at a nest) is evacuated if his side holds the ground (more able men within 150 m, else
+  the nearest able man's side), reaching an ambulance 1500 s later; otherwise captured; walking wounded who can fight
+  stay with their unit (recovery days only). Draws come from the "medical" stream, so every golden changes at its end.
+- **Roster**: `SoldierRecord.recoveryDays`; a man who died of wounds is status **"killed"** with `diedOfWoundsTick`
+  (a consumer reading only the status never brings a dead man back); `SideResult.diedOfWounds` (not in `killed`,
+  which stays killed in action); `evacuated` now also counts rear runs and end settlement.
+- **Events/record/batch/review**: `medical.rearRun`, `medical.role1` (with `inTime`), `medical.settled`; battle
+  record version 5 (`rear`, `role1`, `settled`); batch line "Rear runs and Role 1" (T1 to Role 1 within 60 min per
+  side, died-of-wounds hours histogram); Medical tab lines; Wounded tab rows for rear runs.
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: winners platoon blue 8/red 2 → 8/2, casualties
+  blue/red 15.5/15.0 → 15.4/13.5; platoon-vehicles 8/2 → 8/2, 15.4/26.9 → 15.4/26.4; platoon-ru-vehicles 9/1 → 9/1,
+  8.7/29.9 → 8.7/29.6 (noise: hand-overs draw from the medical stream). Rear runs are rare in AI battles (1 in 10
+  battles in each vehicle scenario; vehicles seldom stand idle away from the enemy in 1200 s); at the end blue
+  platoon evacuated 65, captured 1, stayed 33; T1 reaching Role 1 within 60 min 95 % (blue) / 80 % (red) in platoon,
+  100 % in the vehicle scenarios (few T1 tags); died of wounds platoon 10 of 99 (blue) / 9 of 61 (red), hours from
+  wound 1-6: 3, 6-24: 4, 24-72: 3 (blue). Left for M10.8: whether rear runs should start more readily.
+- Tests `tools/test/medical-rearrun.test.ts` (run end to end, real data needs T1 or three, no run while assaulting,
+  order refusals, orders while away, save/load on the way and away, DOW chance, settlement both ways, roster);
+  `--scene rearrun` screenshots (phone and desktop). Goldens regenerated (data fingerprint and the end settlement);
+  `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, per hull), so no perf run.
+## 2026-11-15 — D3 Phone pass (roadmap-detail slice 18, parallel session; owner to review)
+No owner phone available (relayed by the coordinator): measured with Playwright mobile emulation (Pixel 7, 4x CPU
+throttle) in the container, whose WebGL is software (SwiftShader). Built in four parts (parallel worktrees). No sim,
+data or golden change.
+- **`?perf=1` read-out** (`ui/src/perf.ts` ring-buffer recorder, `app/src/perf.ts` overlay): frame interval, sim
+  (AI + step + events), know (fog of war), ui, draw, gpu (CPU side of Pixi's render), steps per frame and game time
+  lost to the 0.25 s frame clamp; p50/p95/max over 5 s, the share over 33 ms, dpr, renderer resolution, look, worker
+  tier, GL string; Copy puts the JSON on the clipboard. `__tcs.perf(reset?)` returns it (always installed). Perf mode
+  never computes the state hash.
+- **Phone proxy** `npm run phoneperf` (report only): photo and flat, idle / pan at 1x / pan paused / pan unthrottled.
+  Here every frame is over 33 ms in every run (software GL at dpr 2.6: rAF p50 150-300 ms throttled, 133-250 ms
+  unthrottled); the JS parts are about 20 ms of a 150-300 ms frame (sim p50 12-14 ms per frame at 1x under the 4x
+  throttle because slow frames run 10-15 steps; draw 2 ms; gpu submit 4-5 ms). **The acceptance (your phone, p95 <=
+  33 ms while panning) cannot be judged here: request to the owner — open the deployed build with `?perf=1`, pan
+  10 s in photo and in flat, tap Copy and send the numbers.**
+- **Software decision (sim in a worker): not now.** The proxy shows the sim at a small share of the main thread;
+  the decision waits for the owner's `?perf=1` numbers (the read-out splits sim from render for exactly this).
+  Cheap lever if the phone is slow: cap the renderer resolution on phones (dpr 1 halved frame times here).
+- **Roof atlas off the main thread** (supersedes the photo item 7 deviation): a short-lived worker
+  `render/src/photo/roof-worker.ts` (pure `handleRoofs`, byte-identical atlas; tested), roofs filled in when it
+  replies, synchronous fallback without workers (Node, tests) or on error/timeout; `primeDetail` and `tilesPending`
+  wait for it. Throttled phone proxy: `setBuildings` 209-547 ms -> 7-69 ms on the main thread.
+- **UI leftovers (DECISIONS 2026-11-13 list):** the vehicle card shows its guns and rounds ("MK30-2 · HE 160 | AP 80
+  (+120 stowed)", MG, missiles; jammed / reloading); the phone's open unit list closes when a unit is picked and
+  never reaches over the card; a fire order released at a point nobody sees warns at once in the radio log (the order
+  is still sent); drag ghosts appear only past max(40 px, half the frontage, at most 40 m) from the unit and are drawn
+  fainter, the old move marker hidden meanwhile (half the frontage, not the planned 1.5x: at 1.5x a 25 m drag sent no
+  move); a man down gets a small red-cross mark in both looks, and in the flat look casualties get the photo look's
+  dark rim and a darker tint (flat men who are not down stay byte-identical); the status line no longer overflows at
+  360 px.
+- **F2 cross-browser probe** `npm run probe [-- --diff]` (report only; CI job `probe`, continue-on-error, installs
+  Chromium, Firefox and WebKit): the shootout golden in Node (18/18 checkpoints), the probe bundle in Node (18/18),
+  Chromium 153 **7/18** (first difference at tick 600: last-bit `Math.cos/pow/log` differences between V8 versions,
+  e.g. cos(0.1) ...257 vs ...258, reaching two headings; the final hash matches again). Firefox and WebKit cannot be
+  installed here (download blocked): the CI job measures them. This sizes MP1 (deterministic maths), not D3.
+- **F3 4 km map check** `npm run map -- --kind K --size 4000 --nav [--seeds 3]`: every kind generates clean (0
+  problems) in 0.4-1.1 s; navigation grids foot / cover / tracked / wheeled 0.45-0.6 s each; a cross-map foot route
+  0.35-0.45 s; the map itself about 6 MB; **navigation memory about 350 MB at 4 km** (88 MB at 2 km, ~35 MB on the
+  default 1200 x 900 m map; it scales with the area). Throttled phone proxy (scout): about 4x those times; a 4 km
+  battle on a phone needs smaller nav arrays or lazy per-region grids first (noted for whoever builds 4 km maps).
+- **Not done:** the owner's phone numbers; Firefox/WebKit probe results (CI); a "get out with the wounded" button
+  (a D3-tagged leftover not in slice 18's list).
+- **Review (3 reviewers, every finding checked by two sceptics; 4 confirmed and fixed, 4 rejected):** the
+  no-line-of-fire warning fired on every fire order at a known enemy vehicle (its own hull blocked the line to it: the
+  target hull is now looked past); the phone list's cap is redone when the card changes height, not only when it shows
+  or hides; `phoneperf` no longer loads the read-out (every second swipe started on it and panned nothing) and its
+  frame loops no longer pile up across runs (the frame counts were 2-4x too high; percentiles were right).

@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.6a off-map vehicles and ambulance runs, roadmap-detail slice 13). The long session-by-session
+_Last updated: 2026-11-15 (M10.6b combat vehicles' rear run, Role 1, settlement, roster; roadmap-detail slice 14). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -50,8 +50,15 @@ DECISIONS.md under its date._
   10-15 min (stood down if nobody waits by then), drives there, loads T1 first within its layouts, backs off, leaves
   the map; its wounded are "evacuated" (roster status; their condition is kept until M10.6b); `systems/evacuation.ts`,
   `medical.ambulance` / `medical.evacuated` events, battle record version 3, batch "Ambulances" line,
-  `npm run lab -- medevac`, `--scene medevac`.** **Next: slice 14, M10.6b (combat vehicles' rear run, Role 1,
-  end-of-battle settlement, roster `recoveryDays` / `diedOfWoundsTick`).**
+  `npm run lab -- medevac`, `--scene medevac`. Slice 14 (M10.6b) is done: a generic rear run
+  (`VehicleState.rearRun`, `systems/rearrun.ts`): an idle combat vehicle takes the nest's men off the map when a T1
+  (or three men) wait and no ambulance is near, one per platoon, back after 15 min; a hull with wounded aboard that
+  stands idle goes too; the player's `rearRun` ("Take wounded back" on the order bar); Role 1 outcome at hand-over and
+  the end-of-battle settlement (`systems/aftercare.ts`: died of wounds, recovery days; the side holding the ground
+  evacuates, else captured); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status "killed"),
+  `SideResult.diedOfWounds`; battle record version 5; batch "Rear runs and Role 1"; `--scene rearrun`.** **Next:
+  slice 15, M10.7a (recognition and respect); the refused fire order at a recognised protected target (owner Q-7)
+  comes with it and slice 16.** Merged origin/main (men down, identity tags, prisoners' care) before slice 14.
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -224,14 +231,16 @@ sensor physics (thermal, goggle numbers).
   re-tuning only in the named balance slices (M10.8, D4, M8.5, M9.6).
 - **Performance headroom is small:** bench-vehicles sits close to its 8× floor; every medical slice marked [perf]
   measures it alone twice.
-- **Phone smoothness unmeasured on a real phone** (the container's software renderer is far slower); D3.
+- **Phone smoothness unmeasured on a real phone** (the container's software renderer is far slower). D3 built the
+  `?perf=1` read-out (Copy sends the numbers) and `npm run phoneperf`; the owner's numbers decide the sim-in-a-worker
+  question.
 - **Pre-interiors goldens** (`packages/tools/golden/no-interiors/`, six files) have been skipped since 2026-11-13
   (the data changed). The plan proposes deleting them; they are kept untouched until the owner says so (see
   "Open questions").
 - Data from search extracts only (web pages cannot be opened here): confidence medium at most, many values low.
-- Leftovers from the UI work for D3: vehicle gun and ammunition on the card, the phone's unit list overlapping the
-  card, a release-time "no line of fire" warning, drag ghosts piling up, casualties hard to read in the pixel look;
-  the roof atlas paints on the main thread.
+- D3 (2026-11-15) closed the UI leftovers (gun on the card, list over the card, no-line-of-fire warning, drag
+  ghosts, casualties in the flat look) and moved the roof atlas into a worker; F2 probe (`npm run probe`) and F3 4 km
+  numbers in DECISIONS "D3". Open: "get out with the wounded" button.
 
 ## Live build
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.

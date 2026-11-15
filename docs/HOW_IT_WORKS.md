@@ -473,13 +473,48 @@ to him and back with a litter. It leaves when full, or when nobody has come aboa
 on the way to the nest (at most ten minutes after it arrived): it backs away from the men, turns and drives back to
 where it came on, and leaves the map (held up on the way back for ten minutes, it is taken to have found another way
 off). The living wounded aboard are **evacuated**: they are out of the battle, their
-condition stays as it was (the aid station's outcome comes in M10.6b), and the after-action roster says
-"evacuated". Each hull makes one run. A hull that loses its driver or its wheels on the map is stranded there and
+condition stays as it was from then on, and the after-action roster says "evacuated". Each hull makes one run. A hull that loses its driver or its wheels on the map is stranded there and
 is an ordinary vehicle from then on. The Wounded tab shows each run (on its way with the minutes left, driving to the
 nest, there with so many aboard, gone back with so many); the batch report's "Ambulances" line counts calls,
 arrivals, men taken aboard and evacuated, the time from a call to the arrival and from the first wound to leaving the
 map. `npm run lab -- medevac` checks that an ambulance arrives after the delay plus the drive it would need alone.
 Off-map assets are a general mechanism: supply runs (M11) will use the same.
+
+**Combat vehicles take wounded back (M10.6b).** A combat vehicle (a Puma, a BMP) that has stood still for a minute,
+was not hit in that time, whose crew knows no enemy within 200 m, with no fit men riding in it and whose squad is not
+assaulting or clearing a house, goes back with wounded on its own when one man tagged T1 — or three men of any tag —
+lie at its platoon's Verwundetennest and no ambulance is there or due within five minutes. Only one hull of a platoon
+goes at a time, and the platoon always keeps one on the map. It drives to the nest, its crew lifts the men in (as an
+ambulance's crew does, T1 first, lying or sitting as its seats allow), it waits half a minute for more, then drives to
+the map edge behind the nest and leaves the map: the wounded are handed over (evacuated); the fit crew stays with the
+hull. It is away about 15 minutes (to the company's casualty collection point and back), then comes onto the map
+where it left and drives back to its squad's leader (or to where it set off). A hull carrying wounded aboard (its
+squad got in and took the men lying at the nest along) that then stands idle goes back with them the same way. The
+player can send any vehicle with **Take wounded back** on the order bar (a vehicle selected); it is refused with a
+radio reason when nobody waits, or while its squad is assaulting. While the hull is away, orders to its crew are
+refused ("at the rear with the wounded"); on the map, any other order to it ends the run. The AI commander leaves a
+hull on a run alone. All numbers are game values in `core/medical.json` `rearRun` (low confidence). The Wounded tab
+shows each run (driving to the nest, there with so many aboard, taking so many back, at the rear and back in about so
+many minutes, coming back).
+
+**What happens to the wounded after the battle (M10.6b).** When a wounded man is handed over (an ambulance or a
+combat vehicle leaving the map), his outcome is settled at once: he reaches **Role 1** (the battalion's aid station)
+15 minutes later. Whether he **dies of his wounds** there or later depends on the state he leaves in — shock, blood
+lost, lack of oxygen, consciousness, his worst wound — and how late he reaches Role 1 after the first wound (past the
+first hour, the "golden hour", the chance rises); a prisoner treated by his captors has a higher chance. If he dies,
+the death comes between half an hour and three days after Role 1 (half within about six hours). Otherwise he is
+given **recovery days** for the campaign: by his worst wound (a graze 3-10 days up to 120-300 for the worst), plus a
+month or two for a broken bone, a fifth longer when a bleeding wound was never treated, a quarter longer when he
+reached Role 1 late, plus half a year for a limb lost to a tourniquet left on too long. **At the end of the battle**
+everyone still on the field is settled too (owner): a man who needs taking back is evacuated by his side if his side
+holds the ground where he lies — more able men within 150 m, or else the nearest able man is his — and reaches an
+ambulance 25 minutes later; on ground the enemy holds he is **captured** and treated by the enemy. Prisoners are
+treated by their captors. Walking wounded who can still fight stay with their units and are seen to after the
+battle. The roster records the outcome: "evacuated", "captured" or "wounded" with `recoveryDays`, or "killed" with
+`diedOfWoundsTick` for a man who died of his wounds. The review's Medical tab gives per side the rear runs, the
+end-of-battle settlement and the Role 1 outcomes (T1 within 60 minutes, died of wounds, the median recovery); the
+batch report's "Rear runs and Role 1" line adds the time from wound to death in bands. All numbers:
+`core/medical.json` `role1`, low confidence (no published figures could be opened here).
 
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
@@ -1115,6 +1150,13 @@ machine gun with its belt box, a marksman rifle with a scope, a tube on his back
 RPG; a flash at the muzzle when he fires; blood and a white dressing when he is wounded but fighting on. He turns
 in 16 steps. Each side wears its own uniform tones (from the appearance data), and a thin blue or red outline
 says whose he is; your selected unit's men have a thin white ring.
+
+A wounded man who crawls to cover is drawn crawling. Men carrying a casualty are drawn by the way they carry him:
+dragged on his back behind one man or between two who walk side by side; sitting on the joined hands of two
+bearers; across one man's shoulders (one figure: the bearer with the man over his shoulders); on a litter with two
+bearers side by side at each end; a lightly wounded man helped along walks beside his helper. (Only the picture
+moves the bearers side by side: the battle keeps them where the simulation has them.) Turned figures keep their
+rifles, hands and dressings, and the side outline and the photo look's dark rim follow the figure's edge.
 
 **Roofs.** A roof is drawn over each building until one of your own men (on foot, able) is inside it or within
 8 m of its walls, or until you zoom in close: then it fades away and shows the floor, the walls, the doors and the

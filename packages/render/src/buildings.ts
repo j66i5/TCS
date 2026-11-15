@@ -18,6 +18,7 @@ import { buildInteriorGraph, type Building, type MapDef } from "@tcs/sim";
 import type { Appearance } from "@tcs/data";
 import { shade } from "./terrain-flat";
 import { buildRoofAtlas, type RoofAtlas } from "./photo/roof";
+import type { RoofReply, RoofRequest } from "./photo/roof-worker";
 
 export const ROOF_NEAR_M = 8;
 const BUCKET_M = 32;
@@ -161,6 +162,16 @@ const PITCHED_FLAT = new Set(["warehouse", "apartment-block", "office"]);
 /** Photo: frames the eave line shows when a roof starts to fade (0.3 s at 60 frames a second). */
 export const EAVE_FLASH_FRAMES = 18;
 
+/**
+ * D3: how the photo roof atlas is painted. `roofWorker` makes the worker (`photo/roof-worker.ts`); without it (Node,
+ * tests, no Worker) the atlas is painted here at once. With it the roof sprites exist at once but stay empty (not
+ * rendered) until the worker's atlas arrives; on a worker error, a failed reply or after `roofTimeoutMs` the atlas is
+ * painted here after all.
+ */
+export interface BuildingLayersOptions { roofWorker?: () => Worker; roofTimeoutMs?: number }
+
+let roofJobSeq = 0;
+
 /** Floors and roofs of a map's buildings. Children are in world metres. */
 export class BuildingLayers {
   readonly floors = new Graphics();
@@ -174,7 +185,12 @@ export class BuildingLayers {
   private eaveG = new Map<number, Graphics>();
   private flash: Uint8Array;
   private flashing = false;
-  readonly atlas: RoofAtlas | null = null;
+  private roofAtlas: RoofAtlas | null = null;
+  /** D3: the roof worker still painting (null when none is pending) and the promise that settles with its atlas. */
+  private roofJob: { id: number; worker: Worker; timer: ReturnType<typeof setTimeout> | null; colours: number[] } | null = null;
+  private roofReady: Promise<void> = Promise.resolve();
+  private roofSettle: () => void = () => undefined;
+  private destroyed = false;
   private upperG = new Map<number, Graphics>();
   private shownFloor = 0;
   private readonly map: MapDef;
@@ -184,7 +200,7 @@ export class BuildingLayers {
   private target: Uint8Array;
   readonly index: BuildingIndex;
 
-  constructor(map: MapDef, app: Appearance | null, readonly photo = false) {
+  constructor(map: MapDef, app: Appearance | null, readonly photo = false, opts: BuildingLayersOptions = {}) {
     this.index = buildingIndex(map);
     this.alpha = new Float32Array(map.buildings.length).fill(1);
     this.target = new Uint8Array(map.buildings.length).fill(1);
@@ -195,15 +211,17 @@ export class BuildingLayers {
     this.floorColour = (b) => (photo ? app?.photo?.floors[b.kind] : undefined) ?? app?.map.floors[b.kind] ?? 0x9a8a72;
     const f = this.floors;
     if (photo) {
-      // One atlas for the map's roofs; a Sprite per building cut from it.
-      const atlas = buildRoofAtlas(map.buildings, (b) => app?.photo?.roofs[b.kind] ?? app?.map.roofs[b.kind] ?? hexN(b.roofColour));
-      this.atlas = atlas;
-      this.roofSources = atlas.pages.map((p) => new BufferImageSource({ resource: p.data, width: p.w, height: p.h, format: "rgba8unorm", alphaMode: "premultiplied-alpha", scaleMode: "linear", autoGenerateMipmaps: true }));
-      for (const it of atlas.items) {
-        const s = new Sprite(new Texture({ source: this.roofSources[it.page]!, frame: new Rectangle(it.px, it.py, it.pw, it.ph) }));
-        s.position.set(it.x, it.y); s.width = it.wM; s.height = it.hM;
+      // One atlas for the map's roofs; a Sprite per building cut from it. The colours are plain numbers, so the atlas
+      // can be painted in a worker (D3); the sprites exist at once and get their frames when the atlas is there.
+      const colours = map.buildings.map((b) => app?.photo?.roofs[b.kind] ?? app?.map.roofs[b.kind] ?? hexN(b.roofColour));
+      for (let i = 0; i < map.buildings.length; i++) {
+        const s = new Sprite(Texture.EMPTY);
+        s.renderable = false;
         this.roofG.push(s);
         this.roofs.addChild(s);
+      }
+      if (!opts.roofWorker || map.buildings.length === 0 || !this.startRoofWorker(opts.roofWorker, colours, opts.roofTimeoutMs ?? 15000)) {
+        this.setRoofAtlas(buildRoofAtlas(map.buildings, (_b, i) => colours[i]!));
       }
       this.roofs.addChild(this.eaves);
     }
@@ -242,6 +260,75 @@ export class BuildingLayers {
       this.roofG.push(g);
       this.roofs.addChild(g);
     }
+  }
+
+  /** Photo: the roof atlas (null until it is painted; always null in the flat look). */
+  get atlas(): RoofAtlas | null { return this.roofAtlas; }
+
+  /** D3: is the roof atlas still being painted in its worker? */
+  roofsPending(): boolean { return this.roofJob !== null; }
+
+  /** D3: settles when the roof atlas is in place (at once when it was painted here). */
+  roofsReady(): Promise<void> { return this.roofReady; }
+
+  /** Start the roof worker; false when it could not be made (the caller paints here). */
+  private startRoofWorker(make: () => Worker, colours: number[], timeoutMs: number): boolean {
+    let worker: Worker;
+    try { worker = make(); } catch { return false; }
+    const id = ++roofJobSeq;
+    this.roofReady = new Promise<void>((res) => { this.roofSettle = res; });
+    const job: NonNullable<BuildingLayers["roofJob"]> = { id, worker, timer: null, colours };
+    this.roofJob = job;
+    worker.onmessage = (e: MessageEvent<RoofReply>) => {
+      if (this.roofJob !== job || e.data.id !== id) return;
+      if (e.data.error) console.warn(e.data.error);
+      this.finishRoofJob(e.data.atlas);
+    };
+    worker.onerror = () => { if (this.roofJob === job) this.finishRoofJob(null); };
+    job.timer = setTimeout(() => { if (this.roofJob === job) this.finishRoofJob(null); }, timeoutMs);
+    try {
+      worker.postMessage({ type: "roofs", id, buildings: this.map.buildings, colours } satisfies RoofRequest);
+    } catch {
+      this.endRoofJob();
+      return false;
+    }
+    return true;
+  }
+
+  /** The worker answered (atlas) or failed (null: paint here after all); then the worker goes. */
+  private finishRoofJob(atlas: RoofAtlas | null): void {
+    const colours = this.roofJob?.colours ?? [];
+    this.endRoofJob();
+    if (this.destroyed) return;
+    this.setRoofAtlas(atlas ?? buildRoofAtlas(this.map.buildings, (_b, i) => colours[i]!));
+  }
+
+  private endRoofJob(): void {
+    const job = this.roofJob;
+    if (!job) return;
+    this.roofJob = null;
+    if (job.timer !== null) clearTimeout(job.timer);
+    job.worker.onmessage = null; job.worker.onerror = null;
+    job.worker.terminate();
+    this.roofSettle();
+  }
+
+  /**
+   * Photo: put the roof atlas in place (the page textures, each roof sprite's frame, corner and size in metres). Called
+   * once per map: at once when painted here, or when the roof worker answers.
+   */
+  setRoofAtlas(atlas: RoofAtlas): void {
+    if (!this.photo || this.roofAtlas || this.destroyed) return;
+    this.roofAtlas = atlas;
+    this.roofSources = atlas.pages.map((p) => new BufferImageSource({ resource: p.data, width: p.w, height: p.h, format: "rgba8unorm", alphaMode: "premultiplied-alpha", scaleMode: "linear", autoGenerateMipmaps: true }));
+    atlas.items.forEach((it, i) => {
+      const s = this.roofG[i] as Sprite | undefined;
+      if (!s) return;
+      // The texture first: a Sprite keeps its scale when its texture changes, so the size is set after it.
+      s.texture = new Texture({ source: this.roofSources[it.page]!, frame: new Rectangle(it.px, it.py, it.pw, it.ph) });
+      s.position.set(it.x, it.y); s.width = it.wM; s.height = it.hM;
+      s.renderable = true;
+    });
   }
 
   /** The floor the player has on screen (M7.5d floor switch; 0 = ground). */
@@ -345,6 +432,9 @@ export class BuildingLayers {
   roofAlpha(i: number): number { return this.alpha[i] ?? 1; }
 
   destroy(): void {
+    // A pending roof worker is stopped; a late reply finds no job and is ignored.
+    this.destroyed = true;
+    this.endRoofJob();
     this.floors.destroy(); this.upper.destroy({ children: true }); this.roofs.destroy({ children: true, texture: true });
     for (const s of this.roofSources) s.destroy();
   }

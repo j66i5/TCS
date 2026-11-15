@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { unitTiles } from "../src/sidebar";
+import { SIDE_CARD_GAP_PX, sideListMaxPx, unitTiles } from "../src/sidebar";
 
 describe("unitTiles", () => {
   const sim = createSim(getScenario("platoon-vehicles").build(loadData(), 1, 600));
@@ -49,5 +49,14 @@ describe("unitTiles", () => {
     const after = unitTiles(sim.state, "red", cat).find((t) => t.unit === sq.unit)!;
     expect(after.fit).toBe(0);
     expect(after.state).toBe("lost");
+  });
+});
+
+describe("the open list on a phone (D3)", () => {
+  it("ends above the unit card, keeping a gap; never shorter than 80 px", () => {
+    // A 360 x 780 phone: the list from 90 px, the card's top at 544 px.
+    expect(sideListMaxPx(90, 544)).toBe(544 - SIDE_CARD_GAP_PX - 90);
+    expect(90 + sideListMaxPx(90, 544)).toBeLessThan(544);
+    expect(sideListMaxPx(90, 120)).toBe(80);
   });
 });

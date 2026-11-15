@@ -20,7 +20,8 @@ import { BuildingLayers, interiorGraphOverlay } from "./buildings";
 import { LOD_CLOSE, LOD_DOTS, LOD_FIGURE, LOD_SYMBOLS, lodFor, type Lod } from "./lod";
 import { enemyMenInSight, inSightNow } from "./fog";
 import { CELL, PIVOT, SoldierAtlas, facingOf, weaponLook, type FrameKey, type WeaponLook } from "./sprites/atlas";
-import { SPRITE_M, type FrameId } from "./sprites/soldier-art";
+import { LYING, SPRITE_M, type FrameId } from "./sprites/soldier-art";
+import { carryLookOf, carryOffset, frameFor, type CarryRole } from "./sprites/frames";
 
 /**
  * "photo" (the default from the photo plan: the map like a soft, low-resolution aerial photograph) or "flat" (M7.5b:
@@ -272,6 +273,9 @@ export class BattleRenderer {
   /** Weapon type per weapon id, and which ids are anti-tank launchers (carried on the back). */
   private weaponType: Record<string, string> = {};
   private launchers = new Set<string>();
+  /** Carry methods by id (their shape picks the carried man's frame), and each party member's role this frame. */
+  private carryMethods: Record<string, { carriers: number; upright: boolean; casualtyWalks?: boolean }> = {};
+  private carryRoles = new Map<EntityId, CarryRole>();
   private carriesLauncher = new Map<EntityId, { tick: number; yes: boolean }>();
   private roofMen = new Float64Array(64);
   private map: MapDef | null = null;
@@ -385,23 +389,27 @@ export class BattleRenderer {
   setBuildings(map: MapDef): void {
     if (this.bld) { this.bld.floors.parent?.removeChild(this.bld.floors); this.bld.upper.parent?.removeChild(this.bld.upper); this.roofLayer.removeChild(this.bld.roofs); this.bld.destroy(); }
     this.map = map;
-    this.bld = new BuildingLayers(map, this.appearance, this.look === "photo");
+    // D3: photo roofs paint in a short-lived worker where there are workers (here at once otherwise: Node, tests).
+    const photo = this.look === "photo";
+    const roofWorker = photo && typeof Worker !== "undefined" ? () => new Worker(new URL("./photo/roof-worker.ts", import.meta.url), { type: "module" }) : undefined;
+    this.bld = new BuildingLayers(map, this.appearance, photo, { roofWorker });
     if (this.terrain) this.terrain.addChild(this.bld.floors, this.bld.upper); else this.worldLayer.addChild(this.bld.floors, this.bld.upper);
     this.roofLayer.addChild(this.bld.roofs);
   }
 
   /**
    * Paint the detail tiles of the view now (the opening view: the first picture complete). Photo with workers:
-   * resolves when they are painted (callers wait with a time limit).
+   * resolves when they are painted and the roof atlas is in place (D3; callers wait with a time limit).
    */
   primeDetail(): Promise<void> {
     const c = this.camera;
-    if (!this.tiles) return Promise.resolve();
-    return this.tiles.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lodFor(c.scale, this.lod) >= LOD_FIGURE);
+    const roofs = this.bld?.roofsReady() ?? Promise.resolve();
+    if (!this.tiles) return roofs;
+    return Promise.all([this.tiles.prime({ x: c.x, y: c.y, w: this.width / c.scale, h: this.height / c.scale }, c.scale, lodFor(c.scale, this.lod) >= LOD_FIGURE), roofs]).then(() => undefined);
   }
 
-  /** Terrain tiles still to paint or upload (the screenshot tool waits for 0). */
-  tilesPending(): number { return this.tiles?.pending() ?? 0; }
+  /** Terrain tiles still to paint or upload, plus one while the roof atlas paints (the screenshot tool waits for 0). */
+  tilesPending(): number { return (this.tiles?.pending() ?? 0) + (this.bld?.roofsPending() ? 1 : 0); }
   /** Terrain detail level shown last (0 whole map; photo 1..3 = 2, 4, 8 px/m). */
   terrainLevel(): number { return this.tiles?.shownLevel ?? 0; }
 
@@ -430,6 +438,21 @@ export class BattleRenderer {
     for (const [k, it] of Object.entries(catalog.items)) if (it.drone) this.droneFootprint[k] = it.drone.footprintM;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
+    this.carryMethods = catalog.medical?.carry ?? {};
+  }
+
+  /** Each carrying party's men and their roles (sprite fix 2026-11-15: frames and drawn positions follow the method). */
+  private updateCarryRoles(state: SimView): void {
+    this.carryRoles.clear();
+    if (state.carry.size === 0) return;
+    for (const [payload, c] of state.carry.entries()) {
+      const look = carryLookOf(this.carryMethods[c.method], c.litter !== undefined);
+      const lead = c.carriers[0];
+      const leaderProne = lead !== undefined && state.soldier.get(lead)?.posture === "prone";
+      const base = { look, bearers: c.carriers.length, phase: c.phase, leaderProne };
+      this.carryRoles.set(payload, { ...base, index: -1 });
+      c.carriers.forEach((m, i) => this.carryRoles.set(m, { ...base, index: i }));
+    }
   }
 
   /**
@@ -665,12 +688,19 @@ export class BattleRenderer {
     // Soldiers (under fog of war the player's own and the enemy men in sight now; the rest of the enemy as his men
     // know him, below). An enemy figure has no label and no rings (his state of mind is not seen).
     const inSight = fog ? this.menInSight(overlay) : null;
+    this.updateCarryRoles(state);
     for (const [id, ident] of state.identity.entries()) {
       const foe = fog && ident.side !== overlay.playerSide;
       if (foe && !inSight!.has(id)) continue;
       if (state.soldier.get(id)?.mount !== undefined) continue; // men aboard are inside their vehicle (drawn with it)
-      const p = this.pos(state, id, alpha);
+      let p = this.pos(state, id, alpha);
       const t = state.transform.req(id);
+      const role = this.carryRoles.get(id);
+      if (role) {
+        // A carrying party drawn side by side where the method has them so (render only; frames.ts).
+        const o = carryOffset(role), ux = Math.cos(t.heading), uy = Math.sin(t.heading);
+        if (o.ahead !== 0 || o.right !== 0) p = { x: p.x + ux * o.ahead - uy * o.right, y: p.y + uy * o.ahead + ux * o.right };
+      }
       const s = worldToScreen(c, p.x, p.y);
       const colour = SIDE_COLOURS[(sideIndex.get(ident.side) ?? 0) % SIDE_COLOURS.length]!;
       const selected = overlay.selectedUnit !== null && isSelected(state, overlay, ident.unit);
@@ -688,7 +718,11 @@ export class BattleRenderer {
         if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
         // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
         if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
-        if (sol?.triage && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide) drawTriageTag(g, s.x, s.y, sol.triage.cat, size * 0.35);
+        const tagged = sol?.triage !== undefined && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide;
+        if (tagged) drawTriageTag(g, s.x, s.y, sol!.triage!.cat, size * 0.35);
+        // D3: a man down (not dead, not a prisoner, not yet tagged) carries a small red cross, as at dot zoom: lying
+        // still he read as a prone rifleman (both looks).
+        else if (sol && sol.casualty !== "none" && sol.casualty !== "killed" && sol.physiology.alive && sol.captive === null) drawDownMark(g, s.x, s.y, size);
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         if (foe) continue;
         const bh = sol?.mental.behaviour;
@@ -1262,8 +1296,10 @@ export class BattleRenderer {
     const pts = m.men.map((p) => worldToScreen(c, p.x, p.y));
     // The formation's shape: each man's place, joined to the leader's.
     const lead = pts[0]!;
-    for (const p of pts.slice(1)) g.moveTo(lead.x, lead.y).lineTo(p.x, p.y).stroke({ width: 1.5, color: main, alpha: 0.5 });
-    for (const p of pts) g.circle(p.x, p.y, Math.max(4, 0.6 * c.scale)).stroke({ width: 2, color: main, alpha: 0.95 });
+    // (D3: a gesture's ghost draws its men fainter and thinner than a plan's: over the squad it read as a pile.)
+    const ringW = plan.ghost ? 1.25 : 2, ringA = plan.ghost ? 0.5 : 0.95;
+    for (const p of pts.slice(1)) g.moveTo(lead.x, lead.y).lineTo(p.x, p.y).stroke({ width: plan.ghost ? 1 : 1.5, color: main, alpha: plan.ghost ? 0.3 : 0.5 });
+    for (const p of pts) g.circle(p.x, p.y, Math.max(4, 0.6 * c.scale)).stroke({ width: ringW, color: main, alpha: ringA });
     const ce = worldToScreen(c, m.centre.x, m.centre.y), tip = worldToScreen(c, m.arrowTip.x, m.arrowTip.y);
     g.moveTo(ce.x, ce.y).lineTo(tip.x, tip.y).stroke({ width: 3, color: main });
     const ang = Math.atan2(tip.y - ce.y, tip.x - ce.x);
@@ -1576,16 +1612,12 @@ export class BattleRenderer {
     const t = state.transform.req(id), p = this.prev.get(id);
     const moving = p !== undefined && (Math.abs(p.x - t.x) > 1e-4 || Math.abs(p.y - t.y) > 1e-4);
     const step = ((state.tick + id * 7) / 12 | 0) & 1;
-    let frame: FrameId;
-    // Carried by others (M10.4b): limp in their arms, or on the litter (a walking wounded man walks as usual).
-    const carried = sol?.casualty !== "killed" && state.carry.size > 0 ? state.carry.get(id) : undefined;
-    if (sol?.casualty === "killed") frame = "dead";
-    else if (carried && carried.carriers.length > 0) frame = carried.litter ? "stretcher" : "carried";
-    else if (sol && sol.casualty !== "none") frame = "down";
-    else if (sol?.captive) frame = sol.captive.state === "captured" ? "captive" : "surrender";
-    else if (sol?.posture === "prone") frame = moving && step ? "crawl" : "prone";
-    else if (sol?.posture === "crouching") frame = moving && step ? "crouchWalk" : "crouch";
-    else frame = moving ? (step ? "walk2" : "walk1") : "stand";
+    // The frame from his state (frames.ts): carried by others (M10.4b) by the carry method, a crawling casualty, ...
+    const frame: FrameId | null = frameFor({
+      casualty: sol?.casualty ?? "none", captive: sol?.captive?.state ?? null, posture: sol?.posture ?? "standing",
+      moving, step, carry: this.carryRoles.get(id) ?? null,
+    });
+    if (frame === null) return; // on his bearer's shoulders: the bearer's frame shows him
     k.frame = frame;
     const w = state.weapon.get(id);
     k.weapon = (w ? weaponLook(this.weaponType[w.weapon]) : "rifle") as WeaponLook;
@@ -1618,12 +1650,36 @@ export class BattleRenderer {
     fig.position.set(x, y); out.position.set(x, y);
     fig.scale.set(sc); out.scale.set(sc);
     const dead = frame === "dead";
-    fig.tint = dead ? 0xa8a8a0 : 0xffffff;
+    const photo = this.look === "photo";
+    // D3 (on purpose, casualties only): in the flat look a dead man is greyer and darker than in photo, and a man
+    // down or dead gets photo's dark rim, so neither reads as a prone rifleman. Every other man is drawn as before.
+    const flatCasualty = !photo && (dead || frame === "down");
+    fig.tint = dead ? (photo ? 0xa8a8a0 : 0x7a7a72) : 0xffffff;
     out.tint = colour;
-    out.alpha = (dead ? 0.55 : 1) * alpha;
+    out.alpha = (dead ? (photo ? 0.55 : 0.45) : 1) * alpha;
     fig.alpha = alpha;
     fig.visible = true; out.visible = true;
-    if (this.look === "photo") {
+    if (!photo) {
+      const i = this.nSprites - 1;
+      // (The pools are indexed like the figures: grow them, hidden, up to this man's index.)
+      while (flatCasualty && this.rims.length <= i) {
+        const sh = new Sprite(this.decals().contact); sh.anchor.set(0.5); sh.visible = false;
+        const r = new Sprite(cell.outline); r.anchor.set(PIVOT / CELL); r.tint = RIM; r.visible = false;
+        this.contacts.push(sh); this.rims.push(r);
+        this.contactC.addChild(sh); this.rimC.addChild(r);
+      }
+      const rim = this.rims[i];
+      if (rim) {
+        rim.visible = flatCasualty;
+        if (flatCasualty) {
+          if (rim.texture !== cell.outline) rim.texture = cell.outline;
+          rim.scale.set(sc * (1 + Math.min(0.3, 1.2 / (0.3 * size))));
+          rim.position.set(x, y);
+          rim.alpha = 0.85 * alpha;
+        }
+      }
+    }
+    if (photo) {
       // A soft contact shadow under him (a little down-sun) and a dark rim outside the side-colour outline, so he
       // stands on the ground and reads on any field (plan "photo", step "polish").
       const i = this.nSprites - 1;
@@ -1634,13 +1690,16 @@ export class BattleRenderer {
         this.contacts.push(sh); this.rims.push(rim);
         this.contactC.addChild(sh); this.rimC.addChild(rim);
       }
-      const lying = frame === "dead" || frame === "down" || frame === "prone" || frame === "crawl" || frame === "carried" || frame === "stretcher";
-      const k2 = lying ? 1.35 : 1;
+      const k2 = LYING.has(frame) ? 1.35 : 1;
       sh.position.set(x + SHADOW_DIR.dx * size * 0.28, y + SHADOW_DIR.dy * size * 0.28);
       sh.width = size * CONTACT_W * k2; sh.height = size * CONTACT_H * k2;
       sh.alpha = CONTACT_ALPHA * alpha; sh.visible = true;
-      if (rim.texture !== cell.outline) rim.texture = cell.outline;
-      rim.scale.set(sc * (1 + Math.min(0.3, 1.2 / (0.3 * size))));
+      // The rim is a ring just outside the outline at the figure's own scale (sprite fix 2026-11-15: it was the
+      // outline enlarged about his position, which slid off long lying figures); two art pixels deep when one art
+      // pixel is under a screen pixel, so it stays about a pixel wide at every zoom.
+      const rt = size < 16 ? cell.rimWide : cell.rim;
+      if (rim.texture !== rt) rim.texture = rt;
+      rim.scale.set(sc);
       rim.position.set(x, y);
       rim.alpha = (dead ? 0.4 : 0.8) * alpha; rim.visible = true;
     }
@@ -1657,7 +1716,8 @@ export class BattleRenderer {
   /** Hide the pool's unused sprites and upload new atlas cells. */
   private flushSprites(): void {
     for (let i = this.nSprites; i < this.figures.length; i++) { this.figures[i]!.visible = false; this.outlines[i]!.visible = false; }
-    for (let i = this.look === "photo" ? this.nSprites : 0; i < this.contacts.length; i++) { this.contacts[i]!.visible = false; this.rims[i]!.visible = false; }
+    // (Flat: no contact shadows; the rims of casualties drawn this frame stay, D3.)
+    for (let i = this.look === "photo" ? this.nSprites : 0; i < this.contacts.length; i++) { this.contacts[i]!.visible = false; if (i >= this.nSprites) this.rims[i]!.visible = false; }
     for (let i = this.look === "photo" ? this.nScorch : 0; i < this.scorches.length; i++) this.scorches[i]!.visible = false;
     this.atlas?.flush();
   }
@@ -1747,6 +1807,16 @@ export function drawTriageTag(g: Graphics, x: number, y: number, cat: number, r:
   g.rect(px - 1, py - 1, w + 2, w + 2).fill({ color: 0x14110f, alpha: 0.85 });
   g.rect(px, py, w, w).fill({ color: TRIAGE_COLOURS[Math.min(2, Math.max(0, cat - 1))]! });
   if (cat === 1) g.rect(px + w * 0.35, py + w * 0.35, w * 0.3, w * 0.3).fill({ color: 0xffffff });
+}
+
+/** D3: the mark of a man down at figure zoom: a red cross on a white square with a dark rim, up and right of him. */
+export function drawDownMark(g: Graphics, x: number, y: number, size: number): void {
+  const h = Math.max(3.5, Math.min(9, size * 0.14)), a = h * 0.3, b = h * 0.75;
+  const cx = x + size * 0.32, cy = y - size * 0.32;
+  g.roundRect(cx - h - 1.25, cy - h - 1.25, 2 * h + 2.5, 2 * h + 2.5, 2).fill({ color: 0x14110f, alpha: 0.85 });
+  g.rect(cx - h, cy - h, 2 * h, 2 * h).fill({ color: 0xf4f1ea });
+  g.rect(cx - a, cy - b, 2 * a, 2 * b).fill({ color: 0xd22a22 });
+  g.rect(cx - b, cy - a, 2 * b, 2 * a).fill({ color: 0xd22a22 });
 }
 
 /** The Verwundetennest's marker (M10.5): a red cross on a white square with a dark rim, a fixed size on screen. */

@@ -67,6 +67,10 @@ interface Row {
   era: Record<string, number>; tankRounds: Record<string, { ap: number; he: number }>;
   /** M10.6a per side: ambulance runs (battle record `amb`). */
   amb: Record<string, SideRecord["amb"]>;
+  /** M10.6b per side: combat vehicles' rear runs, Role 1 outcomes, the end-of-battle settlement. */
+  rear: Record<string, SideRecord["rear"]>;
+  role1: Record<string, SideRecord["role1"]>;
+  settled: Record<string, SideRecord["settled"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
    *  check, tags recovered (men), wounded who crawled to cover, prisoners' treatments by the enemy, surrendered men
    *  who crawled out of the fire; killed at the end. */
@@ -206,6 +210,9 @@ for (let i = 0; i < runs; i++) {
     }),
     types, killers, era, tankRounds,
     amb: perSide((x) => x.amb),
+    rear: perSide((x) => x.rear),
+    role1: perSide((x) => x.role1),
+    settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
@@ -293,6 +300,16 @@ const md = [
     const med = (xs: number[]) => (xs.length === 0 ? "-" : `${Math.round(xs[Math.floor(xs.length / 2)]!)} s`);
     const cta = all((r) => r.amb[s]?.callToArriveS ?? []), wte = all((r) => r.amb[s]?.woundToEvacS ?? []);
     return `${s} called ${sum((r) => r.amb[s]?.called ?? 0)} (stood down ${sum((r) => r.amb[s]?.cancelled ?? 0)}), came on ${sum((r) => r.amb[s]?.entered ?? 0)}, reached the nest ${sum((r) => r.amb[s]?.arrived ?? 0)} (call to arrival median ${med(cta)}), took aboard ${sum((r) => r.amb[s]?.loaded ?? 0)}, left the map ${sum((r) => r.amb[s]?.away ?? 0)}; men evacuated ${sum((r) => r.amb[s]?.evacuated ?? 0)} (${(sum((r) => r.amb[s]?.evacuated ?? 0) / Math.max(1, rows.length)).toFixed(2)} per battle; first wound to leaving the map median ${med(wte)})`;
+  }).join("; ")}`,
+  `- Rear runs and Role 1 (M10.6b, by side): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const all = (f: (r: Row) => number[]) => rows.flatMap(f).sort((a, b) => a - b);
+    const med = (xs: number[]) => (xs.length === 0 ? "-" : `${xs[Math.floor(xs.length / 2)]!}`);
+    const t1 = sum((r) => r.role1[s]?.t1 ?? 0), t1in = sum((r) => r.role1[s]?.t1InTime ?? 0);
+    const dowH = all((r) => r.role1[s]?.dowH ?? []);
+    // (Died of wounds by hours from the first wound: < 1, 1-6, 6-24, 24-72, > 72.)
+    const bins = [1, 6, 24, 72, Infinity].map((hi, i, a) => dowH.filter((h) => h >= (i === 0 ? 0 : a[i - 1]!) && h < hi).length);
+    return `${s} rear runs ${sum((r) => r.rear[s]?.started ?? 0)} (ordered ${sum((r) => r.rear[s]?.ordered ?? 0)}, cancelled ${sum((r) => r.rear[s]?.cancelled ?? 0)}), off the map ${sum((r) => r.rear[s]?.away ?? 0)} with ${sum((r) => r.rear[s]?.men ?? 0)} men, back ${sum((r) => r.rear[s]?.back ?? 0)}; at the end evacuated ${sum((r) => r.settled[s]?.evacuated ?? 0)}, captured ${sum((r) => r.settled[s]?.captured ?? 0)}, prisoners ${sum((r) => r.settled[s]?.prisoner ?? 0)}, stayed ${sum((r) => r.settled[s]?.stays ?? 0)}; Role 1 ${sum((r) => r.role1[s]?.men ?? 0)} men (by captors ${sum((r) => r.role1[s]?.captor ?? 0)}), T1 within 60 min ${t1in}/${t1} (${t1 > 0 ? Math.round((100 * t1in) / t1) : 0} %), died of wounds ${dowH.length} (h from wound <1/1-6/6-24/24-72/>72: ${bins.join("/")}), recovery median ${med(all((r) => r.role1[s]?.recoveryD ?? []))} d`;
   }).join("; ")}`,
   `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

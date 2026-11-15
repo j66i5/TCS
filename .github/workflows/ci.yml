@@ -48,6 +48,37 @@ jobs:
         with:
           path: packages/app/dist
 
+  # D3 F2 cross-browser hash probe: replays the shoot-out golden in Node, Chromium, Firefox and WebKit and
+  # reports which checkpoints match. Report only: it never fails the run and neither check nor deploy needs it.
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Playwright is not a project dependency (pinned here to the version the container has).
+      - name: Install Playwright and browsers
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Probe
+        run: npm run probe -- --diff
+      - name: Step summary
+        if: always()
+        run: cat reports/probe-*.md >> "$GITHUB_STEP_SUMMARY" || echo "no probe report" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-report
+          path: reports/probe-*.md
+          if-no-files-found: warn
+
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: check

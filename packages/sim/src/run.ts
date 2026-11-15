@@ -59,19 +59,20 @@ function summarize(
 ): BattleResult {
   const { state } = sim;
   const sides: SideResult[] = state.sides.map((sd) => {
-    let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0, evacuated = 0;
+    let start = 0, fit = 0, wounded = 0, killed = 0, surrendered = 0, captured = 0, evacuated = 0, dow = 0;
     // mounted: ok results count every man, aboard or not (not the crews of off-map assets, M10.6a: not of the force)
     for (const [id, ident] of state.identity.entries()) {
       if (ident.side !== sd.id || isAssetUnit(state, ident.unit)) continue;
       start++;
-      const st = rosterStatus(state.soldier.req(id));
+      const sold = state.soldier.req(id), st = rosterStatus(sold);
+      if (sold.aftercare?.diedOfWoundsTick !== undefined) dow++;
       if (st === "killed") killed++;
       else if (st === "captured") captured++;
       else if (st === "surrendered") surrendered++;
       else if (st === "fit") fit++;
       else { wounded++; if (st === "evacuated") evacuated++; }
     }
-    const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured, ...(evacuated > 0 ? { evacuated } : {}) };
+    const out: SideResult = { side: sd.id, faction: sd.faction, soldiersStart: start, soldiersFit: fit, wounded, killed, surrendered, captured, ...(evacuated > 0 ? { evacuated } : {}), ...(dow > 0 ? { diedOfWounds: dow } : {}) };
     // Vehicles (M7): only for a side that has any, so infantry results keep their shape.
     let vs: NonNullable<SideResult["vehicles"]> | null = null;
     for (const [, v] of state.vehicle.entries()) {

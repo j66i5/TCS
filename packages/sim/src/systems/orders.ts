@@ -6,6 +6,7 @@ import { callFire } from "./support";
 import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
+import { rearRunGate, rearRunOrder } from "./rearrun";
 import { startSetup } from "./mortars";
 import { teamOrderShot } from "./missile-team";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
@@ -142,6 +143,10 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       return ctx.catalog.medical?.nest ? null : "not-applicable";
     case "callAmbulance":
       return ctx.catalog.medical?.nest && ctx.catalog.medical.evacuation ? null : "not-applicable";
+    case "rearRun":
+      // A vehicle crew's hull (M10.6b).
+      if (state.unit.get(o.target)?.vehicle === undefined) return "invalid-params";
+      return ctx.catalog.medical?.nest && ctx.catalog.medical.rearRun ? null : "not-applicable";
   }
 }
 
@@ -287,6 +292,11 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
   // An ambulance from the rear (M10.6a): the platoon's call; nothing of the unit changes.
   if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
+  // A combat vehicle's rear run (M10.6b): the hull's own task; an order to a hull away on one is refused, on the map
+  // it ends the run.
+  if (order.kind === "rearRun") return rearRunOrder(ctx, state, events, order.target);
+  const gate = rearRunGate(state, events, order);
+  if (gate !== null) return gate;
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
   // (With `dismount`: its carrier, if he rides, gets out first; the order goes to him once he is out.)
   if (order.kind === "drone") {

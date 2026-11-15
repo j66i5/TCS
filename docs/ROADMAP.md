@@ -252,7 +252,8 @@ white flags on the map; the after-action review lists surrendered and captured m
 ## Stage C — depth
 
 **Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e and is the current milestone.
-After it: D3 phone pass and D4 infantry tactics (the debt slot), then M8 → M9 → M7.6 (tanks, wheeled carriers,
+After it: D3 phone pass (✅ 2026-11-15: `?perf=1`, phone proxy, UI leftovers, roof atlas in a worker, F2/F3
+probes; the owner's phone numbers open) and D4 infantry tactics (the debt slot), then M8 → M9 → M7.6 (tanks, wheeled carriers,
 Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
 `docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
 
@@ -323,7 +324,16 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     within its layouts, leaves the map; its wounded are "evacuated" (roster status; condition kept until M10.6b);
     `medical.ambulance` / `medical.evacuated` events, batch "Ambulances" line, `npm run lab -- medevac`,
     `--scene medevac`.
-13. ⬜ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14)
+13. ✅ **M10.6b Combat vehicles' rear run; Role 1; roster** (slice 14, 2026-11-15) — a generic "rear run" task
+    (`VehicleState.rearRun`, cargo casualties; supplies in M11): an idle combat vehicle (owner Q-9) takes the men at
+    its platoon's nest off the map when a T1 (or three men) wait and no ambulance is near, one hull of a platoon at a
+    time, and comes back after about 15 min; a hull with wounded aboard that stands idle goes back too; the player's
+    `rearRun` order ("Take wounded back" on the order bar); never while its squad assaults. Role 1 outcome at hand-over
+    (`systems/aftercare.ts`: died-of-wounds chance from condition and lateness, recovery days from wounds and
+    treatment, owner Q-16); end-of-battle settlement (owner Q-1e, Q-10: the side holding the ground evacuates, wounded
+    on enemy-held ground are captured and treated); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status
+    "killed" for a man who died of wounds), `SideResult.diedOfWounds`; events `medical.rearRun`, `medical.role1`,
+    `medical.settled`; batch "Rear runs and Role 1" line; review Medical tab lines; `--scene rearrun`.
 14. ⬜ **M10.7a Recognition and respect** (slice 15)
 15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16; an order to fire at a recognised
     protected target is refused)

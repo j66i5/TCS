@@ -182,14 +182,22 @@ export function fireAtPoint(a: App, w: Pt): void {
   // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
   // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
   const nat = a.orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(a, uid) !== null && a.nature !== null ? { nature: a.nature } : {};
-  if (near) issue(a, { ...now(a, uid), kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
-  else issue(a, { ...now(a, uid), kind: "fire", x: w.x, y: w.y, ...nat });
+  const pt = near ? { x: near.k.x, y: near.k.y } : w;
+  // D3: no sight line from any of his men (or his hull) to the point: warn at once (the radio's "Roger" then the
+  // men's "no line of fire" read as a contradiction). The order still goes: the men may move or the sight clear.
+  const los = losTo(a, pt, near && near.k.cls === "vehicle" ? near.k.target : -1);
+  if (los.length > 0 && !los.some((l) => l.clear)) {
+    a.hud.radio(a.strings.t("order.noLineOfFire", { callsign: a.sim.state.unit.get(uid)?.callsign ?? "" }), ticksToSeconds(a.sim.state.tick), "#ffb4b4");
+  }
+  if (near) issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, contact: near.k.target, ...nat });
+  else issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, ...nat });
   oneTapDone(a);
 }
 
 /** S2: the sight lines from the selected unit's men (or its hull's sights) to the point: terrain, walls, roofs,
  *  woods and hulls the side knows — never an enemy it has not found. */
-export function losTo(a: App, w: Pt): LosLine[] {
+/** `target`: a hull being fired at; its own box does not block the line to it (D3 review fix). */
+export function losTo(a: App, w: Pt, target: EntityId = -1): LosLine[] {
   const uid = a.overlay.selectedUnit;
   if (uid === null) return [];
   const st = a.sim.state, map = a.input.map;
@@ -213,7 +221,7 @@ export function losTo(a: App, w: Pt): LosLine[] {
       const t = st.transform.get(vid);
       if (!t || isOffMap(v)) continue;
       const d = (t.x - x) ** 2 + (t.y - y) ** 2;
-      if (d < bd) { bd = d; best = v.side !== a.playerSide && !knownHulls.has(vid) ? vid : -1; }
+      if (d < bd) { bd = d; best = v.side !== a.playerSide && (vid === target || !knownHulls.has(vid)) ? vid : -1; }
     }
     return best;
   };

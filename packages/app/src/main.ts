@@ -195,7 +195,7 @@ async function main(): Promise<void> {
       syncOrders(a); refreshTiles(a);
     },
     onEvacuate: (m) => { issue(a, { ...now(a, m), kind: "evacuate" }); refreshTiles(a); },
-    // M10.6a: the selected unit's platoon calls an ambulance (none selected: the first own platoon).
+    // M10.6a: the selected unit's platoon calls an ambulance (none selected: the platoon with wounded at its nest).
     onCallAmbulance: () => { const u = ambulanceCaller(a); if (u !== null) { issue(a, { ...now(a, u), kind: "callAmbulance" }); refreshTiles(a); } },
     onContours: (on) => {
       a.contoursOn = on;
@@ -264,7 +264,8 @@ async function main(): Promise<void> {
       if (e.kind === "support.ranging" && e.side === playerSide) a.rangingBook.add(e);
       if (e.kind === "radio" && e.side === playerSide) {
         const faction = sim.state.identity.get(e.from)?.faction;
-        hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), sideColour(a, e.side));
+        // (Review fix: a refusal stands out from routine traffic.)
+        hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
       } else if (e.kind === "order.delivered" && (e.orderKind === "rules" || e.orderKind === "ambush")) {
         settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
       } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {

@@ -129,7 +129,7 @@ export interface Hud {
   /** The unit sidebar's tiles and the selected unit (M7.5a; the app refreshes them a few times a second). */
   setTiles(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
   /** The sidebar's Wounded tab (M10.5, owner Q-2c). */
-  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number }): void;
+  setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number; caller?: string }): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
   insets(): Insets;
   /** Review fix: how far up from the screen's bottom edge the radio log and the unit card reach (px; 0: none). */

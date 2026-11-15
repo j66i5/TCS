@@ -190,6 +190,28 @@ export function sideName(a: App, side: string): string {
 export function ambulanceCaller(a: App): EntityId | null {
   const st = a.sim.state, sel = a.overlay.selectedUnit;
   if (sel !== null && st.unit.get(sel)?.side === a.playerSide && st.unit.get(sel)?.asset === undefined) return sel;
-  for (const [id, u] of st.unit.entries()) if (u.side === a.playerSide && u.parent === null && u.asset === undefined) return id;
-  return null;
+  // (Review fix: with nothing selected, the platoon with the most men lying at its Verwundetennest, else the most
+  // wounded waiting to be taken back; never simply the first platoon, which may have none.)
+  let best: EntityId | null = null, bestN = -1;
+  for (const [id, u] of st.unit.entries()) {
+    if (u.side !== a.playerSide || u.parent !== null || u.asset !== undefined) continue;
+    let atNest = 0, waiting = 0;
+    for (const m of unitSoldierIds(a.sim, id)) {
+      const s = st.soldier.get(m);
+      if (!s || !s.physiology.alive || s.captive !== null || s.evacuated !== undefined || s.wounds.length === 0) continue;
+      if (s.atNest !== undefined) atNest++; else if (s.casualty !== "none" || !s.impair.canWalk) waiting++;
+    }
+    const n = atNest * 1000 + waiting;
+    if (n > bestN) { best = id; bestN = n; }
+  }
+  return best;
+}
+
+/** The callsign of the platoon "Call ambulance" calls for (the caller's top unit), for the button. */
+export function ambulanceCallerName(a: App): string | undefined {
+  const uid = ambulanceCaller(a);
+  if (uid === null) return undefined;
+  let u = a.sim.state.unit.get(uid);
+  while (u && u.parent !== null) u = a.sim.state.unit.get(u.parent);
+  return u?.callsign;
 }

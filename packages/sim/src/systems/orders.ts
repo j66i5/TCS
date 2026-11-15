@@ -425,6 +425,21 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   const crewOf = isUnit ? state.unit.req(order.target).vehicle : undefined;
   if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
   if (crewOf !== undefined && order.kind !== "rules" && order.kind !== "ambush") return vehicleOrder(ctx, state, order, crewOf);
+  // Owner Q-7 (M10.7a): fire, a grenade or a fire mission at a recognised medic, ambulance, carrying party or
+  // Verwundetennest is refused, and a refused order changes nothing: no drill, errand or carrying party ends, nobody
+  // gets out (review fix). What men aboard know counts too.
+  if (ctx.catalog.medical !== undefined) {
+    const P = ctx.catalog.medical.protection;
+    const hostile = order.kind === "fire" || (order.kind === "grenade" && order.smoke !== true) || (order.kind === "callFire" && order.ammo === "he");
+    if (hostile) {
+      // mounted: ok what men aboard know counts too
+      const men = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, order.target) : [order.target])
+        .filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed"
+          && !(isUnit && order.kind !== "callFire" && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
+      const named = order.kind === "fire" ? order.contact : undefined;
+      if (refusesFireAt(state, men, order.x, order.y, named, order.kind === "callFire" ? P.missionSpareM : P.aimSpareM)) return { unable: "radio.refuseProtected" };
+    }
+  }
   // A parent unit's vehicles (M7.1c): moves and halts are split to them; their own fire rules stay theirs.
   const vehicles = isUnit && !own ? vehicleChildren(state, order.target) : [];
   // Men still aboard (owner Q12): a squad (or a man) gets out first, then carries the order out. Orders to a
@@ -645,8 +660,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "fire": {
-      // Owner Q-7 (M10.7a): at a recognised medic, ambulance, carrying party or Verwundetennest his men will not fire.
-      if (ctx.catalog.medical !== undefined && refusesFireAt(state, soldiers, order.x, order.y, order.contact, ctx.catalog.medical.protection.aimSpareM)) return { unable: "radio.refuseProtected" };
+      // (Owner Q-7: a fire order at recognised protected people was refused above, before anything changed.)
       if (order.nature === "at") {
         // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
         const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
@@ -718,12 +732,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "callFire": {
-      // Owner Q-7 (M10.7a): no high explosive on a place where the enemy they know is only protected people.
-      if (order.ammo === "he" && ctx.catalog.medical !== undefined) {
-        // mounted: ok what men aboard know counts too (they call over the radio)
-        const men = isUnit ? unitSoldiers(state, order.target) : [order.target];
-        if (refusesFireAt(state, men, order.x, order.y, undefined, ctx.catalog.medical.protection.missionSpareM)) return { unable: "radio.refuseProtected" };
-      }
+      // (Owner Q-7: no high explosive where the enemy they know is only protected people: refused above.)
       // The leader calls it (or whoever of the unit can still use the radio); the unit keeps doing what it did.
       const cu = isUnit ? order.target : state.identity.get(order.target)?.unit;
       const u = cu !== undefined ? state.unit.get(cu) : undefined;

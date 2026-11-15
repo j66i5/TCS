@@ -180,7 +180,9 @@ function nestMedic(ctx: SimContext, state: SimState, top: EntityId): { id: Entit
     const lvl = ident ? ctx.catalog.factions[ident.faction]?.medicalRoles?.[ident.role]?.level : undefined;
     if (lvl !== "medic" && lvl !== "firstResponder") continue;
     const s = state.soldier.get(m);
-    if (!s || !s.physiology.alive || s.captive !== null) continue;
+    // (Review fix: a man who can work: not hurt himself, lying at the nest, aboard or evacuated. One merely busy
+    // stays the pick.)
+    if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.atNest !== undefined || (s.wounds.length > 0 && needsEvacuation(s))) continue;
     const rank = (lvl === "medic" ? 10 : 0) + (hq.includes(m) ? 1 : 0);
     if (rank > bestRank) { best = m; bestRank = rank; }
   }

@@ -254,7 +254,7 @@ white flags on the map; the after-action review lists surrendered and captured m
 
 ## Stage C — depth
 
-**Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e and is the current milestone.
+**Order (owner, 2026-11-14):** M10 Medical is pulled forward to right after M7.5e (✅ complete 2026-11-15).
 After it: D3 phone pass (✅ 2026-11-15: `?perf=1`, phone proxy, UI leftovers, roof atlas in a worker, F2/F3
 probes; the owner's phone numbers open) and D4 infantry tactics (the debt slot; D4a ✅ 2026-11-15: reserve, base of fire
 bounding and sidestepping when masked, shift fire, 16 m rushes; D4b ✅ 2026-11-15: fire distribution, low aim,
@@ -262,7 +262,7 @@ ambush and defend-arc orders, hesitation; win band open), then M8 → M9 → M7.
 Jäger and BTR platoons) → M11 (minimum first, after measuring ammunition use) → M12 → M13. Detailed plan:
 `docs/plans/roadmap-detail.md`. **One short debt slot after every milestone** (software decision, 2026-11-14).
 
-### M10 Medical system (SPEC 9.1) — 🔨 (owner answers in DECISIONS.md, 2026-11-14)
+### M10 Medical system (SPEC 9.1) — ✅ (complete 2026-11-15 with the review fixes; owner answers in DECISIONS.md, 2026-11-14)
 The full chain: self-aid → buddy aid → squad first responder → platoon medic → Verwundetennest → armoured
 ambulance → aid station off the map; medical jobs as roles (Sanitäter, Einsatzersthelfer, stretcher bearers,
 ambulance crews); both sides try to keep the laws of war but can misidentify, and rarely break them on purpose
@@ -288,7 +288,7 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    comrade (doctrine `casualtyCarePriority`, behaviour, morale, suppression, squad, exposure), at most the first
    responder plus one comrade (owner Q-2a); leaders stay; unit orders and drills pass carers by; no surrender with
    a carer; `medical.carer` events; batch "Carers" line.
-6. ✅ **M10.3b Triage, care under fire, "Medic!"** (slice 7, 2026-11-14) — the treating soldier tags a casualty
+6. 🔶 **M10.3b Triage, care under fire, "Medic!"** (slice 7, 2026-11-14) — the treating soldier tags a casualty
    T1/T2/T3 (`medical.triaged`), sometimes wrongly at the data's rates by training; the tag on the map (own men)
    and on the card; under fire a carer gets a casualty into cover (he walks there himself, or is dragged at 0.7 m/s
    with a smoke screen; `medical.dragged`), and care goes on there; "Medic!" and "Man down, treating" on the
@@ -310,7 +310,7 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
    report (identical rows on 15 battles); the review in three tabs (battle, Medical, Conduct; the last two empty until
    M10.8); `app/src/main.ts` 1,521 → 334 lines (app state, orders, camera, panels, map gestures, keys, map views,
    review, save, debug hooks and sprite sheet in their own modules). No sim or golden change.
-10. ✅ **M10.5 Verwundetennest and platoon medic** (slice 11, 2026-11-14) — a generic rear-point store (`kind`
+10. 🔶 **M10.5 Verwundetennest and platoon medic** (slice 11, 2026-11-14) — a generic rear-point store (`kind`
     medical; supply in M11, state schema 20); each platoon's nest sited 150 m behind its men (away from the enemy
     they know, else toward the nearest edge), hidden from him, on ground wheeled vehicles reach; moved when a known
     enemy comes within 100 m or, empty, left 300 m behind; the platoon leader tasks two riflemen as bearers per
@@ -320,7 +320,7 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     Wounded tab, owner Q-2c); the AI commander counts carriers as committed and never orders them; batch
     "Verwundetennest" line; `--scene nest`.
 11. ✅ **M10.6-data Wheeled ambulance hulls: Boxer ambulance, BMM** (slice 12, parallel session, merged 2026-11-14)
-12. ✅ **M10.6a Off-map vehicles and ambulance runs** (slice 13, 2026-11-15) — off-map entity state: an asset is
+12. 🔶 **M10.6a Off-map vehicles and ambulance runs** (slice 13, 2026-11-15) — off-map entity state: an asset is
     an ordinary vehicle with its crew from tick 0 carrying `VehicleState.offMap`, parked off the map and skipped by
     every vehicle loop while off it (architecture test), its crew nobody's to order and in no side's strength; each
     generated battle gives a side its faction's ambulances (manifest `ambulance`: DE two Boxer, RU two BMM); a platoon
@@ -357,7 +357,7 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     `selfDefenceM` 50 m (no loss of protection), beyond only on the player's order (lost for 120 s); `law.hit` for hits
     on protected people, aimed or incidental (Q-8); nothing live; battle record version 6 (`conduct`); batch "Laws of
     war" line; lab part 3 and 4. Prisoners' care was built on 2026-11-15 (captors treat by need).
-16. ✅ **M10.8 Review, statistics, balance** (slice 17, 2026-11-15) — battle record version 7 (`track`: each wounded
+16. 🔶 **M10.8 Review, statistics, balance** (slice 17, 2026-11-15) — battle record version 7 (`track`: each wounded
     man's way through the chain of care; refused orders); `sim/src/medstats.ts` `medicalSummary` read by the review's
     Medical tab (times to first care, nest, evacuation; deaths of wounds with timing and the missing step) and Conduct
     tab (breaches with circumstances, refused orders, aimed and incidental hits, both sides) and by the batch "Medical"
@@ -368,6 +368,16 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
 Acceptance: the chain runs for both sides and the xf fixture; preventable deaths clearly lower than with
 `--no-medical`; recognition and breaches measured in a lab; the owner reviews the numbers table and plays a battle
 on his phone.
+
+**Open acceptance targets (review 2026-11-15; built, measured, not met — kept open rather than re-tuned, the owner's
+after-playing question decides; slices marked 🔶 above):** M10.3b preventable deaths ≥ 40 % lower than `--no-medical`
+(measured −32 % at the slice, −30 % in the M10.8 balance; platoon red more with care); M10.5 ≥ 60 % of living
+casualties at the nest by 2400 s (2-50 % per side and scenario) and re-triage correcting ≥ 50 % of wrong tags
+(0-33 %); M10.6a ambulance arrival within delay + drive ±10 % (16 of 18 runs); M10.8 inherits them. Collection to
+the nest is the weak link. The review fixes of 2026-11-15 (DECISIONS) removed loops that held bearers and medics
+back (far casualties now reachable, no reassignment loops, the nest medic re-tags) and refusals by the AI
+commander; numbers there. **M10 is complete** (all slices built, reviewed and fixed; the open targets above wait
+for the owner's numbers answer after playing, not for more building).
 
 - **M11 Logistics** (SPEC 9.2) ⬜
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics

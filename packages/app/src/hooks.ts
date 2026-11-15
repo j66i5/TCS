@@ -11,7 +11,7 @@ import { addPoint, centreOf, planToOrder, unitTiles } from "@tcs/ui";
 import type { App } from "./app";
 import { centredOn, startFollow, stopFollow, viewInsets } from "./camera";
 import { activeMoveOf, placesOf, ridersIn, vehicleClassOf } from "./units";
-import { clearAt, endPlan, facingHandle, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS } from "./orders";
+import { clearAt, endPlan, facingHandle, fireAtPoint, forUnit, issue, now, occupyOrder, offerSupport, startPlan, SUPPORT_ROUNDS } from "./orders";
 import { select, showCard, syncOrders } from "./panels";
 import { showSpriteSheet } from "./sprite-sheet";
 import { sightView } from "./view";
@@ -50,6 +50,8 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
     /** Fog of war (screenshots): the enemy men drawn as figures now (in sight of the player's side). */
     enemyInSight: () => [...enemyMenInSight(overlay.known)],
     fireAt: (x: number, y: number) => issue(a, { ...to(), kind: "fire", x, y }),
+    /** The fire gesture's tap (review fix: what the player's tap does, with its warnings). */
+    fireTap: (x: number, y: number) => fireAtPoint(a, { x, y }),
     /** Plan a move through these points (screenshots): the marker is shown until go(). */
     planMove: (pts: { x: number; y: number; mode?: string }[], facing?: number, frontageM?: number) => {
       sel();

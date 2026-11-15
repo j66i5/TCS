@@ -8,7 +8,7 @@ import { endPlan } from "./orders";
 import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, vehicleGuns, woundedRows, settleRules, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
-import { droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
+import { ambulanceCallerName, droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
 
 /**
  * The order bar shows only what the selected unit can do now (M7.5a): its capabilities are read from the state
@@ -36,7 +36,8 @@ export function syncOrders(a: App): void {
 export function refreshTiles(a: App): void {
   const tiles = unitTiles(a.sim.state, a.playerSide, a.input.catalog);
   a.hud.setTiles(tiles, a.overlay.selectedUnit, selPart(a));
-  a.hud.setWounded(woundedRows(a.sim.state, a.playerSide), ambulanceRows(a.sim.state, a.playerSide));
+  const amb = ambulanceRows(a.sim.state, a.playerSide), caller = amb.ready > 0 ? ambulanceCallerName(a) : undefined;
+  a.hud.setWounded(woundedRows(a.sim.state, a.playerSide), caller !== undefined ? { ...amb, caller } : amb);
   showCard(a, tiles);
 }
 

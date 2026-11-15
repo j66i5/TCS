@@ -6197,6 +6197,90 @@ both entries; no sim change, goldens unchanged). Built:
   matches the state's wounded and dead, is deterministic per seed and survives JSON; every review key in the string
   table). No per-tick per-man work (the record folds events already emitted), so no perf run; goldens unchanged.
 
+## 2026-11-15 — M10 Medical: review fixes (goldens regenerated)
+
+Merged origin/main (25 commits: M7.6b tanks, README) first; no conflicts. Then the findings of the M10 review, each
+checked against the code; fixed unless said otherwise. **Goldens regenerated** (`demo-s1`, `shootout-s1`,
+`fixture-s7`, `vehicles-s1`, `fixture-cart-s3`, `platoon-vehicles-s1`, `village-occupy-s1`,
+`platoon-vehicles-tanks-s1`, `house-clear-s1`): the data change (ambulance crews' kit, `ru-armband`) changes the
+catalog fingerprint, and the behaviour changes below change the battles. `golden/no-interiors` untouched.
+
+- **Owner Q-7, grenades too:** a `grenade` order (hand or 40 mm, not smoke) at a recognised protected target is
+  refused like `fire` (`aimSpareM`). **A refused order changes nothing:** the refusal test for fire, grenade and HE
+  `callFire` now runs in `applyOrder` before any drill, errand, carrying party or boarding is touched (what men
+  aboard know counts); before, a refused order still ended the unit's drill and dismounted a squad.
+- **AI commander:** it orders no fire at an enemy any man of its side spares (`known()` drops targets in a
+  side-wide spared set), and its base of fire does not fire at the objective where all a man knows is protected
+  people. Refused fire orders per 10 battles at 1200 s: platoon blue 43 → 0, platoon-vehicles blue 53 → 1.
+- **Bearers protected only once they bear him:** `protectionNow` gives `PROT_CARRYING` only when the carry is past
+  its gather phase (men walking empty-handed to a casualty are soldiers like any).
+- **Routes to a casualty** (carry gather, `routeCarer`) search up to 20 000 expansions (was 6 000: ~340 m with
+  houses failed, the carry ended "no-way" and was tasked again every 31 s).
+- **Carer loops:** `pickCarer` never picks a bearer of a carrying party or a man at the nest; no comrade is sent to
+  an urgent casualty whose first responder is beside him already (he was only handed over, again and again); a medic
+  sent to re-tag a man at the nest walks on until beside him (he was released "done" at once); a comrade taking a
+  dead man's tag (or checking him) is not released mid-action. Comrades sent per battle (platoon blue/red) 13.2/19.0
+  → 6.8/7.6, first responders 6.9/2.5 → 6.3/2.2.
+- **Nest medic:** chosen only among men who can work (able, walking, hands, not aboard, not at the nest, not needing
+  evacuation himself); a busy medic stays the pick.
+- **Rear run:** a man handed over at the aid post (`evacuated`) is out: `isAble` is false for him, the rear run's
+  `casualty()` and boarding's `carriable` skip him, penetrations and fires in the hull skip him. He still sits in
+  the hull that comes back (no off-map holder for men yet; noted for M11), but starts no new run (test: one
+  "started" in 300 s more).
+- **Settlement:** a bruise under armour (`blunt`) is not handed over (`hasBattleWound`); the Wounded tab does not
+  list it either. **Roster round trip:** a record that comes in with `recoveryDays` keeps them (`SoldierState.rosterIn`,
+  optional, no schema bump) and its old wounds are not settled again; a record with status "evacuated" is refused as
+  battle input (he is in the rear; error names him). Test: a record fed through `runBattle` twice comes out the same.
+- **Conduct `aimed`:** a hit counts as aimed only if the shooter sees (contact "seen") the man he fires at; fire at
+  an old reported spot of a man already down is incidental. Platoon blue aimed/incidental hits on wounded 77/65 →
+  7/97.
+- **Ambulance crews' medical roles (data, low):** `sankfz-sanitaeter` and `sanitar-bmm` have `medical.level`
+  `ambulanceCrew` (medic skill; `isResponder` counts it); every crewman of `boxer-san-besatzung` and `bmm-ekipazh`
+  wears the red cross armband (new item `ru-armband`, medium: GC I art. 40; the RU rifleman-medic still has none),
+  the medic carries a medic bag and a smaller platoon-medic kit (game values). Loading at the nest stays abstracted.
+- **UI:** with nothing selected "Call ambulance" calls for the platoon with men at its nest (else the most wounded
+  waiting) and the button names it; the Wounded tab shows full callsigns ("2/Trupp 1"; also the man box), a tag
+  legend, T1 men still at their post as "needs urgent care, still at his post", evacuated men last under their own
+  heading, and the slim red-cross button stays while ambulances run or men are listed; a row tap on a phone closes
+  the list; the phone list's head reads "✕ Close"; a squad tile's strength leaves out men at or on the way to the
+  nest. Review: Medical and Conduct tabs grouped by side with coloured headings and indented per-man lines;
+  durations with units ("13 min 52 s", "43 h 35 min"); "evacuated during the battle" (left out at 0); the Conduct
+  summary says "under orders (either cause)" and no longer reads "1 times"; smoke on a breach line only when there
+  was some ("view through it n %"). Map: a known enemy one of your men recognises as protected gets a small red
+  cross (`KnownEnemy.protected`); a fire tap the men would refuse warns at once; the refusal radio line is in the
+  warning colour. Screenshots looked at: `--scene aar`, `--scene medevac`, and driven Wounded-tab and refusal shots.
+- **Not fixed:** (1) a responder upstairs who can neither treat under fire nor drag (`tryDrag` is ground-floor
+  only): needs floor-aware cover search, a later slice. (2) `npm test` 716 s against the M10.0 target of 120 s: one
+  run under container load; not a code defect of this milestone, left for the test-speed debt slot. (3) The plan's
+  acceptance targets missed in M10.3b/M10.5/M10.6a/M10.8 are now marked open in ROADMAP (🔶) instead of re-tuned
+  (owner's after-playing question stands).
+- **Batch (10 seeds × 1200 s, before → after; blue/red):**
+
+  | scenario | winners | comrades sent | at nest | wrong tags corrected | misidentified breaches | refused | died of wounds in battle | preventable |
+  |---|---|---|---|---|---|---|---|---|
+  | platoon | 2/8 → 2/8 | 13.2/19.0 → 6.8/7.6 | 13/32 → 13/30 % | 27/0 → 19/20 % | 92/28 → 42/15 | 43/0 → 0/0 | 22/28 → 15/24 | 24/32 → 15/27 |
+  | platoon-ru | 1/9 → 4/6 | 8.6/4.8 → 5.4/3.3 | 4/13 → 6/17 % | 8/11 → 25/0 % | 1/222 → 1/194 | 0/0 → 0/0 | 11/6 → 12/6 | 14/6 → 12/6 |
+  | platoon-vehicles | 6/4 → 6/4 | 15.5/11.0 → 6.6/9.3 | 16/18 → 27/50 % | 38/0 → 33/33 % | 105/36 → 65/8 | 53/0 → 1/0 | 19/40 → 29/42 | 21/47 → 30/44 |
+  | platoon-ru-vehicles | 9/1 → 9/1 | 2.6/7.8 → 3.6/5.8 | 35/27 → 58/19 % | 50/0 → 0/0 % | 64/59 → 25/19 | 0/0 → 0/0 | 5/20 → 5/19 | 5/20 → 5/19 |
+  | village-occupy | 0/0 → 0/0 | 0.5/2.0 → 0.5/2.3 | 0/67 → 0/100 % | – | 1/0 → 0/0 | 0/0 → 0/0 | 0/6 → 0/6 | 0/6 → 0/6 |
+
+  Preventable deaths over the five scenarios 175 → 164; misidentified breaches 608 → 369. platoon-ru red still
+  misidentifies bearers at range (194 in 10 battles: beyond the recognition range, by the model). No per-tick
+  per-man work added (the commander's spared set is per think; route caps only on routes that would have failed).
+- **Checked and finished (2026-11-15, branch `claude/medical-review-fixes`, on main after M10.8 merged).** The
+  interrupted fix pass was reviewed against each finding; every edit kept. `golden:update` reproduces the committed
+  goldens (no change), typecheck, lint and data lint clean. The batch was re-run at 1200 s, 10 seeds, for platoon,
+  platoon-ru and platoon-vehicles against main: the rows above are reproduced exactly. Worth noting: platoon-vehicles
+  blue deaths of wounds in battle and preventable deaths went up (19 → 29, 21 → 30) while its share at the nest rose
+  (16 → 27 %); 10 seeds, cause not separated from seed noise; left for the owner's numbers answer. Also not fixed (partial): the evacuated man in a returning hull still keeps his
+  passenger place until the battle ends (no off-map holder for men, M11); the man box has no "Back" button (the
+  Wounded tab keeps it, and a row tap on a phone now closes the list so the box is not drawn over it).
+  **M10 Medical is complete** (ROADMAP, STATE; the open acceptance targets wait for the owner).
+  Test `commander-clear` now uses seed 3 (seed 2's attack no longer reaches a house in 1200 s after the commander's
+  fire changes; seeds 3 and 4 clear two houses each; the behaviour checked is unchanged). `npm run check`: all
+  tests pass (`npm test` 439 s under load from other sessions); the timing tests failed under that load (load
+  average 12 on 4 cores, render perf too) and passed when rerun alone (23/23).
+
 ## 2026-11-15 — D4b Infantry tactics pass 2: fire and the missing SPEC 6.6 orders (roadmap-detail slice 20, parallel session; owner to review)
 - **Owner screen not answered** (fire distribution, aim at heard/reported enemies, win band): I took the recommended
   options and log them for review: (a) **spread fire, MGs and marksmen on the most dangerous enemy**; (a) **aim low,

@@ -5,6 +5,7 @@
  * with how many men lie at each. The sidebar draws the rows; the renderer draws the markers; the app turns a tap on
  * "Back" into an `evacuate` order and a dragged marker into a `casualtyPoint` order.
  */
+import { shownCallsigns } from "@tcs/render";
 import { TICK_HZ, type EntityId, type SimView } from "@tcs/sim";
 
 export type WoundedStatus = "nest" | "carried" | "walking" | "treated" | "aboard" | "waiting" | "fighting" | "evacuated";
@@ -31,8 +32,11 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
   const treated = new Set<EntityId>();
   for (const [, a] of view.action.entries()) if (a.kind === "treat") treated.add(Number(a.params["casualty"]));
   const out: WoundedRow[] = [];
+  // (Review fix: "2/Trupp 1", as on the card, where two platoons have a "Trupp 1".)
+  const names = shownCallsigns(view.unit.entries());
   for (const [id, s] of view.soldier.entries()) {
     if (s.wounds.length === 0 || !s.physiology.alive || s.captive !== null) continue;
+    if (s.wounds.every((w) => w.mechanism === "blunt")) continue; // (a bruise under the vest is no wound to list)
     const ident = view.identity.get(id);
     if (!ident || ident.side !== side) continue;
     const party = view.carry.get(id);
@@ -43,7 +47,7 @@ export function woundedRows(view: SimView, side: string): WoundedRow[] {
       : treated.has(id) ? "treated"
       : s.casualty === "incapacitated" || !s.impair.canWalk || !s.impair.canFight ? "waiting" : "fighting";
     out.push({
-      id, name: ident.family, callsign: view.unit.get(ident.unit)?.callsign ?? "", tag: s.triage?.cat ?? null, status,
+      id, name: ident.family, callsign: names.get(ident.unit) ?? view.unit.get(ident.unit)?.callsign ?? "", tag: s.triage?.cat ?? null, status,
       ordered: s.evacOrdered === true,
       canEvacuate: status !== "nest" && status !== "aboard" && status !== "carried" && status !== "walking" && status !== "evacuated" && s.evacOrdered !== true,
     });

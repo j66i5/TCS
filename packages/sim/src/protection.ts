@@ -74,7 +74,8 @@ export function protectionNow(catalog: Catalog, state: SimState, target: EntityI
     if (firedLately(catalog, state, target)) return 0;
     let p = 0;
     if (wearsEmblem(catalog, state, target)) p |= PROT_MARKED;
-    if (s.carrying !== undefined) p |= PROT_CARRYING;
+    // (Review fix: a bearer walking empty-handed to the casualty, the carry's gather phase, is no carrying party yet.)
+    if (s.carrying !== undefined && state.carry.get(s.carrying)?.phase !== "gather") p |= PROT_CARRYING;
     if (s.atNest !== undefined && state.rear.get(s.atNest)?.kind === "medical") p |= PROT_POINT;
     return p;
   }

@@ -244,7 +244,7 @@ export function needsEvacuation(s: DeepReadonly<SoldierState>): boolean {
 export function isResponder(catalog: Catalog, state: SimState, id: EntityId): boolean {
   const ident = state.identity.get(id);
   const lvl = ident ? catalog.factions[ident.faction]?.medicalRoles?.[ident.role]?.level : undefined;
-  return lvl === "firstResponder" || lvl === "medic";
+  return lvl === "firstResponder" || lvl === "medic" || lvl === "ambulanceCrew"; // (review fix: an ambulance medic on foot, e.g. after a bail-out)
 }
 
 /**

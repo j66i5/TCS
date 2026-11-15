@@ -99,6 +99,10 @@ describe("combat vehicles' rear run (M10.6b)", () => {
     const t = st.transform.req(runner);
     expect(t.x).toBeGreaterThan(0);
     expect(isOffMap(st.vehicle.req(runner))).toBe(false);
+    // Review fix: the man handed over at the aid post starts no new run (before, he did so every minute).
+    b.run(300);
+    expect(phases(b.events, runner).filter((p) => p === "started").length).toBe(1);
+    expect(st.vehicle.req(runner).rearRun).toBeUndefined();
   });
 
   it("no run with the real data for one T2 casualty; none while the squad assaults", () => {
@@ -231,5 +235,36 @@ describe("Role 1 outcome and the end-of-battle settlement (M10.6b)", () => {
       expect(back.wounds).toEqual(m.wounds);
       expect(back.status).toBe(m.status);
     }
+  });
+});
+
+describe("the roster round trip (review fix, SPEC 9.1)", () => {
+  const input = (members: SoldierRecord[]): BattleInput => ({
+    map: flatMap("roster-test", 400, 400, 4, "grass"), catalog: real, seed: 5, orders: [],
+    rules: { timeLimitSeconds: 2, commsModel: "simple", comms: DEFAULT_COMMS, physiologyModel: "medical", physiologyParams: {}, objectives: [] },
+    forces: [{ side: "blue", faction: "de", units: [{ key: "b", callsign: "B", echelon: "squad" as const, leaderIndex: 0, subunits: [], members }],
+      placements: members.map((m, i) => ({ personId: m.personId, x: 100 + i * 4, y: 100, heading: 0 })) }],
+  });
+  it("a man back with his recovery days and settled wounds keeps them and is not handed over again; a bruise is no wound", () => {
+    const light = wound({ severity: 0.05, fracture: undefined, zone: "armL", tickInflicted: 9000 });
+    const back: SoldierRecord = { ...rec({ id: "w", x: 0, y: 0 }), wounds: [light], status: "wounded", recoveryDays: 6 };
+    const bruise = wound({ id: 1, mechanism: "blunt", severity: 0.05, fracture: undefined, zone: "chest" });
+    const vest: SoldierRecord = { ...rec({ id: "v", x: 0, y: 0 }), wounds: [bruise] };
+    const r = runBattle(input([rec({ id: "a", x: 0, y: 0 }), back, vest]));
+    const out = (p: string) => r.forcesOut[0]!.units[0]!.members.find((m) => m.personId === p)!;
+    expect(r.eventCounts["medical.role1"] ?? 0).toBe(0);
+    expect(r.eventCounts["medical.settled"] ?? 0).toBe(0);
+    expect(out("w").recoveryDays).toBe(6);
+    expect(out("w").wounds).toEqual(back.wounds);
+    expect(out("w").diedOfWoundsTick).toBeUndefined();
+    expect(out("v").recoveryDays).toBeUndefined();
+    expect(out("v").diedOfWoundsTick).toBeUndefined();
+    // And once more: the record that came out goes in again and comes out the same.
+    const again = runBattle(input([out("a"), out("w"), out("v")]));
+    expect(JSON.stringify(again.forcesOut[0]!.units[0]!.members.map((m) => [m.personId, m.status, m.recoveryDays, m.wounds]))).toBe(JSON.stringify(r.forcesOut[0]!.units[0]!.members.map((m) => [m.personId, m.status, m.recoveryDays, m.wounds])));
+  });
+  it("an evacuated man is in the rear: the battle input must leave him out", () => {
+    const gone: SoldierRecord = { ...rec({ id: "e", x: 0, y: 0, hurt: true }), status: "evacuated", recoveryDays: 30 };
+    expect(() => runBattle(input([rec({ id: "a", x: 0, y: 0 }), gone]))).toThrow(/evacuated/);
   });
 });

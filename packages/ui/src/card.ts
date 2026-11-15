@@ -162,7 +162,7 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   const b = s.mental.behaviour;
   if (b === "panicked" || b === "routed") return { key: b };
   const intent = s.intent?.kind;
-  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition") return { key: intent };
+  if (intent === "cover" || intent === "bringAmmo" || intent === "fetchAmmo" || intent === "takePrisoner" || intent === "reposition" || intent === "hideDrone") return { key: intent };
   const f = view.fire.get(id);
   if (f) return { key: f.self ? "engaging" : "firing" };
   if (b === "pinned") return { key: "pinned" };

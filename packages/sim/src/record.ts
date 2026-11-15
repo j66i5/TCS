@@ -14,6 +14,7 @@ import type { BattleEndReason, SimEvent } from "./events";
 import { tallyExpenditure, type Expenditure } from "./expenditure";
 import { ticksToSeconds, type EntityId } from "./ids";
 import type { SimView } from "./state";
+import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
 export const RECORD_VERSION = 4;
@@ -91,6 +92,8 @@ export interface BattleRecord {
   heatFalls: number[];
   /** Ammunition used per side (M7.3). */
   exp: Expenditure;
+  /** M9.6: drones, enemies found (by drone), fire missions by location method, missiles, light (review.ts). */
+  review: ReviewTally;
   sides: Record<string, SideRecord>;
   /** Casualty id -> tick of his first finished treatment (the Medical tab and the batch's time to first care). */
   firstTreated: Record<string, number>;
@@ -126,7 +129,7 @@ export function newSideRecord(): SideRecord {
 
 /** An empty record for a battle between these sides. */
 export function newBattleRecord(sides: readonly string[]): BattleRecord {
-  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, end: null };
+  return { v: RECORD_VERSION, timeline: [], heatShots: [], heatFalls: [], exp: {}, review: newReviewTally(), sides: Object.fromEntries(sides.map((s) => [s, newSideRecord()])), firstTreated: {}, lastTag: {}, atNest: {}, ambCall: {}, evacuated: {}, end: null };
 }
 
 /** A record read back from a save, or null if it is from another version (the review then starts afresh). */
@@ -137,6 +140,7 @@ export function readRecord(x: unknown): BattleRecord | null {
 
 /** Fold one tick's events into the record; `view` is the state after that tick. */
 export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], view: SimView, catalog: Catalog): void {
+  tallyReview(rec.review, events, view); // (M9.6; it samples the light on quiet ticks too)
   if (events.length === 0) return;
   tallyExpenditure(rec.exp, events, view, catalog);
   const sideIdx = (side: string) => Math.max(0, view.sides.findIndex((x) => x.id === side));
@@ -183,6 +187,10 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       }
       case "objective.changed":
         if (e.holder !== null) rec.timeline.push({ tick: e.tick, side: e.holder, key: "timeline.objective", objective: e.objective });
+        break;
+      case "drone.lost":
+        // (M9.6: a drone shot down or lost.)
+        rec.timeline.push({ tick: e.tick, side: e.side, key: e.reason === "shot" ? "aar.drone.shotDown" : "aar.drone.lost" });
         break;
       case "radio":
         if (e.key === "radio.broken" || e.key === "radio.rallied" || e.key === "radio.objectiveTaken") {

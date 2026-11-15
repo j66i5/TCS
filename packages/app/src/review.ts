@@ -5,7 +5,7 @@
 import { battleScore, isAssetUnit, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
 import type { AarModel } from "@tcs/ui";
 import type { App } from "./app";
-import { fmtClock, sideColour, sideName } from "./units";
+import { fmtClock, localClock, sideColour, sideName } from "./units";
 
 /** One timeline line in words. */
 export function timelineText(a: App, e: TimelineEntry): string {
@@ -35,6 +35,8 @@ export function reviewModel(a: App): AarModel {
     summary: [
       `${sc.winner ? s.t("aar.winner", { side: sideName(a, sc.winner) }) : s.t("aar.draw")} ${reason !== "time-limit" && st.endLoser === null ? s.t("aar.reason.both") : s.t(`aar.reason.${reason}`, { loser: st.endLoser ? sideName(a, st.endLoser) : "" })}`,
       ...sc.scores.map((x) => s.t("aar.score", { side: sideName(a, x.side), objectives: x.objectivePoints, down: x.menDown, score: x.score })),
+      // M9.6: the local time at the end and the light at the start and its lowest (a battle with a sky, M9.1).
+      ...(st.environment.sky && record.review.light ? [s.t("aar.light", { time: localClock(st.environment.timeOfDaySeconds), start: Math.round(record.review.light.start * 100), min: Math.round(record.review.light.min * 100) })] : []),
     ],
     casualties: st.sides.map((sd) => {
       // mounted: ok the after-action roster counts every man
@@ -74,15 +76,32 @@ export function reviewModel(a: App): AarModel {
       // Vehicles (M7.4a): lost and immobilised.
       const vs = [...st.vehicle.values()].filter((v) => v.side === sd.id && v.offMap === undefined);
       const vline = vs.length > 0 ? [s.t("aar.vehicles", { side: sideName(a, sd.id), lost: vs.filter((v) => v.status === "destroyed" || v.status === "abandoned").length, immobilised: vs.filter((v) => v.status === "immobilised").length, start: vs.length })] : [];
-      return { heading: s.t("aar.sideHead", { side: sideName(a, sd.id), down, total: men.length }), colour: sideColour(a, sd.id), rows: [...vline, ...rows.map((r) => r.text), ...spent] };
+      // M9.6: drones, enemies found, fire missions by location method (rows only when non-zero).
+      const rv = record.review.sides[sd.id], m9: string[] = [];
+      if (rv) {
+        const d = rv.drones, lost = d.lostBattery + d.lostNoOperator + d.shotDown;
+        if (d.launched > 0) m9.push(s.t("aar.drones", { flown: d.launched, landed: d.landed, lost, shot: d.shotDown, battery: d.lostBattery, alone: d.lostNoOperator }));
+        if (d.downedEnemy > 0) m9.push(s.t("aar.dronesDowned", { n: d.downedEnemy }));
+        if (rv.found.total > 0) m9.push(s.t("aar.found", { n: rv.found.total, drone: rv.found.byDrone, pct: Math.round((100 * rv.found.byDrone) / rv.found.total) }));
+        const calls = (["estimate", "laser", "registered", "drone", "air"] as const).filter((k) => (rv.calls[k] ?? 0) > 0).map((k) => s.t("aar.callsBy", { method: s.t(`support.method.${k}`), n: rv.calls[k] ?? 0 }));
+        if (calls.length > 0) m9.push(s.t("aar.calls", { list: calls.join(", ") }));
+      }
+      return { heading: s.t("aar.sideHead", { side: sideName(a, sd.id), down, total: men.length }), colour: sideColour(a, sd.id), rows: [...vline, ...m9, ...rows.map((r) => r.text), ...spent] };
     }),
     timeline: record.timeline.map((e) => ({ time: fmtClock(ticksToSeconds(e.tick)), text: timelineText(a, e), colour: e.side ? sideColour(a, e.side) : "#ffd23d" })),
     // D2: the tabs M10.8 fills (times to care, evacuation, died of wounds; breaches of the laws of war).
     medical: st.sides.flatMap((sd) => {
-      const d = record.sides[sd.id]?.down;
-      if (!d) return [];
+      const rs = record.sides[sd.id], d = rs?.down;
+      if (!rs || !d) return [];
+      // M10.6b: rear runs, the end-of-battle settlement, Role 1 outcomes.
+      const r1 = rs.role1, rec = [...r1.recoveryD].sort((x, y) => x - y);
+      const more = [
+        ...(rs.rear.started > 0 ? [s.t("aar.medical.rearRuns", { side: sideName(a, sd.id), runs: rs.rear.started, ordered: rs.rear.ordered, men: rs.rear.men })] : []),
+        ...(rs.settled.evacuated + rs.settled.captured + rs.settled.prisoner > 0 ? [s.t("aar.medical.settled", { side: sideName(a, sd.id), evac: rs.settled.evacuated, captured: rs.settled.captured, prisoners: rs.settled.prisoner })] : []),
+        ...(r1.men > 0 ? [s.t("aar.medical.role1", { side: sideName(a, sd.id), n: r1.men, t1: r1.t1, t1in: r1.t1InTime, dow: r1.dow, days: rec.length > 0 ? rec[Math.floor(rec.length / 2)]! : 0 })] : []),
+      ];
       return [s.t("aar.medical.down", { side: sideName(a, sd.id), checked: d.checked, dead: d.checkedDead, dragged: d.deadDragged, tags: d.tagMen, crawled: d.crawled }),
-        s.t("aar.medical.prisoners", { side: sideName(a, sd.id), treated: d.prisonersTreated, crawled: d.surrenderCrawled })];
+        s.t("aar.medical.prisoners", { side: sideName(a, sd.id), treated: d.prisonersTreated, crawled: d.surrenderCrawled }), ...more];
     }),
     conduct: [],
   };

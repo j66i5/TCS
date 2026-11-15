@@ -52,6 +52,8 @@ export interface HudCallbacks {
   onDismount(): void;
   /** Vehicles (M7.3): fire the smoke dischargers; the gun and round of the next fire order (null = crew's choice). */
   onDischarge(): void;
+  /** "Take wounded back" (M10.6b): the selected vehicle's rear run. */
+  onRearRun?(): void;
   onNature(nature: "ap" | "he" | "mg" | null): void;
   onPosture(posture: "standing" | "crouching" | "prone"): void;
   /** Pace of the next leg of the route being planned. */
@@ -154,7 +156,7 @@ export interface Hud {
   /** S11: the fire support pop-up (HE or smoke at a point) or none; is it shown. */
   offerSupport(o: SupportOffer | null): void;
   supportShown(): boolean;
-  /** S13: the speed buttons (0 = pause, 1, 2, 4) as if pressed; the speed shown. */
+  /** S13: the speed buttons (0 = pause, 1, 2, 4, 8) as if pressed; the speed shown. */
   setSpeed(v: number): void;
   speed(): number;
   /** S13: press an order's button as a tap would (a mode, halt, mount / dismount): false if not offered now. */
@@ -189,7 +191,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const bar = el("div", "hud-bar");
   const title = el("div", "hud-title", s.t("app.title"));
   const clock = el("div", "hud-clock", "00:00");
-  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4]];
+  const speeds: [string, number][] = [["❚❚", 0], ["1×", 1], ["2×", 2], ["4×", 4], ["8×", 8]];
   let speedNow = 1;
   const speedBtns = speeds.map(([label, v]) => {
     const b = el("button", "hud-btn", label);
@@ -369,13 +371,16 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
   const haltBtn = verb("halt", "order.halt", "halt", () => cb.onHalt());
   const mountBtn = verb("mount", "order.mount", "mount", () => cb.onMount());
   const dismountBtn = verb("dismount", "order.dismount", "dismount", () => cb.onDismount());
+  const rearRunBtn = verb("rearRun", "order.rearRun", "rearRun", () => cb.onRearRun?.());
+  rearRunBtn.title = s.t("order.rearRunTitle");
+  rearRunBtn.hidden = true;
   mountBtn.hidden = true; dismountBtn.hidden = true; dischargeBtn.hidden = true; natureBtn.hidden = true;
   // Display order in the bar; and the order in which items move behind "⋯" when the strip is too short.
-  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn];
-  const OVERFLOW_FIRST = ["mount", "dismount", "halt"];
+  const barItems: HTMLElement[] = [moveG.wrap, fireG.wrap, haltBtn, mountBtn, dismountBtn, rearRunBtn];
+  const OVERFLOW_FIRST = ["rearRun", "mount", "dismount", "halt"];
   const allButtons = (): HTMLButtonElement[] => [...dock.querySelectorAll("button")];
   orders.append(grip, ...barItems, moreBtn);
-  for (const b of [haltBtn, mountBtn, dismountBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
+  for (const b of [haltBtn, mountBtn, dismountBtn, rearRunBtn]) b.addEventListener("click", () => { if (b.parentElement === moreMenu) { moreMenu.hidden = true; moreBtn.classList.remove("on"); } });
 
   // ---- plan bar (S3: the pace of the next leg is chosen on the unit card)
   const plan = el("div", "hud-plan");
@@ -670,7 +675,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       for (const [m, b] of modeBtns) b.hidden = !set.modes.includes(m);
       haltBtn.hidden = !set.halt; ceaseBtn.hidden = !set.ceaseFire;
       for (const b of postureBtns) b.hidden = !set.posture;
-      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount;
+      mountBtn.hidden = !set.mount; dismountBtn.hidden = !set.dismount; rearRunBtn.hidden = set.rearRun !== true;
       dischargeBtn.hidden = !set.discharge; natureBtn.hidden = !set.nature;
       // A group shows while one of its modes is offered; its caret while its tray has more than the button itself.
       for (const g of groups) {

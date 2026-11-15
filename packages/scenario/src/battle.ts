@@ -58,8 +58,8 @@ export interface ScenarioDef {
 /** Artillery rounds each side may call with `artillery` (M8.4; game values). */
 export const SCENARIO_ARTILLERY = { he: 12, smoke: 4, illum: 4 } as const;
 
-/** Mortar rounds each side may call (game values). */
-export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4 } as const;
+/** Mortar rounds each side may call (game values; M9.6: illumination rounds for the night, game values, low). */
+export const SCENARIO_SUPPORT = { attackerHe: 24, attackerSmoke: 12, defenderHe: 12, defenderSmoke: 4, attackerIllum: 4, defenderIllum: 4 } as const;
 
 /** Points of the main and the second objective, and what each man down costs his side. */
 export const SCENARIO_POINTS = { main: 100, second: 50, perManDown: 5, vehicleLost: 20, vehicleImmobilised: 10 } as const;
@@ -237,7 +237,7 @@ export function buildScenario(data: DataSet, def: ScenarioDef): BattleInput {
     const planned = att ? [] : [
       { x: clampX(mainP.x - dx * 150), y: mainP.y }, { x: clampX(mainP.x - dx * 300), y: mainP.y }, { x: clampX(secondP.x - dx * 150), y: secondP.y },
     ];
-    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)), ...(planned.length > 0 ? { planned } : {}) };
+    return { side, he: Math.round(k * (att ? SCENARIO_SUPPORT.attackerHe : SCENARIO_SUPPORT.defenderHe)), smoke: Math.round(k * (att ? SCENARIO_SUPPORT.attackerSmoke : SCENARIO_SUPPORT.defenderSmoke)), illum: att ? SCENARIO_SUPPORT.attackerIllum : SCENARIO_SUPPORT.defenderIllum, ...(planned.length > 0 ? { planned } : {}) };
   });
   if (def.artillery === true) {
     SIDES.forEach((side, s) => {

@@ -5562,6 +5562,55 @@ extracts only (web pages cannot be opened here), confidence medium at most, most
 - xf fixture unchanged.
 Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
 untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).
+## 2026-11-15 — M9.6 Night AI, balance and polish (roadmap-detail slice 37, parallel session; owner to review)
+Built in four parts (parallel worktrees), then reviewed (4 reviewers, every finding checked by two sceptics: 7
+confirmed and fixed, 3 rejected) and fixed. All game values below are low confidence.
+- **Flares give light** (a gap left by M9.1: flares existed but lit nothing): `sim/flares.ts flareLightAt` — the
+  brightest burning flare's illuminance candela/(h^2+d^2) lux over `night.flareFullLux` 20, capped at
+  `night.flareMaxLight` 0.6, computed once per target (not per pair) and only while flares burn; every sensor term
+  takes it like a muzzle flash. A 120 mm round 400 m up lights the ground below to about 0.3 (dusk). The renderer draws
+  the flare and its lit circle. Night lab: a still man at 300 m on a moonless night, 17 % found within 30 s, 63 %
+  under a flare. Without flares nothing changes (goldens bit-identical except the fingerprint).
+- **AI night drills** (`COMMANDER.night`, only when the light is below 0.3): the mortar allotments of generated battles
+  carry 4 illumination rounds per side; the defender lights 2+ seen or reported enemy men within 300 m of the main
+  objective or 200 m of any objective (not heard ones: it kept its rounds for the assault), at most every 90 s; the
+  attacker lights 150 m beyond the objective while closing in and assaulting; at night the attacker sneaks the last
+  125 m (2.5 x 50) and sets its support line at 231 m (0.7 x 330), the defender's own engagement range is 200 m (300
+  by day), re-sent when the light crosses the threshold; artillery illumination goes danger close (a flare does no
+  blast harm) and not while the battery displaces; prep-fire timing counts the slower night sneak leg; the support
+  distance is frozen with the squads' places (a dusk crossing no longer splits them).
+- **Night fire discipline** (soldiers, `behaviour.decisions.night`): in the dark a man whose unit has not been fired on
+  recently opens fire on his own only within 150 m (rifle), 250 m (magnified sight), 300 m (machine gun): his muzzle
+  flash and tracers would show him. Fire tasks he has are not cut off; vehicles are not affected.
+- **Hiding from drones** (`behaviour.soldier.droneHide`, men on foot, not fighting, not in a drill, not under fire):
+  halted, a man who sees an enemy drone within 300 m lies down where he is under a canopy or indoors, else runs to the
+  nearest canopy within 40 m (only while the drone is 100 m+ off) and lies there, and walks back to his place when it
+  has been gone 30 s; on the move he freezes only when it is within 120 m (nearly overhead), for 20 s re-armed up to
+  60 s, then not again for 240 s; never on a bolt out of a house or a beaten zone; men at a post (busy, a mortar or
+  missile team set up, a drone operator) lie down where they are. Running (not sneaking) to the canopy: the drone lab
+  showed sneaking under a drone at 100 m got a man found sooner than standing still (median 5 s against 18 s); running
+  cut the share found within 60 s from 20/20 to 11/20. Review: the first version froze men on the move within 300 m;
+  AI drones hover about 220 m off, so attacks stalled (German village attack 4 -> 0 of 10 by day, Russian 7 -> 4;
+  with hiding off exactly the old numbers).
+- **Review rows:** `sim/review.ts tallyReview` (events only): drones flown, recovered, lost by reason, enemy drones
+  shot down; enemies found and the share first found by a drone; fire missions and rounds by location method;
+  missiles fired and hit; the light at the start and its lowest. Event fields added: `drone.launched.item`,
+  `drone.lost.by`, `support.round.method`. Shown in the after-action review (rows only when non-zero, a timeline row
+  for each drone lost) and as batch-report lines.
+- **Batches (10 seeds x 1200 s, attacker wins of 10, before -> after; night = 23:00, half moon):**
+  day: platoon (German attack) 4 -> 4, platoon-ru (Russian attack) 7 -> 8, platoon-vehicles 6 -> 5,
+  platoon-ru-vehicles 2 -> 1; night: platoon 7 -> 4, platoon-ru 8 -> 8, platoon-vehicles 6 -> 4,
+  platoon-ru-vehicles 0 -> 1. Day unchanged within noise; at night the German attacks win less (the defender's
+  illumination and the shorter night ranges), the Russian ones as before. Batch report (night, platoon): the Russians
+  find 79-91 % of the enemies they find through their drone first. **No re-tuning:** no attacker-win band has been
+  agreed (the D4 owner question); the numbers are reported for it.
+- **Not done:** the owner play-test (owner not reachable from here); a footstep-noise model (men moving are not heard,
+  so "lights on movement heard" was not built); thermal blankets stay issued to nobody.
+- **Merge with D2 (battle record, main.ts split) and M10.5:** the M9.6 review tally now lives in the battle record
+  (`BattleRecord.review`, folded in `recordEvents`, RECORD_VERSION 3; the drone-lost timeline lines come from the
+  record), the after-action rows moved to `app/src/review.ts`, the batch lines read `rec.review`. Test changed:
+  commander.test "the defender goes down" now accepts red men lying down (siting places every defender in seeds
+  2-16 after this merge's reshuffle; a posture order only comes for men it could not place).
 
 ## 2026-11-15 — Merge origin/main (men down, identity tags, crawling, prisoners' care, HQ drone tile, tanks) into the medical line; goldens regenerated
 Conflicts kept both sides: DECISIONS entries, events (`medical.ambulance` / `medical.evacuated` next to `medical.checked`
@@ -5600,3 +5649,52 @@ Not changed: the renderer's resolution cap of 2 on DPR-3 phones (a performance c
 canvas 1.5x). The flat look changes too (same atlas and frames: the bugs were in it as well).
 Tests: `render/test/sprites.test.ts` (frame per state and carry method, key uniqueness per slot, cell padding and
 gutter, one connected piece and no lost colour at every facing, no outline inside the body).
+## 2026-11-15 — M10.6b combat vehicles' rear run, Role 1 outcome, end-of-battle settlement, roster (roadmap-detail slice 14; goldens regenerated)
+Owner answers used (binding): combat vehicles take wounded when going back or idle, the player can order any vehicle
+(Q-9); realistic delays, those still waiting at the end settled by an end-of-battle roll (Q-1e); the side holding the
+ground evacuates, wounded on enemy-held ground are captured and treated (Q-10); recovery in days from wound severity
+and treatment (Q-16, plan default). Q-7 (an order to fire at a recognised protected target is refused) needs
+recognition, which is slice 15; it is built in slices 15/16. Software decisions, not asked (owner to review in M10.8):
+- **Rear run as a generic task** (`VehicleState.rearRun`, `RearRun` with `cargo: "casualties"`; M11 adds supplies):
+  phases toPoint → loading → outbound → away → return. While "away" the hull is off the map exactly like an asset
+  (`isOffMap` also reads `rearRun`), but stays of its force (results, score, AI strength). No state schema bump (new
+  optional fields: `rearRun`, `rearRunRetryTick`, `SoldierState.aftercare`; `evacuated.vehicle` became optional with
+  `via`).
+- **Automatic ("idle")**: not moved for 60 s, not hit for 60 s, crew knows no enemy within 200 m, no fit riders, its
+  squad not assaulting/clearing/boarding; a nest with 1 T1 (by tag) or 3 men of any tag, no ambulance there or due
+  within 300 s; one hull per platoon at a time, the platoon keeps one on the map; nearest idle hull within 800 m with
+  room. "Going back": an idle hull with wounded aboard goes off with them. Away 900 s (to the company point and
+  back), back to its squad leader or its start spot. A cancelled run is not restarted on its own for 120 s. All game
+  values, `core/medical.json` `rearRun`, low.
+- **Orders**: `rearRun` (to a crew unit; "Take wounded back" on the order bar, phone: under "⋯"); refused with radio
+  reasons: nobody to take, squad assaulting, already away. An order to a hull away is refused ("at the rear with the
+  wounded"); on the map any order other than fire/rules/cease fire/smoke ends the run; a squad's mount order meets
+  the same gate. The AI commander sends no orders to a hull on a run (or "mount" to its squad).
+- **Role 1 outcome at hand-over** (`systems/aftercare.ts`, `core/medical.json` `role1`, all low): Role 1 15 min after
+  the map edge; died-of-wounds chance = 0.01 + 0.2 shock + 0.2 blood share lost + 0.2 oxygen debt + 0.1 (1 −
+  consciousness) + 0.05 worst severity, × (1 + 0.1 per hour past `chain.role1S`), × 1.5 by captors, max 0.9; death
+  0.5-72 h after Role 1 (log-uniform); recovery days by worst-wound band (3-10 / 14-35 / 45-120 / 120-300 d) + 30-60
+  for a fracture, × 1.2 untreated bleeding, × 1.25 late, + 180 for a limb lost to a tourniquet (the existing
+  ischaemia points, tourniquet time to surgery). First draft coefficients (0.35/0.4/0.3/0.15/0.08) gave about 20 %
+  died of wounds in the platoon batch; halved to about 10-15 %.
+- **End-of-battle settlement** on the tick the battle ends (time limit or defeat): prisoners treated by captors; a man
+  who needs evacuation (or lies at a nest) is evacuated if his side holds the ground (more able men within 150 m, else
+  the nearest able man's side), reaching an ambulance 1500 s later; otherwise captured; walking wounded who can fight
+  stay with their unit (recovery days only). Draws come from the "medical" stream, so every golden changes at its end.
+- **Roster**: `SoldierRecord.recoveryDays`; a man who died of wounds is status **"killed"** with `diedOfWoundsTick`
+  (a consumer reading only the status never brings a dead man back); `SideResult.diedOfWounds` (not in `killed`,
+  which stays killed in action); `evacuated` now also counts rear runs and end settlement.
+- **Events/record/batch/review**: `medical.rearRun`, `medical.role1` (with `inTime`), `medical.settled`; battle
+  record version 5 (`rear`, `role1`, `settled`); batch line "Rear runs and Role 1" (T1 to Role 1 within 60 min per
+  side, died-of-wounds hours histogram); Medical tab lines; Wounded tab rows for rear runs.
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: winners platoon blue 8/red 2 → 8/2, casualties
+  blue/red 15.5/15.0 → 15.4/13.5; platoon-vehicles 8/2 → 8/2, 15.4/26.9 → 15.4/26.4; platoon-ru-vehicles 9/1 → 9/1,
+  8.7/29.9 → 8.7/29.6 (noise: hand-overs draw from the medical stream). Rear runs are rare in AI battles (1 in 10
+  battles in each vehicle scenario; vehicles seldom stand idle away from the enemy in 1200 s); at the end blue
+  platoon evacuated 65, captured 1, stayed 33; T1 reaching Role 1 within 60 min 95 % (blue) / 80 % (red) in platoon,
+  100 % in the vehicle scenarios (few T1 tags); died of wounds platoon 10 of 99 (blue) / 9 of 61 (red), hours from
+  wound 1-6: 3, 6-24: 4, 24-72: 3 (blue). Left for M10.8: whether rear runs should start more readily.
+- Tests `tools/test/medical-rearrun.test.ts` (run end to end, real data needs T1 or three, no run while assaulting,
+  order refusals, orders while away, save/load on the way and away, DOW chance, settlement both ways, roster);
+  `--scene rearrun` screenshots (phone and desktop). Goldens regenerated (data fingerprint and the end settlement);
+  `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, per hull), so no perf run.

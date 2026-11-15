@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
+import { type ReviewTally, careNeed, needsEvacuation, environmentAt, finishRecord, lifeThreatNeed, newBattleRecord, newSideRecord, parseTimeOfDay, recordEvents, runBattle, stripInteriors, type SideRecord, type SimEvent, type Sim } from "@tcs/sim";
 import { parseArgs } from "../args";
 import { getScenario, loadData } from "../scenarios";
 import { buildingsMarkdown, buildingsTally, type BuildingsTally } from "../buildings";
@@ -51,6 +51,8 @@ interface Row {
    *  breathing; looked at once a second, with care on or off) and of them died of wounds before the end (preventable
    *  deaths: no new wound in the 30 s before death) or were killed by a new wound; triage tags by training and of
    *  them wrong; drags to cover started and finished. */
+  /** M9.6: drones, enemies found, fire missions by location method, missiles, light (sim/src/review.ts). */
+  review: ReviewTally;
   m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
   /** M10.5 per side: nests sited and moved, casualties sent back with bearers or walking, arrivals; at the end, the
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
@@ -58,6 +60,10 @@ interface Row {
   nest: Record<string, { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number; needEnd: number; reachedEnd: number; wrong: number; wrongRetagged: number; corrected: number }>;
   /** M10.6a per side: ambulance runs (battle record `amb`). */
   amb: Record<string, SideRecord["amb"]>;
+  /** M10.6b per side: combat vehicles' rear runs, Role 1 outcomes, the end-of-battle settlement. */
+  rear: Record<string, SideRecord["rear"]>;
+  role1: Record<string, SideRecord["role1"]>;
+  settled: Record<string, SideRecord["settled"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
    *  check, tags recovered (men), wounded who crawled to cover, prisoners' treatments by the enemy, surrendered men
    *  who crawled out of the fire; killed at the end. */
@@ -150,6 +156,7 @@ for (let i = 0; i < runs; i++) {
     vehiclesLost: Object.fromEntries(r.sides.map((s) => [s.side, (s.vehicles?.destroyed ?? 0) + (s.vehicles?.abandoned ?? 0)])),
     vehiclesImmobilised: Object.fromEntries(r.sides.map((s) => [s.side, s.vehicles?.immobilised ?? 0])),
     firstDismountS: perSide((x) => (x.firstDismountTick === null ? null : x.firstDismountTick / 60)),
+    review: rec.review,
     crews: perSide((x) => x.crews), missiles: perSide((x) => x.missiles), mortar: perSide((x) => x.mortar), buildings: houses.tally,
     care: perSide((x) => x.care),
     carers: perSide((x, side) => ({ comrades: x.carers.comrades, responders: x.carers.responders, needed: carers[side]!.needed, cared: carers[side]!.firstCareS.length, firstCareS: carers[side]!.firstCareS, maxComrades: carers[side]!.maxComrades, diedFast: carers[side]!.diedFast })),
@@ -158,6 +165,9 @@ for (let i = 0; i < runs; i++) {
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
     amb: perSide((x) => x.amb),
+    rear: perSide((x) => x.rear),
+    role1: perSide((x) => x.role1),
+    settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
@@ -197,6 +207,16 @@ const md = [
   `- Vehicles (M7.2): mean lost ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesLost[s] ?? 0)).toFixed(2)}`).join(", ")}; immobilised ${["blue", "red"].map((s) => `${s} ${mean(rows.map((r) => r.vehiclesImmobilised[s] ?? 0)).toFixed(2)}`).join(", ")}; first dismount at ${["blue", "red"].map((s) => { const xs = rows.map((r) => r.firstDismountS[s]).filter((x): x is number => x !== null && x !== undefined); return `${s} ${xs.length ? `${mean(xs).toFixed(0)} s (${xs.length} runs)` : "-"}`; }).join(", ")}`,
   `- Ammunition per battle (M7.3; vehicle rounds credited to the vehicle): ${["blue", "red"].map((s) => `${s} small arms ${mean(rows.map((r) => r.spent[s]?.smallArms ?? 0)).toFixed(0)}, grenades ${mean(rows.map((r) => r.spent[s]?.grenades ?? 0)).toFixed(1)}, anti-tank rounds ${mean(rows.map((r) => r.spent[s]?.rockets ?? 0)).toFixed(1)}, cannon ${mean(rows.map((r) => r.spent[s]?.cannon ?? 0)).toFixed(0)}, coax ${mean(rows.map((r) => r.spent[s]?.coax ?? 0)).toFixed(0)}, smoke salvos ${mean(rows.map((r) => r.spent[s]?.smoke ?? 0)).toFixed(1)}, hand smoke ${mean(rows.map((r) => r.spent[s]?.handSmoke ?? 0)).toFixed(1)}`).join("; ")}`,
   `- Guided missiles per battle (owner 2026-11-13): ${["blue", "red"].map((s) => `${s} fired ${mean(rows.map((r) => r.missiles[s]?.fired ?? 0)).toFixed(1)}, hit ${mean(rows.map((r) => r.missiles[s]?.hit ?? 0)).toFixed(1)}, lost ${mean(rows.map((r) => r.missiles[s]?.lost ?? 0)).toFixed(1)}, missed ${mean(rows.map((r) => r.missiles[s]?.miss ?? 0)).toFixed(1)}, enemy hulls penetrated ${mean(rows.map((r) => r.missiles[s]?.penetrated ?? 0)).toFixed(1)} (by rockets ${mean(rows.map((r) => r.missiles[s]?.rocketPenetrated ?? 0)).toFixed(1)})`).join("; ")}`,
+  `- Drones per battle (M9.4): ${["blue", "red"].map((s) => {
+    const d = (f: (x: ReviewTally["sides"][string]["drones"]) => number) => mean(rows.map((r) => { const x = r.review.sides[s]; return x ? f(x.drones) : 0; })).toFixed(1);
+    return `${s} flown ${d((x) => x.launched)}, recovered ${d((x) => x.landed)}, lost ${d((x) => x.lostBattery + x.lostNoOperator + x.shotDown)} (shot down ${d((x) => x.shotDown)}, battery ${d((x) => x.lostBattery)}, no operator ${d((x) => x.lostNoOperator)}), enemy drones shot down ${d((x) => x.downedEnemy)}`;
+  }).join("; ")}`,
+  `- Enemies found per battle (M9.6): ${["blue", "red"].map((s) => {
+    const tot = rows.reduce((n, r) => n + (r.review.sides[s]?.found.total ?? 0), 0), dr = rows.reduce((n, r) => n + (r.review.sides[s]?.found.byDrone ?? 0), 0);
+    return `${s} ${(tot / Math.max(1, rows.length)).toFixed(1)}, first by a drone ${(dr / Math.max(1, rows.length)).toFixed(1)} (${tot > 0 ? Math.round((100 * dr) / tot) : 0} %)`;
+  }).join("; ")}`,
+  `- Fire missions by location method (M9.5; calls per battle, rounds landed in brackets): ${["blue", "red"].map((s) => `${s} ${(["estimate", "laser", "registered", "drone", "air"] as const).map((k) => `${k} ${mean(rows.map((r) => r.review.sides[s]?.calls[k] ?? 0)).toFixed(1)} (${mean(rows.map((r) => r.review.sides[s]?.rounds[k] ?? 0)).toFixed(1)})`).join(", ")}`).join("; ")}`,
+  ...(timeOfDay !== null ? [`- Light (M9.1): start ${Math.round(100 * mean(rows.map((r) => r.review.light?.start ?? 1)))} %, lowest ${Math.round(100 * mean(rows.map((r) => r.review.light?.min ?? 1)))} %`] : []),
   `- Mortar per battle (by the calling side): ${["blue", "red"].map((s) => `${s} HE bursts ${mean(rows.map((r) => r.mortar[s]?.bursts ?? 0)).toFixed(1)} (ranging rounds of any kind ${mean(rows.map((r) => r.mortar[s]?.ranging ?? 0)).toFixed(1)}), enemy wounded in a burst's tick ${mean(rows.map((r) => r.mortar[s]?.enemyWounded ?? 0)).toFixed(2)}, of them down ${mean(rows.map((r) => r.mortar[s]?.enemyDown ?? 0)).toFixed(2)}`).join("; ")}`,
   ...buildingsMarkdown(rows.map((r) => r.buildings), sc.build(data, firstSeed, 1).rules.objectives[0]?.holder ?? "blue"),
   `- Care per battle (M10.2, by the casualty's side): ${["blue", "red"].map((s) => `${s} self-aid ${mean(rows.map((r) => r.care[s]?.self ?? 0)).toFixed(1)}, by a comrade ${mean(rows.map((r) => r.care[s]?.buddy ?? 0)).toFixed(1)}, worked ${mean(rows.map((r) => r.care[s]?.worked ?? 0)).toFixed(1)}, men treated ${mean(rows.map((r) => r.care[s]?.men ?? 0)).toFixed(1)}, tourniquets on ${mean(rows.map((r) => r.care[s]?.tourniquets ?? 0)).toFixed(1)}`).join("; ")}`,
@@ -226,6 +246,16 @@ const md = [
     const med = (xs: number[]) => (xs.length === 0 ? "-" : `${Math.round(xs[Math.floor(xs.length / 2)]!)} s`);
     const cta = all((r) => r.amb[s]?.callToArriveS ?? []), wte = all((r) => r.amb[s]?.woundToEvacS ?? []);
     return `${s} called ${sum((r) => r.amb[s]?.called ?? 0)} (stood down ${sum((r) => r.amb[s]?.cancelled ?? 0)}), came on ${sum((r) => r.amb[s]?.entered ?? 0)}, reached the nest ${sum((r) => r.amb[s]?.arrived ?? 0)} (call to arrival median ${med(cta)}), took aboard ${sum((r) => r.amb[s]?.loaded ?? 0)}, left the map ${sum((r) => r.amb[s]?.away ?? 0)}; men evacuated ${sum((r) => r.amb[s]?.evacuated ?? 0)} (${(sum((r) => r.amb[s]?.evacuated ?? 0) / Math.max(1, rows.length)).toFixed(2)} per battle; first wound to leaving the map median ${med(wte)})`;
+  }).join("; ")}`,
+  `- Rear runs and Role 1 (M10.6b, by side): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const all = (f: (r: Row) => number[]) => rows.flatMap(f).sort((a, b) => a - b);
+    const med = (xs: number[]) => (xs.length === 0 ? "-" : `${xs[Math.floor(xs.length / 2)]!}`);
+    const t1 = sum((r) => r.role1[s]?.t1 ?? 0), t1in = sum((r) => r.role1[s]?.t1InTime ?? 0);
+    const dowH = all((r) => r.role1[s]?.dowH ?? []);
+    // (Died of wounds by hours from the first wound: < 1, 1-6, 6-24, 24-72, > 72.)
+    const bins = [1, 6, 24, 72, Infinity].map((hi, i, a) => dowH.filter((h) => h >= (i === 0 ? 0 : a[i - 1]!) && h < hi).length);
+    return `${s} rear runs ${sum((r) => r.rear[s]?.started ?? 0)} (ordered ${sum((r) => r.rear[s]?.ordered ?? 0)}, cancelled ${sum((r) => r.rear[s]?.cancelled ?? 0)}), off the map ${sum((r) => r.rear[s]?.away ?? 0)} with ${sum((r) => r.rear[s]?.men ?? 0)} men, back ${sum((r) => r.rear[s]?.back ?? 0)}; at the end evacuated ${sum((r) => r.settled[s]?.evacuated ?? 0)}, captured ${sum((r) => r.settled[s]?.captured ?? 0)}, prisoners ${sum((r) => r.settled[s]?.prisoner ?? 0)}, stayed ${sum((r) => r.settled[s]?.stays ?? 0)}; Role 1 ${sum((r) => r.role1[s]?.men ?? 0)} men (by captors ${sum((r) => r.role1[s]?.captor ?? 0)}), T1 within 60 min ${t1in}/${t1} (${t1 > 0 ? Math.round((100 * t1in) / t1) : 0} %), died of wounds ${dowH.length} (h from wound <1/1-6/6-24/24-72/>72: ${bins.join("/")}), recovery median ${med(all((r) => r.role1[s]?.recoveryD ?? []))} d`;
   }).join("; ")}`,
   `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

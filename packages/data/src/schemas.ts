@@ -360,6 +360,8 @@ export const SpottingFile = withProv({
   night: z.object({
     sun: z.array(z.tuple([Num(0, 24), Num(0, 1)])).min(2),
     moonFullLight: Num(0, 1), flashLight: Num(0, 1), vehicleFlashLight: Num(0, 1), tracerContrast: Num(1, 50),
+    /** Flares (M9.6): a burning flare's light = min(flareMaxLight, lux / flareFullLux), lux = candela / (h^2 + d^2). */
+    flareFullLux: Num(0.01, 100000), flareMaxLight: Num(0, 1),
   }).strict(),
   minVisibility: Num(0, 1), /** Smoke (M6.5c): share of the view lost per metre of smoke, as an extinction rate. */ smokeExtinctionPerM: Num(0, 10), /** A smoke cloud grows to its full size over this time. */ smokeBuildSeconds: Num(0, 120),
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
@@ -392,6 +394,8 @@ export const BehaviourFile = withProv({
     seekCoverSuppression: Num(0, 1), coverSearchM: Num(0, 100), coverRetrySeconds: Num(0, 600), threatEyeHeightM: Num(0, 5),
     shareRangeM: Num(0, 500), keepSpare: Num(0, 20), passSeconds: Num(0, 60),
     ammoIntervalFactor: z.object({ conserve: Num(0.1, 10), normal: Num(0.1, 10), max: Num(0.1, 10) }).strict(),
+    /** Night fire discipline (M9.6): below this light, a man not fired on lately opens fire on his own only out to these ranges. */
+    night: z.object({ belowLight: Num(0, 1), engageRangeM: z.object({ rifle: Num(0, 5000), magnified: Num(0, 5000), sustained: Num(0, 5000) }).strict() }).strict().optional(),
   }).strict(),
   drills: z.object({
     stepSeconds: Num(0.05, 10), reactToContact: z.boolean(), boundM: Num(1, 500), finalM: Num(0, 500), phaseTimeoutSeconds: Num(1, 600), spreadM: Num(0, 50),
@@ -445,6 +449,7 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
+    droneHide: z.object({ triggerM: Num(0, 3000), freezeTriggerM: Num(0, 3000), freezeSeconds: Num(0, 600), maxFreezeSeconds: Num(0, 3600), freezeCooldownSeconds: Num(0, 3600), searchM: Num(0, 200), hideSeconds: Num(0, 3600), mode: z.string(), moveBeyondM: Num(0, 3000) }).strict().optional(),
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
     houseLeaveM: z.tuple([Num(0, 500), Num(0, 500)]), houseLeaveDeg: Num(0, 180), houseLeaveMode: z.string(), houseReenterSeconds: Num(0, 3600), houseContactErrM: Num(0, 1000),
@@ -579,6 +584,24 @@ export const MedicalFile = z.object({
   evacuation: withProv({
     delayMinS: Num(0, 36000), delayMaxS: Num(0, 36000), pace: Id, nearPace: Id, standM: Num(0, 100), carryMps: Num(0.1, 5), loadSecondsExtra: Num(0, 600),
     waitS: Num(0, 3600), maxStayS: Num(0, 36000), edgeM: Num(1, 200), retryS: Num(1, 600), requestAt: z.number().int().min(1).max(20),
+  }).optional(),
+  /** Combat vehicles' rear run (M10.6b): when an idle hull takes the nest's casualties off the map, and back. */
+  rearRun: withProv({
+    idleS: Num(0, 3600), quietS: Num(0, 3600), enemyM: Num(0, 5000), startT1: z.number().int().min(1).max(20), startAny: z.number().int().min(1).max(20),
+    ambulanceWithinS: Num(0, 36000), maxNestM: Num(0, 10000), maxPerPlatoon: z.number().int().min(1).max(10), keepVehicles: z.number().int().min(0).max(10),
+    waitS: Num(0, 3600), maxStayS: Num(0, 36000), awayS: Num(0, 36000), pace: Id, backM: Num(1, 200),
+  }).optional(),
+  /** Role 1 outcome at hand-over and the end-of-battle settlement (M10.6b): delays, died of wounds, recovery days. */
+  role1: withProv({
+    transferS: Num(0, 360000), settleDelayS: Num(0, 360000), captiveTransferS: Num(0, 360000), holdM: Num(1, 5000),
+    dow: z.object({
+      base: Num(0, 1), shockK: Num(0, 5), bloodK: Num(0, 5), respK: Num(0, 5), unconsciousK: Num(0, 5), severityK: Num(0, 5), max: Num(0, 1),
+      lateKPerH: Num(0, 10), captorFactor: Num(0, 10), delayMinH: Num(0, 10000), delayMaxH: Num(0, 10000),
+    }).strict(),
+    recovery: z.object({
+      bands: z.array(z.object({ upTo: Num(0, 1), minD: Num(0, 10000), maxD: Num(0, 10000) }).strict()).min(1),
+      fractureMinD: Num(0, 10000), fractureMaxD: Num(0, 10000), untreatedFactor: Num(0, 10), lateFactor: Num(0, 10), amputationD: Num(0, 10000),
+    }).strict(),
   }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({

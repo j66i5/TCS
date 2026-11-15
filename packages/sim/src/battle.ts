@@ -40,7 +40,14 @@ export interface SoldierRecord {
   load: ItemStack[];
   /** Outcome status after a battle. "fit" going in. */
   /** "surrendered" / "captured" (M6.6): such a record placed in a battle is a prisoner from the first tick. */
+  /** "evacuated" (M10.6a/b): taken off the map by an ambulance, a combat vehicle's rear run, or at the battle's end
+   *  by his side holding the ground. A man who died of his wounds after the battle is "killed", with `diedOfWoundsTick`. */
   status: "fit" | "wounded" | "incapacitated" | "killed" | "missing" | "surrendered" | "captured" | "evacuated";
+  /** Days until he is fit again (M10.6b, owner Q-16: from wound severity and treatment). Absent: not wounded, or not
+   *  yet settled (a record that went into a battle and was not hurt again keeps whatever it had: the campaign's). */
+  recoveryDays?: number;
+  /** He died of his wounds after the battle, at this battle tick (M10.6b; it may lie after the battle's end). */
+  diedOfWoundsTick?: number;
 }
 
 export interface UnitInput {
@@ -131,8 +138,12 @@ export interface SideResult {
   /** Living prisoners (M6.6): start = fit + wounded + killed + surrendered + captured. */
   surrendered: number;
   captured: number;
-  /** Of the wounded (M10.6a): evacuated off the map by ambulance. Absent: none. */
+  /** Of the wounded (M10.6a): evacuated off the map (by ambulance, a combat vehicle's rear run, or at the end by the
+   *  side holding the ground, M10.6b). Absent: none. */
   evacuated?: number;
+  /** Of the wounded and prisoners (M10.6b): died of their wounds after the battle (roster status "killed" with
+   *  `diedOfWoundsTick`; not in `killed`, which counts the men killed in the battle). Absent: none. */
+  diedOfWounds?: number;
   /** Vehicles (M7): how many started and how they ended; absent for a force without vehicles. */
   vehicles?: { start: number; ok: number; immobilised: number; disarmed: number; abandoned: number; destroyed: number; captured: number };
 }

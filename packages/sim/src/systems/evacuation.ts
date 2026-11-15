@@ -18,7 +18,7 @@
 import type { SoldierState, VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
-import { secondsToTicks, ticksToSeconds, type EntityId, type SideId } from "../ids";
+import { secondsToTicks, ticksToSeconds, type DefId, type EntityId, type SideId } from "../ids";
 import { canReport, isAble } from "../impair";
 import { atan2, cos, hypot2, sin } from "../math";
 import { hasDriver, isMounted } from "../mount";
@@ -29,6 +29,7 @@ import { nextRange, Streams } from "../rng";
 import type { SimState } from "../state";
 import { liesAboard, placesFit, placesUsed, seatCasualty } from "./boarding";
 import { planVehicleRoute, vehicleHalt, vehicleMove, type OrderResult } from "./drive";
+import { handOver } from "./aftercare";
 import { careEnabled, treatedNow } from "./medical";
 import { nestOf, setNest, siteNest, topOf } from "./nest";
 
@@ -50,7 +51,7 @@ function speaker(state: SimState, uid: EntityId): EntityId | null {
   return null;
 }
 
-function radio(state: SimState, events: EventSink, uid: EntityId, key: string, params: Record<string, string | number> = {}): void {
+export function radio(state: SimState, events: EventSink, uid: EntityId, key: string, params: Record<string, string | number> = {}): void {
   const u = state.unit.get(uid), from = speaker(state, uid);
   if (!u || from === null) return;
   events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign, ...params } });
@@ -161,7 +162,7 @@ export function callAmbulanceOrder(ctx: SimContext, state: SimState, events: Eve
 }
 
 /** Can this hull still drive (a driver aboard, wheels and engine working, the crew not getting out)? */
-function canDrive(ctx: SimContext, state: SimState, v: VehicleState): boolean {
+export function canDrive(ctx: SimContext, state: SimState, v: VehicleState): boolean {
   const def = ctx.catalog.vehicles[v.def];
   return def !== undefined && v.unit !== null && v.crewReaction !== "bailOut" && (v.status === "ok" || v.status === "disarmed") && hasDriver(state, v, def);
 }
@@ -170,7 +171,7 @@ function canDrive(ctx: SimContext, state: SimState, v: VehicleState): boolean {
  * Where to stop for the nest at (px, py): `standM` short of it on the side the hull comes from, else the nearest
  * ground its wheels reach from where it is (a nest in a wood: at the wood's edge; the crew carries the men further).
  */
-function standSpot(ctx: SimContext, from: { x: number; y: number }, px: number, py: number, standM: number): { x: number; y: number } {
+export function standSpot(ctx: SimContext, from: { x: number; y: number }, px: number, py: number, standM: number): { x: number; y: number } {
   const L = hypot2(from.x - px, from.y - py);
   const sx = L > 1 ? px + ((from.x - px) / L) * standM : px, sy = L > 1 ? py + ((from.y - py) / L) * standM : py;
   const g = navFor(ctx, "wheeled").grid;
@@ -186,7 +187,7 @@ function standSpot(ctx: SimContext, from: { x: number; y: number }, px: number, 
  * than manoeuvre round the last obstacles beside the men (a wheeled hull turns wide; the crew carries the men the
  * rest). `g` itself when the way never comes that close before its end.
  */
-function cutShort(ctx: SimContext, v: VehicleState, t: { x: number; y: number }, g: { x: number; y: number }, px: number, py: number, reachM: number): { x: number; y: number } {
+export function cutShort(ctx: SimContext, v: VehicleState, t: { x: number; y: number }, g: { x: number; y: number }, px: number, py: number, reachM: number): { x: number; y: number } {
   const def = ctx.catalog.vehicles[v.def];
   if (!def) return g;
   const route = planVehicleRoute(ctx, def.class, t.x, t.y, [{ x: g.x, y: g.y, mode: ctx.catalog.medical!.evacuation!.pace }]);
@@ -204,26 +205,28 @@ function cutShort(ctx: SimContext, v: VehicleState, t: { x: number; y: number },
 }
 
 /** A hull stops once its way comes within standM + this of the nest (m). */
-const STOP_SLACK_M = 50;
+export const STOP_SLACK_M = 50;
 /** A hull held up (stuck, or planning its way again) this close to the nest stops where it is (m). */
-const HELD_UP_NEAR_M = 80;
+export const HELD_UP_NEAR_M = 80;
 
 /** How far from its spot short of the nest an ambulance looks for ground its wheels reach (m). */
 const STAND_SEARCH_M = 150;
 
-/** Route the hull to (x, y) at the evacuation pace (the last `NEAR_M` at `nearPace` when `slowEnd`). True if it has a route. */
-function driveTo(ctx: SimContext, state: SimState, vid: EntityId, x: number, y: number, slowEnd = false): boolean {
-  const E = ctx.catalog.medical!.evacuation!;
+/** Route the hull to (x, y) at the evacuation pace (the last `NEAR_M` at `nearPace` when `slowEnd`). True if it has a route.
+ *  `pace` / `nearPace`: other paces (a combat vehicle's rear run, M10.6b). */
+export function driveTo(ctx: SimContext, state: SimState, vid: EntityId, x: number, y: number, slowEnd = false, pace?: DefId, nearPace?: DefId): boolean {
+  const E = ctx.catalog.medical!.evacuation;
+  const P = pace ?? E!.pace, NP = nearPace ?? E?.nearPace ?? P;
   const t = state.transform.req(vid), L = hypot2(x - t.x, y - t.y);
   if (slowEnd && L > NEAR_M * 2) {
     const k = (L - NEAR_M) / L;
-    return vehicleMove(ctx, state, vid, [{ x: t.x + (x - t.x) * k, y: t.y + (y - t.y) * k, mode: E.pace }, { x, y, mode: E.nearPace }], undefined) === true;
+    return vehicleMove(ctx, state, vid, [{ x: t.x + (x - t.x) * k, y: t.y + (y - t.y) * k, mode: P }, { x, y, mode: NP }], undefined) === true;
   }
-  return vehicleMove(ctx, state, vid, [{ x, y, mode: slowEnd ? E.nearPace : E.pace }], undefined) === true;
+  return vehicleMove(ctx, state, vid, [{ x, y, mode: slowEnd ? NP : P }], undefined) === true;
 }
 
 /** The men lying at nest `pid` who could go aboard (alive, on foot, not carried), T1 first by their tag. */
-function waitingAt(state: SimState, pid: EntityId, men: readonly EntityId[]): EntityId[] {
+export function waitingAt(state: SimState, pid: EntityId, men: readonly EntityId[]): EntityId[] {
   const out: EntityId[] = [];
   for (const c of men) {
     const s = state.soldier.get(c);
@@ -235,13 +238,13 @@ function waitingAt(state: SimState, pid: EntityId, men: readonly EntityId[]): En
 }
 
 /** Is anyone on the way to nest `pid` (a carrying party, or a man walking there)? */
-function comingTo(state: SimState, pid: EntityId): boolean {
+export function comingTo(state: SimState, pid: EntityId): boolean {
   for (const [, c] of state.carry.entries()) if (c.point === pid) return true;
   return false;
 }
 
 /** The men aboard who are passengers (lying or sitting), ascending seat. */
-function aboard(v: VehicleState, ctx: SimContext): EntityId[] {
+export function aboard(v: VehicleState, ctx: SimContext): EntityId[] {
   const def = ctx.catalog.vehicles[v.def];
   const out: EntityId[] = [];
   if (!def) return out;
@@ -425,18 +428,25 @@ function leave(ctx: SimContext, state: SimState, events: EventSink, vid: EntityI
   const n = aboard(v, ctx).length;
   events.emit({ kind: "medical.ambulance", tick: state.tick, side: v.side, vehicle: vid, phase: "departed", ...(o.point !== undefined ? { point: o.point } : {}), aboard: n });
   if (v.unit !== null) radio(state, events, v.unit, "radio.ambulanceLeaving", { n });
-  // (Facing the nest, with men lying ahead, it first backs away from them, then turns for home.)
-  const t = state.transform.req(vid), p = o.point !== undefined ? state.rear.get(o.point) : undefined;
-  let ok = false;
-  // (Near the nest at the slow `nearPace`, so that its look-ahead for men in its way does not reach the men lying there.)
+  const p = o.point !== undefined ? state.rear.get(o.point) : undefined;
+  if (!backAwayAndGo(ctx, state, vid, p, entry, E.pace, E.nearPace)) events.emit({ kind: "medical.ambulance", tick: state.tick, side: v.side, vehicle: vid, phase: "noRoute" });
+  o.retryTick = state.tick + secondsToTicks(E.retryS);
+}
+
+/**
+ * Drive from the rear point `p` to `to`: facing the point, with men lying ahead, it first backs away from them, then
+ * turns for `to` (near the point at the slow `nearPace`, so that its look-ahead for men in its way does not reach the
+ * men lying there). True if it has a route.
+ */
+export function backAwayAndGo(ctx: SimContext, state: SimState, vid: EntityId, p: { x: number; y: number } | undefined, to: { x: number; y: number }, pace: DefId, nearPace: DefId): boolean {
+  const t = state.transform.req(vid);
   if (p && cos(t.heading) * (p.x - t.x) + sin(t.heading) * (p.y - t.y) > 0) {
     const bx = t.x - cos(t.heading) * BACK_OFF_M, by = t.y - sin(t.heading) * BACK_OFF_M;
-    const L = hypot2(entry.x - bx, entry.y - by), k = L > NEAR_M ? NEAR_M / L : 1;
-    const mx = bx + (entry.x - bx) * k, my = by + (entry.y - by) * k;
-    if (bx > 2 && by > 2 && bx < ctx.map.widthM - 2 && by < ctx.map.heightM - 2) ok = vehicleMove(ctx, state, vid, [{ x: bx, y: by, mode: E.nearPace, reverse: true }, { x: mx, y: my, mode: E.nearPace }, { x: entry.x, y: entry.y, mode: E.pace }], undefined) === true;
+    const L = hypot2(to.x - bx, to.y - by), k = L > NEAR_M ? NEAR_M / L : 1;
+    const mx = bx + (to.x - bx) * k, my = by + (to.y - by) * k;
+    if (bx > 2 && by > 2 && bx < ctx.map.widthM - 2 && by < ctx.map.heightM - 2 && vehicleMove(ctx, state, vid, [{ x: bx, y: by, mode: nearPace, reverse: true }, { x: mx, y: my, mode: nearPace }, { x: to.x, y: to.y, mode: pace }], undefined) === true) return true;
   }
-  if (!ok && !driveTo(ctx, state, vid, entry.x, entry.y)) events.emit({ kind: "medical.ambulance", tick: state.tick, side: v.side, vehicle: vid, phase: "noRoute" });
-  o.retryTick = state.tick + secondsToTicks(E.retryS);
+  return driveTo(ctx, state, vid, to.x, to.y, false, pace, nearPace);
 }
 
 /** How far an ambulance backs away from the nest before it turns for home (m; room for a wheeled hull's turn). */
@@ -448,16 +458,7 @@ const NEAR_M = 30;
 function offTheMap(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId): void {
   const v = state.vehicle.req(vid), o = v.offMap!;
   // Every living wounded man aboard leaves the battle with it (a wounded crewman too).
-  for (const sid of v.seats) {
-    if (sid === null) continue;
-    const s: SoldierState | undefined = state.soldier.get(sid);
-    if (!s || !s.physiology.alive || s.wounds.length === 0 || s.evacuated !== undefined) continue;
-    s.evacuated = { tick: state.tick, vehicle: vid };
-    delete s.atNest; delete s.evacOrdered; delete s.evacRetryTick;
-    let woundedTick = state.tick;
-    for (const w of s.wounds) woundedTick = Math.min(woundedTick, w.tickInflicted);
-    events.emit({ kind: "medical.evacuated", tick: state.tick, side: v.side, casualty: sid, vehicle: vid, woundedTick });
-  }
+  evacuateAboard(ctx, state, events, vid, "ambulance", () => true);
   const n = aboard(v, ctx).length;
   o.phase = "away"; o.leftTick = state.tick;
   delete o.goal; delete o.retryTick;
@@ -469,4 +470,26 @@ function offTheMap(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
 /** Is this vehicle an ambulance on a run on the map (for the interface)? */
 export function onRun(v: VehicleState): boolean {
   return v.offMap?.kind === "ambulance" && !isOffMap(v) && v.offMap.phase !== "lost";
+}
+
+/**
+ * Hand over the living wounded aboard vehicle `vid` at the map edge (M10.6a ambulances; M10.6b rear runs: `who` picks
+ * which of them, a combat vehicle's fit crew stays with it): each is evacuated, and his Role 1 outcome is settled now.
+ */
+export function evacuateAboard(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, via: "ambulance" | "vehicle", who: (sid: EntityId, s: SoldierState) => boolean): number {
+  const v = state.vehicle.req(vid);
+  let n = 0;
+  for (const sid of v.seats) {
+    if (sid === null) continue;
+    const s: SoldierState | undefined = state.soldier.get(sid);
+    if (!s || !s.physiology.alive || s.wounds.length === 0 || s.evacuated !== undefined || !who(sid, s)) continue;
+    s.evacuated = { tick: state.tick, vehicle: vid, via };
+    delete s.atNest; delete s.evacOrdered; delete s.evacRetryTick;
+    let woundedTick = state.tick;
+    for (const w of s.wounds) woundedTick = Math.min(woundedTick, w.tickInflicted);
+    events.emit({ kind: "medical.evacuated", tick: state.tick, side: v.side, casualty: sid, vehicle: vid, woundedTick, via });
+    handOver(ctx, state, events, sid, "own", state.tick);
+    n++;
+  }
+  return n;
 }

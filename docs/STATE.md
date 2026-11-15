@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.6a off-map vehicles and ambulance runs, roadmap-detail slice 13). The long session-by-session
+_Last updated: 2026-11-15 (M10.6b combat vehicles' rear run, Role 1, settlement, roster; roadmap-detail slice 14). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -38,8 +38,15 @@ DECISIONS.md under its date._
   10-15 min (stood down if nobody waits by then), drives there, loads T1 first within its layouts, backs off, leaves
   the map; its wounded are "evacuated" (roster status; their condition is kept until M10.6b); `systems/evacuation.ts`,
   `medical.ambulance` / `medical.evacuated` events, battle record version 3, batch "Ambulances" line,
-  `npm run lab -- medevac`, `--scene medevac`.** **Next: slice 14, M10.6b (combat vehicles' rear run, Role 1,
-  end-of-battle settlement, roster `recoveryDays` / `diedOfWoundsTick`).**
+  `npm run lab -- medevac`, `--scene medevac`. Slice 14 (M10.6b) is done: a generic rear run
+  (`VehicleState.rearRun`, `systems/rearrun.ts`): an idle combat vehicle takes the nest's men off the map when a T1
+  (or three men) wait and no ambulance is near, one per platoon, back after 15 min; a hull with wounded aboard that
+  stands idle goes too; the player's `rearRun` ("Take wounded back" on the order bar); Role 1 outcome at hand-over and
+  the end-of-battle settlement (`systems/aftercare.ts`: died of wounds, recovery days; the side holding the ground
+  evacuates, else captured); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status "killed"),
+  `SideResult.diedOfWounds`; battle record version 5; batch "Rear runs and Role 1"; `--scene rearrun`.** **Next:
+  slice 15, M10.7a (recognition and respect); the refused fire order at a recognised protected target (owner Q-7)
+  comes with it and slice 16.** Merged origin/main (men down, identity tags, prisoners' care) before slice 14.
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid
@@ -76,7 +83,9 @@ Move means fly and Halt brings it home. `npm run lab -- drone`, `--scene drone`,
 AI keeps its drones up 220 m short of the enemy at 120 m (M9.4b); men see and hear enemy drones (in `seen`, not
 contacts), call them out and fire at those within 200 m (abstract hit box, `droneHitChance`). M9.5: a call is
 located by the drone (or an off-map reconnaissance drone, `?air=blue`) when that is better, and drones read the falls.
-Next on this line: M9.6 night AI and balance (hiding from drones).
+M9.6 (2026-11-15): flares give light; AI night drills (illumination calls, night attack distances, night
+fire discipline); men hide from enemy drones; review rows (drones, enemies found by drone, fire missions by location
+method); batches day and night reported, not re-tuned (no agreed band). Open: the owner's play-test.
 
 **Main battle tanks: data and labs (2026-11-14, roadmap-detail slice 39 "M7.6a", parallel session; DECISIONS
 "M7.6a").**

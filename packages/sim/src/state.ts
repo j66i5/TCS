@@ -41,7 +41,7 @@ export interface SupportSection {
  * in volleys (`volley` = rounds of the current volley fired).
  */
 /** A parachute flare (M8.4): where it was ejected (x, y, z), when, how long it burns and how fast it sinks; its
- *  light (candela) is for M9.1. */
+ *  light (candela) lights the ground below (flares.ts, M9.6). */
 export interface Flare { x: number; y: number; z: number; startTick: number; untilTick: number; descentMps: number; candela: number; side: SideId }
 
 /** A fire mission's round kind (M8.4: illumination). */
@@ -146,7 +146,7 @@ export interface SimState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: SupportSection[];
   fireMissions: FireMission[];
-  /** M8.4: illumination flares in the air (saved; they give no light until M9.1). */
+  /** M8.4: illumination flares in the air (saved; their light: flares.ts, M9.6). */
   flares?: Flare[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: SmokeCloud[];
@@ -243,7 +243,7 @@ export interface SerializedState {
    *  counted items, rule 9, and the item types of its HE and smoke rounds), missions on their way, smoke clouds. */
   support: SupportSection[];
   fireMissions: FireMission[];
-  /** M8.4: illumination flares in the air (saved; they give no light until M9.1). */
+  /** M8.4: illumination flares in the air (saved; their light: flares.ts, M9.6). */
   flares?: Flare[];
   /** `multispectral` (M7.3): also blinds thermal sights; absent = ordinary smoke. */
   smoke: SmokeCloud[];

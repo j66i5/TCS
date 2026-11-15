@@ -294,6 +294,7 @@ export function keyAction(code: string, key: string, mods: { shift: boolean; ctr
     case "Digit2": case "Numpad2": return { kind: "speed", index: 1 };
     case "Digit3": case "Numpad3": return { kind: "speed", index: 2 };
     case "Digit4": case "Numpad4": return { kind: "speed", index: 3 };
+    case "Digit5": case "Numpad5": return { kind: "speed", index: 4 };
     case "Escape": return { kind: "cancel" };
     case "Tab": return { kind: "cycle", dir: mods.shift ? -1 : 1 };
     case "KeyF": return { kind: "follow" };

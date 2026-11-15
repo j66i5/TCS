@@ -74,7 +74,23 @@ export type SimEvent =
    */
   | { kind: "medical.ambulance"; tick: number; side: SideId; vehicle: EntityId; phase: "called" | "entered" | "arrived" | "loaded" | "departed" | "away" | "noRoute" | "lost" | "cancelled"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; dueS?: number; ordered?: boolean }
   /** A casualty left the battle in an ambulance that drove off the map (M10.6a): evacuated from then on. */
-  | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number }
+  | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number; via?: "ambulance" | "vehicle" }
+  /**
+   * A combat vehicle's rear run (M10.6b, owner Q-9): `phase` started (for the platoon `unit`'s nest `point`; `ordered`:
+   * the player's `rearRun`), arrived (at the nest), loaded (`casualty` aboard), departed (`aboard` men), away (off the
+   * map, `aboard` handed over), returned (back on the map), back (where it was sent: the run is over), cancelled
+   * (nobody to take, or an order ended it), lost (it can no longer drive).
+   */
+  | { kind: "medical.rearRun"; tick: number; side: SideId; vehicle: EntityId; phase: "started" | "arrived" | "loaded" | "departed" | "away" | "returned" | "back" | "cancelled" | "lost"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; ordered?: boolean }
+  /**
+   * A wounded man's outcome beyond the battle is settled (M10.6b): he reaches Role 1 (`by` own) or the captor's aid
+   * post at `role1Tick` (`inTime`: within `chain.role1S` of his first wound); `recoveryDays`; `diedOfWoundsTick` if he dies of his wounds; `cat` his triage tag then;
+   * `woundedTick` his first wound.
+   */
+  | { kind: "medical.role1"; tick: number; casualty: EntityId; side: SideId; by: "own" | "captor"; role1Tick: number; woundedTick: number; inTime: boolean; recoveryDays: number; diedOfWoundsTick?: number; cat?: 1 | 2 | 3 }
+  /** The end-of-battle settlement of a wounded man (M10.6b, owner Q-1e/Q-10): evacuated by his side (it holds the
+   *  ground), captured (`holder` holds it), already a prisoner, or stays with his unit (walking wounded). */
+  | { kind: "medical.settled"; tick: number; casualty: EntityId; side: SideId; outcome: "evacuated" | "captured" | "prisoner" | "stays"; holder?: SideId }
   /** A man down whose state his side did not know was checked by a comrade (owner request 2026-11-15): `dead` what
    *  the check found; `dragged` he had been dragged to cover before the check. */
   | { kind: "medical.checked"; tick: number; casualty: EntityId; by: EntityId; dead: boolean; dragged: boolean }
@@ -114,8 +130,8 @@ export type SimEvent =
    *  ("splash"). */
   | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered" | "drone" | "air"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
   /** M8.6: a round of a fire mission lands (for the review's tally: which asset, which kind). */
-  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number }
-  /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: M9.1). */
+  | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number; /** M9.6: how the mission's target was located. */ method?: "estimate" | "laser" | "registered" | "drone" | "air" }
+  /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: flares.ts, M9.6). */
   | { kind: "support.illum"; tick: number; x: number; y: number; side: SideId; burnS: number }
   | { kind: "support.shot"; tick: number; side: SideId; caller: EntityId; x: number; y: number; flightS: number }
   | { kind: "support.splash"; tick: number; side: SideId; caller: EntityId; x: number; y: number; inS: number }
@@ -123,9 +139,9 @@ export type SimEvent =
    *  a tube fires a round (where from, where it is aimed, which round, seconds of flight). */
   /** M9.4a reconnaissance quadcopters: launched (its operator flies it), landed and recovered by a man, lost (empty
    *  battery, or nobody there when it came home). */
-  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId }
+  | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId; /** M9.6: the drone's item type. */ item?: DefId }
   | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
-  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot" }
+  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot"; /** M9.6: the man whose round brought it down (reason "shot"). */ by?: EntityId }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
   | { kind: "mortar.packed"; tick: number; unit: EntityId }

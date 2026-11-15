@@ -239,6 +239,18 @@ async function nightScenes(page: Page, name: string, errors: string[], shots: st
     await page.screenshot({ path: p }); shots.push(p);
     info.push(`${time} ${look} z${zoom} light ${r.light.toFixed(2)} lastShot ${r.last}/${r.tick} proj ${r.proj} ${r.post}`);
   }
+  // M9.6: an illumination flare burning over the ground ahead at 23:00 (its glow and lit circle), zoomed out.
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0&time=23:00&moon=0`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const fl = await page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; t.setSpeed(0);
+    const W = t.sim.ctx.map.widthM, H = t.sim.ctx.map.heightM, x = W / 2, y = H / 2;
+    s.flares = [...(s.flares ?? []), { x, y, z: 400, startTick: s.tick, untilTick: s.tick + 60 * 600, descentMps: 0, candela: 1000000, side: "blue" }];
+    t.focus(x, y, 1400); t.stepTicks(1); return { flares: s.flares.length, light: s.environment.light };`) as () => { flares: number; light: number });
+  await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  await page.waitForTimeout(400);
+  const pf = `${outDir}/night-${seed}-${name}-2300-flare.png`;
+  await page.screenshot({ path: pf }); shots.push(pf);
+  info.push(`flare ${fl.flares} light ${fl.light.toFixed(2)}`);
   console.log(`${name}: night scene ${info.join("; ")}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
@@ -338,6 +350,45 @@ async function nestScenes(page: Page, name: string, errors: string[], shots: str
   await shot("2-wounded-back");
   const log = await ev<unknown>(`return [${info.hurt.join(",")}].map((id) => ({ id, atNest: s.soldier.get(id).atNest ?? null, carried: s.carry.has(id), alive: s.soldier.get(id).physiology.alive }));`);
   console.log(`${name}: nest scene ${JSON.stringify({ nest: info.nest, men: log })}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
+ * M10.6b a combat vehicle's rear run (`--scene rearrun`): the platoon battle mounted (village). The first squad gets
+ * out; three of its men are hurt (debug hook) and taken to the nest. Shots: the hull selected with the order bar's
+ * "Take wounded back" button; the hull at the nest loading (after the player's order); the Wounded tab while it is
+ * away at the rear (with the minutes until it is back).
+ */
+async function rearRunScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForTimeout(250); const p = `${outDir}/rearrun-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
+  const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
+  const settle = () => page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+  const info = await ev<{ crew: number; vid: number; hurt: number[] }>(`t.setSpeed(0); t.dock(innerWidth > innerHeight ? "right" : "bottom");
+    const [vid, crew] = t.vehicles()[0];
+    const sqId = [...s.unit.entries()].find(([, u]) => u.carrier === vid)[0];
+    t.select(sqId); t.dismount(); t.stepTicks(60 * 40);
+    const u = s.unit.get(sqId); const men = [...u.members].filter((m) => m !== u.leader && !s.soldier.get(m).mount);
+    t.hurt(men[0], { zone: "legR", severity: 0.35, fracture: true });
+    t.hurt(men[1], { zone: "legL", severity: 0.4, fracture: true });
+    t.hurt(men[2], { zone: "armL", severity: 0.6 });
+    for (let k = 0; k < 600 && ![...s.soldier.values()].some((x) => x.atNest !== undefined); k++) t.stepTicks(60);
+    t.stepTicks(60 * 20);
+    t.select(crew); t.stepTicks(1);
+    const vt = s.transform.get(vid); t.focusScale(vt.x, vt.y, ${name === "phone" ? 4 : 6}); t.stepTicks(1);
+    return { crew, vid, hurt: [men[0], men[1], men[2]] };`);
+  await settle();
+  await shot("0-button");
+  await ev(`t.rearRun(); for (let k = 0; k < 600 && s.vehicle.get(${info.vid}).rearRun && s.vehicle.get(${info.vid}).rearRun.phase === "toPoint"; k++) t.stepTicks(60); t.stepTicks(60 * 20);
+    const n = [...s.rear.values()].find((p) => p.side === "blue" && p.kind === "medical"); if (n) t.focusScale(n.x, n.y, ${name === "phone" ? 6 : 8}); t.stepTicks(1); return null;`);
+  await settle();
+  await shot("1-loading");
+  await ev(`for (let k = 0; k < 1500 && s.vehicle.get(${info.vid}).rearRun && s.vehicle.get(${info.vid}).rearRun.phase !== "away"; k++) t.stepTicks(60); t.stepTicks(60 * 30); t.select(null); t.stepTicks(1); return null;`);
+  if (name === "phone") await page.click(".hud-side-wounded"); else await page.click(".hud-side-tab:nth-child(2)");
+  await page.waitForTimeout(300);
+  await shot("2-away");
+  const log = await ev<unknown>(`const v = s.vehicle.get(${info.vid}); return { phase: v.rearRun ? v.rearRun.phase : null, men: [${info.hurt.join(",")}].map((id) => ({ id, evacuated: s.soldier.get(id).evacuated ?? null, aftercare: s.soldier.get(id).aftercare ?? null, atNest: s.soldier.get(id).atNest ?? null })) };`);
+  console.log(`${name}: rearrun scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**
@@ -1693,6 +1744,7 @@ try {
     if (args["scene"] === "medical") { await medicalScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "nest") { await nestScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "medevac") { await medevacScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "rearrun") { await rearRunScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "missile") { await missileScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ui") { await uiScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "look") { await lookScenes(page, name, errors, shots); await page.close(); continue; }

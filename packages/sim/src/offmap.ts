@@ -4,7 +4,8 @@
  * `VehicleState.offMap`. While it is off the map (phases ready, called, away) every system skips it: each loop over
  * the vehicle store tests `isOffMap` first (architecture test), and its men are aboard it, so every soldier loop's
  * mount gate passes them by. It stands parked at `OFF_MAP_PARK`, far outside every map, where no projectile, sight
- * line or grid reaches. Coming on and going off are `enterMap` / `leaveMap`.
+ * line or grid reaches. A combat vehicle on a rear run (M10.6b, `VehicleState.rearRun`) is off the map the same way
+ * while it is "away", and stays of its force.
  */
 import type { SoldierState, VehicleState } from "./components";
 import type { EntityId } from "./ids";
@@ -13,10 +14,12 @@ import type { SimState, SimView } from "./state";
 /** Where off-map vehicles (and their men) stand: far outside any map (m). */
 export const OFF_MAP_PARK = { x: -10000, y: -10000 } as const;
 
-/** Is this vehicle off the map right now (an asset waiting, on its way to the edge, or gone)? */
-export function isOffMap(v: { offMap?: VehicleState["offMap"] } | undefined): boolean {
+/** Is this vehicle off the map right now (an asset waiting, on its way to the edge, or gone; a combat vehicle away on
+ *  a rear run, M10.6b)? */
+export function isOffMap(v: { offMap?: VehicleState["offMap"]; rearRun?: VehicleState["rearRun"] } | undefined): boolean {
   const o = v?.offMap;
-  return o !== undefined && (o.phase === "ready" || o.phase === "called" || o.phase === "away");
+  if (o !== undefined) return o.phase === "ready" || o.phase === "called" || o.phase === "away";
+  return v?.rearRun?.phase === "away";
 }
 
 /** Is this man off the map (aboard an off-map vehicle)? */

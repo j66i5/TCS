@@ -255,7 +255,7 @@ export interface AmmoDef {
   multispectral?: boolean;
   /** Hand smoke grenade (D1): starts to smoke `fuseSeconds` after release, a cloud of `radiusM` for `seconds`. */
   smoke?: { fuseSeconds: number; radiusM: number; seconds: number; topM?: number };
-  /** M8.4 illumination round: the flare (light from M9.1). */
+  /** M8.4 illumination round: the flare (its light: flares.ts, M9.6). */
   illum?: { candela: number; burnSeconds: number; heightM: number; descentMps: number };
   /** Thrown by hand or fired from a launcher item the soldier carries. */
   delivery?: { method: "thrown" | "launched" | "direct"; velocityMps?: number; launcher?: DefId; maxRangeM?: number; dispersionMrad?: number; aimSeconds?: number; backblastM?: number; disposable?: boolean };
@@ -331,6 +331,9 @@ export interface BehaviourDef {
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
     ammoIntervalFactor: Record<AmmoRule, number>;
+    /** Night fire discipline (M9.6): while `environment.light` is below `belowLight` and his platoon has not been fired
+     *  on lately, a man opens fire on his own only out to `engageRangeM` (by weapon, as the day ranges). Absent: none. */
+    night?: { belowLight: number; engageRangeM: { rifle: number; magnified: number; sustained: number } };
   };
   /** Squad drills (M4.3). */
   drills: {
@@ -503,6 +506,15 @@ export interface BehaviourDef {
      *  least decisions.seekCoverSuppression, or whose own unit was fired on in the last hurryFiredOnSeconds, takes
      *  hurryMode for the rest of his way, until hurryQuietSeconds pass without either. */
     hurryModes: string[]; hurryMode: string; hurryFiredOnSeconds: number; hurryQuietSeconds: number;
+    /** Hiding from drones (M9.6, game values, low): a man on foot who sees an enemy drone within triggerM
+     *  (horizontal) and is not fighting nor under fire hides from it. On his way he freezes only when it is within
+     *  freezeTriggerM (nearly overhead), for freezeSeconds (re-armed while he sees it, at most maxFreezeSeconds in a
+     *  row; then not again for freezeCooldownSeconds; never on a bolt out of a house or out of a beaten zone); halted, he lies down under a canopy or indoors where he is, else goes to
+     *  the nearest canopy within searchM (at the pace `mode`, only while the drone is at least moveBeyondM off horizontally;
+     *  not a man at a post: busy, a deployed mortar or missile team, a drone operator) and lies there, and walks back
+     *  to his place once it is over; hidden, he stays down for hideSeconds after he last saw it
+     *  (and looks for a canopy again no sooner). triggerM 0 = off. Absent: off. */
+    droneHide?: { triggerM: number; freezeTriggerM: number; freezeSeconds: number; maxFreezeSeconds: number; freezeCooldownSeconds: number; searchM: number; hideSeconds: number; mode: string; moveBeyondM: number };
     /**
      * Leaving a house (M7.5e step "leave", owner 2026-11-14). houseLeave: the rule is on (false = off, for labs).
      * A trap: enemy bursts in or on his house (inside its walls, or within houseBurstNearM outside them) add up to
@@ -555,8 +567,9 @@ export interface SpottingDef {
     engineEverySeconds: number; surfaceBase: number; rainK: number; downwind: number; upwind: number;
   };
   skillSlope: number; stressK: number; lightFloor: number;
-  /** Night and light (M9.1): sun table [hour, light], full-moon light, the muzzle flash's light, tracers. */
-  night: { sun: [number, number][]; moonFullLight: number; flashLight: number; vehicleFlashLight: number; tracerContrast: number };
+  /** Night and light (M9.1): sun table [hour, light], full-moon light, the muzzle flash's light, tracers; M9.6: a
+   *  burning flare's light = min(flareMaxLight, lux / flareFullLux). */
+  night: { sun: [number, number][]; moonFullLight: number; flashLight: number; vehicleFlashLight: number; tracerContrast: number; flareFullLux: number; flareMaxLight: number };
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number;
   /** Smoke v2 (M8.1): fade at the end of a cloud's life (s), share of the wind it drifts with, longest plume (m). */
   smokeFadeSeconds?: number; smokeDriftFactor?: number; smokeStretchMaxM?: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
@@ -748,6 +761,26 @@ export interface MedicalDef {
   evacuation?: {
     delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; carryMps: number; loadSecondsExtra: number;
     waitS: number; maxStayS: number; edgeM: number; retryS: number; requestAt: number;
+  };
+  /**
+   * Combat vehicles' rear run (M10.6b, owner Q-9): an idle hull (not moved for idleS, not hit for quietS, no enemy its
+   * crew knows within enemyM) takes the casualties at its platoon's nest off the map when startT1 tagged T1 or startAny
+   * of any tag wait there, the nest is within maxNestM and no ambulance is there or due within ambulanceWithinS; at most
+   * maxPerPlatoon at once, keeping keepVehicles of the platoon's hulls on the map; it waits waitS for more (at most
+   * maxStayS), is away awayS, and comes back to within backM of where it is sent. `pace`: its driving pace.
+   */
+  rearRun?: {
+    idleS: number; quietS: number; enemyM: number; startT1: number; startAny: number; ambulanceWithinS: number; maxNestM: number;
+    maxPerPlatoon: number; keepVehicles: number; waitS: number; maxStayS: number; awayS: number; pace: DefId; backM: number;
+  };
+  /**
+   * Role 1 outcome at hand-over and the end-of-battle settlement (M10.6b, owner Q-1e, Q-10, Q-16): delays to Role 1,
+   * the died-of-wounds chance and its delay, recovery days; `holdM`: who holds the ground where a casualty lies.
+   */
+  role1?: {
+    transferS: number; settleDelayS: number; captiveTransferS: number; holdM: number;
+    dow: { base: number; shockK: number; bloodK: number; respK: number; unconsciousK: number; severityK: number; max: number; lateKPerH: number; captorFactor: number; delayMinH: number; delayMaxH: number };
+    recovery: { bands: { upTo: number; minD: number; maxD: number }[]; fractureMinD: number; fractureMaxD: number; untreatedFactor: number; lateFactor: number; amputationD: number };
   };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };

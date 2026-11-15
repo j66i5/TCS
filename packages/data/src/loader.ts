@@ -562,6 +562,8 @@ function checkVehicles(
       if (it && t.factor !== undefined && it.reactive !== undefined) err(`armour.tiles[${k}].item`, `'${t.item}' is reactive: use coverage, not factor`);
       if (!v.stowed.some((x) => x.item === t.item && x.count >= 1)) err(`armour.tiles[${k}].item`, `'${t.item}' is not stowed (the stowed count is the tiles fitted)`);
       if (v.armour!.tiles!.findIndex((x) => x.item === t.item) !== k) err(`armour.tiles[${k}].item`, `'${t.item}' on two tile rows (one item per face)`);
+      // Review fix: the sim reads the first tile row of a part and face only (tiles.ts tileFor).
+      if (v.armour!.tiles!.findIndex((x) => x.part === t.part && x.face === t.face) !== k) err(`armour.tiles[${k}].face`, `two tile rows on ${t.part}/${t.face} (one tile item per face)`);
     });
   });
   // Crew and carriage templates.

@@ -111,6 +111,7 @@ describe("data loader", () => {
       expect(broken((f) => { xfV(f, 1)["armour"].tiles[0].item = "xf-scale"; }, true)).toContain("'xf-scale' is reactive: use coverage, not factor");
       expect(broken((f) => { tortoise(f)["stowed"] = tortoise(f)["stowed"].filter((x: V) => x["item"] !== "xf-scale"); }, true)).toContain("'xf-scale' is not stowed");
       expect(broken((f) => { tortoise(f)["armour"].tiles[1].item = "xf-scale"; }, true)).toContain("'xf-scale' on two tile rows");
+      expect(broken((f) => { tortoise(f)["armour"].tiles[1].part = "turret"; tortoise(f)["armour"].tiles[1].face = "front"; }, true)).toContain("two tile rows on turret/front");
       expect(broken((f) => { tortoise(f)["armour"].tiles[0].factor = 2; }, true)).toContain("exactly one of factor or coverage");
       expect(broken((f) => { delete t90(f)["stations"][0].weapons[0].roundLoadSeconds; })).toContain("an autoloader needs roundLoadSeconds");
       expect(broken((f) => { puma(f)["stations"][0].weapons[0].startLoaded = true; })).toContain("startLoaded is for single-round and autoloader feeds");

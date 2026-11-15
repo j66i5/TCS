@@ -44,6 +44,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
   for (const [, m] of state.mover.entries()) {
     if (m.formation && m.waypoints.length > 0) worstLag.set(m.formation.leader, Math.max(worstLag.get(m.formation.leader) ?? 0, m.slotLagM));
   }
+  const stillBelow = ctx.catalog.spotting.stillBelowMps;
   // mounted: ok men aboard are skipped below (they ride in their seats)
   for (const [id, m] of state.mover.entries()) {
     // Getting away from a grenade comes first (grenades.ts moves him and records his speed); he resumes his
@@ -175,6 +176,8 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       if (climb) t.z += (zTo! - t.z) * (step / dist);
       m.speedMps = speed;
     }
+    // Sight realism step 3: when he last moved (spotting: a man seen stays seen while he is active).
+    if (s && m.speedMps > stillBelow) s.movedTick = tick;
   }
 
   // Men against hulls (M7.1c): a man inside a hull or a wreck (grown by 0.4 m) is moved out to its nearest side.

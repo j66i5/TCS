@@ -153,7 +153,9 @@ describe("the commander's tanks (M7.6b)", () => {
       return carriers >= 0;
     });
     expect(carriers).toBeGreaterThan(0);
-    expect(carriers).toBeLessThan(150 * 60);
+    // (Sight realism step 3, 2026-11-15: with men lying still in vegetation harder to see, the tank finds no target
+    // from its first posts for longer; the carriers now move at 160 s, it was under 150 s. Still before the cap.)
+    expect(carriers).toBeLessThan(TANKS.carrierWaitSeconds * 60);
   });
 
   it("the withdrawal: each tank to its own spot on the start line (after the carriers'), a disarmed one too; a tank crew that bailed out is sent back (review fixes)", () => {

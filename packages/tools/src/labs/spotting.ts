@@ -200,6 +200,9 @@ export function sightCase(catalog: Catalog, c: SightCase): SightRow {
       submitOrder(sim, { tick: 0, issuer: "red", target: tid, kind: "move", waypoints: [10, -10, 10, -10, 10].map((d) => ({ x: tx, y: ty + d, mode })) });
     }
     if (c.action === "fire") submitOrder(sim, { tick: 0, issuer: "red", target: tid, kind: "fire", x: ox, y: ty + 40, heightM: 1 });
+    // (Step 3: a still or moving target holds his fire; since step 2 a man fires at an enemy he sees within 100 m,
+    // which would turn a "still" row into a "firing" one.)
+    else submitOrder(sim, { tick: 0, issuer: "red", target: sim.state.identity.req(tid).unit, kind: "rules", fire: "hold" });
     let at: number | null = null;
     for (let k = 0; k < max * 60 && at === null; k++) {
       sim.state.soldier.req(tid).posture = posture;

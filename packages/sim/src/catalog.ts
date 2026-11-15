@@ -160,6 +160,14 @@ export interface VegetationDef {
   id: DefId;
   heightM: number;
   concealmentPerM: number;
+  /** Sight realism step 3: the concealment per metre cover seeking and routes use (nav exposure; the older, lower
+   *  figure); absent: concealmentPerM. */
+  exposureConcealPerM?: number;
+  /** Sight realism step 3: the concealment per metre for heat (thermal sights; absent: concealmentPerM). */
+  heatConcealPerM?: number;
+  /** Sight realism step 3: the share of his size a still man keeps against this vegetation behind and around him
+   *  (when its top is above the point an observer looks at); absent: 1. */
+  backdrop?: number;
   stoppingPerM: number;
   moveCost: MoveCost;
   colour: string;
@@ -614,11 +622,33 @@ export interface SpottingDef {
   minVisibility: number; smokeExtinctionPerM: number; smokeBuildSeconds: number;
   /** Smoke v2 (M8.1): fade at the end of a cloud's life (s), share of the wind it drifts with, longest plume (m). */
   smokeFadeSeconds?: number; smokeDriftFactor?: number; smokeStretchMaxM?: number; keepRateFactor: number; forgetSeconds: number; maxTracked: number;
+  /** Sight realism step 3 (hidden men stay hidden); absent: as before. */
+  conceal?: SpottingConcealDef;
   contacts: {
     seenErrorM: number; seenErrorPerM: number; hearingRangeM: number; bearingErrorDeg: number; rangeErrorFraction: number;
     heardEverySeconds: number; forgetSeconds: number; driftMps: number; reportEverySeconds: number; reportedErrorM: number;
     voiceDelaySeconds: number; callEverySeconds: number;
   };
+}
+
+/** Sight realism step 3 (core/spotting.json `conceal`): see the data note. */
+export interface SpottingConcealDef {
+  /** A man seen is kept at keepFloorFactor + (keepRateFactor - keepFloorFactor) x exp(-quiet s / keepDecaySeconds). */
+  keepDecaySeconds: number; keepFloorFactor: number;
+  /** Each still man's conspicuity, a lognormal factor of mean 1 (sigma), drawn anew when he changes posture or has
+   *  moved more than resetM since the last draw. */
+  conspicuitySigma: number; conspicuityResetM: number;
+  /** A prone man moving slower than crawlBelowMps shows crawlFactor (in place of movingFactor). */
+  crawlFactor: number; crawlBelowMps: number;
+  /** A man lying still shows 1 / (1 + (range / proneGroundM)^4) of himself to an observer on the ground. */
+  proneGroundM: number;
+  /** By day firing shows 1 + (firingFactor - 1) / (1 + range / firingHalfM); the floor through vegetation by day. */
+  firingHalfM: number; firingVisibilityFloorDay: number;
+  /** A heard or reported contact (the cueMax nearest) within cueBearingDeg of the target's bearing and its guessed position within cueRangeM of him: x cueFactor while looking for him. */
+  cueBearingDeg: number; cueRangeM: number; cueFactor: number; cueMax: number;
+  /** A man inside a house (not on its roof): shade by day (toward 1 in the dark), x backFactor more than backM from
+   *  the nearest opening of its outer walls on his floor; firing from inside shows firingFactor (in place of the outdoor one). */
+  indoor: { shade: number; backM: number; backFactor: number; firingFactor: number };
 }
 
 /** Body outline, wounding and simple physiology parameters (core/wounds.json). */

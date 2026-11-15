@@ -290,6 +290,10 @@ export interface BallisticsCtx {
   vegHeightM: Float32Array;
   /** Share of a line of sight blocked per metre, per vegetation palette entry (index = vegetation byte - 1). */
   vegConcealPerM: Float32Array;
+  /** Sight realism step 3: what a still man in front of this vegetation keeps of his size (its backdrop; 1 = none). */
+  vegBackdrop: Float32Array;
+  /** Sight realism step 3: the same for heat (thermal sights; the older, lower figures). */
+  vegHeatConcealPerM: Float32Array;
   ammo: AmmoRT[];
   /** Body outlines per posture code (0 standing, 1 crouching, 2 prone). */
   hitboxes: HitboxRT[];
@@ -326,6 +330,8 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
   const vegHeightM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.heightM ?? 0));
   const vegConcealPerM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.concealmentPerM ?? 0));
   const vegStopPerM = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.stoppingPerM ?? 0));
+  const vegHeatConcealPerM = new Float32Array(map.vegetationPalette.map((id) => { const v = catalog.terrain.vegetation[id]; return v ? (v.heatConcealPerM ?? v.concealmentPerM) : 0; }));
+  const vegBackdrop = new Float32Array(map.vegetationPalette.map((id) => catalog.terrain.vegetation[id]?.backdrop ?? 1));
   const w = map.cols + 1;
   for (let r = 0; r < map.rows; r++) {
     for (let c = 0; c < map.cols; c++) {
@@ -457,7 +463,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     vehicleRT,
     hitboxes, bodyReachM: hitboxes.reduce((m, h) => Math.max(m, sqrt(h.halfF * h.halfF + h.halfL * h.halfL)), 0) + 0.05, soldiers: createSoldierGrid(bcols * brows), vehicles: createVehicleGrid(), inLoop: false, loopAdds: 0,
     roofs, roofBuckets, roofLow, roofStamp: new Uint32Array(roofs.length), roofGen: 0,
-    bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, near, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, ammo,
+    bucketM, bcols, brows, maxGround: maxGroundWide, maxVegTop: maxVegTopWide, near, seg, materials, surfaceMaterial, vegStopPerM, vegHeightM, vegConcealPerM, vegBackdrop, vegHeatConcealPerM, ammo,
     deflectionRad: (b.penetrationDeflectionDeg * PI) / 180,
     scatterRad: (b.ricochetScatterDeg * PI) / 180,
     minSpeed2: b.minSpeedMps * b.minSpeedMps,

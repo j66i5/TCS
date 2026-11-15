@@ -6800,3 +6800,137 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   hold fire and push on contact. The casualty lab's numbers may differ slightly from before (the targets no longer
   fire back).
 - Goldens regenerated (intended; `npm run golden:update`); `golden/no-interiors` untouched.
+
+## 2026-11-15 — Sight realism, step 3 of 5: hidden men stay hidden (spotting and vegetation data; goldens regenerated)
+- **What changed** (owner request "make the line of sight more realistic"; plan step "conceal"; all numbers in
+  `core/spotting.json` `conceal` and `core/terrain/vegetation.json`; game values, low confidence: search extracts only,
+  no source page could be opened, so no URL; Van der Burg, Hogervorst and Toet (SPIE) on static targets in clutter and
+  motion breaking camouflage, FM 21-75 (1984) on vegetation, shadow and crack-thump, urban doctrine on firing from back
+  in a room are cited in the notes):
+  - Vegetation concealment per metre for the line of sight: crops 0.12 -> 0.45 (the plan said 0.5; 0.5 put the
+    100 m crops row over 120 s), tall grass 0.08 -> 0.35, scrub 0.2 -> 0.5, treeline 0.1 -> 0.3, woodland 0.06 -> 0.12,
+    orchard 0.03. Cover seeking and routes keep the old figures (new `exposureConcealPerM`, read only by nav's
+    exposure map), and so do thermal sights (new `heatConcealPerM`; `sight()` returns `heatVisibility` beside
+    `visibility`; without it the thermal lab's man in crops at 100 m dropped from 57-60 % found to 0 %).
+  - Backdrop (`vegetation.backdrop`: woodland and treeline 0.3, scrub 0.4, crops and tall grass 0.5, orchard 0.6): a
+    still man (not firing) in a vegetation cell shows that share of his size. **Deviation from the plan:** applied
+    whenever he is still in vegetation, not only when its top is above his aim point; when it is lower, he also shows
+    only the part of his body above it (1 - vegetation height / posture height). Without this a man crouching in
+    0.7 m tall grass (aim point 0.75 m) was untouched (3 s at 100 m against the 8 s target).
+  - Keep decay: new optional `SoldierState.movedTick` (movement system, speed above stillBelowMps). A man seen is
+    kept at keepFloorFactor + (keepRateFactor - keepFloorFactor) x exp(-quiet / 5 s), quiet = since he last moved,
+    fired or launched. **Deviation:** a floor `keepFloorFactor` 20 (the plan decayed to 1): with 1, a man lying in
+    the open at 100 m was lost within a minute, against the "80 % still kept at 60 s" target. Vehicles keep 200.
+  - Conspicuity: new optional `consp`, `conspX`, `conspY`, `conspPosture`; lognormal (sigma 0.8, mean 1) from a new
+    stream `conspicuity` (the `spotting` stream keeps one draw per observer, target and scan), drawn when he holds
+    still at a new spot (5 m) or posture. **Deviation:** only among plants or indoors (clutter to blend into); in the
+    open it moved the open-ground rows (200 m: 5 -> 8 s) against "unchanged within noise".
+  - Crawling (prone, under 0.6 m/s; crawl is 0.3 m/s) shows 1.6, not 4. By day firing shows
+    1 + 14 / (1 + range / 200 m) (full 15 at night, blended by darkness); the firing floor through vegetation 0.25 by
+    day, 0.5 in full dark.
+  - Cued search: a heard or reported contact (the 3 nearest per observer, `cueMax`; a cost bound and "a few
+    directions") within 10 degrees of a target's bearing and with its guessed spot within 50 m of him multiplies the
+    rate by 3 while looking for him (not for one already kept).
+  - Dark rooms: a man indoors (`indoorAt`, not on the roof) shows 0.25 by day (the plan said 0.35; 0.35 gave 26 s at
+    the 300 m window against "at least 30 s"), x 0.5 more than 1 m from the nearest opening of the outer walls on his
+    floor (openings from `ballistics.seg`, breaches included); both toward 1 as it gets dark; firing from inside shows
+    6, not 15.
+  - Optics: `magnified` and `telescopic` sights help only within 10 degrees of where he looks.
+  - **Addition (census):** a man lying still shows 1 / (1 + (range / 250 m)^4) of himself to an observer on the
+    ground (grass, furrows and folds of the ground at a grazing angle: 0.97 at 100 m, 0.13 at 400 m); not to drones,
+    and a thermal sight sees his heat through it. Without it the battle census stayed at 413 m (target 300 m or
+    less); a gentler (range / 300 m)^2 gave 371 m and slowed the engage lab's prone-at-100 m case past 10 s.
+  - Thermal sights see heat, not blending: conspicuity and backdrop do not count for them (`unblend`).
+- **Lab fix:** the sight realism rows' still, walking and crawling targets now hold their fire. Since step 2 a man
+  fires at an enemy he sees within 100 m, so the "still" targets at 100 m had been firing (crops at 100 m read 4 s
+  instead of 13 s). With the fix the baseline rows are again exactly step 1's.
+- **Spotting, sight realism rows** (`npm run lab -- spotting`, seeds 7001-7020; median s / found within 10 s,
+  before -> after):
+
+  | target | range m | before median s | before within 10 s | after median s | after within 10 s |
+  |---|---:|---:|---:|---:|---:|
+  | standing, still, open | 50 | 1.0 | 100 % | 1.0 | 100 % |
+  | standing, still, open | 100 | 2.0 | 100 % | 2.0 | 100 % |
+  | standing, still, open | 200 | 5.0 | 80 % | 5.0 | 80 % |
+  | prone, still, open | 50 | 2.0 | 100 % | 2.0 | 100 % |
+  | prone, still, behind 4 m of crops | 100 | 13.0 | 45 % | 67.0 | 10 % |
+  | prone, still, behind 4 m of crops | 200 | 34.0 | 15 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of tall-grass | 100 | 10.0 | 60 % | 38.0 | 10 % |
+  | prone, still, behind 4 m of tall-grass | 200 | 21.0 | 25 % | over 120 | 5 % |
+  | prone, still, behind 4 m of tall-grass | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of scrub | 100 | 14.0 | 40 % | 103.0 | 10 % |
+  | prone, still, behind 4 m of scrub | 200 | 37.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of scrub | 400 | 107.0 | 10 % | over 120 | 0 % |
+  | prone, still, in a whole crop field | 100 | over 120 | 0 % | over 120 | 0 % |
+  | prone, still, in a whole crop field | 200 | over 120 | 0 % | over 120 | 0 % |
+  | standing, still, 2 m inside a treeline | 100 | 2.0 | 100 % | 8.0 | 70 % |
+  | standing, still, 2 m inside a treeline | 400 | 17.0 | 35 % | 67.0 | 10 % |
+  | standing, still, 5 m inside woodland | 400 | 19.0 | 30 % | 84.0 | 10 % |
+  | crouching, still, in tall grass (4 m) | 100 | 3.0 | 95 % | 10.0 | 55 % |
+  | crouching, still, in tall grass (4 m) | 400 | 33.0 | 15 % | over 120 | 5 % |
+  | prone, firing, behind 4 m of crops | 200 | 5.0 | 80 % | 6.0 | 55 % |
+  | prone, firing, behind 4 m of crops | 400 | 14.0 | 35 % | 85.0 | 15 % |
+  | prone, firing, open | 400 | 5.0 | 65 % | 13.0 | 40 % |
+  | prone, firing, open | 600 | 17.0 | 25 % | over 120 | 15 % |
+  | crawling, open | 400 | 17.0 | 35 % | 37.0 | 15 % |
+  | crawling, open | 600 | 37.0 | 15 % | 67.0 | 15 % |
+  | crawling, behind 4 m of crops | 200 | 9.0 | 65 % | 63.0 | 15 % |
+  | prone, still, behind 4 m of crops, 1 observer | 200 | 34.0 | 15 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops, 1 observer | 400 | 67.0 | 15 % | over 120 | 0 % |
+  | prone, still, behind 4 m of crops, 3 observers | 200 | 9.9 | 55 % | 65.0 | 20 % |
+  | prone, still, behind 4 m of crops, 3 observers | 400 | 25.9 | 30 % | over 120 | 5 % |
+  | prone, still, behind 4 m of crops, 9 observers | 200 | 2.8 | 95 % | 24.9 | 35 % |
+  | prone, still, behind 4 m of crops, 9 observers | 400 | 8.8 | 55 % | over 120 | 0 % |
+  | standing, still, open, G36 optic | 400 | 14.0 | 40 % | 14.0 | 40 % |
+  | standing, still, open, iron sights | 400 | 19.0 | 30 % | 19.0 | 30 % |
+  | standing, still, open, G36 optic | 600 | 37.0 | 15 % | 37.0 | 15 % |
+  | standing, still, open, iron sights | 600 | 37.0 | 15 % | 37.0 | 15 % |
+
+- **Retention** (seen, then prone and still; kept at 60 s / lost within 20 s):
+
+  | in front of him | range m | before kept 60 s | before lost 20 s | after kept 60 s | after lost 20 s |
+  |---|---:|---:|---:|---:|---:|
+  | open ground | 100 | 100 % | 0 % | 100 % | 0 % |
+  | open ground | 200 | 100 % | 0 % | 90 % | 0 % |
+  | open ground | 300 | 100 % | 0 % | 17 % | 61 % |
+  | 4 m of crops | 100 | 100 % | 0 % | 42 % | 37 % |
+  | 4 m of crops | 200 | 100 % | 0 % | 5 % | 90 % |
+  | 4 m of crops | 300 | 100 % | 0 % | 0 % | 100 % |
+  | 4 m of scrub | 100 | 100 % | 0 % | 11 % | 72 % |
+  | 4 m of scrub | 200 | 100 % | 0 % | 7 % | 86 % |
+  | 4 m of scrub | 300 | 100 % | 0 % | 0 % | 100 % |
+
+- **Acceptance:** every spotting row met: crops 100 m 13 -> 67 s, 10 % within 10 s; crops 200 m 45 % found;
+  tall grass / scrub at 100 m 38 / 103 s; treeline 100 m 8 s (open 2 s), 400 m 67 s; crouching in tall grass 10 s;
+  open rows unchanged; 9 observers crops 400 m 0 % within 10 s; firing behind crops 400 m 85 s; firing in the open
+  400 m 13 s; crawling in the open 400 m 37 s; G36 400 m 14 s; window 300 m 33 s; retention behind scrub or crops at
+  300 m 100 % lost within 20 s, open 100 m 100 % kept at 60 s.
+- **Engage lab:** unchanged from step 2 (rule return 65/72 within 10 s, prone at 100 m median 8.2 s; walking across
+  still 49/72 within 10 s, 55/72 within 15 s).
+- **Night and thermal labs:** at full dark nothing changes except where the 10-degree optic arc applies (the
+  "40 degrees off where he looks" rows: 50 -> 43 % and 40 -> 33 % found). By day: firing at 300 / 600 m 1 / 4 s ->
+  2 / 8 s (the firing reveal by range), a prone man under a thermal blanket at 300 m 93 -> 47 % (the blanket hides
+  his heat, so the eye with its ground clutter counts). Thermal through crops unchanged (57 % / 60 %).
+- **Battle census** (new table in `npm run lab -- reacquire`: new sightings by men on foot of enemy men lying still
+  in the open): median range 414 m -> 259 m (p25 336 -> 157, p75 459 -> 350; 545 -> 464 sightings).
+- **Reacquire lab (platoon s1-3 defence, step 2 -> step 3):** blind-idle to sighted 1.20 -> 2.39, fully blind squad-time 6.4 % ->
+  23.9 % (longest 370 s, 5 episodes over 30 s per battle). Worse, as expected: the attackers are now hidden much
+  more often while the defenders still sit and wait. This is step 4's work (men and squads moving to see again).
+  Enemy in front and not engaged: exposure 59 -> 589 man-s (more close contact), 78 % -> 61 % not engaged.
+- **Batches** (10 x 1200 s, seeds 1-10; step 1 baseline -> step 2 -> step 3): platoon attacker wins 8 -> 8 -> 8,
+  casualties 12.1/11.8 -> 9.6/11.5 -> 12.2/11.0, mean duration 1018 -> 977 -> 967 s; platoon-ru 8 -> 8 -> 8,
+  14.1/5.3 -> 14.0/4.2 -> 13.3/7.4, 808 -> 789 -> 888 s; platoon-vehicles 9 -> 10 -> 9, 6.6/25.5 -> 8.6/25.1 ->
+  9.9/24.2, 899 -> 920 -> 888 s; platoon-ru-vehicles 0 -> 1 -> 1, 8.2/34.0 -> 8.6/33.0 -> 7.6/36.0, 1096 -> 993 ->
+  1091 s. Durations within +-30 %; total casualties per battle within +-10 %; one side's figure moves more
+  (platoon-ru defenders' losses 5.3 -> 7.4, platoon-vehicles attackers' 6.6 -> 9.9: small numbers). Platoon breaks
+  (step 1's script): the losing side's platoon broke in 26 of 40 (step 1: 32, step 2: 29), any break 27 of 40 (34, 32).
+- **Performance:** the cue first checked every heard contact per pair (the 304-man spotting bench fell to 5.2x,
+  floor 8x); with the 3 nearest cues and only for targets not yet seen it runs at 11-12x (8.3x before this step on the
+  same machine). `npm run test:perf` alone: 23/23, bench-vehicles above its floor.
+- **Tests:** new `tools/test/conceal.test.ts` (crops, treeline, retention, conspicuity stream and redraw, movedTick,
+  firing at range). Adapted: `lab-sight` (woodland about a third after 10 m, was half), `commander` (seed 2: in seed
+  1 the attack now wins by fire at 796 s before any assault), `tanks-ai` seed 2 (the carriers move at 160 s, the
+  bound is now the 180 s cap; it was 150 s).
+- New `SoldierState` fields optional, no schema bump. Goldens regenerated (intended; `npm run golden:update`, 10
+  files); `golden/no-interiors` untouched.

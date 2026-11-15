@@ -18,7 +18,9 @@ describe("AI commander (M6.3)", () => {
   // seed 6 now places every defender too; seeds 8 and 10-14 likewise.)
   // (Seed 1 since the morale rework, 2026-11-15: in seed 9 the attack now wipes out the defence by fire at 744 s before
   // any assault, as the defenders shaken by losses fire less.)
-  const input = scenario(1, 1200);
+  // (Seed 2 since sight realism step 3, 2026-11-15: with men lying still in vegetation now hard to see, seed 1's attack
+  // wins by fire at 796 s before any assault.)
+  const input = scenario(2, 1200);
   // (Assault tempo, overnight pick 2026-11-14: the men's fatigue as each assault drill starts; when the attacker
   // calls its first high explosive and when it starts its reconnaissance.)
   const cs0 = ctrls(input), atk = cs0[0]!;

@@ -53,6 +53,9 @@ export const Streams = {
   morale: "morale",
   /** M7.6d: automatic grenade launcher teams on foot: their range errors. Created on first use. */
   agl: "agl",
+  /** Sight realism step 3: each still man's conspicuity (spotting). Its own stream, so "spotting" keeps exactly one draw
+   *  per observer, target and scan; created on first use. */
+  conspicuity: "conspicuity",
 } as const;
 
 /** FNV-1a 32-bit hash of a string (UTF-16 code units). */

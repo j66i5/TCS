@@ -48,6 +48,9 @@ export interface SideStats {
   squadS: number; squadBlindS: number; squadEpisodes: number[];
   /** "Not engaged": exposure man-s, not-engaged man-s by cause. */
   exposureS: number; notEngaged: Record<NotEngagedCause, number>;
+  /** Sighting census (step 3): ranges (m) of new sightings by this side's men on foot of enemy men lying still in the
+   *  open (prone, slower than 0.2 m/s, no shot for 2 s, no vegetation in his cell, not in a house). */
+  proneOpenSightingsM: number[];
 }
 export interface BattleStats { scenario: string; seed: number; seconds: number; end: string; attack: SideStats; defence: SideStats }
 
@@ -55,7 +58,7 @@ function newSide(): SideStats {
   return {
     manS: 0, sightedS: 0, blindS: 0, blindIdleS: 0, blindMovingS: 0, blindIdlePinned: 0, blindIdleIndoor: 0, blindIdleProne: 0,
     peek: { visibleNow: 0, kneel: 0, stand: 0, sidestep: 0, none: 0 }, indoorOtherWindow: 0, episodes: [], endBy: {}, stayEpisodes: [],
-    squadS: 0, squadBlindS: 0, squadEpisodes: [], exposureS: 0,
+    squadS: 0, squadBlindS: 0, squadEpisodes: [], exposureS: 0, proneOpenSightingsM: [],
     notEngaged: { carrying: 0, care: 0, pinned: 0, rule: 0, moving: 0, "drill or ordered task": 0, other: 0 },
   };
 }
@@ -113,10 +116,22 @@ export function reacquireBattle(scenario: string, seed: number, seconds: number)
   const stats = { attack: newSide(), defence: newSide() };
   const men = new Map<EntityId, { prev?: { x: number; y: number; p: string }; run: number; stay: boolean }>();
   const squadRun = new Map<EntityId, number>(), squadSide = new Map<EntityId, "attack" | "defence">();
+  const spotted: { observer: EntityId; target: EntityId; rangeM: number }[] = [];
   const res = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
+    onEvents: (evs) => { for (const e of evs) if (e.kind === "spotted" && e.drone !== true) spotted.push({ observer: e.observer, target: e.target, rangeM: e.rangeM }); },
     onTick: (sim) => {
       const st = sim.state, ctx = sim.ctx;
+      // ---- 3. sighting census (every tick: the events of this tick)
+      for (const e of spotted) {
+        const os = st.soldier.get(e.observer), ts = st.soldier.get(e.target), oi = st.identity.get(e.observer), tt = st.transform.get(e.target);
+        if (!os || !ts || !oi || !tt || os.mount !== undefined || ts.posture !== "prone") continue;
+        if ((st.mover.get(e.target)?.speedMps ?? 0) > 0.2 || st.tick - (st.weapon.get(e.target)?.lastShotTick ?? -1e9) <= 2 * HZ) continue;
+        const m = ctx.map, cell = Math.floor(tt.y / m.cellSizeM) * m.cols + Math.floor(tt.x / m.cellSizeM);
+        if ((m.vegetation[cell] ?? 0) !== 0 || indoorAt(ctx, tt.x, tt.y) >= 0) continue;
+        stats[oi.side === attacker ? "attack" : "defence"].proneOpenSightingsM.push(e.rangeM);
+      }
+      spotted.length = 0;
       if (st.tick % HZ !== 0) return;
       const grid = navFor(ctx, "foot").grid;
       const squads = new Map<EntityId, { side: "attack" | "defence"; anyLost: boolean; anySees: boolean; anyAct: boolean }>();
@@ -280,6 +295,7 @@ export function sumSides(ss: readonly SideStats[]): SideStats {
     t.squadS += s.squadS; t.squadBlindS += s.squadBlindS; t.squadEpisodes.push(...s.squadEpisodes);
     t.exposureS += s.exposureS;
     for (const k of NOT_ENGAGED_CAUSES) t.notEngaged[k] += s.notEngaged[k];
+    t.proneOpenSightingsM.push(...s.proneOpenSightingsM);
   }
   return t;
 }
@@ -332,5 +348,13 @@ export function reacquireLabMarkdown(rows: BattleStats[]): string {
     for (const side of ["defence", "attack"] as const) neRow(sc, side, sumSides(rs.map((r) => r[side])));
   }
   neRow("all", "both", sumSides(rows.flatMap((r) => [r.attack, r.defence])));
+  out.push("", "### Sighting census", "", "New sightings by men on foot of enemy men lying still in the open (prone, slower than 0.2 m/s, no shot for 2 s, no vegetation in his cell, not in a house).", "",
+    "| scenario | side | sightings | median range m | p25 m | p75 m |", "|---|---|---:|---:|---:|---:|");
+  const csRow = (label: string, side: string, s: SideStats) => out.push(`| ${label} | ${side} | ${s.proneOpenSightingsM.length} | ${q(s.proneOpenSightingsM, 0.5).toFixed(0)} | ${q(s.proneOpenSightingsM, 0.25).toFixed(0)} | ${q(s.proneOpenSightingsM, 0.75).toFixed(0)} |`);
+  for (const sc of scenarios) {
+    const rs = rows.filter((r) => r.scenario === sc);
+    for (const side of ["defence", "attack"] as const) csRow(sc, side, sumSides(rs.map((r) => r[side])));
+  }
+  csRow("all", "both", sumSides(rows.flatMap((r) => [r.attack, r.defence])));
   return out.join("\n");
 }

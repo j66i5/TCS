@@ -5,6 +5,17 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism, step 3 of 5: hidden men stay hidden (2026-11-15, branch `claude/sight-realism`).** Crops, grass,
+  scrub and trees hide a man behind them about four times as well as before (cover seeking keeps the old figures, and
+  so do thermal sights); a man holding still among plants or in a room blends in (each man a little better or worse,
+  the same for every enemy); a man lying still is hidden by the open ground itself far off (not to drones or thermal
+  sights); once seen, a man who lies still and quiet must be found again; crawling and firing far off show less; a
+  heard shot makes a man look harder that way; a dark room hides a man by day, more if he stays back from the window;
+  rifle optics help only where a man looks. Open-ground rows unchanged; every spotting target met; the battle census
+  of new sightings of men lying still in the open 414 -> 259 m. Numbers in DECISIONS "Sight realism, step 3". Open:
+  defenders now sit blind far more (platoon defence blind-idle to sighted 1.20 -> 2.39, fully blind squad-time 6.4 ->
+  23.9 %) — step 4 (moving to see again) is the fix; walking across an enemy's front still 55/72 within 15 s; values
+  low confidence (game values, no source page could be opened).
 - **Sight realism, step 2 of 5: an enemy close in front gets shot at (2026-11-15, branch `claude/sight-realism`).**
   Rule "return" now lets a man fire at an enemy he sees within 100 m without waiting to be fired on; a moving unit
   goes to ground when it sees an enemy anew within 150 m (75 m in the dark); runners, assaults and pushes fire on the
@@ -286,6 +297,11 @@ sensor physics (thermal, goggle numbers).
 https://j66i5.github.io/TCS/ — deployed automatically from `main` after every merge.
 
 ## Open questions for the owner
+
+- Sight realism step 3 (2026-11-15, all low; `core/spotting.json` `conceal`, `core/terrain/vegetation.json`): the
+  vegetation concealment and backdrop figures, the conspicuity spread (sigma 0.8), the kept-sight decay (5 s, floor
+  20), the ground clutter for men lying still (250 m), the firing reveal by range (half at 200 m), the dark room (0.25
+  by day, half again back from the window, firing 6), the cued search (x3, 10 degrees, 50 m, three directions).
 
 - M7.6c (2026-11-15, low unless noted; `docs/research/low-confidence.md`): GTK 2 crew + 8 (inference from "max 10
   persons"), the FLW 200's rates, limits, smoke fit and 9 stowed belts, the GTK rear 22 mm; the 12.7 mm round's

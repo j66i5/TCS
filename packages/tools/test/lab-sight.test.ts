@@ -23,9 +23,10 @@ describe("line-of-sight lab", () => {
     expect(row("both in tall grass (0.7 m), observer standing, target prone").visibility).toBeLessThan(0.15);
   });
 
-  it("woodland thins the view with depth: about half after 10 m, almost nothing after 100 m", () => {
+  it("woodland thins the view with depth: about a third after 10 m, almost nothing after 100 m", () => {
     const w = (r: number) => rowAt("into woodland", r).visibility;
-    expect(w(90)).toBeGreaterThan(0.35); expect(w(90)).toBeLessThan(0.7);
+    // (Sight realism step 3: woodland's concealment 0.06 -> 0.12 per m; it was about half after 10 m.)
+    expect(w(90)).toBeGreaterThan(0.2); expect(w(90)).toBeLessThan(0.45);
     expect(w(110)).toBeLessThan(w(90)); expect(w(130)).toBeLessThan(w(110));
     expect(w(180)).toBeLessThan(0.01);
   });

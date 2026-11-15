@@ -661,6 +661,27 @@ away — unless a wood stands between. Looking the other way, a soldier rarely n
 at long range, night-vision goggles at night, and nothing is seen beyond the fog. Once seen, an
 enemy is easy to keep in view.
 
+**Hidden men stay hidden (sight realism step 3, 2026-11-15).** A few metres of crops, tall grass or scrub between
+the two now hide most of a man lying behind them (about four times as much as before; cover seeking and routes still
+judge vegetation as before). A man who holds still among plants blends into them — the plants behind him make a
+busy background — and each man blends in a little better or worse than the next (some lie well, some do not); that
+is decided once where he settles, the same for every enemy, and decided again when he moves on or changes posture.
+A man standing still in the open is not helped by this. A man lying still is also hidden by the grass, furrows and
+small folds of open ground the farther off the watcher is (hardly at 100 m, mostly at 400 m; not from a drone, and
+not to a thermal sight). Once seen, an enemy stays easy to keep in view only while he
+is doing something: once he lies still and quiet, the watcher must find him again within seconds or lose him
+(behind scrub at 300 m he is usually lost within 20 s; in the open at 100 m he is kept). A man crawling shows far
+less than one walking. By day the flash and dust of firing are hard to see far off: firing gives a man away about as
+before close by, much less at 400 m (at night the flash shows as before). A man who heard shots from a direction
+looks three times as hard at an enemy there. A man in a house is in a dark room by day: he shows a quarter of
+himself at the window, half that again if he stays back more than a metre from it, and his shots show less. A
+weapon's magnifying sight helps only within 10 degrees of where he looks. Thermal sights see heat, not how well a
+man blends in, and vegetation hides heat as before. In numbers (spotting lab, one rifleman with a G36, 20 seeds):
+a man lying still behind 4 m of crops at 100 m is found in about a minute instead of 13 s; lying still in the open
+at 300 m in about 90 s instead of 36; standing 2 m inside a
+treeline at 100 m in 8 s instead of 2; standing still at a house window at 300 m in 33 s instead of 9; standing in
+the open at 50-200 m exactly as before (1-5 s).
+
 **Contacts.** Each man also remembers: where he last saw an enemy, the direction (and a rough distance) of shots
 he heard, and what comrades told him. He tells the men of his unit what he sees and hears — by voice to those
 nearby within a second, by radio to the others after a few seconds — and the unit calls new contacts out on

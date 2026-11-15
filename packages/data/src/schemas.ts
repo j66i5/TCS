@@ -386,6 +386,14 @@ export const SpottingFile = withProv({
   /** Smoke v2 (M8.1): a cloud thins to nothing over its last seconds; it moves with this share of the wind; a
    *  plume is cut this far behind its head. */
   smokeFadeSeconds: Num(0, 600).default(0), smokeDriftFactor: Num(0, 2).default(1), smokeStretchMaxM: Num(1, 2000).default(200), keepRateFactor: Num(1, 1000), forgetSeconds: Num(0, 600), maxTracked: z.number().int().min(1).max(100),
+  /** Sight realism step 3 (2026-11-15): hidden men stay hidden — the kept rate decays while he is quiet, each still man's
+   *  conspicuity, crawling, firing reveal by range, a cued search toward a heard enemy, dark rooms. */
+  conceal: z.object({
+    keepDecaySeconds: Num(0.1, 600), keepFloorFactor: Num(1, 1000), conspicuitySigma: Num(0, 3), conspicuityResetM: Num(0, 100),
+    crawlFactor: Num(1, 50), crawlBelowMps: Num(0, 5), proneGroundM: Num(1, 10000), firingHalfM: Num(1, 5000), firingVisibilityFloorDay: Num(0, 1),
+    cueBearingDeg: Num(0, 90), cueRangeM: Num(0, 1000), cueFactor: Num(1, 50), cueMax: z.number().int().min(1).max(50),
+    indoor: z.object({ shade: Num(0, 1), backM: Num(0, 20), backFactor: Num(0, 1), firingFactor: Num(1, 500) }).strict(),
+  }).strict().optional(),
   contacts: z.object({
     seenErrorM: Num(0, 100), seenErrorPerM: Num(0, 1), hearingRangeM: Num(0, 20000), bearingErrorDeg: Num(0, 90), rangeErrorFraction: Num(0, 2),
     heardEverySeconds: Num(0, 60), forgetSeconds: Num(1, 3600), driftMps: Num(0, 20), reportEverySeconds: Num(0, 600), reportedErrorM: Num(0, 500),
@@ -736,6 +744,12 @@ export const VegetationSchema = withProv({
   id: Id, nameKey: z.string(), heightM: z.number().positive().max(60),
   /** Fraction of a line of sight blocked per metre travelled through it. */
   concealmentPerM: z.number().min(0).max(1),
+  /** Sight realism step 3: the concealment per metre cover seeking and routes use (absent: concealmentPerM). */
+  exposureConcealPerM: z.number().min(0).max(1).optional(),
+  /** Sight realism step 3: the concealment per metre for heat, thermal sights (absent: concealmentPerM). */
+  heatConcealPerM: z.number().min(0).max(1).optional(),
+  /** Sight realism step 3: share of his size a still man keeps against this vegetation around him (absent: 1). */
+  backdrop: z.number().min(0).max(1).optional(),
   /** Fraction of a bullet's energy lost per metre (M2). */
   stoppingPerM: z.number().min(0).max(0.1),
   moveCost: MoveCost, colour: Colour,

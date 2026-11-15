@@ -204,6 +204,18 @@ export interface SoldierState {
   grenadeTick?: number;
   /** M9.3b: the tick he last launched a guided missile from a tripod (the launch shows him); absent: never. */
   launchTick?: number;
+  /** Sight realism step 3: the last tick he moved faster than spotting.stillBelowMps (movement system); absent: never. */
+  movedTick?: number;
+  /**
+   * Sight realism step 3: how conspicuous he is while still (a lognormal factor of mean 1 on his size, the same for
+   * every observer: how well his outline, colours and shadow blend in where he lies), drawn from the "conspicuity"
+   * stream at (conspX, conspY) in conspPosture; drawn anew when he takes another posture or is more than
+   * spotting.conceal.conspicuityResetM from there. Absent until he first holds still.
+   */
+  consp?: number;
+  conspX?: number;
+  conspY?: number;
+  conspPosture?: Posture;
   /**
    * Hiding from an enemy drone (M9.6, behaviour.soldier.droneHide). "freeze": stopped on his way since `since`, held
    * until `until`; "spent": he froze as long as he may and moves on regardless until `until`; "hide": lying down (under a

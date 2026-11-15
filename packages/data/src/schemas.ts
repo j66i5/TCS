@@ -306,6 +306,9 @@ export const SpottingFile = withProv({
   postureSize: z.object({ standing: Num(0, 2), crouching: Num(0, 2), prone: Num(0, 2) }).strict(),
   stillBelowMps: Num(0, 5), movingFactor: Num(1, 50), runningAboveMps: Num(0, 20), runningFactor: Num(1, 50), movingVisibilityFloor: Num(0, 1),
   firingWithinSeconds: Num(0, 60), firingFactor: Num(1, 500), firingVisibilityFloor: Num(0, 1),
+  /** M9.3b: a man who launched a guided missile from the ground shows this much more (on top of the firing factor:
+   *  the launch's flash, dust and smoke) for this long. */
+  launchFlashFactor: Num(1, 50).default(1), launchFlashSeconds: Num(0, 60).default(0),
   frontHalfAngleDeg: Num(0, 180), sideHalfAngleDeg: Num(0, 180), sideFactor: Num(0, 1), rearFactor: Num(0, 1),
   /** Sensors by kind (weapon sight kinds and item `sensor` kinds): detection factor beyond fromM, and the light
    *  level they give at least (0 = eyes need daylight; 1 = thermal sees as by day). "eye" is everyone's. */
@@ -344,6 +347,10 @@ export const SpottingFile = withProv({
     /** The camera searches its whole footprint (a rate factor); a man under a canopy higher than canopyAboveM over him
      *  shows canopyDay of himself to a day camera, canopyThermal to a thermal one. */
     searchFactor: Num(0, 1), canopyAboveM: Num(0, 50), canopyDay: Num(0, 1), canopyThermal: Num(0, 1),
+    /** M9.4b, a drone as a target: contrast against the sky, how far it is seen, how much harder men look for one
+     *  they hear, how far they engage one, the share of its movement during a bullet's flight a shooter gets wrong,
+     *  the highest chance one round hits it, the extra aim error firing up at it (mrad), the share of hits that down it. */
+    targetContrast: Num(0, 20), seenMaxM: Num(0, 5000), heardLookFactor: Num(1, 20), engageM: Num(0, 2000), leadErrorShare: Num(0, 2), maxHitChance: Num(0, 1), aerialAimMrad: Num(0, 100), killShare: Num(0, 1),
   }).strict().optional(),
   thermal: z.object({
     man: Num(0, 10), vehicleCold: Num(0, 10), vehicleHot: Num(0, 10), vehicleFiring: Num(0, 20), vehicleBurning: Num(0, 50),
@@ -684,6 +691,8 @@ export const FactionManifest = withProv({
   platoonTemplate: Id.optional(),
   /** On-map mortar section generated battles add with `mortars` (M8.3a). */
   mortarTemplate: Id.optional(),
+  /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
+  missileTeamTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });
@@ -742,6 +751,17 @@ export const ItemSchema = withProv({
     calibre: z.string(), he: Id, smoke: Id, minRangeM: Num(0, 20000), maxRangeM: Num(1, 20000), setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
     roundSeconds: Num(0.5, 120), crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), aimErrorM: Num(0, 500),
     dispersionPerKmM: Num(0, 200), processingSeconds: Num(0, 600), flightBaseSeconds: Num(0, 120), flightPerKmSeconds: Num(0, 60), hearingRangeM: Num(0, 20000),
+  }).strict().optional(),
+  /** M9.3b: a crew-served weapon on a tripod worked by a team on foot (its carrier is the gunner). `kind "missile"`:
+   *  a guided missile launch post: the weapon (weapons.json: its launch velocity per round), the round item (a
+   *  counted container whose `chargeItem` is the guided ammunition), seconds to set up and to pack, crew (and the
+   *  fewest who can still fire), the sight's height above the ground, the danger zone behind (m), how far the
+   *  launch is heard (m), the traverse either side of the laid heading before a re-lay (deg) and its time, and the
+   *  seconds to lay on a target. */
+  crewServed: z.object({
+    kind: z.literal("missile"), weapon: Id, round: Id, setupSeconds: Num(0, 1800), packSeconds: Num(0, 1800),
+    crew: z.number().int().min(1).max(12), crewMin: z.number().int().min(1).max(12), sightHeightM: Num(0, 5), backblastM: Num(0, 200),
+    launchLoudM: Num(0, 20000), traverseDeg: Num(1, 180), relaySeconds: Num(0, 60), aimSeconds: Num(0, 60),
   }).strict().optional(),
   /** M9.4a: a reconnaissance quadcopter (the airframe item; its operator carries it and its batteries): the battery
    *  item (charge = Wh) and the power it draws (W), the share of a battery kept to fly home on, cruise and climb
@@ -965,11 +985,19 @@ const FireSupportAsset = z.object({
     locationError: z.object({
       estimate: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
       laser: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict(),
+      /** M9.5: located by a drone's camera (`perM` x the drone's slant range to the point) and by an off-map
+       *  fixed-wing reconnaissance drone (rules.airRecon). Absent: those methods are not used. */
+      drone: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict().optional(),
+      air: z.object({ baseM: Num(0, 500), perM: Num(0, 1) }).strict().optional(),
     }).strict().optional(),
     /** Adjustment by the observer (M8.2b): his reading error of a fall (m, one standard deviation per axis):
      *  `readBaseM` + `readPerM` x his distance to it by eye, `laserReadM` with a laser; correction share and reading
      *  error x a skill factor from `skillWorst` (skill 0) to `skillBest` (skill 1). Absent: the correction alone. */
-    adjust: z.object({ readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5) }).strict().optional(),
+    adjust: z.object({
+      readBaseM: Num(0, 200), readPerM: Num(0, 1), laserReadM: Num(0, 100), skillWorst: Num(0.1, 5), skillBest: Num(0.1, 5),
+      /** M9.5: the reading error of a fall seen through a drone's camera, and by the off-map reconnaissance drone (m). */
+      droneReadM: Num(0, 100).optional(), airReadM: Num(0, 100).optional(),
+    }).strict().optional(),
 
     /** M8.4: illumination round (absent: none); airburst height of a proximity or time fuse over the target (m;
      *  absent: no airburst); danger close (m): a call this close to own men needs `dangerClose` in the order;
@@ -1014,48 +1042,60 @@ export type QualityT = z.infer<typeof QualitySchema>;
 // Original colour choices (docs/ASSETS.md), not researched facts: no provenance, an optional note.
 const LookColour = z.string().regex(/^#[0-9a-f]{6}$/, "colours are '#rrggbb' (lower case)");
 /**
- * Rank insignia (the "insignia" step, owner 2026-11-14): what one rank wears on the field uniform, as devices drawn
- * in code by the UI (`ui/src/insignia.ts`). Every count is a device of that kind; absent = none (so `{}` is a plain
- * board, e.g. a private). Faction-neutral: the drawing never knows whose uniform it is.
+ * Rank insignia (the "insignia" step, owner 2026-11-14; exact shapes, "insignia-exact" 2026-11-14): what one rank
+ * wears on the field uniform, drawn in code by the UI (`ui/src/insignia.ts`) at true proportions. Every length is
+ * in millimetres on the real board: x across it from its centre line (+ = right as seen), y along it from its
+ * shoulder-seam end (0) towards the collar end. Faction-neutral: the drawing never knows whose uniform it is.
  */
+const Mm = z.number().min(-300).max(300);
+const PosMm = z.number().positive().max(300);
+export const InsigniaElementSchema = z.discriminatedUnion("kind", [
+  /** A band across the board between y0 and y1; x0/x1 absent: edge to edge (cross stripes, lychki, galun);
+   *  given: a band along the board (a long stripe). */
+  z.object({ kind: z.literal("band"), y0: Mm, y1: Mm, x0: Mm.optional(), x1: Mm.optional() }).strict(),
+  /** A diagonal stripe (Schraegstreifen) `widthMm` wide, its centre line through (0, y) at `angleDeg` (+ = rising to
+   *  the right), its ends cut square to the board's long edges `insetMm` inside them. */
+  z.object({ kind: z.literal("bar"), y: Mm, widthMm: PosMm, angleDeg: z.number().min(-75).max(75), insetMm: z.number().min(0).max(50) }).strict(),
+  /** A braid (Tresse) `widthMm` wide round the board, `insetMm` inside its edge; `open`: no braid along the
+   *  shoulder end (the long sides run out to it). */
+  z.object({ kind: z.literal("braid"), widthMm: PosMm, insetMm: z.number().min(0).max(50), open: z.boolean() }).strict(),
+  /** A chevron (Winkel) of a `widthMm` band, point towards the collar: its centre line from (-halfSpanMm, y - riseMm)
+   *  to the point (0, y) and back down. `headMm` > 0: a headed chevron (Kopfwinkel): the legs cross at (0, y) and run
+   *  on `headMm` (measured up the board) to close a diamond above it. */
+  z.object({ kind: z.literal("chevron"), y: Mm, halfSpanMm: PosMm, riseMm: PosMm, widthMm: PosMm, headMm: z.number().min(0).max(60).optional() }).strict(),
+  /** A star (pip) of `points` points, `diameterMm` across its points, one point towards the collar. */
+  z.object({ kind: z.literal("star"), x: Mm, y: Mm, diameterMm: PosMm, points: z.union([z.literal(4), z.literal(5)]) }).strict(),
+]);
+/** One rank: the devices on its board; `bare`: the rank wears no board at all (only the strap, if any, shows). */
 export const InsigniaDeviceSchema = z.object({
-  /** Diagonal stripes (Schrägstreifen). */
-  bars: z.number().int().min(0).max(6).optional(),
-  /** Narrow stripes across the board (lychki), from its collar end. */
-  stripes: z.number().int().min(0).max(4).optional(),
-  /** One wide stripe across the board (galun), at its collar end. */
-  wideStripe: z.boolean().optional(),
-  /** One wide stripe along the board's middle. */
-  longStripe: z.boolean().optional(),
-  /** Braid (Tresse) round the board: "open" leaves its outer end open, "closed" runs all round. */
-  braid: z.enum(["open", "closed"]).optional(),
-  /** Chevrons, point towards the collar. */
-  chevrons: z.number().int().min(0).max(3).optional(),
-  /** A headed chevron (Kopfwinkel: a chevron closed by a bar under its point) above the chevrons. */
-  headChevron: z.boolean().optional(),
-  /** Stars (pips). */
-  stars: z.number().int().min(0).max(4).optional(),
-  /** "column": along the board's middle from its outer end; "pairs": two side by side at the outer end, the rest
-   *  on the middle line above them (Russian officers). Default "column". */
-  starLayout: z.enum(["column", "pairs"]).optional(),
-  /** Oak leaves (staff officers) at the outer end. */
-  oakLeaves: z.boolean().optional(),
+  bare: z.boolean().optional(),
+  elements: z.array(InsigniaElementSchema).max(12),
   note: z.string().optional(),
 }).strict();
-/** A faction's rank insignia: how the board looks and, per rank id, its devices. Researched (sources, confidence). */
+/** A faction's rank insignia: the board, the strap under it, the arm-of-service loop, and per rank id its devices. */
 export const FactionInsigniaSchema = z.object({
-  /** "slide": a cloth loop over the shoulder strap (square ends); "pogon": a shoulder board with a pointed,
-   *  buttoned collar end; "tab": a small rounded patch. */
-  shape: z.enum(["slide", "pogon", "tab"]),
-  /** The board's cloth, its edge and the devices' colour. */
-  base: LookColour, edge: LookColour, device: LookColour,
-  /** Points of a star: 4 (pip) or 5. */
-  starPoints: z.union([z.literal(4), z.literal(5)]),
+  /** The rank board (slide, sleeve, shoulder board or tab): a trapezoid `lengthMm` long, `widthTopMm` wide at the
+   *  collar end and `widthBottomMm` at the shoulder end, corners rounded by `cornerMm`; its cloth and edge colours. */
+  board: z.object({ lengthMm: PosMm, widthTopMm: PosMm, widthBottomMm: PosMm, cornerMm: z.number().min(0).max(40), colour: LookColour, edge: LookColour }).strict(),
+  /** The uniform's shoulder strap the board is slid onto, where it shows: `aboveMm` beyond the board's collar end
+   *  (a blunt point with its button, `buttonMm` across; 0 = none) and `belowMm` beyond its shoulder end. `widthMm`
+   *  is its width at the board's collar end; it widens with the board's taper towards the shoulder. Absent: no
+   *  strap is drawn. */
+  strap: z.object({ widthMm: PosMm, aboveMm: z.number().min(0).max(100), belowMm: z.number().min(0).max(100), buttonMm: z.number().min(0).max(30), colour: LookColour, edge: LookColour }).strict().optional(),
+  /** The arm-of-service loop (Litze) round the strap at the shoulder seam, in the branch colour (Waffenfarbe) of
+   *  `branch`, `widthMm` wide, `gapMm` below the board's shoulder end. Needs a strap. */
+  litze: z.object({ colour: LookColour, widthMm: PosMm, gapMm: z.number().min(0).max(50), branch: z.string() }).strict().optional(),
+  /** The devices' colour (embroidered or woven). */
+  device: LookColour,
+  /** Drawn smaller than `belowPx` tall (a card row): devices in `device` instead (absent: the usual colour) with a
+   *  1 px `outline` round them (absent: none), so low-contrast (protective-colour) devices still read. */
+  small: z.object({ belowPx: PosMm, device: LookColour.optional(), outline: LookColour.optional() }).strict().optional(),
   ranks: z.record(Id, InsigniaDeviceSchema),
   sources: z.array(z.url()),
   confidence: Confidence,
   note: z.string().optional(),
 }).strict();
+export type InsigniaElementT = z.infer<typeof InsigniaElementSchema>;
 export type InsigniaDeviceT = z.infer<typeof InsigniaDeviceSchema>;
 export type FactionInsigniaT = z.infer<typeof FactionInsigniaSchema>;
 /** A faction's look: uniform tones for the pixel figures (M7.5b) and its vehicles' paint. */

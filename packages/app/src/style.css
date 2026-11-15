@@ -231,7 +231,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-chip span { overflow: hidden; text-overflow: ellipsis; }
 .hud-chip.on { background: #4a5c2f; border-color: var(--accent); color: var(--text); font-weight: 600; }
 .hud-card-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-width: thin; }
-.hud-man { display: grid; grid-template-columns: 20px 14px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 5px; min-height: 32px;
+.hud-man { display: grid; grid-template-columns: 20px 18px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 5px; min-height: 36px;
   padding: 1px 6px; border-radius: 5px; border: 1px solid transparent; background: #1f2a1c; color: var(--text); font-size: 12px; text-align: left; }
 .hud-man.leader .hud-man-role { font-weight: 700; }
 .hud-man.inspected { border-color: #fff3a0; background: #33402a; }
@@ -244,7 +244,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-triage.t1 { background: #ff4a3d; color: #fff; }
 .hud-triage.t2 { background: #ffd23d; }
 .hud-triage.t3 { background: #8fd36a; }
-.hud-man-rank { display: flex; align-items: center; justify-content: center; height: 30px; }
+.hud-man-rank { display: flex; align-items: center; justify-content: center; height: 34px; }
 .hud-picto, .hud-insignia { display: block; flex: none; }
 .hud-man.ss-down .hud-man-role, .hud-man.ss-dead .hud-man-role, .hud-man.ss-surrendered .hud-man-role, .hud-man.ss-captured .hud-man-role,
 .hud-man.ss-missing .hud-man-role { color: var(--muted); }

@@ -151,7 +151,8 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
     switch (e.kind) {
       case "shot.fired":
         if (rec.heatShots.length < HEAT_SHOTS_MAX) rec.heatShots.push(e.x, e.y, sideIdx(sideOfMan(e.shooter) ?? ""));
-        if (e.vehicle !== undefined && catalog.ammo[e.ammo]?.guided !== undefined) { const r = side(view.vehicle.get(e.vehicle)?.side); if (r) r.missiles.fired++; }
+        // (M9.3b: a missile from a team on foot counts for its gunner's side.)
+        if (catalog.ammo[e.ammo]?.guided !== undefined) { const r = side(e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : sideOfMan(e.shooter)); if (r) r.missiles.fired++; }
         break;
       case "casualty": {
         const t = view.transform.get(e.soldier), id = view.identity.get(e.soldier);
@@ -224,7 +225,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         // M10.4b: casualties lifted into and carried out of vehicles (the lead's action completes).
         if (e.action === "loadCasualty" || e.action === "unloadCasualty") { const r = side(sideOfMan(e.actor)); if (r) { if (e.action === "loadCasualty") r.loaded++; else r.unloaded++; } }
         break;
-      case "missile.ended": { const r = side(view.vehicle.get(e.vehicle)?.side); if (r) r.missiles[e.result]++; break; }
+      case "missile.ended": { const r = side(e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : sideOfMan(e.gunner)); if (r) r.missiles[e.result]++; break; }
       case "unit.dismounted": { const r = side(view.unit.get(e.unit)?.side); if (r && r.firstDismountTick === null) r.firstDismountTick = e.tick; break; }
       default: break;
     }

@@ -17,10 +17,13 @@
  * It also puts the next missile on an empty launcher from stowage (the weapon's `reloadSeconds`, only while
  * halted; counted items, rule 9).
  *
+ * M9.3b: a missile guided from a dismounted team's tripod (systems/missile-team.ts) is steered the same way from the
+ * sight's stored place; its gunner loses it if he is hit, stunned, panics, mounts or moves off the post.
+ *
  * Randomness: the "missile" stream (created on first use: battles without missiles never draw).
  */
 import type { AmmoDef, VehicleDef } from "../catalog";
-import type { VehicleState } from "../components";
+import type { MissileGuide, VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { DT, secondsToTicks, type EntityId } from "../ids";
@@ -54,28 +57,108 @@ function launchersOf(ctx: SimContext, def: VehicleDef): [number, number][] {
 const AIM = { x: 0, y: 0, z: 0 };
 
 export function missileSystem(ctx: SimContext, state: SimState, events: EventSink): void {
-  if (state.vehicle.size === 0) return;
-  for (const [vid, v] of state.vehicle.entries()) {
-    if (v.stations.length === 0) continue;
-    const def = ctx.catalog.vehicles[v.def];
-    if (!def) continue;
-    const launchers = launchersOf(ctx, def);
-    if (launchers.length === 0) continue;
-    for (let si = 0; si < v.stations.length; si++) if (v.stations[si]!.guide) guideStep(ctx, state, events, vid, v, def, si);
-    for (const [si, wi] of launchers) reloadStep(ctx, state, events, vid, v, def, si, wi);
+  if (state.vehicle.size > 0) {
+    for (const [vid, v] of state.vehicle.entries()) {
+      if (v.stations.length === 0) continue;
+      const def = ctx.catalog.vehicles[v.def];
+      if (!def) continue;
+      const launchers = launchersOf(ctx, def);
+      if (launchers.length === 0) continue;
+      for (let si = 0; si < v.stations.length; si++) if (v.stations[si]!.guide) guideStep(ctx, state, events, vid, v, def, si);
+      for (const [si, wi] of launchers) reloadStep(ctx, state, events, vid, v, def, si, wi);
+    }
   }
+  // M9.3b: missiles guided from a team's tripod (ID order; the same "missile" stream).
+  for (const [uid, u] of state.unit.entries()) if (u.missileTeam?.guide) teamGuideStep(ctx, state, events, uid);
+}
+
+/**
+ * Where a guided missile is guided from (M9.3b): a vehicle station or a team's tripod. `ignore`: the launcher's own
+ * id for sight lines (the hull; the gunner on foot); `lost()`: why the gunner can no longer guide it, or null (for
+ * a vehicle: the vehicle out of the fight, the gunner, a hit on the hull — in that order, as before M9.3b);
+ * `origin`: his sight; `moving`: the launcher is moving (his error triples).
+ */
+interface GuideHost {
+  ignore: EntityId;
+  end(result: "hit" | "miss" | "lost", reason?: string): void;
+  lost(): string | null;
+  origin(): [number, number, number];
+  moving: boolean;
 }
 
 function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: EntityId, v: VehicleState, def: VehicleDef, si: number): void {
   const st = v.stations[si]!, g = st.guide!, tick = state.tick;
+  const G = ctx.catalog.behaviour.gunnery;
+  guideCore(ctx, state, events, g, {
+    ignore: vid,
+    end(result, reason) {
+      st.guide = null;
+      events.emit(reason === undefined
+        ? { kind: "missile.ended", tick, vehicle: vid, station: si, ammo: g.ammo, target: g.target, result }
+        : { kind: "missile.ended", tick, vehicle: vid, station: si, ammo: g.ammo, target: g.target, result, reason });
+    },
+    lost() {
+      const s = state.soldier.get(g.gunner);
+      if (!canFight(v)) return "missile.lost.launcher";
+      if (!s || !isAble(s) || !s.impair.canFight || s.mount?.vehicle !== vid || tick < s.stunnedUntilTick) return "missile.lost.gunner";
+      // His own hull struck this tick by an enemy round of 12.7 mm and up or a burst: one chance to lose it.
+      let struck = false;
+      for (const e of events.events) {
+        if (e.kind !== "vehicle.hit" || e.vehicle !== vid) continue;
+        const ea = ctx.catalog.ammo[e.ammo];
+        if (state.identity.get(e.owner)?.side === v.side || !ea || (ea.diameterM < 0.0125 && ea.explosive === undefined)) continue;
+        struck = true;
+        break;
+      }
+      if (struck && nextFloat(state.rng, Streams.missile) < (G.missileHitLoseChance ?? 0.5)) return "missile.lost.struck";
+      return null;
+    },
+    origin() {
+      const t = state.transform.req(vid);
+      return muzzleWorld(ctx, def, si, g.weapon, t.x, t.y, t.heading, st.azimuth);
+    },
+    moving: Math.abs(v.drive.speed) > (G.missileHaltedMps ?? 0.3),
+  });
+}
+
+/** How far the gunner on foot may shift from his sight's place before he loses the missile (M9.3b), m. */
+const TEAM_SHIFT_M = 1;
+
+/**
+ * A missile guided from a team's tripod (M9.3b): its gunner must stay at the post (able, not stunned, panicked or
+ * routed, not aboard, within `TEAM_SHIFT_M` of where his sight stood) and the team set up; meanwhile its men's moves
+ * wait. No hit on a hull to throw him off (he is on foot).
+ */
+function teamGuideStep(ctx: SimContext, state: SimState, events: EventSink, uid: EntityId): void {
+  const u = state.unit.get(uid)!, mt = u.missileTeam!, g = mt.guide!, tick = state.tick;
+  // Nobody of the team walks off while the missile flies (their moves wait for it).
+  for (const m of u.members) { const mv = state.mover.get(m); if (mv && mv.waypoints.length > 0) mv.holdUntilTick = Math.max(mv.holdUntilTick ?? 0, tick + 2); }
+  guideCore(ctx, state, events, g, {
+    ignore: g.gunner,
+    end(result, reason) {
+      mt.guide = null;
+      events.emit(reason === undefined
+        ? { kind: "missile.ended", tick, team: uid, gunner: g.gunner, ammo: g.ammo, target: g.target, result }
+        : { kind: "missile.ended", tick, team: uid, gunner: g.gunner, ammo: g.ammo, target: g.target, result, reason });
+    },
+    lost() {
+      const s = state.soldier.get(g.gunner), t = state.transform.get(g.gunner);
+      if (!s || !t || !isAble(s) || !s.impair.canFight || s.mount !== undefined || tick < s.stunnedUntilTick) return "missile.lost.gunner";
+      if (s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") return "missile.lost.gunner";
+      if (mt.state === "packed" || (t.x - g.ox) * (t.x - g.ox) + (t.y - g.oy) * (t.y - g.oy) > TEAM_SHIFT_M * TEAM_SHIFT_M) return "missile.lost.moved";
+      return null;
+    },
+    origin() { return [g.ox, g.oy, g.oz]; },
+    moving: false,
+  });
+}
+
+/** One tick of a guided missile's flight (any host): see the file header. */
+function guideCore(ctx: SimContext, state: SimState, events: EventSink, g: MissileGuide, h: GuideHost): void {
+  const tick = state.tick;
   const am: AmmoDef | undefined = ctx.catalog.ammo[g.ammo];
   const G = ctx.catalog.behaviour.gunnery;
-  const end = (result: "hit" | "miss" | "lost", reason?: string): void => {
-    st.guide = null;
-    events.emit(reason === undefined
-      ? { kind: "missile.ended", tick, vehicle: vid, station: si, ammo: g.ammo, target: g.target, result }
-      : { kind: "missile.ended", tick, vehicle: vid, station: si, ammo: g.ammo, target: g.target, result, reason });
-  };
+  const end = h.end;
   const gd = am?.guided;
   const idx = ctx.catalog.ammoIds.indexOf(g.ammo);
   const P = state.projectiles;
@@ -88,34 +171,23 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
     return;
   }
   // ---- launch warning (M9.3a): the target's crew fires its smoke toward the launcher
-  if (g.warnTick !== undefined && tick >= g.warnTick) { delete g.warnTick; smokeAgainst(ctx, state, events, g.target, vid); }
+  if (g.warnTick !== undefined && tick >= g.warnTick) { delete g.warnTick; smokeAgainst(ctx, state, events, g.target, h.ignore); }
   // ---- fire-and-forget (M9.3a): its own seeker, no gunner, no wire
-  if (fireAndForget(g.kind)) { seekStep(ctx, state, g, gd, row, vid); return; }
+  if (fireAndForget(g.kind)) { seekStep(ctx, state, g, gd, row, h.ignore); return; }
   // ---- can the gunner still guide it?
   const lose = (reason: string): void => {
     // Thrown off its line: a kick across and up or down, then it flies on unguided (drag and gravity).
     const k = gd.lostKickMrad / 1000;
     const vx = P.vx[row]!, vy = P.vy[row]!, sp = sqrt(vx * vx + vy * vy + P.vz[row]! * P.vz[row]!);
-    const h = sqrt(vx * vx + vy * vy) || 1;
+    const hh = sqrt(vx * vx + vy * vy) || 1;
     const a = k * nextNormal(state.rng, Streams.missile), b = k * nextNormal(state.rng, Streams.missile);
-    P.vx[row] = vx - (vy / h) * a * sp; P.vy[row] = vy + (vx / h) * a * sp; P.vz[row] = P.vz[row]! + b * sp;
+    P.vx[row] = vx - (vy / hh) * a * sp; P.vy[row] = vy + (vx / hh) * a * sp; P.vz[row] = P.vz[row]! + b * sp;
     end("lost", reason);
   };
-  const s = state.soldier.get(g.gunner);
-  if (!canFight(v)) { lose("missile.lost.launcher"); return; }
-  if (!s || !isAble(s) || !s.impair.canFight || s.mount?.vehicle !== vid || tick < s.stunnedUntilTick) { lose("missile.lost.gunner"); return; }
-  // His own hull struck this tick by an enemy round of 12.7 mm and up or a burst: one chance to lose it.
-  let struck = false;
-  for (const e of events.events) {
-    if (e.kind !== "vehicle.hit" || e.vehicle !== vid) continue;
-    const ea = ctx.catalog.ammo[e.ammo];
-    if (state.identity.get(e.owner)?.side === v.side || !ea || (ea.diameterM < 0.0125 && ea.explosive === undefined)) continue;
-    struck = true;
-    break;
-  }
-  if (struck && nextFloat(state.rng, Streams.missile) < (G.missileHitLoseChance ?? 0.5)) { lose("missile.lost.struck"); return; }
-  const t = state.transform.req(vid);
-  const [sx, sy, sz] = muzzleWorld(ctx, def, si, g.weapon, t.x, t.y, t.heading, st.azimuth);
+  const why = h.lost();
+  if (why !== null) { lose(why); return; }
+  const s = state.soldier.get(g.gunner)!;
+  const [sx, sy, sz] = h.origin();
   const mx = P.x[row]!, my = P.y[row]!, mz = P.z[row]!;
   if ((mx - sx) * (mx - sx) + (my - sy) * (my - sy) > gd.maxRangeM * gd.maxRangeM) { lose(g.kind === "command-beam" ? "missile.lost.range" : "missile.lost.wire"); return; }
   if (g.target >= 0) { if (!missileAimPoint(ctx, state, g.target, AIM)) { lose("missile.lost.unseen"); return; } g.ax = AIM.x; g.ay = AIM.y; g.az = AIM.z; }
@@ -125,15 +197,15 @@ function guideStep(ctx: SimContext, state: SimState, events: EventSink, vid: Ent
   if (g.checkTick < 0 || tick - g.checkTick >= every) {
     const first = g.checkTick < 0;
     g.checkTick = tick;
-    if (!missileSees(ctx, state, vid, g.target, sx, sy, sz, ax, ay, az)) { lose("missile.lost.unseen"); return; }
+    if (!missileSees(ctx, state, h.ignore, g.target, sx, sy, sz, ax, ay, az)) { lose("missile.lost.unseen"); return; }
     if (first) {
       // His error when the missile leaves (then it wanders).
-      const sd = trackSd(ctx, v, s.skills["marksmanship"] ?? 0.5, s.impair.aim, gd.trackErrorMrad);
+      const sd = trackSd(ctx, h.moving, s.skills["marksmanship"] ?? 0.5, s.impair.aim, gd.trackErrorMrad);
       g.errH = sd * nextNormal(state.rng, Streams.missile); g.errV = sd * nextNormal(state.rng, Streams.missile);
     }
   }
   // ---- his tracking error wanders (Ornstein-Uhlenbeck, time constant trackTauS)
-  const sd = trackSd(ctx, v, s.skills["marksmanship"] ?? 0.5, s.impair.aim, gd.trackErrorMrad);
+  const sd = trackSd(ctx, h.moving, s.skills["marksmanship"] ?? 0.5, s.impair.aim, gd.trackErrorMrad);
   const a = exp(-DT / gd.trackTauS), b = sd * sqrt(1 - a * a);
   g.errH = a * g.errH + b * nextNormal(state.rng, Streams.missile);
   g.errV = a * g.errV + b * nextNormal(state.rng, Streams.missile);
@@ -183,7 +255,7 @@ const SEEK = { x: 0, y: 0, z: 0 };
  * point seen (owner, M9 round). It pursues the aim point; a top-attack missile first climbs `climbM` above it and
  * dives on it within `diveAtM`.
  */
-function seekStep(ctx: SimContext, state: SimState, g: NonNullable<VehicleState["stations"][number]["guide"]>, gd: NonNullable<AmmoDef["guided"]>, row: number, vid: EntityId): void {
+function seekStep(ctx: SimContext, state: SimState, g: MissileGuide, gd: NonNullable<AmmoDef["guided"]>, row: number, vid: EntityId): void {
   const P = state.projectiles, tick = state.tick, G = ctx.catalog.behaviour.gunnery;
   const mx = P.x[row]!, my = P.y[row]!, mz = P.z[row]!;
   const every = Math.max(1, secondsToTicks(G.missileSightSeconds ?? 0.1));
@@ -229,9 +301,8 @@ function smokeAgainst(ctx: SimContext, state: SimState, events: EventSink, tv: E
 }
 
 /** The gunner's tracking error (one standard deviation, rad): the missile's, his skill and wounds, x3 on the move. */
-function trackSd(ctx: SimContext, v: VehicleState, skill: number, impairAim: number, mrad: number): number {
-  const moving = Math.abs(v.drive.speed) > (ctx.catalog.behaviour.gunnery.missileHaltedMps ?? 0.3) ? 3 : 1;
-  return (mrad / 1000) * skillFactor(ctx, skill) * impairAim * moving;
+function trackSd(ctx: SimContext, moving: boolean, skill: number, impairAim: number, mrad: number): number {
+  return (mrad / 1000) * skillFactor(ctx, skill) * impairAim * (moving ? 3 : 1);
 }
 
 /**

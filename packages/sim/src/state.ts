@@ -60,7 +60,7 @@ export interface FireMission {
    *  evenly: `effect` rounds in all, `fired` of them down. */
   lx?: number; ly?: number; effect?: number; fired?: number;
   /** M8.2a: how the point was located ("estimate": map or eye, "laser": a laser rangefinder, "registered": a point
-   *  ranged on or planned before); the round landing at the tick in `shotFor` / `splashFor` has had its "shot" /
+   *  ranged on or planned before; M9.5 "drone": the platoon's drone camera, "air": an off-map reconnaissance drone); the round landing at the tick in `shotFor` / `splashFor` has had its "shot" /
    *  "splash" call. */
   method?: LocationMethod; shotFor?: number; splashFor?: number;
   /** M8.3a on-map: the mortar teams firing it (with each tube's next round tick), the rounds in flight (where and
@@ -71,7 +71,7 @@ export interface FireMission {
 }
 
 /** How the caller located the target (M8.2a). */
-export type LocationMethod = "estimate" | "laser" | "registered";
+export type LocationMethod = "estimate" | "laser" | "registered" | "drone" | "air";
 
 export interface ReadonlyNumbers { readonly length: number; readonly [index: number]: number }
 

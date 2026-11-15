@@ -5,6 +5,7 @@
 import { droneSystem } from "./systems/drones";
 import { lightAt } from "./light";
 import { initMortars, mortarSystem } from "./systems/mortars";
+import { missileTeamSystem } from "./systems/missile-team";
 import { actionSystem } from "./actions";
 import type { BattleInput } from "./battle";
 import { COMMS_MODELS } from "./comms";
@@ -125,6 +126,7 @@ export function step(sim: Sim): SimEvent[] {
   fireSystem(ctx, state, events);
   stationFireSystem(ctx, state, events);
   mortarSystem(ctx, state, events);
+  missileTeamSystem(ctx, state, events);
   supportSystem(ctx, state, events);
   projectileSystem(ctx, state, events);
   // Wire-guided missiles (owner 2026-11-13): end, lose or steer each one in flight; reload launchers.

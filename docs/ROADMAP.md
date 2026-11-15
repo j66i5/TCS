@@ -233,6 +233,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   drone-adjusted fire. 🔶
   - ✅ **M9.4a Reconnaissance quadcopter** (2026-11-14) — one per platoon HQ: item and entity, battery, busy
     operator, day and thermal cameras, feed over the radio, sidebar tile (Move = fly). `lab -- drone`, `bench-drones`.
+  - ✅ **M9.4b Counter-drone and AI use** (2026-11-14) — seen and heard, shot at (hit box), the AI flies its drones
+    with a standoff; M14 hooks (link, hit chance). Lab counter rows.
+  - ✅ **M9.5 Drone-observed fire** (2026-11-14) — location methods "drone" and "air" (off-map fixed-wing
+    reconnaissance, `?air=`), drones read the falls; `lab -- indirect` rows by location method.
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
   before logistics). ⬜
 

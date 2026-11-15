@@ -2,7 +2,7 @@
  * The HUD's panels from the state (from the `main.ts` split, D2): the order bar, the unit sidebar and card, the
  * rules panel's status text and the score line. All read-only; all text from the string table.
  */
-import { atRuleOf, fuelLitres, isOut, mortarTeams, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
+import { atRuleOf, fuelLitres, isOut, launcherOf, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
 import { droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, woundedRows, type UnitRules, type UnitTile } from "@tcs/ui";
@@ -46,7 +46,14 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
   if (uid === null || !tile) { a.inspected = null; hud.setCard(null); hud.showMan(null); hud.setInspected(null); return; }
   const men = unitMenRows(a.sim.state, a.input.catalog, uid);
   if (a.inspected !== null && !men.some((r) => r.id === a.inspected)) a.inspected = null;
-  const state = tile.kind === "vehicle" ? a.strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : a.strings.t(`side.state.${tile.state}`);
+  let state = tile.kind === "vehicle" ? a.strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : a.strings.t(`side.state.${tile.state}`);
+  // A missile team (M9.3b): its launch post packed, setting up, ready (missiles left) or guiding one.
+  const mt = a.sim.state.unit.get(uid)?.missileTeam;
+  if (mt) {
+    const l = launcherOf(a.sim.ctx, a.sim.state, uid);
+    const rounds = l ? teamRounds(a.sim.state, uid, l.def.round) : 0;
+    state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
+  }
   // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
   hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, fit: tile.fit, total: tile.total, state, men });
   hud.setInspected(a.inspected);

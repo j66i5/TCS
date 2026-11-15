@@ -608,7 +608,7 @@ async function antitankScenes(page: Page, name: string, errors: string[], shots:
 /**
  * Guided missile (`--scene vehicles`, sixth part, or `--scene missile` alone; owner 2026-11-13): the mounted
  * platoon battle with Russia attacking; the first 9M113M a BMP-2 fires on its own, halfway (the wire back to the
- * launcher, the motor's flare, its smoke trail), then the hit.
+ * launcher, the motor's flare, its smoke trail), then the hit. M9.3b: then a Metis-M team's missile in flight.
  */
 async function missileScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
   // The mounted platoon battle, Russia attacking on farmland, both sides AI-driven, Debug on (both sides shown):
@@ -633,6 +633,21 @@ async function missileScenes(page: Page, name: string, errors: string[], shots: 
   const m1 = `${outDir}/missile-${seed}-${name}-1-hit.png`;
   await page.screenshot({ path: m1 }); shots.push(m1);
   console.log(`${name}: missile scene ${JSON.stringify(found)} -> ${JSON.stringify(end)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  // M9.3b: a ground team's missile: Germany attacks mounted, the Russian Metis-M team (behind the defence) fires on
+  // its own; halfway, the wire back to the tripod.
+  await page.goto(`http://localhost:${port}/?scenario=platoon&seed=${seed}&map=${args["map"] ?? "village"}&attacker=blue&side=red`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  const team = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); t.setDebug(true); const s = t.sim.state;
+    for (let i = 0; i < 60 * 1500; i++) { t.stepTicks(1);
+      for (const [uid, u] of s.unit.entries()) { const g = u.missileTeam && u.missileTeam.guide; if (!g || s.tick - g.launchTick < 30 || g.target < 0) continue;
+        const tg = s.transform.get(g.target); const d = Math.hypot(tg.x - g.ox, tg.y - g.oy);
+        t.stepTicks(Math.max(1, Math.round((d / 2 / 190) * 60) - 30)); t.focus((tg.x + g.ox) / 2, (tg.y + g.oy) / 2, d + 120); t.stepTicks(1);
+        return { team: uid, target: g.target, rangeM: Math.round(d), tick: s.tick }; } }
+    return null;`) as () => object | null);
+  await page.waitForTimeout(400);
+  const m2 = `${outDir}/missile-${seed}-${name}-2-ground-team.png`;
+  await page.screenshot({ path: m2 }); shots.push(m2);
+  console.log(`${name}: ground team missile ${JSON.stringify(team)}, page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

@@ -157,6 +157,31 @@ export function firstRoundErrorM(fs: FireSupportDef, method: Exclude<LocationMet
   return sqrt(ownErrorM * ownErrorM + loc * loc);
 }
 
+/**
+ * How the caller locates (x, y) for the first round (M8.2a; M9.5): by map or eye estimate; with a laser rangefinder
+ * if he has one and sees the point; through his platoon's drone camera if one sees it (its slant range); by the
+ * side's off-map reconnaissance drone (rules.airRecon). The method with the smallest first-round error is used.
+ */
+export function locateTarget(ctx: SimContext, state: SimState, fs: FireSupportDef, caller: EntityId, x: number, y: number, ownErrorM = fs.rangingErrorM): { method: Exclude<LocationMethod, "registered">; sd: number } {
+  const t = state.transform.get(caller);
+  const dist = t ? sqrt((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y)) : 0;
+  const o = observerOf(ctx, state, caller);
+  let method: Exclude<LocationMethod, "registered"> = fs.locationError && o !== null && o.laser && observerSees(ctx, state, o, x, y) ? "laser" : "estimate";
+  let sd = firstRoundErrorM(fs, method, dist, ownErrorM);
+  const L = fs.locationError;
+  if (L?.drone || L?.air) {
+    for (const ob of observersFor(ctx, state, caller)) {
+      if (ob.kind !== "drone" && ob.kind !== "air") continue;
+      const kind = ob.kind;
+      if (!L[kind] || !observerSees(ctx, state, ob, x, y)) continue;
+      const slant = sqrt((ob.x - x) * (ob.x - x) + (ob.y - y) * (ob.y - y) + (ob.z - heightAt(ctx.map, x, y)) * (ob.z - heightAt(ctx.map, x, y))); // ground: ok (a point on the ground)
+      const e = firstRoundErrorM(fs, kind, kind === "air" ? 0 : slant, ownErrorM);
+      if (e < sd) { sd = e; method = kind; }
+    }
+  }
+  return { method, sd };
+}
+
 /** The side's mortar teams that can take a mission on (x, y) (and the screen's other end): set up or setting up,
  *  enough crew at the tube, in range, holding rounds of the kind. `inRange: false` lists those only out of range. */
 function onMapTubes(ctx: SimContext, state: SimState, side: SideId, x: number, y: number, ammo: "he" | "smoke", x2: number, y2: number): { ok: Tube[]; outOfRange: number } {
@@ -215,11 +240,8 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
   // one and sees the point; else a map or eye estimate. The first round's error follows from it.
   let sd = 0;
   if (reg) { m.ex = reg.ex; m.ey = reg.ey; m.method = "registered"; } else {
-    const t = state.transform.get(caller);
-    const dist = t ? sqrt((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y)) : 0;
-    const o = observerOf(ctx, state, caller);
-    m.method = fs.locationError && o !== null && o.laser && observerSees(ctx, state, o, x, y) ? "laser" : "estimate";
-    sd = firstRoundErrorM(fs, m.method, dist);
+    const loc = locateTarget(ctx, state, fs, caller, x, y);
+    m.method = loc.method; sd = loc.sd;
     if (sd > 0) {
       m.ex = sd * nextNormal(state.rng, Streams.support);
       m.ey = sd * nextNormal(state.rng, Streams.support);
@@ -228,7 +250,7 @@ export function callFire(ctx: SimContext, state: SimState, events: EventSink, si
   state.fireMissions.push(m);
   DISPLACE_MODEL.afterMission(fs, sec, state.tick, secondsToTicks(secondsToEffect(fs) + Math.ceil(n / Math.max(1, fs.tubes)) * fs.intervalSeconds));
   events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS: fs.delaySeconds, ...(m.asset ? { asset: m.asset } : {}), ...(m.dangerClose ? { dangerClose: true } : {}) });
-  radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : "radio.fireCall", { s: Math.round(fs.delaySeconds) });
+  radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : m.method === "drone" ? "radio.fireCallDrone" : m.method === "air" ? "radio.fireCallAir" : "radio.fireCall", { s: Math.round(fs.delaySeconds) });
   return true;
 }
 
@@ -265,17 +287,14 @@ function callOnMap(ctx: SimContext, state: SimState, events: EventSink, fs: Fire
   if (lx !== 0 || ly !== 0) { m.lx = lx; m.ly = ly; m.effect = n - rg; m.fired = 0; }
   let sd = 0;
   if (reg) { m.ex = reg.ex; m.ey = reg.ey; m.method = "registered"; } else {
-    const t = state.transform.get(caller);
-    const dist = t ? sqrt((t.x - x) * (t.x - x) + (t.y - y) * (t.y - y)) : 0;
-    const o = observerOf(ctx, state, caller);
-    m.method = fs.locationError && o !== null && o.laser && observerSees(ctx, state, o, x, y) ? "laser" : "estimate";
-    sd = firstRoundErrorM(fs, m.method, dist, own);
+    const loc = locateTarget(ctx, state, fs, caller, x, y, own);
+    m.method = loc.method; sd = loc.sd;
     if (sd > 0) { m.ex = sd * nextNormal(state.rng, Streams.support); m.ey = sd * nextNormal(state.rng, Streams.support); }
   }
   state.fireMissions.push(m);
   const firstS = Math.round(ph.requestS + proc + flightSecondsOf(tubes[0]!, x, y));
   events.emit({ kind: "support.call", tick: state.tick, side, caller, x, y, ammo, method: m.method, errorM: Math.round(sd), firstS });
-  radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : "radio.fireCall", { s: firstS });
+  radio(state, events, m, m.method === "registered" ? "radio.fireCallRegistered" : m.method === "laser" ? "radio.fireCallLaser" : m.method === "drone" ? "radio.fireCallDrone" : m.method === "air" ? "radio.fireCallAir" : "radio.fireCall", { s: firstS });
   return true;
 }
 

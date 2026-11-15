@@ -643,6 +643,14 @@
   "radio.launchWarning": "{callsign}: missile launch! Smoke!",
   "radio.reloadOutside": "{callsign}: reloading the launcher, man on the roof.",
   "missile.lost.range": "missile lost: out of the beam's range",
+  "radio.missileTeamReady": "{callsign}: launch post laid, ready to fire.",
+  "radio.missileTeamNoShot": "{callsign}: cannot fire the missile from here.",
+  "missile.lost.moved": "missile lost: gunner left the post",
+  "card.teamRow": "Post",
+  "card.team.packed": "packed",
+  "card.team.setting": "setting up",
+  "card.team.ready": "ready, {rounds} missiles",
+  "card.team.guiding": "guiding a missile",
   "radio.droneUp": "{callsign}: drone up.",
   "radio.droneLow": "{callsign}: drone battery low, bringing it home.",
   "radio.droneLanded": "{callsign}: drone down and recovered.",
@@ -668,5 +676,9 @@
   "wounded.status.fighting": "still fighting",
   "wounded.ordered": "ordered back",
   "wounded.back": "Back",
-  "wounded.backTitle": "Take him back to the Verwundetennest"
+  "wounded.backTitle": "Take him back to the Verwundetennest",
+  "radio.droneOverhead": "{callsign}: enemy drone overhead!",
+  "radio.droneDown": "{callsign}: drone shot down.",
+  "radio.fireCallDrone": "{callsign}: mortars have it, target fixed by the drone, first round in {s} s.",
+  "radio.fireCallAir": "{callsign}: mortars have it, target fixed from the air, first round in {s} s."
 }

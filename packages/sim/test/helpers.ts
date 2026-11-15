@@ -135,7 +135,7 @@ export const testCatalog: Catalog = {
     scanSeconds: 1, baseRatePerS: 0.07, referenceRangeM: 300, rangeExponent: 2, minRangeM: 15, maxRangeM: 1200,
     postureSize: { standing: 1, crouching: 0.55, prone: 0.2 },
     stillBelowMps: 0.2, movingFactor: 4, runningAboveMps: 2.5, runningFactor: 6, movingVisibilityFloor: 0.15,
-    firingWithinSeconds: 2, firingFactor: 15, firingVisibilityFloor: 0.5,
+    firingWithinSeconds: 2, firingFactor: 15, firingVisibilityFloor: 0.5, launchFlashFactor: 1, launchFlashSeconds: 0,
     frontHalfAngleDeg: 60, sideHalfAngleDeg: 110, sideFactor: 0.3, rearFactor: 0.05,
     sensors: { eye: { factor: 1, fromM: 0, nightLight: 0 }, iron: { factor: 1, fromM: 0, nightLight: 0 }, telescopic: { factor: 1.7, fromM: 150, nightLight: 0 } }, skillSlope: 0.8, stressK: 0.5, lightFloor: 0.05, thermal: { man: 1, vehicleCold: 0.7, vehicleHot: 1.6, vehicleFiring: 2.5, vehicleBurning: 6, hotSeconds: 600, vegetationExponent: 0.5 }, night: { sun: [[0, 0], [5, 0], [7, 1], [17, 1], [19, 0], [24, 0]], moonFullLight: 0.12, flashLight: 0.8, vehicleFlashLight: 0.8, tracerContrast: 3 },
     minVisibility: 0.002, smokeExtinctionPerM: 0.15, smokeBuildSeconds: 10, keepRateFactor: 200, forgetSeconds: 6, maxTracked: 6,

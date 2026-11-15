@@ -17,6 +17,12 @@ export interface MortarDef {
   flightBaseSeconds: number; flightPerKmSeconds: number; hearingRangeM: number;
 }
 
+/** A crew-served weapon worked by a team on foot (M9.3b; see the data schema): a guided missile launch post. */
+export interface CrewServedDef {
+  kind: "missile"; weapon: DefId; round: DefId; setupSeconds: number; packSeconds: number; crew: number; crewMin: number;
+  sightHeightM: number; backblastM: number; launchLoudM: number; traverseDeg: number; relaySeconds: number; aimSeconds: number;
+}
+
 /** A reconnaissance quadcopter (M9.4a): its battery item (charge in Wh) and draw (W), speeds, heights above the
  *  ground, how long launching takes, how far from its operator it can be flown, its cameras (sensor kinds in
  *  core/spotting.json, looking down) and the radius on the ground they search around the point below it, how far
@@ -47,6 +53,8 @@ export interface ItemTypeDef {
   rangefinder?: boolean;
   /** M8.3a: a crew-served mortar tube (see the data schema). */
   mortar?: MortarDef;
+  /** M9.3b: a crew-served weapon worked by a team on foot (see the data schema). */
+  crewServed?: CrewServedDef;
   /** M9.4a: a reconnaissance quadcopter (the airframe; see the data schema). */
   drone?: DroneDef;
   /** Belts: every `tracerEvery`-th round is `tracerItem`. */
@@ -525,11 +533,15 @@ export interface SpottingDef {
   postureSize: Record<"standing" | "crouching" | "prone", number>;
   stillBelowMps: number; movingFactor: number; runningAboveMps: number; runningFactor: number; movingVisibilityFloor: number;
   firingWithinSeconds: number; firingFactor: number; firingVisibilityFloor: number;
+  /** M9.3b: a ground missile launch shows its gunner this much more for this long. */
+  launchFlashFactor: number; launchFlashSeconds: number;
   frontHalfAngleDeg: number; sideHalfAngleDeg: number; sideFactor: number; rearFactor: number;
   sensors: Record<string, { factor: number; fromM: number; nightLight: number; smokeFactor?: number; maxRangeM?: number; fogFloorM?: number; rainFactor?: number; thermal?: boolean; arcDeg?: number }>;
   /** Drone cameras (M9.4a): a man's size seen from above by posture; the extra error of a drone's report (m); the
    *  search factor; what a tree canopy over a man leaves of him to the day and the thermal camera. */
-  drone?: { postureSize: Record<"standing" | "crouching" | "prone", number>; feedErrorM: number; searchFactor: number; canopyAboveM: number; canopyDay: number; canopyThermal: number };
+  drone?: { postureSize: Record<"standing" | "crouching" | "prone", number>; feedErrorM: number; searchFactor: number; canopyAboveM: number; canopyDay: number; canopyThermal: number;
+    /** M9.4b: a drone as a target and shot at. */
+    targetContrast: number; seenMaxM: number; heardLookFactor: number; engageM: number; leadErrorShare: number; maxHitChance: number; aerialAimMrad: number; killShare: number };
   /** Thermal signatures (M9.2): relative to what the eye sees. */
   thermal: { man: number; vehicleCold: number; vehicleHot: number; vehicleFiring: number; vehicleBurning: number; hotSeconds: number; vegetationExponent: number };
   /** Vehicles as targets and contacts (M7.3). */
@@ -607,9 +619,9 @@ export type FireSupportDef = {
     /** Call-for-fire chain (M8.2a): of `delaySeconds`, the radio call and the flight (the rest: processing); "splash"
      *  this long before a round lands; first-round error by location method (sd per axis: baseM + perM x range). */
     requestSeconds?: number; flightSeconds?: number; splashSeconds?: number;
-    locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number } };
+    locationError?: { estimate: { baseM: number; perM: number }; laser: { baseM: number; perM: number }; /** M9.5 */ drone?: { baseM: number; perM: number }; air?: { baseM: number; perM: number } };
     /** Observer adjustment (M8.2b): reading error of a fall by eye (base + per metre) or laser; skill factor range. */
-    adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number };
+    adjust?: { readBaseM: number; readPerM: number; laserReadM: number; skillWorst: number; skillBest: number; /** M9.5 */ droneReadM?: number; airReadM?: number };
     /** M8.4: illumination round; airburst height over the target (m; absent: none); danger close (m); counter-battery
      *  displacement after so many missions (abstract model). */
     illumAmmo?: DefId; airburstHeightM?: number; dangerCloseM?: number;

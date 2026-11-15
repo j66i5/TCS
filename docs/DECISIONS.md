@@ -4743,6 +4743,126 @@ locked fire-and-forget missile against smoke flies on to the last point seen. So
   their 30 mm gets through a BMP-2, and the crew chooses the missile only beyond `missileBeyondM` (1000 m) or when its
   rounds would not penetrate. MELLS will matter against tanks (M7.6) and at long range. Golden update.
 
+## 2026-11-14 — M9.3b Dismounted missile teams (roadmap-detail slice 33, parallel session)
+
+Owner decisions (binding): the Russian dismounted missile is a Metis-M team at company level attached to the platoon
+battle; a locked fire-and-forget missile flies on to the last point seen (already built for vehicles, M9.3a).
+
+- **Data (search extracts, pages not opened: `confidence` at most medium; game values low with notes).**
+  `ru-9m131` (130 mm, 80-2000 m — 1500 m is the Metis-M, 2000 m the Metis-M1, the plan's figure kept; 200 m/s;
+  tandem 800 mm RHA behind ERA = 1000 mm mild-steel; command by wire; **no `delivery` block**, so the shoulder-fired
+  code never treats it as an RPG round), `ru-9p151` weapon (launch velocity 80 m/s), `ru-9m131-round` (tube 2.8 kg +
+  missile 11 kg = 13.8 kg published), `ru-9p151` item with the new `crewServed` block (set-up 15 s, packing 8 s,
+  crew 3, crewMin 1, sight 1.0 m, danger zone 20 m, launch heard 600 m, traverse +-30 deg / re-lay 3 s, aim 2 s),
+  roles `ptur-*`, template `raschet-metis` (commander with radio and a round, operator with the post and a round,
+  loader with two rounds; the real crew is two), manifest `missileTeamTemplate`. Fixture xf: `xf-dart-tripod`
+  (beam-riding `xf-dart` from a tripod) and `dart-team`. Core spotting `launchFlashFactor` 3 / `launchFlashSeconds`
+  3 (schema defaults 1 / 0). Loader check: a `crewServed` post's weapon exists, its round holds a guided missile the
+  weapon gives a velocity for, and that missile has no `delivery`.
+- **Deviation from the plan — sight height 1.0 m, not 0.6 m:** at 0.6 m the farmland's low vegetation around the post
+  thinned every sight line to a vehicle below `missileSeenFloor` (the men saw the hulls, the sight never did), so a
+  team on generated maps never fired. 1.0 m = kneeling behind the raised tripod (game value, low).
+- **Deviation — launch flash in core spotting, not in the `crewServed` block:** spotting reads it per man every scan;
+  a per-man look-up of his post's data there would cost in the hot loop. `SoldierState.launchTick?` (optional,
+  absent until a launch) marks him.
+- **State:** `Unit.missileTeam?` (optional: absent on every existing unit, so saves and hashes of battles without
+  teams are unchanged): state / readyTick / stillTick like a mortar, `heading` (laid bearing), `lastLaunchTick`,
+  `shots`, `relayTick?`, `queued?` (an ordered shot waiting for set-up or a re-lay), `guide: TeamGuide | null`
+  (`MissileGuide` + the sight's place `ox, oy, oz`). No new store.
+- **Crew-served refactor (mortars.ts):** a generic `carriedOf(pick)` behind `tubeOf` / new `launcherOf`, `crewAt` and
+  `takeRound` take any carried record, `passCarried(pick)`, `initMortars` also marks missile teams, `mortarSystem`
+  hands units with `missileTeam` to `missileTeamState` (pack on move — not while a missile flies —, auto-deploy after
+  3 s, ready + radio "launch post laid"); events `missileTeam.setup|ready|packed`. `crewServedTeamsUnder` (renamed
+  from `mortarTeamsUnder`) serves `deploy` and the new team fire. Checked bit-identical: state hashes with the
+  catalog fingerprint blanked, before and after, for platoon-mortars, platoon-ru-mortars, platoon, platoon-vehicles,
+  platoon-ru-vehicles (before the scenarios opted in), demo, shootout, vehicles, village-occupy, house-clear,
+  vehicles-fixture, demo-fixture: identical.
+- **Shared launch (gunnery.ts):** `launchGuided()` extracted from `fireMissile` (same arithmetic), `launchNoticed`
+  exported; a crew's `seen` list holds the gunner's soldier id, so the same test works for a man on foot.
+- **missiles.ts:** `guideStep` split into `guideCore(host)`; the vehicle host keeps its checks in the old order
+  (launcher, gunner, hull struck with its one draw), the team host: origin = stored sight point, lost when the gunner
+  is unable, stunned, panicked/routed, aboard ("missile.lost.gunner"), more than 1 m off the post or the team packed
+  ("missile.lost.moved"); no struck check. `trackSd(moving)`. The vehicle loop runs only with vehicles; a unit loop
+  (ID order, same "missile" stream) guides team missiles and holds the team's moves (`holdUntilTick`) during flight.
+- **systems/missile-team.ts:** every 15 ticks for ready teams with nothing in flight: a queued order first, else its
+  own target — the enemy vehicle its men saw most recently (within `antitank.seenWithinSeconds`) in the range band
+  that the gunner can guide onto (`missileSees` from the post); `atRuleOf` "hold" or the unit's fire rule "hold"
+  stop own fire (deviation: "return" does not, a team on overwatch would otherwise never fire first). Beyond the
+  traverse a re-lay; `backblastBlocked` (new optional radius) for small rooms, a wall behind, a comrade in the cone.
+  Action "fireTeamMissile" (aim 2 s), at its end: the line and danger zone again, one round (`takeRound`, rule 9),
+  `launchGuided` 0.5 m ahead of the sight, `shot.fired {shooter: gunner, loudM}` (no vehicle), guide with origin,
+  `lastShotTick`, `launchTick`, `shots`. A crew that notices the launch smokes at the gunner and its crewmen get a
+  "heard" contact at the post (30 m). A fire "at" order to a team (or a unit above one) goes to `teamOrderShot`
+  first (packed: stop, set up, then fire); a shot it cannot make is dropped with radio "cannot fire the missile".
+  The guiding gunner makes no decisions of his own (decisions.ts) and does not dodge grenades (grenades.ts).
+- **Events:** `missile.ended` is a union: vehicle events unchanged (byte-identical), team events carry `team` and
+  `gunner` instead of `vehicle`/`station`. Batch counts team missiles by the gunner's side; expenditure counts a
+  guided missile without a vehicle under `rockets[ammo]` (result schema unchanged).
+- **Scenario:** `missileTeams?: boolean` (explicit opt-in, as `mortars`): a top-level unit (`${side}-a`), defender's
+  300 m behind its main objective, attacker's 150 m behind its start (clamped to the map) on the flank away from the
+  second objective; not a foot group, never mounted. On in `platoon-vehicles` and `platoon-ru-vehicles` (golden
+  `platoon-vehicles-s1` changes), the app's mounted battle (`?missiles=0` turns it off). New `bench-missile-team`:
+  four teams at the east edge of a **flat** 1600 x 900 m field against two wandering German Puma platoons (deviation:
+  flat, not farmland, so the teams engage reliably; the red BMPs hold fire).
+- **AI:** commander `tops` and `isFootUnit` leave teams out (their men's contacts still feed the vehicle picture);
+  `siteOverwatch` (siting.ts): rings 200-800 m around the team (50 m steps, at most 160 candidates), outdoors,
+  passable, no house in the danger zone, never within 450 m of an enemy place (deviation: a hard exclusion — as a
+  penalty it still sent the attacker's team to a post near the objectives), scored by the share of target points
+  around the enemy's area 600-1900 m away its sight sees + cover; best post + 2 alternates 60-150 m apart, once.
+  The team gets `onContact: push` (it otherwise went to ground short of its post), walks there sneaking the last
+  50 m, sets up on its own; the commander orders its fire at the fresh enemy vehicle nearest its own hulls; after
+  each launch (flight over) it moves to its next post (deviation: no extra `scootRefireSeconds` wait: set-up takes
+  18 s anyway). A4: mounted, the attacker's carriers stay in "start" until the team is ready on its post or 90 s.
+  Memory `mt` (plain JSON). `freshVehicleContacts` shared with the anti-tank block.
+- **Render / UI:** the wire from the stored post; the unit card's state line adds "Post: packed / setting up /
+  ready, n missiles / guiding a missile"; `--scene missile` adds a ground-team shot. No tripod sprite.
+- **Tests:** tools/test/missile-team.test.ts (set-up 3/2/1, pack on move, one round per launch and a hit, range band
+  refusals, losses — knocked down, off the post, packed — and held moves, danger zone, own fire vs hold, save in
+  flight, xf beam team, bench determinism). ui player-order test now looks at 120 s (the carriers wait up to 90 s);
+  fixture item list gains `xf-dart-tripod`.
+- **Lab `npm run lab -- missile-team` (50 trials; warning/survival 10):** set-up 15.4 / 22.9 / 45.4 s with 3 / 2 / 1
+  men. Halted Puma side-on: 100 % hits at 500-1500 m (flight 3.0 / 5.4 / 7.9 s), 94 % at 2000 m (10.4 s; 2 lost at
+  the end of the wire). Crossing at 5.8 m/s: 100 / 100 / 88 % at 500 / 1000 / 1500 m (6 lost unseen); at 2000 m the
+  target leaves the band before the order (0 fired). Crossing at 10-12 m/s: 98 % at 500 m, **0 % at 1000 and
+  1500 m** — the guidance model (steering to a point 0.4 s ahead on the sight line, no line-of-sight-rate
+  feed-forward) lags about 4-5 m behind a hull crossing that fast; it is the M9.3a core shared with the vehicles,
+  left unchanged here (known gap; plan's 8 m/s lies between the two rows). Launch noticed (Puma head-on, crew
+  holding fire): 100 % at 500 m, 30-40 % at 1000-2000 m, the same by day and at 23:00 with no moon (the Puma's
+  thermal sight); its turret laid on the post 1.5 s after the launch when it noticed. Survival 60 s after a miss at
+  800 m with the Puma free to fire: 0.90 men fit of 3 staying, 0.60 moving 60 m aside (running in the open is worse
+  than lying at the post here).
+- **Goldens:** `npm run golden:update`; every golden but `platoon-vehicles-s1` changes only by the catalog fingerprint
+  (fingerprint-blanked hashes checked identical, list above); `no-interiors` untouched.
+- **Left for later (plan):** perf and batches (step 17, coordinator), German MELLS ground team, Kornet, tripod
+  sprite and Deploy/Pack buttons, firing from rooms, suppression breaking the guide, LOS-rate feed-forward.
+- **Review fixes (adversarial review):** (1) a man carrying a casualty or waiting on one (intent "care") is no
+  gunner (`gunnerFit`) and no crewman of a missile team (`crewAt(..., free)`), and a post carrier so busy makes the
+  team count as moving (packs, no auto set-up); (2) the attacker's team starts in dead ground like its vehicles
+  (`deadGroundStarts` with a home point, men's height, 30 m clear of the hulls, hidden only if every sight line is
+  blocked or visibility < 0.001 — thermal sights see men through thin cover), else beside the vehicles' start;
+  (3) "setting" turns "ready" only if the post carrier is able and `crewMin` free men are still at the post, else
+  packed again (mortars unchanged: platoon-mortars / platoon-ru-mortars state hashes identical before and after);
+  (4) a guiding gunner's own fire task ends at the launch and `fireSystem` skips guiding men (no fire, reload or
+  ducking); (5) `teamOrderShot` stops every team that takes the shot and skips teams without an able, free carrier
+  or `crewMin` free men (the order then falls through to "unable"); (6) overwatch candidates include the team's spot
+  and rings 50-150 m (at most 200 candidates), each losing 0.1 (defence 0.02) per minute of walk at 0.9 m/s; the
+  attacker's target ground is 100 m beyond the main objective (where the defence's vehicles stand); the A4 hold
+  lasts only while the team's estimated arrival (walk, last 50 m sneaking at 0.45 m/s, packing, 3 s still, set-up)
+  still falls within the 90 s; (7) the AI gives a team with no rounds or no able man no more moves or fire orders;
+  (8) the move-wait test asserts the flight did not end "lost" / `missile.lost.moved`. Tests for 1, 3, 5, 7 added.
+  Probe (platoon-ru-vehicles, seeds 1-8, 1200 s): the Russian team is set up in 6 of 8 battles (before: none in the
+  review's probe) but fires in none — the German Pumas stay on the reverse slope behind the objective, hidden from
+  every spot in the attacker's half at the post's sight height; a shot needs the Pumas to come forward. Defender's
+  team (platoon-vehicles, seeds 1-5, 600 s): set up in 5 of 5 (from 18 s in 3), no shot within 600 s (before: set up
+  in 3, one hit at 588 s). Goldens regenerated (`golden:update`; `no-interiors` untouched).
+- **Batches (10 seeds x 1200 s; main -> branch with review fixes):** platoon-vehicles German wins 7 -> 6 (casualties
+  blue 16.0 -> 18.2, red 23.7 -> 25.9; Russian missiles fired 0.6 -> 0.6 per battle, the team's included);
+  platoon-ru-vehicles German wins 8 -> 10, Russian 2 -> 0 (Russian casualties 26.4 -> 32.3, the team's three men
+  counted; first Russian dismount 32 -> 36 s, so the carriers' hold no longer costs time). The A4 target (Russian wins
+  above 1 in 10) is not met: the Pumas defend from a reverse slope that no post in the attacker's half can see, so the
+  team sets up but has nothing to shoot. Decided (no owner): keep the team as it is — a missile team that cannot see
+  hulls behind a crest is the real limit — and leave closer, bolder posts or a forward overwatch move for tuning with
+  the owner (open question in STATE). n = 10 is within noise for 2 -> 0.
 ## 2026-11-14 — M9.4a Reconnaissance quadcopter (roadmap-detail slice 34, parallel session; owner to review)
 Owner answers used (M9 round, binding): **one quadcopter at the platoon HQ**; its feed goes **over the radio with the
 usual delay**. Software and domain decisions (owner to review):
@@ -4885,3 +5005,132 @@ seen). Software decisions, not asked (owner to review after playing, M10.8):
   the battle from ending first (seed 1's defenders were all down at 112 s). Screenshots `--scene nest` (phone and
   desktop). Goldens regenerated; `golden/no-interiors` untouched. No per-tick per-man work (1 Hz, the wheeled grid
   built once per battle, 61 ms): the timing tests run in `npm run check`.
+
+## 2026-11-14 — M9.4b Counter-drone and AI use (roadmap-detail slice 35, parallel session; owner to review)
+- **Seen:** every man looks for enemy drones on the vehicles' slower schedule (every fourth scan): a small airframe
+  against the sky (item `areaM2` per 0.7 m^2 x `drone.targetContrast` 3), larger while it flies, to `seenMaxM`
+  800 m slant, through line of sight and smoke; steeper than 45 degrees it is in view whichever way he faces.
+- **Heard:** within the drone's `noiseM` (DE 120, RU 100 m) men look for it `heardLookFactor` 3 times as hard
+  (hearing gives no separate contact). A unit calls a new one out: "enemy drone overhead!".
+- **Not a contact:** a drone a man sees lives only in his `seen` list, never in his contacts (17 places read contact
+  classes; a drone is no position to fight or report). Fire, the renderer and the AI read `seen`. The window for "he
+  sees it" is 6 s (`DRONE_SEEN_S`: men look for drones every fourth scan; CLAUDE.md gotcha).
+- **Shot at:** a man engages an enemy drone he sees within `engageM` 200 m slant on his own (his unit's fire rule
+  permitting) only when he has no enemy on the ground to fire at; he aims where he sees it now. Each round is one
+  draw against an abstract hit box (the hook for M14 attack drones: `droneHitChance`): its area over the spread at
+  that range (his aim and the weapon's dispersion plus `aerialAimMrad` 12 for firing up at a small aircraft, plus
+  `leadErrorShare` 0.5 of its travel during the bullet's flight), at most `maxHitChance` 0.05, times `killShare` 0.4
+  (not every hit downs it); the bullet flies on regardless. A downed drone falls when the round gets there ("drone
+  shot down" from the shooter; `drone.lost` reason "shot"). Tuned against the lab: first draft (250 m, no extra aim,
+  every hit kills) brought down every AI drone in every battle.
+- **AI use (`ai/src/drone.ts`, wrapped round the commander):** every 60 s each platoon's drone is sent (launched
+  again once it has landed) over the enemy its men know of (their mean position), or, knowing none, over the main
+  objective (attacker) or 450 m out toward the side the enemy starts on (defender: the briefing); always 220 m short
+  of that point toward its own men, at 120 m: out of rifle reach, the point still in its cameras' footprint.
+- **M14 hooks:** `DroneState.link` (absent = always reachable within control range), `droneHitChance` (hit box), the
+  `operator-flown` guidance kind already reserved in the data schema; jamming will act on the link.
+- **Lab (`lab -- drone`, counter rows, 20 seeds, 180 s from coming within 250 m):** one rifleman under it at 50 m
+  downs it 85 %, at 100 m 30 %, at 150 m 10 %; a PKP at 100 m 75 %; four riflemen at 100 m 90 %; four riflemen
+  with it 150 m short at 120 m 55 %; 220 m short (the AI's standoff) 0 %. Seen within 60 s: 100 % in every row.
+- **AI battles (3 seeds each):** 3 launches a battle; about a third shot down, most fly the whole battle.
+- **Batches (10 seeds x 1200 s, before (slice 34 + main) -> after):** platoon German wins 3 -> 3 (casualties
+  19.5/12.5 -> 18.4/14.1); platoon-ru German (defender) wins 1 -> 1 (17.3/10.2 -> 15.3/10.2). Neutral. Golden update.
+- **Test relaxed (scenario-mounted, "the AI rides in and gets out"):** with drones flying, seed 1 now has a Russian
+  squad of one survivor that got back in to withdraw (Q24, legitimate) and an able Puma commander left in a hull
+  abandoned while he could not move; men in an abandoned or destroyed hull and squads back in after their dismount
+  are excused. The second is a latent bug outside this slice (bail-out takes only the men able at that moment; a man
+  who recovers later never leaves): noted for a later slice.
+- **Order handling:** a `drone` order is handled before anything else in `applyOrder` (a drone order to a platoon
+  with vehicles had gone down the "get out first" / "split to the vehicles" path).
+
+## 2026-11-14 — M9.5 Drone-observed fire (roadmap-detail slice 36, parallel session; owner to review)
+- **Location methods** gain "drone" and "air". A call takes the method with the smallest first-round error of those
+  available: estimate (always), laser (the caller has one and sees the point), drone (one of his platoon's drones in
+  the air, with an operator who can report, has the point within its camera footprint and in sight: `baseM` + `perM`
+  x the drone's slant range), air (the side has an off-map fixed-wing reconnaissance drone, `rules.airRecon`).
+  Radio: "target fixed by the drone" / "from the air". Registered points stay first, as before.
+- **Observers of the fall:** the platoon's drones in the air join the mission's observers after its men (the feed
+  comes over the platoon net); a drone sees a fall within its footprint and in sight, and reads it with
+  `adjust.droneReadM`; the air asset sees every fall not inside a smoke cloud and reads it with `adjust.airReadM`.
+  The best reader of a fall is chosen as before (`bestObserverOf`).
+- **Data (both factions' mortars and artillery, game values, low; search extracts describe drone-adjusted fire as far
+  faster, no public error figures):** drone location 4 m + 2 % of slant; air 10 m; reading 3 m (drone), 6 m (air).
+- **Off-map fixed-wing reconnaissance:** a battle rule per side (`rules.airRecon`, `ScenarioDef.airRecon`, app
+  `?air=blue` or `?air=blue,red`), no entity and no counter-measures (jamming and air defence are M14).
+- **The AI** benefits on its own: its calls are located the same way when its drone is over the point.
+- **Lab (`lab -- indirect`, "by location method", an average observer):** first-round miss DE at 1000 m: estimate
+  96 m, laser 21 m, drone 21 m, air 23 m; after two seen rounds 20 / 3.4 / 4.6 / 8.5 m.
+- **Batches (10 seeds x 1200 s, before (slice 35) -> after):** platoon German wins 3 -> 4 (18.4/14.1 -> 18.9/13.3);
+  platoon-ru German (defender) wins 1 -> 3 (15.3/10.2 -> 15.2/10.8). Within noise. Golden update (data).
+## 2026-11-14 — Exact rank insignia ("insignia-exact"; owner: strap shapes, device geometry, Waffenfarben)
+The `insignia` block of `appearance.json` is now millimetre data: `board` (trapezoid length, top and bottom width,
+corner radius, colours), optional `strap` (the shoulder strap showing above and below the board, its button),
+optional `litze` (arm-of-service loop: colour, width, gap below the board, branch) and per rank `{bare?, elements}`
+where an element is a `band`, `bar`, `braid`, `chevron` (optional `headMm` = Kopfwinkel) or `star` with positions in
+mm (x from the centre line, y from the shoulder end). `ui/src/insignia.ts` draws it with a viewBox in mm (no faction
+names); at small sizes it only widens gaps between stripes (to about 1 px), keeps stars about 5 px and the Litze
+1 px. Card rows show the insignia 34 px tall (was 30; column 18 px, rows 36 px), the man's box 64 px (was 56).
+Appearance is outside the catalog: goldens unchanged.
+Sources and confidence (search extracts only; every page was blocked by the proxy):
+- DE carrier: field slide (Aufschiebeschlaufe), black woven devices on olive: BPrDGrUnifAnO para 5(3), TL 8455-0009
+  Anhang A "DG Schwarz auf Oliv" (medium). Size 90 x 52/60 mm: one TL 8455-0009 extract and a shop (medium-low; a
+  skeptic search could not reproduce it). Square ends, no button of its own (low).
+- DE Litze: Heer only, on the Feldanzug strap, 4 mm wide (bundeswehr.de "Litzen beim Heer", medium); Panzergrenadiere
+  green (Jaegergruen), shared with the Jaeger (de.wikipedia, FOTW, medium); hex #2f7d3a and its place 3 mm below the
+  slide at the shoulder seam (low). One colour per faction: a per-unit colour (e.g. medical crews) would need the unit
+  template on the man in the sim state (a golden change), so not done.
+- DE devices: kinds and counts per Anlage 2 BPrDGrUnifAnO (medium): Schuetze none (drawn as the bare strap: no slide),
+  1-4 Schraegstreifen, Tresse "unten offen" / closed, closed Tresse + 1/2 Winkel point up, closed Tresse + Kopfwinkel,
+  1/2 stars. All sizes and positions inferred (low): stripes 5 mm, 3 mm gaps, 35 deg rising to the right, 4 mm in;
+  Tresse 7 mm, 2 mm in; Winkel 5 mm band, 100 deg, the first 6 mm under the top braid, the next 10 mm lower; stars
+  four-pointed, 17 mm (retail metal stars 17-19 mm), from 24 mm above the shoulder end, 20 mm apart. Stabsgefreiter:
+  four evenly spaced stripes (a set-apart top stripe unconfirmed). Kopfwinkel drawn Odal-like (legs crossing, a small
+  diamond above; one researcher saw Wikipedia note the likeness, a skeptic found no extract): low, owner to check
+  against a picture.
+- RU carrier: rectangular field sleeve ("pogonchik tipa mufta") of the jacket cloth, no button, no lumen, no piping
+  (Ukaz 293 field wording, Prikaz MO 525 "s'emnye, pryamougol'nye": medium-uncertain, not reproduced verbatim by the
+  skeptic). Stripes and stars protective colour (GUSP 48/2009 analogue, medium). Size 50 x 120 mm (retail, low).
+  The old drawing (pentagon with button) was the parade/everyday board.
+- RU devices: narrow stripe 10 mm, wide 30 mm (Ukaz 531/293, medium, confirmed); stars 13 mm (Ukaz 293, medium,
+  confirmed); pair midway between centre line and edge, +-12.5 mm (confirmed wording); first stripe 25 mm from the
+  shoulder end with 2 mm gaps (Prikaz 525 table 3) and first star 25 mm, rows 25 mm apart (table 1): one extract each,
+  medium-low; starshina's long stripe along the full length: medium-low.
+- Ranks not added (Hauptmann, kapitan, Oberstabsgefreiter, Stabsfeldwebel ...): no unit template uses them (the Zug
+  is led by a Leutnant, there is no company HQ), and ranks.json is in the catalog (a golden change for nothing seen).
+Review fixes (independent review, same day; all from memory of the real insignia, confidence low, appearance only,
+goldens unchanged):
+- RU small sizes: a new optional `insignia.small {belowPx, device?, outline?}`; the Russian sleeve below 40 px tall (the
+  34 px card row) draws its devices darker (#262a19) with a light 1 px outline (#b5bc95) so stars and stripes read;
+  at 40 px and above (the 64 px man box, the reference sheet) they stay protective colour as woven.
+- DE stars: Leutnant's single star at 42 mm from the shoulder end (was 24), Oberleutnant's pair at 33 and 55 mm (was
+  24 and 44). The four-pointed star is drawn as a faceted pip (inner radius 0.42 of the outer, 17 mm; the half-points
+  facing the upper left lighter) once it is 12 px across; smaller, a plain star.
+- DE Winkel: the group centred about 53 mm above the shoulder end (Feldwebel's point at 58.9 mm, Oberfeldwebel's at
+  63.9 and 53.9; was 71.7 and 61.7 against the collar end), leaving room under it for a Stabsfeldwebel Winkel later.
+- DE Kopfwinkel: same topology (legs crossing under a diamond head), now a 5 mm band like the Winkel (was 4), legs
+  12 mm out and 9 mm down (was 14 and 14), the head 11 mm tall and about 15 mm across, centred on the Winkel group:
+  about as tall as a plain Winkel.
+- DE strap: `strap.widthMm` is now its width at the slide's collar end and it widens with the slide's taper, 52 mm
+  (was a 50 mm parallel strap), so below the slide it is as wide as the slide's shoulder end (60 mm, 61.1 at its
+  bottom) instead of looking pinched.
+- **Merge with M9.3b (Metis-M, #53):** the ui test "AI vehicle orders sent unchanged never set playerHold" checked the
+  player's halt on the AI battle after two minutes; with the AI's drones flying, platoon-ru-vehicles seed 1 now ends
+  at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
+  half of the test now runs on a fresh battle (same intent).
+
+## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
+The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
+the bail-out keeps running while the crew's reaction is "bailOut", which it stays after the hull is abandoned, so a
+man who becomes able and can walk gets out on the next tick (new test in components.test.ts: unconscious when his
+crew bails out, revived, out within two seconds). The case seen in the seed-1 battle was a commander who regained his
+feet in the battle's last tick (the wound system runs after the damage system). The test excuse for men in abandoned
+or destroyed hulls in scenario-mounted.test.ts is removed; the excuse for a squad that got back in to withdraw (Q24)
+stays. No sim change; goldens unchanged.
+
+## 2026-11-15 — Merge origin/main (M9.3b Metis-M, M9.4b counter-drone, M9.5 drone-observed fire, Boxer/BMM ambulance hulls, exact insignia) into the medical branch
+Conflicts kept both sides: DECISIONS entries, string tables (Verwundetennest lines next to the drone radio lines), the
+order dispatch (casualty point and evacuate next to drone). The app's card row for a missile team moved to
+`app/src/panels.ts` (the D2 split); the batch tool's M9.3b missile count for teams on foot moved into the battle
+record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, its gunner). Goldens regenerated with
+`npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
+now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.

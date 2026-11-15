@@ -11,6 +11,7 @@
  * (the order, incoming fire near it), then slows to a trickle, then ceases fire and reports. A man stops when
  * only the magazine in his weapon is left. In lulls men swap a partly used magazine for a fuller one.
  */
+import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
 import { fireRateFactor, isCowering } from "./morale";
 import type { FireTask, WeaponState } from "../components";
@@ -33,6 +34,7 @@ import { heightAt, standZ } from "../terrain";
 import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
 import { isMounted } from "../mount";
+import { isGuiding } from "./missile-team";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -240,6 +242,8 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   const sd = aimErrorMrad(ctx, state, id, w, aimed);
   const total = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
   launchShot(ctx, state, events, id, w.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total);
+  // At a drone (M9.4b): whether this round hits it (its hit box against the spread; the bullet flies on regardless).
+  if (task.contact !== undefined && state.drone.size > 0 && state.drone.has(task.contact)) shootAtDrone(ctx, state, task.contact, id, mx, my, mz, task.x, task.y, tz, total, v0);
   w.magazine!.rounds--;
   w.lastShotTick = state.tick;
   if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) {
@@ -300,6 +304,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (w === undefined || !w.magazine || state.action.has(id) || state.fire.has(id)) continue;
     if (isMounted(state.soldier.get(id))) continue; // aboard: no reloading his own weapon (M7)
     if (tick - w.lastShotTick < secondsToTicks(F.topUpAfterSeconds)) continue;
+    if (isGuiding(state, id)) continue; // (M9.3b review fix: a gunner guiding a missile stays at his sight)
     const sol = state.soldier.get(id);
     if (!isAble(sol) || tick < sol!.stunnedUntilTick || !sol!.impair.canUseArms) continue;
     const wd = ctx.catalog.weapons[w.weapon];
@@ -335,6 +340,13 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     const since = tick - task.reasonTick;
     if (since > endTicks) { stop("no-target"); continue; }
     if (s.postureTo !== null || state.action.has(id)) continue;
+    if (isGuiding(state, id)) continue; // (M9.3b review fix: no fire, reload or ducking while he guides; task kept)
+    // A drone (M9.4b): he aims where he sees it now; out of his sight (or down), he stops.
+    if (task.contact !== undefined && state.drone.size > 0 && state.drone.has(task.contact)) {
+      const p = droneInSight(state, id, task.contact, secondsToTicks(DRONE_SEEN_S));
+      if (!p) { stop("no-target"); continue; }
+      task.x = p.x; task.y = p.y; task.heightM = p.z; task.reasonTick = tick;
+    }
     // A man on the move does not fire — except assault fire (package D), from the posture he moves in.
     const moving = (state.mover.get(id)?.waypoints.length ?? 0) > 0;
     if (moving && task.onTheMove !== true) continue;

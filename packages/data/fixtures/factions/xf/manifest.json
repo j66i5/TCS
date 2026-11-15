@@ -8,5 +8,6 @@
   "sources": [],
   "confidence": "low",
   "note": "Made-up test fixture.",
-  "platoonTemplate": "cart-band"
+  "platoonTemplate": "cart-band",
+  "missileTeamTemplate": "dart-team"
 }

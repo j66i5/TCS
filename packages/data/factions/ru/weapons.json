@@ -219,6 +219,42 @@
       ],
       "confidence": "low",
       "note": "9P135M anti-tank missile launcher on the BMP-2's turret roof (published: fires 9M111 Fagot, 9M113 Konkurs and 9M113M Konkurs-M; the empty tube is changed by hand through the gunner's hatch). Game values (low): 40 s to put the next missile on, halted (sources differ on whether the crew must open a hatch; not modelled: the man reloading is not exposed), the missile leaves the tube at 80 m/s, launch post mass 22.5 kg (9P135, Wikipedia), sight x10 (from memory)."
+    },
+    {
+      "id": "ru-9p151",
+      "nameKey": "weapon.ru-9p151",
+      "type": "launcher",
+      "calibre": "130mm-atgm",
+      "massKg": 10.2,
+      "feed": {
+        "magazine": "ru-9m131-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 1,
+      "dispersionMrad": 0,
+      "reloadSeconds": 15,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "telescopic",
+          "magnification": 6
+        }
+      ],
+      "ammo": {
+        "ru-9m131": 80
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/9K115-2_Metis-M",
+        "https://en.wikipedia.org/wiki/9K115_Metis",
+        "https://man.fas.org/dod-101/sys/land/row/at-7.htm",
+        "https://en.valka.cz/topic/view/26889",
+        "https://military-review.com/12526491-anti-tank-missile-system-9k115-2-metis-m"
+      ],
+      "confidence": "low",
+      "note": "9P151 launch post of the Metis-M (M9.3b): about 10.2 kg (sources agree, search extracts), a tripod with the guidance unit and sight. Game values (low): the missile leaves the tube at 80 m/s, sight x6, 15 s to put the next tube on (not used: the team's action times it)."
     }
   ]
 }

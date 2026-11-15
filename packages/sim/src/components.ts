@@ -144,6 +144,8 @@ export interface SoldierState {
   fireFrom?: { dx: number; dy: number; tick: number };
   /** Last tick he threw a hand grenade on his own (soldier AI package D); absent: never. */
   grenadeTick?: number;
+  /** M9.3b: the tick he last launched a guided missile from a tripod (the launch shows him); absent: never. */
+  launchTick?: number;
   /**
    * His triage tag (M10.3b), set by the man who treats him: category 1 immediate (T1), 2 delayed (T2), 3 minimal
    * (T3); who tagged him, when, with what training. It may be wrong (core/medical.json `triage`). Absent: not triaged.
@@ -389,6 +391,20 @@ export interface Unit {
   /** M8.3a: a mortar team (its men carry a tube): packed, setting up (ready at `readyTick`) or ready; `stillTick`:
    *  when it last moved (it sets up on its own after standing still a moment). Absent: not a mortar team. */
   mortar?: { state: "packed" | "setting" | "ready"; readyTick: number; stillTick: number };
+  /**
+   * M9.3b: a dismounted missile team (its gunner carries a `crewServed` launch post): packed, setting up or ready
+   * like a mortar; `heading`: the bearing its tripod is laid on (it traverses `traverseDeg` either side of it, beyond
+   * that it re-lays: ready again at `relayTick`); its last launch and how many it has fired; the missile it is
+   * guiding now (with the sight's place, where the tripod stood at the launch: `ox, oy, oz`); a shot ordered while
+   * packed, fired once set up (`queued`). Absent: not a missile team.
+   */
+  missileTeam?: {
+    state: "packed" | "setting" | "ready"; readyTick: number; stillTick: number;
+    heading: number; lastLaunchTick: number; shots: number;
+    relayTick?: number;
+    queued?: { x: number; y: number; target: EntityId };
+    guide: TeamGuide | null;
+  };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";
 }
@@ -598,6 +614,9 @@ export interface MissileGuide {
   warnTick?: number;
 }
 
+/** A missile guided from a team's tripod (M9.3b): as a station's, plus where the gunner's sight stands. */
+export interface TeamGuide extends MissileGuide { ox: number; oy: number; oz: number }
+
 export interface StationState {
   /** Relative to the hull, rad. */
   azimuth: number; elevation: number;
@@ -653,6 +672,10 @@ export interface DroneState {
   aloneSince?: number;
   /** It has called "battery low" (coming home). */
   low?: true;
+  /** Hit (M9.4b): it falls at this tick (when the round that hit it arrives). */
+  hitTick?: number; hitBy?: EntityId;
+  /** M14 hook: its control link (absent: as now, the operator always reaches it within its control range). */
+  link?: "radio" | "fibre";
   seen: { target: EntityId; firstTick: number; lastTick: number; rep?: number }[];
 }
 

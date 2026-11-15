@@ -63,7 +63,10 @@ M8 (slice 29): `?look=classic` deleted, perf re-baselined, `docs/research/low-co
 platoon HQ (DE Funker, RU commander): launched by the `drone` order into an entity with its own battery, a busy
 operator, cameras that search the ground below, a feed over the radio with the usual delay, a sidebar tile where
 Move means fly and Halt brings it home. `npm run lab -- drone`, `--scene drone`, scenario `bench-drones`. The AI
-does not fly it yet. Next: M9.4b counter-drone and AI use, M9.5 drone-observed fire.
+AI keeps its drones up 220 m short of the enemy at 120 m (M9.4b); men see and hear enemy drones (in `seen`, not
+contacts), call them out and fire at those within 200 m (abstract hit box, `droneHitChance`). M9.5: a call is
+located by the drone (or an off-map reconnaissance drone, `?air=blue`) when that is better, and drones read the falls.
+Next on this line: M9.6 night AI and balance (hiding from drones).
 
 **Hand smoke grenades (2026-11-14, roadmap-detail slice 5 "D1", parallel session; DECISIONS "D1").** DM45 and
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
@@ -98,6 +101,18 @@ grenade" in the Fire tray; units screen themselves on a withdrawal and on a move
   man, "Smoke grenade" in the Fire tray, `npm run lab -- smoke`, `--scene smoke`, hook `screenCasualty` for the
   medical drag) and slice 12 M10.6-data wheeled ambulance hulls (Boxer ambulance `de-boxer-san`, BMM `ru-bmm`,
   xf `xf-litter-cart`; `--scene ambulances`; no ambulance behaviour yet: slice 13).
+
+**Dismounted missile teams (2026-11-14, roadmap-detail slice 33 "M9.3b", parallel session; DECISIONS "M9.3b").**
+A Russian Metis-M team (`raschet-metis`: 9P151 launch post, four 9M131, crew of 3) as a unit of its own, opt-in per
+scenario with `missileTeams: true` (on in `platoon-vehicles`, `platoon-ru-vehicles`, the app's mounted battle
+unless `?missiles=0`; new `bench-missile-team`). Crew-served life shared with the mortars (`crewServed` item block:
+packed / setting / ready, pack on move, auto-deploy, post taken over); `systems/missile-team.ts` fires on its own
+(anti-tank rule) or on a fire "at" order, guided by missiles.ts from the stored sight point (gunner pinned while
+guiding, moves wait). AI: overwatch post (`siteOverwatch`), moves on after each launch, attacker's carriers wait for
+it only while it can be set up within 90 s; the attacker's team starts in dead ground. `npm run lab -- missile-team`.
+Open (owner): in `platoon-ru-vehicles` the team sets up but fires almost never (Pumas on a reverse slope; Russian
+wins 2 -> 0 of 10) — closer posts or a forward move are a tuning question. Fast crossing hulls (>= 10 m/s) beyond
+500 m are always missed (shared guidance lag). Not done: a German ground team, tripod sprite, Deploy/Pack buttons.
 
 **Guided missiles on vehicles (2026-11-14, roadmap-detail slice 32 "M9.3a", parallel session; DECISIONS "M9.3a").**
 Guidance kinds wire / beam riding / fire-and-forget (seeker, flies on to the last point seen, top attack); the Puma's

@@ -112,7 +112,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
     const os = state.soldier.get(oid);
     if (os === undefined) continue;
     // Forget what has not been seen for a while, and the dead.
-    if (os.seen.length > 0) os.seen = os.seen.filter((e) => tick - e.lastTick <= forget && (state.soldier.get(e.target)?.physiology.alive === true || vehicleSeeable(state.vehicle.get(e.target))));
+    if (os.seen.length > 0) os.seen = os.seen.filter((e) => tick - e.lastTick <= forget && (state.soldier.get(e.target)?.physiology.alive === true || vehicleSeeable(state.vehicle.get(e.target)) || state.drone.has(e.target)));
     if (!isAble(os)) continue;
     if (os.mount !== undefined) {
       // Aboard (M7.3): the crew look through their seats' sensors; passengers see nothing outside.
@@ -163,7 +163,7 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       if (idx < 0 && menSeen(state, os.seen) >= D.maxTracked) {
         let farD = -1;
         for (let q = 0; q < os.seen.length; q++) {
-          if (state.vehicle.size > 0 && state.vehicle.has(os.seen[q]!.target)) continue; // vehicles are tracked apart (M7.3)
+          if ((state.vehicle.size > 0 && state.vehicle.has(os.seen[q]!.target)) || (state.drone.size > 0 && state.drone.has(os.seen[q]!.target))) continue; // vehicles (M7.3) and drones are tracked apart
           const xt = state.transform.get(os.seen[q]!.target);
           const dq = xt ? (xt.x - ot.x) * (xt.x - ot.x) + (xt.y - ot.y) * (xt.y - ot.y) : Infinity;
           if (dq > farD) { farD = dq; far = q; }
@@ -209,6 +209,20 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
         return sensor * (lk <= front ? 1 : lk <= side ? D.sideFactor : D.rearFactor);
       }, () => 1, own, vtargets, VEHICLE_SCAN_EVERY * scanS, Math.min(state.environment.visibilityM, D.maxRangeM)); // a man's eyes reach as far for a hull as for a man
     }
+    // Enemy drones overhead (M9.4b): on the same slower schedule as vehicles.
+    if (state.drone.size > 0 && (oid + Math.floor(tick / every)) % VEHICLE_SCAN_EVERY === 0) {
+      scanDrones(ctx, state, events, oid, oi.side, os.seen, ot.x, ot.y, ez, (dist, bearing, overhead) => {
+        let sensor = 0;
+        // (Overhead, steeper than 45 degrees: in view whichever way he faces.)
+        const lk = overhead ? 0 : angleBetween(ot.heading, bearing);
+        for (const sn of sensors) {
+          if (!sn || (sn.arcDeg !== undefined && lk > (sn.arcDeg * PI) / 180)) continue;
+          const f = (dist >= sn.fromM ? sn.factor : 1) * Math.max(D.lightFloor, light, sn.nightLight) * (sn.thermal === true ? D.thermal.man : 1);
+          if (f > sensor) sensor = f;
+        }
+        return sensor * (lk <= front ? 1 : lk <= side ? D.sideFactor : D.rearFactor);
+      }, own, VEHICLE_SCAN_EVERY * scanS);
+    }
   }
   // Drones' cameras (M9.4a): each drone once per scan time, staggered by its ID.
   if (state.drone.size > 0) {
@@ -220,6 +234,48 @@ export function spottingSystem(ctx: SimContext, state: SimState, events: EventSi
       vtargets ??= state.vehicle.size > 0 ? vehicleTargets(ctx, state) : [];
       droneScan(ctx, state, events, did, d, targets, vtargets, scanS);
     }
+  }
+}
+
+/**
+ * A man's look for enemy drones (M9.4b): a small airframe against the sky (its area x targetContrast), larger when
+ * it moves; within its noise range he hears it and looks for it `heardLookFactor` times as hard. Seen to seenMaxM
+ * (slant), through the line of sight and smoke as anything else; it goes into his `seen` (not his contacts: a drone
+ * is no position to fight; his comrades hear about it on the radio).
+ */
+function scanDrones(
+  ctx: SimContext, state: SimState, events: EventSink, oid: EntityId, side: string, seen: { target: EntityId; firstTick: number; lastTick: number }[],
+  ex: number, ey: number, ez: number, sensorAt: (dist: number, bearing: number, overhead: boolean) => number, own: number, scanS: number,
+): void {
+  const D = ctx.catalog.spotting, DR = D.drone, tick = state.tick;
+  if (!DR) return;
+  for (const [did, d] of state.drone.entries()) {
+    if (d.side === side) continue;
+    const t = state.transform.get(did), def = ctx.catalog.items[d.item]?.drone;
+    if (!t || !def || t.z <= 0) continue;
+    const tz = heightAt(ctx.map, t.x, t.y) + t.z; // ground: ok (a drone flies its height over the ground)
+    const dx = t.x - ex, dy = t.y - ey, dz = tz - ez, slant = sqrt(dx * dx + dy * dy + dz * dz);
+    if (slant > DR.seenMaxM || slant > state.environment.visibilityM) continue;
+    const sensor = sensorAt(slant, atan2(dy, dx), dx * dx + dy * dy < dz * dz);
+    if (sensor <= 0) continue;
+    const idx = seen.findIndex((e) => e.target === did);
+    const size = (def.areaM2 / D.vehicles.referenceAreaM2) * DR.targetContrast;
+    const motion = d.mode === "fly" || d.mode === "home" ? D.movingFactor : 1;
+    const heard = slant <= def.noiseM ? DR.heardLookFactor : 1;
+    let rate = D.baseRatePerS * pow(D.referenceRangeM / Math.max(D.minRangeM, slant), D.rangeExponent) * size * motion * heard * own * sensor;
+    if (idx >= 0) rate *= D.keepRateFactor;
+    const u = nextFloat(state.rng, Streams.spotting);
+    if (u >= 1 - exp(-rate * scanS)) continue;
+    const sg = sight(ctx, ex, ey, ez, t.x, t.y, tz);
+    if (sg.blockedBy !== null) continue;
+    let vis = sg.visibility;
+    if (state.smoke.length > 0) vis *= smokeTransmission(state, smokePhysics(ctx.catalog), ex, ey, ez, t.x, t.y, tz);
+    if (vis < D.minVisibility) vis = 0;
+    if (u >= 1 - exp(-rate * vis * scanS)) continue;
+    if (idx >= 0) { seen[idx]!.lastTick = tick; continue; }
+    seen.push({ target: did, firstTick: tick, lastTick: tick });
+    seen.sort((a, b) => a.target - b.target);
+    events.emit({ kind: "spotted", tick, observer: oid, target: did, side, rangeM: slant });
   }
 }
 
@@ -305,9 +361,9 @@ function droneScan(ctx: SimContext, state: SimState, events: EventSink, did: Ent
 
 /** Men (not vehicles) in a `seen` list. */
 function menSeen(state: SimState, seen: readonly { target: EntityId }[]): number {
-  if (state.vehicle.size === 0) return seen.length;
+  if (state.vehicle.size === 0 && state.drone.size === 0) return seen.length;
   let n = 0;
-  for (const e of seen) if (!state.vehicle.has(e.target)) n++;
+  for (const e of seen) if (!state.vehicle.has(e.target) && !state.drone.has(e.target)) n++;
   return n;
 }
 
@@ -349,6 +405,8 @@ function soldierTargets(ctx: SimContext, state: SimState): SoldierTarget[] {
     r.vegTopZ = vegTopZ; r.id = tid; r.side = ti.side; r.x = tt.x; r.y = tt.y; r.z = g + tt.z + TARGET_POINT_M[ts.posture];
     r.size = D.postureSize[ts.posture]; r.top = D.drone?.postureSize[ts.posture] ?? r.size; r.moving = moving; r.firing = firing;
     r.motion = (firing ? D.firingFactor : 1) * (!moving ? 1 : speed > D.runningAboveMps ? D.runningFactor : D.movingFactor);
+    // A guided missile launched from his post moments ago (M9.3b): its flash, dust and smoke show him more.
+    if (ts.launchTick !== undefined && tick - ts.launchTick <= secondsToTicks(D.launchFlashSeconds)) r.motion *= D.launchFlashFactor;
     r.flash = 0;
     // Heat (M9.2): a man as by eye; still and not firing under a thermal blanket, its share.
     r.heat = TH.man;

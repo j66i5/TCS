@@ -93,7 +93,7 @@ export type SimEvent =
   /** M8.2a call-for-fire chain: a mission begins (how the point was located, the first round's aiming error per
    *  axis, seconds until it lands); a round leaves the tube ("shot", seconds of flight); a round lands in `inS`
    *  ("splash"). */
-  | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
+  | { kind: "support.call"; tick: number; side: SideId; caller: EntityId; x: number; y: number; ammo: "he" | "smoke" | "illum"; method: "estimate" | "laser" | "registered" | "drone" | "air"; errorM: number; firstS: number; /** M8.4 */ asset?: "artillery"; dangerClose?: true }
   /** M8.6: a round of a fire mission lands (for the review's tally: which asset, which kind). */
   | { kind: "support.round"; tick: number; side: SideId; asset: "mortar" | "artillery"; ammo: "he" | "smoke" | "illum"; x: number; y: number }
   /** M8.4: an illumination flare is ejected over (x, y); it burns `burnS` (its light: M9.1). */
@@ -106,12 +106,16 @@ export type SimEvent =
    *  battery, or nobody there when it came home). */
   | { kind: "drone.launched"; tick: number; drone: EntityId; operator: EntityId; side: SideId }
   | { kind: "drone.landed"; tick: number; drone: EntityId; side: SideId; by: EntityId }
-  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" }
+  | { kind: "drone.lost"; tick: number; drone: EntityId; side: SideId; reason: "battery" | "noOperator" | "shot" }
   | { kind: "mortar.setup"; tick: number; unit: EntityId; readyTick: number }
   | { kind: "mortar.ready"; tick: number; unit: EntityId }
   | { kind: "mortar.packed"; tick: number; unit: EntityId }
+  /** A dismounted missile team (M9.3b) sets up its launch post, is ready, packs up. */
+  | { kind: "missileTeam.setup"; tick: number; unit: EntityId; readyTick: number }
+  | { kind: "missileTeam.ready"; tick: number; unit: EntityId }
+  | { kind: "missileTeam.packed"; tick: number; unit: EntityId }
   | { kind: "mortar.fired"; tick: number; side: SideId; unit: EntityId; gunner: EntityId; x: number; y: number; tx: number; ty: number; ammo: DefId; flightS: number }
-  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke" | "illum"; seen: boolean; missM: number; left: number; /** M8.2b: who read the fall (a man, a vehicle sight; a drone from M9.5). */ observer?: EntityId; observerKind?: "man" | "vehicle" | "drone" }
+  | { kind: "support.ranging"; tick: number; side: SideId; caller: EntityId; x: number; y: number; tx: number; ty: number; ammo: "he" | "smoke" | "illum"; seen: boolean; missM: number; left: number; /** M8.2b: who read the fall (a man, a vehicle sight; a drone from M9.5). */ observer?: EntityId; observerKind?: "man" | "vehicle" | "drone" | "air" }
   /**
    * A projectile struck a vehicle (M7.1c: every round stops at the hull). Rounds below 12.7 mm are aggregated:
    * one event per vehicle per tick with `rounds` = how many (first round's ammo, owner and point).
@@ -152,7 +156,9 @@ export type SimEvent =
   | { kind: "vehicle.decision"; tick: number; vehicle: EntityId; station: number; target: EntityId | null; x: number; y: number; nature: "ap" | "he" | "mg" | "atgm" | null; keys: string[] }
   /** A guided missile's flight ended (owner 2026-11-13): it struck its target vehicle ("hit"), burst elsewhere or
    *  flew off the map ("miss"), or its gunner lost it ("lost": `reason` key; it flies on unguided). */
-  | { kind: "missile.ended"; tick: number; vehicle: EntityId; station: number; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string }
+  | { kind: "missile.ended"; tick: number; vehicle: EntityId; station: number; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string; team?: undefined; gunner?: undefined }
+  /** M9.3b: the same for a missile guided from a team's tripod: the team and its gunner instead of a vehicle. */
+  | { kind: "missile.ended"; tick: number; team: EntityId; gunner: EntityId; ammo: DefId; target: EntityId; result: "hit" | "miss" | "lost"; reason?: string; vehicle?: undefined; station?: undefined }
   | { kind: "objective.changed"; tick: number; objective: string; holder: SideId | null; from: SideId | null };
 
 export type SimEventKind = SimEvent["kind"];

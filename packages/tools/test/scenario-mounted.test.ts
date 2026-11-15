@@ -123,7 +123,12 @@ describe("platoons with vehicles (M7.2)", () => {
       }
       // Nobody of the attacker is aboard any more, apart from the crews (and wounded who cannot walk, left in a struck hull: the
       // defender's BMP-2s have missiles since 2026-11-13).
-      for (const [id, i] of sim.state.identity.entries()) if (i.side === attacker && sim.state.unit.req(i.unit).vehicle === undefined && isAble(sim.state.soldier.req(id)) && sim.state.soldier.req(id).impair.canWalk) expect(sim.state.soldier.req(id).mount).toBeUndefined();
+      // (M9.4b: with drones flying the battles differ; also excused: a squad that got back in to withdraw, Q24.)
+      const backIn = new Set(events.filter((e): e is Extract<SimEvent, { kind: "unit.mounted" }> => e.kind === "unit.mounted" && outs.some((o) => o.unit === e.unit && o.tick < e.tick)).map((e) => e.unit));
+      for (const [id, i] of sim.state.identity.entries()) {
+        const sm = sim.state.soldier.req(id);
+        if (i.side === attacker && sim.state.unit.req(i.unit).vehicle === undefined && isAble(sm) && sm.impair.canWalk && !backIn.has(i.unit)) expect(sm.mount).toBeUndefined();
+      }
     }
   });
 

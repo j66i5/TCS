@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
-import { AMBUSH_M, activityOf, ammoCells, fireChoice, fireChoiceRules, gunText, manDetail, manState, repaceMove, unitMenRows, vehicleGuns } from "../src/card";
+import { AMBUSH_M, ARC_WIDTH_RAD, activityOf, arcOrder, ammoCells, fireChoice, fireChoiceRules, settleRules, gunText, manDetail, manState, repaceMove, rulesOrder, unitMenRows, vehicleGuns } from "../src/card";
 import { Strings } from "@tcs/data";
 import { shownCallsigns } from "@tcs/render";
 import { ICON_NAMES, icon, paceIcon } from "../src/icons";
@@ -111,16 +111,55 @@ describe("unit card snapshots (S6)", () => {
 });
 
 describe("the fire row (S3)", () => {
-  it("Ambush is fire at will held to the ambush range; the other chips are the fire rule", () => {
-    expect(fireChoice({ fire: "free", maxEngageM: 0 })).toBe("free");
-    expect(fireChoice({ fire: "free", maxEngageM: 400 })).toBe("free");
-    expect(fireChoice({ fire: "free", maxEngageM: AMBUSH_M })).toBe("ambush");
-    expect(fireChoice({ fire: "return", maxEngageM: AMBUSH_M })).toBe("return");
-    expect(fireChoice({ fire: "hold", maxEngageM: 0 })).toBe("hold");
-    expect(fireChoiceRules("ambush", { fire: "hold", maxEngageM: 0 })).toEqual({ fire: "free", maxEngageM: AMBUSH_M });
-    // Leaving an ambush lifts its range; a range from the Rules panel stays otherwise.
-    expect(fireChoiceRules("free", { fire: "free", maxEngageM: AMBUSH_M })).toEqual({ fire: "free", maxEngageM: 0 });
-    expect(fireChoiceRules("hold", { fire: "free", maxEngageM: 400 })).toEqual({ fire: "hold" });
+  it("Ambush is lit while an ambush is laid; the other chips are the fire rule", () => {
+    expect(fireChoice({ fire: "free" })).toBe("free");
+    expect(fireChoice({ fire: "free", ambush: 0 })).toBe("free");
+    expect(fireChoice({ fire: "free", ambush: AMBUSH_M })).toBe("ambush");
+    expect(fireChoice({ fire: "return", ambush: 150 })).toBe("ambush");
+    expect(fireChoice({ fire: "hold" })).toBe("hold");
+    expect(fireChoiceRules("ambush", { fire: "hold" })).toEqual({ ambush: AMBUSH_M });
+    // Another chip while an ambush is laid ends it (the rules order's fire rule does, D4b).
+    expect(fireChoiceRules("free", { fire: "free", ambush: AMBUSH_M })).toEqual({ fire: "free", ambush: 0 });
+    expect(fireChoiceRules("hold", { fire: "free" })).toEqual({ fire: "hold" });
+  });
+
+  it("rules shown as ordered settle once delivered: an ambush sprung at once leaves no lit chip (D4b review F7)", () => {
+    const now = { fire: "free", maxEngageM: 0, onContact: "ground", ammo: "normal", at: "vehicles", ambush: 0 } as const;
+    // Laid and sprung before the card looked again: the sim shows no ambush, the pending range never matches.
+    const pend: Parameters<typeof settleRules>[0] = { ambush: AMBUSH_M };
+    expect(settleRules(pend, now)).toBe(true);
+    expect(fireChoice({ ...now, ...pend })).toBe("ambush");
+    expect(settleRules(pend, now, "ambush")).toBe(false);
+    expect(fireChoice({ ...now, ...pend })).toBe("free");
+    // A rules order delivered settles what it carried, not an ambush still on its way.
+    const both: Parameters<typeof settleRules>[0] = { fire: "hold", ambush: AMBUSH_M };
+    expect(settleRules(both, now, "rules")).toBe(true);
+    expect(both).toEqual({ ambush: AMBUSH_M });
+    // An ambush ended by a fire rule: settled with the rules order.
+    const end: Parameters<typeof settleRules>[0] = { fire: "return", ambush: 0 };
+    expect(settleRules(end, now, "rules")).toBe(false);
+    // Values the unit already has settle without a delivery (a laid ambush shown by the sim).
+    expect(settleRules({ ambush: AMBUSH_M }, { ...now, ambush: AMBUSH_M })).toBe(false);
+  });
+
+  it("the Ambush chip sends the real ambush order (D4b); the others a rules order", () => {
+    const base = { tick: 5, issuer: "blue", target: 7 };
+    expect(rulesOrder(base, fireChoiceRules("ambush", { fire: "free" }))).toEqual({ ...base, kind: "ambush", rangeM: AMBUSH_M });
+    expect(AMBUSH_M).toBe(100);
+    expect(rulesOrder(base, fireChoiceRules("hold", { fire: "free", ambush: AMBUSH_M }))).toEqual({ ...base, kind: "rules", fire: "hold" });
+    expect(rulesOrder(base, { maxEngageM: 200, ammo: "conserve" })).toEqual({ ...base, kind: "rules", maxEngageM: 200, ammo: "conserve" });
+  });
+});
+
+describe("Defend arc (D4b)", () => {
+  it("faces from the unit's middle toward the tapped point, 120 degrees wide", () => {
+    const base = { tick: 1, issuer: "blue", target: 3 };
+    const o = arcOrder(base, { x: 100, y: 100 }, { x: 100, y: 200 });
+    expect(o).toMatchObject({ ...base, kind: "defendArc" });
+    if (o.kind !== "defendArc") throw new Error("kind");
+    expect(o.facing).toBeCloseTo(Math.PI / 2, 9); // (south: +y)
+    expect(o.widthRad).toBeCloseTo((120 * Math.PI) / 180, 9);
+    expect(ARC_WIDTH_RAD).toBeCloseTo((2 * Math.PI) / 3, 9);
   });
 });
 

@@ -275,6 +275,8 @@ export const ShootingFile = z.object({
     topUpAfterSeconds: Num(0.5, 600), clearStoppageSeconds: Num(0.1, 120), aimPointHeightM: Num(0, 3), safetyConeDeg: Num(0, 45),
     /** Soldier AI package A (2026-11-13): aim height above the ground at a man seen in each posture, m. */
     aimHeightByPostureM: z.object({ standing: Num(0, 3), crouching: Num(0, 3), prone: Num(0, 3) }).strict(),
+    /** D4b: aim height above the ground, at most, at an enemy only heard or reported, m. */
+    aimUnseenHeightM: Num(0, 3).optional(),
   }),
   grenades: withProv({
     /** How far a soldier of skill 0.5 in full kit throws a hand grenade, by posture, m. */
@@ -449,6 +451,11 @@ export const BehaviourFile = withProv({
     grenadeEverySeconds: Num(0, 600), grenadeClearM: Num(0, 100), grenadeContactSeconds: Num(0, 120), assaultFireM: Num(0, 500), assaultFireAimFactor: Num(1, 20),
     friendBeyondM: Num(0, 500), overlapM: Num(0, 10), stepAsideM: z.array(Num(0.5, 20)).min(1).max(4), overlapCheckSeconds: Num(0.1, 60), duckAboveIntervalS: Num(0, 60), duckHoldS: Num(0, 10),
     hurryModes: z.array(z.string()), hurryMode: z.string(), hurryFiredOnSeconds: Num(0, 60), hurryQuietSeconds: Num(0, 120),
+    /** Fire distribution (D4b). See BehaviourDef.soldier.fireDistribution. */
+    fireDistribution: z.object({
+      dangerSustained: Num(0, 1), dangerMagnified: Num(0, 1), dangerFiring: Num(0, 1), spreadPenalty: Num(0, 10), spreadCap: z.number().int().min(0).max(20),
+      note: z.string().optional(),
+    }).strict().optional(),
     droneHide: z.object({ triggerM: Num(0, 3000), freezeTriggerM: Num(0, 3000), freezeSeconds: Num(0, 600), maxFreezeSeconds: Num(0, 3600), freezeCooldownSeconds: Num(0, 3600), searchM: Num(0, 200), hideSeconds: Num(0, 3600), mode: z.string(), moveBeyondM: Num(0, 3000) }).strict().optional(),
     houseLeave: z.boolean(), houseTrapBursts: Num(0, 50), houseTrapSeconds: Num(0, 600), houseHeavyKg: Num(0, 100), houseHeavyCount: Num(0, 10), houseBurstNearM: Num(0, 20),
     houseEnemySeconds: Num(0, 120), houseFightM: Num(0, 50), houseFlankM: Num(0, 2000), houseFlankDeg: Num(0, 180), houseFlankSeconds: Num(0, 120),
@@ -470,6 +477,10 @@ export const BehaviourFile = withProv({
     screenM: Num(1, 100), enemyMinM: Num(0, 2000), enemyMaxM: Num(0, 5000), knownWithinS: Num(0, 600), cooldownS: Num(0, 3600),
     onWithdraw: z.boolean(), onMoveUnderFire: z.boolean(), underFireS: Num(0, 600),
   }).strict(),
+  /** Shaken men hesitate before obeying (D4b, SPEC 6.6): the same for every side. See BehaviourDef.hesitation. */
+  hesitation: z.object({
+    kinds: z.array(z.string()), shakenShare: Num(0, 1), baseSeconds: Num(0, 120), perSuppressionSeconds: Num(0, 120), maxSeconds: Num(0, 300),
+  }).strict().optional(),
 });
 export type BehaviourT = z.infer<typeof BehaviourFile>;
 

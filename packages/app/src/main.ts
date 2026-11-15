@@ -16,7 +16,7 @@ import {
   type EntityId, type SimEvent,
 } from "@tcs/sim";
 import { BattleRenderer, LOD_SYMBOLS, OPENING_SCALE, VehicleDebug, type Look, type Overlay } from "@tcs/render";
-import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, unitTiles } from "@tcs/ui";
+import { ageLabel, centreOf, createAar, createHud, intentLines, LastSeenBook, linesShown, nestMarkers, RangingBook, repaceMove, rulesOrder, unitTiles } from "@tcs/ui";
 import { loadBundledData } from "./data";
 import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
@@ -26,7 +26,7 @@ import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { carriersParam } from "./params";
 import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPoint } from "./orders";
-import { refreshTiles, showCard, showObjectives, showUnit, syncOrders } from "./panels";
+import { refreshTiles, showCard, showObjectives, settlePendingRules, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
 import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
@@ -157,7 +157,8 @@ async function main(): Promise<void> {
       if (uid === null) return;
       // Shown as ordered until the unit has it (radio delay; while paused it waits).
       a.pendingRules.set(uid, { ...(a.pendingRules.get(uid) ?? {}), ...r });
-      issue(a, { ...now(a, uid), kind: "rules", ...(r.fire ? { fire: r.fire } : {}), ...(r.maxEngageM !== undefined ? { maxEngageM: r.maxEngageM } : {}), ...(r.onContact ? { onContact: r.onContact } : {}), ...(r.ammo ? { ammo: r.ammo } : {}), ...(r.at ? { at: r.at } : {}) });
+      // (D4b: the Ambush chip lays a real ambush; a fire rule ends one.)
+      issue(a, rulesOrder(now(a, uid), r));
     },
     onPosture: (p) => { if (overlay.selectedUnit !== null) issue(a, { ...now(a, overlay.selectedUnit), kind: "posture", posture: p }); },
     onSave: () => saveNow(a),
@@ -265,7 +266,10 @@ async function main(): Promise<void> {
         const faction = sim.state.identity.get(e.from)?.faction;
         // (Review fix: a refusal stands out from routine traffic.)
         hud.radio(strings.t(e.key, e.params, faction), ticksToSeconds(e.tick), e.key === "radio.refuseProtected" ? "#ffb4b4" : sideColour(a, e.side));
-      } else if (e.kind === "order.rejected" && e.issuer === playerSide) {
+      } else if (e.kind === "order.delivered" && (e.orderKind === "rules" || e.orderKind === "ambush")) {
+        settlePendingRules(a, e.target, e.orderKind); // (D4b: an ambush delivered and sprung at once leaves the chip)
+      } else if (e.kind === "order.rejected" && e.issuer === playerSide && e.reason !== "superseded") {
+        // (A superseded order, D4b, was replaced by the player's own newer one: nothing to tell him.)
         hud.radio(strings.t("order.rejected", { reason: e.reason }), ticksToSeconds(e.tick), "#ffb4b4");
       }
     }

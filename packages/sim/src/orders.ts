@@ -108,7 +108,15 @@ export type OrderBody =
   | { kind: "callAmbulance" }
   /** Evacuate with this vehicle (M10.6b, owner Q-9): the target crew's hull takes the casualties at its platoon's
    *  Verwundetennest (or the wounded aboard) off the map, then comes back. */
-  | { kind: "rearRun" };
+  | { kind: "rearRun" }
+  /** Lay an ambush (D4b, SPEC 6.6): the unit and its sub-units (vehicle crews too) hold their fire until an enemy
+   *  comes within `rangeM` of one of their men, one of them fires, or they come under fire; then the ambush is
+   *  sprung for all of them and they fire at will. */
+  | { kind: "ambush"; rangeM: number }
+  /** Defend an arc (D4b, SPEC 6.6): the men on foot of the unit and its sub-units stop, face `facing` (rad) and
+   *  open fire on their own only at enemies within `widthRad / 2` either side of it; the next move, assault,
+   *  withdrawal or occupation ends the arc. */
+  | { kind: "defendArc"; facing: number; widthRad: number };
 
 export type OrderKind = OrderBody["kind"];
 
@@ -121,13 +129,13 @@ export type Order = {
    *  move or halt order holds it against close enemy men (owner 2026-11-13). */
   player?: true;
   /** Only the target unit's own men, not its sub-units or their vehicles: a platoon's headquarters on its own
-   *  (owner 2026-11-15). Moves, halts, getting in and out, postures, fire, cease-fire, grenades, calls for fire
-   *  and rules (`OWN_ORDER_KINDS`); a unit target without a vehicle. */
+   *  (owner 2026-11-15). Moves, halts, getting in and out, postures, fire, cease-fire, grenades, calls for fire,
+   *  rules, ambushes and arcs (`OWN_ORDER_KINDS`); a unit target without a vehicle. */
   own?: true;
 } & OrderBody;
 
 /** The order kinds that take `own` (the others are drills of a unit with its sub-units). */
-export const OWN_ORDER_KINDS: readonly string[] = ["move", "halt", "mount", "dismount", "posture", "fire", "ceaseFire", "grenade", "callFire", "rules"];
+export const OWN_ORDER_KINDS: readonly string[] = ["move", "halt", "mount", "dismount", "posture", "fire", "ceaseFire", "grenade", "callFire", "rules", "ambush", "defendArc"];
 
 /** An order after reception, waiting for the comms delay. Part of the serialised state. */
 export interface PendingOrder {
@@ -135,6 +143,9 @@ export interface PendingOrder {
   order: Order;
   receivedTick: number;
   deliverTick: number;
+  /** The men hesitated over it once (D4b, behaviour.hesitation): it was put back to `deliverTick` and will be
+   *  carried out then, unless a later order to them replaces it first. */
+  hesitated?: true;
 }
 
 /** An order submitted but not yet processed (its tick is in the future). Part of the serialised state. */
@@ -150,4 +161,7 @@ export type OrderRejectReason =
   | "invalid-params"
   /** This kind of order means nothing to that kind of unit (M7.3: a grenade to a vehicle crew, smoke to men on foot). */
   | "not-applicable"
-  | "battle-ended";
+  | "battle-ended"
+  /** A later order to the same men replaced it while they were still hesitating over it (D4b): not a refusal, the
+   *  order is just over (no radio text; the renderer drops its marker). */
+  | "superseded";

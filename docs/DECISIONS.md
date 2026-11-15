@@ -6280,3 +6280,63 @@ catalog fingerprint, and the behaviour changes below change the battles. `golden
   fire changes; seeds 3 and 4 clear two houses each; the behaviour checked is unchanged). `npm run check`: all
   tests pass (`npm test` 439 s under load from other sessions); the timing tests failed under that load (load
   average 12 on 4 cores, render perf too) and passed when rerun alone (23/23).
+
+## 2026-11-15 — D4b Infantry tactics pass 2: fire and the missing SPEC 6.6 orders (roadmap-detail slice 20, parallel session; owner to review)
+- **Owner screen not answered** (fire distribution, aim at heard/reported enemies, win band): I took the recommended
+  options and log them for review: (a) **spread fire, MGs and marksmen on the most dangerous enemy**; (a) **aim low,
+  0.2-0.5 m**, at heard or reported enemies; win band: **open (owner question)** — see the batches below; no
+  re-tuning was done without an agreed band.
+- **Fire distribution** (`behaviour.soldier.fireDistribution`, game values, low): the shooter is classed by his
+  weapon as before (`weaponRole`: sustained = MG, a sight of 4x or more = marksman, else rifle). MG gunners and
+  marksmen weight an enemy MG x0.4, an enemy marksman x0.6 and one who fired in the last 3 s x0.5 (lower = more
+  important); riflemen keep distance-first scoring but each comrade of their own unit already firing at that enemy
+  multiplies it by 1.5 (at most 3 counted, never himself); the keep-target score uses the same formula. Danger is read
+  from the enemy's weapon (as the old "firing" factor did), only for enemies the man sees.
+- **Low aim at unseen enemies:** `shooting.fire.aimUnseenHeightM` 0.3 m for heard or reported contacts (or the
+  posture's height if lower); seen men are aimed as before (0.2 prone, 0.6 kneeling, 1.0 standing, 0.9 unknown);
+  vehicle coax at a reported man too.
+- **`ambush` order** `{ rangeM }`: the unit (and its sub-units, crews included) hold their own fire, rockets,
+  grenades and drone fire until an enemy is seen within `rangeM`, one of them fires, or they come under fire (not in
+  the first 6 s after laying it: leftover suppression); then it is sprung for the tree ("Ambush sprung, open fire!")
+  and they fire at will. A fire-rule order ends it. The card's Ambush chip (100 m) now sends it.
+  **Ambush lab** (`npm run lab -- ambush [trials]`, 10 runs, attacker walking in from 300 m returning fire only):
+  first volley at 148-150 m with the ambush (150 m) against 300 m firing at will; the attacker's men down in the
+  30 s after the first volley 6 of 6 against 5 of 6. (In the attack lab's own set-up the assaulting attacker opens
+  fire at about 300 m and springs every ambush at once.)
+- **`defendArc` order** `{ facing, widthRad }` (UI: Fire tray "Defend arc", tap a point: 120 degrees toward it):
+  men face the arc and open fire, throw grenades and fire rockets on their own only at enemies inside it; a move,
+  assault, withdraw, occupy, halt, mount or dismount (or a rout, or a fall-back on contact) ends it.
+- **Hesitation** (`behaviour.hesitation`, game values, low): a move, assault or occupy to men on foot of whom at
+  least half the able ones are shaken, pinned or panicked is carried out after 3 s + 8 s x their mean suppression
+  (at most 10 s), once per order ("... wait one ... moving in a moment"); an order that moves or stops the same men
+  replaces it, one to part of them ends the wait first; refusal (routed men, `radio.unable`) is unchanged.
+- **AI:** unchanged (it never orders ambush or arcs); it is affected by fire distribution, low aim and hesitation.
+- **Batches** (10 seeds, attacker wins; before -> after; the attacker is blue except platoon-ru*, where red attacks):
+
+  | Scenario | 1200 s | 2400 s | casualties blue / red at 2400 s |
+  |---|---|---|---|
+  | platoon (DE attacks) | 6 -> 4 | 6 -> 5 | 16.7 / 15.7 -> 17.8 / 15.9 |
+  | platoon-ru (RU attacks) | 10 -> 7 | 10 -> 9 | 15.4 / 8.0 -> 18.5 / 12.2 |
+  | platoon-vehicles (DE) | 6 -> 6 | 6 (+1 draw) -> 8 | 19.5 / 26.8 -> 15.7 / 28.1 |
+  | platoon-ru-vehicles (RU) | 1 -> 1 | 1 -> 1 | 7.4 / 33.8 -> 8.9 / 32.9 |
+
+  The defenders hit back harder on foot (RU attack on farmland 10 -> 7 at 1200 s, defender losses up). **Owner
+  question (win band):** the plan's recommended band was 3-6 attacker wins of 10 at 2400 s; only platoon is inside
+  it (platoon-ru 9, platoon-vehicles 8, platoon-ru-vehicles 1). Options: (a) agree the band and re-tune in a balance
+  slice (M8.5), (b) report only, as now. I did not re-tune.
+- **Built in three parallel worktrees, then reviewed** (4 reviewers, every finding checked by two sceptics: 16 of 19
+  confirmed, all fixed, see below). Goldens regenerated; `golden/no-interiors` untouched.
+
+## 2026-11-15 — D4b review fixes (ambush, defend arc, hesitation; golden regenerated)
+- Ambush: a fire rule ends the ambush on its target and on every unit below it holding the same ambush, `own` or not;
+  the tree walk reaches every unit holding the root's ambush; a unit whose ambush root no longer holds it drops it.
+  Only an ambush on the whole platoon (the top unit, not `own`) lifts the platoon's cease-fire. "Under fire" springs
+  it only from fire on the tree's own men (`ownFireTick`; a crew's hull hits), and not within 6 s of laying it
+  (`LAID_GRACE_S`: leftover suppression keeps stamping the unit for seconds). The rear-run gate lets `ambush` pass.
+- Defend arc: also ended by halt, mount, dismount, a move of the carrying vehicle, a rout and an on-contact fall-back;
+  own launcher shots (and moves to get one) and own hand grenades keep to it. The bar offers it only with men on foot.
+- Hesitation inverted: only move, assault, withdraw, occupy, halt, mount, dismount, defendArc and fire replace an order
+  the men hesitate over, and only when they reach all its men; a narrower one lets the hesitating order go first, in
+  the same tick. A replaced order emits `order.rejected` with the new reason `superseded` (no radio text; the
+  renderer drops its marker). Golden `platoon-vehicles-s1` changed (AI orders to part of a hesitating unit, or that do
+  not move it, no longer drop its hesitating order); `golden/no-interiors` untouched.

@@ -120,7 +120,8 @@ export function missileTeamSystem(ctx: SimContext, state: SimState, events: Even
       if (why !== null) { teamRadio(state, events, uid, "radio.missileTeamNoShot"); continue; }
       pick = { target: q.target, x: AIM.x, y: AIM.y };
     } else {
-      if (u.fireRule === "hold" || atRuleOf(ctx, state, uid) === "hold") continue;
+      // (An ambush laid, D4b: no shot of its own before it is sprung; a missile's launch gives it away.)
+      if (u.fireRule === "hold" || u.ambush !== undefined || atRuleOf(ctx, state, uid) === "hold") continue;
       pick = ownTarget(ctx, state, uid, l, gr);
       if (!pick) continue;
     }

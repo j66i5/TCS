@@ -1116,6 +1116,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-armband",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1137,6 +1141,62 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-armband",
+              "count": 1
+            },
+            {
+              "item": "de-medic-bag",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-tourniquet-cat",
+              "count": 4
+            },
+            {
+              "item": "de-pressure-dressing",
+              "count": 8
+            },
+            {
+              "item": "de-hemostatic-gauze",
+              "count": 4
+            },
+            {
+              "item": "de-chest-seal",
+              "count": 2
+            },
+            {
+              "item": "de-npa",
+              "count": 2
+            },
+            {
+              "item": "de-decompression-needle",
+              "count": 2
+            },
+            {
+              "item": "de-iv-set",
+              "count": 2
+            },
+            {
+              "item": "de-fluid-500",
+              "count": 3
+            },
+            {
+              "item": "de-ketamine",
+              "count": 2
+            },
+            {
+              "item": "de-splint",
+              "count": 2
+            },
+            {
+              "item": "de-rescue-blanket",
+              "count": 2
             }
           ],
           "weapon": "de-g36"
@@ -1158,6 +1218,10 @@
             {
               "item": "de-vest",
               "count": 1
+            },
+            {
+              "item": "de-armband",
+              "count": 1
             }
           ],
           "weapon": "de-g36"
@@ -1169,7 +1233,7 @@
         "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Boxer ambulance crew (M10.6-data): commander, driver and a medic (ARTEC brochure, search extract). Ranks and the rifles' loads are game values (medics are armed for self-defence, owner answer 8). Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). The Notfallsanitaeter of the Boxer ambulance is in the Feldwebel career (bundeswehr.de, Notfallsanitaeterin) - Feldwebel; driver Hauptgefreiter."
+      "note": "Boxer ambulance crew (M10.6-data): commander, driver and a medic (ARTEC brochure, search extract). Ranks and the rifles' loads are game values (medics are armed for self-defence, owner answer 8). Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). The Notfallsanitaeter of the Boxer ambulance is in the Feldwebel career (bundeswehr.de, Notfallsanitaeterin) - Feldwebel; driver Hauptgefreiter. Review fix 2026-11-15 (game values, low): every crewman wears the red cross armband (medical transport personnel, GC I art. 24 and 40), and the medic carries a medic bag with the platoon medic's kit in smaller numbers (care given on foot, e.g. after a bail-out; loading at the nest stays abstracted)."
     },
     {
       "id": "moerser-trupp",

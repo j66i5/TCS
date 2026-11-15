@@ -3,7 +3,7 @@
  * the end. All text from the string table; the record itself holds keys and raw values only.
  */
 import { battleScore, isAssetUnit, medianOf, medicalSummary, MISSING_STEPS, rosterStatus, ticksToSeconds, type EntityId, type TimelineEntry } from "@tcs/sim";
-import type { AarModel } from "@tcs/ui";
+import type { AarModel, AarSection } from "@tcs/ui";
 import type { App } from "./app";
 import { fmtClock, localClock, sideColour, sideName } from "./units";
 
@@ -98,76 +98,82 @@ export function reviewModel(a: App): AarModel {
   };
 }
 
-/** A duration for the review: "m:ss" (minutes past an hour as "h:mm:ss"). */
+/** A duration for the review, with units so it does not read like a clock time (review fix): "45 s", "13 min 52 s",
+ *  "3 h 4 min". */
 function dur(sec: number): string {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), x = Math.floor(sec % 60);
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}` : `${m}:${String(x).padStart(2, "0")}`;
+  return h > 0 ? `${h} h ${m} min` : m > 0 ? `${m} min ${x} s` : `${x} s`;
 }
 
-/** The Medical tab (M10.8, `medicalSummary`): per side the chain of care's times, deaths of wounds with timing and
- *  the missing step, then the M10.5-M10.6b lines (men down, prisoners, rear runs, the settlement, Role 1). */
-export function medicalLines(a: App): string[] {
+/** The Medical tab (M10.8, `medicalSummary`): per side (a coloured heading, review fix) the chain of care's times,
+ *  deaths of wounds with timing and the missing step (indented), then the M10.5-M10.6b lines (men down, prisoners,
+ *  rear runs, the settlement, Role 1). */
+export function medicalLines(a: App): AarSection[] {
   const { sim, strings: s, record } = a;
   const st = sim.state, sum = medicalSummary(record);
   const time = (xs: number[]) => { const m = medianOf(xs); return m === null ? s.t("aar.medical.none") : dur(m); };
   return st.sides.flatMap((sd) => {
     const rs = record.sides[sd.id], d = rs?.down, m = sum[sd.id];
     if (!rs || !d || !m) return [];
-    const side = sideName(a, sd.id);
-    const lines: string[] = [];
+    const rows: AarSection["rows"] = [];
+    const line = (text: string, sub = false) => rows.push(sub ? { text, sub: true } : { text });
     if (m.wounded > 0) {
       const inBattle = m.deaths.filter((x) => !x.after).length;
-      lines.push(s.t("aar.medical.summary", { side, wounded: m.wounded, outright: m.killedOutright, dow: inBattle, after: m.deaths.length - inBattle }));
-      lines.push(s.t("aar.medical.times", { side, care: time(m.firstCareS), cared: m.firstCareS.length, nest: time(m.nestS), nested: m.nestS.length, evac: time(m.evacS), evacuated: m.evacS.length }));
+      line(s.t("aar.medical.summary", { wounded: m.wounded, outright: m.killedOutright, dow: inBattle, after: m.deaths.length - inBattle }));
+      // (Review fix: "evacuated during the battle", and only when someone was; the settlement line counts the end.)
+      line(s.t("aar.medical.times", { care: time(m.firstCareS), cared: m.firstCareS.length, nest: time(m.nestS), nested: m.nestS.length })
+        + (m.evacS.length > 0 ? s.t("aar.medical.timesEvac", { evac: time(m.evacS), evacuated: m.evacS.length }) : ""));
       const prev = MISSING_STEPS.filter((k) => m.steps[k] > 0).map((k) => s.t("aar.medical.stepCount", { step: s.t(`aar.medical.step.${k}`), n: m.steps[k] }));
       const total = MISSING_STEPS.reduce((n, k) => n + m.steps[k], 0);
-      lines.push(total > 0 ? s.t("aar.medical.preventable", { side, n: total, list: prev.join(", ") }) : s.t("aar.medical.noPreventable", { side }));
+      line(total > 0 ? s.t("aar.medical.preventable", { n: total, list: prev.join(", ") }) : s.t("aar.medical.noPreventable"));
       for (const x of m.deaths) {
-        lines.push(s.t(x.after ? "aar.medical.deathAfter" : "aar.medical.death", {
+        line(s.t(x.after ? "aar.medical.deathAfter" : "aar.medical.death", {
           name: x.name, callsign: x.callsign, at: fmtClock(x.woundS), after: dur(x.afterS),
           step: x.step === null ? s.t("aar.medical.step.none") : s.t(`aar.medical.step.${x.step}`),
-        }));
+        }), true);
       }
     }
     // M10.6b: rear runs, the end-of-battle settlement, Role 1 outcomes.
     const r1 = rs.role1, rec = [...r1.recoveryD].sort((x, y) => x - y);
     // (Lines with nothing in them are left out.)
-    lines.push(
-      ...(d.checked + d.deadDragged + d.tagMen + d.crawled > 0 ? [s.t("aar.medical.down", { side, checked: d.checked, dead: d.checkedDead, dragged: d.deadDragged, tags: d.tagMen, crawled: d.crawled })] : []),
-      ...(d.prisonersTreated + d.surrenderCrawled > 0 ? [s.t("aar.medical.prisoners", { side, treated: d.prisonersTreated, crawled: d.surrenderCrawled })] : []),
-      ...(rs.rear.started > 0 ? [s.t("aar.medical.rearRuns", { side, runs: rs.rear.started, ordered: rs.rear.ordered, men: rs.rear.men })] : []),
-      ...(rs.settled.evacuated + rs.settled.captured + rs.settled.prisoner > 0 ? [s.t("aar.medical.settled", { side, evac: rs.settled.evacuated, captured: rs.settled.captured, prisoners: rs.settled.prisoner })] : []),
-      ...(r1.men > 0 ? [s.t("aar.medical.role1", { side, n: r1.men, t1: r1.t1, t1in: r1.t1InTime, dow: r1.dow, days: rec.length > 0 ? rec[Math.floor(rec.length / 2)]! : 0 })] : []),
-    );
-    return lines;
+    if (d.checked + d.deadDragged + d.tagMen + d.crawled > 0) line(s.t("aar.medical.down", { checked: d.checked, dead: d.checkedDead, dragged: d.deadDragged, tags: d.tagMen, crawled: d.crawled }));
+    if (d.prisonersTreated + d.surrenderCrawled > 0) line(s.t("aar.medical.prisoners", { treated: d.prisonersTreated, crawled: d.surrenderCrawled }));
+    if (rs.rear.started > 0) line(s.t("aar.medical.rearRuns", { runs: rs.rear.started, ordered: rs.rear.ordered, men: rs.rear.men }));
+    if (rs.settled.evacuated + rs.settled.captured + rs.settled.prisoner > 0) line(s.t("aar.medical.settled", { evac: rs.settled.evacuated, captured: rs.settled.captured, prisoners: rs.settled.prisoner }));
+    if (r1.men > 0) line(s.t("aar.medical.role1", { n: r1.men, t1: r1.t1, t1in: r1.t1InTime, dow: r1.dow, days: rec.length > 0 ? rec[Math.floor(rec.length / 2)]! : 0 }));
+    return rows.length > 0 ? [{ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows }] : [];
   });
 }
 
-/** The Conduct tab (M10.8): per side (by the side that fired) breaches by cause, refused orders (owner Q-7), hits on
- *  protected people aimed and incidental as separate lists (Q-8), then each breach with its circumstances. Empty when
- *  nothing happened on either side (the tab then says so). */
-export function conductLines(a: App): string[] {
+/** The Conduct tab (M10.8): per side (by the side that fired; a coloured heading) breaches by cause, refused orders
+ *  (owner Q-7), hits on protected people aimed and incidental as separate lists (Q-8), then each breach with its
+ *  circumstances (indented). Empty when nothing happened on either side (the tab then says so). */
+export function conductLines(a: App): AarSection[] {
   const { sim, strings: s, record } = a;
-  const out: string[] = [];
+  const out: AarSection[] = [];
   for (const sd of sim.state.sides) {
     const c = record.sides[sd.id]?.conduct;
     if (!c) continue;
     const hits = Object.entries(c.hits).sort(([p], [q]) => (p < q ? -1 : 1));
     if (c.misidentified + c.deliberate + c.refused + hits.length === 0) continue;
-    const side = sideName(a, sd.id);
+    const rows: AarSection["rows"] = [];
+    // (Review fix: "under orders" counts breaches of either cause, and the line says so.)
     const ordered = c.breaches.filter((b) => b.ordered).length;
-    out.push(s.t("aar.conduct.summary", { side, mis: c.misidentified, del: c.deliberate, ordered, refused: c.refused }));
+    rows.push({ text: s.t("aar.conduct.summary", { mis: c.misidentified, del: c.deliberate, ordered, refused: c.refused }) });
     const list = (aimed: boolean) => hits.filter(([, h]) => (aimed ? h.aimed : h.incidental) > 0).map(([k, h]) => s.t("aar.conduct.hitKind", { kind: s.t(`aar.conduct.prot.${k}`), n: aimed ? h.aimed : h.incidental })).join(", ") || s.t("aar.medical.none");
-    if (hits.length > 0) out.push(s.t("aar.conduct.hits", { side, aimed: list(true), incidental: list(false) }));
+    if (hits.length > 0) rows.push({ text: s.t("aar.conduct.hits", { aimed: list(true), incidental: list(false) }) });
     for (const b of c.breaches.slice(0, CONDUCT_LINES_MAX)) {
-      out.push(s.t("aar.conduct.breach", {
+      rows.push({ sub: true, text: s.t("aar.conduct.breach", {
         time: fmtClock(ticksToSeconds(b.tick)), by: b.by, callsign: b.callsign, target: b.target, prot: s.t(`aar.conduct.prot.${b.protection}`),
-        range: b.rangeM, cause: s.t(`aar.conduct.cause.${b.cause}`), light: Math.round(b.light * 100), smoke: Math.round(b.smoke * 100), stress: Math.round(b.stress * 100),
+        range: b.rangeM, cause: s.t(`aar.conduct.cause.${b.cause}`), light: Math.round(b.light * 100), stress: Math.round(b.stress * 100),
+        // (Review fix: smoke only when there was some on the line, as how much of the view it let through.)
+        smoke: b.smoke < 0.995 ? s.t("aar.conduct.smoke", { pct: Math.round(b.smoke * 100) }) : "",
         extra: [b.ordered ? s.t("aar.conduct.ordered") : "", b.vehicle ? s.t("aar.conduct.fromVehicle") : ""].filter((x) => x !== "").join(""),
-      }));
+      }) });
     }
     const more = c.misidentified + c.deliberate - Math.min(c.breaches.length, CONDUCT_LINES_MAX);
-    if (more > 0) out.push(s.t("aar.conduct.more", { n: more }));
+    if (more > 0) rows.push({ sub: true, text: s.t("aar.conduct.more", { n: more }) });
+    out.push({ heading: sideName(a, sd.id), colour: sideColour(a, sd.id), rows });
   }
   return out;
 }

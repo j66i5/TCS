@@ -365,6 +365,18 @@
       "note": "The rifleman-medic's (strelok-sanitar) bag, empty; contents counted in his load (three rubber tourniquets, six dressings, two haemostatic powders, two pain syringe tubes, a rescue blanket). Proposal: kit not found beyond the individual one (research 2026-11-14)."
     },
     {
+      "id": "ru-armband",
+      "nameKey": "item.ru-armband",
+      "category": "medical",
+      "massKg": 0.02,
+      "emblem": true,
+      "sources": [
+        "https://www.icrc.org/en/war-and-law/emblems"
+      ],
+      "confidence": "medium",
+      "note": "Red cross armband: marks the wearer as medical personnel (GC I art. 40; Russia uses the red cross emblem). Worn by the BMM ambulance crew (review fix 2026-11-15: medical transport personnel are protected while not fighting). Not issued to the strelok-sanitar, a rifleman with first-aid duties (not exclusively medical personnel)."
+    },
+    {
       "id": "ru-bmm-diesel",
       "nameKey": "item.ru-bmm-diesel",
       "category": "fuel",

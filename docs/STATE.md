@@ -1,10 +1,20 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.8 review statistics and balance; roadmap-detail slice 17, M10 built). The long session-by-session
+_Last updated: 2026-11-15 (M10 review fixes after M10.8; roadmap-detail slice 17, M10 built). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
 ## Where we are
+- **M10 review fixes (2026-11-15, branch `claude/new-session-avoifd`, after merging origin/main).** Grenade orders at
+  recognised protected people are refused too, and a refused order changes nothing (drills, errands, carrying
+  parties, boarding); the AI commander no longer orders fire at enemies its men spare (refusals 43-53 → 0-1 per 10
+  battles); bearers are protected only once they carry; far casualties reachable (route cap 20 000); carer
+  reassignment loops gone; the nest medic is someone who can work; evacuated men in a returning hull are out of the
+  battle (no repeated rear runs); bruises under armour and settled roster wounds are not settled again, recovery days
+  survive the roster round trip, an "evacuated" record is refused as input; ambulance crews wear the armband and the
+  medic has a kit (`ambulanceCrew` level); the Wounded tab, review tabs and map got the UX fixes (DECISIONS "M10
+  Medical: review fixes", with the before/after table). Open: the plan's acceptance targets marked 🔶 in ROADMAP; a
+  responder upstairs cannot drag (floor-aware drag later); `npm test` wall time.
 - **Slice 40, M7.6b Tanks in battle (2026-11-15, branch `claude/medical-ambulance-smoke` after slice 39; not pushed
   while PR #59 is open).** Gunnery aims at the lowest aim point the line clears (a hull-down tank can now be engaged;
   golden `platoon-vehicles-s1` regenerated) and judges that zone's plate and tiles; tank sections in data

@@ -402,7 +402,7 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
         if (!mm || (last && hypot2(last.x - pt.x, last.y - pt.y) <= r)) continue;
         const dx = t.x - pt.x, dy = t.y - pt.y, L = hypot2(dx, dy) || 1;
         const gx = pt.x + (dx / L) * r * 0.6, gy = pt.y + (dy / L) * r * 0.6;
-        const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 6000, snapCells: 3 }, { sz: t.z, gz: pt.z });
+        const leg = routeBetween(ctx, navFor(ctx, "foot").search, t.x, t.y, gx, gy, { maxExpansions: 20000, snapCells: 3 }, { sz: t.z, gz: pt.z });
         if (!leg) { endCarry(ctx, state, events, payload, "no-way"); return; }
         mm.waypoints = routeWaypoints(leg, { x: 0, y: 0, mode: "run" });
         mm.formation = null; mm.endPosture = null; mm.endHeading = null;

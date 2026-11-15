@@ -6402,3 +6402,18 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   Shturm 2, Ogon, Rezerv, AGS 1), the AGS card "Post: packed"; the AGS team on its post in a wood at 8:53 (two men
   under the canopy, rounds in flight) and its target area at the main objective; an RPO-A burst ring at 14:34 in an
   orchard (fired at a machine gunner, not a house, in that run). No page errors.
+- **Review fixes (six findings):** (1) a thermobaric burst's room is the storey the burst *point* is inside
+  (`floorOfPointZ`: floor(height / storey height), clamped; `floorAtZ`, the nearest floor, stays for men's feet): a
+  burst 1.6 m up a ground-floor wall of a two-storey house fills the ground-floor room, not the one above (new test).
+  (2) The box on an AGL keeps its item identity (`missileTeam.box = { item, rounds, holder }`, plain data): it counts
+  in the post carrier's mass (`loadKg`) and goes back into his roster load with its partial charge (`aglBoxOf`, like
+  the magazine in a weapon), and follows the post when it passes to another man; an emptied box is thrown away when
+  the next goes on (as before). Test: roster rounds = rounds before - rounds fired. (3) The AI's repost of an AGL team
+  counts the team's own bursts (`lastLaunchTick`): a team firing on its own is not moved. (4) AI AGL fire orders skip
+  enemies any of the side's men spares (`sideSpared`), points within `AGL_BURST_M` (8 m, game value) of a man its men
+  recognise as protected, and points with own men not out within `aglDangerM`. (5) An AGL burst is not fired with an
+  own man in the line or up to `aglDangerM` = 8 m + rangeErrorFraction x range past the aim point (test: an own man
+  40 m past the target at 800 m stops the team's own fire). (6) The assault-group determinism test runs 300 s on seed
+  17 (the AGS fires from about 210 s), saves at 30 s and in the middle of an AGS burst, and asserts AGS shots (~17 s);
+  no RPO-A fires within 600 s on seeds 1-18 (thermobaric.test.ts covers its burst). Goldens unchanged (no golden
+  scenario has an AGL team or RPO-A).

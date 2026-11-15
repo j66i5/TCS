@@ -5570,3 +5570,33 @@ is new to both lines), the batch lines, Russian strings, catalog medical blocks 
 fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
 regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
 `commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).
+
+## 2026-11-15 — "Sometimes, characters look wrong": soldier sprite fixes (render only; sim, data and goldens unchanged)
+Owner report (phone, photo look, figure zoom): one man of a squad drawn as a broken lying figure, limbs and weapon
+in specks, the body doubled, odd colours round it. A diagnostic sheet (every frame x weapon variant x 16 facings)
+and phone screenshots (DPR 3) of the mounted and on-foot battles and of every carry method found these causes:
+- **Atlas key collision**: cells were keyed `slot * 4096 + frameKey`, but `frameKey` reaches 4991 with 13 frames,
+  so the second faction's stand/walk/crouch cells shared keys with the first faction's captive, carried and
+  stretcher cells (whichever was built first was shown for both: a walking man drawn as a carried casualty in the
+  other side's colours). Now `KEYS_PER_SLOT` = frames x weapons x 8 x facings.
+- **Carried men by method**: every carried man got the lying `carried` frame. A fireman's carry (casualty 0 m
+  behind the bearer) drew him lying on top of the standing bearer (the "doubled" lying figure); a supported man
+  who walks lay flat; litter bearers 0.3 m apart on the trail and two draggers 0.4 m apart were drawn on top of
+  each other. Now `frames.ts` picks the frame from the method's shape (drag: `carried`; two-man seat: new
+  `seated`; fireman: the bearer's new `shoulder` frame, the casualty not drawn; litter: `stretcher`; supported: he
+  walks) and draws pairs of bearers side by side (render-only offsets: positions in the sim untouched). Before the
+  bearers gather, or while they rest, he lies `down`. A casualty crawling to cover crawls (was `down`, sliding).
+- **Photo rim**: the dark rim was the side outline drawn 18-30 % larger about the man's position, so on long lying
+  figures it slid off the edge and doubled it. Now a ring mask just outside the outline (two pixels deep below
+  16 px/m), built per cell.
+- **Side colour inside the body**: gaps shut in by the figure (between arm and helmet, and pinholes from turning)
+  got the outline colour. Now only outside pixels are outlined; turned pinholes of 1-2 px are filled dark.
+- **Turning**: Scale2x rounds off single pixels, so at 22.5° / 45° steps hands, faces, dressings, highlights and
+  the launcher tube vanished and thin lines broke into specks. Detail letters are now also forward-mapped, and lone
+  specks dropped; the `down` and `dead` art redrawn with arms and rifle joined to the body (they had loose pixels).
+- **Cell margin**: 3 px cut off turned corners (stretcher, prone with MG and flash); now 6 px (`CELL` 28) and a
+  2-px transparent gutter between atlas cells. Sampling stays nearest.
+Not changed: the renderer's resolution cap of 2 on DPR-3 phones (a performance choice; the browser scales the
+canvas 1.5x). The flat look changes too (same atlas and frames: the bugs were in it as well).
+Tests: `render/test/sprites.test.ts` (frame per state and carry method, key uniqueness per slot, cell padding and
+gutter, one connected piece and no lost colour at every facing, no outline inside the body).

@@ -29,6 +29,11 @@
  *              panicked or routed (he runs back), and when downed only with an enemy within `attackerDownedEnemyM`.
  *   cost       Like a casualty: `isOut` (objectives.ts score, commander losses). No stress to comrades (owner);
  *              a leader giving up still shakes his unit (the shared leader-loss path).
+ *   crawl      (owner request 2026-11-15) A surrendered man under fire (suppression from `decisions.seekCoverSuppression`)
+ *              who is conscious and can use his arms goes down and crawls out of the line of fire: to the nearest spot
+ *              within `crawlSearchM` hidden from where the rounds come from (else from the nearest enemy he knows),
+ *              by a way of at most `crawlMaxM`; then he waits there until the fire has faded and goes on with his
+ *              walk over, or waits to be fetched (`crawlSearchM` 0 or absent: he lies where he is, as before).
  * This file owns `captive`; target choice elsewhere reads only the chooser's own contact flag.
  * No random draws. Squared distances only.
  */
@@ -45,6 +50,8 @@ import { navFor } from "../navctx";
 import type { SimState } from "../state";
 import { standZ } from "../terrain";
 import { hasCarer } from "./medical";
+import { coverSpotNear } from "./carry";
+import { coveredFrom } from "./decisions";
 import { takeOutOfFight } from "./wounds";
 import { requestPosture } from "./body";
 import { atan2, hypot2 } from "../math";
@@ -212,6 +219,46 @@ function handOverTarget(ctx: SimContext, state: SimState, id: EntityId, s: Soldi
   return fall;
 }
 
+/**
+ * Under fire, out of the line of fire (header "crawl"): true while he crawls to cover (started now or on his way).
+ */
+function crawlOutOfFire(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
+  const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions, crawl = ctx.catalog.behaviour.soldier.crawlMode;
+  const m = state.mover.get(id);
+  if (!m || !(R.crawlSearchM !== undefined && R.crawlSearchM > 0) || !ctx.catalog.movementModes[crawl]) return false;
+  if (s.crawlCover) {
+    if (m.waypoints.length > 0 && isConscious(s)) return true; // on his way
+    if (m.waypoints.length > 0) halt(state, id);
+    delete s.crawlCover;
+  }
+  if (!isConscious(s) || !s.impair.canUseArms || s.mental.suppression < D.seekCoverSuppression || state.tick < s.stunnedUntilTick) return false;
+  const t = state.transform.req(id);
+  if (t.z > 0.5) return false;
+  // Where the fire comes from: the rounds cracking past him, else the nearest enemy he knows.
+  let threat: { x: number; y: number; z: number } | null = null;
+  const ff = s.fireFrom;
+  if (ff && state.tick - ff.tick <= secondsToTicks(D.underFireMemorySeconds)) threat = { x: t.x + ff.dx * 150, y: t.y + ff.dy * 150, z: 0 };
+  else {
+    let bd = Infinity;
+    for (const c of s.contacts) {
+      if (c.cls === "vehicle") continue;
+      const d = (c.x - t.x) * (c.x - t.x) + (c.y - t.y) * (c.y - t.y);
+      if (d < bd) { bd = d; threat = { x: c.x, y: c.y, z: c.z ?? 0 }; }
+    }
+  }
+  if (!threat) return false;
+  const lie = ctx.catalog.body.postures.prone.heightM * 0.6;
+  if (coveredFrom(ctx, t.x, t.y, threat.x, threat.y, lie, t.z, threat.z)) return false;
+  const spot = coverSpotNear(ctx, t.x, t.y, t.z, threat, R.crawlSearchM, R.crawlMaxM ?? R.crawlSearchM * 2);
+  if (!spot) return false;
+  m.waypoints = routeWaypoints(spot.leg, { x: 0, y: 0, mode: crawl }).map((w) => ({ ...w, posture: "prone" as const, bolt: true as const }));
+  m.formation = null; m.endPosture = "prone"; m.endHeading = null;
+  s.crawlCover = { x: spot.x, y: spot.y, tick: state.tick };
+  if (s.handOver && !s.handOver.done) s.handOver.down = true;
+  events.emit({ kind: "surrender.crawl", tick: state.tick, soldier: id, side: state.identity.req(id).side, distanceM: Math.round(spot.leg.cost) });
+  return true;
+}
+
 /** Walk him (a surrendered man) over to give himself up; called every `stepSeconds` (header "walk over"). */
 function walkOver(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): void {
   const R = ctx.catalog.behaviour.surrender, D = ctx.catalog.behaviour.decisions;
@@ -302,8 +349,10 @@ export function surrenderSystem(ctx: SimContext, state: SimState, events: EventS
           events.emit({ kind: "captured", tick: state.tick, soldier: id, side: state.identity.req(id).side, by });
           continue;
         }
+        // Under fire: out of the line of fire first (owner request 2026-11-15).
+        const crawling = step(id) ? crawlOutOfFire(ctx, state, events, id, s) : s.crawlCover !== undefined;
         // Nobody close yet: if he can, he walks over to give himself up (owner 2026-11-14).
-        if (R.walkToEnemyM > 0 && step(id)) walkOver(ctx, state, events, id, s);
+        if (!crawling && R.walkToEnemyM > 0 && step(id)) walkOver(ctx, state, events, id, s);
         // When quiet, one fit enemy who has seen it walks over (to a man who is not on his way).
         const walking = s.handOver !== undefined && s.handOver.done !== true;
         if (R.fetchWithinM > 0 && step(id) && !walkers.has(id) && !walking) {

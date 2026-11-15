@@ -130,7 +130,7 @@ export function movementSystem(ctx: SimContext, state: SimState, events: EventSi
       // Exhausted men cannot keep up hard paces (running): they slow down and recover (body.ts).
       if (mode.exertion > B.movement.hardPaceExertion && s.physical.winded) speed *= B.movement.exhaustedSpeedFactor;
       speed *= s.impair.move; // wounds: a leg wound, blood loss
-      if (s.captive !== null) speed *= handOverPace; // hands up, slowly (surrender.ts)
+      if (s.captive !== null && modeId !== SB.crawlMode) speed *= handOverPace; // hands up, slowly (surrender.ts; not his crawl to cover)
     }
     // Formation keeping: a follower ahead of his slot eases off; one behind it hurries, but never beyond his
     // own unimpaired pace (tired or loaded men cannot buy their penalties back). The leader slows for laggards.

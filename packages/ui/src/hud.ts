@@ -18,7 +18,7 @@ import type { EntityId } from "@tcs/sim";
 import type { Insets } from "@tcs/render";
 import { noOrders, type Nature, type OrderSet } from "./orders-for";
 import { defaultEdge, isVertical, loadEdge, nearestEdge, saveEdge, sidebarSide, type Edge } from "./dock";
-import { createSidebar, type UnitTile } from "./sidebar";
+import { createSidebar, type TilePart, type UnitTile } from "./sidebar";
 import type { AmbulanceRow, WoundedRow } from "./wounded";
 import { DOUBLE_TAP_MS, isDoubleTap } from "./gestures";
 import { icon } from "./icons";
@@ -66,8 +66,8 @@ export interface HudCallbacks {
   onSave(): void;
   onLoad(): void;
   /** A tap on a unit's tile in the sidebar (M7.5a). */
-  /** `drone` (M9.4a): the unit's drone tile was tapped. */
-  onSelectUnit(unit: EntityId, drone?: boolean): void;
+  /** `part`: the unit's drone tile (M9.4a) or its headquarters tile (owner 2026-11-15) was tapped. */
+  onSelectUnit(unit: EntityId, part?: TilePart): void;
   /** S5: a press held on a unit's tile (the camera follows it); the "following" badge tapped (stop). */
   onFollowUnit?(unit: EntityId): void;
   onStopFollow?(): void;
@@ -121,7 +121,7 @@ export interface Hud {
    *  null or a set with `none`: nothing selected, every button greyed (M7.5a). */
   setOrders(set: OrderSet | null): void;
   /** The unit sidebar's tiles and the selected unit (M7.5a; the app refreshes them a few times a second). */
-  setTiles(tiles: readonly UnitTile[], selected: EntityId | null, drone?: boolean): void;
+  setTiles(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
   /** The sidebar's Wounded tab (M10.5, owner Q-2c). */
   setWounded(rows: readonly WoundedRow[], amb?: { rows: readonly AmbulanceRow[]; ready: number }): void;
   /** The map area left free by the bars and the sidebar (px from each screen edge). */
@@ -710,7 +710,7 @@ export function createHud(root: HTMLElement, s: Strings, cb: HudCallbacks): Hud 
       score.hidden = parts.length === 0;
       if (was !== score.hidden) layout();
     },
-    setTiles(tiles, selected, drone) { sidebar.update(tiles, selected, drone); },
+    setTiles(tiles, selected, part) { sidebar.update(tiles, selected, part); },
     setWounded(rows, amb) { sidebar.setWounded(rows, amb); },
     insets: () => ({ ...free }),
     bottomCover: () => {

@@ -1,7 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
-import { droneOrder, hasDrone } from "./drones";
+import { droneOrder, droneRiderOf, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
@@ -15,7 +15,7 @@ import type { SimContext } from "../context";
 import { floorAtZ, indoorAt, indoorSpots, routeBetween, routeWaypoints } from "../interior-nav";
 import type { EventSink } from "../events";
 import type { EntityId } from "../ids";
-import type { Order, OrderRejectReason, PendingOrder, Waypoint } from "../orders";
+import { OWN_ORDER_KINDS, type Order, type OrderRejectReason, type PendingOrder, type Waypoint } from "../orders";
 import { bestCoverNear, clearLine, navCostAt, nearestPassable } from "../nav";
 import { atan2, cos, hypot2, sin } from "../math";
 import { canReport, isAble } from "../impair";
@@ -45,6 +45,11 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
   if (side === null) return "unknown-target";
   if (side !== o.issuer) return "not-your-unit";
   if (!orderApplies(ctx, state, o)) return "not-applicable";
+  // (Its own men only: a unit without a vehicle that has men of its own, and an order kind that takes it.)
+  if (o.own !== undefined) {
+    const u = state.unit.get(o.target);
+    if (o.own !== true || !u || u.vehicle !== undefined || u.members.length === 0 || !OWN_ORDER_KINDS.includes(o.kind)) return "invalid-params";
+  }
   switch (o.kind) {
     case "move":
       if (o.waypoints.length === 0 || o.waypoints.length > 64) return "invalid-params";
@@ -119,6 +124,7 @@ function validate(ctx: SimContext, state: SimState, o: Order): OrderRejectReason
       if (o.x !== undefined && (!Number.isFinite(o.x) || o.x < 0 || o.x > ctx.map.widthM)) return "invalid-params";
       if (o.y !== undefined && (!Number.isFinite(o.y) || o.y < 0 || o.y > ctx.map.heightM)) return "invalid-params";
       if (o.altM !== undefined && !(o.altM >= 0 && o.altM <= 5000)) return "invalid-params";
+      if (o.dismount !== undefined && typeof o.dismount !== "boolean") return "invalid-params";
       return null;
     case "occupy":
       if (buildingIndex(ctx, o.building) < 0) return "invalid-params";
@@ -220,7 +226,7 @@ export function deliverOrders(ctx: SimContext, state: SimState, events: EventSin
     const res = applyOrder(ctx, state, p.order, events);
     if (res === true) screenAfterOrder(ctx, state, p.order, events);
     const ou = state.unit.has(p.order.target) ? p.order.target : state.identity.get(p.order.target)?.unit;
-    if (ou !== undefined) { const mark = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.orderTick = state.tick; x.children.forEach(mark); }; mark(ou); }
+    if (ou !== undefined) { const mark = (u: EntityId) => { const x = state.unit.get(u); if (!x) return; x.orderTick = state.tick; if (p.order.own !== true) x.children.forEach(mark); }; mark(ou); }
     events.emit({ kind: "order.delivered", tick: state.tick, seq: p.seq, target: p.order.target, orderKind: p.order.kind });
     radioFromTarget(state, p.order.target, res === true ? (p.order.kind === "grenade" && p.order.smoke === true ? "radio.ack.smoke" : `radio.ack.${p.order.kind}`) : res === "unable" ? "radio.unable" : res === false ? "radio.noRoute" : res.unable, events);
     if (res === false) events.emit({ kind: "move.noRoute", tick: state.tick, target: p.order.target });
@@ -240,7 +246,7 @@ export function applyOrderNow(ctx: SimContext, state: SimState, order: Order, ev
 
 /** Hand smoke (D1): a unit withdrawing, or moving off under fire, screens itself (systems/smoke.ts). */
 function screenAfterOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink): void {
-  if ((order.kind !== "withdraw" && order.kind !== "move") || !state.unit.has(order.target)) return;
+  if ((order.kind !== "withdraw" && order.kind !== "move") || !state.unit.has(order.target) || order.own === true) return;
   screenOnOrder(ctx, state, events, order.target, order.kind);
 }
 
@@ -274,18 +280,30 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
  */
 function applyOrder(ctx: SimContext, state: SimState, order: Order, events: EventSink, afterDismount = false): OrderResult {
   const isUnit = state.unit.has(order.target);
+  // (A platoon's headquarters on its own, owner 2026-11-15: its own men, not its sub-units or their vehicles.)
+  const own = isUnit && order.own === true;
   // The Verwundetennest (M10.5): nobody's errand or drill changes.
   if (order.kind === "casualtyPoint") return casualtyPointOrder(ctx, state, events, order.target, order.x, order.y) ? true : "unable";
   if (order.kind === "evacuate") return evacuateOrder(state, order.target) ? true : "unable";
   // An ambulance from the rear (M10.6a): the platoon's call; nothing of the unit changes.
   if (order.kind === "callAmbulance") return callAmbulanceOrder(ctx, state, events, order.target, order.player === true);
   // A reconnaissance quadcopter (M9.4a): its own business; nobody gets out, nothing else of the unit changes.
-  if (order.kind === "drone") return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
+  // (With `dismount`: its carrier, if he rides, gets out first; the order goes to him once he is out.)
+  if (order.kind === "drone") {
+    const rider = order.op === "fly" && order.dismount === true && !afterDismount ? droneRiderOf(ctx, state, order.target) : null;
+    if (rider !== null) {
+      const res = dismountThen(state, { ...order, target: rider }) ?? "unable";
+      if (res === true) radioFromTarget(state, order.target, "radio.dismountFirst", events);
+      return res;
+    }
+    return droneOrder(ctx, state, events, order.target, order.op, order.x, order.y, order.altM) ? true : "unable";
+  }
   // Getting in and out (M7.2): replaces a drill or a boarding under way, like any order.
   if (order.kind === "mount" || order.kind === "dismount") {
     // (M10.5: getting in takes the wounded along, from the Verwundetennest too.)
-    if (order.kind === "mount" && isUnit) releaseForBoarding(ctx, state, events, order.target);
-    if (isUnit) clearDrills(state, order.target);
+    if (order.kind === "mount" && isUnit && !own) releaseForBoarding(ctx, state, events, order.target);
+    if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
+    else if (isUnit) clearDrills(state, order.target);
     else { leaveBoarding(state, order.target); releaseFromParentDrills(state, state.identity.get(order.target)?.unit ?? -1, [order.target]); }
     return boardingOrder(ctx, state, order, events);
   }
@@ -294,15 +312,16 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   if (crewOf !== undefined && order.kind === "ceaseFire") { stationCeaseFire(state, order.target, events); return true; }
   if (crewOf !== undefined && order.kind !== "rules") return vehicleOrder(ctx, state, order, crewOf);
   // A parent unit's vehicles (M7.1c): moves and halts are split to them; their own fire rules stay theirs.
-  const vehicles = isUnit ? vehicleChildren(state, order.target) : [];
+  const vehicles = isUnit && !own ? vehicleChildren(state, order.target) : [];
   // Men still aboard (owner Q12): a squad (or a man) gets out first, then carries the order out. Orders to a
   // platoon with vehicles go to the vehicles (the squads ride along). Rules, cease-fire, a call for fire and a
   // halt need nobody to get out.
   const passThrough = order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "callFire" || order.kind === "halt" || order.kind === "discharge";
   if (!afterDismount && !passThrough && crewOf === undefined && vehicles.length === 0) {
-    const aboard = isUnit ? hasRiders(state, order.target) : state.soldier.get(order.target)?.mount !== undefined;
+    const aboard = isUnit ? hasRiders(state, order.target, own) : state.soldier.get(order.target)?.mount !== undefined;
     if (aboard) {
-      if (isUnit) clearDrills(state, order.target);
+      if (own) clearOwn(state, order.target, state.unit.req(order.target).members);
+      else if (isUnit) clearDrills(state, order.target);
       const res = dismountThen(state, order) ?? "unable";
       if (res === true) radioFromTarget(state, order.target, "radio.dismountFirst", events);
       return res;
@@ -318,7 +337,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   // Men of a broken unit, running back, do not listen (M4.3). Men aboard vehicles ride (M7).
   // A man gone to a wounded comrade (M10.3a) stays with him, and a man carrying one (M10.4a) carries on: orders to
   // his unit pass him by (an order to him alone ends the errand, below).
-  const soldiers = (isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
+  const soldiers = (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : isUnit ? unitSoldiers(state, order.target) : [order.target]).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed" && state.soldier.get(s)!.mount === undefined
     && !(isUnit && (state.soldier.get(s)!.intent?.kind === "care" || state.soldier.get(s)!.carrying !== undefined || state.soldier.get(s)!.atNest !== undefined)));
   // Any order but a change of rules ends a drill in progress (an order to one man ends his unit's drill).
   // (Grenades are thrown in the course of a drill, e.g. before the last rush: they do not end it.)
@@ -334,13 +353,14 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   }
   if (!keepsDrill) {
     const ou = isUnit ? order.target : state.identity.get(order.target)?.unit ?? -1;
-    if (isUnit) clearDrills(state, ou);
+    if (own) clearOwn(state, ou, soldiers);
+    else if (isUnit) clearDrills(state, ou);
     releaseFromParentDrills(state, ou, soldiers);
     // (An order to one man takes him out of his own unit's drill too.)
     if (!isUnit) { const d = state.unit.get(ou)?.drill; if (d && d.kind !== "rout") dropFromDrill(d, new Set([order.target])); }
   }
   // (Rules and cease-fire reach a crew unit, or a unit whose only men are aboard, all the same.)
-  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
+  const ridersOnly = isUnit && (crewOf !== undefined || vehicles.length > 0 || hasRiders(state, order.target, own)) && (order.kind === "rules" || order.kind === "ceaseFire" || order.kind === "halt" || order.kind === "callFire");
   if (soldiers.length === 0 && !ridersOnly) {
     if (vehicleRes !== null) return vehicleRes; // only vehicles under it: their answer
     // Nobody left to obey: the unit is neither moving nor firing any more.
@@ -513,7 +533,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
         const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
         // M9.3b: missile teams at or under the unit fire their post (setting it up first if packed).
-        const teams = crewServedTeamsUnder(state, order.target).filter((u) => state.unit.get(u)?.missileTeam !== undefined);
+        const teams = (own ? [] : crewServedTeamsUnder(state, order.target)).filter((u) => state.unit.get(u)?.missileTeam !== undefined);
         if (teams.length > 0) {
           const stop = (team: EntityId): void => {
             const tu = state.unit.get(team)!;
@@ -586,7 +606,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       // (A unit: its leader first if he is one of the men who can act; one man: only he.)
       // (Men aboard can use the radio too.)
       // mounted: ok a call for fire goes over the radio from inside a vehicle as well
-      const all = isUnit ? unitSoldiers(state, order.target).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
+      const all = isUnit ? (own ? [...state.unit.req(order.target).members].sort((a, b) => a - b) : unitSoldiers(state, order.target)).filter((s) => isAble(state.soldier.get(s)) && state.soldier.get(s)!.mental.behaviour !== "routed") : soldiers.length > 0 ? soldiers : [order.target];
       const callers = isUnit && u && u.leader !== null && all.includes(u.leader) ? [u.leader, ...all] : all;
       const cf = callFire(ctx, state, events, order.issuer, callers, order.x, order.y, order.ammo, order.rounds, order.x2 !== undefined && order.y2 !== undefined ? { x2: order.x2, y2: order.y2 } : undefined,
         { ...(order.asset === "artillery" ? { asset: "artillery" as const } : {}), ...(order.fuse ? { fuse: order.fuse } : {}), ...(order.dangerClose ? { dangerClose: true } : {}) });
@@ -609,7 +629,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         if (order.onContact !== undefined) x.onContact = order.onContact;
         if (order.ammo !== undefined) x.ammoRule = order.ammo;
         if (order.at !== undefined) x.atRule = order.at;
-        x.children.forEach(set);
+        if (!own) x.children.forEach(set);
       };
       if (ru !== undefined) set(ru);
       break;
@@ -656,6 +676,18 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
   }
   void events;
   return true;
+}
+
+/** An order to a unit's own men (`own`): they leave its drill (the sub-units carry on with it), and its getting
+ *  in or out is replaced (not a bail-out). */
+function clearOwn(state: SimState, uid: EntityId, men: readonly EntityId[]): void {
+  const u = state.unit.get(uid);
+  if (!u) return;
+  if (u.drill && u.drill.kind !== "rout") {
+    dropFromDrill(u.drill, new Set(men));
+    if (u.drill.groups.every((g) => g.length === 0)) u.drill = null;
+  }
+  if (u.boarding && u.boarding.kind !== "bailOut") delete u.boarding;
 }
 
 /** Crew units under a unit (not the unit itself), ID order. */

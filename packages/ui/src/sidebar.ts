@@ -19,9 +19,11 @@ export interface UnitTile {
   parent: string | null;
   /** 0 for a top-level unit, 1 for its sub-units, ... */
   depth: number;
-  /** "hq": a unit with sub-units; "vehicle": a crew with its hull; "infantry": men on foot (or riding); "drone"
-   *  (M9.4a): the unit's reconnaissance quadcopter (its own tile under the unit; `unit` is the unit's). */
-  kind: "hq" | "infantry" | "vehicle" | "drone";
+  /** "hq": a unit with sub-units (the whole platoon); "hqGroup" (owner 2026-11-15): that unit's own men alone, its
+   *  headquarters (its own tile right under it, badged HQ; `unit` is the unit's); "vehicle": a crew with its hull;
+   *  "infantry": men on foot (or riding); "drone" (M9.4a): the unit's reconnaissance quadcopter (its own tile under
+   *  the headquarters; `unit` is the unit's). */
+  kind: "hq" | "hqGroup" | "infantry" | "vehicle" | "drone";
   fit: number;
   total: number;
   state: TileState;
@@ -31,16 +33,27 @@ export interface UnitTile {
   /** A drone tile: in the air, and the charge left in its battery (or the fullest one carried), percent. */
   droneUp?: boolean;
   dronePct?: number;
+  /** A drone on the ground whose carrier rides: he gets out to launch it (the order makes him dismount first). */
+  droneAboard?: boolean;
+  /** A vehicle with the platoon headquarters aboard (owner 2026-11-15: readable as the HQ's ride). */
+  hqAboard?: boolean;
 }
 
-/** A drone tile's key in the strip (its unit's id is already the unit tile's). */
+/** Which part of a unit a tile selects: the unit (undefined), its drone, or its own men (the headquarters). */
+export type TilePart = "drone" | "hq" | undefined;
+
+export function tilePart(t: UnitTile): TilePart {
+  return t.kind === "drone" ? "drone" : t.kind === "hqGroup" ? "hq" : undefined;
+}
+
+/** A drone or headquarters tile's key in the strip (its unit's id is already the unit tile's). */
 export function tileKey(t: UnitTile): string {
-  return t.kind === "drone" ? `d${t.unit}` : String(t.unit);
+  return t.kind === "drone" ? `d${t.unit}` : t.kind === "hqGroup" ? `h${t.unit}` : String(t.unit);
 }
 
 /** The drone tile of a unit (M9.4a): one in the air (its battery), or one carried by a man of the unit's own
- *  members (the fullest battery he has); null if it has none. */
-function droneTile(view: SimView, catalog: Catalog, uid: EntityId, callsign: string, depth: number): UnitTile | null {
+ *  members (the fullest battery he has; riding or on foot); null if it has none. `depth`: the tile's own. */
+export function droneTile(view: SimView, catalog: Catalog, uid: EntityId, callsign: string, depth: number): UnitTile | null {
   const u = view.unit.get(uid);
   if (!u) return null;
   for (const [did, d] of view.drone.entries()) {
@@ -48,7 +61,7 @@ function droneTile(view: SimView, catalog: Catalog, uid: EntityId, callsign: str
     const def = catalog.items[d.item]?.drone;
     const cap = def ? catalog.items[def.battery]?.chargeCapacity ?? 0 : 0;
     const ch = view.container.get(did)?.stacks.find((st) => st.type === def?.battery)?.charge ?? 0;
-    return { unit: uid, callsign, parent: callsign, depth: depth + 1, kind: "drone", fit: 1, total: 1, state: d.mode === "home" ? "moving" : "ok", droneUp: true, dronePct: cap > 0 ? Math.round((100 * ch) / cap) : 0 };
+    return { unit: uid, callsign, parent: callsign, depth, kind: "drone", fit: 1, total: 1, state: d.mode === "home" ? "moving" : "ok", droneUp: true, dronePct: cap > 0 ? Math.round((100 * ch) / cap) : 0 };
   }
   for (const m of u.members) {
     const box = view.container.get(m), s = view.soldier.get(m);
@@ -58,12 +71,46 @@ function droneTile(view: SimView, catalog: Catalog, uid: EntityId, callsign: str
     const cap = catalog.items[def.battery]?.chargeCapacity ?? 0;
     let best = 0;
     for (const b of box!.stacks) if (b.type === def.battery && b.count > 0 && (b.charge ?? 0) > best) best = b.charge ?? 0;
-    return { unit: uid, callsign, parent: callsign, depth: depth + 1, kind: "drone", fit: isAble(s) ? 1 : 0, total: 1, state: isAble(s) && best > 0 ? "ok" : "lost", droneUp: false, dronePct: cap > 0 ? Math.round((100 * best) / cap) : 0 };
+    const ready = isAble(s) && best > 0, aboard = ready && s.mount !== undefined;
+    return { unit: uid, callsign, parent: callsign, depth, kind: "drone", fit: isAble(s) ? 1 : 0, total: 1, state: !ready ? "lost" : aboard ? "aboard" : "ok", droneUp: false, dronePct: cap > 0 ? Math.round((100 * best) / cap) : 0, ...(aboard ? { droneAboard: true } : {}) };
   }
   return null;
 }
 
-/** The side's units as tiles: each top-level unit followed by its sub-units (ID order, depth first). */
+/** Men fit, in all, pinned and aboard. */
+function countMen(view: SimView, men: readonly EntityId[]): { fit: number; total: number; pinned: number; aboard: number } {
+  let fit = 0, total = 0, pinned = 0, aboard = 0;
+  for (const m of men) {
+    const s = view.soldier.get(m);
+    if (!s) continue;
+    total++;
+    if (isOut(s) || !isAble(s)) continue;
+    fit++;
+    if (s.mental.behaviour === "pinned" || s.mental.behaviour === "panicked") pinned++;
+    if (s.mount !== undefined) aboard++;
+  }
+  return { fit, total, pinned, aboard };
+}
+
+/** Is the man one of a headquarters (his unit has sub-units)? */
+function isHqMan(view: SimView, m: EntityId): boolean {
+  const u = view.unit.get(view.identity.get(m)?.unit ?? -1);
+  return u !== undefined && u.vehicle === undefined && u.children.length > 0;
+}
+
+/** A platoon's headquarters tile (owner 2026-11-15): the unit's own men alone. */
+function hqGroupTile(view: SimView, uid: EntityId, depth: number): UnitTile | null {
+  const u = view.unit.get(uid);
+  if (!u || u.vehicle !== undefined || u.children.length === 0 || u.members.length === 0) return null;
+  const { fit, total, pinned, aboard } = countMen(view, u.members);
+  const moving = u.members.some((m) => (view.mover.get(m)?.waypoints.length ?? 0) > 0 && view.soldier.get(m)?.mount === undefined);
+  const firing = u.members.some((m) => view.fire.has(m));
+  const state: TileState = fit === 0 ? "lost" : u.broken ? "broken" : pinned > 0 ? "pinned" : firing ? "firing" : aboard === fit ? "aboard" : moving ? "moving" : "ok";
+  return { unit: uid, callsign: u.callsign, parent: u.callsign, depth: depth + 1, kind: "hqGroup", fit, total, state };
+}
+
+/** The side's units as tiles: each top-level unit followed by its sub-units (ID order, depth first); a unit with
+ *  sub-units and men of its own is followed by its headquarters tile and its drone's. */
 export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTile[] {
   const out: UnitTile[] = [];
   const visit = (uid: EntityId, depth: number, parent: string | null) => {
@@ -71,18 +118,9 @@ export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTi
     if (!u) return;
     const veh = u.vehicle !== undefined ? view.vehicle.get(u.vehicle) : undefined;
     const def = veh ? catalog.vehicles[veh.def] : undefined;
-    let fit = 0, total = 0, pinned = 0, aboard = 0;
     // A vehicle: its crew (the passengers are their own units); otherwise every man of the unit and below.
     const men = veh && def ? veh.seats.filter((o, i): o is EntityId => o !== null && def.seats[i]?.station !== "passenger") : unitSoldierIds(view, uid);
-    for (const m of men) {
-      const s = view.soldier.get(m);
-      if (!s) continue;
-      total++;
-      if (isOut(s) || !isAble(s)) continue;
-      fit++;
-      if (s.mental.behaviour === "pinned" || s.mental.behaviour === "panicked") pinned++;
-      if (s.mount !== undefined) aboard++;
-    }
+    const { fit, total, pinned, aboard } = countMen(view, men);
     const wreck = veh !== undefined && (veh.status === "destroyed" || veh.status === "abandoned");
     const state: TileState = fit === 0 || wreck ? "lost"
       : u.broken ? "broken"
@@ -92,9 +130,15 @@ export function unitTiles(view: SimView, side: string, catalog: Catalog): UnitTi
       : !veh && aboard === fit ? "aboard"
       : u.moving ? "moving" : "ok";
     const tile: UnitTile = { unit: uid, callsign: u.callsign, parent, depth, kind: veh ? "vehicle" : u.children.length > 0 ? "hq" : "infantry", fit, total, state };
-    if (veh && def) { tile.vehicleStatus = veh.status; tile.passengers = veh.seats.filter((o, i) => o !== null && def.seats[i]?.station === "passenger").length; }
+    if (veh && def) {
+      tile.vehicleStatus = veh.status;
+      tile.passengers = veh.seats.filter((o, i) => o !== null && def.seats[i]?.station === "passenger").length;
+      if (veh.seats.some((o, i) => o !== null && def.seats[i]?.station === "passenger" && isHqMan(view, o))) tile.hqAboard = true;
+    }
     out.push(tile);
-    const dt = droneTile(view, catalog, uid, u.callsign, depth);
+    const hq = hqGroupTile(view, uid, depth);
+    if (hq) out.push(hq);
+    const dt = droneTile(view, catalog, uid, u.callsign, depth + (hq ? 2 : 1));
     if (dt) out.push(dt);
     for (const c of u.children) visit(c, depth + 1, u.callsign);
   };
@@ -111,14 +155,15 @@ export function tileSymbol(kind: UnitTile["kind"], colour: string): string {
   const frame = `<rect x="2" y="3" width="24" height="16" rx="1.5" fill="#10140f" stroke="${colour}" stroke-width="2"/>`;
   if (kind === "vehicle") return `<svg viewBox="0 0 28 22" width="28" height="22" aria-hidden="true">${frame}<rect x="7" y="7.5" width="14" height="7" rx="3.5" fill="none" stroke="${colour}" stroke-width="1.8"/></svg>`;
   const cross = `<path d="M2 3 L26 19 M26 3 L2 19" stroke="${colour}" stroke-width="1.6"/>`;
-  if (kind === "hq") return `<svg viewBox="0 0 28 22" width="28" height="22" aria-hidden="true">${frame}${cross}<path d="M2 3 V1 M26 3 V1 M10 1 H18" stroke="${colour}" stroke-width="1.6"/></svg>`;
+  if (kind === "hq" || kind === "hqGroup") return `<svg viewBox="0 0 28 22" width="28" height="22" aria-hidden="true">${frame}${cross}<path d="M2 3 V1 M26 3 V1 M10 1 H18" stroke="${colour}" stroke-width="1.6"/></svg>`;
   return `<svg viewBox="0 0 28 22" width="28" height="22" aria-hidden="true">${frame}${cross}</svg>`;
 }
 
 export interface Sidebar {
   readonly el: HTMLElement;
-  /** `drone` (M9.4a): the selected unit's drone tile is selected, not the unit's. */
-  update(tiles: readonly UnitTile[], selected: EntityId | null, drone?: boolean): void;
+  /** `part`: the selected unit's drone tile (M9.4a) or headquarters tile (owner 2026-11-15) is selected, not the
+   *  unit's. */
+  update(tiles: readonly UnitTile[], selected: EntityId | null, part?: TilePart): void;
   setSide(side: "left" | "right"): void;
   /** Open or close the full list (a wide screen keeps it open). */
   setExpanded(on: boolean): void;
@@ -155,7 +200,7 @@ export const SLIM_PX = 64;
 /** S5: a press held this long on a tile follows the unit. */
 export const HOLD_MS = 450;
 
-export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId, drone?: boolean) => void, onResize: () => void, onHold?: (unit: EntityId) => void, wounded?: WoundedActions): Sidebar {
+export function createSidebar(s: Strings, colour: string, onSelect: (unit: EntityId, part?: TilePart) => void, onResize: () => void, onHold?: (unit: EntityId) => void, wounded?: WoundedActions): Sidebar {
   const root = document.createElement("div");
   root.className = "hud-side side-left";
   const head = document.createElement("button");
@@ -204,10 +249,10 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
   list.addEventListener("scroll", markMore, { passive: true });
   return {
     el: root,
-    update(tiles, selected, drone = false) {
+    update(tiles, selected, part) {
       const keep = new Set<string>();
       tiles.forEach((t, i) => {
-        const tk = tileKey(t), isDrone = t.kind === "drone";
+        const tk = tileKey(t), isDrone = t.kind === "drone", tp = tilePart(t);
         keep.add(tk);
         let e = els.get(tk);
         if (!e) {
@@ -215,6 +260,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           b.className = "hud-tile";
           b.dataset["unit"] = String(t.unit);
           if (isDrone) b.dataset["drone"] = "1";
+          if (tp === "hq") b.dataset["hq"] = "1";
           // A press held HOLD_MS follows the unit (the click that ends it is then not a select); moving away
           // (scrolling the list) or letting go sooner leaves it a tap.
           let timer: ReturnType<typeof setTimeout> | null = null, held = false, at: { x: number; y: number } | null = null;
@@ -228,13 +274,14 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           b.addEventListener("pointercancel", stop);
           b.addEventListener("pointerleave", stop);
           b.addEventListener("contextmenu", (ev) => ev.preventDefault());
-          b.onclick = () => { if (held) { held = false; return; } onSelect(t.unit, isDrone); };
+          b.onclick = () => { if (held) { held = false; return; } onSelect(t.unit, tp); };
           e = { b, key: "" };
           els.set(tk, e);
         }
-        const detail = isDrone ? s.t(t.droneUp ? "side.droneUp" : "side.droneReady", { pct: t.dronePct ?? 0 })
+        const detail = isDrone ? s.t(t.droneUp ? "side.droneUp" : t.droneAboard ? "side.droneAboard" : "side.droneReady", { pct: t.dronePct ?? 0 })
           : t.kind === "vehicle"
-          ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}`
+          ? `${s.t(`vehicle.status.${t.vehicleStatus ?? "ok"}`)}${(t.passengers ?? 0) > 0 ? ` · ${s.t("side.riding", { n: t.passengers ?? 0 })}` : ""}${t.hqAboard ? ` · ${s.t("side.hqAboard")}` : ""}`
+          : t.kind === "hq" ? `${s.t("side.platoonAll")} · ${s.t(`side.state.${t.state}`)}`
           : s.t(`side.state.${t.state}`);
         const key = `${t.callsign}|${t.fit}|${t.total}|${t.state}|${detail}|${t.parent}`;
         if (e.key !== key) {
@@ -247,6 +294,14 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           const name = document.createElement("span");
           name.className = "hud-tile-name";
           name.textContent = isDrone ? s.t("side.drone") : t.callsign;
+          // (Owner 2026-11-15: the headquarters reads as HQ, on the strip and in the list.)
+          // (On the slim strip the badge alone: the platoon's callsign is on the tile above.)
+          if (tp === "hq") {
+            const badge = document.createElement("span"), call = document.createElement("span");
+            badge.className = "hud-badge hud-tile-badge"; badge.textContent = s.t("side.hq");
+            call.className = "hud-tile-call"; call.textContent = t.callsign;
+            name.textContent = ""; name.append(badge, call);
+          }
           const men = document.createElement("span");
           men.className = "hud-tile-men";
           men.textContent = isDrone ? `${t.dronePct ?? 0} %` : s.t("side.men", { fit: t.fit, total: t.total });
@@ -256,7 +311,7 @@ export function createSidebar(s: Strings, colour: string, onSelect: (unit: Entit
           e.b.append(sym, name, men, det);
           e.b.title = `${t.parent ? `${t.parent} · ` : ""}${t.callsign}: ${detail}`;
         }
-        e.b.classList.toggle("selected", selected === t.unit && drone === isDrone);
+        e.b.classList.toggle("selected", selected === t.unit && part === tp);
         if (list.children[i] !== e.b) list.insertBefore(e.b, list.children[i] ?? null);
       });
       for (const [k, e] of els) if (!keep.has(k)) { e.b.remove(); els.delete(k); }

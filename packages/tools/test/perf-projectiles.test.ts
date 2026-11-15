@@ -16,13 +16,15 @@ const BULLET_MIX = ["de-120-smoke", "de-556-dm11", "de-762-dm111", "ru-545-7n10"
 /** The grenade of the fragment volley, pinned (the one with the most fragments before M7). */
 const VOLLEY_GRENADE = "de-dm51";
 
+const PARKED_TYPES = ["de-boxer-san", "de-puma"];
 /** The bench battle with `parked` uncrewed hulls standing about the map (M7.1c: rounds stop at them). */
 function benchInput(parked: number): ReturnType<ReturnType<typeof getScenario>["build"]> {
   const input = getScenario("bench").build(loadData(), 1, 600);
   if (parked === 0) return input;
   const grid = buildNavGrid(input.map, input.catalog.terrain, "tracked", 2, 0, [], { clearanceCells: 3 });
   for (let k = 0; k < parked; k++) {
-    const f = input.forces[k % 2]!, type = Object.keys(input.catalog.vehicles).sort()[k % 2]!;
+    // (Pinned M7.6a: the types the timing was measured with; the catalog's first two ids by sort before the tanks.)
+    const f = input.forces[k % 2]!, type = PARKED_TYPES[k % 2]!;
     const def = input.catalog.vehicles[type]!;
     const x = 200 + (k % 6) * 300, y = 250 + Math.floor(k / 6) * 350;
     const cell = nearestPassable(grid, x, y, 80);

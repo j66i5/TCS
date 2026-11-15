@@ -431,7 +431,9 @@ export function stepFetchAmmo(ctx: SimContext, state: SimState, events: EventSin
 // ---------------------------------------------------------------- orders
 
 /** Foot units of a subtree (units that do not crew a vehicle), the unit itself first, then ID order. */
-function footUnits(state: SimState, uid: EntityId): EntityId[] {
+function footUnits(state: SimState, uid: EntityId, own = false): EntityId[] {
+  // (`own`: the unit alone, not its sub-units: a platoon's headquarters, owner 2026-11-15.)
+  if (own) return state.unit.get(uid)?.vehicle === undefined && state.unit.has(uid) ? [uid] : [];
   const out: EntityId[] = [];
   const walk = (u: EntityId) => {
     const x = state.unit.get(u);
@@ -460,8 +462,8 @@ function ridersOf(state: SimState, uid: EntityId): EntityId[] {
 }
 
 /** Does any foot unit of this subtree have men aboard who could get out (Q12)? */
-export function hasRiders(state: SimState, uid: EntityId): boolean {
-  return footUnits(state, uid).some((u) => ridersOf(state, u).length > 0);
+export function hasRiders(state: SimState, uid: EntityId, own = false): boolean {
+  return footUnits(state, uid, own).some((u) => ridersOf(state, u).length > 0);
 }
 
 function setBoarding(state: SimState, uid: EntityId, b: Boarding): void {
@@ -515,7 +517,7 @@ export function dismountThen(state: SimState, order: Order): OrderResult | null 
     startDismount(state, uid, [order.target], body, order.target);
     return true;
   }
-  const units = footUnits(state, order.target).filter((u) => ridersOf(state, u).length > 0);
+  const units = footUnits(state, order.target, order.own === true).filter((u) => ridersOf(state, u).length > 0);
   if (units.length === 0) return null;
   // The order goes with the target's own boarding if its own men ride, else with the first unit under it.
   const holder = units.includes(order.target) ? order.target : units[0]!;
@@ -557,7 +559,7 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
       return startDismount(state, uid, [order.target], null, undefined) ? true : "unable";
     }
     let any = false;
-    for (const u of footUnits(state, order.target)) any = startDismount(state, u, ridersOf(state, u), null, undefined, order.wounded ? woundedAboard(state, u) : []) || any;
+    for (const u of footUnits(state, order.target, order.own === true)) any = startDismount(state, u, ridersOf(state, u), null, undefined, order.wounded ? woundedAboard(state, u) : []) || any;
     return any ? true : "unable";
   }
   // ---- mount
@@ -575,7 +577,7 @@ export function boardingOrder(ctx: SimContext, state: SimState, order: Order & {
     if (vid === undefined) return { unable: "radio.noVehicle" };
     groups.push({ uid, men: [order.target], vid });
   } else {
-    for (const u of footUnits(state, order.target)) {
+    for (const u of footUnits(state, order.target, order.own === true)) {
       const men = state.unit.req(u).members.filter((m) => { const s = state.soldier.get(m); return walker(s) && s!.mount === undefined; }).sort((a, b) => a - b);
       if (men.length === 0) continue;
       const vid = order.vehicle ?? carrierOf(state, u);

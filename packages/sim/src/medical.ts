@@ -332,3 +332,27 @@ export function carryLayout(def: CarryMethodDef): { payloadM: number; followersM
   for (let i = 1; i < def.carriers; i++) out.push(i < def.carriers / 2 ? 0.3 * i : 1.9 + 0.3 * (i - Math.ceil(def.carriers / 2)));
   return { payloadM: 1.1, followersM: out };
 }
+
+/**
+ * Down, state unknown (owner request 2026-11-15): a dead man his side has not checked since he died. To his comrades
+ * he is a casualty like any other until one of them has checked him (the `checkDown` action). Without `down` data the
+ * dead are known dead at once (old data sets).
+ */
+export function downUnknown(catalog: Catalog, s: DeepReadonly<SoldierState>): boolean {
+  return catalog.medical?.down !== undefined && !s.physiology.alive && s.checked?.dead !== true;
+}
+
+/**
+ * The identity tags a comrade can take from a man (owner request 2026-11-15; faction data `identityTag`): all he
+ * carries beyond what stays with the body (`perMan` - `taken`: the half that stays on a German tag; nothing of a
+ * Russian one). Null: none left, or his faction has no tags.
+ */
+export function tagsLeft(catalog: Catalog, state: SimState, id: EntityId): { item: DefId; count: number } | null {
+  const ident = state.identity.get(id), g = ident ? catalog.factions[ident.faction]?.identityTag : undefined;
+  const c = state.container.get(id);
+  if (!g || !c || catalog.medical?.down === undefined) return null;
+  let n = 0;
+  for (const st of c.stacks) if (st.type === g.item) n += st.count;
+  n -= g.perMan - g.taken;
+  return n > 0 ? { item: g.item, count: n } : null;
+}

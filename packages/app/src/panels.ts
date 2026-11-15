@@ -5,10 +5,10 @@
 import { atRuleOf, fuelLitres, isOut, launcherOf, mortarTeams, teamRounds, navFor, supportLeft, ticksToSeconds, vehicleItems, type EntityId } from "@tcs/sim";
 import { shownCallsigns } from "@tcs/render";
 import { endPlan } from "./orders";
-import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, woundedRows, type UnitRules, type UnitTile } from "@tcs/ui";
+import { ambulanceRows, droneOrders, manDetail, ordersFor, unitCapabilities, unitMenRows, unitTiles, woundedRows, type TilePart, type UnitRules, type UnitTile } from "@tcs/ui";
 import type { App } from "./app";
 import { centreOn, startFollow } from "./camera";
-import { droneMode, fmtClock, localClock, sideColour, sideName, unitSoldierIds, vehicleClassOf } from "./units";
+import { droneMode, fmtClock, hqMode, localClock, selectedMen, selPart, sideColour, sideName, vehicleClassOf } from "./units";
 
 /**
  * The order bar shows only what the selected unit can do now (M7.5a): its capabilities are read from the state
@@ -16,11 +16,12 @@ import { droneMode, fmtClock, localClock, sideColour, sideName, unitSoldierIds, 
  * has its own orders and paces (M7.1c).
  */
 export function syncOrders(a: App): void {
-  const cap = unitCapabilities(a.sim.state, a.input.catalog, a.overlay.selectedUnit);
-  const key = `${droneMode(a) ? "drone|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
-  if (a.ordersShownFor === a.overlay.selectedUnit && key === a.ordersKey) return;
-  const changedUnit = a.ordersShownFor !== undefined && a.ordersShownFor !== a.overlay.selectedUnit;
-  a.ordersShownFor = a.overlay.selectedUnit; a.ordersKey = key;
+  const cap = unitCapabilities(a.sim.state, a.input.catalog, a.overlay.selectedUnit, hqMode(a));
+  const key = `${droneMode(a) ? "drone|" : hqMode(a) ? "hq|" : ""}${a.overlay.selectedUnit}|${cap.kind}|${cap.hasLauncherRounds}|${cap.handGrenades + cap.rifleGrenades > 0}|${cap.handGrenades + cap.rifleGrenades > 1}|${cap.supportHe > 0}|${cap.supportSmoke > 0}|${cap.canMount}|${cap.canDismount}|${cap.hasSmokeDischargers}|${cap.natures.join()}`;
+  const shownFor = `${selPart(a) ?? ""}${a.overlay.selectedUnit}`;
+  if (a.ordersShownFor === shownFor && key === a.ordersKey) return;
+  const changedUnit = a.ordersShownFor !== undefined && a.ordersShownFor !== shownFor;
+  a.ordersShownFor = shownFor; a.ordersKey = key;
   // (M9.4a: the drone: Move (fly there) and Halt (home) only.)
   const set = droneMode(a) ? droneOrders() : ordersFor(cap, a.input.catalog.movementModes);
   a.hud.setOrders(set);
@@ -34,7 +35,7 @@ export function syncOrders(a: App): void {
 /** The unit sidebar (M7.5a): refreshed about four times a second and on every selection. */
 export function refreshTiles(a: App): void {
   const tiles = unitTiles(a.sim.state, a.playerSide, a.input.catalog);
-  a.hud.setTiles(tiles, a.overlay.selectedUnit, droneMode(a));
+  a.hud.setTiles(tiles, a.overlay.selectedUnit, selPart(a));
   a.hud.setWounded(woundedRows(a.sim.state, a.playerSide), ambulanceRows(a.sim.state, a.playerSide));
   showCard(a, tiles);
 }
@@ -42,9 +43,11 @@ export function refreshTiles(a: App): void {
 /** The selected unit's card (S3, S6) and the open man's box: refreshed with the tiles and on every selection. */
 export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.playerSide, a.input.catalog)): void {
   const uid = a.overlay.selectedUnit, hud = a.hud;
-  const tile = uid === null ? undefined : tiles.find((x) => x.unit === uid);
+  // (Owner 2026-11-15: the headquarters selected on its own: its tile and its own men; badged HQ.)
+  const hq = hqMode(a);
+  const tile = uid === null ? undefined : tiles.find((x) => x.unit === uid && x.kind !== "drone" && (x.kind === "hqGroup") === hq);
   if (uid === null || !tile) { a.inspected = null; hud.setCard(null); hud.showMan(null); hud.setInspected(null); return; }
-  const men = unitMenRows(a.sim.state, a.input.catalog, uid);
+  const men = unitMenRows(a.sim.state, a.input.catalog, uid, hq);
   if (a.inspected !== null && !men.some((r) => r.id === a.inspected)) a.inspected = null;
   let state = tile.kind === "vehicle" ? a.strings.t(`vehicle.status.${tile.vehicleStatus ?? "ok"}`) : a.strings.t(`side.state.${tile.state}`);
   // A missile team (M9.3b): its launch post packed, setting up, ready (missiles left) or guiding one.
@@ -55,21 +58,22 @@ export function showCard(a: App, tiles: UnitTile[] = unitTiles(a.sim.state, a.pl
     state += ` · ${a.strings.t("card.teamRow")}: ${a.strings.t(mt.guide ? "card.team.guiding" : `card.team.${mt.state}`, { rounds })}`;
   }
   // (The same callsign in two platoons: "1/Puma 2", as on the map; review fix.)
-  hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, fit: tile.fit, total: tile.total, state, men });
+  hud.setCard({ callsign: shownCallsigns(a.sim.state.unit.entries()).get(uid) ?? tile.callsign, ...(hq ? { badge: a.strings.t("side.hq") } : {}), fit: tile.fit, total: tile.total, state, men });
   hud.setInspected(a.inspected);
   hud.showMan(a.inspected === null ? null : manDetail(a.sim.state, a.input.catalog, a.inspected));
 }
 
 /** Select a unit (or none) and refresh the order bar, sidebar and card. */
-export function select(a: App, uid: EntityId | null): void {
+export function select(a: App, uid: EntityId | null, part?: TilePart): void {
   a.overlay.selectedUnit = uid;
+  a.overlay.selectedDrone = part === "drone" ? uid : null; a.overlay.selectedOwn = part === "hq";
   syncOrders(a); refreshTiles(a);
 }
 
 /** S13: select a unit and centre on it (Tab), following it instead while the camera follows. */
 export function selectAndCentre(a: App, uid: EntityId): void {
   endPlan(a); a.gesture = null;
-  a.overlay.selectedUnit = uid;
+  a.overlay.selectedUnit = uid; a.overlay.selectedDrone = null; a.overlay.selectedOwn = false;
   showCard(a);
   if (a.following !== null) startFollow(a, uid); else centreOn(a, uid);
   syncOrders(a); refreshTiles(a);
@@ -106,7 +110,7 @@ export function showUnit(a: App): void {
   }
   let fit = 0, wounded = 0, down = 0;
   const states = new Map<string, number>();
-  for (const m of unitSoldierIds(a.sim, uid)) {
+  for (const m of selectedMen(a, uid)) {
     const s = st.soldier.req(m);
     if (isOut(s)) { down++; continue; } // (prisoners count as lost)
     if (s.wounds.some((w) => w.mechanism !== "blunt")) wounded++; else fit++;

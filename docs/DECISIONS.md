@@ -5113,10 +5113,215 @@ goldens unchanged):
 - DE strap: `strap.widthMm` is now its width at the slide's collar end and it widens with the slide's taper, 52 mm
   (was a 50 mm parallel strap), so below the slide it is as wide as the slide's shoulder end (60 mm, 61.1 at its
   bottom) instead of looking pinched.
+
+## 2026-11-14 — M7.6a Main battle tanks: data and labs (roadmap-detail slice 39, parallel session)
+Leopard 2A7V, T-90M and T-72B3M as data, with the engine changes the data needs. The tanks are not yet in any
+battle scenario: AI use with infantry, a tank scenario, the vehicle batch and tank perf are slice 40. APS stays
+fixture-only (M14.5). Research came from search extracts only (pages not opened), so the medium confidence cap
+applies. Software decisions:
+- **Variants:**
+  - DE: `de-leopard2a7v` only. The 2A8 comes with Trophy in M14.5; no public armour delta was found.
+  - RU: `ru-t90m` and `ru-t72b3m`.
+  - Crews: `leopard2a7v-besatzung` (commander, gunner, new role `ladeschuetze`, driver), and `t90m-ekipazh` /
+    `t72b3m-ekipazh` (new roles `komandir-tanka` and `navodchik-operator`, plus `mekhanik-voditel`).
+  - Each crewman carries a G36 or AK-74M with two magazines. This is low confidence: the real personal weapons
+    are not in the data.
+- **Armour model:**
+  - Two new core materials, both low confidence:
+    - `composite-heavy`: resistance 1.25 against long rods, 2.1 against jets.
+    - `composite-cast`: 1.25 and 1.48.
+  - Tank plates are line-of-sight equivalents with slope 0, one plate per face. Known simplification: there is no
+    weak lower glacis or mantlet.
+  - The far-face lookup after an over-penetration still uses the hull frame (an existing quirk, left as it is).
+- **Reactive tiles (ERA), counted items (rule 9):**
+  - The item carries a `reactive` block (mild-steel mm added against a kinetic round, a single shaped charge, and a
+    tandem's main jet, plus a trigger). The vehicle has `armour.tiles[{part, face, item, coverage}]` with one item id
+    per face. `fitted` is the stowed count, which the catalog copies onto the tile row.
+  - A hit meets a live tile with chance `coverage * left / fitted`: one draw on the armour stream, then one item is
+    used up. That holds for any hit that meets a tile, even one the plate would have stopped anyway.
+  - A kinetic round sets a tile off only if it is heavy and at or above the trigger, so 30 mm and small arms never
+    use tiles.
+  - The tandem precursor sets the tile off, and the main jet then meets `addTandemMm`.
+  - HE and artillery do not strip tiles (M14.5).
+  - The legacy fixture `factor` tiles behave exactly as before (shaped charges only, the same calls in the same
+    order, no draw). Each row has exactly one of `factor` or `coverage`.
+  - `vehicle.hit` gets `era` (the tile item) when a tile was used, for both kinds of tile.
+  - Pure helpers `tileFor` and `reactiveAdd` live in `sim/src/tiles.ts`.
+  - Values in mild-steel mm (kinetic / single shaped / tandem, trigger 150):
+    - Relikt front: +344 / +750 / +312 (low).
+    - Relikt side (4S24): +125 / +625 / +188 (low).
+    - Kontakt-5: +250 / +625 / +62 (medium for the generic figures).
+  - Coverage and tile counts are game values:
+
+    | Tank | Turret front | Turret side | Hull front | Hull side |
+    |---|---|---|---|---|
+    | T-90M (Relikt) | 0.85 of 26 | 0.5 of 10 | 0.75 of 20 | 0.6 of 12 |
+    | T-72B3M | Kontakt-5, 0.85 of 26 | Kontakt-5, 0.5 of 6 | Relikt, 0.75 of 18 | Relikt, 0.6 of 12 |
+
+- **Weapons:**
+  - New weapon type `tank-gun`, and the weapon mass cap rises to 5000 kg. Expenditure counts its rounds as cannon
+    rounds, and a guided round fired through it as a missile.
+  - `startLoaded`: a single-round or autoloader gun starts with a round of its first feed in the breech.
+  - The Refleks-M is a separate guided weapon entry (`ru-2a46m5-gl`) on the same station and muzzle, so its
+    missiles are counted apart from the carousel. It reloads in the weapon's 7.5 s, halted, through `missiles.ts`.
+  - That weapon is out when the `gun` or the `sights` component is wrecked.
+  - `missileBeyondM` per weapon (guided weapons only); the T-90M and T-72B3M use 2500 m.
+- **Crew judgement (`gunnery.ts`):**
+  - `faceNeed` is factored out of `apCanPierce`. It takes the hull plate on the face shown, struck level (as
+    before), plus the expected tile add: `coverage * left / fitted * add`, or the legacy factor for shaped charges.
+    It makes no random draw. A vehicle without tiles gets exactly the old number.
+  - New `missileCanPierce`.
+  - The crew now takes the missile nearer than `missileBeyondM` only when armour-piercing cannot get through **and**
+    the missile can. Before, it took the missile whenever armour-piercing could not get through. Existing pairs are
+    unchanged: the Konkurs (937) beats every Puma face (at most 750), and Spike against the BMP-2 also gets through.
+    Only the fixture wagon's dart (600) now holds back at a Puma's front within 1000 m; it is in no golden.
+- **Scenario:**
+  - `crewTemplateOf` takes only crews whose vehicle has passenger seats, so a tank never becomes the default carrier.
+  - `vehicleBattle` sets `carrierId` only when the crew's vehicle has passenger seats.
+  - `?scenario=vehicles&crew=leopard2a7v-besatzung,t90m-ekipazh` therefore works with no app change; the squads
+    walk.
+- **Loader and lint:**
+  - New loader errors:
+    - a reactive tile (`coverage`) whose item has no `reactive` block;
+    - a `factor` tile whose item is reactive;
+    - a tile item that is not stowed;
+    - the same tile item on two rows;
+    - an autoloader without `roundLoadSeconds`;
+    - `startLoaded` on a belt feed;
+    - `missileBeyondM` on a weapon that is not guided.
+  - Data lint now checks provenance on the `armour` and `components` blocks. The existing low blocks show up as
+    review warnings.
+- **Fixture (rule 8):** `xf-tortoise` is a tracked turreted tank with a loader, the `xf-bombard` tank gun with
+  `xf-ram` / `xf-pot`, and the tiles `xf-scale` (turret front, coverage 1, deterministic) and `xf-scale-hull`
+  (hull front, 0.5). Its crew `tortoise-crew` has a new role, `stoker`. `xf-wagon` and `cart-crew` are untouched.
+- **Data, DE (source URLs in the entries):**
+  - Published values (medium):
+    - mass 63.9 t;
+    - MTU 1100 kW, top speed 63 km/h;
+    - 42 rounds, 15 of them in the bustle;
+    - EMES/PERI sights.
+  - DM63A1 (low): 680 mm RHA at 2 km gives 850 mm mild steel at 1654 m/s (from its drag, about 2.8 % lost per
+    km); the muzzle velocity, 1750 m/s, is medium.
+  - DM11: point detonation only; its fragments are a game value.
+  - Game values (low):
+    - load time 6 s, and 2.5 times that without the loader;
+    - armour: turret front 850 composite-heavy (1062 / 1785), hull front 640 (800 / 1344), hull side 100 composite
+      (160 / 250);
+    - components: bustle cook-off 0.05, hull rack 0.35;
+    - signature, and refill 120 s.
+- **Data, RU:**
+  - Published values (medium):
+    - V-92S2F 843 kW, top speed 60 km/h;
+    - 3 crew, 22-round carousel;
+    - Sosna-U;
+    - Refleks-M range and penetration.
+  - Penetration (low):
+    - 3BM60: 775 mm at 1586 m/s.
+    - 3BM42 (the T-72B3M's carousel round, low): 575 mm at 1583 m/s.
+  - 3OF26 is from memory: the search for it was refused.
+  - Loading: autoloader at 7 s (T-90M) and 7.5 s (T-72B3M).
+  - Reverse speed 4.8 and 4.2 km/h, from memory.
+  - Armour (cast with filler):
+    - T-90M: turret front 550 (687 / 814), hull front 480 (600 / 710).
+    - T-72B3M: turret front 430, hull front 420.
+    - Hull sides: 80 mm steel.
+  - The T-90M has a laser warner; the T-72B3M does not. The T-72B3M commander has a day sight only and there is no
+    bustle rack.
+  - Russian commander and gunner seats were placed on the correct sides (commander right, gunner left).
+- **Labs (bands in the tests; tables in the session report):**
+  - armour: the vehicle list is a parameter, with tank rounds and missiles added (PG-7VR and Kornet are lab only).
+    Every plan band holds.
+  - antitank: `crewTemplates` and `eraSpent` cases.
+  - gunnery: tank pairs on a 4 km field.
+  - drive: the three tanks.
+  - missile: Refleks rows.
+- **Deviations from the plan:**
+  1. Gunnery: the plan's "rounds in the first 60 s" band assumed full rate. Ordered fire trickles after 30 s
+     (`shooting.json fire.fullRateSeconds`), so the lab measures the seconds between rounds at full rate:
+     - Leopard 6.1 s, 15.0 s with the loader dead;
+     - T-90M 7.4 s, and the same with the gunner dead (the commander fires);
+     - T-72B3M 7.6 s.
+     (Corrected by the review fixes below. Before them a single-round or autoloader gun's load overwrote the
+     interval set at the shot, so tank guns never trickled and ignored the ammunition rule; the first figures,
+     6.0 / 7.0 / 7.5 s, were the bare load times. The cycle is now the longer of the load and the gun's interval:
+     the T-90M's 8 rounds a minute, 7.5 s, is longer than its 7 s carousel.) With the trickle working, a
+     rounds-in-60-s figure does mean something, and the lab now gives it, beside the trickle's spacing: Leopard 8
+     rounds (9.9 s apart after 30 s), T-90M 8 (9.4 s), T-72B3M 7 (10.6 s); bands 6-10 rounds and 8.5-11.5 s. It
+     still is not the plan's full-rate band: that one stays replaced by the seconds between rounds.
+  2. Drive: the Leopard's 90° pivot takes 5.2 s at its 30°/s game value. The band is 2-6 s instead of 2-5. The
+     data was not tuned.
+  3. Missile: the long Refleks row is at 3500 m, not 4000, because a map is at most 4000 m across
+     (`MAX_MAP_SIZE_M`).
+  4. Anti-tank: the "hits at 300 m ≥ 0.5 (as today)" band is not asserted. Today's Puma and BMP-2 rows are 30-50 %.
+  5. APFSDS reference speeds come from each round's own drag (1586 and 1583 m/s) instead of the plan's 1560 and
+     1600. 3BM60 at 1000 m is 802 mm, just above the Leopard's 800 mm hull front (the band still holds).
+  6. The screenshot's firing frame uses an ordered armour-piercing shot, because the vehicles scenario's default
+     rule is "return".
+- **Goldens:**
+  - `npm run golden:update`; `no-interiors` is untouched.
+  - The order streams of all eight goldens are identical.
+  - Fingerprint-blanked state hashes are identical at every checkpoint of all eight goldens once projectile
+    ammunition indices are mapped to ids.
+  - Without that mapping, shootout, platoon-vehicles, village-occupy and house-clear differ only because the new
+    ammunition ids re-index `catalog.ammoIds` while rounds are in flight.
+  - Balance report `platoon-vehicles`, 10 seeds, 300 s: identical before and after.
+- **Left for later:**
+  - Slice 40: AI use, a tank scenario, the vehicle batch, tank perf.
+  - M14.5: Trophy and the 2A8, tiles stripped by HE and artillery, cages.
+  - DM73.
+  - An overview tank symbol and drawn ERA.
+  - Plate zones.
+  - Per-round refill time.
+  - An autoloader component.
+- **Review fixes (adversarial review of the slice):**
+  - Crew judgement: `faceNeed` counts a reactive tile against a kinetic round only if the round is heavy and its
+    published penetration is at or above the tile's trigger, as the hit does (`useTile`); `apCanPierce` passes the
+    round's figure. Before, a Puma's 30 mm (132.5 mm, below Relikt's 150 mm trigger) judged a T-90M's hull side
+    at 100 + 0.6 x 125 = 175 mm, not 100, and fired its Spike where the cannon gets through (test in tanks.test.ts).
+  - Single-round and autoloader guns: the load now runs within the interval set at the last shot
+    (`nextShotTick = max(post-shot, load end)`), so ordered fire trickles after 30 s and "conserve" fires slower
+    (test: a T-90M at 7-8 s, then at least 8.4 s apart after 30 s; conserve at least 1.4 x slower). A vehicle fired
+    on during the trickle cuts the interval to 0.5 s as before, but not the load in progress. The fixture tortoise
+    now fires every 6 s (its bombard's 10 rounds a minute) instead of its 5 s load; with the loader dead it is 10 s
+    (2 x 5), the test now says so. The xf sling (15 rounds a minute, 4 s, load 4 s) is in fixture-cart-s3, whose
+    fingerprint-blanked hashes are unchanged: its sling is not on an ordered task there.
+  - Loader: two tile rows on the same part and face are an error (the sim reads only the first).
+  - The tortoise conservation test is now hit: the Puma fires its 30 mm (heavy, above the scales' 80 mm trigger)
+    at the tortoise's front, and the test asserts tiles were used (6 in 60 s) and tiles left + `era` events = fitted.
+  - Data: the tank round items no longer count the cartridge twice (`stackMassKg = massKg + charge`). As the
+    9M131 splits tube and missile, each round item's own mass is the case and propellant (published cartridge
+    minus projectile) and its charge is the projectile, which is also the ammunition's `cartridgeMassKg` (the
+    loader requires the two to agree): DM63A1 16.8 + 4.6, DM11 12.6 + 11.4 (the 24.0 kg of the ammunition entry;
+    the item had 24.1), 3BM60 and 3BM42 15.55 + 4.85, 3OF26 10 + 23, 9M119M 7.1 + 17.2, xf-ram 16 + 4, xf-pot
+    10 + 10. (`de-mells-round`, 13 + 13, predates the slice and is left as it is.)
+  - Goldens: `npm run golden:update` for the catalog fingerprint only; with the fingerprint blanked, the old
+    goldens' order streams replay to identical hashes at every checkpoint of all eight. `no-interiors` untouched.
+  - Not changed (reviewed): the Refleks channel keeps its own reload beside the gun's loaded round (deviation by
+    design, see Weapons above); the armour lab's "Puma and BMP-2 rows as before" check compares the new code
+    with itself (no defect found).
 - **Merge with M9.3b (Metis-M, #53):** the ui test "AI vehicle orders sent unchanged never set playerHold" checked the
   player's halt on the AI battle after two minutes; with the AI's drones flying, platoon-ru-vehicles seed 1 now ends
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
   half of the test now runs on a fresh battle (same intent).
+
+Owner correction 2026-11-15 (binding; supersedes the review fix that moved the Leutnant's star up and the Winkel
+centring above): on the real slide every device is built up from the shoulder end. German slide, y from the shoulder
+end (exact millimetres still inferred, low; web searches only confirmed the counts, never positions):
+- Stripes: the lowest stripe's low end 5 mm above the shoulder end (centre 25.5 mm), 3 mm gaps upward; Gefreiter,
+  Obergefreiter and Hauptgefreiter all start there (were centred on the slide at 45 mm). Stabsgefreiter: the three
+  of the Hauptgefreiter, then the fourth set apart (9 mm gap instead of 3 mm; centres 25.5, 35.2, 45.0, 62.1).
+- Stars: the Leutnant's centred 20 mm above the shoulder end (lower third; was 42), the Oberleutnant's at 20 and 40
+  (were 33 and 55): a Hauptmann's third would go at 60.
+- Winkel inside the closed Tresse, low: the lowest one's legs end 4 mm above the Tresse's inner edge at the shoulder
+  end (Feldwebel's point at 27.2 mm, was 58.9; Oberfeldwebel's at 27.2 and 37.2, were 53.9 and 63.9). The
+  Kopfwinkel's legs end at the same height (its crossing at 24.5 mm, was 52). Reading chosen by the owner's rule
+  (no source found for the Winkel's place): low.
+- Russian sleeve re-checked, unchanged: it already follows the regulation figures from the shoulder end (first
+  stripe's edge and first star's centre 25 mm from the lower edge, rows 25 mm apart; Prikaz 525 tables 1 and 3,
+  medium-low).
+Tests: appearance.test pins the shoulder-end build-up (common lowest stripe, the Stabsgefreiter's top gap larger
+than the others, the Leutnant's star and the lowest Winkel in the lower part); insignia.test checks the drawn star
+is in the lower third. Appearance only: goldens unchanged.
 
 ## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
 The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
@@ -5211,3 +5416,157 @@ M10.8):
   are not in a seat's place). `--scene medevac` screenshots (phone and desktop).
 - **Goldens regenerated** (`npm run golden:update`: data changed the fingerprint; demo, shootout, fixture,
   fixture-cart, vehicles, platoon-vehicles, village-occupy, house-clear). `golden/no-interiors` untouched.
+
+## 2026-11-15 — Men down, identity tags, casualties and prisoners crawling to cover, prisoners' care, surrendered men under fog (owner requests 2026-11-15; goldens regenerated)
+Owner requests 2026-11-15 (binding), each logged here as "owner request 2026-11-15":
+- **A (bug): "surrendered enemy soldiers are always visible to the player."** Investigated: the renderer draws an enemy
+  man as a figure only when `fog.ts` `enemyMenInSight(overlay.known)` lists him (a "seen" contact under 2 s old), and
+  surrendered or captured men take the same path; `sideKnowledge` builds `known` from the side's able men's contacts
+  only. Measured (platoon and platoon-ru seeds 1-6, 900 s; prisoners only in platoon seeds 4 and 6): a prisoner was "in
+  sight now" in 81-88 % of samples, and in seed 4 (1,243 samples, one a second) an able enemy had a clear line to him
+  in the same share (10 samples in sight without one, all inside the 2 s window after he went behind something), so
+  the figure follows real sight; prisoners are in sight so
+  often because they walk over to the enemy, stand upright with hands up and are then kept next to their captor. A
+  prisoner put out of sight in the app (debug hook) is not drawn. What did not follow the fog rule: the white flag on
+  a known prisoner's contact marker was drawn at full strength however old the contact was, so a stale "where he
+  was" marker looked like a live sighting. Fixed: the flag fades with its marker (`drawWhiteFlag` alpha; `renderer.ts`).
+  Rule written down (HOW_IT_WORKS "Surrender"): surrendered and captured enemies are figures only while in sight now,
+  otherwise their contact marker or pin with the white flag. Test `medical-down.test.ts` "fog of war": a surrendered
+  enemy is in sight while seen and never "in sight now" once behind a wall, his contact keeping the surrender flag.
+  If the owner still sees prisoners where his men cannot, a seed and time would let us find it.
+- **B: "make soldiers collect body tags and drag wounded behind cover; soldiers should not know right away whether
+  someone is lost for good."** Built (systems/medical.ts header, core/medical.json `down`, game values, low):
+  - "Down, state unknown": a dead man his side has not checked (`SoldierState.checked`, new optional field; absent or
+    `dead: false` from before he died = unknown; `downUnknown` in sim/src/medical.ts). Comrades come to him as to an
+    urgent casualty (a first responder and a comrade within their reach, or a free man beside him); under fire the
+    carer drags him into cover first (the M10.3b drag; `startCarry` and the carry system accept a dead payload only for
+    a drag to cover while he is unknown; `medical.dragged` carries `deadNow`); then the `checkDown` action
+    (`down.checkS` 5 s) finds him dead (`medical.checked`). A living man is "checked" by a comrade's first treatment
+    (his triage). Carriers who feel the man they carry die know it (no check).
+  - Identity tags (rule 9): faction data `doctrine.json` `identityTag {item, perMan, taken}`: DE `de-erkennungsmarke`,
+    two items per man (the two halves), one taken (bundeswehr.de "Erkennungsmarke", search extract: perforated, both
+    halves stamped alike, one half for the formalities, one stays with the fallen; medium); RU `ru-lichny-znak`, one
+    per man, taken whole (MoD order No. 500 of 2000 and a legal Q&A, search extracts only; whether Russian practice
+    leaves it on the body is not in the extracts: low). Issued at setup to every man whose record has none (only with
+    the `down` data); masses typical values (low). After the check, the man who checked him takes the tag with the
+    `takeTag` action (`down.tagS` 8 s, `transferItems` from the body's container) when it is quiet for him (his
+    suppression below `down.tagSuppression` 0.1, not cowering, no rounds past him for `down.tagQuietS` 20 s; first
+    tried with "his unit not fired on for 20 s", which in seed-1 platoon left 5 of 6 tags behind for the whole battle);
+    else he goes back and a willing comrade fetches it later when it is quiet (`medical.tagTaken`). The body stays.
+  - Record (`RECORD_VERSION` 3; older saves start the review afresh) `SideRecord.down`; review Medical tab lines
+    `aar.medical.down`, `aar.medical.prisoners`; batch line "Men down"; man box "checking a comrade who is down",
+    "taking a fallen comrade's identity tag".
+- **C: "wounded soldiers that cannot walk might crawl behind cover as well."** A conscious casualty who cannot walk
+  (`impair.canWalk` false) but can use his arms, under fire for care, halted, not carried, crawls to the nearest spot
+  hidden from the enemy within `down.crawlSearchM` 10 m (`coverSpotNear`, `routeBetween`, way at most `crawlMaxM` 15 m)
+  at the crawl mode's pace times his `impair.move` (0.3 m/s × e.g. 0.46 with a broken leg), looked at every
+  `down.crawlLookS` 4 s, unless a carer of his is within `down.crawlCarerNearM` 15 m. `medical.crawled`;
+  `SoldierState.crawlCover`; the spot is his `sheltered` place once he is there (care in cover as after a drag).
+- **D: "same applies to surrendered that want to get out of the line of fire."** A surrendered man (not yet taken)
+  who is conscious and can use his arms, at `decisions.seekCoverSuppression` or more, crawls to the nearest spot within
+  `behaviour.json surrender.crawlSearchM` 15 m hidden from where the rounds come from (else the nearest enemy he
+  knows), way at most `crawlMaxM` 25 m; the walk over is paused (`handOver.down`) and goes on when the fire has faded,
+  or he waits there to be fetched. His crawl is not slowed by the hands-up walking factor. `surrender.crawl` event and
+  timeline line. `crawlSearchM` 0 or absent: the old rule (he lies where he is).
+- **E (coordinator relay, owner 2026-11-15): "medics also help surrendered enemy soldiers and don't discriminate
+  against them in their triage."** Laws-of-war default for every side, no faction difference in data (no per-unit
+  compliance value exists in medical.json): a prisoner's carers, buddy aid and first responders are the men of the
+  side holding him (`careSide`), with the same willingness rules as for a man of another squad; carers are now sent
+  to the casualties waiting for one urgent first (T1-looking needs), then in ID order — never by side (Geneva
+  Convention I art. 12). "Medic!" is not called on a prisoner's own radio. Test: a surrendered enemy with a massive
+  bleed gets the only first responder before an own man with a light wound (before this change he got nobody, and the
+  first responder went to the own man first by ID order). Review line counts treatments of men held prisoner.
+- **Software decisions (owner to review):** the check is needed only for the dead (a living man's state is known
+  from the first treatment); unknown dead men draw carers like urgent casualties, which takes first responders away
+  from the living for a while (the realism asked for); a carer at a body under fire waits beside it for the next
+  drag look (4 s) rather than checking at once; the tag is taken by the checker or fetched later, never by a man
+  under fire.
+- **State:** new optional fields only (`checked`, `crawlCover`; events `medical.checked`, `medical.tagTaken`,
+  `medical.crawled`, `surrender.crawl`, `deadNow` on `medical.dragged`). Save/load hash tests mid-check and mid-crawl
+  in `tools/test/medical-down.test.ts`.
+- **Measured** (10 seeds × 1200 s, before = c74e54d, after = this change; batch "Men down" line, sums over 10
+  battles, blue / red): platoon — killed 67 / 104, checked 38 / 38 (all found dead), dead dragged into cover before
+  the check 2 / 0, tags recovered from 26 / 33 fallen, wounded crawled to cover 5 / 4, prisoners' treatments by the
+  enemy 1 / 3, surrendered crawled 0 / 0; platoon-ru — killed 112 / 39, checked 26 / 29, dead dragged 2 / 1, tags 21 /
+  33, crawled 1 / 1, prisoners treated 3 / 0, surrendered crawled 0; platoon-vehicles — killed 67 / 247 (crews
+  included), checked 37 / 40, dead dragged 0 / 6, tags 38 / 30, crawled 0 / 3, prisoners treated 0 / 3, surrendered
+  crawled 0 / 1. Outcomes (attacker wins, before → after): platoon blue 3 → 3; platoon-ru red 8 → 7; platoon-vehicles
+  blue 7 → 9; mean casualties per side within ±2.2 men: within the noise of 10 seeds.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data and behaviour): demo, shootout, fixture,
+  vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors` untouched.
+- **Not done:** no new sprite for checking a man or taking his tag (the man kneels beside the body; the man box says
+  what he does); a crawling casualty uses the existing crawl frame. The perf check of bench-vehicles was skipped (the
+  machine was loaded by another build); the new work runs once a second in the medical system, not per tick.
+## 2026-11-15 — "I don't find the drone tab": the Drone tile, launching from a riding HQ
+Owner report (deployed app, default mounted platoon battle, phone). Reproduced with Playwright on main (phone and
+desktop; default, `vehicles=0`, `side=red`): the Drone tile **was** there, second in the list under "Zug 1", in every
+case. What did not work was using it in the default battle: the drone's carrier (the Funker / the Vzvod commander)
+starts riding, `launcherOf` takes only men on foot, so a tap on the map after selecting the tile did nothing at all
+(the order came back "unable", no message beyond the radio's "unable"), and the tile said "on the ground" while he
+sat in the Puma — it read like a dead button. Also nothing marked the platoon HQ (next entry).
+Fix (realistic and simple: a small quadcopter is launched by hand from the ground, not from a moving IFV's hatch):
+the player's drone order carries `dismount: true`; if no one on foot can launch it and its carrier rides, he alone
+gets out first (the existing "dismount, then carry out the order" path, `dismountThen`) and then launches it; the
+radio says "dismounting first". The AI's drone orders have no flag and behave as before (goldens unchanged). The tile
+now reads "aboard, battery 100 % · gets out to launch" (`side.droneAboard`, grey edge) while he rides, sits directly
+under the new HQ tile, and stays while the drone is on the ground (with him riding or not) or in the air; it goes only
+when the drone is lost. Tests: `ui/test/hq-drone.test.ts`. Screenshot scene `--scene drone` now also plays the
+default mounted battle (`drone-*-mounted-*`).
+
+## 2026-11-15 — Owner request: the platoon HQ is its own unit; the whole platoon only from its tile
+Owner: "make the platoon HQ show as a unit that can mount/dismount. Don't make the whole platoon move when it is
+selected. This should only be a thing when selecting the whole platoon via the side tab." And: mark the HQ as HQ.
+The simulation has no separate HQ unit: the platoon unit's own `members` are its headquarters, its `children` the
+squads and crews. Least invasive correct solution (no new unit in the scenario, so the AI, the roster records, the
+drone's crew and the goldens stay as they are): an optional order flag `own: true` — "only the target unit's own
+men, not its sub-units or their vehicles" — for move, halt, mount, dismount, posture, fire, cease-fire, grenade, call
+for fire and rules (`OWN_ORDER_KINDS`; anything else, or a unit without men of its own or with a vehicle, is rejected
+"invalid-params"). In `sim/systems/orders.ts` it narrows the men to `members`, leaves the vehicles and missile teams
+under the unit alone, takes only these men out of the platoon's drill (the squads carry on) and skips the hand smoke
+screen; in `boarding.ts` getting in and out handles the unit alone. The AI never sets it.
+UI: a platoon now lists **Zug 1** (the whole platoon, "whole platoon" in the open list), then **HQ Zug 1** (kind
+`hqGroup`, a light "HQ" badge from `side.hq`; on the slim strip only the badge), then its Drone. The HQ tile, a tap on
+one of its men on the map, or a tap through the riders of the hull it rides in select the HQ (`overlay.selectedOwn`);
+its order bar is a squad's without the drills (assault, withdraw, occupy, clear), Mount and Dismount included; the
+app adds `own: true` to its orders; the map highlights only its men (and the hull they ride). The unit card shows the
+badge beside the callsign; the hull carrying the HQ reads "HQ aboard". Only the platoon tile (and Tab) select the
+whole platoon. Tests: HQ-only dismount/mount leave the squads aboard, HQ-only move leaves the squads still, the
+platoon tile's move moves everyone, `own` refused for a drill (`ui/test/hq-drone.test.ts`).
+Known limits: a drone operator who is flying cannot get back in until the drone has landed (he holds the controller,
+as before); the duplicate "Gruppa 1" callsign in the Russian platoon (two squad templates numbered separately) is
+unchanged.
+## 2026-11-15 — Realistic ranks per role (owner request: "make the job distribution more realistic")
+Owner (binding): a Gefreiter has 3 to 6 months of service and would hardly see a battle, let alone be the dedicated
+medic. Least invasive option chosen: one most typical rank per template slot (no rank distributions: `MemberSlot.rank`
+is a single id and `buildForce` copies it, so weights would need a schema and generator change for little gain).
+Skills are not tied to rank or role (they come from the quality level), so nothing else changes. Sources: search
+extracts only (web pages cannot be opened here), confidence medium at most, mostly low.
+- DE (deployed SaZ unit, no Gefreiter in combat posts; SLV: Gefreiter after 3, Obergefreiter 6, Hauptgefreiter 12,
+  Stabsgefreiter 36, Oberstabsgefreiter 48 months): Schuetzentrupp: Truppfuehrer Stabsunteroffizier, MG-Schuetze
+  Stabsgefreiter, Panzerfaustschuetze Hauptgefreiter, Gruppenscharfschuetze Oberstabsgefreiter, Granatpistolenschuetze
+  Obergefreiter, Einsatzersthelfer B Hauptgefreiter (was Gefreiter). Zug HQ: Zugfuehrer Leutnant (unchanged), Funker
+  and drone operator Stabsgefreiter, Sanitaeter Stabsunteroffizier (was Hauptgefreiter). Puma crews: Kommandant
+  (= Gruppenfuehrer) Feldwebel, Richtschuetze Unteroffizier, Fahrer Hauptgefreiter; the fourth (headquarters) Puma
+  gets its own crew template `puma-besatzung-zug` (fixed callsign "Puma 4") whose Kommandant is the Zugtruppfuehrer
+  and deputy platoon leader, a Hauptfeldwebel (a Bundeswehr Puma podcast names a Hauptfeldwebel commander and an
+  Oberstabsgefreiter Truppfuehrer). Boxer San: Notfallsanitaeter Feldwebel (Feldwebel career), driver Hauptgefreiter.
+  Mortar Trupp: leader Stabsunteroffizier, loaders Obergefreiter. Demo team: no Gefreiter.
+- DE new rank Oberstabsgefreiter (OR-4, grade 6; Unteroffizier..Hauptfeldwebel grades +1, grade is only an order).
+  Insignia: five Schraegstreifen (Anlage 2 BPrDGrUnifAnO, medium): the Stabsgefreiter's four built up from the
+  shoulder end, the fifth 9.7 mm above the set-apart fourth (y 71.8; positions low). Hauptmann/Stabsfeldwebel not
+  added (no template uses them).
+- RU (combat units contract-manned; a contract private usually stays ryadovoy or yefreytor): the first squad's leader
+  is the deputy platoon commander, starshiy serzhant (battleorder.org: BTR company deputy platoon commander a senior
+  sergeant); other squad leaders serzhant; machine gunners yefreytor (were ryadovoy); strelok-sanitar yefreytor (was
+  ryadovoy). BMP crews unchanged (commander mladshiy serzhant, gunner-operator and driver-mechanic yefreytor).
+- xf fixture unchanged.
+Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
+untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).
+
+## 2026-11-15 — Merge origin/main (men down, identity tags, crawling, prisoners' care, HQ drone tile, tanks) into the medical line; goldens regenerated
+Conflicts kept both sides: DECISIONS entries, events (`medical.ambulance` / `medical.evacuated` next to `medical.checked`
+/ `tagTaken` / `crawled`), the battle record (`amb` and `down` per side; `RECORD_VERSION` 3 → 4 since the merged shape
+is new to both lines), the batch lines, Russian strings, catalog medical blocks (`evacuation` and `down`), the xf
+fixture templates (`litter-crew` and `tortoise-crew`), the sidebar (tile parts and the ambulance rows). Goldens
+regenerated with `npm run golden:update` (intended: both lines together); `golden/no-interiors` untouched.
+`commander.test.ts` now plays seed 9 (seed 6, and 8, 10-14, place every defender, so no posture order).

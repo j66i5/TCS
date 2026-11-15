@@ -58,6 +58,10 @@ interface Row {
   nest: Record<string, { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number; needEnd: number; reachedEnd: number; wrong: number; wrongRetagged: number; corrected: number }>;
   /** M10.6a per side: ambulance runs (battle record `amb`). */
   amb: Record<string, SideRecord["amb"]>;
+  /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
+   *  check, tags recovered (men), wounded who crawled to cover, prisoners' treatments by the enemy, surrendered men
+   *  who crawled out of the fire; killed at the end. */
+  down: Record<string, { checked: number; checkedDead: number; deadDragged: number; tags: number; tagMen: number; crawled: number; prisonersTreated: number; surrenderCrawled: number; killed: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -154,6 +158,7 @@ for (let i = 0; i < runs; i++) {
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
     amb: perSide((x) => x.amb),
+    down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
@@ -221,6 +226,11 @@ const md = [
     const med = (xs: number[]) => (xs.length === 0 ? "-" : `${Math.round(xs[Math.floor(xs.length / 2)]!)} s`);
     const cta = all((r) => r.amb[s]?.callToArriveS ?? []), wte = all((r) => r.amb[s]?.woundToEvacS ?? []);
     return `${s} called ${sum((r) => r.amb[s]?.called ?? 0)} (stood down ${sum((r) => r.amb[s]?.cancelled ?? 0)}), came on ${sum((r) => r.amb[s]?.entered ?? 0)}, reached the nest ${sum((r) => r.amb[s]?.arrived ?? 0)} (call to arrival median ${med(cta)}), took aboard ${sum((r) => r.amb[s]?.loaded ?? 0)}, left the map ${sum((r) => r.amb[s]?.away ?? 0)}; men evacuated ${sum((r) => r.amb[s]?.evacuated ?? 0)} (${(sum((r) => r.amb[s]?.evacuated ?? 0) / Math.max(1, rows.length)).toFixed(2)} per battle; first wound to leaving the map median ${med(wte)})`;
+  }).join("; ")}`,
+  `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const g = (k: keyof Row["down"][string]) => sum((r) => r.down[s]?.[k] ?? 0);
+    return `${s} killed ${g("killed")}, checked ${g("checked")} (found dead ${g("checkedDead")}), dead dragged into cover before the check ${g("deadDragged")}, tags recovered from ${g("tagMen")} fallen (${g("tags")} items), wounded crawled to cover ${g("crawled")}, treatments as prisoners ${g("prisonersTreated")}, surrendered crawled out of the fire ${g("surrenderCrawled")}`;
   }).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",

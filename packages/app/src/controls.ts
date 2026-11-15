@@ -9,7 +9,7 @@ import type { App, Pt } from "./app";
 import { stopFollow } from "./camera";
 import { clearAt, facingHandle, fireAtPoint, forUnit, ghostPlan, issue, losTo, now, occupyOrder, offerSupport, oneTapDone, SCREEN_MIN_M, startPlan, turnPlan } from "./orders";
 import { refreshTiles, syncOrders } from "./panels";
-import { activeMoveOf, droneMode, inMap, markerFor, nearestSoldier, onSelected, placesOf, ridersIn, vehicleAt, vehicleClassOf } from "./units";
+import { activeMoveOf, droneMode, hqMode, inMap, isHqUnit, markerFor, nearestSoldier, onSelected, placesOf, ridersIn, vehicleAt, vehicleClassOf } from "./units";
 
 const here = (a: App, uid: EntityId) => centreOf(placesOf(a, uid));
 
@@ -41,21 +41,23 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       // Tapping it again goes through the units riding in it, then back to its crew (M7.2).
       const hull = !a.plan ? vehicleAt(sim, w.x, w.y, 10 / renderer.camera.scale, playerSide) : null;
       if (hull !== null) {
+        // (Owner 2026-11-15: a platoon headquarters riding in it is selected as the HQ, its own men alone.)
         const cycle = [hull, ...ridersIn(sim, hull)];
-        const k = overlay.selectedUnit === null ? -1 : cycle.indexOf(overlay.selectedUnit);
-        overlay.selectedUnit = cycle[(k + 1) % cycle.length]!;
+        const k = overlay.selectedUnit === null || droneMode(a) ? -1 : cycle.indexOf(overlay.selectedUnit);
+        const next = cycle[(k + 1) % cycle.length]!;
+        overlay.selectedUnit = next; overlay.selectedDrone = null; overlay.selectedOwn = isHqUnit(sim, next);
         a.inspected = null;
-        refreshTiles(a);
+        syncOrders(a); refreshTiles(a);
         return;
       }
       const hit = nearestSoldier(sim, w.x, w.y, 12 / renderer.camera.scale + 1, overlay.debug ? null : playerSide);
       if (hit !== null && sim.state.identity.req(hit).side === playerSide && !a.plan) {
-        // His own unit (his squad; the platoon's own men select the platoon). A man of the unit already selected:
-        // his detail box (S6; again: closed).
-        const his = sim.state.identity.req(hit).unit;
-        if (his === overlay.selectedUnit) a.inspected = a.inspected === hit ? null : hit;
+        // His own unit (his squad; the platoon's own men select its headquarters alone, owner 2026-11-15: the whole
+        // platoon only from its tile). A man of the unit already selected: his detail box (S6; again: closed).
+        const his = sim.state.identity.req(hit).unit, own = isHqUnit(sim, his);
+        if (his === overlay.selectedUnit && !droneMode(a) && hqMode(a) === own) a.inspected = a.inspected === hit ? null : hit;
         else { overlay.selectedUnit = his; a.inspected = null; }
-        overlay.selectedDrone = null;
+        overlay.selectedDrone = null; overlay.selectedOwn = own;
         syncOrders(a); refreshTiles(a);
         return;
       }
@@ -63,8 +65,9 @@ export function attachControls(a: App, mapRoot: HTMLElement): void {
       if (uid === null) return;
       if (!inMap(a, w)) return;
       if (droneMode(a)) {
-        // The drone (M9.4a): a tap sends it there (launched first if it is on the ground).
-        issue(a, { ...now(a, uid), kind: "drone", op: "fly", x: w.x, y: w.y });
+        // The drone (M9.4a): a tap sends it there (launched first if it is on the ground; its carrier gets out of his
+        // vehicle first if he rides, owner 2026-11-15).
+        issue(a, { ...now(a, uid), kind: "drone", op: "fly", x: w.x, y: w.y, dismount: true });
         return;
       }
       const mode = a.orderMode;

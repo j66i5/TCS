@@ -15,6 +15,8 @@
   "rank.de.hauptgefreiter.abbr": "HptGefr",
   "rank.de.stabsgefreiter": "Stabsgefreiter",
   "rank.de.stabsgefreiter.abbr": "SG",
+  "rank.de.oberstabsgefreiter": "Oberstabsgefreiter",
+  "rank.de.oberstabsgefreiter.abbr": "OSG",
   "rank.de.unteroffizier": "Unteroffizier",
   "rank.de.unteroffizier.abbr": "Uffz",
   "rank.de.stabsunteroffizier": "Stabsunteroffizier",
@@ -128,5 +130,17 @@
   "ammo.de-155-illum": "155 mm illumination shell",
   "ammo.de-120-illum": "120 mm illumination bomb",
   "item.de-quadcopter": "Reconnaissance quadcopter",
-  "item.de-drone-battery": "Drone battery"
+  "item.de-drone-battery": "Drone battery",
+  "item.de-erkennungsmarke": "Identity tag (Erkennungsmarke), half",
+  "vehicle.de.leopard2a7v": "Leopard 2A7V",
+  "weapon.de-rh120-l55a1": "120 mm L55A1",
+  "weapon.de-mg3a1-coax": "MG3A1 (coaxial)",
+  "ammo.de-120-dm63a1": "120 mm DM63A1 APFSDS-T",
+  "ammo.de-120-dm11": "120 mm DM11 HE",
+  "item.de-120-dm63a1-round": "120 mm DM63A1 round",
+  "item.de-120-dm11-round": "120 mm DM11 round",
+  "item.de-mg3-coax-belt": "coaxial MG3 belt (250)",
+  "item.de-leopard-diesel": "Leopard fuel",
+  "item.de-leopard-extinguisher": "Leopard fire-suppression charge",
+  "role.de.ladeschuetze": "Loader"
 }

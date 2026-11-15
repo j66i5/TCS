@@ -861,5 +861,20 @@
     ],
     "confidence": "low",
     "note": "Who goes to a casualty further away than buddy reach (M10.3a; game values, no public source for the numbers). A casualty looks urgent (T1) when he needs care for one of urgentTreats (massive bleeding, airway, breathing, shock; MARCH). An urgent casualty gets a first responder or medic of his platoon within responderReachM (his own squad's first; owner Q-1c: one Einsatzersthelfer B per Gruppe, a Sanitaeter in the Zug HQ; one rifleman-medic per Russian platoon) and also a willing comrade; any other casualty a willing comrade, else a free first responder. At most the first responder plus comradesPerCasualty comrade per casualty (owner Q-2a: in contact, the first responder plus at most one comrade). Willingness = doctrine casualtyCarePriority x behaviourK (by his behaviour; others 0) x morale x (1 - suppressionK x suppression) x otherUnitK (not his own squad) x exposedK (the casualty under fire) x responderK (first responders and medics: it is their job); willing at willingAt or more. Squad and platoon leaders do not leave their men. A comrade carer goes back once a first responder is beside the casualty. A carer gives up after timeoutS."
+  },
+  "down": {
+    "checkS": 5,
+    "tagS": 8,
+    "tagSuppression": 0.1,
+    "tagQuietS": 20,
+    "crawlSearchM": 10,
+    "crawlMaxM": 15,
+    "crawlLookS": 4,
+    "crawlCarerNearM": 15,
+    "sources": [
+      "https://www.deployedmedicine.com/"
+    ],
+    "confidence": "low",
+    "note": "Men down (owner request 2026-11-15; game values, low). A man who has gone down is to his comrades 'down, state unknown' until one of them is beside him and checks him (checkS 5 s: responsiveness, breathing; TCCC assessment, search extracts only); until then they come to him and drag him to cover like any casualty, though he may be dead. A comrade who finds him dead takes his identity tag (factions/<id>/doctrine.json identityTag) in tagS 8 s, only with his own suppression below tagSuppression, not cowering, and no rounds cracking past him for tagQuietS 20 s; a confirmed dead man whose tag is still on him is fetched by a willing comrade when it is that quiet. A conscious casualty who cannot walk but can use his arms crawls (the crawl pace times his wound impairment) to the nearest spot hidden from the enemy within crawlSearchM 10 m by a way at most crawlMaxM 15 m, looked at every crawlLookS 4 s while he is under fire for care, unless a carer of his is within crawlCarerNearM 15 m."
   }
 }

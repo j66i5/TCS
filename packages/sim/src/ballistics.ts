@@ -67,6 +67,8 @@ export interface AmmoRT {
   burstOnBody: boolean;
   /** A shaped-charge warhead (M7.4a): its jet, not its speed, decides penetration. */
   shaped: boolean;
+  /** M7.6a: a tandem shaped charge (its precursor sets a reactive tile off; the main jet meets what is left). */
+  tandem: boolean;
   /** Rocket motor (M7.4a): acceleration along the path, m/s2 (0 = none), from tick ignTicks to burnEndTicks after launch. */
   thrust: number;
   ignTicks: number;
@@ -431,7 +433,7 @@ export function buildBallistics(map: MapDef, catalog: Catalog, index: MapIndex, 
     const area = (PI * a.diameterM * a.diameterM) / 4;
     return { id, kDrag: area / (2 * a.projectileMassKg), dragA: a.drag.a, dragB: a.drag.b, dragMax: a.drag.max, penSteelMm: a.penetration.steelMm, penV: a.penetration.atVelocityMps, penCapV: a.penetration.breakupVelocityMps ?? Infinity, massKg: a.projectileMassKg, tracer: a.tracer,
       explosive: a.explosive !== undefined || a.smoke !== undefined, fragment: a.kind === "fragment", heavy: a.diameterM >= 0.0125, burstOnBody: a.explosive?.burstOnBody === true,
-      shaped: a.kind === "shaped-charge" || a.kind === "tandem-shaped-charge",
+      shaped: a.kind === "shaped-charge" || a.kind === "tandem-shaped-charge", tandem: a.kind === "tandem-shaped-charge",
       thrust: a.propulsion && a.propulsion.burnSeconds > 0 ? a.propulsion.accelMps2 : 0,
       ignTicks: Math.round((a.propulsion?.ignitionSeconds ?? 0) * tickHz),
       burnEndTicks: Math.round(((a.propulsion?.ignitionSeconds ?? 0) + (a.propulsion?.burnSeconds ?? 0)) * tickHz),

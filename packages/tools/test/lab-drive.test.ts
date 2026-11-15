@@ -1,6 +1,6 @@
 /** Drive lab (M7.1b): the bands of docs/plans/m7-vehicles.md §4, driven by orders to the crew unit only. */
 import { describe, expect, it } from "vitest";
-import { driveLab, driveLabMarkdown, SURFACES, WHEELED } from "../src/labs/drive";
+import { driveLab, driveLabMarkdown, SURFACES, TANKS, WHEELED } from "../src/labs/drive";
 import { loadData } from "../src/scenarios";
 
 const rows = driveLab(loadData(true));
@@ -80,6 +80,27 @@ describe("drive lab", () => {
       expect(val(v, "top speed up a 20 % slope")).toBeGreaterThan(1);
       expect(val(v, "fuel for 1000 m at full pace")).toBeGreaterThan(0.2);
       expect(val(v, "fuel for 1000 m at full pace")).toBeLessThan(5);
+      expect(val(v, "moved in 30 s with the driver dead")).toBe(0);
+    }
+  });
+  it("main battle tanks (M7.6a): 0-50 km/h, top and reverse speed, braking, pivot, ground order, slope, fuel, no driver", () => {
+    const top: Record<string, [number, number]> = { "de-leopard2a7v": [63, 31], "ru-t90m": [60, 4.8], "ru-t72b3m": [60, 4.2] };
+    for (const v of TANKS) {
+      const leo = v === "de-leopard2a7v";
+      expect(val(v, "0-50 km/h on asphalt")).toBeGreaterThanOrEqual(leo ? 8 : 9);
+      expect(val(v, "0-50 km/h on asphalt")).toBeLessThanOrEqual(leo ? 20 : 22);
+      expect(Math.abs(val(v, "top speed") / top[v]![0] - 1)).toBeLessThanOrEqual(0.05);
+      expect(Math.abs(val(v, "reverse top speed") / top[v]![1] - 1)).toBeLessThanOrEqual(0.05);
+      expect(val(v, "braking from 50 km/h")).toBeGreaterThanOrEqual(12);
+      expect(val(v, "braking from 50 km/h")).toBeLessThanOrEqual(25);
+      // (Leopard: 2-6 s, not the plan's 2-5: its 30 deg/s game-value pivot takes 5.2 s with the spin-up of 64 t.)
+      expect(val(v, "pivot 90 deg")).toBeGreaterThanOrEqual(leo ? 2 : 3);
+      expect(val(v, "pivot 90 deg")).toBeLessThanOrEqual(leo ? 6 : 8);
+      for (let i = 1; i < SURFACES.length; i++) expect(val(v, `300 m on ${SURFACES[i]}, dry`)).toBeGreaterThan(val(v, `300 m on ${SURFACES[i - 1]}, dry`));
+      for (const s of SURFACES) expect(val(v, `300 m on ${s}, rain`)).toBeGreaterThanOrEqual(val(v, `300 m on ${s}, dry`));
+      expect(val(v, "top speed up a 20 % slope")).toBeGreaterThan(1);
+      expect(val(v, "fuel for 1000 m at full pace")).toBeGreaterThan(1);
+      expect(val(v, "fuel for 1000 m at full pace")).toBeLessThan(10);
       expect(val(v, "moved in 30 s with the driver dead")).toBe(0);
     }
   });

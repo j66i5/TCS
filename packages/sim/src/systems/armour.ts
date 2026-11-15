@@ -30,6 +30,7 @@
 import { isOffMap } from "../offmap";
 import { addSmoke } from "../smoke";
 import type { VehicleComponent, VehicleDef } from "../catalog";
+import { reactiveAdd, tileFor } from "../tiles";
 import type { VehicleState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -77,6 +78,35 @@ export function plateNeed(p: PlateRT | null, face: number, rSign: number, df: nu
   if (cosInc < 0) cosInc = 0;
   const ce = cosInc < losFloorCos ? losFloorCos : cosInc;
   return { needK: (p.thicknessMm * p.kPerMm) / ce, needS: (p.thicknessMm * p.sPerMm) / ce, cosInc, sinCrit: p.sinCrit };
+}
+
+/** Scratch result of `useTile`: the tile item used, the need's factor and the mm added. */
+const TILE_USE = { item: "", mul: 1, add: 0 };
+/**
+ * A hit on a part and face meets an add-on tile? Legacy `factor` tiles (M7.4b): shaped charges only, every hit
+ * while tiles last, no draw (the calls and their order as before). Reactive tiles (`coverage`, M7.6a): a kinetic
+ * round sets one off only if heavy and at least the trigger; then a draw on the armour stream against
+ * `coverage * left / fitted`. A tile met is used up (a counted item). Returns the scratch result or null.
+ */
+function useTile(state: SimState, vid: EntityId, def: VehicleDef, partName: "hull" | "turret", faceName: "front" | "side" | "rear" | "top", kind: "kinetic" | "shaped" | "tandem", canMm: number, heavy: boolean, ctx: SimContext): typeof TILE_USE | null {
+  const tile = tileFor(def, partName, faceName);
+  if (!tile) return null;
+  if (tile.factor !== undefined) {
+    if (kind === "kinetic") return null;
+    if (vehicleItems(state, vid, tile.item) <= 0) return null;
+    removeItems(state.container.get(vid)!, tile.item, 1);
+    TILE_USE.item = tile.item; TILE_USE.mul = tile.factor; TILE_USE.add = 0;
+    return TILE_USE;
+  }
+  const r = ctx.catalog.items[tile.item]?.reactive;
+  if (!r || tile.coverage === undefined || tile.fitted <= 0) return null;
+  if (kind === "kinetic" && (!heavy || canMm < r.triggerSteelMm)) return null;
+  const left = vehicleItems(state, vid, tile.item);
+  if (left <= 0) return null;
+  if (nextFloat(state.rng, Streams.armour) >= tile.coverage * (left < tile.fitted ? left : tile.fitted) / tile.fitted) return null;
+  removeItems(state.container.get(vid)!, tile.item, 1);
+  TILE_USE.item = tile.item; TILE_USE.mul = 1; TILE_USE.add = reactiveAdd(r, kind);
+  return TILE_USE;
 }
 
 // ---- interior walk scratch (no allocation per hit beyond the small target list)
@@ -280,6 +310,7 @@ export function resolveVehicleHit(
   const wasImmobilised = v.status === "immobilised";
   const zone = part === 1 ? "turret" : "hull";
   let result: "ricochet" | "stopped" | "penetrated" = "stopped";
+  let era: string | null = null;
 
   if (am.shaped) {
     if (enemy) { v.lastShapedHitTick = tick; v.threatAz = atan2(-dy, -dx); }
@@ -304,10 +335,12 @@ export function resolveVehicleHit(
       result = "ricochet";
     } else {
       burst(x + nx * 0.05, y + ny * 0.05, z + nz * 0.05, ammoIdx, owner);
-      // An add-on tile on that face (M7.4b, plan C12): used up (a counted item), it multiplies what the jet needs.
+      // An add-on tile on that face (M7.4b, plan C12; M7.6a reactive): used up (a counted item), it multiplies
+      // (legacy factor) or adds to what the jet needs; a tandem's precursor sets a reactive tile off and the main jet
+      // meets what the tile has left (`addTandemMm`).
       let needS = pn.needS;
-      const tile = def.armour?.tiles?.find((tl) => tl.part === (part === 1 ? "turret" : "hull") && tl.face === FACE_NAMES[face]);
-      if (tile && vehicleItems(state, vid, tile.item) > 0) { removeItems(state.container.get(vid)!, tile.item, 1); needS *= tile.factor; }
+      const tu = useTile(state, vid, def, zone, FACE_NAMES[face]!, am.tandem ? "tandem" : "shaped", am.penSteelMm, am.heavy, ctx);
+      if (tu) { needS = needS * tu.mul + tu.add; era = tu.item; }
       if (am.penSteelMm >= needS) {
         result = "penetrated"; dmg.pen = true;
         interior(ctx, state, events, vid, v, def, x - nx * 0.01, y - ny * 0.01, z - nz * 0.01, dx, dy, dz, am.penSteelMm - needS, 0, "shaped", am.id, owner, adef.behindArmour ?? SPALL_SHAPED, dmg);
@@ -350,10 +383,17 @@ export function resolveVehicleHit(
       }
     } else {
       const can = am.penSteelMm * pow(speed / am.penV, ctx.catalog.ballistics.penetrationVelocityExponent);
-      if (can >= pn.needK) {
+      // A reactive tile on that face (M7.6a): a heavy round at or above its trigger may set it off; it adds to the
+      // need against the rod (legacy factor tiles act on shaped charges only).
+      let needK = pn.needK;
+      if (def.armour?.tiles !== undefined) {
+        const tu = useTile(state, vid, def, zone, FACE_NAMES[face]!, "kinetic", can, am.heavy, ctx);
+        if (tu) { needK += tu.add; era = tu.item; }
+      }
+      if (can >= needK) {
         result = "penetrated"; dmg.pen = true;
-        const energy = 0.5 * am.massKg * speed * speed * (1 - pn.needK / can);
-        const r = interior(ctx, state, events, vid, v, def, x + dx * 0.01, y + dy * 0.01, z + dz * 0.01, dx, dy, dz, can - pn.needK, energy, "kinetic", am.id, owner, adef.behindArmour ?? SPALL_KINETIC, dmg);
+        const energy = 0.5 * am.massKg * speed * speed * (1 - needK / can);
+        const r = interior(ctx, state, events, vid, v, def, x + dx * 0.01, y + dy * 0.01, z + dz * 0.01, dx, dy, dz, can - needK, energy, "kinetic", am.id, owner, adef.behindArmour ?? SPALL_KINETIC, dmg);
         // Out through the far side if what is left beats the plate there.
         if (r.residual > 0 && r.L > 0) {
           const ex = x + dx * (r.L + 0.02), ey = y + dy * (r.L + 0.02), ez = z + dz * (r.L + 0.02);
@@ -375,7 +415,7 @@ export function resolveVehicleHit(
       return;
     }
   }
-  events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone, result, ammo: am.id, owner, rounds: 1, components: dmg.components });
+  events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone, result, ammo: am.id, owner, rounds: 1, components: dmg.components, ...(era === null ? {} : { era }) });
   if (dmg.pen) v.lastPenTick = tick;
   if (enemy && (dmg.pen || am.heavy)) v.threatAz = atan2(-dy, -dx);
   // The crew and its platoon are under fire (from the other side).

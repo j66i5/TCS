@@ -54,6 +54,43 @@ describe("anti-tank lab (M7.4a)", () => {
   });
 });
 
+describe("anti-tank lab: main battle tanks (M7.6a)", () => {
+  /** Penetrated / hits over `n` trials at 200 m (the lab's seeds). */
+  const share = (factions: [string, string], crew: [string, string], aspect: "side" | "front", n: number, eraSpent = false) => {
+    let hits = 0, pen = 0;
+    for (let k = 0; k < n; k++) { const r = antitankTrial(data, factions, 200, aspect, 1000 + k, { crewTemplates: crew, eraSpent }); if (r.hit) hits++; if (r.penetrated) pen++; }
+    return { hits, pen, share: hits > 0 ? pen / hits : 0 };
+  };
+  const T90: [string, string] = ["puma-besatzung", "t90m-ekipazh"], LEO: [string, string] = ["bmp2-ekipazh", "leopard2a7v-besatzung"];
+
+  it("Panzerfaust 3 at a T-90M's front: Relikt stops most rounds that hit; with the tiles used up nearly all get through", () => {
+    const full = share(["de", "ru"], T90, "front", 20), spent = share(["de", "ru"], T90, "front", 10, true);
+    expect(full.hits).toBeGreaterThan(5);
+    expect(full.share).toBeGreaterThanOrEqual(0.1);
+    expect(full.share).toBeLessThanOrEqual(0.45);
+    expect(spent.share).toBeGreaterThanOrEqual(0.8);
+  }, 120_000);
+
+  it("Panzerfaust 3 at a T-90M's side gets through even with its tiles there", () => {
+    expect(share(["de", "ru"], T90, "side", 20).share).toBeGreaterThanOrEqual(0.8);
+  }, 120_000);
+
+  it("PG-7VL at a Leopard 2A7V: through its side, never its front", () => {
+    expect(share(["ru", "de"], LEO, "side", 8).share).toBeGreaterThanOrEqual(0.8);
+    const front = share(["ru", "de"], LEO, "front", 8);
+    expect(front.hits).toBeGreaterThan(0);
+    expect(front.pen).toBe(0);
+  }, 120_000);
+
+  it("used-up tiles stay counted items: the record's tiles are gone, the rest of its load is not", () => {
+    const full = antitankSetup(data, ["de", "ru"], 200, "front", 1, { crewTemplates: T90 }).input.forces[1]!.vehicles![0]!.load;
+    const spent = antitankSetup(data, ["de", "ru"], 200, "front", 1, { crewTemplates: T90, eraSpent: true }).input.forces[1]!.vehicles![0]!.load;
+    expect(full.filter((l) => l.type.startsWith("ru-relikt")).reduce((n, l) => n + l.count, 0)).toBe(26 + 10 + 20 + 12);
+    expect(spent.some((l) => l.type.startsWith("ru-relikt"))).toBe(false);
+    expect(spent.length).toBe(full.length - 4);
+  });
+});
+
 /** Blue's anti-tank gunner at `rangeM` from the red BMP-2 (side-on), every unit's fire rule free, the AT rule as given. */
 function standingRule(rule: "vehicles" | "vehiclesAndPositions" | "hold", seed = 5): { sim: Sim; gunner: EntityId } {
   const { input, gunner } = antitankSetup(data, ["de", "ru"], 180, "side", seed);

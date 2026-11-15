@@ -98,9 +98,10 @@ export function ammoOf(view: SimView, catalog: Catalog, id: EntityId): AmmoState
 }
 
 /** The men the card lists: a vehicle's crew (its passengers are their own units), else every man of the unit. */
-export function cardMen(view: SimView, catalog: Catalog, unit: EntityId): EntityId[] {
+export function cardMen(view: SimView, catalog: Catalog, unit: EntityId, own = false): EntityId[] {
   const u = view.unit.get(unit);
   if (!u) return [];
+  if (own && u.vehicle === undefined) return [...u.members]; // (a platoon's headquarters alone, owner 2026-11-15)
   const veh = u.vehicle !== undefined ? view.vehicle.get(u.vehicle) : undefined;
   const def = veh ? catalog.vehicles[veh.def] : undefined;
   if (veh && def) return veh.seats.filter((o, i): o is EntityId => o !== null && def.seats[i]?.station !== "passenger");
@@ -108,7 +109,7 @@ export function cardMen(view: SimView, catalog: Catalog, unit: EntityId): Entity
 }
 
 /** One row per man of the unit (S6), in the unit's order (leader of each unit first as the data lists him). */
-export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId): ManRow[] {
+export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId, own = false): ManRow[] {
   const out: ManRow[] = [];
   const leaders = new Set<EntityId>();
   const stack: EntityId[] = [unit];
@@ -118,7 +119,7 @@ export function unitMenRows(view: SimView, catalog: Catalog, unit: EntityId): Ma
     if (u.leader !== null) leaders.add(u.leader);
     stack.push(...u.children);
   }
-  for (const id of cardMen(view, catalog, unit)) {
+  for (const id of cardMen(view, catalog, unit, own)) {
     const s = view.soldier.get(id), i = view.identity.get(id);
     if (!i) continue;
     // (No soldier record left for a listed man: shown as missing rather than dropped.)
@@ -143,6 +144,9 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   // Care (M10.2-M10.3b): treating himself or a comrade, dragging one into cover, on his way to one.
   const act = view.action.get(id);
   if (act?.kind === "treat") return { key: Number(act.params["casualty"]) === id ? "selfAid" : "treating" };
+  // A man down (owner request 2026-11-15): checking him, taking his identity tag.
+  if (act?.kind === "checkDown") return { key: "checking" };
+  if (act?.kind === "takeTag") return { key: "takingTag" };
   // Into or out of a vehicle (M10.4b).
   if (act?.kind === "loadCasualty") return { key: "loading" };
   if (act?.kind === "unloadCasualty") return { key: "unloading" };
@@ -152,6 +156,8 @@ export function activityOf(view: SimView, id: EntityId): Activity {
     return { key: c?.purpose === "cover" ? "dragging" : "carrying" };
   }
   if (s.carrying === id) return { key: "walkingOut" };
+  // Crawling to cover, wounded (owner request 2026-11-15).
+  if (s.crawlCover !== undefined && (view.mover.get(id)?.waypoints.length ?? 0) > 0) return { key: "crawling" };
   if (s.intent?.kind === "care") return { key: "care" };
   const b = s.mental.behaviour;
   if (b === "panicked" || b === "routed") return { key: b };
@@ -272,6 +278,8 @@ export function repaceMove(prev: MoveOrder, at: Pt, pace: string, tick: number):
 
 export interface UnitCardModel {
   callsign: string;
+  /** A short label beside the callsign (owner 2026-11-15: "HQ" for a platoon's headquarters), translated. */
+  badge?: string;
   fit: number;
   total: number;
   /** The unit's state line ("ready", "pinned", ...), already translated. */
@@ -328,6 +336,8 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   root.hidden = true;
   const head = h("div", "hud-card-head");
   const name = h("span", "hud-card-name");
+  const badge = h("span", "hud-badge hud-card-badge");
+  badge.hidden = true;
   const men = h("span", "hud-card-men");
   const detailBtn = h("button", "hud-btn hud-card-btn");
   detailBtn.dataset["card"] = "detail";
@@ -337,7 +347,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
   rulesBtn.dataset["card"] = "rules";
   rulesBtn.innerHTML = `${icon("rules", 16)}<span>${s.t("order.rules")}</span>`;
   rulesBtn.onclick = () => cb.onRules();
-  head.append(name, men, detailBtn, rulesBtn);
+  head.append(name, badge, men, detailBtn, rulesBtn);
   const paceRow = h("div", "hud-seg");
   paceRow.dataset["row"] = "pace";
   const fireRow = h("div", "hud-seg");
@@ -383,6 +393,7 @@ export function createUnitCard(s: Strings, cb: UnitCardCallbacks): UnitCard {
       root.hidden = m === null;
       if (!m) return;
       name.textContent = m.callsign;
+      badge.hidden = !m.badge; badge.textContent = m.badge ?? "";
       men.textContent = `${s.t("side.men", { fit: m.fit, total: m.total })} · ${m.state}`;
       if (!detailed) return;
       const keep = new Set<EntityId>();

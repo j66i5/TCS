@@ -27,7 +27,7 @@ import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPo
 import { refreshTiles, showCard, showObjectives, showUnit, syncOrders } from "./panels";
 import { reviewModel } from "./review";
 import { loadOrCreate, reloadSaved, saveNow } from "./save";
-import { activeMoveOf, ambulanceCaller, droneMode, placesOf, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
+import { activeMoveOf, ambulanceCaller, droneMode, isHqUnit, placesOf, selPart, sideColour, unitSoldierIds, vehicleClassOf } from "./units";
 import { attachFloors, sightView, updatePins } from "./view";
 
 const MAX_STEPS_PER_FRAME = 240; // never spiral: drop time instead
@@ -160,20 +160,22 @@ async function main(): Promise<void> {
     onLayout: () => { renderer.setHudInsets(hud.insets()); },
     // S5: a tile tap selects the unit and centres the camera on it; on the unit already selected and centred, it
     // unselects (as before). A press held on a tile follows the unit; the badge (or any pan) stops following.
-    onSelectUnit: (u, drone) => {
+    onSelectUnit: (u, part) => {
       endPlan(a); a.gesture = null;
-      // (M9.4a: the unit's drone tile selects its drone: Move means fly, Halt brings it home.)
-      const same = overlay.selectedUnit === u && (drone === true) === droneMode(a);
-      if (same && (drone === true ? droneCentred(a, u) : centredOn(a, u))) { overlay.selectedUnit = null; overlay.selectedDrone = null; stopFollow(a); }
+      // (M9.4a: the unit's drone tile selects its drone: Move means fly, Halt brings it home. Owner 2026-11-15: the
+      // HQ tile selects the platoon's own men alone; the platoon's tile the whole platoon.)
+      const drone = part === "drone";
+      const same = overlay.selectedUnit === u && part === selPart(a);
+      if (same && (drone ? droneCentred(a, u) : centredOn(a, u))) { overlay.selectedUnit = null; overlay.selectedDrone = null; overlay.selectedOwn = false; stopFollow(a); }
       // (The card first: centring keeps the unit clear of it.)
       else {
-        overlay.selectedUnit = u; overlay.selectedDrone = drone === true ? u : null; showCard(a);
-        if (drone === true) centreOnDrone(a, u); else centreOn(a, u);
+        overlay.selectedUnit = u; overlay.selectedDrone = drone ? u : null; overlay.selectedOwn = part === "hq"; showCard(a);
+        if (drone) centreOnDrone(a, u); else centreOn(a, u);
         if (a.following !== null && a.following !== u) stopFollow(a);
       }
       syncOrders(a); refreshTiles(a);
     },
-    onFollowUnit: (u) => { endPlan(a); a.gesture = null; overlay.selectedUnit = u; startFollow(a, u); syncOrders(a); refreshTiles(a); },
+    onFollowUnit: (u) => { endPlan(a); a.gesture = null; overlay.selectedUnit = u; overlay.selectedDrone = null; overlay.selectedOwn = false; startFollow(a, u); syncOrders(a); refreshTiles(a); },
     onStopFollow: () => stopFollow(a),
     // M10.5 Wounded tab: a row selects the man's unit and opens his box, the camera on him; "Back" orders him to the
     // Verwundetennest (the order goes to the man himself).
@@ -181,7 +183,7 @@ async function main(): Promise<void> {
       const uid = sim.state.identity.get(m)?.unit;
       if (uid === undefined) return;
       endPlan(a); a.gesture = null;
-      overlay.selectedUnit = uid; overlay.selectedDrone = null; a.inspected = m; showCard(a);
+      overlay.selectedUnit = uid; overlay.selectedDrone = null; overlay.selectedOwn = isHqUnit(sim, uid); a.inspected = m; showCard(a);
       const t = sim.state.transform.get(m);
       if (t) { stopFollow(a); renderer.focusScale(t.x, t.y, Math.max(renderer.camera.scale, OPENING_SCALE), hud.insets()); }
       syncOrders(a); refreshTiles(a);

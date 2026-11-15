@@ -8,7 +8,7 @@ import type { DriveState, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
-import { addItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { addItems, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
 import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
@@ -104,13 +104,16 @@ function addVehicles(state: SimState, force: ForceInput, catalog: Catalog, which
       drive: idleDrive(p.x, p.y),
       stations: def.stations.map((sn, si) => ({
         azimuth: 0, elevation: 0, azCmd: 0, elCmd: 0, laidTick: -1, task: null, taskWeapon: 0, taskFeed: 0, scanAz: 0, why: { tick: -1, keys: [] },
-        weapons: sn.weapons.map((w, wi) => ({
-          weapon: w.weapon,
+        weapons: sn.weapons.map((w, wi) => {
           // Ready rounds per feed: from the record (station weapons in order, station by station), else full.
-          feeds: w.feeds.map((f, fi) => ({ item: f.item, rounds: rec.ready?.[firstWeapon[si]! + wi]?.[fi]?.rounds ?? f.ready.count * f.ready.charge })),
-          feed: 0, switchUntilTick: 0, nextShotTick: 0, burstLeft: 0, burstIndex: 0, loadedRound: false, jammed: false, lastShotTick: -100000,
-          lowAmmoReported: w.feeds.map(() => false),
-        })),
+          const feeds = w.feeds.map((f, fi) => ({ item: f.item, rounds: rec.ready?.[firstWeapon[si]! + wi]?.[fi]?.rounds ?? f.ready.count * f.ready.charge }));
+          return {
+            weapon: w.weapon, feeds,
+            // M7.6a: a single-round gun may start with a round of its first feed in the breech.
+            feed: 0, switchUntilTick: 0, nextShotTick: 0, burstLeft: 0, burstIndex: 0, loadedRound: w.startLoaded === true && (feeds[0]?.rounds ?? 0) > 0, jammed: false, lastShotTick: -100000,
+            lowAmmoReported: w.feeds.map(() => false),
+          };
+        }),
       })),
       // Components (M7.4a): from the record, else all in full working order.
       comp: rec.components ? [...rec.components] : (def.components ?? []).map(() => 1),
@@ -287,6 +290,11 @@ function addSoldier(
   state.soldier.set(id, s);
   const c = emptyContainer();
   for (const st of rec.load) addItems(c, st.type, st.count, st.charge);
+  // His identity tag (owner request 2026-11-15; faction data): issued if his record has none.
+  const tag = catalog.medical?.down !== undefined ? catalog.factions[faction]?.identityTag : undefined;
+  if (tag && catalog.items[tag.item] && countItems(c, tag.item) === 0) addItems(c, tag.item, tag.perMan);
+  // A man dead before the battle is known dead.
+  if (!s.physiology.alive) s.checked = { tick: 0, by: id, dead: true };
   state.container.set(id, c);
   if (rec.weapon !== undefined) {
     const wd = catalog.weapons[rec.weapon];

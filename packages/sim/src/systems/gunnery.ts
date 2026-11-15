@@ -38,7 +38,8 @@ import { isAble } from "../impair";
 import { emptyContainer, transferItems } from "../items";
 import { sight } from "../los";
 import { atan2, cos, hypot2, PI, sin, sqrt, wrapAngle } from "../math";
-import { compCondition, fireTop, occupant, onRoof } from "../mount";
+import { compCondition, fireTop, occupant, onRoof, vehicleItems } from "../mount";
+import { reactiveAdd, tileFor } from "../tiles";
 import { nextFloat, nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
 import { heightAt } from "../terrain";
@@ -144,7 +145,8 @@ export function weaponOut(ctx: SimContext, v: VehicleState, def: VehicleDef, si:
   const wdef = def.stations[si]?.weapons[wi];
   if (!wdef || !def.components) return false;
   // A missile launcher is guided through the gunner's sight: wrecked sights, no missile (owner 2026-11-13).
-  if (guidedRound(ctx.catalog, wdef)) return compCondition(v, def, "sights") <= 0;
+  // A missile fired through a tank's gun (M7.6a): the gun wrecked, no missile either.
+  if (guidedRound(ctx.catalog, wdef)) return compCondition(v, def, "sights") <= 0 || (ctx.catalog.weapons[wdef.weapon]?.type === "tank-gun" && compCondition(v, def, "gun") <= 0);
   const cannon = ctx.catalog.weapons[wdef.weapon]?.type === "autocannon" || !wdef.coax;
   return compCondition(v, def, cannon ? "gun" : "coax") <= 0;
 }
@@ -284,8 +286,10 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
     heightM = 1.2;
     // The missile at an enemy vehicle beyond missileBeyondM (or beyond the guns), or nearer when armour-piercing
     // cannot get through the face it shows (owner 2026-11-13).
-    const far = d > reach || d >= (G.missileBeyondM ?? 1000);
-    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || !apCanPierce(ctx, state, def, si, me.x, me.y, best.target)) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
+    // M7.6a: the weapon's own missile range if it has one; nearer, only when the missile gets through where the
+    // armour-piercing round does not (the face's plate and the tiles it expects there).
+    const far = d > reach || (msl !== null && d >= (sn.weapons[msl.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000));
+    if (msl && d >= msl.g.minRangeM && d <= mReach && (far || (!apCanPierce(ctx, state, def, si, me.x, me.y, best.target) && missileCanPierce(ctx, state, def, si, msl.weapon, me.x, me.y, best.target))) && missileSeesTarget(ctx, state, vid, v, def, si, msl.weapon, best.target)) { nature = "atgm"; keys.push(far ? "why.nature.missileFar" : "why.nature.missileArmour"); }
     else { nature = "ap"; keys.push("why.nature.vehicle"); }
   }
   else {
@@ -532,10 +536,11 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       // Single-round feeds: a round must be loaded (by the loader if there is one).
       if (wdef.feedKind !== "belt" && !w.loadedRound) {
         if (w.burstIndex !== -1) {
-          const loader = wdef.feedKind === "single" && wdef.loaderStation !== undefined ? loaderFit(state, v, def, wdef.loaderStation) : true;
-          if (!loader && wdef.noLoaderFactor === undefined) continue; // nobody can load it
-          const secs = (wdef.roundLoadSeconds ?? 1) * (loader ? 1 : wdef.noLoaderFactor!);
-          w.burstIndex = -1; w.nextShotTick = tick + Math.max(1, secondsToTicks(secs));
+          const load = loadTicks(state, v, wdef, def);
+          if (load < 0) continue; // nobody can load it
+          // The load runs during the interval set at the last shot (the trickle, the ammunition rule): whichever
+          // ends later (review fix: the load no longer overrides them).
+          w.burstIndex = -1; w.nextShotTick = Math.max(w.nextShotTick, tick + load);
         } else if (tick >= w.nextShotTick) { w.loadedRound = true; w.burstIndex = 0; }
         continue;
       }
@@ -667,27 +672,64 @@ function missileReady(ctx: SimContext, v: VehicleState, def: VehicleDef, si: num
 }
 
 /**
- * The crew's judgement whether its armour-piercing round gets through the face the enemy vehicle shows it (hull,
- * struck level): the plate's resistance along a level path against the round's published penetration.
+ * What the crew expects it takes to get through the face an enemy vehicle shows from (x, y) (M7.6a, factored out of
+ * `apCanPierce`): the hull plate on that face struck level (resistance per mm by kind), plus the add-on tile it
+ * expects there: a reactive tile's mm times the chance of meeting one (`coverage * left / fitted`), a legacy factor
+ * tile (shaped charges) while tiles last; a kinetic round counts a reactive tile only if heavy and at or above its
+ * trigger (`penMm`, `heavy`: the round judged; left out, one that sets it off), as the hit does. No random draw.
+ * null: no plate data (assume it gets through).
  */
-function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId): boolean {
+export function faceNeed(ctx: SimContext, state: SimState, target: EntityId, x: number, y: number, kind: "kinetic" | "shaped" | "tandem", penMm = Infinity, heavy = true): number | null {
   const tv = state.vehicle.get(target), tt = state.transform.get(target);
   const rt = tv ? ctx.ballistics.vehicleRT[tv.def] : undefined;
-  if (!tv || !tt || !rt) return true;
-  let pen = 0;
+  if (!tv || !tt || !rt) return null;
+  const rel = Math.abs(wrapAngle(atan2(y - tt.y, x - tt.x) - tt.heading));
+  const face = rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1;
+  const p = rt.plates[face];
+  if (!p) return null;
+  let need = (p.thicknessMm * (kind === "kinetic" ? p.kPerMm : p.sPerMm)) / Math.max(p.cosS, ctx.catalog.ballistics.armour.losFloorCos);
+  const tdef = ctx.catalog.vehicles[tv.def];
+  const tile = tdef?.armour?.tiles ? tileFor(tdef, "hull", face === 0 ? "front" : face === 2 ? "rear" : "side") : undefined;
+  if (tile) {
+    const left = vehicleItems(state, target, tile.item);
+    if (left > 0) {
+      if (tile.factor !== undefined) { if (kind !== "kinetic") need *= tile.factor; }
+      else {
+        const r = ctx.catalog.items[tile.item]?.reactive;
+        // As the hit does (armour.ts useTile): a kinetic round sets the tile off only if heavy and at its trigger.
+        const sets = kind !== "kinetic" || (heavy && penMm >= (r?.triggerSteelMm ?? 0));
+        if (r && sets && tile.coverage !== undefined && tile.fitted > 0) need += tile.coverage * Math.min(1, left / tile.fitted) * reactiveAdd(r, kind);
+      }
+    }
+  }
+  return need;
+}
+
+/**
+ * The crew's judgement whether its armour-piercing round gets through the face the enemy vehicle shows it (hull,
+ * struck level, with the tiles it expects there): the round's published penetration against `faceNeed`.
+ */
+function apCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, x: number, y: number, target: EntityId): boolean {
+  let pen = 0, heavy = false;
   for (const w of def.stations[si]!.weapons) {
     if (guidedRound(ctx.catalog, w)) continue;
     for (const f of w.feeds) {
       const round = ctx.catalog.items[f.item]?.chargeItem;
       const am = round !== undefined ? ctx.catalog.ammo[round] : undefined;
-      if (am && am.explosive === undefined && am.penetration.steelMm > pen) pen = am.penetration.steelMm;
+      if (am && am.explosive === undefined && am.penetration.steelMm > pen) { pen = am.penetration.steelMm; heavy = am.diameterM >= 0.0125; }
     }
   }
-  const rel = Math.abs(wrapAngle(atan2(y - tt.y, x - tt.x) - tt.heading));
-  const face = rel < PI / 4 ? 0 : rel > (3 * PI) / 4 ? 2 : 1;
-  const p = rt.plates[face];
-  if (!p) return true;
-  return pen >= (p.thicknessMm * p.kPerMm) / Math.max(p.cosS, ctx.catalog.ballistics.armour.losFloorCos);
+  const need = faceNeed(ctx, state, target, x, y, "kinetic", pen, heavy);
+  return need === null || pen >= need;
+}
+
+/** The same judgement for the station's missile (M7.6a): its jet (tandem or single) against `faceNeed`. */
+function missileCanPierce(ctx: SimContext, state: SimState, def: VehicleDef, si: number, wi: number, x: number, y: number, target: EntityId): boolean {
+  const gr = guidedRound(ctx.catalog, def.stations[si]!.weapons[wi]);
+  const am = gr ? ctx.catalog.ammo[gr.ammo] : undefined;
+  if (!am) return true;
+  const need = faceNeed(ctx, state, target, x, y, am.kind === "tandem-shaped-charge" ? "tandem" : "shaped");
+  return need === null || am.penetration.steelMm >= need;
 }
 
 /**
@@ -773,6 +815,13 @@ export function launchNoticed(ctx: SimContext, state: SimState, tv: EntityId, fr
     for (const e of s!.seen) if (e.target === from && state.tick - e.lastTick <= recent) return true;
   }
   return false;
+}
+
+/** Ticks to load one round into a single-round or autoloader gun (slower without an able loader); -1: nobody can. */
+function loadTicks(state: SimState, v: VehicleState, wdef: VehicleDef["stations"][number]["weapons"][number], def: VehicleDef): number {
+  const loader = wdef.feedKind === "single" && wdef.loaderStation !== undefined ? loaderFit(state, v, def, wdef.loaderStation) : true;
+  if (!loader && wdef.noLoaderFactor === undefined) return -1;
+  return Math.max(1, secondsToTicks((wdef.roundLoadSeconds ?? 1) * (loader ? 1 : wdef.noLoaderFactor!)));
 }
 
 function loaderFit(state: SimState, v: VehicleState, def: VehicleDef, kind: string): boolean {
@@ -914,7 +963,7 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   const mslVeh = (si: number): boolean => {
     const m = isVeh ? missileReady(ctx, v, def, si) : null;
     return m !== null && named !== undefined && d >= m.g.minRangeM && d <= Math.min(m.g.maxRangeM, def.stations[si]!.weapons[m.weapon]!.engageRangeM)
-      && (d >= (G.missileBeyondM ?? 1000) || !apCanPierce(ctx, state, def, si, t.x, t.y, named));
+      && (d >= (def.stations[si]!.weapons[m.weapon]!.missileBeyondM ?? G.missileBeyondM ?? 1000) || (!apCanPierce(ctx, state, def, si, t.x, t.y, named) && missileCanPierce(ctx, state, def, si, m.weapon, t.x, t.y, named)));
   };
   const want0: Nature = order.nature === "at" ? "atgm" : order.nature ?? (isVeh ? "ap" : d > G.coaxSingleWithinM ? "he" : "mg");
   let any = false;
@@ -994,9 +1043,20 @@ export function vehicleIncomingSystem(ctx: SimContext, state: SimState, events: 
   for (const vid of [...refresh].sort((a, b) => a - b)) {
     const v = state.vehicle.get(vid);
     if (!v) continue;
-    for (const st of v.stations) {
+    const def = ctx.catalog.vehicles[v.def];
+    for (let si = 0; si < v.stations.length; si++) {
+      const st = v.stations[si]!;
       if (!st.task) continue;
-      if (tick - st.task.reasonTick > fullTicks) for (const w of st.weapons) w.nextShotTick = Math.min(w.nextShotTick, tick + TICK_HZ / 2);
+      if (tick - st.task.reasonTick > fullTicks) {
+        for (let wi = 0; wi < st.weapons.length; wi++) {
+          const w = st.weapons[wi]!;
+          // A round being loaded (review fix): the slow interval goes, the load itself does not.
+          const wdef = def?.stations[si]?.weapons[wi];
+          const loading = wdef !== undefined && wdef.feedKind !== "belt" && !w.loadedRound && w.burstIndex === -1;
+          const floor = loading ? Math.max(w.lastShotTick + 1, w.switchUntilTick) + Math.max(0, loadTicks(state, v, wdef, def!)) : 0;
+          w.nextShotTick = Math.min(w.nextShotTick, Math.max(tick + TICK_HZ / 2, floor));
+        }
+      }
       st.task.reasonTick = tick;
     }
   }

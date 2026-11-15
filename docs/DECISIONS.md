@@ -5340,6 +5340,44 @@ record (`sim/src/record.ts`: a missile's side from its vehicle or, for a team, i
 `npm run golden:update` (intended: both branches together); `golden/no-interiors` untouched. `commander.test.ts`
 now plays seed 6: with both branches, seed 1's drone-observed mortars break the defence at 560 s before an assault.
 
+## 2026-11-15 — "I don't find the drone tab": the Drone tile, launching from a riding HQ
+Owner report (deployed app, default mounted platoon battle, phone). Reproduced with Playwright on main (phone and
+desktop; default, `vehicles=0`, `side=red`): the Drone tile **was** there, second in the list under "Zug 1", in every
+case. What did not work was using it in the default battle: the drone's carrier (the Funker / the Vzvod commander)
+starts riding, `launcherOf` takes only men on foot, so a tap on the map after selecting the tile did nothing at all
+(the order came back "unable", no message beyond the radio's "unable"), and the tile said "on the ground" while he
+sat in the Puma — it read like a dead button. Also nothing marked the platoon HQ (next entry).
+Fix (realistic and simple: a small quadcopter is launched by hand from the ground, not from a moving IFV's hatch):
+the player's drone order carries `dismount: true`; if no one on foot can launch it and its carrier rides, he alone
+gets out first (the existing "dismount, then carry out the order" path, `dismountThen`) and then launches it; the
+radio says "dismounting first". The AI's drone orders have no flag and behave as before (goldens unchanged). The tile
+now reads "aboard, battery 100 % · gets out to launch" (`side.droneAboard`, grey edge) while he rides, sits directly
+under the new HQ tile, and stays while the drone is on the ground (with him riding or not) or in the air; it goes only
+when the drone is lost. Tests: `ui/test/hq-drone.test.ts`. Screenshot scene `--scene drone` now also plays the
+default mounted battle (`drone-*-mounted-*`).
+
+## 2026-11-15 — Owner request: the platoon HQ is its own unit; the whole platoon only from its tile
+Owner: "make the platoon HQ show as a unit that can mount/dismount. Don't make the whole platoon move when it is
+selected. This should only be a thing when selecting the whole platoon via the side tab." And: mark the HQ as HQ.
+The simulation has no separate HQ unit: the platoon unit's own `members` are its headquarters, its `children` the
+squads and crews. Least invasive correct solution (no new unit in the scenario, so the AI, the roster records, the
+drone's crew and the goldens stay as they are): an optional order flag `own: true` — "only the target unit's own
+men, not its sub-units or their vehicles" — for move, halt, mount, dismount, posture, fire, cease-fire, grenade, call
+for fire and rules (`OWN_ORDER_KINDS`; anything else, or a unit without men of its own or with a vehicle, is rejected
+"invalid-params"). In `sim/systems/orders.ts` it narrows the men to `members`, leaves the vehicles and missile teams
+under the unit alone, takes only these men out of the platoon's drill (the squads carry on) and skips the hand smoke
+screen; in `boarding.ts` getting in and out handles the unit alone. The AI never sets it.
+UI: a platoon now lists **Zug 1** (the whole platoon, "whole platoon" in the open list), then **HQ Zug 1** (kind
+`hqGroup`, a light "HQ" badge from `side.hq`; on the slim strip only the badge), then its Drone. The HQ tile, a tap on
+one of its men on the map, or a tap through the riders of the hull it rides in select the HQ (`overlay.selectedOwn`);
+its order bar is a squad's without the drills (assault, withdraw, occupy, clear), Mount and Dismount included; the
+app adds `own: true` to its orders; the map highlights only its men (and the hull they ride). The unit card shows the
+badge beside the callsign; the hull carrying the HQ reads "HQ aboard". Only the platoon tile (and Tab) select the
+whole platoon. Tests: HQ-only dismount/mount leave the squads aboard, HQ-only move leaves the squads still, the
+platoon tile's move moves everyone, `own` refused for a drill (`ui/test/hq-drone.test.ts`).
+Known limits: a drone operator who is flying cannot get back in until the drone has landed (he holds the controller,
+as before); the duplicate "Gruppa 1" callsign in the Russian platoon (two squad templates numbered separately) is
+unchanged.
 ## 2026-11-15 — Realistic ranks per role (owner request: "make the job distribution more realistic")
 Owner (binding): a Gefreiter has 3 to 6 months of service and would hardly see a battle, let alone be the dedicated
 medic. Least invasive option chosen: one most typical rank per template slot (no rank distributions: `MemberSlot.rank`

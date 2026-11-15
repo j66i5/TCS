@@ -12,12 +12,19 @@ describe("unitTiles", () => {
     const all0 = unitTiles(sim.state, "blue", cat);
     expect(simHash(sim)).toBe(h);
     const own = [...sim.state.unit.values()].filter((u) => u.side === "blue");
-    // (M9.4a: each platoon's quadcopter has its own tile right under the platoon's.)
-    const tiles = all0.filter((t) => t.kind !== "drone");
+    // (M9.4a: each platoon's quadcopter has its own tile right under its headquarters' tile, owner 2026-11-15,
+    // which comes right under the platoon's.)
+    const tiles = all0.filter((t) => t.kind !== "drone" && t.kind !== "hqGroup");
     expect(tiles.length).toBe(own.length);
     const drones = all0.filter((t) => t.kind === "drone");
     expect(drones.length).toBe(own.filter((u) => u.parent === null).length);
-    for (const d of drones) { expect(all0[all0.indexOf(d) - 1]!.unit).toBe(d.unit); expect(d.droneUp).toBe(false); expect(d.dronePct).toBe(100); }
+    for (const d of drones) {
+      expect(all0[all0.indexOf(d) - 1]!.kind).toBe("hqGroup");
+      expect(all0[all0.indexOf(d) - 1]!.unit).toBe(d.unit);
+      expect(all0[all0.indexOf(d) - 2]!.unit).toBe(d.unit);
+      expect(d.droneUp).toBe(false); expect(d.dronePct).toBe(100);
+    }
+    expect(all0.filter((t) => t.kind === "hqGroup").length).toBe(own.filter((u) => u.parent === null && u.members.length > 0).length);
     expect(tiles.every((t) => sim.state.unit.get(t.unit)!.side === "blue")).toBe(true);
     expect(tiles[0]!.depth).toBe(0);
     expect(tiles[0]!.kind).toBe("hq");
@@ -30,7 +37,7 @@ describe("unitTiles", () => {
     expect(veh.passengers).toBe(6);
     expect(veh.vehicleStatus).toBe("ok");
     // The platoon's tile counts every man of the platoon.
-    const all = tiles.filter((t) => t.depth === 1 && t.parent === tiles[0]!.callsign && t.kind !== "vehicle" && t.kind !== "drone").reduce((n, t) => n + t.total, 0);
+    const all = tiles.filter((t) => t.depth === 1 && t.parent === tiles[0]!.callsign && t.kind !== "vehicle").reduce((n, t) => n + t.total, 0);
     expect(tiles[0]!.total).toBeGreaterThanOrEqual(all);
   });
   it("men out of the fight count against the fit; a unit with nobody fit is lost", () => {

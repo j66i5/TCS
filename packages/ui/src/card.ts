@@ -144,6 +144,9 @@ export function activityOf(view: SimView, id: EntityId): Activity {
   // Care (M10.2-M10.3b): treating himself or a comrade, dragging one into cover, on his way to one.
   const act = view.action.get(id);
   if (act?.kind === "treat") return { key: Number(act.params["casualty"]) === id ? "selfAid" : "treating" };
+  // A man down (owner request 2026-11-15): checking him, taking his identity tag.
+  if (act?.kind === "checkDown") return { key: "checking" };
+  if (act?.kind === "takeTag") return { key: "takingTag" };
   // Into or out of a vehicle (M10.4b).
   if (act?.kind === "loadCasualty") return { key: "loading" };
   if (act?.kind === "unloadCasualty") return { key: "unloading" };
@@ -153,6 +156,8 @@ export function activityOf(view: SimView, id: EntityId): Activity {
     return { key: c?.purpose === "cover" ? "dragging" : "carrying" };
   }
   if (s.carrying === id) return { key: "walkingOut" };
+  // Crawling to cover, wounded (owner request 2026-11-15).
+  if (s.crawlCover !== undefined && (view.mover.get(id)?.waypoints.length ?? 0) > 0) return { key: "crawling" };
   if (s.intent?.kind === "care") return { key: "care" };
   const b = s.mental.behaviour;
   if (b === "panicked" || b === "routed") return { key: b };

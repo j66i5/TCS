@@ -75,7 +75,12 @@ export function reviewModel(a: App): AarModel {
     }),
     timeline: record.timeline.map((e) => ({ time: fmtClock(ticksToSeconds(e.tick)), text: timelineText(a, e), colour: e.side ? sideColour(a, e.side) : "#ffd23d" })),
     // D2: the tabs M10.8 fills (times to care, evacuation, died of wounds; breaches of the laws of war).
-    medical: [],
+    medical: st.sides.flatMap((sd) => {
+      const d = record.sides[sd.id]?.down;
+      if (!d) return [];
+      return [s.t("aar.medical.down", { side: sideName(a, sd.id), checked: d.checked, dead: d.checkedDead, dragged: d.deadDragged, tags: d.tagMen, crawled: d.crawled }),
+        s.t("aar.medical.prisoners", { side: sideName(a, sd.id), treated: d.prisonersTreated, crawled: d.surrenderCrawled })];
+    }),
     conduct: [],
   };
 }

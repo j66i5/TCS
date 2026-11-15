@@ -52,7 +52,7 @@ export type SimEvent =
   | { kind: "medical.triaged"; tick: number; casualty: EntityId; by: EntityId; cat: number; actual: number; skill: string; underFire: boolean }
   /** A one-man drag to cover (M10.3b): started (`done` false, with the distance) or ended (`done` true; `reason`
    *  when it was cut short). */
-  | { kind: "medical.dragged"; tick: number; casualty: EntityId; by: EntityId; done: boolean; distanceM: number; reason?: string }
+  | { kind: "medical.dragged"; tick: number; casualty: EntityId; by: EntityId; done: boolean; distanceM: number; reason?: string; /** He was in fact dead (his comrades did not know it yet; owner request 2026-11-15). */ deadNow?: true }
   /**
    * A carrying party (M10.4a): `phase` start (set off, with the way's length), hold (took cover under fire), resume,
    * rest, done (with `reason`: arrived, dead, gone, carriers-lost, no-way, gave-up, ordered) and the metres carried.
@@ -65,6 +65,13 @@ export type SimEvent =
    *  walks (he goes himself), arrived; returned: fit to fight again after care there, back to his squad (returned to
    *  duty). `ordered`: the player's `evacuate` order. */
   | { kind: "medical.evac"; tick: number; casualty: EntityId; point: EntityId; phase: "tasked" | "walks" | "arrived" | "returned"; by?: EntityId; bearers?: number; ordered?: boolean }
+  /** A man down whose state his side did not know was checked by a comrade (owner request 2026-11-15): `dead` what
+   *  the check found; `dragged` he had been dragged to cover before the check. */
+  | { kind: "medical.checked"; tick: number; casualty: EntityId; by: EntityId; dead: boolean; dragged: boolean }
+  /** A comrade took a dead man's identity tag (owner request 2026-11-15): `count` of `item` moved (transferItems). */
+  | { kind: "medical.tagTaken"; tick: number; casualty: EntityId; by: EntityId; side: SideId; item: DefId; count: number }
+  /** A conscious casualty who cannot walk crawls to cover (owner request 2026-11-15), a way of `distanceM`. */
+  | { kind: "medical.crawled"; tick: number; casualty: EntityId; distanceM: number }
   /** `vehicle`: fired from a vehicle's station (M7.3); the shooter is its operator (the gunner). */
   | { kind: "shot.fired"; tick: number; shooter: EntityId; x: number; y: number; z: number; dirX: number; dirY: number; weapon: DefId; ammo: DefId; vehicle?: EntityId; /** M8.3b: a mortar (high-angle, no flat line of fire) heard out to `loudM` (default: the contacts' hearing range). */ indirect?: true; loudM?: number }
   | { kind: "weapon.reloaded"; tick: number; soldier: EntityId; rounds: number }
@@ -76,6 +83,8 @@ export type SimEvent =
   /** A surrendered man sets off, hands up, to give himself up to the enemy soldier `to` (null: toward where he
    *  knows the enemy is). `side` is his own. */
   | { kind: "surrender.walk"; tick: number; soldier: EntityId; side: SideId; to: EntityId | null }
+  /** A surrendered man under fire crawls out of the line of fire to cover (owner request 2026-11-15). */
+  | { kind: "surrender.crawl"; tick: number; soldier: EntityId; side: SideId; distanceM: number }
   /** A surrendered man has been taken prisoner by the enemy soldier `by`. `side` is the prisoner's. */
   | { kind: "captured"; tick: number; soldier: EntityId; side: SideId; by: EntityId }
   | { kind: "posture.changed"; tick: number; soldier: EntityId; posture: "standing" | "crouching" | "prone" }

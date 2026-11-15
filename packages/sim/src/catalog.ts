@@ -464,7 +464,7 @@ export interface BehaviourDef {
    * house smaller than largeRoomM2 that is not breached, nor with a wall within wallBehindM behind him; a
    * comrade within handOverM brings him a round when he has none.
    */
-  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number };
+  antitank: { atRuleDefault: "vehicles" | "vehiclesAndPositions" | "hold"; stepSeconds: number; seenWithinSeconds: number; rangeErrorFraction: number; skillMrad: number; largeRoomM2: number; wallBehindM: number; handOverM: number; /** M7.6d: own anti-personnel (thermobaric) shots at positions out to this (m). */ thermobaricRangeM?: number };
   /**
    * Crews of damaged vehicles (M7.4a, owner Q14/Q15): men get out bailOnFireSeconds after a fire starts; a fire
    * burns the vehicle out (destroyed) after burnSeconds, the ammunition may cook off every cookOffCheckSeconds;

@@ -158,6 +158,45 @@
       "note": "VOG-25 round for the GP-25/GP-30 under-barrel launcher: about 250 g, 48 g filling, about 76 m/s, arms after 10-40 m. The search tool declined these look-ups in the research session; values are from general published references as remembered and must be verified against a public source. Game abstraction."
     },
     {
+      "id": "ru-vog30",
+      "nameKey": "ammo.ru-vog30",
+      "calibre": "30x29",
+      "kind": "fragmentation",
+      "projectileMassKg": 0.275,
+      "cartridgeMassKg": 0.35,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.4
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 0.036,
+        "fragmentCount": 400,
+        "fragmentAmmo": "ru-vog25-fragment",
+        "fragmentVelocityMps": [
+          1000,
+          1400
+        ],
+        "armingSeconds": 0.15
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/AGS-30",
+        "https://esp.fsvts.gov.ru/catalog/1012.en.html",
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk",
+        "https://arcus.bg/wp-content/uploads/2020/04/Arcus-VOG-17-Technical-Specs.pdf"
+      ],
+      "confidence": "low",
+      "note": "VOG-30 30 mm grenade of the AGS-30 (M7.6d): round 0.35 kg (projectile about 0.275 kg), 185 m/s, sight range 1700 m (Wikipedia, FSVTS, Army Recognition, Arcus for the VOG-17M: search extracts, medium); kill area 112 m2 against the VOG-17M's 71 m2 (about 6-7 m lethal radius; low-medium). Game values (low): 36 g filling (the VOG-17M has 32-34 g; the VOG-30 is said to be stronger), 400 fragments of the VOG-25's kind (lab-fitted to the lethal radius), drag (fitted so the greatest range is about 1700 m), arming after 0.15 s. No delivery block: it is fired only from the AGS."
+    },
+    {
       "id": "ru-vog25-fragment",
       "nameKey": "ammo.ru-vog25-fragment",
       "calibre": "fragment",
@@ -501,6 +540,58 @@
       ],
       "confidence": "medium",
       "note": "PG-7VL (search extracts, pages not opened): 93 mm, round 2.59-2.6 kg (grenade 2.2 kg, booster 0.39 kg), muzzle 112-115 m/s, the motor ignites about 11 m out and brings it to about 300 m/s, 0.73 kg OKFOL filling; penetration 500 mm RHA (manufacturer; other sources up to 600 mm): 500 x 1.25 = 625 mm mild-steel equivalent; effective range 300 m against a vehicle. Game values (low): motor 0.1 s after launch for 0.5 s at 370 m/s2, drag, self-destruct 4.5 s (the 920 m figure belongs to the OG-7V), dispersion 1.5 mrad, 3 s to aim, danger zone 30 m behind, 120 fragments of its body, 20 fragments thrown inside a hull it penetrates."
+    },
+    {
+      "id": "ru-rpo-a",
+      "nameKey": "ammo.ru-rpo-a",
+      "calibre": "93mm-rpo",
+      "kind": "thermobaric",
+      "projectileMassKg": 3.0,
+      "cartridgeMassKg": 11,
+      "diameterM": 0.093,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 0,
+        "atVelocityMps": 100
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 2.1,
+        "fragmentCount": 40,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          600,
+          1000
+        ],
+        "armingSeconds": 0.1,
+        "selfDestructSeconds": 8,
+        "thermobaric": {
+          "enclosedFactor": 1.6
+        }
+      },
+      "delivery": {
+        "method": "direct",
+        "velocityMps": 125,
+        "maxRangeM": 600,
+        "dispersionMrad": 2.5,
+        "aimSeconds": 3,
+        "backblastM": 15,
+        "disposable": true,
+        "role": "antiPersonnel"
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/RPO-A_Shmel",
+        "https://modernfirearms.net/?p=5431",
+        "https://euro-sd.com/2024/06/articles/39038/thermobaric-weapons-on-the-battlefield/"
+      ],
+      "confidence": "low",
+      "note": "RPO-A Shmel thermobaric rocket (M7.6d): the whole disposable tube 11 kg (Wikipedia/Jane's; Modern Firearms 12 kg), 2.1 kg thermobaric filling, minimum range 20 m, effective 200 m, sight 600 m (search extracts, medium); much stronger in enclosed spaces than in the open (Euro-SD, medium; the TNT-equivalent claims are contested and not used). Game values (low): the round 3 kg, 125 m/s, drag, dispersion 2.5 mrad, 3 s to aim, 15 m danger zone behind, 40 case fragments, self-destruct after 8 s; in the open the plain blast of its 2.1 kg (severe within about 3.8 m); bursting in a room or on its outer wall it fills that room: every man in it takes the blast at 1.6 x the radii, no wall shielding him (an abstract effect, SPEC 3). No launcher item: the round is the tube (disposable); fired only at men and positions, never at a vehicle (role antiPersonnel)."
     },
     {
       "id": "ru-9m113m",

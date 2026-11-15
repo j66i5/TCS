@@ -163,5 +163,15 @@
   "role.ru.assistant-mg-gunner": "Assistant machine gunner",
   "item.ru-svd-mag": "SVD magazine (10)",
   "weapon.ru-svd": "SVD",
-  "role.ru.marksman": "Marksman (SVD)"
+  "role.ru.marksman": "Marksman (SVD)",
+  "ammo.ru-vog30": "VOG-30",
+  "item.ru-ags-box": "AGS box (29)",
+  "item.ru-ags30": "AGS-30",
+  "weapon.ru-ags30": "AGS-30",
+  "role.ru.ags-commander": "AGS team commander",
+  "role.ru.ags-gunner": "AGS gunner",
+  "ammo.ru-rpo-a": "RPO-A Shmel",
+  "role.ru.shturmovik-rpo": "Assault trooper (RPO-A)",
+  "role.ru.assault-commander": "Assault group commander",
+  "role.ru.uav-operator": "Radio and drone operator"
 }

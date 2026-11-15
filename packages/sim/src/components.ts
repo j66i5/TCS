@@ -466,13 +466,21 @@ export interface Unit {
     state: "packed" | "setting" | "ready"; readyTick: number; stillTick: number;
     heading: number; lastLaunchTick: number; shots: number;
     relayTick?: number;
-    queued?: { x: number; y: number; target: EntityId };
+    /** (M7.6d, agl: `bursts`: bursts of the ordered series still to fire.) */
+    queued?: { x: number; y: number; target: EntityId; bursts?: number };
     guide: TeamGuide | null;
-    /** M7.6d: an automatic grenade launcher team (systems/agl-team.ts; `guide` stays null): its burst series now
-     *  (`burst`: rounds left in this burst, `nextTick`: the next round, `target`/`x`/`y`: the aim). Absent kind: a
-     *  missile team. */
+    /** M7.6d: an automatic grenade launcher team (systems/agl-team.ts; `guide` stays null, `lastLaunchTick` and
+     *  `shots` count its bursts). Absent kind: a missile team. */
     kind?: "agl";
-    burst?: { left: number; nextTick: number; index: number; target: EntityId; x: number; y: number; ordered: boolean; series: number };
+    /** M7.6d (agl): rounds left in the box on the gun (absent: none put on yet; the first goes on while it sets up). */
+    box?: number;
+    /** M7.6d (agl): the burst it fires now: rounds left in it, the tick of the next round, the round's index in the
+     *  burst, the aim (target: an enemy man's id or -1, the ground point x, y), the range error of this series (a
+     *  fraction). */
+    burst?: { left: number; nextTick: number; index: number; target: EntityId; x: number; y: number; rangeError: number };
+    /** M7.6d (agl): where its last burst was aimed and that series' range error (the crew watches the fall: a burst at the
+     *  same place soon after halves the error). */
+    lastAim?: { x: number; y: number; rangeError: number };
   };
   /** Standing rule for anti-tank weapons (M7.4a); absent = the default from the data. */
   atRule?: "vehicles" | "vehiclesAndPositions" | "hold";

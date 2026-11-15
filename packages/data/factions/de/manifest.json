@@ -20,5 +20,6 @@
   "platoonTemplates": {
     "tracked": "pzgren-zug",
     "wheeled": "jaeger-zug"
-  }
+  },
+  "aglTeamTemplate": "gmw-trupp"
 }

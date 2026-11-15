@@ -8,7 +8,8 @@ import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
 import { rearRunGate, rearRunOrder } from "./rearrun";
-import { startSetup } from "./mortars";
+import { aglOf, crewServedKind, startSetup } from "./mortars";
+import { aglOrderFire } from "./agl-team";
 import { teamOrderShot } from "./missile-team";
 import { clearDrills, drillGroups, dropFromDrill, releaseFromParentDrills } from "./drills";
 import { clearable, startClear } from "./clear";
@@ -546,7 +547,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
         const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
         // M9.3b: missile teams at or under the unit fire their post (setting it up first if packed).
-        const teams = (own ? [] : crewServedTeamsUnder(state, order.target)).filter((u) => state.unit.get(u)?.missileTeam !== undefined);
+        const teams = (own ? [] : crewServedTeamsUnder(state, order.target)).filter((u) => crewServedKind(state, u) === "missile");
         if (teams.length > 0) {
           const stop = (team: EntityId): void => {
             const tu = state.unit.get(team)!;
@@ -558,12 +559,30 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         }
         return orderLauncherShot(ctx, state, events, soldiers, order.x, order.y, named) ? true : "unable";
       }
+      // M7.6d: automatic grenade launcher teams at or under the unit fire their gun at the point (setting it up
+      // first if packed); their gunners are busy with it, the other men fire as below.
+      const agl = own ? [] : crewServedTeamsUnder(state, order.target).filter((u) => crewServedKind(state, u) === "agl");
+      let aglAny = false;
+      const aglGunners = new Set<EntityId>();
+      if (agl.length > 0) {
+        const stop = (team: EntityId): void => {
+          const tu = state.unit.get(team)!;
+          for (const s of tu.members) { const m = state.mover.get(s); if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; } }
+          stopUnit(state, team);
+        };
+        for (const team of aglOrderFire(ctx, state, agl, order.x, order.y, stop, (team) => startSetup(ctx, state, events, team))) {
+          aglAny = true;
+          const g = aglOf(ctx, state, team);
+          if (g) aglGunners.add(g.carrier);
+        }
+      }
       // Stop where they are and open fire; each man keeps his posture (order a posture first if wanted).
       stopUnit(state, order.target);
       let any = false;
       for (const s of soldiers) {
         const m = state.mover.get(s);
         if (m) { m.waypoints = []; m.speedMps = 0; m.formation = null; m.endPosture = null; m.endHeading = null; }
+        if (aglGunners.has(s)) continue; // (M7.6d: he works the gun)
         // At a contact: where this man believes the enemy to be, else the point given with the order (what
         // comrades know reaches him only through contact sharing).
         let x = order.x, y = order.y, known: Contact | undefined;
@@ -586,7 +605,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
         }
       }
       const u = state.unit.has(order.target) ? order.target : state.identity.get(order.target)?.unit;
-      if (!any) return vehicleRes ?? "unable"; // nobody there has a weapon he can use (its vehicles may)
+      if (!any && !aglAny) return vehicleRes ?? "unable"; // nobody there has a weapon he can use (its vehicles may)
       if (u !== undefined) { const top = topUnitOf(state, u); top.firing = true; top.lineBlockedReported = false; }
       break;
     }

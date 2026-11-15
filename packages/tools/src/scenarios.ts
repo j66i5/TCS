@@ -4,6 +4,7 @@ import { allMembers, buildForce, buildScenario, demoBattle, freeSpot, vehicleBat
 import { commanderController, shootoutController, vehicleWanderController, wanderController } from "@tcs/ai";
 import { healthyPhysiology, hypot2, PI, type BattleInput, type Controller, type Order, type UnitInput } from "@tcs/sim";
 import { readDataFiles } from "./data-files";
+import { aglSetup } from "./labs/agl";
 
 export function loadData(includeFixtures = false): DataSet {
   const files = readDataFiles(includeFixtures ? ["core", "factions", "fixtures"] : ["core", "factions"]);
@@ -223,6 +224,27 @@ export const SCENARIOS: Record<string, NamedScenario> = {
     takesCarriers: true,
     build: (data, seed, seconds, o) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "blue", timeLimitSeconds: seconds, vehicles: true, missileTeams: true, carriers: o?.carriers ?? ["wheeled", "tracked"] }),
     controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "assault-group": {
+    description: "M7.6d: the Russian assault group attacks on foot (village): two shturmovye gruppy (13 men each: command, two assault teams with RPG-7V and RPO-A, a fire team with PKP and SVD, a reserve with spare RPO-A) and an AGS-30 team against the German Panzergrenadierzug on foot defending (no vehicles, no missile teams).",
+    build: (data, seed, seconds) => buildScenario(data, { kind: "platoon-attack", seed, mapKind: "village", factions: ["de", "ru"], attacker: "red", timeLimitSeconds: seconds, assaultGroup: "red", aglTeams: "attacker" }),
+    controllers: (input) => [commanderController("blue", input), commanderController("red", input)],
+  },
+  "bench-agl": {
+    description: "M7.6d: an AGS-30 team (west) and a German GMW team on its tripod (east) on a flat, open 1400 x 1200 m field, each 800 m from six enemy men standing in the open, 300 m apart north and south (everyone else holds fire); the teams set up and fire on their own.",
+    build: (data, seed, seconds) => {
+      const input = aglSetup(data, "ru", 800, seed);
+      input.rules.timeLimitSeconds = seconds;
+      const red = input.forces[1]!, blue = input.forces[0]!;
+      const crew = new Set(red.units.flatMap((u) => [u, ...u.subunits]).filter((u) => u.vehicleId !== undefined || u.key.startsWith("ru-agl")).flatMap((u) => u.members.map((m) => m.personId)));
+      let k = 0;
+      for (const pl of red.placements) if (!crew.has(pl.personId) && k < 6) { pl.x = 400; pl.y = 300 + (k - 2.5) * 3; pl.heading = 0; k++; }
+      const team = buildForce(data, { faction: "de", template: data.factions["de"]!.manifest.aglTeamTemplate!, seed: seed * 7 + 2, keyPrefix: "de-agl", number: 1 });
+      blue.units.push(team);
+      allMembers(team).forEach((m, i) => blue.placements.push({ personId: m.personId, x: 1200, y: 300 + (i === 0 ? 0 : i % 2 === 1 ? 3 : -3) * Math.ceil(i / 2), heading: PI }));
+      return input;
+    },
+    controllers: () => [holdFire("blue"), holdFire("red")],
   },
   "platoon-vehicles-tanks": {
     description: "M7.6b: platoon-vehicles (village; Germany attacks mounted in Pumas, the BMP-2s and a Metis-M team defend) with two Leopard 2A7V (Panzer-Halbzug) on the attacker's side: they start in dead ground behind the Pumas, take hull-down posts in overwatch and bound with the attack.",

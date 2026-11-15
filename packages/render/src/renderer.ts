@@ -273,10 +273,12 @@ export class BattleRenderer {
   /** Weapon type per weapon id, and which ids are anti-tank launchers (carried on the back). */
   private weaponType: Record<string, string> = {};
   private launchers = new Set<string>();
+  /** M7.6d: items that are an automatic grenade launcher's post. */
+  private aglPosts = new Set<string>();
   /** Carry methods by id (their shape picks the carried man's frame), and each party member's role this frame. */
   private carryMethods: Record<string, { carriers: number; upright: boolean; casualtyWalks?: boolean }> = {};
   private carryRoles = new Map<EntityId, CarryRole>();
-  private carriesLauncher = new Map<EntityId, { tick: number; yes: boolean }>();
+  private carriesLauncher = new Map<EntityId, { tick: number; yes: boolean; agl?: boolean }>();
   private roofMen = new Float64Array(64);
   private map: MapDef | null = null;
   private insets: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -438,6 +440,10 @@ export class BattleRenderer {
     for (const [k, it] of Object.entries(catalog.items)) if (it.drone) this.droneFootprint[k] = it.drone.footprintM;
     this.weaponType = Object.fromEntries(Object.entries(catalog.weapons).map(([id, w]) => [id, w.type]));
     this.launchers = new Set(Object.entries(catalog.weapons).filter(([, w]) => w.type === "launcher").map(([id]) => id));
+    // M7.6d: a disposable round that is its own tube (a thermobaric launcher) is carried on the back too; a man
+    // carrying an automatic grenade launcher's post is drawn with the heavy weapon.
+    for (const [id, a] of Object.entries(catalog.ammo)) if (a.delivery?.method === "direct" && a.delivery.launcher === undefined && a.delivery.disposable === true) this.launchers.add(id);
+    this.aglPosts = new Set(Object.entries(catalog.items).filter(([, it]) => it.crewServed?.kind === "agl").map(([id]) => id));
     this.carryMethods = catalog.medical?.carry ?? {};
   }
 
@@ -1626,12 +1632,14 @@ export class BattleRenderer {
     // A launcher on his back (refreshed every 2 s of game time).
     let lc = this.carriesLauncher.get(id);
     if (!lc || state.tick - lc.tick >= 120 || state.tick < lc.tick) {
-      let yes = false;
+      let yes = false, agl = false;
       if (this.launchers.size > 0) for (const st of state.container.get(id)?.stacks ?? []) if (st.count > 0 && this.launchers.has(st.type)) { yes = true; break; }
-      lc = { tick: state.tick, yes };
+      if (this.aglPosts.size > 0) for (const st of state.container.get(id)?.stacks ?? []) if (st.count > 0 && this.aglPosts.has(st.type)) { agl = true; break; }
+      lc = agl ? { tick: state.tick, yes, agl } : { tick: state.tick, yes };
       this.carriesLauncher.set(id, lc);
     }
     k.launcher = lc.yes;
+    if (lc.agl === true) k.weapon = "mg";
     k.facing = facingOf(heading);
     const cell = this.atlas.get(this.atlas.slot(faction, lookOf(this.appearance, faction)), k);
     let fig = this.figures[this.nSprites], out = this.outlines[this.nSprites];

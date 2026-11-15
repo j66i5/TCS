@@ -44,6 +44,8 @@ import { spared } from "../protection";
 import { noteFireAt, noteShot } from "../conduct";
 
 export type AtRule = "vehicles" | "vehiclesAndPositions" | "hold";
+/** M7.6d: an anti-personnel round's line may end on a wall this close before the man aimed at (his room's wall). */
+const AP_WALL_M = 3;
 
 /** The anti-tank rule a unit works under: its own, else the nearest unit above it that has one, else the default. */
 export function atRuleOf(ctx: SimContext, state: SimState, unitId: EntityId): AtRule {
@@ -56,17 +58,26 @@ export function atRuleOf(ctx: SimContext, state: SimState, unitId: EntityId): At
   return ctx.catalog.behaviour.antitank.atRuleDefault;
 }
 
-/** The anti-tank round he can fire now (with its launcher in his load), or null; `launcherOnly`: he has a launcher but no round. */
-export function launcherRound(ctx: SimContext, state: SimState, id: EntityId): { ammo: string; launcher: string } | null {
+/**
+ * The shoulder-fired round he can fire now (with its launcher in his load, or a disposable round that is its own
+ * tube: `launcher` null, M7.6d), or null. `at` (M7.6d) is what it is for: "vehicle" (default) never gives an
+ * anti-personnel round; "position" prefers one, else any; "antiPersonnel" only one.
+ */
+export function launcherRound(ctx: SimContext, state: SimState, id: EntityId, at: "vehicle" | "position" | "antiPersonnel" = "vehicle"): { ammo: string; launcher: string | null } | null {
   const c = state.container.get(id);
   if (!c) return null;
+  let other: { ammo: string; launcher: string | null } | null = null;
   for (const st of c.stacks) {
     if (st.count <= 0) continue;
     const d = ctx.catalog.ammo[st.type]?.delivery;
-    if (d?.method !== "direct" || d.launcher === undefined) continue;
-    if (countItems(c, d.launcher) > 0) return { ammo: st.type, launcher: d.launcher };
+    if (d?.method !== "direct") continue;
+    if (d.launcher === undefined ? d.disposable !== true : countItems(c, d.launcher) <= 0) continue;
+    const ap = d.role === "antiPersonnel", r = { ammo: st.type, launcher: d.launcher ?? null };
+    if (at === "vehicle") { if (!ap) return r; continue; }
+    if (ap) return r;
+    if (at === "position" && other === null) other = r;
   }
-  return null;
+  return other;
 }
 
 /** A launcher in his load whose rounds he has run out of (for the hand-over): the round type it wants. */
@@ -185,34 +196,43 @@ export function launcherDecision(ctx: SimContext, state: SimState, events: Event
   const AT = ctx.catalog.behaviour.antitank;
   const rule = atRuleOf(ctx, state, unitId);
   if (rule === "hold") return false;
-  const rd = launcherRound(ctx, state, id);
-  if (!rd) { askForRound(ctx, state, events, id, unitId); return false; }
-  const am = ctx.catalog.ammo[rd.ammo]!;
-  const range = am.delivery?.maxRangeM ?? 300;
+  const rdV = launcherRound(ctx, state, id);
+  // M7.6d: an anti-personnel (thermobaric) round is fired on its own at positions out to `thermobaricRangeM`,
+  // whatever the anti-tank rule says (but not under "hold"), and never at a vehicle.
+  const rdP = launcherRound(ctx, state, id, "antiPersonnel");
+  if (!rdV && !rdP) { askForRound(ctx, state, events, id, unitId); return false; }
+  const range = rdV ? ctx.catalog.ammo[rdV.ammo]!.delivery?.maxRangeM ?? 300 : 0;
+  const rangeP = rdP ? Math.min(ctx.catalog.ammo[rdP.ammo]!.delivery?.maxRangeM ?? 300, AT.thermobaricRangeM ?? 0) : 0;
   const me = state.transform.req(id);
   const seen = secondsToTicks(AT.seenWithinSeconds);
-  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity;
+  let best: { target: EntityId; x: number; y: number; z?: number } | null = null, bestScore = Infinity, bestAmmo = "";
   for (const c of s.contacts) {
     if (c.kind !== "seen" || state.tick - c.tick > seen || spared(c) || c.wreck) continue; // (M10.7a: not a recognised ambulance or medic)
     const d = hypot2(c.x - me.x, c.y - me.y);
-    if (d > range || d < 15) continue;
+    if (d > Math.max(range, rangeP) || d < 15) continue;
     const isV = c.cls === "vehicle";
     if (isV) { const v = state.vehicle.get(c.target); if (!v || v.status === "destroyed" || v.status === "abandoned") continue; }
     else { const es = state.soldier.get(c.target); if (!es || es.casualty !== "none") continue; }
-    if (!atTarget(ctx, state, rule, c.target, isV)) continue;
+    let ammo: string;
+    if (rdV && d <= range && atTarget(ctx, state, rule, c.target, isV)) ammo = rdV.ammo;
+    else if (rdP && !isV && d <= rangeP && atTarget(ctx, state, "vehiclesAndPositions", c.target, false)) ammo = rdP.ammo;
+    else continue;
     const score = d * (isV ? 0.5 : 1);
-    if (score < bestScore) { bestScore = score; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
+    if (score < bestScore) { bestScore = score; bestAmmo = ammo; best = { target: c.target, x: c.x, y: c.y, ...(c.z !== undefined ? { z: c.z } : {}) }; }
   }
-  if (!best) return repositionForVehicle(ctx, state, id, s, range);
+  if (!best) return rdV ? repositionForVehicle(ctx, state, id, s, range) : false;
+  const am = ctx.catalog.ammo[bestAmmo]!;
   const az = atan2(best.y - me.y, best.x - me.x);
-  if (backblastBlocked(ctx, state, id, rd.ammo, az) !== null) return false;
+  if (backblastBlocked(ctx, state, id, bestAmmo, az) !== null) return false;
   // A clear line from his shoulder to the aim point (the target's own hull ignored).
   const z0 = standZ(ctx.map, me) + ctx.catalog.body.postures[s.posture].muzzleHeightM;
   const z1 = heightAt(ctx.map, best.x, best.y) + aimHeight(ctx, state, best.target, best); // ground: ok (aimHeight carries a man's floor)
   const r = sight(ctx, me.x, me.y, z0, best.x, best.y, z1, -1, best.target);
-  // (No clear line from here: a spot that has one, package C.)
-  if (r.blockedBy !== null) return repositionForVehicle(ctx, state, id, s, range);
-  startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: rd.ammo, x: best.x, y: best.y, target: best.target });
+  // (No clear line from here: a spot that has one, package C. M7.6d: an anti-personnel round at a man in a house may
+  // strike the wall of his room: it fills the room behind, explosions.ts.)
+  const ap = am.delivery?.role === "antiPersonnel";
+  if (r.blockedBy !== null && !(ap && (1 - r.blockedAt) * hypot2(best.x - me.x, best.y - me.y) <= AP_WALL_M)) return ap ? false : repositionForVehicle(ctx, state, id, s, range);
+  startAction(state, events, id, "fireLauncher", secondsToTicks(am.delivery?.aimSeconds ?? 3), { ammo: bestAmmo, x: best.x, y: best.y, target: best.target });
   s.intent = { kind: "engage", tick: state.tick, target: best.target };
   return true;
 }
@@ -321,7 +341,8 @@ export function orderLauncherShot(ctx: SimContext, state: SimState, events: Even
   for (const m of men) {
     const s = state.soldier.get(m);
     if (!isAble(s) || !s!.impair.canUseArms || state.action.has(m) || s!.evade !== null) continue;
-    const rd = launcherRound(ctx, state, m);
+    // (M7.6d: at a vehicle never an anti-personnel round; at a point or a man, one if he has it.)
+    const rd = launcherRound(ctx, state, m, contact !== undefined && state.vehicle.has(contact) ? "vehicle" : "position");
     if (!rd) continue;
     let tx = x, ty = y;
     if (contact !== undefined) { const c = s!.contacts.find((k) => k.target === contact); if (c) { tx = c.x; ty = c.y; } }
@@ -346,7 +367,8 @@ registerActionHandler("fireLauncher", {
     if ((state.mover.get(actor)?.waypoints.length ?? 0) > 0) return "moved";
     const c = state.container.get(actor), ammo = String(a.params["ammo"]);
     const d = ctx.catalog.ammo[ammo]?.delivery;
-    if (!c || !d?.launcher || countItems(c, ammo) === 0 || countItems(c, d.launcher) === 0) return "no-round";
+    // (M7.6d: a disposable round that is its own tube needs no launcher item.)
+    if (!c || !d || countItems(c, ammo) === 0 || (d.launcher === undefined ? d.disposable !== true : countItems(c, d.launcher) === 0)) return "no-round";
     // Turn toward the target while aiming.
     const t = state.transform.req(actor);
     t.heading = atan2(Number(a.params["y"]) - t.y, Number(a.params["x"]) - t.x);

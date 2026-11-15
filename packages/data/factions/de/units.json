@@ -1352,6 +1352,146 @@
       "note": "M8.3a: one 120 mm tube and its crew of four (leader with the radio and the smoke rounds, gunner with the tube, two loaders with six HE rounds each): 12 HE + 4 smoke at the tube. Crew and rounds at the position are game values (low); the Bundeswehr mortar platoon's organisation was not found in search extracts. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most)."
     },
     {
+      "id": "gmw-trupp",
+      "echelon": "team",
+      "callsign": "GraMaWa {n}",
+      "leaderIndex": 0,
+      "members": [
+        {
+          "role": "truppfuehrer",
+          "rank": "unteroffizier",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-radio",
+              "count": 1
+            },
+            {
+              "item": "de-40x53-belt",
+              "count": 1,
+              "charge": 32
+            }
+          ]
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "hauptgefreiter",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-gmw",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "role": "ladeschuetze",
+          "rank": "obergefreiter",
+          "weapon": "de-g36",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 4,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            },
+            {
+              "item": "de-water",
+              "count": 1
+            },
+            {
+              "item": "de-rations",
+              "count": 1
+            },
+            {
+              "item": "de-ifak",
+              "count": 1
+            },
+            {
+              "item": "de-webbing",
+              "count": 1
+            },
+            {
+              "item": "de-40x53-belt",
+              "count": 2,
+              "charge": 32
+            }
+          ]
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/granatmaschinenwaffe-40-mm"
+      ],
+      "confidence": "low",
+      "note": "M7.6d: a GMW team on foot of three (Truppfuehrer, Richtschuetze, Ladeschuetze: Bundeswehr GMW page, medium) with the gun on its tripod and three boxes of 32. Its place in the Jaegerkompanie is not sourced (low): data and lab only, in no generated battle."
+    },
+    {
       "id": "moerser-gruppe",
       "echelon": "section",
       "callsign": "Mörsergruppe {n}",

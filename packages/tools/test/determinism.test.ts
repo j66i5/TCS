@@ -225,4 +225,21 @@ describe("determinism", () => {
       expect(continueBattle(loaded, { ...input, orders: full.orders }).finalStateHash).toBe(full.finalStateHash);
     }
   }, 120_000);
+  it("M7.6d: the assault group's battle (AGS team, RPO-A, SVD) runs the same twice and continues identically from a save at 30 s", () => {
+    const ag = getScenario("assault-group");
+    const input = ag.build(data, 1, 60);
+    const a = runBattle(input, { controllers: ag.controllers!(input) });
+    const b = runBattle({ ...input, orders: a.orders });
+    expect(b.finalStateHash).toBe(a.finalStateHash);
+    const sim = createSim({ ...input, orders: [] });
+    const stream = [...a.orders].sort((x, y) => x.tick - y.tick);
+    let next = 0;
+    while (sim.state.tick < secondsToTicks(30)) {
+      while (next < stream.length && stream[next]!.tick <= sim.state.tick) submitOrder(sim, stream[next++]!);
+      step(sim);
+    }
+    const loaded = loadSim({ ...input, orders: a.orders }, JSON.parse(JSON.stringify(saveSim(sim))));
+    expect(simHash(loaded)).toBe(simHash(sim));
+    expect(continueBattle(loaded, { ...input, orders: a.orders }).finalStateHash).toBe(a.finalStateHash);
+  }, 120_000);
 });

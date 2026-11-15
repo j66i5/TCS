@@ -448,6 +448,8 @@ export const BehaviourFile = withProv({
   antitank: z.object({
     atRuleDefault: z.enum(["vehicles", "vehiclesAndPositions", "hold"]), stepSeconds: Num(0.1, 10), seenWithinSeconds: Num(0, 60),
     rangeErrorFraction: Num(0, 1), skillMrad: Num(0, 50), largeRoomM2: Num(0, 10000), wallBehindM: Num(0, 20), handOverM: Num(0, 200),
+    /** M7.6d: how far a man fires an anti-personnel (thermobaric) round on his own at a position (m). */
+    thermobaricRangeM: Num(0, 2000).optional(),
   }).strict(),
   /** Individual soldier AI (owner 2026-11-13, packages A-D). See BehaviourDef.soldier. */
   soldier: withProv({

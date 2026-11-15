@@ -54,6 +54,23 @@ export function indoorAt(ctx: SimContext, x: number, y: number): number {
   return ctx.map.buildings[ri]?.interior ? ri : -1;
 }
 
+/**
+ * M7.6d: the room a point `rel` m above the ground is in: building index, floor and room index, or null outdoors (or
+ * in a building without rooms). With `wallM`, a point on an outer wall (outdoors, within that of a building with an
+ * interior: a round striking it) counts as in the room just inside (probes east, west, north, south in that order).
+ */
+export function roomOfPoint(ctx: SimContext, x: number, y: number, rel: number, wallM = 0): { bi: number; floor: number; room: number } | null {
+  const probe = (px: number, py: number) => {
+    const bi = indoorAt(ctx, px, py);
+    if (bi < 0) return null;
+    const b = ctx.map.buildings[bi]!, floor = floorAtZ(b, rel), room = roomAt(b, floor, px, py);
+    return room < 0 ? null : { bi, floor, room };
+  };
+  const r = probe(x, y);
+  if (r || wallM <= 0) return r;
+  return probe(x + wallM, y) ?? probe(x - wallM, y) ?? probe(x, y + wallM) ?? probe(x, y - wallM);
+}
+
 /** Has the map any building with an interior? (Set lazily on the context: never read `ctx.hasInteriors` directly.) */
 export function mapHasInteriors(ctx: SimContext): boolean {
   return ctx.hasInteriors ??= anyInterior(ctx);

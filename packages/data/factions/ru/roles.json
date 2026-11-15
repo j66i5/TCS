@@ -208,6 +208,53 @@
       ],
       "confidence": "low",
       "note": "Strelok-snaiper, the squad's designated marksman with the SVD (M7.6d): battleorder says BTR squads typically have one (search extract, medium); a forum claim that the SVDs moved to a brigade marksman company is disputed (low)."
+    },
+    {
+      "id": "ags-commander",
+      "nameKey": "role.ru.ags-commander",
+      "sources": [
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk"
+      ],
+      "confidence": "low",
+      "note": "Komandir rascheta AGS (M7.6d): leads the two-man AGS-30 team and carries a box (the real crew is gunner and ammunition carrier, Army Recognition, medium; the split of loads is a game value, low)."
+    },
+    {
+      "id": "ags-gunner",
+      "nameKey": "role.ru.ags-gunner",
+      "sources": [
+        "https://www.armyrecognition.com/military-products/army/weapons/grenade-launchers/ags-30-russia-uk"
+      ],
+      "confidence": "low",
+      "note": "Navodchik AGS (M7.6d): carries and works the AGS-30 (game role, low)."
+    },
+    {
+      "id": "shturmovik-rpo",
+      "nameKey": "role.ru.shturmovik-rpo",
+      "sources": [
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/",
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf"
+      ],
+      "confidence": "low",
+      "note": "Assault-team man with the RPO-A (M7.6d): the reported 2023 manual gives the company a flamethrower element of 12 RPO-A (euromaidanpress, medium-low); one per assault team is a game value (low)."
+    },
+    {
+      "id": "assault-commander",
+      "nameKey": "role.ru.assault-commander",
+      "sources": [
+        "https://pulaski.pl/wp-content/uploads/2023/06/Pulaski-Report-Russian-Assault-Tactics-in-Ukraine.pdf",
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/"
+      ],
+      "confidence": "low",
+      "note": "Commander of an assault group (shturmovaya gruppa, M7.6d; game role, low)."
+    },
+    {
+      "id": "uav-operator",
+      "nameKey": "role.ru.uav-operator",
+      "sources": [
+        "https://euromaidanpress.com/2023/03/14/russia-revamps-assault-tactics-in-eastern-ukraine/"
+      ],
+      "confidence": "low",
+      "note": "Radio and drone operator of an assault group's command (M7.6d; the reported assault company has a UAV team: euromaidanpress, medium-low; one man with the group's quadcopter is a game value, low)."
     }
   ]
 }

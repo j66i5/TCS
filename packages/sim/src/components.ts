@@ -171,6 +171,14 @@ export interface SoldierState {
    */
   sheltered?: { x: number; y: number };
   /**
+   * His side has checked him since he went down (owner request 2026-11-15): `dead` what was found. A dead man without
+   * it (or checked alive before he died) is "down, state unknown" to his comrades: they come to him and drag him to
+   * cover as to any casualty. Absent: not checked.
+   */
+  checked?: { tick: number; by: EntityId; dead: boolean };
+  /** Crawling to cover here (owner request 2026-11-15: a casualty who cannot walk, a surrendered man under fire). */
+  crawlCover?: { x: number; y: number; tick: number };
+  /**
    * Why no carer is coming to him (M10.3b, for the debug overlay): nobody in reach, men in reach but none willing
    * (`too-exposed`: he lies under fire), or the one willing has no kit or training for what he needs. Absent: a carer is
    * on his way or beside him, or he needs nothing.

@@ -18,6 +18,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
     if (Object.keys(medRoles).length > 0) factions[fid]!.medicalRoles = medRoles;
     if (pack.doctrine.fireSupport) factions[fid]!.fireSupport = { ...pack.doctrine.fireSupport };
     if (pack.doctrine.artillery) factions[fid]!.artillery = { ...pack.doctrine.artillery };
+    if (pack.doctrine.identityTag) { const g = pack.doctrine.identityTag; factions[fid]!.identityTag = { item: g.item, perMan: g.perMan, taken: g.taken }; }
     if (pack.doctrine.dismount) {
       factions[fid]!.dismountM = pack.doctrine.dismount.distanceM;
       if (pack.doctrine.dismount.afterward !== undefined) factions[fid]!.afterDismount = { kind: pack.doctrine.dismount.afterward, followM: pack.doctrine.dismount.followM ?? 150 };
@@ -30,6 +31,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.sensor !== undefined) d.sensor = it.sensor;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
+      if (it.reactive !== undefined) d.reactive = { ...it.reactive };
       if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.crewServed !== undefined) d.crewServed = { ...it.crewServed };
       if (it.drone !== undefined) d.drone = { ...it.drone, sensors: [...it.drone.sensors] };
@@ -100,6 +102,7 @@ export function medicalCatalog(m: MedicalT): MedicalDef {
     ...(m.carrying ? { carrying: noProv(m.carrying) as NonNullable<MedicalDef["carrying"]> } : {}),
     ...(m.vehicleLoading ? { vehicleLoading: noProv(m.vehicleLoading) as NonNullable<MedicalDef["vehicleLoading"]> } : {}),
     ...(m.nest ? { nest: noProv(m.nest) as NonNullable<MedicalDef["nest"]> } : {}),
+    ...(m.down ? { down: noProv(m.down) as NonNullable<MedicalDef["down"]> } : {}),
   };
 }
 
@@ -149,7 +152,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     })),
     stowed: noProv(v.stowed) as VehicleDef["stowed"],
     ...(v.cookOffAmmo === undefined ? {} : { cookOffAmmo: v.cookOffAmmo }),
-    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })), ...(v.armour.tiles ? { tiles: v.armour.tiles.map((t) => ({ ...t })) } : {}) } } : {}),
+    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })), ...(v.armour.tiles ? { tiles: v.armour.tiles.map((t) => ({ ...t, fitted: v.stowed.find((x) => x.item === t.item)?.count ?? 0 })) } : {}) } } : {}),
     ...(v.extinguisher ? { extinguisher: { item: v.extinguisher.item, chance: v.extinguisher.chance, delaySeconds: v.extinguisher.delaySeconds } } : {}),
     ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),

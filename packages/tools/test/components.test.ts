@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  componentIndex, countItems, createSim, loadSim, removeItems, saveSim, simHash, resolveVehicleHit, runBattle, step, submitOrder, TICK_HZ, vehicleRow,
+  addItems, componentIndex, countItems, createSim, loadSim, removeItems, saveSim, simHash, resolveVehicleHit, runBattle, step, submitOrder, TICK_HZ, vehicleRow,
   type EntityId, type Sim, type SimEvent,
 } from "@tcs/sim";
 import { vehicleBattle } from "@tcs/scenario";
@@ -445,5 +445,70 @@ describe("determinism with a burning vehicle (M7.4b)", () => {
     const a = runIt(null), b = runIt(37);
     expect(a.burning).toBeGreaterThan(0);
     expect(b.hashes).toEqual(a.hashes);
+  });
+});
+
+describe("reactive tiles on the fixture's tortoise (M7.6a)", () => {
+  function tortoise(): { sim: Sim; vid: EntityId; owner: EntityId } {
+    const sim = createSim(duel(fixtures, ["xf", "de"], { blue: { x: 400, y: 600, heading: 0 }, red: { x: 2000, y: 600, heading: Math.PI } }, ["porter-band", "pzgren-schuetzentrupp"], 2400, ["tortoise-crew", "puma-besatzung"]));
+    holdAll(sim);
+    const vid = [...sim.state.vehicle.entries()].find(([, v]) => v.def === "xf-tortoise")![0];
+    const owner = [...sim.state.identity.entries()].find(([, i]) => i.faction === "de")![0];
+    return { sim, vid, owner };
+  }
+  /** A round of `ammo` at `speed` square on the turret front (part 1) or the hull front (part 0). */
+  type Hit = Extract<SimEvent, { kind: "vehicle.hit" }>;
+  function hit(sim: Sim, vid: EntityId, owner: EntityId, ammo: string, speed: number, part: 0 | 1): Hit | undefined {
+    const G = sim.ctx.ballistics.vehicles, row = vehicleRow(G, vid), t = sim.state.transform.req(vid), def = sim.ctx.catalog.vehicles["xf-tortoise"]!;
+    const c = Math.cos(t.heading), s = Math.sin(t.heading);
+    const f = part === 1 ? def.body.turret!.pivotF + def.body.turret!.f[1] : def.body.hull.f[1];
+    const z = G.gz[row]! + (part === 1 ? 2.0 : 1.0);
+    const ev: SimEvent[] = [];
+    const sink = { events: ev, emit(e: SimEvent) { ev.push(e); } };
+    resolveVehicleHit(sim.ctx, sim.state, sink as never, row, t.x + c * f, t.y + s * f, z, -c * speed, -s * speed, 0, speed, sim.ctx.catalog.ammoIds.indexOf(ammo), owner, part, 0, 100, () => undefined);
+    return ev.find((e): e is Hit => e.kind === "vehicle.hit");
+  }
+  /** The speed at which xf-ram (300 mm at 1200 m/s) has `mm` of penetration. */
+  const speedFor = (sim: Sim, mm: number) => 1200 * Math.pow(mm / 300, 1 / sim.ctx.catalog.ballistics.penetrationVelocityExponent);
+
+  it("a heavy kinetic hit on the turret front uses one scale and needs 100 mm more; below the trigger nothing is used", () => {
+    const { sim, vid, owner } = tortoise();
+    const c = sim.state.container.req(vid);
+    expect(countItems(c, "xf-scale")).toBe(6);
+    // 420 mm against the plate's 375: through without the tile, stopped with it (475).
+    expect(hit(sim, vid, owner, "xf-ram", speedFor(sim, 420), 1)).toMatchObject({ result: "stopped", era: "xf-scale", zone: "turret" });
+    expect(countItems(c, "xf-scale")).toBe(5);
+    // 60 mm: below the 80 mm trigger: no tile.
+    const low = hit(sim, vid, owner, "xf-ram", speedFor(sim, 60), 1);
+    expect(low?.era).toBeUndefined();
+    expect(countItems(c, "xf-scale")).toBe(5);
+    // No tiles left: the same round goes through.
+    removeItems(c, "xf-scale", 5);
+    const bare = hit(sim, vid, owner, "xf-ram", speedFor(sim, 420), 1);
+    expect(bare).toMatchObject({ result: "penetrated" });
+    expect(bare?.era).toBeUndefined();
+  });
+
+  it("a single shaped charge meets 300 mm more, a tandem charge's main jet only 50 mm more", () => {
+    // The turret front needs 630 mm against a jet: the Panzerfaust 3 (875) is stopped by the tile (930), the
+    // Spike LR (875, tandem) is not (680); each uses up one tile.
+    const a = tortoise();
+    expect(hit(a.sim, a.vid, a.owner, "de-pzf3-dm12", 200, 1)).toMatchObject({ result: "stopped", era: "xf-scale" });
+    const b = tortoise();
+    expect(hit(b.sim, b.vid, b.owner, "de-spike-lr", 200, 1)).toMatchObject({ result: "penetrated", era: "xf-scale" });
+    expect(countItems(b.sim.state.container.req(b.vid), "xf-scale")).toBe(5);
+  });
+
+  it("the hull front's coverage 0.5: about half the hits meet a tile (tiles put back after each)", () => {
+    const { sim, vid, owner } = tortoise();
+    const c = sim.state.container.req(vid);
+    let met = 0;
+    for (let k = 0; k < 200; k++) {
+      const e = hit(sim, vid, owner, "xf-ram", speedFor(sim, 200), 0);
+      if (e?.era === "xf-scale-hull") { met++; addItems(c, "xf-scale-hull", 1); }
+    }
+    expect(countItems(c, "xf-scale-hull")).toBe(6);
+    expect(met / 200).toBeGreaterThan(0.4);
+    expect(met / 200).toBeLessThan(0.6);
   });
 });

@@ -26,7 +26,7 @@ import { secondsToTicks, type DefId, type EntityId } from "../ids";
 import { isAble, isConscious } from "../impair";
 import { routeBetween, routeWaypoints, type RouteResult } from "../interior-nav";
 import { atan2, clamp, cos, hypot2, PI, sin, sqrt } from "../math";
-import { carryLayout, chooseCarryMethod } from "../medical";
+import { carryLayout, chooseCarryMethod, downUnknown } from "../medical";
 import { isMounted } from "../mount";
 import { navFor } from "../navctx";
 import type { Posture } from "../orders";
@@ -106,7 +106,8 @@ export function startCarry(ctx: SimContext, state: SimState, events: EventSink, 
   const C = ctx.catalog.medical?.carry;
   if (!C || state.carry.has(payload) || !state.transform.has(payload)) return null;
   const ps = state.soldier.get(payload);
-  if (ps && (!ps.physiology.alive || isMounted(ps) || ps.carrying !== undefined)) return null;
+  // (A dead man may be dragged to cover while his comrades do not know he is dead: owner request 2026-11-15.)
+  if (ps && ((!ps.physiology.alive && !(opts.purpose === "cover" && downUnknown(ctx.catalog, ps))) || isMounted(ps) || ps.carrying !== undefined)) return null;
   const men = carriers.filter((m) => m !== payload && canCarry(state.soldier.get(m)) && state.soldier.get(m)!.carrying === undefined);
   const walks = ps !== undefined && walksSelf(state, payload);
   let method = opts.method;
@@ -350,7 +351,11 @@ function stepParty(ctx: SimContext, state: SimState, events: EventSink, payload:
   const M = ctx.catalog.medical!, P = carryParams(ctx);
   const ps = state.soldier.get(payload);
   if (!state.transform.has(payload)) { endCarry(ctx, state, events, payload, "gone"); return; }
-  if (ps && !ps.physiology.alive) { endCarry(ctx, state, events, payload, "dead"); return; }
+  if (ps && !ps.physiology.alive && !(c.purpose === "cover" && downUnknown(ctx.catalog, ps))) {
+    // (Carrying him, they feel he has died: he is known dead, owner request 2026-11-15.)
+    if (ctx.catalog.medical?.down !== undefined && c.carriers.length > 0 && ps.checked?.dead !== true) ps.checked = { tick: state.tick, by: c.carriers[0]!, dead: true };
+    endCarry(ctx, state, events, payload, "dead"); return;
+  }
   if (ps && (isMounted(ps) || ps.captive !== null)) { endCarry(ctx, state, events, payload, "gone"); return; }
   if (c.untilTick !== undefined && state.tick > c.untilTick) { endCarry(ctx, state, events, payload, "gave-up"); return; }
   let def = M.carry[c.method];

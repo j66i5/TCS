@@ -92,7 +92,7 @@ describe("appearance (M7.5a)", () => {
     expect([de.board.lengthMm, de.board.widthTopMm, de.board.widthBottomMm, de.litze!.widthMm]).toEqual([90, 52, 60, 4]);
     const L_DE = de.board.lengthMm;
     expect(de.ranks["schuetze"]!.bare).toBe(true);
-    for (const [r, n] of [["gefreiter", 1], ["obergefreiter", 2], ["hauptgefreiter", 3], ["stabsgefreiter", 4]] as const) expect(de.ranks[r]!.elements.filter((e) => e.kind === "bar")).toHaveLength(n);
+    for (const [r, n] of [["gefreiter", 1], ["obergefreiter", 2], ["hauptgefreiter", 3], ["stabsgefreiter", 4], ["oberstabsgefreiter", 5]] as const) expect(de.ranks[r]!.elements.filter((e) => e.kind === "bar")).toHaveLength(n);
     expect(de.ranks["unteroffizier"]!.elements).toContainEqual(expect.objectContaining({ kind: "braid", open: true }));
     expect(de.ranks["hauptfeldwebel"]!.elements.some((e) => e.kind === "chevron" && (e.headMm ?? 0) > 0)).toBe(true);
     // Owner correction 2026-11-15: devices are built up from the shoulder end (y 0). Every stripe rank starts with the
@@ -105,6 +105,7 @@ describe("appearance (M7.5a)", () => {
     expect(gaps[2]!).toBeGreaterThan(gaps[0]! + 3);
     expect(gaps[2]!).toBeGreaterThan(gaps[1]! + 3);
     expect(barYs("hauptgefreiter")).toEqual(sg.slice(0, 3));
+    expect(barYs("oberstabsgefreiter").slice(0, 4)).toEqual(sg);
     // The Leutnant's star in the lower third; the Oberleutnant's first star in the same place, the second above it.
     const starYs = (r: string) => de.ranks[r]!.elements.flatMap((e) => (e.kind === "star" ? [e.y] : [])).sort((a, b) => a - b);
     expect(starYs("leutnant")[0]!).toBeLessThan(L_DE / 3);

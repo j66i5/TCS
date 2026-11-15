@@ -109,6 +109,24 @@ function launcherOf(ctx: SimContext, state: SimState, target: EntityId, unit: En
   return null;
 }
 
+/** The man who would launch the unit's drone once out of his vehicle (a drone order with `dismount`): null if the
+ *  drone is up or someone on foot can launch it; else an able man aboard carrying an airframe and a battery with
+ *  charge above the reserve (the order's target first, then the unit's members in ID order). */
+export function droneRiderOf(ctx: SimContext, state: SimState, target: EntityId): EntityId | null {
+  const unit = unitOfTarget(state, target);
+  if (unit === null || airborneDroneOf(state, unit) !== null || launcherOf(ctx, state, target, unit) !== null) return null;
+  const men = state.soldier.has(target) ? [target, ...crewOf(state, unit).filter((m) => m !== target)] : crewOf(state, unit);
+  for (const m of men) {
+    const s = state.soldier.get(m);
+    if (!s || !isAble(s) || s.mount === undefined || !s.impair.canWalk) continue;
+    const box = state.container.get(m), item = airframeOf(ctx, box);
+    const def = item === undefined ? undefined : droneDefOf(ctx, item);
+    const cap = def ? ctx.catalog.items[def.battery]?.chargeCapacity ?? 0 : 0;
+    if (def && bestCharge(box, def.battery) > def.reserveShare * cap) return m;
+  }
+  return null;
+}
+
 /** Whether a unit (or a man) has a drone to order: one in the air or one that could be launched. */
 export function hasDrone(ctx: SimContext, state: SimState, target: EntityId): boolean {
   const unit = unitOfTarget(state, target);

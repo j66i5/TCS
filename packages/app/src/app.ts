@@ -82,6 +82,6 @@ export interface App {
   readonly lastSeen: LastSeenBook;
   readonly rangingBook: RangingBook;
   /** The order bar's last contents (rebuilt only when the selected unit's capabilities change). */
-  ordersShownFor: EntityId | null | undefined;
+  ordersShownFor: string | undefined;
   ordersKey: string;
 }

@@ -287,6 +287,8 @@
   "vehicle.ru.bmp2": "BMP-2",
   "material.armour-steel": "armour steel",
   "material.composite": "composite armour",
+  "material.composite-heavy": "heavy composite armour",
+  "material.composite-cast": "cast armour with filler",
   "radio.ack.mount": "{callsign}: mounting up.",
   "radio.ack.dismount": "{callsign}: dismounting.",
   "radio.mounted": "{callsign}: all aboard.",
@@ -661,6 +663,10 @@
   "side.drone": "Drone",
   "side.droneUp": "in the air, battery {pct} %",
   "side.droneReady": "on the ground, battery {pct} %",
+  "side.droneAboard": "aboard, battery {pct} % · gets out to launch",
+  "side.hq": "HQ",
+  "side.platoonAll": "whole platoon",
+  "side.hqAboard": "HQ aboard",
   "radio.nestSited": "{callsign}: Verwundetennest set up behind us.",
   "radio.nestMoved": "{callsign}: moving the Verwundetennest, it is under threat.",
   "radio.ack.casualtyPoint": "{callsign}: Verwundetennest there, wilco.",
@@ -694,5 +700,11 @@
   "aar.callsBy": "{method} {n}",
   "aar.light": "Local time {time}; light at the start {start} %, lowest {min} %.",
   "aar.drone.shotDown": "{side} drone shot down",
-  "aar.drone.lost": "{side} drone lost"
+  "aar.drone.lost": "{side} drone lost",
+  "man.activity.checking": "checking a comrade who is down",
+  "man.activity.takingTag": "taking a fallen comrade's identity tag",
+  "man.activity.crawling": "crawling into cover, wounded",
+  "aar.medical.down": "{side}: {checked} men down checked by a comrade, {dead} of them found dead ({dragged} dead men dragged into cover before anyone knew); identity tags recovered from {tags} fallen; {crawled} wounded crawled into cover",
+  "aar.medical.prisoners": "{side}: {treated} treatments of its men held prisoner by the enemy; {crawled} times a surrendered man crawled out of the fire",
+  "timeline.surrender.crawl": "{side}: {name} ({callsign}) crawls out of the line of fire, hands up"
 }

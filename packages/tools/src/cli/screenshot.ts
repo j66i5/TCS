@@ -672,7 +672,7 @@ async function assaultScenes(page: Page, name: string, errors: string[], shots: 
       for (let i = 0; i < 60 * 1200 && !(mt().burst && mt().burst.index >= 2); i++) t.stepTicks(1);
       const g = s.transform.get(s.unit.get(ags).members[1]); t.focusScale(g.x, g.y, 12); t.stepTicks(1);
       globalThis.__ags = { x: mt().burst?.x ?? g.x, y: mt().burst?.y ?? g.y };
-      return { tick: s.tick, state: mt().state, burst: mt().burst ? 1 : 0, shots: mt().shots, box: mt().box };`) as () => object);
+      return { tick: s.tick, state: mt().state, burst: mt().burst ? 1 : 0, shots: mt().shots, box: mt().box?.rounds };`) as () => object);
     await shot(`${look}-1-ags-firing`);
     await page.evaluate(new Function(`const t = globalThis.__tcs, h = globalThis.__ags; t.stepTicks(60 * 4); t.focus(h.x, h.y, 80); t.stepTicks(1);`) as () => void);
     await shot(`${look}-2-ags-bursts`);

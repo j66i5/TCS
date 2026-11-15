@@ -4,7 +4,7 @@
  * middle of the set-up and of a burst, an ordered series, and the AI commander's post for it.
  */
 import { describe, expect, it } from "vitest";
-import { aglRoundsLeft, createSim, crewServedKind, deserializeState, hashState, serializeState, step, submitOrder, tallyExpenditure, type EntityId, type Expenditure, type Sim, type SimEvent } from "@tcs/sim";
+import { aglBoxOf, aglOf, aglRoundsLeft, createSim, loadKg, soldierRecordFromState, crewServedKind, deserializeState, hashState, serializeState, step, submitOrder, tallyExpenditure, type EntityId, type Expenditure, type Sim, type SimEvent } from "@tcs/sim";
 import { aglSetup } from "../src/labs/agl";
 import { getScenario, loadData } from "../src/scenarios";
 
@@ -51,6 +51,34 @@ describe("automatic grenade launcher teams (M7.6d)", () => {
     expect(before - aglRoundsLeft(sim.ctx, sim.state, tid)).toBe(shots);
     expect(out["red"]!.grenadeMg!["ru-vog30"]).toBe(shots);
     expect(out["red"]!.smallArms).toBe(0);
+  });
+
+  it("the box on the gun stays a counted item: in the post carrier's mass and his roster load (partial charge); rounds conserved", () => {
+    const sim = createSim(aglSetup(data, "ru", 800, 2));
+    const tid = team(sim);
+    holdOthers(sim, tid);
+    const l = aglOf(sim.ctx, sim.state, tid)!, round = l.def.round;
+    const members = sim.state.unit.req(tid).members;
+    const rosterRounds = () => members.reduce((a, m) => a + soldierRecordFromState(sim.state, m).load.filter((st) => st.type === round).reduce((b, st) => b + st.count * (st.charge ?? 0), 0), 0);
+    const before = rosterRounds();
+    expect(before).toBe(aglRoundsLeft(sim.ctx, sim.state, tid));
+    const kg0 = loadKg(sim.ctx, sim.state, l.carrier);
+    let shots = 0, boxed = false;
+    run(sim, 60 * 120, (e) => {
+      if (e.kind === "shot.fired" && sim.ctx.catalog.weapons[e.weapon]?.type === "grenade-machine-gun") shots++;
+      if (!boxed && sim.state.unit.req(tid).missileTeam!.box !== undefined) {
+        boxed = true;
+        // The box just went on the gun: the carrier's mass and the roster rounds are as before.
+        expect(loadKg(sim.ctx, sim.state, l.carrier)).toBeCloseTo(kg0, 6);
+        expect(rosterRounds()).toBe(before - shots);
+      }
+    });
+    expect(boxed).toBe(true);
+    expect(shots).toBeGreaterThan(10);
+    const box = aglBoxOf(sim.state, aglOf(sim.ctx, sim.state, tid)!.carrier)!;
+    expect(box.rounds).toBeGreaterThan(0);
+    expect(rosterRounds()).toBe(before - shots);
+    expect(soldierRecordFromState(sim.state, aglOf(sim.ctx, sim.state, tid)!.carrier).load).toContainEqual({ type: round, count: 1, charge: box.rounds });
   });
 
   it("does not fire on its own beyond its engage range (1200 m)", () => {

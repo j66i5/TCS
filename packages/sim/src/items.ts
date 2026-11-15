@@ -11,6 +11,7 @@
  */
 import { getItemDef, type Catalog } from "./catalog";
 import type { DefId, EntityId } from "./ids";
+import type { SimView } from "./state";
 
 export interface ItemStack {
   type: DefId;
@@ -142,4 +143,14 @@ export function transferItems(
     moved += s.count;
   }
   return shortfall === undefined ? { moved } : { moved, shortfall };
+}
+
+/**
+ * M7.6d: the box on the automatic grenade launcher of man `id`'s team if he is the one it counts on (the post's
+ * carrier), else null. It is part of his load (mass, roster out) as the magazine in his weapon is.
+ */
+export function aglBoxOf(state: SimView, id: EntityId): { item: DefId; rounds: number } | null {
+  const uid = state.identity.get(id)?.unit;
+  const box = uid === undefined ? undefined : state.unit.get(uid)?.missileTeam?.box;
+  return box !== undefined && box.holder === id ? box : null;
 }

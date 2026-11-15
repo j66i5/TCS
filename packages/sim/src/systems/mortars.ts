@@ -309,5 +309,9 @@ function passCarried<D>(ctx: SimContext, state: SimState, team: EntityId, pick: 
     const d = (t.x - tube.x) * (t.x - tube.x) + (t.y - tube.y) * (t.y - tube.y);
     if (d < bestD) { bestD = d; best = m; }
   }
-  if (best >= 0) transferItems(ctx.catalog, state.container, { from: tube.carrier, to: best, type: tube.item, count: 1 });
+  if (best < 0) return;
+  transferItems(ctx.catalog, state.container, { from: tube.carrier, to: best, type: tube.item, count: 1 });
+  // (M7.6d: the box on an AGL goes with the gun.)
+  const box = u.missileTeam?.box;
+  if (box && box.holder === tube.carrier) box.holder = best;
 }

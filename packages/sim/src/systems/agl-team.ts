@@ -65,7 +65,7 @@ export function aglRoundsLeft(ctx: SimContext, state: SimView, uid: EntityId): n
   const u = state.unit.get(uid), l = aglOf(ctx, state, uid);
   if (!u || !l || u.missileTeam?.kind !== "agl") return 0;
   const cap = ctx.catalog.items[l.def.round]?.chargeCapacity ?? 1;
-  let n = u.missileTeam.box ?? 0;
+  let n = u.missileTeam.box?.rounds ?? 0;
   for (const m of u.members) { const c = state.container.get(m); if (c) for (const st of c.stacks) if (st.type === l.def.round) n += st.count * (st.charge ?? cap); }
   return n;
 }
@@ -142,7 +142,8 @@ function loadBox(state: SimState, u: Unit, l: AglPost): boolean {
     if (!c || !c.stacks.some((s) => s.type === l.def.round && (s.charge ?? 0) > 0)) continue;
     const taken = removeItems(c, l.def.round, 1)[0];
     if (!taken) continue;
-    mt.box = taken.charge ?? 0;
+    // (The empty box is thrown away: an empty AGL box is not carried on.)
+    mt.box = { item: taken.type, rounds: taken.charge ?? 0, holder: l.carrier };
     return true;
   }
   return false;
@@ -161,12 +162,13 @@ export function aglTeamSystem(ctx: SimContext, state: SimState, events: EventSin
     if (!look || mt.state !== "ready") continue;
     if (mt.relayTick !== undefined) { if (state.tick < mt.relayTick) continue; delete mt.relayTick; }
     const l = aglOf(ctx, state, uid);
+    if (l && mt.box && mt.box.holder !== l.carrier) mt.box.holder = l.carrier; // (the box goes with the gun)
     if (!l || !gunnerFit(state, l.carrier) || crewAt(state, l, true).length < l.def.crewMin) continue;
     if (state.action.has(l.carrier) && state.action.get(l.carrier)!.kind !== AGL_ACTION) continue;
     const wd = ctx.catalog.weapons[l.def.weapon];
     if (!wd) continue;
     // The box on the gun: the first goes on with the set-up; an empty one is replaced (the weapon's reload time).
-    if ((mt.box ?? 0) <= 0) {
+    if ((mt.box?.rounds ?? 0) <= 0) {
       const first = mt.box === undefined;
       if (!loadBox(state, u, l)) { if (mt.queued) { delete mt.queued; teamRadio(state, events, uid, "radio.missileTeamNoShot"); } continue; }
       if (!first) { mt.relayTick = state.tick + secondsToTicks(wd.reloadSeconds); continue; }
@@ -223,7 +225,7 @@ function fireRound(ctx: SimContext, state: SimState, events: EventSink, uid: Ent
   const wd = l ? ctx.catalog.weapons[l.def.weapon] : undefined;
   const ammo = l ? ctx.catalog.items[l.def.round]?.chargeItem : undefined;
   const v0 = wd && ammo !== undefined ? wd.ammo[ammo] : undefined;
-  if (!l || !wd || ammo === undefined || v0 === undefined || mt.state !== "ready" || !gunnerFit(state, l.carrier) || (mt.box ?? 0) <= 0) { endBurst(state, u); return; }
+  if (!l || !wd || ammo === undefined || v0 === undefined || mt.state !== "ready" || !gunnerFit(state, l.carrier) || (mt.box?.rounds ?? 0) <= 0) { endBurst(state, u); return; }
   const [mx, my, mz] = muzzleOf(ctx, state, l);
   const tz = heightAt(ctx.map, b.x, b.y); // ground: ok (the point fired at: the round bursts on the ground)
   const range = hypot2(b.x - mx, b.y - my);
@@ -232,14 +234,14 @@ function fireRound(ctx: SimContext, state: SimState, events: EventSink, uid: Ent
   const sd = BASE_MRAD * skillFactor(ctx, s.skills["marksmanship"] ?? 0.5) * (1 + a.burstGrowth * (wd.sustained?.recoilFactor ?? 1) * b.index) * s.impair.aim;
   const err = sqrt(sd * sd + wd.dispersionMrad * wd.dispersionMrad) / 1000;
   launchShot(ctx, state, events, l.carrier, l.def.weapon, ammo, v0, mx, my, mz, tz, atan2(b.y - my, b.x - mx), range, range * (1 + b.rangeError), err, undefined, tableRangeM(l.def));
-  mt.box = (mt.box ?? 0) - 1;
+  mt.box!.rounds--;
   const w = state.weapon.get(l.carrier);
   if (w) w.lastShotTick = state.tick;
   if (ctx.catalog.medical !== undefined) s.protLostTick = state.tick; // (M10.7b: firing is not self-defence)
   b.index++;
   b.left--;
   b.nextTick = state.tick + burstCadence(wd.cyclicRpm);
-  if (b.left <= 0 || (mt.box ?? 0) <= 0) {
+  if (b.left <= 0 || mt.box!.rounds <= 0) {
     mt.lastLaunchTick = state.tick;
     mt.shots++;
     endBurst(state, u);

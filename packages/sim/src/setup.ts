@@ -8,7 +8,7 @@ import type { DriveState, SoldierState, VehicleState } from "./components";
 import { CREW_STATION_ORDER } from "./mount";
 import { cos, sin } from "./math";
 import type { EntityId, SideId, DefId } from "./ids";
-import { addItems, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
+import { addItems, aglBoxOf, countItems, emptyContainer, removeItems, type ItemStack } from "./items";
 import type { Catalog, VehicleDef } from "./catalog";
 import { updateImpairment, rosterStatus } from "./impair";
 import { createState, newEntity, type SimState } from "./state";
@@ -338,7 +338,8 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     stress: s.mental.stress,
     wounds: JSON.parse(JSON.stringify(s.wounds)) as SoldierRecord["wounds"],
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
-    load: loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null),
+    // (M7.6d: so does the box on his team's AGL, if he carries its post.)
+    load: loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)),
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,

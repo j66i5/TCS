@@ -164,6 +164,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 /* M6: score line and after-action review */
 .hud-score { position: absolute; left: 0; right: 0; padding: 3px 10px; background: var(--panel); font-size: 13px; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* D3: on a phone the line wraps between its parts (each part whole) rather than cutting the objectives off. */
+@media (max-width: 700px) {
+  .hud-score { white-space: normal; overflow: visible; line-height: 1.35; }
+  .hud-score-part { white-space: nowrap; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+}
 .hud-score-mark { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: 0; border: 1px solid rgba(0, 0, 0, 0.5); }
 /* M7.5b: the top bar is one row; the rare buttons in a menu under "⋯" on a narrow screen. */
 .hud-bar { flex-wrap: nowrap; }
@@ -242,6 +247,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   color: var(--muted); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; }
 .hud-chip span { overflow: hidden; text-overflow: ellipsis; }
 .hud-chip.on { background: #4a5c2f; border-color: var(--accent); color: var(--text); font-weight: 600; }
+/* D3: the vehicle's guns and rounds, one line per weapon (wraps rather than running off a phone's card). */
+.hud-card-guns { align-items: flex-start; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+.hud-card-guns .hud-seg-label { align-self: flex-start; line-height: 16px; }
+.hud-guns { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 16px; }
+.hud-gun { min-width: 0; overflow-wrap: anywhere; }
 .hud-card-list { display: flex; flex-direction: column; gap: 2px; max-height: 32vh; overflow-y: auto; scrollbar-width: thin; }
 .hud-man { display: grid; grid-template-columns: 20px 18px minmax(0, 1fr) 4.6em auto; align-items: center; gap: 5px; min-height: 36px;
   padding: 1px 6px; border-radius: 5px; border: 1px solid transparent; background: #1f2a1c; color: var(--text); font-size: 12px; text-align: left; }

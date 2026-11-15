@@ -692,7 +692,11 @@ export class BattleRenderer {
         if (other >= 0) drawFloorBadge(g, s.x + size * 0.38, s.y - size * 0.4, other, Math.max(2, Math.round(size / 12)), this.groundFloorLabel);
         // (Review fix: the selected men's ring darker-edged and bolder, so the squad stands out on ploughed fields.)
         if (selected) { const rr = Math.max(6, size * 0.42 + 2); g.circle(s.x, s.y, rr).stroke({ width: 3.5, color: 0x0b0f0a, alpha: 0.5 }); g.circle(s.x, s.y, rr).stroke({ width: 1.75, color: 0xffffff, alpha: 0.95 }); }
-        if (sol?.triage && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide) drawTriageTag(g, s.x, s.y, sol.triage.cat, size * 0.35);
+        const tagged = sol?.triage !== undefined && sol.physiology.alive && sol.captive === null && ident.side === overlay.playerSide;
+        if (tagged) drawTriageTag(g, s.x, s.y, sol!.triage!.cat, size * 0.35);
+        // D3: a man down (not dead, not a prisoner, not yet tagged) carries a small red cross, as at dot zoom: lying
+        // still he read as a prone rifleman (both looks).
+        else if (sol && sol.casualty !== "none" && sol.casualty !== "killed" && sol.physiology.alive && sol.captive === null) drawDownMark(g, s.x, s.y, size);
         if (sol && (sol.casualty !== "none" || sol.captive !== null)) continue;
         if (foe) continue;
         const bh = sol?.mental.behaviour;
@@ -1266,8 +1270,10 @@ export class BattleRenderer {
     const pts = m.men.map((p) => worldToScreen(c, p.x, p.y));
     // The formation's shape: each man's place, joined to the leader's.
     const lead = pts[0]!;
-    for (const p of pts.slice(1)) g.moveTo(lead.x, lead.y).lineTo(p.x, p.y).stroke({ width: 1.5, color: main, alpha: 0.5 });
-    for (const p of pts) g.circle(p.x, p.y, Math.max(4, 0.6 * c.scale)).stroke({ width: 2, color: main, alpha: 0.95 });
+    // (D3: a gesture's ghost draws its men fainter and thinner than a plan's: over the squad it read as a pile.)
+    const ringW = plan.ghost ? 1.25 : 2, ringA = plan.ghost ? 0.5 : 0.95;
+    for (const p of pts.slice(1)) g.moveTo(lead.x, lead.y).lineTo(p.x, p.y).stroke({ width: plan.ghost ? 1 : 1.5, color: main, alpha: plan.ghost ? 0.3 : 0.5 });
+    for (const p of pts) g.circle(p.x, p.y, Math.max(4, 0.6 * c.scale)).stroke({ width: ringW, color: main, alpha: ringA });
     const ce = worldToScreen(c, m.centre.x, m.centre.y), tip = worldToScreen(c, m.arrowTip.x, m.arrowTip.y);
     g.moveTo(ce.x, ce.y).lineTo(tip.x, tip.y).stroke({ width: 3, color: main });
     const ang = Math.atan2(tip.y - ce.y, tip.x - ce.x);
@@ -1622,12 +1628,36 @@ export class BattleRenderer {
     fig.position.set(x, y); out.position.set(x, y);
     fig.scale.set(sc); out.scale.set(sc);
     const dead = frame === "dead";
-    fig.tint = dead ? 0xa8a8a0 : 0xffffff;
+    const photo = this.look === "photo";
+    // D3 (on purpose, casualties only): in the flat look a dead man is greyer and darker than in photo, and a man
+    // down or dead gets photo's dark rim, so neither reads as a prone rifleman. Every other man is drawn as before.
+    const flatCasualty = !photo && (dead || frame === "down");
+    fig.tint = dead ? (photo ? 0xa8a8a0 : 0x7a7a72) : 0xffffff;
     out.tint = colour;
-    out.alpha = (dead ? 0.55 : 1) * alpha;
+    out.alpha = (dead ? (photo ? 0.55 : 0.45) : 1) * alpha;
     fig.alpha = alpha;
     fig.visible = true; out.visible = true;
-    if (this.look === "photo") {
+    if (!photo) {
+      const i = this.nSprites - 1;
+      // (The pools are indexed like the figures: grow them, hidden, up to this man's index.)
+      while (flatCasualty && this.rims.length <= i) {
+        const sh = new Sprite(this.decals().contact); sh.anchor.set(0.5); sh.visible = false;
+        const r = new Sprite(cell.outline); r.anchor.set(PIVOT / CELL); r.tint = RIM; r.visible = false;
+        this.contacts.push(sh); this.rims.push(r);
+        this.contactC.addChild(sh); this.rimC.addChild(r);
+      }
+      const rim = this.rims[i];
+      if (rim) {
+        rim.visible = flatCasualty;
+        if (flatCasualty) {
+          if (rim.texture !== cell.outline) rim.texture = cell.outline;
+          rim.scale.set(sc * (1 + Math.min(0.3, 1.2 / (0.3 * size))));
+          rim.position.set(x, y);
+          rim.alpha = 0.85 * alpha;
+        }
+      }
+    }
+    if (photo) {
       // A soft contact shadow under him (a little down-sun) and a dark rim outside the side-colour outline, so he
       // stands on the ground and reads on any field (plan "photo", step "polish").
       const i = this.nSprites - 1;
@@ -1661,7 +1691,8 @@ export class BattleRenderer {
   /** Hide the pool's unused sprites and upload new atlas cells. */
   private flushSprites(): void {
     for (let i = this.nSprites; i < this.figures.length; i++) { this.figures[i]!.visible = false; this.outlines[i]!.visible = false; }
-    for (let i = this.look === "photo" ? this.nSprites : 0; i < this.contacts.length; i++) { this.contacts[i]!.visible = false; this.rims[i]!.visible = false; }
+    // (Flat: no contact shadows; the rims of casualties drawn this frame stay, D3.)
+    for (let i = this.look === "photo" ? this.nSprites : 0; i < this.contacts.length; i++) { this.contacts[i]!.visible = false; if (i >= this.nSprites) this.rims[i]!.visible = false; }
     for (let i = this.look === "photo" ? this.nScorch : 0; i < this.scorches.length; i++) this.scorches[i]!.visible = false;
     this.atlas?.flush();
   }
@@ -1751,6 +1782,16 @@ export function drawTriageTag(g: Graphics, x: number, y: number, cat: number, r:
   g.rect(px - 1, py - 1, w + 2, w + 2).fill({ color: 0x14110f, alpha: 0.85 });
   g.rect(px, py, w, w).fill({ color: TRIAGE_COLOURS[Math.min(2, Math.max(0, cat - 1))]! });
   if (cat === 1) g.rect(px + w * 0.35, py + w * 0.35, w * 0.3, w * 0.3).fill({ color: 0xffffff });
+}
+
+/** D3: the mark of a man down at figure zoom: a red cross on a white square with a dark rim, up and right of him. */
+export function drawDownMark(g: Graphics, x: number, y: number, size: number): void {
+  const h = Math.max(3.5, Math.min(9, size * 0.14)), a = h * 0.3, b = h * 0.75;
+  const cx = x + size * 0.32, cy = y - size * 0.32;
+  g.roundRect(cx - h - 1.25, cy - h - 1.25, 2 * h + 2.5, 2 * h + 2.5, 2).fill({ color: 0x14110f, alpha: 0.85 });
+  g.rect(cx - h, cy - h, 2 * h, 2 * h).fill({ color: 0xf4f1ea });
+  g.rect(cx - a, cy - b, 2 * a, 2 * b).fill({ color: 0xd22a22 });
+  g.rect(cx - b, cy - a, 2 * b, 2 * a).fill({ color: 0xd22a22 });
 }
 
 /** The Verwundetennest's marker (M10.5): a red cross on a white square with a dark rim, a fixed size on screen. */

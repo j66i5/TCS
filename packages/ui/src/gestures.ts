@@ -26,6 +26,22 @@ export function onUnitAt(places: readonly Pt[], x: number, y: number, tolM: numb
   return false;
 }
 
+/** D3: a drag from the unit shows its ghost marker only this far out (screen px) at the least ... */
+export const GHOST_MIN_PX = 40;
+/** ... and at least this many times the formation's frontage from the unit's centre: half of it, so the ghost's
+ *  centre is past the squad's edge (closer, the ghost's men lay over the squad's own and read as a pile of rings;
+ *  the cancel mark shows there instead). (1.5 x the frontage, first tried, hid the ghost of an ordinary 25 m drag:
+ *  a German squad's wedge is 43 m wide at 10 m spacing.) ... */
+export const GHOST_FRONTAGE_K = 0.5;
+/** ... but never more than this (a whole platoon's wide frontage would hide its ghost for a long way). */
+export const GHOST_MAX_M = 40;
+
+/** D3: is a drag `distM` from the unit's centre far enough out to show the ghost marker? */
+export function ghostFarEnough(distM: number, scalePxPerM: number, frontageM: number): boolean {
+  const need = Math.max(GHOST_MIN_PX / Math.max(1e-6, scalePxPerM), Math.min(GHOST_MAX_M, GHOST_FRONTAGE_K * frontageM));
+  return distM > need;
+}
+
 export function centreOf(places: readonly Pt[]): Pt | null {
   if (places.length === 0) return null;
   let x = 0, y = 0;

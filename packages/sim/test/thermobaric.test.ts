@@ -43,6 +43,8 @@ function catalog(thermobaric: boolean): Catalog {
   if (!thermobaric) delete tb.explosive!.thermobaric;
   return {
     ...testCatalog,
+    // (Its own blast values: another test in this shared worker sets the test catalog's injury radius to 0.)
+    ballistics: { ...testCatalog.ballistics, blast: { severeScaledM: 3, injuryScaledM: 6, stunScaledM: 25, stunSeconds: 4, craterScaledM: 0.6, breachSteelMmScaled: 15, breachReachScaledM: 2.5, breachWidthScaledM: 2.5, shieldSteelMm: 5 } },
     items: { ...testCatalog.items, tb: { id: "tb", massKg: 11, category: "ammunition" } },
     ammo: { ...testCatalog.ammo, tb },
     ammoIds: [...testCatalog.ammoIds, "tb"].sort(),

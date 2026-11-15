@@ -5437,6 +5437,26 @@ Acceptance (plan step 8), reported as it stands after the one tuning pass:
   the village map (limit 60); bench-vehicles 12.2x (step 0: 11.4x, 12.6x), bench-combined 4.7x (4.4x, 4.9x),
   bench-medical 16.3x (17.4x, 20.1x).
 - Goldens: new `platoon-vehicles-tanks-s1` (seed 1, 240 s); every other golden unchanged by steps 2-5.
+- **Review fixes** (adversarial review; 13 findings confirmed, two rejected by the verifiers and left: the ordered
+  height's zone in `stationFireOrder`, small-arms hits counting as a hit that did not get through):
+  `faceNeed` judges a turret face in the turret's frame (hull heading + station 0 traverse, as the hit does; a test
+  with the turret traversed 90 degrees both ways); a tank that stands short of its post after an order (no route) or
+  whose route has not got `progressM` 20 m shorter in `blockedSeconds` 20 s tries its next post, and once every post
+  has failed in a row (`stuck`) the carriers no longer wait for it (platoon-ru-vehicles-tanks seed 2: the T-72B3M held
+  behind its own BMP-2 made them wait the full 180 s; now they go at 105 s); in a withdrawal each tank gets its own
+  spot after the carriers' (both went to one point) and a disarmed tank withdraws too; tank crews that bailed out are
+  sent back like the platoons' crews; the tanks' support by fire also runs when the platoons have no vehicles; a
+  vehicle start whose region search fails searches wider, then any region, clamped to the map (industrial seed 7:
+  a T-72B3M and a BMP-2 started on ground they cannot drive); the batch's kills by shooter counts each hull once
+  (`lossTally`). Tests that could not fail were made to bite: the tanks' front leaves out mounted men (with a
+  negative control; it now shows the tanks leading by up to 250 m in "start" and "ride", on purpose, the carriers
+  waiting for them in overwatch, so the check runs from the advance on), siting's own-side line must change the
+  posts, `faceNeed` on a turretless hull and `missileAimPoint` with a clear view are called. Goldens all unchanged
+  (replays; `golden:update` reported every one unchanged). Batches after the fixes (10 x 1200 s): DE + Leopards blue
+  wins 8 (9 before), men down 16.9 / 28.3, Pumas lost 0.40, BMP-2 2.70 (by Puma 16, Leopard 11), Leopards 0.00, 66x;
+  RU + T-72B3M red wins 6 (5), men down 24.4 / 22.8, Pumas lost 2.40 (by T-72B3M 23), BMP-2 1.10, T-72B3M 0.40 (by
+  Puma 4), tiles 0.0, 81x; both sides blue wins 8 (8), men down 17.0 / 32.7, Pumas 1.00 (by T-72B3M 9), BMP-2 2.60,
+  T-72B3M 1.80 (by Leopard 9, Puma 8, foot 1), Leopards 0.00, tiles red 1.0, 51x.
 ## 2026-11-15 — Men down, identity tags, casualties and prisoners crawling to cover, prisoners' care, surrendered men under fog (owner requests 2026-11-15; goldens regenerated)
 Owner requests 2026-11-15 (binding), each logged here as "owner request 2026-11-15":
 - **A (bug): "surrendered enemy soldiers are always visible to the player."** Investigated: the renderer draws an enemy

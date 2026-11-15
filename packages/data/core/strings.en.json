@@ -515,6 +515,7 @@
   "man.activity.fetchAmmo": "fetching ammunition",
   "man.activity.takePrisoner": "taking a prisoner",
   "man.activity.reposition": "changing his position",
+  "man.activity.hideDrone": "hiding from a drone",
   "man.activity.engaging": "firing at an enemy he sees",
   "man.activity.firing": "firing as ordered",
   "man.activity.pinned": "pinned down",

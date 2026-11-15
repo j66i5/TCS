@@ -133,6 +133,8 @@ export type SimEvent =
       kind: "vehicle.hit"; tick: number; vehicle: EntityId; x: number; y: number; z: number;
       face: "front" | "side" | "rear" | "top"; zone: "hull" | "turret";
       result: "ricochet" | "stopped" | "penetrated" | "intercepted"; ammo: DefId; owner: EntityId; rounds: number; components: number[];
+      /** M7.6a: an add-on tile on that face was used up by this hit (its item). */
+      era?: DefId;
     }
   /** A penetrating hit damaged a component (M7.4a): its condition now (0 = wrecked). */
   | { kind: "vehicle.component"; tick: number; vehicle: EntityId; component: number; condition: number }

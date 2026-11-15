@@ -208,7 +208,7 @@
         },
         {
           "role": "mg-gunner",
-          "rank": "ryadovoy",
+          "rank": "yefreytor",
           "load": [
             {
               "item": "ru-pkp-belt",
@@ -568,10 +568,11 @@
       "subunits": [],
       "sources": [
         "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf",
-        "https://www.battleorder.org/rus-bmp-platoon"
+        "https://www.battleorder.org/rus-bmp-platoon",
+        "https://russiandefpolicy.com/2016/09/17/contractees-in-btgs/"
       ],
       "confidence": "low",
-      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man)."
+      "note": "Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). Squad leader serzhant (mladshiy serzhant or serzhant per post), machine gunner yefreytor, the others ryadovoy/yefreytor."
     },
     {
       "id": "motor-rifle-squad-1",
@@ -581,7 +582,7 @@
       "members": [
         {
           "role": "squad-leader",
-          "rank": "serzhant",
+          "rank": "starshiy-serzhant",
           "load": [
             {
               "item": "ru-ak74-mag",
@@ -649,7 +650,7 @@
         },
         {
           "role": "mg-gunner",
-          "rank": "ryadovoy",
+          "rank": "yefreytor",
           "load": [
             {
               "item": "ru-pkp-belt",
@@ -930,7 +931,7 @@
         },
         {
           "role": "strelok-sanitar",
-          "rank": "ryadovoy",
+          "rank": "yefreytor",
           "load": [
             {
               "item": "ru-ak74-mag",
@@ -1017,10 +1018,11 @@
       "subunits": [],
       "sources": [
         "https://www.benning.army.mil/infantry/magazine/issues/2023/Winter/pdf/8_Grau-BartlesBreach_txt.pdf",
-        "https://www.battleorder.org/rus-bmp-platoon"
+        "https://www.battleorder.org/rus-bmp-platoon",
+        "https://russiandefpolicy.com/2016/09/17/contractees-in-btgs/"
       ],
       "confidence": "low",
-      "note": "The first squad of a motor-rifle platoon: as motor-rifle-squad, with the platoon's rifleman-medic in place of the rifleman with the GP-25 (M10.1, owner Q-1c). Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low)."
+      "note": "The first squad of a motor-rifle platoon: as motor-rifle-squad, with the platoon's rifleman-medic in place of the rifleman with the GP-25 (M10.1, owner Q-1c). Dismounts of a motor-rifle squad on a BMP (gunner and driver stay with the vehicle): research default chosen by the owner 2026-11-11 (he corrects it afterwards). 180 rifle rounds on the soldier and 600 machine-gun rounds in the squad follow the cited norms; hand grenade and launcher-round counts are game values. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low). Ranks (owner 2026-11-15): contract soldiers (conscripts are not sent into combat); a contract private stays ryadovoy or yefreytor, so most men keep those; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; low). The first squad's leader is the deputy platoon commander (starshiy serzhant; battleorder.org BTR company: deputy platoon commander a senior sergeant). The strelok-sanitar a yefreytor with the medical course (low)."
     },
     {
       "id": "motor-rifle-platoon",
@@ -1872,6 +1874,162 @@
       ],
       "confidence": "low",
       "note": "M9.3b (owner: a Metis-M team at company level attached to the platoon battle): the 9P151 launch post and four 9M131 rounds with a crew of three: commander with the radio and a round, operator with the launch post and a round, loader with two rounds (the real Metis-M crew is two men carrying the post and rounds in packs; the third man and the rounds per man are game values, low). The operator keeps his AK-74M (no pistol in the data)."
+    },
+    {
+      "id": "t72b3m-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "Tank {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-t72b3m",
+      "members": [
+        {
+          "role": "komandir-tanka",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "navodchik-operator",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.armyrecognition.com/9cy8"
+      ],
+      "confidence": "low",
+      "note": "T-72B3M crew (M7.6a): commander, gunner, driver (published: three). Ranks are typical, not sourced; each carries an AK-74M with two magazines, helmet and vest (game value)."
+    },
+    {
+      "id": "t90m-ekipazh",
+      "echelon": "vehicle",
+      "callsign": "Tank {n}",
+      "leaderIndex": 0,
+      "vehicle": "ru-t90m",
+      "members": [
+        {
+          "role": "komandir-tanka",
+          "rank": "mladshiy-serzhant",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "navodchik-operator",
+          "rank": "yefreytor",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        },
+        {
+          "role": "mekhanik-voditel",
+          "rank": "yefreytor",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "ru-ak74-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "ru-helmet",
+              "count": 1
+            },
+            {
+              "item": "ru-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "ru-ak74m"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://armyrecognition.com/w96k"
+      ],
+      "confidence": "low",
+      "note": "T-90M crew (M7.6a): commander, gunner, driver (published: three). Ranks are typical, not sourced; each carries an AK-74M with two magazines, helmet and vest (game value)."
     }
   ]
 }

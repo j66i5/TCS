@@ -1364,6 +1364,805 @@
       ],
       "confidence": "medium",
       "note": "Boxer ambulance (M10.6-data): the first German wheeled vehicle. Crew of three: commander, driver and a medic in the patient compartment (seat 'med', a crew seat of the generic kind 'loader': no weapon uses it, and he can take over the driving); seats p1-p7 are the sitting places. No weapon station. M7.6b reuses this hull for the Boxer carrier. Ambulance behaviour (requests, runs, loading casualties) comes with M10.6a."
+    },
+    {
+      "id": "de-leopard2a7v",
+      "nameKey": "vehicle.de.leopard2a7v",
+      "class": "tracked",
+      "body": {
+        "lengthM": 7.7,
+        "widthM": 3.77,
+        "heightM": 3.0,
+        "groundClearanceM": 0.54,
+        "hull": {
+          "f": [
+            -3.85,
+            3.85
+          ],
+          "r": [
+            -1.88,
+            1.88
+          ],
+          "u": [
+            0.54,
+            1.85
+          ]
+        },
+        "turret": {
+          "pivotF": 0.3,
+          "f": [
+            -2.6,
+            1.9
+          ],
+          "r": [
+            -1.75,
+            1.75
+          ],
+          "u": [
+            1.85,
+            2.75
+          ],
+          "barrelM": 4.9,
+          "trunnionU": 2.25
+        },
+        "trackContactM": 4.95,
+        "trackGaugeM": 3.12,
+        "sources": [
+          "https://knds.de/en/systems-products/tracked-vehicles/main-battle-tank/leopard-2-a7",
+          "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/leopard-2a7-mbt-main-battle-tank-technical-data-pictures-video"
+        ],
+        "confidence": "medium",
+        "note": "Width 3.77 m (KNDS 3.77-4.00 m; 3.81 Army Recognition) and height about 3.0 m to the turret roof (published, medium). The hull length (7.7 m, about 11 m with the gun forward), the boxes, the clearance, the track contact length and gauge are game values from the published overall figures. The gun reaches 4.9 m past the turret front (L/55 tube about 6.6 m)."
+      },
+      "mass": {
+        "kg": 63900,
+        "sources": [
+          "https://www.bundeswehr.de/de/organisation/heer/aktuelles/kampfpanzer-leopard-2-a7v",
+          "https://knds.com/products/leopard/leopard-2A7V"
+        ],
+        "confidence": "medium",
+        "note": "Combat mass 63.9 t (Bundeswehr; KNDS 'under 69 t')."
+      },
+      "drive": {
+        "powerKw": 1100,
+        "efficiency": 0.75,
+        "topSpeedKmh": 63,
+        "reverseTopSpeedKmh": 31,
+        "brakeMps2": 6.0,
+        "gears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 24
+          },
+          {
+            "toKmh": 40
+          },
+          {
+            "toKmh": 63
+          }
+        ],
+        "reverseGears": [
+          {
+            "toKmh": 12
+          },
+          {
+            "toKmh": 31
+          }
+        ],
+        "shiftSeconds": 0.5,
+        "steering": {
+          "kind": "tracked",
+          "pivot": true,
+          "pivotRateDegS": 30,
+          "maxLatAccelMps2": 3.5,
+          "slipCoeff": 0.1,
+          "turnResistance": 0.55
+        },
+        "idleKw": 60,
+        "litresPerKwh": 0.27,
+        "sources": [
+          "https://knds.com/products/leopard/leopard-2A7V",
+          "https://www.grosswald.org/mtu-mb-873-ka-501-the-propulsion-powering-the-dominance-of-the-leopard-2-mbt/",
+          "https://bundeswehr.de/en/organization/army/mission/vjtf-2023/leopard-2-a7v-main-battle-tank"
+        ],
+        "confidence": "medium",
+        "note": "MTU MB 873 Ka-501, 1100 kW (published); top speed 63 km/h (Bundeswehr; KNDS up to 70); reverse 31 km/h (the usually quoted Leopard 2 figure, from memory, low). Gear bands, efficiency, braking, steering, idle power and fuel use are game values (low), tuned in the drive lab."
+      },
+      "fuel": {
+        "item": "de-leopard-diesel",
+        "capacityL": 1160
+      },
+      "seats": [
+        {
+          "id": "cmd",
+          "station": "commander",
+          "pos": [
+            0.5,
+            0.6,
+            2.0
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own",
+              "lrf": true,
+              "pos": [
+                0.0,
+                0.7,
+                3.3
+              ]
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                0.0,
+                0.7,
+                3.3
+              ],
+              "arcDeg": 360,
+              "sideFactor": 1,
+              "rearFactor": 1,
+              "follows": "own"
+            }
+          ]
+        },
+        {
+          "id": "gnr",
+          "station": "gunner",
+          "pos": [
+            1.0,
+            0.7,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true,
+          "sensors": [
+            {
+              "kind": "vehicle-day",
+              "pos": [
+                1.5,
+                0.9,
+                2.9
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station",
+              "lrf": true
+            },
+            {
+              "kind": "vehicle-thermal",
+              "pos": [
+                1.5,
+                0.9,
+                2.9
+              ],
+              "arcDeg": 40,
+              "sideFactor": 0.2,
+              "rearFactor": 0.05,
+              "follows": "station"
+            }
+          ]
+        },
+        {
+          "id": "ldr",
+          "station": "loader",
+          "pos": [
+            0.5,
+            -0.7,
+            1.9
+          ],
+          "part": "turret",
+          "hatch": true
+        },
+        {
+          "id": "drv",
+          "station": "driver",
+          "pos": [
+            2.9,
+            0.5,
+            1.1
+          ],
+          "part": "hull",
+          "hatch": true
+        }
+      ],
+      "ramp": {
+        "exits": [
+          [
+            0.5,
+            2.1
+          ],
+          [
+            0.5,
+            -2.1
+          ]
+        ],
+        "openSeconds": 2,
+        "mountSecondsPerMan": 6,
+        "dismountSecondsPerMan": 4,
+        "bailOutSeconds": 8,
+        "seatSwapSeconds": 30,
+        "loadCasualtySeconds": 60,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values (M7.6a): no ramp; the crew gets in and out through the hatches (exits beside the hull at the turret)."
+      },
+      "stations": [
+        {
+          "id": "turret",
+          "kind": "turret",
+          "operator": "gunner",
+          "commanderOverride": true,
+          "traverseDegS": 40,
+          "elevateDegS": 20,
+          "elevationDeg": [
+            -9,
+            20
+          ],
+          "stabiliser": "two-plane",
+          "baseErrorMrad": 0.15,
+          "movingMradPerMps": 0.06,
+          "layToleranceMrad": 0.5,
+          "rangefinder": true,
+          "readyRefillInBattle": true,
+          "refillSeconds": 120,
+          "weapons": [
+            {
+              "weapon": "de-rh120-l55a1",
+              "coax": false,
+              "muzzle": [
+                6.800000000000001,
+                0,
+                2.25
+              ],
+              "feeds": [
+                {
+                  "item": "de-120-dm63a1-round",
+                  "ready": {
+                    "count": 10,
+                    "charge": 1
+                  }
+                },
+                {
+                  "item": "de-120-dm11-round",
+                  "ready": {
+                    "count": 5,
+                    "charge": 1
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 3500,
+              "feedKind": "single",
+              "loaderStation": "loader",
+              "roundLoadSeconds": 6,
+              "noLoaderFactor": 2.5,
+              "startLoaded": true
+            },
+            {
+              "weapon": "de-mg3a1-coax",
+              "coax": true,
+              "muzzle": [
+                1.8,
+                -0.5,
+                2.2
+              ],
+              "feeds": [
+                {
+                  "item": "de-mg3-coax-belt",
+                  "ready": {
+                    "count": 2,
+                    "charge": 250
+                  }
+                }
+              ],
+              "switchSeconds": 0,
+              "engageRangeM": 800,
+              "feedKind": "belt"
+            }
+          ],
+          "sources": [
+            "https://www.joint-forces.com/?p=87001",
+            "https://forum.warthunder.com/t/leopard-2-reload-time-inaccuracy/307374",
+            "https://www.hensoldt.net/news/hensoldt-presents-new-optronic-systems-for-leopard-2a8-and-puma/",
+            "https://www.army-technology.com/projects/leopard-2-a7-main-battle-tank/"
+          ],
+          "confidence": "low",
+          "note": "Two-plane stabilised turret with EMES 15 sight and laser rangefinder, PERI hunter-killer commander's sight (published, medium). The 15 rounds in the turret bustle behind blow-out panels (ready: 10 DM63A1, 5 DM11) and 27 in the hull rack beside the driver: 42 in all (published total; the split is common but not confirmed, low). One round loaded at a time by the loader, 6 s sustained (low: 4.4-5 s best, 7.5-8.6 s in older manuals); without him the commander loads, 2.5 times slower (game value). A round is in the breech at the start. Traverse and elevation rates (not found), -9 to +20 degrees, errors and tolerance are game values. Refilling the bustle from the hull rack, halted: 120 s (game value)."
+        }
+      ],
+      "stowed": [
+        {
+          "item": "de-120-dm63a1-round",
+          "count": 17,
+          "charge": 1
+        },
+        {
+          "item": "de-120-dm11-round",
+          "count": 10,
+          "charge": 1
+        },
+        {
+          "item": "de-mg3-coax-belt",
+          "count": 17,
+          "charge": 250
+        },
+        {
+          "item": "de-76mm-smoke",
+          "count": 12
+        },
+        {
+          "item": "de-leopard-extinguisher",
+          "count": 2
+        }
+      ],
+      "dischargers": {
+        "item": "de-76mm-smoke",
+        "perSalvo": 6,
+        "salvos": 2,
+        "arcDeg": 90,
+        "rangeM": 35,
+        "delaySeconds": 1.5,
+        "cloudRadiusM": 10,
+        "cloudSeconds": 90,
+        "sources": [
+          "https://www.joint-forces.com/features/51591-leopard-2a7v-main-battle-tank-part-2",
+          "https://knds.com/en/products/ssy/ssy-76mm"
+        ],
+        "confidence": "low",
+        "note": "76 mm Wegmann dischargers, six a turret side on the 2A7V (published; other sources say eight or four): two salvos of six. Range, arc, delay and cloud are game values as the Puma's."
+      },
+      "armour": {
+        "plates": [
+          {
+            "part": "hull",
+            "face": "front",
+            "material": "composite-heavy",
+            "thicknessMm": 640,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "side",
+            "material": "composite",
+            "thicknessMm": 100,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 40,
+            "slopeDeg": 0
+          },
+          {
+            "part": "hull",
+            "face": "top",
+            "material": "armour-steel",
+            "thicknessMm": 30,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "front",
+            "material": "composite-heavy",
+            "thicknessMm": 850,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "side",
+            "material": "composite-heavy",
+            "thicknessMm": 200,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "rear",
+            "material": "armour-steel",
+            "thicknessMm": 50,
+            "slopeDeg": 0
+          },
+          {
+            "part": "turret",
+            "face": "top",
+            "material": "composite",
+            "thicknessMm": 60,
+            "slopeDeg": 0
+          }
+        ],
+        "sources": [
+          "https://old-wiki.warthunder.com/Leopard_2A6_(Sweden)",
+          "https://forum.warthunder.com/t/title-leopard-2a7-2a8-hull-upper-plate-baseline-appears-too-low-compared-to-public-sources-body-id-like-to-report-a-possible-issue-with-the-hull-upper-plate-modeling-of-the-leopard-2-series-rather-than-just-the-2a8-itself-in-game-test-results-le/364216",
+          "https://old-wiki.warthunder.com/Leopard_2A5",
+          "https://www.btvt.info/4ourarticles/leopard2/Leo2a4.htm",
+          "https://forum.warthunder.com/t/leopard-2a7v-2a7hu-discussion-bugs/55716/125"
+        ],
+        "confidence": "low",
+        "note": "Game values from public estimates only (armour is classified; game wikis and forums): line-of-sight equivalents at 0 degrees, one plate per face. Turret front about 850 mm RHA against long rods / 1450-1800 against jets (850 mm of heavy composite: 1062 / 1785 mm mild steel); hull front (upper glacis with the add-on module) about 650 / 1000+ (640 mm: 800 / 1344); hull side about 130 / 200 (100 mm composite: 160 / 250; the heavy front third of the skirts is not separate); turret side 200 / 340 (250 / 420); rear 40-50 mm steel; roof 30 mm steel on the hull, 60 mm composite on the turret (the 2A7V's roof modules). Known simplification: no weaker lower glacis or mantlet."
+      },
+      "components": {
+        "parts": [
+          {
+            "id": "engine",
+            "kind": "engine",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                -1.6
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                0.6,
+                1.8
+              ]
+            },
+            "toughnessMm": 80,
+            "absorbMm": 60,
+            "fireChance": 0.15
+          },
+          {
+            "id": "transmission",
+            "kind": "transmission",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                -3.0
+              ],
+              "r": [
+                -1.5,
+                1.5
+              ],
+              "u": [
+                0.6,
+                1.4
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "track-left",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                3.8
+              ],
+              "r": [
+                -1.88,
+                -1.45
+              ],
+              "u": [
+                0.54,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "track-right",
+            "kind": "track",
+            "part": "hull",
+            "box": {
+              "f": [
+                -3.8,
+                3.8
+              ],
+              "r": [
+                1.45,
+                1.88
+              ],
+              "u": [
+                0.54,
+                1.2
+              ]
+            },
+            "external": true,
+            "toughnessMm": 30,
+            "absorbMm": 12
+          },
+          {
+            "id": "gun",
+            "kind": "gun",
+            "part": "turret",
+            "box": {
+              "f": [
+                1.0,
+                1.9
+              ],
+              "r": [
+                -0.35,
+                0.35
+              ],
+              "u": [
+                2.05,
+                2.45
+              ]
+            },
+            "toughnessMm": 60,
+            "absorbMm": 50
+          },
+          {
+            "id": "ammo-bustle",
+            "kind": "ammo",
+            "part": "turret",
+            "box": {
+              "f": [
+                -2.6,
+                -1.6
+              ],
+              "r": [
+                -1.4,
+                1.4
+              ],
+              "u": [
+                1.95,
+                2.65
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.3,
+            "cookOffChance": 0.05
+          },
+          {
+            "id": "ammo-hull",
+            "kind": "ammo",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.0,
+                3.6
+              ],
+              "r": [
+                -1.6,
+                -0.3
+              ],
+              "u": [
+                0.7,
+                1.6
+              ]
+            },
+            "toughnessMm": 30,
+            "absorbMm": 40,
+            "fireChance": 0.4,
+            "cookOffChance": 0.35
+          },
+          {
+            "id": "fuel",
+            "kind": "fuel",
+            "part": "hull",
+            "box": {
+              "f": [
+                2.0,
+                3.6
+              ],
+              "r": [
+                1.1,
+                1.8
+              ],
+              "u": [
+                0.8,
+                1.7
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 30,
+            "fireChance": 0.15
+          },
+          {
+            "id": "turret-drive",
+            "kind": "turret-drive",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.8,
+                0.8
+              ],
+              "r": [
+                -0.8,
+                0.8
+              ],
+              "u": [
+                1.85,
+                2.1
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 15
+          },
+          {
+            "id": "stabiliser",
+            "kind": "stabiliser",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.3,
+                0.3
+              ],
+              "r": [
+                0.4,
+                0.9
+              ],
+              "u": [
+                2.0,
+                2.4
+              ]
+            },
+            "toughnessMm": 15,
+            "absorbMm": 10
+          },
+          {
+            "id": "coax",
+            "kind": "coax",
+            "part": "turret",
+            "box": {
+              "f": [
+                1.0,
+                1.7
+              ],
+              "r": [
+                -0.7,
+                -0.45
+              ],
+              "u": [
+                2.1,
+                2.35
+              ]
+            },
+            "toughnessMm": 20,
+            "absorbMm": 10
+          },
+          {
+            "id": "sights",
+            "kind": "sights",
+            "part": "turret",
+            "box": {
+              "f": [
+                1.2,
+                1.8
+              ],
+              "r": [
+                0.8,
+                1.2
+              ],
+              "u": [
+                2.6,
+                2.9
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "radio",
+            "kind": "radio",
+            "part": "turret",
+            "box": {
+              "f": [
+                -1.6,
+                -1.0
+              ],
+              "r": [
+                0.6,
+                1.2
+              ],
+              "u": [
+                2.0,
+                2.5
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "dischargers",
+            "kind": "dischargers",
+            "part": "turret",
+            "box": {
+              "f": [
+                -0.5,
+                0.5
+              ],
+              "r": [
+                -1.75,
+                1.75
+              ],
+              "u": [
+                2.55,
+                2.75
+              ]
+            },
+            "external": true,
+            "toughnessMm": 10,
+            "absorbMm": 5
+          },
+          {
+            "id": "extinguisher",
+            "kind": "extinguisher",
+            "part": "hull",
+            "box": {
+              "f": [
+                1.0,
+                1.4
+              ],
+              "r": [
+                -0.5,
+                0.5
+              ],
+              "u": [
+                0.6,
+                1.0
+              ]
+            },
+            "toughnessMm": 10,
+            "absorbMm": 5
+          }
+        ],
+        "sources": [
+          "https://kaweah.freedombox.rocks/kiwix/wikipedia_en_all_maxi_2023-10/Leopard_2",
+          "https://forum.warthunder.com/t/leopard-2a7v-ammorack/62922"
+        ],
+        "confidence": "low",
+        "note": "Game values: engine and transmission at the rear, ammunition in the turret bustle behind blow-out panels (rarely blows up: cook-off 0.05) and in the hull rack left of the driver (cook-off 0.35), fuel front right; boxes, toughness and chances are game values."
+      },
+      "extinguisher": {
+        "item": "de-leopard-extinguisher",
+        "chance": 0.6,
+        "delaySeconds": 1,
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: automatic fire suppression (charges, delay and chance are not published)."
+      },
+      "signature": {
+        "sizeFactor": 1.15,
+        "movingFactor": 4,
+        "firingFactor": 15,
+        "identifyM": 2000,
+        "noiseIdleM": 400,
+        "noiseMovingM": 1200,
+        "aimPoints": [
+          [
+            0.3,
+            0,
+            1.3
+          ],
+          [
+            0.3,
+            0,
+            2.3
+          ]
+        ],
+        "sources": [],
+        "confidence": "low",
+        "note": "Game values: larger than the Puma's hull and turret boxes alone show (size 1.15); type known within 2 km."
+      },
+      "sources": [
+        "https://knds.com/products/leopard/leopard-2A7V",
+        "https://www.bundeswehr.de/de/organisation/heer/aktuelles/kampfpanzer-leopard-2-a7v",
+        "https://www.joint-forces.com/?p=87001",
+        "https://www.army-technology.com/projects/leopard-2-a7-main-battle-tank/"
+      ],
+      "confidence": "medium",
+      "note": "Leopard 2A7V main battle tank (M7.6a): 4 crew (commander, gunner and loader in the turret, driver front right). Search extracts only (pages not opened in this container). Published (medium): mass, engine, top speed, crew, 42 rounds, sights. Game values (low): armour, components, reload, stowage split, signature. No reactive armour; no active protection (the 2A8 with Trophy comes with M14.5; DM73 later). No laser warner (not found for the 2A7V)."
     }
   ]
 }

@@ -9,13 +9,14 @@ import { createSim, step, submitOrder, type BattleInput, type EntityId, type Sim
 import type { DataSet } from "@tcs/data";
 import { duel } from "./gunnery";
 
-export type MissileKind = "wire" | "f&f" | "beam";
+export type MissileKind = "wire" | "f&f" | "beam" | "refleks";
 /** The three guidance kinds (M9.3a): the BMP-2's Konkurs (wire, at a Puma), the Puma's MELLS Spike LR (fire-and-
  *  forget top attack, at a BMP-2), the xf wagon's dart (beam riding, at a Puma; fixture data). */
 const KINDS: Record<MissileKind, { factions: [string, string]; shooter: "blue" | "red"; crews?: [string, string]; squads?: [string, string]; label: string }> = {
   "wire": { factions: ["de", "ru"], shooter: "red", label: "BMP-2 9M113M Konkurs-M (command by wire) at a Puma" },
   "f&f": { factions: ["de", "ru"], shooter: "blue", label: "Puma MELLS Spike LR (fire-and-forget, top attack) at a BMP-2" },
   "beam": { factions: ["de", "xf"], shooter: "red", crews: ["puma-besatzung", "wagon-crew"], squads: ["pzgren-schuetzentrupp", "porter-gang"], label: "xf wagon dart (beam riding, fixture) at a Puma" },
+  "refleks": { factions: ["de", "ru"], shooter: "red", crews: ["leopard2a7v-besatzung", "t90m-ekipazh"], label: "T-90M 9M119M Refleks-M (beam riding, through the gun; M7.6a) at a Leopard 2A7V" },
 };
 
 export interface MissileRow { kind: MissileKind; aspect: "front" | "side"; rangeM: number; smoke: boolean; trials: number; fired: number; hits: number; penetrated: number; knockedOut: number; lost: number; warned: number; flightS: number }
@@ -74,6 +75,9 @@ export function missileLab(data: DataSet, trials = 20): MissileRow[] {
   cases.push({ kind: "f&f", aspect: "front", rangeM: 3500, smoke: true });
   for (const rangeM of [1000, 2500]) cases.push({ kind: "beam", aspect: "side", rangeM, smoke: false });
   cases.push({ kind: "beam", aspect: "front", rangeM: 2500, smoke: true });
+  // (3500 m, not the plan's 4000: a map is at most 4000 m across, MAX_MAP_SIZE_M.)
+  for (const rangeM of [2000, 3500]) cases.push({ kind: "refleks", aspect: "side", rangeM, smoke: false });
+  cases.push({ kind: "refleks", aspect: "front", rangeM: 2000, smoke: false });
   for (const c of cases) {
     const row: MissileRow = { ...c, trials, fired: 0, hits: 0, penetrated: 0, knockedOut: 0, lost: 0, warned: 0, flightS: 0 };
     for (let k = 0; k < trials; k++) {

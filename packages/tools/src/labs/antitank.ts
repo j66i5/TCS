@@ -8,7 +8,11 @@ import { createSim, launcherRound, step, submitOrder, type BattleInput, type Ent
 import type { DataSet } from "@tcs/data";
 import { duel } from "./gunnery";
 
-export interface AntitankRow { shooter: string; target: string; aspect: "side" | "front"; rangeM: number; trials: number; hits: number; penetrated: number; knockedOut: number; destroyed: number }
+export interface AntitankRow { shooter: string; target: string; aspect: "side" | "front"; rangeM: number; trials: number; hits: number; penetrated: number; knockedOut: number; destroyed: number; era?: "full" | "spent" }
+
+/** M7.6a: the crews of the duel (default: each faction's carrier crew) and the target's reactive tiles used up
+ *  before the battle (its record's tile items removed: still counted items, just none left). */
+export interface AntitankOpts { crewTemplates?: [string, string]; eraSpent?: boolean }
 
 function holdAll(sim: Sim): void {
   for (const [uid, u] of sim.state.unit.entries()) if (u.parent === null) submitOrder(sim, { tick: sim.state.tick, issuer: u.side, target: uid, kind: "rules", fire: "hold", at: "hold" });
@@ -16,10 +20,11 @@ function holdAll(sim: Sim): void {
 }
 
 /** A duel with the blue anti-tank gunner standing `rangeM` west of the red vehicle (which faces south = side-on, or west = head-on). */
-export function antitankSetup(data: DataSet, factions: [string, string], rangeM: number, aspect: "side" | "front", seed: number): { input: BattleInput; gunner: EntityId; target: EntityId } {
+export function antitankSetup(data: DataSet, factions: [string, string], rangeM: number, aspect: "side" | "front", seed: number, opts: AntitankOpts = {}): { input: BattleInput; gunner: EntityId; target: EntityId } {
   const tx = 1400, ty = 600;
-  const input = duel(data, factions, { blue: { x: 60, y: 1100, heading: 0 }, red: { x: tx, y: ty, heading: aspect === "side" ? Math.PI / 2 : Math.PI } });
+  const input = duel(data, factions, { blue: { x: 60, y: 1100, heading: 0 }, red: { x: tx, y: ty, heading: aspect === "side" ? Math.PI / 2 : Math.PI } }, undefined, 2400, opts.crewTemplates);
   input.seed = seed;
+  if (opts.eraSpent) for (const rec of input.forces[1]!.vehicles ?? []) rec.load = rec.load.filter((l) => input.catalog.items[l.type]?.reactive === undefined);
   // Find the blue man with a launcher, then stand him at the range, facing the target.
   const probe = createSim(input);
   let gunnerPerson: string | null = null;
@@ -36,41 +41,47 @@ export function antitankSetup(data: DataSet, factions: [string, string], rangeM:
 }
 
 /** One trial: the order, then 20 s. */
-export function antitankTrial(data: DataSet, factions: [string, string], rangeM: number, aspect: "side" | "front", seed: number): { hit: boolean; penetrated: boolean; knockedOut: boolean; destroyed: boolean; fired: boolean } {
-  const { input, gunner, target } = antitankSetup(data, factions, rangeM, aspect, seed);
+export function antitankTrial(data: DataSet, factions: [string, string], rangeM: number, aspect: "side" | "front", seed: number, opts: AntitankOpts = {}): { hit: boolean; penetrated: boolean; knockedOut: boolean; destroyed: boolean; fired: boolean; era: boolean } {
+  const { input, gunner, target } = antitankSetup(data, factions, rangeM, aspect, seed, opts);
   const sim = createSim(input);
   holdAll(sim);
   const t = sim.state.transform.req(target);
   submitOrder(sim, { tick: sim.state.tick, issuer: "blue", target: gunner, kind: "fire", x: t.x, y: t.y, contact: target, nature: "at" });
-  let hit = false, pen = false, fired = false;
+  let hit = false, pen = false, fired = false, era = false;
   for (let i = 0; i < 20 * 60; i++) {
     for (const e of step(sim)) {
       if (e.kind === "grenade.launched" && e.soldier === gunner) fired = true;
-      if (e.kind === "vehicle.hit" && e.vehicle === target && e.owner === gunner) { hit = true; if (e.result === "penetrated") pen = true; }
+      if (e.kind === "vehicle.hit" && e.vehicle === target && e.owner === gunner) { hit = true; if (e.result === "penetrated") pen = true; if (e.era !== undefined) era = true; }
     }
   }
   const v = sim.state.vehicle.req(target);
-  return { hit, penetrated: pen, knockedOut: v.status !== "ok", destroyed: v.status === "destroyed", fired };
+  return { hit, penetrated: pen, knockedOut: v.status !== "ok", destroyed: v.status === "destroyed", fired, era };
 }
 
 export function antitankLab(data: DataSet, trials = 20): AntitankRow[] {
   const rows: AntitankRow[] = [];
-  const cases: { factions: [string, string]; shooter: string; target: string; ranges: number[] }[] = [
+  const cases: { factions: [string, string]; shooter: string; target: string; ranges: number[]; crewTemplates?: [string, string]; eras?: ("full" | "spent")[] }[] = [
     { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "BMP-2", ranges: [100, 200, 300, 400] },
     { factions: ["ru", "de"], shooter: "RPG-7 (PG-7VL)", target: "Puma", ranges: [100, 200, 300] },
+    // M7.6a: the tanks (the target's own crew; its reactive tiles there or used up).
+    { factions: ["de", "ru"], shooter: "Panzerfaust 3", target: "T-90M", ranges: [100, 200, 300], crewTemplates: ["puma-besatzung", "t90m-ekipazh"], eras: ["full", "spent"] },
+    { factions: ["ru", "de"], shooter: "RPG-7 (PG-7VL)", target: "Leopard 2A7V", ranges: [100, 200, 300], crewTemplates: ["bmp2-ekipazh", "leopard2a7v-besatzung"] },
   ];
   for (const cs of cases) {
-    for (const aspect of ["side", "front"] as const) {
-      for (const R of cs.ranges) {
-        const row: AntitankRow = { shooter: cs.shooter, target: cs.target, aspect, rangeM: R, trials, hits: 0, penetrated: 0, knockedOut: 0, destroyed: 0 };
-        for (let k = 0; k < trials; k++) {
-          const r = antitankTrial(data, cs.factions, R, aspect, 1000 + k);
-          if (r.hit) row.hits++;
-          if (r.penetrated) row.penetrated++;
-          if (r.knockedOut) row.knockedOut++;
-          if (r.destroyed) row.destroyed++;
+    for (const era of cs.eras ?? [undefined]) {
+      for (const aspect of ["side", "front"] as const) {
+        for (const R of cs.ranges) {
+          const row: AntitankRow = { shooter: cs.shooter, target: cs.target, aspect, rangeM: R, trials, hits: 0, penetrated: 0, knockedOut: 0, destroyed: 0, ...(era ? { era } : {}) };
+          const opts: AntitankOpts = { ...(cs.crewTemplates ? { crewTemplates: cs.crewTemplates } : {}), ...(era === "spent" ? { eraSpent: true } : {}) };
+          for (let k = 0; k < trials; k++) {
+            const r = antitankTrial(data, cs.factions, R, aspect, 1000 + k, opts);
+            if (r.hit) row.hits++;
+            if (r.penetrated) row.penetrated++;
+            if (r.knockedOut) row.knockedOut++;
+            if (r.destroyed) row.destroyed++;
+          }
+          rows.push(row);
         }
-        rows.push(row);
       }
     }
   }
@@ -79,8 +90,9 @@ export function antitankLab(data: DataSet, trials = 20): AntitankRow[] {
 
 export function antitankLabMarkdown(rows: AntitankRow[]): string {
   const out = ["One gunner, one round on order, halted target; knocked out = no longer ok (immobilised, gun out, burning/abandoned or destroyed) 20 s later.", "",
-    "| Shooter | Target | Aspect | Range | Hits | Penetrated | Knocked out | Destroyed |", "|---|---|---|---:|---:|---:|---:|---:|"];
+    "Tiles (M7.6a): the target's reactive tiles there (full) or used up before the battle (spent); - = none fitted.", "",
+    "| Shooter | Target | Tiles | Aspect | Range | Hits | Penetrated | Knocked out | Destroyed |", "|---|---|---|---|---:|---:|---:|---:|---:|"];
   const pct = (n: number, t: number) => `${Math.round((100 * n) / t)} %`;
-  for (const r of rows) out.push(`| ${r.shooter} | ${r.target} | ${r.aspect} | ${r.rangeM} m | ${pct(r.hits, r.trials)} | ${pct(r.penetrated, r.trials)} | ${pct(r.knockedOut, r.trials)} | ${pct(r.destroyed, r.trials)} |`);
+  for (const r of rows) out.push(`| ${r.shooter} | ${r.target} | ${r.era ?? "-"} | ${r.aspect} | ${r.rangeM} m | ${pct(r.hits, r.trials)} | ${pct(r.penetrated, r.trials)} | ${pct(r.knockedOut, r.trials)} | ${pct(r.destroyed, r.trials)} |`);
   return out.join("\n");
 }

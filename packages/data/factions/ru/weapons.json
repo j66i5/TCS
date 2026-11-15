@@ -255,6 +255,75 @@
       ],
       "confidence": "low",
       "note": "9P151 launch post of the Metis-M (M9.3b): about 10.2 kg (sources agree, search extracts), a tripod with the guidance unit and sight. Game values (low): the missile leaves the tube at 80 m/s, sight x6, 15 s to put the next tube on (not used: the team's action times it)."
+    },
+    {
+      "id": "ru-2a46m5",
+      "nameKey": "weapon.ru-2a46m5",
+      "type": "tank-gun",
+      "calibre": "125mm",
+      "massKg": 2500,
+      "feed": {
+        "magazine": "ru-125-3bm60-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 8,
+      "dispersionMrad": 0.3,
+      "reloadSeconds": 7,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 12
+        }
+      ],
+      "ammo": {
+        "ru-125-3bm60": 1660,
+        "ru-125-3bm42": 1700,
+        "ru-125-3of26": 850
+      },
+      "sources": [
+        "https://www.armyrecognition.com/9cy8",
+        "https://forum.warthunder.com/t/t-90m-the-russian-bulwark/11364",
+        "https://en.wikipedia.org/wiki/2A46"
+      ],
+      "confidence": "low",
+      "note": "125 mm 2A46M-5 smoothbore (T-72B3M and T-90M, published, medium). Search extracts only (pages not opened in this container). Muzzle velocities (3BM60 1660, 3BM42 1700, 3OF26 850 m/s) from published tables as remembered (low). The autoloader sets the cycle (the vehicle's roundLoadSeconds); gun mass, dispersion and jam chance are game values; Sosna-U thermal sight 12x (game value)."
+    },
+    {
+      "id": "ru-2a46m5-gl",
+      "nameKey": "weapon.ru-2a46m5-gl",
+      "type": "tank-gun",
+      "calibre": "125mm-atgm",
+      "massKg": 2500,
+      "feed": {
+        "magazine": "ru-9m119m-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 1,
+      "dispersionMrad": 0,
+      "reloadSeconds": 7.5,
+      "setupSeconds": 0,
+      "jamProbability": 0,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 12
+        }
+      ],
+      "ammo": {
+        "ru-9m119m": 280
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/9M119_Svir/Refleks",
+        "https://en.missilery.info/node/12990"
+      ],
+      "confidence": "low",
+      "note": "The 2A46M-5 as the 9K119M Refleks-M launcher (M7.6a): a separate weapon entry on the same station and muzzle, so its missiles are counted apart from the gun's carousel rounds (the real carousel holds both). Search extracts only (pages not opened in this container). Launch velocity 280 m/s and 7.5 s to put the next missile in, halted (game values, low); the gunner guides it on the beam through his sight; wrecked with the gun or the sights."
     }
   ]
 }

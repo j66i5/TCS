@@ -60,7 +60,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void): void 
     cancelPlan: () => { endPlan(a); },
     go: () => { if (a.plan && overlay.selectedUnit !== null) { const o = planToOrder(a.plan, playerSide, overlay.selectedUnit, sim.state.tick); if (o) issue(a, forUnit(a, o)); } endPlan(a); },
     /** Select a unit (screenshots: a vehicle's crew unit). */
-    select: (uid: EntityId | null) => select(a, uid),
+    select: (uid: EntityId | null, part?: "drone" | "hq") => select(a, uid, part),
     /** M7.5a screenshots: dock the order bar, open the sidebar's list, the order set shown, the free area. */
     dock: (e: "top" | "bottom" | "left" | "right") => hud.setDock(e),
     expandSidebar: (on: boolean) => hud.setSidebarExpanded(on),

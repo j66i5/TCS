@@ -871,6 +871,24 @@ shows the unit's symbol, callsign and how many of its men are fit (5/6), and a c
 green ready, light blue moving, orange firing, grey riding, yellow pinned (or a damaged vehicle), red broken,
 dimmed out of action. The ☰ at its head opens the full list with the details; on a wide screen it is always open.
 
+**The platoon, its HQ and its drone (owner 2026-11-15).** Each platoon has three tiles at the top of its block:
+- **Zug 1** (the platoon, "whole platoon" in the open list): an order given here goes to everybody — the squads, the
+  HQ and the vehicles. This is the only way to move the whole platoon at once.
+- **HQ Zug 1** (a small light **HQ** badge; on the slim strip just "HQ"): the platoon's own men — the platoon leader,
+  his radio operator, the medic. Tapping one of these men on the map, or the Puma they ride in (tap again to go
+  through its riders), selects this HQ, not the platoon. Its orders reach only these men: Move, Fire, grenades,
+  posture, rules, and **Mount / Dismount** exactly like a squad (on a phone Mount and Dismount wait behind ⋯ on the
+  order bar). The unit card shows the same badge: "Zug 1 HQ 3/3". The Puma that carries the HQ says "HQ aboard".
+- **Drone**, right under the HQ: the platoon's reconnaissance quadcopter, always listed while the platoon still has
+  it — on the ground with the radio operator, while he rides ("aboard … gets out to launch"), or in the air (its
+  battery). It disappears only when the drone is lost.
+
+**How to launch the drone.** Tap the **Drone** tile, then tap the map where it should fly. The radio operator
+launches it by hand from the ground: if he is riding, he first gets out of his vehicle by himself (the rest of the
+HQ and the squads stay in), then it takes about a minute to set up and launch, and the radio says "drone up". While
+it flies, tap the map again to send it somewhere else; **Halt** brings it home to land with him. He stands still
+while he flies it.
+
 **Labels never pile up.** Callsigns are placed beside their unit so that no two overlap, none covers another
 labelled unit, a bar or the screen edge; the selected unit's label always wins, and the ones that fit nowhere are
 left out until there is room (zoom in). A squad that got out next to its vehicle shares its label ("Puma 1 ·

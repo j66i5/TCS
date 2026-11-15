@@ -61,6 +61,8 @@ export interface UnitCapabilities {
   passengers: number;
   hasSmokeDischargers: boolean;
   natures: Nature[];
+  /** The unit's own men alone (a platoon's headquarters, owner 2026-11-15): no drills. */
+  own?: boolean;
 }
 
 const NONE: UnitCapabilities = { kind: "none", vehicleClass: null, ableMen: 0, hasLauncherRounds: false, handGrenades: 0, rifleGrenades: 0, smokeGrenades: 0, supportHe: 0, supportSmoke: 0, canMount: false, canDismount: false, passengers: 0, hasSmokeDischargers: false, natures: [] };
@@ -82,7 +84,7 @@ const countIn = (view: SimView, id: EntityId, item: string) => {
  * Can the unit get in (men on foot whose unit, or a unit above it, has a carrier) or out (men aboard; a vehicle
  * with passengers)? (M7.2; moved here from the app in M7.5a.)
  */
-export function boardingOf(view: SimView, catalog: Catalog, uid: EntityId | null): BoardingChoice {
+export function boardingOf(view: SimView, catalog: Catalog, uid: EntityId | null, own = false): BoardingChoice {
   const u = uid === null ? undefined : view.unit.get(uid);
   if (!u || uid === null) return { mount: false, dismount: false };
   if (u.vehicle !== undefined) {
@@ -91,16 +93,19 @@ export function boardingOf(view: SimView, catalog: Catalog, uid: EntityId | null
   }
   let carrier = false;
   for (let x: EntityId | null = uid; x !== null; x = view.unit.get(x)?.parent ?? null) if (view.unit.get(x)?.carrier !== undefined) carrier = true;
-  const men = unitSoldierIds(view, uid).filter((m) => view.unit.get(view.identity.get(m)?.unit ?? -1)?.vehicle === undefined && !isOut(view.soldier.req(m)));
+  // (`own`: the unit's own men alone, a platoon's headquarters, owner 2026-11-15.)
+  const men = (own ? [...u.members] : unitSoldierIds(view, uid)).filter((m) => view.unit.get(view.identity.get(m)?.unit ?? -1)?.vehicle === undefined && !isOut(view.soldier.req(m)));
   return { mount: carrier && men.some((m) => view.soldier.req(m).mount === undefined), dismount: men.some((m) => view.soldier.req(m).mount !== undefined) };
 }
 
-/** What the unit can do now (pure, reads the state only). */
-export function unitCapabilities(view: SimView, catalog: Catalog, unitId: EntityId | null): UnitCapabilities {
+/** What the unit can do now (pure, reads the state only). `own` (owner 2026-11-15): its own men alone (a platoon's
+ *  headquarters without its squads and vehicles). */
+export function unitCapabilities(view: SimView, catalog: Catalog, unitId: EntityId | null, own = false): UnitCapabilities {
   const u = unitId === null ? undefined : view.unit.get(unitId);
   if (!u || unitId === null) return NONE;
   const out: UnitCapabilities = { ...NONE, natures: [] };
-  const b = boardingOf(view, catalog, unitId);
+  const b = boardingOf(view, catalog, unitId, own);
+  if (own) out.own = true;
   out.canMount = b.mount; out.canDismount = b.dismount;
   out.supportHe = supportLeft(view, u.side, "he", catalog);
   out.supportSmoke = supportLeft(view, u.side, "smoke", catalog);
@@ -129,7 +134,7 @@ export function unitCapabilities(view: SimView, catalog: Catalog, unitId: Entity
     return out;
   }
   out.kind = "group";
-  for (const m of unitSoldierIds(view, unitId)) {
+  for (const m of own ? u.members : unitSoldierIds(view, unitId)) {
     const s = view.soldier.get(m);
     if (!isAble(s)) continue;
     out.ableMen++;
@@ -198,6 +203,16 @@ export function ordersFor(cap: UnitCapabilities | "tracked" | "wheeled" | null, 
     return o;
   }
   const grenades = cap.handGrenades + cap.rifleGrenades;
+  // A platoon's headquarters on its own (owner 2026-11-15): moves, fire, grenades, smoke, fire support, getting
+  // in and out; no drills (assault, withdraw, occupy, clear are the platoon's or a squad's).
+  if (cap.own === true) {
+    const m: OrderMode[] = ["move", "fire"];
+    if (cap.hasLauncherRounds) m.push("antitank");
+    if (grenades > 0) m.push("grenade");
+    if (cap.smokeGrenades > 0) m.push("smoke");
+    if (cap.supportHe > 0 || cap.supportSmoke > 0) m.push("support");
+    return { modes: m, halt: true, ceaseFire: true, posture: true, rules: true, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
+  }
   if (cap.kind === "man") {
     return { modes: ["move", "occupy", "fire", ...(grenades > 0 ? ["grenade" as const] : []), ...(cap.smokeGrenades > 0 ? ["smoke" as const] : [])], halt: true, ceaseFire: true, posture: true, rules: false, paces: FOOT_PACES, mount: b.mount, dismount: b.dismount, discharge: false, nature: false };
   }

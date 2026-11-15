@@ -130,6 +130,46 @@
         ],
         "note": "three stripes from the shoulder end, the fourth set apart above them (owner 2026-11-15)"
       },
+      "oberstabsgefreiter": {
+        "elements": [
+          {
+            "kind": "bar",
+            "y": 25.5,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 35.2,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 45.0,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 62.1,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          },
+          {
+            "kind": "bar",
+            "y": 71.8,
+            "widthMm": 5.0,
+            "angleDeg": 35.0,
+            "insetMm": 4.0
+          }
+        ],
+        "note": "five Schraegstreifen (Anlage 2 BPrDGrUnifAnO, medium): the Stabsgefreiter's four from the shoulder end, the fifth 3 mm above the set-apart fourth (positions inferred, low; owner 2026-11-15 rule: devices build up from the shoulder end)"
+      },
       "unteroffizier": {
         "elements": [
           {

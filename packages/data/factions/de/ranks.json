@@ -61,11 +61,25 @@
       "note": "German rank names are kept untranslated. NATO codes from public comparison tables; verify."
     },
     {
+      "id": "oberstabsgefreiter",
+      "nameKey": "rank.de.oberstabsgefreiter",
+      "abbrKey": "rank.de.oberstabsgefreiter.abbr",
+      "natoCode": "OR-4",
+      "grade": 6,
+      "sources": [
+        "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr",
+        "https://www.gesetze-im-internet.de/bprdgrunifano/anlage_2.html",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
+      "confidence": "medium",
+      "note": "Highest common Mannschaften rank of a long-serving SaZ (promotion earliest after 48 months and with at least six years of contracted service, SLV; search extracts). Korporal and Stabskorporal (2021) are not modelled. Name kept untranslated."
+    },
+    {
       "id": "unteroffizier",
       "nameKey": "rank.de.unteroffizier",
       "abbrKey": "rank.de.unteroffizier.abbr",
       "natoCode": "OR-5",
-      "grade": 6,
+      "grade": 7,
       "sources": [
         "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
       ],
@@ -77,7 +91,7 @@
       "nameKey": "rank.de.stabsunteroffizier",
       "abbrKey": "rank.de.stabsunteroffizier.abbr",
       "natoCode": "OR-5",
-      "grade": 7,
+      "grade": 8,
       "sources": [
         "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
       ],
@@ -89,7 +103,7 @@
       "nameKey": "rank.de.feldwebel",
       "abbrKey": "rank.de.feldwebel.abbr",
       "natoCode": "OR-6",
-      "grade": 8,
+      "grade": 9,
       "sources": [
         "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
       ],
@@ -101,7 +115,7 @@
       "nameKey": "rank.de.oberfeldwebel",
       "abbrKey": "rank.de.oberfeldwebel.abbr",
       "natoCode": "OR-6",
-      "grade": 9,
+      "grade": 10,
       "sources": [
         "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
       ],
@@ -113,7 +127,7 @@
       "nameKey": "rank.de.hauptfeldwebel",
       "abbrKey": "rank.de.hauptfeldwebel.abbr",
       "natoCode": "OR-7",
-      "grade": 10,
+      "grade": 11,
       "sources": [
         "https://de.wikipedia.org/wiki/Dienstgrade_der_Bundeswehr"
       ],

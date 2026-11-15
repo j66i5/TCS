@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalog } from "@tcs/data";
 import { plateNeed, type PlateRT } from "@tcs/sim";
-import { armourLab, plateThrough, referenceRounds } from "../src/labs/armour";
+import { ARMOUR_LAB_VEHICLES, armourLab, plateThrough, referenceRounds } from "../src/labs/armour";
 import { loadData } from "../src/scenarios";
 
 const data = loadData();
@@ -73,8 +73,81 @@ describe("armour lab (M7.4a)", () => {
     expect(graze(0).cosInc).toBeCloseTo(1, 6);
   });
 
-  it("the lab table covers both vehicles, every part and face", () => {
-    const rows = armourLab(data);
-    expect(new Set(rows.map((r) => `${r.vehicle}/${r.part}/${r.face}`)).size).toBe(16);
+  it("the lab table covers every vehicle asked for, every part and face", () => {
+    const two = armourLab(data, ["de-puma", "ru-bmp2"]);
+    expect(new Set(two.map((r) => `${r.vehicle}/${r.part}/${r.face}`)).size).toBe(16);
+    expect(two.every((r) => r.era === "none")).toBe(true);
+    const all = armourLab(data);
+    expect(new Set(all.map((r) => `${r.vehicle}/${r.part}/${r.face}`)).size).toBe(8 * ARMOUR_LAB_VEHICLES.length);
+    // The Puma and BMP-2 rows are what they were before the tanks (the same plates, no tiles).
+    const key = (r: (typeof all)[number]) => `${r.vehicle}/${r.part}/${r.face}/${r.round}`;
+    const before = new Map(two.map((r) => [key(r), r]));
+    for (const r of all.filter((x) => x.vehicle === "de-puma" || x.vehicle === "ru-bmp2")) expect(r).toEqual(before.get(key(r)));
+  });
+});
+
+describe("armour lab: main battle tanks (M7.6a)", () => {
+  const thru = (v: string, part: "hull" | "turret", f: number, id: string, era: "none" | "full" | "spent" = "none") => {
+    const rd = referenceRounds(data).find((r) => r.id === id)!;
+    return plateThrough(data, v, part, f, rd.mildMm, rd.kind, undefined, era).through;
+  };
+  const LEO = "de-leopard2a7v", T90 = "ru-t90m", T72 = "ru-t72b3m";
+
+  it("DM63A1 at 2 km: the T-90M's fronts stop it with Relikt there and not without; Kontakt-5 does not save the T-72B3M's turret", () => {
+    for (const part of ["hull", "turret"] as const) {
+      expect(thru(T90, part, 0, "de-120-dm63a1", "full")).toBe(false);
+      expect(thru(T90, part, 0, "de-120-dm63a1", "spent")).toBe(true);
+    }
+    expect(thru(T72, "turret", 0, "de-120-dm63a1", "full")).toBe(true);
+  });
+
+  it("3BM60: the Leopard's turret front stops it; its hull front at 2 km but not at 1 km", () => {
+    expect(thru(LEO, "turret", 0, "ru-125-3bm60")).toBe(false);
+    expect(thru(LEO, "hull", 0, "ru-125-3bm60")).toBe(false);
+    expect(thru(LEO, "hull", 0, "ru-125-3bm60-1000")).toBe(true);
+  });
+
+  it("3BM42: every Leopard front stops it; its sides do not", () => {
+    for (const part of ["hull", "turret"] as const) {
+      expect(thru(LEO, part, 0, "ru-125-3bm42")).toBe(false);
+      expect(thru(LEO, part, 1, "ru-125-3bm42")).toBe(true);
+    }
+  });
+
+  it("PG-7VL: through the Leopard's hull side, not its fronts; the T-90M's hull front even without tiles; its hull side only without", () => {
+    expect(thru(LEO, "hull", 1, "ru-pg7vl")).toBe(true);
+    for (const part of ["hull", "turret"] as const) expect(thru(LEO, part, 0, "ru-pg7vl")).toBe(false);
+    expect(thru(T90, "hull", 0, "ru-pg7vl", "spent")).toBe(false);
+    expect(thru(T90, "hull", 1, "ru-pg7vl", "full")).toBe(false);
+    expect(thru(T90, "hull", 1, "ru-pg7vl", "spent")).toBe(true);
+  });
+
+  it("Panzerfaust 3: the T-90M's hull front stops it with Relikt, not without; its hull side does not even with", () => {
+    expect(thru(T90, "hull", 0, "de-pzf3-dm12", "full")).toBe(false);
+    expect(thru(T90, "hull", 0, "de-pzf3-dm12", "spent")).toBe(true);
+    expect(thru(T90, "hull", 1, "de-pzf3-dm12", "full")).toBe(true);
+  });
+
+  it("Konkurs-M: the T-90M's hull front stops it with Relikt only; the Leopard's hull front stops it, its side does not", () => {
+    expect(thru(T90, "hull", 0, "ru-9m113m", "full")).toBe(false);
+    expect(thru(T90, "hull", 0, "ru-9m113m", "spent")).toBe(true);
+    expect(thru(LEO, "hull", 0, "ru-9m113m")).toBe(false);
+    expect(thru(LEO, "hull", 1, "ru-9m113m")).toBe(true);
+  });
+
+  it("Kornet: through the T-90M's hull front with Relikt and the Leopard's hull front; the Leopard's turret front stops it", () => {
+    expect(thru(T90, "hull", 0, "lab-9m133", "full")).toBe(true);
+    expect(thru(LEO, "hull", 0, "lab-9m133")).toBe(true);
+    expect(thru(LEO, "turret", 0, "lab-9m133")).toBe(false);
+  });
+
+  it("Spike LR from above goes through both turret roofs", () => {
+    expect(thru(T90, "turret", 3, "de-spike-lr")).toBe(true);
+    expect(thru(LEO, "turret", 3, "de-spike-lr")).toBe(true);
+  });
+
+  it("30 mm PMC287: through the T-90M's hull side (below the tile's trigger), stopped by the Leopard's", () => {
+    expect(thru(T90, "hull", 1, "de-30x173-pmc287", "full")).toBe(true);
+    expect(thru(LEO, "hull", 1, "de-30x173-pmc287")).toBe(false);
   });
 });

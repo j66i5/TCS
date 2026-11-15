@@ -77,6 +77,8 @@ export interface Overlay {
   selectedUnit: EntityId | null;
   /** M9.4a: the unit whose drone is selected (its sidebar tile): its cameras' footprint and goal are drawn. */
   selectedDrone?: EntityId | null;
+  /** Owner 2026-11-15: only the selected unit's own men are selected (a platoon's headquarters, not its squads). */
+  selectedOwn?: boolean;
   /** Debug drawing: entity IDs, all sides' waypoints — and the enemy as he really is (no fog of war). */
   debug: boolean;
   /** Screenshots (M7.5e): the enemy as he really is, without Debug's other drawing. */
@@ -594,7 +596,7 @@ export class BattleRenderer {
     if (!overlay.debug && overlay.intents) this.drawIntents(g, overlay.intents);
     else if (!overlay.debug && overlay.selectedUnit !== null) {
       for (const [uid, u] of state.unit.entries()) {
-        if (u.leader !== null && u.side === overlay.playerSide && unitIsOrContains(state, overlay.selectedUnit, uid)) leaders.add(u.leader);
+        if (u.leader !== null && u.side === overlay.playerSide && isSelected(state, overlay, uid)) leaders.add(u.leader);
       }
     }
     // mounted: ok men aboard have no waypoints
@@ -667,7 +669,7 @@ export class BattleRenderer {
       const t = state.transform.req(id);
       const s = worldToScreen(c, p.x, p.y);
       const colour = SIDE_COLOURS[(sideIndex.get(ident.side) ?? 0) % SIDE_COLOURS.length]!;
-      const selected = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, ident.unit);
+      const selected = overlay.selectedUnit !== null && isSelected(state, overlay, ident.unit);
       // Posture: full disc standing, smaller crouching, a flat oval along the heading when prone.
       const sol = state.soldier.get(id);
       const posture = sol?.posture ?? "standing";
@@ -947,9 +949,9 @@ export class BattleRenderer {
         if (o === null || def?.seats[i]?.station !== "passenger") return;
         aboard++;
         const u = state.identity.get(o)?.unit;
-        if (u !== undefined && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, u)) carries = true;
+        if (u !== undefined && overlay.selectedUnit !== null && isSelected(state, overlay, u)) carries = true;
       });
-      const selected = carries || (v.unit !== null && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, v.unit));
+      const selected = carries || (v.unit !== null && overlay.selectedUnit !== null && isSelected(state, overlay, v.unit));
       const near = stacks.find((k) => k.side === v.side && k.wreck === wreck && Math.abs(k.x - s.x) < W && Math.abs(k.y - s.y) < H);
       if (near) { near.n++; near.selected ||= selected; near.aboard += aboard; continue; }
       stacks.push({ x: s.x, y: s.y, side: v.side, n: 1, first: vid, unit: v.unit, wreck, selected, aboard });
@@ -992,7 +994,7 @@ export class BattleRenderer {
       if (s.y !== at.y) { g.moveTo(at.x, at.y).lineTo(s.x, s.y + H / 2).stroke({ width: 1.5, color: colour, alpha: 0.9 }); g.circle(at.x, at.y, 2.5).fill({ color: colour }); }
       g.rect(s.x - W / 2, s.y - H / 2, W, H).fill({ color: 0x10140f, alpha: 0.85 }).stroke({ width: 2, color: colour });
       g.moveTo(s.x - W / 2, s.y - H / 2).lineTo(s.x + W / 2, s.y + H / 2).moveTo(s.x + W / 2, s.y - H / 2).lineTo(s.x - W / 2, s.y + H / 2).stroke({ width: 1.5, color: colour });
-      const sel = overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, uid);
+      const sel = overlay.selectedUnit !== null && isSelected(state, overlay, uid);
       if (overlay.selectedUnit === uid) g.rect(s.x - W / 2 - 3, s.y - H / 2 - 3, W + 6, H + 6).stroke({ width: 2, color: 0xffffff });
       this.request(this.callsign(uid), s.x, s.y, W / 2, colour, sel ? 0 : 2, uid);
     }
@@ -1077,9 +1079,9 @@ export class BattleRenderer {
         if (o === null || def.seats[i]?.station !== "passenger") return;
         aboard++;
         const u = state.identity.get(o)?.unit;
-        if (!carriesSelected && u !== undefined && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, u)) carriesSelected = true;
+        if (!carriesSelected && u !== undefined && overlay.selectedUnit !== null && isSelected(state, overlay, u)) carriesSelected = true;
       });
-      const selected = (v.unit !== null && overlay.selectedUnit !== null && unitIsOrContains(state, overlay.selectedUnit, v.unit)) || carriesSelected;
+      const selected = (v.unit !== null && overlay.selectedUnit !== null && isSelected(state, overlay, v.unit)) || carriesSelected;
       // Route of the selected vehicle (from where it is), reverse legs orange.
       if (selected && v.drive.route.length > v.drive.routeIdx) {
         let a = worldToScreen(c, p.x, p.y);
@@ -1729,6 +1731,13 @@ function drawWhiteFlag(g: Graphics, x: number, y: number, r: number, alpha = 1):
   const k = Math.max(r, 4);
   g.moveTo(x + 0.6 * k, y).lineTo(x + 0.6 * k, y - 2.6 * k).stroke({ width: 1.5, color: 0x2a2a2a, alpha });
   g.rect(x + 0.6 * k, y - 2.6 * k, 1.4 * k, 0.9 * k).fill({ color: 0xffffff, alpha }).stroke({ width: 1, color: 0x2a2a2a, alpha });
+}
+
+/** Is `unit` (or a unit under it) selected: the selected unit and its sub-units, or, with `selectedOwn` (a
+ *  platoon's headquarters on its own, owner 2026-11-15), the selected unit alone. */
+function isSelected(state: SimView, overlay: Overlay, unit: EntityId): boolean {
+  if (overlay.selectedUnit === null) return false;
+  return overlay.selectedOwn === true ? unit === overlay.selectedUnit : unitIsOrContains(state, overlay.selectedUnit, unit);
 }
 
 function unitIsOrContains(state: SimView, ancestor: EntityId, unit: EntityId): boolean {

@@ -82,13 +82,16 @@ function addVehicles(state: SimState, force: ForceInput, catalog: Catalog): Map<
       drive: idleDrive(p.x, p.y),
       stations: def.stations.map((sn, si) => ({
         azimuth: 0, elevation: 0, azCmd: 0, elCmd: 0, laidTick: -1, task: null, taskWeapon: 0, taskFeed: 0, scanAz: 0, why: { tick: -1, keys: [] },
-        weapons: sn.weapons.map((w, wi) => ({
-          weapon: w.weapon,
+        weapons: sn.weapons.map((w, wi) => {
           // Ready rounds per feed: from the record (station weapons in order, station by station), else full.
-          feeds: w.feeds.map((f, fi) => ({ item: f.item, rounds: rec.ready?.[firstWeapon[si]! + wi]?.[fi]?.rounds ?? f.ready.count * f.ready.charge })),
-          feed: 0, switchUntilTick: 0, nextShotTick: 0, burstLeft: 0, burstIndex: 0, loadedRound: false, jammed: false, lastShotTick: -100000,
-          lowAmmoReported: w.feeds.map(() => false),
-        })),
+          const feeds = w.feeds.map((f, fi) => ({ item: f.item, rounds: rec.ready?.[firstWeapon[si]! + wi]?.[fi]?.rounds ?? f.ready.count * f.ready.charge }));
+          return {
+            weapon: w.weapon, feeds,
+            // M7.6a: a single-round gun may start with a round of its first feed in the breech.
+            feed: 0, switchUntilTick: 0, nextShotTick: 0, burstLeft: 0, burstIndex: 0, loadedRound: w.startLoaded === true && (feeds[0]?.rounds ?? 0) > 0, jammed: false, lastShotTick: -100000,
+            lowAmmoReported: w.feeds.map(() => false),
+          };
+        }),
       })),
       // Components (M7.4a): from the record, else all in full working order.
       comp: rec.components ? [...rec.components] : (def.components ?? []).map(() => 1),

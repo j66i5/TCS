@@ -317,7 +317,9 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
   const s = state.soldier.req(id);
   const c = state.container.get(id);
   const w = state.weapon.get(id);
-  const status: SoldierRecord["status"] = rosterStatus(s);
+  const dow = s.aftercare?.diedOfWoundsTick;
+  // (Died of his wounds after the battle, M10.6b: killed, with the tick.)
+  const status: SoldierRecord["status"] = dow !== undefined ? "killed" : rosterStatus(s);
   return {
     personId: ident.personId,
     given: ident.given,
@@ -333,6 +335,8 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
     status,
+    ...(s.aftercare !== undefined && dow === undefined ? { recoveryDays: s.aftercare.recoveryDays } : {}),
+    ...(dow !== undefined ? { diedOfWoundsTick: dow } : {}),
   };
 }
 

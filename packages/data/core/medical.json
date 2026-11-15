@@ -738,6 +738,81 @@
     "confidence": "low",
     "note": "M10.6a ambulance runs. delayMinS-delayMaxS 600-900 s: the owner's answer (M10-3 Q-6: 10-15 min plus the drive) for an ambulance called from the company or battalion behind; research extracts only give the 10-1-2 rule (Role 1 within 60 min) and 'protected ambulance on request', no figure for the call itself. Game values, none published (decided without the owner, low): it drives at the 'walk' pace (the wheeled 'wdrive-slow' pace, 30 % of its top speed: about 30 km/h for the Boxer, 24 km/h for the BMM; at the 'run' pace, 70 %, hulls ran into hedges at route corners in the lab), and so does nearPace near the nest (a hull's look-ahead for men in its way must not reach the men lying there); it stops standM 15 m short of the Verwundetennest (not on top of the men lying there), or where its way first comes within 65 m of the nest, or where the ground holds it up within 80 m; its crew fetches each casualty on a litter at carryMps 1.0 m/s (the two-man carry's speed) each way plus loadSecondsExtra 20 s (onto the litter) and the hull's loadCasualtySeconds (lifting him in), T1 first; it leaves when full, or waitS 120 s after the last man came aboard with nobody else on the way to the nest, at most maxStayS 600 s after it arrived; it is off the map within edgeM 20 m of its entry point; a route not found is tried again after retryS 30 s; requestAt: an automatic call goes out once this many casualties are waiting at the nest (1)."
   },
+  "rearRun": {
+    "idleS": 60,
+    "quietS": 60,
+    "enemyM": 200,
+    "startT1": 1,
+    "startAny": 3,
+    "ambulanceWithinS": 300,
+    "maxNestM": 800,
+    "maxPerPlatoon": 1,
+    "keepVehicles": 1,
+    "waitS": 30,
+    "maxStayS": 300,
+    "awayS": 900,
+    "pace": "walk",
+    "backM": 15,
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+    ],
+    "confidence": "low",
+    "note": "M10.6b combat vehicles' rear run (owner M10-3 Q-9: combat vehicles take wounded when going back or idle; the player can order any vehicle). Search extracts only describe GTK Boxer and other carriers taking casualties 'zum Verwundetensammelplatz der Kompanie' (bundeswehr.de reports, medium for the practice); every number is a game value (decided without the owner, low): a hull is idle when it has not moved for idleS 60 s, was not hit for quietS 60 s and its crew knows no enemy within enemyM 200 m; it goes when at least startT1 1 casualty tagged T1, or startAny 3 casualties, wait at its platoon's nest within maxNestM 800 m and no ambulance is there or due within ambulanceWithinS 300 s; at most maxPerPlatoon 1 hull of a platoon at a time, and the platoon keeps keepVehicles 1 hull on the map; it waits waitS 30 s at the nest for more, at most maxStayS 300 s; the trip off the map (to the company Verwundetensammelpunkt, hand-over and back) takes awayS 900 s (about 3 km each way at 25-30 km/h plus a hand-over: low); it drives at the 'walk' pace and on its return stops within backM 15 m of where it is sent back to."
+  },
+  "role1": {
+    "transferS": 900,
+    "settleDelayS": 1500,
+    "captiveTransferS": 3600,
+    "holdM": 150,
+    "dow": {
+      "base": 0.01,
+      "shockK": 0.2,
+      "bloodK": 0.2,
+      "respK": 0.2,
+      "unconsciousK": 0.1,
+      "severityK": 0.05,
+      "max": 0.9,
+      "lateKPerH": 0.1,
+      "captorFactor": 1.5,
+      "delayMinH": 0.5,
+      "delayMaxH": 72
+    },
+    "recovery": {
+      "bands": [
+        {
+          "upTo": 0.2,
+          "minD": 3,
+          "maxD": 10
+        },
+        {
+          "upTo": 0.4,
+          "minD": 14,
+          "maxD": 35
+        },
+        {
+          "upTo": 0.7,
+          "minD": 45,
+          "maxD": 120
+        },
+        {
+          "upTo": 1,
+          "minD": 120,
+          "maxD": 300
+        }
+      ],
+      "fractureMinD": 30,
+      "fractureMaxD": 60,
+      "untreatedFactor": 1.2,
+      "lateFactor": 1.25,
+      "amputationD": 180
+    },
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst",
+      "https://www.deployedmedicine.com/"
+    ],
+    "confidence": "low",
+    "note": "M10.6b Role 1 outcome at hand-over and the end-of-battle settlement (owner: realistic delays, those still waiting at the end settled by an end-of-battle roll, Q-1e; the side holding the ground evacuates, wounded on enemy-held ground are captured and treated, Q-10; recovery in days from wound severity and treatment, Q-16 plan default). Research (search extracts): the 10-1-2 rule, Role 1 within 60 min (core chain.role1S, medium); died-of-wounds rates of a few per cent of wounded reaching care in recent wars and most deaths of wounds within the first day are general knowledge without an extract here, so every number is a game value (low): from the map edge to Role 1 transferS 900 s; at the end of the battle the men still waiting reach an ambulance after settleDelayS 1500 s (the owner's 10-15 min delay plus about 10 min of driving), then transferS; a prisoner reaches the captor's aid post after captiveTransferS 3600 s; the ground is held by the side with more able men within holdM 150 m of the casualty (none: the side of the nearest able man). Chance to die of wounds = base 0.01 + shockK 0.2 x shock + bloodK 0.2 x the share of blood lost + respK 0.2 x oxygen debt + unconsciousK 0.1 x (1 - consciousness) + severityK 0.05 x his worst wound's severity, x (1 + lateKPerH 0.1 per hour past chain.role1S), x captorFactor 1.5 for a prisoner, at most max 0.9; the death comes delayMinH 0.5 to delayMaxH 72 h after Role 1 (log-uniform: half within about 6 h). Recovery days by his worst wound's severity band (up to 0.2: 3-10 d, 0.4: 14-35 d, 0.7: 45-120 d, 1: 120-300 d), + fractureMinD-MaxD 30-60 d for a broken bone, x untreatedFactor 1.2 when a bleeding wound had no treatment, x lateFactor 1.25 past chain.role1S, + amputationD 180 d for a limb lost to a tourniquet (physiology ischaemia points, tourniquet time to surgery at chain.surgeryS). Tuned once (slice 14): the first draft (shock 0.35, blood 0.4, oxygen 0.3, unconscious 0.15, severity 0.08) let about a fifth of the wounded settled in a 1200 s platoon battle die of wounds, above the few to ten per cent of recent wars; halved."
+  },
   "chain": {
     "firstAidS": 600,
     "role1S": 3600,

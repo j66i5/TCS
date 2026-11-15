@@ -762,6 +762,26 @@ export interface MedicalDef {
     delayMinS: number; delayMaxS: number; pace: DefId; nearPace: DefId; standM: number; carryMps: number; loadSecondsExtra: number;
     waitS: number; maxStayS: number; edgeM: number; retryS: number; requestAt: number;
   };
+  /**
+   * Combat vehicles' rear run (M10.6b, owner Q-9): an idle hull (not moved for idleS, not hit for quietS, no enemy its
+   * crew knows within enemyM) takes the casualties at its platoon's nest off the map when startT1 tagged T1 or startAny
+   * of any tag wait there, the nest is within maxNestM and no ambulance is there or due within ambulanceWithinS; at most
+   * maxPerPlatoon at once, keeping keepVehicles of the platoon's hulls on the map; it waits waitS for more (at most
+   * maxStayS), is away awayS, and comes back to within backM of where it is sent. `pace`: its driving pace.
+   */
+  rearRun?: {
+    idleS: number; quietS: number; enemyM: number; startT1: number; startAny: number; ambulanceWithinS: number; maxNestM: number;
+    maxPerPlatoon: number; keepVehicles: number; waitS: number; maxStayS: number; awayS: number; pace: DefId; backM: number;
+  };
+  /**
+   * Role 1 outcome at hand-over and the end-of-battle settlement (M10.6b, owner Q-1e, Q-10, Q-16): delays to Role 1,
+   * the died-of-wounds chance and its delay, recovery days; `holdM`: who holds the ground where a casualty lies.
+   */
+  role1?: {
+    transferS: number; settleDelayS: number; captiveTransferS: number; holdM: number;
+    dow: { base: number; shockK: number; bloodK: number; respK: number; unconsciousK: number; severityK: number; max: number; lateKPerH: number; captorFactor: number; delayMinH: number; delayMaxH: number };
+    recovery: { bands: { upTo: number; minD: number; maxD: number }[]; fractureMinD: number; fractureMaxD: number; untreatedFactor: number; lateFactor: number; amputationD: number };
+  };
   /** Time targets of the chain of care (10-1-2 rule), seconds after wounding. */
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */

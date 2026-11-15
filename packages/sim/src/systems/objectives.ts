@@ -12,6 +12,7 @@ import type { EventSink } from "../events";
 import { TICK_HZ, type EntityId, type SideId } from "../ids";
 import { isAble, isOut } from "../impair";
 import { isAssetUnit } from "../offmap";
+import { settleBattle } from "./aftercare";
 import type { SimState, SimView } from "../state";
 
 export interface SideScore {
@@ -71,6 +72,8 @@ export function objectiveSystem(ctx: SimContext, state: SimState, events: EventS
   state.ended = { tick: state.tick, reason };
   events.emit(one ? { kind: "battle.ended", tick: state.tick, reason, loser: one.side } : { kind: "battle.ended", tick: state.tick, reason });
   state.endLoser = one ? one.side : null;
+  // The wounded still on the field are settled (M10.6b, owner Q-1e / Q-10).
+  settleBattle(ctx, state, events);
 }
 
 /** The score as it stands (or at the end), and the winner: the side that did not lose early, else the higher score (null = a draw). */

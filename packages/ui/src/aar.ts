@@ -2,7 +2,7 @@
  * AFTER-ACTION REVIEW (M6, owner decision 2026-11-12): the result and why, each side's casualty list, a
  * timeline of what happened, and a button for the heat map on the battlefield. The app builds the content
  * (all text from the string table) from the battle record (`@tcs/sim` record.ts) and the end state; this only lays
- * it out. D2: three tabs — the battle, Medical and Conduct (both filled in M10.8; until then a short note).
+ * it out. D2: three tabs — the battle, Medical and Conduct (filled in M10.8; a short note when there is nothing).
  */
 import type { Strings } from "@tcs/data";
 
@@ -12,9 +12,9 @@ export interface AarModel {
   summary: string[];
   casualties: { heading: string; colour: string; rows: string[] }[];
   timeline: { time: string; text: string; colour: string }[];
-  /** Medical tab lines (M10.8); empty: a note that nothing is recorded yet. */
+  /** Medical tab lines (M10.8); empty: a note that nobody was wounded. */
   medical: string[];
-  /** Conduct tab lines (laws of war, M10.7b/M10.8); empty: the same note. */
+  /** Conduct tab lines (laws of war, M10.7b/M10.8); empty: a note that nothing happened. */
   conduct: string[];
 }
 

@@ -182,8 +182,15 @@ export function fireAtPoint(a: App, w: Pt): void {
   // (A vehicle crew: with the gun and round chosen, else the crew's choice, M7.3.)
   // (Anti-tank, M7.4a: the best-placed man with a Panzerfaust or RPG fires one round at it.)
   const nat = a.orderMode === "antitank" ? { nature: "at" as const } : vehicleClassOf(a, uid) !== null && a.nature !== null ? { nature: a.nature } : {};
-  if (near) issue(a, { ...now(a, uid), kind: "fire", x: near.k.x, y: near.k.y, contact: near.k.target, ...nat });
-  else issue(a, { ...now(a, uid), kind: "fire", x: w.x, y: w.y, ...nat });
+  const pt = near ? { x: near.k.x, y: near.k.y } : w;
+  // D3: no sight line from any of his men (or his hull) to the point: warn at once (the radio's "Roger" then the
+  // men's "no line of fire" read as a contradiction). The order still goes: the men may move or the sight clear.
+  const los = losTo(a, pt);
+  if (los.length > 0 && !los.some((l) => l.clear)) {
+    a.hud.radio(a.strings.t("order.noLineOfFire", { callsign: a.sim.state.unit.get(uid)?.callsign ?? "" }), ticksToSeconds(a.sim.state.tick), "#ffb4b4");
+  }
+  if (near) issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, contact: near.k.target, ...nat });
+  else issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, ...nat });
   oneTapDone(a);
 }
 

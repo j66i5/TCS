@@ -145,7 +145,9 @@ describe("performance floor", () => {
     const base = time("platoon-vehicles"), tanks = time("platoon-vehicles-tanks");
     console.log(`platoon-vehicles-tanks: commanders think ${tanks.think.toFixed(0)} ms, sim ${tanks.sim.toFixed(0)} ms; platoon-vehicles think ${base.think.toFixed(0)} ms, sim ${base.sim.toFixed(0)} ms (extra thinking ${(((tanks.think - base.think) / tanks.sim) * 100).toFixed(1)} % of the sim time)`);
     expect(tanks.think - base.think).toBeLessThanOrEqual(0.1 * tanks.sim);
-  });
+    // (Three 600 s battles: about 57 s of sim alone on the 4-core container, so the default 60 s timed out while the
+    // measure itself was 1.2 %; D4a merge, 2026-11-15. The limit is on the ratio, not on the wall time.)
+  }, 180_000);
 
   it("one siteHullDown call on the village map takes at most 60 ms (median of 5)", () => {
     const input = buildScenario(loadData(), { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: true, tanks: "attacker" });

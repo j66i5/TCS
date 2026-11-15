@@ -126,11 +126,14 @@
     {
       "id": "sanitar-bmm",
       "nameKey": "role.ru.sanitar-bmm",
+      "medical": {
+        "level": "ambulanceCrew"
+      },
       "sources": [
         "https://en.valka.cz/topic/view/41396"
       ],
       "confidence": "low",
-      "note": "The medic (sanitar) in the BMM's medical compartment (crew of three; search extracts). Medical skills come with the medical line (M10)."
+      "note": "The medic (sanitar) in the BMM's medical compartment (crew of three; search extracts). Medical level ambulanceCrew (core/medical.json levels: medic skill; review fix 2026-11-15, owner's medical jobs answer: ambulance crews are roles in the data)."
     },
     {
       "id": "mortar-commander",

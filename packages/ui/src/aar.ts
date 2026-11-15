@@ -6,6 +6,9 @@
  */
 import type { Strings } from "@tcs/data";
 
+/** A side's part of the Medical or Conduct tab (review fix): a coloured heading, its lines (`sub`: per man, indented). */
+export interface AarSection { heading: string; colour: string; rows: { text: string; sub?: true }[] }
+
 export interface AarModel {
   title: string;
   /** The result in a sentence or two, then one line per side's score. */
@@ -13,9 +16,9 @@ export interface AarModel {
   casualties: { heading: string; colour: string; rows: string[] }[];
   timeline: { time: string; text: string; colour: string }[];
   /** Medical tab lines (M10.8); empty: a note that nobody was wounded. */
-  medical: string[];
+  medical: AarSection[];
   /** Conduct tab lines (laws of war, M10.7b/M10.8); empty: a note that nothing happened. */
-  conduct: string[];
+  conduct: AarSection[];
 }
 
 export type AarTab = "battle" | "medical" | "conduct";
@@ -84,7 +87,12 @@ export function createAar(root: HTMLElement, s: Strings, cb: { onHeat(on: boolea
         const col = el("div", "hud-aar-col");
         col.append(el("div", "hud-aar-head", s.t(`aar.tab.${tab}`)));
         if (lines.length === 0) col.append(el("div", "hud-aar-row hud-aar-empty", s.t(`aar.${tab}.empty`)));
-        for (const r of lines) col.append(el("div", "hud-aar-row", r));
+        for (const sec of lines) {
+          const h = el("div", "hud-aar-sub", sec.heading);
+          h.style.color = sec.colour;
+          col.append(h);
+          for (const r of sec.rows) col.append(el("div", r.sub ? "hud-aar-row hud-aar-indent" : "hud-aar-row", r.text));
+        }
         body.append(col);
       };
       fill();

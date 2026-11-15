@@ -3,7 +3,7 @@
  * log. Every order goes to the simulation through `submitOrder` (rule 3), the player's marked as his.
  */
 import {
-  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOffMap, isOut, OWN_ORDER_KINDS, sideKnowledge, standZ, submitOrder, ticksToSeconds,
+  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOffMap, isOut, OWN_ORDER_KINDS, refusesFireAt, sideKnowledge, standZ, submitOrder, ticksToSeconds,
   type EntityId, type Order,
 } from "@tcs/sim";
 import { worldToScreen } from "@tcs/render";
@@ -189,6 +189,11 @@ export function fireAtPoint(a: App, w: Pt): void {
   if (los.length > 0 && !los.some((l) => l.clear)) {
     a.hud.radio(a.strings.t("order.noLineOfFire", { callsign: a.sim.state.unit.get(uid)?.callsign ?? "" }), ticksToSeconds(a.sim.state.tick), "#ffb4b4");
   }
+  // (Review fix: at once, not after the order delay: his men recognise who is there as protected (owner Q-7), so they
+  // will refuse; the same test the order meets. The order still goes, and gets their answer.)
+  const spare = a.input.catalog.medical?.protection.aimSpareM;
+  // mounted: ok what men aboard know counts, as for the order
+  if (spare !== undefined && refusesFireAt(a.sim.state, selectedMen(a, uid), pt.x, pt.y, near?.k.target, spare)) a.hud.radio(a.strings.t("order.protectedTarget", { callsign: a.sim.state.unit.get(uid)?.callsign ?? "" }), ticksToSeconds(a.sim.state.tick), "#ffb4b4");
   if (near) issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, contact: near.k.target, ...nat });
   else issue(a, { ...now(a, uid), kind: "fire", x: pt.x, y: pt.y, ...nat });
   oneTapDone(a);

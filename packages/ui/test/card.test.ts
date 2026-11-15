@@ -4,6 +4,7 @@ import { createSim, simHash, type Order } from "@tcs/sim";
 import { getScenario, loadData } from "../../tools/src/scenarios";
 import { AMBUSH_M, activityOf, ammoCells, fireChoice, fireChoiceRules, gunText, manDetail, manState, repaceMove, unitMenRows, vehicleGuns } from "../src/card";
 import { Strings } from "@tcs/data";
+import { shownCallsigns } from "@tcs/render";
 import { ICON_NAMES, icon, paceIcon } from "../src/icons";
 import { GROUP_OF } from "../src/hud";
 import { unitTiles } from "../src/sidebar";
@@ -42,7 +43,8 @@ describe("unit card snapshots (S6)", () => {
     const i = sim.state.identity.req(id);
     expect(d.family).toBe(i.family);
     expect(d.rank).toBe(i.rank);
-    expect(d.callsign).toBe(sim.state.unit.get(i.unit)!.callsign);
+    // (Review fix: the shown callsign, "1/Trupp 1" where two platoons have a Trupp 1.)
+    expect(d.callsign).toBe(shownCallsigns(sim.state.unit.entries()).get(i.unit));
     expect(d.wounds).toEqual([]);
     expect(d.activity.key).toBe("aboard"); // the platoon starts mounted
     expect(d.morale).toBe(1);

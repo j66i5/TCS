@@ -38,7 +38,8 @@ export function isCaptive(s: Man | undefined): boolean {
 
 /** Alive, conscious and still in the fight (not a prisoner): can take orders and act for his side. */
 export function isAble(s: Man | undefined): boolean {
-  return isConscious(s) && s!.captive === null;
+  // (Review fix: an evacuated man is in the rear, whether or not he still sits in the hull that took him back.)
+  return isConscious(s) && s!.captive === null && s!.evacuated === undefined;
 }
 
 /** Able and can talk: may send a radio message. */

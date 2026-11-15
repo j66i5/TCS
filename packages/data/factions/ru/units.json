@@ -1249,6 +1249,10 @@
             {
               "item": "ru-vest",
               "count": 1
+            },
+            {
+              "item": "ru-armband",
+              "count": 1
             }
           ],
           "weapon": "ru-ak74m"
@@ -1270,6 +1274,38 @@
             {
               "item": "ru-vest",
               "count": 1
+            },
+            {
+              "item": "ru-armband",
+              "count": 1
+            },
+            {
+              "item": "ru-fr-bag",
+              "count": 1
+            },
+            {
+              "item": "ru-ifak",
+              "count": 1
+            },
+            {
+              "item": "ru-tourniquet-rubber",
+              "count": 4
+            },
+            {
+              "item": "ru-ipp1",
+              "count": 8
+            },
+            {
+              "item": "ru-hemostatic-powder",
+              "count": 3
+            },
+            {
+              "item": "ru-pain-syringe",
+              "count": 3
+            },
+            {
+              "item": "ru-rescue-blanket",
+              "count": 2
             }
           ],
           "weapon": "ru-ak74m"
@@ -1291,6 +1327,10 @@
             {
               "item": "ru-vest",
               "count": 1
+            },
+            {
+              "item": "ru-armband",
+              "count": 1
             }
           ],
           "weapon": "ru-ak74m"
@@ -1300,7 +1340,7 @@
         "https://en.valka.cz/topic/view/41396"
       ],
       "confidence": "low",
-      "note": "BMM crew (M10.6-data): commander, driver-mechanic and a medic (crew of three, search extracts). Ranks and loads are game values. Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names."
+      "note": "BMM crew (M10.6-data): commander, driver-mechanic and a medic (crew of three, search extracts). Ranks and loads are game values. Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names. Review fix 2026-11-15 (game values, low): every crewman wears the red cross armband (medical transport personnel, GC I art. 24 and 40), and the medic carries a medic bag with the platoon medic's kit in smaller numbers (care given on foot, e.g. after a bail-out; loading at the nest stays abstracted)."
     },
     {
       "id": "raschet-2b14",

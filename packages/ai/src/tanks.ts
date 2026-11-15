@@ -284,7 +284,7 @@ export function tankSections(a: TankArgs): number {
       if (a.remounting > 0 && tick - a.phaseTick < T.withdrawHoldSeconds * 60) continue;
       for (const q of live) {
         const m = mem.tk[String(q.c)]!;
-        if (m.back || q.v.status !== "ok") continue;
+        if (m.back || (q.v.status !== "ok" && q.v.status !== "disarmed")) continue;
         order(q.c, a.back(q.c));
         m.back = true;
       }

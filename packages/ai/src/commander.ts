@@ -504,7 +504,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       };
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || v.status === "immobilised").length;
       mem.sentBack ??= [];
-      for (const c of bailed) {
+      // (M7.6b review fix: the tank sections' crews that bailed out too.)
+      const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);
+      for (const c of [...bailed, ...tankBailed]) {
         if (mem.sentBack.includes(c)) continue;
         order(c, { kind: "move", waypoints: [{ x: clamp(sx, W), y: clamp(sy, H), mode: "run" }] });
         mem.sentBack.push(c);
@@ -715,7 +717,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const dx = tgt.x - ax, dy = tgt.y - ay, L = hypot2(dx, dy) || 1, ux = dx / L, uy = dy / L;
       /** Back to the start, each vehicle to its own spot in a line across the way in. */
       const back = (c: EntityId): Record<string, unknown> => {
-        const off = (crews.indexOf(c) - (crews.length - 1) / 2) * 20;
+        // (M7.6b review fix: the tanks take the spots after the platoons' vehicles, each its own.)
+        const slot = crews.includes(c) ? crews.indexOf(c) : crews.length + Math.max(0, tankCrews.indexOf(c));
+        const off = (slot - (crews.length - 1) / 2) * 20;
         const end = { x: clamp(sx - uy * off, W), y: clamp(sy + ux * off, H), mode: "run" };
         // M7.4b: it first reverses out a little (its front and gun still toward the enemy), then turns for home.
         const vt = (() => { const vid = view.unit.get(c)?.vehicle; return vid === undefined ? undefined : view.transform.get(vid); })();
@@ -1032,8 +1036,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       };
       // ---- vehicles after the dismount (M7.3, plan §12): fire free; German overwatch (they stay where they dropped
       // the squads), Russian following (each about followM behind its squad); support by fire on the objective.
+      const fighting = crews.filter((c) => { const v = vehicleOf(c); return v !== undefined && (v.status === "ok" || v.status === "immobilised"); });
       if (crews.length > 0 && mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
-        const fighting = crews.filter((c) => { const v = vehicleOf(c); return v !== undefined && (v.status === "ok" || v.status === "immobilised"); });
         if (!mem.crewsFree) { for (const c of fighting) order(c, { kind: "rules", fire: "free" }); mem.crewsFree = true; }
         const after = input.catalog.factions[force.faction]?.afterDismount;
         if (after?.kind === "follow") {
@@ -1057,6 +1061,9 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
             mem.followAt[String(c)] = [px, py];
           }
         }
+      }
+      // (M7.6b review fix: also for the tanks of a side whose platoons have no vehicles.)
+      if ((crews.length > 0 || tankCrews.length > 0) && mem.phase !== "start" && mem.phase !== "ride" && mem.phase !== "withdraw") {
         // Support by fire: during the assault each vehicle fires at an enemy its side knows near the objective,
         // never close to its own men on foot (they shift or stop, plan §12).
         if ((mem.phase === "assault" || mem.phase === "second") && tick - (mem.lastVehicleFire ?? -1e9) >= COMMANDER.supportFireEverySeconds * 60) {

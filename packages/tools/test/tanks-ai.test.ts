@@ -143,6 +143,47 @@ describe("the commander's tanks (M7.6b)", () => {
     expect(carriers).toBeLessThan(150 * 60);
   });
 
+  it("the withdrawal: each tank to its own spot on the start line (after the carriers'), a disarmed one too; a tank crew that bailed out is sent back (review fixes)", () => {
+    const r = start(sc.build(data, 1, 600));
+    const { crews, vids } = tanksOf(r.sim, "blue");
+    run(r, 60, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && rr.sim.state.tick > 30 * 60);
+    step(r.sim);
+    r.sim.state.vehicle.get(vids[1]!)!.status = "disarmed";
+    const saved = r.ctrls[0]!.saveState!() as Mem & { phaseTick: number; remount?: number[] };
+    saved.phase = "withdraw"; saved.phaseTick = r.sim.state.tick - 120 * 60; saved.remount = [];
+    r.ctrls[0]!.loadState!(saved);
+    const o = r.ctrls[0]!.think(r.sim.state, r.sim.state.tick).filter((x) => crews.includes(x.target) && x.kind === "move");
+    expect(o.map((x) => x.target).sort((a, b) => a - b)).toEqual(crews);
+    const ends = o.map((x) => (x as unknown as { waypoints: { x: number; y: number }[] }).waypoints.at(-1)!);
+    expect(hypot2(ends[0]!.x - ends[1]!.x, ends[0]!.y - ends[1]!.y)).toBeGreaterThanOrEqual(15);
+    // A tank crew that bailed out: on foot, sent back once like the platoons' crews.
+    const u = r.sim.state.unit.get(crews[0]!)!;
+    u.exVehicle = u.vehicle!; u.vehicle = undefined as never; delete (u as { vehicle?: EntityId }).vehicle;
+    r.sim.state.vehicle.get(vids[0]!)!.status = "abandoned";
+    for (let i = 0; i < 300; i++) step(r.sim);
+    const o2 = r.ctrls[0]!.think(r.sim.state, r.sim.state.tick).filter((x) => x.target === crews[0] && x.kind === "move");
+    expect(o2).toHaveLength(1);
+  });
+
+  it("the tanks fire in support during the assault also when the platoons have no vehicles (review fix)", () => {
+    const def: ScenarioDef = { kind: "platoon-attack", seed: 1, mapKind: "village", factions: ["de", "ru"], attacker: "blue", vehicles: false, missileTeams: true, tanks: "attacker", timeLimitSeconds: 600 };
+    const input = buildScenario(data, def);
+    const r = start(input);
+    const { crews } = tanksOf(r.sim, "blue");
+    run(r, 30, (rr) => (rr.sim.state.tick + 1) % 300 === 0 && rr.sim.state.tick > 20 * 60);
+    step(r.sim);
+    const saved = r.ctrls[0]!.saveState!() as Mem & { phaseTick: number; target: number };
+    saved.phase = "assault"; saved.phaseTick = r.sim.state.tick;
+    r.ctrls[0]!.loadState!(saved);
+    // An enemy man the platoon knows at the objective (its men far from him).
+    const tgt = input.rules.objectives[saved.target]!;
+    const enemy = [...r.sim.state.identity.entries()].find(([id, idn]) => idn.side === "red" && r.sim.state.soldier.get(id)?.casualty === "none")![0];
+    const man = [...r.sim.state.identity.entries()].find(([id, idn]) => idn.side === "blue" && r.sim.state.soldier.get(id)?.mount === undefined && r.sim.state.soldier.get(id)?.casualty === "none")![0];
+    r.sim.state.soldier.get(man)!.contacts.push({ target: enemy, x: tgt.x, y: tgt.y, errM: 5, kind: "seen", tick: r.sim.state.tick, reportedTick: r.sim.state.tick });
+    const o = r.ctrls[0]!.think(r.sim.state, r.sim.state.tick).filter((x) => crews.includes(x.target) && x.kind === "fire");
+    expect(o.length).toBeGreaterThan(0);
+  });
+
   it("a hit that did not get through, or an enemy man known 250 m off, moves the tank on (to a post more than 300 m from him)", () => {
     const r = start(sc.build(data, 1, 600));
     const { crews, vids } = tanksOf(r.sim, "blue");

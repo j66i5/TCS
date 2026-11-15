@@ -211,8 +211,8 @@ white flags on the map; the after-action review lists surrendered and captured m
   2. ✅ **M8.2a Call-for-fire chain** (2026-11-14) — request, processing, shot, flight, splash; first-round error
      by location method (estimate, laser, registered); planned targets in the battle's support rules.
   3. ✅ **M8.2b Observers and adjustment** (2026-11-14) — observers for men and vehicle sights (drone kind reserved),
-     adjustment converging with observer skill, `lab -- indirect`. Skipping a recognised Verwundetennest waits for
-     M10.7a (medical branch).
+     adjustment converging with observer skill, `lab -- indirect`. Skipping a recognised Verwundetennest: built in
+     M10.7a (2026-11-15).
   4. ✅ **M8.3a On-map mortars: crews and firing** (2026-11-14) — tubes as items (DE 120 mm, RU 2B14 and 2B11),
      teams and sections, deploy and set-up, packing, range band, rounds taken from the crews as fired; scenarios
      `platoon-mortars`, `platoon-ru-mortars`. Carriers not modelled yet.
@@ -243,7 +243,11 @@ white flags on the map; the after-action review lists surrendered and captured m
   before logistics). 🔶
   - ✅ **M7.6a Main battle tanks: data and labs** (2026-11-14) — Leopard 2A7V, T-90M, T-72B3M; reactive tiles as
     counted items, `tank-gun`, Refleks-M through the gun; armour, anti-tank, gunnery, drive and missile lab rows;
-    `--scene tanks`. Next: M7.6b tanks in battle.
+    `--scene tanks`.
+  - ✅ **M7.6b Tanks in battle** (2026-11-15) — vehicle targets aimed at the part that shows (hull, else turret; the
+    crew judges that zone); tank sections (`tankSectionTemplate`), scenario `tanks`, app `?tanks=`; AI overwatch from
+    hull-down posts (`siteHullDown`, `ai/src/tanks.ts`), carriers wait for it; `bench-tanks`; `--scene tanks-battle`.
+    Acceptance partly missed (Leopards never lost, their share of BMP-2 kills 37 %): DECISIONS. Next: M7.6c.
 
 ## Stage C — depth
 
@@ -331,9 +335,24 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     on enemy-held ground are captured and treated); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status
     "killed" for a man who died of wounds), `SideResult.diedOfWounds`; events `medical.rearRun`, `medical.role1`,
     `medical.settled`; batch "Rear runs and Role 1" line; review Medical tab lines; `--scene rearrun`.
-14. ⬜ **M10.7a Recognition and respect** (slice 15)
-15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16; an order to fire at a recognised
-    protected target is refused)
+14. ✅ **M10.7a Recognition and respect** (slice 15, 2026-11-15) — recognition inside the contact scan (no new
+    scan, `protection.ts`): a man who sees an enemy medic with the red cross armband, a marked ambulance, a carrying
+    party or men at a Verwundetennest within the range for its kind (eye or optics; scaled by light, smoke on the line
+    and his stress) flags his own contact `marked`, `carrying` or `atPoint` (not passed on in reports); beyond it he
+    takes him for a soldier (an honest mistake). Fire choice, cover, grenades, launchers, vehicle gunnery, missile
+    teams and the AI commander (fire orders and its high-explosive missions) spare recognised protected targets; the
+    player's order to fire at one, or a call for fire on a place where only protected people are known, is refused
+    with a radio note (owner Q-7); event `protection.recognised`; `npm run lab -- protection`; batch "Protection
+    recognised" line. Skipping a recognised Verwundetennest in fire missions (from M8.2b) is now built.
+15. ✅ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16, 2026-11-15) — `sim/src/conduct.ts`:
+    `law.breach` events, "misidentified" (fire at an enemy really protected but not recognised; checked where the
+    rounds leave, once per fire task, with range, light, smoke, stress, ordered) and "deliberate" (at most once a
+    minute per man who sees an enemy he knows to be protected or giving up; chance from `protection.breachBase` ×
+    own losses × low experience × stress, same for every side; the "conduct" RNG stream); no "ordered" breach (owner
+    Q-7: such orders are refused); a medic with the emblem fires on his own, on drills and AI orders only within
+    `selfDefenceM` 50 m (no loss of protection), beyond only on the player's order (lost for 120 s); `law.hit` for hits
+    on protected people, aimed or incidental (Q-8); nothing live; battle record version 6 (`conduct`); batch "Laws of
+    war" line; lab part 3 and 4. Prisoners' care was built on 2026-11-15 (captors treat by need).
 16. ⬜ **M10.8 Review, statistics, balance** (slice 17; batches at 2400 s)
 
 Acceptance: the chain runs for both sides and the xf fixture; preventable deaths clearly lower than with

@@ -40,6 +40,20 @@ describe("data loader", () => {
     expect(formatErrors(errors)).toContain("factions/de/units.json: units[0].members[1].role: unknown role 'riflemann'");
   });
 
+  it("checks the tank section template (M7.6b): known, all sub-units vehicle crews, none of them a carrier", () => {
+    const base = read(["core", "factions"]);
+    const bad = (t: string, edit?: (u: { units: { id: string; subunits: string[] }[] }) => void): string => {
+      const files = clone(base);
+      (files["factions/de/manifest.json"] as { tankSectionTemplate?: string }).tankSectionTemplate = t;
+      edit?.(files["factions/de/units.json"] as { units: { id: string; subunits: string[] }[] });
+      return formatErrors(loadDataSet(files).errors);
+    };
+    expect(bad("panzer-halbzug")).toBe("");
+    expect(bad("panzer-halbzugg")).toContain("tankSectionTemplate: unknown unit template 'panzer-halbzugg'");
+    expect(bad("panzer-halbzug", (u) => { u.units.find((x) => x.id === "panzer-halbzug")!.subunits[1] = "moerser-trupp"; })).toContain("sub-unit 'moerser-trupp' of 'panzer-halbzug' is not a vehicle crew");
+    expect(bad("panzer-halbzug", (u) => { u.units.find((x) => x.id === "panzer-halbzug")!.subunits[0] = "puma-besatzung"; })).toContain("has passenger seats");
+  });
+
   it("reports schema errors with the path", () => {
     const files = clone(read(["core", "factions"]));
     (files["core/movement-modes.json"] as { movementModes: { speedMps: unknown }[] }).movementModes[0]!.speedMps = -1;

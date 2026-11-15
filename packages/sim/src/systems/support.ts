@@ -45,6 +45,7 @@ import { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersF
 import { crewAt, mortarTeams, takeRound, teamRounds, tubeOf, tubeRangeM, tubeReaches, type Tube } from "./mortars";
 import { fireRateFactor, noteBeatenZone } from "./morale";
 
+
 /** Give each side with an allotment its mortar section: an entity whose container holds the rounds. */
 export function initSupport(ctx: SimContext, state: SimState): void {
   state.support = [];
@@ -349,6 +350,7 @@ function fireTube(ctx: SimContext, state: SimState, events: EventSink, m: FireMi
   // report carries `hearingRangeM` (contacts: the enemy hears the tube and guesses where it is).
   const ws = state.weapon.get(tube.carrier);
   if (ws) ws.lastShotTick = state.tick;
+  { const cs = state.soldier.get(tube.carrier); if (cs && ctx.catalog.medical !== undefined) cs.protLostTick = state.tick; } // (M10.7b: firing is not self-defence)
   const tz = heightAt(ctx.map, tube.x, tube.y) + 1; // ground: ok (the tube's muzzle on its baseplate)
   events.emit({ kind: "shot.fired", tick: state.tick, shooter: tube.carrier, x: tube.x, y: tube.y, z: tz, dirX: 0, dirY: 0, weapon: tube.item, ammo: type, indirect: true, loudM: tube.def.hearingRangeM });
   if (announce) {

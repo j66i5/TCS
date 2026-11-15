@@ -408,6 +408,19 @@ function loadFaction(
   if (manifest.demoTemplate !== undefined && !pack.units[manifest.demoTemplate]) {
     errors.push({ file: f("manifest.json"), path: "demoTemplate", message: `unknown unit template '${manifest.demoTemplate}' (known: ${known(pack.units)})`, severity: "error" });
   }
+  // M7.6b: the tank section is crews of vehicles that carry no one (tanks), and nothing else.
+  if (manifest.tankSectionTemplate !== undefined) {
+    const ts = pack.units[manifest.tankSectionTemplate];
+    const err = (message: string) => errors.push({ file: f("manifest.json"), path: "tankSectionTemplate", message, severity: "error" });
+    if (!ts) err(`unknown unit template '${manifest.tankSectionTemplate}' (known: ${known(pack.units)})`);
+    else if (ts.members.length > 0 || ts.subunits.length === 0) err(`'${ts.id}' must have no members of its own and at least one sub-unit (vehicle crews)`);
+    else for (const sid of ts.subunits) {
+      const su = pack.units[sid];
+      const vd = su?.vehicle !== undefined ? pack.vehicles[su.vehicle] : undefined;
+      if (!su || su.vehicle === undefined) err(`sub-unit '${sid}' of '${ts.id}' is not a vehicle crew`);
+      else if (vd && vd.seats.some((st) => st.station === "passenger")) err(`sub-unit '${sid}' of '${ts.id}' crews '${su.vehicle}', which has passenger seats (a carrier, not a tank)`);
+    }
+  }
   unitsF.units.forEach((u, i) => {
     const p = `units[${i}]`;
     if (u.leaderIndex >= u.members.length) {

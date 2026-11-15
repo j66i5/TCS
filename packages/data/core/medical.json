@@ -828,21 +828,32 @@
       "vehicleEye": 300,
       "vehicleOptics": 800,
       "armbandEye": 50,
-      "armbandOptics": 150
+      "armbandOptics": 150,
+      "carryEye": 150,
+      "carryOptics": 400,
+      "pointEye": 300,
+      "pointOptics": 800
     },
     "obscuredFactor": 0.3,
+    "stressK": 0.5,
+    "aimSpareM": 10,
+    "missionSpareM": 50,
     "breachBase": 0.01,
     "breachLossesK": 3,
     "breachLowDisciplineK": 2,
     "breachPanicK": 2,
     "medicFiredLosesProtectionS": 120,
+    "breachCheckS": 60,
+    "breachLossesAt": 0.25,
+    "breachHoldS": 30,
+    "selfDefenceM": 50,
     "sources": [
       "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule25",
       "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule29",
       "https://ihl-databases.icrc.org/en/customary-ihl/v1/rule47"
     ],
     "confidence": "low",
-    "note": "Law: medical personnel, transports and men hors de combat are protected while they commit no acts harmful to the enemy (CIHL rules 25, 29, 47; GC I art. 19, 21, 22, 24). The numbers are game values (none published): an emblem on a vehicle recognised to about 300 m by eye and 800 m with optics, an armband to 50 m / 150 m, x0.3 in smoke or at night; a deliberate breach 1 % per decision, x3 after own losses, x2 for poor discipline, x2 when panicked (owner answer 5: from unit quality, stress and losses only, never from faction); a medic who fights loses protection for 120 s after his last shot."
+    "note": "Law: medical personnel, transports and men hors de combat are protected while they commit no acts harmful to the enemy (CIHL rules 25, 29, 47; GC I art. 19, 21, 22, 24). The numbers are game values (none published): an emblem on a vehicle recognised to about 300 m by eye and 800 m with optics, an armband to 50 m / 150 m, x0.3 in smoke or at night; a deliberate breach 1 % per decision, x3 after own losses, x2 for poor discipline, x2 when panicked (owner answer 5: from unit quality, stress and losses only, never from faction); a medic who fights loses protection for 120 s after his last shot. M10.7a (game values, low, decided without the owner): a carrying party (two to four men bearing a man) is told as such to carryEye 150 m by eye / carryOptics 400 m with optics; the red-cross flag at a Verwundetennest to pointEye 300 / pointOptics 800 m (as a vehicle's emblem); light and smoke each scale a range between obscuredFactor (dark, thick smoke) and 1 (daylight, clear); stress or suppression shrink it by up to stressK; an order to fire at a point within aimSpareM of a recognised protected man, with no other known enemy there, is refused; a fire mission whose target area (missionSpareM) holds known enemies who are all recognised protected is not called (and the player's call is refused). M10.7b (game values, low, decided without the owner): a man who sees an enemy he knows to be protected or giving up decides on a deliberate breach at most once a minute per man (breachCheckS 60), with chance breachBase x (1 + (breachLossesK - 1) x min(1, own platoon's losses / breachLossesAt 0.25)) x (1 + (breachLowDisciplineK - 1) x (1 - experience)) x (1 + (breachPanicK - 1) x stress); the breach lasts breachHoldS 30 s; a man wearing the emblem fires on his own only within selfDefenceM 50 m (self-defence of himself and the wounded beside him: no loss of protection), beyond it only on the player's order, and then loses protection for medicFiredLosesProtectionS."
   },
   "triage": {
     "errorChance": {

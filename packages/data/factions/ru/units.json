@@ -2030,6 +2030,39 @@
       ],
       "confidence": "low",
       "note": "T-90M crew (M7.6a): commander, gunner, driver (published: three). Ranks are typical, not sourced; each carries an AK-74M with two magazines, helmet and vest (game value)."
+    },
+    {
+      "id": "tankovaya-gruppa",
+      "echelon": "section",
+      "callsign": "Tanki {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "t72b3m-ekipazh",
+        "t72b3m-ekipazh"
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/T-72B3",
+        "https://en.wikipedia.org/wiki/Russian_Ground_Forces"
+      ],
+      "confidence": "low",
+      "note": "M7.6b: two T-72B3M (the most numerous modern Russian tank in service: medium, from search extracts only). Two tanks attached to a motor-rifle platoon's attack is a game value (low); the T-90M is available through the scenario's tankTemplates override."
+    },
+    {
+      "id": "tankovaya-gruppa-t90m",
+      "echelon": "section",
+      "callsign": "Tanki {n}",
+      "leaderIndex": -1,
+      "members": [],
+      "subunits": [
+        "t90m-ekipazh",
+        "t90m-ekipazh"
+      ],
+      "sources": [
+        "https://en.wikipedia.org/wiki/T-90"
+      ],
+      "confidence": "low",
+      "note": "M7.6b: two T-90M, for the scenario's tankTemplates override (the manifest's section is the more numerous T-72B3M). The attachment is a game value (low)."
     }
   ]
 }

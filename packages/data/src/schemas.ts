@@ -605,9 +605,16 @@ export const MedicalFile = z.object({
   }).optional(),
   chain: withProv({ firstAidS: Num(0, 36000), role1S: Num(0, 360000), surgeryS: Num(0, 360000) }),
   protection: withProv({
-    recognitionM: z.object({ vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000) }).strict(),
-    obscuredFactor: Num(0, 1), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
+    recognitionM: z.object({
+      vehicleEye: Num(0, 5000), vehicleOptics: Num(0, 5000), armbandEye: Num(0, 1000), armbandOptics: Num(0, 2000),
+      carryEye: Num(0, 2000), carryOptics: Num(0, 5000), pointEye: Num(0, 5000), pointOptics: Num(0, 5000),
+    }).strict(),
+    obscuredFactor: Num(0, 1), stressK: Num(0, 1), aimSpareM: Num(0, 100), missionSpareM: Num(0, 500), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
     medicFiredLosesProtectionS: Num(0, 3600),
+    /** M10.7b: a man decides on a deliberate breach at most once per `breachCheckS` per target; own losses reach their
+     *  full factor at `breachLossesAt` of his platoon; a breach lasts `breachHoldS`; a man wearing an emblem fires on his
+     *  own (and on an AI or drill task) only within `selfDefenceM`, and a shot within it is self-defence. */
+    breachCheckS: Num(1, 3600), breachLossesAt: Num(0.01, 1), breachHoldS: Num(1, 600), selfDefenceM: Num(0, 500),
   }),
   /** Triage (M10.3b): error chances by training, what makes a casualty T1, when he is tagged again. */
   triage: withProv({
@@ -729,6 +736,9 @@ export const FactionManifest = withProv({
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
   missileTeamTemplate: Id.optional(),
+  /** Tank section generated battles add with `tanks` (M7.6b): a template whose sub-units are all crews of vehicles
+   *  with no passenger seats. */
+  tankSectionTemplate: Id.optional(),
   /** Ambulances off the map (M10.6a): generated battles give each side `count` of this crew template's vehicle
    *  (a template with `vehicle`, an ambulance), waiting at the rear to be called. */
   ambulance: z.object({ template: Id, count: z.number().int().min(0).max(10) }).strict().optional(),

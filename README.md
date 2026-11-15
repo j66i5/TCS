@@ -3,7 +3,7 @@
 A real-time, top-down tactical combat simulation at platoon to company scale, set in the present day.
 Plain visuals, deep simulation: every soldier is an individual and every projectile is simulated.
 
-- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **Sprite fix, 8× speed, medical part 5, night AI** (2026-11-15 10:01 UTC; deployed from `main`)
+- **Play the current build:** https://j66i5.github.io/TCS/ — current version: **Tanks in battle, laws of war, phone pass** (2026-11-15 11:42 UTC; deployed from `main`)
 - Specification: [`docs/SPEC.md`](docs/SPEC.md) · Status: [`docs/STATE.md`](docs/STATE.md) ·
   Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md) · Tour: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md)
 

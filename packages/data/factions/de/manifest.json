@@ -11,6 +11,7 @@
   "confidence": "high",
   "platoonTemplate": "pzgren-zug",
   "mortarTemplate": "moerser-gruppe",
+  "tankSectionTemplate": "panzer-halbzug",
   "ambulance": {
     "template": "boxer-san-besatzung",
     "count": 2

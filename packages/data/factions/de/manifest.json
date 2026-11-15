@@ -10,5 +10,6 @@
   ],
   "confidence": "high",
   "platoonTemplate": "pzgren-zug",
-  "mortarTemplate": "moerser-gruppe"
+  "mortarTemplate": "moerser-gruppe",
+  "tankSectionTemplate": "panzer-halbzug"
 }

@@ -11,5 +11,6 @@
   "confidence": "high",
   "platoonTemplate": "motor-rifle-platoon",
   "mortarTemplate": "minomyotny-vzvod-82",
-  "missileTeamTemplate": "raschet-metis"
+  "missileTeamTemplate": "raschet-metis",
+  "tankSectionTemplate": "tankovaya-gruppa"
 }

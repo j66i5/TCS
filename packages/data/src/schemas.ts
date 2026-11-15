@@ -694,6 +694,9 @@ export const FactionManifest = withProv({
   mortarTemplate: Id.optional(),
   /** Dismounted missile team generated battles add with `missileTeams` (M9.3b). */
   missileTeamTemplate: Id.optional(),
+  /** Tank section generated battles add with `tanks` (M7.6b): a template whose sub-units are all crews of vehicles
+   *  with no passenger seats. */
+  tankSectionTemplate: Id.optional(),
   /** True for test fixtures; fixtures may omit real-world sources. */
   fixture: z.boolean().optional(),
 });

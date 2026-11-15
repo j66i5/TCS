@@ -3,7 +3,7 @@
  * log. Every order goes to the simulation through `submitOrder` (rule 3), the player's marked as his.
  */
 import {
-  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOut, sideKnowledge, standZ, submitOrder, ticksToSeconds,
+  clearable, eyeHeightM, fireOptions, heightAt, indoorAt, isOut, OWN_ORDER_KINDS, sideKnowledge, standZ, submitOrder, ticksToSeconds,
   type EntityId, type Order,
 } from "@tcs/sim";
 import { worldToScreen } from "@tcs/render";
@@ -12,7 +12,7 @@ import {
   planToOrder, playerOrder, shapeOf, slotSpan, turnFormation, undoPoint, type Eye, type LosLine, type Plan, type PlanKind,
 } from "@tcs/ui";
 import type { App, Pt } from "./app";
-import { activeMoveOf, inMap, markerFor, unitCentre, unitMen, unitPlaces, unitSoldierIds, slotsOf, vehicleClassOf } from "./units";
+import { activeMoveOf, hqMode, inMap, markerFor, unitCentre, unitMen, unitPlaces, selectedMen, slotsOf, vehicleClassOf } from "./units";
 
 /** Rounds per fire support mission from the pop-up (the ranging rounds come on top, from the same stock); a smoke
  *  screen (M8.6) 6 rounds. */
@@ -34,6 +34,8 @@ export function issueAi(a: App, order: Order): void { send(a, order); }
 
 /** The player's gestures and debug hooks: marked as the player's, moves into a building go to the floor on screen. */
 export function issue(a: App, order: Order): void {
+  // (Owner 2026-11-15: the headquarters selected on its own: the order reaches its own men only, not the squads.)
+  if (hqMode(a) && order.target === a.overlay.selectedUnit && OWN_ORDER_KINDS.includes(order.kind)) order = { ...order, own: true };
   send(a, playerOrder(order, a.floorState.shown, (x, y) => {
     const bi = indoorAt(a.sim.ctx, x, y);
     return bi >= 0 ? a.input.map.buildings[bi]!.storeys - 1 : -1;
@@ -195,7 +197,7 @@ export function losTo(a: App, w: Pt): LosLine[] {
   const hulls = new Set<EntityId>();
   const own = st.unit.get(uid)?.vehicle;
   if (own !== undefined) hulls.add(own);
-  for (const m of unitSoldierIds(a.sim, uid)) {
+  for (const m of selectedMen(a, uid)) {
     const s = st.soldier.get(m), t = st.transform.get(m);
     if (!s || !t || isOut(s) || s.physiology.consciousness < 0.5) continue;
     if (s.mount !== undefined) { hulls.add(s.mount.vehicle); continue; }

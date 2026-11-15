@@ -1,7 +1,7 @@
 /** Read-only questions about the player's units, men and hulls (from the `main.ts` split, D2). */
 import { airborneDroneOf, buildSpatialHash, hullObb, isOut, pointInObb, queryRadius, type EntityId, type Sim } from "@tcs/sim";
 import { SIDE_COLOURS } from "@tcs/render";
-import { markerGeometry, onUnitAt, type Plan } from "@tcs/ui";
+import { markerGeometry, onUnitAt, type Plan, type TilePart } from "@tcs/ui";
 import type { App, MoveOrder, Pt } from "./app";
 
 /** Handles stay this far (on screen) from the marker's centre, so a finger can grab the marker itself. */
@@ -14,10 +14,34 @@ export function unitSoldierIds(sim: Sim, unit: EntityId): EntityId[] {
   return [...u.members, ...u.children.flatMap((c) => unitSoldierIds(sim, c))];
 }
 
+/** Owner 2026-11-15: the selected unit's own men alone are selected (a platoon's headquarters, its HQ tile or one
+ *  of its men tapped), not the whole platoon. */
+export function hqMode(a: App): boolean {
+  return a.overlay.selectedOwn === true && a.overlay.selectedUnit !== null && !droneMode(a);
+}
+
+/** The part of the selected unit its tile shows selected. */
+export function selPart(a: App): TilePart {
+  return droneMode(a) ? "drone" : hqMode(a) ? "hq" : undefined;
+}
+
+/** Is this unit a headquarters (sub-units and men of its own, no vehicle)? Its men select it as the HQ. */
+export function isHqUnit(sim: Sim, uid: EntityId): boolean {
+  const u = sim.state.unit.get(uid);
+  return u !== undefined && u.vehicle === undefined && u.children.length > 0 && u.members.length > 0;
+}
+
+/** The men an order to `uid` reaches as selected: the headquarters' own men while it is selected as HQ, else every
+ *  man of the unit and below. */
+export function selectedMen(a: App, uid: EntityId): EntityId[] {
+  if (uid === a.overlay.selectedUnit && hqMode(a)) return [...(a.sim.state.unit.get(uid)?.members ?? [])];
+  return unitSoldierIds(a.sim, uid);
+}
+
 /** Able men of the selected unit. */
 export function unitMen(a: App): EntityId[] {
   const uid = a.overlay.selectedUnit;
-  return uid === null ? [] : unitSoldierIds(a.sim, uid).filter((m) => { const s = a.sim.state.soldier.get(m); return s !== undefined && !isOut(s); });
+  return uid === null ? [] : selectedMen(a, uid).filter((m) => { const s = a.sim.state.soldier.get(m); return s !== undefined && !isOut(s); });
 }
 
 /** Where the selected unit's able men are on average. */
@@ -50,7 +74,7 @@ export function unitPlaces(a: App, uid: EntityId | null): { men: Pt[]; hulls: En
   const st = a.sim.state;
   const own = st.unit.get(uid)?.vehicle;
   if (own !== undefined && st.vehicle.has(own)) hulls.push(own);
-  for (const m of unitSoldierIds(a.sim, uid)) {
+  for (const m of selectedMen(a, uid)) {
     const s = st.soldier.get(m);
     if (!s || isOut(s)) continue;
     if (s.mount !== undefined) { if (!hulls.includes(s.mount.vehicle)) hulls.push(s.mount.vehicle); continue; }

@@ -29,7 +29,7 @@ export function attachKeys(a: App): (now: number) => void {
       case "speed": hud.setSpeed(SPEEDS[k.index] ?? 1); return;
       case "cancel": escape(); return;
       case "cycle": {
-        const order = unitTiles(a.sim.state, a.playerSide, a.input.catalog).filter((t) => t.state !== "lost" && t.kind !== "drone").map((t) => t.unit);
+        const order = unitTiles(a.sim.state, a.playerSide, a.input.catalog).filter((t) => t.state !== "lost" && t.kind !== "drone" && t.kind !== "hqGroup").map((t) => t.unit);
         const next = cycleUnit(order, a.overlay.selectedUnit, k.dir);
         if (next !== null) selectAndCentre(a, next);
         return;

@@ -1168,22 +1168,37 @@ async function sightScenes(page: Page, name: string, errors: string[], shots: st
 }
 
 /**
- * The drone (`--scene drone`, M9.4a): the platoon battle on foot (village). The platoon's drone tile selected (Move
- * means fly), a tap 550 m toward the enemy: the Funker launches it; up and out, its cameras' footprint drawn, the
- * tile showing its battery; the enemy it finds reaches the platoon over the radio; Halt brings it home to land.
+ * The drone (`--scene drone`, M9.4a): the platoon battle on foot (village), then the default battle (mounted). The
+ * platoon's drone tile selected (Move means fly), a tap 550 m toward the enemy: the Funker launches it (mounted: he
+ * gets out first, owner 2026-11-15); up and out, its cameras' footprint drawn, the tile showing its battery; the
+ * enemy it finds reaches the platoon over the radio; Halt brings it home to land. Mounted, first: the platoon's HQ
+ * tile selected (badged HQ, its own men alone), its order bar offering Dismount (on a phone under "more").
  */
 async function droneScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
-  const shot = async (label: string) => { await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 20000 }).catch(() => undefined); await page.waitForTimeout(300); const p = `${outDir}/drone-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
-  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}&vehicles=0`);
+  for (const variant of ["foot", "mounted"] as const) await droneScene(page, name, variant, errors, shots);
+}
+
+async function droneScene(page: Page, name: string, variant: "foot" | "mounted", errors: string[], shots: string[]): Promise<void> {
+  const shot = async (label: string) => { await page.waitForFunction(new Function("return globalThis.__tcs.tilesPending() === 0") as () => boolean, null, { timeout: 20000 }).catch(() => undefined); await page.waitForTimeout(300); const p = `${outDir}/drone-${seed}-${name}-${variant}-${label}.png`; await page.screenshot({ path: p }); shots.push(p); };
+  await page.goto(`http://localhost:${port}/?seed=${seed}&map=${args["map"] ?? "village"}${variant === "foot" ? "&vehicles=0" : ""}`);
   await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 30000 });
   const ev = <T>(code: string) => page.evaluate(new Function(`const t = globalThis.__tcs, s = t.sim.state; ${code}`) as () => T);
   const state = () => ev<{ drones: { mode: string; z: number; seen: number; x: number; y: number }[]; tile: string | null; known: number; selected: boolean; orders: string[] }>(`
     const d = [...s.drone.entries()].map(([id, d]) => ({ mode: d.mode, z: Math.round(s.transform.get(id).z), seen: d.seen.length, x: Math.round(s.transform.get(id).x), y: Math.round(s.transform.get(id).y) }));
-    const tile = document.querySelector('.hud-tile[data-drone="1"]');
+    const top0 = t.units().find((u) => u.depth === 0).unit, tile = document.querySelector('.hud-tile[data-drone="1"][data-unit="' + top0 + '"]');
     let known = 0; for (const [id, i] of s.identity.entries()) if (i.side === "blue") known = Math.max(known, s.soldier.get(id).contacts.length);
     return { drones: d, tile: tile ? tile.textContent : null, known, selected: tile ? tile.classList.contains("selected") : false, orders: t.orderLog.filter((o) => o.issuer === "blue").map((o) => o.kind + (o.op ? ":" + o.op : "")) };`);
   const log: Record<string, unknown> = {};
   await ev("t.setSpeed(0); t.stepTicks(1);");
+  if (variant === "mounted") {
+    // The HQ tile: its own men; Dismount offered (a phone: under the dock's "more").
+    await page.click('.hud-tile[data-hq="1"]');
+    await page.waitForTimeout(200);
+    log["hq"] = await ev<object>(`return { card: document.querySelector(".hud-card-head")?.textContent ?? null, dismount: !document.querySelector('[data-order="dismount"]')?.hidden };`);
+    if (name === "phone") await page.click(".hud-orders .hud-more-btn").catch(() => undefined);
+    await shot("0-hq-selected");
+    if (name === "phone") await page.click(".hud-orders .hud-more-btn").catch(() => undefined);
+  }
   await page.click('.hud-tile[data-drone="1"]');
   // A point 550 m from the platoon headquarters toward the enemy.
   const at = await ev<{ x: number; y: number; sx: number; sy: number }>(`
@@ -1191,26 +1206,26 @@ async function droneScenes(page: Page, name: string, errors: string[], shots: st
     ex /= n; ey /= n;
     const top = t.units().find((u) => u.depth === 0); const hq = s.unit.get(top.unit).members.map((m) => s.transform.get(m));
     const c = { x: hq.reduce((a, p) => a + p.x, 0) / hq.length, y: hq.reduce((a, p) => a + p.y, 0) / hq.length };
-    const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy); const p = { x: c.x + dx / d * 550, y: c.y + dy / d * 550 };
+    const dx = ex - c.x, dy = ey - c.y, d = Math.hypot(dx, dy); const r = ${variant === "foot" ? 550 : 300}; const p = { x: c.x + dx / d * r, y: c.y + dy / d * r };
     t.focus((p.x + c.x) / 2, (p.y + c.y) / 2, 760); t.stepTicks(1);
     const q = t.toScreen(p.x, p.y); return { x: p.x, y: p.y, sx: q.x, sy: q.y };`);
   log["selected"] = await state();
-  await shot("0-tile-selected");
+  await shot("1-tile-selected");
   await page.mouse.move(at.sx, at.sy); await page.mouse.down(); await page.mouse.up();
   await ev("t.stepTicks(60 * 50);");
   log["launching"] = await state();
-  await shot("1-launching");
+  await shot("2-launching");
   await ev("t.stepTicks(60 * 70);");
   log["up"] = await state();
-  await shot("2-up");
-  await ev("t.stepTicks(60 * 40); const d = [...s.drone.keys()][0]; if (d !== undefined) { const p = s.transform.get(d); t.focus(p.x, p.y, 700); } t.stepTicks(1);");
+  await shot("3-up");
+  await ev("t.stepTicks(60 * 40); const d = [...s.drone.entries()].find(([, x]) => x.side === 'blue')?.[0]; if (d !== undefined) { const p = s.transform.get(d); t.focus(p.x, p.y, 700); } t.stepTicks(1);");
   log["seen"] = await state();
-  await shot("3-enemy-found");
+  await shot("4-enemy-found");
   await page.click('[data-order="halt"]');
   await ev("t.stepTicks(60 * 120);");
   log["home"] = await state();
-  await shot("4-home");
-  console.log(`${name}: drone scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+  await shot("5-home");
+  console.log(`${name} ${variant}: drone scene ${JSON.stringify(log)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
 }
 
 /**

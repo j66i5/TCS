@@ -41,6 +41,7 @@ import { launchProjectile } from "./ballistics";
 import { skillFactor } from "./fire";
 import { footSoldiers } from "../mount";
 import { spared } from "../protection";
+import { noteFireAt, noteShot } from "../conduct";
 
 export type AtRule = "vehicles" | "vehiclesAndPositions" | "hold";
 
@@ -399,4 +400,9 @@ function fireRound(ctx: SimContext, state: SimState, id: EntityId, ammo: string,
   // He has fired: it gives him away like a shot (spotting reads his weapon's last shot).
   const w = state.weapon.get(id);
   if (w) w.lastShotTick = state.tick;
+  // Laws of war (M10.7b): a rocket costs any protection he had; fire at a protected enemy is recorded.
+  if (ctx.catalog.medical !== undefined) {
+    noteShot(ctx, state, id, s, tx, ty);
+    if (target !== undefined) noteFireAt(ctx, state, events, id, { contact: target }, false);
+  }
 }

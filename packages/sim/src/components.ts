@@ -196,6 +196,16 @@ export interface SoldierState {
    * `arriveM` from it (the nest moved, an order to him alone). Absent: not at a nest.
    */
   atNest?: EntityId;
+  /**
+   * Laws of war (M10.7b, systems/conduct.ts). `protLostTick`: his last shot that was not self-defence (a man with an
+   * emblem firing beyond `protection.selfDefenceM`; any shot of anyone else): it costs his protection for
+   * `medicFiredLosesProtectionS`. `breachOn`: a deliberate breach — he fires at this enemy he knows to be protected
+   * or giving up until `untilTick`. `conductTick`: when he last decided on one (at most every `breachCheckS`).
+   * All absent: never.
+   */
+  protLostTick?: number;
+  breachOn?: { target: EntityId; untilTick: number };
+  conductTick?: number;
   /** The player ordered him taken to the Verwundetennest (M10.5 `evacuate`): first in the bearers' queue, and he goes
    *  even if he could still fight. Cleared when he arrives. */
   evacOrdered?: true;
@@ -592,6 +602,10 @@ export interface FireTask {
    */
   duck?: { up: Posture; riseTicks: number; friend?: true };
   duckTick?: number;
+  /** Laws of war (M10.7b, systems/conduct.ts): the next tick at which fire at `contact` is checked for a breach
+   *  (every two seconds while he fires), and whether a breach was already recorded for this task (once per task). */
+  lawTick?: number;
+  breached?: true;
 }
 
 // ---------------------------------------------------------------- vehicles (M7, schema 16)

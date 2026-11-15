@@ -77,6 +77,15 @@ export type SimEvent =
   /** A man recognised an enemy as protected (M10.7a): newly flagged on his own contact — an emblem (`marked`: an
    *  armband or a marked ambulance), a carrying party, a man at a marked Verwundetennest — at `rangeM`. */
   | { kind: "protection.recognised"; tick: number; side: SideId; observer: EntityId; target: EntityId; marked: boolean; carrying: boolean; atPoint: boolean; rangeM: number }
+  /** Laws of war (M10.7b, conduct.ts; never shown live, owner answer 7: the review only). `by` (of `side`) fired at
+   *  `target`, who was protected: `misidentified` (he had not recognised it) or `deliberate` (he had). `protection`:
+   *  an emblem or marked ambulance ("medical"), a carrying party, a man at the Verwundetennest, or a man giving up
+   *  (deliberate only). Circumstances: range (m), light (0..1), the share of light smoke let through on the line, his
+   *  stress or suppression (the higher), whether it was the player's or an AI order, and the hull he fired from. */
+  | { kind: "law.breach"; tick: number; side: SideId; by: EntityId; target: EntityId; cause: "misidentified" | "deliberate"; protection: "medical" | "carrying" | "point" | "surrendered"; rangeM: number; light: number; smoke: number; stress: number; ordered: boolean; vehicle?: EntityId }
+  /** A protected man or marked ambulance hit by fire of `side` (Q-8: incidental hits are a separate list in the review):
+   *  `aimed` when the fire was at him; `fragment` a fragment's hit. Never shown live. */
+  | { kind: "law.hit"; tick: number; side: SideId; by: EntityId; target: EntityId; protection: "medical" | "carrying" | "point" | "surrendered" | "wounded" | "prisoner"; aimed: boolean; fragment: boolean }
   | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number; via?: "ambulance" | "vehicle" }
   /**
    * A combat vehicle's rear run (M10.6b, owner Q-9): `phase` started (for the platoon `unit`'s nest `point`; `ordered`:

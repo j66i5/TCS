@@ -5,7 +5,8 @@
  * protective emblem (an item with `emblem`: the red cross armband), a vehicle whose type is a marked ambulance, the
  * men of a carrying party, and men at a marked Verwundetennest (every medical rear point is marked). Wounded out of
  * action and men giving up were spared before (contact flags `down` and `surrendered`). A man or hull that fired
- * within `medicFiredLosesProtectionS` is not protected (slice 16 refines this to self-defence).
+ * within `medicFiredLosesProtectionS` is not protected, except a man wearing an emblem who fired in self-defence
+ * (M10.7b, conduct.ts).
  *
  * Recognition happens in the contact scan, on a sighting (no scan of its own): within the range for the target's
  * kind (by eye, or with optics: any non-thermal sight that magnifies), scaled by light, smoke on the line and the
@@ -44,13 +45,14 @@ export function wearsEmblem(catalog: Catalog, state: SimState, id: EntityId): bo
   return false;
 }
 
-/** Fired within the time that costs protection (a man's weapon, or any station of a hull). */
+/** Fired within the time that costs protection: a man's last shot that was not self-defence (M10.7b,
+ *  `SoldierState.protLostTick`, conduct.ts), or any station of a hull. */
 function firedLately(catalog: Catalog, state: SimState, id: EntityId): boolean {
   const P = catalog.medical?.protection;
   if (!P) return false;
   const since = state.tick - secondsToTicks(P.medicFiredLosesProtectionS);
-  const w = state.weapon.get(id);
-  if (w && w.lastShotTick > since) return true;
+  const s = state.soldier.get(id);
+  if (s) return s.protLostTick !== undefined && s.protLostTick > since;
   const v = state.vehicle.get(id);
   if (v) for (const st of v.stations) for (const sw of st.weapons) if (sw.lastShotTick > since) return true;
   return false;

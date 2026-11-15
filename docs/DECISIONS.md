@@ -5757,3 +5757,58 @@ recognised protected target is refused**, with a short radio note. Built:
   (floor 8x; 11.2x on 2026-11-14), bench-vehicles 10.8x, bench-medical 17.5x. Goldens regenerated (data fingerprint
   and the changed choices); `golden/no-interiors` untouched. No visible change except the radio line, so no
   screenshots.
+
+## 2026-11-15 — M10.7b Breaches, medic self-defence, prisoners' care (roadmap-detail slice 16; goldens regenerated)
+Merged origin/main first (8x speed button, soldier sprite fixes, README version; render/UI only, no conflicts).
+Owner answers used (binding, 2026-11-14): breaches mostly honest mistakes, rarely deliberate by panicked, vengeful or
+poorly disciplined men, more after own losses, same rules for both sides from unit data only (answer 5); medics fire
+only in self-defence and lose protection if they fight otherwise (answer 8); breaches in the review, not live
+(answer 7); **Q-7: an order to fire at a recognised protected target is refused** — so there is no "ordered" breach:
+an ordered breach can only be a misidentification (recorded with `ordered: true`); Q-8 incidental hits: a separate
+list. Built (`sim/src/conduct.ts`); software decisions, owner to review in M10.8:
+- **`law.breach` "misidentified"**: checked where the rounds leave (a man's shot, a hull station's round or missile,
+  a rocket), every 2 s of a fire task at a named enemy and once per task: the enemy is protected now
+  (`protectionNow`: emblem, marked ambulance, carrying party, at the nest) and neither the shooter nor (for a hull)
+  any of its crew recognised him. Circumstances: range, light, smoke transmission on the line, stress or
+  suppression, ordered, hull. Fire at a point (no enemy named) is not judged (it shows up in `law.hit`).
+- **`law.breach` "deliberate"**: a man on foot whose target choice finds an enemy he knows to be protected or giving
+  up (not one known to be down: he may be dead) decides at most once per `breachCheckS` 60 s, from the new
+  **"conduct" RNG stream** (created on first use); chance = `breachBase` 1 % × (1 + 2 × min(1, platoon losses /
+  `breachLossesAt` 0.25)) × (1 + 1 × (1 − experience)) × (1 + 1 × stress), from the existing data factors (×3 losses,
+  ×2 poor discipline, ×2 panic); "unit quality" is the man's `experience` skill, losses are his platoon's (his unit's
+  parent with sub-units) men down, dead or taken. Once decided he fires at that man first for `breachHoldS` 30 s
+  (`SoldierState.breachOn`; the recognised/surrendered stop checks in fire.ts and decisions let it through). Crews and
+  missile teams do not breach deliberately: they decide together and one man saying "ambulance" holds the gun.
+- **Self-defence**: a man wearing an emblem fires on his own, on drills and on AI orders only within `selfDefenceM`
+  50 m (`assignFireTask` refuses beyond; his own target choice re-picks within it); a shot within it costs no
+  protection. Beyond it only on the player's own order (`Order.player`), and then he loses protection for
+  `medicFiredLosesProtectionS` 120 s after that shot. Protection loss now reads `SoldierState.protLostTick` (set by
+  any shot of anyone else: a bearer or a wounded man at the nest who fires is back in the fight; mortar and missile
+  crews too) instead of the weapon's last shot; hulls still use their stations' last shot.
+- **`law.hit`** (Q-8): a hit on an enemy who is protected now, wounded out of action, giving up or a prisoner, or on a
+  marked ambulance, by the firing side, `aimed` when the shooter's fire task (or his hull's station) was at him, else
+  incidental; fragments flagged.
+- **Nothing live**: no radio line, no string; the battle record keeps them (`SideRecord.conduct`: breaches with
+  circumstances, first 200 per side, counts by cause, hits by kind aimed/incidental; `RECORD_VERSION` 5 → 6); batch line
+  "Laws of war". The review tabs come in M10.8.
+- **Prisoners' care**: already built on 2026-11-15 (owner request E: captors treat prisoners by need, never by side;
+  end settlement treats them); nothing added.
+- **Data** (`core/medical.json` `protection`, low, game values): `breachCheckS` 60, `breachLossesAt` 0.25,
+  `breachHoldS` 30, `selfDefenceM` 50. No state schema bump (new optional fields on `SoldierState` and `FireTask`).
+- **Lab** `npm run lab -- protection` part 3 (AK observer free to fire, medic at 15-60 m, 3 seeds): misidentified
+  breach by day only beyond 50 m (60 m: 3/3), at night from 30 m (recognised only to 15 m), in a thin smoke wisp from
+  40 m (recognised to 34 m); part 4: the deliberate chance table (1 % calm and trained, 12 % for a green, panicking
+  man after a quarter of his platoon is lost). Tests `tools/test/conduct.test.ts`: misidentification at night and in
+  smoke, not by day, with circumstances and no radio; the record; chance factors and the same chance for both sides;
+  drawn rate at the chance (4000 draws); a deliberate breach with base 1 and never with base 0; medic self-defence
+  (keeps protection at 35 m; at 120 m nothing on his own or on an AI order, the player's order makes him fire and
+  costs protection for 120 s).
+- **Batches (10 seeds × 1200 s, before = merge HEAD → after)**: platoon winners blue 2 / red 8 → 2 / 8, casualties
+  blue/red 17.2/13.1 → 15.5/12.9, prisoners 0.7/1.3 → 0.6/1.5; platoon-vehicles 6/4 → 7/3, 16.9/26.3 → 16.1/26.4
+  (seed-level divergence). Laws of war per 10 battles (after): platoon blue misidentified 92 (14 through smoke, none
+  in the dark: daytime battles), deliberate 0; red 28 / 1; platoon-vehicles blue 101 / 1, red 26 / 1. Most
+  misidentifications are fire at red's carrying parties beyond 150 m (eye) — left for M10.8 whether that reads as
+  too many. Hits aimed/incidental (platoon, blue): bearers 9/50, wounded 77/65.
+- **Perf**: `npm run test:perf` alone green (20); the noisy parked-hulls test failed once inside the full check
+  (39 %) and passed alone. Goldens regenerated (data fingerprint, the self-defence gate and the conduct checks);
+  `golden/no-interiors` untouched. No visible change, so no screenshots.

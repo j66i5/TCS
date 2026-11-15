@@ -611,6 +611,10 @@ export const MedicalFile = z.object({
     }).strict(),
     obscuredFactor: Num(0, 1), stressK: Num(0, 1), aimSpareM: Num(0, 100), missionSpareM: Num(0, 500), breachBase: Num(0, 1), breachLossesK: Num(1, 20), breachLowDisciplineK: Num(1, 20), breachPanicK: Num(1, 20),
     medicFiredLosesProtectionS: Num(0, 3600),
+    /** M10.7b: a man decides on a deliberate breach at most once per `breachCheckS` per target; own losses reach their
+     *  full factor at `breachLossesAt` of his platoon; a breach lasts `breachHoldS`; a man wearing an emblem fires on his
+     *  own (and on an AI or drill task) only within `selfDefenceM`, and a shot within it is self-defence. */
+    breachCheckS: Num(1, 3600), breachLossesAt: Num(0.01, 1), breachHoldS: Num(1, 600), selfDefenceM: Num(0, 500),
   }),
   /** Triage (M10.3b): error chances by training, what makes a casualty T1, when he is tagged again. */
   triage: withProv({

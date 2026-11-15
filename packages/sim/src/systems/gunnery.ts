@@ -51,6 +51,7 @@ import { contactErrorM } from "./contacts";
 import { smokePhysics, smokeTransmission } from "../smoke";
 import { addSmoke } from "../smoke";
 import { protectedTargets, refusesFireAt } from "../protection";
+import { noteFireAt } from "../conduct";
 
 export type Nature = "ap" | "he" | "mg" | "atgm";
 
@@ -595,6 +596,7 @@ export function stationFireSystem(ctx: SimContext, state: SimState, events: Even
       launchShot(ctx, state, events, op, wdef.weapon, ammoId, v0, mx, my, mz, tz, a0, range, believed, total, vid, tr);
       feed.rounds--;
       w.lastShotTick = tick;
+      if (task.contact !== undefined && ctx.catalog.medical !== undefined) noteFireAt(ctx, state, events, op, task, task.self !== true, vid, crew?.members); // laws of war (M10.7b)
       if (wdef.feedKind !== "belt") w.loadedRound = false;
       if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) { w.jammed = true; w.burstLeft = 0; }
       w.burstLeft--;
@@ -775,6 +777,7 @@ function fireMissile(
   events.emit({ kind: "shot.fired", tick, shooter: op, x: mx, y: my, z: mz, dirX: cos(a0), dirY: sin(a0), weapon: wdef.weapon, ammo: gr.ammo, vehicle: vid });
   feed.rounds--;
   w.lastShotTick = tick;
+  if (task.contact !== undefined && ctx.catalog.medical !== undefined) noteFireAt(ctx, state, events, op, task, task.self !== true, vid, crew?.members); // laws of war (M10.7b)
   w.nextShotTick = tick + TICK_HZ;
   st.guide = { ammo: gr.ammo, weapon: wi, gunner: op, launchTick: tick, target: tv, errH: 0, errV: 0, checkTick: -1, ax: task.x, ay: task.y, az: tz };
   const kind = ctx.catalog.ammo[gr.ammo]?.guidance;

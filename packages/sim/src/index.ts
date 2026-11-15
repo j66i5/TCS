@@ -38,6 +38,7 @@ export { isGuiding, teamRound, TEAM_FIRE_ACTION } from "./systems/missile-team";
 export { crewRate, flightSecondsOf, firstRoundErrorM, missionPhases, secondsToEffect, supportLeft } from "./systems/support";
 export { addSmoke, smokePhysics, smokeShapes, smokeTransmission, type SmokeCloud, type SmokePhysics, type SmokeShape } from "./smoke";
 export { isDowned, surrender, surrenderSystem } from "./systems/surrender";
+export { breachActive, breachCandidate, breachChance, breachChanceOf, decideDeliberate, ownLossShare } from "./conduct";
 export { hasOptics, onlyProtectedAt, protectedContact, protectionNow, recognitionRanges, refusesFireAt, smokeRecognitionFactor, spared, wearsEmblem, PROT_CARRYING, PROT_MARKED, PROT_POINT } from "./protection";
 export { takeOutOfFight } from "./systems/wounds";
 export * from "./medical";

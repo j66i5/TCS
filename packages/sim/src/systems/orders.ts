@@ -576,7 +576,7 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
           if (c?.surrendered === true || c?.down === true) continue;
           if (c) { x = c.x; y = c.y; known = c; }
         }
-        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known))) {
+        if (assignFireTask(ctx, state, s, x, y, order.heightM ?? aimHeightAt(ctx, known), order.player === true)) {
           any = true;
           const ft = state.fire.get(s);
           if (ft && named !== undefined) { ft.contact = named; if (order.heightM === undefined) ft.aimAuto = true; else delete ft.aimAuto; }

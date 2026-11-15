@@ -338,7 +338,15 @@ Slices (numbers from `docs/plans/roadmap-detail.md` Phase 1):
     player's order to fire at one, or a call for fire on a place where only protected people are known, is refused
     with a radio note (owner Q-7); event `protection.recognised`; `npm run lab -- protection`; batch "Protection
     recognised" line. Skipping a recognised Verwundetennest in fire missions (from M8.2b) is now built.
-15. ⬜ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16)
+15. ✅ **M10.7b Breaches, medic self-defence, prisoners' care** (slice 16, 2026-11-15) — `sim/src/conduct.ts`:
+    `law.breach` events, "misidentified" (fire at an enemy really protected but not recognised; checked where the
+    rounds leave, once per fire task, with range, light, smoke, stress, ordered) and "deliberate" (at most once a
+    minute per man who sees an enemy he knows to be protected or giving up; chance from `protection.breachBase` ×
+    own losses × low experience × stress, same for every side; the "conduct" RNG stream); no "ordered" breach (owner
+    Q-7: such orders are refused); a medic with the emblem fires on his own, on drills and AI orders only within
+    `selfDefenceM` 50 m (no loss of protection), beyond only on the player's order (lost for 120 s); `law.hit` for hits
+    on protected people, aimed or incidental (Q-8); nothing live; battle record version 6 (`conduct`); batch "Laws of
+    war" line; lab part 3 and 4. Prisoners' care was built on 2026-11-15 (captors treat by need).
 16. ⬜ **M10.8 Review, statistics, balance** (slice 17; batches at 2400 s)
 
 Acceptance: the chain runs for both sides and the xf fixture; preventable deaths clearly lower than with

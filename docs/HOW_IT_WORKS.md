@@ -536,6 +536,24 @@ live on the map; breaches come with the after-action review (M10.7b, M10.8). All
 `protection`, low confidence (game values; none are published); `npm run lab -- protection` prints them and checks
 them in the sim.
 
+**Breaches, and a medic's own rifle (M10.7b).** When a man fires at an enemy who really is protected but whom he did
+not recognise (too far, too dark, smoke in the way, too frightened to look), it is recorded as a *misidentified*
+breach, with the range, the light, the smoke on the line, his stress and whether he was under orders. Rarely, a man
+fires on purpose at an enemy he knows is protected or is giving up (a *deliberate* breach): at most once a minute he
+"decides", with a chance of about 1 % for a calm, well-trained man, up to three times that when his platoon has lost a
+quarter of its men, twice for poor discipline (low experience) and twice in panic (high stress) — all multiplied, so a
+shaken, green platoon after heavy losses reaches about 12 %; once decided, he fires at that man for 30 seconds. The
+rules are the same for both sides and come only from the men's training, stress and losses, never from the side. A
+German Sanitäter with the armband fires on his own only at an enemy within 50 m (defending himself and the wounded
+beside him), which does not cost his protection; drills and the AI commander's fire orders pass him by; only *your*
+direct order makes him fire farther, and then he loses his protection for two minutes after his last shot (a
+bearer or a wounded man at the nest who fires loses it with any shot). Hits on protected people — a medic, an
+ambulance, bearers, men at the nest, wounded men lying out of action, men giving up and prisoners — are counted
+separately, aimed at them or incidental. None of this is shown during the battle: no radio line, no marker; it all
+goes into the battle record for the after-action review (M10.8). Prisoners are cared for by the side holding them
+like its own men, in order of need (built 2026-11-15). `npm run lab -- protection` adds a misidentification table
+(more at night and in smoke) and the deliberate-breach chances.
+
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
 down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what

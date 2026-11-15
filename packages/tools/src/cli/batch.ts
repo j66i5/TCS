@@ -55,6 +55,9 @@ interface Row {
   review: ReviewTally;
   /** M10.7a per observer side: enemies newly recognised as protected, by kind, and the median range of an emblem. */
   prot: Record<string, { marked: number; carrying: number; atPoint: number; markedM: number[] }>;
+  /** M10.7b per firing side: breaches by cause (and of them at night, light below 0.5, or with smoke on the line, under
+   *  half the light through) and hits on protected people by kind, aimed or incidental. */
+  conduct: Record<string, { misidentified: number; deliberate: number; dark: number; smoky: number; hits: Record<string, { aimed: number; incidental: number }> }>;
   m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
   /** M10.5 per side: nests sited and moved, casualties sent back with bearers or walking, arrivals; at the end, the
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
@@ -176,6 +179,7 @@ for (let i = 0; i < runs; i++) {
     settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     prot,
+    conduct: perSide((x) => ({ misidentified: x.conduct.misidentified, deliberate: x.conduct.deliberate, dark: x.conduct.breaches.filter((b) => b.light < 0.5).length, smoky: x.conduct.breaches.filter((b) => b.smoke < 0.5).length, hits: x.conduct.hits })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
@@ -251,6 +255,13 @@ const md = [
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
     const ms = rows.flatMap((r) => r.prot[s]?.markedM ?? []).sort((a, b) => a - b);
     return `${s} an emblem (medic, ambulance) ${sum((r) => r.prot[s]?.marked ?? 0)} (median ${ms.length ? Math.round(ms[Math.floor(ms.length / 2)]!) : "-"} m), bearers ${sum((r) => r.prot[s]?.carrying ?? 0)}, men at the Verwundetennest ${sum((r) => r.prot[s]?.atPoint ?? 0)} (${(sum((r) => (r.prot[s]?.marked ?? 0) + (r.prot[s]?.carrying ?? 0) + (r.prot[s]?.atPoint ?? 0)) / Math.max(1, rows.length)).toFixed(1)} per battle)`;
+  }).join("; ")}`,
+  `- Laws of war (M10.7b, by the side that fired; never shown live): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const hits: Record<string, { aimed: number; incidental: number }> = {};
+    for (const r of rows) for (const [k, h] of Object.entries(r.conduct[s]?.hits ?? {})) { const t = hits[k] ??= { aimed: 0, incidental: 0 }; t.aimed += h.aimed; t.incidental += h.incidental; }
+    const hs = Object.entries(hits).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, h]) => `${k} ${h.aimed}/${h.incidental}`).join(", ");
+    return `${s} breaches misidentified ${sum((r) => r.conduct[s]?.misidentified ?? 0)}, deliberate ${sum((r) => r.conduct[s]?.deliberate ?? 0)} (in the dark ${sum((r) => r.conduct[s]?.dark ?? 0)}, through smoke ${sum((r) => r.conduct[s]?.smoky ?? 0)}); hits on protected people aimed/incidental: ${hs || "none"}`;
   }).join("; ")}`,
   `- Ambulances (M10.6a, by side): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

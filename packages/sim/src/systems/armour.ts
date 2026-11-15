@@ -53,6 +53,7 @@ import { launcherRound } from "./launcher";
 import { heightAt } from "../terrain";
 import { radioFromTarget } from "./orders";
 import { spared } from "../protection";
+import { noteHit } from "../conduct";
 
 const FACE_NAMES = ["front", "side", "rear", "top"] as const;
 
@@ -417,6 +418,7 @@ export function resolveVehicleHit(
     }
   }
   events.emit({ kind: "vehicle.hit", tick, vehicle: vid, x, y, z, face: FACE_NAMES[face]!, zone, result, ammo: am.id, owner, rounds: 1, components: dmg.components, ...(era === null ? {} : { era }) });
+  if (ctx.catalog.medical !== undefined) noteHit(ctx, state, events, vid, owner, false); // a marked ambulance hit (M10.7b, Q-8)
   if (dmg.pen) v.lastPenTick = tick;
   if (enemy && (dmg.pen || am.heavy)) v.threatAz = atan2(-dy, -dx);
   // The crew and its platoon are under fire (from the other side).

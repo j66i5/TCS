@@ -793,6 +793,11 @@ export interface MedicalDef {
      *  `aimSpareM` / `missionSpareM`: how near an aimed point / a fire mission's point a protected man must be to spare it. */
     obscuredFactor: number; stressK: number; aimSpareM: number; missionSpareM: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
     medicFiredLosesProtectionS: number;
+    /** M10.7b breaches and self-defence (see systems/conduct.ts): a deliberate-breach decision at most every
+     *  `breachCheckS` per man; own losses reach their full factor at `breachLossesAt` (share of his platoon down,
+     *  dead or taken); a deliberate breach lasts `breachHoldS`; a man wearing an emblem fires on his own, or on a drill
+     *  or AI order, only within `selfDefenceM` (m), and his shots within it are self-defence (no loss of protection). */
+    breachCheckS: number; breachLossesAt: number; breachHoldS: number; selfDefenceM: number;
   };
   /**
    * Triage (M10.3b): chance of a wrong category by skill, more under fire (`underFireAdd`); a casualty is truly T1

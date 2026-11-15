@@ -36,6 +36,7 @@ import { radioFromTarget, unitSoldiers } from "./orders";
 import { isMounted } from "../mount";
 import { isGuiding } from "./missile-team";
 import { protectedContact } from "../protection";
+import { beyondSelfDefence, breachActive, noteFireAt, noteShot } from "../conduct";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -154,9 +155,12 @@ export function reserveTargetOk(ctx: SimContext, state: SimState, c: { target: E
   return false;
 }
 
-export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number): boolean {
+export function assignFireTask(ctx: SimContext, state: SimState, id: EntityId, x: number, y: number, heightM: number, player = false): boolean {
   const w = state.weapon.get(id), s = state.soldier.get(id), t = state.transform.get(id);
   if (!w || !s || !t || !isAble(s) || !s.impair.canFight || s.mount !== undefined) return false; // aboard: the station fires (M7.3)
+  // A man wearing the red cross fires only in self-defence (owner answer 8, M10.7b): beyond `selfDefenceM` only on the
+  // player's own order (`player`), which costs his protection.
+  if (!player && ctx.catalog.medical !== undefined && beyondSelfDefence(ctx, state, id, x, y)) return false;
   const a = ctx.catalog.shooting.aim;
   const prev = state.fire.get(id);
   state.fire.set(id, {
@@ -247,6 +251,11 @@ function shoot(ctx: SimContext, state: SimState, events: EventSink, id: EntityId
   if (task.contact !== undefined && state.drone.size > 0 && state.drone.has(task.contact)) shootAtDrone(ctx, state, task.contact, id, mx, my, mz, task.x, task.y, tz, total, v0);
   w.magazine!.rounds--;
   w.lastShotTick = state.tick;
+  // Laws of war (M10.7b): his protection (if any) and whether this is fire at a protected enemy.
+  if (ctx.catalog.medical !== undefined) {
+    noteShot(ctx, state, id, s, task.x, task.y);
+    if (task.contact !== undefined) noteFireAt(ctx, state, events, id, task, task.self !== true && task.suppress === "order");
+  }
   if (wd.jamProbability > 0 && nextFloat(state.rng, Streams.fire) < wd.jamProbability) {
     w.jammed = true;
     w.burstLeft = 0;
@@ -330,9 +339,10 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     if (!w || !s || !wd || !isAble(s) || !s.impair.canFight) { stop("unable"); continue; }
     // He knows the man he is firing at has given up (his own contact says so, M6.6): he holds his fire —
     // whether the task came from an order, a drill or himself. (Fire at a point is not stopped by this.)
-    if (task.contact !== undefined && s.contacts.find((k) => k.target === task.contact)?.surrendered === true) { stop("no-target"); continue; }
+    // (Not his deliberate breach, M10.7b: he fires at him anyway, conduct.ts.)
+    if (task.contact !== undefined && s.contacts.find((k) => k.target === task.contact)?.surrendered === true && !breachActive(s, task.contact, tick)) { stop("no-target"); continue; }
     // He has recognised him as protected (M10.7a: armband, ambulance, carrying party, at the nest): he holds his fire.
-    if (task.contact !== undefined && (tick + id) % 30 === 0) { const k = s.contacts.find((q) => q.target === task.contact); if (k !== undefined && protectedContact(k)) { stop("no-target"); continue; } }
+    if (task.contact !== undefined && (tick + id) % 30 === 0) { const k = s.contacts.find((q) => q.target === task.contact); if (k !== undefined && protectedContact(k) && !breachActive(s, task.contact, tick)) { stop("no-target"); continue; } }
     // He saw the man he is firing at go down (package A: aiming low at men lying down, rounds went into the fallen):
     // he stops (a man he has not seen for a few seconds may still be up: fire at where he was goes on).
     if (task.contact !== undefined && (tick + id) % 30 === 0 && s.contacts.find((k) => k.target === task.contact)?.down === true) { stop("no-target"); continue; }

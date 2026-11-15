@@ -17,7 +17,7 @@ import type { SimView } from "./state";
 import { newReviewTally, tallyReview, type ReviewTally } from "./review";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 5;
+export const RECORD_VERSION = 6;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -92,7 +92,19 @@ export interface SideRecord {
   /** The end-of-battle settlement (M10.6b): evacuated by the side holding the ground, captured on enemy-held ground,
    *  prisoners treated, walking wounded staying with their units. */
   settled: { evacuated: number; captured: number; prisoner: number; stays: number };
+  /** Laws of war (M10.7b; by the side that fired): breaches with their circumstances (the first `BREACHES_MAX`),
+   *  counts by cause, and hits on protected people by kind, aimed at them or incidental (Q-8). */
+  conduct: { breaches: BreachEntry[]; misidentified: number; deliberate: number; hits: Record<string, { aimed: number; incidental: number }> };
 }
+
+/** One breach (M10.7b) as the review shows it: who fired (family name, callsign), at whom, why and in what conditions. */
+export interface BreachEntry {
+  tick: number; cause: "misidentified" | "deliberate"; protection: string; by: string; callsign: string; target: string;
+  rangeM: number; light: number; smoke: number; stress: number; ordered: boolean; vehicle: boolean;
+}
+
+/** Breaches kept per side with their circumstances (counts go on past it). */
+const BREACHES_MAX = 200;
 
 export interface BattleRecord {
   v: number;
@@ -137,6 +149,7 @@ export function newSideRecord(): SideRecord {
     rear: { started: 0, ordered: 0, cancelled: 0, away: 0, men: 0, back: 0 },
     role1: { men: 0, t1: 0, t1InTime: 0, captor: 0, dow: 0, dowH: [], recoveryD: [] },
     settled: { evacuated: 0, captured: 0, prisoner: 0, stays: 0 },
+    conduct: { breaches: [], misidentified: 0, deliberate: 0, hits: {} },
   };
 }
 
@@ -305,6 +318,21 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         if (e.action === "loadCasualty" || e.action === "unloadCasualty") { const r = side(sideOfMan(e.actor)); if (r) { if (e.action === "loadCasualty") r.loaded++; else r.unloaded++; } }
         break;
       case "missile.ended": { const r = side(e.vehicle !== undefined ? view.vehicle.get(e.vehicle)?.side : sideOfMan(e.gunner)); if (r) r.missiles[e.result]++; break; }
+      case "law.breach": {
+        const r = side(e.side);
+        if (!r) break;
+        r.conduct[e.cause]++;
+        if (r.conduct.breaches.length < BREACHES_MAX) {
+          const tv = view.vehicle.get(e.target);
+          r.conduct.breaches.push({
+            tick: e.tick, cause: e.cause, protection: e.protection, by: view.identity.get(e.by)?.family ?? "", callsign: callsignOf(e.by),
+            target: view.identity.get(e.target)?.family ?? tv?.vehicleId ?? "", rangeM: Math.round(e.rangeM), light: Math.round(e.light * 100) / 100,
+            smoke: Math.round(e.smoke * 100) / 100, stress: Math.round(e.stress * 100) / 100, ordered: e.ordered, vehicle: e.vehicle !== undefined,
+          });
+        }
+        break;
+      }
+      case "law.hit": { const r = side(e.side); if (r) { const h = r.conduct.hits[e.protection] ??= { aimed: 0, incidental: 0 }; if (e.aimed) h.aimed++; else h.incidental++; } break; }
       case "unit.dismounted": { const r = side(view.unit.get(e.unit)?.side); if (r && r.firstDismountTick === null) r.firstDismountTick = e.tick; break; }
       default: break;
     }

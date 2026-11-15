@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.7a recognition and respect; roadmap-detail slice 15). The long session-by-session
+_Last updated: 2026-11-15 (M10.7b breaches, medic self-defence; roadmap-detail slice 16). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -51,8 +51,15 @@ DECISIONS.md under its date._
   helper `spared(c)` makes every fire choice, the AI commander's fire orders and HE missions spare them; the player's
   fire order at a recognised protected target (or a call for fire on a place with only protected people known) is
   refused with `radio.refuseProtected` (owner Q-7); event `protection.recognised`; `npm run lab -- protection`; batch
-  "Protection recognised".** **Next: slice 16, M10.7b (breaches: misidentified and deliberate — no "ordered" breach, such orders are refused; medic
-  self-defence; prisoners' care).** Merged origin/main (M9.6 night AI, smoke fires) before slice 15.
+  "Protection recognised". Slice 16 (M10.7b) is done: `sim/src/conduct.ts` — `law.breach` "misidentified" (fire
+  at an enemy really protected but not recognised, checked where rounds leave, once per task) and "deliberate" (at
+  most once a minute per man seeing a known protected or surrendering enemy; chance base × losses × low experience
+  × stress, "conduct" stream; no "ordered" breach: Q-7 refuses such orders); a medic with the emblem fires only
+  within `selfDefenceM` 50 m on his own, drills and AI orders (protection kept), beyond only on the player's order
+  (`SoldierState.protLostTick`, lost 120 s); `law.hit` (Q-8: aimed or incidental); nothing live; record v6
+  `conduct`, batch "Laws of war", lab parts 3-4, `tools/test/conduct.test.ts`.** **Next: slice 17, M10.8 (review
+  Medical and Conduct tabs from the record, statistics, balance at 2400 s, owner plays).** Merged origin/main (8x
+  speed, sprite fixes) before slice 16.
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid

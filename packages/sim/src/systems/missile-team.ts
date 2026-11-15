@@ -37,6 +37,7 @@ import { atRuleOf, backblastBlocked } from "./launcher";
 import { busyWithCasualty, crewAt, launcherOf, takeRound, teamRounds, type Launcher } from "./mortars";
 import { protectedTargets } from "../protection";
 
+
 /** The gunner's action that ends in a launch. */
 export const TEAM_FIRE_ACTION = "fireTeamMissile";
 /** How often a ready team looks for a target (ticks). */
@@ -246,6 +247,7 @@ function launchFromPost(ctx: SimContext, state: SimState, events: EventSink, gun
   state.fire.delete(gunner); // (review fix: his own fire task ends; he guides)
   const w = state.weapon.get(gunner);
   if (w) w.lastShotTick = tick;
+  if (ctx.catalog.medical !== undefined) s.protLostTick = tick; // (M10.7b: firing is not self-defence)
   // Launch warning (as from a vehicle, M9.3a): a crew that has the gunner in sight fires its smoke toward him a
   // moment later, and marks the post (its crewmen get a contact there).
   if (target >= 0 && launchNoticed(ctx, state, target, gunner, kind)) {

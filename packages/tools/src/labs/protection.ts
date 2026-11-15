@@ -9,10 +9,14 @@
  * (red, standing still, "hold") on a flat strip; per case and range, `seeds` runs of `seconds`. Counted: runs in which
  * the observer saw him, and runs in which his contact carries the flag `marked` at the end. Acceptance: a man seen
  * within the predicted range is recognised; one seen beyond it is not.
+ *
+ * Part 3 (M10.7b, breaches): the same pair with the observer free to fire (AK, iron sights): runs in which he fired at
+ * the medic and a "misidentified" breach was recorded, by light and range — more at night and in smoke. Part 4: the
+ * chance of a deliberate breach per decision (once a minute at most) from the data, by losses, discipline and panic.
  */
 import { buildCatalog, type DataSet } from "@tcs/data";
 import {
-  createSim, DEFAULT_COMMS, environmentAt, flatMap, recognitionRanges, smokePhysics, smokeRecognitionFactor, smokeTransmission, step,
+  breachChance, createSim, DEFAULT_COMMS, environmentAt, flatMap, recognitionRanges, smokePhysics, smokeRecognitionFactor, smokeTransmission, step,
   type BattleInput, type Catalog, type MapDef, type SoldierRecord,
 } from "@tcs/sim";
 
@@ -46,8 +50,8 @@ function man(personId: string, weapon: string, mag: string, catalog: Catalog): S
 }
 
 /** Part 2: one case (light, eye or optics, range) over `seeds` runs of `seconds`. */
-export function simCase(catalog: Catalog, light: Light, optics: boolean, rangeM: number, seeds: number, seconds: number): SimRow {
-  let seen = 0, recognised = 0, transmission = 1, predictedM = 0;
+export function simCase(catalog: Catalog, light: Light, optics: boolean, rangeM: number, seeds: number, seconds: number, free = false): SimRow & { breached: number } {
+  let seen = 0, recognised = 0, transmission = 1, predictedM = 0, breached = 0;
   for (let seed = 1; seed <= seeds; seed++) {
     const map: MapDef = flatMap("protection", Math.max(200, rangeM + 80), 200, 4);
     const ox = 20, y = 100, tx = 20 + rangeM;
@@ -66,13 +70,18 @@ export function simCase(catalog: Catalog, light: Light, optics: boolean, rangeM:
     };
     const sim = createSim(input);
     for (const u of sim.state.unit.values()) u.fireRule = "hold";
+    if (free) sim.state.unit.req(sim.state.identity.req([...sim.state.identity.entries()].find(([, i]) => i.side === "blue")![0]).unit).fireRule = "free";
     const ids = [...sim.state.identity.entries()];
     const oid = ids.find(([, i]) => i.side === "blue")![0], mid = ids.find(([, i]) => i.side === "red")![0];
     for (const [id] of ids) sim.state.soldier.req(id).posture = "standing";
     // Smoke: a thin cloud halfway, standing for the whole case (about half the light through).
     if (light === "smoke") sim.state.smoke.push({ x: (ox + tx) / 2, y, radiusM: SMOKE_RADIUS_M, startTick: -1200, untilTick: (seconds + 60) * 60, gz: 0, topM: 6, burnS: 0 });
-    let wasSeen = false;
-    for (let k = 0; k < seconds * 60; k++) for (const e of step(sim)) if (e.kind === "spotted" && e.observer === oid && e.target === mid) wasSeen = true;
+    let wasSeen = false, wasBreached = false;
+    for (let k = 0; k < seconds * 60; k++) for (const e of step(sim)) {
+      if (e.kind === "spotted" && e.observer === oid && e.target === mid) wasSeen = true;
+      if (e.kind === "law.breach" && e.by === oid && e.cause === "misidentified") wasBreached = true;
+    }
+    if (wasBreached) breached++;
     const c = sim.state.soldier.req(oid).contacts.find((q) => q.target === mid);
     if (wasSeen) seen++;
     if (c?.marked === true) recognised++;
@@ -82,7 +91,40 @@ export function simCase(catalog: Catalog, light: Light, optics: boolean, rangeM:
       predictedM = recognitionRanges(catalog, lv, optics, 0, false).marked * (light === "smoke" ? smokeRecognitionFactor(catalog, transmission) : 1);
     }
   }
-  return { light, optics, rangeM, predictedM, runs: seeds, seen, recognised, transmission };
+  return { light, optics, rangeM, predictedM, runs: seeds, seen, recognised, transmission, breached };
+}
+
+/** Part 3 (M10.7b): misidentification — the observer free to fire, by eye. */
+export const BREACH_RANGES = [15, 30, 40, 60];
+export interface BreachRow { light: Light; rangeM: number; predictedM: number; runs: number; seen: number; breached: number }
+export function breachLab(data: DataSet, seeds = 3, seconds = 60): BreachRow[] {
+  const cat = buildCatalog(data, ["de", "ru"]);
+  const out: BreachRow[] = [];
+  for (const light of ["day", "night", "smoke"] as const) for (const r of BREACH_RANGES) {
+    const c = simCase(cat, light, false, r, seeds, seconds, true);
+    out.push({ light, rangeM: r, predictedM: c.predictedM, runs: c.runs, seen: c.seen, breached: c.breached });
+  }
+  return out;
+}
+
+/** Part 4 (M10.7b): the chance of a deliberate breach at one decision, from the data. */
+export interface ChanceRow { losses: number; experience: number; stress: number; chance: number }
+export function chanceTable(catalog: Catalog): ChanceRow[] {
+  const ctx = { catalog } as Parameters<typeof breachChance>[0];
+  const out: ChanceRow[] = [];
+  for (const losses of [0, 0.1, 0.25]) for (const experience of [1, 0.5, 0]) for (const stress of [0, 0.5, 1]) out.push({ losses, experience, stress, chance: breachChance(ctx, losses, experience, stress) });
+  return out;
+}
+
+export function breachLabMarkdown(rows: BreachRow[], chance: ChanceRow[]): string {
+  const out = ["## Misidentification (M10.7b): the observer free to fire, by eye (AK iron sights)", "",
+    `Runs of 60 s per row (${rows[0]?.runs ?? 0}); "breach": he fired at the medic without having recognised him.`, "",
+    "| light | range m | recognised to m | seen | misidentified breach |", "|---|---:|---:|---:|---:|"];
+  for (const r of rows) out.push(`| ${r.light} | ${r.rangeM} | ${Math.round(r.predictedM)} | ${r.seen}/${r.runs} | ${r.breached}/${r.runs} |`);
+  out.push("", "## Deliberate breach: chance per decision (at most once a minute per man; data `protection`)", "",
+    "| platoon losses | experience | stress | chance |", "|---:|---:|---:|---:|");
+  for (const c of chance) out.push(`| ${Math.round(c.losses * 100)} % | ${c.experience} | ${c.stress} | ${(c.chance * 100).toFixed(1)} % |`);
+  return out.join("\n");
 }
 
 export const SIM_RANGES: Record<Light, number[]> = { day: [30, 45, 55, 100, 140, 160, 250], night: [10, 14, 20, 40, 50], smoke: [20, 30, 40, 80, 95, 115] };

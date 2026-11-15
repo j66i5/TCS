@@ -700,6 +700,25 @@
     "confidence": "low",
     "note": "M10.4b casualties into and out of vehicles (game values, none published; search extracts only say a stretcher in an infantry carrier takes the room of several seated men). fetchM: a unit getting into its vehicle carries its wounded who cannot walk from up to this far (to the nearest exit, as a carrying party) before it drives off; lyingSeats: in a vehicle without an ambulance layout a man lying down takes this many passenger seats (1: he is laid across the floor and the bench in the room of his own seat, so a full squad still takes its wounded; with 2, a full Puma squad could not take one of its own lying down — decided without the owner, low); lyingShock: a casualty lies (rather than sits) when he is unconscious or his shock is at this or more (as triage's immediateShock). An ambulance uses its own layouts (lying, sitting and outside places, vehicles.json `ambulance`)."
   },
+  "nest": {
+    "backM": 150,
+    "minBackM": 100,
+    "maxBackM": 200,
+    "searchM": 45,
+    "arriveM": 8,
+    "threatM": 100,
+    "checkS": 10,
+    "driftM": 300,
+    "maxParties": 3,
+    "bearers": 2,
+    "minFitLeft": 2,
+    "medicReachM": 400,
+    "sources": [
+      "https://www.bundeswehr.de/de/organisation/sanitaetsdienst"
+    ],
+    "confidence": "low",
+    "note": "M10.5 Verwundetennest (platoon casualty collection point; Bundeswehr reports name a company Verwundetensammelpunkt, search extracts only; the platoon term is the owner's). Game values, none published: the nest is sited backM 150 m behind the platoon's centre, away from the enemy its men know (else toward the nearest map edge), within minBackM-maxBackM, at the spot within searchM that is hidden (lying) from that enemy, open ground a wheeled vehicle can reach from that edge; a casualty within arriveM is at the nest. Checked every checkS: a known enemy within threatM of a nest the player did not place moves it; an empty nest more than driftM from the platoon's centre follows it. The platoon leader tasks bearers (riflemen, owner M10-2 Q-2e): bearers men per casualty who cannot walk (one alone, a fireman's carry, when no second man is free), at most maxParties parties per platoon at once, never leaving a squad with fewer than minFitLeft fit men; walking wounded walk there themselves. A man at the nest fit to fight again goes back to his squad. The platoon's best-trained medical man (DE the Sanitaeter, RU the rifleman-medic) goes to the nest when it is within medicReachM, to triage again and give the care he alone can."
+  },
   "chain": {
     "firstAidS": 600,
     "role1S": 3600,

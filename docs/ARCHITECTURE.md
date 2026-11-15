@@ -594,7 +594,7 @@ man fires or after `coverWaitS` (the bound's clock starts then). Drill and order
 ("drill" / "order"): the fire system accepts a line blocked within `suppressShortM` of the point (in the far half),
 marks it `intoCover`, and spaces such shots (and a drill's point fire with no contact) at least `suppressIntervalS`.
 
-## 16n. Orders and interface (SPEC 6.6, M5) — `ui/src/planner.ts`, `ui/src/hud.ts`, `ui/src/input.ts`, `app/src/main.ts`
+## 16n. Orders and interface (SPEC 6.6, M5) — `ui/src/planner.ts`, `ui/src/hud.ts`, `ui/src/input.ts`, `app/src/` (`main.ts` and its modules since D2)
 The order planner is pure logic in the ui package (no DOM, unit-tested): a `Plan` (kind, route points with a
 pace each, formation, facing, frontage) → `markerGeometry` (where each man will stand, laid out exactly as
 `systems/orders.ts` lays them out: slots turned to the facing, spaced to the frontage), `hitHandle` /
@@ -641,8 +641,9 @@ top units broken ends the battle (`battle.ended` with `loser`). `battleScore` (a
 objectives at buildings on the defender's half, the platoons (manifest `platoonTemplate`) placed by squad.
 `ai/src/commander.ts`: `commanderController(side, input)` — a Controller with plain-data memory (phase,
 target, timers; saved with the game), reading only its own men's contacts and the public objective holders;
-transcendental maths via sim/math. The app builds the after-action review from the events it receives
-(`ui/src/aar.ts` lays it out) and draws objectives and the heat map through `Overlay.objectives` / `.heat`.
+transcendental maths via sim/math. The app builds the after-action review from the battle record
+(`sim/src/record.ts`, D2: folded from the events, the same record the batch report reads; `app/src/review.ts` turns
+its keys into words, `ui/src/aar.ts` lays it out in three tabs: the battle, Medical, Conduct) and draws objectives and the heat map through `Overlay.objectives` / `.heat`.
 
 ## 16p. Fire support (M6.5c) — `sim/src/systems/support.ts`
 `rules.support` gives each side's rounds (HE, smoke); faction doctrine `fireSupport` the ammunition, delay,
@@ -710,7 +711,8 @@ second, so unchanged on average). Each sensor keeps `smokeFactor` of its view th
 through a multispectral cloud (`throughSmoke`). Contacts on vehicles carry `cls`, `vtype` (within the type's
 `identifyM`), heading and velocity; shots from a station are heard as the vehicle; engines are heard every 2 s
 (`engineRangeM`: idle/moving range × surface × rain × wind). Ammunition expenditure for the AAR and the batch
-report is tallied from events (`tallyExpenditure`: vehicle rounds credited to the vehicle).
+report is tallied from events (`tallyExpenditure`: vehicle rounds credited to the vehicle; since D2 inside the battle
+record).
 
 ## 16k. Armour, damage and shoulder-fired anti-tank weapons (M7.4a) — `systems/armour.ts`, `systems/launcher.ts`, `flight.ts`
 
@@ -827,6 +829,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 4.3.3 | Orders are the only external input | orders.ts, run.ts, `SimView` | ✅ | `determinism.test.ts` "controllers do not change simulation state"; read-only `SimView` type for controllers and renderer. (`startAction` is internal: no order starts an action until M4 adds ammunition hand-over.) |
 | 4.3.4 | Whole state serialisable; save/load continues identically | state.ts, run.ts | ✅ | `sim/test/state.test.ts` (round trip, NaN, -0, data fingerprint); determinism "mid-battle save", "future orders", "AI-vs-AI resumes" |
 | 4.3.5 | Event stream for all consumers | events.ts | ✅ (M0 kinds) | `sim/test/orders.test.ts` |
+| 4.3.5 | One battle record folded from events for every reader (the review, the save, the batch report) | record.ts (`newBattleRecord`, `recordEvents`, `finishRecord`, `readRecord`) | ✅ (D2): plain JSON with string-table keys, deterministic per seed; the Medical and Conduct tabs read it from M10.8 | `tools/test/battle-record.test.ts` (app loop and batch agree on 5 seeds; JSON round trip; no change to the battle) |
 | 4.3.6 | Entities as IDs, component stores, typed-array pools for projectiles | store.ts, projectiles.ts | ✅ | `sim/test/state.test.ts` (ordering), `sim/test/ballistics.test.ts` "projectiles are battle state" |
 | 4.3.7 | SI units inside the sim | all sim types | ✅ by convention | review |
 | 4.3.8 | No faction in code; fixture faction runs a battle | data, scenario | ✅ | `tools/test/fixture-faction.test.ts`, `architecture.test.ts` |
@@ -874,7 +877,7 @@ This table is kept current. "Guard" names the test that fails if the requirement
 | 9.1 | Care under fire: the casualty to cover, the one-man drag | systems/medical.ts (`tryDrag`, `SoldierState.sheltered`), systems/carry.ts (`coverSpotNear`; the drag is a carrying party with purpose "cover" since M10.4a), D1 `screenCasualty` hook | ✅ (M10.3b): tourniquet first, then to the nearest hidden spot within 15 m (walking himself or dragged at the carry data's speed, smoke screen); care in that cover judged on the helper's own suppression; M10.4a: two carers beside him → the two-man drag; ground-floor houses too | `tools/test/medical-triage.test.ts` (drag, casualty within 1.5 m, care goes on, save/load mid-drag) |
 | 9.1 | `medical` RNG stream created on first use; battles without care never draw from it | rng.ts | ✅ (M10.2): drawn only when a treatment ends | `tools/test/medical-care.test.ts` "care switched off does nothing" |
 | 9.1 | `--no-medical` rules switch for A/B batches | BattleRules `medicalCare` | ✅ (M10.2; pulled forward from M10.3a): `npm run batch|headless -- --no-medical` | batch A/B (DECISIONS M10.2) |
-| 9.1/9.2 | Rear points with a `kind` (medical, later supply) | generic rear-point store | ⬜ reserved M10.5 (reused by M11) | — |
+| 9.1/9.2 | Rear points with a `kind` (medical, later supply) | `rear` store of `RearPoint` (state schema 20), systems/nest.ts (siting, moving, bearers, the platoon medic), orders `casualtyPoint` / `evacuate`; carrying parties take a `point` | ✅ (M10.5): one Verwundetennest per platoon, sited 150 m back away from the known enemy on ground wheeled vehicles reach, moved when threatened or left behind (not when the player placed it); bearers tasked by the platoon leader, walking wounded walk, T1 first; the medic re-triages there; returned to duty; the AI commander counts carriers as committed | `tools/test/medical-nest.test.ts` (siting, bearers, medic, orders, threat, save/load mid-carry, schema 19 save), `ui/test/wounded.test.ts`, batch "Verwundetennest" line, `--scene nest` |
 | 9.1/9.2 | Off-map vehicles that arrive and leave mid-battle | `VehicleState.offMap` | ⬜ reserved M10.6a (reused by M11, M13) | `lab -- medevac`; men and items conserved |
 | 9.3 | Roster status "evacuated", `recoveryDays`, `diedOfWoundsTick` | battle.ts `SoldierRecord` | ⬜ reserved M10.6b | roster round trip |
 | 3 / 4.3.8 | Laws of war: recognition and breaches the same for every side, propensity only from unit quality, stress and losses | contacts.ts (recognition), `law.breach` events | ⬜ reserved M10.7a/b | architecture test (no faction literals); identical-rules test |

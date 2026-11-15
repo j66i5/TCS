@@ -24,6 +24,20 @@
       "note": "Empty magazine mass published. See docs/research/ballistics.md (values from search extracts of the cited pages)."
     },
     {
+      "id": "ru-svd-mag",
+      "nameKey": "item.ru-svd-mag",
+      "category": "magazine",
+      "massKg": 0.21,
+      "chargeCapacity": 10,
+      "chargeMassKg": 0.0218,
+      "chargeItem": "ru-762r-lps",
+      "sources": [
+        "https://en.wikipedia.org/wiki/SVD_(rifle)"
+      ],
+      "confidence": "low",
+      "note": "10-round magazine of the SVD (Wikipedia, search extract, medium). Empty mass about 0.21 kg is a game value (low). Holds the light-ball 7.62x54R the PKP fires (the 7N14 sniper round is not modelled: no difference in the game's ballistics)."
+    },
+    {
       "id": "ru-helmet",
       "nameKey": "item.ru-helmet",
       "category": "armour",

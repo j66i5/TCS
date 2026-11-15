@@ -199,6 +199,15 @@
       ],
       "confidence": "low",
       "note": "Assistant machine gunner (M7.6c): battleorder.org says BTR and MT-LB platoons typically add an assistant machine-gunner billet to each squad (search extract, medium); carries belts for the PKP (game value, low)."
+    },
+    {
+      "id": "marksman",
+      "nameKey": "role.ru.marksman",
+      "sources": [
+        "https://www.battleorder.org/rus-bmp-platoon"
+      ],
+      "confidence": "low",
+      "note": "Strelok-snaiper, the squad's designated marksman with the SVD (M7.6d): battleorder says BTR squads typically have one (search extract, medium); a forum claim that the SVDs moved to a brigade marksman company is disputed (low)."
     }
   ]
 }

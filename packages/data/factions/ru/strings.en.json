@@ -160,5 +160,8 @@
   "rearRun.loading": "{callsign}: at the collection point, {n} aboard",
   "weapon.ru-2a72": "2A72",
   "item.ru-btr82a-diesel": "BTR-82A fuel",
-  "role.ru.assistant-mg-gunner": "Assistant machine gunner"
+  "role.ru.assistant-mg-gunner": "Assistant machine gunner",
+  "item.ru-svd-mag": "SVD magazine (10)",
+  "weapon.ru-svd": "SVD",
+  "role.ru.marksman": "Marksman (SVD)"
 }

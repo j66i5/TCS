@@ -58,6 +58,12 @@ describe("firing range lab", () => {
     }
   });
 
+  it("M7.6d: the SVD hits a man-sized board at 600 m at least a quarter of the time, and at least as often as the AK-74M", () => {
+    const hit = (w: string, rg: number) => r.others.find((x) => x.weapon === w && x.rangeM === rg)!.hitRate;
+    expect(hit("ru-svd", 600)).toBeGreaterThanOrEqual(0.25);
+    expect(hit("ru-svd", 600)).toBeGreaterThanOrEqual(hit("ru-ak74m", 600));
+    expect(hit("ru-svd", 300)).toBeGreaterThanOrEqual(hit("ru-svd", 600));
+  });
   it("an exhausted man shoots clearly worse", () => {
     for (const w of WEAPONS) {
       const by = (f: number) => at(r.byFatigue, w, (x) => x.fatigue === f);

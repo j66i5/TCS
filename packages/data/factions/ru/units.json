@@ -2569,26 +2569,18 @@
           "weapon": "ru-ak74m"
         },
         {
-          "role": "rifleman-gl",
+          "role": "marksman",
           "rank": "ryadovoy",
           "load": [
             {
-              "item": "ru-ak74-mag",
+              "item": "ru-svd-mag",
               "count": 6,
-              "charge": 30
+              "charge": 10
             },
             {
               "item": "ru-pkp-belt",
               "count": 1,
               "charge": 100
-            },
-            {
-              "item": "ru-gp25",
-              "count": 1
-            },
-            {
-              "item": "ru-vog25",
-              "count": 6
             },
             {
               "item": "ru-rgd5",
@@ -2643,7 +2635,7 @@
               "count": 1
             }
           ],
-          "weapon": "ru-ak74m"
+          "weapon": "ru-svd"
         }
       ],
       "subunits": [],
@@ -2655,7 +2647,7 @@
         "https://community.battlefront.com/topic/121355-modern-russian-infantry-battalion-structure/"
       ],
       "confidence": "low",
-      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. No SVD marksman: battleorder says BTR squads typically have one, a forum post says the SVDs moved to a brigade marksman company (disputed; owner to review, slice 42). Loads as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low)."
+      "note": "A motor-rifle squad on a BTR (M7.6c): the BMP squad's six dismounts (motor-rifle-squad) plus the assistant machine gunner that BTR and MT-LB platoons add (battleorder.org, search extract, medium): seven, the BTR-82A's seven places. M7.6d: the second GP-25 rifleman is the squad's marksman with the SVD (battleorder says BTR squads typically have one, search extract, medium; a forum claim that the SVDs moved to a brigade marksman company is disputed); six SVD magazines are a game value (low). Loads otherwise as motor-rifle-squad's; the assistant MG gunner carries two PKP belts (game value, low)."
     },
     {
       "id": "motor-rifle-platoon-btr",

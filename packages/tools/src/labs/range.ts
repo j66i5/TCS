@@ -87,6 +87,11 @@ export function rangeLab(data: DataSet): { byRange: RangeRow[]; byPosture: Range
     if (!cat.weapons[weapon]) continue;
     for (const rangeM of [200, 300, 500, 700]) others.push(fireAtBoard(cat, { weapon, rangeM, posture: "prone", skill: SKILLS.regular }));
   }
+  // M7.6d: the BTR squad's SVD against the AK-74M at a standing man's board, out to 800 m.
+  for (const weapon of ["ru-svd", "ru-ak74m"]) {
+    if (!ru.weapons[weapon]) continue;
+    for (const rangeM of [300, 600, 800]) others.push(fireAtBoard(ru, { weapon, rangeM, posture: "prone", skill: SKILLS.regular }));
+  }
   return { byRange, byPosture, bySkill, byFatigue, others };
 }
 

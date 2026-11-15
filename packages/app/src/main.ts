@@ -22,6 +22,7 @@ import type { App } from "./app";
 import { centredOn, centreOn, centreOnDrone, droneCentred, followStep, keepSelectedClear, startFollow, stopFollow } from "./camera";
 import { attachControls, gestureOverlay, planOverlay } from "./controls";
 import { installHooks } from "./hooks";
+import { attachPerfOverlay, FramePerf } from "./perf";
 import { attachKeys } from "./keys";
 import { endPlan, forUnit, goPlan, issue, issueAi, now, setFormation, undoPlanPoint } from "./orders";
 import { refreshTiles, showCard, showObjectives, showUnit, syncOrders } from "./panels";
@@ -277,20 +278,29 @@ async function main(): Promise<void> {
   });
   let aarShown = false;
   const showAar = () => { aarShown = true; a.speed = 0; a.review!.show(reviewModel(a)); };
-  installHooks(a, data, stepOnce);
+  // D3: frame timing (real time only; `__tcs.perf()` always, the read-out with ?perf=1, which never hashes the state).
+  const perfMode = params.get("perf") === "1";
+  const perf = new FramePerf(renderer, look, () => a.speed);
+  if (perfMode) attachPerfOverlay(hudRoot, perf, strings);
+  installHooks(a, data, stepOnce, (reset) => perf.report(reset));
 
   let knownTick = -1, statusAt = 0, tilesAt = -1e9;
   let sightFor: EntityId | null = null, sightReal = -1e9;
   let acc = 0;
   let last = performance.now();
-  let frames = 0, fpsT0 = last, fps = 0, ticksAtT0 = sim.state.tick, simRate = 0, hash = simHash(sim);
+  let frames = 0, fpsT0 = last, fps = 0, ticksAtT0 = sim.state.tick, simRate = 0, hash = perfMode ? "" : simHash(sim);
   renderer.app.ticker.add(() => {
     const t = performance.now();
-    acc += Math.min(0.25, (t - last) / 1000) * a.speed;
+    const realMs = t - last;
+    acc += Math.min(0.25, realMs / 1000) * a.speed;
+    // Game time the 0.25 s clamp throws away (ms), for the perf read-out.
+    let droppedMs = Math.max(0, realMs - 250) * a.speed;
     last = t;
     let steps = 0;
     while (acc >= DT && steps < MAX_STEPS_PER_FRAME) { stepOnce(); acc -= DT; steps++; }
-    if (steps === MAX_STEPS_PER_FRAME) acc = 0;
+    if (steps === MAX_STEPS_PER_FRAME) { droppedMs += acc * 1000; acc = 0; }
+    const tSim = performance.now();
+    let knowMs = 0;
     // Refreshed every 2 s of game time, when the selection changes (also while paused), at most once a second
     // of real time (a few thousand sight checks each).
     if (overlay.debug && (sim.state.tick - a.sightAt >= 120 || overlay.selectedUnit !== sightFor) && t - sightReal >= 1000) {
@@ -300,8 +310,12 @@ async function main(): Promise<void> {
     // Fog of war: the enemy is drawn only as the player's side knows him (Debug shows him as he is).
     // (Worked out once per tick, not every frame: it only changes when the simulation steps.)
     if (overlay.debug || a.revealAll) { overlay.known = null; knownTick = -1; }
-    // mounted: ok sideKnowledge never lists men aboard
-    else if (knownTick !== sim.state.tick) { overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick; }
+    else if (knownTick !== sim.state.tick) {
+      const k0 = performance.now();
+      // mounted: ok sideKnowledge never lists men aboard
+      overlay.known = sideKnowledge(sim.ctx, sim.state, playerSide); knownTick = sim.state.tick;
+      knowMs = performance.now() - k0;
+    }
     // S8: "last seen" pins (Debug shows the enemy as he is: no pins); S7: one line per own unit on the move.
     if (overlay.known) {
       updatePins(a, overlay.known);
@@ -324,17 +338,21 @@ async function main(): Promise<void> {
     updateFloors();
     keyPan(t);
     followStep(a);
+    const d0 = performance.now();
     renderer.draw(sim.state, input.map, Math.min(1, acc / DT), overlay);
+    const drawMs = performance.now() - d0;
     if (t - statusAt >= 500) { statusAt = t; showUnit(a); showObjectives(a); }
     if (sim.state.ended && !aarShown) showAar();
     frames++;
     if (t - fpsT0 >= 1000) {
       fps = (frames * 1000) / (t - fpsT0);
       simRate = ticksToSeconds(sim.state.tick - ticksAtT0) / ((t - fpsT0) / 1000);
-      if (overlay.debug) hash = simHash(sim);
+      if (overlay.debug && !perfMode) hash = simHash(sim);
       frames = 0; fpsT0 = t; ticksAtT0 = sim.state.tick;
     }
     hud.update({ simSeconds: ticksToSeconds(sim.state.tick), tick: sim.state.tick, fps, simRate, hash, entities: sim.state.nextEntityId - 1 });
+    const tEnd = performance.now();
+    perf.frameDone(t, realMs, tSim - t, knowMs, tEnd - tSim - knowMs - drawMs, drawMs, steps, droppedMs);
   });
 }
 

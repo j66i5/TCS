@@ -317,3 +317,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-follow { position: absolute; z-index: 3; transform: translateX(-50%); min-height: 30px; padding: 0 10px; font-size: 13px; pointer-events: auto;
   border-color: #8fe3c0; background: rgba(27, 52, 40, 0.92); color: #d9fbe9; white-space: nowrap; }
 .hud-help-btn { font-weight: 700; }
+/* D3: the ?perf=1 read-out (above the HUD, below the review). */
+.hud-perf { position: fixed; right: 4px; top: 38%; z-index: 4; pointer-events: auto; background: rgba(0, 0, 0, 0.72); color: #d8f0c8;
+  border-radius: 6px; padding: 4px 6px; max-width: calc(100vw - 8px); }
+.hud-perf pre { margin: 0; font: 10px/1.25 ui-monospace, monospace; white-space: pre; }
+.hud-perf div { display: flex; gap: 6px; margin-top: 4px; }
+.hud-perf button { min-height: 28px; padding: 0 10px; font-size: 12px; }

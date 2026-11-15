@@ -5118,6 +5118,25 @@ goldens unchanged):
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
   half of the test now runs on a fresh battle (same intent).
 
+Owner correction 2026-11-15 (binding; supersedes the review fix that moved the Leutnant's star up and the Winkel
+centring above): on the real slide every device is built up from the shoulder end. German slide, y from the shoulder
+end (exact millimetres still inferred, low; web searches only confirmed the counts, never positions):
+- Stripes: the lowest stripe's low end 5 mm above the shoulder end (centre 25.5 mm), 3 mm gaps upward; Gefreiter,
+  Obergefreiter and Hauptgefreiter all start there (were centred on the slide at 45 mm). Stabsgefreiter: the three
+  of the Hauptgefreiter, then the fourth set apart (9 mm gap instead of 3 mm; centres 25.5, 35.2, 45.0, 62.1).
+- Stars: the Leutnant's centred 20 mm above the shoulder end (lower third; was 42), the Oberleutnant's at 20 and 40
+  (were 33 and 55): a Hauptmann's third would go at 60.
+- Winkel inside the closed Tresse, low: the lowest one's legs end 4 mm above the Tresse's inner edge at the shoulder
+  end (Feldwebel's point at 27.2 mm, was 58.9; Oberfeldwebel's at 27.2 and 37.2, were 53.9 and 63.9). The
+  Kopfwinkel's legs end at the same height (its crossing at 24.5 mm, was 52). Reading chosen by the owner's rule
+  (no source found for the Winkel's place): low.
+- Russian sleeve re-checked, unchanged: it already follows the regulation figures from the shoulder end (first
+  stripe's edge and first star's centre 25 mm from the lower edge, rows 25 mm apart; Prikaz 525 tables 1 and 3,
+  medium-low).
+Tests: appearance.test pins the shoulder-end build-up (common lowest stripe, the Stabsgefreiter's top gap larger
+than the others, the Leutnant's star and the lowest Winkel in the lower part); insignia.test checks the drawn star
+is in the lower third. Appearance only: goldens unchanged.
+
 ## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
 The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
 the bail-out keeps running while the crew's reaction is "bailOut", which it stays after the hull is abandoned, so a

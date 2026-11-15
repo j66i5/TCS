@@ -30,6 +30,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.sensor !== undefined) d.sensor = it.sensor;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
+      if (it.reactive !== undefined) d.reactive = { ...it.reactive };
       if (it.mortar !== undefined) d.mortar = { ...it.mortar };
       if (it.crewServed !== undefined) d.crewServed = { ...it.crewServed };
       if (it.drone !== undefined) d.drone = { ...it.drone, sensors: [...it.drone.sensors] };
@@ -148,7 +149,7 @@ export function vehicleDef(v: VehicleT): VehicleDef {
     })),
     stowed: noProv(v.stowed) as VehicleDef["stowed"],
     ...(v.cookOffAmmo === undefined ? {} : { cookOffAmmo: v.cookOffAmmo }),
-    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })), ...(v.armour.tiles ? { tiles: v.armour.tiles.map((t) => ({ ...t })) } : {}) } } : {}),
+    ...(v.armour ? { armour: { plates: v.armour.plates.map((p) => ({ ...p })), ...(v.armour.tiles ? { tiles: v.armour.tiles.map((t) => ({ ...t, fitted: v.stowed.find((x) => x.item === t.item)?.count ?? 0 })) } : {}) } } : {}),
     ...(v.extinguisher ? { extinguisher: { item: v.extinguisher.item, chance: v.extinguisher.chance, delaySeconds: v.extinguisher.delaySeconds } } : {}),
     ...(v.activeProtection ? { activeProtection: { item: v.activeProtection.item, detectM: v.activeProtection.detectM, standoffM: v.activeProtection.standoffM, interceptChance: v.activeProtection.interceptChance, cooldownSeconds: v.activeProtection.cooldownSeconds } } : {}),
     ...(v.components ? { components: noProv(v.components.parts) as NonNullable<VehicleDef["components"]> } : {}),

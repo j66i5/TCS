@@ -234,7 +234,10 @@ white flags on the map; the after-action review lists surrendered and captured m
   - ✅ **M9.4a Reconnaissance quadcopter** (2026-11-14) — one per platoon HQ: item and entity, battery, busy
     operator, day and thermal cameras, feed over the radio, sidebar tile (Move = fly). `lab -- drone`, `bench-drones`.
 - **M7.6 Breadth** — main battle tanks, wheeled carriers, Jäger and BTR platoons (owner 2026-11-14: after M9,
-  before logistics). ⬜
+  before logistics). 🔶
+  - ✅ **M7.6a Main battle tanks: data and labs** (2026-11-14) — Leopard 2A7V, T-90M, T-72B3M; reactive tiles as
+    counted items, `tank-gun`, Refleks-M through the gun; armour, anti-tank, gunnery, drive and missile lab rows;
+    `--scene tanks`. Next: M7.6b tanks in battle.
 
 ## Stage C — depth
 

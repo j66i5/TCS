@@ -882,6 +882,167 @@
       ],
       "confidence": "medium",
       "note": "9M131 missile of the 9K115-2 Metis-M (M9.3b, owner: the Russian dismounted missile is a Metis-M team at company level); search extracts only, pages not opened. Published: 130 mm, 13.8 kg in its launch tube (13 kg bare round in some sources), range 80-1500 m (Metis-M; the Metis-M1 80-2000 m: 2000 used, owner's plan), semi-automatic command to line of sight by wire, average speed about 200 m/s (FAS gives 287 m/s, 8 s to the maximum range: not used), tandem shaped charge about 800 mm RHA behind reactive armour (Metis-M1 900-980): 800 x 1.25 = 1000 mm mild-steel equivalent. Game values (low): bare missile 11 kg, leaves the tube at 80 m/s and speeds up at 80 m/s2 to 200 m/s, turns at most 14 deg/s, gunner's tracking error 0.35 mrad (skill 0.5; a tripod sight, a little worse than the BMP-2's), filling 1.6 kg, 120 fragments, arms after 0.5 s, destroys itself after 13 s (end of the wire at about 2000 m); guidance lost: thrown off by about 60 mrad. No `delivery` block: it is not a shoulder-fired round (the team's tripod fires it, systems/missile-team.ts)."
+    },
+    {
+      "id": "ru-125-3bm60",
+      "nameKey": "ammo.ru-125-3bm60",
+      "calibre": "125mm",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 4.85,
+      "cartridgeMassKg": 20.4,
+      "diameterM": 0.024,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.45
+      },
+      "tracerBurnoutM": 4000,
+      "penetration": {
+        "steelMm": 775,
+        "atVelocityMps": 1586
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "ricochetFactor": 0.3,
+      "behindArmour": {
+        "spallCount": 30,
+        "spallConeDeg": 30,
+        "spallEnergyJ": 400
+      },
+      "sources": [
+        "https://www.shephardmedia.com/news/landwarfareintl/army-2021-rostec-companies-showcase-new-offensive-/",
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition",
+        "https://en.wikipedia.org/wiki/2A46"
+      ],
+      "confidence": "low",
+      "note": "3BM60 Svinets-2 APFSDS (depleted uranium) for the 125 mm 2A46M-5; needs the new autoloader (published). Search extracts only (pages not opened in this container). Penetration (low): the maker's 300 mm at 60 degrees at 2 km (about 600 mm line of sight), Wikipedia 640-700 mm at 0 degrees: 620 mm RHA at 2000 m x 1.25 = 775 mm mild steel at the speed the drag model gives there (1586 m/s from 1660 m/s, game drag a 0.40). Masses and drag are game values; long rod behaviour as the 120 mm DM63A1."
+    },
+    {
+      "id": "ru-125-3bm42",
+      "nameKey": "ammo.ru-125-3bm42",
+      "calibre": "125mm",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 4.85,
+      "cartridgeMassKg": 20.4,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.45
+      },
+      "tracerBurnoutM": 4000,
+      "penetration": {
+        "steelMm": 575,
+        "atVelocityMps": 1583
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "ricochetFactor": 0.3,
+      "behindArmour": {
+        "spallCount": 30,
+        "spallConeDeg": 30,
+        "spallEnergyJ": 400
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition",
+        "https://en.wikipedia.org/wiki/2A46",
+        "https://reference.org/facts/2A46/ta1AC2ap"
+      ],
+      "confidence": "low",
+      "note": "3BM42 Mango APFSDS, the round that fits the T-72's old carousel (published). Search extracts only (pages not opened in this container). Penetration (low): 450-500 mm RHA at 0 degrees at 2 km in published tables: 460 mm x 1.25 = 575 mm mild steel at the speed the drag model gives at 2000 m (1583 m/s from 1700 m/s; a thicker two-piece rod, d 0.03 m). Masses and drag are game values."
+    },
+    {
+      "id": "ru-125-3of26",
+      "nameKey": "ammo.ru-125-3of26",
+      "calibre": "125mm",
+      "kind": "high-explosive",
+      "projectileMassKg": 23.0,
+      "cartridgeMassKg": 33.0,
+      "diameterM": 0.125,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 10,
+        "atVelocityMps": 850
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 3.4,
+        "fragmentCount": 2000,
+        "fragmentAmmo": "ru-120-fragment",
+        "fragmentVelocityMps": [
+          900,
+          1600
+        ],
+        "armingSeconds": 0.05,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/125_mm_smoothbore_ammunition"
+      ],
+      "confidence": "low",
+      "note": "3OF26 HE-FRAG for the 125 mm gun. The search for it was refused; projectile about 23 kg, about 3.4 kg filling, about 850 m/s are from memory, not from a source (low). Fragments are the 120 mm mortar bomb's (game abstraction); count and speed are game values. The T-90M's programmable 3VOF128 Telnik is not modelled."
+    },
+    {
+      "id": "ru-9m119m",
+      "nameKey": "ammo.ru-9m119m",
+      "calibre": "125mm-atgm",
+      "kind": "tandem-shaped-charge",
+      "projectileMassKg": 17.2,
+      "cartridgeMassKg": 24.3,
+      "diameterM": 0.125,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 875,
+        "atVelocityMps": 300
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "command-beam",
+      "explosive": {
+        "fillingKg": 2.0,
+        "fragmentCount": 150,
+        "fragmentAmmo": "ru-rgd5-fragment",
+        "fragmentVelocityMps": [
+          800,
+          1400
+        ],
+        "armingSeconds": 0.3,
+        "selfDestructSeconds": 20
+      },
+      "guided": {
+        "cruiseMps": 300,
+        "accelMps2": 150,
+        "turnRateDegS": 12,
+        "minRangeM": 100,
+        "maxRangeM": 5000,
+        "trackErrorMrad": 0.2,
+        "trackTauS": 1.0,
+        "lookaheadS": 0.4,
+        "lostKickMrad": 60
+      },
+      "behindArmour": {
+        "spallCount": 25,
+        "spallConeDeg": 25,
+        "spallEnergyJ": 300
+      },
+      "sources": [
+        "https://en.wikipedia.org/wiki/9M119_Svir/Refleks",
+        "https://en.missilery.info/node/12990"
+      ],
+      "confidence": "medium",
+      "note": "9M119M Refleks-M, fired through the 125 mm gun's bore (published): laser beam-riding, 75-5000 m (100 m minimum here), missile 17.2 kg, tandem shaped charge 700-750 mm RHA (650-700 behind reactive armour): 700 x 1.25 = 875 mm mild steel. Search extracts only (pages not opened in this container). Game values (low): leaves the bore at 280 m/s and cruises at 300 m/s (about 17 s to 5000 m), turn rate, tracking error, filling 2.0 kg, 150 fragments, arming after 0.3 s, self-destruct at 20 s; the round with its case 24.3 kg."
     }
   ]
 }

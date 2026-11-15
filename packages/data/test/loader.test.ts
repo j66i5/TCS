@@ -98,9 +98,24 @@ describe("data loader", () => {
     it("loads the Puma, the BMP-2 and the fixture cart", () => {
       const { data, errors } = loadDataSet(read(["core", "factions", "fixtures"]));
       expect(formatErrors(errors.filter((e) => e.severity === "error"))).toBe("");
-      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san"]);
-      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm"]);
-      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart"]);
+      expect(Object.keys(data!.factions["de"]!.vehicles)).toEqual(["de-puma", "de-boxer-san", "de-leopard2a7v"]);
+      expect(Object.keys(data!.factions["ru"]!.vehicles)).toEqual(["ru-bmp2", "ru-bmm", "ru-t90m", "ru-t72b3m"]);
+      expect(Object.keys(data!.factions["xf"]!.vehicles)).toEqual(["xf-cart", "xf-wagon", "xf-litter-cart", "xf-tortoise"]);
+    });
+    it("checks tanks (M7.6a): reactive tiles, autoloader cycle, a round in the breech, the missile range", () => {
+      const xfV = (f: Record<string, unknown>, i: number) => (f["fixtures/factions/xf/vehicles.json"] as { vehicles: V[] }).vehicles[i]!;
+      const tortoise = (f: Record<string, unknown>) => xfV(f, 3);
+      const t90 = (f: Record<string, unknown>) => (f["factions/ru/vehicles.json"] as { vehicles: V[] }).vehicles[2]!;
+      expect(tortoise(read(["fixtures"]))["id"]).toBe("xf-tortoise");
+      expect(broken((f) => { tortoise(f)["armour"].tiles[0].item = "xf-shingle"; }, true)).toContain("'xf-shingle' has no reactive block");
+      expect(broken((f) => { xfV(f, 1)["armour"].tiles[0].item = "xf-scale"; }, true)).toContain("'xf-scale' is reactive: use coverage, not factor");
+      expect(broken((f) => { tortoise(f)["stowed"] = tortoise(f)["stowed"].filter((x: V) => x["item"] !== "xf-scale"); }, true)).toContain("'xf-scale' is not stowed");
+      expect(broken((f) => { tortoise(f)["armour"].tiles[1].item = "xf-scale"; }, true)).toContain("'xf-scale' on two tile rows");
+      expect(broken((f) => { tortoise(f)["armour"].tiles[0].factor = 2; }, true)).toContain("exactly one of factor or coverage");
+      expect(broken((f) => { delete t90(f)["stations"][0].weapons[0].roundLoadSeconds; })).toContain("an autoloader needs roundLoadSeconds");
+      expect(broken((f) => { puma(f)["stations"][0].weapons[0].startLoaded = true; })).toContain("startLoaded is for single-round and autoloader feeds");
+      expect(broken((f) => { puma(f)["stations"][0].weapons[0].missileBeyondM = 1500; })).toContain("missileBeyondM is for a guided weapon only");
+      expect(broken(() => undefined, true)).toBe("");
     });
     it("rejects an unknown or non-litre fuel item", () => {
       expect(broken((f) => { puma(f)["fuel"].item = "de-nothing"; })).toContain("vehicles[0].fuel.item: unknown item 'de-nothing'");

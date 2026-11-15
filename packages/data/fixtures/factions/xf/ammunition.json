@@ -188,6 +188,71 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3a): a beam-riding missile."
+    },
+    {
+      "id": "xf-ram",
+      "nameKey": "ammo.xf-ram",
+      "calibre": "xf-bombard",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 4.0,
+      "cartridgeMassKg": 20.0,
+      "diameterM": 0.03,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.45
+      },
+      "penetration": {
+        "steelMm": 300,
+        "atVelocityMps": 1200
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "ricochetFactor": 0.3,
+      "behindArmour": {
+        "spallCount": 20,
+        "spallConeDeg": 30,
+        "spallEnergyJ": 300
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a)."
+    },
+    {
+      "id": "xf-pot",
+      "nameKey": "ammo.xf-pot",
+      "calibre": "xf-bombard",
+      "kind": "high-explosive",
+      "projectileMassKg": 10.0,
+      "cartridgeMassKg": 20.0,
+      "diameterM": 0.1,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 5,
+        "atVelocityMps": 600
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 1.5,
+        "fragmentCount": 600,
+        "fragmentAmmo": "xf-shard",
+        "fragmentVelocityMps": [
+          800,
+          1200
+        ],
+        "armingSeconds": 0.05,
+        "burstOnBody": true
+      },
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a)."
     }
   ]
 }

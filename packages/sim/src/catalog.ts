@@ -51,6 +51,9 @@ export interface ItemTypeDef {
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */
   rangefinder?: boolean;
+  /** M7.6a: an explosive reactive armour tile: mild-steel mm added to the need against a long rod, a single shaped
+   *  charge and a tandem charge's main jet; the least kinetic penetration (mm) of a heavy round that sets it off. */
+  reactive?: ReactiveDef;
   /** M8.3a: a crew-served mortar tube (see the data schema). */
   mortar?: MortarDef;
   /** M9.3b: a crew-served weapon worked by a team on foot (see the data schema). */
@@ -827,13 +830,17 @@ export interface VehicleDef {
       weapon: DefId; coax: boolean; muzzle: [number, number, number]; feeds: { item: DefId; ready: { count: number; charge: number } }[];
       switchSeconds: number; engageRangeM: number; feedKind: "belt" | "single" | "autoloader";
       loaderStation?: StationKind; roundLoadSeconds?: number; noLoaderFactor?: number;
+      /** M7.6a: a round is in the breech at the start ("single" / "autoloader"). */
+      startLoaded?: boolean;
+      /** M7.6a: a guided weapon chosen against vehicles at or beyond this range (m). */
+      missileBeyondM?: number;
     }[];
   }[];
   stowed: { item: DefId; count: number; charge?: number }[];
   cookOffAmmo?: DefId;
-  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. Add-on tiles
-   *  against shaped charges (M7.4b): one `item` used up per hit on that part and face, `factor` times the need. */
-  armour?: { plates: VehiclePlate[]; tiles?: { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; item: DefId; factor: number }[] };
+  /** Armour plates (M7.4a): one per part and face; absent = rounds stop at the hull as before. Add-on tiles: see
+   *  `VehicleTile`. */
+  armour?: { plates: VehiclePlate[]; tiles?: VehicleTile[] };
   /** Fire extinguishing (M7.4b): charges `item` in the container, each puts a fire out with `chance`. */
   extinguisher?: { item: DefId; chance: number; delaySeconds: number };
   /** Active protection (M7.4b, fixture only): charges `item`, engaged rockets burst `standoffM` short. */
@@ -851,6 +858,12 @@ export interface VehicleDef {
 }
 
 export interface VehiclePlate { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; material: DefId; thicknessMm: number; slopeDeg: number }
+/** M7.6a: an explosive reactive armour tile's effect (mild-steel mm added to the plate's need). */
+export interface ReactiveDef { addKineticMm: number; addShapedMm: number; addTandemMm: number; triggerSteelMm: number }
+/** Add-on tiles on a part and face: one counted `item` of the container used up per hit that meets one. Exactly one
+ *  of `factor` (M7.4b: shaped charges only, every hit while tiles last, `factor` times the need) or `coverage`
+ *  (M7.6a, reactive: chance `coverage * left / fitted`, the item's `reactive` mm added). `fitted`: the stowed count. */
+export interface VehicleTile { part: "hull" | "turret"; face: "front" | "side" | "rear" | "top"; item: DefId; factor?: number; coverage?: number; fitted: number }
 /** What a vehicle part is (M7.4a/b); the effect of its damage is in systems/armour.ts. */
 export type ComponentKind = "engine" | "transmission" | "track" | "wheels" | "turret-drive" | "stabiliser" | "gun" | "coax" | "sights" | "radio" | "dischargers" | "extinguisher" | "ammo" | "fuel";
 export interface VehicleComponent {

@@ -749,6 +749,80 @@
         "heightM": 500,
         "descentMps": 3.0
       }
+    },
+    {
+      "id": "de-120-dm63a1",
+      "nameKey": "ammo.de-120-dm63a1",
+      "calibre": "120x570",
+      "kind": "kinetic-penetrator",
+      "projectileMassKg": 4.6,
+      "cartridgeMassKg": 21.4,
+      "diameterM": 0.026,
+      "drag": {
+        "a": 0.4,
+        "b": 0,
+        "max": 0.45
+      },
+      "tracerBurnoutM": 4000,
+      "penetration": {
+        "steelMm": 850,
+        "atVelocityMps": 1655
+      },
+      "tracer": true,
+      "fuse": "none",
+      "guidance": "unguided",
+      "ricochetFactor": 0.3,
+      "behindArmour": {
+        "spallCount": 30,
+        "spallConeDeg": 30,
+        "spallEnergyJ": 400
+      },
+      "sources": [
+        "https://militarnyi.com/en/news/ukrainian-leopard-tanks-received-modern-dm53-armor-piercing-rounds/",
+        "https://forum.warthunder.com/t/dm63-incorrect-penetration-and-up-to-date-rounds-10-years/48213",
+        "https://en.wikipedia.org/wiki/120_mm_tank_gun"
+      ],
+      "confidence": "low",
+      "note": "DM63A1 APFSDS-T (the DM53 penetrator with temperature-independent propellant) for the Leopard 2A7V's 120 mm L55A1. Search extracts only (pages not opened in this container). Muzzle velocity 1750 m/s from the L55 (medium: sources agree on 1750-1760). Penetration (low: no official figure; public lists 680-745 mm RHA, '>700 mm' quoted at 60 degrees): 680 mm RHA at 2000 m x rhaToMildSteel 1.25 = 850 mm mild steel at the speed the drag model gives at 2000 m (1655 m/s; about 2.8 % speed lost per km: game drag of a long rod, a 0.40). Flight mass of the penetrator with its sabot gone, cartridge mass 21.4 kg and drag are game values. Long rod: ricochets off armour only below 0.3 x the plate's ricochet angle; 30 fragments in a 30-degree cone behind the plate (game values). DM73 (stronger propellant, about +10 mm) comes later."
+    },
+    {
+      "id": "de-120-dm11",
+      "nameKey": "ammo.de-120-dm11",
+      "calibre": "120x570",
+      "kind": "high-explosive",
+      "projectileMassKg": 11.4,
+      "cartridgeMassKg": 24.0,
+      "diameterM": 0.12,
+      "drag": {
+        "a": 0.3,
+        "b": 0,
+        "max": 0.35
+      },
+      "penetration": {
+        "steelMm": 10,
+        "atVelocityMps": 1050
+      },
+      "tracer": false,
+      "fuse": "impact",
+      "guidance": "unguided",
+      "explosive": {
+        "fillingKg": 2.0,
+        "fragmentCount": 1200,
+        "fragmentAmmo": "de-120-fragment",
+        "fragmentVelocityMps": [
+          1000,
+          1800
+        ],
+        "armingSeconds": 0.05,
+        "burstOnBody": true
+      },
+      "sources": [
+        "https://www.armyrecognition.com/news/army-news/2017/idex-2017-rheinmetall-120mm-ammunition-technology-remains-commensurate-to-the-threat-22102173",
+        "https://spartanat.com/en/dm11-frische-munition-fuer-den-leopard",
+        "https://asiapacificdefencereporter.com/posts/rheinmetall-unveils-new-he-dm11"
+      ],
+      "confidence": "low",
+      "note": "DM11 HE multipurpose for the 120 mm L55: its programmable fuze has point detonation, delay and air burst (published); here only point detonation (the factory default) is modelled. Search extracts only (pages not opened in this container). Projectile and cartridge mass, filling, fragments, their speed and the arming time are game values (low); muzzle velocity about 1050 m/s (game value). Fragments are the 120 mm mortar bomb's (game abstraction)."
     }
   ]
 }

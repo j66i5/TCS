@@ -282,6 +282,8 @@
   "vehicle.ru.bmp2": "BMP-2",
   "material.armour-steel": "armour steel",
   "material.composite": "composite armour",
+  "material.composite-heavy": "heavy composite armour",
+  "material.composite-cast": "cast armour with filler",
   "radio.ack.mount": "{callsign}: mounting up.",
   "radio.ack.dismount": "{callsign}: dismounting.",
   "radio.mounted": "{callsign}: all aboard.",

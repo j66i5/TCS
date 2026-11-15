@@ -1272,6 +1272,105 @@
       "sources": [],
       "confidence": "low",
       "note": "M8.3a: two 120 mm tubes (an on-map mortar section of the battalion's mortar platoon; game organisation, low)."
+    },
+    {
+      "id": "leopard2a7v-besatzung",
+      "echelon": "vehicle",
+      "callsign": "Leopard {n}",
+      "leaderIndex": 0,
+      "vehicle": "de-leopard2a7v",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "feldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "hauptgefreiter",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "ladeschuetze",
+          "rank": "obergefreiter",
+          "seat": "ldr",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 2,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.joint-forces.com/?p=87001"
+      ],
+      "confidence": "low",
+      "note": "Leopard 2A7V crew (M7.6a): commander, gunner, loader, driver (published). Ranks are typical, not sourced. Each carries a G36 with two magazines, helmet and vest (low: the real personal weapons, MP7 and P8, are not in the data)."
     }
   ]
 }

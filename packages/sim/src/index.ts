@@ -27,6 +27,7 @@ export { arcLanding, arcRangeM, grenadeOption, throwArcExists, throwRangeM } fro
 export { hasSmokeGrenade, screenCasualty, throwScreen } from "./systems/smoke";
 export { atRuleOf, aimSolution, backblastBlocked, launcherRound, orderLauncherShot, type AtRule } from "./systems/launcher";
 export { componentIndex, plateNeed, resolveVehicleHit, vehicleDamageSystem } from "./systems/armour";
+export { reactiveAdd, tileFor } from "./tiles";
 export { flightStep, type FlightState } from "./flight";
 export { battleScore, type BattleScore, type SideScore } from "./systems/objectives";
 export { adjustSkillFactor, bestObserverOf, observerOf, observerSees, observersFor, readErrorM, type Observer, type ObserverKind } from "./systems/observers";
@@ -66,7 +67,7 @@ export * from "./run";
 export { unitSoldiers } from "./systems/orders";
 export { loadKg, postureChangeSeconds, requestPosture } from "./systems/body";
 export * from "./expenditure";
-export { canFight, gunneryAllowed, muzzleWorld, stationOperator } from "./systems/gunnery";
+export { canFight, faceNeed, gunneryAllowed, muzzleWorld, stationOperator, weaponOut } from "./systems/gunnery";
 export { throughSmoke, vehicleSize } from "./systems/spotting";
 export { engineRangeM } from "./systems/contacts";
 export { environmentAt, lightAt, parseTimeOfDay } from "./light";

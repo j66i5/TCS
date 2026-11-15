@@ -18,6 +18,9 @@ const CREW: Record<string, { faction: string; template: string }> = {
   "xf-cart": { faction: "xf", template: "cart-crew" },
   "de-boxer-san": { faction: "de", template: "boxer-san-besatzung" },
   "ru-bmm": { faction: "ru", template: "bmm-ekipazh" },
+  "de-leopard2a7v": { faction: "de", template: "leopard2a7v-besatzung" },
+  "ru-t90m": { faction: "ru", template: "t90m-ekipazh" },
+  "ru-t72b3m": { faction: "ru", template: "t72b3m-ekipazh" },
 };
 
 interface Ground { surface?: string; grade?: number; rain?: number }
@@ -152,12 +155,15 @@ function turningCircle(data: DataSet, type: string): number {
 
 export const WHEELED = ["de-boxer-san", "ru-bmm"] as const;
 
+/** M7.6a: the main battle tanks. */
+export const TANKS = ["de-leopard2a7v", "ru-t90m", "ru-t72b3m"] as const;
+
 export const SURFACES = ["asphalt", "grass", "ploughed", "mud"] as const;
 
 export function driveLab(data: DataSet): DriveRow[] {
   const rows: DriveRow[] = [];
   const add = (vehicle: string, c: string, value: number, unit: string) => rows.push({ vehicle, case: c, value, unit });
-  for (const type of ["de-puma", "ru-bmp2", ...WHEELED]) {
+  for (const type of ["de-puma", "ru-bmp2", ...WHEELED, ...TANKS]) {
     const wheeled = (WHEELED as readonly string[]).includes(type);
     add(type, "0-50 km/h on asphalt", accelTime(data, type, 50), "s");
     add(type, "top speed", topSpeed(data, type, false), "km/h");

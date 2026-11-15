@@ -254,6 +254,81 @@
       ],
       "confidence": "low",
       "note": "MELLS (Mehrrollenfaehiges Leichtes Lenkflugkoerpersystem) launcher on the Puma's turret side, two missiles ready (search extracts). Owner (M9 round): two ready, reloaded outside while halted, with a man exposed. Game values (low): 90 s per missile for the man on the roof, the missile leaves at 30 m/s."
+    },
+    {
+      "id": "de-rh120-l55a1",
+      "nameKey": "weapon.de-rh120-l55a1",
+      "type": "tank-gun",
+      "calibre": "120x570",
+      "massKg": 4160,
+      "feed": {
+        "magazine": "de-120-dm63a1-round"
+      },
+      "fireModes": [
+        "semi"
+      ],
+      "cyclicRpm": 10,
+      "dispersionMrad": 0.2,
+      "reloadSeconds": 6,
+      "setupSeconds": 0,
+      "jamProbability": 0.0002,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 12
+        }
+      ],
+      "ammo": {
+        "de-120-dm63a1": 1750,
+        "de-120-dm11": 1050
+      },
+      "sources": [
+        "https://www.joint-forces.com/?p=87001",
+        "https://forum.warthunder.com/t/when-are-we-gonna-get-dm73-for-leopards/338986/96",
+        "https://forum.warthunder.com/t/leopard-2-reload-time-inaccuracy/307374",
+        "https://www.hensoldt.net/news/hensoldt-presents-new-optronic-systems-for-leopard-2a8-and-puma/"
+      ],
+      "confidence": "low",
+      "note": "Rheinmetall 120 mm L55A1 smoothbore (Leopard 2A7V; DM73 needs the A1). Search extracts only (pages not opened in this container). Muzzle velocities per round (medium for DM63A1). About 10 rounds a minute with a good loader (a 1977 handbook) and 6 s sustained (low): the vehicle's roundLoadSeconds sets the cycle. Gun mass, dispersion 0.2 mrad and the jam chance are game values. EMES 15 / ATTICA thermal sight, 12x (published)."
+    },
+    {
+      "id": "de-mg3a1-coax",
+      "nameKey": "weapon.de-mg3a1-coax",
+      "type": "machine-gun",
+      "calibre": "7.62x51",
+      "massKg": 11.5,
+      "feed": {
+        "magazine": "de-mg3-coax-belt"
+      },
+      "fireModes": [
+        "auto"
+      ],
+      "cyclicRpm": 1100,
+      "dispersionMrad": 0.6,
+      "reloadSeconds": 8,
+      "setupSeconds": 0,
+      "jamProbability": 0.0003,
+      "sights": [
+        {
+          "kind": "thermal",
+          "magnification": 12
+        }
+      ],
+      "ammo": {
+        "de-762-dm111": 820,
+        "de-762-dm21": 820
+      },
+      "sustained": {
+        "burstRounds": 6,
+        "intervalS": 1.5,
+        "recoilFactor": 0.1
+      },
+      "sources": [
+        "https://www.armyrecognition.com/military-products/army/main-battle-tanks/main-battle-tanks/leopard-2a7-mbt-main-battle-tank-technical-data-pictures-video",
+        "https://en.wikipedia.org/wiki/MG3"
+      ],
+      "confidence": "low",
+      "note": "MG3A1 coaxial machine gun of the Leopard 2A7V (published; some vehicles may carry the MG5). Search extracts only (pages not opened in this container). Rate about 1100 rounds a minute (published for the MG3, medium); bursts of 6 every 1.5 s as the Puma's coax (game values)."
     }
   ]
 }

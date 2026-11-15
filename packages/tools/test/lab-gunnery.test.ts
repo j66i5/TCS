@@ -33,6 +33,43 @@ describe("gunnery lab", () => {
       expect(val(v, "refilling a ready belt")).toBeCloseTo(90, 0);
     });
   }
+  // M7.6a: main battle tanks (Leopard 2A7V vs T-90M both ways, T-72B3M vs the Leopard).
+  const TANKS: { v: string; cycle: [number, number]; other: "loader" | "gunner"; otherCycle: [number, number] }[] = [
+    { v: "de-leopard2a7v", cycle: [5.5, 7], other: "loader", otherCycle: [13, 17] },
+    { v: "ru-t90m", cycle: [6.5, 8], other: "gunner", otherCycle: [6.5, 8.5] },
+    { v: "ru-t72b3m", cycle: [7, 8.5], other: "gunner", otherCycle: [7, 9] },
+  ];
+  const data = loadData();
+  for (const { v, cycle, other, otherCycle } of TANKS) {
+    it(`${v}: armour-piercing hits a halted hull side-on out to 3 km and on the move; the turret lays in seconds`, () => {
+      expect(val(v, "AP at a halted hull side-on, 1000 m")).toBeGreaterThan(0.8);
+      expect(val(v, "AP at a halted hull side-on, 2000 m")).toBeGreaterThan(0.7);
+      expect(val(v, "AP at a halted hull side-on, 3000 m")).toBeGreaterThan(v === "ru-t72b3m" ? 0.4 : 0.5);
+      expect(val(v, "AP on the move")).toBeGreaterThan(0.3);
+      const lay = val(v, "order to first round");
+      expect(lay).toBeGreaterThan(1.5);
+      expect(lay).toBeLessThan(8); // a round is in the breech at the start (startLoaded)
+    });
+    it(`${v}: one round at a time at its loading cycle; with the ${other} killed the commander takes over`, () => {
+      const c = val(v, "seconds between AP rounds at the full rate");
+      expect(c).toBeGreaterThanOrEqual(cycle[0]);
+      expect(c).toBeLessThanOrEqual(cycle[1]);
+      const k = val(v, `same, the ${other} killed`);
+      expect(k).toBeGreaterThanOrEqual(otherCycle[0]);
+      expect(k).toBeLessThanOrEqual(otherCycle[1]);
+    });
+    it(`${v}: high explosive hurts men in the open; every round is counted; the ready rack is refilled in its refill time`, () => {
+      expect(val(v, "HE at six men")).toBeGreaterThan(0);
+      expect(val(v, "rounds fired - (ready + stowed")).toBe(0);
+      const refill = data.factions[v.startsWith("de-") ? "de" : "ru"]!.vehicles[v]!.stations[0]!.refillSeconds!;
+      expect(val(v, "refilling a ready belt")).toBeCloseTo(refill, 0);
+    });
+  }
+  it("the T-90M's crew chooses armour-piercing at a Leopard side-on at 1500 m and its missile at 3000 m", () => {
+    expect(val("ru-t90m", "own choice at a tank side-on 1500 m")).toBe(0);
+    expect(val("ru-t90m", "own choice at a tank side-on 3000 m")).toBe(1);
+    expect(rows.find((r) => r.vehicle === "ru-t90m" && r.case.startsWith("own choice at a tank side-on 3000 m"))!.case).toContain("why.nature.missileFar");
+  });
   it("the Puma (laser rangefinder, faster turret) beats the BMP-2 at range and on the move", () => {
     expect(val("de-puma", "AP at a halted hull side-on, 1500 m")).toBeGreaterThan(val("ru-bmp2", "AP at a halted hull side-on, 1500 m"));
     expect(val("de-puma", "AP on the move")).toBeGreaterThan(val("ru-bmp2", "AP on the move"));

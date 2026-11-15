@@ -223,6 +223,43 @@
       "sources": [],
       "confidence": "low",
       "note": "Made-up test fixture (M9.3b): a two-man beam-riding dart team on foot."
+    },
+    {
+      "id": "tortoise-crew",
+      "echelon": "vehicle",
+      "callsign": "Tortoise {n}",
+      "leaderIndex": 0,
+      "vehicle": "xf-tortoise",
+      "members": [
+        {
+          "role": "boss",
+          "rank": "boss",
+          "seat": "cmd",
+          "load": []
+        },
+        {
+          "role": "slinger",
+          "rank": "private",
+          "seat": "gnr",
+          "load": []
+        },
+        {
+          "role": "stoker",
+          "rank": "private",
+          "seat": "ldr",
+          "load": []
+        },
+        {
+          "role": "carter",
+          "rank": "private",
+          "seat": "drv",
+          "load": []
+        }
+      ],
+      "subunits": [],
+      "sources": [],
+      "confidence": "low",
+      "note": "Made-up test fixture (M7.6a): the tortoise's four crew (commander, gunner, loader, driver)."
     }
   ]
 }

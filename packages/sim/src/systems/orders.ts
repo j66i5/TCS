@@ -3,6 +3,7 @@
  */
 import { droneOrder, droneRiderOf, hasDrone } from "./drones";
 import { callFire } from "./support";
+import { refusesFireAt } from "../protection";
 import { leaveCarry } from "./carry";
 import { casualtyPointOrder, evacuateOrder, releaseForBoarding } from "./nest";
 import { callAmbulanceOrder } from "./evacuation";
@@ -539,6 +540,8 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "fire": {
+      // Owner Q-7 (M10.7a): at a recognised medic, ambulance, carrying party or Verwundetennest his men will not fire.
+      if (ctx.catalog.medical !== undefined && refusesFireAt(state, soldiers, order.x, order.y, order.contact, ctx.catalog.medical.protection.aimSpareM)) return { unable: "radio.refuseProtected" };
       if (order.nature === "at") {
         // One anti-tank round (M7.4a): the best-placed man with a loaded launcher fires; the others carry on.
         const named = order.contact !== undefined && state.identity.get(order.contact)?.side !== order.issuer && (state.soldier.has(order.contact) || state.vehicle.has(order.contact)) ? order.contact : undefined;
@@ -610,6 +613,12 @@ function applyOrder(ctx: SimContext, state: SimState, order: Order, events: Even
       break;
     }
     case "callFire": {
+      // Owner Q-7 (M10.7a): no high explosive on a place where the enemy they know is only protected people.
+      if (order.ammo === "he" && ctx.catalog.medical !== undefined) {
+        // mounted: ok what men aboard know counts too (they call over the radio)
+        const men = isUnit ? unitSoldiers(state, order.target) : [order.target];
+        if (refusesFireAt(state, men, order.x, order.y, undefined, ctx.catalog.medical.protection.missionSpareM)) return { unable: "radio.refuseProtected" };
+      }
       // The leader calls it (or whoever of the unit can still use the radio); the unit keeps doing what it did.
       const cu = isUnit ? order.target : state.identity.get(order.target)?.unit;
       const u = cu !== undefined ? state.unit.get(cu) : undefined;

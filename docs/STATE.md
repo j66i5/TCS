@@ -1,6 +1,6 @@
 # State — handover note
 
-_Last updated: 2026-11-15 (M10.6b combat vehicles' rear run, Role 1, settlement, roster; roadmap-detail slice 14). The long session-by-session
+_Last updated: 2026-11-15 (M10.7a recognition and respect; roadmap-detail slice 15). The long session-by-session
 history that stood here until today is kept in `docs/history/STATE-until-2026-11-14.md`; every change is also in
 DECISIONS.md under its date._
 
@@ -44,9 +44,15 @@ DECISIONS.md under its date._
   stands idle goes too; the player's `rearRun` ("Take wounded back" on the order bar); Role 1 outcome at hand-over and
   the end-of-battle settlement (`systems/aftercare.ts`: died of wounds, recovery days; the side holding the ground
   evacuates, else captured); `SoldierRecord.recoveryDays` / `diedOfWoundsTick` (status "killed"),
-  `SideResult.diedOfWounds`; battle record version 5; batch "Rear runs and Role 1"; `--scene rearrun`.** **Next:
-  slice 15, M10.7a (recognition and respect); the refused fire order at a recognised protected target (owner Q-7)
-  comes with it and slice 16.** Merged origin/main (men down, identity tags, prisoners' care) before slice 14.
+  `SideResult.diedOfWounds`; battle record version 5; batch "Rear runs and Role 1"; `--scene rearrun`. Slice 15
+  (M10.7a) is done: `sim/src/protection.ts` — on a sighting in the contact scan a man flags his own contact `marked`
+  (armband, marked ambulance), `carrying` (bearers) or `atPoint` (men at the nest) within the range for its kind (eye
+  or optics, × light, smoke on the line, stress; `core/medical.json` `protection`), not passed on in reports; one
+  helper `spared(c)` makes every fire choice, the AI commander's fire orders and HE missions spare them; the player's
+  fire order at a recognised protected target (or a call for fire on a place with only protected people known) is
+  refused with `radio.refuseProtected` (owner Q-7); event `protection.recognised`; `npm run lab -- protection`; batch
+  "Protection recognised".** **Next: slice 16, M10.7b (breaches: misidentified and deliberate — no "ordered" breach, such orders are refused; medic
+  self-defence; prisoners' care).** Merged origin/main (M9.6 night AI, smoke fires) before slice 15.
 - **Every owner question for M10 is already answered** (DECISIONS.md 2026-11-14: "Owner answers for the medical
   system", "Owner answers: M7.5e follow-ups, round A and medical round 1", "Owner answers: medical rounds 2 and 3").
   Those answers override any option still listed in the plan. In short: the full chain from self-aid to an aid

@@ -35,6 +35,7 @@ import { burstCadence, launchShot, pickRound } from "./shot";
 import { radioFromTarget, unitSoldiers } from "./orders";
 import { isMounted } from "../mount";
 import { isGuiding } from "./missile-team";
+import { protectedContact } from "../protection";
 
 /** Rounds in the fullest spare magazine of a type (0 if none). */
 function fullestSpare(c: Container | undefined, magazine: string): number {
@@ -330,6 +331,8 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
     // He knows the man he is firing at has given up (his own contact says so, M6.6): he holds his fire —
     // whether the task came from an order, a drill or himself. (Fire at a point is not stopped by this.)
     if (task.contact !== undefined && s.contacts.find((k) => k.target === task.contact)?.surrendered === true) { stop("no-target"); continue; }
+    // He has recognised him as protected (M10.7a: armband, ambulance, carrying party, at the nest): he holds his fire.
+    if (task.contact !== undefined && (tick + id) % 30 === 0) { const k = s.contacts.find((q) => q.target === task.contact); if (k !== undefined && protectedContact(k)) { stop("no-target"); continue; } }
     // He saw the man he is firing at go down (package A: aiming low at men lying down, rounds went into the fallen):
     // he stops (a man he has not seen for a few seconds may still be up: fire at where he was goes on).
     if (task.contact !== undefined && (tick + id) % 30 === 0 && s.contacts.find((k) => k.target === task.contact)?.down === true) { stop("no-target"); continue; }

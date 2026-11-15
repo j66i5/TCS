@@ -53,6 +53,8 @@ interface Row {
    *  them wrong; drags to cover started and finished. */
   /** M9.6: drones, enemies found, fire missions by location method, missiles, light (sim/src/review.ts). */
   review: ReviewTally;
+  /** M10.7a per observer side: enemies newly recognised as protected, by kind, and the median range of an emblem. */
+  prot: Record<string, { marked: number; carrying: number; atPoint: number; markedM: number[] }>;
   m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number; tags: Record<string, number>; wrong: Record<string, number>; drags: number; dragsDone: number; carries: Record<string, number>; carriedM: number; holds: number; loaded: number; unloaded: number }>;
   /** M10.5 per side: nests sited and moved, casualties sent back with bearers or walking, arrivals; at the end, the
    *  living uncaptured men to be taken back (or at the nest) and of them those who reached it; wrong tags, of them
@@ -91,11 +93,15 @@ for (let i = 0; i < runs; i++) {
   const needSince = new Map<number, { tick: number; side: string }>(); // casualty -> tick he first needed care, his side
   const m103b: Record<string, { lifeThreat: number; preventable: number; killedAfter: number }> = { blue: { lifeThreat: 0, preventable: 0, killedAfter: 0 }, red: { lifeThreat: 0, preventable: 0, killedAfter: 0 } };
   const threatened = new Set<number>(), died = new Set<number>();
+  const prot: Row["prot"] = {};
   // M10.5: who is to be taken back at the last look (living, not captured; at the nest counts).
   let evacEnd: { id: number; side: string }[] = [];
   const r = runBattle(input, {
     controllers: sc.controllers?.(input) ?? [],
-    onEvents: (ev) => { pending = ev; houses.onEvents(ev); },
+    onEvents: (ev) => {
+      pending = ev; houses.onEvents(ev);
+      for (const e of ev) if (e.kind === "protection.recognised") { const p = prot[e.side] ??= { marked: 0, carrying: 0, atPoint: 0, markedM: [] }; if (e.marked) { p.marked++; p.markedM.push(e.rangeM); } if (e.carrying) p.carrying++; if (e.atPoint) p.atPoint++; }
+    },
     onTick: (sim) => {
       houses.onTick(sim);
       recordEvents(rec, pending, sim.state, input.catalog);
@@ -169,6 +175,7 @@ for (let i = 0; i < runs; i++) {
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
+    prot,
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
@@ -239,6 +246,11 @@ const md = [
     const need = sum((r) => r.nest[s]?.needEnd ?? 0), got = sum((r) => r.nest[s]?.reachedEnd ?? 0);
     const wrong = sum((r) => r.nest[s]?.wrong ?? 0), again = sum((r) => r.nest[s]?.wrongRetagged ?? 0), fixed = sum((r) => r.nest[s]?.corrected ?? 0);
     return `${s} nests sited ${sum((r) => r.nest[s]?.sited ?? 0)}, moved ${sum((r) => r.nest[s]?.moved ?? 0)}; sent back with bearers ${sum((r) => r.nest[s]?.tasked ?? 0)}, walking ${sum((r) => r.nest[s]?.walks ?? 0)}, arrived ${sum((r) => r.nest[s]?.arrived ?? 0)}, returned to duty ${sum((r) => r.nest[s]?.returned ?? 0)}; at the end ${got} of ${need} to be taken back had reached it (${need > 0 ? Math.round((100 * got) / need) : 0} %); wrong tags ${wrong}, tagged again ${again}, now right ${fixed} (${wrong > 0 ? Math.round((100 * fixed) / wrong) : 0} % of wrong tags corrected)`;
+  }).join("; ")}`,
+  `- Protection recognised (M10.7a, by the observer's side; times a man newly told an enemy as protected): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const ms = rows.flatMap((r) => r.prot[s]?.markedM ?? []).sort((a, b) => a - b);
+    return `${s} an emblem (medic, ambulance) ${sum((r) => r.prot[s]?.marked ?? 0)} (median ${ms.length ? Math.round(ms[Math.floor(ms.length / 2)]!) : "-"} m), bearers ${sum((r) => r.prot[s]?.carrying ?? 0)}, men at the Verwundetennest ${sum((r) => r.prot[s]?.atPoint ?? 0)} (${(sum((r) => (r.prot[s]?.marked ?? 0) + (r.prot[s]?.carrying ?? 0) + (r.prot[s]?.atPoint ?? 0)) / Math.max(1, rows.length)).toFixed(1)} per battle)`;
   }).join("; ")}`,
   `- Ambulances (M10.6a, by side): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);

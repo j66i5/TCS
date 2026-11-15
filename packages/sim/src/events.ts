@@ -74,6 +74,9 @@ export type SimEvent =
    */
   | { kind: "medical.ambulance"; tick: number; side: SideId; vehicle: EntityId; phase: "called" | "entered" | "arrived" | "loaded" | "departed" | "away" | "noRoute" | "lost" | "cancelled"; point?: EntityId; unit?: EntityId; casualty?: EntityId; aboard?: number; dueS?: number; ordered?: boolean }
   /** A casualty left the battle in an ambulance that drove off the map (M10.6a): evacuated from then on. */
+  /** A man recognised an enemy as protected (M10.7a): newly flagged on his own contact — an emblem (`marked`: an
+   *  armband or a marked ambulance), a carrying party, a man at a marked Verwundetennest — at `rangeM`. */
+  | { kind: "protection.recognised"; tick: number; side: SideId; observer: EntityId; target: EntityId; marked: boolean; carrying: boolean; atPoint: boolean; rangeM: number }
   | { kind: "medical.evacuated"; tick: number; side: SideId; casualty: EntityId; vehicle: EntityId; woundedTick: number; via?: "ambulance" | "vehicle" }
   /**
    * A combat vehicle's rear run (M10.6b, owner Q-9): `phase` started (for the platoon `unit`'s nest `point`; `ordered`:

@@ -42,6 +42,7 @@ import { launcherDecision } from "./launcher";
 import { isGuiding } from "./missile-team";
 import { grenadeOption, throwArcExists, throwRangeM } from "./grenades";
 import { houseLeaveDecision, leftLately } from "./house";
+import { spared } from "../protection";
 
 function topUnit(state: SimState, unitId: EntityId): Unit | undefined {
   let u = state.unit.get(unitId);
@@ -108,7 +109,7 @@ function droneTarget(ctx: SimContext, state: SimState, id: EntityId, s: SoldierS
 
 /** How much an enemy he knows matters (lower = more): null if out of range, given up or down. */
 function targetScore(ctx: SimContext, state: SimState, c: Contact, me: { x: number; y: number }, rangeM: number): number | null {
-  if (c.surrendered || c.down) return null; // he knows this man has given up (M6.6), or is down (package A)
+  if (spared(c)) return null; // he knows this man has given up (M6.6), is down (package A) or is protected (M10.7a)
   const d = hypot2(c.x - me.x, c.y - me.y);
   if (d > rangeM) return null;
   const ew = state.weapon.get(c.target), es = state.soldier.get(c.target);
@@ -134,7 +135,7 @@ export function threatOf(state: SimState, id: EntityId, s: SoldierState): { x: n
   const me = state.transform.req(id);
   let best: { x: number; y: number; z: number } | null = null, bestD = Infinity;
   for (const c of s.contacts) {
-    if (c.surrendered || c.down) continue; // a man he knows has given up (or is down) is no threat to take cover from
+    if (spared(c)) continue; // a man he knows has given up, is down or is protected (M10.7a) is no threat to take cover from
     const ew = state.weapon.get(c.target);
     const firing = ew !== undefined && state.tick - ew.lastShotTick <= 5 * TICK_HZ && c.kind !== "reported";
     const d = hypot2(c.x - me.x, c.y - me.y) * (firing ? 0.5 : 1);
@@ -588,7 +589,7 @@ function ownGrenade(ctx: SimContext, state: SimState, events: EventSink, id: Ent
   const recent = secondsToTicks(S.grenadeContactSeconds);
   let best: Contact | null = null, bestD = Infinity;
   for (const k of s.contacts) {
-    if (k.surrendered || k.down || k.cls === "vehicle" || k.kind === "heard" || state.tick - k.tick > recent) continue;
+    if (spared(k) || k.cls === "vehicle" || k.kind === "heard" || state.tick - k.tick > recent) continue;
     const d = hypot2(k.x - me.x, k.y - me.y);
     if (d > reach || d < G.minSafeDistanceM + 2 || d >= bestD) continue;
     // Behind cover from him (not in his sight now), or in a house.
@@ -956,7 +957,7 @@ export function decisionSystem(ctx: SimContext, state: SimState, events: EventSi
       const es = task.contact !== undefined ? state.soldier.get(task.contact) : undefined;
       const me = state.transform.req(id);
       const beyond = c !== undefined && unit.maxEngageM > 0 && hypot2(c.x - me.x, c.y - me.y) > unit.maxEngageM;
-      if (!c || c.surrendered === true || c.down === true || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
+      if (!c || spared(c) || !es || es.casualty !== "none" || beyond || state.tick - c.tick > secondsToTicks(D.contactLostSeconds) || !fireAllowed(state, ctx, unit, top)) {
         state.fire.delete(id);
         if (s.intent?.kind === "engage") s.intent = null;
       } else if (c.kind === "seen" && state.tick - c.tick <= secondsToTicks(D.seenWithinSeconds)) {

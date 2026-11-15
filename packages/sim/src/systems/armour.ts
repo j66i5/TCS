@@ -52,6 +52,7 @@ import { aimHeightAt } from "./fire";
 import { launcherRound } from "./launcher";
 import { heightAt } from "../terrain";
 import { radioFromTarget } from "./orders";
+import { spared } from "../protection";
 
 const FACE_NAMES = ["front", "side", "rear", "top"] as const;
 
@@ -691,7 +692,7 @@ function closeEnemyFoot(ctx: SimContext, state: SimState, v: VehicleState, def: 
     const s = m === null || m === undefined ? undefined : state.soldier.get(m);
     if (!s || !isAble(s)) continue;
     for (const c of s.contacts) {
-      if (c.cls === "vehicle" || c.surrendered || c.down || c.kind !== "seen" || state.tick - c.tick > secondsToTicks(10)) continue;
+      if (c.cls === "vehicle" || spared(c) || c.kind !== "seen" || state.tick - c.tick > secondsToTicks(10)) continue;
       const d = hypot2(c.x - t.x, c.y - t.y);
       if (d >= bestD || checked.includes(c.target)) continue;
       checked.push(c.target);

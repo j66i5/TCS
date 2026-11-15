@@ -516,6 +516,26 @@ end-of-battle settlement and the Role 1 outcomes (T1 within 60 minutes, died of 
 batch report's "Rear runs and Role 1" line adds the time from wound to death in bands. All numbers:
 `core/medical.json` `role1`, low confidence (no published figures could be opened here).
 
+**Red cross, bearers and the Verwundetennest: who is spared (M10.7a).** Both sides try to keep the laws of war, but
+they can only spare what they recognise. A medic wearing the red cross armband, a marked ambulance (the Boxer
+ambulance, the BMM), men carrying a wounded comrade, and the men lying at a Verwundetennest are protected as long as
+they do not fight (a man or hull that fired in the last two minutes is not). Whether an enemy can tell depends on how
+far away he is: an armband is made out to about 50 m by eye and 150 m through a rifle's optic, a carrying party to
+150 m / 400 m, an ambulance's emblem or the flag at a Verwundetennest to 300 m / 800 m; at night these shrink to a
+third, smoke on the line shrinks them by up to the same, and a frightened or suppressed man looks less closely (down
+to half). Within that range a man who sees him marks him as protected in his own mind and does not fire at him, take
+cover from him or throw a grenade at him; vehicle crews and missile teams spare an ambulance if any one of them has
+recognised it; the AI commander gives no fire order at him and calls no high explosive on a place where all it knows
+of is protected people. Beyond that range he takes the medic for a soldier and may fire — an honest mistake. What one
+man recognised is not passed on by radio: a comrade who has not seen the armband himself may still fire. **Your
+orders:** if you order men to fire at an enemy they have recognised as protected (or at a spot where they know only a
+medic, bearers or the Verwundetennest), they refuse and say so on the radio ("negative, we will not fire on that"),
+and a call for fire on such a place is refused the same way. The Russian platoon's rifleman-medic wears no armband
+(he is a rifleman with medical training), so he is not protected; the German Sanitäter is. Nothing of this is shown
+live on the map; breaches come with the after-action review (M10.7b, M10.8). All numbers: `core/medical.json`
+`protection`, low confidence (game values; none are published); `npm run lab -- protection` prints them and checks
+them in the sim.
+
 The unconscious and the dead stay on the map (pale shape with a red cross; dark shape). A wounded man who
 carries on has a white-and-red spot. If the leader falls the next man takes over, and someone reports "man
 down" on the radio. The **casualty lab** (`npm run lab -- casualty`) fires at hundreds of men and prints what

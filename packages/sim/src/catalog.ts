@@ -786,8 +786,12 @@ export interface MedicalDef {
   chain: { firstAidS: number; role1S: number; surgeryS: number };
   /** Recognising protected persons and breaches (M10.7). */
   protection: {
-    recognitionM: { vehicleEye: number; vehicleOptics: number; armbandEye: number; armbandOptics: number };
-    obscuredFactor: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
+    /** Ranges (m) to which a protected target is told as such in daylight, clear air, by a calm man: a marked
+     *  vehicle, an armband, a carrying party, a man at a marked Verwundetennest; by eye and with optics (M10.7a). */
+    recognitionM: { vehicleEye: number; vehicleOptics: number; armbandEye: number; armbandOptics: number; carryEye: number; carryOptics: number; pointEye: number; pointOptics: number };
+    /** Light and smoke each scale a range between this (dark, opaque) and 1; stress shrinks it by up to `stressK`;
+     *  `aimSpareM` / `missionSpareM`: how near an aimed point / a fire mission's point a protected man must be to spare it. */
+    obscuredFactor: number; stressK: number; aimSpareM: number; missionSpareM: number; breachBase: number; breachLossesK: number; breachLowDisciplineK: number; breachPanicK: number;
     medicFiredLosesProtectionS: number;
   };
   /**

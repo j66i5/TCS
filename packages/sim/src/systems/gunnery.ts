@@ -50,6 +50,7 @@ import { radioFromTarget } from "./orders";
 import { contactErrorM } from "./contacts";
 import { smokePhysics, smokeTransmission } from "../smoke";
 import { addSmoke } from "../smoke";
+import { protectedTargets, refusesFireAt } from "../protection";
 
 export type Nature = "ap" | "he" | "mg" | "atgm";
 
@@ -242,11 +243,14 @@ function chooseTarget(ctx: SimContext, state: SimState, vid: EntityId, v: Vehicl
   if (crew.maxEngageM > 0) { reach = Math.min(reach, crew.maxEngageM); mReach = Math.min(mReach, crew.maxEngageM); }
   // Candidates: what the crew saw lately, or a comrade reported precisely and recently (ascending target id).
   const cands = new Map<EntityId, { x: number; y: number; err: number; z?: number; posture?: Posture }>();
+  const prot = protectedTargets(state, crew.members);
   for (const m of crew.members) {
     const s = state.soldier.get(m);
     if (!isAble(s)) continue;
     for (const c of s!.contacts) {
       if (c.surrendered || c.down) continue;
+      // (M10.7a: one crewman who recognises an ambulance or a medic is enough for the whole crew.)
+      if (prot !== null && prot.has(c.target)) continue;
       const age = tick - c.tick;
       const ok = c.kind === "seen" ? age <= secondsToTicks(G.seenWithinSeconds) : c.kind === "reported" && age <= secondsToTicks(G.reportedWithinSeconds) && contactErrorM(ctx, c, tick) <= G.reportedErrorM;
       if (!ok) continue;
@@ -954,6 +958,8 @@ export function stationFireOrder(ctx: SimContext, state: SimState, vid: EntityId
   const named = order.contact !== undefined && targetLive(state, order.contact) && (state.identity.get(order.contact)?.side ?? state.vehicle.get(order.contact)?.side) !== issuer ? order.contact : undefined;
   let x = order.x, y = order.y;
   let known: { z?: number; posture?: Posture } | undefined;
+  // Owner Q-7 (M10.7a): a crew that recognises the target as protected will not fire at it.
+  if (crew && ctx.catalog.medical !== undefined && refusesFireAt(state, crew.members, order.x, order.y, named, ctx.catalog.medical.protection.aimSpareM)) return { unable: "radio.refuseProtected" };
   if (named !== undefined && crew) { const c = crewContact(ctx, state, crew, named); if (c) { x = c.x; y = c.y; known = c; } }
   const isVeh = named !== undefined && state.vehicle.has(named);
   const d = hypot2(x - t.x, y - t.y);

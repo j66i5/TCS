@@ -353,6 +353,15 @@ export interface Contact {
    * seen one; absent = never seen (aim at the usual height). What men aim by: the middle of what they see.
    */
   posture?: Posture;
+  /**
+   * Recognised as protected (M10.7a, owner answer 6), by his own eyes only (never from a report): a man wearing a
+   * protective emblem or a marked ambulance (`marked`), a man of a carrying party (`carrying`), a man at a marked
+   * Verwundetennest (`atPoint`). Set or cleared on a sighting within the recognition range; kept beyond it. Nobody
+   * fires at, shells or takes cover from a contact with any of them (`protection.ts` `spared`).
+   */
+  marked?: true;
+  carrying?: true;
+  atPoint?: true;
 }
 
 /** A contact report on its way from one soldier to another. */

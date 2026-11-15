@@ -25,7 +25,8 @@ import { canReport, isAble, isCaptive } from "../impair";
 import { atan2, cos, PI, sin, sqrt } from "../math";
 import { nextNormal, Streams } from "../rng";
 import type { SimState } from "../state";
-import { cellIndex } from "../terrain";
+import { cellIndex, heightAt, standZ } from "../terrain";
+import { PROT_CARRYING, PROT_MARKED, PROT_POINT, recognise } from "../protection";
 import { unitSoldiers } from "./orders";
 
 /** Uncertainty of a contact now: its own, plus how far the man may have moved since. */
@@ -116,6 +117,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     state.contactReports = keep;
   }
 
+  // (M10.7a: recognition only where the medical data has a protection block.)
+  const protectable = ctx.catalog.medical !== undefined;
   // ---- what each man sees this tick (only men who scanned: their `seen` was confirmed now)
   // mounted: ok men aboard see nothing (spotting gives them no `seen`)
   for (const [id, s] of state.soldier.entries()) {
@@ -161,6 +164,16 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
       }
       const news = isNew || (gaveUp && s.contacts[k]!.surrendered !== true) || (isDown && s.contacts[k]!.down !== true);
       learn(ctx, s.contacts, c, -1e9, tick);
+      // M10.7a: does he recognise him as protected (armband, marked ambulance, carrying party, at the nest)? His own
+      // judgement on his own contact only: `c` (what he passes on) carries no protection flag.
+      if (protectable) {
+        const own = s.contacts[findContact(s.contacts, e.target)];
+        if (own) {
+          const tz = veh ? heightAt(ctx.map, t.x, t.y) + 1.5 : standZ(ctx.map, t) + 1; // ground: ok (a hull's emblem height)
+          const got = recognise(ctx.catalog, state, s, id, own, e.target, range, me.x, me.y, standZ(ctx.map, me) + 1.6, t.x, t.y, tz);
+          if (got !== 0) events.emit({ kind: "protection.recognised", tick, side: state.identity.req(id).side, observer: id, target: e.target, marked: (got & PROT_MARKED) !== 0, carrying: (got & PROT_CARRYING) !== 0, atPoint: (got & PROT_POINT) !== 0, rangeM: range });
+        }
+      }
       fresh.push({ who: id, c, isNew, news });
     }
   }
@@ -246,6 +259,8 @@ export function contactSystem(ctx: SimContext, state: SimState, events: EventSin
     const top = topUnit(state, f.who);
     if (top === null) continue;
     const reported = { ...f.c, kind: "reported" as const, errM: f.c.errM + K.reportedErrorM };
+    // (Protection is each man's own judgement, M10.7a: not passed on.)
+    delete reported.marked; delete reported.carrying; delete reported.atPoint;
     // mounted: ok what a comrade reports reaches men aboard by radio/intercom
     let men = menOf.get(top);
     if (!men) { men = unitSoldiers(state, top); menOf.set(top, men); }

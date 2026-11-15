@@ -16,7 +16,7 @@ import type { EntityId } from "./ids";
 import type { SimView } from "./state";
 
 /** Bump when the record's shape changes: an app save with another version starts a fresh record. */
-export const RECORD_VERSION = 2;
+export const RECORD_VERSION = 3;
 
 /**
  * One line of the review's timeline. `key` is the string-table key; the other fields are raw values for its
@@ -73,6 +73,10 @@ export interface SideRecord {
   nest: { sited: number; moved: number; tasked: number; walks: number; arrived: number; returned: number };
   /** Re-triage (M10.5): tags given again where the last tag was wrong, and of them now right. */
   retriage: { wrongRetagged: number; corrected: number };
+  /** Men down (owner request 2026-11-15): men checked by a comrade, of them found dead, dead men dragged to cover
+   *  before anyone knew, identity tags recovered (items taken), casualties who crawled to cover, prisoners treated by
+   *  the side holding them (counted for the prisoner's side), surrendered men who crawled out of the fire. */
+  down: { checked: number; checkedDead: number; deadDragged: number; tags: number; tagMen: number; crawled: number; prisonersTreated: number; surrenderCrawled: number };
 }
 
 export interface BattleRecord {
@@ -108,6 +112,7 @@ export function newSideRecord(): SideRecord {
     tags: {}, wrongTags: {},
     drags: 0, dragsDone: 0, carries: {}, carriedM: 0, holds: 0, loaded: 0, unloaded: 0,
     nest: { sited: 0, moved: 0, tasked: 0, walks: 0, arrived: 0, returned: 0 }, retriage: { wrongRetagged: 0, corrected: 0 },
+    down: { checked: 0, checkedDead: 0, deadDragged: 0, tags: 0, tagMen: 0, crawled: 0, prisonersTreated: 0, surrenderCrawled: 0 },
   };
 }
 
@@ -162,7 +167,8 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
         }
         break;
       }
-      case "surrendered": case "captured": case "surrender.walk": {
+      case "surrendered": case "captured": case "surrender.walk": case "surrender.crawl": {
+        if (e.kind === "surrender.crawl") { const r = side(e.side); if (r) r.down.surrenderCrawled++; }
         const id = view.identity.get(e.soldier);
         if (id) rec.timeline.push({ tick: e.tick, side: id.side, key: `timeline.${e.kind}`, name: id.family, callsign: callsignOf(e.soldier) });
         break;
@@ -185,6 +191,7 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
           if (e.by === e.casualty) r.care.self++; else r.care.buddy++;
           if (e.success) r.care.worked++;
           if (e.success && e.intervention === "tourniquet") r.care.tourniquets++;
+          if (e.by !== e.casualty && sideOfMan(e.by) !== sideOfMan(e.casualty)) r.down.prisonersTreated++;
         }
         const k = String(e.casualty);
         if (rec.firstTreated[k] === undefined) { rec.firstTreated[k] = e.tick; if (r) r.care.men++; }
@@ -200,9 +207,12 @@ export function recordEvents(rec: BattleRecord, events: readonly SimEvent[], vie
       }
       case "medical.dragged": {
         const r = side(sideOfMan(e.casualty));
-        if (r) { if (e.done) r.dragsDone++; else r.drags++; }
+        if (r) { if (e.done) r.dragsDone++; else r.drags++; if (!e.done && e.deadNow === true) r.down.deadDragged++; }
         break;
       }
+      case "medical.checked": { const r = side(sideOfMan(e.casualty)); if (r) { r.down.checked++; if (e.dead) r.down.checkedDead++; } break; }
+      case "medical.tagTaken": { const r = side(e.side); if (r) { r.down.tags += e.count; r.down.tagMen++; } break; }
+      case "medical.crawled": { const r = side(sideOfMan(e.casualty)); if (r) r.down.crawled++; break; }
       case "medical.carried": {
         const r = side(sideOfMan(e.payload));
         if (r && e.phase === "start") r.carries[e.method] = (r.carries[e.method] ?? 0) + 1;

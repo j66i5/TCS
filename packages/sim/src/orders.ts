@@ -86,8 +86,10 @@ export type OrderBody =
   | { kind: "deploy" }
   /** A reconnaissance quadcopter (M9.4a): "fly" sends the unit's drone to (x, y) (its operator launches it first if
    *  it is not up; `altM`: its height above the ground), "home" brings it back to land with its operator. The
-   *  target: the unit whose men carry it (a platoon: its headquarters) or one of them. */
-  | { kind: "drone"; op: "fly" | "home"; x?: number; y?: number; altM?: number }
+   *  target: the unit whose men carry it (a platoon: its headquarters) or one of them. `dismount` (the player's
+   *  orders): if the man who carries it rides, he gets out first and then launches it (a quadcopter goes up by hand
+   *  from the ground). */
+  | { kind: "drone"; op: "fly" | "home"; x?: number; y?: number; altM?: number; dismount?: boolean }
   /** Fire the smoke dischargers (M7.3): a vehicle crew, or a unit with vehicles under it. */
   | { kind: "discharge" }
   /** Occupy a building (M7.5d): the men take the window places of building `building` (its id), on every floor
@@ -112,7 +114,14 @@ export type Order = {
   /** Given by the player (the app's own orders; absent for AI and scripted orders). A vehicle under a player's
    *  move or halt order holds it against close enemy men (owner 2026-11-13). */
   player?: true;
+  /** Only the target unit's own men, not its sub-units or their vehicles: a platoon's headquarters on its own
+   *  (owner 2026-11-15). Moves, halts, getting in and out, postures, fire, cease-fire, grenades, calls for fire
+   *  and rules (`OWN_ORDER_KINDS`); a unit target without a vehicle. */
+  own?: true;
 } & OrderBody;
+
+/** The order kinds that take `own` (the others are drills of a unit with its sub-units). */
+export const OWN_ORDER_KINDS: readonly string[] = ["move", "halt", "mount", "dismount", "posture", "fire", "ceaseFire", "grenade", "callFire", "rules"];
 
 /** An order after reception, waiting for the comms delay. Part of the serialised state. */
 export interface PendingOrder {

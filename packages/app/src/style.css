@@ -101,6 +101,14 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   align-content: center; gap: 1px; font-size: 10px; line-height: 1.15; text-align: center; }
 .hud-tile.kind-hq { background: #28331f; }
 .hud-tile.selected { border-color: #ffffff; box-shadow: 0 0 0 2px #ffffff inset; }
+/* Owner 2026-11-15: the platoon headquarters reads as HQ (sidebar tile and card title). */
+.hud-badge { display: inline-block; padding: 0 3px; border-radius: 3px; background: #e8dcc4; color: #14110f; font-size: 9px; font-weight: 800;
+  line-height: 1.35; letter-spacing: 0.03em; vertical-align: 1px; }
+.hud-tile-badge { margin-right: 3px; }
+.hud-side:not(.expanded) .hud-tile-badge { font-size: 11px; margin-right: 0; padding: 0 5px; }
+.hud-side:not(.expanded) .hud-tile-call { display: none; }
+.hud-card-badge { font-size: 11px; padding: 0 4px; flex: 0 0 auto; }
+.hud-tile.kind-hqGroup { background: #28331f; }
 .hud-tile-sym svg { display: block; }
 .hud-tile-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .hud-tile-men { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -221,8 +229,8 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .hud-card { pointer-events: auto; align-self: flex-start; width: min(400px, 100%); container-type: inline-size; background: rgba(15, 20, 14, 0.9); border-radius: 8px;
   padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #3d4a39; }
 .hud-card-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.hud-card-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.hud-card-men { color: var(--muted); font-size: 13px; white-space: nowrap; margin-right: auto; }
+.hud-card-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 0 auto; max-width: 45%; }
+.hud-card-men { color: var(--muted); font-size: 13px; white-space: nowrap; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hud-card-btn { min-height: 30px; min-width: 0; padding: 0 7px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
 .hud-seg { display: flex; align-items: stretch; gap: 3px; }
 .hud-seg-label { flex: 0 0 34px; font-size: 11px; color: var(--muted); align-self: center; text-transform: uppercase; letter-spacing: 0.04em; }

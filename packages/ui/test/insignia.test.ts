@@ -54,6 +54,13 @@ describe("rank insignia", () => {
     // The strap is as wide as the slide at its shoulder end (it follows the slide's taper).
     const [wd] = vb(insigniaSvg(de, "leutnant"));
     expect(wd).toBeCloseTo(de.strap!.widthMm + (de.board.widthBottomMm - de.board.widthTopMm) * (1 + de.strap!.belowMm / de.board.lengthMm) + 2, 1);
+    // Owner correction 2026-11-15: the Leutnant's star is drawn in the lower third of the slide (the shoulder end is
+    // at the bottom of the picture: SVG y grows downward).
+    const top = de.strap!.aboveMm + 1, bottom = top + de.board.lengthMm;
+    const pts = /<polygon points="([^"]+)"/.exec(insigniaSvg(de, "leutnant", 400))![1]!.split(" ").map((p) => Number(p.split(",")[1]));
+    const cy = pts.reduce((a, b) => a + b, 0) / pts.length;
+    expect(cy).toBeGreaterThan(bottom - de.board.lengthMm / 3);
+    expect(cy).toBeLessThan(bottom);
     // No data: nothing drawn (the row keeps its place).
     expect(insigniaSvg(undefined, "schuetze")).toBe("");
     expect(insigniaSvg(de, "nobody")).toBe("");

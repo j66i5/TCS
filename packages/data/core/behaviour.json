@@ -125,7 +125,9 @@
     "handOverM": 2.5,
     "walkSpeedFactor": 0.6,
     "walkReplanM": 4,
-    "walkTimeoutSeconds": 90
+    "walkTimeoutSeconds": 90,
+    "crawlSearchM": 15,
+    "crawlMaxM": 25
   },
   "mounting": {
     "boardReachM": 2.5,

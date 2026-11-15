@@ -62,6 +62,10 @@ interface Row {
    *  rounds per side (a gun on a vehicle with no passenger seats; armour-piercing and high explosive). */
   types: Record<string, Record<string, { n: number; lost: number; immob: number }>>; killers: Record<string, Record<string, number>>;
   era: Record<string, number>; tankRounds: Record<string, { ap: number; he: number }>;
+  /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
+   *  check, tags recovered (men), wounded who crawled to cover, prisoners' treatments by the enemy, surrendered men
+   *  who crawled out of the fire; killed at the end. */
+  down: Record<string, { checked: number; checkedDead: number; deadDragged: number; tags: number; tagMen: number; crawled: number; prisonersTreated: number; surrenderCrawled: number; killed: number }>;
 }
 const rows: Row[] = [];
 const t0 = performance.now();
@@ -199,6 +203,7 @@ for (let i = 0; i < runs; i++) {
       return { ...x.nest, needEnd: mine.length, reachedEnd: mine.filter((e) => rec.atNest[String(e.id)] !== undefined).length, wrong: Object.values(x.wrongTags).reduce((a, b) => a + b, 0), ...x.retriage };
     }),
     types, killers, era, tankRounds,
+    down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
     m103b: perSide((x, side) => ({ ...m103b[side]!, tags: x.tags, wrong: x.wrongTags, drags: x.drags, dragsDone: x.dragsDone, carries: x.carries, carriedM: x.carriedM, holds: x.holds, loaded: x.loaded, unloaded: x.unloaded })),
     spent: Object.fromEntries(Object.entries(rec.exp).map(([side, e]) => {
       const vs = Object.values(e.vehicles);
@@ -269,6 +274,11 @@ const md = [
     return vs.length === 0 ? "none" : vs.map((t) => { const by: Record<string, number> = {}; for (const r of rows) for (const [w, n] of Object.entries(r.killers[t] ?? {})) by[w] = (by[w] ?? 0) + n; return `${t} by ${Object.entries(by).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([w, n]) => `${w} ${n}`).join(", ")}`; }).join("; ");
   })()}`,
   `- Reactive tiles used and tank gun rounds per battle (M7.6b): ${["blue", "red"].map((s) => `${s} tiles ${mean(rows.map((r) => r.era?.[s] ?? 0)).toFixed(1)}, tank rounds AP ${mean(rows.map((r) => r.tankRounds?.[s]?.ap ?? 0)).toFixed(1)}, HE ${mean(rows.map((r) => r.tankRounds?.[s]?.he ?? 0)).toFixed(1)}`).join("; ")}`,
+  `- Men down (owner 2026-11-15, by the side of the man down): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    const g = (k: keyof Row["down"][string]) => sum((r) => r.down[s]?.[k] ?? 0);
+    return `${s} killed ${g("killed")}, checked ${g("checked")} (found dead ${g("checkedDead")}), dead dragged into cover before the check ${g("deadDragged")}, tags recovered from ${g("tagMen")} fallen (${g("tags")} items), wounded crawled to cover ${g("crawled")}, treatments as prisoners ${g("prisonersTreated")}, surrendered crawled out of the fire ${g("surrenderCrawled")}`;
+  }).join("; ")}`,
   `- Crews per battle (M7.4b): ${["blue", "red"].map((s) => `${s} reversed out ${mean(rows.map((r) => r.crews[s]?.reversedOut ?? 0)).toFixed(1)}, fires ${mean(rows.map((r) => r.crews[s]?.fires ?? 0)).toFixed(1)} (put out ${mean(rows.map((r) => r.crews[s]?.firesOut ?? 0)).toFixed(1)})`).join("; ")}`,
   "",
   "| seed | duration s | end | winner | score blue/red | orders | casualties blue/red | hash |",

@@ -104,6 +104,12 @@ Next on this line: M9.6 night AI and balance (hiding from drones).
 RDG-2 as counted items (one per squad man), thrown by the grenade action, smoke as the existing concealment; "Smoke
 grenade" in the Fire tray; units screen themselves on a withdrawal and on a move under fire; hook
 `screenCasualty` for the medical line's drag (not called yet). `npm run lab -- smoke`, `--scene smoke`.
+**Men down, identity tags, crawling, prisoners' care (owner requests 2026-11-15; DECISIONS of that date).** A dead
+man is "down, state unknown" to his comrades until one checks him (they come and drag him into cover meanwhile);
+then his identity tag (DE half Erkennungsmarke, RU lichny znak; faction data) is taken when it is quiet; casualties
+who cannot walk crawl into cover; surrendered men under fire crawl out of the line of fire; prisoners are treated by
+the side holding them, carers sent by urgency first. The surrendered-under-fog report: sight checked, the stale
+white flag now fades with its marker.
 ## Baselines (2026-11-14, before medical)
 - **Attacker wins, 20 seeds × 1200 s** (M7.5e follow-ups, DECISIONS "slice s0-clear"): village (platoon) 5/20,
   mounted village (platoon-vehicles) 5/20; farmland 10/20 (M7.5e polish); Russian mounted attack 0/10 (900 s,
@@ -226,6 +232,10 @@ https://j66i5.github.io/TCS/ — deployed automatically from `main` after every 
   nothing since 2026-11-13; the plan recommends deleting, and updating the CLAUDE.md note), or keep them?
 - Data reviews whenever convenient (lists in the earlier STATE, `docs/history/STATE-until-2026-11-14.md`, "Open
   questions"): Konkurs-M values, vehicle data of M7.1b-M7.4b, behaviour game values, squad tables, ranks and names.
+- Realistic ranks (2026-11-15, DECISIONS "Realistic ranks per role", low/medium, search extracts only): one rank per
+  slot; DE Puma Kommandant Feldwebel and HQ Puma (Zugtruppfuehrer) Hauptfeldwebel, Sanitaeter Stabsunteroffizier,
+  marksman Oberstabsgefreiter (new rank, insignia positions inferred); RU first squad leader = deputy (starshiy
+  serzhant). Zugfuehrer Leutnant or Oberleutnant?
 - After M10.8: the medical numbers table (keep, adjust named values, or faster care for gameplay).
 - D1 (low confidence, for review): the DM45's cloud (10 m, 60 s), smoke grenades per man (one), the screen rules
   (15 m, once a minute, on withdrawals and moves under fire).

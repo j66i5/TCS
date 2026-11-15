@@ -36,7 +36,7 @@
         },
         {
           "role": "rifleman",
-          "rank": "obergefreiter",
+          "rank": "hauptgefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -72,7 +72,7 @@
         },
         {
           "role": "rifleman",
-          "rank": "gefreiter",
+          "rank": "obergefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -100,7 +100,7 @@
         },
         {
           "role": "rifleman",
-          "rank": "gefreiter",
+          "rank": "obergefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -212,7 +212,7 @@
         },
         {
           "role": "mg-gunner",
-          "rank": "hauptgefreiter",
+          "rank": "stabsgefreiter",
           "load": [
             {
               "item": "de-mg5-belt",
@@ -280,7 +280,7 @@
         },
         {
           "role": "at-gunner",
-          "rank": "obergefreiter",
+          "rank": "hauptgefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -361,7 +361,7 @@
         },
         {
           "role": "marksman",
-          "rank": "stabsgefreiter",
+          "rank": "oberstabsgefreiter",
           "load": [
             {
               "item": "de-g28-mag",
@@ -509,7 +509,7 @@
         },
         {
           "role": "einsatzersthelfer",
-          "rank": "gefreiter",
+          "rank": "hauptgefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -613,10 +613,12 @@
       "sources": [
         "https://www.bundeswehr.de/de/meldungen/schuetzenpanzer-puma-im-angriff-5579452",
         "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-spezialgrundausbildung-5572818",
-        "https://de.wikipedia.org/wiki/Puma_(Sch%C3%BCtzenpanzer)"
+        "https://de.wikipedia.org/wiki/Puma_(Sch%C3%BCtzenpanzer)",
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the marksman carries the Trupp's thermal weapon sight (research default, low)."
+      "note": "Dismounted Schuetzentrupp of a Panzergrenadiergruppe on Puma: research default chosen by the owner 2026-11-11 (he corrects it afterwards). Ranks per position are not confirmed by sources. Five G36 magazines per the published instructor quote; hand grenades reduced from 'five' to two or three. See docs/research/squads.md. The machine gunner carries part of the belts himself; the rest are carried by other men (handing them over arrives with ammunition sharing in M4). D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M9.2: the marksman carries the Trupp's thermal weapon sight (research default, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Truppfuehrer (deputy of the Gruppenfuehrer, who commands the Puma): Stabsunteroffizier (a Bundeswehr podcast names an Oberstabsgefreiter Truppfuehrer). The Einsatzersthelfer B is an experienced Hauptgefreiter (the course builds on Einsatzersthelfer A)."
     },
     {
       "id": "pzgren-zug",
@@ -698,7 +700,7 @@
         },
         {
           "role": "funker",
-          "rank": "hauptgefreiter",
+          "rank": "stabsgefreiter",
           "load": [
             {
               "item": "de-g36-mag",
@@ -779,7 +781,7 @@
         },
         {
           "role": "sanitaeter",
-          "rank": "hauptgefreiter",
+          "rank": "stabsunteroffizier",
           "load": [
             {
               "item": "de-g36-mag",
@@ -893,14 +895,16 @@
         "puma-besatzung",
         "puma-besatzung",
         "puma-besatzung",
-        "puma-besatzung"
+        "puma-besatzung-zug"
       ],
       "sources": [
         "https://www.bundeswehr.de/de/meldungen/schuetzenpanzer-puma-im-angriff-5579452",
-        "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe"
+        "https://www.bundeswehr.de/de/meldungen/panzergrenadiere-bindeglied-infanterie-panzertruppe",
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). M10.1: a Sanitaeter (medic) with the Zug headquarters (owner Q-1c), riding in the headquarters Puma. D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M10.4a: the Sanitaeter carries a folding litter. M9.4a (owner M9 round): the Funker carries and flies the platoon's reconnaissance quadcopter with three batteries (who flies it: game assumption, low).",
+      "note": "Dismounted Panzergrenadierzug (M6 first playable, owner: platoon against platoon): three Schuetzentrupps and the platoon leader with a radio operator. No official Puma platoon structure was found (search extracts only); a non-official source describes a Zugtrupp and three groups. Owner to correct. M7.2 (owner Q1): four Pumas; each of the first three carries a squad, the fourth the platoon leader and his radio operator. The crews are only used when vehicles are switched on (until M7.4a: &vehicles=1 and the tools scenarios). M10.1: a Sanitaeter (medic) with the Zug headquarters (owner Q-1c), riding in the headquarters Puma. D1 (2026-11-14): every man carries one smoke hand grenade (game value, low; sources do not give the issue per man). M10.4a: the Sanitaeter carries a folding litter. M9.4a (owner M9 round): the Funker carries and flies the platoon's reconnaissance quadcopter with three batteries (who flies it: game assumption, low). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Zugfuehrer Leutnant (Wikipedia: Leutnant or Oberleutnant, a Hauptfeldwebel in some platoons); Funker and drone operator Stabsgefreiter; the Sanitaeter a Stabsunteroffizier of the medical service (Fachunteroffizier San, low). The fourth Puma has its own crew template (puma-besatzung-zug): its commander is the Zugtruppfuehrer and deputy platoon leader, a Hauptfeldwebel.",
       "carriage": [
         {
           "crew": 3,
@@ -957,7 +961,7 @@
         },
         {
           "role": "richtschuetze",
-          "rank": "hauptgefreiter",
+          "rank": "unteroffizier",
           "seat": "gnr",
           "load": [
             {
@@ -978,7 +982,7 @@
         },
         {
           "role": "fahrer",
-          "rank": "obergefreiter",
+          "rank": "hauptgefreiter",
           "seat": "drv",
           "load": [
             {
@@ -999,9 +1003,93 @@
         }
       ],
       "subunits": [],
-      "sources": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
+      ],
       "confidence": "low",
-      "note": "Puma crew (M7): commander, gunner, driver. Ranks are typical, not sourced; personal weapons come with mounting and dismounting (M7.2). M7.2: each crewman carries a G36 with three magazines, helmet and vest (game value, low; crews' personal weapons are not in the public sources read)."
+      "note": "Puma crew (M7): commander, gunner, driver. Ranks are typical, not sourced; personal weapons come with mounting and dismounting (M7.2). M7.2: each crewman carries a G36 with three magazines, helmet and vest (game value, low; crews' personal weapons are not in the public sources read). Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). Kommandant = Gruppenfuehrer, Feldwebel (a Bundeswehr podcast names a Hauptfeldwebel Puma commander); Richtschuetze Unteroffizier; Fahrer Hauptgefreiter."
+    },
+    {
+      "id": "puma-besatzung-zug",
+      "echelon": "vehicle",
+      "callsign": "Puma 4",
+      "leaderIndex": 0,
+      "vehicle": "de-puma",
+      "members": [
+        {
+          "role": "kommandant",
+          "rank": "hauptfeldwebel",
+          "seat": "cmd",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "richtschuetze",
+          "rank": "unteroffizier",
+          "seat": "gnr",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        },
+        {
+          "role": "fahrer",
+          "rank": "hauptgefreiter",
+          "seat": "drv",
+          "load": [
+            {
+              "item": "de-g36-mag",
+              "count": 3,
+              "charge": 30
+            },
+            {
+              "item": "de-helmet",
+              "count": 1
+            },
+            {
+              "item": "de-vest",
+              "count": 1
+            }
+          ],
+          "weapon": "de-g36"
+        }
+      ],
+      "subunits": [],
+      "sources": [
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/",
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.battleorder.org/post/de-pzg-1966"
+      ],
+      "confidence": "low",
+      "note": "Crew of the Zug headquarters Puma (owner 2026-11-15, realistic ranks): as puma-besatzung, but its commander is the Zugtruppfuehrer, the deputy platoon leader (Hauptfeldwebel; 1966 table: deputy an Unteroffizier mit Portepee, battleorder.org; Bundeswehr podcast: a Hauptfeldwebel Puma commander). Fixed callsign Puma 4 (the fourth Puma of the Zug)."
     },
     {
       "id": "boxer-san-besatzung",
@@ -1034,7 +1122,7 @@
         },
         {
           "role": "sankfz-sanitaeter",
-          "rank": "hauptgefreiter",
+          "rank": "feldwebel",
           "seat": "med",
           "load": [
             {
@@ -1055,7 +1143,7 @@
         },
         {
           "role": "fahrer",
-          "rank": "obergefreiter",
+          "rank": "hauptgefreiter",
           "seat": "drv",
           "load": [
             {
@@ -1076,10 +1164,12 @@
         }
       ],
       "sources": [
-        "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf"
+        "https://www.artec-boxer.com/fileadmin/user_upload/product-brochures/Update/Artec-BOXER-Ambulance-brochure.pdf",
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "Boxer ambulance crew (M10.6-data): commander, driver and a medic (ARTEC brochure, search extract). Ranks and the rifles' loads are game values (medics are armed for self-defence, owner answer 8). Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names."
+      "note": "Boxer ambulance crew (M10.6-data): commander, driver and a medic (ARTEC brochure, search extract). Ranks and the rifles' loads are game values (medics are armed for self-defence, owner answer 8). Not in any platoon: ambulances come from off the map (M10.6a). Members in crew-seat order (commander, medic, driver), so a lab without placements seats them as the template names. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most). The Notfallsanitaeter of the Boxer ambulance is in the Feldwebel career (bundeswehr.de, Notfallsanitaeterin) - Feldwebel; driver Hauptgefreiter."
     },
     {
       "id": "moerser-trupp",
@@ -1089,7 +1179,7 @@
       "members": [
         {
           "role": "mortar-leader",
-          "rank": "unteroffizier",
+          "rank": "stabsunteroffizier",
           "weapon": "de-g36",
           "load": [
             {
@@ -1173,7 +1263,7 @@
         },
         {
           "role": "mortar-loader",
-          "rank": "gefreiter",
+          "rank": "obergefreiter",
           "weapon": "de-g36",
           "load": [
             {
@@ -1213,7 +1303,7 @@
         },
         {
           "role": "mortar-loader",
-          "rank": "gefreiter",
+          "rank": "obergefreiter",
           "weapon": "de-g36",
           "load": [
             {
@@ -1254,10 +1344,12 @@
       ],
       "subunits": [],
       "sources": [
-        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm"
+        "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/ausruestung-bewaffnung/moerser-120-mm",
+        "https://www.bundeswehr.de/de/mediathek/podcast-schuetzenpanzer-puma-5579472",
+        "https://www.gesetze-im-internet.de/slv_2021/"
       ],
       "confidence": "low",
-      "note": "M8.3a: one 120 mm tube and its crew of four (leader with the radio and the smoke rounds, gunner with the tube, two loaders with six HE rounds each): 12 HE + 4 smoke at the tube. Crew and rounds at the position are game values (low); the Bundeswehr mortar platoon's organisation was not found in search extracts."
+      "note": "M8.3a: one 120 mm tube and its crew of four (leader with the radio and the smoke rounds, gunner with the tube, two loaders with six HE rounds each): 12 HE + 4 smoke at the tube. Crew and rounds at the position are game values (low); the Bundeswehr mortar platoon's organisation was not found in search extracts. Ranks (owner 2026-11-15, \"realistic job distribution\"): a deployed professional unit of SaZ, so no Gefreiter (3 to 6 months of service) in a combat post; one most typical rank per slot (DECISIONS.md 2026-11-15 realistic ranks; medium at most)."
     },
     {
       "id": "moerser-gruppe",

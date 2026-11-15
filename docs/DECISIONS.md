@@ -5304,6 +5304,25 @@ applies. Software decisions:
   at 111 s (the German defender broke, 12 of 33 down; without the AI's drones 7, still fighting). The player-hold
   half of the test now runs on a fresh battle (same intent).
 
+Owner correction 2026-11-15 (binding; supersedes the review fix that moved the Leutnant's star up and the Winkel
+centring above): on the real slide every device is built up from the shoulder end. German slide, y from the shoulder
+end (exact millimetres still inferred, low; web searches only confirmed the counts, never positions):
+- Stripes: the lowest stripe's low end 5 mm above the shoulder end (centre 25.5 mm), 3 mm gaps upward; Gefreiter,
+  Obergefreiter and Hauptgefreiter all start there (were centred on the slide at 45 mm). Stabsgefreiter: the three
+  of the Hauptgefreiter, then the fourth set apart (9 mm gap instead of 3 mm; centres 25.5, 35.2, 45.0, 62.1).
+- Stars: the Leutnant's centred 20 mm above the shoulder end (lower third; was 42), the Oberleutnant's at 20 and 40
+  (were 33 and 55): a Hauptmann's third would go at 60.
+- Winkel inside the closed Tresse, low: the lowest one's legs end 4 mm above the Tresse's inner edge at the shoulder
+  end (Feldwebel's point at 27.2 mm, was 58.9; Oberfeldwebel's at 27.2 and 37.2, were 53.9 and 63.9). The
+  Kopfwinkel's legs end at the same height (its crossing at 24.5 mm, was 52). Reading chosen by the owner's rule
+  (no source found for the Winkel's place): low.
+- Russian sleeve re-checked, unchanged: it already follows the regulation figures from the shoulder end (first
+  stripe's edge and first star's centre 25 mm from the lower edge, rows 25 mm apart; Prikaz 525 tables 1 and 3,
+  medium-low).
+Tests: appearance.test pins the shoulder-end build-up (common lowest stripe, the Stabsgefreiter's top gap larger
+than the others, the Leutnant's star and the lowest Winkel in the lower part); insignia.test checks the drawn star
+is in the lower third. Appearance only: goldens unchanged.
+
 ## 2026-11-14 — Bail-out finding of M9.4b withdrawn (the coordinator's follow-up slice)
 The "latent bug" logged under M9.4b (a man who recovers later stays in an abandoned hull for good) does not exist:
 the bail-out keeps running while the crew's reaction is "bailOut", which it stays after the hull is abandoned, so a
@@ -5418,3 +5437,148 @@ Acceptance (plan step 8), reported as it stands after the one tuning pass:
   the village map (limit 60); bench-vehicles 12.2x (step 0: 11.4x, 12.6x), bench-combined 4.7x (4.4x, 4.9x),
   bench-medical 16.3x (17.4x, 20.1x).
 - Goldens: new `platoon-vehicles-tanks-s1` (seed 1, 240 s); every other golden unchanged by steps 2-5.
+## 2026-11-15 — Men down, identity tags, casualties and prisoners crawling to cover, prisoners' care, surrendered men under fog (owner requests 2026-11-15; goldens regenerated)
+Owner requests 2026-11-15 (binding), each logged here as "owner request 2026-11-15":
+- **A (bug): "surrendered enemy soldiers are always visible to the player."** Investigated: the renderer draws an enemy
+  man as a figure only when `fog.ts` `enemyMenInSight(overlay.known)` lists him (a "seen" contact under 2 s old), and
+  surrendered or captured men take the same path; `sideKnowledge` builds `known` from the side's able men's contacts
+  only. Measured (platoon and platoon-ru seeds 1-6, 900 s; prisoners only in platoon seeds 4 and 6): a prisoner was "in
+  sight now" in 81-88 % of samples, and in seed 4 (1,243 samples, one a second) an able enemy had a clear line to him
+  in the same share (10 samples in sight without one, all inside the 2 s window after he went behind something), so
+  the figure follows real sight; prisoners are in sight so
+  often because they walk over to the enemy, stand upright with hands up and are then kept next to their captor. A
+  prisoner put out of sight in the app (debug hook) is not drawn. What did not follow the fog rule: the white flag on
+  a known prisoner's contact marker was drawn at full strength however old the contact was, so a stale "where he
+  was" marker looked like a live sighting. Fixed: the flag fades with its marker (`drawWhiteFlag` alpha; `renderer.ts`).
+  Rule written down (HOW_IT_WORKS "Surrender"): surrendered and captured enemies are figures only while in sight now,
+  otherwise their contact marker or pin with the white flag. Test `medical-down.test.ts` "fog of war": a surrendered
+  enemy is in sight while seen and never "in sight now" once behind a wall, his contact keeping the surrender flag.
+  If the owner still sees prisoners where his men cannot, a seed and time would let us find it.
+- **B: "make soldiers collect body tags and drag wounded behind cover; soldiers should not know right away whether
+  someone is lost for good."** Built (systems/medical.ts header, core/medical.json `down`, game values, low):
+  - "Down, state unknown": a dead man his side has not checked (`SoldierState.checked`, new optional field; absent or
+    `dead: false` from before he died = unknown; `downUnknown` in sim/src/medical.ts). Comrades come to him as to an
+    urgent casualty (a first responder and a comrade within their reach, or a free man beside him); under fire the
+    carer drags him into cover first (the M10.3b drag; `startCarry` and the carry system accept a dead payload only for
+    a drag to cover while he is unknown; `medical.dragged` carries `deadNow`); then the `checkDown` action
+    (`down.checkS` 5 s) finds him dead (`medical.checked`). A living man is "checked" by a comrade's first treatment
+    (his triage). Carriers who feel the man they carry die know it (no check).
+  - Identity tags (rule 9): faction data `doctrine.json` `identityTag {item, perMan, taken}`: DE `de-erkennungsmarke`,
+    two items per man (the two halves), one taken (bundeswehr.de "Erkennungsmarke", search extract: perforated, both
+    halves stamped alike, one half for the formalities, one stays with the fallen; medium); RU `ru-lichny-znak`, one
+    per man, taken whole (MoD order No. 500 of 2000 and a legal Q&A, search extracts only; whether Russian practice
+    leaves it on the body is not in the extracts: low). Issued at setup to every man whose record has none (only with
+    the `down` data); masses typical values (low). After the check, the man who checked him takes the tag with the
+    `takeTag` action (`down.tagS` 8 s, `transferItems` from the body's container) when it is quiet for him (his
+    suppression below `down.tagSuppression` 0.1, not cowering, no rounds past him for `down.tagQuietS` 20 s; first
+    tried with "his unit not fired on for 20 s", which in seed-1 platoon left 5 of 6 tags behind for the whole battle);
+    else he goes back and a willing comrade fetches it later when it is quiet (`medical.tagTaken`). The body stays.
+  - Record (`RECORD_VERSION` 3; older saves start the review afresh) `SideRecord.down`; review Medical tab lines
+    `aar.medical.down`, `aar.medical.prisoners`; batch line "Men down"; man box "checking a comrade who is down",
+    "taking a fallen comrade's identity tag".
+- **C: "wounded soldiers that cannot walk might crawl behind cover as well."** A conscious casualty who cannot walk
+  (`impair.canWalk` false) but can use his arms, under fire for care, halted, not carried, crawls to the nearest spot
+  hidden from the enemy within `down.crawlSearchM` 10 m (`coverSpotNear`, `routeBetween`, way at most `crawlMaxM` 15 m)
+  at the crawl mode's pace times his `impair.move` (0.3 m/s × e.g. 0.46 with a broken leg), looked at every
+  `down.crawlLookS` 4 s, unless a carer of his is within `down.crawlCarerNearM` 15 m. `medical.crawled`;
+  `SoldierState.crawlCover`; the spot is his `sheltered` place once he is there (care in cover as after a drag).
+- **D: "same applies to surrendered that want to get out of the line of fire."** A surrendered man (not yet taken)
+  who is conscious and can use his arms, at `decisions.seekCoverSuppression` or more, crawls to the nearest spot within
+  `behaviour.json surrender.crawlSearchM` 15 m hidden from where the rounds come from (else the nearest enemy he
+  knows), way at most `crawlMaxM` 25 m; the walk over is paused (`handOver.down`) and goes on when the fire has faded,
+  or he waits there to be fetched. His crawl is not slowed by the hands-up walking factor. `surrender.crawl` event and
+  timeline line. `crawlSearchM` 0 or absent: the old rule (he lies where he is).
+- **E (coordinator relay, owner 2026-11-15): "medics also help surrendered enemy soldiers and don't discriminate
+  against them in their triage."** Laws-of-war default for every side, no faction difference in data (no per-unit
+  compliance value exists in medical.json): a prisoner's carers, buddy aid and first responders are the men of the
+  side holding him (`careSide`), with the same willingness rules as for a man of another squad; carers are now sent
+  to the casualties waiting for one urgent first (T1-looking needs), then in ID order — never by side (Geneva
+  Convention I art. 12). "Medic!" is not called on a prisoner's own radio. Test: a surrendered enemy with a massive
+  bleed gets the only first responder before an own man with a light wound (before this change he got nobody, and the
+  first responder went to the own man first by ID order). Review line counts treatments of men held prisoner.
+- **Software decisions (owner to review):** the check is needed only for the dead (a living man's state is known
+  from the first treatment); unknown dead men draw carers like urgent casualties, which takes first responders away
+  from the living for a while (the realism asked for); a carer at a body under fire waits beside it for the next
+  drag look (4 s) rather than checking at once; the tag is taken by the checker or fetched later, never by a man
+  under fire.
+- **State:** new optional fields only (`checked`, `crawlCover`; events `medical.checked`, `medical.tagTaken`,
+  `medical.crawled`, `surrender.crawl`, `deadNow` on `medical.dragged`). Save/load hash tests mid-check and mid-crawl
+  in `tools/test/medical-down.test.ts`.
+- **Measured** (10 seeds × 1200 s, before = c74e54d, after = this change; batch "Men down" line, sums over 10
+  battles, blue / red): platoon — killed 67 / 104, checked 38 / 38 (all found dead), dead dragged into cover before
+  the check 2 / 0, tags recovered from 26 / 33 fallen, wounded crawled to cover 5 / 4, prisoners' treatments by the
+  enemy 1 / 3, surrendered crawled 0 / 0; platoon-ru — killed 112 / 39, checked 26 / 29, dead dragged 2 / 1, tags 21 /
+  33, crawled 1 / 1, prisoners treated 3 / 0, surrendered crawled 0; platoon-vehicles — killed 67 / 247 (crews
+  included), checked 37 / 40, dead dragged 0 / 6, tags 38 / 30, crawled 0 / 3, prisoners treated 0 / 3, surrendered
+  crawled 0 / 1. Outcomes (attacker wins, before → after): platoon blue 3 → 3; platoon-ru red 8 → 7; platoon-vehicles
+  blue 7 → 9; mean casualties per side within ±2.2 men: within the noise of 10 seeds.
+- **Goldens regenerated** (`npm run golden:update`, intended: new data and behaviour): demo, shootout, fixture,
+  vehicles, fixture-cart, platoon-vehicles, village-occupy, house-clear. `golden/no-interiors` untouched.
+- **Not done:** no new sprite for checking a man or taking his tag (the man kneels beside the body; the man box says
+  what he does); a crawling casualty uses the existing crawl frame. The perf check of bench-vehicles was skipped (the
+  machine was loaded by another build); the new work runs once a second in the medical system, not per tick.
+## 2026-11-15 — "I don't find the drone tab": the Drone tile, launching from a riding HQ
+Owner report (deployed app, default mounted platoon battle, phone). Reproduced with Playwright on main (phone and
+desktop; default, `vehicles=0`, `side=red`): the Drone tile **was** there, second in the list under "Zug 1", in every
+case. What did not work was using it in the default battle: the drone's carrier (the Funker / the Vzvod commander)
+starts riding, `launcherOf` takes only men on foot, so a tap on the map after selecting the tile did nothing at all
+(the order came back "unable", no message beyond the radio's "unable"), and the tile said "on the ground" while he
+sat in the Puma — it read like a dead button. Also nothing marked the platoon HQ (next entry).
+Fix (realistic and simple: a small quadcopter is launched by hand from the ground, not from a moving IFV's hatch):
+the player's drone order carries `dismount: true`; if no one on foot can launch it and its carrier rides, he alone
+gets out first (the existing "dismount, then carry out the order" path, `dismountThen`) and then launches it; the
+radio says "dismounting first". The AI's drone orders have no flag and behave as before (goldens unchanged). The tile
+now reads "aboard, battery 100 % · gets out to launch" (`side.droneAboard`, grey edge) while he rides, sits directly
+under the new HQ tile, and stays while the drone is on the ground (with him riding or not) or in the air; it goes only
+when the drone is lost. Tests: `ui/test/hq-drone.test.ts`. Screenshot scene `--scene drone` now also plays the
+default mounted battle (`drone-*-mounted-*`).
+
+## 2026-11-15 — Owner request: the platoon HQ is its own unit; the whole platoon only from its tile
+Owner: "make the platoon HQ show as a unit that can mount/dismount. Don't make the whole platoon move when it is
+selected. This should only be a thing when selecting the whole platoon via the side tab." And: mark the HQ as HQ.
+The simulation has no separate HQ unit: the platoon unit's own `members` are its headquarters, its `children` the
+squads and crews. Least invasive correct solution (no new unit in the scenario, so the AI, the roster records, the
+drone's crew and the goldens stay as they are): an optional order flag `own: true` — "only the target unit's own
+men, not its sub-units or their vehicles" — for move, halt, mount, dismount, posture, fire, cease-fire, grenade, call
+for fire and rules (`OWN_ORDER_KINDS`; anything else, or a unit without men of its own or with a vehicle, is rejected
+"invalid-params"). In `sim/systems/orders.ts` it narrows the men to `members`, leaves the vehicles and missile teams
+under the unit alone, takes only these men out of the platoon's drill (the squads carry on) and skips the hand smoke
+screen; in `boarding.ts` getting in and out handles the unit alone. The AI never sets it.
+UI: a platoon now lists **Zug 1** (the whole platoon, "whole platoon" in the open list), then **HQ Zug 1** (kind
+`hqGroup`, a light "HQ" badge from `side.hq`; on the slim strip only the badge), then its Drone. The HQ tile, a tap on
+one of its men on the map, or a tap through the riders of the hull it rides in select the HQ (`overlay.selectedOwn`);
+its order bar is a squad's without the drills (assault, withdraw, occupy, clear), Mount and Dismount included; the
+app adds `own: true` to its orders; the map highlights only its men (and the hull they ride). The unit card shows the
+badge beside the callsign; the hull carrying the HQ reads "HQ aboard". Only the platoon tile (and Tab) select the
+whole platoon. Tests: HQ-only dismount/mount leave the squads aboard, HQ-only move leaves the squads still, the
+platoon tile's move moves everyone, `own` refused for a drill (`ui/test/hq-drone.test.ts`).
+Known limits: a drone operator who is flying cannot get back in until the drone has landed (he holds the controller,
+as before); the duplicate "Gruppa 1" callsign in the Russian platoon (two squad templates numbered separately) is
+unchanged.
+## 2026-11-15 — Realistic ranks per role (owner request: "make the job distribution more realistic")
+Owner (binding): a Gefreiter has 3 to 6 months of service and would hardly see a battle, let alone be the dedicated
+medic. Least invasive option chosen: one most typical rank per template slot (no rank distributions: `MemberSlot.rank`
+is a single id and `buildForce` copies it, so weights would need a schema and generator change for little gain).
+Skills are not tied to rank or role (they come from the quality level), so nothing else changes. Sources: search
+extracts only (web pages cannot be opened here), confidence medium at most, mostly low.
+- DE (deployed SaZ unit, no Gefreiter in combat posts; SLV: Gefreiter after 3, Obergefreiter 6, Hauptgefreiter 12,
+  Stabsgefreiter 36, Oberstabsgefreiter 48 months): Schuetzentrupp: Truppfuehrer Stabsunteroffizier, MG-Schuetze
+  Stabsgefreiter, Panzerfaustschuetze Hauptgefreiter, Gruppenscharfschuetze Oberstabsgefreiter, Granatpistolenschuetze
+  Obergefreiter, Einsatzersthelfer B Hauptgefreiter (was Gefreiter). Zug HQ: Zugfuehrer Leutnant (unchanged), Funker
+  and drone operator Stabsgefreiter, Sanitaeter Stabsunteroffizier (was Hauptgefreiter). Puma crews: Kommandant
+  (= Gruppenfuehrer) Feldwebel, Richtschuetze Unteroffizier, Fahrer Hauptgefreiter; the fourth (headquarters) Puma
+  gets its own crew template `puma-besatzung-zug` (fixed callsign "Puma 4") whose Kommandant is the Zugtruppfuehrer
+  and deputy platoon leader, a Hauptfeldwebel (a Bundeswehr Puma podcast names a Hauptfeldwebel commander and an
+  Oberstabsgefreiter Truppfuehrer). Boxer San: Notfallsanitaeter Feldwebel (Feldwebel career), driver Hauptgefreiter.
+  Mortar Trupp: leader Stabsunteroffizier, loaders Obergefreiter. Demo team: no Gefreiter.
+- DE new rank Oberstabsgefreiter (OR-4, grade 6; Unteroffizier..Hauptfeldwebel grades +1, grade is only an order).
+  Insignia: five Schraegstreifen (Anlage 2 BPrDGrUnifAnO, medium): the Stabsgefreiter's four built up from the
+  shoulder end, the fifth 9.7 mm above the set-apart fourth (y 71.8; positions low). Hauptmann/Stabsfeldwebel not
+  added (no template uses them).
+- RU (combat units contract-manned; a contract private usually stays ryadovoy or yefreytor): the first squad's leader
+  is the deputy platoon commander, starshiy serzhant (battleorder.org: BTR company deputy platoon commander a senior
+  sergeant); other squad leaders serzhant; machine gunners yefreytor (were ryadovoy); strelok-sanitar yefreytor (was
+  ryadovoy). BMP crews unchanged (commander mladshiy serzhant, gunner-operator and driver-mechanic yefreytor).
+- xf fixture unchanged.
+Catalog fingerprint changed: goldens regenerated with `npm run golden:update` (intended); `golden/no-interiors`
+untouched. appearance.test pins the Oberstabsgefreiter's five stripes (the Stabsgefreiter's four plus one).

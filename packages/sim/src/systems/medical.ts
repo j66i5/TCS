@@ -26,6 +26,18 @@
  * throws smoke to screen it); lying there, care is judged under fire on the helper's own suppression only. A man
  * being carried gets no care until he is put down. The casualty's unit calls "Medic!" on the radio for an urgent casualty,
  * and "Man down, treating" when a comrade starts on him (each at most once per `care.radioCooldownS` per unit).
+ *
+ * MEN DOWN, IDENTITY TAGS, CRAWLING (owner request 2026-11-15; core/medical.json `down`). A man who has gone down is to
+ * his comrades "down, state unknown" until one of them is beside him and checks him: a living man is checked by the
+ * first treatment of a comrade (his triage), a dead one by the `checkDown` action (`down.checkS`). Until then comrades
+ * come to a dead man as to an urgent casualty (a first responder and a comrade, or the man beside him), and under fire
+ * drag him to cover first — the check comes once he lies hidden. Found dead, his identity tag (faction data
+ * `identityTag`: the German tag's half, the Russian tag) is taken by the man who checked him with the `takeTag` action
+ * (`down.tagS`, `transferItems`), only when it is quiet enough (his suppression below `down.tagSuppression`, and
+ * no rounds past him for `down.tagQuietS`); else a willing comrade fetches it later, when it is that quiet. The body
+ * stays where it lies (rule 10). A conscious casualty who cannot walk but can use his arms crawls to the nearest spot
+ * hidden from the enemy close by (`down.crawlSearchM`, a way of at most `down.crawlMaxM`; the crawl pace times his
+ * wounds' impairment) while he is under fire for care, unless a carer of his is close.
  */
 import { registerActionHandler, startAction } from "../actions";
 import type { Action, SoldierState } from "../components";
@@ -33,9 +45,9 @@ import type { SimContext } from "../context";
 import type { EventSink } from "../events";
 import { secondsToTicks, type EntityId } from "../ids";
 import { canReport, isAble, isConscious } from "../impair";
-import { removeItems } from "../items";
+import { removeItems, transferItems } from "../items";
 import { routeBetween, routeWaypoints } from "../interior-nav";
-import { applyCareEffect, careNeed, isResponder, nextIntervention, SKILL_RANK, triageTag, trueTriage, type CareItem, type CarePlan } from "../medical";
+import { applyCareEffect, careNeed, downUnknown, isResponder, nextIntervention, SKILL_RANK, tagsLeft, triageTag, trueTriage, type CareItem, type CarePlan } from "../medical";
 import type { CareSkill } from "../catalog";
 import { hypot2 } from "../math";
 import { isMounted } from "../mount";
@@ -46,6 +58,7 @@ import { casualtyThreat, coverSpotNear, startCarry } from "./carry";
 import { coveredFrom } from "./decisions";
 import { screenCasualty } from "./smoke";
 import { refreshStatus } from "./wounds";
+import { isCowering } from "./morale";
 
 /** Is care to be given by the rules (medical data present, not switched off)? */
 export function careEnabled(ctx: SimContext): boolean {
@@ -116,8 +129,20 @@ function triage(ctx: SimContext, state: SimState, events: EventSink, by: EntityI
   const u1 = nextFloat(state.rng, Streams.medical), u2 = nextFloat(state.rng, Streams.medical);
   const cat = triageTag(ctx.catalog, actual, skill, underFire, u1, u2);
   cs.triage = { cat, by, tick: state.tick, skill };
+  // (A comrade treating him knows he is alive: checked, owner request 2026-11-15.)
+  if (ctx.catalog.medical!.down !== undefined) cs.checked = { tick: state.tick, by, dead: false };
   events.emit({ kind: "medical.triaged", tick: state.tick, casualty, by, cat, actual, skill, underFire });
   if (!old) medRadio(ctx, state, events, by, "radio.treating");
+}
+
+/**
+ * The side whose men care for him (owner request 2026-11-15, laws of war, Geneva Convention I art. 12): his own; a
+ * prisoner (surrendered or taken) the enemy's who hold him, like their own wounded, by medical urgency alone.
+ */
+export function careSide(state: SimState, c: EntityId): string | undefined {
+  const side = state.identity.get(c)?.side, s = state.soldier.get(c);
+  if (side === undefined || !s || s.captive === null) return side;
+  return state.sides.find((x) => x.id !== side)?.id;
 }
 
 /** Is this man free to treat a comrade now (not firing, busy, on the move, pinned down by panic)? */
@@ -216,6 +241,73 @@ registerActionHandler("treat", {
   },
 });
 
+/** Is `actor` beside `casualty` (buddy reach, a metre of slack; the same floor)? */
+function beside(ctx: SimContext, state: SimState, actor: EntityId, casualty: EntityId): boolean {
+  const pa = state.transform.req(actor), pb = state.transform.req(casualty);
+  const r = ctx.catalog.medical!.care.buddyReachM + 1;
+  return (pa.x - pb.x) * (pa.x - pb.x) + (pa.y - pb.y) * (pa.y - pb.y) <= r * r && Math.abs(pa.z - pb.z) <= 1.5;
+}
+
+/** Quiet enough to take a dead man's tag (owner request 2026-11-15): not suppressed, not cowering, no rounds past him lately. */
+export function tagSafe(ctx: SimContext, state: SimState, id: EntityId): boolean {
+  const D = ctx.catalog.medical!.down!, s = state.soldier.get(id);
+  if (!s || s.mental.suppression >= D.tagSuppression || isCowering(s)) return false;
+  return s.fireFrom === undefined || state.tick - s.fireFrom.tick > secondsToTicks(D.tagQuietS);
+}
+
+/** The check of a man down (owner request 2026-11-15): beside him, still, for `down.checkS`. */
+registerActionHandler("checkDown", {
+  check(ctx, state, actor, a) {
+    const casualty = Number(a.params["casualty"]);
+    const ps = state.soldier.get(actor);
+    if (!state.soldier.has(casualty)) return "gone";
+    if (!ps || !isConscious(ps) || !ps.impair.canUseArms || isMounted(ps)) return "unable";
+    if (!beside(ctx, state, actor, casualty)) return "out-of-reach";
+    if ((state.mover.get(actor)?.waypoints.length ?? 0) > 0) return "moving";
+    return null;
+  },
+  complete(ctx, state, actor, a, events) {
+    const casualty = Number(a.params["casualty"]), cs = state.soldier.get(casualty);
+    if (!cs) return;
+    cs.checked = { tick: state.tick, by: actor, dead: !cs.physiology.alive };
+    events.emit({ kind: "medical.checked", tick: state.tick, casualty, by: actor, dead: !cs.physiology.alive, dragged: a.params["dragged"] === 1 });
+  },
+});
+
+/** Taking a dead man's identity tag (owner request 2026-11-15): beside him, still, quiet, for `down.tagS`. */
+registerActionHandler("takeTag", {
+  check(ctx, state, actor, a) {
+    const casualty = Number(a.params["casualty"]);
+    const ps = state.soldier.get(actor);
+    if (!state.soldier.has(casualty) || tagsLeft(ctx.catalog, state, casualty) === null) return "gone";
+    if (!ps || !isConscious(ps) || !ps.impair.canUseArms || isMounted(ps)) return "unable";
+    if (!beside(ctx, state, actor, casualty)) return "out-of-reach";
+    if ((state.mover.get(actor)?.waypoints.length ?? 0) > 0) return "moving";
+    if ((state.tick + actor) % 30 === 0 && !tagSafe(ctx, state, actor)) return "under-fire";
+    return null;
+  },
+  complete(ctx, state, actor, a, events) {
+    const casualty = Number(a.params["casualty"]), tag = tagsLeft(ctx.catalog, state, casualty);
+    if (!tag) return;
+    const r = transferItems(ctx.catalog, state.container, { from: casualty, to: actor, type: tag.item, count: tag.count });
+    if (r.moved > 0) events.emit({ kind: "medical.tagTaken", tick: state.tick, casualty, by: actor, side: state.identity.req(casualty).side, item: tag.item, count: r.moved });
+  },
+});
+
+/** Start the check of a man down, or the taking of his tag (when it is quiet enough). True if started. */
+function startBodyWork(ctx: SimContext, state: SimState, events: EventSink, by: EntityId, c: EntityId): boolean {
+  const D = ctx.catalog.medical!.down!, cs = state.soldier.req(c);
+  if (downUnknown(ctx.catalog, cs)) {
+    startAction(state, events, by, "checkDown", secondsToTicks(D.checkS), { casualty: c, dragged: cs.sheltered !== undefined && isSheltered(state, c) ? 1 : 0 });
+    return true;
+  }
+  if (!cs.physiology.alive && tagsLeft(ctx.catalog, state, c) !== null && tagSafe(ctx, state, by)) {
+    startAction(state, events, by, "takeTag", secondsToTicks(D.tagS), { casualty: c });
+    return true;
+  }
+  return false;
+}
+
 /** How often a carer under fire looks for a spot to drag his casualty to (s). */
 const DRAG_LOOK_S = 4;
 
@@ -263,7 +355,7 @@ function tryDrag(ctx: SimContext, state: SimState, events: EventSink, helper: En
   const limitS = (spot.leg.cost / Math.max(0.1, drag?.speedMps ?? 0.7)) * 3 + 20;
   const party = startCarry(ctx, state, events, c, men, { x: spot.x, y: spot.y, z: 0 }, { purpose: "cover", underFire: true, limitS });
   if (!party) return false;
-  events.emit({ kind: "medical.dragged", tick: state.tick, casualty: c, by: helper, done: false, distanceM: Math.round(spot.leg.cost) });
+  events.emit({ kind: "medical.dragged", tick: state.tick, casualty: c, by: helper, done: false, distanceM: Math.round(spot.leg.cost), ...(cs.physiology.alive ? {} : { deadNow: true as const }) });
   // A comrade of his unit screens the drag with smoke if he has a grenade (D1 hook; the helper's hands are full).
   screenCasualty(ctx, state, events, helper, c, { x: threat.x, y: threat.y });
   return true;
@@ -317,10 +409,43 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
   carers.sort((a, b) => Number(state.soldier.req(b).intent!.responder === true) - Number(state.soldier.req(a).intent!.responder === true) || a - b);
   for (const id of carers) {
     const s = state.soldier.req(id), it = s.intent!, c = it.target ?? -1, cs = state.soldier.get(c);
-    const treating = state.action.get(id)?.kind === "treat" || s.carrying !== undefined;
+    const ak = state.action.get(id)?.kind;
+    const treating = ak === "treat" || ak === "checkDown" || ak === "takeTag" || s.carrying !== undefined;
     if (!isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") { releaseCarer(ctx, state, events, id, "unable", false); continue; }
-    if (!cs || !cs.physiology.alive || isMounted(cs) || cs.captive !== null) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
+    if (!cs || isMounted(cs) || careSide(state, c) !== state.identity.get(id)?.side) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
+    // A dead man (owner request 2026-11-15): he goes on while his comrades do not know it, or his tag is still on him.
+    const dead = !cs.physiology.alive;
+    if (dead && (cs.captive !== null || !(downUnknown(ctx.catalog, cs) || (!treating && tagsLeft(ctx.catalog, state, c) !== null)))) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
     if (state.tick - it.tick > secondsToTicks(K.timeoutS) && !treating) { releaseCarer(ctx, state, events, id, "gave-up", true); continue; }
+    if (dead) {
+      if (it.responder === true) responder.set(c, id); else comrades.set(c, (comrades.get(c) ?? 0) + 1);
+      if (treating) continue;
+      if (near(id, c)) {
+        const m = state.mover.get(id);
+        if (m && m.waypoints.length > 0) { m.waypoints = []; m.speedMps = 0; }
+        if (busy.has(c) || state.carry.has(c)) continue;
+        // Down, state unknown: under fire, first into cover (he may be dead, but nobody knows it yet); then the check.
+        const unknown = downUnknown(ctx.catalog, cs);
+        const fire = unknown && underFireForCare(ctx, state, id, c);
+        if (fire && !isSheltered(state, c)) {
+          // (Looked at every few seconds; no cover he can reach: he checks him where he lies.)
+          if ((state.tick + id) % secondsToTicks(DRAG_LOOK_S) >= secondsToTicks(C.stepS)) continue;
+          if (tryDrag(ctx, state, events, id, c)) { busy.set(c, id); continue; }
+        }
+        if (startBodyWork(ctx, state, events, id, c)) { busy.set(c, id); continue; }
+        // Known dead and too hot to take his tag now: back to his place (a comrade fetches it when it is quiet).
+        if (!unknown) {
+          if (it.responder === true) responder.delete(c); else comrades.set(c, (comrades.get(c) ?? 1) - 1);
+          releaseCarer(ctx, state, events, id, "dead", true);
+        }
+        continue;
+      }
+      if (!routeCarer(ctx, state, id, c)) {
+        if (it.responder === true) responder.delete(c); else comrades.set(c, (comrades.get(c) ?? 1) - 1);
+        releaseCarer(ctx, state, events, id, "no-way", true);
+      }
+      continue;
+    }
     // A first responder or medic beside him triages him (again, if a comrade tagged him), whether or not he treats.
     if (it.responder === true && !treating && near(id, c)) triage(ctx, state, events, id, c, underFireForCare(ctx, state, id, c));
     if (!treating && careNeed(ctx.catalog, state, c, params) === null) { releaseCarer(ctx, state, events, id, "done", true); continue; }
@@ -364,12 +489,12 @@ function leads(state: SimState, id: EntityId): boolean {
  */
 function pickCarer(ctx: SimContext, state: SimState, c: EntityId, responders: boolean, exposed: boolean, why?: { unwilling: number }): EntityId | null {
   const K = ctx.catalog.medical!.carers!;
-  const ci = state.identity.req(c), ct = state.transform.req(c);
+  const ci = state.identity.req(c), ct = state.transform.req(c), side = careSide(state, c);
   const reach = responders ? K.responderReachM : K.comradeReachM, r2 = reach * reach;
   let best: EntityId | null = null, bestD = Infinity;
   // mounted: ok a man aboard is never a carer (checked below)
   for (const [m, ident] of state.identity.entries()) {
-    if (m === c || ident.side !== ci.side) continue;
+    if (m === c || ident.side !== side) continue;
     const s = state.soldier.get(m);
     if (!s || !isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.evade !== null || state.action.has(m)) continue;
     if (s.intent !== null && s.intent.kind !== "engage" && s.intent.kind !== "cover") continue;
@@ -410,10 +535,57 @@ export function hasCarer(state: SimState, c: EntityId): boolean {
   return state.carry.has(c);
 }
 
+/**
+ * A conscious casualty who cannot walk but can use his arms crawls to cover (owner request 2026-11-15): while under
+ * fire for care, to the nearest spot hidden from the enemy within `down.crawlSearchM` (a way of at most
+ * `down.crawlMaxM`), unless a carer of his is within `down.crawlCarerNearM` or he is carried. True if he set off.
+ */
+function crawlToShelter(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, s: SoldierState): boolean {
+  const D = ctx.catalog.medical!.down!, crawl = ctx.catalog.behaviour.soldier.crawlMode;
+  if (D.crawlSearchM <= 0 || !ctx.catalog.movementModes[crawl]) return false;
+  if (!isConscious(s) || s.impair.canWalk || !s.impair.canUseArms || s.captive !== null || isMounted(s) || state.action.has(id) || state.carry.has(id) || s.carrying !== undefined) return false;
+  if (state.tick < s.stunnedUntilTick || (state.tick + id) % secondsToTicks(D.crawlLookS) >= secondsToTicks(ctx.catalog.medical!.care.stepS)) return false;
+  const m = state.mover.get(id), t = state.transform.req(id);
+  if (!m || m.waypoints.length > 0 || t.z > 0.5 || isSheltered(state, id) || !underFireForCare(ctx, state, id, id)) return false;
+  // A carer of his close by: he waits for him.
+  const r2 = D.crawlCarerNearM * D.crawlCarerNearM;
+  // mounted: ok a man aboard has no care intent
+  for (const [cid, cs] of state.soldier.entries()) {
+    if (cs.intent?.kind !== "care" || cs.intent.target !== id) continue;
+    const ct = state.transform.req(cid);
+    if ((ct.x - t.x) * (ct.x - t.x) + (ct.y - t.y) * (ct.y - t.y) <= r2) return false;
+  }
+  const threat = casualtyThreat(state, id, id);
+  if (!threat) return false;
+  const lie = ctx.catalog.body.postures.prone.heightM * 0.6;
+  if (coveredFrom(ctx, t.x, t.y, threat.x, threat.y, lie, t.z, threat.z)) { s.sheltered = { x: t.x, y: t.y }; return false; }
+  const spot = coverSpotNear(ctx, t.x, t.y, t.z, threat, D.crawlSearchM, D.crawlMaxM);
+  if (!spot) return false;
+  m.waypoints = routeWaypoints(spot.leg, { x: 0, y: 0, mode: crawl }).map((w) => ({ ...w, posture: "prone" as const, bolt: true as const }));
+  m.formation = null; m.endPosture = "prone"; m.endHeading = spot.face;
+  s.sheltered = { x: spot.x, y: spot.y };
+  s.crawlCover = { x: spot.x, y: spot.y, tick: state.tick };
+  events.emit({ kind: "medical.crawled", tick: state.tick, casualty: id, distanceM: Math.round(spot.leg.cost) });
+  return true;
+}
+
+/** A dead man whose comrades still have something to do for him: check him, or take his tag (owner request 2026-11-15). */
+function bodyNeedsWork(ctx: SimContext, state: SimState, id: EntityId, s: SoldierState): boolean {
+  if (ctx.catalog.medical!.down === undefined || s.captive !== null || isMounted(s) || state.carry.has(id)) return false;
+  return downUnknown(ctx.catalog, s) || tagsLeft(ctx.catalog, state, id) !== null;
+}
+
+/** Who is checking or taking the tag of whom right now (casualty -> performer). */
+function bodyWorkNow(state: SimState): Map<EntityId, EntityId> {
+  const out = new Map<EntityId, EntityId>();
+  for (const [actor, a] of state.action.entries()) if (a.kind === "checkDown" || a.kind === "takeTag") out.set(Number(a.params["casualty"]), actor);
+  return out;
+}
+
 /** Self-aid, buddy aid and carers, every `care.stepS`. */
 export function medicalSystem(ctx: SimContext, state: SimState, events: EventSink): void {
   if (!careEnabled(ctx)) return;
-  const C = ctx.catalog.medical!.care, K = ctx.catalog.medical!.carers;
+  const C = ctx.catalog.medical!.care, K = ctx.catalog.medical!.carers, DN = ctx.catalog.medical!.down;
   const every = Math.max(1, secondsToTicks(C.stepS));
   if (state.tick % every !== 0) return;
   const params = ctx.physiologyParams;
@@ -423,12 +595,37 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
   if (K) {
     // mounted: ok only looks for carers (stepCarers releases one aboard)
     for (const [, s] of state.soldier.entries()) if (s.intent?.kind === "care") { busy = treatedNow(state); break; }
-    if (busy !== null) slots = stepCarers(ctx, state, events, busy);
+    if (busy !== null) {
+      for (const [c, m] of bodyWorkNow(state)) busy.set(c, m);
+      slots = stepCarers(ctx, state, events, busy);
+    }
   }
   const reach2 = C.buddyReachM * C.buddyReachM;
   const waiting: EntityId[] = [];
+  /** The nearest free man of `side` within buddy reach of `id`, on his floor (ties: the lower id), or null. */
+  const freeBeside = (id: EntityId, side: string | undefined, b: Map<EntityId, EntityId>): EntityId | null => {
+    const t = state.transform.req(id);
+    let best: EntityId | null = null, bestD = Infinity;
+    // mounted: ok men aboard are never free helpers (freeHelper)
+    for (const [m, ident] of state.identity.entries()) {
+      if (m === id || ident.side !== side) continue;
+      const o = state.transform.req(m);
+      const dx = o.x - t.x, dy = o.y - t.y, d = dx * dx + dy * dy;
+      if (d > reach2 || d >= bestD || Math.abs(o.z - t.z) > 1.5) continue;
+      if (!freeHelper(state, m) || b.has(m)) continue;
+      best = m; bestD = d;
+    }
+    return best;
+  };
+  const bodies: EntityId[] = [];
+  // mounted: ok men aboard are skipped below (bodyNeedsWork, isMounted)
   for (const [id, s] of state.soldier.entries()) {
-    if (s.wounds.length === 0 || !s.physiology.alive || isMounted(s)) continue;
+    if (!s.physiology.alive) {
+      // A man down whose state his comrades do not know, or whose tag is still on him (owner request 2026-11-15).
+      if (DN !== undefined && bodyNeedsWork(ctx, state, id, s)) bodies.push(id);
+      continue;
+    }
+    if (s.wounds.length === 0 || isMounted(s)) continue;
     if (state.carry.has(id)) continue; // being carried (M10.4a): cared for when he is put down
     busy ??= treatedNow(state);
     if (busy.has(id)) { waiting.push(id); continue; }
@@ -448,23 +645,13 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
       }
       // (He is awake and could treat himself, but nothing he can do: a comrade beside him may do what he cannot.)
     }
-    if (s.captive !== null) continue; // a prisoner's care is his captors' (M10.8)
+    // Cannot walk, under fire: he crawls to cover himself unless help is close (owner request 2026-11-15).
+    if (DN !== undefined && crawlToShelter(ctx, state, events, id, s)) continue;
     // (A man awake and on the move is not treated by a comrade standing by: he walks on.)
     if (isConscious(s) && (state.mover.get(id)?.waypoints.length ?? 0) > 0) continue;
     waiting.push(id);
-    // Buddy aid: the nearest free comrade of his side within reach (ties: the lower id).
-    const side = state.identity.req(id).side;
-    const t = state.transform.req(id);
-    let best: EntityId | null = null, bestD = Infinity;
-    // mounted: ok men aboard are never free helpers (freeHelper)
-    for (const [m, ident] of state.identity.entries()) {
-      if (m === id || ident.side !== side) continue;
-      const o = state.transform.req(m);
-      const dx = o.x - t.x, dy = o.y - t.y, d = dx * dx + dy * dy;
-      if (d > reach2 || d >= bestD || Math.abs(o.z - t.z) > 1.5) continue;
-      if (!freeHelper(state, m) || busy.has(m)) continue;
-      best = m; bestD = d;
-    }
+    // Buddy aid: the nearest free man of his side (a prisoner: of the side holding him) within reach.
+    const best = freeBeside(id, careSide(state, id), busy);
     if (best === null) continue;
     const fire = underFireForCare(ctx, state, best, id);
     const plan = nextIntervention(ctx.catalog, state, best, id, fire, params);
@@ -472,21 +659,37 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
     startTreatment(ctx, state, events, best, id, plan, fire);
     busy.set(id, best);
   }
-  if (!K || waiting.length === 0) return;
+  // ---- men down, dead (owner request 2026-11-15): the man beside him checks him, or takes his tag
+  const bodyWait: EntityId[] = [];
+  if (bodies.length > 0) {
+    busy ??= treatedNow(state);
+    for (const [c, m] of bodyWorkNow(state)) busy.set(c, m);
+    for (const c of bodies) {
+      if (busy.has(c)) continue;
+      const best = freeBeside(c, careSide(state, c), busy);
+      if (best !== null && startBodyWork(ctx, state, events, best, c)) { busy.set(c, best); busy.set(best, c); continue; }
+      bodyWait.push(c);
+    }
+  }
+  if (!K || (waiting.length === 0 && bodyWait.length === 0)) return;
   slots ??= { responder: new Map(), comrades: new Map() };
   // ---- carers for those who need more than the men beside them can give (owner Q-2a: the first responder plus at
-  // most `comradesPerCasualty` comrades per casualty)
-  for (const c of waiting) {
+  // most `comradesPerCasualty` comrades per casualty). By medical urgency first, never by side (owner 2026-11-15:
+  // prisoners like one's own, Geneva Convention I art. 12); then in ID order.
+  const needs = new Map<EntityId, { urgent: boolean } | null>();
+  for (const c of waiting) needs.set(c, careNeed(ctx.catalog, state, c, params));
+  const order = waiting.map((c, i) => ({ c, i, u: needs.get(c)?.urgent === true ? 0 : 1 })).sort((p, q) => p.u - q.u || p.i - q.i).map((x) => x.c);
+  for (const c of order) {
     const cs = state.soldier.req(c);
-    if (cs.captive !== null) continue;
     // At the Verwundetennest (M10.5) the platoon medic sees to him (systems/nest.ts), no carers from the line.
     if (cs.atNest !== undefined) { if (cs.careWait !== undefined) delete cs.careWait; continue; }
-    const need = careNeed(ctx.catalog, state, c, params);
+    const need = needs.get(c) ?? null;
     if (!need) { if (cs.careWait !== undefined) delete cs.careWait; continue; }
     const treater = busy!.get(c);
     const exposed = underFireForCare(ctx, state, c, c);
     let r = slots.responder.get(c), n = slots.comrades.get(c) ?? 0;
-    if (need.urgent) callMedic(ctx, state, events, c, cs);
+    // ("Medic!" on his own side's radio: not for a prisoner.)
+    if (need.urgent && cs.captive === null) callMedic(ctx, state, events, c, cs);
     // Why nobody comes (debug overlay, M10.3b): men in reach but none willing, or the one willing cannot do anything.
     const why = { unwilling: 0 };
     let noKit = false;
@@ -512,5 +715,20 @@ export function medicalSystem(ctx: SimContext, state: SimState, events: EventSin
     }
     if (treater !== undefined || r !== undefined || n > 0) { if (cs.careWait !== undefined) delete cs.careWait; }
     else cs.careWait = noKit ? "no-kit" : why.unwilling > 0 ? (exposed ? "too-exposed" : "unwilling") : "nobody";
+  }
+  // ---- carers for the dead (owner request 2026-11-15): a man down whose state is unknown looks like an urgent
+  // casualty (a first responder and a comrade come, as for any); a man known dead whose tag is still on him: one
+  // willing comrade fetches it once it is quiet where that comrade is.
+  for (const c of bodyWait) {
+    const cs = state.soldier.req(c);
+    const r = slots.responder.get(c), n = slots.comrades.get(c) ?? 0;
+    const exposed = underFireForCare(ctx, state, c, c);
+    if (downUnknown(ctx.catalog, cs)) {
+      if (r === undefined) { const m = pickCarer(ctx, state, c, true, exposed); if (m !== null && assignCarer(ctx, state, events, m, c, true)) slots.responder.set(c, m); }
+      if (n < K.comradesPerCasualty) { const m = pickCarer(ctx, state, c, false, exposed); if (m !== null && assignCarer(ctx, state, events, m, c, false)) slots.comrades.set(c, n + 1); }
+    } else if (r === undefined && n === 0) {
+      const m = pickCarer(ctx, state, c, false, exposed);
+      if (m !== null && tagSafe(ctx, state, m) && assignCarer(ctx, state, events, m, c, false)) slots.comrades.set(c, 1);
+    }
   }
 }

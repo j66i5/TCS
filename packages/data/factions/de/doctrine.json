@@ -131,5 +131,15 @@
       "droneReadM": 3,
       "airReadM": 6
     }
+  },
+  "identityTag": {
+    "item": "de-erkennungsmarke",
+    "perMan": 2,
+    "taken": 1,
+    "sources": [
+      "https://www.bundeswehr.de/de/ausruestung-technik-bundeswehr/persoenliche-ausruestung-bekleidung/erkennungsmarke-6162196"
+    ],
+    "confidence": "medium",
+    "note": "Every soldier wears the Erkennungsmarke (two halves, counted as two items); from a man confirmed dead a comrade breaks off one half and takes it; the other stays with the body (bundeswehr.de 'Erkennungsmarke', search extract: medium)."
   }
 }

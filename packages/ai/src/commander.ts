@@ -506,7 +506,8 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       // own fire only takes what its own two or three men see).
       const mt = u.missileTeam!;
       // Nothing to fire at from here for a while (its last order, or since it was laid): on to its next post.
-      if (mt.state === "ready" && mt.burst === undefined && st.posts.length > 1 && tick - Math.max(st.launch, mt.readyTick) > COMMANDER.aglRepostSeconds * 60) {
+      // (Review fix: its own bursts count as firing: a team firing on its own is not moved.)
+      if (mt.state === "ready" && mt.burst === undefined && st.posts.length > 1 && tick - Math.max(st.launch, mt.readyTick, mt.lastLaunchTick) > COMMANDER.aglRepostSeconds * 60) {
         st.post = (st.post + 1) % st.posts.length; st.sent = -1e9; st.launch = tick;
         continue;
       }

@@ -338,6 +338,11 @@ export interface BehaviourDef {
     underFireSuppression: number; underFireMemorySeconds: number; seenWithinSeconds: number; contactLostSeconds: number;
     seekCoverSuppression: number; coverSearchM: number; coverRetrySeconds: number; threatEyeHeightM: number;
     shareRangeM: number; keepSpare: number; passSeconds: number;
+    /** Self-defence under rule "return" (sight realism step 2, 2026-11-15): not fired on lately, a man still opens
+     *  fire on his own at an enemy he sees (not spared) out to this range (in the dark no farther than the night
+     *  ranges); his unit's and his top unit's `seenContactTick` lets his comrades throw a grenade too. Absent or 0:
+     *  off (rule return waits for fire, as before). */
+    returnCloseM?: number;
     ammoIntervalFactor: Record<AmmoRule, number>;
     /** Night fire discipline (M9.6): while `environment.light` is below `belowLight` and his platoon has not been fired
      *  on lately, a man opens fire on his own only out to `engageRangeM` (by weapon, as the day ranges). Absent: none. */
@@ -350,6 +355,10 @@ export interface BehaviourDef {
     /** A moving unit also goes to ground when a unit of its platoon this close (centre to centre) comes under fire
      *  anew; 0 = only the unit fired on (overnight pick 2026-11-14). */
     reactNeighbourM: number;
+    /** React to contact on sight (sight realism step 2): a moving unit also goes to ground when one of the men
+     *  carrying its move sees (anew: after `decisions.contactLostSeconds` without) an enemy, not spared, within
+     *  reactSeenM (by day) or reactSeenNightM (below `decisions.night.belowLight`). Absent or 0: off. */
+    reactSeenM?: number; reactSeenNightM?: number;
     /** A bound ends once this share of its able, non-cowering runners have stopped, or when the last runner
      *  still moving has trailed the others (the moment the moving ones became a single man) by `stragglerS`
      *  (overnight pick "assault-tempo" 2026-11-14). */
@@ -515,6 +524,15 @@ export interface BehaviourDef {
     riseBelowSuppression: number; lookEverySeconds: number; faceEnemy: boolean; rearWatchMinMen: number;
     atMoveM: number; atMoveMinRangeM: number; atMoveRetrySeconds: number; atContactSeconds: number;
     grenadeEverySeconds: number; grenadeClearM: number; grenadeContactSeconds: number; assaultFireM: number; assaultFireAimFactor: number;
+    /**
+     * Close-range fire (sight realism step 2, game values, low). moveEngageM: a man running (`hurryMode`), in an
+     * assault or on a push fires on the move at an enemy he sees within this range. pinnedSelfDefenceM: a pinned man
+     * (not panicked) fires, lying, at an enemy he sees within this range. closeThreatM: an enemy he sees within this
+     * range in his front arc (`spotting.frontHalfAngleDeg`): he fires at him whatever else he is doing (an errand,
+     * a drill's or an order's fire at a point more than closeThreatTaskFactor times farther, care, which waits).
+     * Absent or 0: off.
+     */
+    moveEngageM?: number; pinnedSelfDefenceM?: number; closeThreatM?: number; closeThreatTaskFactor?: number;
     friendBeyondM: number; overlapM: number; overlapCheckSeconds: number;
     /** The rings (m) a man on top of a comrade looks for a free spot on, nearest first (review fixes 2026-11-14). */
     stepAsideM: number[];

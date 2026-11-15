@@ -413,6 +413,11 @@ function stepCarers(ctx: SimContext, state: SimState, events: EventSink, busy: M
     const treating = ak === "treat" || ak === "checkDown" || ak === "takeTag" || s.carrying !== undefined;
     if (!isAble(s) || !s.impair.canWalk || !s.impair.canUseArms || isMounted(s) || s.mental.behaviour === "panicked" || s.mental.behaviour === "routed") { releaseCarer(ctx, state, events, id, "unable", false); continue; }
     if (!cs || isMounted(cs) || careSide(state, c) !== state.identity.get(id)?.side) { releaseCarer(ctx, state, events, id, "gone", true); continue; }
+    // An enemy close in front of him (sight realism step 2, decisions.ts closeThreat): his care waits while he fights.
+    if (s.closeThreatTick !== undefined && state.tick - s.closeThreatTick <= secondsToTicks(ctx.catalog.behaviour.decisions.contactLostSeconds)) {
+      if (it.responder === true) responder.set(c, id); else comrades.set(c, (comrades.get(c) ?? 0) + 1);
+      continue;
+    }
     // A dead man (owner request 2026-11-15): he goes on while his comrades do not know it, or his tag is still on him.
     const dead = !cs.physiology.alive;
     // (Review fix: not while he is checking him or taking the tag: he finishes and walks back.)

@@ -572,7 +572,8 @@ function enteringHouse(ctx: SimContext, state: SimState, uid: EntityId): boolean
 /**
  * The men on foot carrying this unit's move into `out`: its own men, and the men on their way (with waypoints) of
  * sub-units without a move or drill of their own (a move given to the whole platoon); returns when they last came
- * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`). A halted squad under
+ * under fire anew (`Unit.ownContactTick`; a crew also by hits on its own hull, `contactTick`) or saw an enemy anew
+ * within `drills.reactSeenM` (`Unit.seenSpellTick`, set by decisions.ts; sight realism step 2). A halted squad under
  * the platoon is not part of its headquarters' move.
  */
 function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false): number {
@@ -580,7 +581,8 @@ function moveGroup(state: SimState, uid: EntityId, out: EntityId[], sub = false)
   if (!u) return -1e9;
   const n0 = out.length;
   for (const m of u.members) if (state.soldier.get(m)?.mount === undefined && (!sub || (state.mover.get(m)?.waypoints.length ?? 0) > 0)) out.push(m);
-  let t = out.length > n0 || !sub ? (u.ownContactTick ?? -1e9) : -1e9;
+  // (Fired on anew, or an enemy seen anew close by: sight realism step 2, `drills.reactSeenM`.)
+  let t = out.length > n0 || !sub ? Math.max(u.ownContactTick ?? -1e9, u.seenSpellTick ?? -1e9) : -1e9;
   if (u.vehicle !== undefined && u.contactTick > t) t = u.contactTick;
   for (const c of u.children) {
     const cu = state.unit.get(c);
@@ -628,7 +630,7 @@ export function drillSystem(ctx: SimContext, state: SimState, events: EventSink)
         for (const m of panicked) rout(ctx, state, m, u.drill, events, knownEnemy(state, men));
       }
     }
-    // ---- react to contact: on the move, fired upon anew since the move began; only the men carrying this move
+    // ---- react to contact: on the move, fired upon anew (or an enemy seen anew close by) since the move began; only the men carrying this move
     // (its own, and sub-units without a move of their own) or a unit of the platoon close by (reactNeighbourM)
     if (D.reactToContact && u.moving && !u.drill && !u.broken && u.onContact !== "push") {
       const group: EntityId[] = [];

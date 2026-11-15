@@ -686,11 +686,11 @@
     "reachM": 2,
     "holdSuppression": 0.3,
     "resumeQuietS": 10,
-    "selfDefenceM": 30,
+    "selfDefenceM": 40,
     "massRefKg": 105,
     "sources": [],
     "confidence": "low",
-    "note": "M10.4a carrying parties (game values, none published): carriers gather within reachM of the casualty before they set off; a party whose carrier is pinned or at holdSuppression or more takes cover with the casualty (owner M10-2 Q-2f) and goes on after resumeQuietS quiet; carriers fire only at an enemy within selfDefenceM (self-defence, owner); massRefKg: the casualty mass the carry speeds are for (a soldier in kit, about 105 kg: Vine et al. 2023 used 110 kg)."
+    "note": "M10.4a carrying parties (game values, none published): carriers gather within reachM of the casualty before they set off; a party whose carrier is pinned or at holdSuppression or more takes cover with the casualty (owner M10-2 Q-2f) and goes on after resumeQuietS quiet; carriers fire only at an enemy within selfDefenceM (self-defence, owner; 30 m until sight realism step 2, 2026-11-15: 40 m, as soldier.closeThreatM, and also while the party lies in cover); massRefKg: the casualty mass the carry speeds are for (a soldier in kit, about 105 kg: Vine et al. 2023 used 110 kg)."
   },
   "vehicleLoading": {
     "fetchM": 150,

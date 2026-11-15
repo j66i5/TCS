@@ -148,6 +148,9 @@ export interface SoldierState {
   intent: Intent | null;
   /** Last tick he went looking for cover on his own. */
   coverTick: number;
+  /** Sight realism step 2: the last tick he saw an enemy within `soldier.closeThreatM` in his front arc while he was
+   *  caring for a comrade; his care waits until `decisions.contactLostSeconds` after it. Optional (absent = never). */
+  closeThreatTick?: number;
   /**
    * Casualty status already reported: none, incapacitated (unconscious or unable to act) or killed.
    * Physical only: surrender lives in `captive`.
@@ -483,6 +486,12 @@ export interface Unit {
    *  Optional (absent = never). */
   ownFireTick?: number;
   ownContactTick?: number;
+  /** Sight realism step 2 (2026-11-15): the last tick a man of this unit (or, on a top unit, of any unit under it)
+   *  saw an enemy, not spared, within `drills.reactSeenM` (night: `reactSeenNightM`); and on the man's own unit the
+   *  start of that spell of sightings (anew after `decisions.contactLostSeconds` without one): react to contact on
+   *  sight goes by it, as by `ownContactTick`. Optional (absent = never). */
+  seenContactTick?: number;
+  seenSpellTick?: number;
   /** Tick of the last order delivered to this unit or one of its men (M6.6: no prisoner errands right after). */
   orderTick: number;
   /** A drill in progress (M4.3), and whether the unit has broken and is running back. */

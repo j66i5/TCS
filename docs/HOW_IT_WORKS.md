@@ -772,15 +772,23 @@ and break a mounted platoon within seconds.)
 ## Thinking for themselves
 
 Between orders each man decides a few things for himself, once a second. **Fire rules** (per unit, set with
-the `rules` order): *free* — fire at any enemy you see; *return* (the default) — only once your unit has been
-fired on in the last 30 s; *hold* — never without an order. A cease-fire order holds until the unit is fired on
-again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
+the `rules` order): *free* — fire at any enemy you see; *return* (the default) — at any range once your unit has
+been fired on in the last 30 s, and before that only at an enemy he sees within 100 m (self-defence: an enemy close
+in front of him is shot at, not watched); *hold* — never without an order. A cease-fire order holds until the unit
+is fired on again. He engages an enemy he sees within the range his weapon is used at (rifle 400 m, a 4x-or-more sight
 600 m, machine gun 800 m), choosing the one who matters most: close, firing (a machine gun most of all),
 standing. He stops when he has lost sight of him. An order always wins over his own choice. **Under fire** and
 visible to the enemy he knows of, he runs to the nearest spot within 15 m where that enemy cannot see him lying
 down — preferably one he can fire from on his knees (a bank, a low wall). **Out of spare magazines or belts**,
 he gets one from the nearest comrade within 30 m who has more than two (or carries belts for the gun): the
-comrade runs up behind him and hands it over in 3 s. With Debug on, a line shows each man's own decision
+comrade runs up behind him and hands it over in 3 s. **An enemy close by** (added with the sight realism work,
+2026-11-15): a man who sees an enemy within 40 m in front of him fires at him whatever else he is doing — on his way
+to fetch ammunition, caring for a wounded comrade (the care waits until he has not seen such an enemy for 10 s), or
+firing on an order or a drill at a point more than twice as far away. A pinned man (not a panicked one) fires back,
+lying where he is and at his pinned rate, at an enemy he sees within 50 m. A man running, in an assault or on a
+push fires as he goes at an enemy he sees within 75 m (badly aimed, as assault fire). Carriers of a wounded man fire
+in self-defence within 40 m (30 m before), also while the party lies in cover. Hold, a cease-fire, an ambush not yet
+sprung, a range limit and a defend arc still hold for all of these. With Debug on, a line shows each man's own decision
 (orange: the enemy he engages, blue: the cover he runs to, green: the man he brings ammunition to).
 
 ## The single soldier (owner's packages, 2026-11-13)
@@ -862,8 +870,10 @@ line; he rises again just in time for the next shot, so his rate of fire is the 
 ## Squad drills
 
 **Contact.** A unit on the move that comes under fire after a quiet spell stops, its men go down and seek cover
-and fire back under their fire rule; the radio says "contact! Taking cover." Only the unit whose own men are fired
-on does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
+and fire back under their fire rule; the radio says "contact! Taking cover." The same happens when one of its men
+sees an enemy close by — within 150 m by day, 75 m in the dark — who had not been in sight for 10 s (an enemy
+already in sight when the move was ordered does not stop it). Only the unit whose own men are fired on (or see the
+enemy) does this, and any unit of the same platoon on the move within 25 m of it; a squad further off with its own move
 goes on (a move given to the whole platoon still stops it all). **Moving under fire.** A man on a walk or sneak leg
 who comes under fire (suppressed at least 0.1) runs the rest of his way, and walks again only after
 10 s without fire: nobody walks on into fire. This is his own reaction, so it applies to your orders too. **Assault** (order, with a point):

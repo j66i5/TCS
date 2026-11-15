@@ -5,6 +5,13 @@ history that stood here until today is kept in `docs/history/STATE-until-2026-11
 DECISIONS.md under its date._
 
 ## Where we are
+- **Sight realism, step 2 of 5: an enemy close in front gets shot at (2026-11-15, branch `claude/sight-realism`).**
+  Rule "return" now lets a man fire at an enemy he sees within 100 m without waiting to be fired on; a moving unit
+  goes to ground when it sees an enemy anew within 150 m (75 m in the dark); runners, assaults and pushes fire on the
+  move within 75 m; pinned men fire back within 50 m; an enemy within 40 m in front is fired at whatever else a man is
+  doing (care waits). Spotting itself is unchanged. Numbers in DECISIONS "Sight realism, step 2". Open: walking across
+  an enemy's front 76 % within 15 s (goal 80 %: the misses never spot the prone man — step 3's spotting work); drill
+  fire at an objective still ignores an enemy at 40-100 m.
 - **Sight realism, step 1 of 5: measuring tools and baseline (2026-11-15, branch `claude/sight-realism`, on the
   morale rework; owner request "make the line of sight more realistic").** No behaviour change yet. New labs:
   `npm run lab -- engage` (does a man shoot an enemy right in front of him?), `npm run lab -- reacquire` (men who

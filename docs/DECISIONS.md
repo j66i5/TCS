@@ -6747,3 +6747,56 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
 - No behaviour change: `sim`, `ai` and data untouched, goldens unchanged. Tests: `lab-engage.test.ts` (hold never
   fires; free and halted fires within 10 s at 30 m), `lab-reacquire.test.ts` (options; counts consistent over a
   short village-occupy battle), a sight realism row in `lab-spotting.test.ts`.
+
+## 2026-11-15 — Sight realism, step 2 of 5: an enemy close in front gets shot at (behaviour gates; spotting untouched)
+- **What changed** (all game values, low confidence, in line with the immediate-action drill "react to contact:
+  return fire, get down"; search extracts only; the spotting rates are untouched — the audit showed a standing enemy
+  within 100 m in the open is seen after a median 0.5 s, and the delay was in the rules that let a man fire):
+  - **Self-defence under rule "return"** (`decisions.returnCloseM` 100): not fired on lately, a man still opens fire
+    on his own at an enemy he sees (not spared) within 100 m; in the dark no farther than the night ranges (the
+    existing night limit still applies). New optional `Unit.seenContactTick` (his unit and the top unit) lets his
+    comrades throw a hand grenade under "return" too. Anti-tank shots on his own still need the full rule. Hold, a
+    cease-fire with no fire since, an ambush not yet sprung, `maxEngageM` and a defend arc stay absolute. A self fire
+    task now ends when its enemy moves beyond the range he may fire at (`fireReach`).
+  - **React to contact on sight** (`drills.reactSeenM` 150, `reactSeenNightM` 75): a moving unit also goes to ground
+    when one of the men carrying its move sees an enemy anew (none in sight within `contactLostSeconds` before:
+    new optional `Unit.seenSpellTick`, set by decisions.ts) after the move began. An enemy already in sight when the
+    move was ordered does not stop it (otherwise every move in contact would stop at once). Push, entering a house and
+    the other existing exceptions still skip it.
+  - **Fire on the move** (`soldier.moveEngageM` 75): a man running (`hurryMode`), in an assault or on a push fires as
+    he goes (assault-fire aiming penalty) at an enemy he sees within 75 m. Walking and sneaking moves stop instead.
+  - **Pinned self-defence** (`soldier.pinnedSelfDefenceM` 50): a pinned man (not panicked) with an enemy he sees
+    within 50 m and a line lying down fires back, at the pinned rate.
+  - **Close threat** (`soldier.closeThreatM` 40, `closeThreatTaskFactor` 2): an enemy he sees within 40 m in his front
+    arc (`spotting.frontHalfAngleDeg`) is fired at whatever else he does: an errand (on the move: as he goes), care
+    (the treatment is broken off and his care waits until 10 s after he last saw such an enemy: new optional
+    `SoldierState.closeThreatTick`, medical.ts), a drill's or an order's fire at a point more than 2 x farther.
+    Carriers: `medical.carrying.selfDefenceM` 30 -> 40 m, also while the party lies in cover. The red cross rule is
+    unchanged. The nearest seen enemy is worked out once per man per decision and shared by all these rules.
+  - New data fields are optional in the schema (absent = off; the sim test catalog has them off); no schema bump.
+- **Engage lab** (12 seeds, 60 s; before -> after): rule return 0/72 -> 65/72 within 10 s (standing 30/60/100 m
+  36/36 within 10 s, medians 1.5/1.8/3.9 s; prone 100 m median 8.2 s) — the same as rule free; rule hold 0/72 ->
+  0/72; walking toward medians 19.6/41.5 s/never at 30/60/100 m -> 3.5/2.8-5.2/4.8-6.0 s, 100 m 22/24 within 15 s;
+  walking across 0/72 -> 55/72 within 15 s (76 %, short of the 80 % goal: 12 of the 72 runs never spot the prone
+  man at his side in 60 s — spotting, not a gate; the runs that see him fire 1-2 s later); pinned at 30 m 0/24 ->
+  24/24 (medians 2.5-3.2 s); pinned at 60 and 100 m stay 0 (beyond 50 m).
+- **Reacquire lab** (seeds 1-3), enemy in front not engaged for more than 5 s: 155 -> 46 man-s (-70 %); moving
+  31 -> 4, pinned 26 -> 0, carrying 48 -> 0, care 19 -> 0; "drill or ordered task" 5 -> 41 (men of a drill firing at
+  the objective with an enemy at 40-100 m: outside the 40 m close-threat rule; left as it is). The exposure itself
+  fell 285 -> 59 man-s (fights now start before men get that close). Blind-idle: platoon defence 1.50 -> 1.20, re-
+  acquisition 4.3 -> 6.1 % (step 4's work).
+- **Batches** (10 x 1200 s, seeds 1-10; before -> after): platoon attacker wins 8 -> 8, casualties 12.1/11.8 ->
+  9.6/11.5, mean duration 1018 -> 977 s; platoon-ru 8 -> 8, 14.1/5.3 -> 14.0/4.2, 808 -> 789 s; platoon-vehicles
+  9 -> 10, 6.6/25.5 -> 8.6/25.1, 899 -> 920 s; platoon-ru-vehicles 0 -> 1, 8.2/34.0 -> 8.6/33.0, 1096 -> 993 s.
+  All within +-30 % of the baseline; platoon-vehicles (10) and platoon-ru-vehicles (1) stay outside the 2-8 band
+  as in the baseline. Platoon breaks (step 1's script): the losing side's platoon broke in 29 of 40 (was 32), any
+  break 32 of 40 (was 34). Headless platoon seed 1: "contact" radio calls 17 -> 18; the defender opens fire first
+  (145 s) in both, so this seed does not show the attacker walking onto a silent defender.
+- Self-defence under "return" does not cover enemy drones: a man fires at a drone on his own only with the full rule
+  (else the drone lab's endurance flight was shot down by the man it hovered over).
+- Tests adapted where a test set two sides side by side and counted on both staying passive: the casualty lab and the
+  AGL friend test hold every unit's fire (the AGL test at once, not on the order's arrival: the comrade moved next to
+  the enemy opened fire first), the drone-hide walker, the village crossing (formation-cover) and the nav-maps walk
+  hold fire and push on contact. The casualty lab's numbers may differ slightly from before (the targets no longer
+  fire back).
+- Goldens regenerated (intended; `npm run golden:update`); `golden/no-interiors` untouched.

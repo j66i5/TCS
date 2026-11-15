@@ -25,8 +25,9 @@ function setup(c: Catalog, seed: number, wood: "none" | "near" = "none"): { inpu
   const sim = createSim(input);
   const ids = [...sim.state.identity.entries()];
   const op = ids.find(([, i]) => i.side === "blue")![0], tgt = ids.find(([, i]) => i.side === "red")![0];
-  // (Both hold their fire: only the drone is in this.)
-  for (const [u, un] of sim.state.unit.entries()) submitOrder(sim, { tick: 0, issuer: un.side, target: u, kind: "rules", fire: "hold" });
+  // (Both hold their fire: only the drone is in this. A walker pushes on when he sees the operator: since sight
+  // realism step 2 a move goes to ground at an enemy seen anew within drills.reactSeenM.)
+  for (const [u, un] of sim.state.unit.entries()) submitOrder(sim, { tick: 0, issuer: un.side, target: u, kind: "rules", fire: "hold", onContact: "push" });
   return { input, sim, op, tgt };
 }
 /** Does he see an enemy drone within `m` metres horizontally? */

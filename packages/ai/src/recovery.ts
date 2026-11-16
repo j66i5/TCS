@@ -13,7 +13,7 @@ export const RECOVERY_AI = { lookSeconds: 10, quietS: 120, enemyNearM: 500, pill
 export interface RecoveryMemory { recoveryCalled?: number[]; lastRecoveryLook?: number }
 
 /** The `callRecovery` orders this look gives (at most one per hull per battle). */
-export function recoveryCalls(view: SimView, ctx: SimContext, side: SideId, tick: number, mem: RecoveryMemory, contacts: readonly Contact[], caller: EntityId): Order[] {
+export function recoveryCalls(view: SimView, ctx: SimContext, side: SideId, tick: number, mem: RecoveryMemory, contactsOf: readonly Contact[] | (() => readonly Contact[]), caller: EntityId): Order[] {
   const R = ctx.catalog.recovery;
   if (!R || ctx.rules.recovery === false) return [];
   if (tick - (mem.lastRecoveryLook ?? -1e9) < RECOVERY_AI.lookSeconds * 60) return [];
@@ -28,6 +28,8 @@ export function recoveryCalls(view: SimView, ctx: SimContext, side: SideId, tick
   if (maxKg < 0) return [];
   const out: Order[] = [];
   const called = (mem.recoveryCalled ??= []);
+  // (What its men know of the enemy: gathered only when a hull is a candidate.)
+  let contacts: readonly Contact[] | null = typeof contactsOf === "function" ? null : contactsOf;
   for (const [vid, v] of view.vehicle.entries()) {
     if (v.side !== side || v.offMap !== undefined || isOffMap(v) || v.recoveryBy !== undefined || called.includes(vid)) continue;
     if (v.fire !== null || (v.status !== "abandoned" && v.status !== "immobilised")) continue;
@@ -37,6 +39,7 @@ export function recoveryCalls(view: SimView, ctx: SimContext, side: SideId, tick
     const t = view.transform.get(vid);
     if (!t) continue;
     let nearest = Infinity;
+    contacts ??= (contactsOf as () => readonly Contact[])();
     for (const c of contacts) nearest = Math.min(nearest, hypot2(c.x - t.x, c.y - t.y));
     if (nearest < RECOVERY_AI.enemyNearM) continue;
     if (v.status === "immobilised") {

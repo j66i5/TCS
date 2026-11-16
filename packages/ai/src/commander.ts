@@ -874,7 +874,7 @@ export function commanderController(side: SideId, input: BattleInput): Controlle
       const fixing = (v: (typeof ownVehicles)[number]) => v.repair?.working === true && (v.repair.needManS - v.repair.doneManS) / 2 < 300;
       const lostVehicles = ownVehicles.filter((v) => v.status === "destroyed" || v.status === "abandoned" || (v.status === "immobilised" && !fixing(v))).length;
       // M11.7b: a recovery vehicle for a hull out of the fight for good, when it is quiet there (recovery.ts).
-      for (const o of recoveryCalls(view, ground(), side, tick, mem, all.flatMap((m) => known(m)), caller)) out.push(o);
+      for (const o of recoveryCalls(view, ground(), side, tick, mem, () => all.flatMap((m) => known(m)), caller)) out.push(o);
       mem.sentBack ??= [];
       // (M7.6b review fix: the tank sections' crews that bailed out too.)
       const tankBailed = [...view.unit.entries()].filter(([id, u]) => u.side === side && isArmourSection(view, ground(), id)).flatMap(([, u]) => u.children).filter((c) => view.unit.get(c)?.exVehicle !== undefined).sort((a, b) => a - b);

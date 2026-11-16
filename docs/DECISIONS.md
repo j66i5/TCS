@@ -7188,10 +7188,24 @@ is a **software decision, not asked; owner to review** (plan m11r, amendments ap
   (`SideRecord.repair`).
 - **Lab** (`npm run lab -- repair`, regular crew unless noted): track 44.4 min with two men (conscript 50.0, veteran
   38.1), wheels 19.8 (GTK driver alone 35.6), coax 11.1, radio 16.7; every row within one drill step of the man-minutes
-  over the work rates; a hit half-way: stopped, resumed after 60 s, total = expected + 60 s.
+  over the work rates; a hit half-way: stopped, resumed after 60 s, total = expected + 60 s; over 10 seeds coax
+  worked 7/10 (chance 0.6), radio 6/10 (0.5) on every hull (one draw per run: the same seeds give the same rolls).
+- **Test runs**: `npm run check` alone: everything green except one timing test (the parked-hulls variant, 1.38 > 1.35,
+  the known noisy one); `npm run test:perf` alone twice: once a different timing test (smoke spotting bench), once
+  23/23. Then `npm run check` again alone (see the final report).
 - **Timing question for the owner (B12)**: a track takes about 45 minutes, so in the generated 20-minute battles a
   track is almost never fixed (radio and coax often are). Kept realistic; options: keep / compress repair times by a
   factor / only coax and radio in battle.
 - **Goldens**: with the data and the sim changes every golden's event stream and order stream is unchanged (dumped
   and compared before and after); the hashes change only through the catalog fingerprint and the parts stowed in
   every hull's container. `npm run golden:update` for that; `golden/no-interiors` untouched.
+- **Batches** (10 x 1200 s, seeds 1-10, repair on / `--no-repair`): platoon-vehicles and platoon-ru-vehicles
+  identical (no repair started: their immobilised hulls are abandoned or the battle ends first); platoon-vehicles-
+  tanks-both 5 repairs started (blue 4, red 1), none finished before the end; winners 9/1 both ways, casualties blue
+  13.2 / 13.5, red 30.1 / 30.7. Headless platoon-vehicles seed 1, 600 s: event stream with repair on = main's.
+- **Performance** (one at a time, idle machine, main 760bdd6 checked out in place for the base): headless
+  platoon-vehicles seed 1 600 s base 32x/31x, now 33x/33x; bench-vehicles seed 1 120 s base 12x/12x, now 13x/13x
+  (floor 8x). The drill runs once a second and looks only at damaged hulls.
+- **Render check** (`--scene look`, main's renderer against this one): every pixel difference also appears between
+  two runs of the same build (HUD clock and list timing, photo tiles), none on the map from the change; men outside
+  their hull are new pixels only where someone is outside (`--scene repair`, `--scene missile`).

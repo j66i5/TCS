@@ -7209,3 +7209,66 @@ is a **software decision, not asked; owner to review** (plan m11r, amendments ap
 - **Render check** (`--scene look`, main's renderer against this one): every pixel difference also appears between
   two runs of the same build (HUD clock and list timing, photo tiles), none on the map from the change; men outside
   their hull are new pixels only where someone is outside (`--scene repair`, `--scene missile`).
+
+## 2026-11-16 — M11.7b Recovery (roadmap-detail slice 51; goldens regenerated: fingerprint and the recovery vehicles off the map)
+Owner M11 round: "a recovery vehicle can be requested to tow a disabled vehicle"; caches are legitimate targets and
+capturable (so hulls too); reuse the M10 off-map machinery. The owner could not be reached: every choice below is a
+**software decision, not asked; owner to review** (plan m11r §1 D10-D21, §3.4, amendments applied).
+- **One recovery vehicle per side with vehicles (D10, D11)**: German Bergepanzer 3 Büffel (Leopard 2 chassis; tows up
+  to 70 t: everything here incl. the Leopard 2A7V, 64 t), Russian BREM-1 (T-72 chassis, 41 t, crew of three; tows up
+  to 50 t: T-90M, T-72B3M, BMP-2, BTR-82A; a Leopard 2 is refused as too heavy), fixture `xf-tug` (40 t; tows the
+  tortoise). Manifest `recovery: { template, count: 1 }`, vehicle block `recovery { towMaxKg, towMaxSpeedKmh,
+  hookUpS, hookUpMen }`. Unarmed in the game (their MG left out, `stations: []`), no passenger seats (never a
+  scenario's default crew), an off-map asset outside the side's strength exactly like the ambulances (`Unit.asset =
+  "recovery"`, `OffMapKind`). Only sides with vehicles of their own get one (infantry battles unchanged). Data from
+  search extracts: Büffel size, mass 54.3 t and the third crewman low; BREM-1 mass and crew medium, the rest low.
+  BREM-K / BREM-L, Bergepanzer 2 / WiSENT, Boxer recovery module: later data.
+- **Who calls (D12)**: the player's `callRecovery` order (Recover button with a tow hook, behind "⋯" on a phone,
+  tooltip with the count left; the selected crew's hull, or the hull a bailed-out crew left) and the AI commander
+  (ai/recovery.ts, every 10 s: abandoned, or immobilised with nothing its crew can repair; not hit for 120 s, no
+  enemy its men know within 500 m, one that can tow it waiting, time left for the delay plus 2 min; never for an
+  immobilised hull whose gun works while the enemy is known within 1 km — a pillbox; one call per hull). No
+  automatic sim call (unlike ambulances): a stranded tank that still fights is never dragged out without its
+  commander's say. Refusals with radio reasons: none left, too heavy, already coming, not needed (it still drives,
+  is destroyed or burning), no way in.
+- **The run (D13-D17, A7, A8, B5)**: delay 600-1200 s drawn from a new stream `Streams.recovery` (battles without a
+  call never draw); it comes on at the edge behind the hull (`entryPoint` with the tracked grid; the crew's platoon,
+  else the crew that bailed out, else the caller), drives at the `walk` pace (as the ambulances; not `driveTo`, which
+  needs medical data: it works without core/medical.json) to a point 25 m short and reverses onto its spot, the
+  hitch 1.5 m from the hull (within 6 m). From the call the hull has `recoveryBy`: no wreck stamp in the nav grids
+  (one re-derive at the call, one at the end) and the pair never block each other (corridor, hull overlap, escape).
+  It does not drive into fire (D16): while the hull was hit within 120 s or an enemy is known to its side within
+  300 m of it, it halts about 300 m short (radio once), goes on after a quiet minute, gives up after 600 s of
+  waiting in all. A hull that drives again (repaired) or is destroyed before it arrives stands the call down.
+- **Hook-up (D14, D15)**: the hull's able passengers get out (`getOut`, round the exits); its crew stays aboard (the
+  driver steers a towed hull) and its wounded stay aboard; any field repair on it ends. `hookUpMen` of the recovery
+  crew (the mechanic first, the driver last) work outside at the hitch (action `hookUp`, the reserved OUTSIDE_ACTIONS
+  kind: exposed like men on foot, crouching, behind the hull) for `hookUpS`: Büffel one man 120 s, BREM-1 two men
+  240 s, tug one man 60 s (research: 2-5 min with dismounts; low). A hit on the recovery vehicle, fire on its crew or
+  suppression stops them (progress kept); they go out again after a quiet minute.
+- **The tow**: a rigid bar: each tick after the drive (`towSystem`) the towed hull's centre stays at the hook-up
+  distance from the hitch and points at it (towed backward when its rear was the nearer end): no snap. It skips its
+  own drive, its guns hold fire (`canFight`), orders to its crew are refused (`towGate`: "under tow", "towed away";
+  fire discipline excepted; a mount onto a hull being hooked up too). The recovery vehicle drives back to where it
+  came on, no faster than 8 km/h (`DriveState.towCapMps`; research: cable 8-16 km/h, bar to 25 km/h on roads; low).
+  The towed hull is not checked against buildings (it follows the recovery vehicle's route; accepted). Within 20 m
+  of the edge, or after `heldMaxS` 900 s held up on the way (ambulance precedent: it leaves from where it is), both
+  leave: the hull is `towAway` (`isOffMap` true for good), its living wounded evacuated, its crew with it,
+  `recovery: { state: "towed", tick, repairDays }`. A recovery vehicle that cannot drive any more is lost: the tow
+  drops where it is, the hull is an ordinary wreck again.
+- **End of battle (D18, D19, A3)**: `settleVehicles` next to `settleBattle` at both ends (time limit, side broken or
+  eliminated): every hull of a force still on the map that is damaged, immobilised or abandoned is `recovered` by
+  its own side if that side holds the ground there (more able men within the medical `holdM` 150 m, else the
+  nearest able man's — `holderAt`, now exported), else `captured` (`capturedBy` written; `SideResult.vehicles.
+  captured` counts it); a hull that still drives with its crew is never captured (recovered if damaged); destroyed:
+  `lost`. `repairDays` = Σ workshopDays[kind] × (1 - condition) (+0.5 for an abandoned hull without damage;
+  campaign input, low). Battles stopped by a tick limit settle nothing (as the wounded). `VehicleRecord.recovery`
+  round-trips through runBattle (in: kept on the state; out: written when set); `SideResult.vehicles` gains
+  `towed`, `recovered`. A hull towed away still costs its score points this battle (B8: lost for this battle).
+- **No state schema bump** (all fields optional; `VehicleState.recovery` widened from the reserved `{state: "none"}`,
+  always null before); battle record version 8 -> 9 (`SideRecord.recovery`); events `vehicle.recovery`,
+  `vehicle.settled`; review row "Recovery: ..."; card lines (on its way, waiting, hooking up %, under tow, towed
+  away); tile "under tow"; batch line "Recovery (M11.7b, by side)". Flags: `--no-recovery` (headless, batch) and
+  `?recovery=0` build no recovery vehicles (`withoutRecovery`: they come after every other entity, so the battle
+  is the one without them); `?recovery=1` gives the vehicles scenario its recovery vehicles; `?ai=0` (screenshots)
+  runs no enemy controller.

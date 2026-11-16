@@ -177,7 +177,8 @@ This is the hardest part of the project and decides whether the game is good. Bu
 - Internal components (engine, transmission, tracks or wheels, turret drive, gun, sights, ammunition stowage, fuel, radio) can be damaged separately, giving mobility kills, firepower kills, fires and catastrophic losses. Crew react (continue, reverse out, bail out).
 - Turret and weapon stations: traverse and elevation rates, stabilisation, sights per crew member, ammunition by type in ready and stowed racks (items, per rule 9).
 - Smoke dischargers. Field repair by the crew (M11.7a: track, wheels, coax, radio with time and counted parts);
-  recovery (towing) reserved for M11.7b.
+  recovery (M11.7b: an off-map recovery vehicle, Bergepanzer 3 Büffel / BREM-1, called to tow a disabled hull off the
+  map; at the end hulls are recovered or captured by the side holding the ground, roster `VehicleRecord.recovery`).
 
 ### 6.8 Indirect fire and support
 

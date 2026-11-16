@@ -400,8 +400,12 @@ for the owner's numbers answer after playing, not for more building).
 - **M11 Logistics** (SPEC 9.2) ⬜
   - **M11.7a Field repair** ✅ (2026-11-16, roadmap-detail slice 50): crews fix a broken track, a holed wheel side,
     the coaxial MG and the radio with time and the spare parts aboard (counted items); the men work outside exposed;
-    hits and fire stop the work (progress kept); Repair order button; `npm run lab -- repair`. Recovery vehicles
-    (slice 51, M11.7b) next.
+    hits and fire stop the work (progress kept); Repair order button; `npm run lab -- repair`.
+  - **M11.7b Recovery** ✅ (2026-11-16, roadmap-detail slice 51): each side with vehicles has a recovery vehicle
+    off the map (Bergepanzer 3 Büffel, BREM-1; fixture tug); the player's Recover button or the AI commander calls it
+    for an immobilised or abandoned hull; it comes after 10-20 min, waits short of fire, reverses up, hooks up with a
+    man outside, tows the hull off the map at 8 km/h; at the end the hulls left are recovered or captured by the side
+    holding the ground (roster `VehicleRecord.recovery`, `capturedBy`); `lab -- repair` part B.
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

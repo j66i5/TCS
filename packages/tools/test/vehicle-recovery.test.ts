@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  createSim, isOffMap, isWreck, loadSim, runBattle, saveSim, simHash, step, submitOrder, TICK_HZ,
+  createSim, deriveWrecks, isOffMap, isWreck, loadSim, runBattle, saveSim, simHash, step, submitOrder, TICK_HZ,
   type BattleInput, type Catalog, type Contact, type EntityId, type RecoveryDef, type Sim, type SimEvent, type VehicleRecord,
 } from "@tcs/sim";
 import { recoveryCalls, type RecoveryMemory } from "@tcs/ai";
@@ -203,7 +203,11 @@ describe("recovery: the off-map recovery vehicle (M11.7b)", () => {
     call(sim, vid);
     const r = sim.state.vehicle.req(rid), v = sim.state.vehicle.req(vid);
     run(sim, 600, () => undefined, () => r.offMap!.phase === "towing");
-    run(sim, 20);
+    // While it tows, the navigation grids are not patched again and again (the hull is no wreck stamp).
+    deriveWrecks(sim.ctx, sim.state);
+    let repatched = 0;
+    for (let s = 0; s < 20; s++) { run(sim, 1); if (deriveWrecks(sim.ctx, sim.state) !== null) repatched++; }
+    expect(repatched).toBe(0);
     r.status = "immobilised";
     const evs: RecEv[] = [];
     run(sim, 3, (e) => { if (e.kind === "vehicle.recovery") evs.push(e); });

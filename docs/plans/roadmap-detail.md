@@ -539,7 +539,7 @@ sights and drones; drone airframes as items; water in long battles; smoke and me
 3-hour night battle shows battery swaps.
 
 **50. M11.7a Field repair** (M, optional) ✅ 2026-11-16. Depends on 13: crew repair with parts and time. **51. M11.7b Recovery**
-(M, optional): off-map recovery vehicle towing; `VehicleRecord.recovery`. Acceptance: `lab -- repair`, towing test,
+(M, optional) ✅ 2026-11-16: off-map recovery vehicle towing; `VehicleRecord.recovery`. Acceptance: `lab -- repair`, towing test,
 roster status.
 
 **52. M11.8 AI logistics, review page, balance** (M): Logistics tab; batch columns; `BattleResult` lists consumed,

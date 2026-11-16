@@ -7192,7 +7192,7 @@ is a **software decision, not asked; owner to review** (plan m11r, amendments ap
   worked 7/10 (chance 0.6), radio 6/10 (0.5) on every hull (one draw per run: the same seeds give the same rolls).
 - **Test runs**: `npm run check` alone: everything green except one timing test (the parked-hulls variant, 1.38 > 1.35,
   the known noisy one); `npm run test:perf` alone twice: once a different timing test (smoke spotting bench), once
-  23/23. Then `npm run check` again alone (see the final report).
+  23/23. Then `npm run check` again alone: all green (1371 tests, perf 23/23, data lint no errors).
 - **Timing question for the owner (B12)**: a track takes about 45 minutes, so in the generated 20-minute battles a
   track is almost never fixed (radio and coax often are). Kept realistic; options: keep / compress repair times by a
   factor / only coax and radio in battle.

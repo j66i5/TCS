@@ -4,6 +4,7 @@
  * zone, mechanism, severity, bleeding, airway/breathing/consciousness effects. The physiology model then runs
  * on a clock. A casualty stays in the world as an entity; he is never deleted.
  */
+import { onAir } from "../comms";
 import { leaderLost, unbookLoss } from "./morale";
 import { noteHit } from "../conduct";
 import { interruptAction } from "../actions";
@@ -226,7 +227,7 @@ export function takeOutOfFight(ctx: SimContext, state: SimState, events: EventSi
     if (reportKey !== null) {
       const speaker = (x: EntityId) => x !== id && canReport(state.soldier.get(x));
       const from = unit.members.find(speaker) ?? all.find(speaker);
-      if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key: reportKey, params: { callsign: unit.callsign, name: ident.family } });
+      if (from !== undefined && onAir(state, ident.unit)) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key: reportKey, params: { callsign: unit.callsign, name: ident.family } });
     }
     // If he was the last man firing, the unit's fire has ended.
     const tu = state.unit.req(top);

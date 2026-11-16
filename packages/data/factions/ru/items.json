@@ -254,6 +254,7 @@
       "nameKey": "item.ru-radio",
       "category": "kit",
       "massKg": 0.55,
+      "radio": true,
       "power": {
         "battery": "ru-radio-battery",
         "hours": 8,

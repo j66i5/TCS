@@ -872,6 +872,8 @@ export const ItemSchema = withProv({
   power: z.object({ battery: Id, hours: Num(0.01, 10000), swapSeconds: Num(0, 600), onBelowLight: Num(0, 1).optional() }).strict().optional(),
   /** M11.6: drinking water (its charge in ml). */
   water: z.literal(true).optional(),
+  /** M11.6 stage 2: a man-portable radio: the unit is on the net while one of its radios (or its parent's) has power. */
+  radio: z.literal(true).optional(),
   /** M8.2a: a laser rangefinder (binocular): its carrier locates a target for indirect fire with it. */
   rangefinder: z.boolean().optional(),
   /** M8.3a: a crew-served mortar (the tube; its carrier is the gunner): its HE and smoke rounds (counted round items

@@ -31,6 +31,7 @@ export function buildCatalog(data: DataSet, factionIds: string[]): Catalog {
       if (it.sensor !== undefined) d.sensor = it.sensor;
       if (it.power !== undefined) d.power = { ...it.power };
       if (it.water === true) d.water = true;
+      if (it.radio === true) d.radio = true;
       if (it.thermalCover !== undefined) d.thermalCover = it.thermalCover;
       if (it.rangefinder !== undefined) d.rangefinder = it.rangefinder;
       if (it.reactive !== undefined) d.reactive = { ...it.reactive };

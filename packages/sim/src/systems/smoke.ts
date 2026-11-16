@@ -12,6 +12,7 @@
  *     the sim calls it yet.
  * The screen goes `screenM` from the thrower toward the enemy, at most once per `cooldownS` per unit.
  */
+import { onAir } from "../comms";
 import { startAction } from "../actions";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -104,7 +105,7 @@ export function throwScreen(ctx: SimContext, state: SimState, events: EventSink,
     t.heading = atan2(py - t.y, px - t.x);
     startAction(state, events, m, "grenade", secondsToTicks(ctx.catalog.shooting.grenades.throwSeconds), { ammo: opt.ammo, x: px, y: py });
     u.smokeTick = state.tick;
-    if (canReport(state.soldier.get(m))) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: m, key: "radio.smokeOut", params: { callsign: u.callsign } });
+    if (canReport(state.soldier.get(m)) && onAir(state, state.identity.get(m)?.unit)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from: m, key: "radio.smokeOut", params: { callsign: u.callsign } });
     return true;
   }
   return false;

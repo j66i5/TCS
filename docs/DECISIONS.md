@@ -7183,3 +7183,31 @@ the sight fallback are later stages), no water physiology yet.
   spares full, water 2000 ml). `lab-attack.test.ts`: the extra mass reshuffled the 32 seeds (support 1/32 against 3/32
   wins; the defence's losses still favour support); the win-rate check now allows one standard error (0.07).
 - `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint, loads' mass); `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.6 stage 2: flat radios take a unit off the net (goldens regenerated)
+
+Software decisions (owner to review).
+
+- **Data:** radio items carry `radio: true` (`de-radio`, `ru-radio`; never found by id, rule 8). New item key, no
+  values to source.
+- **Coverage** (`comms.ts` `simpleComms.update`, once a second, before the wrecked-hull rule): a unit on foot (not a
+  vehicle crew) is off the net (`link "none"`) when the radios carried by the men of its subtree are all flat
+  (`deviceLive`); a unit whose subtree carries no radio takes its parent's coverage (walking up); with no radio
+  anywhere up the chain it stays on the net (as before M11.6). A unit whose alive men all sit in hulls with a working
+  radio stays on the net (the hull radio). A man down or dead still counts as carrying his radio in this slice (short
+  battles unchanged; question for the owner). While no radio slot is flat the pass is one loop over the battery slots.
+- **Effects:** an order to a unit off the net is rejected with the new reason `no-comms` (also the reason for the
+  M7.4b wrecked hull radio, formerly `unknown-target`); contact reports beyond voice range are not shared (the existing
+  `contactShareDelayTicks`); voice within `voiceRangeM` (40 m) and the intercom still work. The automatic ambulance call
+  waits while the platoon is off the net. A call for fire's observers skip men of a unit off the net beyond voice range
+  of the caller, and a drone whose operator's unit is off the net (unless he is in voice range or the caller). An order
+  already received when the radio goes flat is still delivered.
+- **Radio log:** `onAir(state, unit)` gates the radio lines of a unit off the net (orders' acknowledgements, drills,
+  morale, evacuation, fire support, medical calls, contact and drone call-outs, low ammunition, no line of fire,
+  grenade blocked, house left, smoke out, man down, nest sited, mortar/missile/AGL team ready, drone calls).
+  `radio.broken` is never silenced: morale.ts reads it as a sim effect and the review counts it. A medical call
+  (`radio.medic`) refused while off the net is tried again later (no cooldown stamped).
+- **Tests:** `packages/sim/test/radio-power.test.ts` (orders rejected `no-comms`, no blue radio lines while off the
+  net, no share beyond voice range and voice within it, observers within voice range only, back on the net after a
+  swap, `radio.broken` still sent, a unit with no radio in its chain unchanged).
+- `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint only: the new `radio` key).

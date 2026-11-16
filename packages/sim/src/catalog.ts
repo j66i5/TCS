@@ -62,6 +62,8 @@ export interface ItemTypeDef {
   power?: PowerDef;
   /** M11.6: drinking water (charge in ml). */
   water?: true;
+  /** M11.6 stage 2: a man-portable radio (comms.ts: a unit is off the net while all its radios are flat). */
+  radio?: true;
   /** Thermal blanket (M9.2): the share of his heat a still man carrying it shows. */
   thermalCover?: number;
   /** M8.2a: a laser rangefinder its carrier locates targets for indirect fire with. */

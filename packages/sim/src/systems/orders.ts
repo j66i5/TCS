@@ -1,6 +1,7 @@
 /**
  * Order pipeline: inbox (issued) -> validation -> comms delay (pending) -> delivery (applied).
  */
+import { onAir } from "../comms";
 import { droneOrder, droneRiderOf, hasDrone } from "./drones";
 import { callFire } from "./support";
 import { refusesFireAt } from "../protection";
@@ -214,8 +215,8 @@ export function receiveOrders(ctx: SimContext, state: SimState, events: EventSin
     }
     const delay = ctx.comms.orderDelayTicks(state, ctx.rules.comms, order);
     if (delay === null) {
-      // Out of contact: in the foundations the order is simply lost. M14 adds runners/retries.
-      events.emit({ kind: "order.rejected", tick: state.tick, seq, issuer: order.issuer, target: order.target, reason: "unknown-target" });
+      // Out of contact (a wrecked hull radio, M7.4b; flat radios, M11.6): the order is lost. M14 adds runners/retries.
+      events.emit({ kind: "order.rejected", tick: state.tick, seq, issuer: order.issuer, target: order.target, reason: "no-comms" });
       continue;
     }
     const p: PendingOrder = { seq, order, receivedTick: state.tick, deliverTick: state.tick + delay };
@@ -375,6 +376,7 @@ function radioFromTarget(state: SimState, target: EntityId, key: string, events:
   const unitId = state.unit.has(target) ? target : state.identity.get(target)?.unit;
   if (unitId === undefined) return;
   const unit = state.unit.req(unitId);
+  if (!onAir(state, unitId)) return; // (M11.6: a flat radio sends nothing)
   // The leader speaks; if he is down, the first man who still can.
   // mounted: ok the radio reaches every man
   const from = unit.leader !== null && canReport(state.soldier.get(unit.leader)) ? unit.leader : unitSoldiers(state, unitId).find((m) => canReport(state.soldier.get(m)));

@@ -11,6 +11,7 @@
  * (the order, incoming fire near it), then slows to a trickle, then ceases fire and reports. A man stops when
  * only the magazine in his weapon is left. In lulls men swap a partly used magazine for a fuller one.
  */
+import { onAir } from "../comms";
 import { DRONE_SEEN_S, droneInSight, shootAtDrone } from "./drones";
 import { startAction } from "../actions";
 import { aimErrorFactor, fireRateFactor, isCowering } from "./morale";
@@ -385,7 +386,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
       if (!w.lowAmmoReported) w.lowAmmoReported = true;
       if (!already && !w.lowAmmoRadioed) {
         w.lowAmmoRadioed = true;
-        events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+        if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.lowAmmo", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
       }
       // A rifleman keeps that last magazine as a close-defence reserve (package A): he fires it, aimed, only at an
       // enemy close by or assaulting him.
@@ -447,7 +448,7 @@ export function fireSystem(ctx: SimContext, state: SimState, events: EventSink):
           const u = state.unit.get(top);
           if (u && !u.lineBlockedReported) {
             u.lineBlockedReported = true;
-            events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
+            if (onAir(state, state.identity.req(id).unit)) events.emit({ kind: "radio", tick, side: state.identity.req(id).side, from: id, key: "radio.noLineOfFire", params: { callsign: state.unit.get(state.identity.req(id).unit)?.callsign ?? "" } });
           }
         }
       }

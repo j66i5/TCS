@@ -6,6 +6,7 @@
  * leaves the man's load and one projectile enters the world on an arc toward the point given, with an error
  * that depends on distance and training. From there the projectile engine and the fuse do the rest.
  */
+import { onAir } from "../comms";
 import { isGuiding } from "./missile-team";
 import { interruptAction, registerActionHandler, type ActionHandler } from "../actions";
 import type { EventSink } from "../events";
@@ -272,7 +273,7 @@ export const grenadeHandler: ActionHandler = {
     if (method === "blocked") {
       // He keeps the grenade and says so.
       const ident = state.identity.get(actor);
-      if (ident) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from: actor, key: "radio.grenadeBlocked", params: { callsign: state.unit.get(ident.unit)?.callsign ?? "" } });
+      if (ident && onAir(state, ident.unit)) events.emit({ kind: "radio", tick: state.tick, side: ident.side, from: actor, key: "radio.grenadeBlocked", params: { callsign: state.unit.get(ident.unit)?.callsign ?? "" } });
     } else if (method) {
       events.emit({ kind: "grenade.launched", tick: state.tick, soldier: actor, ammo, method, x, y });
       // Throw and get down: his own fragments reach further than he throws (not after a smoke grenade).

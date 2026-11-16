@@ -20,6 +20,7 @@
  *
  * Seen, heard and shot at, AI use (M9.4b) and the observer of fire (M9.5) come later.
  */
+import { onAir } from "../comms";
 import { registerActionHandler, startAction } from "../actions";
 import type { DroneState } from "../components";
 import type { SimContext } from "../context";
@@ -204,7 +205,7 @@ registerActionHandler(FLY_ACTION, {
 
 function radio(state: SimState, events: EventSink, from: EntityId, key: string): void {
   const ident = state.identity.get(from);
-  if (!ident) return;
+  if (!ident || !onAir(state, ident.unit)) return; // (M11.6: a flat radio sends nothing)
   const callsign = state.unit.get(ident.unit)?.callsign ?? "";
   events.emit({ kind: "radio", tick: state.tick, side: ident.side, from, key, params: { callsign } });
 }

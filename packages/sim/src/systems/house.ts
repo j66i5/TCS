@@ -20,6 +20,7 @@
  * order to the unit after it left makes the rule look at the house afresh (a trap then needs a burst since the
  * order). A unit that could send nobody out (`Unit.leaveTry`) reports nothing and looks again after `houseLeaveRetryS`.
  */
+import { onAir } from "../comms";
 import type { Contact, HouseLeaveReason, SoldierState, Unit } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -354,7 +355,7 @@ export function houseLeaveDecision(ctx: SimContext, state: SimState, events: Eve
   if (leaveHouse(ctx, state, go, bi, th.bearings) === 0) { unit.leaveTry = { building: b.id, tick }; return false; }
   unit.leftHouse = { building: b.id, tick, reason: th.reason };
   const key = th.reason === "trap" ? "radio.houseLeftTrap" : th.reason === "enemy" ? "radio.houseLeftEnemy" : "radio.houseLeftFlank";
-  events.emit({ kind: "radio", tick, side: unit.side, from: id, key, params: { callsign: unit.callsign } });
+  if (onAir(state, state.identity.get(id)?.unit)) events.emit({ kind: "radio", tick, side: unit.side, from: id, key, params: { callsign: unit.callsign } });
   const w2 = state.mover.get(id)?.waypoints;
   return w2 !== undefined && w2.length > 0 && w2[w2.length - 1]!.bolt === true;
 }

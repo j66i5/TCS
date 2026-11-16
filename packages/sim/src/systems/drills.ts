@@ -18,6 +18,7 @@
  * Runs every `drills.stepSeconds`; values are data (core/behaviour.json `drills`). Doctrine profiles (M4.4)
  * will vary them by faction.
  */
+import { onAir } from "../comms";
 import type { Contact, Drill, SoldierState, Unit } from "../components";
 import type { Posture } from "../orders";
 import type { SimContext } from "../context";
@@ -45,6 +46,8 @@ const able = (s: SoldierState | undefined) => isAble(s) && s!.mental.behaviour !
 
 function radio(state: SimState, uid: EntityId, key: string, events: EventSink): void {
   const u = state.unit.req(uid);
+  // (M11.6: a flat radio sends nothing; "radio.broken" is never silenced: morale.ts reads it as a sim effect.)
+  if (key !== "radio.broken" && !onAir(state, uid)) return;
   // mounted: ok the radio reaches every man
   const from = u.leader !== null && canReport(state.soldier.get(u.leader)) ? u.leader : unitSoldiers(state, uid).find((m) => canReport(state.soldier.get(m)));
   if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign } });

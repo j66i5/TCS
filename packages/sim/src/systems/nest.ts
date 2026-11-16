@@ -23,6 +23,7 @@
  * (systems/medical.ts): he triages again (his training beats a comrade's tag) and gives the care only he can
  * (decompression, fluids). Casualties at the nest get no other carers. Same rules for every side, player and AI.
  */
+import { onAir } from "../comms";
 import type { SoldierState } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink } from "../events";
@@ -167,7 +168,7 @@ export function setNest(ctx: SimContext, state: SimState, events: EventSink, top
   events.emit({ kind: "medical.nest", tick: state.tick, side: u.side, point: pid, unit: top, x: Math.round(x), y: Math.round(y), reason });
   // The platoon leader tells his men where it is.
   const from = u.leader !== null && canReport(state.soldier.get(u.leader)) ? u.leader : menOf(state, top).find((m) => canReport(state.soldier.get(m)));
-  if (from !== undefined && reason !== "ordered") events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key: reason === "sited" ? "radio.nestSited" : "radio.nestMoved", params: { callsign: u.callsign } });
+  if (from !== undefined && reason !== "ordered" && onAir(state, top)) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key: reason === "sited" ? "radio.nestSited" : "radio.nestMoved", params: { callsign: u.callsign } });
   return pid;
 }
 

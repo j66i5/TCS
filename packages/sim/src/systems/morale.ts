@@ -31,6 +31,7 @@
  * second (`Unit.morale`); a unit whose men panic or whose morale stays very low breaks (drills.ts runs the rout).
  * Values are data; the same for every side (differences come from quality, experience, fatigue and leadership).
  */
+import { onAir } from "../comms";
 import { MORALE_SOURCES, MORALE_STRAIN_FROM, type Behaviour, type SoldierState, type Unit } from "../components";
 import type { SimContext } from "../context";
 import type { EventSink, SimEvent } from "../events";
@@ -821,6 +822,8 @@ function stepUnit(ctx: SimContext, state: SimState, events: EventSink, uid: Enti
 
 function radioFrom(state: SimState, uid: EntityId, key: string, events: EventSink): void {
   const u = state.unit.req(uid);
+  // (M11.6: a flat radio sends nothing; "radio.broken" is never silenced: it is a sim effect, see "radio" below.)
+  if (key !== "radio.broken" && !onAir(state, uid)) return;
   const from = u.leader !== null && isAble(state.soldier.get(u.leader)) ? u.leader : u.members.find((m) => isAble(state.soldier.get(m)));
   if (from !== undefined) events.emit({ kind: "radio", tick: state.tick, side: u.side, from, key, params: { callsign: u.callsign } });
 }

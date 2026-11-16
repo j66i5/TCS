@@ -82,14 +82,33 @@ export function observersFor(ctx: SimContext, state: SimState, caller: EntityId)
   while (stack.length > 0) {
     const u = state.unit.get(stack.pop()!);
     if (!u) continue;
-    for (const m of u.members) if (m !== caller) { const o = observerOf(ctx, state, m); if (o) out.push(o); }
+    // (M11.6: a man whose unit is off the net, its radios flat, watches for the caller only within shouting range.)
+    const off = u.comms.link === "none";
+    for (const m of u.members) if (m !== caller && (!off || inVoice(ctx, state, caller, m))) { const o = observerOf(ctx, state, m); if (o) out.push(o); }
     for (let i = u.children.length - 1; i >= 0; i--) stack.push(u.children[i]!);
   }
-  if (state.drone.size > 0) for (const [did, d] of state.drone.entries()) if (topOf(state, d.unit) === top) { const o = droneObserverOf(ctx, state, did); if (o) out.push(o); }
+  if (state.drone.size > 0) for (const [did, d] of state.drone.entries()) if (topOf(state, d.unit) === top && droneOnNet(ctx, state, caller, d.operator)) { const o = droneObserverOf(ctx, state, did); if (o) out.push(o); }
   const side = state.identity.get(caller)?.side;
   const air = side === undefined ? null : airObserverOf(ctx, side);
   if (air) out.push(air);
   return out;
+}
+
+/** Two men on foot within shouting range (rules.comms.voiceRangeM). */
+function inVoice(ctx: SimContext, state: SimState, a: EntityId, b: EntityId): boolean {
+  const sa = state.soldier.get(a), sb = state.soldier.get(b);
+  if (sa?.mount !== undefined || sb?.mount !== undefined) return false;
+  const ta = state.transform.get(a), tb = state.transform.get(b);
+  if (!ta || !tb) return false;
+  const r = ctx.rules.comms.voiceRangeM;
+  return (ta.x - tb.x) * (ta.x - tb.x) + (ta.y - tb.y) * (ta.y - tb.y) <= r * r;
+}
+
+/** A drone's feed reaches the caller (M11.6): its operator's unit is on the net, or he is within shouting range. */
+function droneOnNet(ctx: SimContext, state: SimState, caller: EntityId, operator: EntityId | null): boolean {
+  if (operator === null) return true;
+  const uid = state.identity.get(operator)?.unit, u = uid === undefined ? undefined : state.unit.get(uid);
+  return u === undefined || u.comms.link !== "none" || operator === caller || inVoice(ctx, state, caller, operator);
 }
 
 function topOf(state: SimState, unit: EntityId): EntityId {

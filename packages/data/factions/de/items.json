@@ -212,6 +212,7 @@
       "nameKey": "item.de-radio",
       "category": "kit",
       "massKg": 0.55,
+      "radio": true,
       "power": {
         "battery": "de-radio-battery",
         "hours": 6,

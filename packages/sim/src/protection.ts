@@ -20,6 +20,7 @@ import type { Catalog } from "./catalog";
 import type { Contact, SoldierState } from "./components";
 import { secondsToTicks, type EntityId } from "./ids";
 import { onRoof } from "./mount";
+import { deviceLive } from "./power";
 import { smokePhysics, smokeTransmission } from "./smoke";
 import type { SimState } from "./state";
 
@@ -96,7 +97,8 @@ export function hasOptics(catalog: Catalog, state: SimState, observer: EntityId)
   }
   if (good(catalog.weapons[state.weapon.get(observer)?.weapon ?? ""]?.sights[0]?.kind)) return true;
   const box = state.container.get(observer);
-  if (box) for (const st of box.stacks) if (st.count > 0 && good(catalog.items[st.type]?.sensor)) return true;
+  // (M11.6: a powered sensor counts only while its battery has charge.)
+  if (box) for (const st of box.stacks) if (st.count > 0 && good(catalog.items[st.type]?.sensor) && deviceLive(catalog, state, observer, st.type, state.tick)) return true;
   return false;
 }
 

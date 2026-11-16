@@ -7211,3 +7211,23 @@ Software decisions (owner to review).
   net, no share beyond voice range and voice within it, observers within voice range only, back on the net after a
   swap, `radio.broken` still sent, a unit with no radio in its chain unchanged).
 - `npm run golden:update`: the ten goldens with interiors changed (catalog fingerprint only: the new `radio` key).
+
+## 2026-11-16 — M11.6 stage 3: flat goggles and thermal sights; drone items by transfer, a drone in the air in roster out
+
+Software decisions (owner to review). No data change; goldens unchanged.
+
+- **Sights and goggles:** a man's carried sensor item (night goggle, thermal sight) counts in his sensor list
+  (spotting.ts) and in `hasOptics` (protection.ts) only while `deviceLive`: flat (or no battery fitted) he is back to
+  eye and weapon sight, exactly the case without the device (a test checks the same spotting times). A device switched
+  off by day counts while it has charge (stage 1). Vehicles exempt (seat sensors on hull power); the MELLS launcher's
+  thermal weapon sight stays unpowered this slice (it is a weapon sight, not an item).
+- **Labs:** the spotting, thermal and night labs and `night-ai.test.ts` give their goggles and thermal sights one full
+  battery (`poweredDevice` in labs/spotting.ts); the fitted share is drawn from stream "power" only, so their tables do
+  not change.
+- **Drones:** launch and recovery move the airframe and battery with `transferItems` (rule 9; a man's load has no mass
+  limit, so nothing changes); `bestCharge` uses the shared `fullestSpare`. The per-tick drain stays (few entities;
+  goldens with drones unchanged).
+- **Roster out:** a drone still in the air at the end goes into its holder's record (airframe, battery at the charge
+  left, unsettled as on landing): its operator; with none, the first man of its unit still alive (ID order), else its
+  first man (`airborneHolder`, setup.ts). Before, an airborne drone vanished from the roster.
+- **Tests:** `packages/tools/test/sight-drone-power.test.ts`.

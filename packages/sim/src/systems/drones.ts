@@ -28,7 +28,8 @@ import type { DroneDef } from "../catalog";
 import type { EventSink } from "../events";
 import { secondsToTicks, TICK_HZ, type EntityId } from "../ids";
 import { isAble } from "../impair";
-import { addItems, emptyContainer, removeItems, type Container } from "../items";
+import { emptyContainer, transferItems, type Container } from "../items";
+import { fullestSpare } from "../power";
 import { atan2, exp, PI, sqrt } from "../math";
 import { nextFloat, Streams } from "../rng";
 import { heightAt } from "../terrain";
@@ -59,11 +60,9 @@ function airframeOf(ctx: SimContext, box: Container | undefined): string | undef
   return undefined;
 }
 
-/** Wh of the fullest battery of this type in a container (0: none). */
+/** Wh of the fullest battery of this type in a container (0: none). (M11.6: the shared battery helper.) */
 function bestCharge(box: Container | undefined, battery: string): number {
-  let best = 0;
-  if (box) for (const st of box.stacks) if (st.type === battery && st.count > 0 && (st.charge ?? 0) > best) best = st.charge ?? 0;
-  return best;
+  return Math.max(0, fullestSpare(box, battery));
 }
 
 /** The drone's battery stack (in its own container). */
@@ -178,12 +177,10 @@ registerActionHandler(LAUNCH_ACTION, {
     const charge = bestCharge(box, def.battery);
     if (charge <= 0) return;
     const id = newEntity(state);
-    const own = emptyContainer();
-    removeItems(box, item, 1);
-    removeItems(box, def.battery, 1, charge);
-    addItems(own, item, 1);
-    addItems(own, def.battery, 1, charge);
-    state.container.set(id, own);
+    state.container.set(id, emptyContainer());
+    // (M11.6, rule 9: the airframe and the battery move with the one generic transfer.)
+    transferItems(ctx.catalog, state.container, { from: actor, to: id, type: item, count: 1 });
+    transferItems(ctx.catalog, state.container, { from: actor, to: id, type: def.battery, count: 1, charge });
     state.transform.set(id, { x: t.x, y: t.y, z: 0, heading: t.heading });
     const gx = Number(a.params["x"]), gy = Number(a.params["y"]);
     const alt = Math.min(def.maxAltitudeM, Math.max(def.minAltitudeM, Number(a.params["alt"])));
@@ -217,11 +214,11 @@ function flying(state: SimState, m: EntityId, id: EntityId): boolean {
 }
 
 /** Take a drone off the map: recovered into `into`'s load, or lost. */
-function endDrone(state: SimState, events: EventSink, id: EntityId, d: DroneState, into: EntityId | null, reason: "battery" | "noOperator" | "shot" | null): void {
+function endDrone(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, d: DroneState, into: EntityId | null, reason: "battery" | "noOperator" | "shot" | null): void {
   const box = state.container.get(id);
-  if (into !== null && box) {
-    const dest = state.container.get(into);
-    if (dest) for (const st of box.stacks) addItems(dest, st.type, st.count, st.charge);
+  // (M11.6, rule 9: recovered through the one generic transfer; a man's load has no mass limit.)
+  if (into !== null && box && state.container.has(into)) {
+    for (const st of box.stacks.map((x) => ({ ...x }))) transferItems(ctx.catalog, state.container, { from: id, to: into, type: st.type, count: st.count, ...(st.charge !== undefined ? { charge: st.charge } : {}) });
   }
   if (d.operator !== null && flying(state, d.operator, id)) state.action.delete(d.operator);
   state.drone.delete(id);
@@ -277,7 +274,7 @@ export function droneSystem(ctx: SimContext, state: SimState, events: EventSink)
     // Hit (M9.4b): it falls when the round that hit it gets there.
     if (d.hitTick !== undefined && tick >= d.hitTick) {
       if (d.hitBy !== undefined && isAble(state.soldier.get(d.hitBy))) radio(state, events, d.hitBy, "radio.droneDown");
-      endDrone(state, events, id, d, null, "shot");
+      endDrone(ctx, state, events, id, d, null, "shot");
       continue;
     }
     keepOperator(state, events, id, d);
@@ -294,7 +291,7 @@ export function droneSystem(ctx: SimContext, state: SimState, events: EventSink)
     const bat = batteryStack(ctx, state, id, d);
     const charge = (bat?.charge ?? 0) - (def.powerW * dt) / 3600;
     if (bat) bat.charge = Math.max(0, charge);
-    if (charge <= 0) { endDrone(state, events, id, d, null, "battery"); continue; }
+    if (charge <= 0) { endDrone(ctx, state, events, id, d, null, "battery"); continue; }
     const hx = d.homeX - t.x, hy = d.homeY - t.y, home = sqrt(hx * hx + hy * hy);
     const cap = ctx.catalog.items[def.battery]?.chargeCapacity ?? 0;
     const need = ((home / def.cruiseMps + t.z / def.climbMps) * def.powerW) / 3600 + def.reserveShare * cap;
@@ -306,7 +303,7 @@ export function droneSystem(ctx: SimContext, state: SimState, events: EventSink)
     const climb = def.climbMps * dt;
     if (d.mode === "home" && home <= ARRIVE_M) {
       t.z = Math.max(0, t.z - climb);
-      if (t.z <= 0) { landHome(state, events, id, d); }
+      if (t.z <= 0) { landHome(ctx, state, events, id, d); }
       continue;
     }
     if (t.z < d.altGoal) t.z = Math.min(d.altGoal, t.z + climb); else if (t.z > d.altGoal) t.z = Math.max(d.altGoal, t.z - climb);
@@ -332,7 +329,7 @@ export function droneSystem(ctx: SimContext, state: SimState, events: EventSink)
 }
 
 /** Landed at home: into its operator's load, or the nearest able man of its unit there; else it is lost. */
-function landHome(state: SimState, events: EventSink, id: EntityId, d: DroneState): void {
+function landHome(ctx: SimContext, state: SimState, events: EventSink, id: EntityId, d: DroneState): void {
   let into: EntityId | null = d.operator;
   if (into === null) {
     let best = TAKE_OVER_M * TAKE_OVER_M;
@@ -343,7 +340,7 @@ function landHome(state: SimState, events: EventSink, id: EntityId, d: DroneStat
       if (q <= best) { best = q; into = m; }
     }
   }
-  endDrone(state, events, id, d, into, into === null ? "noOperator" : null);
+  endDrone(ctx, state, events, id, d, into, into === null ? "noOperator" : null);
 }
 
 /**

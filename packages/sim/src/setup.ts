@@ -367,7 +367,8 @@ export function soldierRecordFromState(state: SimState, id: EntityId): SoldierRe
     // The magazine in the weapon goes back into the load, so nothing is lost between battles.
     // (M7.6d: so does the box on his team's AGL, if he carries its post.)
     // (M11.6: so do the batteries in his devices, at their charge now.)
-    load: loadWithBatteries(loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)), s, state.tick),
+    // (M11.6: and a drone still in the air goes into its operator's load, airframe and battery as they are.)
+    load: loadWithAirborne(loadWithBatteries(loadWithMagazine(loadWithMagazine(c ? c.stacks.map((x) => ({ ...x })) : [], w?.magazine ?? null), aglBoxOf(state, id)), s, state.tick), state, id),
     ...(s.power !== undefined ? { powerFitted: true as const } : {}),
     ...(w ? { weapon: w.weapon } : {}),
     ...(s.wounds.length > 0 || !s.physiology.alive ? { physiology: { ...s.physiology } } : {}),
@@ -415,6 +416,40 @@ export function unitsFromState(state: SimState, side: SideId, template: UnitInpu
     subunits: u.subunits.map(rebuild),
   });
   return template.map(rebuild);
+}
+
+/**
+ * M11.6: whose roster record a drone still in the air at the end goes to: its operator; with none (he was hit, nobody
+ * took the controller over), the first man of its unit still alive in ID order, else its first man. Nobody: null.
+ */
+export function airborneHolder(state: SimState, droneId: EntityId): EntityId | null {
+  const d = state.drone.get(droneId);
+  if (!d) return null;
+  if (d.operator !== null && state.soldier.has(d.operator)) return d.operator;
+  let first: EntityId | null = null, alive: EntityId | null = null;
+  for (const m of state.unit.get(d.unit)?.members ?? []) {
+    const s = state.soldier.get(m);
+    if (!s) continue;
+    if (first === null || m < first) first = m;
+    if (s.physiology.alive && (alive === null || m < alive)) alive = m;
+  }
+  return alive ?? first;
+}
+
+/** M11.6: the stacks of every drone in the air whose holder is man `id` (airframe, battery at its charge) added to a load. */
+function loadWithAirborne(stacks: ItemStack[], state: SimState, id: EntityId): ItemStack[] {
+  if (state.drone.size === 0) return stacks;
+  let added = false;
+  for (const did of state.drone.keys()) {
+    if (airborneHolder(state, did) !== id) continue;
+    for (const st of state.container.get(did)?.stacks ?? []) {
+      const same = stacks.find((x) => x.type === st.type && x.charge === st.charge);
+      if (same) same.count += st.count;
+      else stacks.push({ ...st });
+      added = true;
+    }
+  }
+  return added ? stacks.sort((a, b) => (a.type !== b.type ? (a.type < b.type ? -1 : 1) : (a.charge ?? -1) - (b.charge ?? -1))) : stacks;
 }
 
 function loadWithMagazine(stacks: ItemStack[], mag: { item: DefId; rounds: number } | null): ItemStack[] {

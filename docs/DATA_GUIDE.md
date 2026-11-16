@@ -397,7 +397,8 @@ Every load that carries a device lists its batteries too (devices x (1 fitted + 
 fits the fullest. Water items have `water: true` and a charge in ml (`chargeCapacity` 2000). Core
 `behaviour.soldier.power`: `installedMin` (the fitted battery's share of full at the start is drawn from [installedMin,
 1]) and `swapBelowShare` (a lull change below that share). A man-portable radio has `radio: true` (M11.6 stage 2): a unit on foot whose radios
-(or, with none of its own, its parent's) are all flat is off the net.
+(or, with none of its own, its parent's) are all flat is off the net. A powered item with a `sensor` (goggle, thermal
+sight) gives its sensor only while its battery has charge (stage 3): give lab or test loads a battery with the device.
 
 ## Guided missiles (M9.3a)
 

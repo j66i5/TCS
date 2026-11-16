@@ -176,7 +176,8 @@ This is the hardest part of the project and decides whether the game is good. Bu
 - Armour model: plates per facing and zone with thickness, angle and type (steel, composite, reactive tiles as consumable items, slat). Penetration depends on the round, impact angle and plate. Reserve a slot for active protection systems (detect, intercept with limited charges).
 - Internal components (engine, transmission, tracks or wheels, turret drive, gun, sights, ammunition stowage, fuel, radio) can be damaged separately, giving mobility kills, firepower kills, fires and catastrophic losses. Crew react (continue, reverse out, bail out).
 - Turret and weapon stations: traverse and elevation rates, stabilisation, sights per crew member, ammunition by type in ready and stowed racks (items, per rule 9).
-- Smoke dischargers. Recovery and repair states reserved for logistics.
+- Smoke dischargers. Field repair by the crew (M11.7a: track, wheels, coax, radio with time and counted parts);
+  recovery (towing) reserved for M11.7b.
 
 ### 6.8 Indirect fire and support
 

@@ -22,6 +22,8 @@ const firstSeed = Number(args["seed"] ?? 1);
 const noInteriors = args["no-interiors"] !== undefined;
 /** `--no-medical` (M10.2): care of the wounded switched off (`rules.medicalCare: false`), for comparison batches. */
 const noMedical = args["no-medical"] !== undefined;
+/** `--no-repair` (M11.7a): crews' field repair switched off (`rules.repair: false`), for comparison batches. */
+const noRepair = args["no-repair"] !== undefined;
 const sc = getScenario(name);
 const data = loadData(sc.fixtures ?? false);
 
@@ -81,6 +83,8 @@ interface Row {
   amb: Record<string, SideRecord["amb"]>;
   /** M10.6b per side: combat vehicles' rear runs, Role 1 outcomes, the end-of-battle settlement. */
   rear: Record<string, SideRecord["rear"]>;
+  /** M11.7a per side: field repairs (battle record `repair`). */
+  repair: Record<string, SideRecord["repair"]>;
   role1: Record<string, SideRecord["role1"]>;
   settled: Record<string, SideRecord["settled"]>;
   /** Men down (owner request 2026-11-15) per side of the man down: checked, found dead, dead dragged before the
@@ -97,6 +101,7 @@ for (let i = 0; i < runs; i++) {
   if (timeOfDay !== null) input.environment = environmentAt(input.catalog, timeOfDay, Number(args["moon"] ?? 0.5));
   if (noInteriors) input.map = stripInteriors(input.map);
   if (noMedical) input.rules.medicalCare = false;
+  if (noRepair) input.rules.repair = false;
   const s0 = performance.now();
   // D2: the battle record (`@tcs/sim` record.ts) folds the event stream exactly as the app's review does; the counts
   // below come from it. What it cannot see from events (needs looked at once a second) is kept here.
@@ -235,6 +240,7 @@ for (let i = 0; i < runs; i++) {
     types, killers, era, tankRounds,
     amb: perSide((x) => x.amb),
     rear: perSide((x) => x.rear),
+    repair: perSide((x) => x.repair),
     role1: perSide((x) => x.role1),
     settled: perSide((x) => x.settled),
     down: perSide((x, side) => ({ ...x.down, killed: r.sides.find((q) => q.side === side)?.killed ?? 0 })),
@@ -263,6 +269,7 @@ const md = [
   "",
   `- Building interiors: ${noInteriors ? "off (--no-interiors)" : "on"}`,
   `- Care of the wounded: ${noMedical ? "off (--no-medical)" : "on"}`,
+  `- Field repair: ${noRepair ? "off (--no-repair)" : "on"}`,
   `- Runs: ${runs} (seeds ${firstSeed}..${firstSeed + runs - 1}), ${seconds} s game time each`,
   ...(timeOfDay !== null ? [`- Local time at the start: ${args["time"]} (moon ${args["moon"] ?? 0.5}; M9.1, light from the clock)`] : []),
   `- Wall time: ${(totalMs / 1000).toFixed(1)} s total, mean ${mean(rows.map((r) => r.wallMs)).toFixed(1)} ms per battle`,
@@ -347,6 +354,10 @@ const md = [
     const cta = all((r) => r.amb[s]?.callToArriveS ?? []), wte = all((r) => r.amb[s]?.woundToEvacS ?? []);
     return `${s} called ${sum((r) => r.amb[s]?.called ?? 0)} (stood down ${sum((r) => r.amb[s]?.cancelled ?? 0)}), came on ${sum((r) => r.amb[s]?.entered ?? 0)}, reached the nest ${sum((r) => r.amb[s]?.arrived ?? 0)} (call to arrival median ${med(cta)}), took aboard ${sum((r) => r.amb[s]?.loaded ?? 0)}, left the map ${sum((r) => r.amb[s]?.away ?? 0)}; men evacuated ${sum((r) => r.amb[s]?.evacuated ?? 0)} (${(sum((r) => r.amb[s]?.evacuated ?? 0) / Math.max(1, rows.length)).toFixed(2)} per battle; first wound to leaving the map median ${med(wte)})`;
   }).join("; ")}`,
+  `- Field repair (M11.7a, by side): ${["blue", "red"].map((s) => {
+    const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
+    return `${s} started ${sum((r) => r.repair[s]?.started ?? 0)}, done ${sum((r) => r.repair[s]?.done ?? 0)}, failed ${sum((r) => r.repair[s]?.failed ?? 0)}, stopped ${sum((r) => r.repair[s]?.interrupted ?? 0)} times, parts used ${sum((r) => r.repair[s]?.parts ?? 0)}`;
+  }).join("; ")}`,
   `- Rear runs and Role 1 (M10.6b, by side): ${["blue", "red"].map((s) => {
     const sum = (f: (r: Row) => number) => rows.reduce((n, r) => n + f(r), 0);
     const all = (f: (r: Row) => number[]) => rows.flatMap(f).sort((a, b) => a - b);
@@ -385,7 +396,7 @@ const md = [
   ...rows.slice(0, 20).map((r) => `| ${r.seed} | ${r.durationS.toFixed(0)} | ${r.endReason} | ${r.winner ?? "draw"} | ${r.scores["blue"] ?? 0}/${r.scores["red"] ?? 0} | ${r.orders} | ${r.casualties["blue"] ?? 0}/${r.casualties["red"] ?? 0} | \`${r.hash}\` |`),
   rows.length > 20 ? `\n(first 20 of ${rows.length} rows; all rows in the JSON file)` : "",
 ].join("\n");
-const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}-${stamp}`);
+const base = join(dir, `batch-${name}${noInteriors ? "-no-interiors" : ""}${noMedical ? "-no-medical" : ""}${noRepair ? "-no-repair" : ""}-${stamp}`);
 writeFileSync(`${base}.md`, md + "\n");
 writeFileSync(`${base}.json`, JSON.stringify({ name, runs, seconds, rows }, null, 2));
 console.log(md.split("\n").slice(0, 20).join("\n"));

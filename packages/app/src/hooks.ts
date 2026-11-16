@@ -87,6 +87,7 @@ export function installHooks(a: App, data: DataSet, stepOnce: () => void, perf?:
       const v = sim.state.vehicle.get(vid), def = v ? sim.ctx.catalog.vehicles[v.def] : undefined;
       if (!v || !def?.components) return;
       def.components.forEach((x, k) => { if (x.kind === kind) v.comp[k] = c; });
+      v.lastHitTick = sim.state.tick; // (as the hit that did it: the crew waits for the quiet period)
       if (c <= 0 && (kind === "track" || kind === "wheels" || kind === "engine" || kind === "transmission") && (v.status === "ok" || v.status === "disarmed")) { v.status = "immobilised"; v.drive.route = []; v.drive.arrived = true; }
     },
     /** M10.4b (screenshots, checks): get out and carry the wounded aboard out too. */

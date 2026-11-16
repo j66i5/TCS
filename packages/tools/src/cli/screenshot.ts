@@ -495,6 +495,51 @@ async function medicalScenes(page: Page, name: string, errors: string[], shots: 
 }
 
 /**
+ * M11.7a field repair (`--scene repair`): the vehicles scenario with tanks (`&crew=leopard2a7v-besatzung,t90m-ekipazh`):
+ * the Leopard 2A7V with a broken track, selected (card: damage, spares; order bar: Repair), then two crewmen at the
+ * track side after the order (close, in the photo and the flat look), and the card with the progress; a GTK with a
+ * holed wheel side and its one man at work.
+ */
+async function repairScenes(page: Page, name: string, errors: string[], shots: string[]): Promise<void> {
+  const map = args["map"] ?? "farmland";
+  const shot = async (label: string) => {
+    await page.waitForFunction(new Function("return (globalThis.__tcs?.tilesPending?.() ?? 0) === 0") as () => boolean, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const p = `${outDir}/repair-${seed}-${name}-${label}.png`; await page.screenshot({ path: p }); shots.push(p);
+  };
+  const info: Record<string, object> = {};
+  for (const look of ["photo", "flat"] as const) {
+    await page.goto(`http://localhost:${port}/?scenario=vehicles&seed=${seed}&map=${map}&look=${look}&crew=leopard2a7v-besatzung,t90m-ekipazh`);
+    await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+    info[`${look}-0`] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+      const [vid, unit] = t.vehicles()[0]; t.damage(vid, "track", 0); t.select(unit); t.stepTicks(60 * 12);
+      const p = s.transform.get(vid); t.focus(p.x, p.y, 40); t.stepTicks(1);
+      return { status: s.vehicle.get(vid).status, repair: t.orderSet().repair ?? false };`) as () => object);
+    await shot(`${look}-0-broken-track`);
+    info[`${look}-1`] = await page.evaluate(new Function(`const t = globalThis.__tcs; const s = t.sim.state;
+      const [vid] = t.vehicles()[0]; t.repair(); t.stepTicks(60 * 30);
+      const v = s.vehicle.get(vid); const p = s.transform.get(vid); t.focusScale(p.x, p.y, 22); t.stepTicks(1);
+      const out = v.seats.filter((m) => m !== null && t.isOutside(m)).length;
+      return { repair: v.repair ?? null, out };`) as () => object);
+    await shot(`${look}-1-at-work`);
+    if (look === "photo") {
+      // The rules panel with the vehicle's status: the repair under way, the spares aboard.
+      info["card"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.showRules(); t.stepTicks(1); return { bar: t.orderSet().repair ?? false };`) as () => object);
+      await shot(`${look}-2-card`);
+    }
+  }
+  // A GTK with a holed wheel side: its driver alone at work (photo).
+  await page.goto(`http://localhost:${port}/?scenario=vehicles&vehicles=wheeled&seed=${seed}&map=${map}&look=photo`);
+  await page.waitForFunction(new Function("return globalThis.__tcs?.ready === true") as () => boolean, null, { timeout: 20000 });
+  info["gtk"] = await page.evaluate(new Function(`const t = globalThis.__tcs; t.setSpeed(0); const s = t.sim.state;
+    const [vid, unit] = t.vehicles()[0]; t.damage(vid, "wheels", 0); t.select(unit); t.stepTicks(60 * 12); t.repair(); t.stepTicks(60 * 30);
+    const p = s.transform.get(vid); t.focusScale(p.x, p.y, 22); t.stepTicks(1);
+    return { repair: s.vehicle.get(vid).repair ?? null };`) as () => object);
+  await shot("photo-3-gtk-wheels");
+  console.log(`${name}: repair scene ${JSON.stringify(info)}; page errors: ${errors.length ? errors.join(" | ") : "none"}`);
+}
+
+/**
  * M10.6-data ambulances (`--scene ambulances`): the vehicles scenario with the ambulance crews
  * (`&crew=boxer-san-besatzung,bmm-ekipazh`): the Boxer ambulance close up (wheels, red cross), then both sides in
  * Debug, in the photo and the flat look.
@@ -1912,6 +1957,7 @@ try {
     if (args["scene"] === "smoke") { await smokeScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "triage") { await triageScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "ambulances") { await ambulanceScenes(page, name, errors, shots); await page.close(); continue; }
+    if (args["scene"] === "repair") { await repairScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks") { await tankScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "tanks-battle") { await tankBattleScenes(page, name, errors, shots); await page.close(); continue; }
     if (args["scene"] === "wheeled") { await wheeledScenes(page, name, errors, shots); await page.close(); continue; }
@@ -2056,7 +2102,7 @@ try {
   }
   // M6: the platoon battle (first playable): objectives and the score line at the start; after a short battle
   // (5 min, the AI commands red, blue holds still) the after-action review, then the heat map.
-  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
+  for (const [name, vp] of args["scene"] === "ui" || args["scene"] === "look" || args["scene"] === "photo" || args["scene"] === "interiors" || args["scene"] === "floors" || args["scene"] === "missile" || args["scene"] === "controls" || args["scene"] === "card" || args["scene"] === "mapfeel" || args["scene"] === "firesupport" || args["scene"] === "drone" || args["scene"] === "smoke" || args["scene"] === "plumes" || args["scene"] === "review" || args["scene"] === "night" || args["scene"] === "ambulances" || args["scene"] === "repair" || args["scene"] === "tanks" || args["scene"] === "tanks-battle" || args["scene"] === "wheeled" || args["scene"] === "assault" ? [] : [["phone", { width: 390, height: 844 }], ["desktop", { width: 1280, height: 800 }]] as const) {
     const page = await browser.newPage({ viewport: vp, deviceScaleFactor: scale, hasTouch: name === "phone" });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));

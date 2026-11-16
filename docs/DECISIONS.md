@@ -7135,3 +7135,63 @@ most; game values low; the new low entries are in `docs/research/low-confidence.
   12x/13x (floor 8x); bench seed 1: base 20x/24x, now 22x/19x. The step-5 re-siting was most of the platoon slowdown
   (5.6 s of 24 s, 700 000 sight calls in 84 runs; now about 1.6 s in 40). `npm run test:perf` alone: 23/23.
 - `npm run golden:update`: the ten goldens with interiors changed (intended); `golden/no-interiors` untouched.
+
+## 2026-11-16 — M11.7a Field repair (roadmap-detail slice 50; goldens regenerated for the fingerprint only)
+Owner M11 round: "crews fix light damage with parts and time". The owner could not be reached: every choice below
+is a **software decision, not asked; owner to review** (plan m11r, amendments applied).
+- **A crew drill in the sim, the same for both sides (D1).** `systems/repair.ts` once a second after the crews'
+  reactions: a damaged hull with its crew aboard, halted, not burning and quiet (no hit for 60 s, its own crew unit
+  not under fire for 20 s, for work outside no enemy known to its side within 300 m) starts its next task; the
+  player's `repair` order skips the 60 s and the 300 m (not a hit within 10 s, not fire on the crew). Rejected: an
+  AI-only decision (the player's crews would never repair on their own).
+- **What a crew fixes (D2, B1)**: per component kind, in data (`core/repair.json`, new optional file, gated like
+  medical; not behaviour.json and not a logistics file): track (2 men outside, 90 man-min, back to 0.8, two spare
+  links), wheels of an 8x8 (2 men outside, 40 man-min, back to 0.5 = limping, no part: run-flat inserts and tyre
+  pressure, BTR-82A drives on holed tyres, research medium/low), coax (1 man inside, 10 man-min, spare barrel, works
+  with chance 0.6) and radio (1 man inside, 15 man-min, no part, 0.5). A task applies only below its restore level
+  (a track at 0.85 is left alone); a mobility task is skipped while an engine or transmission kill the crew cannot
+  fix is present (`beyondCrew`). Everything else is recovery or workshop work. Order: mobility first, then coax,
+  radio. All values low (forum figures; Bundeswehr "Funken, Fahren, Feuern" adapted).
+- **Who works (D3, A4, B2)**: outside the driver (the mechanic, work x1.25), then the loader, then the gunner; the
+  commander stays at his post; inside the loader, gunner, commander, driver. Only free, able men (no man busy with
+  another action is taken; he joins when free). A GTK Boxer (two crew seats) sends its driver alone: a wheel side
+  36 min instead of about 20. Work rate 1 + 0.5 x (experience - 0.5), at least 0.25 (D5: no new skill).
+- **Where the men are (D3, A5, A6, C2)**: they keep their seats (no getOut, no exVehicle, no boarding edits) but are
+  outside: `onRoof` now covers the actions `reloadOutside`, `repairOutside` and the reserved `hookUp` (alias
+  `isOutside`); `onRoofTop` (the M9.3a reloader alone) stands on the hull. A repairer is placed on the ground beside
+  the damaged side (the component box's `r` sign), the other side or behind the hull if that spot is indoors, facing
+  it, crouching: a target, a body for bullets and fragments, listed in the enemy's knowledge, off his station
+  (gunnery's `fit`; an inside repairer too). The renderer now draws men aboard but outside as men on foot, both
+  looks (also the M9.3a roof reloader, not drawn before). Rejected: a real dismount and remount (no remount path).
+- **Parts (D4, rule 9)**: counted items in the hull's container, used up with `removeItems` when the task ends
+  (success or a failed coax), never before; an interrupted task keeps its parts and progress. A task needs all its
+  parts and the crew's tool kit (`repair.tool`, not used up). New items: de-bordwerkzeug, de-kettenglied-leopard2,
+  de-kettenglied-puma, de-mg5-rohr, de-mg3-rohr, ru-zip, ru-trak-t72, ru-trak-bmp, ru-pkt-stvol; fixture xf-kit,
+  xf-link. Stowed: tool kit on every combat hull and ambulance, 4 links and a coax barrel on each tracked hull with
+  a coax, a barrel on the BTR-82A. A vehicle's `repair { tool, parts }` block lists the tasks its crew can do (the
+  plan's `repairParts`/`repairTool`, merged into one block with provenance). No ledger event exists yet (slice 43):
+  `vehicle.repair {phase: "done"|"failed", parts}` carries what was used, for a later ledger to fold.
+- **Stops (D6)**: a hit on the hull, fire on the crew or suppression above 0.5 (outside), a fire, the bail-out,
+  the hull moving, a move order (the men back in). Progress kept; it resumes after the quiet period. A failed roll
+  (D8, `Streams.repair`, drawn only for a chance below 1) leaves the part `repairBeyond`, no retry.
+- **Status (recomputeStatus)**: immobilised and mobile again -> ok, or disarmed if its guns are out; disarmed with a
+  gun again -> ok. Only a repair calls it, so lab targets frozen "immobilised" with all parts whole never change;
+  the labs that freeze hulls (gunnery, missile, missile-team, agl) also set `rules.repair = false`.
+- **Abandoned hulls (D7)** are not repaired in battle (no remount path; recovery in slice 51 can tow them).
+- **AI**: no move order to a crew at a repair unless the platoon assaults or withdraws; an immobilised hull with
+  under 300 s of work left for two men is not counted lost. **UI**: Repair verb (spanner, first behind "⋯"), the
+  card's repair line (share, minutes, paused), spares and parts beyond the crew, the tile "repairing", a review row;
+  radio parameters named `...Key` are shown in words. `--no-repair` (headless, batch), `?repair=0`.
+- **Fixture (A1)**: xf-tortoise has no track, so a new unarmed fixture `xf-tug` (tracks, radio, crew of two,
+  `tug-crew`) is the fixture's track target (and the recovery vehicle of slice 51); the litter cart repairs wheels.
+- **No state schema bump** (all fields optional: `VehicleState.repair`, `repairBeyond`); record version 7 -> 8
+  (`SideRecord.repair`).
+- **Lab** (`npm run lab -- repair`, regular crew unless noted): track 44.4 min with two men (conscript 50.0, veteran
+  38.1), wheels 19.8 (GTK driver alone 35.6), coax 11.1, radio 16.7; every row within one drill step of the man-minutes
+  over the work rates; a hit half-way: stopped, resumed after 60 s, total = expected + 60 s.
+- **Timing question for the owner (B12)**: a track takes about 45 minutes, so in the generated 20-minute battles a
+  track is almost never fixed (radio and coax often are). Kept realistic; options: keep / compress repair times by a
+  factor / only coax and radio in battle.
+- **Goldens**: with the data and the sim changes every golden's event stream and order stream is unchanged (dumped
+  and compared before and after); the hashes change only through the catalog fingerprint and the parts stowed in
+  every hull's container. `npm run golden:update` for that; `golden/no-interiors` untouched.

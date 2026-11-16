@@ -398,6 +398,10 @@ commander; numbers there. **M10 is complete** (all slices built, reviewed and fi
 for the owner's numbers answer after playing, not for more building).
 
 - **M11 Logistics** (SPEC 9.2) ⬜
+  - **M11.7a Field repair** ✅ (2026-11-16, roadmap-detail slice 50): crews fix a broken track, a holed wheel side,
+    the coaxial MG and the radio with time and the spare parts aboard (counted items); the men work outside exposed;
+    hits and fire stop the work (progress kept); Repair order button; `npm run lab -- repair`. Recovery vehicles
+    (slice 51, M11.7b) next.
   - **Military police and prisoners of war** (owner request 2026-11-15; planned, not started; placed with logistics
     because it shares its rear transport and collection points). Feldjäger (DE) and military police (RU) take
     prisoners over from the capturing squad. Ideas to decide when the slice starts (owner questions then):

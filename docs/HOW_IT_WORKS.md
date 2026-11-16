@@ -1103,6 +1103,26 @@ gives half power; a damaged track pulls less. The vehicle's panel lists every da
 better than BMP-2; a fire in the ammunition is twice as hard to put out). If it fails and a charge is left, it
 tries again a moment later; with none left — or with the extinguisher wrecked — the crew gets out as before.
 
+**Field repair (M11.7a).** A crew fixes light damage itself, with time and the parts its hull carries: a **broken
+track** (two spare track links of the eight-odd stowed on a tank or IFV, back to 80 %: the hull drives again), a
+**holed wheel side** of an 8x8 (no part: run-flat inserts and tyre pressure; back to 50 %, the hull limps), the
+**coaxial machine gun** (a spare barrel; it works six times in ten) and the **radio** (no part; five times in ten:
+often the set itself is beyond them). Everything else — engine, gearbox, gun, turret drive, stabiliser, sights,
+ammunition, fuel — needs a recovery vehicle or the workshop; a failed repair leaves that part "beyond the crew" for
+the battle, and a track is not worth fixing while the engine is dead. The crew starts on its own when it is quiet:
+the hull halted and not burning, not hit for a minute, its men not under fire for 20 seconds and, for work
+outside, no enemy known within 300 m. The driver (the mechanic) and the loader or gunner get out to the damaged
+side and kneel there: they are men in the open, seen, shot at and hurt like anyone on foot; the commander stays at
+his post. Inside work (coax, radio) keeps a man under armour but away from his gun. A track takes two men about
+45 minutes (a seasoned crew 38, a green one 50), a wheel side 20 minutes with two men or 36 with a GTK's driver
+alone, the coax about 11 and the radio about 17. A hit on the hull, fire on the men outside, a fire, bailing out or
+driving off stops the work; what is done stays done, the parts stay aboard until the end, and the crew goes back
+to it after another quiet minute. The **Repair** button (behind "⋯" on a phone) starts it at once without the
+quiet minute (not within 10 seconds of a hit); a move order ends it. The vehicle's card shows the repair ("repairing
+the track: 40 %, about 25 min"), the spares aboard and what is beyond the crew; the radio reports start, stop, end
+and failure. `--no-repair` (headless, batch) and `?repair=0` switch it off; `npm run lab -- repair` measures every
+hull and task.
+
 **Crews that back off.** A crew whose vehicle can still drive decides once a second whether to fight on or to
 **reverse out**. Since the owner's change of 13 November ("make armour not back out of every fight") it backs off
 only when it has really been hurt or really cannot defend itself: when it has been penetrated, when its weapons are
